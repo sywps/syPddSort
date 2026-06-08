@@ -15,7 +15,7 @@ from calc_guanka_min_steps import LevelMinStepSolver, evaluate_rhythm, resolve_s
 from move_target_to_initial import displacement_ratio
 
 ROOT = Path(__file__).resolve().parents[1]
-LEVEL_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+LEVEL_DIR = ROOT / "assets" / "LevelData"
 REPORT_PATH = ROOT / ".planning" / "session-plans" / "2026-06-03-restore-semantic-levels" / "semantic-rhythm-report.json"
 
 Grid = List[List[int]]

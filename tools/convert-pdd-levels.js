@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const RAW_FILE = path.join(__dirname, 'pdd-levels-raw.json');
-const OUTPUT_DIR = path.join(__dirname, '..', 'assets', 'RemoteBundle', 'LevelData');
+const OUTPUT_DIR = path.join(__dirname, '..', 'assets', 'LevelData');
 const STARTING_LEVEL = 245;
 
 const raw = JSON.parse(fs.readFileSync(RAW_FILE));

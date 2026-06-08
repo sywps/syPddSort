@@ -50,9 +50,9 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
     }
 
     const prefabPath = 'UI/Prefabs/Panels/CollectionPanel';
-    runtime._withRemoteBundle((bundle: Bundle | null) => {
+    runtime._withGameAssetsBundle((bundle: Bundle | null) => {
         if (!bundle) {
-            console.error(`[collection-shell] remote bundle unavailable for ${options.overlayName}`);
+            console.error(`[collection-shell] gameAssets bundle unavailable for ${options.overlayName}`);
             return;
         }
         bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {

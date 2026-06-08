@@ -111,9 +111,9 @@ export class SettingsPanelController {
             runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
         };
 
-        runtime._withRemoteBundle((bundle: any) => {
+        runtime._withGameAssetsBundle((bundle: any) => {
             if (!bundle) {
-                finishFailure('[settings-prefab] remote bundle unavailable');
+                finishFailure('[settings-prefab] gameAssets bundle unavailable');
                 return;
             }
 

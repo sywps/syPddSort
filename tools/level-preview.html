@@ -113,8 +113,8 @@ const COLOR_NAMES = {
 
 let levels = [];
 
-const LEVEL_DATA_URL = '../assets/RemoteBundle/LevelData/';
-const THEME_CONFIG_URL = '../assets/RemoteBundle/themes.json';
+const LEVEL_DATA_URL = '../assets/LevelData/';
+const THEME_CONFIG_URL = '../assets/GameAssetsBundle/themes.json';
 const BATCH_SIZE = 50;
 const MAIN_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
@@ -535,7 +535,7 @@ async function saveTime(levelId) {
             a.download = filename;
             a.click();
             URL.revokeObjectURL(a.href);
-            alert('服务器保存失败（HTTP ' + resp.status + '），已下载到本地，请手动替换到 RemoteBundle/LevelData/ 目录');
+            alert('服务器保存失败（HTTP ' + resp.status + '），已下载到本地，请手动替换到 assets/LevelData/ 目录');
         }
     } catch (e) {
         // Fallback: download
@@ -545,7 +545,7 @@ async function saveTime(levelId) {
         a.download = filename;
         a.click();
         URL.revokeObjectURL(a.href);
-        alert('无法连接服务器保存文件，已下载到本地，请手动替换到 RemoteBundle/LevelData/ 目录');
+        alert('无法连接服务器保存文件，已下载到本地，请手动替换到 assets/LevelData/ 目录');
     }
 
     // Restore card actions

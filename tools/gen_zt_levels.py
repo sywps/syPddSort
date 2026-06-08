@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate zt_level_*.json (theme challenge levels) under assets/RemoteBundle/LevelData/.
+"""Generate zt_level_*.json (theme challenge levels) under assets/LevelData/.
 Each pattern is described as ASCII art:
   '.' = empty (color 0)
   digits/letters map to production color IDs / bNNN texture IDs (see COLOR_MAP).
@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+OUT_DIR = ROOT / "assets" / "LevelData"
 
 COLOR_MAP = {
     '.': 0,

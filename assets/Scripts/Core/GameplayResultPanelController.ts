@@ -43,10 +43,10 @@ export class GameplayResultPanelController {
         }
         runtime._gameplayResultPanelPrefabLoadCallbacks = [onDone];
         const loadPrefabs = () => {
-            runtime._withRemoteBundle((bundle: Bundle | null) => {
+            runtime._withGameAssetsBundle((bundle: Bundle | null) => {
                 if (!bundle) {
                     runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-                    throw new Error('[result-panel] failed to load remote bundle');
+                    throw new Error('[result-panel] failed to load gameAssets bundle');
                 }
                 const missingKinds = RESULT_PANEL_KINDS.filter((kind) => !runtime._gameplayResultPanelPrefabCache.get(kind));
                 let remaining = missingKinds.length;

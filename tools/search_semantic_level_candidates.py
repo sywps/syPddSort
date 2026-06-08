@@ -19,7 +19,7 @@ from optimize_semantic_level_rhythm import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+DEFAULT_SOURCE_DIR = ROOT / "assets" / "LevelData"
 DEFAULT_WORK_DIR = ROOT / ".planning" / "session-plans" / "2026-06-03-restore-semantic-levels" / "candidate-search"
 SLOTS_PER_ROW = 12
 

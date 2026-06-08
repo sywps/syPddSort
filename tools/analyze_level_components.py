@@ -16,7 +16,7 @@ DIRS8 = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analyze target color component sizes.")
-    parser.add_argument("--dir", default="assets/RemoteBundle/LevelData")
+    parser.add_argument("--dir", default="assets/LevelData")
     parser.add_argument("--start", type=int, default=6)
     parser.add_argument("--end", type=int, default=20)
     parser.add_argument("--small-threshold", type=int, default=3)

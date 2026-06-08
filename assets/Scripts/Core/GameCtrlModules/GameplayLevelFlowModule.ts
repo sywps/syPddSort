@@ -6,18 +6,18 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
@@ -32,7 +32,7 @@ import type {
 import { AppRoot } from '../AppRoot';
 import { ensureGameplaySessionController } from '../GameplaySessionController';
 import { ensureGameplayViewController } from '../GameplayViewController';
-import { RemoteLevelDataService } from '../RemoteLevelDataService';
+import { LevelDataCdnService } from '../LevelDataCdnService';
 
 const WIN_SETTLEMENT_TEXTURE_NAMES = [
     'popup_frame_soft',
@@ -49,8 +49,8 @@ const WIN_SETTLEMENT_TEXTURE_NAMES = [
 
 export function installGameplayLevelFlowModule(target: any): void {
     Object.assign(target, {
-        scheduleRemoteEffectsWarmup(bundle: Bundle, delaySec: number = 1.5) {
-            if (!REMOTE_EFFECTS_IDLE_WARMUP) return;
+        scheduleGameAssetsEffectsWarmup(bundle: Bundle, delaySec: number = 1.5) {
+            if (!GAME_ASSETS_EFFECTS_IDLE_WARMUP) return;
             if (this._effectsAtlasReady || this._effectsAtlasLoadingCallbacks) return;
             this.scheduleOnce(() => {
                 if (this._effectsAtlasReady || this._effectsAtlasLoadingCallbacks) return;
@@ -64,75 +64,54 @@ export function installGameplayLevelFlowModule(target: any): void {
                 if (!bundle) return;
                 this._loadEffectsAtlasFromBundle(bundle);
             };
-            if (this.remoteBundle) {
-                load(this.remoteBundle);
+            if (this.gameAssetsBundle) {
+                load(this.gameAssetsBundle);
                 return;
             }
-            this._withRemoteBundle(load);
+            this._withGameAssetsBundle(load);
         },
 
         /** 等待 preloadAllAssets 完成后再加载关卡 */
-        waitForBundleReady(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
-            const levelPath = this.getRemoteLevelPath(levelId, prefix);
+        waitForGameAssetsBundleReady(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
+            const levelPath = this.getLevelDataPath(levelId, prefix);
             const check = () => {
-                if (this._remoteLoadStopped) {
+                if (this._levelDataLoadStopped) {
                     this.unschedule(check);
                     return;
                 }
-                if (this.remoteBundle) {
+                if (this.gameAssetsBundle) {
                     this.unschedule(check);
-                    RemoteLevelDataService.inst.loadLevel(levelId, prefix).then((cdnLevelData) => {
-                        if (cdnLevelData) {
-                            this.reportRemoteLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
-                                extra: {
-                                    source: 'level_data_cdn',
-                                    dataVersion: RemoteLevelDataService.inst.getDataVersion(),
-                                    actualLevelId: cdnLevelData.levelId,
-                                    jsonKeys: Object.keys(cdnLevelData || {}).slice(0, 12),
-                                },
-                            });
-                            this.openRemoteLevelWithAssets(this.remoteBundle!, cdnLevelData, activeLevelId);
+                    this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+                        if (!levelData) {
+                            this.stopLevelDataLoadWithFatalError(
+                                activeLevelId,
+                                levelPath,
+                                'first_level_json_failed',
+                                source === 'level_data_cdn' ? 'level_data_cdn_unavailable' : 'level_data_json_failed',
+                                err?.message || 'missing json asset',
+                            );
                             return;
                         }
-                        this.remoteBundle!.load(levelPath, JsonAsset, (err, jsonAsset) => {
-                            if (err || !jsonAsset) {
-                                this.stopRemoteLoadWithFatalError(
-                                    activeLevelId,
-                                    levelPath,
-                                    'first_level_json_failed',
-                                    'remote_level_json_failed',
-                                    err?.message || 'missing json asset',
-                                );
-                                return;
-                            }
-                            this.reportRemoteLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
-                                extra: {
-                                    source: 'subpackage_bundle',
-                                    actualLevelId: (jsonAsset.json as LevelData)?.levelId,
-                                    jsonKeys: Object.keys(jsonAsset.json || {}).slice(0, 12),
-                                },
-                            });
-                            this.openRemoteLevelWithAssets(this.remoteBundle!, jsonAsset.json as LevelData, activeLevelId);
+                        this.reportLevelDataLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
+                            extra: {
+                                source,
+                                dataVersion: source === 'level_data_cdn' ? LevelDataCdnService.inst.getDataVersion() : '',
+                                actualLevelId: levelData.levelId,
+                                jsonKeys: Object.keys(levelData || {}).slice(0, 12),
+                            },
                         });
-                    }).catch((err) => {
-                        this.stopRemoteLoadWithFatalError(
-                            activeLevelId,
-                            levelPath,
-                            'first_level_json_failed',
-                            'level_data_cdn_exception',
-                            err instanceof Error ? err.message : String(err),
-                        );
+                        this.openLevelWithGameAssets(this.gameAssetsBundle!, levelData, activeLevelId);
                     });
                     return;
                 }
                 if (!this._preloadingBundle) {
                     this.unschedule(check);
-                    this.stopRemoteLoadWithFatalError(
+                    this.stopLevelDataLoadWithFatalError(
                         activeLevelId,
                         levelPath,
-                        'remote_config_failed',
-                        'remote_bundle_missing_after_preload',
-                        'preload finished without remote bundle',
+                        'gameAssets_config_failed',
+                        'gameAssets_bundle_missing_after_preload',
+                        'preload finished without gameAssets bundle',
                     );
                 }
             };
@@ -140,61 +119,40 @@ export function installGameplayLevelFlowModule(target: any): void {
         },
 
         /** 通用加载关卡数据（用于图鉴等场景） */
-        loadRemoteLevelData(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
+        loadLevelData(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
                 this._loadLocalLevelDataImpl(levelId, callback, prefix);
                 return;
             }
-            if (sys.isNative || this._isWeChat() || this._isUrlRemote()) {
-                this._loadRemoteLevelDataImpl(levelId, callback, prefix);
+            if (sys.isNative || this._isWeChat() || this._isUrlLevelPreview()) {
+                this._loadLevelDataImpl(levelId, callback, prefix);
             } else {
                 this._loadLocalLevelDataImpl(levelId, callback, prefix);
             }
         },
 
-        _loadRemoteLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
+        _loadLevelDataImpl(levelId: number, callback: (data: LevelData | null) => void, prefix: string = 'level_') {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
                 this._loadLocalLevelDataImpl(levelId, callback, prefix);
                 return;
             }
-            const path = this.getRemoteLevelPath(levelId, prefix);
-            const loadFromBundle = () => {
-                if (this.remoteBundle) {
-                    console.log('[RemoteLoad] loading subpackage level data', this.getRemoteLoadDiagnostics(levelId, path));
-                    this.remoteBundle.load(path, JsonAsset, (err, jsonAsset) => {
-                        if (err) console.error('[RemoteLoad] FAILED subpackage level data', this.getRemoteLoadDiagnostics(levelId, path, { errorMessage: err.message }));
-                        else console.log('[RemoteLoad] OK subpackage level data', this.getRemoteLoadDiagnostics(levelId, path, {
-                            source: 'subpackage_bundle',
-                            actualLevelId: (jsonAsset?.json as LevelData | undefined)?.levelId,
-                            jsonKeys: jsonAsset ? Object.keys(jsonAsset.json || {}).slice(0, 12) : 'null',
-                        }));
-                        callback(err || !jsonAsset ? null : (jsonAsset.json as LevelData));
-                    });
-                } else {
-                    console.log('[RemoteLoad] remoteBundle is null, loading bundle first', this.getRemoteLoadDiagnostics(levelId, path));
-                    assetManager.loadBundle('remote', (err, bundle) => {
-                        if (err || !bundle) { console.error('[RemoteLoad] loadBundle remote FAILED:', err?.message); callback(null); return; }
-                        console.log('[RemoteLoad] bundle loaded OK', this.getRemoteLoadDiagnostics(levelId, path));
-                        this.remoteBundle = bundle;
-                        loadFromBundle();
-                    });
-                }
-            };
-            RemoteLevelDataService.inst.loadLevel(levelId, prefix).then((cdnLevelData) => {
-                if (cdnLevelData) {
-                    console.log('[RemoteLoad] OK CDN level data', this.getRemoteLoadDiagnostics(levelId, path, {
-                        source: 'level_data_cdn',
-                        dataVersion: RemoteLevelDataService.inst.getDataVersion(),
-                        actualLevelId: cdnLevelData.levelId,
-                        jsonKeys: Object.keys(cdnLevelData || {}).slice(0, 12),
+            const path = this.getLevelDataPath(levelId, prefix);
+            this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+                if (levelData) {
+                    console.log('[LevelDataLoad] OK level data', this.getLevelDataLoadDiagnostics(levelId, path, {
+                        source,
+                        dataVersion: source === 'level_data_cdn' ? LevelDataCdnService.inst.getDataVersion() : '',
+                        actualLevelId: levelData.levelId,
+                        jsonKeys: Object.keys(levelData || {}).slice(0, 12),
                     }));
-                    callback(cdnLevelData);
+                    callback(levelData);
                     return;
                 }
-                loadFromBundle();
-            }).catch((err) => {
-                console.warn('[RemoteLoad] CDN level data failed, fallback to subpackage:', err instanceof Error ? err.message : err);
-                loadFromBundle();
+                console.error('[LevelDataLoad] FAILED level data', this.getLevelDataLoadDiagnostics(levelId, path, {
+                    source,
+                    errorMessage: err?.message || 'missing json asset',
+                }));
+                callback(null);
             });
             return;
         },
@@ -218,7 +176,7 @@ export function installGameplayLevelFlowModule(target: any): void {
                 });
                 return;
             }
-            this._loadRemoteLevelDataImpl(levelId, callback, prefix);
+            this._loadLevelDataImpl(levelId, callback, prefix);
         },
 
         getLevelColorIds(data: LevelData | null): number[] {
@@ -261,7 +219,7 @@ export function installGameplayLevelFlowModule(target: any): void {
 
         getCriticalUiTextureNamesForLevel(data: LevelData | null): string[] {
             if (!data) return [];
-            const names: string[] = [...GAMEPLAY_SLOT_TEXTURE_NAMES];
+            const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];
             if (this.shouldUseMainlineSlotUI()) {
                 names.push(...MAINLINE_SLOT_TEXTURE_NAMES);
             }
@@ -279,7 +237,7 @@ export function installGameplayLevelFlowModule(target: any): void {
 
         getCriticalGameplayShellTextureNamesForLevel(data: LevelData | null): string[] {
             if (!data) return [];
-            const names: string[] = [...GAMEPLAY_SLOT_TEXTURE_NAMES];
+            const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];
             if (this.shouldUseMainlineSlotUI()) {
                 names.push(...MAINLINE_SLOT_TEXTURE_NAMES);
             }
@@ -305,7 +263,28 @@ export function installGameplayLevelFlowModule(target: any): void {
                 callback();
                 return;
             }
-            this._ensureSpriteFramesByName(textureNames, callback);
+            const levelId = data?.levelId || 0;
+            const bootstrapTextureNames = textureNames.filter((name) => this.shouldUseLocalBootstrapTexture(name, levelId));
+            const gameAssetsTextureNames = textureNames.filter((name) => !this.shouldUseLocalBootstrapTexture(name, levelId));
+            const tasks: Array<(done: () => void) => void> = [];
+            if (bootstrapTextureNames.length > 0) {
+                tasks.push((done) => this._preloadBootstrapTextureSet(bootstrapTextureNames, done));
+            }
+            if (gameAssetsTextureNames.length > 0) {
+                tasks.push((done) => this._ensureSpriteFramesByName(gameAssetsTextureNames, done));
+            }
+            if (tasks.length === 0) {
+                callback();
+                return;
+            }
+            let pending = tasks.length;
+            const finishOne = () => {
+                pending -= 1;
+                if (pending <= 0) callback();
+            };
+            for (const task of tasks) {
+                task(finishOne);
+            }
         },
 
         _preloadBootstrapTextureSet(imgNames: string[], callback: () => void) {
@@ -408,9 +387,8 @@ export function installGameplayLevelFlowModule(target: any): void {
         getTopBarY(): number {
             const visibleH = view.getVisibleSize().height;
             const designH = (this.constructor as any).VIEWPORT_HEIGHT;
-            const safeInsets = this.getSafeInsets();
             const topEdge = Math.max(designH, visibleH) / 2;
-            return topEdge - 30 - safeInsets.top;
+            return topEdge - 30;
         },
 
         buildLightweightTopBar(root: Node) {

@@ -6,18 +6,18 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
@@ -31,7 +31,7 @@ import type {
 } from '../GameCtrlShared';
 import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 import { AppRoot } from '../AppRoot';
-import { RemoteLevelDataService } from '../RemoteLevelDataService';
+import { LevelDataCdnService } from '../LevelDataCdnService';
 
 export function installSceneHomeEntryModule(target: any): void {
     Object.assign(target, {
@@ -268,7 +268,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 this.loadLocalLevel(resolvedLevelId, prefix, resolvedLevelId);
                 return;
             }
-            this.loadRemoteLevel(resolvedLevelId, prefix, resolvedLevelId);
+            this.loadGameAssetsLevel(resolvedLevelId, prefix, resolvedLevelId);
         },
 
         /** 加载主题关卡（zt_level_*.json） */
@@ -557,77 +557,56 @@ export function installSceneHomeEntryModule(target: any): void {
             if (callback) callback();
         },
 
-        loadRemoteLevel(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
+        loadGameAssetsLevel(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
                 this.loadLocalLevel(levelId, prefix, activeLevelId);
                 return;
             }
-            if (this._remoteLoadStopped) return;
-            const levelPath = this.getRemoteLevelPath(levelId, prefix);
-            this.reportRemoteLoadDiagnostic(activeLevelId, 'remote_level_load_start', true, levelPath);
+            if (this._levelDataLoadStopped) return;
+            const levelPath = this.getLevelDataPath(levelId, prefix);
+            this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath);
             const loadLevelData = (bundle: Bundle) => {
-                RemoteLevelDataService.inst.loadLevel(levelId, prefix).then((cdnLevelData) => {
-                    if (cdnLevelData) {
-                        this.reportRemoteLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
-                            extra: {
-                                source: 'level_data_cdn',
-                                dataVersion: RemoteLevelDataService.inst.getDataVersion(),
-                                actualLevelId: cdnLevelData.levelId,
-                                jsonKeys: Object.keys(cdnLevelData || {}).slice(0, 12),
-                            },
-                        });
-                        this.openRemoteLevelWithAssets(bundle, cdnLevelData, activeLevelId);
-                        return;
-                    }
-                    bundle.load(levelPath, JsonAsset, (err, jsonAsset) => {
-                        if (err || !jsonAsset) {
-                            this.stopRemoteLoadWithFatalError(
-                                activeLevelId,
-                                levelPath,
-                                'first_level_json_failed',
-                                'remote_level_json_failed',
-                                err?.message || 'missing json asset',
-                            );
-                            return;
-                        }
-                        this.reportRemoteLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
-                            extra: {
-                                source: 'subpackage_bundle',
-                                actualLevelId: (jsonAsset.json as LevelData)?.levelId,
-                                jsonKeys: Object.keys(jsonAsset.json || {}).slice(0, 12),
-                            },
-                        });
-                        this.openRemoteLevelWithAssets(bundle, jsonAsset.json as LevelData, activeLevelId);
-                    });
-                }).catch((err) => {
-                    this.stopRemoteLoadWithFatalError(
-                        activeLevelId,
-                        levelPath,
-                        'first_level_json_failed',
-                        'level_data_cdn_exception',
-                        err instanceof Error ? err.message : String(err),
-                    );
-                });
-            };
-            if (this.remoteBundle) {
-                loadLevelData(this.remoteBundle);
-            } else if (this._preloadingBundle) {
-                // preloadAllAssets is already loading the bundle, wait for it to finish
-                this.waitForBundleReady(levelId, prefix, activeLevelId);
-            } else {
-                assetManager.loadBundle('remote', (err, bundle) => {
-                    if (err || !bundle) {
-                        this.stopRemoteLoadWithFatalError(
+                this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+                    if (!levelData) {
+                        this.stopLevelDataLoadWithFatalError(
                             activeLevelId,
                             levelPath,
-                            'remote_config_failed',
-                            'loadBundle_remote_failed',
-                            err?.message || 'missing remote bundle',
+                            'first_level_json_failed',
+                            source === 'level_data_cdn' ? 'level_data_cdn_unavailable' : 'level_data_json_failed',
+                            err?.message || 'missing json asset',
                         );
                         return;
                     }
-                    this.remoteBundle = bundle;
-                    this.reportRemoteLoadDiagnostic(activeLevelId, 'remote_config_loaded', true, levelPath);
+                    this.reportLevelDataLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
+                        extra: {
+                            source,
+                            dataVersion: source === 'level_data_cdn' ? LevelDataCdnService.inst.getDataVersion() : '',
+                            actualLevelId: levelData.levelId,
+                            jsonKeys: Object.keys(levelData || {}).slice(0, 12),
+                        },
+                    });
+                    this.openLevelWithGameAssets(bundle, levelData, activeLevelId);
+                });
+            };
+            if (this.gameAssetsBundle) {
+                loadLevelData(this.gameAssetsBundle);
+            } else if (this._preloadingBundle) {
+                // preloadAllAssets is already loading the bundle, wait for it to finish
+                this.waitForGameAssetsBundleReady(levelId, prefix, activeLevelId);
+            } else {
+                assetManager.loadBundle('gameAssets', (err, bundle) => {
+                    if (err || !bundle) {
+                        this.stopLevelDataLoadWithFatalError(
+                            activeLevelId,
+                            levelPath,
+                            'gameAssets_config_failed',
+                            'loadBundle_gameAssets_failed',
+                            err?.message || 'missing gameAssets bundle',
+                        );
+                        return;
+                    }
+                    this.gameAssetsBundle = bundle;
+                    this.reportLevelDataLoadDiagnostic(activeLevelId, 'gameAssets_config_loaded', true, levelPath);
                     loadLevelData(bundle);
                 });
             }
@@ -635,14 +614,14 @@ export function installSceneHomeEntryModule(target: any): void {
 
         /**
          * 首次直进关卡时走更短的启动路径：
-         * 只等待 remote bundle、关卡 JSON、豆豆图集；
+         * 只等待 gameAssets bundle、关卡 JSON、豆豆图集；
          * 非关键 UI 贴图与特效图集进入关卡后再后台补齐。
          */
-        startRemoteLevelFast(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
-            if (this._remoteLoadStopped) return;
+        startGameAssetsLevelFast(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
+            if (this._levelDataLoadStopped) return;
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
-            const levelPath = this.getRemoteLevelPath(levelId, prefix);
-            this.reportRemoteLoadDiagnostic(activeLevelId, 'remote_config_start', true, levelPath);
+            const levelPath = this.getLevelDataPath(levelId, prefix);
+            this.reportLevelDataLoadDiagnostic(activeLevelId, 'gameAssets_config_start', true, levelPath);
             let finished = false;
             const finish = (data: LevelData) => {
                 if (finished) return;
@@ -650,30 +629,30 @@ export function installSceneHomeEntryModule(target: any): void {
                 this.initGame(data, activeLevelId);
             };
             const failMissingBeans = () => {
-                this.stopRemoteLoadWithFatalError(
+                this.stopLevelDataLoadWithFatalError(
                     activeLevelId,
                     levelPath,
-                    'remote_bean_assets_failed',
-                    'remote_bean_assets_missing',
-                    'remote bean atlas/spriteFrame unavailable',
+                    'gameAssets_bean_assets_failed',
+                    'gameAssets_bean_assets_missing',
+                    'bootstrap bean atlas/spriteFrame unavailable',
                 );
             };
         
             this._preloadingBundle = true;
-            assetManager.loadBundle('remote', (err, bundle) => {
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
                 this._preloadingBundle = false;
                 if (err || !bundle) {
-                    this.stopRemoteLoadWithFatalError(
+                    this.stopLevelDataLoadWithFatalError(
                         activeLevelId,
                         levelPath,
-                        'remote_config_failed',
-                        'loadBundle_remote_failed',
-                        err?.message || 'missing remote bundle',
+                        'gameAssets_config_failed',
+                        'loadBundle_gameAssets_failed',
+                        err?.message || 'missing gameAssets bundle',
                     );
                     return;
                 }
-                this.remoteBundle = bundle;
-                this.reportRemoteLoadDiagnostic(activeLevelId, 'remote_config_loaded', true, levelPath);
+                this.gameAssetsBundle = bundle;
+                this.reportLevelDataLoadDiagnostic(activeLevelId, 'gameAssets_config_loaded', true, levelPath);
         
                 let levelDone = false;
                 let beanAssetsDone = false;
@@ -687,7 +666,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 const handleLevelData = (data: LevelData | null, source: string, levelErr?: Error | null) => {
                     levelData = data;
                     if (!levelData) {
-                        this.stopRemoteLoadWithFatalError(
+                        this.stopLevelDataLoadWithFatalError(
                             activeLevelId,
                             levelPath,
                             'first_level_json_failed',
@@ -696,10 +675,10 @@ export function installSceneHomeEntryModule(target: any): void {
                         );
                         return;
                     }
-                    this.reportRemoteLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
+                    this.reportLevelDataLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
                         extra: {
                             source,
-                            dataVersion: source === 'level_data_cdn' ? RemoteLevelDataService.inst.getDataVersion() : '',
+                            dataVersion: source === 'level_data_cdn' ? LevelDataCdnService.inst.getDataVersion() : '',
                             actualLevelId: levelData.levelId,
                             jsonKeys: Object.keys(levelData || {}).slice(0, 12),
                         },
@@ -708,11 +687,11 @@ export function installSceneHomeEntryModule(target: any): void {
                     this.prepareCriticalUiTexturesForLevel(levelData, () => {
                         const missingTextureNames = this.getMissingCriticalGameplayShellTextureNamesForLevel(levelData);
                         if (missingTextureNames.length > 0) {
-                            this.stopRemoteLoadWithFatalError(
+                            this.stopLevelDataLoadWithFatalError(
                                 activeLevelId,
                                 levelPath,
-                                'remote_ui_textures_failed',
-                                'remote_ui_textures_missing',
+                                'gameAssets_ui_textures_failed',
+                                'gameAssets_ui_textures_missing',
                                 `missing critical ui textures: ${missingTextureNames.join(', ')}`,
                                 { missingTextureNames },
                             );
@@ -736,25 +715,9 @@ export function installSceneHomeEntryModule(target: any): void {
                     });
                     tryFinish();
                 };
-                RemoteLevelDataService.inst.loadLevel(levelId, prefix).then((cdnLevelData) => {
-                    if (cdnLevelData) {
-                        handleLevelData(cdnLevelData, 'level_data_cdn');
-                        return;
-                    }
-                    bundle.load(levelPath, JsonAsset, (levelErr, jsonAsset) => {
-                        handleLevelData(levelErr || !jsonAsset ? null : (jsonAsset.json as LevelData), 'subpackage_bundle', levelErr || null);
-                    });
-                }).catch((levelErr) => {
-                    bundle.load(levelPath, JsonAsset, (fallbackErr, jsonAsset) => {
-                        handleLevelData(
-                            fallbackErr || !jsonAsset ? null : (jsonAsset.json as LevelData),
-                            'subpackage_bundle',
-                            fallbackErr || (levelErr instanceof Error ? levelErr : new Error(String(levelErr))),
-                        );
-                    });
-                });
+                this._loadLevelDataFromCdnOrLocal(levelId, prefix, handleLevelData);
         
-                this.scheduleRemoteEffectsWarmup(bundle);
+                this.scheduleGameAssetsEffectsWarmup(bundle);
             });
         },
 
@@ -788,9 +751,9 @@ export function installSceneHomeEntryModule(target: any): void {
                     this.initGame(data, activeLevelId);
                     this.scheduleOnce(() => {
                         if (this._preloadingBundle) return;
-                        if (this.remoteBundle && this._effectsAtlasReady) return;
-                        this.prewarmRemoteBundleAfterBootstrap();
-                    }, LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY);
+                        if (this.gameAssetsBundle && this._effectsAtlasReady) return;
+                        this.prewarmGameAssetsBundleAfterBootstrap();
+                    }, LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY);
                 };
                 this._prepareBeanFramesForLevelData(data, () => {
                     if (this.needsBeanFramesForLevelData(data)) {
@@ -833,30 +796,30 @@ export function installSceneHomeEntryModule(target: any): void {
             }, prefix);
         },
 
-        prewarmRemoteBundleAfterBootstrap() {
-            if (REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS.length === 0) {
+        prewarmGameAssetsBundleAfterBootstrap() {
+            if (GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS.length === 0) {
                 return;
             }
             const warm = (bundle: Bundle) => {
-                this._preloadRemoteTextureSet(bundle, undefined, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS);
+                this._preloadGameAssetsTextureSet(bundle, undefined, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS);
             };
-            if (this.remoteBundle) {
-                warm(this.remoteBundle);
+            if (this.gameAssetsBundle) {
+                warm(this.gameAssetsBundle);
                 return;
             }
             this._preloadingBundle = true;
-            assetManager.loadBundle('remote', (err, bundle) => {
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
                 this._preloadingBundle = false;
                 if (err || !bundle) {
-                    console.warn('loadBundle remote failed:', err?.message);
+                    console.warn('loadBundle gameAssets failed:', err?.message);
                     return;
                 }
-                this.remoteBundle = bundle;
+                this.gameAssetsBundle = bundle;
                 warm(bundle);
             });
         },
 
-        openRemoteLevelWithAssets(bundle: Bundle, data: LevelData, activeLevelId?: number) {
+        openLevelWithGameAssets(bundle: Bundle, data: LevelData, activeLevelId?: number) {
             let beanReady = false;
             let uiReady = false;
             const tryReady = () => {
@@ -866,13 +829,13 @@ export function installSceneHomeEntryModule(target: any): void {
             this._prepareBeanFramesForLevelData(data, () => {
                 if (this.needsBeanFramesForLevelData(data)) {
                     const levelId = data.levelId || activeLevelId || 0;
-                    const levelPath = this.getRemoteLevelPath(levelId);
-                    this.stopRemoteLoadWithFatalError(
+                    const levelPath = this.getLevelDataPath(levelId);
+                    this.stopLevelDataLoadWithFatalError(
                         activeLevelId || levelId,
                         levelPath,
-                        'remote_bean_assets_failed',
-                        'remote_bean_assets_missing',
-                        'remote bean atlas/spriteFrame unavailable',
+                        'gameAssets_bean_assets_failed',
+                        'gameAssets_bean_assets_missing',
+                        'bootstrap bean atlas/spriteFrame unavailable',
                     );
                     return;
                 }
@@ -883,12 +846,12 @@ export function installSceneHomeEntryModule(target: any): void {
                 const missingTextureNames = this.getMissingCriticalGameplayShellTextureNamesForLevel(data);
                 if (missingTextureNames.length > 0) {
                     const levelId = data.levelId || activeLevelId || 0;
-                    const levelPath = this.getRemoteLevelPath(levelId);
-                    this.stopRemoteLoadWithFatalError(
+                    const levelPath = this.getLevelDataPath(levelId);
+                    this.stopLevelDataLoadWithFatalError(
                         activeLevelId || levelId,
                         levelPath,
-                        'remote_ui_textures_failed',
-                        'remote_ui_textures_missing',
+                        'gameAssets_ui_textures_failed',
+                        'gameAssets_ui_textures_missing',
                         `missing critical ui textures: ${missingTextureNames.join(', ')}`,
                         { missingTextureNames },
                     );
@@ -897,14 +860,14 @@ export function installSceneHomeEntryModule(target: any): void {
                 uiReady = true;
                 tryReady();
             });
-            this.scheduleRemoteEffectsWarmup(bundle);
+            this.scheduleGameAssetsEffectsWarmup(bundle);
         },
 
         _stopGameplayEntryWithFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
-            if (this._remoteLoadStopped) return;
-            this._remoteLoadStopped = true;
+            if (this._levelDataLoadStopped) return;
+            this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
-            this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+            this.showLevelDataLoadFatalError(levelPath, errorCode, errorMessage);
         },
     });
 }

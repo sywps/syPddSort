@@ -6,25 +6,25 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
-import { RemoteLevelDataService } from '../RemoteLevelDataService';
+import { LevelDataCdnService } from '../LevelDataCdnService';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
@@ -69,7 +69,7 @@ export function installFirstLevelRouteModule(target: any): void {
             });
         },
 
-        getRemoteLevelPath(levelId: number, prefix: string = 'level_'): string {
+        getLevelDataPath(levelId: number, prefix: string = 'level_'): string {
             return `LevelData/${prefix}${levelId}`;
         },
 
@@ -80,15 +80,15 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         getRuntimeRemoteHash(): string {
-            const dataVersion = RemoteLevelDataService.inst.getDataVersion();
+            const dataVersion = LevelDataCdnService.inst.getDataVersion();
             if (dataVersion) return dataVersion;
             const settings = this.readRuntimeSettings();
-            const fromSettings = settings?.assets?.bundleVers?.remote;
+            const fromSettings = settings?.assets?.bundleVers?.gameAssets;
             if (typeof fromSettings === 'string' && fromSettings) return fromSettings;
             const downloader: any = (assetManager as any).downloader;
             const candidates = [
-                downloader?.bundleVers?.remote,
-                downloader?._bundleVers?.remote,
+                downloader?.bundleVers?.gameAssets,
+                downloader?._bundleVers?.gameAssets,
                 downloader?.bundleVers?.get?.('remote'),
                 downloader?._bundleVers?.get?.('remote'),
             ];
@@ -115,7 +115,7 @@ export function installFirstLevelRouteModule(target: any): void {
             return '';
         },
 
-        getRemoteLoadDiagnostics(
+		getLevelDataLoadDiagnostics(
             levelId: number,
             levelPath: string,
             extra: Record<string, unknown> = {},
@@ -123,6 +123,7 @@ export function installFirstLevelRouteModule(target: any): void {
             return {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
+                levelDataCdn: LevelDataCdnService.inst.getAvailabilityDiagnostics(),
                 levelId,
                 abBucket: this._firstLevelRouteBucket,
                 levelPath,
@@ -130,7 +131,7 @@ export function installFirstLevelRouteModule(target: any): void {
             };
         },
 
-        reportRemoteLoadDiagnostic(
+        reportLevelDataLoadDiagnostic(
             levelId: number,
             eventName: string,
             success: boolean,
@@ -142,12 +143,12 @@ export function installFirstLevelRouteModule(target: any): void {
                 flush?: boolean;
             } = {},
         ): void {
-            const diagnostics = this.getRemoteLoadDiagnostics(levelId, levelPath, opt.extra || {});
-            const logArgs = [`[RemoteLoad] ${eventName}`, diagnostics];
+            const diagnostics = this.getLevelDataLoadDiagnostics(levelId, levelPath, opt.extra || {});
+            const logArgs = [`[LevelDataLoad] ${eventName}`, diagnostics];
             if (success) console.log(...logArgs);
             else console.error(...logArgs);
             this.trackFirstLevelFunnelForLevel(levelId, eventName, {
-                source: 'remote',
+                source: 'level_data',
                 success,
                 errorCode: opt.errorCode || '',
                 errorMessage: opt.errorMessage || '',
@@ -158,7 +159,7 @@ export function installFirstLevelRouteModule(target: any): void {
             }
         },
 
-        stopRemoteLoadWithFatalError(
+        stopLevelDataLoadWithFatalError(
             levelId: number,
             levelPath: string,
             eventName: string,
@@ -166,28 +167,28 @@ export function installFirstLevelRouteModule(target: any): void {
             errorMessage: string,
             extra: Record<string, unknown> = {},
         ): void {
-            if (this._remoteLoadStopped) return;
-            this._remoteLoadStopped = true;
+            if (this._levelDataLoadStopped) return;
+            this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
-            this.reportRemoteLoadDiagnostic(levelId, eventName, false, levelPath, {
+            this.reportLevelDataLoadDiagnostic(levelId, eventName, false, levelPath, {
                 errorCode,
                 errorMessage,
                 extra,
                 flush: true,
             });
-            this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+            this.showLevelDataLoadFatalError(levelPath, errorCode, errorMessage);
         },
 
-        showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
+        showLevelDataLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
             const visibleSize = this._getLoadingVisibleSize();
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
             const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates', 'OverlayRoot/OverlayTemplates');
-            const layer = this.requireUiChild(overlayTemplates, 'RemoteLoadFatalError', 'OverlayTemplates/RemoteLoadFatalError');
+            const layer = this.requireUiChild(overlayTemplates, 'LevelDataLoadFatalError', 'OverlayTemplates/LevelDataLoadFatalError');
             this._remoteLoadErrorOverlay = layer;
 
             const layerTransform = layer.getComponent(UITransform);
-            if (!layerTransform) throw new Error('[SceneUI] RemoteLoadFatalError is missing UITransform');
+            if (!layerTransform) throw new Error('[SceneUI] LevelDataLoadFatalError is missing UITransform');
             layerTransform.setContentSize(visibleSize.width, visibleSize.height);
             const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
             blocker.enabled = true;
@@ -195,43 +196,43 @@ export function installFirstLevelRouteModule(target: any): void {
             overlayTemplates.setSiblingIndex(overlayRoot.children.length - 1);
             layer.setSiblingIndex(overlayTemplates.children.length - 1);
 
-            const mask = this.requireUiChild(layer, 'RemoteLoadFatalErrorMask', 'RemoteLoadFatalError/RemoteLoadFatalErrorMask');
+            const mask = this.requireUiChild(layer, 'LevelDataLoadFatalErrorMask', 'LevelDataLoadFatalError/LevelDataLoadFatalErrorMask');
             const maskTransform = mask.getComponent(UITransform);
-            if (!maskTransform) throw new Error('[SceneUI] RemoteLoadFatalErrorMask is missing UITransform');
+            if (!maskTransform) throw new Error('[SceneUI] LevelDataLoadFatalErrorMask is missing UITransform');
             maskTransform.setContentSize(visibleSize.width, visibleSize.height);
             mask.active = true;
 
-            const card = this.requireUiChild(layer, 'RemoteLoadFatalErrorCard', 'RemoteLoadFatalError/RemoteLoadFatalErrorCard');
+            const card = this.requireUiChild(layer, 'LevelDataLoadFatalErrorCard', 'LevelDataLoadFatalError/LevelDataLoadFatalErrorCard');
             card.active = true;
 
-            const titleLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorTitle');
+            const titleLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorTitle');
             titleLabel.string = '资源加载失败';
 
-            const hintLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorHint');
+            const hintLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorHint');
             hintLabel.string = '请检查资源与配置后重新进入游戏';
 
-            const pathLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorPath');
+            const pathLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorPath');
             pathLabel.string = levelPath;
 
             const detail = `${errorCode}${errorMessage ? ': ' + errorMessage : ''}`;
-            const detailLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorDetail');
-            detailLabel.string = this.truncateRemoteLoadMessage(detail, 96);
+            const detailLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorDetail');
+            detailLabel.string = this.truncateLevelDataLoadMessage(detail, 96);
 
-            const retryLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorRetry');
+            const retryLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorRetry');
             retryLabel.string = '已停止进入默认关卡，避免关卡数据错乱';
         },
 
-        requireRemoteLoadFatalLabel(parent: Node, name: string): Label {
-            const node = this.requireUiChild(parent, name, `RemoteLoadFatalErrorCard/${name}`);
+        requireLevelDataLoadFatalLabel(parent: Node, name: string): Label {
+            const node = this.requireUiChild(parent, name, `LevelDataLoadFatalErrorCard/${name}`);
             const label = node.getComponent(Label);
             if (!label) {
-                throw new Error(`[SceneUI] RemoteLoadFatalErrorCard/${name} is missing Label`);
+                throw new Error(`[SceneUI] LevelDataLoadFatalErrorCard/${name} is missing Label`);
             }
             node.active = true;
             return label;
         },
 
-        truncateRemoteLoadMessage(message: string, maxLength: number): string {
+        truncateLevelDataLoadMessage(message: string, maxLength: number): string {
             const text = String(message || '').replace(/\s+/g, ' ').trim();
             if (text.length <= maxLength) return text;
             return text.slice(0, Math.max(0, maxLength - 3)) + '...';
@@ -314,11 +315,11 @@ export function installFirstLevelRouteModule(target: any): void {
                 !pendingSceneGameplayRequest &&
                 this.hasLocalUserState();
             if (!urlLevelFile && startupLevelId > 0) {
-                this.reportRemoteLoadDiagnostic(
+                this.reportLevelDataLoadDiagnostic(
                     startupLevelId,
-                    'remote_startup_diagnostics',
+                    'level_data_startup_diagnostics',
                     true,
-                    this.getRemoteLevelPath(startupLevelId, startupLevelPrefix),
+                    this.getLevelDataPath(startupLevelId, startupLevelPrefix),
                     {
                         extra: {
                             defaultEntryLevel,
@@ -369,7 +370,7 @@ export function installFirstLevelRouteModule(target: any): void {
             SySDKMgr.inst.init();
             SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
         
-            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isWeChat() || this._isUrlRemote())) {
+            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isWeChat() || this._isUrlLevelPreview())) {
                 const useLocalBootstrapStartup =
                     urlLevel <= 0 &&
                     defaultEntryLevel <= 1 &&
@@ -382,7 +383,7 @@ export function installFirstLevelRouteModule(target: any): void {
                         this._isThemeLevel = true;
                         this._currentThemeLevelId = urlLevel;
                     }
-                    this.startRemoteLevelFast(startupLevelId, fastPrefix, startupLevelId);
+                    this.startGameAssetsLevelFast(startupLevelId, fastPrefix, startupLevelId);
                 }
             } else {
                 this.preloadAllAssets(onReady);
@@ -444,7 +445,7 @@ export function installFirstLevelRouteModule(target: any): void {
         // ==================== 资源加载 ====================
         
         preloadAllAssets(onDone?: () => void) {
-            RemoteLevelDataService.inst.prefetchLive();
+            LevelDataCdnService.inst.prefetchLive();
             let startupAssetsDone = false;
             let bootstrapBeansDone = false;
             const tryFinish = () => {
@@ -465,7 +466,7 @@ export function installFirstLevelRouteModule(target: any): void {
             this._ensureBootstrapBeanAtlasLoaded(() => finishBootstrapBeans());
         
             // 只预加载主页首屏 remote 资源；关卡、技能、面板资源按入口懒加载。
-            this._loadFromRemoteBundle(finishStartupAssets);
+            this._loadFromGameAssetsBundle(finishStartupAssets);
         },
 
         _isWeChat(): boolean {
@@ -474,29 +475,29 @@ export function installFirstLevelRouteModule(target: any): void {
             return !!(g?.__rawWx?.getSystemInfoSync) || !!(w?.wx?.getSystemInfoSync);
         },
 
-        _isUrlRemote(): boolean {
+        _isUrlLevelPreview(): boolean {
             try {
                 return new URLSearchParams(window.location.search).get('remote') === '1';
             } catch (_) { return false; }
         },
 
-        _loadFromRemoteBundle(onDone?: () => void) {
-            if (this.remoteBundle) {
-                this._preloadRemoteTextureSet(this.remoteBundle, () => {
+        _loadFromGameAssetsBundle(onDone?: () => void) {
+            if (this.gameAssetsBundle) {
+                this._preloadGameAssetsTextureSet(this.gameAssetsBundle, () => {
                     if (onDone) onDone(); else this.showMainMenu();
                 });
                 return;
             }
             this._preloadingBundle = true;
-            assetManager.loadBundle('remote', (err, bundle) => {
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
                 this._preloadingBundle = false;
                 if (err) {
-                    console.warn('loadBundle remote failed:', err.message);
+                    console.warn('loadBundle gameAssets failed:', err.message);
                     if (onDone) onDone(); else this.showMainMenu();
                     return;
                 }
-                this.remoteBundle = bundle;
-                this._preloadRemoteTextureSet(bundle, () => {
+                this.gameAssetsBundle = bundle;
+                this._preloadGameAssetsTextureSet(bundle, () => {
                     if (onDone) onDone(); else this.showMainMenu();
                 });
             });

@@ -55,9 +55,9 @@ export class CollectionPanelController {
             console.error(message);
         };
 
-        runtime._withRemoteBundle((bundle: Bundle | null) => {
+        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
             if (!bundle) {
-                failOpen('[collection-prefab] remote bundle unavailable');
+                failOpen('[collection-prefab] gameAssets bundle unavailable');
                 return;
             }
             bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {

@@ -72,9 +72,9 @@ export class LeaderboardPanelController {
             console.error(message);
         };
 
-        runtime._withRemoteBundle((bundle: Bundle | null) => {
+        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
             if (!bundle) {
-                failOpen('[leaderboard-prefab] remote bundle unavailable');
+                failOpen('[leaderboard-prefab] gameAssets bundle unavailable');
                 return;
             }
             bundle.load(prefabPath, Prefab, async (err: Error | null, prefab: Prefab | null) => {

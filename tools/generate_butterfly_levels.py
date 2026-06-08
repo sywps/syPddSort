@@ -13,7 +13,7 @@ from generate_initial_shuffle import build_updated_payload, choose_best_init
 from move_target_to_initial import build_move_map
 
 ROOT = Path(__file__).resolve().parent.parent
-LEVEL_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+LEVEL_DIR = ROOT / "assets" / "LevelData"
 DEBUG_DIR = ROOT / "tools" / "generated_levels"
 
 LEVEL_SPECS: List[Dict[str, int | str]] = [

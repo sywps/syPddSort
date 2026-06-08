@@ -22,7 +22,7 @@ DEFAULT_GUANKA_DIR = ROOT / "guanka"
 DEFAULT_PDD_RAW = ROOT / "tools" / "pdd-levels-raw.json"
 DEFAULT_MAKEBEAD_BUNDLE = ROOT / "tools" / "downloaded" / "makebead_templates_bundle.json"
 DEFAULT_MAKEBEAD_IMAGE_DIR = ROOT / "tools" / "downloaded"
-DEFAULT_RUNTIME_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+DEFAULT_RUNTIME_DIR = ROOT / "assets" / "LevelData"
 DEFAULT_REPORT = ROOT / "tools" / "generated_levels" / "restore_guanka_original_report.json"
 
 

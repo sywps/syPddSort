@@ -6,18 +6,18 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
@@ -32,20 +32,115 @@ import type {
 
 export function installBoardInputViewportModule(target: any): void {
     Object.assign(target, {
+        getGameplayNodeBoundsInFixedRoot(node: Node | null): { left: number; right: number; bottom: number; top: number } | null {
+            if (!node?.isValid || !node.active) return null;
+            const nodeUi = node.getComponent(UITransform);
+            const fixedRoot = typeof this.getGameplayFixedRoot === 'function' ? this.getGameplayFixedRoot() : null;
+            const fixedUi = fixedRoot?.getComponent(UITransform);
+            if (!nodeUi || !fixedUi) return null;
+            const halfW = nodeUi.contentSize.width / 2;
+            const halfH = nodeUi.contentSize.height / 2;
+            const corners = [
+                new Vec3(-halfW, -halfH, 0),
+                new Vec3(-halfW, halfH, 0),
+                new Vec3(halfW, -halfH, 0),
+                new Vec3(halfW, halfH, 0),
+            ];
+            let left = Number.POSITIVE_INFINITY;
+            let right = Number.NEGATIVE_INFINITY;
+            let bottom = Number.POSITIVE_INFINITY;
+            let top = Number.NEGATIVE_INFINITY;
+            for (const corner of corners) {
+                const world = nodeUi.convertToWorldSpaceAR(corner);
+                const local = fixedUi.convertToNodeSpaceAR(world);
+                left = Math.min(left, local.x);
+                right = Math.max(right, local.x);
+                bottom = Math.min(bottom, local.y);
+                top = Math.max(top, local.y);
+            }
+            if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(bottom) || !Number.isFinite(top)) return null;
+            return { left, right, bottom, top };
+        },
+
+        getGameplayNodeVerticalBoundsInFixedRoot(node: Node | null): { bottom: number; top: number } | null {
+            const bounds = this.getGameplayNodeBoundsInFixedRoot(node);
+            return bounds ? { bottom: bounds.bottom, top: bounds.top } : null;
+        },
+
+        mergeVerticalBounds(
+            current: { bottom: number; top: number } | null,
+            next: { bottom: number; top: number } | null,
+        ): { bottom: number; top: number } | null {
+            if (!next) return current;
+            if (!current) return next;
+            return {
+                bottom: Math.min(current.bottom, next.bottom),
+                top: Math.max(current.top, next.top),
+            };
+        },
+
+        getGameplayChildrenVerticalBounds(parent: Node | null): { bottom: number; top: number } | null {
+            if (!parent?.isValid || !parent.active) return null;
+            let bounds: { bottom: number; top: number } | null = null;
+            for (const child of parent.children) {
+                if (!child?.isValid || !child.active) continue;
+                bounds = this.mergeVerticalBounds(bounds, this.getGameplayNodeVerticalBoundsInFixedRoot(child));
+            }
+            return bounds;
+        },
+
+        getTopBarAvoidBottomY(): number | null {
+            try {
+                const topBar = this.getGameplayFixedGroup?.('TopBarGroup') || null;
+                const bounds = this.getGameplayChildrenVerticalBounds(topBar);
+                return Number.isFinite(bounds?.bottom) ? bounds!.bottom : null;
+            } catch {
+                return null;
+            }
+        },
+
+        getBottomHudAvoidTopY(): number | null {
+            let bounds: { bottom: number; top: number } | null = null;
+            bounds = this.mergeVerticalBounds(bounds, this.getGameplayNodeVerticalBoundsInFixedRoot(this.slotAreaNode || null));
+            try {
+                const skillRoot = this.getGameplayBottomHudChild?.('SkillArea') || null;
+                bounds = this.mergeVerticalBounds(bounds, this.getGameplayChildrenVerticalBounds(skillRoot));
+            } catch {}
+            return Number.isFinite(bounds?.top) ? bounds!.top : null;
+        },
+
         getBoardSafeViewportRect(): { left: number; right: number; bottom: number; top: number } {
             const gap = 12;
             const marginX = 18;
+            try {
+                const boardArea = this.getGameplayFixedGroup?.('BoardArea') || null;
+                const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);
+                if (boardAreaBounds && boardAreaBounds.right > boardAreaBounds.left + 80 && boardAreaBounds.top > boardAreaBounds.bottom + 80) {
+                    return {
+                        left: boardAreaBounds.left + marginX,
+                        right: boardAreaBounds.right - marginX,
+                        bottom: boardAreaBounds.bottom + gap,
+                        top: boardAreaBounds.top - gap,
+                    };
+                }
+            } catch {}
             const viewSize = view.getVisibleSize();
             const visibleW = Math.max(viewSize.width || 0, (this.constructor as any).VIEWPORT_WIDTH);
             const visibleH = Math.max(viewSize.height || 0, (this.constructor as any).VIEWPORT_HEIGHT);
             const left = -visibleW / 2 + marginX;
             const right = visibleW / 2 - marginX;
             let top = this.getTopBarY() - 30 - gap;
+            const topBarBottom = this.getTopBarAvoidBottomY();
+            if (topBarBottom !== null) {
+                top = Math.min(top, topBarBottom - gap);
+            }
             const levelId = Math.max(1, Math.floor(Number(this.levelData?.levelId) || 1));
             if (this.levelData && !this._isThemeLevel && levelId <= 2) {
-                const tutorialBubbleCenterY = 470;
-                const tutorialBubbleHeight = 112;
-                const tutorialBubbleGap = 28;
+                const tutorialBubbleCenterY = typeof this.getGuidePromptCenterY === 'function'
+                    ? this.getGuidePromptCenterY(450, 52)
+                    : 450;
+                const tutorialBubbleHeight = 52;
+                const tutorialBubbleGap = 12;
                 top = Math.min(top, tutorialBubbleCenterY - tutorialBubbleHeight / 2 - tutorialBubbleGap);
             }
             let bottom = -visibleH / 2 + 180;
@@ -57,12 +152,17 @@ export function installBoardInputViewportModule(target: any): void {
             } else {
                 bottom = -visibleH / 2 + 120;
             }
+            const bottomHudTop = this.getBottomHudAvoidTopY();
+            if (bottomHudTop !== null) {
+                bottom = Math.max(bottom, bottomHudTop + gap);
+            }
             if (top <= bottom + 80) {
+                const center = (top + bottom) / 2;
                 return {
                     left,
                     right,
-                    bottom: -visibleH / 2 + 220,
-                    top: visibleH / 2 - 140,
+                    bottom: center - 40,
+                    top: center + 40,
                 };
             }
             return { left, right, bottom, top };

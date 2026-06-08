@@ -17,7 +17,7 @@ NL_MODEL = os.environ.get('NL_MODEL', 'gemini-3-flash-preview')
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 GAME_LEVEL_DATA_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '..', 'assets', 'RemoteBundle', 'LevelData')
+    os.path.join(os.path.dirname(__file__), '..', 'assets', 'LevelData')
 )
 LEVEL_DATA_DIR = GAME_LEVEL_DATA_DIR
 ONLINE_LEVEL_KEYS = (

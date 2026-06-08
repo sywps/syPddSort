@@ -365,6 +365,9 @@
       },
       {
         "__id__": 465
+      },
+      {
+        "__id__": 38
       }
     ],
     "_prefab": null,
@@ -666,12 +669,10 @@
     "_components": [
       {
         "__id__": 36
-      },
+      }
+      ,
       {
         "__id__": 37
-      },
-      {
-        "__id__": 38
       }
     ],
     "_prefab": null,
@@ -1146,10 +1147,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "02da0752-9a84-73f8-735c-f7cc472d9149@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 1,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -1489,7 +1487,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 16
+      "__id__": 8
     },
     "_enabled": true,
     "__prefab": null,
@@ -1513,6 +1511,9 @@
     "_components": [
       {
         "__id__": 49
+      },
+      {
+        "__id__": 562
       }
     ],
     "_prefab": null,
@@ -1905,12 +1906,10 @@
     "_components": [
       {
         "__id__": 461
-      },
+      }
+      ,
       {
         "__id__": 462
-      },
-      {
-        "__id__": 463
       }
     ],
     "_prefab": null,
@@ -2033,7 +2032,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -418.5,
+      "y": -448.5,
       "z": 0
     },
     "_lrot": {
@@ -15797,10 +15796,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "18ed94af-1b0b-c1e4-ef56-7da24048e6f8@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -15920,7 +15916,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 140,
+    "_bottom": 110,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -16348,10 +16344,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "a8340d6d-94e2-5bf0-76b0-d7b0ac2a7811@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -16700,10 +16693,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "a8340d6d-94e2-5bf0-76b0-d7b0ac2a7811@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -17052,10 +17042,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "a8340d6d-94e2-5bf0-76b0-d7b0ac2a7811@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -17213,7 +17200,7 @@
     "node": {
       "__id__": 50
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": null,
     "_symmetric": true,
     "_id": "d7BpNXoMtAXrrCHX54nmLo"
@@ -20409,10 +20396,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "e52e6778-2f42-1ec8-f696-b9e9d485a806@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -20518,10 +20502,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "29bc7550-e86f-74c8-2f3d-05f2501153ad@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -20627,10 +20608,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "f756972f-84bf-92ab-0e97-f8795e2035c4@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -20645,5 +20623,35 @@
     "_useGrayscale": false,
     "_atlas": null,
     "_id": "SkillMagnet_ToolIcon_sprite_20260607"
+  },
+  {
+    "__type__": "cc.Widget",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 39
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_alignFlags": 45,
+    "_target": null,
+    "_left": 0,
+    "_right": 0,
+    "_top": 140,
+    "_bottom": 300,
+    "_horizontalCenter": 0,
+    "_verticalCenter": 0,
+    "_isAbsLeft": true,
+    "_isAbsRight": true,
+    "_isAbsTop": true,
+    "_isAbsBottom": true,
+    "_isAbsHorizontalCenter": true,
+    "_isAbsVerticalCenter": true,
+    "_originalWidth": 720,
+    "_originalHeight": 840,
+    "_alignMode": 2,
+    "_lockFlags": 0,
+    "_id": "BoardArea_widget_static_viewport_20260608"
   }
 ]

@@ -6,18 +6,18 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
-    LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
+import { LevelDataCdnService } from '../LevelDataCdnService';
 
 function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserState | null, hadLocalUserState: boolean): void {
     if (!runtime.isValid || !state) {
@@ -94,7 +95,7 @@ export function installAssetBootstrapModule(target: any): void {
             tryLoad(0);
         },
 
-        _preloadRemoteTextureSet(bundle: Bundle, onDone?: () => void, paths: string[] = REMOTE_PRELOAD_TEXTURE_PATHS) {
+        _preloadGameAssetsTextureSet(bundle: Bundle, onDone?: () => void, paths: string[] = GAME_ASSETS_PRELOAD_TEXTURE_PATHS) {
             if (paths.length === 0) {
                 if (onDone) onDone();
                 return;
@@ -104,7 +105,7 @@ export function installAssetBootstrapModule(target: any): void {
             const finishOne = () => {
                 remaining -= 1;
                 if (remaining > 0) return;
-                console.log(`[remote] preloaded ${loaded}/${paths.length} startup SpriteFrames`);
+                console.log(`[gameAssets] preloaded ${loaded}/${paths.length} startup SpriteFrames`);
                 if (onDone) onDone();
             };
             for (const path of paths) {
@@ -114,7 +115,7 @@ export function installAssetBootstrapModule(target: any): void {
                     this._getSpriteFrameLoadCandidates(path),
                     (sf) => {
                         if (!sf) {
-                            console.warn(`[remote] startup texture load failed: ${path}`, 'SpriteFrame not found');
+                            console.warn(`[gameAssets] startup texture load failed: ${path}`, 'SpriteFrame not found');
                         } else {
                             this._cacheSpriteFrame(sf, fallbackName);
                             loaded += 1;
@@ -125,12 +126,60 @@ export function installAssetBootstrapModule(target: any): void {
             }
         },
 
-        _getRemoteTextureCandidatePaths(imgName: string): string[] {
-            return REMOTE_TEXTURE_SEARCH_DIRS.flatMap((dir) => this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
+        _getGameAssetsTextureCandidatePaths(imgName: string): string[] {
+            return GAME_ASSETS_TEXTURE_SEARCH_DIRS.flatMap((dir) => this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
+        },
+
+        _getBootstrapTextureBaseCandidates(imgName: string): string[] {
+            const dirs = LOCAL_BOOTSTRAP_TEXTURE_NAMES.has(imgName)
+                ? ['GameUI', LOCAL_BOOTSTRAP_TEXTURE_DIR]
+                : [LOCAL_BOOTSTRAP_TEXTURE_DIR, 'GameUI'];
+            return Array.from(new Set(dirs)).map((dir) => `${dir}/${imgName}`);
         },
 
         _getBootstrapTextureCandidatePaths(imgName: string): string[] {
-            return this._getSpriteFrameLoadCandidates(`${LOCAL_BOOTSTRAP_TEXTURE_DIR}/${imgName}`);
+            return this._getBootstrapTextureBaseCandidates(imgName)
+                .flatMap((basePath) => this._getSpriteFrameLoadCandidates(basePath));
+        },
+
+        _getBootstrapImageAssetCandidatePaths(imgName: string): string[] {
+            return this._getBootstrapTextureBaseCandidates(imgName);
+        },
+
+        _createSpriteFrameFromImageAsset(imgName: string, imgAsset: ImageAsset): SpriteFrame | null {
+            const width = imgAsset.width || (imgAsset as any)?.image?.width || 0;
+            const height = imgAsset.height || (imgAsset as any)?.image?.height || 0;
+            if (!width || !height) {
+                return null;
+            }
+            const texture = new Texture2D();
+            texture.image = imgAsset;
+            const sf = new SpriteFrame();
+            sf.texture = texture;
+            sf.rect = new Rect(0, 0, width, height);
+            sf.name = imgName;
+            return sf;
+        },
+
+        _loadBootstrapImageSpriteFrame(bundle: Bundle, imgName: string, callback: (sf: SpriteFrame | null) => void) {
+            const candidates = this._getBootstrapImageAssetCandidatePaths(imgName);
+            const tryLoad = (index: number) => {
+                if (index >= candidates.length) {
+                    callback(null);
+                    return;
+                }
+                bundle.load(candidates[index], ImageAsset, (err, imgAsset) => {
+                    if (!err && imgAsset) {
+                        const sf = this._createSpriteFrameFromImageAsset(imgName, imgAsset);
+                        if (sf) {
+                            callback(sf);
+                            return;
+                        }
+                    }
+                    tryLoad(index + 1);
+                });
+            };
+            tryLoad(0);
         },
 
         _loadSpriteFrameFromBootstrapBundle(imgName: string, callback: (sf: SpriteFrame | null) => void) {
@@ -143,7 +192,13 @@ export function installAssetBootstrapModule(target: any): void {
                 this._loadSpriteFrameWithCandidates(
                     (candidate, done) => bundle.load(candidate, SpriteFrame, done),
                     candidates,
-                    callback,
+                    (sf) => {
+                        if (sf) {
+                            callback(sf);
+                            return;
+                        }
+                        this._loadBootstrapImageSpriteFrame(bundle, imgName, callback);
+                    },
                 );
             });
         },
@@ -154,7 +209,7 @@ export function installAssetBootstrapModule(target: any): void {
                     callback(sf);
                     return;
                 }
-                this._loadSpriteFrameFromRemoteBundle(imgName, callback);
+                this._loadSpriteFrameFromGameAssetsBundle(imgName, callback);
             });
         },
 
@@ -184,16 +239,16 @@ export function installAssetBootstrapModule(target: any): void {
             });
         },
 
-        _withRemoteBundle(callback: (bundle: Bundle | null) => void) {
-            if (this.remoteBundle) {
-                callback(this.remoteBundle);
+        _withGameAssetsBundle(callback: (bundle: Bundle | null) => void) {
+            if (this.gameAssetsBundle) {
+                callback(this.gameAssetsBundle);
                 return;
             }
             if (this._preloadingBundle) {
                 const check = () => {
-                    if (this.remoteBundle) {
+                    if (this.gameAssetsBundle) {
                         this.unschedule(check);
-                        callback(this.remoteBundle);
+                        callback(this.gameAssetsBundle);
                         return;
                     }
                     if (!this._preloadingBundle) {
@@ -205,31 +260,103 @@ export function installAssetBootstrapModule(target: any): void {
                 return;
             }
             this._preloadingBundle = true;
-            assetManager.loadBundle('remote', (err, bundle) => {
+            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 this._preloadingBundle = false;
                 if (err || !bundle) {
-                    console.warn('loadBundle remote failed:', err?.message);
+                    console.warn('loadBundle gameAssets failed:', err?.message);
                     callback(null);
                     return;
                 }
-                this.remoteBundle = bundle;
+                this.gameAssetsBundle = bundle;
                 callback(bundle);
             });
         },
 
-        _loadSpriteFrameFromRemoteBundle(imgName: string, callback: (sf: SpriteFrame | null) => void) {
-            this._withRemoteBundle((bundle) => {
+        _getWechatBuildMode(): string {
+            const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+            const w: any = typeof window !== 'undefined' ? window : null;
+            return String(g?.__PDD_WECHAT_BUILD_MODE__ || w?.__PDD_WECHAT_BUILD_MODE__ || '');
+        },
+
+        _isReleaseLevelDataCdnOnly(): boolean {
+            return this._getWechatBuildMode() === 'release';
+        },
+
+        _withLevelDataBundle(callback: (bundle: Bundle | null) => void) {
+            if (this.levelDataBundle) {
+                callback(this.levelDataBundle);
+                return;
+            }
+            if (this._levelDataBundleLoadingCallbacks) {
+                this._levelDataBundleLoadingCallbacks.push(callback);
+                return;
+            }
+            this._levelDataBundleLoadingCallbacks = [callback];
+            assetManager.loadBundle(LEVEL_DATA_BUNDLE_NAME, (err, bundle) => {
+                if (err || !bundle) {
+                    console.warn('[LevelDataLoad] loadBundle levelData failed:', err?.message || 'no bundle');
+                } else {
+                    this.levelDataBundle = bundle;
+                }
+                const callbacks = this._levelDataBundleLoadingCallbacks || [];
+                this._levelDataBundleLoadingCallbacks = null;
+                for (const done of callbacks) {
+                    done(bundle || null);
+                }
+            });
+        },
+
+        _loadLevelDataFromLocalBundle(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void) {
+            const levelPath = this.getLevelDataPath(levelId, prefix);
+            const bundlePath = `${prefix}${levelId}`;
+            this._withLevelDataBundle((bundle) => {
+                if (!bundle) {
+                    callback(null, 'level_data_bundle', new Error('levelData bundle unavailable'));
+                    return;
+                }
+                bundle.load(bundlePath, JsonAsset, (err, jsonAsset) => {
+                    if (err || !jsonAsset) {
+                        callback(null, 'level_data_bundle', err || new Error('missing json asset'));
+                        return;
+                    }
+                    callback(jsonAsset.json as LevelData, 'level_data_bundle', null);
+                });
+            });
+        },
+
+        _loadLevelDataFromCdnOrLocal(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void) {
+            LevelDataCdnService.inst.loadLevel(levelId, prefix).then((cdnLevelData) => {
+                if (cdnLevelData) {
+                    callback(cdnLevelData, 'level_data_cdn', null);
+                    return;
+                }
+                if (this._isReleaseLevelDataCdnOnly()) {
+                    callback(null, 'level_data_cdn', new Error('release level data CDN unavailable'));
+                    return;
+                }
+                this._loadLevelDataFromLocalBundle(levelId, prefix, callback);
+            }).catch((err) => {
+                if (this._isReleaseLevelDataCdnOnly()) {
+                    callback(null, 'level_data_cdn', err instanceof Error ? err : new Error(String(err)));
+                    return;
+                }
+                this._loadLevelDataFromLocalBundle(levelId, prefix, callback);
+            });
+        },
+
+        _loadSpriteFrameFromGameAssetsBundle(imgName: string, callback: (sf: SpriteFrame | null) => void) {
+            this._withGameAssetsBundle((bundle) => {
                 if (!bundle) {
                     callback(null);
                     return;
                 }
-                const candidates = this._getRemoteTextureCandidatePaths(imgName);
+                const candidates = this._getGameAssetsTextureCandidatePaths(imgName);
                 this._loadSpriteFrameWithCandidates(
                     (candidate, done) => bundle.load(candidate, SpriteFrame, done),
                     candidates,
                     (sf) => {
                         if (!sf) {
-                            console.warn(`[remote] SpriteFrame not found: ${imgName}`);
+                            console.warn(`[gameAssets] SpriteFrame not found: ${imgName}`);
                         }
                         callback(sf);
                     },
@@ -263,7 +390,7 @@ export function installAssetBootstrapModule(target: any): void {
                 this._loadSpriteFrameFromBootstrapThenRemote(imgName, resolve);
                 return;
             }
-            this._loadSpriteFrameFromRemoteBundle(imgName, resolve);
+            this._loadSpriteFrameFromGameAssetsBundle(imgName, resolve);
         },
 
         _ensureSpriteFramesByName(names: string[], callback: () => void) {

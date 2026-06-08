@@ -46,6 +46,12 @@ export class GameplaySkillUiController {
         return 'SkillMagnet';
     }
 
+    private getSkillShellIconFrameName(shellName: string): string {
+        if (shellName === 'SkillBrush') return 'popup_tool_brush_icon';
+        if (shellName === 'SkillMagnet') return 'popup_tool_magnet_icon';
+        return 'popup_tool_wand_icon';
+    }
+
     private captureSkillAreaSceneLayout(root: Node): { x: number; y: number; z: number; topOffset: number } {
         let topOffset = Number.NEGATIVE_INFINITY;
         for (const kind of this.skillShellKinds) {
@@ -100,7 +106,11 @@ export class GameplaySkillUiController {
             throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SkillArea/${node.name}`);
         }
         if (!sprite.spriteFrame) {
-            throw new Error(`[GameplayScene] Game.scene is missing static plate SpriteFrame on SkillArea/${node.name}`);
+            const plateFrame = this.runtime.getSF('popup_gameplay_tool_slot_plate');
+            if (!plateFrame) {
+                throw new Error(`[GameplayScene] missing gameAssets SpriteFrame popup_gameplay_tool_slot_plate for SkillArea/${node.name}`);
+            }
+            sprite.spriteFrame = plateFrame;
         }
         sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         const icon = node.getChildByName('ToolIcon');
@@ -110,8 +120,16 @@ export class GameplaySkillUiController {
         icon.active = true;
         icon.layer = Layers.Enum.UI_2D;
         const iconSprite = icon.getComponent(Sprite);
-        if (!iconSprite || !iconSprite.spriteFrame) {
-            throw new Error(`[GameplayScene] Game.scene is missing static ToolIcon SpriteFrame on SkillArea/${node.name}`);
+        if (!iconSprite) {
+            throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SkillArea/${node.name}/ToolIcon`);
+        }
+        if (!iconSprite.spriteFrame) {
+            const iconFrameName = this.getSkillShellIconFrameName(node.name);
+            const iconFrame = this.runtime.getSF(iconFrameName);
+            if (!iconFrame) {
+                throw new Error(`[GameplayScene] missing gameAssets SpriteFrame ${iconFrameName} for SkillArea/${node.name}/ToolIcon`);
+            }
+            iconSprite.spriteFrame = iconFrame;
         }
         iconSprite.sizeMode = Sprite.SizeMode.CUSTOM;
         return sprite;

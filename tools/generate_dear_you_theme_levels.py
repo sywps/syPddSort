@@ -16,7 +16,7 @@ from move_target_to_initial import displacement_ratio
 
 
 ROOT = Path(__file__).resolve().parent.parent
-LEVEL_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+LEVEL_DIR = ROOT / "assets" / "LevelData"
 PREVIEW_DIR = ROOT / "artifacts" / "dear_you_theme_previews"
 SOURCE_DIR = Path("/Users/shengyemac80-202504/Downloads")
 

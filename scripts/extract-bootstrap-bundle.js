@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const BOOTSTRAP_BUNDLE_NAME = 'bootstrap';
-const REMOTE_BUNDLE_NAME = 'remote';
+const GAME_ASSETS_BUNDLE_NAME = 'gameAssets';
 
 const BOOTSTRAP_PATH_MAP = (() => {
     const map = new Map();
@@ -16,11 +16,11 @@ const BOOTSTRAP_PATH_MAP = (() => {
         'block_bright_pindd',
     ];
     for (const uiName of uiNames) {
-        const remoteBase = `Textures/Pindd/UI/${uiName}`;
+        const gameAssetsBase = `Textures/Pindd/UI/${uiName}`;
         const bootstrapBase = `UI/${uiName}`;
-        map.set(`${remoteBase}/texture`, `${bootstrapBase}/texture`);
-        map.set(remoteBase, bootstrapBase);
-        map.set(`${remoteBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
+        map.set(`${gameAssetsBase}/texture`, `${bootstrapBase}/texture`);
+        map.set(gameAssetsBase, bootstrapBase);
+        map.set(`${gameAssetsBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
     }
 
     const commonUiNames = [
@@ -28,11 +28,11 @@ const BOOTSTRAP_PATH_MAP = (() => {
         'slot_groove_b_ui',
     ];
     for (const uiName of commonUiNames) {
-        const remoteBase = `Textures/UI/${uiName}`;
+        const gameAssetsBase = `Textures/UI/${uiName}`;
         const bootstrapBase = `UI/${uiName}`;
-        map.set(`${remoteBase}/texture`, `${bootstrapBase}/texture`);
-        map.set(remoteBase, bootstrapBase);
-        map.set(`${remoteBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
+        map.set(`${gameAssetsBase}/texture`, `${bootstrapBase}/texture`);
+        map.set(gameAssetsBase, bootstrapBase);
+        map.set(`${gameAssetsBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
     }
 
     return map;
@@ -86,7 +86,7 @@ function copyFile(srcPath, destPath) {
     fs.copyFileSync(srcPath, destPath);
 }
 
-function copyImportArtifact(remoteDir, targetDir, compressedUuid) {
+function copyImportArtifact(gameAssetsDir, targetDir, compressedUuid) {
     const decoded = decodeUuid(compressedUuid);
     const candidates = [decoded];
     const atIndex = decoded.indexOf('@');
@@ -94,7 +94,7 @@ function copyImportArtifact(remoteDir, targetDir, compressedUuid) {
         candidates.push(decoded.slice(0, atIndex));
     }
     for (const candidate of candidates) {
-        const importSrc = path.join(remoteDir, 'import', candidate.slice(0, 2), `${candidate}.json`);
+        const importSrc = path.join(gameAssetsDir, 'import', candidate.slice(0, 2), `${candidate}.json`);
         if (!fs.existsSync(importSrc)) continue;
         const importDest = path.join(targetDir, 'import', candidate.slice(0, 2), `${candidate}.json`);
         copyFile(importSrc, importDest);
@@ -103,10 +103,10 @@ function copyImportArtifact(remoteDir, targetDir, compressedUuid) {
     return false;
 }
 
-function copyNativeArtifact(remoteDir, targetDir, compressedUuid) {
+function copyNativeArtifact(gameAssetsDir, targetDir, compressedUuid) {
     const decoded = decodeUuid(compressedUuid);
     const nativeUuid = decoded.split('@')[0];
-    const nativeDir = path.join(remoteDir, 'native', nativeUuid.slice(0, 2));
+    const nativeDir = path.join(gameAssetsDir, 'native', nativeUuid.slice(0, 2));
     if (!fs.existsSync(nativeDir)) {
         throw new Error(`未找到 native 目录: ${nativeDir}`);
     }
@@ -117,32 +117,32 @@ function copyNativeArtifact(remoteDir, targetDir, compressedUuid) {
     copyFile(path.join(nativeDir, nativeFile), path.join(targetDir, 'native', nativeUuid.slice(0, 2), nativeFile));
 }
 
-function requiresNativeArtifact(remoteConfig, entry) {
+function requiresNativeArtifact(gameAssetsConfig, entry) {
     if (!entry || !entry.value) return false;
     const typeIndex = entry.value[1];
-    const typeName = Array.isArray(remoteConfig.types) ? remoteConfig.types[typeIndex] : '';
+    const typeName = Array.isArray(gameAssetsConfig.types) ? gameAssetsConfig.types[typeIndex] : '';
     return typeName === 'cc.AudioClip' || typeName === 'cc.ImageAsset';
 }
 
-function getEntryTypeName(remoteConfig, entry) {
+function getEntryTypeName(gameAssetsConfig, entry) {
     if (!entry || !entry.value) return '';
     const typeIndex = entry.value[1];
-    return Array.isArray(remoteConfig.types) ? (remoteConfig.types[typeIndex] || '') : '';
+    return Array.isArray(gameAssetsConfig.types) ? (gameAssetsConfig.types[typeIndex] || '') : '';
 }
 
-function buildPackIndex(remoteConfig, remoteDir) {
-    const remoteUuids = remoteConfig.uuids || [];
-    const remotePacks = remoteConfig.packs || {};
+function buildPackIndex(gameAssetsConfig, gameAssetsDir) {
+    const gameAssetsUuids = gameAssetsConfig.uuids || [];
+    const gameAssetsPacks = gameAssetsConfig.packs || {};
     const uuidToPackInfo = new Map();
-    for (const [packUuid, indices] of Object.entries(remotePacks)) {
+    for (const [packUuid, indices] of Object.entries(gameAssetsPacks)) {
         const decoded = decodeUuid(packUuid);
-        const packFile = path.join(remoteDir, 'import', decoded.slice(0, 2), `${decoded}.json`);
+        const packFile = path.join(gameAssetsDir, 'import', decoded.slice(0, 2), `${decoded}.json`);
         if (!fs.existsSync(packFile)) continue;
         const packData = JSON.parse(fs.readFileSync(packFile, 'utf8'));
         for (let pos = 0; pos < indices.length; pos++) {
             const globalIdx = indices[pos];
-            if (globalIdx < remoteUuids.length) {
-                uuidToPackInfo.set(remoteUuids[globalIdx], {
+            if (globalIdx < gameAssetsUuids.length) {
+                uuidToPackInfo.set(gameAssetsUuids[globalIdx], {
                     packUuid,
                     packData,
                     position: pos,
@@ -153,13 +153,13 @@ function buildPackIndex(remoteConfig, remoteDir) {
     return uuidToPackInfo;
 }
 
-function buildRemoteEntryIndex(remoteConfig) {
-    const remotePaths = remoteConfig.paths || {};
-    const remoteUuids = remoteConfig.uuids || [];
+function buildRemoteEntryIndex(gameAssetsConfig) {
+    const gameAssetsPaths = gameAssetsConfig.paths || {};
+    const gameAssetsUuids = gameAssetsConfig.uuids || [];
     const entriesByUuid = new Map();
-    for (const [key, value] of Object.entries(remotePaths)) {
+    for (const [key, value] of Object.entries(gameAssetsPaths)) {
         const oldIndex = Number(key);
-        const uuid = remoteUuids[oldIndex];
+        const uuid = gameAssetsUuids[oldIndex];
         if (!uuid || !Array.isArray(value) || !value[0]) continue;
         entriesByUuid.set(uuid, {
             oldIndex,
@@ -172,9 +172,9 @@ function buildRemoteEntryIndex(remoteConfig) {
     return entriesByUuid;
 }
 
-function readImportArtifactData(remoteDir, compressedUuid, uuidToPackInfo) {
+function readImportArtifactData(gameAssetsDir, compressedUuid, uuidToPackInfo) {
     const decoded = decodeUuid(compressedUuid);
-    const standalonePath = path.join(remoteDir, 'import', decoded.slice(0, 2), `${decoded}.json`);
+    const standalonePath = path.join(gameAssetsDir, 'import', decoded.slice(0, 2), `${decoded}.json`);
     if (fs.existsSync(standalonePath)) {
         return JSON.parse(fs.readFileSync(standalonePath, 'utf8'));
     }
@@ -198,25 +198,25 @@ function collectReferencedUuids(value, knownUuids, out) {
     }
 }
 
-function expandPrefabDependencyEntries(remoteDir, remoteConfig, selectedEntriesByUuid, remoteEntriesByUuid, uuidToPackInfo) {
-    const knownUuids = new Set(remoteConfig.uuids || []);
+function expandPrefabDependencyEntries(gameAssetsDir, gameAssetsConfig, selectedEntriesByUuid, gameAssetsEntriesByUuid, uuidToPackInfo) {
+    const knownUuids = new Set(gameAssetsConfig.uuids || []);
     const queue = [...selectedEntriesByUuid.values()]
-        .filter((entry) => getEntryTypeName(remoteConfig, entry) === 'cc.Prefab')
+        .filter((entry) => getEntryTypeName(gameAssetsConfig, entry) === 'cc.Prefab')
         .map((entry) => entry.uuid);
     const visited = new Set(queue);
 
     while (queue.length > 0) {
         const prefabUuid = queue.shift();
-        const prefabData = readImportArtifactData(remoteDir, prefabUuid, uuidToPackInfo);
+        const prefabData = readImportArtifactData(gameAssetsDir, prefabUuid, uuidToPackInfo);
         if (!prefabData) continue;
         const deps = new Set();
         collectReferencedUuids(prefabData, knownUuids, deps);
         for (const depUuid of deps) {
             if (!selectedEntriesByUuid.has(depUuid)) {
-                const depEntry = remoteEntriesByUuid.get(depUuid);
+                const depEntry = gameAssetsEntriesByUuid.get(depUuid);
                 if (depEntry) selectedEntriesByUuid.set(depUuid, depEntry);
             }
-            if (!visited.has(depUuid) && getEntryTypeName(remoteConfig, remoteEntriesByUuid.get(depUuid)) === 'cc.Prefab') {
+            if (!visited.has(depUuid) && getEntryTypeName(gameAssetsConfig, gameAssetsEntriesByUuid.get(depUuid)) === 'cc.Prefab') {
                 visited.add(depUuid);
                 queue.push(depUuid);
             }
@@ -224,30 +224,30 @@ function expandPrefabDependencyEntries(remoteDir, remoteConfig, selectedEntriesB
     }
 }
 
-function shouldReplaceDuplicateEntry(remoteConfig, currentEntry, nextEntry) {
+function shouldReplaceDuplicateEntry(gameAssetsConfig, currentEntry, nextEntry) {
     if (!currentEntry) return true;
     if (currentEntry.oldPath !== nextEntry.oldPath) return false;
     return false;
 }
 
 function extractBootstrapBundle(buildPath) {
-    const remoteDir = path.join(buildPath, 'assets', REMOTE_BUNDLE_NAME);
-    if (!fs.existsSync(remoteDir)) {
-        throw new Error(`未找到 remote bundle: ${remoteDir}`);
+    const gameAssetsDir = path.join(buildPath, 'assets', GAME_ASSETS_BUNDLE_NAME);
+    if (!fs.existsSync(gameAssetsDir)) {
+        throw new Error(`未找到 gameAssets bundle: ${gameAssetsDir}`);
     }
 
-    const remoteConfigPath = path.join(remoteDir, 'config.json');
-    const remoteIndexPath = path.join(remoteDir, 'index.js');
-    if (!fs.existsSync(remoteConfigPath) || !fs.existsSync(remoteIndexPath)) {
-        throw new Error(`remote bundle 不完整: ${remoteDir}`);
+    const gameAssetsConfigPath = path.join(gameAssetsDir, 'config.json');
+    const remoteIndexPath = path.join(gameAssetsDir, 'index.js');
+    if (!fs.existsSync(gameAssetsConfigPath) || !fs.existsSync(remoteIndexPath)) {
+        throw new Error(`gameAssets bundle 不完整: ${gameAssetsDir}`);
     }
 
-    const remoteConfig = JSON.parse(fs.readFileSync(remoteConfigPath, 'utf8'));
-    const remoteUuids = remoteConfig.uuids || [];
-    const remoteEntriesByUuid = buildRemoteEntryIndex(remoteConfig);
+    const gameAssetsConfig = JSON.parse(fs.readFileSync(gameAssetsConfigPath, 'utf8'));
+    const gameAssetsUuids = gameAssetsConfig.uuids || [];
+    const gameAssetsEntriesByUuid = buildRemoteEntryIndex(gameAssetsConfig);
 
     const selectedEntries = [];
-    for (const [, entry] of remoteEntriesByUuid) {
+    for (const [, entry] of gameAssetsEntriesByUuid) {
         const targetPath = BOOTSTRAP_PATH_MAP.get(entry.oldPath);
         if (!targetPath) continue;
         selectedEntries.push({
@@ -260,12 +260,12 @@ function extractBootstrapBundle(buildPath) {
     }
     selectedEntries.sort((a, b) => a.oldIndex - b.oldIndex);
 
-    // 去重：remote config.json 中可能存在同一路径的多条索引。
-    // bean atlas 现在由 BootstrapBundle/Beans 源码真源直接参与构建，不再从 RemoteBundle 抽取。
+    // 去重：gameAssets config.json 中可能存在同一路径的多条索引。
+    // bean atlas 现在由 BootstrapBundle/Beans 源码真源直接参与构建，不再从 GameAssetsBundle 抽取。
     const uniqueEntriesMap = new Map();
     for (const entry of selectedEntries) {
         const current = uniqueEntriesMap.get(entry.oldPath);
-        if (!current || shouldReplaceDuplicateEntry(remoteConfig, current, entry)) {
+        if (!current || shouldReplaceDuplicateEntry(gameAssetsConfig, current, entry)) {
             uniqueEntriesMap.set(entry.oldPath, entry);
         }
     }
@@ -286,8 +286,8 @@ function extractBootstrapBundle(buildPath) {
     fs.rmSync(targetDir, { recursive: true, force: true });
     ensureDir(targetDir);
 
-    const uuidToPackInfo = buildPackIndex(remoteConfig, remoteDir);
-    expandPrefabDependencyEntries(remoteDir, remoteConfig, selectedEntriesByUuid, remoteEntriesByUuid, uuidToPackInfo);
+    const uuidToPackInfo = buildPackIndex(gameAssetsConfig, gameAssetsDir);
+    expandPrefabDependencyEntries(gameAssetsDir, gameAssetsConfig, selectedEntriesByUuid, gameAssetsEntriesByUuid, uuidToPackInfo);
     const expandedEntries = [...selectedEntriesByUuid.values()].sort((a, b) => a.oldIndex - b.oldIndex);
 
     const bootstrapConfig = {
@@ -301,11 +301,11 @@ function extractBootstrapBundle(buildPath) {
         packs: {},
         versions: { import: [], native: [] },
         redirect: [],
-        debug: !!remoteConfig.debug,
+        debug: !!gameAssetsConfig.debug,
         extensionMap: {},
         hasPreloadScript: true,
         dependencyRelationships: {},
-        types: remoteConfig.types || [],
+        types: gameAssetsConfig.types || [],
     };
 
     const copiedImportUuids = new Set();
@@ -320,7 +320,7 @@ function extractBootstrapBundle(buildPath) {
         }
 
         if (!copiedImportUuids.has(entry.uuid)) {
-            if (copyImportArtifact(remoteDir, targetDir, entry.uuid)) {
+            if (copyImportArtifact(gameAssetsDir, targetDir, entry.uuid)) {
                 copiedImportUuids.add(entry.uuid);
             } else {
                 const packInfo = uuidToPackInfo.get(entry.uuid);
@@ -337,8 +337,8 @@ function extractBootstrapBundle(buildPath) {
                 }
             }
         }
-        if (requiresNativeArtifact(remoteConfig, entry) && !copiedNativeUuids.has(entry.uuid)) {
-            copyNativeArtifact(remoteDir, targetDir, entry.uuid);
+        if (requiresNativeArtifact(gameAssetsConfig, entry) && !copiedNativeUuids.has(entry.uuid)) {
+            copyNativeArtifact(gameAssetsDir, targetDir, entry.uuid);
             copiedNativeUuids.add(entry.uuid);
         }
     });

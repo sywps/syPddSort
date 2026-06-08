@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const projectDir = path.resolve(__dirname, '..');
-const sourceLevelDir = path.join(projectDir, 'assets', 'RemoteBundle', 'LevelData');
+const sourceLevelDir = path.join(projectDir, 'assets', 'LevelData');
 const outputDir = path.resolve(process.argv[2] || path.join(projectDir, 'build', 'level-data-cdn'));
 const packSize = Math.max(1, Math.floor(Number(process.env.PDD_LEVEL_PACK_SIZE || 100) || 100));
 
@@ -115,7 +115,7 @@ function buildOutput() {
         schemaVersion: 1,
         minClientBuild: 1,
         generatedAt: new Date().toISOString(),
-        source: 'assets/RemoteBundle/LevelData',
+        source: 'assets/LevelData',
         packSize,
         levelCount: levels.length,
         packs,

@@ -8,10 +8,10 @@ const DEFAULT_URL = process.env.WECHAT_PREVIEW_URL || 'http://localhost:53981/';
 const DEFAULT_OUT_DIR = path.resolve(__dirname, '..', 'temp', 'wechat-preview-smoke');
 const FATAL_LOG_PATTERNS = [
     /\[ERROR\]/i,
-    /Please load bundle remote first/i,
-    /remote_bundle_missing_after_preload/i,
-    /remote_bean_assets_failed/i,
-    /remote_bean_assets_missing/i,
+    /Please load bundle gameAssets first/i,
+    /gameAssets_bundle_missing_after_preload/i,
+    /gameAssets_bean_assets_failed/i,
+    /gameAssets_bean_assets_missing/i,
     /Unhandled/i,
     /ReferenceError/i,
     /TypeError/i,

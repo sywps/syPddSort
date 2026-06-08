@@ -106,7 +106,7 @@ export function installEndgameHintModule(target: any): void {
 
             const loadFromBundle = (bundle: any) => {
                 if (!bundle) {
-                    this.warnEndgameHintLoadFailure('remote bundle unavailable');
+                    this.warnEndgameHintLoadFailure('gameAssets bundle unavailable');
                     finish(null);
                     return;
                 }
@@ -120,17 +120,17 @@ export function installEndgameHintModule(target: any): void {
                 });
             };
 
-            if (this.remoteBundle) {
-                loadFromBundle(this.remoteBundle);
+            if (this.gameAssetsBundle) {
+                loadFromBundle(this.gameAssetsBundle);
                 return;
             }
-            assetManager.loadBundle('remote', (err, bundle) => {
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
                 if (err || !bundle) {
-                    this.warnEndgameHintLoadFailure(err?.message || 'remote bundle unavailable');
+                    this.warnEndgameHintLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     finish(null);
                     return;
                 }
-                this.remoteBundle = bundle;
+                this.gameAssetsBundle = bundle;
                 loadFromBundle(bundle);
             });
         },
@@ -166,17 +166,17 @@ export function installEndgameHintModule(target: any): void {
                 }
                 this._loadEffectsAtlasFromBundle(bundle, () => onDone(this.getEndgameHintStarFrames()));
             };
-            if (this.remoteBundle) {
-                loadFromBundle(this.remoteBundle);
+            if (this.gameAssetsBundle) {
+                loadFromBundle(this.gameAssetsBundle);
                 return;
             }
-            assetManager.loadBundle('remote', (err, bundle) => {
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
                 if (err || !bundle) {
-                    this.warnEndgameHintLoadFailure(err?.message || 'remote bundle unavailable');
+                    this.warnEndgameHintLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     onDone([]);
                     return;
                 }
-                this.remoteBundle = bundle;
+                this.gameAssetsBundle = bundle;
                 loadFromBundle(bundle);
             });
         },

@@ -59,7 +59,7 @@ export class PreviewController extends GameRuntimeHost {
         const overlayTemplates = overlayRoot.getChildByName('OverlayTemplates');
         startupLoadingUi.active = false;
         if (overlayTemplates) {
-            this.hidePreviewOverlayTemplate(overlayTemplates, 'RemoteLoadFatalError');
+            this.hidePreviewOverlayTemplate(overlayTemplates, 'LevelDataLoadFatalError');
         }
         runtime._loadingOverlay = null;
         runtime._loadingClosing = false;

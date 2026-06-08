@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const projectDir = path.resolve(__dirname, '..');
-const levelDir = path.join(projectDir, 'assets', 'RemoteBundle', 'LevelData');
+const levelDir = path.join(projectDir, 'assets', 'LevelData');
 const manifestPath = path.join(levelDir, 'level-manifest.json');
 const manifestMetaPath = manifestPath + '.meta';
 

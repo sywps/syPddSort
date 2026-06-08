@@ -4,7 +4,7 @@ Deprecated legacy helper for the removed single-bean PNG workflow.
 
 Current runtime bean art is packed in assets/BootstrapBundle/Beans/bean-atlas.png
 with frame metadata in bean-atlas-data.json. Do not regenerate the old per-bean
-RemoteBundle directories.
+GameAssetsBundle directories.
 """
 
 import os

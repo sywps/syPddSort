@@ -4,7 +4,7 @@ const path = require('path');
 const { decodeUuid } = require('./decode-uuid');
 
 const CDN_BASE = 'https://hsyq.zhejing.tech/diamond_flow/wx82f62749252c81a1/26040802/remote/json';
-const OUTPUT_DIR = path.join(__dirname, '..', 'assets', 'RemoteBundle', 'LevelData');
+const OUTPUT_DIR = path.join(__dirname, '..', 'assets', 'LevelData');
 
 function fetch(url) {
   return new Promise((resolve, reject) => {
