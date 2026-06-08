@@ -27,3 +27,4 @@ build-preview/
 tools/__pycache__/
 tmp
 AGENTS.md
+.creator/
