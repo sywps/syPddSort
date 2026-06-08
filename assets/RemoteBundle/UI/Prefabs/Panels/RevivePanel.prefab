@@ -1420,7 +1420,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -59.314,
-      "y": -0.246,
+      "y": 6.964,
       "z": 0
     },
     "_lrot": {
@@ -1460,8 +1460,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 114.73828125,
-      "height": 58.4
+      "width": 141.4228515625,
+      "height": 134
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1499,10 +1499,10 @@
     "_string": "180秒",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 40,
-    "_fontSize": 40,
+    "_actualFontSize": 50,
+    "_fontSize": 50,
     "_fontFamily": "Arial",
-    "_lineHeight": 40,
+    "_lineHeight": 100,
     "_overflow": 0,
     "_enableWrapText": true,
     "_font": null,
@@ -1567,7 +1567,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 413.359375,
+      "width": 446.69921875,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -1603,7 +1603,7 @@
       "b": 175,
       "a": 255
     },
-    "_string": "加时            并继续游戏",
+    "_string": "加时               并继续游戏",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 40,
