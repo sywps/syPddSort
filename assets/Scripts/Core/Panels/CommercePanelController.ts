@@ -14,12 +14,9 @@ import {
     Node,
     Prefab,
     Sprite,
-    Tween,
-    UIOpacity,
     UITransform,
     Vec3,
     instantiate,
-    tween,
 } from '../GameCtrlShared';
 import type { DailySignInReward } from '../GameCtrlShared';
 
@@ -195,50 +192,31 @@ export class CommercePanelController {
         const status = runtime.getDailySignInStatus();
         const rewards = ECONOMY_NUMERIC_TABLE.dailySignIn.rewards;
 
-        const syncDailyRewardCard = (card: Node, reward: DailySignInReward, index: number, cardState: 'available' | 'claimed' | 'locked') => {
-            (card.getComponent(UITransform) || card.addComponent(UITransform)).setContentSize(124, 170);
-            const cardBody = runtime.requirePanelChild(card, 'CardBody');
-            const cardBodySprite = cardBody.getComponent(Sprite);
-            if (!cardBodySprite) throw new Error('[daily-signin-prefab] missing Sprite component on CardBody');
-            cardBody.setPosition(0, 0, 0);
-            const cardOpacity = cardBody.getComponent(UIOpacity) || cardBody.addComponent(UIOpacity);
-            cardBodySprite.color = cardState === 'claimed' ? new Color('#E9E1D5') : new Color('#FFF8EE');
-            cardOpacity.opacity = cardState === 'claimed' ? 214 : (cardState === 'locked' ? 238 : 255);
-            const dayTag = runtime.requirePanelChild(card, 'DayTag');
-            dayTag.setPosition(0, 64, 0);
-            const dayTagLabelNode = runtime.requirePanelChild(dayTag, 'DayTagLabel');
-            const dayTagLabel = dayTagLabelNode.getComponent(Label);
-            if (!dayTagLabel) throw new Error('[daily-signin-prefab] missing Label component on DayTag/DayTagLabel');
-            (dayTagLabelNode.getComponent(UITransform) || dayTagLabelNode.addComponent(UITransform)).setContentSize(80, 24);
-            dayTagLabel.string = `登录${index + 1}天`;
-            dayTagLabel.fontSize = 15;
-            dayTagLabel.lineHeight = 24;
-            dayTagLabel.color = cardState === 'locked' ? new Color('#A69480') : new Color('#8B5C34');
-            const goldIconNode = runtime.requirePanelChild(card, 'GoldIcon');
-            goldIconNode.setPosition(0, 12, 0);
-            (goldIconNode.getComponent(UITransform) || goldIconNode.addComponent(UITransform)).setContentSize(42, 44);
+        const formatDailyExtraReward = (reward: DailySignInReward): string => {
+            const rewardProps = reward as DailySignInReward & { wand?: number; brush?: number; magnet?: number };
+            if (rewardProps.wand && rewardProps.wand > 0) return `魔法棒x${rewardProps.wand}`;
+            if (rewardProps.brush && rewardProps.brush > 0) return `刷子x${rewardProps.brush}`;
+            if (rewardProps.magnet && rewardProps.magnet > 0) return `磁铁x${rewardProps.magnet}`;
+            return '';
+        };
+
+        const formatDailyRewardSummary = (reward: DailySignInReward): string => {
+            const parts: string[] = [];
+            if (reward.gold && reward.gold > 0) parts.push(`金币x${reward.gold}`);
+            const extraReward = formatDailyExtraReward(reward);
+            if (extraReward) parts.push(extraReward);
+            return parts.join('、');
+        };
+
+        const syncDailyRewardCard = (card: Node, reward: DailySignInReward, cardState: 'available' | 'claimed' | 'locked') => {
             const goldTextNode = runtime.requirePanelChild(card, 'GoldText');
             const goldTextLabel = goldTextNode.getComponent(Label);
             if (!goldTextLabel) throw new Error('[daily-signin-prefab] missing Label component on GoldText');
-            goldTextLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-            goldTextLabel.verticalAlign = Label.VerticalAlign.CENTER;
-            goldTextLabel.enableWrapText = true;
-            goldTextLabel.overflow = Label.Overflow.SHRINK;
-            goldTextLabel.color = cardState === 'claimed' ? new Color('#8E745B') : new Color('#6A4A10');
-            let extraReward = '';
-            if (reward.wand && reward.wand > 0) extraReward = `魔法棒x${reward.wand}`;
-            else if (reward.brush && reward.brush > 0) extraReward = `刷子x${reward.brush}`;
-            else if (reward.magnet && reward.magnet > 0) extraReward = `磁铁x${reward.magnet}`;
-            goldTextNode.setPosition(0, extraReward ? -30 : -36, 0);
-            (goldTextNode.getComponent(UITransform) || goldTextNode.addComponent(UITransform)).setContentSize(extraReward ? 96 : 92, extraReward ? 34 : 36);
-            goldTextLabel.fontSize = extraReward ? 12 : 15;
-            goldTextLabel.lineHeight = extraReward ? 15 : 20;
-            goldTextLabel.string = extraReward ? `+${reward.gold}\n${extraReward}` : `+${reward.gold}`;
+            const goldReward = reward.gold && reward.gold > 0 ? `x${reward.gold}` : '';
+            const extraReward = formatDailyExtraReward(reward);
+            goldTextLabel.string = [goldReward, extraReward].filter(Boolean).join('\n');
             const claimedBadge = runtime.requirePanelChild(card, 'ClaimedBadge');
             claimedBadge.active = cardState === 'claimed';
-            if (claimedBadge.active) {
-                claimedBadge.setPosition(34, -54, 0);
-            }
         };
 
         const failOpen = (message: string, overlay?: Node | null) => {
@@ -270,8 +248,6 @@ export class CommercePanelController {
 
                     const box = runtime.requirePanelChild(overlay, 'Box');
                     syncPrefabPopupTitle(box, '签到');
-                    const gridPlate = box.getChildByName('GridPlate');
-                    if (gridPlate) gridPlate.active = false;
                     if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
                     overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
                         const boxUT = box.getComponent(UITransform);
@@ -290,37 +266,21 @@ export class CommercePanelController {
                         const card = runtime.requirePanelChild(gridRoot, `PreviewCard${i}`);
                         card.active = true;
                         const cardState = status.canClaim && i === status.nextClaimIndex ? 'available' : i < status.displayClaimedCount ? 'claimed' : 'locked';
-                        syncDailyRewardCard(card, reward, i, cardState);
+                        syncDailyRewardCard(card, reward, cardState);
                     }
 
                     const previewRewardIndex = status.canClaim ? status.nextClaimIndex : Math.max(0, Math.min(status.displayClaimedCount, rewards.length - 1));
-                    const rewardLines = runtime.buildDailySignInRewardText(rewards[previewRewardIndex] || rewards[0]);
-                    const rewardFrame = runtime.requirePanelChild(box, 'RewardFrame');
-                    runtime.requirePanelChild(box, 'RewardLabel').active = false;
+                    const previewReward = rewards[previewRewardIndex] || rewards[0];
                     const rewardTextAnchor = runtime.requirePanelChild(box, 'RewardTextAnchor');
                     rewardTextAnchor.active = true;
-                    rewardTextAnchor.setPosition(0, -174, 0);
-                    (rewardTextAnchor.getComponent(UITransform) || rewardTextAnchor.addComponent(UITransform)).setContentSize(360, 32);
                     const rewardTextLabel = rewardTextAnchor.getComponent(Label);
                     if (!rewardTextLabel) throw new Error('[daily-signin-prefab] missing RewardTextAnchor label');
-                    rewardTextLabel.string = `今日奖励： ${rewardLines.join('、')}`;
-                    rewardTextLabel.fontSize = 21;
-                    rewardTextLabel.lineHeight = 32;
-                    rewardTextLabel.color = new Color('#8B5C34');
-                    rewardTextLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                    rewardTextLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                    rewardTextLabel.overflow = Label.Overflow.SHRINK;
-                    rewardTextLabel.enableWrapText = false;
-                    rewardFrame.setSiblingIndex(box.children.length - 2);
-                    rewardTextAnchor.setSiblingIndex(box.children.length - 1);
-                    runtime.fillPanelAnchorLabel(runtime.requirePanelChild(box, 'TipAnchor'), 'DailySignInTip', '连续签到可解锁更高奖励，断签将从第一天重新开始', 15, new Color('#594230'), 420, 24, Label.HorizontalAlign.CENTER);
+                    rewardTextLabel.string = formatDailyRewardSummary(previewReward);
 
                     const claimButton = runtime.requirePanelChild(box, 'ClaimButton');
                     const claimButtonText = runtime.requirePanelChild(claimButton, 'ClaimButtonText');
                     const claimButtonLabel = claimButtonText.getComponent(Label);
                     if (!claimButtonLabel) throw new Error('[daily-signin-prefab] missing Label component on ClaimButton/ClaimButtonText');
-                    claimButton.setScale(1, 1, 1);
-                    Tween.stopAllByTarget(claimButton);
                     claimButtonLabel.string = status.canClaim ? '签到领取' : '今日已领取';
                     runtime.bindPanelButton(claimButton, () => {
                         AudioMgr.inst.play('button');
@@ -335,9 +295,6 @@ export class CommercePanelController {
                         runtime.showDailySignInRewardReceipt(reward);
                         runtime.showToast(`签到成功，获得${rewardSummary}`, 2);
                     });
-                    if (status.canClaim) {
-                        tween(claimButton).repeatForever(tween(claimButton).to(0.9, { scale: new Vec3(1.03, 1.03, 1) }, { easing: 'sineInOut' }).to(0.9, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })).start();
-                    }
                 } catch (error: any) {
                     failOpen(error?.message || '[daily-signin-prefab] build failed', overlay);
                 }

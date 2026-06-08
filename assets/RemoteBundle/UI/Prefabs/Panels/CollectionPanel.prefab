@@ -342,7 +342,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 298,
+      "x": 290.492,
       "y": 472,
       "z": 0
     },
@@ -383,8 +383,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 56,
-      "height": 56
+      "width": 65,
+      "height": 65
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8272,7 +8272,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 455.5,
+      "y": 471.989,
       "z": 0
     },
     "_lrot": {
@@ -8363,7 +8363,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 358,
-      "height": 42
+      "height": 70
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -8401,17 +8401,17 @@
     "_string": "图鉴",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 32,
-    "_fontSize": 32,
+    "_actualFontSize": 45,
+    "_fontSize": 45,
     "_fontFamily": "Arial",
-    "_lineHeight": 42,
+    "_lineHeight": 45,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
     "_isItalic": false,
-    "_isBold": false,
+    "_isBold": true,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
@@ -8471,7 +8471,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 430,
+      "width": 200,
       "height": 82
     },
     "_anchorPoint": {

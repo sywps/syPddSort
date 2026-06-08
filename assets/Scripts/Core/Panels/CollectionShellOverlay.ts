@@ -43,6 +43,17 @@ function syncPrefabPopupTitle(box: Node, title?: string): void {
     if (hasTitle) label.string = title!;
 }
 
+function resolveShellActionNode(runtime: any, overlay: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
+    const existing = overlay.getChildByName(name);
+    if (existing) {
+        return existing;
+    }
+    if (typeof runtime.getOrCreateCollectionShellActionNode === 'function') {
+        return runtime.getOrCreateCollectionShellActionNode(overlay, name);
+    }
+    throw new Error(`[collection-shell] missing node: ${name}`);
+}
+
 export function openCollectionShellOverlay(runtime: any, options: CollectionShellOverlayOptions) {
     const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
     if (popupRoot.getChildByName(options.overlayName)) {
@@ -76,8 +87,8 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             }
             const content = runtime.requirePanelChild(box, 'CollContent');
             const pageIndicator = runtime.requirePanelChild(box, 'PageIndicator');
-            const leftArrow = runtime.requirePanelChild(overlay, 'ArrowLeft');
-            const rightArrow = runtime.requirePanelChild(overlay, 'ArrowRight');
+            const leftArrow = resolveShellActionNode(runtime, overlay, 'ArrowLeft');
+            const rightArrow = resolveShellActionNode(runtime, overlay, 'ArrowRight');
             const close = () => {
                 if (!overlay.isValid) return;
                 AudioMgr.inst.play('uiPanel');
