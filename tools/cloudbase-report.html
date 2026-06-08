@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拼豆豆 - 数据日报看板</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #2a251f;
+    background:
+        radial-gradient(circle at top left, rgba(255, 214, 153, .35), transparent 24%),
+        radial-gradient(circle at top right, rgba(140, 178, 255, .22), transparent 22%),
+        linear-gradient(180deg, #fbf5ea 0%, #f5efe5 100%);
+    min-height: 100vh;
+}
+.page {
+    width: min(1480px, calc(100vw - 32px));
+    margin: 0 auto;
+    padding: 28px 0 40px;
+}
+.hero {
+    background: linear-gradient(135deg, #4b6a9a, #2e4e7a 52%, #19324f);
+    color: #fff;
+    border-radius: 24px;
+    padding: 26px 28px 24px;
+    box-shadow: 0 18px 48px rgba(34, 50, 82, .25);
+    position: sticky;
+    top: 12px;
+    z-index: 30;
+}
+.hero-top {
+    display: flex;
+    gap: 18px;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.hero-title h1 {
+    font-size: 30px;
+    letter-spacing: .5px;
+    margin-bottom: 8px;
+}
+.hero-title p {
+    font-size: 14px;
+    line-height: 1.6;
+    opacity: .9;
+    max-width: 680px;
+}
+.hero-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.hero-controls input,
+.hero-controls select,
+.hero-controls button {
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 0 12px;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    font-size: 14px;
+}
+.hero-controls select option { color: #2a251f; }
+.hero-controls button {
+    cursor: pointer;
+    background: linear-gradient(135deg, #f5be62, #eb9e36);
+    border: none;
+    color: #34230c;
+    font-weight: 700;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
+}
+.hero-controls button.secondary {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.24);
+    font-weight: 600;
+}
+.hero-meta {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.pill {
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+.grid {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+}
+.card {
+    background: rgba(255,255,255,.88);
+    border: 1px solid rgba(191, 174, 152, .22);
+    border-radius: 20px;
+    box-shadow: 0 10px 26px rgba(93, 74, 48, .08);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+.card-header {
+    padding: 18px 20px 12px;
+    border-bottom: 1px solid rgba(218, 206, 191, .48);
+}
+.card-title {
+    font-size: 18px;
+    font-weight: 700;
+}
+.card-subtitle {
+    font-size: 12px;
+    color: #7f7367;
+    margin-top: 6px;
+    line-height: 1.6;
+}
+.card-body { padding: 18px 20px 20px; }
+.span-3 { grid-column: span 3; }
+.span-4 { grid-column: span 4; }
+.span-5 { grid-column: span 5; }
+.span-6 { grid-column: span 6; }
+.span-7 { grid-column: span 7; }
+.span-8 { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.metric {
+    background: linear-gradient(180deg, rgba(250,245,238,.92), rgba(245,237,226,.84));
+    border-radius: 16px;
+    padding: 16px 16px 14px;
+    border: 1px solid rgba(214, 196, 176, .4);
+}
+.metric-label {
+    font-size: 12px;
+    color: #7d746b;
+    margin-bottom: 8px;
+}
+.metric-value {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    color: #2e3f66;
+}
+.metric-footnote {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #8e857a;
+}
+.section-list {
+    display: grid;
+    gap: 10px;
+}
+.list-row {
+    background: #fbf8f2;
+    border: 1px solid rgba(219, 206, 191, .52);
+    border-radius: 14px;
+    padding: 12px 14px;
+}
+.list-row strong {
+    color: #354b72;
+}
+.bar-list {
+    display: grid;
+    gap: 10px;
+}
+.bar-item { display: grid; gap: 6px; }
+.bar-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    color: #5a5048;
+}
+.bar-track {
+    width: 100%;
+    height: 10px;
+    background: #ece3d7;
+    border-radius: 999px;
+    overflow: hidden;
+}
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #efb14f, #d56d3a);
+}
+.bar-fill.cool {
+    background: linear-gradient(90deg, #69b2dc, #3f6cb4);
+}
+.bar-fill.good {
+    background: linear-gradient(90deg, #70bf79, #3e9e57);
+}
+.two-col {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+.table-wrap {
+    overflow-x: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(217, 205, 191, .52);
+    background: #fffdfa;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+}
+th, td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(226, 216, 204, .75);
+    font-size: 13px;
+}
+th {
+    background: #f5efe6;
+    color: #695b4f;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+td strong { color: #31486e; }
+.empty, .loading, .error {
+    padding: 34px 20px;
+    text-align: center;
+    color: #8e8377;
+    font-size: 15px;
+    line-height: 1.8;
+}
+.error { color: #b14f47; }
+.link-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.link-row a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #eef3fb;
+    color: #315588;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+}
+.summary-callout {
+    border-radius: 16px;
+    padding: 16px;
+    background: linear-gradient(180deg, #f8f1e1, #f6ead1);
+    border: 1px solid rgba(220, 187, 122, .42);
+    display: grid;
+    gap: 8px;
+}
+.summary-callout p {
+    font-size: 13px;
+    color: #5f4b2d;
+    line-height: 1.65;
+}
+.insight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.insight-box {
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(215, 201, 180, .48);
+    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,241,233,.88));
+}
+.insight-box h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #384f75;
+}
+.insight-box ul {
+    display: grid;
+    gap: 8px;
+    padding-left: 18px;
+}
+.insight-box li {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #5c5248;
+}
+.trend-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.trend-card {
+    border-radius: 16px;
+    padding: 14px;
+    background: linear-gradient(180deg, rgba(250,246,239,.98), rgba(242,235,225,.9));
+    border: 1px solid rgba(218, 205, 190, .5);
+}
+.trend-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+.trend-name {
+    font-size: 13px;
+    color: #7d746b;
+}
+.trend-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #2f456d;
+    line-height: 1.05;
+}
+.trend-delta {
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+.trend-delta.up {
+    color: #2f8f50;
+    background: rgba(108, 192, 130, .16);
+}
+.trend-delta.down {
+    color: #b14f47;
+    background: rgba(217, 105, 93, .14);
+}
+.trend-delta.flat {
+    color: #876d3c;
+    background: rgba(220, 187, 122, .16);
+}
+.trend-svg {
+    width: 100%;
+    height: 100px;
+    display: block;
+}
+.trend-axis {
+    font-size: 10px;
+    fill: #8d8379;
+}
+.trend-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #8e8377;
+}
+@media (max-width: 1100px) {
+    .span-3, .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .two-col { grid-template-columns: 1fr; }
+    .trend-grid, .insight-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+    .page { width: min(100vw - 18px, 1480px); }
+    .hero { padding: 20px 18px; }
+    .hero-title h1 { font-size: 24px; }
+    .metrics { grid-template-columns: 1fr; }
+    .metric-value { font-size: 26px; }
+    .trend-grid, .insight-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+    <section class="hero">
+        <div class="hero-top">
+            <div class="hero-title">
+                <h1>拼豆豆数据日报看板</h1>
+                <p>把 `user_behavior`、`level_record`、`ad_stat`、`daily_stat` 四张表的产物汇总成一个本地网页，看漏斗、关卡卡点、广告转化和日核心指标会更直观。</p>
+            </div>
+            <div class="hero-controls">
+                <select id="dateSelect"></select>
+                <input id="dateInput" type="date">
+                <button id="loadBtn" type="button">加载日报</button>
+                <button id="latestBtn" class="secondary" type="button">最新一天</button>
+            </div>
+        </div>
+        <div class="hero-meta">
+            <div class="pill" id="heroDate">日期：-</div>
+            <div class="pill" id="heroEnv">环境：-</div>
+            <div class="pill" id="heroPath">目录：artifacts/cloudbase-daily-report</div>
+        </div>
+    </section>
+
+    <div id="content" class="grid">
+        <div class="card span-12">
+            <div class="loading">正在查找可用日报...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const REPORT_ROOT = '../artifacts/cloudbase-daily-report';
+
+const state = {
+    availableDates: [],
+    latestDate: '',
+    currentDate: '',
+    summary: null,
+    trendSummaries: [],
+};
+
+function qs(id) {
+    return document.getElementById(id);
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function pctFromRatio(value, digits = 1) {
+    return `${((Number(value) || 0) * 100).toFixed(digits)}%`;
+}
+
+function pctRaw(value, digits = 1) {
+    return `${(Number(value) || 0).toFixed(digits)}%`;
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat('zh-CN').format(Number(value) || 0);
+}
+
+function formatSeconds(value) {
+    const seconds = Number(value) || 0;
+    if (seconds < 60) return `${seconds.toFixed(0)}s`;
+    return `${(seconds / 60).toFixed(1)}m`;
+}
+
+function getCollectionSummary(summary, name) {
+    return summary?.collections?.[name]?.summary || null;
+}
+
+function getEffectiveDailyCore(summary) {
+    if (summary?.effectiveDailyCore) {
+        return summary.effectiveDailyCore;
+    }
+
+    const dailyStat = getCollectionSummary(summary, 'daily_stat');
+    if (dailyStat && Number(dailyStat.totalRecords) > 0) {
+        return {
+            source: 'daily_stat',
+            isFallback: false,
+            ...dailyStat.latest,
+        };
+    }
+
+    const behavior = getCollectionSummary(summary, 'user_behavior');
+    if (behavior) {
+        return {
+            source: 'user_behavior_fallback',
+            isFallback: true,
+            date: summary?.date || '',
+            dau: Number(behavior.uniqueUsers) || 0,
+            newUser: null,
+            totalPlay: Number(behavior?.eventCounts?.game_start) || 0,
+            retain1: null,
+            retain3: null,
+            retain7: null,
+        };
+    }
+
+    return {
+        source: 'empty',
+        isFallback: true,
+        date: summary?.date || '',
+        dau: 0,
+        newUser: null,
+        totalPlay: 0,
+        retain1: null,
+        retain3: null,
+        retain7: null,
+    };
+}
+
+function getEffectiveAdStat(summary) {
+    if (summary?.effectiveAdStat) {
+        return summary.effectiveAdStat;
+    }
+
+    const adStat = getCollectionSummary(summary, 'ad_stat');
+    if (adStat && Number(adStat.totalRecords) > 0) {
+        return {
+            source: 'ad_stat',
+            isFallback: false,
+            ...adStat,
+        };
+    }
+
+    const behavior = getCollectionSummary(summary, 'user_behavior');
+    const totalShowNum = Number(behavior?.eventCounts?.ad_show) || 0;
+    const totalClickNum = Number(behavior?.eventCounts?.ad_click) || 0;
+    const totalFinishNum = Number(behavior?.eventCounts?.ad_finish) || 0;
+    const clickRate = totalShowNum ? totalClickNum / totalShowNum : 0;
+    const finishRate = totalShowNum ? totalFinishNum / totalShowNum : 0;
+    const finishPerClickRate = totalClickNum ? totalFinishNum / totalClickNum : 0;
+    const breakdownRows = Array.isArray(behavior?.adEventBreakdown) ? behavior.adEventBreakdown : [];
+    const aggregateRow = {
+        adType: 'user_behavior_fallback',
+        page: 'all',
+        label: '全部广告位',
+        date: summary?.date || '',
+        showNum: totalShowNum,
+        clickNum: totalClickNum,
+        finishNum: totalFinishNum,
+        userNum: Number(behavior?.adUsers) || 0,
+        clickRate,
+        finishRate,
+        finishPerClickRate,
+    };
+
+    return {
+        source: 'user_behavior_fallback',
+        isFallback: true,
+        date: summary?.date || '',
+        totalRecords: totalShowNum > 0 ? 1 : 0,
+        adTypeCount: totalShowNum > 0 ? 1 : 0,
+        totalShowNum,
+        totalClickNum,
+        totalFinishNum,
+        totalUserNum: Number(behavior?.adUsers) || 0,
+        clickRate,
+        finishRate,
+        finishPerClickRate,
+        topByShow: breakdownRows.length ? breakdownRows : (totalShowNum > 0 ? [aggregateRow] : []),
+        weakFinishRate: breakdownRows.length
+            ? [...breakdownRows]
+                .filter((row) => Number(row.showNum) > 0)
+                .sort((a, b) => {
+                    if (a.finishRate !== b.finishRate) return a.finishRate - b.finishRate;
+                    return b.showNum - a.showNum;
+                })
+                .slice(0, 10)
+            : (totalShowNum > 0 ? [aggregateRow] : []),
+    };
+}
+
+function basenameOfPath(value) {
+    if (!value) return '';
+    const normalized = String(value).replace(/\\/g, '/');
+    const parts = normalized.split('/');
+    return parts[parts.length - 1] || '';
+}
+
+function buildBehaviorExportUrl(summary) {
+    const fileName = basenameOfPath(summary?.collections?.user_behavior?.exportInfo?.localPath);
+    if (!fileName) return '';
+    return `${REPORT_ROOT}/${summary.date}/user_behavior/${fileName}`;
+}
+
+function buildAdBreakdownFromRecords(records, summary) {
+    const stats = new Map();
+
+    for (const record of records) {
+        const eventName = record?.eventName || '';
+        if (!['ad_show', 'ad_click', 'ad_finish'].includes(eventName)) continue;
+        const adType = typeof record?.adType === 'string' && record.adType.trim() ? record.adType.trim() : 'unknown';
+        const page = typeof record?.page === 'string' && record.page.trim() ? record.page.trim() : 'unknown';
+        const label = page && page !== 'unknown'
+            ? (adType.includes(`:${page}`) ? page : `${adType} · ${page}`)
+            : adType;
+        const key = `${adType}|${page}`;
+        if (!stats.has(key)) {
+            stats.set(key, {
+                adType,
+                page,
+                label,
+                showNum: 0,
+                clickNum: 0,
+                finishNum: 0,
+                userSet: new Set(),
+            });
+        }
+        const item = stats.get(key);
+        if (eventName === 'ad_show') item.showNum += 1;
+        if (eventName === 'ad_click') item.clickNum += 1;
+        if (eventName === 'ad_finish') item.finishNum += 1;
+        if (record?.openid) item.userSet.add(record.openid);
+    }
+
+    const rows = [...stats.values()].map((item) => ({
+        adType: item.adType,
+        page: item.page,
+        label: item.label,
+        showNum: item.showNum,
+        clickNum: item.clickNum,
+        finishNum: item.finishNum,
+        userNum: item.userSet.size,
+        clickRate: item.showNum ? Number((item.clickNum / item.showNum).toFixed(4)) : 0,
+        finishRate: item.showNum ? Number((item.finishNum / item.showNum).toFixed(4)) : 0,
+        finishPerClickRate: item.clickNum ? Number((item.finishNum / item.clickNum).toFixed(4)) : 0,
+    })).sort((a, b) => {
+        if (b.showNum !== a.showNum) return b.showNum - a.showNum;
+        return String(a.label).localeCompare(String(b.label), 'zh-CN');
+    });
+
+    const totalShowNum = rows.reduce((sum, row) => sum + Number(row.showNum || 0), 0);
+    const totalClickNum = rows.reduce((sum, row) => sum + Number(row.clickNum || 0), 0);
+    const totalFinishNum = rows.reduce((sum, row) => sum + Number(row.finishNum || 0), 0);
+    const totalUserNum = rows.reduce((sum, row) => sum + Number(row.userNum || 0), 0);
+
+    summary.effectiveAdStat = {
+        source: 'user_behavior_detail_fallback',
+        isFallback: true,
+        date: summary?.date || '',
+        totalRecords: rows.length,
+        adTypeCount: rows.length,
+        totalShowNum,
+        totalClickNum,
+        totalFinishNum,
+        totalUserNum,
+        clickRate: totalShowNum ? Number((totalClickNum / totalShowNum).toFixed(4)) : 0,
+        finishRate: totalShowNum ? Number((totalFinishNum / totalShowNum).toFixed(4)) : 0,
+        finishPerClickRate: totalClickNum ? Number((totalFinishNum / totalClickNum).toFixed(4)) : 0,
+        topByShow: rows,
+        weakFinishRate: [...rows]
+            .filter((row) => Number(row.showNum) > 0)
+            .sort((a, b) => {
+                if (a.finishRate !== b.finishRate) return a.finishRate - b.finishRate;
+                return b.showNum - a.showNum;
+            })
+            .slice(0, 10),
+    };
+}
+
+function getAdDisplayLabel(row) {
+    if (row && typeof row.label === 'string' && row.label.trim()) {
+        return row.label.trim();
+    }
+    if (row && typeof row.page === 'string' && row.page.trim() && row.page !== 'all') {
+        return row.page.trim();
+    }
+    if (row && typeof row.adType === 'string' && row.adType.trim()) {
+        return row.adType.trim();
+    }
+    return 'unknown';
+}
+
+async function enrichAdFallbackFromBehavior(summary) {
+    const adStat = getEffectiveAdStat(summary);
+    if (!adStat?.isFallback) {
+        return;
+    }
+    if (Array.isArray(adStat.topByShow) && adStat.topByShow.length > 1) {
+        return;
+    }
+
+    const exportUrl = buildBehaviorExportUrl(summary);
+    if (!exportUrl) {
+        return;
+    }
+
+    try {
+        const response = await fetch(exportUrl, { cache: 'no-store' });
+        if (!response.ok) {
+            return;
+        }
+        const text = await response.text();
+        const records = text
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .map((line) => JSON.parse(line));
+        buildAdBreakdownFromRecords(records, summary);
+    } catch (_) {
+        // Keep aggregate fallback if raw behavior fetch fails.
+    }
+}
+
+function formatSignedPercent(delta, digits = 1) {
+    const value = Number(delta) || 0;
+    const prefix = value > 0 ? '+' : '';
+    return `${prefix}${value.toFixed(digits)}%`;
+}
+
+function formatSignedNumber(delta, digits = 0) {
+    const value = Number(delta) || 0;
+    const prefix = value > 0 ? '+' : '';
+    return `${prefix}${value.toFixed(digits)}`;
+}
+
+function getParamDate() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('date') || '';
+}
+
+function setParamDate(date) {
+    const params = new URLSearchParams(window.location.search);
+    if (date) {
+        params.set('date', date);
+    } else {
+        params.delete('date');
+    }
+    const next = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', next);
+}
+
+function renderLoading(message) {
+    qs('content').innerHTML = `
+        <div class="card span-12">
+            <div class="loading">${escapeHtml(message)}</div>
+        </div>
+    `;
+}
+
+function renderError(message) {
+    qs('content').innerHTML = `
+        <div class="card span-12">
+            <div class="error">${escapeHtml(message)}</div>
+        </div>
+    `;
+}
+
+function renderMetricCard(label, value, footnote) {
+    return `
+        <div class="metric">
+            <div class="metric-label">${escapeHtml(label)}</div>
+            <div class="metric-value">${escapeHtml(value)}</div>
+            <div class="metric-footnote">${escapeHtml(footnote || '')}</div>
+        </div>
+    `;
+}
+
+function renderBulletList(items) {
+    if (!items || !items.length) {
+        return '<div class="empty">还没有足够的数据来生成这一段。</div>';
+    }
+    return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+}
+
+function buildTrendSvg(points, color) {
+    if (!points.length) {
+        return '<div class="empty">暂无趋势数据。</div>';
+    }
+
+    const width = 320;
+    const height = 100;
+    const padX = 8;
+    const padTop = 10;
+    const padBottom = 18;
+    const values = points.map((point) => Number(point.value) || 0);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const spread = max - min || 1;
+
+    const path = points.map((point, index) => {
+        const x = padX + (points.length === 1 ? width / 2 : ((width - padX * 2) * index) / (points.length - 1));
+        const y = padTop + ((max - (Number(point.value) || 0)) / spread) * (height - padTop - padBottom);
+        return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).join(' ');
+
+    const circles = points.map((point, index) => {
+        const x = padX + (points.length === 1 ? width / 2 : ((width - padX * 2) * index) / (points.length - 1));
+        const y = padTop + ((max - (Number(point.value) || 0)) / spread) * (height - padTop - padBottom);
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${color}" stroke="#fff" stroke-width="1.5"></circle>`;
+    }).join('');
+
+    const baselineY = height - padBottom;
+    return `
+        <svg class="trend-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="${padX}" y1="${baselineY}" x2="${width - padX}" y2="${baselineY}" stroke="rgba(164,150,132,.34)" stroke-width="1"></line>
+            <path d="${path}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+            ${circles}
+            <text x="${padX}" y="${height - 2}" class="trend-axis">${escapeHtml(points[0].date.slice(5))}</text>
+            <text x="${width - padX}" y="${height - 2}" text-anchor="end" class="trend-axis">${escapeHtml(points[points.length - 1].date.slice(5))}</text>
+        </svg>
+    `;
+}
+
+function renderTrendCard({ title, value, deltaText, deltaClass, subtitle, points, color }) {
+    return `
+        <div class="trend-card">
+            <div class="trend-top">
+                <div>
+                    <div class="trend-name">${escapeHtml(title)}</div>
+                    <div class="trend-value">${escapeHtml(value)}</div>
+                    <div class="metric-footnote">${escapeHtml(subtitle || '')}</div>
+                </div>
+                <div class="trend-delta ${deltaClass}">${escapeHtml(deltaText)}</div>
+            </div>
+            ${buildTrendSvg(points, color)}
+            <div class="trend-labels">
+                <span>最近 ${points.length} 天</span>
+                <span>${escapeHtml(points[points.length - 1]?.date || '')}</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderBarList(items, valueKey, labelBuilder, valueBuilder, tone = '') {
+    if (!items || !items.length) {
+        return '<div class="empty">这部分今天还没有数据。</div>';
+    }
+    const max = Math.max(...items.map((item) => Number(item[valueKey]) || 0), 1);
+    return `
+        <div class="bar-list">
+            ${items.map((item) => {
+                const value = Number(item[valueKey]) || 0;
+                const width = Math.max(6, (value / max) * 100);
+                return `
+                    <div class="bar-item">
+                        <div class="bar-meta">
+                            <span>${labelBuilder(item)}</span>
+                            <strong>${valueBuilder(item)}</strong>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill ${tone}" style="width:${width}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function renderIssueRows(items) {
+    if (!items || !items.length) {
+        return '<div class="empty">还没有识别到明显卡点。</div>';
+    }
+    return `
+        <div class="section-list">
+            ${items.map((row) => `
+                <div class="list-row">
+                    <strong>第 ${escapeHtml(row.levelId)} 关</strong>
+                    进入 UV ${formatNumber(row.enterUv || row.recordCount)}
+                    ，通过率 ${row.uvPassRate != null ? pctFromRatio(row.uvPassRate) : pctFromRatio(row.passRate)}
+                    ${row.failPv != null ? `，失败 PV ${formatNumber(row.failPv)}` : `，平均尝试 ${Number(row.avgTryCount || 0).toFixed(2)} 次`}
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderTable(headers, rows) {
+    if (!rows || !rows.length) {
+        return '<div class="empty">暂无表格数据。</div>';
+    }
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function buildTrendSeries(summaries) {
+    return summaries.map((summary) => {
+        const behavior = getCollectionSummary(summary, 'user_behavior');
+        const levelRecord = getCollectionSummary(summary, 'level_record');
+        const adStat = getEffectiveAdStat(summary);
+        const dailyCore = getEffectiveDailyCore(summary);
+        return {
+            date: summary.date,
+            dau: Number(dailyCore?.dau) || 0,
+            newUser: Number(dailyCore?.newUser) || 0,
+            totalPlay: Number(dailyCore?.totalPlay) || 0,
+            levelOnePassRate: Number(behavior?.levelOneUvPassRate) || 0,
+            adFinishRate: Number(adStat?.finishRate) || 0,
+            avgTryCount: Number(levelRecord?.avgTryCount) || 0,
+            retain1: Number(dailyCore?.retain1) || 0,
+            dailyCoreSource: dailyCore?.source || 'empty',
+            dailyCoreFallback: !!dailyCore?.isFallback,
+            adSource: adStat?.source || 'empty',
+            adFallback: !!adStat?.isFallback,
+        };
+    });
+}
+
+function classifyDelta(current, previous, higherIsBetter = true) {
+    const currentValue = Number(current) || 0;
+    const previousValue = Number(previous) || 0;
+    const delta = currentValue - previousValue;
+    if (Math.abs(delta) < 0.0001) {
+        return { delta, state: 'flat' };
+    }
+    const positiveState = higherIsBetter ? 'up' : 'down';
+    const negativeState = higherIsBetter ? 'down' : 'up';
+    return { delta, state: delta > 0 ? positiveState : negativeState };
+}
+
+function buildOpsInsights(summary, trendSummaries) {
+    const behavior = getCollectionSummary(summary, 'user_behavior');
+    const levelRecord = getCollectionSummary(summary, 'level_record');
+    const adStat = getEffectiveAdStat(summary);
+    const dailyCore = getEffectiveDailyCore(summary);
+    const trendSeries = buildTrendSeries(trendSummaries);
+    const current = trendSeries[trendSeries.length - 1] || {};
+    const previous = trendSeries.length > 1 ? trendSeries[trendSeries.length - 2] : null;
+
+    const highlights = [];
+    const risks = [];
+    const actions = [];
+
+    if (previous) {
+        const dauDelta = current.dau - previous.dau;
+        highlights.push(`DAU ${formatSignedNumber(dauDelta)}，当前 ${formatNumber(current.dau)}。`);
+        highlights.push(`首关通过率较昨日 ${formatSignedPercent((current.levelOnePassRate - previous.levelOnePassRate) * 100)}，当前 ${pctFromRatio(current.levelOnePassRate)}。`);
+        highlights.push(`广告完成率较昨日 ${formatSignedPercent((current.adFinishRate - previous.adFinishRate) * 100)}，当前 ${pctFromRatio(current.adFinishRate)}。`);
+    } else {
+        highlights.push('这是当前目录下第一份可用日报，今天先把它当作基线。');
+    }
+
+    if (behavior?.lowPassLevels?.length) {
+        const top = behavior.lowPassLevels[0];
+        risks.push(`主线最明显卡点仍在 L${top.levelId}，UV 通过率只有 ${pctFromRatio(top.uvPassRate)}。`);
+    }
+    if (levelRecord?.topRetryLevels?.length) {
+        const retry = levelRecord.topRetryLevels[0];
+        risks.push(`L${retry.levelId} 平均尝试 ${Number(retry.avgTryCount || 0).toFixed(2)} 次，说明这关体验成本偏高。`);
+    }
+    if (adStat?.weakFinishRate?.length) {
+        const weak = adStat.weakFinishRate[0];
+        risks.push(`${getAdDisplayLabel(weak)} 广告完成率只有 ${pctFromRatio(weak.finishRate)}，适合回看触发时机和文案。`);
+    }
+    if (adStat?.isFallback) {
+        risks.push('ad_stat 当天为空，当前广告完成率由 user_behavior 事件回推，建议补查广告汇总任务。');
+    }
+    if (dailyCore?.retain1 != null) {
+        risks.push(`次留当前 ${pctRaw(dailyCore.retain1)}，建议结合首关通过率一起看新手质量。`);
+    }
+    if (dailyCore?.isFallback) {
+        risks.push('daily_stat 当天为空，当前 DAU 与总局数由 user_behavior 回推，建议补查定时汇总任务。');
+    }
+
+    if (behavior?.lowPassLevels?.length) {
+        const focus = behavior.lowPassLevels.slice(0, 3).map((row) => `L${row.levelId}`).join('、');
+        actions.push(`今天优先复盘 ${focus} 的难度和引导，先处理进入人数高的早期关卡。`);
+    }
+    if (levelRecord?.topRetryLevels?.length) {
+        actions.push('把高重试关卡的目标形状、颜色组合和容错逻辑单独拉出来做关卡复盘。');
+    }
+    if (adStat?.weakFinishRate?.length) {
+        actions.push('把完成率最低的广告位先减压，避免在早期体验节点叠加用户反感。');
+    }
+    if (previous && current.dau < previous.dau && current.levelOnePassRate < previous.levelOnePassRate) {
+        actions.push('DAU 和首关通过率同时回落，优先排查投放质量变化、首关改动和性能波动。');
+    }
+
+    return { highlights, risks, actions };
+}
+
+function renderContent(summary, trendSummaries) {
+    const collections = summary.collections || {};
+    const behavior = collections.user_behavior?.summary || null;
+    const levelRecord = collections.level_record?.summary || null;
+    const adStat = getEffectiveAdStat(summary);
+    const dailyStat = collections.daily_stat?.summary || null;
+    const latestDaily = getEffectiveDailyCore(summary);
+    const trendSeries = buildTrendSeries(trendSummaries);
+    const currentTrend = trendSeries[trendSeries.length - 1] || {};
+    const previousTrend = trendSeries.length > 1 ? trendSeries[trendSeries.length - 2] : null;
+    const insights = buildOpsInsights(summary, trendSummaries);
+    const dailySourceFootnote = latestDaily.isFallback
+        ? '当前由 user_behavior 回推，说明 daily_stat 当天为空'
+        : `新增 ${formatNumber(latestDaily.newUser)} 人`;
+
+    qs('heroDate').textContent = `日期：${summary.date || '-'}`;
+    qs('heroEnv').textContent = `环境：${summary.envId || '-'}`;
+
+    const heroMetrics = [
+        renderMetricCard('DAU', formatNumber(latestDaily.dau), dailySourceFootnote),
+        renderMetricCard('首关通过率', behavior ? pctFromRatio(behavior.levelOneUvPassRate) : '-', behavior ? `进入 ${formatNumber(behavior.levelOneEnterUv)} 人` : ''),
+        renderMetricCard('广告完成率', adStat ? pctFromRatio(adStat.finishRate) : '-', adStat ? (adStat.isFallback ? `由行为事件回推，曝光 ${formatNumber(adStat.totalShowNum)}` : `曝光 ${formatNumber(adStat.totalShowNum)}`) : ''),
+        renderMetricCard('平均尝试次数', levelRecord ? Number(levelRecord.avgTryCount || 0).toFixed(2) : '-', levelRecord ? `平均时长 ${formatSeconds(levelRecord.avgDurationSeconds)}` : ''),
+    ].join('');
+
+    const behaviorTable = behavior ? renderTable(
+        ['关卡', '进入UV', '通过UV', '失败UV', 'UV通过率', '失败PV'],
+        (behavior.lowPassLevels || []).map((row) => [
+            `<strong>L${escapeHtml(row.levelId)}</strong>`,
+            formatNumber(row.enterUv),
+            formatNumber(row.passUv),
+            formatNumber(row.failUv),
+            pctFromRatio(row.uvPassRate),
+            formatNumber(row.failPv),
+        ]),
+    ) : '<div class="empty">还没有 user_behavior 数据。</div>';
+
+    const levelRecordTable = levelRecord ? renderTable(
+        ['关卡', '记录数', '通过率', '平均尝试', '广告续关', '平均时长'],
+        (levelRecord.topRetryLevels || []).map((row) => [
+            `<strong>L${escapeHtml(row.levelId)}</strong>`,
+            formatNumber(row.recordCount),
+            pctFromRatio(row.passRate),
+            Number(row.avgTryCount || 0).toFixed(2),
+            formatNumber(row.adReviveCount),
+            formatSeconds(row.avgDurationSeconds),
+        ]),
+    ) : '<div class="empty">还没有 level_record 数据。</div>';
+
+    const adTable = adStat ? renderTable(
+        ['广告位', '曝光', '点击', '完成', '点击率', '完成率'],
+        (adStat.topByShow || []).map((row) => [
+            `<strong>${escapeHtml(getAdDisplayLabel(row))}</strong>`,
+            formatNumber(row.showNum),
+            formatNumber(row.clickNum),
+            formatNumber(row.finishNum),
+            pctFromRatio(row.clickRate),
+            pctFromRatio(row.finishRate),
+        ]),
+    ) : '<div class="empty">还没有 ad_stat 数据。</div>';
+
+    const dailyTable = dailyStat ? renderTable(
+        ['日期', 'DAU', '新增', '总局数', '次留', '3留', '7留'],
+        (dailyStat.rows || []).map((row) => [
+            `<strong>${escapeHtml(row.date)}</strong>`,
+            formatNumber(row.dau),
+            formatNumber(row.newUser),
+            formatNumber(row.totalPlay),
+            pctRaw(row.retain1),
+            pctRaw(row.retain3),
+            pctRaw(row.retain7),
+        ]),
+    ) : '<div class="empty">还没有 daily_stat 数据。</div>';
+
+    const trendCards = trendSeries.length
+        ? [
+            {
+                title: 'DAU',
+                value: formatNumber(currentTrend.dau),
+                delta: previousTrend ? classifyDelta(currentTrend.dau, previousTrend.dau, true) : { state: 'flat', delta: 0 },
+                subtitle: currentTrend.dailyCoreFallback ? '由 user_behavior 回推' : `新增 ${formatNumber(currentTrend.newUser)} 人`,
+                points: trendSeries.map((item) => ({ date: item.date, value: item.dau })),
+                color: '#3f6cb4',
+                deltaFormatter: (delta) => formatSignedNumber(delta, 0),
+            },
+            {
+                title: '首关通过率',
+                value: pctFromRatio(currentTrend.levelOnePassRate),
+                delta: previousTrend ? classifyDelta(currentTrend.levelOnePassRate, previousTrend.levelOnePassRate, true) : { state: 'flat', delta: 0 },
+                subtitle: '越高说明新手链路越顺',
+                points: trendSeries.map((item) => ({ date: item.date, value: item.levelOnePassRate * 100 })),
+                color: '#d98542',
+                deltaFormatter: (delta) => formatSignedPercent(delta * 100),
+            },
+            {
+                title: '广告完成率',
+                value: pctFromRatio(currentTrend.adFinishRate),
+                delta: previousTrend ? classifyDelta(currentTrend.adFinishRate, previousTrend.adFinishRate, true) : { state: 'flat', delta: 0 },
+                subtitle: currentTrend.adFallback ? '由 user_behavior 回推' : '看奖励广告承接是否顺',
+                points: trendSeries.map((item) => ({ date: item.date, value: item.adFinishRate * 100 })),
+                color: '#47a96e',
+                deltaFormatter: (delta) => formatSignedPercent(delta * 100),
+            },
+            {
+                title: '平均尝试次数',
+                value: Number(currentTrend.avgTryCount || 0).toFixed(2),
+                delta: previousTrend ? classifyDelta(currentTrend.avgTryCount, previousTrend.avgTryCount, false) : { state: 'flat', delta: 0 },
+                subtitle: '越低通常代表推进更顺',
+                points: trendSeries.map((item) => ({ date: item.date, value: item.avgTryCount })),
+                color: '#8c61c8',
+                deltaFormatter: (delta) => formatSignedNumber(delta, 2),
+            },
+        ].map((item) => renderTrendCard({
+            title: item.title,
+            value: item.value,
+            deltaText: previousTrend ? item.deltaFormatter(item.delta.delta) : '基线',
+            deltaClass: item.delta.state,
+            subtitle: item.subtitle,
+            points: item.points,
+            color: item.color,
+        })).join('')
+        : '<div class="empty">需要至少 1 份日报才能显示趋势。</div>';
+
+    qs('content').innerHTML = `
+        <section class="card span-12">
+            <div class="card-body">
+                <div class="metrics">${heroMetrics}</div>
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">最近 7 天趋势</div>
+                <div class="card-subtitle">用最近几天的 combined_summary.json 自动拼出关键指标走势，适合先判断是“今天单点异常”还是“连续走坏”。</div>
+            </div>
+            <div class="card-body">
+                <div class="trend-grid">${trendCards}</div>
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">自动运营结论</div>
+                <div class="card-subtitle">根据今天数据和上一天对比，自动整理亮点、风险和建议动作，方便你直接当晨会底稿。</div>
+            </div>
+            <div class="card-body">
+                <div class="insight-grid">
+                    <div class="insight-box">
+                        <h3>今天亮点</h3>
+                        ${renderBulletList(insights.highlights)}
+                    </div>
+                    <div class="insight-box">
+                        <h3>风险信号</h3>
+                        ${renderBulletList(insights.risks)}
+                    </div>
+                    <div class="insight-box">
+                        <h3>建议动作</h3>
+                        ${renderBulletList(insights.actions)}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">快捷文件入口</div>
+                <div class="card-subtitle">原始 JSON、各表 Markdown 报告、CSV 明细都能从这里直接点开。</div>
+            </div>
+            <div class="card-body">
+                <div class="link-row">
+                    ${collections.user_behavior?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/user_behavior/report.md">user_behavior 报告</a>` : ''}
+                    ${collections.level_record?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/level_record/report.md">level_record 报告</a>` : ''}
+                    ${collections.ad_stat?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/ad_stat/report.md">ad_stat 报告</a>` : ''}
+                    ${collections.daily_stat?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/daily_stat/report.md">daily_stat 报告</a>` : ''}
+                    <a href="${REPORT_ROOT}/${summary.date}/combined_summary.json">combined_summary.json</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="card span-6">
+            <div class="card-header">
+                <div class="card-title">主线卡点</div>
+                <div class="card-subtitle">来自 user_behavior，优先看低通过率且进入人数还不低的关卡。</div>
+            </div>
+            <div class="card-body">
+                ${renderIssueRows(behavior?.lowPassLevels || [])}
+            </div>
+        </section>
+
+        <section class="card span-6">
+            <div class="card-header">
+                <div class="card-title">广告位表现</div>
+                <div class="card-subtitle">${adStat?.isFallback ? 'ad_stat 当天为空，当前广告完成率由 user_behavior 事件回推。' : '来自 ad_stat，先看曝光最高，再看完成率最弱。'}</div>
+            </div>
+            <div class="card-body two-col">
+                <div>
+                    <div class="card-subtitle" style="margin-bottom:10px;">曝光最高</div>
+                    ${renderBarList(
+                        adStat?.topByShow?.slice(0, 5) || [],
+                        'showNum',
+                        (row) => escapeHtml(getAdDisplayLabel(row)),
+                        (row) => `曝光 ${formatNumber(row.showNum)}`,
+                        'cool',
+                    )}
+                </div>
+                <div>
+                    <div class="card-subtitle" style="margin-bottom:10px;">完成率最弱</div>
+                    ${renderBarList(
+                        adStat?.weakFinishRate?.slice(0, 5) || [],
+                        'finishRate',
+                        (row) => escapeHtml(getAdDisplayLabel(row)),
+                        (row) => pctFromRatio(row.finishRate),
+                    )}
+                </div>
+            </div>
+        </section>
+
+        <section class="card span-6">
+            <div class="card-header">
+                <div class="card-title">高重试关卡</div>
+                <div class="card-subtitle">来自 level_record，适合判断“关卡太绕”还是“操作容错低”。</div>
+            </div>
+            <div class="card-body">
+                ${renderBarList(
+                    levelRecord?.topRetryLevels?.slice(0, 6) || [],
+                    'avgTryCount',
+                    (row) => `L${escapeHtml(row.levelId)} · ${formatNumber(row.recordCount)}条记录`,
+                    (row) => `${Number(row.avgTryCount || 0).toFixed(2)} 次`,
+                    'good',
+                )}
+            </div>
+        </section>
+
+        <section class="card span-6">
+            <div class="card-header">
+                <div class="card-title">日核心指标</div>
+                <div class="card-subtitle">${latestDaily.isFallback ? 'daily_stat 当天为空，当前改用 user_behavior 回推 DAU/总局数。' : '来自 daily_stat，适合每天先扫一眼健康度。'}</div>
+            </div>
+            <div class="card-body">
+                <div class="metrics" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+                    ${renderMetricCard('DAU', formatNumber(latestDaily.dau), `总局数 ${formatNumber(latestDaily.totalPlay)}`)}
+                    ${renderMetricCard('新增用户', latestDaily.newUser == null ? 'N/A' : formatNumber(latestDaily.newUser), latestDaily.retain1 == null ? '次留 N/A' : `次留 ${pctRaw(latestDaily.retain1)}`)}
+                    ${renderMetricCard('3日留存', latestDaily.retain3 == null ? 'N/A' : pctRaw(latestDaily.retain3), '')}
+                    ${renderMetricCard('7日留存', latestDaily.retain7 == null ? 'N/A' : pctRaw(latestDaily.retain7), '')}
+                </div>
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">详细表格</div>
+                <div class="card-subtitle">如果想直接盯数字，这里把四块关键表都展开了。</div>
+            </div>
+            <div class="card-body">
+                <div class="two-col">
+                    <div>
+                        <div class="card-subtitle" style="margin-bottom:10px;">主线卡点表</div>
+                        ${behaviorTable}
+                    </div>
+                    <div>
+                        <div class="card-subtitle" style="margin-bottom:10px;">高重试关卡表</div>
+                        ${levelRecordTable}
+                    </div>
+                    <div>
+                        <div class="card-subtitle" style="margin-bottom:10px;">广告表现表</div>
+                        ${adTable}
+                    </div>
+                    <div>
+                        <div class="card-subtitle" style="margin-bottom:10px;">日核心表</div>
+                        ${dailyTable}
+                    </div>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+async function fetchJson(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+        throw new Error(`请求失败: ${response.status} ${response.statusText}`);
+    }
+    return await response.json();
+}
+
+function populateDateControls() {
+    const select = qs('dateSelect');
+    const input = qs('dateInput');
+    select.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = state.availableDates.length ? '选择已跑出的日期' : '暂无已跑出日期';
+    select.appendChild(placeholder);
+
+    for (const date of [...state.availableDates].reverse()) {
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = date;
+        if (date === state.currentDate) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    }
+
+    input.value = state.currentDate || '';
+}
+
+async function loadAvailableDates() {
+    const data = await fetchJson('/api/list-report-dates');
+    state.availableDates = Array.isArray(data.dates) ? data.dates : [];
+    state.latestDate = data.latestDate || '';
+}
+
+async function loadTrendSummaries(date) {
+    const currentIndex = state.availableDates.indexOf(date);
+    const dates = currentIndex >= 0
+        ? state.availableDates.slice(Math.max(0, currentIndex - 6), currentIndex + 1)
+        : [date];
+    const summaries = await Promise.all(
+        dates.map(async (itemDate) => {
+            try {
+                return await fetchJson(`${REPORT_ROOT}/${itemDate}/combined_summary.json`);
+            } catch (_) {
+                return null;
+            }
+        }),
+    );
+    return summaries.filter(Boolean);
+}
+
+async function loadReport(date) {
+    if (!date) {
+        renderError('先选择一个日报日期。');
+        return;
+    }
+    state.currentDate = date;
+    populateDateControls();
+    setParamDate(date);
+    renderLoading(`正在加载 ${date} 的 combined_summary.json ...`);
+
+    const summaryUrl = `${REPORT_ROOT}/${date}/combined_summary.json`;
+    try {
+        const [summary, trendSummaries] = await Promise.all([
+            fetchJson(summaryUrl),
+            loadTrendSummaries(date),
+        ]);
+        await enrichAdFallbackFromBehavior(summary);
+        state.summary = summary;
+        state.trendSummaries = trendSummaries;
+        renderContent(summary, trendSummaries);
+    } catch (error) {
+        renderError(`没找到 ${date} 的四表日报。请先执行 \`npm run analytics:daily:all -- --date ${date}\`，然后刷新页面。`);
+    }
+}
+
+function bindEvents() {
+    qs('loadBtn').addEventListener('click', () => {
+        const selectValue = qs('dateSelect').value;
+        const inputValue = qs('dateInput').value;
+        loadReport(inputValue || selectValue);
+    });
+
+    qs('latestBtn').addEventListener('click', () => {
+        if (state.latestDate) {
+            loadReport(state.latestDate);
+        }
+    });
+
+    qs('dateSelect').addEventListener('change', (event) => {
+        const value = event.target.value;
+        if (value) {
+            qs('dateInput').value = value;
+        }
+    });
+}
+
+async function init() {
+    bindEvents();
+    await loadAvailableDates();
+
+    const initialDate = getParamDate() || state.latestDate || '';
+    if (!initialDate) {
+        populateDateControls();
+        renderError('还没发现任何已生成的日报。先运行 `npm run analytics:daily:all`，再打开这个页面。');
+        return;
+    }
+
+    populateDateControls();
+    await loadReport(initialDate);
+}
+
+init().catch((error) => {
+    renderError(`初始化失败：${error.message}`);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Cocos Creator generated data
+build/
+library/
+temp/
+profiles/
+local/
+node_modules/
+artifacts/
+
+# Runtime resource bundle is intentionally replaced by BootstrapBundle/RemoteBundle
+assets/Resources/
+
+# Local OS/editor noise
+.DS_Store
+*.log
+
+# Codex local working notes and generated reports
+.planning/
+task_plan.md
+findings.md
+progress.md
+outputs/
+output/
+zhise
+build-preview/
+.playwright-cli/
+tools/__pycache__/
+tmp
+AGENTS.md

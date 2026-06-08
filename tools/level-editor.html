@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关卡编辑器 - PinDouDou</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #2c2c2c; color: #eee; display: flex; height: 100vh; overflow: hidden; }
+
+/* 左侧面板 */
+#left-panel { width: 220px; background: #383838; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex-shrink: 0; }
+#left-panel h3 { font-size: 14px; color: #aaa; text-transform: uppercase; margin-bottom: 4px; }
+.panel-section { border-bottom: 1px solid #555; padding-bottom: 12px; }
+
+/* 格子设置 */
+.grid-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.grid-settings label { font-size: 12px; color: #bbb; }
+.grid-settings input, .grid-settings select { width: 100%; padding: 4px 6px; border: 1px solid #555; border-radius: 4px; background: #444; color: #eee; font-size: 13px; }
+input[type=number] { width: 60px; }
+
+/* 颜色板 */
+.color-palette { display: flex; gap: 4px; flex-wrap: wrap; }
+.color-item { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 2px 6px 2px 2px; border-radius: 6px; border: 2px solid transparent; transition: border-color .15s; }
+.color-item:hover { border-color: #aaa; }
+.color-item.active { border-color: #fff; box-shadow: 0 0 6px rgba(255,255,255,.5); }
+.color-dot-btn { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; }
+.color-hex { font-size: 10px; color: #ccc; font-family: monospace; }
+.color-item.eraser .color-dot-btn { background: #fff; position: relative; }
+.color-item.eraser .color-dot-btn::after { content: '✕'; color: #333; font-size: 12px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+/* 对称模式 */
+.symmetry-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+.sym-btn { padding: 4px 8px; border: 1px solid #555; border-radius: 4px; background: #444; color: #eee; cursor: pointer; font-size: 12px; }
+.sym-btn:hover { background: #555; }
+.sym-btn.active { background: #6BAF7B; border-color: #6BAF7B; }
+
+/* 预设图案 */
+.preset-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.preset-btn { padding: 6px 4px; border: 1px solid #555; border-radius: 4px; background: #444; color: #eee; cursor: pointer; font-size: 11px; text-align: center; }
+.preset-btn:hover { background: #555; }
+
+/* 按钮 */
+.btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.btn-primary { background: #5B9BD5; color: #fff; }
+.btn-primary:hover { background: #5a8fc5; }
+.btn-success { background: #6BAF7B; color: #fff; }
+.btn-success:hover { background: #6bab7e; }
+.btn-warn { background: #D4564E; color: #fff; }
+.btn-warn:hover { background: #d76460; }
+.btn-row { display: flex; gap: 6px; }
+.btn-row .btn { flex: 1; }
+
+/* 中间画布 */
+#canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; overflow: auto; position: relative; }
+#board-container { position: relative; }
+#board-grid { display: inline-grid; gap: 1px; background: #555; padding: 1px; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+.cell { background: #3a3a3a; border-radius: 4px; cursor: pointer; transition: background .1s; display: flex; align-items: center; justify-content: center; }
+.cell:hover { background: #4a4a4a; }
+.cell.locked { background: var(--cell-color); box-shadow: inset 0 0 8px rgba(0,0,0,.3); }
+.cell.empty-valid { border: 1px dashed rgba(255,255,255,.15); }
+
+/* 右侧面板 */
+#right-panel { width: 320px; background: #383838; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex-shrink: 0; }
+#preview-canvas { background: #2a2a2a; border-radius: 8px; width: 100%; aspect-ratio: 1; object-fit: contain; }
+#game-preview-canvas { background: #F5EBDC; border-radius: 8px; width: 100%; aspect-ratio: 1; }
+#json-output { width: 100%; height: 120px; background: #222; color: #8f8; font-family: monospace; font-size: 11px; border: 1px solid #555; border-radius: 4px; padding: 6px; resize: vertical; }
+#image-input { display: none; }
+
+/* 提示 */
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; z-index: 999; animation: fadeIn .2s, fadeOut .5s 2s forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* 图片导入预览 */
+#import-preview { max-width: 200px; max-height: 200px; border: 1px solid #555; border-radius: 4px; display: none; margin-top: 6px; }
+.color-quantize-info { font-size: 11px; color: #888; margin-top: 4px; }
+
+/* MakeBead templates */
+#makebead-section { max-height: 300px; overflow: hidden; display: flex; flex-direction: column; }
+#makebead-filters { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 6px; }
+.mb-filter { padding: 2px 6px; border: 1px solid #555; border-radius: 3px; background: #444; color: #ccc; cursor: pointer; font-size: 10px; }
+.mb-filter.active { background: #6BAF7B; border-color: #6BAF7B; color: #fff; }
+#makebead-list { max-height: 240px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.mb-item { padding: 4px 6px; border: 1px solid #555; border-radius: 4px; background: #444; color: #eee; cursor: pointer; font-size: 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mb-item:hover { background: #555; }
+.mb-item.active { background: #5B9BD5; border-color: #5B9BD5; }
+
+/* Natural language input */
+#nl-section { background: #404040; border-radius: 8px; padding: 10px; margin-bottom: 4px; }
+#nl-section h3 { font-size: 13px; color: #aaa; margin-bottom: 6px; }
+#nl-input-row { display: flex; gap: 4px; }
+#nl-input { flex: 1; padding: 6px 8px; border: 1px solid #555; border-radius: 4px; background: #444; color: #eee; font-size: 12px; }
+#nl-input::placeholder { color: #777; }
+#nl-input:focus { outline: none; border-color: #5B9BD5; }
+#nl-send { padding: 6px 12px; border: none; border-radius: 4px; background: #5B9BD5; color: #fff; cursor: pointer; font-size: 13px; font-weight: 600; }
+#nl-send:hover { background: #5a8fc5; }
+#nl-log { max-height: 100px; overflow-y: auto; margin-top: 4px; font-size: 11px; color: #8f8; font-family: monospace; }
+#nl-log .nl-error { color: #D4564E; }
+#nl-log .nl-success { color: #6BAF7B; }
+#nl-examples { font-size: 10px; color: #777; margin-top: 4px; line-height: 1.6; }
+</style>
+<script src="makebead-templates.js"></script>
+</head>
+<body>
+
+<!-- 左侧面板 -->
+<div id="left-panel">
+  <h3>🎮 关卡编辑器</h3>
+
+  <div class="panel-section" id="nl-section">
+    <h3>💬 自然语言编辑</h3>
+    <div id="nl-input-row">
+      <input type="text" id="nl-input" placeholder="输入指令，如: 把第3行涂成红色">
+      <button id="nl-send" onclick="handleNLCommand()">发送</button>
+    </div>
+    <div id="nl-examples">
+      示例: 清空棋盘 | 填充红色 | 把第3行涂成蓝色<br>
+      把第2列涂成黄色 | 设置棋盘16x16 | 绘制心形<br>
+      交换红色和蓝色 | 翻转水平 | 随机打乱 | 加载第1关
+    </div>
+    <div id="nl-log"></div>
+  </div>
+
+  <div class="panel-section">
+    <h3>棋盘设置</h3>
+    <div class="grid-settings">
+      <label>宽: <input type="number" id="grid-w" value="8" min="3" max="32"></label>
+      <label>高: <input type="number" id="grid-h" value="8" min="3" max="32"></label>
+      <label>时间(s): <input type="number" id="time-limit" value="180" min="30" max="600"></label>
+      <label>槽位数: <input type="number" id="slot-count" value="12" min="6" max="36"></label>
+    </div>
+    <br>
+    <button class="btn btn-warn" onclick="resizeGrid()" style="width:100%">重置棋盘</button>
+  </div>
+
+  <div class="panel-section">
+    <h3>颜色选择</h3>
+    <div class="color-palette" id="color-palette"></div>
+  </div>
+
+  <div class="panel-section">
+    <h3>对称绘制</h3>
+    <div class="symmetry-btns" id="symmetry-btns">
+      <button class="sym-btn active" data-sym="none">无</button>
+      <button class="sym-btn" data-sym="h">左右</button>
+      <button class="sym-btn" data-sym="v">上下</button>
+      <button class="sym-btn" data-sym="both">四向</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <h3>预设图案</h3>
+    <div class="preset-btns" id="preset-btns"></div>
+  </div>
+
+  <div class="panel-section" id="makebead-section">
+    <h3>MakeBead 模板</h3>
+    <div id="makebead-filters"></div>
+    <div id="makebead-list"></div>
+  </div>
+
+  <div class="panel-section">
+    <h3>图片导入</h3>
+    <input type="file" id="image-input" accept="image/*">
+    <button class="btn btn-primary" onclick="document.getElementById('image-input').click()" style="width:100%">选择图片</button>
+    <canvas id="import-preview"></canvas>
+    <div class="color-quantize-info">图片将被量化为游戏颜色</div>
+  </div>
+
+  <div class="panel-section">
+    <div class="btn-row">
+      <button class="btn btn-warn" onclick="clearBoard()">清空</button>
+      <button class="btn btn-primary" onclick="fillAll()">填充</button>
+    </div>
+  </div>
+</div>
+
+<!-- 中间画布 -->
+<div id="canvas-area">
+  <div id="board-container">
+    <div id="board-grid"></div>
+  </div>
+</div>
+
+<!-- 右侧面板 -->
+<div id="right-panel">
+  <h3>色块预览</h3>
+  <canvas id="preview-canvas"></canvas>
+
+  <div class="panel-section">
+    <h3>🎮 游戏预览</h3>
+    <div class="btn-row" style="margin-bottom:6px">
+      <button class="btn btn-primary" onclick="drawGamePreview('correct')" style="flex:1">目标图案</button>
+      <button class="btn btn-warn" onclick="drawGamePreview('random')" style="flex:1">初始乱序</button>
+    </div>
+    <canvas id="game-preview-canvas"></canvas>
+  </div>
+
+  <div class="panel-section">
+    <h3>关卡编号</h3>
+    <div class="grid-settings">
+      <label>关卡ID: <input type="number" id="level-id" value="1" min="1"></label>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <h3>操作</h3>
+    <button class="btn btn-success" onclick="saveToServer()" style="width:100%;margin-bottom:6px">保存到关卡文件</button>
+    <button class="btn btn-primary" onclick="exportJSON()" style="width:100%;margin-bottom:6px">导出 JSON 文件</button>
+  </div>
+
+  <div class="panel-section">
+    <h3>JSON 输出</h3>
+    <textarea id="json-output" readonly></textarea>
+  </div>
+
+<script>
+// ==================== 颜色定义 (与游戏一致) ====================
+const COLORS = {
+    1: { name: '玫红', hex: '#ED5090', r: 237, g: 80, b: 144 },
+    2: { name: '亮青', hex: '#4EEAEA', r: 78, g: 234, b: 234 },
+    3: { name: '金', hex: '#F8C811', r: 248, g: 200, b: 17 },
+    4: { name: '橙', hex: '#FE8B10', r: 254, g: 139, b: 16 },
+    5: { name: '桃', hex: '#F4BD9E', r: 244, g: 189, b: 158 },
+    6: { name: '浅黄', hex: '#EBDEA6', r: 235, g: 222, b: 166 },
+    7: { name: '靛蓝', hex: '#4A4DCF', r: 74, g: 77, b: 207 },
+    8: { name: '紫', hex: '#7221BC', r: 114, g: 33, b: 188 },
+    9: { name: '绿', hex: '#9FCE21', r: 159, g: 206, b: 33 },
+    10: { name: '红', hex: '#EA281A', r: 234, g: 40, b: 26 },
+    11: { name: '青绿', hex: '#37A92D', r: 55, g: 169, b: 45 },
+    12: { name: '翠绿', hex: '#207955', r: 32, g: 121, b: 85 },
+    13: { name: '天蓝', hex: '#20A8DC', r: 32, g: 168, b: 220 },
+    14: { name: '粉', hex: '#EEB2BC', r: 238, g: 178, b: 188 },
+    15: { name: '浅紫', hex: '#C4BED9', r: 196, g: 190, b: 217 },
+    16: { name: '棕', hex: '#974714', r: 151, g: 71, b: 20 },
+    17: { name: '酒红', hex: '#782F3C', r: 120, g: 47, b: 60 },
+    18: { name: '藏青', hex: '#36387E', r: 54, g: 56, b: 126 },
+    19: { name: '深灰', hex: '#373737', r: 55, g: 55, b: 55 },
+    20: { name: '米白', hex: '#F2EDE4', r: 242, g: 237, b: 228 },
+};
+const COLOR_IDS = Object.keys(COLORS).map(Number);
+
+// ==================== 状态 ====================
+let gridW = 8, gridH = 8;
+let correctColorArr = [];  // [row][col]
+let initRandomColorArr = []; // 初始乱序 [row][col]
+let selectedColor = 1;     // 当前选中的颜色, 0=橡皮擦
+let symmetryMode = 'none'; // none, h, v, both
+let isMouseDown = false;
+let timeLimit = 180;
+let slotCount = 12;
+let currentLevelTargetType = 'main';
+
+function getLevelFilenameByType(levelId, targetType) {
+    return targetType === 'theme'
+        ? `zt_level_${levelId}.json`
+        : `level_${levelId}.json`;
+}
+
+// ==================== 初始化 ====================
+function init() {
+    buildColorPalette();
+    buildPresetButtons();
+    initGrid();
+    updateOutput();
+    bindEvents();
+}
+
+// ==================== 颜色板 ====================
+function buildColorPalette() {
+    const pal = document.getElementById('color-palette');
+    pal.innerHTML = '';
+    // 橡皮擦
+    const eraser = document.createElement('div');
+    eraser.className = 'color-item eraser' + (selectedColor === 0 ? ' active' : '');
+    eraser.title = '橡皮擦 (清除)';
+    eraser.innerHTML = '<div class="color-dot-btn"></div><span class="color-hex">擦除</span>';
+    eraser.onclick = () => selectColor(0);
+    pal.appendChild(eraser);
+    // 颜色按钮
+    for (const id of COLOR_IDS) {
+        const item = document.createElement('div');
+        item.className = 'color-item' + (selectedColor === id ? ' active' : '');
+        item.title = COLORS[id].name;
+        item.innerHTML = `<div class="color-dot-btn" style="background:${COLORS[id].hex}"></div><span class="color-hex">${COLORS[id].hex}</span>`;
+        item.onclick = () => selectColor(id);
+        pal.appendChild(item);
+    }
+}
+
+function selectColor(id) {
+    selectedColor = id;
+    const items = document.querySelectorAll('.color-item');
+    items.forEach(b => b.classList.remove('active'));
+    if (id === 0) items[0].classList.add('active');
+    else {
+        const idx = COLOR_IDS.indexOf(id);
+        if (idx >= 0) items[idx + 1].classList.add('active');
+    }
+}
+
+// ==================== 棋盘网格 ====================
+function initGrid() {
+    correctColorArr = [];
+    initRandomColorArr = [];
+    for (let r = 0; r < gridH; r++) {
+        correctColorArr[r] = [];
+        for (let c = 0; c < gridW; c++) {
+            correctColorArr[r][c] = 0;
+        }
+    }
+    renderGrid();
+}
+
+function getCellSize() {
+    const area = document.getElementById('canvas-area');
+    const maxW = area.clientWidth - 40;
+    const maxH = area.clientHeight - 40;
+    const s = Math.floor(Math.min(maxW / gridW, maxH / gridH, 48));
+    return Math.max(12, s);
+}
+
+function renderGrid() {
+    const grid = document.getElementById('board-grid');
+    const cellSize = getCellSize();
+    grid.style.gridTemplateColumns = `repeat(${gridW}, ${cellSize}px)`;
+    grid.innerHTML = '';
+    for (let r = 0; r < gridH; r++) {
+        for (let c = 0; c < gridW; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.style.width = cellSize + 'px';
+            cell.style.height = cellSize + 'px';
+            cell.dataset.r = r;
+            cell.dataset.c = c;
+            cell.onmousedown = (e) => { e.preventDefault(); isMouseDown = true; paintCell(r, c); };
+            cell.onmouseenter = () => { if (isMouseDown) paintCell(r, c); };
+            cell.oncontextmenu = (e) => { e.preventDefault(); paintCell(r, c, 0); };
+            updateCellAppearance(cell, r, c);
+            grid.appendChild(cell);
+        }
+    }
+}
+
+function updateCellAppearance(cell, r, c) {
+    const v = correctColorArr[r][c];
+    cell.className = 'cell';
+    cell.style.background = '';
+    if (v === 0) {
+        cell.classList.add('empty-valid');
+    } else {
+        cell.classList.add('locked');
+        cell.style.setProperty('--cell-color', COLORS[v].hex);
+        cell.style.background = COLORS[v].hex;
+    }
+}
+
+function paintCell(r, c, forcedColor) {
+    const color = forcedColor !== undefined ? forcedColor : selectedColor;
+    const symCells = getSymmetricCells(r, c);
+    for (const [sr, sc] of symCells) {
+        if (sr >= 0 && sr < gridH && sc >= 0 && sc < gridW) {
+            correctColorArr[sr][sc] = color;
+        }
+    }
+    refreshCells(symCells);
+    updateOutput();
+}
+
+function getSymmetricCells(r, c) {
+    const cells = [[r, c]];
+    if (symmetryMode === 'h' || symmetryMode === 'both') {
+        cells.push([r, gridW - 1 - c]);
+    }
+    if (symmetryMode === 'v' || symmetryMode === 'both') {
+        cells.push([gridH - 1 - r, c]);
+    }
+    if (symmetryMode === 'both') {
+        cells.push([gridH - 1 - r, gridW - 1 - c]);
+    }
+    return cells;
+}
+
+function refreshCells(cells) {
+    const grid = document.getElementById('board-grid');
+    for (const [r, c] of cells) {
+        const idx = r * gridW + c;
+        const cell = grid.children[idx];
+        if (cell) updateCellAppearance(cell, r, c);
+    }
+}
+
+function resizeGrid() {
+    gridW = parseInt(document.getElementById('grid-w').value) || 8;
+    gridH = parseInt(document.getElementById('grid-h').value) || 8;
+    timeLimit = parseInt(document.getElementById('time-limit').value) || 180;
+    slotCount = parseInt(document.getElementById('slot-count').value) || 12;
+    initGrid();
+    updateOutput();
+}
+
+// ==================== 对称按钮 ====================
+function bindEvents() {
+    document.querySelectorAll('.sym-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.sym-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            symmetryMode = btn.dataset.sym;
+        };
+    });
+
+    document.onmouseup = () => { isMouseDown = false; };
+
+    // 图片导入
+    document.getElementById('image-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => applyImageToGrid(img);
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // 防止右键菜单全局
+    document.oncontextmenu = (e) => { if (e.target.classList.contains('cell')) e.preventDefault(); };
+}
+
+// ==================== 图片导入 ====================
+function applyImageToGrid(img) {
+    // 根据图片比例自动计算合适的网格尺寸，目标最大边 28 格
+    const maxCells = 28;
+    const aspect = img.width / img.height;
+    let newW, newH;
+    if (aspect >= 1) {
+        newW = maxCells;
+        newH = Math.max(3, Math.round(maxCells / aspect));
+    } else {
+        newH = maxCells;
+        newW = Math.max(3, Math.round(maxCells * aspect));
+    }
+    newW = Math.min(32, newW);
+    newH = Math.min(32, newH);
+
+    gridW = newW;
+    gridH = newH;
+    document.getElementById('grid-w').value = gridW;
+    document.getElementById('grid-h').value = gridH;
+
+    // 初始化数组
+    correctColorArr = [];
+    for (let r = 0; r < gridH; r++) {
+        correctColorArr[r] = Array(gridW).fill(0);
+    }
+
+    const canvas = document.getElementById('import-preview');
+    canvas.width = gridW;
+    canvas.height = gridH;
+    canvas.style.display = 'block';
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, gridW, gridH);
+    const imageData = ctx.getImageData(0, 0, gridW, gridH);
+    const data = imageData.data;
+
+    for (let r = 0; r < gridH; r++) {
+        for (let c = 0; c < gridW; c++) {
+            const idx = (r * gridW + c) * 4;
+            const pr = data[idx], pg = data[idx + 1], pb = data[idx + 2], pa = data[idx + 3];
+            if (pa < 128) {
+                correctColorArr[r][c] = 0;
+            } else {
+                correctColorArr[r][c] = findClosestColor(pr, pg, pb);
+            }
+        }
+    }
+
+    timeLimit = Math.max(120, gridW * gridH * 2);
+    slotCount = Math.min(36, Math.max(12, gridW * 2));
+    document.getElementById('time-limit').value = timeLimit;
+    document.getElementById('slot-count').value = slotCount;
+
+    renderGrid();
+    updateOutput();
+    showToast(`图片已导入 (${gridW}×${gridH})`);
+}
+
+function findClosestColor(r, g, b) {
+    let minDist = Infinity, closest = 0;
+    for (const id of COLOR_IDS) {
+        const c = COLORS[id];
+        const dist = (r - c.r) ** 2 + (g - c.g) ** 2 + (b - c.b) ** 2;
+        if (dist < minDist) { minDist = dist; closest = id; }
+    }
+    return closest;
+}
+
+// ==================== 预设图案 ====================
+function buildPresetButtons() {
+    const container = document.getElementById('preset-btns');
+    const presets = [
+        { name: '❤️ 心形', fn: presetHeart },
+        { name: '⭐ 星星', fn: presetStar },
+        { name: '☯️ 太极', fn: presetTaiji },
+        { name: '🌈 彩虹', fn: presetRainbow },
+        { name: '🔲 棋盘', fn: presetCheckerboard },
+        { name: '🔲 菱形', fn: presetDiamond },
+        { name: '🌸 花朵', fn: presetFlower },
+        { name: '🔺 三角', fn: presetTriangle },
+        { name: '⬡ 六边', fn: presetHexagon },
+        { name: '🌀 螺旋', fn: presetSpiral },
+        { name: '🎯 同心圆', fn: presetConcentric },
+        { name: '✚ 十字', fn: presetCross },
+    ];
+    for (const p of presets) {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = p.name;
+        btn.onclick = () => { p.fn(); updateOutput(); showToast('已填充: ' + p.name); };
+        container.appendChild(btn);
+    }
+}
+
+function applyPreset(drawFn) {
+    drawFn();
+    const grid = document.getElementById('board-grid');
+    for (let r = 0; r < gridH; r++)
+        for (let c = 0; c < gridW; c++)
+            updateCellAppearance(grid.children[r * gridW + c], r, c);
+}
+
+function presetHeart() {
+    applyPreset(() => {
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const x = (c - gridW / 2) / (gridW / 2.5);
+                const y = -(r - gridH / 2) / (gridH / 2.5);
+                const v = (x * x + y * y - 1);
+                if (v * v * v - x * x * y * y * y <= 0)
+                    correctColorArr[r][c] = Math.random() < 0.5 ? 1 : 2;
+                else
+                    correctColorArr[r][c] = 0;
+            }
+    });
+}
+
+function presetStar() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        const maxR = Math.min(gridW, gridH) / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dx = c - cx, dy = r - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx);
+                const starR = maxR * (0.5 + 0.5 * Math.cos(5 * angle));
+                correctColorArr[r][c] = dist <= starR ? 3 : 0;
+            }
+    });
+}
+
+function presetTaiji() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        const R = Math.min(gridW, gridH) / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dx = c - cx, dy = r - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > R) { correctColorArr[r][c] = 0; continue; }
+                const angle = Math.atan2(dy, dx);
+                // Upper half: color 1, lower half: color 5, with S-curve
+                const upper = dy < -Math.sin(dx / R * Math.PI) * R * 0.5;
+                const dot1 = Math.sqrt(dx * dx + (dy + R / 2) ** 2) < R / 6;
+                const dot2 = Math.sqrt(dx * dx + (dy - R / 2) ** 2) < R / 6;
+                if (dot1) correctColorArr[r][c] = 5;
+                else if (dot2) correctColorArr[r][c] = 1;
+                else correctColorArr[r][c] = upper ? 1 : 5;
+            }
+    });
+}
+
+function presetRainbow() {
+    applyPreset(() => {
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const band = Math.floor(r / gridH * COLOR_IDS.length);
+                correctColorArr[r][c] = COLOR_IDS[Math.min(band, COLOR_IDS.length - 1)];
+            }
+    });
+}
+
+function presetCheckerboard() {
+    applyPreset(() => {
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++)
+                correctColorArr[r][c] = (r + c) % 2 === 0 ? 1 : 2;
+    });
+}
+
+function presetDiamond() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        const R = Math.min(gridW, gridH) / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dist = Math.abs(c - cx) / R + Math.abs(r - cy) / R;
+                correctColorArr[r][c] = dist <= 1 ? (dist > 0.6 ? 2 : 3) : 0;
+            }
+    });
+}
+
+function presetFlower() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        const R = Math.min(gridW, gridH) / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dx = c - cx, dy = r - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > R) { correctColorArr[r][c] = 0; continue; }
+                const angle = Math.atan2(dy, dx);
+                const petalR = R * (0.3 + 0.3 * Math.abs(Math.cos(3 * angle)));
+                if (dist < R * 0.15) correctColorArr[r][c] = 3;
+                else if (dist < petalR) correctColorArr[r][c] = 1;
+                else correctColorArr[r][c] = 4;
+            }
+    });
+}
+
+function presetTriangle() {
+    applyPreset(() => {
+        const cx = gridW / 2;
+        for (let r = 0; r < gridH; r++) {
+            const halfW = (r / gridH) * (gridW / 2);
+            for (let c = 0; c < gridW; c++) {
+                const inTriangle = c >= cx - halfW && c <= cx + halfW;
+                correctColorArr[r][c] = inTriangle ? 2 : 0;
+            }
+        }
+    });
+}
+
+function presetHexagon() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        const R = Math.min(gridW, gridH) / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dx = c - cx, dy = r - cy;
+                const hexDist = Math.max(Math.abs(dx) * 0.866 + Math.abs(dy) * 0.5, Math.abs(dy));
+                correctColorArr[r][c] = hexDist < R ? (hexDist < R * 0.4 ? 3 : 5) : 0;
+            }
+    });
+}
+
+function presetSpiral() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dx = c - cx, dy = r - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx);
+                const spiral = angle + dist * 0.5;
+                correctColorArr[r][c] = dist < Math.min(gridW, gridH) / 2
+                    ? (Math.floor(spiral) % COLOR_IDS.length + 1) : 0;
+            }
+    });
+}
+
+function presetConcentric() {
+    applyPreset(() => {
+        const cx = gridW / 2, cy = gridH / 2;
+        const R = Math.min(gridW, gridH) / 2;
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const dist = Math.sqrt((c - cx) ** 2 + (r - cy) ** 2);
+                const band = Math.floor(dist / (R / COLOR_IDS.length)) % COLOR_IDS.length;
+                correctColorArr[r][c] = dist <= R ? COLOR_IDS[band] : 0;
+            }
+    });
+}
+
+function presetCross() {
+    applyPreset(() => {
+        const cx = Math.floor(gridW / 2), cy = Math.floor(gridH / 2);
+        const armW = Math.max(1, Math.floor(Math.min(gridW, gridH) / 5));
+        for (let r = 0; r < gridH; r++)
+            for (let c = 0; c < gridW; c++) {
+                const inH = Math.abs(r - cy) < armW;
+                const inV = Math.abs(c - cx) < armW;
+                correctColorArr[r][c] = (inH || inV) ? 1 : 0;
+            }
+    });
+}
+
+// ==================== 工具操作 ====================
+function clearBoard() {
+    for (let r = 0; r < gridH; r++)
+        for (let c = 0; c < gridW; c++) correctColorArr[r][c] = 0;
+    renderGrid();
+    updateOutput();
+}
+
+function fillAll() {
+    for (let r = 0; r < gridH; r++)
+        for (let c = 0; c < gridW; c++) correctColorArr[r][c] = selectedColor || 1;
+    renderGrid();
+    updateOutput();
+}
+
+// ==================== 初始乱序生成 ====================
+// JS port of generate_initial_shuffle.py / move_target_to_initial.py
+// 聚类打乱算法：按颜色分组 → 选远离质心的种子 → 区域生长
+
+function manhattan(a, b) {
+    return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+}
+
+function cellsByColor(grid) {
+    const result = {};
+    for (let r = 0; r < grid.length; r++)
+        for (let c = 0; c < grid[0].length; c++) {
+            const v = grid[r][c];
+            if (v > 0) (result[v] = result[v] || []).push([r, c]);
+        }
+    return result;
+}
+
+function splitQuota(total, groupCount) {
+    const base = Math.floor(total / groupCount);
+    const extra = total % groupCount;
+    return Array.from({ length: groupCount }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+function desiredGroupCount(total, maxGroups) {
+    if (total < 22) return 1;
+    if (total < 70) return Math.min(maxGroups, 2);
+    return Math.min(maxGroups, 3);
+}
+
+function chooseSeed(candidates, targetGrid, colorId, centroid, taken, sameColorSeeds, rng) {
+    const h = targetGrid.length, w = targetGrid[0].length;
+    let bestCell = null, bestScore = -1e9;
+    for (const cell of candidates) {
+        if (taken.has(cell[0] + ',' + cell[1])) continue;
+        const [row, col] = cell;
+        const centroidDist = manhattan(cell, centroid);
+        let minSameSeedDist = 8;
+        for (const seed of sameColorSeeds) {
+            const d = manhattan(cell, seed);
+            if (d < minSameSeedDist) minSameSeedDist = d;
+        }
+        const wrongTargetBonus = targetGrid[row][col] !== colorId ? 8 : 0;
+        const edgeBonus = 1.6 * Math.min(row, h - 1 - row, col, w - 1 - col);
+        const jitter = rng() * 0.35;
+        const score = centroidDist * 1.25 + minSameSeedDist * 1.15 + wrongTargetBonus + edgeBonus + jitter;
+        if (score > bestScore) { bestScore = score; bestCell = cell; }
+    }
+    return bestCell;
+}
+
+const DIRS8 = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+
+function neighborCells(cell, h, w) {
+    const [r, c] = cell;
+    const result = [];
+    for (const [dr, dc] of DIRS8) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < h && nc >= 0 && nc < w) result.push([nr, nc]);
+    }
+    return result;
+}
+
+function centroidOf(cells) {
+    if (!cells.length) return [0, 0];
+    let sr = 0, sc = 0;
+    for (const [r, c] of cells) { sr += r; sc += c; }
+    return [sr / cells.length, sc / cells.length];
+}
+
+function candidateScore(group, cell, targetGrid) {
+    const [cr, cc] = group.centroid;
+    let score = 0.72 * manhattan(cell, group.seed) + 0.48 * manhattan(cell, [cr, cc]);
+    if (targetGrid[cell[0]][cell[1]] === group.colorId) score += 4.0;
+    return score;
+}
+
+function chooseCandidate(group, unassigned, targetGrid, h, w) {
+    // Clean frontier
+    group.frontier = group.frontier.filter(([r, c]) => unassigned.has(r + ',' + c));
+    if (group.frontier.length > 0) {
+        return group.frontier.reduce((best, cell) =>
+            candidateScore(group, cell, targetGrid) < candidateScore(group, best, targetGrid) ? cell : best
+        );
+    }
+    if (unassigned.size === 0) return null;
+    let best = null, bestScore = Infinity;
+    for (const cell of unassigned) {
+        const [r, c] = cell.split(',').map(Number);
+        const s = candidateScore(group, [r, c], targetGrid) + 3.0;
+        if (s < bestScore) { bestScore = s; best = [r, c]; }
+    }
+    return best;
+}
+
+function assignInitialLayout(targetGrid, seed, maxGroupsPerColor) {
+    const h = targetGrid.length, w = targetGrid[0].length;
+    const rng = (function(s) {
+        return function() { s = (s * 1664525 + 1013904223) | 0; return (s >>> 0) / 4294967296; };
+    })(seed);
+
+    const byColor = cellsByColor(targetGrid);
+    const allValid = [];
+    for (let r = 0; r < h; r++)
+        for (let c = 0; c < w; c++)
+            if (targetGrid[r][c] > 0) allValid.push([r, c]);
+
+    const unassigned = new Set(allValid.map(([r, c]) => r + ',' + c));
+    const takenSeeds = new Set();
+    const groups = [];
+    let nextGroupId = 0;
+
+    // Create groups
+    const sortedColors = Object.keys(byColor).map(Number).sort((a, b) =>
+        byColor[b].length - byColor[a].length || a - b
+    );
+
+    for (const colorId of sortedColors) {
+        const colorCells = byColor[colorId];
+        const centroid = centroidOf(colorCells);
+        const groupCount = desiredGroupCount(colorCells.length, maxGroupsPerColor);
+        const quotas = splitQuota(colorCells.length, groupCount);
+        const seedCandidates = allValid.filter(([r, c]) => targetGrid[r][c] !== colorId);
+        const pool = seedCandidates.length >= groupCount ? seedCandidates : allValid;
+        const sameColorSeeds = [];
+
+        for (const quota of quotas) {
+            const seedCell = chooseSeed(pool, targetGrid, colorId, centroid, takenSeeds, sameColorSeeds, rng);
+            if (!seedCell) continue;
+            sameColorSeeds.push(seedCell);
+            takenSeeds.add(seedCell[0] + ',' + seedCell[1]);
+            const key = seedCell[0] + ',' + seedCell[1];
+            groups.push({
+                groupId: nextGroupId++,
+                colorId,
+                quota,
+                seed: seedCell,
+                cells: [seedCell],
+                frontier: [],
+                centroid: [seedCell[0], seedCell[1]],
+            });
+            unassigned.delete(key);
+        }
+    }
+
+    // Initialize frontiers
+    for (const group of groups) {
+        for (const [nr, nc] of neighborCells(group.seed, h, w)) {
+            const key = nr + ',' + nc;
+            if (unassigned.has(key)) group.frontier.push([nr, nc]);
+        }
+    }
+
+    // Grow groups
+    while (unassigned.size > 0) {
+        const active = groups.filter(g => g.cells.length < g.quota);
+        if (!active.length) break;
+        active.sort((a, b) => (b.quota - b.cells.length) - (a.quota - a.cells.length) || a.colorId - b.colorId);
+        let progress = false;
+        for (const group of active) {
+            if (group.cells.length >= group.quota) continue;
+            const chosen = chooseCandidate(group, unassigned, targetGrid, h, w);
+            if (!chosen) continue;
+            group.frontier = group.frontier.filter(([r, c]) => !(r === chosen[0] && c === chosen[1]));
+            group.cells.push(chosen);
+            // Update centroid
+            let sr = 0, sc = 0;
+            for (const [r, c] of group.cells) { sr += r; sc += c; }
+            group.centroid = [sr / group.cells.length, sc / group.cells.length];
+            unassigned.delete(chosen[0] + ',' + chosen[1]);
+            for (const [nr, nc] of neighborCells(chosen, h, w)) {
+                const key = nr + ',' + nc;
+                if (unassigned.has(key)) group.frontier.push([nr, nc]);
+            }
+            progress = true;
+            if (unassigned.size === 0) break;
+        }
+        if (!progress) break;
+    }
+
+    // Fallback: assign remaining to nearest group
+    if (unassigned.size > 0) {
+        const fallback = groups.filter(g => g.cells.length < g.quota) || groups;
+        for (const key of unassigned) {
+            const [r, c] = key.split(',').map(Number);
+            let best = fallback[0], bestScore = Infinity;
+            for (const g of fallback) {
+                const s = candidateScore(g, [r, c], targetGrid);
+                if (s < bestScore) { bestScore = s; best = g; }
+            }
+            best.cells.push([r, c]);
+        }
+    }
+
+    const initGrid = Array.from({ length: h }, () => Array(w).fill(0));
+    for (const group of groups)
+        for (const [r, c] of group.cells)
+            initGrid[r][c] = group.colorId;
+    return initGrid;
+}
+
+function displacementRatio(correct, init) {
+    let total = 0, moved = 0;
+    for (let r = 0; r < correct.length; r++)
+        for (let c = 0; c < correct[0].length; c++)
+            if (correct[r][c] > 0) {
+                total++;
+                if (correct[r][c] !== init[r][c]) moved++;
+            }
+    return total > 0 ? moved / total : 0;
+}
+
+function computeRandomInit() {
+    const levelId = parseInt(document.getElementById('level-id').value) || 1;
+    const baseSeed = 20260423 + levelId * 7919;
+    const maxGroupsPerColor = 4;
+    const attempts = 12;
+
+    let bestGrid = null, bestRatio = -1, bestSeed = baseSeed;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        const seed = baseSeed + attempt * 9973;
+        const init = assignInitialLayout(correctColorArr, seed, maxGroupsPerColor);
+        const ratio = displacementRatio(correctColorArr, init);
+        if (ratio > bestRatio) { bestRatio = ratio; bestGrid = init; bestSeed = seed; }
+    }
+    return bestGrid;
+}
+
+function generateRandom() {
+    const initArr = computeRandomInit();
+    initRandomColorArr = initArr.map(r => [...r]);
+    updateJSONWithInit(initArr);
+    showToast('随机乱序已生成');
+}
+
+// ==================== 导出 / 保存 ====================
+function getLevelData(initArr) {
+    const useInit = initArr || (initRandomColorArr.length > 0 ? initRandomColorArr : correctColorArr.map(r => [...r]));
+    return {
+        levelId: parseInt(document.getElementById('level-id').value) || 1,
+        boardWidth: gridW,
+        boardHeight: gridH,
+        timeLimit: timeLimit,
+        slotTotalCount: slotCount,
+        correctColorArr: correctColorArr.map(r => [...r]),
+        initRandomColorArr: useInit.map(r => [...r]),
+    };
+}
+
+function updateOutput() {
+    const data = getLevelData();
+    document.getElementById('json-output').value = JSON.stringify(data, null, 4);
+    drawPreview();
+    drawGamePreview();
+}
+
+function updateJSONWithInit(initArr) {
+    const data = getLevelData(initArr);
+    document.getElementById('json-output').value = JSON.stringify(data, null, 4);
+    drawPreview();
+    drawGamePreview();
+}
+
+function exportJSON() {
+    const text = document.getElementById('json-output').value;
+    const data = JSON.parse(text);
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const filename = getLevelFilenameByType(data.levelId, currentLevelTargetType);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`已导出 ${filename}`);
+}
+
+async function saveToServer() {
+    const initArr = computeRandomInit();
+    initRandomColorArr = initArr.map(r => [...r]);
+    const data = getLevelData(initArr);
+
+    // Compute game-required fields
+    let filledCellCount = 0;
+    const colorStats = {};
+    for (const row of data.correctColorArr) {
+        for (const v of row) {
+            if (v > 0) {
+                filledCellCount++;
+                colorStats[v] = (colorStats[v] || 0) + 1;
+            }
+        }
+    }
+    const colorCount = Object.keys(colorStats).length;
+
+    // Convert colorStats keys to strings for JSON
+    const colorStatsStr = {};
+    for (const [k, v] of Object.entries(colorStats)) colorStatsStr[String(k)] = v;
+
+    let dispMoved = 0, dispTotal = 0;
+    for (let r = 0; r < data.correctColorArr.length; r++)
+        for (let c = 0; c < data.correctColorArr[0].length; c++)
+            if (data.correctColorArr[r][c] > 0) {
+                dispTotal++;
+                if (data.correctColorArr[r][c] !== initArr[r][c]) dispMoved++;
+            }
+
+    const gameData = {
+        ...data,
+        filledCellCount,
+        colorCount,
+        colorStats: colorStatsStr,
+        displacementRatio: dispTotal > 0 ? +(dispMoved / dispTotal).toFixed(4) : 0,
+        initShuffleMaxGroupsPerColor: 4,
+        online: false,
+        isFeatured: false,
+        levelCategory: '',
+        levelName: '',
+    };
+
+    try {
+        const resp = await fetch('/api/save-level-game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetType: currentLevelTargetType,
+                levelData: gameData,
+            }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const result = await resp.json();
+        showToast(`已保存关卡 ${gameData.levelId} 到 ${result.path}`);
+    } catch (e) {
+        showToast('保存失败: ' + e.message);
+    }
+}
+
+function loadFromLocalStorage() {
+    const key = `pdd.level_editor_${document.getElementById('level-id').value}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) { showToast('未找到本地存档'); return; }
+    const data = JSON.parse(raw);
+    document.getElementById('level-id').value = data.levelId;
+    document.getElementById('grid-w').value = data.boardWidth;
+    document.getElementById('grid-h').value = data.boardHeight;
+    document.getElementById('time-limit').value = data.timeLimit;
+    document.getElementById('slot-count').value = data.slotTotalCount;
+    gridW = data.boardWidth;
+    gridH = data.boardHeight;
+    timeLimit = data.timeLimit;
+    slotCount = data.slotTotalCount;
+    correctColorArr = data.correctColorArr;
+    renderGrid();
+    updateJSONWithInit(data.initRandomColorArr);
+    showToast('已从本地加载');
+}
+
+// ==================== 预览绘制 ====================
+function drawPreview() {
+    const canvas = document.getElementById('preview-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.clientWidth * 2;
+    canvas.height = canvas.clientHeight * 2;
+    ctx.scale(2, 2);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    const cellW = w / gridW, cellH = h / gridH;
+    const cellSize = Math.min(cellW, cellH);
+    const ox = (w - cellSize * gridW) / 2;
+    const oy = (h - cellSize * gridH) / 2;
+
+    for (let r = 0; r < gridH; r++)
+        for (let c = 0; c < gridW; c++) {
+            const v = correctColorArr[r][c];
+            ctx.fillStyle = v ? COLORS[v].hex : '#3a3a3a';
+            ctx.fillRect(ox + c * cellSize + 1, oy + r * cellSize + 1, cellSize - 2, cellSize - 2);
+        }
+}
+
+// ==================== Toast 提示 ====================
+function showToast(msg) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
+
+// ==================== 游戏风格预览 ====================
+// ==================== 游戏预览 — 使用真实豆豆贴图渲染 ====================
+const GAME_BG_COLOR = '#F5EBDC';
+const BOARD_BG = '#E8DDD0';
+// Canvas fallback bean colors (used when sprites not loaded)
+const BEAN_COLORS = {
+    1: { base: '#ED5090', dark: '#BE4072', light: '#F280B0' },
+    2: { base: '#4EEAEA', dark: '#3EBDBD', light: '#78F0F0' },
+    3: { base: '#F8C811', dark: '#C6A00E', light: '#FBD848' },
+    4: { base: '#FE8B10', dark: '#CB6F0D', light: '#FDA848' },
+    5: { base: '#F4BD9E', dark: '#C3977E', light: '#F8D0B8' },
+    6: { base: '#EBDEA6', dark: '#BCB185', light: '#F2E8C0' },
+    7: { base: '#4A4DCF', dark: '#3B3EA6', light: '#6E70E0' },
+    8: { base: '#7221BC', dark: '#5B1A96', light: '#8A48D0' },
+    9: { base: '#9FCE21', dark: '#7FA51A', light: '#B8E048' },
+    10: { base: '#EA281A', dark: '#BB2015', light: '#F05848' },
+    11: { base: '#37A92D', dark: '#2C8724', light: '#68C058' },
+    12: { base: '#207955', dark: '#1A6144', light: '#40A070' },
+    13: { base: '#20A8DC', dark: '#1A86B0', light: '#48C0E8' },
+    14: { base: '#EEB2BC', dark: '#BE8E96', light: '#F5D0D8' },
+    15: { base: '#C4BED9', dark: '#9D98AE', light: '#D8D0E8' },
+    16: { base: '#974714', dark: '#793910', light: '#B06830' },
+    17: { base: '#782F3C', dark: '#602630', light: '#985060' },
+    18: { base: '#36387E', dark: '#2B2D65', light: '#5858A0' },
+    19: { base: '#373737', dark: '#2C2C2C', light: '#505050' },
+    20: { base: '#F2EDE4', dark: '#C2BDB5', light: '#F8F4EC' },
+};
+// Bean sprite images cache: key = "bNN_N" (e.g. "b01_2"), value = Image
+let _beanSpriteCache = {};
+let _spritesLoaded = false;
+let _gamePreviewMode = 'correct';
+
+/** Override this with your CDN URL if the relative path doesn't work from your dev server */
+const CDN_BASE_URL = ''; // e.g. 'https://your-cdn.com/assets/'
+
+/** Preload all bean sprite images from the local symlink or CDN */
+function preloadBeanSprites() {
+    if (_spritesLoaded) return Promise.resolve();
+    // Bean textures symlinked in ./beans/ relative to this file
+    const baseUrl = './beans/';
+    const colorIds = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+    const variants = [1, 2, 4]; // locked, normal, slot
+    const promises = [];
+    for (const cid of colorIds) {
+        for (const v of variants) {
+            const n = cid < 10 ? `00${cid}` : cid < 100 ? `0${cid}` : `${cid}`;
+            const key = `b${n}_${v}`;
+            const url = `${baseUrl}${key}.png`;
+            promises.push(new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => { _beanSpriteCache[key] = img; resolve(true); };
+                img.onerror = () => { resolve(false); };
+                img.src = url;
+            }));
+        }
+    }
+    return Promise.all(promises).then((results) => {
+        _spritesLoaded = true;
+        const ok = results.filter(Boolean).length;
+        console.log(`[BeanSprites] Loaded ${ok}/${results.length} sprites from ${baseUrl}`);
+        // Re-render game preview with sprites now that they're available
+        if (ok > 0) {
+            try { drawGamePreview(); } catch(_) {}
+        }
+        // If few loaded, the path may be wrong — user can set CDN_BASE_URL
+        if (ok < 10 && CDN_BASE_URL) {
+            console.warn(`[BeanSprites] Only ${ok} loaded, retrying with CDN_BASE_URL=${CDN_BASE_URL}`);
+            retryWithCDN(colorIds, variants);
+        }
+    });
+}
+
+function retryWithCDN(colorIds, variants) {
+    let count = 0;
+    for (const cid of colorIds) {
+        for (const v of variants) {
+            const n = cid < 10 ? `00${cid}` : cid < 100 ? `0${cid}` : `${cid}`;
+            const key = `b${n}_${v}`;
+            if (_beanSpriteCache[key]) continue;
+            const img = new Image();
+            img.onload = () => {
+                _beanSpriteCache[key] = img;
+                if (++count === 5) { try { drawGamePreview(); } catch(_) {} }
+            };
+            img.src = `${CDN_BASE_URL}Pindd/Beans/${key}.png`;
+        }
+    }
+}
+
+/** Get sprite key for a bean: variant 1=locked(correct), 2=normal, 4=slot */
+function beanSpriteKey(colorId, variant) {
+    if (!colorId || colorId <= 0) return null;
+    const normalized = ((colorId - 1) % 21) + 1;
+    const n = normalized < 10 ? `00${normalized}` : normalized < 100 ? `0${normalized}` : `${normalized}`;
+    return `b${n}_${variant}`;
+}
+
+function drawGamePreview(mode) {
+    _gamePreviewMode = mode || _gamePreviewMode;
+    const canvas = document.getElementById('game-preview-canvas');
+    const dpr = 2;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+
+    // 背景
+    ctx.fillStyle = GAME_BG_COLOR;
+    ctx.fillRect(0, 0, w, h);
+
+    const jsonText = document.getElementById('json-output').value;
+    let data;
+    try { data = JSON.parse(jsonText); } catch (_) { return; }
+    const grid = _gamePreviewMode === 'random' && data.initRandomColorArr
+        ? data.initRandomColorArr : data.correctColorArr;
+    const correctGrid = data.correctColorArr;
+    if (!grid || !grid.length) return;
+
+    const rows = grid.length, cols = grid[0].length;
+    const padding = 12;
+    const gap = 4;
+    const cellSize = Math.min((w - padding * 2) / cols, (h - padding * 2 - 30) / rows);
+    const boardW = cols * cellSize, boardH = rows * cellSize;
+    const ox = (w - boardW) / 2, oy = (h - boardH) / 2 + 10;
+
+    // 棋盘背景
+    ctx.fillStyle = BOARD_BG;
+    const br = 8;
+    ctx.beginPath();
+    ctx.roundRect(ox - 6, oy - 6, boardW + 12, boardH + 12, br);
+    ctx.fill();
+
+    // 标题
+    ctx.fillStyle = '#6B4226';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(_gamePreviewMode === 'random' ? '初始乱序' : '目标图案', w / 2, oy - 12);
+
+    // Check if we have sprites available
+    const hasSprites = Object.keys(_beanSpriteCache).length > 0;
+
+    if (hasSprites) {
+        // Sprite-based rendering (matches actual game)
+        _drawGamePreviewSprites(ctx, grid, correctGrid, rows, cols, ox, oy, cellSize);
+    } else {
+        // Canvas fallback: draw 3D bean shapes
+        _drawGamePreviewCanvas(ctx, grid, correctGrid, rows, cols, ox, oy, cellSize, gap);
+    }
+
+    // 底部信息
+    ctx.fillStyle = '#999';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    const totalBeans = grid.flat().filter(v => v > 0).length;
+    ctx.fillText(`${cols}×${rows}  |  ${totalBeans} 豆  |  ${data.timeLimit}s`, w / 2, oy + boardH + 16);
+}
+
+/** Draw game preview using actual sprite images */
+function _drawGamePreviewSprites(ctx, grid, correctGrid, rows, cols, ox, oy, cellSize) {
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const correctId = correctGrid[r] && correctGrid[r][c] ? correctGrid[r][c] : 0;
+            const beanId = grid[r][c];
+            if (!correctId) continue;
+
+            const cx = ox + c * cellSize;
+            const cy = oy + r * cellSize;
+
+            // 1. Draw slot background (variant 4)
+            const slotKey = beanSpriteKey(correctId, 4);
+            if (slotKey && _beanSpriteCache[slotKey]) {
+                ctx.drawImage(_beanSpriteCache[slotKey], cx, cy, cellSize, cellSize);
+            }
+
+            // 2. Draw bean on top if there is one
+            if (beanId && beanId > 0) {
+                const isCorrect = (correctId === beanId);
+                const variant = isCorrect ? 1 : 2;
+                const bKey = beanSpriteKey(beanId, variant);
+                if (bKey && _beanSpriteCache[bKey]) {
+                    ctx.drawImage(_beanSpriteCache[bKey], cx, cy, cellSize, cellSize);
+                }
+            }
+        }
+    }
+}
+
+/** Draw game preview using canvas-drawn 3D bean shapes (fallback) */
+function _drawGamePreviewCanvas(ctx, grid, correctGrid, rows, cols, ox, oy, cellSize, gap) {
+    const beanR = (cellSize - gap) / 2;
+    const s = beanR * 0.85;
+    const bRr = Math.max(1, s * 0.38);
+    const inset = Math.max(1, s * 0.08);
+    const m = s - inset - 1;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const correctId = correctGrid[r] && correctGrid[r][c] ? correctGrid[r][c] : 0;
+            const beanId = grid[r][c];
+            if (!correctId) continue;
+
+            const cx = ox + c * cellSize + cellSize / 2;
+            const cy = oy + r * cellSize + cellSize / 2;
+
+            if (beanId && beanId > 0 && BEAN_COLORS[beanId]) {
+                const bc = BEAN_COLORS[beanId];
+                const isCorrect = (correctId === beanId);
+                const baseR = parseInt(bc.base.slice(1,3),16), baseG = parseInt(bc.base.slice(3,5),16), baseB = parseInt(bc.base.slice(5,7),16);
+
+                if (isCorrect) {
+                    // Locked: darker colors
+                    const dkHex = bc.dark;
+                    const dR = parseInt(dkHex.slice(1,3),16), dG = parseInt(dkHex.slice(3,5),16), dB = parseInt(dkHex.slice(5,7),16);
+                    const ddR = Math.floor(dR*0.6), ddG = Math.floor(dG*0.6), ddB = Math.floor(dB*0.6);
+                    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+                    ctx.beginPath(); ctx.roundRect(cx-s+1.5, cy-s+1.5, s*2, s*2, bRr); ctx.fill();
+                    ctx.fillStyle = `rgb(${ddR},${ddG},${ddB})`;
+                    ctx.beginPath(); ctx.roundRect(cx-s, cy-s, s*2, s*2, bRr); ctx.fill();
+                    ctx.fillStyle = `rgb(${Math.floor(dR*0.82+80*0.18)},${Math.floor(dG*0.82+80*0.18)},${Math.floor(dB*0.82+80*0.18)})`;
+                    ctx.beginPath(); ctx.roundRect(cx-s+inset, cy-s+inset, (s-inset)*2, (s-inset)*2, Math.max(1, bRr-1)); ctx.fill();
+                    _drawBeanXFaces(ctx, cx, cy, m, s, 0.14, 0.12, 0.06);
+                } else {
+                    // Normal
+                    const darkerR = Math.floor(baseR*0.6), darkerG = Math.floor(baseG*0.6), darkerB = Math.floor(baseB*0.6);
+                    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+                    ctx.beginPath(); ctx.roundRect(cx-s+1.5, cy-s+1.5, s*2, s*2, bRr); ctx.fill();
+                    ctx.fillStyle = `rgb(${darkerR},${darkerG},${darkerB})`;
+                    ctx.beginPath(); ctx.roundRect(cx-s, cy-s, s*2, s*2, bRr); ctx.fill();
+                    ctx.fillStyle = `rgb(${Math.floor(baseR*0.82+80*0.18)},${Math.floor(baseG*0.82+80*0.18)},${Math.floor(baseB*0.82+80*0.18)})`;
+                    ctx.beginPath(); ctx.roundRect(cx-s+inset, cy-s+inset, (s-inset)*2, (s-inset)*2, Math.max(1, bRr-1)); ctx.fill();
+                    _drawBeanXFaces(ctx, cx, cy, m, s, 0.2, 0.12, 0.06);
+                }
+            }
+        }
+    }
+}
+
+/** Draw X-facet highlights on a bean */
+function _drawBeanXFaces(ctx, cx, cy, m, s, topAlpha, leftAlpha, rightAlpha) {
+    ctx.fillStyle = `rgba(255,255,255,${topAlpha})`;
+    ctx.beginPath(); ctx.moveTo(cx-m, cy+m); ctx.lineTo(cx+m, cy+m); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(255,255,255,${leftAlpha})`;
+    ctx.beginPath(); ctx.moveTo(cx-m, cy+m); ctx.lineTo(cx-m, cy-m); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(0,0,0,0.12)`;
+    ctx.beginPath(); ctx.moveTo(cx+m, cy-m); ctx.lineTo(cx-m, cy-m); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(0,0,0,${rightAlpha})`;
+    ctx.beginPath(); ctx.moveTo(cx+m, cy+m); ctx.lineTo(cx+m, cy-m); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,0.14)`;
+    ctx.lineWidth = Math.max(0.5, s * 0.04);
+    ctx.beginPath(); ctx.moveTo(cx-m, cy+m); ctx.lineTo(cx+m, cy-m); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+m, cy+m); ctx.lineTo(cx-m, cy-m); ctx.stroke();
+}
+
+// ==================== 启动 ====================
+init();
+
+// Preload bean sprites for game preview
+preloadBeanSprites();
+
+// ==================== MakeBead 模板加载 ====================
+let mbActiveFilter = 'all';
+
+function buildMakeBeadList() {
+    if (typeof MAKEBEAD_TEMPLATES === 'undefined') return;
+
+    // Build filters
+    const filters = document.getElementById('makebead-filters');
+    const cats = { all: '全部', food: '🍎食物', item: '💎物品', potion: '🧪药水', weapon: '⚔️武器', monster: '👾怪物' };
+    for (const [key, label] of Object.entries(cats)) {
+        const btn = document.createElement('button');
+        btn.className = 'mb-filter' + (key === 'all' ? ' active' : '');
+        btn.textContent = label;
+        btn.onclick = () => {
+            document.querySelectorAll('.mb-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            mbActiveFilter = key;
+            renderMakeBeadList();
+        };
+        filters.appendChild(btn);
+    }
+    renderMakeBeadList();
+}
+
+function renderMakeBeadList() {
+    const list = document.getElementById('makebead-list');
+    list.innerHTML = '';
+    const filtered = MAKEBEAD_TEMPLATES.filter(t => mbActiveFilter === 'all' || t.cat === mbActiveFilter);
+    for (const t of filtered) {
+        const item = document.createElement('div');
+        item.className = 'mb-item';
+        item.textContent = `${t.emoji} ${t.name} (${t.w}×${t.h})`;
+        item.title = t.name;
+        item.onclick = () => loadMakeBeadTemplate(t);
+        list.appendChild(item);
+    }
+}
+
+function loadMakeBeadTemplate(t) {
+    gridW = t.w;
+    gridH = t.h;
+    correctColorArr = t.grid.map(r => [...r]);
+    timeLimit = Math.max(60, gridW * gridH * 2);
+    slotCount = Math.min(36, Math.max(12, sum(correctColorArr)));
+    document.getElementById('grid-w').value = gridW;
+    document.getElementById('grid-h').value = gridH;
+    document.getElementById('time-limit').value = timeLimit;
+    document.getElementById('slot-count').value = slotCount;
+    renderGrid();
+    updateOutput();
+    generateRandom();
+    showToast(`已加载: ${t.name} (${t.w}×${t.h})`);
+}
+
+function sum(arr) {
+    let s = 0;
+    for (const r of arr) for (const v of r) if (v) s++;
+    return s;
+}
+
+buildMakeBeadList();
+
+// ==================== 自然语言编辑器 ====================
+const NL_LOG_MAX = 20;
+const NL_API_URL = 'https://doubao.zwchat.cn/v1/chat/completions';
+const NL_API_KEY = 'sk-4Oz0LSt9ruBO5W054NGYN2jD82dVyw3D8wmwAS62lNLfyzHn';
+const NL_MODEL = 'gemini-3-flash-preview';
+
+function nlLog(msg, ok) {
+    const log = document.getElementById('nl-log');
+    const div = document.createElement('div');
+    div.className = ok ? 'nl-success' : 'nl-error';
+    div.textContent = (ok ? '✓ ' : '✗ ') + msg;
+    log.appendChild(div);
+    if (log.children.length > NL_LOG_MAX) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+}
+
+// Color name -> ID mapping
+const COLOR_NAME_MAP = {
+    '红': 10, '红色': 10, '橙': 4, '橙色': 4, '黄': 6, '黄色': 6, '浅黄': 6,
+    '绿': 9, '绿色': 9, '蓝': 13, '蓝色': 13, '天蓝': 13, '天蓝色': 13,
+    '紫': 8, '紫色': 8, '浅紫': 15, '浅紫色': 15,
+    '粉': 14, '粉色': 14, '棕': 16, '棕色': 16, '白': 20, '白色': 20, '米白': 20, '米白色': 20,
+    '靛蓝': 7, '靛蓝色': 7, '青绿': 11, '青绿色': 11, '玫红': 1, '玫红色': 1,
+    '青': 18, '青色': 18, '藏青': 18, '藏青色': 18,
+    '金': 3, '金色': 3, '紫': 8, '紫色': 8,
+    '锈': 4, '锈色': 4, '翠绿': 12, '翠绿色': 12, '深绿': 12,
+    '酒红': 17, '酒红色': 17, '深红': 17, '绯': 17, '绯红': 17, '绯红色': 17,
+    '亮青': 2, '钢蓝': 2, '钢蓝色': 2,
+    '桃': 5, '桃色': 5, '桃红': 5, '桃红色': 5,
+    '深灰': 19, '深灰色': 19, '灰': 19, '灰色': 19, '黑': 19, '黑色': 19,
+};
+
+function parseColor(text) {
+    if (!text) return 0;
+    const t = text.trim();
+    for (const [name, id] of Object.entries(COLOR_NAME_MAP)) {
+        if (t.includes(name)) return id;
+    }
+    const hexMatch = t.match(/#([0-9A-Fa-f]{3,6})/);
+    if (hexMatch) {
+        let hex = hexMatch[1];
+        if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+        let minDist = Infinity, closest = 0;
+        for (const [id, c] of Object.entries(COLORS)) {
+            const dist = (r-c.r)**2 + (g-c.g)**2 + (b-c.b)**2;
+            if (dist < minDist) { minDist = dist; closest = parseInt(id); }
+        }
+        return closest;
+    }
+    return 0;
+}
+
+function refreshBoard() {
+    renderGrid();
+    updateOutput();
+}
+
+function handleNLCommand() {
+    const input = document.getElementById('nl-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    executeNLCommand(text);
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.target.id === 'nl-input' && e.key === 'Enter') {
+        e.preventDefault();
+        handleNLCommand();
+    }
+});
+
+// 通过 LLM 解析自然语言指令
+async function executeNLCommand(text) {
+    // 构建当前棋盘状态的文本描述
+    const gridSummary = correctColorArr.map(r =>
+        r.map(v => v === 0 ? '空' : COLORS[v]?.name || '?').join(' ')
+    ).join('\n');
+
+    const prompt = `你是一个关卡编辑器的指令解析器。当前棋盘 ${gridW}×${gridH}，内容如下（每行一个格子，"空"=未填充）：
+${gridSummary}
+
+颜色编号映射：1玫红 2亮青 3金 4橙 5桃 6浅黄 7靛蓝 8紫 9绿 10红 11青绿 12翠绿 13天蓝 14粉 15浅紫 16棕 17酒红 18藏青 19深灰 20米白
+
+用户指令：${text}
+
+请返回一个JSON数组，每个元素是一个操作对象，格式如下：
+- 涂色: {"action":"paint","row":行号从0开始,"col":列号从0开始,"color":颜色编号}
+- 范围涂色: {"action":"paint_range","r1":行0起,"c1":列0起,"r2":行0起,"c2":列0起,"color":颜色编号}
+- 清除: {"action":"clear","row":行,"col":列} 或 {"action":"clear_all"}
+- 翻转: {"action":"flip","dir":"horizontal"|"vertical"}
+- 旋转: {"action":"rotate","dir":"clockwise"|"counterclockwise"}
+- 交换颜色: {"action":"swap_colors","color1":编号,"color2":编号}
+- 替换颜色: {"action":"replace_color","from":编号,"to":编号}
+- 清除某颜色: {"action":"clear_color","color":编号}
+- 填充全部: {"action":"fill_all","color":编号}
+- 预设图案: {"action":"preset","name":"heart"|"star"|"taiji"|"rainbow"|"checkerboard"|"diamond"|"flower"|"triangle"|"hexagon"|"spiral"|"concentric"|"cross"}
+- 圆形: {"action":"circle","color":编号,"radius":半径}
+- 左/右半边复制: {"action":"mirror","dir":"left_to_right"|"right_to_left"|"top_to_bottom"|"bottom_to_top"}
+- 反色: {"action":"invert_colors"}
+- 棋盘大小: {"action":"resize","width":宽度,"height":高度}
+
+只返回JSON，不要其他文字。`;
+
+    nlLog('正在解析指令...', true);
+
+    try {
+        const resp = await fetch(NL_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + NL_API_KEY,
+            },
+            body: JSON.stringify({
+                model: NL_MODEL,
+                messages: [
+                    { role: 'system', content: '你是一个JSON指令解析器。只返回JSON，不要markdown代码块，不要额外文字。' },
+                    { role: 'user', content: prompt }
+                ],
+                stream: false,
+            }),
+        });
+
+        if (!resp.ok) throw new Error(`API请求失败: ${resp.status}`);
+
+        const data = await resp.json();
+        let content = '';
+        if (data.choices && data.choices[0]) {
+            content = data.choices[0].message.content || '';
+        }
+
+        // 提取JSON（去掉可能的markdown标记）
+        const jsonMatch = content.match(/\[[\s\S]*\]/) || content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('无法解析返回内容');
+
+        const ops = JSON.parse(jsonMatch[0]);
+        const operations = Array.isArray(ops) ? ops : [ops];
+
+        let successCount = 0;
+        for (const op of operations) {
+            if (applyOperation(op)) successCount++;
+        }
+
+        if (successCount > 0) {
+            refreshBoard();
+            nlLog(`执行了 ${successCount} 个操作`, true);
+        } else {
+            nlLog('没有可执行的操作', false);
+        }
+    } catch (e) {
+        console.error('NL command error:', e);
+        nlLog(`${e.message || '指令解析失败'}`, false);
+    }
+}
+
+// 执行单个操作
+function applyOperation(op) {
+    if (!op || !op.action) return false;
+
+    switch (op.action) {
+        case 'paint': {
+            if (op.row >= 0 && op.row < gridH && op.col >= 0 && op.col < gridW && op.color > 0) {
+                correctColorArr[op.row][op.col] = op.color;
+                return true;
+            }
+            return false;
+        }
+        case 'paint_range': {
+            const r1 = Math.max(0, op.r1), c1 = Math.max(0, op.c1);
+            const r2 = Math.min(gridH-1, op.r2), c2 = Math.min(gridW-1, op.c2);
+            for (let r = r1; r <= r2; r++)
+                for (let c = c1; c <= c2; c++)
+                    correctColorArr[r][c] = op.color || 0;
+            return true;
+        }
+        case 'clear': {
+            if (op.row >= 0 && op.row < gridH && op.col >= 0 && op.col < gridW) {
+                correctColorArr[op.row][op.col] = 0;
+                return true;
+            }
+            return false;
+        }
+        case 'clear_all': {
+            for (let r = 0; r < gridH; r++)
+                for (let c = 0; c < gridW; c++)
+                    correctColorArr[r][c] = 0;
+            return true;
+        }
+        case 'flip': {
+            if (op.dir === 'horizontal') {
+                for (let r = 0; r < gridH; r++) correctColorArr[r].reverse();
+            } else if (op.dir === 'vertical') {
+                correctColorArr.reverse();
+            }
+            return true;
+        }
+        case 'rotate': {
+            const newGrid = [];
+            if (op.dir === 'clockwise') {
+                for (let c = 0; c < gridW; c++) {
+                    const newRow = [];
+                    for (let r = gridH - 1; r >= 0; r--) newRow.push(correctColorArr[r][c]);
+                    newGrid.push(newRow);
+                }
+            } else {
+                for (let c = gridW - 1; c >= 0; c--) {
+                    const newRow = [];
+                    for (let r = 0; r < gridH; r++) newRow.push(correctColorArr[r][c]);
+                    newGrid.push(newRow);
+                }
+            }
+            correctColorArr = newGrid;
+            [gridW, gridH] = [gridH, gridW];
+            document.getElementById('grid-w').value = gridW;
+            document.getElementById('grid-h').value = gridH;
+            return true;
+        }
+        case 'swap_colors': {
+            if (!op.color1 || !op.color2) return false;
+            for (let r = 0; r < gridH; r++)
+                for (let c = 0; c < gridW; c++) {
+                    if (correctColorArr[r][c] === op.color1) correctColorArr[r][c] = op.color2;
+                    else if (correctColorArr[r][c] === op.color2) correctColorArr[r][c] = op.color1;
+                }
+            return true;
+        }
+        case 'replace_color': {
+            if (!op.from || !op.to) return false;
+            for (let r = 0; r < gridH; r++)
+                for (let c = 0; c < gridW; c++)
+                    if (correctColorArr[r][c] === op.from) correctColorArr[r][c] = op.to;
+            return true;
+        }
+        case 'clear_color': {
+            if (!op.color) return false;
+            for (let r = 0; r < gridH; r++)
+                for (let c = 0; c < gridW; c++)
+                    if (correctColorArr[r][c] === op.color) correctColorArr[r][c] = 0;
+            return true;
+        }
+        case 'fill_all': {
+            const c = op.color || 1;
+            for (let r = 0; r < gridH; r++)
+                for (let col = 0; col < gridW; col++)
+                    correctColorArr[r][col] = c;
+            return true;
+        }
+        case 'preset': {
+            const fn = {
+                heart: presetHeart, star: presetStar, taiji: presetTaiji,
+                rainbow: presetRainbow, checkerboard: presetCheckerboard,
+                diamond: presetDiamond, flower: presetFlower, triangle: presetTriangle,
+                hexagon: presetHexagon, spiral: presetSpiral,
+                concentric: presetConcentric, cross: presetCross,
+            }[op.name];
+            if (fn) { fn(); return true; }
+            return false;
+        }
+        case 'circle': {
+            const cx = Math.floor(gridW / 2), cy = Math.floor(gridH / 2);
+            const r = op.radius || Math.min(gridW, gridH) / 3;
+            const c = op.color || 1;
+            for (let row = 0; row < gridH; row++)
+                for (let col = 0; col < gridW; col++)
+                    if ((col - cx)**2 + (row - cy)**2 <= r*r)
+                        correctColorArr[row][col] = c;
+            return true;
+        }
+        case 'mirror': {
+            switch (op.dir) {
+                case 'left_to_right':
+                    for (let r = 0; r < gridH; r++)
+                        for (let c = 0; c < Math.ceil(gridW/2); c++)
+                            correctColorArr[r][gridW-1-c] = correctColorArr[r][c];
+                    break;
+                case 'right_to_left':
+                    for (let r = 0; r < gridH; r++)
+                        for (let c = 0; c < Math.ceil(gridW/2); c++)
+                            correctColorArr[r][c] = correctColorArr[r][gridW-1-c];
+                    break;
+                case 'top_to_bottom':
+                    for (let r = 0; r < Math.ceil(gridH/2); r++)
+                        for (let c = 0; c < gridW; c++)
+                            correctColorArr[gridH-1-r][c] = correctColorArr[r][c];
+                    break;
+                case 'bottom_to_top':
+                    for (let r = 0; r < Math.ceil(gridH/2); r++)
+                        for (let c = 0; c < gridW; c++)
+                            correctColorArr[r][c] = correctColorArr[gridH-1-r][c];
+                    break;
+            }
+            return true;
+        }
+        case 'invert_colors': {
+            const usedColors = new Set();
+            for (const row of correctColorArr) for (const v of row) if (v > 0) usedColors.add(v);
+            const sorted = [...usedColors].sort((a,b) => a-b);
+            const swapMap = {};
+            for (let i = 0; i < sorted.length; i++)
+                swapMap[sorted[i]] = sorted[sorted.length - 1 - i];
+            for (let r = 0; r < gridH; r++)
+                for (let c = 0; c < gridW; c++)
+                    if (correctColorArr[r][c] in swapMap)
+                        correctColorArr[r][c] = swapMap[correctColorArr[r][c]];
+            return true;
+        }
+        case 'resize': {
+            const w = Math.min(32, Math.max(3, op.width || gridW));
+            const h = Math.min(32, Math.max(3, op.height || gridH));
+            const newGrid = Array.from({length: h}, () => Array(w).fill(0));
+            for (let r = 0; r < Math.min(gridH, h); r++)
+                for (let c = 0; c < Math.min(gridW, w); c++)
+                    newGrid[r][c] = correctColorArr[r][c];
+            gridW = w; gridH = h;
+            correctColorArr = newGrid;
+            document.getElementById('grid-w').value = gridW;
+            document.getElementById('grid-h').value = gridH;
+            return true;
+        }
+        default:
+            return false;
+    }
+}
+
+// Auto-load level from URL parameter: ?level=N
+(function autoLoadFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const levelId = parseInt(params.get('level'));
+    if (!levelId || levelId < 1) return;
+    currentLevelTargetType = params.get('type') === 'theme' || params.get('theme') === '1'
+        ? 'theme'
+        : 'main';
+    const filename = getLevelFilenameByType(levelId, currentLevelTargetType);
+    const url = `../assets/RemoteBundle/LevelData/${filename}`;
+    fetch(url).then(r => {
+        if (!r.ok) throw new Error('Not found');
+        return r.json();
+    }).then(data => {
+        document.getElementById('level-id').value = data.levelId;
+        document.getElementById('grid-w').value = data.boardWidth;
+        document.getElementById('grid-h').value = data.boardHeight;
+        document.getElementById('time-limit').value = data.timeLimit;
+        document.getElementById('slot-count').value = data.slotTotalCount;
+        gridW = data.boardWidth;
+        gridH = data.boardHeight;
+        timeLimit = data.timeLimit;
+        slotCount = data.slotTotalCount;
+        correctColorArr = data.correctColorArr;
+        initRandomColorArr = data.initRandomColorArr || [];
+        renderGrid();
+        updateJSONWithInit(data.initRandomColorArr);
+        showToast(`已加载 ${filename}`);
+    }).catch(() => {
+        showToast(`未找到 ${filename}`);
+    });
+})();
+</script>
+</body>
+</html>

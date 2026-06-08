@@ -1,0 +1,37 @@
+{
+  "name": "NewProject",
+  "uuid": "7acfdf6e-f630-4afe-a135-76f8e6200467",
+  "creator": {
+    "version": "3.8.8"
+  },
+  "scripts": {
+    "test": "npm run test:build-scripts && npm run verify:ui-ownership",
+    "test:build-scripts": "node tests/build-scripts.test.js && node tests/slot-order.test.js && node tests/endgame-hint.test.js && node tests/slot-onboarding-policy.test.js",
+    "verify:ui-ownership": "node scripts/verify-ui-ownership.js",
+    "build:wechat": "node scripts/build-wechat.js --release",
+    "build:wechat:debug": "node scripts/build-wechat.js --debug",
+    "verify:wechat-build": "node scripts/verify-wechat-build.js",
+    "verify:wechat-build:runtime": "npm run verify:wechat-build && npm run smoke:wechat-preview -- --screenshot temp/wechat-preview-smoke/preview.png --logs temp/wechat-preview-smoke/fatal-startup.log",
+    "smoke:wechat-preview": "node scripts/smoke-wechat-preview.js",
+    "verify:cocos-meta": "node scripts/verify-cocos-meta.js assets",
+    "audit:assets": "node scripts/audit-assets.js",
+    "levels:manifest": "node scripts/write-level-manifest.js",
+    "levels:cdn": "node scripts/write-level-data-cdn.js",
+    "sync:cdn:wechat": "node scripts/sync-cdn-wechat.js",
+    "sync:cdn:wechat:dry": "node scripts/sync-cdn-wechat.js --dry-run",
+    "analytics:user-behavior:daily": "node scripts/user-behavior-daily-job.js",
+    "analytics:level-record:daily": "node scripts/user-behavior-daily-job.js --collection level_record",
+    "analytics:ad-stat:daily": "node scripts/user-behavior-daily-job.js --collection ad_stat",
+    "analytics:daily-stat:daily": "node scripts/user-behavior-daily-job.js --collection daily_stat",
+    "analytics:daily:all": "node scripts/user-behavior-daily-job.js --collections user_behavior,level_record,ad_stat,daily_stat"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@cloudbase/manager-node": "^5.5.0",
+    "pngjs": "^7.0.0"
+  }
+}

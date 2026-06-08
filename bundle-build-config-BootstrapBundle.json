@@ -1,0 +1,17 @@
+{
+    "buildTaskIds": [
+        "1777466567520",
+        "1777688876472",
+        "1776761698596"
+    ],
+    "dest": "project://build/build-bundle",
+    "id": "buildBundle",
+    "bundleConfigs": [
+        {
+            "root": "db://assets/BootstrapBundle",
+            "name": "bootstrap",
+            "output": true
+        }
+    ],
+    "taskName": "build bundle db://assets/BootstrapBundle"
+}

@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拼豆豆 - 关卡预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0e8; color: #3a3020; }
+.header { background: linear-gradient(135deg, #4a6fa5, #3b4d8c); color: #fff; padding: 20px 30px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.15); display: flex; align-items: center; gap: 20px; }
+.header h1 { font-size: 22px; font-weight: 600; }
+.header .stats { font-size: 14px; opacity: .85; }
+.controls { display: flex; gap: 12px; margin-left: auto; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.controls select, .controls input { padding: 6px 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; background: rgba(255,255,255,.15); color: #fff; font-size: 13px; }
+.controls select option { color: #333; background: #fff; }
+.controls input::placeholder { color: rgba(255,255,255,.5); }
+.control-btn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.28); border-radius: 6px; background: rgba(255,255,255,.18); color: #fff; font-size: 13px; cursor: pointer; transition: background .15s, opacity .15s; }
+.control-btn:hover { background: rgba(255,255,255,.26); }
+.control-btn:disabled { opacity: .65; cursor: wait; }
+.import-status { font-size: 12px; opacity: .92; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.import-status.error { color: #ffd3d3; }
+.import-status.success { color: #d7ffd8; }
+#imageImportInput { display: none; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; padding: 20px; max-width: 1400px; margin: 0 auto; }
+.card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .15s, box-shadow .15s; cursor: pointer; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.card .preview { display: flex; justify-content: center; align-items: center; padding: 12px; background: #faf8f4; min-height: 120px; }
+.card .preview .col { text-align: center; }
+.card .preview .col .label { font-size: 10px; color: #999; margin-bottom: 2px; }
+.card canvas { border-radius: 6px; }
+.card .info { padding: 10px 14px; border-top: 1px solid #f0ebe0; }
+.card .info .title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.card .info .meta { font-size: 12px; color: #888; line-height: 1.6; }
+.card .info .meta span { display: inline-block; margin-right: 8px; }
+.card .actions { padding: 8px 14px 12px; display: flex; gap: 8px; }
+.card .actions a { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 12px; text-decoration: none; font-weight: 500; transition: background .15s; }
+.btn-play { background: #4a6fa5; color: #fff; }
+.btn-play:hover { background: #3b5d8c; }
+.btn-edit { background: #f0ebe0; color: #5a5040; }
+.btn-edit:hover { background: #e5dfd0; }
+.btn-shuffle { background: #e8a030; color: #fff; }
+.btn-shuffle:hover { background: #d09020; }
+.btn-online { background: #d8e9db; color: #5d7862; border: none; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all .15s; flex: 1; }
+.btn-online.active { background: #59b66d; color: #fff; }
+.btn-online:hover { background: #bdd9c2; }
+.btn-featured { background: #ddd; color: #888; border: none; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all .15s; flex: 1; }
+.btn-featured.active { background: #ffeaa7; color: #d4a000; }
+.btn-featured:hover { background: #f0e0a0; }
+.btn-copy { background: #e7eef9; color: #4a6fa5; border: none; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all .15s; flex: 1; }
+.btn-copy:hover { background: #d2dcef; }
+
+/* Copy modal */
+.copy-modal { background: #fff; border-radius: 14px; max-width: 460px; width: 92%; padding: 22px; position: relative; box-shadow: 0 18px 40px rgba(0,0,0,.25); }
+.copy-modal h3 { font-size: 18px; margin-bottom: 4px; }
+.copy-modal .copy-sub { font-size: 12px; color: #888; margin-bottom: 16px; }
+.copy-modal label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; margin-top: 12px; font-weight: 500; }
+.copy-modal .seg-row { display: flex; gap: 6px; }
+.copy-modal .seg-btn { flex: 1; padding: 8px 10px; border: 1px solid #d4d4d4; background: #f7f7f7; color: #444; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
+.copy-modal .seg-btn.active { background: #4a6fa5; color: #fff; border-color: #4a6fa5; }
+.copy-modal input[type=number] { width: 100%; padding: 8px 10px; border: 1px solid #d4d4d4; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+.copy-modal .quick-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.copy-modal .quick-chip { padding: 4px 10px; background: #eef1f6; color: #4a6fa5; border: 1px solid transparent; border-radius: 999px; cursor: pointer; font-size: 11px; }
+.copy-modal .quick-chip:hover { background: #dbe2ee; }
+.copy-modal .copy-actions { margin-top: 18px; display: flex; gap: 10px; }
+.copy-modal .copy-actions button { flex: 1; padding: 10px 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+.copy-modal .btn-confirm { background: #4a6fa5; color: #fff; }
+.copy-modal .btn-confirm:hover { background: #3b5d8c; }
+.copy-modal .btn-cancel { background: #eee; color: #555; }
+.copy-modal .copy-feedback { font-size: 12px; margin-top: 10px; min-height: 18px; line-height: 1.5; }
+.copy-modal .copy-feedback.error { color: #d8513f; }
+.copy-modal .copy-feedback.success { color: #4a8e5e; }
+.copy-modal .copy-target-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.card.featured { position: relative; box-shadow: 0 0 0 2px #f0c040, 0 2px 8px rgba(0,0,0,.08); }
+.card.online { box-shadow: 0 0 0 2px #59b66d, 0 2px 8px rgba(0,0,0,.08); }
+.card.featured.online { box-shadow: 0 0 0 2px #59b66d, 0 0 0 4px #f0c040, 0 2px 8px rgba(0,0,0,.08); }
+.badge-featured { position: absolute; top: 6px; right: 6px; background: #f0c040; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
+.badge-online { position: absolute; top: 6px; left: 6px; background: #59b66d; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
+
+/* Detail modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: #fff; border-radius: 16px; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; padding: 24px; }
+.modal h2 { font-size: 20px; margin-bottom: 16px; }
+.modal .compare { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+.modal .compare .col { text-align: center; }
+.modal .compare .col h3 { font-size: 14px; color: #888; margin-bottom: 8px; }
+.modal .compare canvas { border-radius: 8px; border: 1px solid #eee; }
+.modal .detail-meta { margin-top: 16px; font-size: 13px; color: #666; line-height: 1.8; }
+.modal .detail-actions { margin-top: 16px; display: flex; gap: 10px; }
+.modal .detail-actions a { padding: 8px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; }
+.modal .close-btn { position: absolute; top: 12px; right: 16px; font-size: 24px; cursor: pointer; color: #aaa; background: none; border: none; }
+.loading { text-align: center; padding: 60px; font-size: 16px; color: #999; }
+
+.color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 2px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🎮 拼豆豆 关卡预览</h1>
+    <div class="stats" id="stats">加载中...</div>
+    <div class="controls">
+        <span id="dirBadge" style="font-size:13px;background:rgba(255,255,255,.2);padding:4px 8px;border-radius:6px;">目录: assets/RemoteBundle/LevelData</span>
+        <span id="startBadge" style="font-size:13px;background:rgba(255,255,255,.2);padding:4px 8px;border-radius:6px;display:none;">从第 <b id="startBadgeNum"></b> 关开始</span>
+        <input type="number" id="startInput" placeholder="起始关卡" size="8" min="0" style="width:90px;">
+        <button id="startBtn" style="padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.2);color:#fff;font-size:13px;cursor:pointer;">跳转</button>
+        <select id="filterColors">
+            <option value="0">全部颜色数</option>
+            <option value="2">2色</option>
+            <option value="3">3色</option>
+            <option value="4">4色</option>
+            <option value="5">5色</option>
+            <option value="6">6+色</option>
+        </select>
+        <select id="filterFeatured">
+            <option value="0">全部关卡</option>
+            <option value="1">仅精选</option>
+        </select>
+        <select id="filterOnline">
+            <option value="0">全部上线状态</option>
+            <option value="1">仅上线</option>
+            <option value="2">仅未上线</option>
+        </select>
+        <input type="text" id="searchBox" placeholder="搜索关卡号..." size="10">
+        <input type="file" id="imageImportInput" accept="image/*">
+        <button id="imageImportBtn" class="control-btn" type="button">上传图片生成关卡</button>
+        <span id="importStatus" class="import-status">默认追加到最后一关</span>
+    </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal" id="modal"></div>
+</div>
+
+<div class="loading" id="loading">正在加载关卡数据...</div>
+
+<script>
+const COLOR_HEX = {
+    1: '#ED5090', 2: '#4EEAEA', 3: '#F8C811', 4: '#FE8B10', 5: '#F4BD9E',
+    6: '#EBDEA6', 7: '#4A4DCF', 8: '#7221BC', 9: '#9FCE21', 10: '#EA281A',
+    11: '#37A92D', 12: '#207955', 13: '#20A8DC', 14: '#EEB2BC', 15: '#C4BED9',
+    16: '#974714', 17: '#782F3C', 18: '#36387E', 19: '#373737', 20: '#F2EDE4',
+};
+const PNG_HEX = {
+    1: '#ED5090', 2: '#4EEAEA', 3: '#F8C811', 4: '#FE8B10', 5: '#F4BD9E',
+    6: '#EBDEA6', 7: '#4A4DCF', 8: '#7221BC', 9: '#9FCE21', 10: '#EA281A',
+    11: '#37A92D', 12: '#207955', 13: '#20A8DC', 14: '#EEB2BC', 15: '#C4BED9',
+    16: '#974714', 17: '#782F3C', 18: '#36387E', 19: '#373737', 20: '#F2EDE4',
+    21: '#8B8B8B',
+};
+const COLOR_NAMES = {
+    1: '玫红', 2: '亮青', 3: '金', 4: '橙', 5: '桃', 6: '浅黄', 7: '靛蓝', 8: '紫',
+    9: '绿', 10: '红', 11: '青绿', 12: '翠绿', 13: '天蓝', 14: '粉', 15: '浅紫',
+    16: '棕', 17: '酒红', 18: '藏青', 19: '深灰', 20: '米白',
+};
+const COLOR_IDS = Object.keys(COLOR_HEX).map(Number);
+const COLOR_RGB = Object.fromEntries(
+    Object.entries(COLOR_HEX).map(([id, hex]) => [Number(id), hexToRgb(hex)])
+);
+const IMPORT_MAX_SIDE = 32;
+const IMPORT_SAMPLE_SCALE = 8;
+const IMPORT_MIN_FOREGROUND_ALPHA = 36;
+const IMPORT_EMPTY_CELL_COVERAGE = 0.08;
+
+let levels = [];
+let levelIds = [];
+let loadedUpTo = 0;
+const levelPathMap = new Map();
+const PAGE_SIZE = 100;
+const BATCH_SIZE = 50;
+let isLoadingMore = false;
+let activeFilter = null; // { type, value }
+let importStatusTimer = null;
+let isImportingImage = false;
+
+// Parse start level from URL query string
+const URL_PARAMS = new URLSearchParams(window.location.search);
+const DEFAULT_LEVEL_DIR = 'assets/RemoteBundle/LevelData';
+const BASE_TITLE = '🎮 拼豆豆 关卡预览';
+const START_LEVEL = URL_PARAMS.get('start') ? parseInt(URL_PARAMS.get('start')) : 0;
+const ONLINE_FILTER = URL_PARAMS.get('online') ? parseInt(URL_PARAMS.get('online')) : 0;
+const LEVEL_DIR = normalizeLevelDir(URL_PARAMS.get('dir') || DEFAULT_LEVEL_DIR);
+const LEVEL_DIR_LABEL = LEVEL_DIR || DEFAULT_LEVEL_DIR;
+const GAME_PREVIEW_URL = 'http://localhost:7456/';
+
+function normalizeLevelDir(value) {
+    const raw = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (!raw) return DEFAULT_LEVEL_DIR;
+    const parts = raw.split('/').filter(Boolean);
+    if (!parts.length) return DEFAULT_LEVEL_DIR;
+    if (parts.some(part => part === '.' || part === '..')) {
+        return DEFAULT_LEVEL_DIR;
+    }
+    return parts.join('/');
+}
+
+function buildApiUrl(path, params = {}) {
+    const url = new URL(path, window.location.origin);
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined || value === null || value === '') continue;
+        url.searchParams.set(key, String(value));
+    }
+    return url.toString();
+}
+
+function updateStats() {
+    document.getElementById('stats').textContent =
+        `目录 ${LEVEL_DIR_LABEL} | 共 ${levelIds.length} 关 | 已加载 ${levels.length} 关 | 显示 ${getFilteredLevels().length} 关`;
+}
+
+function getLevelFilePath(data) {
+    return levelPathMap.get(data.levelId) || `${LEVEL_DIR_LABEL}/level_${data.levelId}.json`;
+}
+
+function shouldUseDirectLevelParam(data) {
+    return LEVEL_DIR === DEFAULT_LEVEL_DIR
+        && getLevelFilePath(data) === `${DEFAULT_LEVEL_DIR}/level_${data.levelId}.json`;
+}
+
+function buildPlayUrl(data) {
+    const url = new URL(GAME_PREVIEW_URL);
+    if (shouldUseDirectLevelParam(data)) {
+        url.searchParams.set('level', String(data.levelId));
+    } else {
+        url.searchParams.set('levelfile', getLevelFilePath(data));
+    }
+    return url.toString();
+}
+
+// Discover all level IDs first
+async function discoverLevels() {
+    const resp = await fetch(buildApiUrl('/api/list-levels', { dir: LEVEL_DIR, _: Date.now() }));
+    const result = await resp.json();
+    if (!resp.ok || !result.ok) {
+        throw new Error(result.error || `HTTP ${resp.status}`);
+    }
+
+    levelIds = [];
+    for (const id of (result.levelIds || [])) {
+        if (id >= START_LEVEL) {
+            levelIds.push(id);
+        }
+    }
+    levelIds.sort((a, b) => a - b);
+}
+
+// Load the next PAGE_SIZE levels
+async function loadMoreLevels() {
+    if (loadedUpTo >= levelIds.length) return false;
+    if (isLoadingMore) return false;
+    isLoadingMore = true;
+    const existingLevelIds = new Set(levels.map(level => level.levelId));
+
+    const start = loadedUpTo;
+    const end = Math.min(start + PAGE_SIZE, levelIds.length);
+    const idsToLoad = levelIds.slice(start, end);
+    const cacheBust = Date.now();
+
+    document.getElementById('loading').textContent =
+        `正在加载 ${LEVEL_DIR_LABEL} ... ${levels.length}/${levelIds.length}`;
+
+    for (let i = 0; i < idsToLoad.length; i += BATCH_SIZE) {
+        const batch = idsToLoad.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(id =>
+            fetch(buildApiUrl('/api/load-level', { dir: LEVEL_DIR, levelId: id, _: cacheBust }))
+                .then(async r => {
+                    if (!r.ok) return null;
+                    const result = await r.json();
+                    if (!result.ok || !result.levelData) return null;
+                    if (result.path) {
+                        levelPathMap.set(result.levelData.levelId, result.path);
+                    }
+                    return result.levelData;
+                })
+                .catch(() => null)
+        );
+        const results = await Promise.all(promises);
+        for (const data of results) {
+            if (data && !existingLevelIds.has(data.levelId)) {
+                levels.push(data);
+                existingLevelIds.add(data.levelId);
+            }
+        }
+    }
+
+    levels.sort((a, b) => a.levelId - b.levelId);
+    loadedUpTo = end;
+
+    document.getElementById('loading').textContent = '';
+    updateStats();
+
+    isLoadingMore = false;
+    return true;
+}
+
+function hexToRgb(hex) {
+    const value = hex.replace('#', '');
+    return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16),
+    };
+}
+
+function clampNumber(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function weightedRgbDistance(a, b) {
+    const dr = a.r - b.r;
+    const dg = a.g - b.g;
+    const db = a.b - b.b;
+    return 2 * dr * dr + 4 * dg * dg + 3 * db * db;
+}
+
+function luminance(rgb) {
+    return 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
+}
+
+function getPalettePenalty(colorId, rgb) {
+    const lum = luminance(rgb);
+    let penalty = 0;
+    if (colorId === 20 && lum < 176) {
+        penalty += 10000 + (176 - lum) * 110;
+    }
+    if ([7, 8, 16, 17, 18, 19].includes(colorId) && lum > 214) {
+        penalty += (lum - 214) * 125;
+    }
+    if ([3, 6, 14, 15, 20].includes(colorId) && lum < 72) {
+        penalty += (72 - lum) * 120;
+    }
+    return penalty;
+}
+
+function findClosestColor(r, g, b) {
+    const rgb = { r, g, b };
+    let minDist = Infinity;
+    let closest = 0;
+    for (const id of COLOR_IDS) {
+        const paletteRgb = COLOR_RGB[id];
+        const score = weightedRgbDistance(rgb, paletteRgb) + getPalettePenalty(id, rgb);
+        if (score < minDist) {
+            minDist = score;
+            closest = id;
+        }
+    }
+    return closest;
+}
+
+function getNextGuankaLevelId() {
+    if (!levelIds.length) return 1;
+    return levelIds[levelIds.length - 1] + 1;
+}
+
+function setImportStatus(message, type = '') {
+    const el = document.getElementById('importStatus');
+    el.textContent = message;
+    el.className = 'import-status' + (type ? ` ${type}` : '');
+}
+
+function refreshImportStatus() {
+    setImportStatus(`${LEVEL_DIR_LABEL} | 默认追加为第 ${getNextGuankaLevelId()} 关`);
+}
+
+function stripExtension(filename) {
+    return filename.replace(/\.[^.]+$/, '');
+}
+
+function estimateImportedBoardSize(img) {
+    if (img.width <= IMPORT_MAX_SIDE && img.height <= IMPORT_MAX_SIDE) {
+        return {
+            boardWidth: Math.max(1, img.width),
+            boardHeight: Math.max(1, img.height),
+        };
+    }
+
+    const aspect = img.width / img.height;
+    let boardWidth;
+    let boardHeight;
+    if (aspect >= 1) {
+        boardWidth = IMPORT_MAX_SIDE;
+        boardHeight = Math.max(4, Math.round(IMPORT_MAX_SIDE / aspect));
+    } else {
+        boardHeight = IMPORT_MAX_SIDE;
+        boardWidth = Math.max(4, Math.round(IMPORT_MAX_SIDE * aspect));
+    }
+    boardWidth = Math.min(IMPORT_MAX_SIDE, boardWidth);
+    boardHeight = Math.min(IMPORT_MAX_SIDE, boardHeight);
+    return { boardWidth, boardHeight };
+}
+
+function buildDominantBorderColor(data, width, height) {
+    const bins = new Map();
+    let totalWeight = 0;
+
+    function addPixel(x, y, weight = 1) {
+        const idx = (y * width + x) * 4;
+        const alpha = data[idx + 3];
+        if (alpha < IMPORT_MIN_FOREGROUND_ALPHA) return;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const key = `${Math.round(r / 24)}_${Math.round(g / 24)}_${Math.round(b / 24)}`;
+        const entry = bins.get(key) || { weight: 0, r: 0, g: 0, b: 0 };
+        entry.weight += weight;
+        entry.r += r * weight;
+        entry.g += g * weight;
+        entry.b += b * weight;
+        bins.set(key, entry);
+        totalWeight += weight;
+    }
+
+    for (let x = 0; x < width; x++) {
+        addPixel(x, 0, 1);
+        addPixel(x, height - 1, 1);
+    }
+    for (let y = 1; y < height - 1; y++) {
+        addPixel(0, y, 1);
+        addPixel(width - 1, y, 1);
+    }
+
+    addPixel(0, 0, 4);
+    addPixel(width - 1, 0, 4);
+    addPixel(0, height - 1, 4);
+    addPixel(width - 1, height - 1, 4);
+
+    let best = null;
+    for (const entry of bins.values()) {
+        if (!best || entry.weight > best.weight) {
+            best = entry;
+        }
+    }
+    if (!best || totalWeight <= 0) return null;
+    if (best.weight / totalWeight < 0.16 && best.weight < 12) return null;
+
+    return {
+        r: best.r / best.weight,
+        g: best.g / best.weight,
+        b: best.b / best.weight,
+    };
+}
+
+function isBackgroundLike(r, g, b, alpha, backgroundRgb) {
+    if (alpha < IMPORT_MIN_FOREGROUND_ALPHA) return true;
+    if (!backgroundRgb) return false;
+    const rgb = { r, g, b };
+    const dist = weightedRgbDistance(rgb, backgroundRgb);
+    const lumDiff = Math.abs(luminance(rgb) - luminance(backgroundRgb));
+    return dist <= 7800 || (dist <= 15000 && lumDiff <= 20);
+}
+
+function buildBackgroundMask(data, width, height) {
+    const backgroundRgb = buildDominantBorderColor(data, width, height);
+    const mask = new Uint8Array(width * height);
+    const queue = [];
+
+    function tryPush(x, y) {
+        const index = y * width + x;
+        if (mask[index]) return;
+        const offset = index * 4;
+        if (!isBackgroundLike(
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+            backgroundRgb
+        )) {
+            return;
+        }
+        mask[index] = 1;
+        queue.push(index);
+    }
+
+    for (let x = 0; x < width; x++) {
+        tryPush(x, 0);
+        tryPush(x, height - 1);
+    }
+    for (let y = 1; y < height - 1; y++) {
+        tryPush(0, y);
+        tryPush(width - 1, y);
+    }
+
+    for (let head = 0; head < queue.length; head++) {
+        const index = queue[head];
+        const x = index % width;
+        const y = Math.floor(index / width);
+        if (x > 0) tryPush(x - 1, y);
+        if (x + 1 < width) tryPush(x + 1, y);
+        if (y > 0) tryPush(x, y - 1);
+        if (y + 1 < height) tryPush(x, y + 1);
+    }
+
+    return { mask, backgroundRgb };
+}
+
+function buildForegroundSamples(data, width, height, boardWidth, boardHeight, backgroundMask, backgroundRgb) {
+    const samples = Array.from({ length: boardHeight }, () => Array(boardWidth).fill(null));
+    for (let row = 0; row < boardHeight; row++) {
+        const y0 = Math.floor(row * height / boardHeight);
+        const y1 = Math.max(y0 + 1, Math.floor((row + 1) * height / boardHeight));
+        for (let col = 0; col < boardWidth; col++) {
+            const x0 = Math.floor(col * width / boardWidth);
+            const x1 = Math.max(x0 + 1, Math.floor((col + 1) * width / boardWidth));
+            let sumR = 0;
+            let sumG = 0;
+            let sumB = 0;
+            let foregroundCount = 0;
+            let totalCount = 0;
+
+            for (let y = y0; y < y1; y++) {
+                for (let x = x0; x < x1; x++) {
+                    totalCount++;
+                    const pixelIndex = y * width + x;
+                    if (backgroundMask[pixelIndex]) continue;
+                    const offset = pixelIndex * 4;
+                    const alpha = data[offset + 3];
+                    if (alpha < IMPORT_MIN_FOREGROUND_ALPHA) continue;
+                    sumR += data[offset];
+                    sumG += data[offset + 1];
+                    sumB += data[offset + 2];
+                    foregroundCount++;
+                }
+            }
+
+            if (!foregroundCount) continue;
+
+            const coverage = foregroundCount / Math.max(1, totalCount);
+            const avg = {
+                r: sumR / foregroundCount,
+                g: sumG / foregroundCount,
+                b: sumB / foregroundCount,
+                coverage,
+            };
+
+            if (
+                coverage < IMPORT_EMPTY_CELL_COVERAGE &&
+                backgroundRgb &&
+                weightedRgbDistance(avg, backgroundRgb) < 9000
+            ) {
+                continue;
+            }
+            samples[row][col] = avg;
+        }
+    }
+    return samples;
+}
+
+function diffuseQuantizationErrors(samples) {
+    const height = samples.length;
+    const width = samples[0].length;
+    const work = samples.map(row => row.map(cell => (cell ? { ...cell } : null)));
+    const grid = Array.from({ length: height }, () => Array(width).fill(0));
+
+    function addError(row, col, factor, errR, errG, errB) {
+        if (row < 0 || row >= height || col < 0 || col >= width) return;
+        const cell = work[row][col];
+        if (!cell) return;
+        cell.r = clampNumber(cell.r + errR * factor, 0, 255);
+        cell.g = clampNumber(cell.g + errG * factor, 0, 255);
+        cell.b = clampNumber(cell.b + errB * factor, 0, 255);
+    }
+
+    for (let row = 0; row < height; row++) {
+        const leftToRight = row % 2 === 0;
+        for (let offset = 0; offset < width; offset++) {
+            const col = leftToRight ? offset : (width - 1 - offset);
+            const cell = work[row][col];
+            if (!cell) continue;
+
+            const colorId = findClosestColor(cell.r, cell.g, cell.b);
+            grid[row][col] = colorId;
+
+            const paletteRgb = COLOR_RGB[colorId];
+            const errR = cell.r - paletteRgb.r;
+            const errG = cell.g - paletteRgb.g;
+            const errB = cell.b - paletteRgb.b;
+
+            if (leftToRight) {
+                addError(row, col + 1, 7 / 16, errR, errG, errB);
+                addError(row + 1, col - 1, 3 / 16, errR, errG, errB);
+                addError(row + 1, col, 5 / 16, errR, errG, errB);
+                addError(row + 1, col + 1, 1 / 16, errR, errG, errB);
+            } else {
+                addError(row, col - 1, 7 / 16, errR, errG, errB);
+                addError(row + 1, col + 1, 3 / 16, errR, errG, errB);
+                addError(row + 1, col, 5 / 16, errR, errG, errB);
+                addError(row + 1, col - 1, 1 / 16, errR, errG, errB);
+            }
+        }
+    }
+
+    return grid;
+}
+
+function trimGridWithPadding(grid, padding = 1) {
+    const height = grid.length;
+    const width = grid[0].length;
+    let minRow = height;
+    let maxRow = -1;
+    let minCol = width;
+    let maxCol = -1;
+
+    for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) {
+            if (grid[row][col] <= 0) continue;
+            minRow = Math.min(minRow, row);
+            maxRow = Math.max(maxRow, row);
+            minCol = Math.min(minCol, col);
+            maxCol = Math.max(maxCol, col);
+        }
+    }
+
+    if (maxRow < 0 || maxCol < 0) {
+        throw new Error('图片为空，未提取到有效图案');
+    }
+
+    const trimmed = [];
+    for (let row = minRow; row <= maxRow; row++) {
+        trimmed.push(grid[row].slice(minCol, maxCol + 1));
+    }
+
+    const trimmedWidth = trimmed[0].length;
+    const trimmedHeight = trimmed.length;
+    if (
+        padding <= 0 ||
+        trimmedWidth + padding * 2 > IMPORT_MAX_SIDE ||
+        trimmedHeight + padding * 2 > IMPORT_MAX_SIDE
+    ) {
+        return trimmed;
+    }
+
+    const padded = Array.from(
+        { length: trimmedHeight + padding * 2 },
+        () => Array(trimmedWidth + padding * 2).fill(0)
+    );
+    for (let row = 0; row < trimmedHeight; row++) {
+        for (let col = 0; col < trimmedWidth; col++) {
+            padded[row + padding][col + padding] = trimmed[row][col];
+        }
+    }
+    return padded;
+}
+
+function countFilledCells(grid) {
+    let total = 0;
+    for (const row of grid) {
+        for (const value of row) {
+            if (value > 0) total++;
+        }
+    }
+    return total;
+}
+
+function buildImportedGrid(img) {
+    const { boardWidth, boardHeight } = estimateImportedBoardSize(img);
+    const workWidth = Math.max(boardWidth * IMPORT_SAMPLE_SCALE, 96);
+    const workHeight = Math.max(boardHeight * IMPORT_SAMPLE_SCALE, 96);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = workWidth;
+    canvas.height = workHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, workWidth, workHeight);
+    ctx.drawImage(img, 0, 0, workWidth, workHeight);
+
+    const { data } = ctx.getImageData(0, 0, workWidth, workHeight);
+    const { mask, backgroundRgb } = buildBackgroundMask(data, workWidth, workHeight);
+    const samples = buildForegroundSamples(
+        data,
+        workWidth,
+        workHeight,
+        boardWidth,
+        boardHeight,
+        mask,
+        backgroundRgb
+    );
+    let correctColorArr = diffuseQuantizationErrors(samples);
+    correctColorArr = trimGridWithPadding(correctColorArr, 1);
+    const filledCellCount = countFilledCells(correctColorArr);
+
+    if (filledCellCount === 0) {
+        throw new Error('图片为空，或透明区域过多，未生成有效豆豆');
+    }
+
+    return {
+        boardWidth: correctColorArr[0].length,
+        boardHeight: correctColorArr.length,
+        filledCellCount,
+        correctColorArr,
+    };
+}
+
+function buildImportedLevelPayload(fileName, img) {
+    const nextLevelId = getNextGuankaLevelId();
+    const { boardWidth, boardHeight, correctColorArr } = buildImportedGrid(img);
+    return {
+        levelId: nextLevelId,
+        boardWidth,
+        boardHeight,
+        timeLimit: Math.max(120, boardWidth * boardHeight * 2),
+        correctColorArr,
+        online: false,
+        isFeatured: false,
+        levelCategory: 'image_import',
+        levelName: stripExtension(fileName || 'image_import'),
+        style: 'reference_image',
+        sourceImageName: fileName || '',
+    };
+}
+
+function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('读取图片失败'));
+        reader.onload = event => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('图片格式无效，无法解析'));
+            img.onload = () => resolve(img);
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function upsertLevel(levelData) {
+    const existingIndex = levels.findIndex(item => item.levelId === levelData.levelId);
+    if (existingIndex >= 0) {
+        levels[existingIndex] = levelData;
+    } else {
+        levels.push(levelData);
+    }
+    levels.sort((a, b) => a.levelId - b.levelId);
+
+    if (!levelIds.includes(levelData.levelId)) {
+        levelIds.push(levelData.levelId);
+        levelIds.sort((a, b) => a - b);
+    }
+}
+
+async function importImageLevel(file) {
+    if (!file || isImportingImage) return;
+    isImportingImage = true;
+    const btn = document.getElementById('imageImportBtn');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    if (importStatusTimer) {
+        clearTimeout(importStatusTimer);
+        importStatusTimer = null;
+    }
+
+    try {
+        setImportStatus(`正在导入 ${file.name} ...`);
+        const img = await loadImageFromFile(file);
+        const levelData = buildImportedLevelPayload(file.name, img);
+        const resp = await fetch('/api/import-level', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ levelData, dir: LEVEL_DIR, targetDir: LEVEL_DIR }),
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) {
+            throw new Error(result.error || `HTTP ${resp.status}`);
+        }
+
+        upsertLevel(result.levelData);
+        renderAll();
+        showDetail(result.levelData);
+        requestAnimationFrame(() => {
+            const card = document.querySelector(`.card[data-level="${result.levelId}"]`);
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        setImportStatus(`已生成到 ${LEVEL_DIR_LABEL} / 第 ${result.levelId} 关`, 'success');
+        importStatusTimer = setTimeout(() => {
+            refreshImportStatus();
+            importStatusTimer = null;
+        }, 2500);
+    } catch (error) {
+        setImportStatus(`导入失败: ${error.message}`, 'error');
+        importStatusTimer = setTimeout(() => {
+            refreshImportStatus();
+            importStatusTimer = null;
+        }, 4000);
+    } finally {
+        isImportingImage = false;
+        btn.disabled = false;
+        btn.textContent = '上传图片生成关卡';
+        const input = document.getElementById('imageImportInput');
+        input.value = '';
+    }
+}
+
+function drawGrid(canvas, grid, cellSize) {
+    const h = grid.length, w = grid[0].length;
+    canvas.width = w * cellSize;
+    canvas.height = h * cellSize;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < h; r++) {
+        for (let c = 0; c < w; c++) {
+            const v = grid[r][c];
+            if (v === 0) continue;
+            const hex = COLOR_HEX[v] || '#ccc';
+            const x = c * cellSize, y = r * cellSize;
+            const s = cellSize - 1;
+            const radius = Math.max(1, s * 0.18);
+
+            // Draw rounded rect bean
+            ctx.beginPath();
+            ctx.roundRect(x + 0.5, y + 0.5, s, s, radius);
+            ctx.fillStyle = hex;
+            ctx.fill();
+
+            // Subtle highlight
+            if (cellSize >= 6) {
+                ctx.beginPath();
+                ctx.roundRect(x + 1, y + 1, s - 2, s * 0.4, radius);
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fill();
+            }
+        }
+    }
+}
+
+function getColorInfo(grid) {
+    const counts = {};
+    for (const row of grid)
+        for (const v of row)
+            if (v > 0) counts[v] = (counts[v] || 0) + 1;
+    return counts;
+}
+
+function getDisplacementRate(correct, init) {
+    let displaced = 0, total = 0;
+    for (let r = 0; r < correct.length; r++)
+        for (let c = 0; c < correct[r].length; c++)
+            if (correct[r][c] !== 0) {
+                total++;
+                if (init[r][c] !== correct[r][c]) displaced++;
+            }
+    return total > 0 ? (displaced / total * 100).toFixed(1) : '0';
+}
+
+function renderCard(data) {
+    const isFeatured = data.isFeatured || false;
+    const isOnline = data.online === true;
+    const card = document.createElement('div');
+    card.className = 'card' + (isFeatured ? ' featured' : '') + (isOnline ? ' online' : '');
+    card.dataset.level = data.levelId;
+    card.dataset.colors = Object.keys(getColorInfo(data.correctColorArr)).length;
+    card.dataset.featured = isFeatured ? '1' : '0';
+    card.dataset.online = isOnline ? '1' : '0';
+
+    if (isOnline) {
+        const badge = document.createElement('div');
+        badge.className = 'badge-online';
+        badge.textContent = '🟢 上线';
+        card.appendChild(badge);
+    }
+
+    if (isFeatured) {
+        const badge = document.createElement('div');
+        badge.className = 'badge-featured';
+        badge.textContent = '⭐ 精选';
+        card.appendChild(badge);
+    }
+
+    const maxDim = Math.max(data.boardWidth, data.boardHeight);
+    const cellSize = Math.max(3, Math.min(8, Math.floor(180 / maxDim)));
+    const colors = getColorInfo(data.correctColorArr);
+    const colorCount = Object.keys(colors).length;
+    const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
+    const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+
+    // Preview: show target only
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'preview';
+
+    const targetCol = document.createElement('div');
+    targetCol.className = 'col';
+    const targetLabel = document.createElement('div');
+    targetLabel.className = 'label';
+    targetLabel.textContent = '目标';
+    targetCol.appendChild(targetLabel);
+    const canvasTarget = document.createElement('canvas');
+    targetCol.appendChild(canvasTarget);
+    previewDiv.appendChild(targetCol);
+
+    card.appendChild(previewDiv);
+
+    drawGrid(canvasTarget, data.correctColorArr, cellSize);
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'info';
+    const colorHexMap = Object.keys(colors).every(c => PNG_HEX[c]) ? PNG_HEX : COLOR_HEX;
+    const colorDots = Object.keys(colors).map(c =>
+        `<span class="color-dot" style="background:${colorHexMap[c]}" title="${COLOR_NAMES[c]}"></span>`
+    ).join('');
+    info.innerHTML = `
+        <div class="title">第 ${data.levelId} 关</div>
+        <div class="meta">
+            <span>📐 ${data.boardWidth}×${data.boardHeight}</span>
+            <span>🎨 ${colorCount}色</span>
+            <span>🔢 ${beanCount}豆</span><br>
+            <span>⏱ ${data.timeLimit}s</span>
+            <span>🔀 ${dispRate}%</span>
+            <span class="online-status">${isOnline ? '🟢 已上线' : '⚪ 未上线'}</span>
+            <span>${colorDots}</span>
+        </div>
+    `;
+    card.appendChild(info);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.innerHTML = `
+        <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank" onclick="event.stopPropagation()">▶ 玩</a>
+        <a class="btn-edit" href="guanka-refine.html?level=${data.levelId}" target="_blank" onclick="event.stopPropagation()">✏️ 微调</a>
+        <button class="btn-copy" data-level="${data.levelId}" onclick="event.stopPropagation(); openCopyModal(${data.levelId})" title="复制到线上 / 主题关卡">📋 复制</button>
+        <button class="btn-online${isOnline ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); toggleOnline(${data.levelId}, this)" title="${isOnline ? '取消上线' : '标记上线'}">${isOnline ? '🟢 上线' : '⚪ 上线'}</button>
+        <button class="btn-featured${isFeatured ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); toggleFeatured(${data.levelId}, this)" title="加入精选">${isFeatured ? '⭐ 精选' : '☆ 精选'}</button>
+    `;
+    card.appendChild(actions);
+
+    card.addEventListener('click', () => showDetail(data));
+    return card;
+}
+
+function showDetail(data) {
+    const modal = document.getElementById('modal');
+    const colors = getColorInfo(data.correctColorArr);
+    const colorCount = Object.keys(colors).length;
+    const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
+    const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+    const maxDim = Math.max(data.boardWidth, data.boardHeight);
+    const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
+
+    const colorHexMap = Object.keys(colors).every(c => PNG_HEX[c]) ? PNG_HEX : COLOR_HEX;
+    const colorDetails = Object.entries(colors)
+        .sort((a, b) => b[1] - a[1])
+        .map(([c, n]) => `<span class="color-dot" style="background:${colorHexMap[c]}"></span>${COLOR_NAMES[c]}: ${n}`)
+        .join('&nbsp;&nbsp;');
+
+    modal.innerHTML = `
+        <button class="close-btn" onclick="closeModal()">✕</button>
+        <h2>第 ${data.levelId} 关</h2>
+        <div class="compare">
+            <div class="col">
+                <h3>🎯 目标图案</h3>
+                <canvas id="detailTarget"></canvas>
+            </div>
+            <div class="col">
+                <h3>🔀 初始乱序</h3>
+                <canvas id="detailShuffle"></canvas>
+            </div>
+        </div>
+        <div class="detail-meta">
+            <strong>棋盘:</strong> ${data.boardWidth}×${data.boardHeight} &nbsp;
+            <strong>豆豆数:</strong> ${beanCount} &nbsp;
+            <strong>颜色数:</strong> ${colorCount} &nbsp;
+            <strong>时限:</strong> ${data.timeLimit}s &nbsp;
+            <strong>暂存槽:</strong> ${data.slotTotalCount} &nbsp;
+            <strong>位移率:</strong> ${dispRate}%<br>
+            <strong>文件:</strong> ${getLevelFilePath(data)}<br>
+            <strong>颜色分布:</strong> ${colorDetails}
+        </div>
+        <div class="detail-actions">
+            <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank">▶ 开始游戏</a>
+            <a class="btn-edit" href="guanka-refine.html?level=${data.levelId}" target="_blank">✏️ 微调本关</a>
+            <a class="btn-shuffle" href="javascript:void(0)" onclick="event.stopPropagation(); toggleDetailView(this, ${data.levelId})">🔄 切换视图</a>
+        </div>
+    `;
+
+    drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize);
+    drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize);
+
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+function toggleDetailView(btn, levelId) {
+    const data = levels.find(l => l.levelId === levelId);
+    if (!data) return;
+    const targetLabel = document.querySelector('#detailTarget').previousElementSibling;
+    const shuffleLabel = document.querySelector('#detailShuffle').parentElement.querySelector('h3');
+    const maxDim = Math.max(data.boardWidth, data.boardHeight);
+    const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
+    const isShowingTarget = targetLabel.textContent.includes('目标');
+    if (isShowingTarget) {
+        drawGrid(document.getElementById('detailTarget'), data.initRandomColorArr, cellSize);
+        targetLabel.textContent = '初始';
+        drawGrid(document.getElementById('detailShuffle'), data.correctColorArr, cellSize);
+        shuffleLabel.textContent = '🎯 目标图案';
+    } else {
+        drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize);
+        targetLabel.textContent = '目标';
+        drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize);
+        shuffleLabel.textContent = '🔀 初始乱序';
+    }
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function getFilteredLevels() {
+    const filterColors = parseInt(document.getElementById('filterColors').value);
+    const filterFeatured = parseInt(document.getElementById('filterFeatured').value);
+    const filterOnline = parseInt(document.getElementById('filterOnline').value);
+    const search = document.getElementById('searchBox').value.trim();
+
+    let filtered = levels;
+    if (filterFeatured === 1) {
+        filtered = filtered.filter(d => d.isFeatured);
+    }
+    if (filterOnline === 1) {
+        filtered = filtered.filter(d => d.online === true);
+    } else if (filterOnline === 2) {
+        filtered = filtered.filter(d => d.online !== true);
+    }
+    if (filterColors > 0) {
+        if (filterColors === 6) {
+            filtered = filtered.filter(d => Object.keys(getColorInfo(d.correctColorArr)).length >= 6);
+        } else {
+            filtered = filtered.filter(d => Object.keys(getColorInfo(d.correctColorArr)).length === filterColors);
+        }
+    }
+    if (search) {
+        filtered = filtered.filter(d => String(d.levelId).includes(search));
+    }
+    return filtered;
+}
+
+function renderAll() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    const filtered = getFilteredLevels();
+
+    updateStats();
+
+    for (const data of filtered) {
+        grid.appendChild(renderCard(data));
+    }
+}
+
+function syncOnlineFilterParam() {
+    const value = document.getElementById('filterOnline').value;
+    const url = new URL(window.location);
+    if (value === '0') {
+        url.searchParams.delete('online');
+    } else {
+        url.searchParams.set('online', value);
+    }
+    window.history.replaceState({}, '', url.toString());
+}
+
+async function onScroll() {
+    if (loadedUpTo >= levelIds.length) return;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const clientHeight = document.documentElement.clientHeight;
+    const scrollHeight = document.documentElement.scrollHeight;
+
+    if (scrollTop + clientHeight >= scrollHeight - 800) {
+        const loaded = await loadMoreLevels();
+        if (loaded) renderAll();
+    }
+}
+
+document.getElementById('filterColors').addEventListener('change', renderAll);
+document.getElementById('filterFeatured').addEventListener('change', renderAll);
+document.getElementById('filterOnline').addEventListener('change', () => {
+    syncOnlineFilterParam();
+    renderAll();
+});
+document.getElementById('searchBox').addEventListener('input', renderAll);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// Jump to start level
+function jumpToStart() {
+    const val = parseInt(document.getElementById('startInput').value);
+    if (isNaN(val) || val < 0) return;
+    const url = new URL(window.location);
+    url.searchParams.set('start', val);
+    window.location.href = url.toString();
+}
+document.getElementById('startBtn').addEventListener('click', jumpToStart);
+document.getElementById('startInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') jumpToStart();
+});
+document.getElementById('imageImportBtn').addEventListener('click', () => {
+    document.getElementById('imageImportInput').click();
+});
+document.getElementById('imageImportInput').addEventListener('change', event => {
+    const file = event.target.files && event.target.files[0];
+    if (file) importImageLevel(file);
+});
+
+let scrollTimeout;
+window.addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(onScroll, 150);
+});
+
+async function toggleFeatured(levelId, btn) {
+    try {
+        const resp = await fetch('/api/toggle-featured', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ levelId, dir: LEVEL_DIR }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const result = await resp.json();
+        const isFeatured = result.isFeatured;
+
+        // Update the level data
+        const level = levels.find(l => l.levelId === levelId);
+        if (level) level.isFeatured = isFeatured;
+
+        // Update the button
+        btn.className = 'btn-featured' + (isFeatured ? ' active' : '');
+        btn.textContent = isFeatured ? '⭐ 精选' : '☆ 精选';
+        btn.title = isFeatured ? '取消精选' : '加入精选';
+
+        // Update the card
+        const card = btn.closest('.card');
+        card.dataset.featured = isFeatured ? '1' : '0';
+        card.classList.toggle('featured', isFeatured);
+
+        // Update badge
+        let badge = card.querySelector('.badge-featured');
+        if (isFeatured && !badge) {
+            badge = document.createElement('div');
+            badge.className = 'badge-featured';
+            badge.textContent = '⭐ 精选';
+            card.insertBefore(badge, card.firstChild);
+        } else if (!isFeatured && badge) {
+            badge.remove();
+        }
+    } catch (e) {
+        alert('精选保存失败: ' + e.message);
+    }
+}
+
+async function toggleOnline(levelId, btn) {
+    try {
+        const resp = await fetch('/api/toggle-online', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ levelId, dir: LEVEL_DIR }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const result = await resp.json();
+        const isOnline = result.online;
+
+        const level = levels.find(l => l.levelId === levelId);
+        if (level) level.online = isOnline;
+
+        btn.className = 'btn-online' + (isOnline ? ' active' : '');
+        btn.textContent = isOnline ? '🟢 上线' : '⚪ 上线';
+        btn.title = isOnline ? '取消上线' : '标记上线';
+
+        const card = btn.closest('.card');
+        card.dataset.online = isOnline ? '1' : '0';
+        card.classList.toggle('online', isOnline);
+
+        const status = card.querySelector('.online-status');
+        if (status) status.textContent = isOnline ? '🟢 已上线' : '⚪ 未上线';
+
+        let badge = card.querySelector('.badge-online');
+        if (isOnline && !badge) {
+            badge = document.createElement('div');
+            badge.className = 'badge-online';
+            badge.textContent = '🟢 上线';
+            card.insertBefore(badge, card.firstChild);
+        } else if (!isOnline && badge) {
+            badge.remove();
+        }
+
+        if (parseInt(document.getElementById('filterOnline').value) !== 0) {
+            renderAll();
+        }
+    } catch (e) {
+        alert('上线状态保存失败: ' + e.message);
+    }
+}
+
+(async () => {
+    if (ONLINE_FILTER >= 0 && ONLINE_FILTER <= 2) {
+        document.getElementById('filterOnline').value = String(ONLINE_FILTER);
+    }
+    document.getElementById('dirBadge').textContent = `目录: ${LEVEL_DIR_LABEL}`;
+    if (START_LEVEL > 0) {
+        document.getElementById('startBadge').style.display = 'inline-block';
+        document.getElementById('startBadgeNum').textContent = START_LEVEL;
+        document.getElementById('startInput').value = START_LEVEL;
+    }
+    let title = BASE_TITLE;
+    if (LEVEL_DIR !== DEFAULT_LEVEL_DIR) {
+        title += ` (${LEVEL_DIR_LABEL})`;
+    }
+    if (START_LEVEL > 0) {
+        title += ` (从${START_LEVEL}关起)`;
+    }
+    document.querySelector('.header h1').textContent = title;
+    try {
+        await discoverLevels();
+        refreshImportStatus();
+        await loadMoreLevels();
+        document.getElementById('loading').style.display = 'none';
+        renderAll();
+    } catch (error) {
+        document.getElementById('loading').textContent = `加载失败: ${error.message}`;
+        updateStats();
+    }
+})();
+</script>
+<div class="modal-overlay" id="copyOverlay" onclick="if(event.target===this)closeCopyModal()">
+    <div class="copy-modal" id="copyModal">
+        <h3>复制关卡到线上/主题</h3>
+        <div class="copy-sub" id="copySourceInfo">来源关卡 #...</div>
+
+        <label>目标类型</label>
+        <div class="seg-row">
+            <button class="seg-btn active" id="segOnline" onclick="setCopyType('online')">线上关卡 (1~300)</button>
+            <button class="seg-btn" id="segTheme" onclick="setCopyType('theme')">主题关卡 (zt_level_xxx)</button>
+        </div>
+
+        <label>目标关卡 ID</label>
+        <input type="number" id="copyTargetId" value="1" min="1">
+        <div class="copy-target-hint" id="copyTargetHint">目标文件: assets/RemoteBundle/LevelData/level_1.json</div>
+
+        <div class="quick-row" id="copyQuickRow"></div>
+
+        <div class="copy-actions">
+            <button class="btn-cancel" onclick="closeCopyModal()">取消</button>
+            <button class="btn-confirm" id="copyConfirmBtn" onclick="executeCopy()">确认复制</button>
+        </div>
+        <div class="copy-feedback" id="copyFeedback"></div>
+    </div>
+</div>
+
+<script>
+let copySourceId = null;
+let copyType = 'online';
+let copyOverwriteAllowed = false;
+
+function getCopyTargetFilename(type, id) {
+    return `${type === 'theme' ? 'zt_level' : 'level'}_${id}.json`;
+}
+
+function openCopyModal(levelId) {
+    copySourceId = levelId;
+    copyOverwriteAllowed = false;
+    document.getElementById('copySourceInfo').textContent = `来源: ${LEVEL_DIR_LABEL}/level_${levelId}.json`;
+    document.getElementById('copyFeedback').textContent = '';
+    document.getElementById('copyFeedback').className = 'copy-feedback';
+    setCopyType('online');
+    updateCopyQuickRow();
+    document.getElementById('copyOverlay').classList.add('active');
+}
+
+function closeCopyModal() {
+    document.getElementById('copyOverlay').classList.remove('active');
+    copySourceId = null;
+}
+
+function setCopyType(type) {
+    copyType = type;
+    document.getElementById('segOnline').classList.toggle('active', type === 'online');
+    document.getElementById('segTheme').classList.toggle('active', type === 'theme');
+    document.getElementById('copySourceInfo').textContent = type === 'online'
+        ? `来源: ${LEVEL_DIR_LABEL}/level_${copySourceId}.json | 线上复制仅保留运行所需字段`
+        : `来源: ${LEVEL_DIR_LABEL}/level_${copySourceId}.json | 主题复制保留主题所需附加字段`;
+    const target = document.getElementById('copyTargetId');
+    if (type === 'online') {
+        target.value = copySourceId <= 300 ? copySourceId : 1;
+    } else {
+        target.value = 1001;
+    }
+    updateCopyTargetHint();
+    updateCopyQuickRow();
+}
+
+function updateCopyTargetHint() {
+    const id = parseInt(document.getElementById('copyTargetId').value) || 1;
+    document.getElementById('copyTargetHint').textContent =
+        `目标文件: assets/RemoteBundle/LevelData/${getCopyTargetFilename(copyType, id)}`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('copyTargetId');
+    if (input) input.addEventListener('input', updateCopyTargetHint);
+});
+
+function updateCopyQuickRow() {
+    const container = document.getElementById('copyQuickRow');
+    container.innerHTML = '';
+    let ids = [];
+    if (copyType === 'online') {
+        const base = Math.max(1, (copySourceId || 1));
+        ids = [base, base + 1, base + 2, 100, 200, 300];
+    } else {
+        ids = [1001, 1002, 1003, 1004, 1101, 1201, 1301];
+    }
+    ids = [...new Set(ids)];
+    for (const id of ids) {
+        const chip = document.createElement('span');
+        chip.className = 'quick-chip';
+        chip.textContent = `第 ${id} 关`;
+        chip.onclick = () => {
+            document.getElementById('copyTargetId').value = id;
+            updateCopyTargetHint();
+        };
+        container.appendChild(chip);
+    }
+}
+
+async function executeCopy() {
+    if (!copySourceId) return;
+    const targetId = parseInt(document.getElementById('copyTargetId').value);
+    if (!targetId || targetId < 1) {
+        showCopyFeedback('请填写有效的目标关卡 ID', 'error');
+        return;
+    }
+    const btn = document.getElementById('copyConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = '复制中...';
+    showCopyFeedback('', '');
+    try {
+        const resp = await fetch('/api/copy-level', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sourceLevelId: copySourceId,
+                sourceDir: LEVEL_DIR,
+                targetType: copyType,
+                targetLevelId: targetId,
+                overwrite: copyOverwriteAllowed,
+            }),
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) {
+            if (result.exists) {
+                showCopyFeedback(`目标 ${getCopyTargetFilename(copyType, targetId)} 已存在！再次点击将覆盖`, 'error');
+                copyOverwriteAllowed = true;
+                btn.textContent = '确认覆盖';
+                btn.disabled = false;
+                return;
+            }
+            throw new Error(result.error || '复制失败');
+        }
+        showCopyFeedback(`已成功复制到 ${result.targetPath}`, 'success');
+        copyOverwriteAllowed = false;
+        btn.textContent = '完成';
+        setTimeout(() => closeCopyModal(), 1800);
+    } catch (e) {
+        showCopyFeedback(e.message, 'error');
+        copyOverwriteAllowed = false;
+    } finally {
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = '确认复制';
+        }, 2000);
+    }
+}
+
+function showCopyFeedback(msg, type) {
+    const el = document.getElementById('copyFeedback');
+    el.textContent = msg;
+    el.className = 'copy-feedback' + (type ? ' ' + type : '');
+}
+</script>
+
+</body>
+</html>

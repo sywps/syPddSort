@@ -1,0 +1,488 @@
+/**
+ * 全局音效管理 — 中国风 BGM + 轻量 SFX
+ *
+ * 资源规约：所有音频放在 RemoteBundle/Audio/ 下，文件名与 SfxName 对齐。
+ */
+
+import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, Bundle } from 'cc';
+import {
+    AUDIO_BGM_RESOURCE_PATH,
+    AUDIO_BGM_VOLUME,
+    AUDIO_GAME_BGM_RESOURCE_PATH,
+    AUDIO_GAME_BGM_VOLUME,
+    AUDIO_HOME_BGM_RESOURCE_PATH,
+    AUDIO_HOME_BGM_VOLUME,
+    AUDIO_BOOTSTRAP_SFX_NAMES,
+    AUDIO_SFX_RESOURCE_PATH,
+    AUDIO_SFX_VOLUME,
+    AUDIO_SFX_VOLUME_VARIANCE,
+    type SfxName,
+} from './AudioManifest';
+const { ccclass } = _decorator;
+
+export type { SfxName } from './AudioManifest';
+
+const LS_SFX = 'pdd.setting.sfx';
+const LS_BGM = 'pdd.setting.bgm';
+const LS_VIB = 'pdd.setting.vib';
+const LOCAL_BOOTSTRAP_BUNDLE_NAME = 'bootstrap';
+
+const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);
+
+@ccclass('AudioMgr')
+export class AudioMgr {
+    private static _inst: AudioMgr | null = null;
+    static get inst(): AudioMgr {
+        if (!AudioMgr._inst) AudioMgr._inst = new AudioMgr();
+        return AudioMgr._inst;
+    }
+
+    private sfxClips: Map<SfxName, AudioClip> = new Map();
+    private bgmClip: AudioClip | null = null;
+    private host: Node | null = null;
+    private sfxSrc: AudioSource | null = null;
+    private bgmSrc: AudioSource | null = null;
+    private remoteBundle: Bundle | null = null;
+    private bootstrapBundle: Bundle | null = null;
+    private sfxEnabled = true;
+    private bgmEnabled = true;
+    private vibrateEnabled = true;
+    private suspended = false;
+    private bgmWasPlayingBeforeSuspend = false;
+    private pendingSfxLoads: Set<SfxName> = new Set();
+    private pendingAutoplaySfx: Set<SfxName> = new Set();
+    private deferredBootstrapSfxLoads: Set<SfxName> = new Set();
+    private deferredSfxLoads: Set<SfxName> = new Set();
+    private remoteBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
+    private bootstrapBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private preferRemoteAudio = false;
+    private remoteBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private bgmLoadState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private bgmAutoplayRequested = false;
+    private bgmWarmupTimer: any = null;
+    private bgmResourcePath = AUDIO_BGM_RESOURCE_PATH;
+    private bgmVolume = AUDIO_BGM_VOLUME;
+    private bgmLoadToken = 0;
+
+    private constructor() {
+        // 从本地存储加载设置（默认开启）
+        this.sfxEnabled = sys.localStorage.getItem(LS_SFX) !== '0';
+        this.bgmEnabled = sys.localStorage.getItem(LS_BGM) !== '0';
+        this.vibrateEnabled = sys.localStorage.getItem(LS_VIB) !== '0';
+    }
+
+    /** 在游戏启动时调用一次，host 推荐为永久场景节点 */
+    init(host: Node) {
+        if (this.host === host && this.host?.isValid && this.sfxSrc?.isValid && this.bgmSrc?.isValid) return;
+        if (this.host !== host) {
+            try {
+                this.sfxSrc?.stop();
+                this.bgmSrc?.stop();
+            } catch (_) { /* ignore */ }
+        }
+        this.host = host;
+        this.sfxSrc = host.addComponent(AudioSource);
+        this.bgmSrc = host.addComponent(AudioSource);
+        this.bgmSrc.loop = true;
+        this.bgmSrc.volume = this.bgmVolume;
+        this.preferRemoteAudio = this._isMinigameEnv();
+        if (this.bgmAutoplayRequested) {
+            this._ensureBgmLoaded(true);
+        }
+    }
+
+    private _clearBgmWarmupTimer() {
+        if (!this.bgmWarmupTimer) return;
+        clearTimeout(this.bgmWarmupTimer);
+        this.bgmWarmupTimer = null;
+    }
+
+    private _isMinigameEnv(): boolean {
+        if (sys.isNative) return true;
+        const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+        const w: any = typeof window !== 'undefined' ? window : null;
+        return !!(g?.__rawWx || w?.wx?.getSystemInfoSync || w?.tt?.getSystemInfoSync);
+    }
+
+    private _loadFromBootstrapBundleAuto() {
+        if (this.bootstrapBundleState === 'loading' || this.bootstrapBundleState === 'ready') {
+            return;
+        }
+        this.bootstrapBundleState = 'loading';
+        assetManager.loadBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME, (err, bundle) => {
+            if (err || !bundle) {
+                this.bootstrapBundleState = 'failed';
+                console.warn('[Audio] loadBundle bootstrap 失败，继续等待 remote:', err?.message);
+                this._flushDeferredBootstrapSfxLoads();
+                return;
+            }
+            this.bootstrapBundleState = 'ready';
+            this.bootstrapBundle = bundle;
+            this._flushDeferredBootstrapSfxLoads();
+        });
+    }
+
+    private _loadFromRemoteBundleAuto(onReady?: (bundle: Bundle | null) => void) {
+        if (this.remoteBundleState === 'ready') {
+            if (onReady) onReady(this.remoteBundle);
+            return;
+        }
+        if (this.remoteBundleState === 'failed') {
+            if (onReady) onReady(null);
+            return;
+        }
+        if (this.remoteBundleState === 'loading') {
+            if (onReady) {
+                if (!this.remoteBundleCallbacks) this.remoteBundleCallbacks = [];
+                this.remoteBundleCallbacks.push(onReady);
+            }
+            return;
+        }
+        this.remoteBundleCallbacks = onReady ? [onReady] : [];
+        this.remoteBundleState = 'loading';
+        assetManager.loadBundle('remote', (err, bundle) => {
+            const callbacks = this.remoteBundleCallbacks || [];
+            this.remoteBundleCallbacks = null;
+            if (err || !bundle) {
+                this.remoteBundleState = 'failed';
+                console.warn('[Audio] loadBundle remote 失败:', err?.message);
+                this._flushDeferredSfxLoads();
+                callbacks.forEach((callback) => callback(null));
+                return;
+            }
+            this.remoteBundleState = 'ready';
+            this.remoteBundle = bundle;
+            this._flushDeferredSfxLoads();
+            callbacks.forEach((callback) => callback(bundle));
+        });
+    }
+
+    private _flushDeferredBootstrapSfxLoads() {
+        if (this.deferredBootstrapSfxLoads.size === 0) {
+            return;
+        }
+        const pendingNames = Array.from(this.deferredBootstrapSfxLoads);
+        this.deferredBootstrapSfxLoads.clear();
+        for (const name of pendingNames) {
+            const clip = this.sfxClips.get(name);
+            if (clip) {
+                if (this.pendingAutoplaySfx.delete(name)) {
+                    this._playLoadedClip(name, clip);
+                }
+                continue;
+            }
+            this._ensureSfxLoaded(name);
+        }
+    }
+
+    private _flushDeferredSfxLoads() {
+        if (this.deferredSfxLoads.size === 0) {
+            return;
+        }
+        const pendingNames = Array.from(this.deferredSfxLoads);
+        this.deferredSfxLoads.clear();
+        for (const name of pendingNames) {
+            const clip = this.sfxClips.get(name);
+            if (clip) {
+                if (this.pendingAutoplaySfx.delete(name)) {
+                    this._playLoadedClip(name, clip);
+                }
+                continue;
+            }
+            this._ensureSfxLoaded(name);
+        }
+    }
+
+    private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void) {
+        const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
+        bundle.load(resourcePath, AudioClip, (err, clip) => {
+            if (!err && clip) {
+                this.sfxClips.set(name, clip);
+                onDone(clip);
+                return;
+            }
+            if (err) {
+                console.warn(`[Audio] SFX 加载失败: ${name} (${resourcePath}), err=${err.message}`);
+            }
+            onDone(null);
+        });
+    }
+
+    private _playLoadedClip(name: SfxName, clip: AudioClip) {
+        if (this.suspended || !this.sfxEnabled || !this.sfxSrc) return;
+        try {
+            const baseVolume = AUDIO_SFX_VOLUME[name] ?? 0.7;
+            const variance = AUDIO_SFX_VOLUME_VARIANCE[name] ?? 0;
+            const jitter = variance > 0 ? (Math.random() * 2 - 1) * variance : 0;
+            const volume = Math.max(0, Math.min(1, baseVolume * (1 + jitter)));
+            this.sfxSrc.playOneShot(clip, volume);
+        } catch (e) {
+            // WeChat innerAudioContext may throw if audio not ready
+        }
+    }
+
+    private _ensureSfxLoaded(name: SfxName) {
+        if (this.sfxClips.has(name) || this.pendingSfxLoads.has(name)) {
+            return;
+        }
+        if (this.preferRemoteAudio && BOOTSTRAP_SFX_NAME_SET.has(name) && !this.bootstrapBundle && this.bootstrapBundleState !== 'failed') {
+            this.deferredBootstrapSfxLoads.add(name);
+            if (this.bootstrapBundleState === 'idle') {
+                this._loadFromBootstrapBundleAuto();
+            }
+            return;
+        }
+        if (this.bootstrapBundle && BOOTSTRAP_SFX_NAME_SET.has(name)) {
+            this.pendingSfxLoads.add(name);
+            const finish = (clip: AudioClip | null) => {
+                this.pendingSfxLoads.delete(name);
+                if (clip && this.pendingAutoplaySfx.delete(name)) {
+                    this._playLoadedClip(name, clip);
+                    return;
+                }
+                this.pendingAutoplaySfx.delete(name);
+            };
+            this._loadSingleSfxFromBundle(this.bootstrapBundle, name, finish);
+            return;
+        }
+        if (!this.remoteBundle) {
+            if (this.remoteBundleState === 'failed') {
+                console.warn(`[Audio] remote bundle unavailable, skip SFX: ${name}`);
+                this.pendingAutoplaySfx.delete(name);
+                return;
+            }
+            this.deferredSfxLoads.add(name);
+            if (this.remoteBundleState === 'idle') {
+                this._loadFromRemoteBundleAuto();
+            }
+            return;
+        }
+        this.pendingSfxLoads.add(name);
+        const finish = (clip: AudioClip | null) => {
+            this.pendingSfxLoads.delete(name);
+            if (clip && this.pendingAutoplaySfx.delete(name)) {
+                this._playLoadedClip(name, clip);
+                return;
+            }
+            this.pendingAutoplaySfx.delete(name);
+        };
+        if (this.remoteBundle) {
+            this._loadSingleSfxFromBundle(this.remoteBundle, name, finish);
+            return;
+        }
+        finish(null);
+    }
+
+    private _playBgmClip() {
+        if (!this.bgmEnabled || !this.bgmSrc || !this.bgmClip) {
+            return;
+        }
+        try {
+            this.bgmSrc.clip = this.bgmClip;
+            if (!this.bgmSrc.playing) this.bgmSrc.play();
+        } catch (e) {
+            // WeChat innerAudioContext may throw if audio not ready
+        }
+    }
+
+    private _setBgmVolume(volume: number) {
+        this.bgmVolume = Math.max(0, Math.min(1, volume));
+        if (this.bgmSrc?.isValid) {
+            this.bgmSrc.volume = this.bgmVolume;
+        }
+    }
+
+    private _setBgmResourcePath(resourcePath: string) {
+        const nextPath = resourcePath || AUDIO_BGM_RESOURCE_PATH;
+        if (this.bgmResourcePath === nextPath) {
+            return;
+        }
+        this._clearBgmWarmupTimer();
+        this.bgmResourcePath = nextPath;
+        this.bgmClip = null;
+        this.bgmLoadState = 'idle';
+        this.bgmLoadToken += 1;
+        if (this.bgmSrc?.isValid) {
+            try {
+                this.bgmSrc.stop();
+                this.bgmSrc.clip = null;
+            } catch (_) { /* ignore */ }
+        }
+    }
+
+    private _retryRequestedBgmPlayback() {
+        if (!this.bgmAutoplayRequested || !this.bgmEnabled || !this.bgmSrc) {
+            return;
+        }
+        if (this.bgmClip) {
+            this._playBgmClip();
+            return;
+        }
+        if (this.bgmLoadState === 'idle') {
+            this._ensureBgmLoaded(true);
+        }
+    }
+
+    private _ensureBgmLoaded(autoPlay: boolean = true) {
+        if (!this.bgmEnabled || !this.bgmSrc) {
+            return;
+        }
+        if (autoPlay) this.bgmAutoplayRequested = true;
+        if (this.bgmClip) {
+            if (autoPlay) this._playBgmClip();
+            return;
+        }
+        if (this.bgmLoadState === 'loading') {
+            return;
+        }
+        this.bgmLoadState = 'loading';
+        const resourcePath = this.bgmResourcePath;
+        const loadToken = this.bgmLoadToken;
+        if (this.preferRemoteAudio) {
+            this._loadFromRemoteBundleAuto((bundle) => {
+                if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
+                if (bundle) {
+                    this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken);
+                    return;
+                }
+                this.bgmLoadState = 'failed';
+            });
+            return;
+        }
+        this._loadFromRemoteBundleAuto((bundle) => {
+            if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
+            if (bundle) {
+                this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken);
+                return;
+            }
+            this.bgmLoadState = 'failed';
+        });
+    }
+
+    private _loadBgm(bundle: Bundle, resourcePath: string, autoPlay: boolean = true, loadToken: number = this.bgmLoadToken) {
+        if (this.bgmClip) {
+            this.bgmLoadState = 'ready';
+            if (autoPlay) this._playBgmClip();
+            return;
+        }
+        bundle.load(resourcePath, AudioClip, (err, clip) => {
+            if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath || this.bgmClip) {
+                return;
+            }
+            if (!err && clip) {
+                this.bgmClip = clip;
+                this.bgmLoadState = 'ready';
+                if (autoPlay) this._playBgmClip();
+            } else {
+                this.bgmLoadState = 'failed';
+                console.warn(`[Audio] BGM 加载失败: ${resourcePath}`, err?.message);
+            }
+        });
+    }
+
+    warmupBgmAfterInteraction(delayMs: number = 0) {
+        if (!this.bgmEnabled || !this.bgmSrc || this.bgmClip || this.bgmWarmupTimer || this.bgmLoadState === 'loading') {
+            return;
+        }
+        this.bgmWarmupTimer = setTimeout(() => {
+            this.bgmWarmupTimer = null;
+            this._ensureBgmLoaded(true);
+        }, Math.max(0, delayMs));
+    }
+
+    playBgm(resourcePath: string = AUDIO_BGM_RESOURCE_PATH, volume: number = AUDIO_BGM_VOLUME) {
+        this._clearBgmWarmupTimer();
+        this._setBgmVolume(volume);
+        this._setBgmResourcePath(resourcePath);
+        this.bgmAutoplayRequested = true;
+        this._ensureBgmLoaded(true);
+    }
+
+    playHomeBgm() {
+        this.playBgm(AUDIO_HOME_BGM_RESOURCE_PATH, AUDIO_HOME_BGM_VOLUME);
+    }
+
+    playGameBgm() {
+        this.playBgm(AUDIO_GAME_BGM_RESOURCE_PATH, AUDIO_GAME_BGM_VOLUME);
+    }
+
+    preload(name: SfxName) {
+        if (this.sfxClips.has(name)) return;
+        this._ensureSfxLoaded(name);
+    }
+
+    play(name: SfxName) {
+        this._retryRequestedBgmPlayback();
+        if (this.suspended || !this.sfxEnabled || !this.sfxSrc) return;
+        const clip = this.sfxClips.get(name);
+        if (clip) {
+            this._playLoadedClip(name, clip);
+            return;
+        }
+        this.pendingAutoplaySfx.add(name);
+        this._ensureSfxLoaded(name);
+    }
+
+    /** 触发短震动（默认 30ms），用于点击/放置等触觉反馈 */
+    vibrate(ms: number = 30) {
+        if (this.suspended || !this.vibrateEnabled) return;
+        try {
+            // 微信小游戏
+            if (typeof wx !== 'undefined' && typeof wx.vibrateShort === 'function') {
+                wx.vibrateShort({});
+                return;
+            }
+            // 抖音小游戏
+            const w: any = typeof window !== 'undefined' ? window : null;
+            if (w && w.tt && typeof w.tt.vibrateShort === 'function') {
+                w.tt.vibrateShort({});
+                return;
+            }
+            // Web
+            if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                navigator.vibrate(ms);
+            }
+        } catch (_) { /* ignore */ }
+    }
+
+    isSfxEnabled() { return this.sfxEnabled; }
+    isBgmEnabled() { return this.bgmEnabled; }
+    isVibrateEnabled() { return this.vibrateEnabled; }
+
+    setSfxEnabled(on: boolean) {
+        this.sfxEnabled = on;
+        sys.localStorage.setItem(LS_SFX, on ? '1' : '0');
+    }
+    setBgmEnabled(on: boolean) {
+        this.bgmEnabled = on;
+        sys.localStorage.setItem(LS_BGM, on ? '1' : '0');
+        if (!this.bgmSrc) return;
+        if (on) {
+            this.bgmAutoplayRequested = true;
+            this._ensureBgmLoaded(true);
+        } else {
+            this.bgmSrc.stop();
+        }
+    }
+    setVibrateEnabled(on: boolean) {
+        this.vibrateEnabled = on;
+        sys.localStorage.setItem(LS_VIB, on ? '1' : '0');
+    }
+
+    suspendForBackground() {
+        if (this.suspended) return;
+        this.suspended = true;
+        this.bgmWasPlayingBeforeSuspend = !!this.bgmSrc?.playing;
+        this.sfxSrc?.stop();
+        this.bgmSrc?.pause();
+    }
+
+    resumeFromBackground() {
+        if (!this.suspended) return;
+        this.suspended = false;
+        if (this.bgmEnabled && this.bgmClip && this.bgmSrc && this.bgmWasPlayingBeforeSuspend && !this.bgmSrc.playing) {
+            this._playBgmClip();
+        }
+        this.bgmWasPlayingBeforeSuspend = false;
+    }
+}

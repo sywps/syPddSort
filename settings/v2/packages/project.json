@@ -1,0 +1,13 @@
+{
+  "__version__": "1.0.6",
+  "general": {
+    "designResolution": {
+      "width": 720,
+      "height": 1280,
+      "policy": 4
+    },
+    "startScene": "b8b3a5d2-8bd4-409b-bd8e-1d326ffa42e2",
+    "highQuality": true
+  },
+  "custom_joint_texture_layouts": []
+}

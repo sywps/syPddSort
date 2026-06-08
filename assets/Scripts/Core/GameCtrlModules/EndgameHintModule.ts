@@ -1,0 +1,322 @@
+import {
+    Color, Node, UITransform, UIOpacity, Prefab, instantiate, assetManager, tween, Tween, Layers, Sprite, SpriteFrame, Vec3,
+} from '../GameCtrlShared';
+
+const ENDGAME_HINT_PREFAB_PATH = 'UI/Prefabs/Fx/EndgameHintCell';
+const ENDGAME_HINT_THRESHOLD = 5;
+const ENDGAME_HINT_POOL_LIMIT = 12;
+const ENDGAME_BOARD_HINT_EXTRA_SIZE = 0;
+const ENDGAME_SLOT_HINT_EXTRA_SIZE = 0;
+const ENDGAME_HINT_STAR_FRAME_PREFIX = 'block_match-animation_';
+const ENDGAME_HINT_STAR_FRAME_COUNT = 19;
+const ENDGAME_HINT_STAR_FRAME_SEQUENCE = [19, 18, 17, 16, 17, 18, 19];
+const ENDGAME_HINT_STAR_VISIBLE_DURATION = 1;
+const ENDGAME_HINT_STAR_FRAME_INTERVAL = ENDGAME_HINT_STAR_VISIBLE_DURATION / ENDGAME_HINT_STAR_FRAME_SEQUENCE.length;
+const ENDGAME_HINT_STAR_MAX_OPACITY = 190;
+const ENDGAME_HINT_STAR_LOOP_PAUSE = 0.5;
+const ENDGAME_HINT_STAR_SPIN_DEGREES = 360;
+
+type EndgameHintTarget = {
+    key: string;
+    parent: Node;
+    size: number;
+};
+
+function setLayerDeep(node: Node, layer: number): void {
+    node.layer = layer;
+    for (const child of node.children) {
+        setLayerDeep(child, layer);
+    }
+}
+
+export function installEndgameHintModule(target: any): void {
+    Object.assign(target, {
+        collectEndgameIncompleteCells(): Array<{ row: number; col: number; colorId: number }> {
+            const cells: Array<{ row: number; col: number; colorId: number }> = [];
+            const boardModel = this.boardModel;
+            if (!boardModel) return cells;
+            for (let r = 0; r < boardModel.height; r++) {
+                for (let c = 0; c < boardModel.width; c++) {
+                    const colorId = boardModel.correctColors[r]?.[c] || 0;
+                    if (colorId === 0 || boardModel.locked[r]?.[c]) continue;
+                    cells.push({ row: r, col: c, colorId });
+                }
+            }
+            return cells;
+        },
+
+        refreshEndgameHints(reason: string = 'state-change'): void {
+            if (!this.boardModel || !this.slotModel || !this.cellNodes || !this.slotNodes) return;
+            if (this.isGameEnd || this._skillActive) {
+                this.clearEndgameHints(false);
+                return;
+            }
+            if (this.isSelected) return;
+            if (this._flyingTargets && this._flyingTargets.size > 0) {
+                this.clearEndgameHints(false);
+                return;
+            }
+
+            const incompleteCells = this.collectEndgameIncompleteCells();
+            if (incompleteCells.length === 0 || incompleteCells.length > ENDGAME_HINT_THRESHOLD) {
+                this.clearEndgameHints(false);
+                return;
+            }
+            this.clearEndgameHints(false);
+
+            this.ensureEndgameHintPrefab(() => {
+                this.ensureEndgameHintStarFrames((frames: SpriteFrame[]) => {
+                    if (!this.boardModel || this.isGameEnd || this._skillActive) return;
+                    if (this.isSelected) return;
+                    if (frames.length === 0) {
+                        this.warnEndgameHintLoadFailure('star frames missing');
+                        this.clearEndgameHints(false);
+                        return;
+                    }
+                    const latestCells = this.collectEndgameIncompleteCells();
+                    if (latestCells.length === 0 || latestCells.length > ENDGAME_HINT_THRESHOLD) {
+                        this.clearEndgameHints(false);
+                        return;
+                    }
+                    this.showEndgameHints(latestCells, reason, frames);
+                });
+            });
+        },
+
+        ensureEndgameHintPrefab(onDone: () => void): void {
+            if (this._endgameHintPrefab) {
+                onDone();
+                return;
+            }
+            if (this._endgameHintPrefabLoading) {
+                this._endgameHintPrefabCallbacks.push(onDone);
+                return;
+            }
+
+            this._endgameHintPrefabLoading = true;
+            this._endgameHintPrefabCallbacks = [onDone];
+            const finish = (prefab: Prefab | null) => {
+                this._endgameHintPrefabLoading = false;
+                if (prefab) this._endgameHintPrefab = prefab;
+                const callbacks = this._endgameHintPrefabCallbacks || [];
+                this._endgameHintPrefabCallbacks = [];
+                if (!prefab) return;
+                for (const cb of callbacks) cb();
+            };
+
+            const loadFromBundle = (bundle: any) => {
+                if (!bundle) {
+                    this.warnEndgameHintLoadFailure('remote bundle unavailable');
+                    finish(null);
+                    return;
+                }
+                bundle.load(ENDGAME_HINT_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                    if (err || !prefab) {
+                        this.warnEndgameHintLoadFailure(err?.message || 'prefab missing');
+                        finish(null);
+                        return;
+                    }
+                    finish(prefab);
+                });
+            };
+
+            if (this.remoteBundle) {
+                loadFromBundle(this.remoteBundle);
+                return;
+            }
+            assetManager.loadBundle('remote', (err, bundle) => {
+                if (err || !bundle) {
+                    this.warnEndgameHintLoadFailure(err?.message || 'remote bundle unavailable');
+                    finish(null);
+                    return;
+                }
+                this.remoteBundle = bundle;
+                loadFromBundle(bundle);
+            });
+        },
+
+        warnEndgameHintLoadFailure(message: string): void {
+            if (this._endgameHintLoadWarned) return;
+            this._endgameHintLoadWarned = true;
+            console.warn(`[endgame-hint] load skipped: ${message}`);
+        },
+
+        getEndgameHintStarFrames(): SpriteFrame[] {
+            const allFrames = this.getEffectFrames(ENDGAME_HINT_STAR_FRAME_PREFIX, ENDGAME_HINT_STAR_FRAME_COUNT);
+            if (!allFrames || allFrames.length < 7) return [];
+            const frames: SpriteFrame[] = [];
+            for (const frameNo of ENDGAME_HINT_STAR_FRAME_SEQUENCE) {
+                const frame = allFrames[frameNo - 1] || null;
+                if (!frame) return [];
+                frames.push(frame);
+            }
+            return frames;
+        },
+
+        ensureEndgameHintStarFrames(onDone: (frames: SpriteFrame[]) => void): void {
+            const cached = this.getEndgameHintStarFrames();
+            if (cached.length > 0) {
+                onDone(cached);
+                return;
+            }
+            const loadFromBundle = (bundle: any) => {
+                if (!bundle || typeof this._loadEffectsAtlasFromBundle !== 'function') {
+                    onDone([]);
+                    return;
+                }
+                this._loadEffectsAtlasFromBundle(bundle, () => onDone(this.getEndgameHintStarFrames()));
+            };
+            if (this.remoteBundle) {
+                loadFromBundle(this.remoteBundle);
+                return;
+            }
+            assetManager.loadBundle('remote', (err, bundle) => {
+                if (err || !bundle) {
+                    this.warnEndgameHintLoadFailure(err?.message || 'remote bundle unavailable');
+                    onDone([]);
+                    return;
+                }
+                this.remoteBundle = bundle;
+                loadFromBundle(bundle);
+            });
+        },
+
+        showEndgameHints(cells: Array<{ row: number; col: number; colorId: number }>, reason: string, frames: SpriteFrame[]): void {
+            void reason;
+            const targets = this.buildEndgameHintTargets(cells);
+            for (const target of targets) {
+                const node = this.acquireEndgameHintNode();
+                if (!node) continue;
+                this.configureEndgameHintNode(node, target, frames);
+                this._endgameHintNodes.push(node);
+            }
+        },
+
+        buildEndgameHintTargets(cells: Array<{ row: number; col: number; colorId: number }>): EndgameHintTarget[] {
+            const targets: EndgameHintTarget[] = [];
+            const neededColors = new Set<number>();
+            const seen = new Set<string>();
+            const boardSize = Math.max(24, (this.cellSize || 44) + ENDGAME_BOARD_HINT_EXTRA_SIZE);
+            for (const cell of cells) {
+                const parent = this.cellNodes[cell.row]?.[cell.col] || null;
+                if (!parent || !parent.isValid) continue;
+                neededColors.add(cell.colorId);
+                const key = `board:${cell.row},${cell.col}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                targets.push({ key, parent, size: boardSize });
+            }
+
+            const slots = this.slotModel.getAll ? this.slotModel.getAll() : [];
+            const slotSize = Math.max(24, this.getSlotBeanVisualSize ? this.getSlotBeanVisualSize() + ENDGAME_SLOT_HINT_EXTRA_SIZE : this.cellSize || 44);
+            for (let i = 0; i < slots.length; i++) {
+                const block = slots[i];
+                if (!block || !neededColors.has(block.colorId)) continue;
+                if (this._hiddenSlotIndices?.has(i)) continue;
+                const parent = this.slotNodes[i] || null;
+                if (!parent || !parent.isValid) continue;
+                const key = `slot:${i}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                targets.push({ key, parent, size: slotSize });
+            }
+            return targets;
+        },
+
+        acquireEndgameHintNode(): Node | null {
+            const pooled = this._endgameHintPool.pop();
+            if (pooled && pooled.isValid) return pooled;
+            const prefab = this._endgameHintPrefab as Prefab | null;
+            return prefab ? instantiate(prefab) : null;
+        },
+
+        configureEndgameHintNode(node: Node, target: EndgameHintTarget, frames: SpriteFrame[]): void {
+            Tween.stopAllByTarget(node);
+            const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
+            Tween.stopAllByTarget(opacity);
+            target.parent.addChild(node);
+            setLayerDeep(node, Layers.Enum.UI_2D);
+            node.name = `EndgameHint_${target.key}`;
+            node.active = true;
+            node.setPosition(0, 0, 0);
+            node.setScale(1, 1, 1);
+            const rootTransform = node.getComponent(UITransform) || node.addComponent(UITransform);
+            rootTransform.setContentSize(target.size, target.size);
+            const glow = node.getChildByName('HintGlow');
+            if (glow) Tween.stopAllByTarget(glow);
+            const glowTransform = glow?.getComponent(UITransform) || null;
+            if (glowTransform) {
+                glowTransform.setContentSize(target.size, target.size);
+            }
+            glow?.setPosition(0, 0, 0);
+            glow?.setRotationFromEuler(0, 0, 0);
+            const glowSprite = glow?.getComponent(Sprite) || null;
+            if (!glow || !glowSprite || frames.length === 0) {
+                if (glow) glow.active = false;
+                return;
+            }
+            glow.active = true;
+            glowSprite.enabled = true;
+            glowSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            glowSprite.color = new Color(255, 255, 255, 255);
+            glowSprite.spriteFrame = frames[0];
+            opacity.opacity = 0;
+            tween(opacity)
+                .repeatForever(
+                    tween(opacity)
+                        .set({ opacity: ENDGAME_HINT_STAR_MAX_OPACITY })
+                        .delay(ENDGAME_HINT_STAR_VISIBLE_DURATION)
+                        .set({ opacity: 0 })
+                        .delay(ENDGAME_HINT_STAR_LOOP_PAUSE),
+                )
+                .start();
+            tween(glow)
+                .repeatForever(
+                    tween(glow)
+                        .set({ eulerAngles: new Vec3(0, 0, 0) })
+                        .to(ENDGAME_HINT_STAR_VISIBLE_DURATION, { eulerAngles: new Vec3(0, 0, ENDGAME_HINT_STAR_SPIN_DEGREES) }, { easing: 'sineOut' })
+                        .delay(ENDGAME_HINT_STAR_LOOP_PAUSE),
+                )
+                .start();
+
+            let frameTween = tween(node);
+            for (const frame of frames) {
+                frameTween = frameTween
+                    .call(() => {
+                        if (glow.isValid) glowSprite.spriteFrame = frame;
+                    })
+                    .delay(ENDGAME_HINT_STAR_FRAME_INTERVAL);
+            }
+            frameTween = frameTween
+                .call(() => { opacity.opacity = 0; })
+                .delay(ENDGAME_HINT_STAR_LOOP_PAUSE);
+            tween(node).repeatForever(frameTween).start();
+        },
+
+        clearEndgameHints(destroy: boolean = false): void {
+            const nodes = this._endgameHintNodes || [];
+            for (const node of nodes) {
+                if (!node || !node.isValid) continue;
+                Tween.stopAllByTarget(node);
+                const opacity = node.getComponent(UIOpacity);
+                if (opacity) Tween.stopAllByTarget(opacity);
+                const glow = node.getChildByName('HintGlow');
+                if (glow) Tween.stopAllByTarget(glow);
+                node.removeFromParent();
+                node.active = false;
+                if (destroy || this._endgameHintPool.length >= ENDGAME_HINT_POOL_LIMIT) {
+                    node.destroy();
+                } else {
+                    this._endgameHintPool.push(node);
+                }
+            }
+            nodes.length = 0;
+            if (destroy) {
+                for (const node of this._endgameHintPool || []) {
+                    if (node && node.isValid) node.destroy();
+                }
+                this._endgameHintPool = [];
+            }
+        },
+    });
+}

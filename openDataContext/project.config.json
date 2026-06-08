@@ -1,0 +1,10 @@
+{
+  "description": "开放数据域",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false
+  },
+  "compileType": "game"
+}

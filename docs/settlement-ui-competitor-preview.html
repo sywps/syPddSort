@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>结算层竞品预览</title>
+  <style>
+    :root {
+      --ink: #24262b;
+      --muted: #707681;
+      --line: #dfe5ec;
+      --paper: #fffaf0;
+      --panel: #fff8e6;
+      --teal: #2f9d8f;
+      --coral: #f36f4a;
+      --gold: #ffc84a;
+      --purple: #bd70fe;
+      --blue: #4f7df0;
+      --shadow: 0 22px 60px rgba(36, 38, 43, .18);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: #edf3f2;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; border: 0; }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(260px, 360px) minmax(390px, 1fr);
+      gap: 24px;
+      padding: 24px;
+      align-items: start;
+    }
+    .sidebar {
+      display: grid;
+      gap: 18px;
+      position: sticky;
+      top: 24px;
+    }
+    .title h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+    .title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .78);
+      padding: 14px;
+    }
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+    }
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .segmented button, .option {
+      min-height: 42px;
+      border-radius: 8px;
+      background: #f7fafb;
+      color: #3c424b;
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: center;
+      transition: .18s ease;
+    }
+    .segmented button.active {
+      background: var(--ink);
+      color: white;
+      border-color: var(--ink);
+      box-shadow: 0 8px 18px rgba(36, 38, 43, .18);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 10px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .row strong { color: var(--ink); }
+    input[type="range"] { width: 100%; accent-color: var(--teal); }
+    .switches { display: grid; gap: 8px; }
+    .option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+    }
+    .option input { width: 18px; height: 18px; accent-color: var(--coral); }
+    .notes {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .notes b { color: var(--ink); }
+
+    .stage {
+      display: grid;
+      place-items: center;
+      min-height: calc(100vh - 48px);
+    }
+    .phone-wrap {
+      width: min(390px, calc(100vw - 32px));
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+    }
+    .phone-title {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .pill {
+      border-radius: 999px;
+      background: white;
+      border: 1px solid var(--line);
+      padding: 6px 10px;
+      color: var(--ink);
+    }
+    .phone {
+      width: 390px;
+      height: 694px;
+      max-width: 100%;
+      border-radius: 26px;
+      overflow: hidden;
+      position: relative;
+      background: #79cde4;
+      border: 8px solid #23272f;
+      box-shadow: var(--shadow);
+    }
+    .scene {
+      position: absolute;
+      inset: 0;
+      padding: 24px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.36), rgba(255,255,255,0) 35%),
+        linear-gradient(160deg, #90d8ee 0%, #8edbbf 54%, #f4d77d 100%);
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      color: white;
+      text-shadow: 0 2px 8px rgba(0,0,0,.22);
+      font-weight: 700;
+    }
+    .game-card {
+      margin: 74px auto 0;
+      width: 270px;
+      height: 320px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.55);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, 32px);
+      grid-auto-rows: 32px;
+      gap: 5px;
+      padding: 12px;
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: 0 12px 28px rgba(31, 74, 91, .18);
+    }
+    .cell {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--c);
+      box-shadow: inset 0 -4px rgba(0,0,0,.08);
+    }
+    .cell.empty { opacity: .22; background: #a8b3bd; }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(22, 24, 27, .56);
+      display: grid;
+      place-items: center;
+      padding: 22px;
+    }
+    .modal {
+      width: 100%;
+      border-radius: 24px;
+      padding: 22px 18px 18px;
+      text-align: center;
+      position: relative;
+      box-shadow: var(--shadow);
+    }
+    .competitor .modal {
+      background: linear-gradient(180deg, #fff8da 0%, #fff3bd 100%);
+      border: 4px solid white;
+    }
+    .ours .modal {
+      background: #fffdf7;
+      border: 1px solid rgba(36, 38, 43, .1);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      border-radius: 999px;
+      background: rgba(47, 157, 143, .12);
+      color: #176f65;
+      font-size: 12px;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+    }
+    .modal h3 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+    .modal p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .preview {
+      margin: 16px auto 14px;
+      width: 210px;
+      min-height: 172px;
+      border-radius: 20px;
+      background: white;
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+    }
+    .preview .grid {
+      transform: scale(.82);
+      transform-origin: center;
+      box-shadow: none;
+      border: 1px solid #ecedf0;
+    }
+    .reward {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0 14px;
+      color: #8a5a00;
+      font-weight: 800;
+    }
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .primary {
+      min-height: 52px;
+      border-radius: 999px;
+      color: white;
+      background: linear-gradient(180deg, var(--coral), #de4e32);
+      font-weight: 900;
+      box-shadow: 0 10px 0 #a43a27, 0 18px 26px rgba(222, 78, 50, .28);
+    }
+    .secondary-line {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .secondary {
+      min-height: 42px;
+      border-radius: 999px;
+      background: #ecf5f3;
+      color: #246c63;
+      font-weight: 800;
+    }
+    .lose .primary {
+      background: linear-gradient(180deg, var(--teal), #1f8276);
+      box-shadow: 0 10px 0 #176157, 0 18px 26px rgba(31, 130, 118, .25);
+    }
+    .ours .primary {
+      background: linear-gradient(180deg, var(--blue), #315fcf);
+      box-shadow: 0 10px 0 #24499e, 0 18px 26px rgba(49, 95, 207, .24);
+    }
+    .ours .modal h3 { font-size: 25px; }
+    .ours .preview { width: 236px; min-height: 204px; border-radius: 14px; }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .metric {
+      border-radius: 8px;
+      background: #f6f7fb;
+      padding: 10px;
+      text-align: left;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .metric strong {
+      display: block;
+      color: var(--ink);
+      font-size: 18px;
+      margin-top: 2px;
+    }
+    .sdk-layer {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 22px;
+      border-radius: 18px;
+      background: var(--purple);
+      color: white;
+      padding: 14px;
+      display: none;
+      box-shadow: 0 18px 36px rgba(80, 35, 130, .35);
+    }
+    .show-sdk .sdk-layer { display: block; }
+    .sdk-layer h4 { margin: 0 0 10px; font-size: 15px; }
+    .sdk-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sdk-actions button {
+      min-height: 42px;
+      border-radius: 999px;
+      background: white;
+      color: #8341cb;
+      font-weight: 900;
+    }
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 96px;
+      transform: translateX(-50%);
+      min-width: 170px;
+      border-radius: 999px;
+      background: rgba(26, 29, 34, .86);
+      color: white;
+      padding: 10px 14px;
+      font-size: 13px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease, bottom .2s ease;
+    }
+    .toast.show { opacity: 1; bottom: 110px; }
+
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; padding: 16px; }
+      .sidebar { position: static; }
+      .stage { min-height: auto; }
+      .phone { width: 360px; height: 641px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <aside class="sidebar">
+      <section class="title">
+        <h1>结算层竞品预览</h1>
+        <p>基于本地导出包的脚本和资源线索做近似还原。完整远程 Prefab 未读取，所以这里用于确认方向，不作为逐像素稿。</p>
+      </section>
+
+      <section class="section">
+        <h2>面板切换</h2>
+        <div class="segmented" id="modeButtons">
+          <button data-mode="comp-win">竞品成功</button>
+          <button data-mode="comp-lose">竞品失败</button>
+          <button data-mode="ours-win">当前成功</button>
+          <button data-mode="ours-lose">当前失败</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>动态内容</h2>
+        <div class="row"><span>完成度</span><strong id="progressValue">82%</strong></div>
+        <input id="progress" type="range" min="18" max="100" value="82">
+        <div class="row"><span>关卡</span><strong id="levelValue">第 12 关</strong></div>
+        <input id="level" type="range" min="1" max="36" value="12">
+        <div class="switches">
+          <label class="option"><span>显示 SDK gameOver 叠层</span><input id="sdkToggle" type="checkbox" checked></label>
+          <label class="option"><span>奖励翻倍状态</span><input id="rewardToggle" type="checkbox" checked></label>
+        </div>
+      </section>
+
+      <section class="section notes">
+        <b>调研判断：</b>竞品不是整张结算大图，主要是 Cocos 节点/Prefab + 脚本动态填充预览图；失败页还会联动 SDK 的 `gameOverUI`。我们当前项目也是代码生成结算层，后续适合在 `createPanel()` 内做外观替换。
+      </section>
+    </aside>
+
+    <section class="stage">
+      <div class="phone-wrap">
+        <div class="phone-title">
+          <span id="modeLabel">竞品成功面板</span>
+          <span class="pill">750 x 1334 适配预览</span>
+        </div>
+        <div class="phone" id="phone">
+          <div class="scene">
+            <div class="hud"><span id="levelHud">LEVEL 12</span><span>00:48</span></div>
+            <div class="game-card"><div class="grid" id="backGrid"></div></div>
+          </div>
+          <div class="overlay"><div id="panel"></div></div>
+          <div class="sdk-layer" id="sdkLayer">
+            <h4>SDK gameOverUI 叠层</h4>
+            <div class="sdk-actions">
+              <button data-action="continue">继续游戏</button>
+              <button data-action="next">下一关</button>
+            </div>
+          </div>
+          <div class="toast" id="toast">已切换状态</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = { mode: "comp-win", progress: 82, level: 12, sdk: true, reward: true };
+    const colors = ["#f36f4a", "#ffc84a", "#2f9d8f", "#4f7df0", "#a96be8", "#ffffff"];
+    const pattern = [0,1,2,3,4,5, 2,2,5,0,1,3, 4,5,3,3,0,1, 1,0,4,5,2,2, 3,4,1,0,5,4, 5,2,0,1,3,5];
+    const modeMeta = {
+      "comp-win": ["competitor win", "竞品成功面板"],
+      "comp-lose": ["competitor lose", "竞品失败面板"],
+      "ours-win": ["ours win", "当前成功面板"],
+      "ours-lose": ["ours lose", "当前失败面板"]
+    };
+
+    function gridHTML(dim = false) {
+      return pattern.map((p, i) => {
+        const empty = dim && i % 5 === 0 ? " empty" : "";
+        return `<span class="cell${empty}" style="--c:${colors[p]}"></span>`;
+      }).join("");
+    }
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 1200);
+    }
+
+    function renderPanel() {
+      const competitor = state.mode.startsWith("comp");
+      const win = state.mode.endsWith("win");
+      const preview = `<div class="preview"><div class="grid">${gridHTML(!win)}</div></div>`;
+      if (competitor && win) {
+        return `<div class="modal">
+          <div class="badge">Prefab 预览图动态填充</div>
+          <h3>闯关成功</h3>
+          <p>通关图案居中展示，按钮数量控制在一主两辅。</p>
+          ${preview}
+          <div class="reward">金币 +${state.reward ? 160 : 80}<span>${state.reward ? "已翻倍" : "基础奖励"}</span></div>
+          <div class="actions">
+            <button class="primary" data-action="next">下一关</button>
+            <div class="secondary-line"><button class="secondary" data-action="replay">重玩</button><button class="secondary" data-action="share">分享</button></div>
+          </div>
+        </div>`;
+      }
+      if (competitor && !win) {
+        return `<div class="modal">
+          <div class="badge">失败页会联动 SDK gameOverUI</div>
+          <h3>差一点就完成了</h3>
+          <p>当前完成 ${state.progress}%，优先给续关入口。</p>
+          ${preview}
+          <div class="actions">
+            <button class="primary" data-action="ad">看广告续关 +120 秒</button>
+            <div class="secondary-line"><button class="secondary" data-action="retry">重新开始</button><button class="secondary" data-action="close">返回首页</button></div>
+          </div>
+        </div>`;
+      }
+      if (!competitor && win) {
+        return `<div class="modal">
+          <div class="badge">当前项目：代码绘制面板</div>
+          <h3>完 美 通 关！</h3>
+          <p>预览、奖励、广告翻倍和下一关入口集中在同一层。</p>
+          ${preview}
+          <div class="metrics"><div class="metric">基础奖励<strong>+80</strong></div><div class="metric">广告翻倍<strong>${state.reward ? "+160" : "未领取"}</strong></div></div>
+          <div class="actions"><button class="primary" data-action="next">进入下一关</button><div class="secondary-line"><button class="secondary" data-action="ad">翻倍领取</button><button class="secondary" data-action="share">分享</button></div></div>
+        </div>`;
+      }
+      return `<div class="modal">
+        <div class="badge">当前项目：失败分支动态刷新进度</div>
+        <h3>就 差 一 点！</h3>
+        <p>剩余 ${100 - state.progress}% 未完成，可复活或重试。</p>
+        ${preview}
+        <div class="metrics"><div class="metric">已完成<strong>${state.progress}%</strong></div><div class="metric">续关时间<strong>+120s</strong></div></div>
+        <div class="actions"><button class="primary" data-action="ad">观看广告继续</button><div class="secondary-line"><button class="secondary" data-action="retry">重玩本关</button><button class="secondary" data-action="close">关闭</button></div></div>
+      </div>`;
+    }
+
+    function render() {
+      const [classes, label] = modeMeta[state.mode];
+      phone.className = `phone ${classes} ${state.sdk && state.mode === "comp-lose" ? "show-sdk" : ""}`;
+      panel.className = classes;
+      panel.innerHTML = renderPanel();
+      backGrid.innerHTML = gridHTML(false);
+      modeLabel.textContent = label;
+      levelHud.textContent = `LEVEL ${state.level}`;
+      progressValue.textContent = `${state.progress}%`;
+      levelValue.textContent = `第 ${state.level} 关`;
+      sdkLayer.style.display = state.sdk && state.mode === "comp-lose" ? "block" : "";
+      document.querySelectorAll("[data-mode]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.mode === state.mode);
+        btn.setAttribute("aria-pressed", btn.dataset.mode === state.mode);
+      });
+    }
+
+    modeButtons.addEventListener("click", event => {
+      const btn = event.target.closest("[data-mode]");
+      if (!btn) return;
+      state.mode = btn.dataset.mode;
+      render();
+    });
+    progress.addEventListener("input", event => { state.progress = Number(event.target.value); render(); });
+    level.addEventListener("input", event => { state.level = Number(event.target.value); render(); });
+    sdkToggle.addEventListener("change", event => { state.sdk = event.target.checked; render(); });
+    rewardToggle.addEventListener("change", event => { state.reward = event.target.checked; render(); });
+    phone.addEventListener("click", event => {
+      const action = event.target.closest("[data-action]")?.dataset.action;
+      if (action) showToast({ next: "模拟进入下一关", retry: "模拟重玩本关", ad: "模拟广告完成", share: "模拟分享入口", close: "模拟关闭面板", continue: "SDK 继续游戏" }[action] || "已点击");
+    });
+    render();
+  </script>
+</body>
+</html>

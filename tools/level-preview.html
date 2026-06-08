@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拼豆豆 - 关卡预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0e8; color: #3a3020; }
+.header { background: linear-gradient(135deg, #4a6fa5, #3b4d8c); color: #fff; padding: 20px 30px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.15); display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.header h1 { font-size: 22px; font-weight: 600; }
+.header .stats { font-size: 14px; opacity: .85; }
+.controls { display: flex; gap: 12px; margin-left: auto; align-items: center; flex-wrap: wrap; }
+.controls select, .controls input { padding: 6px 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; background: rgba(255,255,255,.15); color: #fff; font-size: 13px; }
+.controls select option { color: #333; background: #fff; }
+.controls input::placeholder { color: rgba(255,255,255,.5); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; padding: 20px; max-width: 1400px; margin: 0 auto; }
+.card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .15s, box-shadow .15s; cursor: pointer; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+.card .preview { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 12px; background: #faf8f4; }
+.card .preview .col { text-align: center; }
+.card .preview .col .label { font-size: 10px; color: #999; margin-bottom: 2px; }
+.card canvas { border-radius: 6px; }
+.card .info { padding: 10px 14px; border-top: 1px solid #f0ebe0; }
+.card .info .title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.card .info .title { font-size: 15px; font-weight: 600; }
+.card .info .subtitle { font-size: 12px; color: #8c816d; margin-bottom: 4px; }
+.card .info .meta { font-size: 12px; color: #888; line-height: 1.6; }
+.card .info .meta span { display: inline-block; margin-right: 8px; }
+.card .actions { padding: 8px 14px 12px; display: flex; gap: 8px; }
+.card .actions a { flex: 1; text-align: center; padding: 6px; border-radius: 6px; font-size: 12px; text-decoration: none; font-weight: 500; transition: background .15s; }
+.btn-play { background: #4a6fa5; color: #fff; }
+.btn-play:hover { background: #3b5d8c; }
+.btn-edit { background: #f0ebe0; color: #5a5040; }
+.btn-edit:hover { background: #e5dfd0; }
+.btn-shuffle { background: #e8a030; color: #fff; }
+.btn-shuffle:hover { background: #d09020; }
+.btn-time { background: #7c5cbf; color: #fff; }
+.btn-time:hover { background: #6a4daa; }
+
+/* Time edit inline */
+.time-edit { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #f8f4ec; border-radius: 6px; font-size: 12px; }
+.time-edit input { width: 60px; padding: 3px 6px; border: 1px solid #d0c8b8; border-radius: 4px; font-size: 12px; text-align: center; }
+.time-edit button { padding: 2px 8px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.time-save { background: #4a6fa5; color: #fff; }
+.time-cancel { background: #d0c8b8; color: #5a5040; }
+
+/* Detail modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: #fff; border-radius: 16px; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; padding: 24px; }
+.modal h2 { font-size: 20px; margin-bottom: 16px; }
+.modal .compare { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+.modal .compare .col { text-align: center; }
+.modal .compare .col h3 { font-size: 14px; color: #888; margin-bottom: 8px; }
+.modal .compare canvas { border-radius: 8px; border: 1px solid #eee; }
+.modal .detail-meta { margin-top: 16px; font-size: 13px; color: #666; line-height: 1.8; }
+.modal .detail-actions { margin-top: 16px; display: flex; gap: 10px; }
+.modal .detail-actions a { padding: 8px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; }
+.modal .close-btn { position: absolute; top: 12px; right: 16px; font-size: 24px; cursor: pointer; color: #aaa; background: none; border: none; }
+.loading { text-align: center; padding: 60px; font-size: 16px; color: #999; }
+
+.color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 2px; vertical-align: middle; }
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge-main { background: #d9e7fb; color: #31588e; }
+.badge-theme { background: #ffe5a6; color: #8a5c00; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🎮 拼豆豆 关卡预览</h1>
+    <div class="stats" id="stats">加载中...</div>
+    <div class="controls">
+        <select id="filterType">
+            <option value="all">全部关卡</option>
+            <option value="main">普通关卡</option>
+            <option value="theme">主题挑战</option>
+        </select>
+        <select id="filterColors">
+            <option value="0">全部颜色数</option>
+            <option value="2">2色</option>
+            <option value="3">3色</option>
+            <option value="4">4色</option>
+            <option value="5">5色</option>
+            <option value="6">6+色</option>
+        </select>
+        <input type="text" id="searchBox" placeholder="搜索关卡号..." size="10">
+    </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal" id="modal"></div>
+</div>
+
+<div class="loading" id="loading">正在加载关卡数据...</div>
+
+<script>
+const COLOR_HEX = {
+    1: '#ED5090', 2: '#4EEAEA', 3: '#F8C811', 4: '#FE8B10',
+    5: '#F4BD9E', 6: '#EBDEA6', 7: '#4A4DCF', 8: '#7221BC',
+    9: '#9FCE21', 10: '#EA281A', 11: '#37A92D', 12: '#207955',
+    13: '#20A8DC', 14: '#EEB2BC', 15: '#C4BED9', 16: '#974714',
+    17: '#782F3C', 18: '#36387E', 19: '#373737', 20: '#F2EDE4',
+};
+const COLOR_NAMES = {
+    1: '玫红', 2: '亮青', 3: '金', 4: '橙', 5: '桃', 6: '浅黄', 7: '靛蓝', 8: '紫',
+    9: '绿', 10: '红', 11: '青绿', 12: '翠绿', 13: '天蓝', 14: '粉', 15: '浅紫',
+    16: '棕', 17: '酒红', 18: '藏青', 19: '深灰', 20: '米白',
+};
+
+let levels = [];
+
+const LEVEL_DATA_URL = '../assets/RemoteBundle/LevelData/';
+const THEME_CONFIG_URL = '../assets/RemoteBundle/themes.json';
+const BATCH_SIZE = 50;
+const MAIN_LEVEL_PREFIX = 'level_';
+const THEME_LEVEL_PREFIX = 'zt_level_';
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function isThemeLevel(data) {
+    return data.levelType === 'theme';
+}
+
+function getLevelTargetType(data) {
+    return isThemeLevel(data) ? 'theme' : 'main';
+}
+
+function getLevelFileName(data) {
+    if (data.fileName) return data.fileName;
+    const prefix = isThemeLevel(data) ? THEME_LEVEL_PREFIX : MAIN_LEVEL_PREFIX;
+    return `${prefix}${data.levelId}.json`;
+}
+
+function getPlayUrl(data) {
+    return isThemeLevel(data)
+        ? `http://localhost:7456/?level=${data.levelId}&theme=1`
+        : `http://localhost:7456/?level=${data.levelId}`;
+}
+
+function getEditorUrl(data) {
+    return isThemeLevel(data)
+        ? `level-editor.html?level=${data.levelId}&type=theme`
+        : `level-editor.html?level=${data.levelId}`;
+}
+
+function getThemeDisplayName(data) {
+    return data.themeLevelName || data.sourcePatternName || data.levelName || `主题关 ${data.levelId}`;
+}
+
+function getDisplayHeading(data) {
+    return isThemeLevel(data) ? getThemeDisplayName(data) : `第 ${data.levelId} 关`;
+}
+
+function getSearchText(data) {
+    return [
+        data.levelId,
+        data.levelType,
+        data.fileName,
+        data.themeGroupName,
+        data.themeLevelName,
+        data.levelName,
+        data.sourcePatternName,
+    ].filter(Boolean).join(' ').toLowerCase();
+}
+
+async function loadThemeMetaMap() {
+    try {
+        const resp = await fetch(THEME_CONFIG_URL);
+        if (!resp.ok) return new Map();
+        const raw = await resp.json();
+        const groups = Array.isArray(raw) ? raw : (Array.isArray(raw.groups) ? raw.groups : []);
+        const metaMap = new Map();
+        groups.forEach((group, groupIndex) => {
+            const levelIds = Array.isArray(group.levelIds) ? group.levelIds : [];
+            const levelNames = Array.isArray(group.levelNames) ? group.levelNames : [];
+            levelIds.forEach((levelId, levelIndex) => {
+                if (!Number.isFinite(levelId)) return;
+                metaMap.set(levelId, {
+                    groupName: String(group.name || '').trim(),
+                    levelName: String(levelNames[levelIndex] || '').trim(),
+                    groupIndex,
+                    levelIndex,
+                });
+            });
+        });
+        return metaMap;
+    } catch (_) {
+        return new Map();
+    }
+}
+
+function normalizeLevelData(data, entry, themeMetaMap) {
+    const themeMeta = entry.levelType === 'theme' ? themeMetaMap.get(data.levelId) : null;
+    return {
+        ...data,
+        levelType: entry.levelType,
+        fileName: entry.fileName,
+        themeGroupName: themeMeta?.groupName || '',
+        themeLevelName: themeMeta?.levelName || '',
+        themeGroupIndex: themeMeta?.groupIndex ?? Number.MAX_SAFE_INTEGER,
+        themeLevelIndex: themeMeta?.levelIndex ?? Number.MAX_SAFE_INTEGER,
+    };
+}
+
+async function loadLevels() {
+    const [themeMetaMap, resp] = await Promise.all([
+        loadThemeMetaMap(),
+        fetch(LEVEL_DATA_URL),
+    ]);
+    const html = await resp.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const links = doc.querySelectorAll('a');
+
+    // Extract level files from directory listing, including theme levels.
+    const entries = [];
+    for (const a of links) {
+        const href = a.getAttribute('href');
+        if (!href) continue;
+        let match = href.match(/^level_(\d+)\.json$/);
+        if (match) {
+            entries.push({
+                levelId: parseInt(match[1], 10),
+                levelType: 'main',
+                fileName: href,
+            });
+            continue;
+        }
+        match = href.match(/^zt_level_(\d+)\.json$/);
+        if (match) {
+            entries.push({
+                levelId: parseInt(match[1], 10),
+                levelType: 'theme',
+                fileName: href,
+            });
+        }
+    }
+    entries.sort((a, b) => {
+        if (a.levelType !== b.levelType) return a.levelType === 'main' ? -1 : 1;
+        return a.levelId - b.levelId;
+    });
+
+    // Step 2: Load level data in batches
+    const loaded = [];
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+        const batch = entries.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(entry =>
+            fetch(`${LEVEL_DATA_URL}${entry.fileName}`)
+                .then(r => r.ok ? r.json().then(data => normalizeLevelData(data, entry, themeMetaMap)) : null)
+                .catch(() => null)
+        );
+        const results = await Promise.all(promises);
+        for (const data of results) {
+            if (data) loaded.push(data);
+        }
+        document.getElementById('loading').textContent =
+            `正在加载关卡数据... ${loaded.length}/${entries.length}`;
+    }
+
+    loaded.sort((a, b) => {
+        if (a.levelType !== b.levelType) return a.levelType === 'main' ? -1 : 1;
+        if (a.levelType === 'theme') {
+            const groupDiff = a.themeGroupIndex - b.themeGroupIndex;
+            if (groupDiff !== 0) return groupDiff;
+            const orderDiff = a.themeLevelIndex - b.themeLevelIndex;
+            if (orderDiff !== 0) return orderDiff;
+        }
+        return a.levelId - b.levelId;
+    });
+    return loaded;
+}
+
+function drawGrid(canvas, grid, cellSize) {
+    const h = grid.length, w = grid[0].length;
+    canvas.width = w * cellSize;
+    canvas.height = h * cellSize;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < h; r++) {
+        for (let c = 0; c < w; c++) {
+            const v = grid[r][c];
+            if (v === 0) continue;
+            const hex = COLOR_HEX[v] || '#ccc';
+            const x = c * cellSize, y = r * cellSize;
+            const s = cellSize - 1;
+            const radius = Math.max(1, s * 0.18);
+
+            // Draw rounded rect bean
+            ctx.beginPath();
+            ctx.roundRect(x + 0.5, y + 0.5, s, s, radius);
+            ctx.fillStyle = hex;
+            ctx.fill();
+
+            // Subtle highlight
+            if (cellSize >= 6) {
+                ctx.beginPath();
+                ctx.roundRect(x + 1, y + 1, s - 2, s * 0.4, radius);
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fill();
+            }
+        }
+    }
+}
+
+function getColorInfo(grid) {
+    const counts = {};
+    for (const row of grid)
+        for (const v of row)
+            if (v > 0) counts[v] = (counts[v] || 0) + 1;
+    return counts;
+}
+
+function getDisplacementRate(correct, init) {
+    if (!Array.isArray(correct) || !Array.isArray(init)) return '0';
+    let displaced = 0, total = 0;
+    for (let r = 0; r < correct.length; r++)
+        for (let c = 0; c < correct[r].length; c++)
+            if (correct[r][c] !== 0) {
+                total++;
+                if (init[r][c] !== correct[r][c]) displaced++;
+            }
+    return total > 0 ? (displaced / total * 100).toFixed(1) : '0';
+}
+
+function renderCard(data) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.level = data.levelId;
+    card.dataset.type = data.levelType;
+    card.dataset.colors = Object.keys(getColorInfo(data.correctColorArr)).length;
+    card.dataset.search = getSearchText(data);
+
+    const maxDim = Math.max(data.boardWidth, data.boardHeight);
+    const cellSize = Math.max(2, Math.min(6, Math.floor(180 / maxDim)));
+    const colors = getColorInfo(data.correctColorArr);
+    const colorCount = Object.keys(colors).length;
+    const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
+    const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+
+    // Preview: show both target and shuffle side by side
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'preview';
+
+    const targetCol = document.createElement('div');
+    targetCol.className = 'col';
+    const targetLabel = document.createElement('div');
+    targetLabel.className = 'label';
+    targetLabel.textContent = '目标';
+    targetCol.appendChild(targetLabel);
+    const canvasTarget = document.createElement('canvas');
+    targetCol.appendChild(canvasTarget);
+    previewDiv.appendChild(targetCol);
+
+    const shuffleCol = document.createElement('div');
+    shuffleCol.className = 'col';
+    const shuffleLabel = document.createElement('div');
+    shuffleLabel.className = 'label';
+    shuffleLabel.textContent = '乱序';
+    shuffleCol.appendChild(shuffleLabel);
+    const canvasShuffle = document.createElement('canvas');
+    shuffleCol.appendChild(canvasShuffle);
+    previewDiv.appendChild(shuffleCol);
+
+    card.appendChild(previewDiv);
+
+    drawGrid(canvasTarget, data.correctColorArr, cellSize);
+    drawGrid(canvasShuffle, data.initRandomColorArr, cellSize);
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'info';
+    const heading = escapeHtml(getDisplayHeading(data));
+    const subtitle = isThemeLevel(data)
+        ? [data.themeGroupName, getLevelFileName(data)].filter(Boolean).join(' · ')
+        : '';
+    const badgeHtml = isThemeLevel(data)
+        ? '<span class="badge badge-theme">主题挑战</span>'
+        : '<span class="badge badge-main">普通关卡</span>';
+    const colorDots = Object.keys(colors).map(c =>
+        `<span class="color-dot" style="background:${COLOR_HEX[c]}" title="${COLOR_NAMES[c]}"></span>`
+    ).join('');
+    info.innerHTML = `
+        <div class="title-row">
+            <div class="title">${heading}</div>
+            ${badgeHtml}
+        </div>
+        ${subtitle ? `<div class="subtitle">${escapeHtml(subtitle)}</div>` : ''}
+        <div class="meta">
+            <span>🆔 ${escapeHtml(getLevelFileName(data))}</span>
+            <span>📐 ${data.boardWidth}×${data.boardHeight}</span>
+            <span>🎨 ${colorCount}色</span>
+            <span>🔢 ${beanCount}豆</span><br>
+            <span>⏱ ${data.timeLimit}s</span>
+            <span>🔀 ${dispRate}%</span>
+            <span>${colorDots}</span>
+        </div>
+    `;
+    card.appendChild(info);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.innerHTML = `
+        <a class="btn-play" href="${getPlayUrl(data)}" target="_blank" onclick="event.stopPropagation()">▶ 玩</a>
+        <a class="btn-time" href="javascript:void(0)" onclick="event.stopPropagation(); editTime(${data.levelId}, this)">⏱ 时间</a>
+        <a class="btn-edit" href="${getEditorUrl(data)}" target="_blank" onclick="event.stopPropagation()">✏️ 编辑</a>
+    `;
+    card.appendChild(actions);
+
+    card.addEventListener('click', () => showDetail(data));
+    return card;
+}
+
+function showDetail(data) {
+    const modal = document.getElementById('modal');
+    const colors = getColorInfo(data.correctColorArr);
+    const colorCount = Object.keys(colors).length;
+    const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
+    const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+    const maxDim = Math.max(data.boardWidth, data.boardHeight);
+    const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
+    const typeLabel = isThemeLevel(data) ? '主题挑战' : '普通关卡';
+    const themeMetaLine = isThemeLevel(data) && data.themeGroupName
+        ? `&nbsp;<strong>主题:</strong> ${escapeHtml(data.themeGroupName)}`
+        : '';
+
+    const colorDetails = Object.entries(colors)
+        .sort((a, b) => b[1] - a[1])
+        .map(([c, n]) => `<span class="color-dot" style="background:${COLOR_HEX[c]}"></span>${COLOR_NAMES[c]}: ${n}`)
+        .join('&nbsp;&nbsp;');
+
+    modal.innerHTML = `
+        <button class="close-btn" onclick="closeModal()">✕</button>
+        <h2>${escapeHtml(getDisplayHeading(data))}</h2>
+        <div class="compare">
+            <div class="col">
+                <h3>🎯 目标图案</h3>
+                <canvas id="detailTarget"></canvas>
+            </div>
+            <div class="col">
+                <h3>🔀 初始乱序</h3>
+                <canvas id="detailShuffle"></canvas>
+            </div>
+        </div>
+        <div class="detail-meta">
+            <strong>类型:</strong> ${typeLabel}${themeMetaLine} &nbsp;
+            <strong>文件:</strong> ${escapeHtml(getLevelFileName(data))}<br>
+            <strong>棋盘:</strong> ${data.boardWidth}×${data.boardHeight} &nbsp;
+            <strong>豆豆数:</strong> ${beanCount} &nbsp;
+            <strong>颜色数:</strong> ${colorCount} &nbsp;
+            <strong>时限:</strong> ${data.timeLimit}s &nbsp;
+            <strong>暂存槽:</strong> ${data.slotTotalCount} &nbsp;
+            <strong>位移率:</strong> ${dispRate}%<br>
+            <strong>颜色分布:</strong> ${colorDetails}
+        </div>
+        <div class="detail-actions">
+            <a class="btn-play" href="${getPlayUrl(data)}" target="_blank">▶ 开始游戏</a>
+            <a class="btn-edit" href="${getEditorUrl(data)}" target="_blank">✏️ 编辑关卡</a>
+        </div>
+    `;
+
+    drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize);
+    drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize);
+
+    document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function editTime(levelId, el) {
+    const card = el.closest('.card');
+    const actionsDiv = card.querySelector('.actions');
+    const level = levels.find(l => l.levelId === levelId);
+    if (!level) return;
+
+    // Replace actions with time edit UI
+    actionsDiv.innerHTML = `
+        <div class="time-edit">
+            <span>⏱</span>
+            <input type="number" id="timeInput_${levelId}" value="${level.timeLimit}" min="10" max="9999" step="10">
+            <span>s</span>
+            <button class="time-save" onclick="saveTime(${levelId})">保存</button>
+            <button class="time-cancel" onclick="cancelTimeEdit(${levelId})">取消</button>
+        </div>
+    `;
+    actionsDiv.style.flex = '1';
+    actionsDiv.style.display = 'flex';
+    // Focus the input
+    setTimeout(() => {
+        const inp = document.getElementById('timeInput_' + levelId);
+        if (inp) { inp.focus(); inp.select(); }
+    }, 50);
+}
+
+async function saveTime(levelId) {
+    const input = document.getElementById('timeInput_' + levelId);
+    if (!input) return;
+    const newTime = parseInt(input.value);
+    if (isNaN(newTime) || newTime < 10) { alert('时间必须 >= 10 秒'); return; }
+
+    const level = levels.find(l => l.levelId === levelId);
+    if (!level) return;
+    level.timeLimit = newTime;
+
+    // Save to server
+    const filename = getLevelFileName(level);
+    try {
+        const resp = await fetch('/api/save-level-game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetType: getLevelTargetType(level),
+                levelData: level,
+            }),
+        });
+        if (!resp.ok) {
+            // Fallback: download the file
+            const blob = new Blob([JSON.stringify(level, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            alert('服务器保存失败（HTTP ' + resp.status + '），已下载到本地，请手动替换到 RemoteBundle/LevelData/ 目录');
+        }
+    } catch (e) {
+        // Fallback: download
+        const blob = new Blob([JSON.stringify(level, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        alert('无法连接服务器保存文件，已下载到本地，请手动替换到 RemoteBundle/LevelData/ 目录');
+    }
+
+    // Restore card actions
+    restoreTimeEditActions(levelId);
+}
+
+function cancelTimeEdit(levelId) {
+    restoreTimeEditActions(levelId);
+}
+
+function restoreTimeEditActions(levelId) {
+    const card = document.querySelector(`.card[data-level="${levelId}"]`);
+    if (!card) return;
+    const actionsDiv = card.querySelector('.actions');
+    const level = levels.find(l => l.levelId === levelId);
+    if (!level) return;
+    actionsDiv.innerHTML = `
+        <a class="btn-play" href="${getPlayUrl(level)}" target="_blank" onclick="event.stopPropagation()">▶ 玩</a>
+        <a class="btn-time" href="javascript:void(0)" onclick="event.stopPropagation(); editTime(${level.levelId}, this)">⏱ 时间</a>
+        <a class="btn-edit" href="${getEditorUrl(level)}" target="_blank" onclick="event.stopPropagation()">✏️ 编辑</a>
+    `;
+    actionsDiv.style.flex = '1';
+    actionsDiv.style.display = 'flex';
+}
+
+function renderAll() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    const filterType = document.getElementById('filterType').value;
+    const filterColors = parseInt(document.getElementById('filterColors').value);
+    const search = document.getElementById('searchBox').value.trim().toLowerCase();
+
+    let filtered = levels;
+    if (filterType !== 'all') {
+        filtered = filtered.filter(d => d.levelType === filterType);
+    }
+    if (filterColors > 0) {
+        if (filterColors === 6) {
+            filtered = filtered.filter(d => Object.keys(getColorInfo(d.correctColorArr)).length >= 6);
+        } else {
+            filtered = filtered.filter(d => Object.keys(getColorInfo(d.correctColorArr)).length === filterColors);
+        }
+    }
+    if (search) {
+        filtered = filtered.filter(d => getSearchText(d).includes(search));
+    }
+
+    const themeCount = levels.filter(d => d.levelType === 'theme').length;
+    const mainCount = levels.length - themeCount;
+    document.getElementById('stats').textContent =
+        `共 ${levels.length} 关 | 普通 ${mainCount} | 主题 ${themeCount} | 显示 ${filtered.length} 关`;
+
+    for (const data of filtered) {
+        grid.appendChild(renderCard(data));
+    }
+}
+
+document.getElementById('filterType').addEventListener('change', renderAll);
+document.getElementById('filterColors').addEventListener('change', renderAll);
+document.getElementById('searchBox').addEventListener('input', renderAll);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+(async () => {
+    levels = await loadLevels();
+    document.getElementById('loading').style.display = 'none';
+    renderAll();
+})();
+</script>
+</body>
+</html>

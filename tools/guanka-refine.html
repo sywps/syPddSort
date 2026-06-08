@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关卡微调工作台</title>
+<style>
+:root {
+  --bg: #efe6d7;
+  --panel: #fffaf1;
+  --panel-2: #f5ead8;
+  --line: #dbc9b0;
+  --text: #3f3020;
+  --muted: #7c6855;
+  --accent: #cc6a2d;
+  --accent-2: #3f7b7b;
+  --good: #2f8f61;
+  --warn: #c55b3d;
+  --shadow: 0 12px 34px rgba(92, 60, 25, 0.12);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,0.5), transparent 30%),
+    linear-gradient(180deg, #f5ecdf 0%, var(--bg) 100%);
+}
+.shell {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  line-height: 1.05;
+}
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.hero .status {
+  text-align: right;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 300px;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 18px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid rgba(162, 128, 90, 0.14);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.sidebar {
+  padding: 16px;
+  position: sticky;
+  top: 18px;
+  align-self: start;
+}
+.section + .section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.section h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field.full {
+  grid-column: 1 / -1;
+}
+.field label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.field input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.field input::placeholder {
+  color: #9a866f;
+}
+.field textarea {
+  width: 100%;
+  min-height: 172px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: "SF Mono", "SFMono-Regular", "Menlo", monospace;
+}
+.field textarea::placeholder {
+  color: #9a866f;
+}
+.hint-text {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.example-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.example-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #f3e7d5;
+  border: 1px solid #e6d3bb;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.example-chip:hover {
+  background: #ecdcc6;
+}
+.compact-meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .14s ease, opacity .14s ease, box-shadow .14s ease;
+}
+button:hover { transform: translateY(-1px); }
+button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.primary { background: var(--accent); color: #fff; }
+.secondary { background: var(--accent-2); color: #fff; }
+.ghost { background: #ece1cf; color: var(--text); }
+.save { background: var(--good); color: #fff; }
+.wide { width: 100%; margin-top: 10px; }
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  background: #f2e5d1;
+  border: 1px solid #e6d4bd;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.main {
+  display: grid;
+  gap: 18px;
+}
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+.compare-card {
+  padding: 16px;
+}
+.compare-card h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.compare-card .sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.compare-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.compare-badge {
+  background: var(--panel-2);
+  border: 1px solid #eadcc8;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.compare-badge .k {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.compare-badge .v {
+  font-size: 14px;
+  font-weight: 600;
+}
+.canvas-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.canvas-box {
+  background: var(--panel-2);
+  border: 1px solid #e7d7c2;
+  border-radius: 14px;
+  padding: 10px;
+}
+.canvas-box .label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+canvas {
+  width: 100%;
+  display: block;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+}
+.metrics {
+  padding: 16px;
+}
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.metric {
+  background: var(--panel-2);
+  border: 1px solid #eadcc8;
+  border-radius: 14px;
+  padding: 12px;
+}
+.metric .k {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.metric .v {
+  font-size: 22px;
+  font-weight: 700;
+}
+.metric .d {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.metric .d.good { color: var(--good); }
+.metric .d.warn { color: var(--warn); }
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 16px;
+}
+.detail-card {
+  background: var(--panel-2);
+  border: 1px solid #eadcc8;
+  border-radius: 14px;
+  padding: 14px;
+}
+.detail-card h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.kv .key { color: var(--muted); }
+.palette-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid #e2d3bf;
+  font-size: 12px;
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.log {
+  margin-top: 10px;
+  background: #f3eadb;
+  border: 1px solid #e1d1ba;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  min-height: 70px;
+  white-space: pre-wrap;
+}
+.paint-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.paint-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1px solid rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.swatch-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  background-clip: padding-box;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.swatch-btn:hover {
+  border-color: rgba(0,0,0,0.18);
+  transform: translateY(-1px);
+}
+.swatch-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px #fff inset, 0 0 0 1px var(--accent);
+}
+.swatch-btn.eraser {
+  background: #fff;
+  border-color: #d6c4ad;
+}
+.swatch-btn.eraser::after {
+  content: '✕';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 12px;
+  font-weight: 600;
+}
+.sym-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sym-btn {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.sym-btn:hover { background: #f0e2cc; }
+.sym-btn.active {
+  background: var(--good);
+  color: #fff;
+  border-color: var(--good);
+}
+.tool-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tool-btn {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tool-btn:hover { background: #f0e2cc; }
+.tool-btn.active {
+  background: var(--accent-2);
+  color: #fff;
+  border-color: var(--accent-2);
+}
+canvas.editable {
+  cursor: crosshair;
+  touch-action: none;
+}
+.canvas-box.editable .label::after {
+  content: ' · 左键涂色 / 右键擦除 / 拖动连续涂';
+  color: var(--accent);
+  font-weight: 600;
+}
+.editor-panel {
+  padding: 16px;
+}
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.editor-head h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.editor-head .sub {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.editor-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+.editor-field-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.editor-field-grid input[readonly] {
+  background: #f2e5d3;
+  color: #8d755f;
+}
+.editor-action-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.editor-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 12px;
+}
+.editor-board-wrap {
+  background: var(--panel-2);
+  border: 1px solid #e7d7c2;
+  border-radius: 14px;
+  min-height: 420px;
+  padding: 12px;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#editorBoardGrid {
+  display: inline-grid;
+  gap: 1px;
+  background: #d8c5ac;
+  padding: 1px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(112, 82, 48, 0.08);
+  user-select: none;
+}
+.editor-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: #f8f0e4;
+  cursor: crosshair;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.editor-cell:hover {
+  box-shadow: inset 0 0 0 1px rgba(204, 106, 45, 0.3);
+}
+.editor-cell.filled {
+  background: var(--cell-color);
+}
+.editor-cell.empty {
+  border: 1px dashed rgba(124, 104, 85, 0.16);
+}
+.editor-json {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f4ebdd;
+  color: var(--text);
+  padding: 12px;
+  resize: vertical;
+  font-size: 12px;
+  line-height: 1.55;
+  font-family: "SF Mono", "SFMono-Regular", "Menlo", monospace;
+}
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+  .editor-layout { grid-template-columns: 1fr; }
+  .editor-toolbar { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  .compare-grid, .canvas-row, .detail-grid, .metric-grid { grid-template-columns: 1fr; }
+  .compact-meta-row { grid-template-columns: 1fr; }
+  .editor-field-grid { grid-template-columns: 1fr 1fr; }
+  .editor-action-row { grid-template-columns: 1fr; }
+  .hero { flex-direction: column; align-items: flex-start; }
+  .hero .status { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="hero">
+    <div>
+      <h1>关卡微调工作台</h1>
+      <p>面向 `guanka` 单关微调：拉开配色差异，避免相近色，让图更形象、更可爱、更贴近热门拼豆豆风格，同时把形状改动控制在 5% 内，并让初始乱序难度尽量贴近原关。</p>
+    </div>
+    <div class="status" id="statusText">等待加载关卡</div>
+  </div>
+
+  <div class="layout">
+    <aside class="panel sidebar">
+      <div class="section">
+        <h2>自然语言修改</h2>
+        <div class="field full">
+          <label>直接描述你要的修改</label>
+          <input id="nlInput" type="text" placeholder="例如：改进配色，避免相近色，更可爱">
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button class="secondary" id="nlRunBtn">执行指令</button>
+          <button class="ghost" id="nlClearBtn">清空输入</button>
+        </div>
+        <div class="compact-meta-row">
+          <div class="field">
+            <label>关卡名字</label>
+            <input id="levelNameInput" type="text" placeholder="例如：双色方阵">
+          </div>
+          <div class="field">
+            <label>关卡分类</label>
+            <input id="levelCategoryInput" type="text" placeholder="例如：几何 / 入门">
+          </div>
+        </div>
+        <div class="hint-text">
+          支持：加载、生成、继续、保存、换色、避免相近色、改可爱风、翻转、调预算。
+        </div>
+        <div class="example-list">
+          <span class="example-chip" data-command="改进配色，避免相近色，更可爱">改进配色</span>
+          <span class="example-chip" data-command="边缘改棕色">边缘改棕色</span>
+          <span class="example-chip" data-command="红色改海蓝色">换一种色</span>
+          <span class="example-chip" data-command="继续生成一版">继续生成</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>微调参数</h2>
+        <div class="field-grid">
+          <div class="field">
+            <label>形状预算 %</label>
+            <input id="shapeBudgetInput" type="number" step="0.1" min="0" max="10" value="5">
+          </div>
+          <div class="field">
+            <label>乱序尝试次数</label>
+            <input id="shuffleAttemptsInput" type="number" min="1" max="40" value="16">
+          </div>
+          <div class="field">
+            <label>颜色聚簇上限</label>
+            <input id="maxGroupsInput" type="number" min="1" max="8" value="4">
+          </div>
+          <div class="field">
+            <label>继续生成步长</label>
+            <input id="seedStepInput" type="number" min="1" max="99999" value="7919">
+          </div>
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button class="primary" id="generateBtn">生成候选</button>
+          <button class="secondary" id="continueBtn">继续生成</button>
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button class="ghost" id="resetBtn">丢弃候选</button>
+          <button class="save" id="saveBtn">保存当前关卡</button>
+        </div>
+        <div class="field full" style="margin-top:12px;">
+          <label>生成候选提示词</label>
+          <textarea id="refinePromptInput" placeholder="这里的提示词会直接应用到生成候选的调色和微调策略里。"></textarea>
+        </div>
+        <button class="ghost wide" id="resetPromptBtn">恢复默认提示词</button>
+      </div>
+
+      <div class="section">
+        <h2>像素编辑</h2>
+        <div class="paint-status">
+          <span>当前画笔</span>
+          <span class="paint-color-dot" id="paintColorDot"></span>
+          <span id="paintColorLabel">10 红</span>
+        </div>
+        <div class="palette-grid" id="palette"></div>
+        <div class="hint-text" style="margin-top:0;">
+          直接在右侧候选目标图或下面的网格编辑器上点击/拖动绘制；右键擦除。
+        </div>
+        <div class="sym-row" id="symRow">
+          <button class="sym-btn active" data-sym="none">无</button>
+          <button class="sym-btn" data-sym="h">左右</button>
+          <button class="sym-btn" data-sym="v">上下</button>
+          <button class="sym-btn" data-sym="both">四向</button>
+        </div>
+        <div class="tool-toggle-row">
+          <button class="tool-btn" id="pickerBtn" title="点击候选图取色">取色器</button>
+          <button class="tool-btn" id="rebuildInitBtn">重算初始乱序</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>关卡</h2>
+        <div class="field-grid">
+          <div class="field">
+            <label>关卡 ID</label>
+            <input id="levelIdInput" type="number" value="1000" min="1">
+          </div>
+          <div class="field">
+            <label>随机种子</label>
+            <input id="seedInput" type="number" value="20260424">
+          </div>
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button class="ghost" id="prevBtn">上一关</button>
+          <button class="ghost" id="nextBtn">下一关</button>
+        </div>
+        <button class="primary wide" id="loadBtn">加载关卡</button>
+      </div>
+
+      <div class="section">
+        <h2>当前关卡标签</h2>
+        <div class="chips" id="levelChips"></div>
+      </div>
+
+      <div class="section">
+        <h2>说明</h2>
+        <div class="log" id="logText">加载一关后，先看原图和原始乱序。生成候选后重点看：是否避开了相近色、图案是否更形象可爱、形状变化率是否仍在 5% 内，再决定是否继续或保存。</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="compare-grid">
+        <div class="panel compare-card">
+          <h3>目标图对比</h3>
+          <div class="compare-status">
+            <div class="compare-badge">
+              <div class="k">左侧原始</div>
+              <div class="v" id="beforeSubtitle">原始关卡</div>
+            </div>
+            <div class="compare-badge">
+              <div class="k">右侧候选</div>
+              <div class="v" id="afterSubtitle">候选尚未生成</div>
+            </div>
+          </div>
+          <div class="canvas-row">
+            <div class="canvas-box">
+              <div class="label">原始目标图</div>
+              <canvas id="beforeTargetCanvas"></canvas>
+            </div>
+            <div class="canvas-box editable">
+              <div class="label">候选目标图</div>
+              <canvas id="afterTargetCanvas" class="editable"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel compare-card">
+          <h3>初始乱序对比</h3>
+          <div class="sub">左边原始，右边候选，方便直接做左右对比。</div>
+          <div class="canvas-row">
+            <div class="canvas-box">
+              <div class="label">原始初始乱序</div>
+              <canvas id="beforeInitCanvas"></canvas>
+            </div>
+            <div class="canvas-box">
+              <div class="label">候选初始乱序</div>
+              <canvas id="afterInitCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel editor-panel">
+        <div class="editor-head">
+          <div>
+            <h3>关卡编辑器</h3>
+            <div class="sub">编辑区默认与左侧原始图同步。首次落笔会自动基于原始关卡生成候选；手工改图后，编辑区会切到候选图，保存前会自动重算初始乱序。</div>
+          </div>
+        </div>
+        <div class="editor-toolbar">
+          <div class="editor-field-grid">
+            <div class="field">
+              <label>当前编辑对象</label>
+              <input id="editorTargetInput" type="text" readonly value="未加载关卡">
+            </div>
+            <div class="field">
+              <label>棋盘尺寸</label>
+              <input id="editorBoardSizeInput" type="text" readonly value="-">
+            </div>
+            <div class="field">
+              <label>时间限制</label>
+              <input id="timeLimitInput" type="number" min="30" max="9999">
+            </div>
+            <div class="field">
+              <label>槽位数</label>
+              <input id="slotCountInput" type="number" min="1" max="99999">
+            </div>
+          </div>
+          <div class="editor-action-row">
+            <button class="ghost" id="clearBoardBtn">清空候选</button>
+            <button class="secondary" id="fillBoardBtn">整板填充</button>
+            <button class="tool-btn" id="editorRebuildBtn">重算乱序</button>
+          </div>
+        </div>
+        <div class="editor-status-row">
+          <span class="chip" id="editorModeChip">未加载关卡</span>
+          <span class="chip" id="editorDirtyChip">初始乱序已同步</span>
+        </div>
+        <div class="editor-layout">
+          <div class="editor-board-wrap">
+            <div id="editorBoardGrid"></div>
+          </div>
+          <textarea id="editorJsonOutput" class="editor-json" readonly></textarea>
+        </div>
+      </section>
+
+      <section class="panel metrics">
+        <div class="metric-grid" id="metricGrid"></div>
+      </section>
+
+      <section class="detail-grid">
+        <div class="panel detail-card">
+          <h4>原始参数</h4>
+          <div class="kv" id="beforeMeta"></div>
+          <div style="margin-top:12px;">
+            <h4 style="margin-bottom:8px;">原始颜色分布</h4>
+            <div class="palette-list" id="beforeColors"></div>
+          </div>
+        </div>
+
+        <div class="panel detail-card">
+          <h4>候选参数</h4>
+          <div class="kv" id="afterMeta"></div>
+          <div style="margin-top:12px;">
+            <h4 style="margin-bottom:8px;">候选颜色分布 / 配色映射</h4>
+            <div class="palette-list" id="afterColors"></div>
+            <div class="palette-list" id="mappingList" style="margin-top:10px;"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const COLOR_HEX = {
+  1: '#ED5090', 2: '#4EEAEA', 3: '#F8C811', 4: '#FE8B10', 5: '#F4BD9E',
+  6: '#EBDEA6', 7: '#4A4DCF', 8: '#7221BC', 9: '#9FCE21', 10: '#EA281A',
+  11: '#37A92D', 12: '#207955', 13: '#20A8DC', 14: '#EEB2BC', 15: '#C4BED9',
+  16: '#974714', 17: '#782F3C', 18: '#36387E', 19: '#373737', 20: '#F2EDE4',
+};
+const PNG_HEX = {
+  1: '#ED5090', 2: '#4EEAEA', 3: '#F8C811', 4: '#FE8B10', 5: '#F4BD9E',
+  6: '#EBDEA6', 7: '#4A4DCF', 8: '#7221BC', 9: '#9FCE21', 10: '#EA281A',
+  11: '#37A92D', 12: '#207955', 13: '#20A8DC', 14: '#EEB2BC', 15: '#C4BED9',
+  16: '#974714', 17: '#782F3C', 18: '#36387E', 19: '#373737', 20: '#F2EDE4',
+  21: '#8B8B8B',
+};
+const DEFAULT_LEVEL_DIR = 'assets/RemoteBundle/LevelData';
+const URL_PARAMS = new URLSearchParams(window.location.search);
+const LEVEL_DIR = normalizeLevelDir(URL_PARAMS.get('dir') || DEFAULT_LEVEL_DIR);
+const COLOR_NAME_MAP = {
+  '红': 10, '红色': 10, '橙': 4, '橙色': 4, '黄': 6, '黄色': 6, '浅黄': 6,
+  '绿': 9, '绿色': 9, '蓝': 13, '蓝色': 13, '天蓝': 13, '天蓝色': 13,
+  '紫': 8, '紫色': 8, '浅紫': 15, '浅紫色': 15,
+  '粉': 14, '粉色': 14, '棕': 16, '棕色': 16, '白': 20, '白色': 20, '米白': 20, '米白色': 20,
+  '靛蓝': 7, '靛蓝色': 7, '青绿': 11, '青绿色': 11, '玫红': 1, '玫红色': 1,
+  '藏青': 18, '藏青色': 18, '青': 18, '青色': 18,
+  '金': 3, '金色': 3,
+  '锈': 4, '锈色': 4, '翠绿': 12, '翠绿色': 12, '深绿': 12,
+  '酒红': 17, '酒红色': 17, '绯': 17, '绯红': 17, '绯红色': 17,
+  '亮青': 2, '钢蓝': 2, '钢蓝色': 2,
+  '桃': 5, '桃色': 5, '桃红': 5, '桃红色': 5,
+  '深灰': 19, '深灰色': 19, '灰': 19, '灰色': 19, '黑': 19, '黑色': 19,
+};
+const DIRS4 = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+const DIRS8 = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+const DEFAULT_REFINE_PROMPT = `请对选中的 guanka 关卡进行批量微调，目标是“优先提升配色表现，其次做极小幅度形状优化”。
+
+要求如下：
+1. 配色优先优化：明显提升图案辨识度，让主体更像原始对象；提升画面生动感、层次感和质感；避免使用过于相近、难区分的颜色；优先使用更符合当前主流拼豆豆风格的配色；优先强化主体边缘、五官、关键轮廓、转折处、受光面和阴影面。
+2. 风格方向：结果要更像市场上流行的拼豆豆作品风格，形象明确、颜色讨喜、视觉更精致、更有完成度；可以增加少量更合理的明暗过渡和材质感，但不能失真。
+3. 形状控制：形状只能做微调，整体形状改变度必须控制在 5% 以内；保留原关卡主体轮廓、比例、姿态和识别特征；仅允许做小范围修边、补缺口、去毛刺、圆润轮廓、增强关键结构的微调；如果配色优化已经足够，就尽量少动形状。
+4. 调整原则：配色改动应明显大于形状改动；优先解决颜色接近、主体不突出、层次不足、质感不够、看起来不像的问题；调整后要更自然、更完整、更精致，不要引入无意义噪点。
+5. 输出目标：生成适合直接落到 guanka 的优化结果，在“更像、更生动、更有质感、更符合流行拼豆豆风格”和“形状变化 <= 5%”之间取得平衡。`;
+
+let originalLevel = null;
+let candidateLevel = null;
+let candidateMetrics = null;
+let candidateNeedsRebuild = false;
+let editorViewMode = 'original';
+let logLines = [];
+
+const PALETTE_COLORS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+const COLOR_LABELS = {
+  1: '玫红', 2: '亮青', 3: '金', 4: '橙', 5: '桃', 6: '浅黄', 7: '靛蓝',
+  8: '紫', 9: '绿', 10: '红', 11: '青绿', 12: '翠绿', 13: '天蓝', 14: '粉',
+  15: '浅紫', 16: '棕', 17: '酒红', 18: '藏青', 19: '深灰', 20: '米白',
+};
+let paintColor = 10;
+let paintSym = 'none';
+let paintPickerMode = false;
+let paintIsDown = false;
+let paintIsRight = false;
+let paintCellPx = 0;
+let paintCanvasMeta = null;
+let paintLastKey = '';
+let editorIsDown = false;
+let editorIsRight = false;
+let editorLastKey = '';
+
+function qs(id) {
+  return document.getElementById(id);
+}
+
+function normalizeLevelDir(value) {
+  const raw = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (!raw) return DEFAULT_LEVEL_DIR;
+  const parts = raw.split('/').filter(Boolean);
+  if (!parts.length) return DEFAULT_LEVEL_DIR;
+  if (parts.some(part => part === '.' || part === '..')) return DEFAULT_LEVEL_DIR;
+  return parts.join('/');
+}
+
+function buildApiUrl(path, params = {}) {
+  const url = new URL(path, window.location.origin);
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    url.searchParams.set(key, String(value));
+  }
+  return url.toString();
+}
+
+function formatRatio(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+  return `${(Number(value) * 100).toFixed(2)}%`;
+}
+
+function formatSigned(value, suffix = '') {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+  const n = Number(value);
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${n.toFixed(4)}${suffix}`;
+}
+
+function round4(value) {
+  return Math.round(Number(value) * 10000) / 10000;
+}
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeMetaText(value) {
+  return String(value ?? '').trim();
+}
+
+function currentRefinePrompt() {
+  const text = String(qs('refinePromptInput')?.value || '').trim();
+  return text || DEFAULT_REFINE_PROMPT;
+}
+
+function syncMetaInputs(level) {
+  qs('levelNameInput').value = level?.levelName || '';
+  qs('levelCategoryInput').value = level?.levelCategory || '';
+  qs('timeLimitInput').value = level?.timeLimit ?? '';
+  qs('slotCountInput').value = level?.slotTotalCount ?? '';
+}
+
+function applyMetaInputs(level) {
+  if (!level) return level;
+  level.levelName = normalizeMetaText(qs('levelNameInput').value);
+  level.levelCategory = normalizeMetaText(qs('levelCategoryInput').value);
+  const timeLimit = Number(qs('timeLimitInput').value);
+  const slotTotalCount = Number(qs('slotCountInput').value);
+  if (Number.isFinite(timeLimit) && timeLimit > 0) level.timeLimit = timeLimit;
+  if (Number.isFinite(slotTotalCount) && slotTotalCount > 0) level.slotTotalCount = slotTotalCount;
+  return level;
+}
+
+function cloneLevelWithMeta(level) {
+  return applyMetaInputs(deepClone(level));
+}
+
+function syncComputedLevelFields(level) {
+  if (!level?.correctColorArr?.length || !level.correctColorArr[0]?.length) return;
+  level.boardHeight = level.correctColorArr.length;
+  level.boardWidth = level.correctColorArr[0].length;
+  const stats = getColorStats(level.correctColorArr);
+  level.colorStats = Object.fromEntries(Object.entries(stats).map(([key, value]) => [String(key), value]));
+  level.colorCount = Object.keys(stats).length;
+  level.filledCellCount = filledCount(level.correctColorArr);
+}
+
+function activeEditorLevel() {
+  if (editorViewMode === 'candidate' && candidateLevel) return candidateLevel;
+  return originalLevel || candidateLevel;
+}
+
+function setEditorViewMode(mode) {
+  editorViewMode = mode === 'candidate' ? 'candidate' : 'original';
+}
+
+function drawGrid(canvas, grid) {
+  if (!grid || !grid.length || !grid[0].length) {
+    const ctx = canvas.getContext('2d');
+    canvas.width = 10;
+    canvas.height = 10;
+    ctx.clearRect(0, 0, 10, 10);
+    if (canvas.id === 'afterTargetCanvas') paintCanvasMeta = null;
+    return;
+  }
+  const height = grid.length;
+  const width = grid[0].length;
+  const maxSize = 290;
+  const cell = Math.max(4, Math.floor(maxSize / Math.max(width, height)));
+  canvas.width = width * cell;
+  canvas.height = height * cell;
+  if (canvas.id === 'afterTargetCanvas') {
+    paintCellPx = cell;
+    paintCanvasMeta = { cell, width, height, canvasW: canvas.width, canvasH: canvas.height };
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const value = grid[row][col];
+      if (!value) continue;
+      const x = col * cell;
+      const y = row * cell;
+      const size = cell - 1;
+      const radius = Math.max(1, Math.floor(cell * 0.22));
+      const hex = PNG_HEX[value] || COLOR_HEX[value] || '#999';
+      ctx.beginPath();
+      ctx.roundRect(x + 0.5, y + 0.5, size, size, radius);
+      ctx.fillStyle = hex;
+      ctx.fill();
+      if (cell >= 7) {
+        ctx.beginPath();
+        ctx.roundRect(x + 1.2, y + 1.2, size - 2.4, Math.max(2, size * 0.36), radius);
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function getColorStats(grid) {
+  const counts = {};
+  if (!grid) return counts;
+  for (const row of grid) {
+    for (const value of row) {
+      if (value > 0) counts[value] = (counts[value] || 0) + 1;
+    }
+  }
+  return counts;
+}
+
+function renderStats(container, stats) {
+  container.innerHTML = '';
+  const entries = Object.entries(stats || {});
+  if (!entries.length) {
+    container.innerHTML = '<span class="chip">暂无</span>';
+    return;
+  }
+  for (const [colorId, count] of entries) {
+    const hex = PNG_HEX[colorId] || COLOR_HEX[colorId] || '#999';
+    const item = document.createElement('div');
+    item.className = 'swatch';
+    item.innerHTML = `<span class="dot" style="background:${hex}"></span><span>${colorId}: ${count}</span>`;
+    container.appendChild(item);
+  }
+}
+
+function renderMapping(container, mapping) {
+  container.innerHTML = '';
+  const entries = Object.entries(mapping || {});
+  if (!entries.length) {
+    container.innerHTML = '<span class="chip">未生成候选</span>';
+    return;
+  }
+  for (const [fromId, toId] of entries) {
+    const fromHex = PNG_HEX[fromId] || COLOR_HEX[fromId] || '#999';
+    const toHex = PNG_HEX[toId] || COLOR_HEX[toId] || '#999';
+    const item = document.createElement('div');
+    item.className = 'swatch';
+    item.innerHTML = `
+      <span class="dot" style="background:${fromHex}"></span>
+      <span>${fromId}</span>
+      <span>→</span>
+      <span class="dot" style="background:${toHex}"></span>
+      <span>${toId}</span>
+    `;
+    container.appendChild(item);
+  }
+}
+
+function renderMeta(container, level, extraMetrics) {
+  container.innerHTML = '';
+  if (!level) {
+    container.innerHTML = '<div class="key">状态</div><div>暂无数据</div>';
+    return;
+  }
+  const isDirtyCandidate = level === candidateLevel && candidateNeedsRebuild;
+  const rows = [
+    ['关卡 ID', level.levelId],
+    ['关卡名字', level.levelName || '未填写'],
+    ['关卡分类', level.levelCategory || '未填写'],
+    ['棋盘尺寸', `${level.boardWidth} x ${level.boardHeight}`],
+    ['填充格数', level.filledCellCount ?? level.slotTotalCount],
+    ['颜色数', level.colorCount ?? Object.keys(getColorStats(level.correctColorArr)).length],
+    ['时间', `${level.timeLimit}s`],
+    ['位移率', isDirtyCandidate ? '待重算' : formatRatio(level.displacementRatio)],
+    ['乱序种子', isDirtyCandidate ? '待重算' : (level.initShuffleSeed ?? '-')],
+  ];
+  if (extraMetrics) {
+    rows.push(['形状变化', `${Number(extraMetrics.shapeChangePct).toFixed(2)}%`]);
+    rows.push(['配色变化', `${Number(extraMetrics.colorChangePct).toFixed(2)}%`]);
+    if (extraMetrics.appliedShapeBudgetPct !== undefined) {
+      rows.push(['实际形状预算', `${Number(extraMetrics.appliedShapeBudgetPct).toFixed(2)}%`]);
+    }
+  }
+  for (const [key, value] of rows) {
+    const k = document.createElement('div');
+    k.className = 'key';
+    k.textContent = key;
+    const v = document.createElement('div');
+    v.textContent = value;
+    container.appendChild(k);
+    container.appendChild(v);
+  }
+}
+
+function metricItem(title, value, detail, detailClass = '') {
+  return `
+    <div class="metric">
+      <div class="k">${title}</div>
+      <div class="v">${value}</div>
+      <div class="d ${detailClass}">${detail}</div>
+    </div>
+  `;
+}
+
+function renderMetricGrid() {
+  const grid = qs('metricGrid');
+  if (!originalLevel) {
+    grid.innerHTML = metricItem('状态', '-', '先加载关卡');
+    return;
+  }
+  if (!candidateLevel || !candidateMetrics) {
+    grid.innerHTML = [
+      metricItem('填充格数', String(originalLevel.filledCellCount ?? originalLevel.slotTotalCount), '原始值'),
+      metricItem('颜色数', String(originalLevel.colorCount), '原始值'),
+      metricItem('位移率', formatRatio(originalLevel.displacementRatio), '原始值'),
+      metricItem('候选状态', '-', '尚未生成'),
+    ].join('');
+    return;
+  }
+  const displacementDelta = Number(candidateMetrics.displacementDelta || 0);
+  const shapeChange = Number(candidateMetrics.shapeChangePct || 0);
+  const colorChange = Number(candidateMetrics.colorChangePct || 0);
+  const appliedShapeBudget = Number(candidateMetrics.appliedShapeBudgetPct ?? (qs('shapeBudgetInput').value || 5));
+  grid.innerHTML = [
+    metricItem(
+      '形状变化',
+      `${shapeChange.toFixed(2)}%`,
+      shapeChange <= appliedShapeBudget ? `在预算内 / 实际预算 ${appliedShapeBudget.toFixed(2)}%` : `超过预算 / 实际预算 ${appliedShapeBudget.toFixed(2)}%`,
+      shapeChange <= appliedShapeBudget ? 'good' : 'warn'
+    ),
+    metricItem(
+      '配色变化',
+      `${colorChange.toFixed(2)}%`,
+      '同位置色块变化比例'
+    ),
+    metricItem(
+      '位移率差值',
+      candidateNeedsRebuild ? '待重算' : formatSigned(displacementDelta * 100, '%'),
+      candidateNeedsRebuild
+        ? '候选已手工编辑，位移率与乱序结果待重算'
+        : `原始 ${formatRatio(candidateMetrics.originalDisplacementRatio)} / 候选 ${formatRatio(candidateMetrics.candidateDisplacementRatio)}`,
+      candidateNeedsRebuild ? 'warn' : (Math.abs(displacementDelta) <= 0.03 ? 'good' : 'warn')
+    ),
+    metricItem(
+      '颜色数变化',
+      formatSigned(candidateMetrics.colorCountDelta, ''),
+      `填充差值 ${formatSigned(candidateMetrics.filledDelta, '')}`,
+      candidateMetrics.colorCountDelta === 0 && candidateMetrics.filledDelta === 0 ? 'good' : 'warn'
+    ),
+  ].join('');
+}
+
+function renderLevelChips(level) {
+  const chips = qs('levelChips');
+  chips.innerHTML = '';
+  if (!level) return;
+  const items = [
+    `level_${level.levelId}.json`,
+    level.levelName ? `名字: ${level.levelName}` : '',
+    level.levelCategory ? `分类: ${level.levelCategory}` : '',
+    `${level.boardWidth}x${level.boardHeight}`,
+    `${level.filledCellCount ?? level.slotTotalCount} 格`,
+    `${level.colorCount ?? Object.keys(getColorStats(level.correctColorArr)).length} 色`,
+    level.isFeatured ? '精选关' : '普通关',
+    level === candidateLevel && candidateNeedsRebuild ? '初始乱序待重算' : '',
+  ];
+  if (level.templateName) items.push(level.templateName);
+  if (level.templateCategory) items.push(level.templateCategory);
+  for (const text of items.filter(Boolean)) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.textContent = text;
+    chips.appendChild(chip);
+  }
+}
+
+function getEditorCellSize(width, height) {
+  const wrap = qs('editorBoardGrid')?.parentElement;
+  const maxWidth = Math.max(220, (wrap?.clientWidth || 620) - 28);
+  const maxHeight = Math.max(220, (wrap?.clientHeight || 520) - 28);
+  return Math.max(8, Math.min(22, Math.floor(Math.min(maxWidth / width, maxHeight / height))));
+}
+
+function updateEditorCellAppearance(cell, value) {
+  cell.className = 'editor-cell ' + (value > 0 ? 'filled' : 'empty');
+  if (value > 0) {
+    cell.style.setProperty('--cell-color', COLOR_HEX[value] || '#999');
+    cell.title = `${value} ${COLOR_LABELS[value] || ''}`;
+  } else {
+    cell.style.removeProperty('--cell-color');
+    cell.title = '空格';
+  }
+}
+
+function renderEditorBoard() {
+  const board = qs('editorBoardGrid');
+  const level = activeEditorLevel();
+  board.innerHTML = '';
+  if (!level?.correctColorArr?.length || !level.correctColorArr[0]?.length) {
+    board.style.gridTemplateColumns = 'none';
+    return;
+  }
+  const height = level.correctColorArr.length;
+  const width = level.correctColorArr[0].length;
+  const cellSize = getEditorCellSize(width, height);
+  board.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const cell = document.createElement('div');
+      cell.dataset.row = String(row);
+      cell.dataset.col = String(col);
+      cell.style.width = `${cellSize}px`;
+      cell.style.height = `${cellSize}px`;
+      updateEditorCellAppearance(cell, level.correctColorArr[row][col]);
+      board.appendChild(cell);
+    }
+  }
+}
+
+function renderEditorPanel() {
+  const level = activeEditorLevel();
+  qs('editorTargetInput').value = !level
+    ? '未加载关卡'
+    : (editorViewMode === 'candidate' && candidateLevel ? '候选关卡' : '原始关卡');
+  qs('editorBoardSizeInput').value = level ? `${level.boardWidth} x ${level.boardHeight}` : '-';
+  qs('editorModeChip').textContent = !level
+    ? '未加载关卡'
+    : (editorViewMode === 'candidate' && candidateLevel ? '编辑区当前显示：候选图' : '编辑区当前显示：原始图');
+  qs('editorDirtyChip').textContent = !level
+    ? '初始乱序已同步'
+    : (candidateNeedsRebuild ? '候选已改动，初始乱序待重算' : (editorViewMode === 'candidate' && candidateLevel ? '当前查看手工修改后的候选图' : '编辑区已与原始图同步'));
+  qs('editorJsonOutput').value = level ? JSON.stringify(level, null, 2) : '';
+  qs('clearBoardBtn').disabled = !originalLevel;
+  qs('fillBoardBtn').disabled = !originalLevel;
+  qs('editorRebuildBtn').disabled = !candidateLevel;
+  renderEditorBoard();
+}
+
+function setStatus(text) {
+  qs('statusText').textContent = text;
+}
+
+function renderLog() {
+  qs('logText').textContent = logLines.join('\n');
+}
+
+function setLog(text) {
+  logLines = String(text || '').split('\n').filter(Boolean);
+  renderLog();
+}
+
+function appendLog(text) {
+  logLines.push(String(text));
+  if (logLines.length > 24) {
+    logLines = logLines.slice(logLines.length - 24);
+  }
+  renderLog();
+}
+
+function filledCount(grid) {
+  let total = 0;
+  if (!grid) return total;
+  for (const row of grid) {
+    for (const value of row) {
+      if (value > 0) total++;
+    }
+  }
+  return total;
+}
+
+function getGridMask(grid) {
+  return grid.map(row => row.map(value => value > 0));
+}
+
+function shapeChangePct(originalGrid, candidateGrid) {
+  const total = filledCount(originalGrid);
+  if (!total) return 0;
+  let changed = 0;
+  for (let row = 0; row < originalGrid.length; row++) {
+    for (let col = 0; col < originalGrid[row].length; col++) {
+      if ((originalGrid[row][col] > 0) !== (candidateGrid[row][col] > 0)) {
+        changed++;
+      }
+    }
+  }
+  return changed * 100 / total;
+}
+
+function colorChangePct(originalGrid, candidateGrid) {
+  const total = filledCount(originalGrid);
+  if (!total) return 0;
+  let changed = 0;
+  for (let row = 0; row < originalGrid.length; row++) {
+    for (let col = 0; col < originalGrid[row].length; col++) {
+      const before = originalGrid[row][col];
+      const after = candidateGrid[row][col];
+      if (before !== after) changed++;
+    }
+  }
+  return changed * 100 / total;
+}
+
+function buildClientMetrics(candidate, mappingHint = null) {
+  const originalStats = getColorStats(originalLevel.correctColorArr);
+  const candidateStats = getColorStats(candidate.correctColorArr);
+  const originalRatio = Number(originalLevel?.displacementRatio ?? 0);
+  const candidateRatio = candidate?.displacementRatio === null || candidate?.displacementRatio === undefined
+    ? null
+    : Number(candidate.displacementRatio);
+  return {
+    shapeChangePct: round4(shapeChangePct(originalLevel.correctColorArr, candidate.correctColorArr)),
+    colorChangePct: round4(colorChangePct(originalLevel.correctColorArr, candidate.correctColorArr)),
+    removedCellCount: 0,
+    addedCellCount: 0,
+    filledDelta: filledCount(candidate.correctColorArr) - filledCount(originalLevel.correctColorArr),
+    colorCountDelta: Object.keys(candidateStats).length - Object.keys(originalStats).length,
+    originalDisplacementRatio: round4(originalRatio),
+    candidateDisplacementRatio: candidateRatio === null ? null : round4(candidateRatio),
+    displacementDelta: candidateRatio === null ? null : round4(candidateRatio - originalRatio),
+    paletteMapping: mappingHint || candidateMetrics?.paletteMapping || {},
+  };
+}
+
+function parseColorToken(value) {
+  if (typeof value === 'number' && value >= 0) return value;
+  const text = String(value || '').trim();
+  if (!text) return 0;
+  const idMatch = text.match(/(\d+)\s*(?:号|種|种)?(?:颜色|顏色|色)?/);
+  if (idMatch) return Number(idMatch[1]);
+  for (const [name, id] of Object.entries(COLOR_NAME_MAP)) {
+    if (text.includes(name)) return id;
+  }
+  return 0;
+}
+
+function ensureCandidateBase() {
+  if (!originalLevel) throw new Error('请先加载关卡');
+  if (!candidateLevel) {
+    candidateLevel = cloneLevelWithMeta(originalLevel);
+    syncComputedLevelFields(candidateLevel);
+    candidateMetrics = buildClientMetrics(candidateLevel);
+    candidateNeedsRebuild = false;
+  } else {
+    applyMetaInputs(candidateLevel);
+  }
+}
+
+function forEachCell(grid, handler) {
+  for (let row = 0; row < grid.length; row++) {
+    for (let col = 0; col < grid[row].length; col++) {
+      handler(row, col, grid[row][col]);
+    }
+  }
+}
+
+function inBounds(grid, row, col) {
+  return row >= 0 && row < grid.length && col >= 0 && col < grid[0].length;
+}
+
+function boundaryCells(grid) {
+  const points = [];
+  forEachCell(grid, (row, col, value) => {
+    if (value <= 0) return;
+    for (const [dr, dc] of DIRS4) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (!inBounds(grid, nr, nc) || grid[nr][nc] <= 0) {
+        points.push([row, col]);
+        return;
+      }
+    }
+  });
+  return points;
+}
+
+function computeDepth(grid) {
+  const depth = Array.from({ length: grid.length }, () => Array(grid[0].length).fill(-1));
+  const queue = [];
+  for (const [row, col] of boundaryCells(grid)) {
+    depth[row][col] = 0;
+    queue.push([row, col]);
+  }
+  let index = 0;
+  while (index < queue.length) {
+    const [row, col] = queue[index++];
+    for (const [dr, dc] of DIRS4) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (!inBounds(grid, nr, nc) || grid[nr][nc] <= 0 || depth[nr][nc] !== -1) continue;
+      depth[nr][nc] = depth[row][col] + 1;
+      queue.push([nr, nc]);
+    }
+  }
+  return depth;
+}
+
+function replaceColorInGrid(grid, fromColor, toColor) {
+  forEachCell(grid, (row, col, value) => {
+    if (value === fromColor) grid[row][col] = toColor;
+  });
+}
+
+function swapColorsInGrid(grid, color1, color2) {
+  forEachCell(grid, (row, col, value) => {
+    if (value === color1) grid[row][col] = color2;
+    else if (value === color2) grid[row][col] = color1;
+  });
+}
+
+function clearColorInGrid(grid, color) {
+  forEachCell(grid, (row, col, value) => {
+    if (value === color) grid[row][col] = 0;
+  });
+}
+
+function recolorBoundaryInGrid(grid, color) {
+  for (const [row, col] of boundaryCells(grid)) {
+    grid[row][col] = color;
+  }
+}
+
+function recolorInteriorInGrid(grid, color) {
+  const depth = computeDepth(grid);
+  let changed = 0;
+  forEachCell(grid, (row, col, value) => {
+    if (value > 0 && depth[row][col] >= 1) {
+      grid[row][col] = color;
+      changed++;
+    }
+  });
+  if (changed === 0) {
+    forEachCell(grid, (row, col, value) => {
+      if (value <= 0) return;
+      let neighbors = 0;
+      for (const [dr, dc] of DIRS4) {
+        const nr = row + dr;
+        const nc = col + dc;
+        if (inBounds(grid, nr, nc) && grid[nr][nc] > 0) neighbors++;
+      }
+      if (neighbors >= 3) grid[row][col] = color;
+    });
+  }
+}
+
+function flipGrid(grid, dir) {
+  if (dir === 'horizontal') {
+    for (const row of grid) row.reverse();
+  } else if (dir === 'vertical') {
+    grid.reverse();
+  }
+}
+
+function rotateGrid(level, dir) {
+  const grid = level.correctColorArr;
+  const height = grid.length;
+  const width = grid[0].length;
+  const rotated = [];
+  if (dir === 'clockwise') {
+    for (let col = 0; col < width; col++) {
+      const rowData = [];
+      for (let row = height - 1; row >= 0; row--) rowData.push(grid[row][col]);
+      rotated.push(rowData);
+    }
+  } else {
+    for (let col = width - 1; col >= 0; col--) {
+      const rowData = [];
+      for (let row = 0; row < height; row++) rowData.push(grid[row][col]);
+      rotated.push(rowData);
+    }
+  }
+  level.correctColorArr = rotated;
+  level.boardWidth = rotated[0].length;
+  level.boardHeight = rotated.length;
+}
+
+function mirrorGrid(grid, dir) {
+  const height = grid.length;
+  const width = grid[0].length;
+  switch (dir) {
+    case 'left_to_right':
+      for (let row = 0; row < height; row++) {
+        for (let col = 0; col < Math.ceil(width / 2); col++) {
+          grid[row][width - 1 - col] = grid[row][col];
+        }
+      }
+      break;
+    case 'right_to_left':
+      for (let row = 0; row < height; row++) {
+        for (let col = 0; col < Math.ceil(width / 2); col++) {
+          grid[row][col] = grid[row][width - 1 - col];
+        }
+      }
+      break;
+    case 'top_to_bottom':
+      for (let row = 0; row < Math.ceil(height / 2); row++) {
+        for (let col = 0; col < width; col++) {
+          grid[height - 1 - row][col] = grid[row][col];
+        }
+      }
+      break;
+    case 'bottom_to_top':
+      for (let row = 0; row < Math.ceil(height / 2); row++) {
+        for (let col = 0; col < width; col++) {
+          grid[row][col] = grid[height - 1 - row][col];
+        }
+      }
+      break;
+  }
+}
+
+function paintPoint(grid, row, col, color) {
+  if (inBounds(grid, row, col)) grid[row][col] = color;
+}
+
+function paintRange(grid, r1, c1, r2, c2, color) {
+  const rowStart = Math.max(0, Math.min(r1, r2));
+  const rowEnd = Math.min(grid.length - 1, Math.max(r1, r2));
+  const colStart = Math.max(0, Math.min(c1, c2));
+  const colEnd = Math.min(grid[0].length - 1, Math.max(c1, c2));
+  for (let row = rowStart; row <= rowEnd; row++) {
+    for (let col = colStart; col <= colEnd; col++) {
+      grid[row][col] = color;
+    }
+  }
+}
+
+async function requestRebuild(note, mappingHint = null) {
+  if (!candidateLevel) throw new Error('没有候选可重建');
+  const params = collectParams();
+  applyMetaInputs(candidateLevel);
+  syncComputedLevelFields(candidateLevel);
+  setStatus(`重建候选中... level ${candidateLevel.levelId}`);
+  const response = await fetch('/api/rebuild-level', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      levelData: candidateLevel,
+      targetDisplacementRatio: Number(originalLevel?.displacementRatio ?? 0),
+      seed: params.seed,
+      shuffleAttempts: params.shuffleAttempts,
+      maxGroupsPerColor: params.maxGroupsPerColor,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || '重建候选失败');
+  }
+  candidateLevel = data.candidate;
+  syncComputedLevelFields(candidateLevel);
+  candidateMetrics = buildClientMetrics(candidateLevel, mappingHint);
+  candidateNeedsRebuild = false;
+  syncMetaInputs(candidateLevel);
+  setStatus(`候选初始乱序已重算`);
+  appendLog(note);
+  renderAll();
+}
+
+function currentAfterSubtitle() {
+  if (!candidateLevel || !candidateMetrics) return '候选尚未生成';
+  const prefix = `形状变化 ${Number(candidateMetrics.shapeChangePct).toFixed(2)}%`;
+  return candidateNeedsRebuild
+    ? `${prefix} | 初始乱序待重算`
+    : `${prefix} | 位移率 ${formatRatio(candidateLevel.displacementRatio)}`;
+}
+
+function markCandidateDirty(note) {
+  if (!candidateLevel) return;
+  setEditorViewMode('candidate');
+  syncComputedLevelFields(candidateLevel);
+  candidateLevel.displacementRatio = null;
+  candidateLevel.initRandomColorArr = [];
+  candidateLevel.initShuffleSeed = null;
+  if (!candidateNeedsRebuild) {
+    setStatus('候选已手工编辑，初始乱序待重算');
+    if (note) appendLog(note);
+  }
+  candidateNeedsRebuild = true;
+}
+
+function renderAll() {
+  drawGrid(qs('beforeTargetCanvas'), originalLevel?.correctColorArr);
+  drawGrid(qs('beforeInitCanvas'), originalLevel?.initRandomColorArr);
+  drawGrid(qs('afterTargetCanvas'), candidateLevel?.correctColorArr);
+  drawGrid(qs('afterInitCanvas'), candidateLevel?.initRandomColorArr);
+
+  qs('beforeSubtitle').textContent = originalLevel
+    ? `位移率 ${formatRatio(originalLevel.displacementRatio)} | ${originalLevel.colorCount ?? Object.keys(getColorStats(originalLevel.correctColorArr)).length} 色`
+    : '原始关卡';
+  qs('afterSubtitle').textContent = currentAfterSubtitle();
+
+  renderMetricGrid();
+  renderMeta(qs('beforeMeta'), originalLevel, null);
+  renderMeta(qs('afterMeta'), candidateLevel, candidateMetrics);
+  renderStats(qs('beforeColors'), originalLevel ? getColorStats(originalLevel.correctColorArr) : null);
+  renderStats(qs('afterColors'), candidateLevel ? getColorStats(candidateLevel.correctColorArr) : null);
+  renderMapping(qs('mappingList'), candidateMetrics?.paletteMapping);
+  renderLevelChips(candidateLevel || originalLevel);
+  renderEditorPanel();
+  qs('saveBtn').disabled = !originalLevel;
+  qs('continueBtn').disabled = !candidateLevel;
+  qs('resetBtn').disabled = !candidateLevel;
+}
+
+async function loadLevel(levelId) {
+  setStatus(`加载关卡 ${levelId}...`);
+  const response = await fetch(buildApiUrl('/api/load-level', { dir: LEVEL_DIR, levelId, _: Date.now() }));
+  const data = await response.json();
+  if (!response.ok || !data.ok || !data.levelData) {
+    throw new Error(data.error || `未找到关卡 ${levelId}`);
+  }
+  originalLevel = data.levelData;
+  syncComputedLevelFields(originalLevel);
+  originalLevel.levelName = originalLevel.levelName || '';
+  originalLevel.levelCategory = originalLevel.levelCategory || '';
+  candidateLevel = null;
+  candidateMetrics = null;
+  candidateNeedsRebuild = false;
+  setEditorViewMode('original');
+  qs('levelIdInput').value = originalLevel.levelId;
+  syncMetaInputs(originalLevel);
+  setStatus(`已加载关卡 ${originalLevel.levelId}`);
+  setLog(`已加载关卡 ${originalLevel.levelId}。\n先看原图，再生成候选。\n重点关注配色是否拉开、图案是否更可爱，以及形状变化是否仍在 5% 内。`);
+  renderAll();
+}
+
+function collectParams() {
+  return {
+    seed: Number(qs('seedInput').value),
+    shapeBudgetPct: Number(qs('shapeBudgetInput').value),
+    shuffleAttempts: Number(qs('shuffleAttemptsInput').value),
+    maxGroupsPerColor: Number(qs('maxGroupsInput').value),
+    instructionPrompt: currentRefinePrompt(),
+  };
+}
+
+async function requestRefine(useCandidateAsBase) {
+  if (!originalLevel) {
+    throw new Error('请先加载关卡');
+  }
+  const params = collectParams();
+  const baseLevel = cloneLevelWithMeta(useCandidateAsBase && candidateLevel ? candidateLevel : originalLevel);
+  const body = {
+    ...params,
+    levelId: originalLevel.levelId,
+    levelData: baseLevel,
+  };
+  setStatus(`生成候选中... level ${originalLevel.levelId}`);
+  const response = await fetch('/api/refine-level', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let data = null;
+  let rawText = '';
+  try {
+    data = await response.json();
+  } catch (err) {
+    rawText = await response.text().catch(() => '');
+  }
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(
+        '当前 8080 端口跑的是旧版 tools/server.py，缺少 /api/refine-level 接口。请重启新版服务，或用 PORT=8081 python3 tools/server.py 后访问对应端口。'
+      );
+    }
+    throw new Error((data && data.error) || rawText || '候选生成失败');
+  }
+  if (!data || !data.ok) {
+    throw new Error((data && data.error) || '候选生成失败');
+  }
+  candidateLevel = data.candidate;
+  syncComputedLevelFields(candidateLevel);
+  candidateMetrics = data.metrics;
+  candidateNeedsRebuild = false;
+  setEditorViewMode('original');
+  syncMetaInputs(candidateLevel);
+  setStatus(
+    `候选已生成: 形状变化 ${Number(candidateMetrics.shapeChangePct).toFixed(2)}% / 实际预算 ${Number(candidateMetrics.appliedShapeBudgetPct ?? params.shapeBudgetPct).toFixed(2)}%`
+  );
+  setLog(
+    `候选已生成。\n` +
+    `形状变化: ${Number(candidateMetrics.shapeChangePct).toFixed(2)}%\n` +
+    `配色变化: ${Number(candidateMetrics.colorChangePct).toFixed(2)}%\n` +
+    `位移率: ${formatRatio(candidateMetrics.originalDisplacementRatio)} -> ${formatRatio(candidateMetrics.candidateDisplacementRatio)}\n` +
+    `实际形状预算: ${Number(candidateMetrics.appliedShapeBudgetPct ?? params.shapeBudgetPct).toFixed(2)}%\n` +
+    `提示词已应用到生成候选策略。`
+  );
+  renderAll();
+}
+
+async function saveCurrentLevel() {
+  if (!originalLevel) {
+    throw new Error('请先加载关卡');
+  }
+  if (candidateLevel && candidateNeedsRebuild) {
+    await requestRebuild('保存前已自动重算初始乱序');
+  }
+  const levelToSave = cloneLevelWithMeta(candidateLevel || originalLevel);
+  syncComputedLevelFields(levelToSave);
+  setStatus(`保存关卡 ${levelToSave.levelId}...`);
+  const response = await fetch('/api/save-level-game', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetType: 'main', levelData: levelToSave }),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || '保存失败');
+  }
+  originalLevel = levelToSave;
+  syncComputedLevelFields(originalLevel);
+  candidateLevel = null;
+  candidateMetrics = null;
+  candidateNeedsRebuild = false;
+  setEditorViewMode('original');
+  syncMetaInputs(originalLevel);
+  setStatus(`已保存到 ${data.path}`);
+  setLog(`当前关卡已保存。\n文件: ${data.path}\n你可以继续在新版本基础上再生成下一版。`);
+  renderAll();
+}
+
+function incrementSeed() {
+  const current = Number(qs('seedInput').value || 0);
+  const step = Number(qs('seedStepInput').value || 7919);
+  qs('seedInput').value = current + step;
+}
+
+async function requestNLActions(text) {
+  if (!originalLevel) throw new Error('请先加载关卡');
+  const response = await fetch('/api/nl-edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      levelData: candidateLevel || originalLevel,
+      originalLevelData: originalLevel,
+      hasCandidate: Boolean(candidateLevel),
+      params: collectParams(),
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || '自然语言解析失败');
+  }
+  return data.actions || [];
+}
+
+function setParamValue(name, value) {
+  const numberValue = Number(value);
+  switch (name) {
+    case 'shapeBudgetPct':
+      qs('shapeBudgetInput').value = numberValue;
+      return '形状预算';
+    case 'shuffleAttempts':
+      qs('shuffleAttemptsInput').value = numberValue;
+      return '乱序尝试次数';
+    case 'maxGroupsPerColor':
+      qs('maxGroupsInput').value = numberValue;
+      return '颜色聚簇上限';
+    case 'seed':
+      qs('seedInput').value = numberValue;
+      return '随机种子';
+    default:
+      return '';
+  }
+}
+
+async function applyNLAction(action) {
+  if (!action || !action.action) return { dirty: false };
+  const act = action.action;
+
+  if (act === 'load_level') {
+    await loadLevel(Number(action.levelId));
+    appendLog(`自然语言：已加载第 ${action.levelId} 关`);
+    return { dirty: false, handled: true };
+  }
+  if (act === 'generate_candidate') {
+    await requestRefine(false);
+    appendLog('自然语言：已生成候选');
+    return { dirty: false, handled: true };
+  }
+  if (act === 'continue_generate') {
+    incrementSeed();
+    await requestRefine(true);
+    appendLog('自然语言：已继续生成一版');
+    return { dirty: false, handled: true };
+  }
+  if (act === 'save_candidate') {
+    await saveCurrentLevel();
+    appendLog('自然语言：已保存当前关卡');
+    return { dirty: false, handled: true };
+  }
+  if (act === 'discard_candidate') {
+    candidateLevel = null;
+    candidateMetrics = null;
+    candidateNeedsRebuild = false;
+    setEditorViewMode('original');
+    syncMetaInputs(originalLevel);
+    setStatus('候选已丢弃');
+    appendLog('自然语言：已丢弃当前候选');
+    renderAll();
+    return { dirty: false, handled: true };
+  }
+  if (act === 'set_param') {
+    const label = setParamValue(action.name, action.value);
+    if (label) appendLog(`自然语言：${label} 已改为 ${action.value}`);
+    return { dirty: false, handled: true };
+  }
+
+  ensureCandidateBase();
+  const grid = candidateLevel.correctColorArr;
+  let mappingHint = null;
+  switch (act) {
+    case 'replace_color': {
+      const fromColor = parseColorToken(action.from);
+      const toColor = parseColorToken(action.to);
+      if (!fromColor || !toColor) throw new Error('replace_color 缺少颜色');
+      replaceColorInGrid(grid, fromColor, toColor);
+      mappingHint = { [String(fromColor)]: toColor };
+      appendLog(`自然语言：将 ${fromColor} 号色替换为 ${toColor} 号色`);
+      return { dirty: true, handled: true, mappingHint };
+    }
+    case 'swap_colors': {
+      const color1 = parseColorToken(action.color1);
+      const color2 = parseColorToken(action.color2);
+      if (!color1 || !color2) throw new Error('swap_colors 缺少颜色');
+      swapColorsInGrid(grid, color1, color2);
+      mappingHint = { [String(color1)]: color2, [String(color2)]: color1 };
+      appendLog(`自然语言：交换 ${color1} 号色 和 ${color2} 号色`);
+      return { dirty: true, handled: true, mappingHint };
+    }
+    case 'clear_color': {
+      const color = parseColorToken(action.color);
+      if (!color) throw new Error('clear_color 缺少颜色');
+      clearColorInGrid(grid, color);
+      appendLog(`自然语言：已清除 ${color} 号色`);
+      return { dirty: true, handled: true };
+    }
+    case 'recolor_boundary': {
+      const color = parseColorToken(action.color);
+      if (!color) throw new Error('recolor_boundary 缺少颜色');
+      recolorBoundaryInGrid(grid, color);
+      appendLog(`自然语言：已将边缘改为 ${color} 号色`);
+      return { dirty: true, handled: true };
+    }
+    case 'recolor_interior': {
+      const color = parseColorToken(action.color);
+      if (!color) throw new Error('recolor_interior 缺少颜色');
+      recolorInteriorInGrid(grid, color);
+      appendLog(`自然语言：已将内部改为 ${color} 号色`);
+      return { dirty: true, handled: true };
+    }
+    case 'flip': {
+      flipGrid(grid, action.dir);
+      appendLog(`自然语言：已${action.dir === 'vertical' ? '上下' : '左右'}翻转`);
+      return { dirty: true, handled: true };
+    }
+    case 'rotate': {
+      rotateGrid(candidateLevel, action.dir);
+      appendLog(`自然语言：已${action.dir === 'clockwise' ? '顺时针' : '逆时针'}旋转`);
+      return { dirty: true, handled: true };
+    }
+    case 'mirror': {
+      mirrorGrid(grid, action.dir);
+      appendLog(`自然语言：已执行镜像复制 ${action.dir}`);
+      return { dirty: true, handled: true };
+    }
+    case 'paint_point': {
+      paintPoint(grid, Number(action.row), Number(action.col), parseColorToken(action.color));
+      appendLog(`自然语言：已修改单点 (${action.row}, ${action.col})`);
+      return { dirty: true, handled: true };
+    }
+    case 'paint_range': {
+      paintRange(
+        grid,
+        Number(action.r1),
+        Number(action.c1),
+        Number(action.r2),
+        Number(action.c2),
+        parseColorToken(action.color)
+      );
+      appendLog(`自然语言：已修改区域 (${action.r1},${action.c1})-(${action.r2},${action.c2})`);
+      return { dirty: true, handled: true };
+    }
+    default:
+      appendLog(`自然语言：未识别动作 ${act}`);
+      return { dirty: false, handled: false };
+  }
+}
+
+async function runNLCommand() {
+  const text = qs('nlInput').value.trim();
+  if (!text) return;
+  qs('nlInput').value = '';
+  appendLog(`> ${text}`);
+  setStatus('自然语言解析中...');
+  const actions = await requestNLActions(text);
+  if (!actions.length) {
+    appendLog('自然语言：未解析出可执行动作');
+    setStatus('未解析出动作');
+    return;
+  }
+  let dirty = false;
+  let mappingHint = {};
+  for (const action of actions) {
+    const result = await applyNLAction(action);
+    if (result.dirty) dirty = true;
+    if (result.mappingHint) Object.assign(mappingHint, result.mappingHint);
+  }
+  if (dirty) {
+    await requestRebuild(
+      `自然语言修改完成：${text}`,
+      Object.keys(mappingHint).length ? mappingHint : null
+    );
+  } else {
+    renderAll();
+    setStatus('自然语言指令已执行');
+  }
+}
+
+function bindEvents() {
+  qs('loadBtn').addEventListener('click', async () => {
+    try {
+      await loadLevel(Number(qs('levelIdInput').value));
+    } catch (err) {
+      setStatus('加载失败');
+      setLog(String(err.message || err));
+    }
+  });
+
+  qs('prevBtn').addEventListener('click', async () => {
+    qs('levelIdInput').value = Math.max(1, Number(qs('levelIdInput').value) - 1);
+    qs('loadBtn').click();
+  });
+
+  qs('nextBtn').addEventListener('click', async () => {
+    qs('levelIdInput').value = Number(qs('levelIdInput').value) + 1;
+    qs('loadBtn').click();
+  });
+
+  qs('generateBtn').addEventListener('click', async () => {
+    try {
+      await requestRefine(false);
+    } catch (err) {
+      setStatus('生成失败');
+      setLog(String(err.message || err));
+    }
+  });
+
+  qs('continueBtn').addEventListener('click', async () => {
+    try {
+      incrementSeed();
+      await requestRefine(true);
+    } catch (err) {
+      setStatus('继续生成失败');
+      setLog(String(err.message || err));
+    }
+  });
+
+  qs('resetBtn').addEventListener('click', () => {
+    candidateLevel = null;
+    candidateMetrics = null;
+    candidateNeedsRebuild = false;
+    setEditorViewMode('original');
+    syncMetaInputs(originalLevel);
+    setStatus('候选已丢弃');
+    setLog('已丢弃当前候选，回到原始关卡。');
+    renderAll();
+  });
+
+  qs('saveBtn').addEventListener('click', async () => {
+    try {
+      await saveCurrentLevel();
+    } catch (err) {
+      setStatus('保存失败');
+      setLog(String(err.message || err));
+    }
+  });
+
+  qs('resetPromptBtn').addEventListener('click', () => {
+    qs('refinePromptInput').value = DEFAULT_REFINE_PROMPT;
+    appendLog('生成候选提示词已恢复默认。');
+  });
+
+  const handleMetaInput = () => {
+    const activeLevel = candidateLevel || originalLevel;
+    if (!activeLevel) return;
+    applyMetaInputs(activeLevel);
+    syncComputedLevelFields(activeLevel);
+    renderAll();
+  };
+  qs('levelNameInput').addEventListener('input', handleMetaInput);
+  qs('levelCategoryInput').addEventListener('input', handleMetaInput);
+  qs('timeLimitInput').addEventListener('change', handleMetaInput);
+  qs('slotCountInput').addEventListener('change', handleMetaInput);
+
+  qs('nlRunBtn').addEventListener('click', async () => {
+    try {
+      await runNLCommand();
+    } catch (err) {
+      setStatus('自然语言执行失败');
+      appendLog(`自然语言错误：${String(err.message || err)}`);
+    }
+  });
+
+  qs('nlClearBtn').addEventListener('click', () => {
+    qs('nlInput').value = '';
+    qs('nlInput').focus();
+  });
+
+  qs('nlInput').addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    try {
+      await runNLCommand();
+    } catch (err) {
+      setStatus('自然语言执行失败');
+      appendLog(`自然语言错误：${String(err.message || err)}`);
+    }
+  });
+
+  document.querySelectorAll('.example-chip').forEach((node) => {
+    node.addEventListener('click', () => {
+      qs('nlInput').value = node.dataset.command || '';
+      qs('nlInput').focus();
+    });
+  });
+
+  qs('clearBoardBtn').addEventListener('click', clearCandidateBoard);
+  qs('fillBoardBtn').addEventListener('click', fillCandidateBoard);
+  qs('editorRebuildBtn').addEventListener('click', async () => {
+    if (!candidateLevel) {
+      setStatus('暂无候选可重算');
+      return;
+    }
+    try {
+      await requestRebuild('已根据关卡编辑器改动重算初始乱序');
+    } catch (err) {
+      setStatus('重算初始乱序失败');
+      appendLog(`重算失败：${String(err.message || err)}`);
+    }
+  });
+
+  bindPixelEditor();
+}
+
+function buildPalette() {
+  const container = qs('palette');
+  container.innerHTML = '';
+  const eraser = document.createElement('button');
+  eraser.className = 'swatch-btn eraser' + (paintColor === 0 ? ' active' : '');
+  eraser.dataset.color = '0';
+  eraser.title = '橡皮擦';
+  container.appendChild(eraser);
+  for (const id of PALETTE_COLORS) {
+    const btn = document.createElement('button');
+    btn.className = 'swatch-btn' + (paintColor === id ? ' active' : '');
+    btn.style.background = COLOR_HEX[id] || '#999';
+    btn.dataset.color = String(id);
+    btn.title = `${id} ${COLOR_LABELS[id] || ''}`;
+    container.appendChild(btn);
+  }
+  container.addEventListener('click', (event) => {
+    const target = event.target.closest('.swatch-btn');
+    if (!target) return;
+    setPaintColor(Number(target.dataset.color));
+  });
+}
+
+function setPaintColor(id) {
+  paintColor = id;
+  document.querySelectorAll('#palette .swatch-btn').forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.color) === id);
+  });
+  const dot = qs('paintColorDot');
+  const label = qs('paintColorLabel');
+  if (id === 0) {
+    dot.style.background = '#fff';
+    dot.style.border = '1px dashed #c0a48a';
+    label.textContent = '橡皮擦';
+  } else {
+    dot.style.background = COLOR_HEX[id] || '#999';
+    dot.style.border = '1px solid rgba(0,0,0,0.12)';
+    label.textContent = `${id} ${COLOR_LABELS[id] || ''}`;
+  }
+}
+
+function setPaintSym(value) {
+  paintSym = value;
+  document.querySelectorAll('#symRow .sym-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.sym === value);
+  });
+}
+
+function setPickerMode(active) {
+  paintPickerMode = !!active;
+  qs('pickerBtn').classList.toggle('active', paintPickerMode);
+  const canvas = qs('afterTargetCanvas');
+  canvas.style.cursor = paintPickerMode ? 'copy' : 'crosshair';
+}
+
+function getCellFromEvent(canvas, event) {
+  if (!paintCanvasMeta) return null;
+  const rect = canvas.getBoundingClientRect();
+  const point = event.touches && event.touches[0] ? event.touches[0] : event;
+  const x = point.clientX - rect.left;
+  const y = point.clientY - rect.top;
+  const col = Math.floor((x / rect.width) * paintCanvasMeta.width);
+  const row = Math.floor((y / rect.height) * paintCanvasMeta.height);
+  if (row < 0 || row >= paintCanvasMeta.height || col < 0 || col >= paintCanvasMeta.width) {
+    return null;
+  }
+  return { row, col };
+}
+
+function symmetricCells(row, col, height, width) {
+  const cells = [[row, col]];
+  if (paintSym === 'h' || paintSym === 'both') cells.push([row, width - 1 - col]);
+  if (paintSym === 'v' || paintSym === 'both') cells.push([height - 1 - row, col]);
+  if (paintSym === 'both') cells.push([height - 1 - row, width - 1 - col]);
+  return cells;
+}
+
+function applyPaintToGrid(grid, row, col, target) {
+  const height = grid.length;
+  const width = grid[0].length;
+  if (row < 0 || row >= height || col < 0 || col >= width) return false;
+  let dirty = false;
+  for (const [r, c] of symmetricCells(row, col, height, width)) {
+    if (r < 0 || r >= height || c < 0 || c >= width) continue;
+    if (grid[r][c] !== target) {
+      grid[r][c] = target;
+      dirty = true;
+    }
+  }
+  return dirty;
+}
+
+function paintAt(row, col, useEraser) {
+  if (!candidateLevel) ensureCandidateBase();
+  const grid = candidateLevel.correctColorArr;
+  const target = useEraser ? 0 : paintColor;
+  return applyPaintToGrid(grid, row, col, target);
+}
+
+function refreshAfterPaint() {
+  if (!candidateLevel) return;
+  markCandidateDirty('已手工修改候选像素，保存前会自动重算初始乱序');
+  candidateMetrics = buildClientMetrics(candidateLevel, candidateMetrics?.paletteMapping);
+  drawGrid(qs('afterTargetCanvas'), candidateLevel.correctColorArr);
+  drawGrid(qs('afterInitCanvas'), candidateLevel.initRandomColorArr);
+  qs('afterSubtitle').textContent = currentAfterSubtitle();
+  renderMetricGrid();
+  renderMeta(qs('afterMeta'), candidateLevel, candidateMetrics);
+  renderStats(qs('afterColors'), getColorStats(candidateLevel.correctColorArr));
+  renderLevelChips(candidateLevel);
+  renderEditorPanel();
+  qs('saveBtn').disabled = !originalLevel;
+  qs('continueBtn').disabled = !candidateLevel;
+  qs('resetBtn').disabled = !candidateLevel;
+}
+
+function pickColorAt(row, col) {
+  if (!candidateLevel) return;
+  const value = candidateLevel.correctColorArr?.[row]?.[col];
+  if (value && value > 0) {
+    setPaintColor(value);
+    appendLog(`取色：${value} ${COLOR_LABELS[value] || ''} (${row}, ${col})`);
+  } else {
+    setPaintColor(0);
+    appendLog(`取色：空格 → 切换到橡皮 (${row}, ${col})`);
+  }
+  setPickerMode(false);
+}
+
+function bindPixelEditor() {
+  buildPalette();
+  setPaintColor(paintColor);
+  setPaintSym('none');
+
+  document.querySelectorAll('#symRow .sym-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setPaintSym(btn.dataset.sym));
+  });
+
+  qs('pickerBtn').addEventListener('click', () => setPickerMode(!paintPickerMode));
+
+  qs('rebuildInitBtn').addEventListener('click', async () => {
+    if (!candidateLevel) {
+      setStatus('暂无候选可重算');
+      return;
+    }
+    try {
+      await requestRebuild('已根据当前像素编辑重算初始乱序');
+    } catch (err) {
+      setStatus('重算初始乱序失败');
+      appendLog(`重算失败：${String(err.message || err)}`);
+    }
+  });
+
+  const canvas = qs('afterTargetCanvas');
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  const handleStroke = (event) => {
+    const cell = getCellFromEvent(canvas, event);
+    if (!cell) return;
+    const key = `${cell.row}_${cell.col}`;
+    if (key === paintLastKey) return;
+    paintLastKey = key;
+    if (paintPickerMode) {
+      pickColorAt(cell.row, cell.col);
+      return;
+    }
+    if (!candidateLevel) ensureCandidateBase();
+    const dirty = paintAt(cell.row, cell.col, paintIsRight);
+    if (dirty) refreshAfterPaint();
+  };
+
+  canvas.addEventListener('mousedown', (event) => {
+    if (!originalLevel) return;
+    event.preventDefault();
+    paintIsDown = true;
+    paintIsRight = event.button === 2;
+    paintLastKey = '';
+    handleStroke(event);
+  });
+
+  canvas.addEventListener('mousemove', (event) => {
+    if (!paintIsDown) return;
+    handleStroke(event);
+  });
+
+  const release = () => {
+    if (paintIsDown) {
+      paintIsDown = false;
+      paintLastKey = '';
+    }
+  };
+  document.addEventListener('mouseup', release);
+  canvas.addEventListener('mouseleave', release);
+
+  canvas.addEventListener('touchstart', (event) => {
+    if (!originalLevel) return;
+    event.preventDefault();
+    paintIsDown = true;
+    paintIsRight = false;
+    paintLastKey = '';
+    handleStroke(event);
+  }, { passive: false });
+  canvas.addEventListener('touchmove', (event) => {
+    if (!paintIsDown) return;
+    event.preventDefault();
+    handleStroke(event);
+  }, { passive: false });
+  canvas.addEventListener('touchend', release);
+}
+
+function clearCandidateBoard() {
+  if (!originalLevel) return;
+  ensureCandidateBase();
+  let dirty = false;
+  forEachCell(candidateLevel.correctColorArr, (row, col, value) => {
+    if (value !== 0) {
+      candidateLevel.correctColorArr[row][col] = 0;
+      dirty = true;
+    }
+  });
+  if (!dirty) return;
+  appendLog('关卡编辑器：已清空候选图');
+  refreshAfterPaint();
+}
+
+function fillCandidateBoard() {
+  if (!originalLevel) return;
+  ensureCandidateBase();
+  let dirty = false;
+  const target = paintColor;
+  forEachCell(candidateLevel.correctColorArr, (row, col, value) => {
+    if (value !== target) {
+      candidateLevel.correctColorArr[row][col] = target;
+      dirty = true;
+    }
+  });
+  if (!dirty) return;
+  appendLog(`关卡编辑器：已整板填充 ${target} 号色`);
+  refreshAfterPaint();
+}
+
+function bindBoardEditor() {
+  const board = qs('editorBoardGrid');
+  board.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  const handleStroke = (cell) => {
+    if (!cell) return;
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    const key = `${row}_${col}`;
+    if (key === editorLastKey) return;
+    editorLastKey = key;
+    ensureCandidateBase();
+    if (applyPaintToGrid(candidateLevel.correctColorArr, row, col, editorIsRight ? 0 : paintColor)) {
+      refreshAfterPaint();
+    }
+  };
+
+  board.addEventListener('mousedown', (event) => {
+    const cell = event.target.closest('.editor-cell');
+    if (!cell || !originalLevel) return;
+    event.preventDefault();
+    editorIsDown = true;
+    editorIsRight = event.button === 2;
+    editorLastKey = '';
+    handleStroke(cell);
+  });
+
+  board.addEventListener('mousemove', (event) => {
+    if (!editorIsDown) return;
+    handleStroke(event.target.closest('.editor-cell'));
+  });
+
+  const release = () => {
+    editorIsDown = false;
+    editorLastKey = '';
+  };
+  document.addEventListener('mouseup', release);
+  board.addEventListener('mouseleave', release);
+}
+
+async function init() {
+  qs('refinePromptInput').value = DEFAULT_REFINE_PROMPT;
+  bindEvents();
+  bindBoardEditor();
+  window.addEventListener('resize', () => renderEditorBoard());
+  renderAll();
+  const level = Number(URL_PARAMS.get('level') || qs('levelIdInput').value || 1000);
+  qs('levelIdInput').value = level;
+  try {
+    await loadLevel(level);
+  } catch (err) {
+    setStatus('初始化失败');
+    setLog(String(err.message || err));
+  }
+}
+
+init();
+</script>
+</body>
+</html>
