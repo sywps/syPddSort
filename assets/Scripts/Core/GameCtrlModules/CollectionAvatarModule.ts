@@ -493,6 +493,27 @@ export function installCollectionAvatarModule(target: any): void {
             return ensureCollectionPanelController(this).open();
         },
 
+        getOrCreateCollectionShellActionNode(parent: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
+            let node = parent.getChildByName(name);
+            if (node) {
+                return node;
+            }
+            node = new Node(name);
+            parent.addChild(node);
+            node.layer = parent.layer || Layers.Enum.UI_2D;
+            const width = name === 'ArrowRight' ? 220 : 42;
+            const height = name === 'ArrowRight' ? 56 : 52;
+            (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(width, height);
+            const frameNames = name === 'ArrowRight'
+                ? ['home_start_button', 'popup_primary_button', 'collection_arrow_right']
+                : ['collection_arrow_left'];
+            const frameName = frameNames.find((item) => !!this.getSF(item));
+            if (frameName) {
+                applyCollectionAvatarSpriteFrame(this, node, frameName, width, height);
+            }
+            return node;
+        },
+
         drawCollectionArrow(parent: Node, x: number, y: number, dir: 'left' | 'right') {
             const asset = dir === 'left' ? 'collection_arrow_left' : 'collection_arrow_right';
             const name = dir === 'left' ? 'ArrowLeft' : 'ArrowRight';

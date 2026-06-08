@@ -683,6 +683,9 @@ assert.ok(gameCtrl.includes('levelId >= 3 && levelId <= 5'), 'slot policy must s
 assert.ok(gameCtrl.includes("return normalizeLevelId(levelId) === 2 ? 'free' : 'ad';"), 'level 2 slot unlock must be free');
 assert.ok(gameCtrl.includes('return normalizeLevelId(levelId) >= 6;'), 'level 6+ must append ad-gated expansion rows after unlock');
 assert.ok(gameCtrl.includes('if (currentLevel < 2)'), 'skill area must be hidden only for level 1');
+assert.ok(gameCtrlShared.includes('const SKILL_UNLOCK_WAND = 3;'), 'magic wand must unlock when entering level 3');
+assert.ok(gameCtrlShared.includes('const SKILL_UNLOCK_BROOM = 3;'), 'brush must unlock when entering level 3');
+assert.ok(gameCtrlShared.includes('const SKILL_UNLOCK_MAGNET = 3;'), 'magnet must unlock when entering level 3');
 assert.strictEqual(gameCtrl.includes("label.string = unlockMode === 'free' ? '免费解锁' : '看广告';"), false, 'slot unlock button must not render free/ad text labels');
 assert.ok(gameCtrl.includes("'SlotUnlockIconFree'"), 'slot unlock button must expose a free mode icon');
 assert.ok(gameCtrl.includes("'SlotUnlockIconAd'"), 'slot unlock button must expose an ad mode icon');

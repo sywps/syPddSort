@@ -131,6 +131,17 @@ export class GameplayResultPanelController {
         progressBar.progress = Math.max(0, Math.min(1, Number(ratio) || 0));
     }
 
+    private findReviveContinueSecondsLabel(box: Node): Label | null {
+        const explicitLabel = box.getChildByName('ContinueSecondsLbl')?.getComponent(Label) ?? null;
+        if (explicitLabel) return explicitLabel;
+        for (const child of box.children) {
+            if (child.name !== 'Label') continue;
+            const nestedLabel = child.getChildByName('Label')?.getComponent(Label) ?? null;
+            if (nestedLabel) return nestedLabel;
+        }
+        return null;
+    }
+
     createWinSettlementPanel(): Node {
         const runtime = this.runtime;
         const overlay = this.instantiateGameplayOverlay('win', 'WinSettlementOverlay');
@@ -181,10 +192,13 @@ export class GameplayResultPanelController {
         if (!continueBtn) {
             throw new Error('[result-panel] RevivePanel is missing ContinueBtn');
         }
-        const continueSecondsLbl = box.getChildByName('ContinueSecondsLbl')?.getComponent(Label) ?? null;
+        const continueSecondsLbl = this.findReviveContinueSecondsLabel(box);
         const continueBtnLbl = continueBtn.getChildByName('ContinueBtnLbl')?.getComponent(Label) ?? null;
-        if (continueSecondsLbl) continueSecondsLbl.string = `+${rewardedSeconds}S`;
-        if (continueBtnLbl) continueBtnLbl.string = `\u7ee7\u7eed${rewardedSeconds}\u79d2`;
+        if (continueSecondsLbl) {
+            continueSecondsLbl.string = `${rewardedSeconds}\u79d2`;
+        } else if (continueBtnLbl) {
+            continueBtnLbl.string = `\u7ee7\u7eed${rewardedSeconds}\u79d2`;
+        }
         const giveUp = () => {
             overlay.active = false;
             runtime.showLosePanel();

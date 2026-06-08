@@ -79,6 +79,20 @@ export function installSettlementHudModule(target: any): void {
             this.completionLabel.string = `完成${stats.completePercent}%`;
         },
 
+        syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number) {
+            const box = panel?.getChildByName('Box');
+            if (!box) return;
+            for (const child of box.children) {
+                if (child.name !== 'Label') continue;
+                const percentLabel = child.getComponent(Label);
+                const captionLabel = child.getChildByName('Label-001')?.getComponent(Label) ?? null;
+                if (!percentLabel || !captionLabel) continue;
+                percentLabel.string = `${percent}%`;
+                captionLabel.string = '\u5df2\u5b8c\u6210';
+                return;
+            }
+        },
+
         syncSettlementProgressWidget(panel: Node | null | undefined, stats?: { completePercent: number }) {
             if (!panel) return;
             const progressRoot = panel
@@ -89,6 +103,7 @@ export function installSettlementHudModule(target: any): void {
             }
             const resolvedStats = stats || this.getBoardCompletionStats();
             const percent = Math.max(0, Math.min(100, Math.floor(Number(resolvedStats.completePercent) || 0)));
+            this.syncSettlementCompletionSummary(panel, percent);
             const progressLabel = progressRoot.getChildByName('Label')?.getComponent(Label);
             if (progressLabel) {
                 progressLabel.string = `\u5df2\u5b8c\u6210 ${percent}%`;

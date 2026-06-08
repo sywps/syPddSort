@@ -115,18 +115,22 @@ export class CollectionPanelController {
                     }, runtime);
 
                     runtime._collectionPageIndicator = runtime.requirePanelChild(box, 'PageIndicator');
-                    const leftArrow = runtime.requirePanelChild(overlay, 'ArrowLeft');
-                    const rightArrow = runtime.requirePanelChild(overlay, 'ArrowRight');
-                    leftArrow.active = false;
-                    rightArrow.active = false;
-                    runtime.bindPanelButton(leftArrow, () => {
-                        const moved = runtime.changeCollectionPage(-1);
-                        if (moved) AudioMgr.inst.play('uiPanel');
-                    });
-                    runtime.bindPanelButton(rightArrow, () => {
-                        const moved = runtime.changeCollectionPage(1);
-                        if (moved) AudioMgr.inst.play('uiPanel');
-                    });
+                    const leftArrow = overlay.getChildByName('ArrowLeft');
+                    const rightArrow = overlay.getChildByName('ArrowRight');
+                    if (leftArrow) {
+                        leftArrow.active = false;
+                        runtime.bindPanelButton(leftArrow, () => {
+                            const moved = runtime.changeCollectionPage(-1);
+                            if (moved) AudioMgr.inst.play('uiPanel');
+                        });
+                    }
+                    if (rightArrow) {
+                        rightArrow.active = false;
+                        runtime.bindPanelButton(rightArrow, () => {
+                            const moved = runtime.changeCollectionPage(1);
+                            if (moved) AudioMgr.inst.play('uiPanel');
+                        });
+                    }
 
                     runtime.renderCollectionPage(0);
                 } catch (error) {
