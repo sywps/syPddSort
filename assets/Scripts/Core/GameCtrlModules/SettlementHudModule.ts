@@ -821,7 +821,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         formatLevel1GuidePrompt(primaryText: string): string {
-            const restoredCount = Math.floor(this._guideStep / 2);
+            const step = Math.max(0, Number(this._guideStep) || 0);
+            const restoredCount = Math.max(1, Math.min(2, Math.floor(step / 2) + 1));
             return `${primaryText}\n还原进度 ${restoredCount}/2`;
         },
 
@@ -925,7 +926,11 @@ export function installSettlementHudModule(target: any): void {
         },
 
         formatLevel2GuidePrompt(primaryText: string): string {
-            const completedCount = Math.max(0, Math.min(2, this._guideStep));
+            const step = Math.max(0, Number(this._guideStep) || 0);
+            const progressStep = this._guideMode === 'level_1'
+                ? Math.floor(step / 2) + 1
+                : step + 1;
+            const completedCount = Math.max(1, Math.min(3, progressStep));
             return `${primaryText}\n完成进度 ${completedCount}/3`;
         },
     });
