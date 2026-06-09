@@ -32,13 +32,9 @@ import type {
 
 export function installTutorialGuideModule(target: any): void {
     Object.assign(target, {
-        styleLevel2GuidePrompt(gb: Graphics, bubble: Node, lbl: Label, primaryText: string) {
-            bubble.getComponent(UITransform)!.setContentSize(430, 112);
-            bubble.setPosition(0, this.getGuidePromptCenterY(450, 52));
-            this._drawBubbleBg(gb, 430, 112, new Color('#6CB9A1'));
+        styleLevel2GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
+            bubble.active = true;
             lbl.string = this.formatLevel2GuidePrompt(primaryText);
-            lbl.fontSize = 20;
-            lbl.lineHeight = 26;
         },
 
         /** level1 Step 0: 选中 firstColorId 豆豆块 */
@@ -345,6 +341,7 @@ export function installTutorialGuideModule(target: any): void {
             const step = this._guideStep;
             const lbl = this._guideBubbleLbl;
             const origString = lbl.string;
+            const origColor = new Color(lbl.color.r, lbl.color.g, lbl.color.b, lbl.color.a);
             switch (step) {
                 case 0: lbl.string = this._guideMode === 'level_2' ? '请点击解锁按钮！' : '请点击目标区域！'; break;
                 case 1: lbl.string = this._guideMode === 'level_1' ? '请点击下方暂存槽放入！' : '请点击高亮区域！'; break;
@@ -357,7 +354,7 @@ export function installTutorialGuideModule(target: any): void {
             this.scheduleOnce(() => {
                 if (this._guideBubbleLbl) {
                     this._guideBubbleLbl.string = origString;
-                    this._guideBubbleLbl.color = new Color('#3A3020');
+                    this._guideBubbleLbl.color = origColor;
                 }
             }, 1.0);
         },

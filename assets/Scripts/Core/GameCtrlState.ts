@@ -133,6 +133,8 @@ export function initializeGameCtrlState(runtime: any): void {
         _isThemeLevel: false,
         _currentThemeLevelId: 0,
         _collectionContentNode: null,
+        _collectionScrollContentNode: null,
+        _collectionScrollSuppressClickUntil: 0,
         _collectionPageIndicator: null,
         _collectionSwipeStartX: 0,
         _collectionImageModal: null,

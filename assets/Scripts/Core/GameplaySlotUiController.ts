@@ -531,7 +531,7 @@ export class GameplaySlotUiController {
                 }
                 const unlockFrame = runtime.getSF('unlock_button') || lockBtnSprite.spriteFrame;
                 if (!unlockFrame) {
-                    throw new Error(`[GameplayScene] missing gameAssets SpriteFrame unlock_button for SlotArea/SlotRowLockedBtn_${r}`);
+                    throw new Error(`[GameplayScene] missing SpriteFrame unlock_button for SlotArea/SlotRowLockedBtn_${r}`);
                 }
                 lockBtnSprite.spriteFrame = unlockFrame;
                 lockBtnSprite.sizeMode = Sprite.SizeMode.CUSTOM;
@@ -620,12 +620,9 @@ export class GameplaySlotUiController {
             if (!lockBtnSprite) {
                 throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockedBtn');
             }
-            const unlockFrame = runtime.getSF('unlock_button') || lockBtnSprite.spriteFrame;
-            if (!unlockFrame) {
-                throw new Error('[GameplayScene] missing gameAssets SpriteFrame unlock_button for SlotArea/SlotRowLockedBtn');
+            if (!lockBtnSprite.spriteFrame) {
+                throw new Error('[GameplayScene] Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn');
             }
-            lockBtnSprite.spriteFrame = unlockFrame;
-            lockBtnSprite.sizeMode = Sprite.SizeMode.CUSTOM;
             const lockButton = lockBtn.getComponent(Button) || lockBtn.addComponent(Button);
             lockButton.enabled = lockBtn.active;
             lockBtn.targetOff(runtime);

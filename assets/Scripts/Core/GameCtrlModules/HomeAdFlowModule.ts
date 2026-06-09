@@ -204,6 +204,8 @@ export function installHomeAdFlowModule(target: any): void {
             this._noLivesModal = null;
             this._collectionOverlay = null;
             this._collectionContentNode = null;
+            this._collectionScrollContentNode = null;
+            this._collectionScrollSuppressClickUntil = 0;
             this._collectionPageIndicator = null;
             this._collectionImageModal = null;
             this._themeOverlay = null;
@@ -245,6 +247,7 @@ export function installHomeAdFlowModule(target: any): void {
             this._currentThemeLevelId = 0;
             if (this._pinchGuideLayer) this._pinchGuideLayer.destroy();
             this._pinchGuideLayer = null;
+            if (this._guideBubble?.isValid) this._guideBubble.active = false;
             if (this._guideLayer) this._guideLayer.destroy();
             this._guideLayer = null;
             this._guideMask = null;

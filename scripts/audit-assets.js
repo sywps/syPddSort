@@ -32,6 +32,12 @@ const forbiddenAssetFiles = [
     'assets/GameAssetsBundle/Textures/UI/部件底板.png',
     'assets/GameAssetsBundle/Textures/UI/金币框 (2).png',
     'assets/GameAssetsBundle/Textures/UI/预览框.png',
+    'assets/GameAssetsBundle/Textures/UI/倒计时.png',
+    'assets/GameAssetsBundle/Textures/UI/unlock_button.png',
+    'assets/GameAssetsBundle/Textures/UI/popup_gameplay_tool_slot_plate.png',
+    'assets/GameAssetsBundle/Textures/UI/popup_tool_wand_icon.png',
+    'assets/GameAssetsBundle/Textures/UI/popup_tool_brush_icon.png',
+    'assets/GameAssetsBundle/Textures/UI/popup_tool_magnet_icon.png',
 ];
 const forbiddenAssetDirs = [
     'assets/GameAssetsBundle/Textures/Pindd/Beans',
@@ -51,6 +57,12 @@ const requiredBootstrapStartupAssetFiles = [
     'assets/BootstrapBundle/GameUI/预览框.png',
     'assets/BootstrapBundle/GameUI/slot_row_lock_dash_ui.png',
     'assets/BootstrapBundle/GameUI/slot_row_lock_mask_ui.png',
+    'assets/BootstrapBundle/GameUI/倒计时.png',
+    'assets/BootstrapBundle/GameUI/unlock_button.png',
+    'assets/BootstrapBundle/GameUI/popup_gameplay_tool_slot_plate.png',
+    'assets/BootstrapBundle/GameUI/popup_tool_wand_icon.png',
+    'assets/BootstrapBundle/GameUI/popup_tool_brush_icon.png',
+    'assets/BootstrapBundle/GameUI/popup_tool_magnet_icon.png',
 ];
 const requiredHomeStartupSpriteFrameUuids = [
     'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941',

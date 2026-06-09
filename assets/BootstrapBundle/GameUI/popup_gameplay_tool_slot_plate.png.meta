@@ -2,7 +2,7 @@
   "ver": "1.0.27",
   "importer": "image",
   "imported": true,
-  "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4",
+  "uuid": "0c10f393-7b94-4d57-a033-435838eb6272",
   "files": [
     ".json",
     ".png"
@@ -10,20 +10,20 @@
   "subMetas": {
     "6c48a": {
       "importer": "texture",
-      "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a",
-      "displayName": "倒计时",
+      "uuid": "0c10f393-7b94-4d57-a033-435838eb6272@6c48a",
+      "displayName": "popup_gameplay_tool_slot_plate",
       "id": "6c48a",
       "name": "texture",
       "userData": {
         "wrapModeS": "clamp-to-edge",
         "wrapModeT": "clamp-to-edge",
+        "imageUuidOrDatabaseUri": "0c10f393-7b94-4d57-a033-435838eb6272",
+        "isUuid": true,
+        "visible": false,
         "minfilter": "linear",
         "magfilter": "linear",
         "mipfilter": "none",
-        "anisotropy": 0,
-        "isUuid": true,
-        "imageUuidOrDatabaseUri": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4",
-        "visible": false
+        "anisotropy": 0
       },
       "ver": "1.0.22",
       "imported": true,
@@ -34,21 +34,21 @@
     },
     "f9941": {
       "importer": "sprite-frame",
-      "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941",
-      "displayName": "倒计时",
+      "uuid": "0c10f393-7b94-4d57-a033-435838eb6272@f9941",
+      "displayName": "popup_gameplay_tool_slot_plate",
       "id": "f9941",
       "name": "spriteFrame",
       "userData": {
         "trimThreshold": 1,
         "rotated": false,
-        "offsetX": -23.5,
-        "offsetY": 3,
+        "offsetX": 4.5,
+        "offsetY": -4.5,
         "trimX": 17,
-        "trimY": 4,
-        "width": 259,
-        "height": 121,
-        "rawWidth": 340,
-        "rawHeight": 135,
+        "trimY": 24,
+        "width": 255,
+        "height": 114,
+        "rawWidth": 280,
+        "rawHeight": 153,
         "borderTop": 0,
         "borderBottom": 0,
         "borderLeft": 0,
@@ -60,17 +60,17 @@
         "meshType": 0,
         "vertices": {
           "rawPosition": [
-            -129.5,
-            -60.5,
+            -127.5,
+            -57,
             0,
-            129.5,
-            -60.5,
+            127.5,
+            -57,
             0,
-            -129.5,
-            60.5,
+            -127.5,
+            57,
             0,
-            129.5,
-            60.5,
+            127.5,
+            57,
             0
           ],
           "indexes": [
@@ -83,37 +83,37 @@
           ],
           "uv": [
             17,
-            131,
-            276,
-            131,
+            129,
+            272,
+            129,
             17,
-            10,
-            276,
-            10
+            15,
+            272,
+            15
           ],
           "nuv": [
-            0.05,
-            0.07407407407407407,
-            0.8117647058823529,
-            0.07407407407407407,
-            0.05,
-            0.9703703703703703,
-            0.8117647058823529,
-            0.9703703703703703
+            0.060714285714285714,
+            0.09803921568627451,
+            0.9714285714285714,
+            0.09803921568627451,
+            0.060714285714285714,
+            0.8431372549019608,
+            0.9714285714285714,
+            0.8431372549019608
           ],
           "minPos": [
-            -129.5,
-            -60.5,
+            -127.5,
+            -57,
             0
           ],
           "maxPos": [
-            129.5,
-            60.5,
+            127.5,
+            57,
             0
           ]
         },
         "isUuid": true,
-        "imageUuidOrDatabaseUri": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a",
+        "imageUuidOrDatabaseUri": "0c10f393-7b94-4d57-a033-435838eb6272@6c48a",
         "atlasUuid": "",
         "trimType": "auto"
       },
@@ -127,8 +127,8 @@
   },
   "userData": {
     "type": "sprite-frame",
-    "fixAlphaTransparencyArtifacts": false,
     "hasAlpha": true,
-    "redirect": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a"
+    "fixAlphaTransparencyArtifacts": false,
+    "redirect": "0c10f393-7b94-4d57-a033-435838eb6272@6c48a"
   }
 }

@@ -339,6 +339,10 @@ for (const forbidden of ['plugin:cocos', 'wx0446ba2621dda60a', '__plugin__/wx044
         fail('微信包仍引用未授权 Cocos 插件: ' + forbidden);
     }
 }
+const staleCollectionShellArrow = runtimeJsText.match(/requirePanelChild\([^)]*["']Arrow(?:Left|Right)["'][^)]*\)/);
+if (staleCollectionShellArrow) {
+    fail('微信包仍将 CollectionPanel 翻页箭头当成 prefab 必需节点: ' + staleCollectionShellArrow[0]);
+}
 assertDir(path.join(runtimeRoot, 'openDataContext'), 'openDataContext');
 
 if (!Array.isArray(assets.projectBundles) || !assets.projectBundles.includes('bootstrap')) fail('settings.assets.projectBundles 缺少 bootstrap');
@@ -407,6 +411,12 @@ for (const requiredPath of [
     'GameUI/slot_panel_shell_b_ui',
     'GameUI/slot_row_lock_mask_ui',
     'GameUI/slot_row_lock_dash_ui',
+    'GameUI/倒计时',
+    'GameUI/unlock_button',
+    'GameUI/popup_gameplay_tool_slot_plate',
+    'GameUI/popup_tool_wand_icon',
+    'GameUI/popup_tool_brush_icon',
+    'GameUI/popup_tool_magnet_icon',
     'GameUI/solid_white',
     'GameUI/主关卡按键 (2)',
     'GameUI/主页标题',

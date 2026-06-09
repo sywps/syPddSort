@@ -246,6 +246,9 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideTotalSteps = 0;
             this._lastGuideVoiceToken = '';
             this.clearGuideHighlight();
+            if (this._guideBubble?.isValid) {
+                this._guideBubble.active = false;
+            }
             if (this._guideLayer) {
                 Tween.stopAllByTarget(this._guideHand!);
                 Tween.stopAllByTarget(this._guideArrow!);

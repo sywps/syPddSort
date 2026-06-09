@@ -165,6 +165,7 @@ export function installThemePanelFlowModule(target: any): void {
                 card.targetOff(this);
                 card.on(Button.EventType.CLICK, (e: EventTouch) => {
                     e.propagationStopped = true;
+                    if (Date.now() < (this._collectionScrollSuppressClickUntil || 0)) return;
                     AudioMgr.inst.play('uiPanel');
                     this.openCollectionImageModal(levelId);
                 }, this);
@@ -243,6 +244,8 @@ export function installThemePanelFlowModule(target: any): void {
             this._collectionPage = 0;
             this._collectionOverlay = null;
             this._collectionContentNode = null;
+            this._collectionScrollContentNode = null;
+            this._collectionScrollSuppressClickUntil = 0;
             this._collectionPageIndicator = null;
             this._releasePanelTexturesNextFrame(COLLECTION_RELEASE_TEXTURE_NAMES, 'collection');
         },

@@ -95,6 +95,139 @@ function collectMatches(source, regex) {
     return matches;
 }
 
+function readJson(filePath) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function findSceneNodeByPath(sceneJson, rootName, childPath) {
+    const rootIndex = sceneJson.findIndex((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === rootName);
+    if (rootIndex < 0) return null;
+    let current = sceneJson[rootIndex];
+    if (!childPath) return current;
+    for (const segment of childPath.split('/')) {
+        const childRef = (current._children || []).find((ref) => sceneJson[ref.__id__]?._name === segment);
+        if (!childRef) return null;
+        current = sceneJson[childRef.__id__];
+    }
+    return current;
+}
+
+function getNodeComponent(sceneJson, node, componentType) {
+    const componentRef = (node?._components || []).find((ref) => sceneJson[ref.__id__]?.__type__ === componentType);
+    return componentRef ? sceneJson[componentRef.__id__] : null;
+}
+
+function getDirectChildNames(sceneJson, node) {
+    return (node?._children || []).map((ref) => sceneJson[ref.__id__]?._name || '');
+}
+
+function assertSpriteFrame(failures, sceneJson, rootName, childPath, expectedUuid) {
+    const node = findSceneNodeByPath(sceneJson, rootName, childPath);
+    if (!node) {
+        failures.push(`Game.scene missing node ${rootName}/${childPath}`);
+        return;
+    }
+    const sprite = getNodeComponent(sceneJson, node, 'cc.Sprite');
+    if (!sprite) {
+        failures.push(`Game.scene ${rootName}/${childPath} must keep a Sprite component`);
+        return;
+    }
+    if (sprite._spriteFrame?.__uuid__ !== expectedUuid) {
+        failures.push(`Game.scene ${rootName}/${childPath} must keep static SpriteFrame ${expectedUuid}`);
+    }
+}
+
+function assertGameSceneStaticUiOwnership(failures) {
+    const scenePath = path.join(projectDir, 'assets', 'Scenes', 'Game.scene');
+    const sceneText = fs.readFileSync(scenePath, 'utf8');
+    const sceneJson = JSON.parse(sceneText);
+    const canvas = findSceneNodeByPath(sceneJson, 'Canvas', '');
+    const screenRoot = findSceneNodeByPath(sceneJson, 'Canvas', 'ScreenRoot');
+    const gameplayRoot = findSceneNodeByPath(sceneJson, 'ScreenRoot', 'GameplayRoot');
+    const gameplayFixedRoot = findSceneNodeByPath(sceneJson, 'GameplayRoot', 'GameplayFixedRoot');
+    const gameplayRuntimeRoot = findSceneNodeByPath(sceneJson, 'GameplayRoot', 'GameplayRuntimeRoot');
+    const topBarGroup = findSceneNodeByPath(sceneJson, 'GameplayFixedRoot', 'TopBarGroup');
+    const bottomHudGroup = findSceneNodeByPath(sceneJson, 'GameplayFixedRoot', 'BottomHudGroup');
+    const boardArea = findSceneNodeByPath(sceneJson, 'GameplayFixedRoot', 'BoardArea');
+    const slotArea = findSceneNodeByPath(sceneJson, 'GameplayFixedRoot', 'BottomHudGroup/SlotAreaGroup/SlotArea');
+    if (!canvas || !screenRoot || !gameplayRoot || !gameplayFixedRoot || !gameplayRuntimeRoot || !topBarGroup || !bottomHudGroup || !boardArea || !slotArea) {
+        failures.push('Game.scene must keep ScreenRoot/GameplayRoot/GameplayFixedRoot/GameplayRuntimeRoot and stable HUD scene-owned nodes');
+        return;
+    }
+    if (getDirectChildNames(sceneJson, canvas).join('/') !== 'Camera/Game/ScreenRoot') {
+        failures.push('Game.scene Canvas must only directly host Camera, Game, and ScreenRoot');
+    }
+    if (getDirectChildNames(sceneJson, screenRoot).join('/') !== 'GameplayRoot/PopupRoot/OverlayRoot/FxRoot/BootRoot') {
+        failures.push('Game.scene ScreenRoot must directly host GameplayRoot, PopupRoot, OverlayRoot, FxRoot, and BootRoot');
+    }
+    if (getDirectChildNames(sceneJson, gameplayRoot).join('/') !== 'GameplayFixedRoot/GameplayRuntimeRoot') {
+        failures.push('Game.scene GameplayRoot must directly host GameplayFixedRoot and GameplayRuntimeRoot');
+    }
+
+    if (getNodeComponent(sceneJson, gameplayFixedRoot, 'cc.SafeArea')) {
+        failures.push('GameplayFixedRoot must not own SafeArea; top and bottom HUD groups own their own SafeArea components');
+    }
+    for (const [label, node] of [['TopBarGroup', topBarGroup], ['BottomHudGroup', bottomHudGroup]]) {
+        const safeArea = getNodeComponent(sceneJson, node, 'cc.SafeArea');
+        if (!safeArea || safeArea._enabled !== true) {
+            failures.push(`${label} must keep an enabled SafeArea component`);
+        } else if (safeArea.node?.__id__ !== sceneJson.indexOf(node)) {
+            failures.push(`${label} SafeArea component must point back to ${label}`);
+        }
+    }
+    if (getNodeComponent(sceneJson, boardArea, 'cc.Widget') || sceneText.includes('BoardArea_widget_static_viewport_20260608')) {
+        failures.push('BoardArea must not own a static Widget viewport; board safe rect is computed at runtime from top/bottom HUD bounds');
+    }
+    const slotWidget = getNodeComponent(sceneJson, slotArea, 'cc.Widget');
+    if (!slotWidget || slotWidget._bottom !== 110) {
+        failures.push('SlotArea must keep the expanded-board scene bottom anchor 110');
+    }
+    if (slotArea._lpos?.y !== -448.5) {
+        failures.push('SlotArea must keep the expanded-board scene y baseline -448.5');
+    }
+
+    for (const [pathInScene, expectedUuid] of [
+        ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
+        ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],
+        ['BottomHudGroup/SkillArea/SkillWand', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+        ['BottomHudGroup/SkillArea/SkillBrush', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+        ['BottomHudGroup/SkillArea/SkillMagnet', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+        ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
+        ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
+        ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+    ]) {
+        assertSpriteFrame(failures, sceneJson, 'GameplayFixedRoot', pathInScene, expectedUuid);
+    }
+
+    const boardViewportModule = fs.readFileSync(path.join(projectDir, 'assets', 'Scripts', 'Core', 'GameCtrlModules', 'BoardInputViewportModule.ts'), 'utf8');
+    if (boardViewportModule.includes("getGameplayFixedGroup?.('BoardArea')")) {
+        failures.push('BoardInputViewportModule must not use BoardArea bounds as the board safe viewport');
+    }
+}
+
+function assertCollectionPanelPrefabContract(failures) {
+    const prefabJson = readJson(path.join(projectDir, 'assets', 'GameAssetsBundle', 'UI', 'Prefabs', 'Panels', 'CollectionPanel.prefab'));
+    const root = prefabJson[1];
+    for (const [name, expectedUuid] of [
+        ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
+        ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
+    ]) {
+        const childRef = (root?._children || []).find((ref) => prefabJson[ref.__id__]?._name === name);
+        if (!childRef) {
+            failures.push(`CollectionPanel.prefab must declare ${name}`);
+            continue;
+        }
+        const node = prefabJson[childRef.__id__];
+        if (node._active !== false) {
+            failures.push(`CollectionPanel.prefab ${name} must be hidden by default`);
+        }
+        const sprite = getNodeComponent(prefabJson, node, 'cc.Sprite');
+        if (sprite?._spriteFrame?.__uuid__ !== expectedUuid) {
+            failures.push(`CollectionPanel.prefab ${name} must keep SpriteFrame ${expectedUuid}`);
+        }
+    }
+}
+
 function describeFileHit(relativePath, patternHits) {
     return Object.entries(patternHits)
         .map(([name, lines]) => `${name}@${lines.slice(0, 3).join(',')}${lines.length > 3 ? '…' : ''}`)
@@ -102,6 +235,17 @@ function describeFileHit(relativePath, patternHits) {
 }
 
 function main() {
+    const sourceOwnershipFailures = [];
+    assertGameSceneStaticUiOwnership(sourceOwnershipFailures);
+    assertCollectionPanelPrefabContract(sourceOwnershipFailures);
+    if (sourceOwnershipFailures.length > 0) {
+        console.error('[verify-ui-ownership] failed: Cocos scene/prefab ownership drift detected.');
+        for (const failure of sourceOwnershipFailures) {
+            console.error('  - ' + failure);
+        }
+        process.exit(1);
+    }
+
     const trackedFiles = new Set([...LEGACY_RUNTIME_UI_FILES, ...CODE_OWNED_DYNAMIC_UI_FILES]);
     const missingTrackedFiles = [...trackedFiles]
         .filter((relativePath) => !fs.existsSync(path.join(projectDir, relativePath)))

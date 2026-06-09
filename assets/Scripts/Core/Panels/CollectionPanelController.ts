@@ -7,6 +7,7 @@ import {
     COLLECTION_TEXTURE_NAMES,
     EventTouch,
     Label,
+    Mask,
     Node,
     Prefab,
     UITransform,
@@ -39,8 +40,9 @@ export class CollectionPanelController {
         if (runtime._collectionOverlay) return;
 
         runtime._collectionLevelIds = runtime.collectAllLevelIds();
-        runtime._collectionTotalPages = Math.ceil(runtime._collectionLevelIds.length / 8);
+        runtime._collectionTotalPages = 1;
         runtime._collectionPage = 0;
+        runtime._collectionScrollSuppressClickUntil = 0;
 
         const prefabPath = 'UI/Prefabs/Panels/CollectionPanel';
         const failOpen = (message: string, overlay?: Node | null) => {
@@ -50,6 +52,7 @@ export class CollectionPanelController {
             }
             runtime._collectionOverlay = null;
             runtime._collectionContentNode = null;
+            runtime._collectionScrollContentNode = null;
             runtime._collectionPageIndicator = null;
             runtime._releasePanelTexturesNextFrame(COLLECTION_RELEASE_TEXTURE_NAMES, 'collection-open-failed');
             console.error(message);
@@ -103,18 +106,15 @@ export class CollectionPanelController {
 
                     const content = runtime.requirePanelChild(box, 'CollContent');
                     runtime._collectionContentNode = content;
-                    content.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
-                        runtime._collectionSwipeStartY = e.getUILocation().y;
-                    }, runtime);
-                    content.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
-                        const dy = e.getUILocation().y - runtime._collectionSwipeStartY;
-                        if (Math.abs(dy) > 50) {
-                            if (dy < 0) runtime.changeCollectionPage(1);
-                            else runtime.changeCollectionPage(-1);
-                        }
-                    }, runtime);
+                    const contentUi = content.getComponent(UITransform);
+                    if (!contentUi) {
+                        throw new Error('[collection-prefab] missing UITransform on CollContent');
+                    }
+                    const mask = content.getComponent(Mask) || content.addComponent(Mask);
+                    mask.type = Mask.Type.GRAPHICS_RECT;
 
                     runtime._collectionPageIndicator = runtime.requirePanelChild(box, 'PageIndicator');
+                    runtime._collectionPageIndicator.active = false;
                     const leftArrow = overlay.getChildByName('ArrowLeft');
                     const rightArrow = overlay.getChildByName('ArrowRight');
                     if (leftArrow) {
@@ -132,7 +132,99 @@ export class CollectionPanelController {
                         });
                     }
 
-                    runtime.renderCollectionPage(0);
+                    const scrollContent = runtime.renderCollectionPage(0);
+                    if (!scrollContent) {
+                        throw new Error('[collection-prefab] failed to render collection scroll content');
+                    }
+
+                    const activeTouchY = new Map<number, number>();
+                    let lastY = 0;
+                    let dragDistance = 0;
+                    let dragging = false;
+                    const getTouchId = (touch: any, fallback: number): number => {
+                        if (touch && typeof touch.getID === 'function') return touch.getID();
+                        return fallback;
+                    };
+                    const getTouchY = (touch: any): number => {
+                        const pos = touch && typeof touch.getUILocation === 'function' ? touch.getUILocation() : null;
+                        return pos?.y ?? 0;
+                    };
+                    const getTouches = (event: any): any[] => {
+                        if (event && typeof event.getAllTouches === 'function') {
+                            const touches = event.getAllTouches();
+                            if (touches.length) return touches;
+                        }
+                        if (event && typeof event.getTouches === 'function') return event.getTouches();
+                        return event ? [event] : [];
+                    };
+                    const updateTouches = (event: any, removeChanged: boolean = false): number => {
+                        const touches = getTouches(event);
+                        const activeIds = new Set<number>();
+                        for (let i = 0; i < touches.length; i++) {
+                            const touch = touches[i];
+                            const id = getTouchId(touch, i);
+                            activeIds.add(id);
+                            activeTouchY.set(id, getTouchY(touch));
+                        }
+                        if (!removeChanged) {
+                            for (const id of Array.from(activeTouchY.keys())) {
+                                if (!activeIds.has(id)) activeTouchY.delete(id);
+                            }
+                        } else {
+                            const changedTouches = event && typeof event.getTouches === 'function' ? event.getTouches() : touches;
+                            for (let i = 0; i < changedTouches.length; i++) {
+                                activeTouchY.delete(getTouchId(changedTouches[i], i));
+                            }
+                        }
+                        return activeTouchY.size;
+                    };
+                    const averageTouchY = (): number => {
+                        if (!activeTouchY.size) return lastY;
+                        let total = 0;
+                        for (const y of activeTouchY.values()) total += y;
+                        return total / activeTouchY.size;
+                    };
+                    const setScrollY = (nextY: number): number => {
+                        const scrollUi = scrollContent.getComponent(UITransform);
+                        const totalH = scrollUi?.height || contentUi.height;
+                        const half = Math.max(0, (totalH - contentUi.height) / 2);
+                        const clamped = Math.max(-half, Math.min(half, nextY));
+                        scrollContent.setPosition(scrollContent.position.x, clamped, 0);
+                        return clamped;
+                    };
+
+                    content.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
+                        updateTouches(e);
+                        lastY = averageTouchY();
+                        dragDistance = 0;
+                        dragging = true;
+                        runtime._collectionScrollSuppressClickUntil = 0;
+                    }, runtime);
+                    content.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
+                        if (!dragging) return;
+                        updateTouches(e);
+                        const currentY = averageTouchY();
+                        const dy = currentY - lastY;
+                        lastY = currentY;
+                        dragDistance += Math.abs(dy);
+                        if (dragDistance > 8) {
+                            runtime._collectionScrollSuppressClickUntil = Date.now() + 150;
+                        }
+                        setScrollY(scrollContent.position.y + dy);
+                    }, runtime);
+                    const endScroll = (e: EventTouch) => {
+                        updateTouches(e, true);
+                        if (dragDistance > 8) {
+                            runtime._collectionScrollSuppressClickUntil = Date.now() + 150;
+                        }
+                        if (activeTouchY.size > 0) {
+                            lastY = averageTouchY();
+                            return;
+                        }
+                        dragging = false;
+                    };
+                    content.on(Node.EventType.TOUCH_END, endScroll, runtime);
+                    content.on(Node.EventType.TOUCH_CANCEL, endScroll, runtime);
                 } catch (error) {
                     failOpen(error instanceof Error ? error.message : '[collection-prefab] build failed', overlay);
                 }

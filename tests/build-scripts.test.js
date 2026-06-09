@@ -275,6 +275,8 @@ for (const required of [
     '微信包仍引用未授权 Cocos 插件',
     'plugin:cocos',
     'wx0446ba2621dda60a',
+    'Arrow(?:Left|Right)',
+    '微信包仍将 CollectionPanel 翻页箭头当成 prefab 必需节点',
     'findSubpackageRoot',
     'resolveBundleDir',
     'main bundle 不应依赖 \' + bundleName',
@@ -372,6 +374,10 @@ for (const required of [
     'frozen stable-UI owner files',
     'code-owned dynamic UI files',
     'new runtime stable-UI owner files detected',
+    'assertGameSceneStaticUiOwnership',
+    'GameplayFixedRoot must not own SafeArea',
+    'BoardArea must not own a static Widget viewport',
+    'CollectionPanel.prefab must declare',
 ]) {
     assert.ok(uiOwnershipCheck.includes(required), `verify-ui-ownership.js must include ${required}`);
 }
@@ -454,6 +460,7 @@ const gameScene = read('assets/Scenes/Game.scene');
 const gameSceneJson = JSON.parse(gameScene);
 const homeScene = read('assets/Scenes/Home.scene');
 const homeSceneJson = JSON.parse(homeScene);
+const collectionPanelJson = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'));
 
 function findSceneNodeByPath(sceneJson, rootName, childPath) {
     const rootIndex = sceneJson.findIndex((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === rootName);
@@ -467,6 +474,10 @@ function findSceneNodeByPath(sceneJson, rootName, childPath) {
     return current;
 }
 
+function getSceneDirectChildNames(sceneJson, node) {
+    return (node._children || []).map((ref) => sceneJson[ref.__id__]?._name).filter(Boolean);
+}
+
 function sceneNodeHasComponent(sceneJson, node, componentType) {
     return (node._components || []).some((ref) => sceneJson[ref.__id__]?.__type__ === componentType);
 }
@@ -474,6 +485,20 @@ function sceneNodeHasComponent(sceneJson, node, componentType) {
 function getSceneNodeComponent(sceneJson, node, componentType) {
     const componentRef = (node._components || []).find((ref) => sceneJson[ref.__id__]?.__type__ === componentType);
     return componentRef ? sceneJson[componentRef.__id__] : null;
+}
+
+function assertSceneSpriteFrame(sceneJson, rootName, childPath, expectedUuid) {
+    const node = findSceneNodeByPath(sceneJson, rootName, childPath);
+    assert.ok(node, `Game.scene must contain ${rootName}/${childPath}`);
+    const sprite = getSceneNodeComponent(sceneJson, node, 'cc.Sprite');
+    assert.ok(sprite, `Game.scene ${rootName}/${childPath} must own a Sprite component`);
+    assert.strictEqual(sprite._spriteFrame?.__uuid__, expectedUuid, `Game.scene ${rootName}/${childPath} must keep SpriteFrame ${expectedUuid}`);
+}
+
+function findPrefabRootChild(prefabJson, name) {
+    const root = prefabJson[1];
+    const childRef = (root._children || []).find((ref) => prefabJson[ref.__id__]?._name === name);
+    return childRef ? prefabJson[childRef.__id__] : null;
 }
 
 function assertSceneComponentBackrefs(sceneJson, scenePath) {
@@ -529,32 +554,90 @@ assert.strictEqual(
     'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941',
     'Game.scene first-level settings icon must use the Bootstrap settings SpriteFrame',
 );
-const gameplayFixedRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'GameplayFixedRoot');
+const gameCanvasNode = gameSceneJson.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'Canvas');
+const gameScreenRootNode = findSceneNodeByPath(gameSceneJson, 'Canvas', 'ScreenRoot');
+const gameplayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'GameplayRoot');
+const gameplayFixedRootNode = findSceneNodeByPath(gameSceneJson, 'GameplayRoot', 'GameplayFixedRoot');
+const gameplayRuntimeRootNode = findSceneNodeByPath(gameSceneJson, 'GameplayRoot', 'GameplayRuntimeRoot');
 const topBarGroupNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'TopBarGroup');
 const bottomHudGroupNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'BottomHudGroup');
 const boardAreaNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'BoardArea');
-const slotAreaNode = findSceneNodeByPath(gameSceneJson, 'BottomHudGroup', 'SlotAreaGroup/SlotArea');
-assert.ok(gameplayFixedRootNode, 'Game.scene must expose GameplayFixedRoot under ScreenRoot');
+const slotAreaNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'BottomHudGroup/SlotAreaGroup/SlotArea');
+const overlayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'OverlayRoot');
+assert.deepStrictEqual(getSceneDirectChildNames(gameSceneJson, gameCanvasNode), ['Camera', 'Game', 'ScreenRoot'], 'Game.scene Canvas must only directly host Camera, Game, and ScreenRoot');
+assert.deepStrictEqual(
+    getSceneDirectChildNames(gameSceneJson, gameScreenRootNode),
+    ['GameplayRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot', 'BootRoot'],
+    'Game.scene ScreenRoot must directly host gameplay/popup/overlay/fx/boot roots',
+);
+assert.ok(gameplayRootNode, 'Game.scene must expose GameplayRoot under ScreenRoot');
+assert.deepStrictEqual(
+    getSceneDirectChildNames(gameSceneJson, gameplayRootNode),
+    ['GameplayFixedRoot', 'GameplayRuntimeRoot'],
+    'Game.scene GameplayRoot must directly host fixed and runtime roots',
+);
+assert.ok(gameplayFixedRootNode, 'Game.scene must expose GameplayRoot/GameplayFixedRoot');
+assert.ok(gameplayRuntimeRootNode, 'Game.scene must expose GameplayRoot/GameplayRuntimeRoot');
 assert.ok(topBarGroupNode, 'Game.scene must expose GameplayFixedRoot/TopBarGroup');
 assert.ok(bottomHudGroupNode, 'Game.scene must expose GameplayFixedRoot/BottomHudGroup');
 assert.ok(boardAreaNode, 'Game.scene must expose GameplayFixedRoot/BoardArea');
 assert.ok(slotAreaNode, 'Game.scene must expose BottomHudGroup/SlotAreaGroup/SlotArea');
-const gameplayFixedRootIndex = gameSceneJson.indexOf(gameplayFixedRootNode);
+assert.ok(overlayRootNode, 'Game.scene must expose ScreenRoot/OverlayRoot');
+assert.ok(getSceneDirectChildNames(gameSceneJson, overlayRootNode).includes('TutorialGuidePrompt'), 'OverlayRoot must expose the scene-owned tutorial guide prompt');
+const tutorialGuidePromptNode = findSceneNodeByPath(gameSceneJson, 'OverlayRoot', 'TutorialGuidePrompt');
+const tutorialGuidePromptBgNode = findSceneNodeByPath(gameSceneJson, 'OverlayRoot', 'TutorialGuidePrompt/BubbleBg');
+const tutorialGuidePromptLabelNode = findSceneNodeByPath(gameSceneJson, 'OverlayRoot', 'TutorialGuidePrompt/PromptLabel');
+assert.ok(tutorialGuidePromptNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt');
+assert.ok(tutorialGuidePromptBgNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/BubbleBg');
+assert.ok(tutorialGuidePromptLabelNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/PromptLabel');
+assert.strictEqual(tutorialGuidePromptNode._active, false, 'TutorialGuidePrompt must be hidden until tutorial runtime enables it');
+assert.strictEqual(tutorialGuidePromptNode._lpos.y, 438, 'TutorialGuidePrompt must keep the Cocos-owned default y');
+const tutorialGuidePromptUi = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptNode, 'cc.UITransform');
+assert.strictEqual(tutorialGuidePromptUi?._contentSize?.width, 360, 'TutorialGuidePrompt must keep the Cocos-owned width');
+assert.strictEqual(tutorialGuidePromptUi?._contentSize?.height, 68, 'TutorialGuidePrompt must keep the Cocos-owned height');
+const tutorialGuidePromptBgSprite = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptBgNode, 'cc.Sprite');
+assert.strictEqual(tutorialGuidePromptBgSprite?._spriteFrame?.__uuid__, '52e94005-3ca2-a20b-d083-d9c4e3836418@f9941', 'TutorialGuidePrompt/BubbleBg must use Bootstrap solid_white');
+assert.strictEqual(tutorialGuidePromptBgSprite?._color?.a, 0, 'TutorialGuidePrompt/BubbleBg must default to transparent');
+const tutorialGuidePromptLabel = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptLabelNode, 'cc.Label');
+assert.strictEqual(tutorialGuidePromptLabel?._fontSize, 22, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned font size');
+assert.strictEqual(tutorialGuidePromptLabel?._lineHeight, 28, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned line height');
 const gameplaySafeArea = getSceneNodeComponent(gameSceneJson, gameplayFixedRootNode, 'cc.SafeArea');
-assert.strictEqual(gameplaySafeArea?._enabled, true, 'GameplayFixedRoot must be the gameplay SafeArea authority');
-assert.strictEqual(gameplaySafeArea?.node?.__id__, gameplayFixedRootIndex, 'GameplayFixedRoot SafeArea component must point back to GameplayFixedRoot');
-assert.strictEqual(getSceneNodeComponent(gameSceneJson, topBarGroupNode, 'cc.SafeArea'), null, 'TopBarGroup must not own a second SafeArea');
-assert.strictEqual(getSceneNodeComponent(gameSceneJson, bottomHudGroupNode, 'cc.SafeArea'), null, 'BottomHudGroup must not own a second SafeArea');
-const enabledGameplaySafeAreas = gameSceneJson.filter((entry) => entry?.__type__ === 'cc.SafeArea' && entry._enabled && entry.node?.__id__ === gameplayFixedRootIndex);
-assert.strictEqual(enabledGameplaySafeAreas.length, 1, 'Only GameplayFixedRoot may own an enabled gameplay SafeArea');
+assert.strictEqual(gameplaySafeArea, null, 'GameplayFixedRoot must not own SafeArea');
+for (const [label, node] of [['TopBarGroup', topBarGroupNode], ['BottomHudGroup', bottomHudGroupNode]]) {
+    const safeArea = getSceneNodeComponent(gameSceneJson, node, 'cc.SafeArea');
+    assert.ok(safeArea, `${label} must own a SafeArea`);
+    assert.strictEqual(safeArea._enabled, true, `${label} SafeArea must be enabled`);
+    assert.strictEqual(safeArea.node?.__id__, gameSceneJson.indexOf(node), `${label} SafeArea component must point back to ${label}`);
+}
 const boardAreaWidget = getSceneNodeComponent(gameSceneJson, boardAreaNode, 'cc.Widget');
-assert.ok(boardAreaWidget, 'BoardArea must own a Cocos Widget for the board viewport');
-assert.strictEqual(boardAreaWidget._alignFlags, 45, 'BoardArea Widget must stretch within the gameplay safe root');
-assert.ok(boardAreaWidget._top >= 120 && boardAreaWidget._top <= 150, 'BoardArea Widget must keep a compact top HUD reservation');
-assert.ok(boardAreaWidget._bottom >= 280 && boardAreaWidget._bottom <= 320, 'BoardArea Widget must reserve bottom HUD space without over-compressing the board');
+assert.strictEqual(boardAreaWidget, null, 'BoardArea must not own a static Widget viewport');
+assert.strictEqual(gameScene.includes('BoardArea_widget_static_viewport_20260608'), false, 'Game.scene must not keep the hard BoardArea viewport Widget id');
 const slotAreaWidget = getSceneNodeComponent(gameSceneJson, slotAreaNode, 'cc.Widget');
 assert.ok(slotAreaWidget, 'SlotArea must keep its Cocos Widget-owned bottom anchor');
-assert.ok(slotAreaWidget._bottom >= 90 && slotAreaWidget._bottom <= 120, 'SlotArea bottom anchor must stay low enough to avoid compressing the board');
+assert.strictEqual(slotAreaWidget._bottom, 110, 'SlotArea must keep the expanded-board scene bottom anchor');
+assert.strictEqual(slotAreaNode._lpos.y, -448.5, 'SlotArea must keep the expanded-board scene y baseline');
+for (const [requiredGamePath, expectedUuid] of [
+    ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
+    ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],
+    ['BottomHudGroup/SkillArea/SkillWand', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+    ['BottomHudGroup/SkillArea/SkillBrush', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+    ['BottomHudGroup/SkillArea/SkillMagnet', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+    ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
+    ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
+    ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+]) {
+    assertSceneSpriteFrame(gameSceneJson, 'GameplayFixedRoot', requiredGamePath, expectedUuid);
+}
+for (const [arrowName, expectedUuid] of [
+    ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
+    ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
+]) {
+    const arrow = findPrefabRootChild(collectionPanelJson, arrowName);
+    assert.ok(arrow, `CollectionPanel.prefab must declare ${arrowName}`);
+    assert.strictEqual(arrow._active, false, `CollectionPanel.prefab ${arrowName} must be hidden by default`);
+    const sprite = getSceneNodeComponent(collectionPanelJson, arrow, 'cc.Sprite');
+    assert.strictEqual(sprite?._spriteFrame?.__uuid__, expectedUuid, `CollectionPanel.prefab ${arrowName} must keep its SpriteFrame`);
+}
 for (const filePath of ['assets/Scripts/Core/GameCtrl.ts', 'assets/Scripts/Core/GameCtrlShared.ts', ...gameCtrlHelperFiles, ...gameCtrlPanelControllerFiles, ...gameCtrlModuleFiles]) {
     const lineCount = read(filePath).split(/\r?\n/).length;
     assert.ok(lineCount < 1000, `${filePath} must stay below 1000 lines after GameCtrl split (actual ${lineCount})`);
@@ -581,13 +664,14 @@ assert.strictEqual(gameCtrl.includes('releaseAsset(texture)'), false, 'panel clo
 assert.strictEqual(gameCtrl.includes('prepareMainMenuSceneSpriteFrames'), false, 'Home startup SpriteFrames must stay scene-authored in BootstrapBundle');
 assert.ok(gameCtrl.includes('Home.scene is missing SpriteFrame'), 'Home menu must fail fast when a scene-authored startup SpriteFrame is missing');
 assert.ok(gameCtrl.includes('renderMainMenuFixedRoot(fixedRoot);'), 'Home menu must render directly from scene-authored Bootstrap SpriteFrames');
-assert.ok(gameCtrl.includes('getSkillShellIconFrameName'), 'Gameplay skill shells must fill missing scene SpriteFrames from loaded GameAssets textures');
-assert.ok(gameCtrl.includes('missing gameAssets SpriteFrame popup_gameplay_tool_slot_plate'), 'Gameplay skill shells must fail fast when the plate SpriteFrame is not loaded');
-assert.ok(gameCtrl.includes("getSF('设置') || this.runtime.getSF('home_settings')"), 'Gameplay top bar settings icon must prefer the Bootstrap settings SpriteFrame');
+assert.strictEqual(gameCtrl.includes('getSkillShellIconFrameName'), false, 'Gameplay skill shells must not fill missing scene SpriteFrames at runtime');
+assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on SkillArea/${node.name}'), 'Gameplay skill shells must fail fast when scene-authored plate SpriteFrame is missing');
+assert.strictEqual(gameCtrl.includes("getSF('设置') || this.runtime.getSF('home_settings')"), false, 'Gameplay top bar settings icon must stay scene-authored');
 assert.ok(gameCtrl.includes("const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];"), 'Gameplay critical texture preload must include Bootstrap settings icon');
-assert.ok(gameCtrlShared.includes("LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_SLOT_TEXTURE_NAMES])"), 'Bootstrap settings and mainline slot shell textures must always load from BootstrapBundle');
-assert.ok(gameCtrl.includes('ensureTimerWrapFrame'), 'Gameplay timer frame must fill missing scene SpriteFrame from loaded GameAssets textures');
-assert.ok(gameCtrl.includes('missing gameAssets SpriteFrame unlock_button'), 'Slot unlock buttons must fail fast when unlock_button is not loaded');
+assert.ok(gameCtrlShared.includes("LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_SLOT_TEXTURE_NAMES, ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES])"), 'Bootstrap settings, mainline slot shells, timer, unlock button, and skill buttons must always load from BootstrapBundle');
+assert.strictEqual(gameCtrl.includes('ensureTimerWrapFrame'), false, 'Gameplay timer frame must stay scene-authored');
+assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on ${path}'), 'Gameplay top-bar scene SpriteFrames must fail fast when missing');
+assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn'), 'Slot unlock button must fail fast when scene-authored SpriteFrame is missing');
 assert.ok(
     gameCtrl.includes("this._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings')")
         || gameCtrl.includes("runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings')"),
@@ -636,8 +720,8 @@ assert.strictEqual(gameCtrl.includes('this.hideLoadingOverlay();\r\n            
 assert.ok(gameCtrl.includes("void AppRoot.inst.requestHomeSceneTransition('settings');"), 'settings home button must route through AppRoot');
 assert.ok(gameCtrl.includes('function isSceneTraceEnabled()'), 'SceneRouter must gate trace logging by explicit debug query');
 assert.ok(gameCtrl.includes('params.get(\'debug\') === \'1\' || params.get(\'log\') === \'1\' || !!params.get(\'ab\')'), 'SceneSplitTrace must only be enabled by debug/log/ab query');
-assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'Home scene must use fixed-width resolution policy');
-assert.ok(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), 'Game scene must keep show-all resolution policy');
+assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'scene runtime must use fixed-width resolution policy');
+assert.strictEqual(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), false, 'Home/Game must not split into different resolution policies');
 assert.ok(gameCtrl.includes("screenRoot?.getChildByName(name) || host.getChildByName(name)"), 'runtime root lookup must prefer ScreenRoot and fall back to Canvas');
 const progressFillMeta = JSON.parse(read('assets/GameAssetsBundle/Textures/UI/progress_fill.png.meta'));
 assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderLeft, 13, 'progress_fill left cap inset must protect rounded ends');
@@ -975,8 +1059,6 @@ for (const forbidden of [
 }
 for (const required of [
     'getGameplayNodeBoundsInFixedRoot',
-    'getGameplayFixedGroup?.(\'BoardArea\')',
-    'const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);',
     'getGameplayNodeVerticalBoundsInFixedRoot',
     'getGameplayChildrenVerticalBounds',
     'getTopBarAvoidBottomY',
@@ -984,7 +1066,9 @@ for (const required of [
 ]) {
     assert.ok(boardInputViewportModule.includes(required), `BoardInputViewportModule must use Cocos scene bounds for board safe viewport: ${required}`);
 }
-assert.ok(gameplayViewController.includes('const widthFitRatio = 0.9;'), 'GameplayViewController must keep board width fit stable');
+assert.strictEqual(boardInputViewportModule.includes("getGameplayFixedGroup?.('BoardArea')"), false, 'BoardInputViewportModule must not use BoardArea bounds as the board safe viewport');
+assert.strictEqual(boardInputViewportModule.includes('const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);'), false, 'BoardInputViewportModule must not keep static BoardArea viewport ownership');
+assert.ok(gameplayViewController.includes('const widthFitRatio = 0.95;'), 'GameplayViewController must keep board width fit stable');
 assert.ok(gameplayViewController.includes('const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;'), 'GameplayViewController must give large boards extra vertical breathing room');
 for (const required of [
     'getGuideNodeVerticalBoundsInLayer',
@@ -998,8 +1082,19 @@ for (const required of [
     assert.ok(settlementHudModule.includes(required), `SettlementHudModule must make tutorial prompts avoid the scene TopBar: ${required}`);
 }
 assert.ok(
-    tutorialGuideModule.includes('this.getGuidePromptCenterY(450, 52)'),
-    'TutorialGuideModule styleLevel2GuidePrompt must use the shared topbar-aware guide prompt Y',
+    settlementHudModule.includes("root.getChildByName('TutorialGuidePrompt')")
+        && settlementHudModule.includes("guidePrompt.getChildByName('PromptLabel')?.getComponent(Label)"),
+    'SettlementHudModule tutorial prompt must bind the scene-owned OverlayRoot/TutorialGuidePrompt nodes',
+);
+assert.strictEqual(
+    settlementHudModule.includes("new Node('GuideBubble')") || settlementHudModule.includes("new Node('BubbleLbl')"),
+    false,
+    'tutorial guide prompt shell must not be rebuilt at runtime',
+);
+assert.strictEqual(
+    settlementHudModule.includes('bubble.setPosition(') || tutorialGuideModule.includes('bubble.setPosition('),
+    false,
+    'tutorial guide prompt position must stay scene-owned',
 );
 assert.strictEqual(
     settlementHudModule.includes('bubble.setPosition(0, 470);') || tutorialGuideModule.includes('bubble.setPosition(0, 470);'),
@@ -1007,8 +1102,10 @@ assert.strictEqual(
     'tutorial guide prompts must not keep the old fixed y=470 that overlaps WeChat top HUD',
 );
 assert.ok(
-    boardInputViewportModule.includes('this.getGuidePromptCenterY(450, 52)') && boardInputViewportModule.includes('const tutorialBubbleGap = 12;'),
-    'BoardInputViewportModule fallback must reserve the same topbar-aware tutorial prompt band',
+    boardInputViewportModule.includes('this.getSceneGuidePromptBounds()')
+        && boardInputViewportModule.includes('this.getGuidePromptCenterY(450, 52)')
+        && boardInputViewportModule.includes('const tutorialBubbleGap = 12;'),
+    'BoardInputViewportModule must reserve the scene-owned tutorial prompt band with the old topbar-aware fallback',
 );
 assert.strictEqual(
     gameCtrl.includes('return topEdge - 30 - safeInsets.top;'),

@@ -679,22 +679,16 @@ export function installSettlementHudModule(target: any): void {
             this._guideMask.addComponent(UITransform).setContentSize(720, 1280);
             this._guideMask.layer = Layers.Enum.UI_2D;
         
-            this._guideBubble = new Node('GuideBubble');
-            this._guideLayer.addChild(this._guideBubble);
-            this._guideBubble.addComponent(UITransform).setContentSize(440, 120);
-            this._guideBubble.layer = Layers.Enum.UI_2D;
-        
-            const bubbleLblNode = new Node('BubbleLbl');
-            this._guideBubble.addChild(bubbleLblNode);
-            bubbleLblNode.addComponent(UITransform).setContentSize(400, 100);
-            bubbleLblNode.layer = Layers.Enum.UI_2D;
-            bubbleLblNode.setPosition(0, 0);
-            const lbl = bubbleLblNode.addComponent(Label);
-            lbl.fontSize = 24;
-            lbl.color = new Color('#3A3020');
-            lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
-            lbl.verticalAlign = Label.VerticalAlign.CENTER;
-            lbl.overflow = Label.Overflow.SHRINK;
+            const guidePrompt = root.getChildByName('TutorialGuidePrompt');
+            if (!guidePrompt) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt');
+            }
+            const lbl = guidePrompt.getChildByName('PromptLabel')?.getComponent(Label);
+            if (!lbl) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt/PromptLabel Label');
+            }
+            guidePrompt.active = true;
+            this._guideBubble = guidePrompt;
             this._guideBubbleLbl = lbl;
         
             this._guideHand = new Node('GuideHand');
@@ -745,7 +739,7 @@ export function installSettlementHudModule(target: any): void {
             const lbl = this._guideBubbleLbl!;
         
             let gm = mask.getComponent(Graphics); if (!gm) gm = mask.addComponent(Graphics); gm.clear();
-            let gb = bubble.getComponent(Graphics); if (!gb) gb = bubble.addComponent(Graphics); gb.clear();
+            const gb = bubble.getComponent(Graphics); if (gb) gb.clear();
             let gh = hand.getComponent(Graphics); if (!gh) gh = hand.addComponent(Graphics); gh.clear();
             let ga = arrow.getComponent(Graphics); if (!ga) ga = arrow.addComponent(Graphics); ga.clear();
         
@@ -757,20 +751,20 @@ export function installSettlementHudModule(target: any): void {
             switch (this._guideMode) {
                 case 'level_1':
                     switch (step) {
-                        case 0: this.guideStep0(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 1: this.guideStep1(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 2: this.guideStep2(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 3: this.guideStep3(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 4: this.guideStep4(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 5: this.guideStep5(gm, gb, gh, lbl, bubble, hand, arrow); break;
+                        case 0: this.guideStep0(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 1: this.guideStep1(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 2: this.guideStep2(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 3: this.guideStep3(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 4: this.guideStep4(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 5: this.guideStep5(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
                         default: this.endTutorial(); break;
                     }
                     break;
                 case 'level_2':
                     switch (step) {
-                        case 0: this.guideLevel2UnlockStep(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 1: this.guideLevel2PickBlockStep(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 2: this.guideLevel2PlaceBlockStep(gm, gb, gh, lbl, bubble, hand, arrow); break;
+                        case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
                         default: this.endTutorial(); break;
                     }
                     break;
@@ -910,13 +904,23 @@ export function installSettlementHudModule(target: any): void {
             return centerY;
         },
 
-        styleLevel1GuidePrompt(gb: Graphics, bubble: Node, lbl: Label, primaryText: string) {
-            bubble.getComponent(UITransform)!.setContentSize(430, 112);
-            bubble.setPosition(0, this.getGuidePromptCenterY(450, 52));
-            this._drawBubbleBg(gb, 430, 112, new Color('#8DBF63'));
+        getSceneGuidePromptBounds(): { centerY: number; height: number } | null {
+            try {
+                const root = typeof this.requireCanvasUiRoot === 'function'
+                    ? this.requireCanvasUiRoot('OverlayRoot')
+                    : null;
+                const prompt = root?.getChildByName('TutorialGuidePrompt') ?? null;
+                const transform = prompt?.getComponent(UITransform) ?? null;
+                if (!prompt || !transform) return null;
+                return { centerY: prompt.position.y, height: transform.contentSize.height };
+            } catch {
+                return null;
+            }
+        },
+
+        styleLevel1GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
+            bubble.active = true;
             lbl.string = this.formatLevel1GuidePrompt(primaryText);
-            lbl.fontSize = 20;
-            lbl.lineHeight = 26;
         },
 
         formatLevel2GuidePrompt(primaryText: string): string {
