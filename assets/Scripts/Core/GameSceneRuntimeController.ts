@@ -148,6 +148,7 @@ export class GameSceneRuntimeController {
         inputRoot.targetOff(this.runtime);
         this.runtime.node.targetOff(this.runtime);
         this.runtime.deactivateWeChatFriendRank('destroy');
+        this.runtime.clearBoardVisualPools?.();
         this.runtime.clearEffectPools();
     }
 

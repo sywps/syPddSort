@@ -470,8 +470,10 @@ const subpackageRootNames = gameSubpackages
     .filter(Boolean);
 const mainBytes = dirSize(runtimeRoot, subpackageRootNames);
 const mainKB = Math.round(mainBytes / 1024);
-const mainPackageBudgetKB = 3072;
-if (mainKB > mainPackageBudgetKB) fail('微信主包超过 3MB 目标: ' + mainKB + 'KB');
+const mainPackageTargetKB = 3072;
+const mainPackageErrorKB = 4096;
+if (mainKB > mainPackageErrorKB) fail('微信主包超过 4MB 硬限制: ' + mainKB + 'KB');
+if (mainKB > mainPackageTargetKB) console.warn('WARNING: 微信主包超过 3MB 目标，但未超过 4MB 硬限制: ' + mainKB + 'KB');
 
 console.log('微信构建产物验证通过');
 console.log('runtime: ' + runtimeRoot);

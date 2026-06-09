@@ -203,6 +203,92 @@ export class GameplayViewController {
         return bgNode;
     }
 
+    private getNodePoolSize(pool: any): number {
+        const size = pool?.size;
+        return typeof size === 'function' ? Math.max(0, Number(size.call(pool)) || 0) : 0;
+    }
+
+    private recycleBoardNodeGrid(grid: Array<Array<Node | null>>, pool: any, retainLimit: number) {
+        if (!Array.isArray(grid)) return;
+        for (const row of grid) {
+            if (!Array.isArray(row)) continue;
+            for (const node of row) {
+                if (!node?.isValid) continue;
+                Tween.stopAllByTarget(node);
+                const sprite = node.getComponent(Sprite);
+                if (sprite) {
+                    sprite.spriteFrame = null;
+                    sprite.enabled = false;
+                }
+                node.active = false;
+                if (typeof pool?.put === 'function' && this.getNodePoolSize(pool) < retainLimit) {
+                    pool.put(node);
+                } else {
+                    node.removeFromParent();
+                    node.destroy();
+                }
+            }
+        }
+    }
+
+    private trimBoardNodePool(pool: any, retainLimit: number = 0) {
+        if (typeof pool?.get !== 'function') return;
+        while (this.getNodePoolSize(pool) > retainLimit) {
+            const node = pool.get();
+            if (!node) break;
+            node.destroy();
+        }
+    }
+
+    private countBoardVisualCells(correctColors: number[][], width: number, height: number): number {
+        let count = 0;
+        for (let r = 0; r < height; r++) {
+            for (let c = 0; c < width; c++) {
+                if ((correctColors[r]?.[c] || 0) > 0) count++;
+            }
+        }
+        return count;
+    }
+
+    private acquireBoardSpriteNode(pool: any, name: string, parent: Node, size: number): { node: Node; sprite: Sprite } {
+        const node = (typeof pool?.get === 'function' ? pool.get() : null) || new Node(name);
+        node.name = name;
+        node.layer = Layers.Enum.UI_2D;
+        parent.addChild(node);
+        let transform = node.getComponent(UITransform);
+        if (!transform) transform = node.addComponent(UITransform);
+        transform.setContentSize(size, size);
+        let sprite = node.getComponent(Sprite);
+        if (!sprite) sprite = node.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        sprite.spriteFrame = null;
+        sprite.enabled = false;
+        node.active = true;
+        node.setScale(1, 1, 1);
+        return { node, sprite };
+    }
+
+    private prepareDragLayer(dragRoot: Node): Node {
+        const runtime = this.runtime;
+        runtime.clearChildrenExcept(dragRoot, ['DragLayer']);
+        let dragLayer = runtime.dragLayer?.isValid ? runtime.dragLayer : dragRoot.getChildByName('DragLayer');
+        if (!dragLayer?.isValid) {
+            dragLayer = new Node('DragLayer');
+            dragRoot.addChild(dragLayer);
+        } else if (dragLayer.parent !== dragRoot) {
+            dragRoot.addChild(dragLayer);
+        }
+        const visibleSize = this.getGameplayVisibleSize();
+        let transform = dragLayer.getComponent(UITransform);
+        if (!transform) transform = dragLayer.addComponent(UITransform);
+        transform.setContentSize(visibleSize.width, visibleSize.height);
+        dragLayer.layer = Layers.Enum.UI_2D;
+        dragLayer.active = true;
+        runtime.clearChildrenExcept(dragLayer, []);
+        runtime.dragLayer = dragLayer;
+        return dragLayer;
+    }
+
     buildUI() {
         const runtime = this.runtime;
         const fixedRoot = this.getGameplayFixedRoot();
@@ -216,10 +302,9 @@ export class GameplayViewController {
         const skillRoot = this.getGameplayBottomHudChild('SkillArea');
         const dragRoot = this.getGameplayRuntimeGroup('DragRuntime');
         Tween.stopAll();
-        for (const group of [backgroundRoot, dragRoot]) {
-            group.active = true;
-            group.destroyAllChildren();
-        }
+        backgroundRoot.active = true;
+        backgroundRoot.destroyAllChildren();
+        dragRoot.active = true;
         boardRoot.active = true;
         bottomHudRoot.active = true;
         slotRoot.active = true;
@@ -239,11 +324,7 @@ export class GameplayViewController {
         runtime.buildSkillButtons(skillRoot);
         topBarRoot.setSiblingIndex(Math.max(0, fixedRoot.children.length - 1));
 
-        runtime.dragLayer = new Node('DragLayer');
-        dragRoot.addChild(runtime.dragLayer);
-        const visibleSize = this.getGameplayVisibleSize();
-        runtime.dragLayer.addComponent(UITransform).setContentSize(visibleSize.width, visibleSize.height);
-        runtime.dragLayer.layer = Layers.Enum.UI_2D;
+        this.prepareDragLayer(dragRoot);
 
         runtime.destroyGameplayResultOverlays();
         runtime.panelWin = runtime.createWinSettlementPanel();
@@ -565,6 +646,8 @@ export class GameplayViewController {
         runtime.boardNode.layer = Layers.Enum.UI_2D;
         runtime.boardNode.getComponent(UITransform)?.setContentSize(boardW, boardH);
         runtime.boardNode.setPosition(0, 0, 0);
+        const boardVisualCellCount = this.countBoardVisualCells(runtime.boardModel.correctColors, bw, bh);
+        this.recycleBoardNodeGrid(runtime.cellNodes, runtime._boardCellPool, boardVisualCellCount);
         runtime.clearChildrenExcept(runtime.boardNode, ['BoardBg', 'BoardSlots']);
 
         const boardBg = runtime.requireUiChild(runtime.boardNode, 'BoardBg', 'Board/BoardBg');
@@ -576,6 +659,7 @@ export class GameplayViewController {
         runtime.boardSlotsNode.layer = Layers.Enum.UI_2D;
         runtime.boardSlotsNode.getComponent(UITransform)?.setContentSize(boardW, boardH);
         runtime.boardSlotsNode.setPosition(0, 0, 0);
+        this.recycleBoardNodeGrid(runtime.boardSlotBgNodes, runtime._boardSlotBgPool, boardVisualCellCount);
         runtime.clearChildrenExcept(runtime.boardSlotsNode, []);
 
         const safeRect = runtime.getBoardSafeViewportRect();
@@ -614,28 +698,38 @@ export class GameplayViewController {
             runtime.cellNodes[r] = [];
             runtime.boardSlotBgNodes[r] = [];
             for (let c = 0; c < bw; c++) {
+                const correctId = runtime.boardModel.correctColors[r]?.[c] || 0;
+                if (correctId <= 0) {
+                    runtime.cellNodes[r][c] = null;
+                    runtime.boardSlotBgNodes[r][c] = null;
+                    continue;
+                }
                 const x = (c - bw / 2 + 0.5) * (runtime.cellSize + runtime.cellGap);
                 const y = ((bh / 2 - 0.5) - r) * (runtime.cellSize + runtime.cellGap);
 
-                const slotBg = new Node(`slotbg_${r}_${c}`);
-                runtime.boardSlotsNode.addChild(slotBg);
-                slotBg.addComponent(UITransform).setContentSize(runtime.getBoardSlotVisualSize(), runtime.getBoardSlotVisualSize());
-                slotBg.layer = Layers.Enum.UI_2D;
-                const slotSp = slotBg.addComponent(Sprite);
+                const { node: slotBg, sprite: slotSp } = this.acquireBoardSpriteNode(
+                    runtime._boardSlotBgPool,
+                    `slotbg_${r}_${c}`,
+                    runtime.boardSlotsNode,
+                    runtime.getBoardSlotVisualSize(),
+                );
                 slotSp.sizeMode = Sprite.SizeMode.CUSTOM;
                 slotBg.setPosition(x, y);
                 runtime.boardSlotBgNodes[r][c] = slotBg;
 
-                const cell = new Node(`cell_${r}_${c}`);
-                runtime.boardNode.addChild(cell);
-                cell.addComponent(UITransform).setContentSize(runtime.getBoardBeanVisualSize(), runtime.getBoardBeanVisualSize());
-                cell.layer = Layers.Enum.UI_2D;
-                const sp = cell.addComponent(Sprite);
+                const { node: cell, sprite: sp } = this.acquireBoardSpriteNode(
+                    runtime._boardCellPool,
+                    `cell_${r}_${c}`,
+                    runtime.boardNode,
+                    runtime.getBoardBeanVisualSize(),
+                );
                 sp.sizeMode = Sprite.SizeMode.CUSTOM;
                 cell.setPosition(x, y);
                 runtime.cellNodes[r][c] = cell;
             }
         }
+        this.trimBoardNodePool(runtime._boardCellPool, 0);
+        this.trimBoardNodePool(runtime._boardSlotBgPool, 0);
     }
 }
 

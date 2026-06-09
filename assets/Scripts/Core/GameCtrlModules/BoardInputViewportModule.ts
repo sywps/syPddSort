@@ -221,6 +221,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
+            PerformanceMgr.inst.markUserActivity();
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
                 const uiPos = event.getUILocation();
                 const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
@@ -260,6 +261,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchMove(event: EventTouch) {
             if (this.isGameEnd) return;
+            PerformanceMgr.inst.markUserActivity();
             if (this._wandMode && this._wandDragStart && this._wandRectNode) {
                 const uiPos = event.getUILocation();
                 const startLocal = this.uiToBoardLocal(this._wandDragStart);
@@ -384,6 +386,7 @@ export function installBoardInputViewportModule(target: any): void {
         /** PC 端滚轮缩放棋盘 */
         onMouseWheel(event: EventMouse) {
             if (this.isGameEnd || this._guideStep >= 0) return;
+            PerformanceMgr.inst.markUserActivity();
         
             const scrollY = event.getScrollY();
             if (scrollY === 0) return;

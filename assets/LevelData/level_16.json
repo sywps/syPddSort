@@ -2,7 +2,7 @@
     "levelId": 16,
     "boardWidth": 19,
     "boardHeight": 26,
-    "timeLimit": 240,
+    "timeLimit": 300,
     "slotTotalCount": 339,
     "correctColorArr": [
         [

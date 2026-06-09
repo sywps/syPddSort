@@ -136,7 +136,8 @@ export function installGameplayPlacementFxModule(target: any): void {
             } else {
                 // 豆豆还在棋盘上
                 for (const cell of block.cells) {
-                    const cellNode = this.cellNodes[cell.row][cell.col];
+                    const cellNode = this.cellNodes[cell.row]?.[cell.col];
+                    if (!cellNode) continue;
                     const ut = cellNode.getComponent(UITransform)!;
                     sources.push(ut.convertToWorldSpaceAR(new Vec3(0, 0, 0)));
                 }
@@ -178,6 +179,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             const sourceBeanSize = Math.max(1, visualOptions?.sourceBeanSize ?? targetBeanSize);
             const useSourceSizeTransition = !!visualOptions?.sourceBeanSize && Math.abs(sourceBeanSize - targetBeanSize) > 0.5;
             const sourceScale = sourceBeanSize / targetBeanSize;
+            const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
             let remaining = targets.length;
             const finishAfterAllLanded = () => {
                 const finish = () => this.onFlyAllLanded(targets);
@@ -191,7 +193,14 @@ export function installGameplayPlacementFxModule(target: any): void {
         
             for (let i = 0; i < targets.length; i++) {
                 const t = targets[i];
-                const cellNode = this.cellNodes[t.row][t.col];
+                const cellNode = this.cellNodes[t.row]?.[t.col];
+                if (!cellNode) {
+                    this._flyingTargets.delete(`${t.row},${t.col}`);
+                    this.renderBoardCell(t.row, t.col);
+                    remaining--;
+                    if (remaining <= 0) finishAfterAllLanded();
+                    continue;
+                }
                 const targetWorld = cellNode.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
                 const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
                 const srcWorld = sourcesWorld[i] || sourcesWorld[sourcesWorld.length - 1] || targetWorld;
@@ -232,7 +241,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${t.row},${t.col}`);
                         this.renderBoardCell(t.row, t.col);
-                        this.playLandEffect(t.row, t.col);
+                        this.playLandEffect(t.row, t.col, landFrameBudget);
                         remaining--;
                         if (remaining <= 0) {
                             finishAfterAllLanded();
@@ -317,8 +326,9 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.renderBoardCells(targets);
             if (dirtySlotIndices.length > 0) this.renderSlotIndices(dirtySlotIndices);
             else this.renderSlots();
+            const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
             for (const t of targets) {
-                this.playLandEffect(t.row, t.col);
+                this.playLandEffect(t.row, t.col, landFrameBudget);
             }
             this.tryGrantLargePlacementBonus(targets.length);
             this.checkColorCompletion();
@@ -331,11 +341,34 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
         },
 
-        playFrameEffectAt(worldPos: Vec3, prefix: string, frameCount: number, size: number, frameInterval: number, angle: number = 0) {
-            const frames = this.getEffectFrames(prefix, frameCount);
+        getPlaceGlowFrameBudget(affectedCells: number): number {
+            const count = Math.max(1, Math.floor(Number(affectedCells) || 1));
+            return count <= 1 ? 24 : count <= 4 ? 18 : count <= 12 ? 14 : count <= 24 ? 12 : 10;
+        },
+
+        sampleEffectFrames(frames: SpriteFrame[], frameBudget: number): SpriteFrame[] {
+            const budget = Math.max(1, Math.floor(Number(frameBudget) || frames.length));
+            if (budget >= frames.length) return frames;
+            if (budget === 1) return [frames[frames.length - 1] || frames[0]];
+            const sampled: SpriteFrame[] = [];
+            const maxIndex = frames.length - 1;
+            let lastIndex = -1;
+            for (let i = 0; i < budget; i++) {
+                const index = Math.min(maxIndex, Math.max(0, Math.round(i * maxIndex / (budget - 1))));
+                if (index === lastIndex) continue;
+                sampled.push(frames[index]);
+                lastIndex = index;
+            }
+            return sampled;
+        },
+
+        playFrameEffectAt(worldPos: Vec3, prefix: string, frameCount: number, size: number, frameInterval: number, angle: number = 0, frameBudget: number = frameCount) {
+            const sourceFrames = this.getEffectFrames(prefix, frameCount);
+            const frames = this.sampleEffectFrames(sourceFrames, frameBudget);
             if (frames.length === 0 || this._activeFrameFxCount >= MAX_CONCURRENT_FRAME_EFFECTS) {
                 return;
             }
+            PerformanceMgr.inst.markUserActivity();
             const layerUT = this.dragLayer.getComponent(UITransform)!;
             const localPos = layerUT.convertToNodeSpaceAR(worldPos);
             const { node: fx, sprite: sp, opacity: uo } = this.acquireEffectNode(this._frameFxPool, prefix, size);
@@ -389,6 +422,9 @@ export function installGameplayPlacementFxModule(target: any): void {
         playBrightFlashAt(worldPos: Vec3, size: number, peakOpacity: number = 210) {
             const bright = this.getBrightSpriteFrame();
             if (!bright) return;
+            if (this._activeBrightFlashCount >= MAX_CONCURRENT_FRAME_EFFECTS) return;
+            PerformanceMgr.inst.markUserActivity();
+            this._activeBrightFlashCount += 1;
         
             const layerUT = this.dragLayer.getComponent(UITransform)!;
             const localPos = layerUT.convertToNodeSpaceAR(worldPos);
@@ -403,7 +439,10 @@ export function installGameplayPlacementFxModule(target: any): void {
             tween(glow)
                 .to(0.08, { scale: new Vec3(1.02, 1.02, 1) }, { easing: 'sineOut' })
                 .to(0.12, { scale: new Vec3(1.24, 1.24, 1) }, { easing: 'quadOut' })
-                .call(() => this.recycleEffectNode(this._brightFlashPool, glow))
+                .call(() => {
+                    this._activeBrightFlashCount = Math.max(0, this._activeBrightFlashCount - 1);
+                    this.recycleEffectNode(this._brightFlashPool, glow);
+                })
                 .start();
         
             tween(uo)
@@ -412,15 +451,16 @@ export function installGameplayPlacementFxModule(target: any): void {
                 .start();
         },
 
-        playLandEffect(row: number, col: number) {
-            const cn = this.cellNodes[row][col];
+        playLandEffect(row: number, col: number, frameBudget: number = this.getPlaceGlowFrameBudget(1)) {
+            const cn = this.cellNodes[row]?.[col];
+            if (!cn) return;
             Tween.stopAllByTarget(cn);
             cn.setScale(1.15, 1.15, 1);
             tween(cn)
                 .to(0.1, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineIn' })
                 .to(0.08, { scale: new Vec3(1.0, 1.0, 1) })
                 .start();
-            this.playPlaceGlow(cn);
+            this.playPlaceGlow(cn, 0.035, 210, frameBudget);
         },
 
         onFlyAllLanded(targets: { row: number; col: number }[]) {
@@ -450,11 +490,16 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         /** 归位闪光特效：block_finish 帧动画播放（完成效果） */
-        playPlaceGlow(cellNode: Node, frameInterval: number = 0.035, flashOpacity: number = 210) {
+        playPlaceGlow(
+            cellNode: Node,
+            frameInterval: number = 0.035,
+            flashOpacity: number = 210,
+            frameBudget: number = this.getPlaceGlowFrameBudget(1),
+        ) {
             const ut = cellNode.getComponent(UITransform)!;
             const worldPos = ut.convertToWorldSpaceAR(new Vec3(0, 0, 0));
             this.playBrightFlashAt(worldPos, this.cellSize + 18, flashOpacity);
-            this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, frameInterval);
+            this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, frameInterval, 0, frameBudget);
         },
 
         getWinGlowFrameInterval(cellCount: number): number {
@@ -481,6 +526,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             if (lockedCells.length === 0) return 0;
         
             const frameInterval = this.getWinGlowFrameInterval(lockedCells.length);
+            const frameBudget = this.getPlaceGlowFrameBudget(lockedCells.length);
             const flashOpacity = lockedCells.length >= 60 ? 170 : 190;
             const desiredWaveCount = Math.ceil(Math.sqrt(lockedCells.length / 2));
             const waveCount = Math.max(
@@ -506,12 +552,12 @@ export function installGameplayPlacementFxModule(target: any): void {
                     for (const { row, col } of wave) {
                         const cellNode = this.cellNodes[row]?.[col];
                         if (!cellNode) continue;
-                        this.playPlaceGlow(cellNode, frameInterval, flashOpacity);
+                        this.playPlaceGlow(cellNode, frameInterval, flashOpacity, frameBudget);
                     }
                 }, delay);
             }
         
-            return lastWaveDelay + frameInterval * 26 + WIN_GLOW_POST_DELAY;
+            return lastWaveDelay + frameInterval * frameBudget + WIN_GLOW_POST_DELAY;
         },
 
         /** 放置完成后的清理 + 渲染 + 动画 */
@@ -533,15 +579,17 @@ export function installGameplayPlacementFxModule(target: any): void {
         
             // 沉下去动画
             if (this._lastPlacedCells && this._lastPlacedCells.length > 0) {
+                const frameBudget = this.getPlaceGlowFrameBudget(this._lastPlacedCells.length);
                 for (const cell of this._lastPlacedCells) {
-                    const cellNode = this.cellNodes[cell.row][cell.col];
+                    const cellNode = this.cellNodes[cell.row]?.[cell.col];
+                    if (!cellNode) continue;
                     cellNode.setScale(1.2, 1.2, 1);
                     tween(cellNode)
                         .to(0.08, { scale: new Vec3(0.92, 0.92, 1) }, { easing: 'sineIn' })
                         .to(0.06, { scale: new Vec3(1.05, 1.05, 1) })
                         .to(0.06, { scale: new Vec3(1, 1, 1) })
                         .start();
-                    this.playPlaceGlow(cellNode);
+                    this.playPlaceGlow(cellNode, 0.035, 210, frameBudget);
                 }
                 this._lastPlacedCells = null;
             }
@@ -591,6 +639,7 @@ export function installGameplayPlacementFxModule(target: any): void {
         
             // 颜色完成帧动画：每格依次播放完成特效，不再改动格子缩放
             const effectDelayStep = cells.length > MAX_CONCURRENT_FRAME_EFFECTS ? 0.055 : 0.03;
+            const frameBudget = this.getPlaceGlowFrameBudget(cells.length);
             for (let i = 0; i < cells.length; i++) {
                 const cell = cells[i];
                 const cn = this.cellNodes[cell.row]?.[cell.col];
@@ -599,7 +648,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 // 只播放完成帧动画，避免同色完成时整片格子缩放跳动
                 this.scheduleOnce(() => {
                     const worldPos = cn.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-                    this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, 0.022);
+                    this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, 0.022, 0, frameBudget);
                 }, i * effectDelayStep);
             }
         },

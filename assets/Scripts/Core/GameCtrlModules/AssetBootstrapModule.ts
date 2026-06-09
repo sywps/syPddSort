@@ -626,6 +626,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         acquireFlyBeanNode(name: string, size: number, spriteFrame: SpriteFrame | null): Node {
+            PerformanceMgr.inst.markUserActivity();
             const bean = this._flyBeanPool.get() ?? new Node('PooledFlyBean');
             bean.name = name;
             bean.layer = Layers.Enum.UI_2D;
@@ -722,6 +723,12 @@ export function installAssetBootstrapModule(target: any): void {
             this._brightFlashPool.clear();
             this._effectFrameCache.clear();
             this._activeFrameFxCount = 0;
+            this._activeBrightFlashCount = 0;
+        },
+
+        clearBoardVisualPools() {
+            this._boardCellPool.clear();
+            this._boardSlotBgPool.clear();
         },
 
         getNodePoolSize(pool: NodePool): number {
