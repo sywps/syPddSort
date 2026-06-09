@@ -3,16 +3,12 @@ import {
     AudioMgr,
     BlockInputEvents,
     Bundle,
-    Color,
     Label,
-    Mask,
     Node,
     POPUP_UI_TEXTURE_NAMES,
     Prefab,
     ProgressBar,
-    Sprite,
     UIOpacity,
-    UITransform,
     instantiate,
 } from './GameCtrlShared';
 
@@ -102,19 +98,10 @@ export class GameplayResultPanelController {
         return overlay;
     }
 
-    private applyResultProgressSprites(panel: Node, ratio: number = 0): void {
+    private syncResultProgressWidget(panel: Node, ratio: number = 0): void {
         const runtime = this.runtime;
         const progressRoot = runtime.requirePanelChild(runtime.requirePanelChild(panel, 'Box'), '\u8fdb\u5ea6\u6761');
         const progressArea = runtime.requirePanelChild(progressRoot, 'ProgressBarArea');
-        const bgFrame = runtime.getSF('popup_progress_bar_bg');
-        const fillFrame = runtime.getSF('popup_progress_bar_fill');
-        if (!bgFrame) {
-            throw new Error('[result-panel] missing sprite frame: popup_progress_bar_bg');
-        }
-        if (!fillFrame) {
-            throw new Error('[result-panel] missing sprite frame: popup_progress_bar_fill');
-        }
-        runtime._applySpriteFrame(progressRoot, bgFrame, 430, 34, Sprite.Type.SLICED);
         const progressLabel = progressRoot.getChildByName('Label')?.getComponent(Label);
         if (progressLabel) {
             progressLabel.string = '\u5df2\u5b8c\u6210 0%';
@@ -126,21 +113,7 @@ export class GameplayResultPanelController {
         if (!progressBar.barSprite) {
             throw new Error('[result-panel] cc.ProgressBar is missing barSprite');
         }
-        runtime._applySpriteFrame(progressBar.barSprite.node, fillFrame, 430, 34, Sprite.Type.SLICED);
-        (progressArea.getComponent(UITransform) || progressArea.addComponent(UITransform)).setContentSize(430, 34);
-        progressBar.totalLength = 430;
         progressBar.progress = Math.max(0, Math.min(1, Number(ratio) || 0));
-    }
-
-    private findReviveContinueSecondsLabel(box: Node): Label | null {
-        const explicitLabel = box.getChildByName('ContinueSecondsLbl')?.getComponent(Label) ?? null;
-        if (explicitLabel) return explicitLabel;
-        for (const child of box.children) {
-            if (child.name !== 'Label') continue;
-            const nestedLabel = child.getChildByName('Label')?.getComponent(Label) ?? null;
-            if (nestedLabel) return nestedLabel;
-        }
-        return null;
     }
 
     createWinSettlementPanel(): Node {
@@ -151,22 +124,7 @@ export class GameplayResultPanelController {
             box.addComponent(BlockInputEvents);
         }
         const previewFrame = runtime.requirePanelChild(box, 'PreviewFrame');
-        const previewFrameSf = runtime.getSF('popup_result_preview_plate');
-        if (!previewFrameSf) {
-            throw new Error('[result-panel] missing sprite frame: popup_result_preview_plate');
-        }
-        runtime._applySpriteFrame(previewFrame, previewFrameSf, 392, 346, Sprite.Type.SLICED);
-        const titleLbl = box.getChildByName('TitleBanner')?.getChildByName('TitleLbl')?.getComponent(Label)
-            || box.getChildByName('TitleLbl')?.getComponent(Label);
-        if (titleLbl) {
-            titleLbl.color = new Color('#5D45C6');
-        }
-        const patternPreview = runtime.requirePanelChild(previewFrame, 'PatternPreview');
-        patternPreview.setPosition(0, 0, 0);
-        (patternPreview.getComponent(UITransform) || patternPreview.addComponent(UITransform)).setContentSize(300, 250);
-        if (!patternPreview.getComponent(Mask)) {
-            patternPreview.addComponent(Mask).type = Mask.Type.GRAPHICS_RECT;
-        }
+        runtime.requirePanelChild(previewFrame, 'PatternPreview');
         const adBonusBtn = runtime.requirePanelChild(box, 'AdBonusBtn');
         adBonusBtn.getComponent(UIOpacity) || adBonusBtn.addComponent(UIOpacity);
         runtime.bindPanelButton(adBonusBtn, () => {
@@ -187,19 +145,12 @@ export class GameplayResultPanelController {
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
-        this.applyResultProgressSprites(overlay, 0);
-        const rewardedSeconds = runtime.constructor.REWARDED_CONTINUE_SECONDS;
+        this.syncResultProgressWidget(overlay, 0);
         const continueBtn = box.getChildByName('ContinueBtn');
         if (!continueBtn) {
             throw new Error('[result-panel] RevivePanel is missing ContinueBtn');
         }
-        const continueSecondsLbl = this.findReviveContinueSecondsLabel(box);
-        const continueBtnLbl = continueBtn.getChildByName('ContinueBtnLbl')?.getComponent(Label) ?? null;
-        if (continueSecondsLbl) {
-            continueSecondsLbl.string = `${rewardedSeconds}\u79d2`;
-        } else if (continueBtnLbl) {
-            continueBtnLbl.string = `\u7ee7\u7eed${rewardedSeconds}\u79d2`;
-        }
+        const rewardedSeconds = runtime.constructor.REWARDED_CONTINUE_SECONDS;
         const giveUp = () => {
             overlay.active = false;
             runtime.showLosePanel();
@@ -242,12 +193,10 @@ export class GameplayResultPanelController {
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
-        this.applyResultProgressSprites(overlay, 0);
+        this.syncResultProgressWidget(overlay, 0);
         const reviveBtn = runtime.requirePanelChild(box, '\u590d\u6d3b\u7a97\u7ec4\u4ef63');
         const homeBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846');
         const replayBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846-001');
-        const reviveBtnLbl = reviveBtn.getChildByName('ReviveBtnLbl')?.getComponent(Label) ?? null;
-        if (reviveBtnLbl) reviveBtnLbl.string = `\u7ee7\u7eed${runtime.constructor.REWARDED_CONTINUE_SECONDS}\u79d2`;
         this.bindReviveContinueAction(reviveBtn, overlay);
         runtime.bindPanelButton(homeBtn, () => {
             AudioMgr.inst.play('button');

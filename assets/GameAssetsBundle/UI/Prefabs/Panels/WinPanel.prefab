@@ -471,7 +471,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 1,
-      "y": 505.5415,
+      "y": 558.274,
       "z": 0
     },
     "_lrot": {
@@ -652,6 +652,8 @@
       "__id__": 0
     },
     "fileId": "TitleLbl-node-10",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -736,6 +738,8 @@
       "__id__": 0
     },
     "fileId": "TitleBanner-node-7",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -766,7 +770,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 142.056,
+      "y": 133.617,
       "z": 0
     },
     "_lrot": {
@@ -853,8 +857,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 380,
-      "height": 380
+      "width": 430,
+      "height": 430
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -894,8 +898,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 480,
-      "height": 480
+      "width": 550,
+      "height": 550
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -931,7 +935,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "917deb07-2522-49b9-b14f-29819cb98860@f9941",
+      "__uuid__": "69f9cc1c-e9a2-8e2a-c828-fbeab6bacd79@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 1,
@@ -962,6 +966,8 @@
       "__id__": 0
     },
     "fileId": "PreviewFrame-node-16",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -991,8 +997,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -94.642,
-      "y": -155.133,
+      "x": -75.175,
+      "y": -220.665,
       "z": 0
     },
     "_lrot": {
@@ -1041,7 +1047,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 126,
+      "x": 108.711,
       "y": 0,
       "z": 0
     },
@@ -1293,8 +1299,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": -254.76350000000002,
+      "x": -160,
+      "y": -392.85,
       "z": 0
     },
     "_lrot": {
@@ -1343,7 +1349,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -52.995,
+      "x": -59.484,
       "y": 4.886,
       "z": 0
     },
@@ -1479,7 +1485,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 32.497,
+      "x": 26.008,
       "y": 6.407,
       "z": 0
     },
@@ -1629,8 +1635,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 251.0253301955167,
-      "height": 105.49986842673059
+      "width": 226.6976193521432,
+      "height": 96.99018093010915
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1697,6 +1703,8 @@
       "__id__": 0
     },
     "fileId": "AdBonusBtn-node-30",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -1726,8 +1734,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": -397.9375,
+      "x": 159.998,
+      "y": -392.85,
       "z": 0
     },
     "_lrot": {
@@ -1926,8 +1934,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 245.92914012738856,
-      "height": 107.5891817405421
+      "width": 222.095318240495,
+      "height": 98.91096888319555
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",

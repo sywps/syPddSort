@@ -86,10 +86,15 @@ export function installSettlementHudModule(target: any): void {
                 if (child.name !== 'Label') continue;
                 const percentLabel = child.getComponent(Label);
                 const captionLabel = child.getChildByName('Label-001')?.getComponent(Label) ?? null;
-                if (!percentLabel || !captionLabel) continue;
-                percentLabel.string = `${percent}%`;
-                captionLabel.string = '\u5df2\u5b8c\u6210';
-                return;
+                if (percentLabel && captionLabel) {
+                    percentLabel.string = `${percent}%`;
+                    return;
+                }
+                const nestedPercentLabel = child.getChildByName('Label')?.getComponent(Label) ?? null;
+                if (percentLabel && nestedPercentLabel) {
+                    nestedPercentLabel.string = `${percent}%`;
+                    return;
+                }
             }
         },
 
@@ -117,15 +122,6 @@ export function installSettlementHudModule(target: any): void {
             if (!progressArea) {
                 throw new Error('[settlement-progress] progress root is missing ProgressBarArea');
             }
-            const bgFrame = this.getSF('popup_progress_bar_bg');
-            const fillFrame = this.getSF('popup_progress_bar_fill');
-            if (!bgFrame) {
-                throw new Error('[settlement-progress] missing sprite frame: popup_progress_bar_bg');
-            }
-            if (!fillFrame) {
-                throw new Error('[settlement-progress] missing sprite frame: popup_progress_bar_fill');
-            }
-            this._applySpriteFrame(progressRoot, bgFrame, 430, 34, Sprite.Type.SLICED);
             const progressBar = progressArea.getComponent(ProgressBar);
             if (!progressBar) {
                 throw new Error('[settlement-progress] ProgressBarArea is missing cc.ProgressBar');
@@ -133,11 +129,6 @@ export function installSettlementHudModule(target: any): void {
             if (!progressBar.barSprite) {
                 throw new Error('[settlement-progress] cc.ProgressBar is missing barSprite');
             }
-            const fillNode = progressBar.barSprite.node;
-            this._applySpriteFrame(fillNode, fillFrame, 430, 34, Sprite.Type.SLICED);
-            const progressAreaTransform = progressArea.getComponent(UITransform) || progressArea.addComponent(UITransform);
-            progressAreaTransform.setContentSize(430, 34);
-            progressBar.totalLength = 430;
             progressBar.progress = safeRatio;
         },
 
@@ -158,17 +149,10 @@ export function installSettlementHudModule(target: any): void {
             const box = this.panelWin?.getChildByName('Box');
             const rewardLbl = box?.getChildByName('RewardGoldIcon')?.getChildByName('RewardGoldLbl')?.getComponent(Label)
                 || box?.getChildByName('RewardGoldLbl')?.getComponent(Label);
-            const streakLbl = box?.getChildByName('RewardStreakLbl')?.getComponent(Label);
             if (rewardLbl) {
                 rewardLbl.string = this.shouldUseMainlineWinSettlementUI()
                     ? `+${rewardGold} 金币`
                     : `+${rewardGold} 金币到手`;
-            }
-            if (streakLbl) {
-                const nextLevel = this.getActiveLogicalLevelId() + 1;
-                streakLbl.string = this._isThemeLevel
-                    ? '分享或再玩一次，都能继续刷限定图案'
-                    : `继续冲第${nextLevel}关，奖励和宝箱进度都会上涨`;
             }
             this.refreshWinAdBonusUI();
         },
@@ -202,10 +186,6 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
         
-            if (titleLbl) titleLbl.string = useMainlineWin ? '五倍领取' : `看广告再领 ${this._pendingWinAdBonusReward} 金币`;
-            if (subLbl) subLbl.string = useMainlineWin ? '' : '完整看完补齐到 5 倍';
-            if (coinIcon) coinIcon.active = true;
-            if (adIcon) adIcon.active = true;
             if (btn) btn.interactable = true;
             opacity.opacity = 255;
         },
@@ -232,24 +212,6 @@ export function installSettlementHudModule(target: any): void {
             const stats = this.getBoardCompletionStats();
             this.syncSettlementProgressWidget(this.panelLose, stats);
             this.syncSettlementProgressWidget(this.panelTimeoutContinue, stats);
-            const gapLbl = this.panelLose?.getChildByName('Box')?.getChildByName('FailGapLbl')?.getComponent(Label);
-            const hintLbl = this.panelLose?.getChildByName('Box')?.getChildByName('FailHintLbl')?.getComponent(Label);
-            const actionLbl = this.panelLose?.getChildByName('Box')?.getChildByName('FailActionLbl')?.getComponent(Label);
-            if (gapLbl) {
-                gapLbl.string = stats.remainPercent > 0
-                    ? `就差 ${stats.remainPercent}% 了`
-                    : '这一局已经非常接近通关';
-            }
-            if (hintLbl) {
-                hintLbl.string = stats.remainPercent <= 12
-                    ? '差一点点就过了，现在续关最划算'
-                    : `保住当前 ${stats.completePercent}% 进度`;
-            }
-            if (actionLbl) {
-                actionLbl.string = stats.remainPercent <= 12
-                    ? `继续${(this.constructor as any).REWARDED_CONTINUE_SECONDS}秒，这局大概率能过`
-                    : '先把这局保住';
-            }
         },
 
         showLosePanel() {
@@ -258,34 +220,6 @@ export function installSettlementHudModule(target: any): void {
             if (this.panelLose) {
                 this.panelLose.active = true;
                 this.panelLose.setSiblingIndex(999);
-            }
-        },
-
-        getWinSettlementPrimaryActionLabel(): string {
-            if (this.shouldChainTutorialLevelsOnWin()) {
-                return '下一关';
-            }
-            if (this.shouldPromptFirstThemeUnlockOnWin()) {
-                return '查看主题';
-            }
-            return this._isThemeLevel ? '返回主题' : '下一关';
-        },
-
-        refreshWinSettlementPrimaryActionUI() {
-            const box = this.panelWin?.getChildByName('Box');
-            const actionLbl = box?.getChildByName('PrimaryBtn')?.getChildByName('PrimaryBtnLbl')?.getComponent(Label)
-                || box?.getChildByName('CloseBtn')?.getChildByName('ActionLbl')?.getComponent(Label);
-            if (actionLbl) {
-                actionLbl.string = this.getWinSettlementPrimaryActionLabel();
-            }
-            const hookLbl = box?.getChildByName('HookLbl')?.getComponent(Label)
-                || box?.getChildByName('TimeoutHookAnchor')?.getChildByName('WinHookLbl')?.getComponent(Label);
-            if (hookLbl) {
-                hookLbl.string = this.shouldPromptFirstThemeUnlockOnWin()
-                    ? '已解锁主题挑战资格，通关后可直接前往查看'
-                    : (this.shouldChainTutorialLevelsOnWin()
-                        ? '进入第2关，继续挑战'
-                        : '本局奖励已结算，继续挑战还能涨');
             }
         },
 
@@ -392,7 +326,6 @@ export function installSettlementHudModule(target: any): void {
                         .start();
                 }
                 this.drawWinPatternPreview();
-                this.refreshWinSettlementPrimaryActionUI();
                 if (this.panelWin) { this.panelWin.active = true; this.panelWin.setSiblingIndex(999); }
             }, totalAnimTime + 0.18);
         },
