@@ -525,7 +525,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         getSlotBeanVisualSize(): number {
-            return this.shouldUseMainlineSlotUI() ? 36 : SLOT_SIZE;
+            return this.shouldUseMainlineSlotUI() ? 38 : SLOT_SIZE;
         },
 
         getSlotAreaScale(): number {

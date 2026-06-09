@@ -112,18 +112,6 @@ export function installBoardInputViewportModule(target: any): void {
         getBoardSafeViewportRect(): { left: number; right: number; bottom: number; top: number } {
             const gap = 12;
             const marginX = 18;
-            try {
-                const boardArea = this.getGameplayFixedGroup?.('BoardArea') || null;
-                const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);
-                if (boardAreaBounds && boardAreaBounds.right > boardAreaBounds.left + 80 && boardAreaBounds.top > boardAreaBounds.bottom + 80) {
-                    return {
-                        left: boardAreaBounds.left + marginX,
-                        right: boardAreaBounds.right - marginX,
-                        bottom: boardAreaBounds.bottom + gap,
-                        top: boardAreaBounds.top - gap,
-                    };
-                }
-            } catch {}
             const viewSize = view.getVisibleSize();
             const visibleW = Math.max(viewSize.width || 0, (this.constructor as any).VIEWPORT_WIDTH);
             const visibleH = Math.max(viewSize.height || 0, (this.constructor as any).VIEWPORT_HEIGHT);
@@ -136,10 +124,15 @@ export function installBoardInputViewportModule(target: any): void {
             }
             const levelId = Math.max(1, Math.floor(Number(this.levelData?.levelId) || 1));
             if (this.levelData && !this._isThemeLevel && levelId <= 2) {
-                const tutorialBubbleCenterY = typeof this.getGuidePromptCenterY === 'function'
-                    ? this.getGuidePromptCenterY(450, 52)
-                    : 450;
-                const tutorialBubbleHeight = 52;
+                const guidePromptBounds = typeof this.getSceneGuidePromptBounds === 'function'
+                    ? this.getSceneGuidePromptBounds()
+                    : null;
+                const tutorialBubbleCenterY = Number.isFinite(guidePromptBounds?.centerY)
+                    ? guidePromptBounds!.centerY
+                    : (typeof this.getGuidePromptCenterY === 'function'
+                        ? this.getGuidePromptCenterY(450, 52)
+                        : 450);
+                const tutorialBubbleHeight = Number.isFinite(guidePromptBounds?.height) ? guidePromptBounds!.height : 52;
                 const tutorialBubbleGap = 12;
                 top = Math.min(top, tutorialBubbleCenterY - tutorialBubbleHeight / 2 - tutorialBubbleGap);
             }
@@ -370,7 +363,7 @@ export function installBoardInputViewportModule(target: any): void {
                     }
                 } else {
                     // 重叠区域优先：先检测暂存槽区域，再检测棋盘区域
-                    if (!this.trySelectSlot(worldPos)) {
+                    if (!this.trySelectSlot(worldPos) && !this.isWorldPosInSlotArea(worldPos)) {
                         this.trySelectBoard(worldPos);
                     }
                 }
@@ -549,39 +542,41 @@ export function installBoardInputViewportModule(target: any): void {
         tryReselectOrPlace(worldPos: Vec3): boolean {
             const block = this.currentBlock!;
             const fromSlot = block.source === 'slot';
+            const slotAreaHit = this.isWorldPosInSlotArea(worldPos);
         
             const boardTarget = this.getBoardPlaceTargetFromWorldPos(worldPos, block.colorId, fromSlot);
-            if (boardTarget && (fromSlot || !this.isWorldPosInSlotArea(worldPos))) {
+            if (boardTarget && !slotAreaHit) {
                 return this.placeCurrentBlockOnBoard(boardTarget);
             }
         
             // 暂存槽优先：重叠区域优先检查暂存槽
-            if (this.isSlotAreaInteractive()) {
+            if (slotAreaHit) {
+                if (!fromSlot) {
+                    return false;
+                }
                 const slotUT = this.slotAreaNode.getComponent(UITransform)!;
                 const slotLocal = slotUT.convertToNodeSpaceAR(worldPos);
-                if (Math.abs(slotLocal.x) < slotUT.contentSize.width / 2 && Math.abs(slotLocal.y) < slotUT.contentSize.height / 2) {
-                    for (let i = 0; i < this.slotNodes.length; i++) {
-                        const sp = this.slotNodes[i].position;
-                        const hitPadding = fromSlot ? 0 : SLOT_HIT_PADDING;
-                        if (Math.abs(slotLocal.x - sp.x) < (SLOT_SIZE + hitPadding) / 2 && Math.abs(slotLocal.y - sp.y) < (SLOT_SIZE + hitPadding) / 2) {
-                            const row = Math.floor(i / SLOTS_PER_ROW);
-                            // 锁定行不可交互
-                            if (row >= this.slotUnlockedRows) return false;
-                            const target = this.slotModel.getBlock(i);
-                            if (target) {
-                                if (target.colorId !== block.colorId || !fromSlot) {
-                                    this.cancelSelection();
-                                    this.trySelectSlot(worldPos);
-                                    return true;
-                                }
-                                // 同色且来自暂存槽 → 取消选中
-                                this.playReturnFeedback();
+                for (let i = 0; i < this.slotNodes.length; i++) {
+                    const sp = this.slotNodes[i].position;
+                    if (Math.abs(slotLocal.x - sp.x) < SLOT_SIZE / 2 && Math.abs(slotLocal.y - sp.y) < SLOT_SIZE / 2) {
+                        const row = Math.floor(i / SLOTS_PER_ROW);
+                        // 锁定行不可交互
+                        if (row >= this.slotUnlockedRows) return false;
+                        const target = this.slotModel.getBlock(i);
+                        if (target) {
+                            if (target.colorId !== block.colorId) {
                                 this.cancelSelection();
+                                this.trySelectSlot(worldPos);
                                 return true;
                             }
+                            // 同色且来自暂存槽 → 取消选中
+                            this.playReturnFeedback();
+                            this.cancelSelection();
+                            return true;
                         }
                     }
                 }
+                return false;
             }
         
             // 检查棋盘上是否点到了不同颜色的豆豆块
@@ -607,7 +602,7 @@ export function installBoardInputViewportModule(target: any): void {
                 return true;
             }
 
-            if (fromSlot && !this.isWorldPosInSlotArea(worldPos) && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
+            if (fromSlot && !slotAreaHit && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
                 this.playReturnFeedback();
                 return true;
             }

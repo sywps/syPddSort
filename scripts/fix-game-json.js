@@ -25,6 +25,7 @@ const projectRoot = path.resolve(buildPath, '..', '..');
 const gameAssetsMode = 'subpackage';
 const buildMode = process.env.WECHAT_BUILD_MODE || 'release';
 const debugLevelDataBundle = buildMode === 'debug';
+const screenAdaptDebug = process.env.PDD_SCREEN_ADAPT_DEBUG === '1';
 
 const BUNDLE_NAME = 'gameAssets';
 const LEVEL_DATA_BUNDLE_NAME = 'levelData';
@@ -326,10 +327,12 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarker = 'globalThis.__PDD_WECHAT_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     var gameAssetsModeMarker = 'globalThis.__PDD_GAME_ASSETS_MODE__=' + JSON.stringify(gameAssetsMode) + ';';
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
+    var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
+    var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
     if (buildModeMarkerPattern.test(content)) {
         content = content.replace(buildModeMarkerPattern, buildModeMarker);
@@ -340,11 +343,15 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (levelDataCdnPattern.test(content)) {
         content = content.replace(levelDataCdnPattern, levelDataCdnMarker);
     }
+    if (screenAdaptDebugPattern.test(content)) {
+        content = content.replace(screenAdaptDebugPattern, screenAdaptDebugMarker);
+    }
     var missingLines = [];
     if (content.indexOf(marker) === -1) missingLines.push(marker);
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
+    if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
     if (content.indexOf(domCtorMarker) === -1) {
         missingLines.push(
             '(function ensurePddMiniGameDomConstructors(){',
@@ -366,6 +373,39 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content !== originalContent) {
         fs.writeFileSync(gameJsPath, content);
     }
+}
+
+function injectScreenAdaptGameJsLog(content) {
+    if (content.indexOf('__pddLogScreenAdapt') !== -1) return content;
+    var bootstrapLog = [
+        'const info = wx.getSystemInfoSync();',
+        'function __pddReadScreenAdaptInfo(){',
+        '    var wxApi=typeof wx!=="undefined"?wx:null;',
+        '    try{',
+        '        if(wxApi&&typeof wxApi.getWindowInfo==="function")return wxApi.getWindowInfo();',
+        '        if(wxApi&&typeof wxApi.getSystemInfoSync==="function")return wxApi.getSystemInfoSync();',
+        '    }catch(e){return {error:e&&e.message?e.message:String(e)};}',
+        '    return null;',
+        '}',
+        'function __pddPickScreenAdaptInfo(raw){',
+        '    if(!raw)return null;',
+        '    return {windowWidth:raw.windowWidth,windowHeight:raw.windowHeight,screenWidth:raw.screenWidth,screenHeight:raw.screenHeight,pixelRatio:raw.pixelRatio||raw.devicePixelRatio,devicePixelRatio:raw.devicePixelRatio,safeArea:raw.safeArea,platform:raw.platform,model:raw.model,system:raw.system};',
+        '}',
+        'function __pddLogScreenAdapt(stage){',
+        '    var g=typeof globalThis!=="undefined"?globalThis:{};',
+        '    if(!g.__PDD_SCREEN_ADAPT_DEBUG__)return;',
+        '    var c=typeof canvas!=="undefined"?canvas:null;',
+        '    var w=typeof window!=="undefined"?window:null;',
+        '    console.warn("[ScreenAdaptDebug:game-js]",{stage:stage,wx:__pddPickScreenAdaptInfo(__pddReadScreenAdaptInfo()),canvas:c?{width:c.width,height:c.height,clientWidth:c.clientWidth,clientHeight:c.clientHeight,styleWidth:c.style&&c.style.width,styleHeight:c.style&&c.style.height}:null,window:w?{innerWidth:w.innerWidth,innerHeight:w.innerHeight,devicePixelRatio:w.devicePixelRatio}:null});',
+        '}',
+        '__pddLogScreenAdapt("before-orientation-swap");',
+    ].join('\n') + '\n';
+    var patched = content.replace(/const info = wx\.getSystemInfoSync\(\);\n/, bootstrapLog);
+    if (patched === content) return content;
+    return patched.replace(
+        /\n\}\n\/\/ Adjust initial canvas size/,
+        '\n}\n__pddLogScreenAdapt("after-orientation-swap");\n// Adjust initial canvas size'
+    );
 }
 
 function ensureStableGameAssetsBundleScriptLoader(runtimeRoot) {
@@ -472,11 +512,14 @@ if (fs.existsSync(gameJsPath)) {
         /if \(canvas && window\.devicePixelRatio >= 2\) \{canvas\.width \*= info\.devicePixelRatio; canvas\.height \*= info\.devicePixelRatio;\}/g,
         '// DPR handled by engine'
     );
+    if (screenAdaptDebug) {
+        patchedGame = injectScreenAdaptGameJsLog(patchedGame);
+    }
     if (patchedGame !== gameJs) {
         fs.writeFileSync(gameJsPath, patchedGame);
-        console.log('[3.2/7] 已保存原始 wx 到 __rawWx + 移除 DPR 乘法 ✓');
+        console.log('[3.2/7] 已保存原始 wx 到 __rawWx + 移除 DPR 乘法' + (screenAdaptDebug ? ' + 注入屏幕诊断日志' : '，屏幕诊断关闭') + ' ✓');
     } else {
-        console.log('[3.2/7] __rawWx 已存在 ✓');
+        console.log('[3.2/7] __rawWx 已存在' + (screenAdaptDebug ? '，屏幕诊断已开启' : '，屏幕诊断关闭') + ' ✓');
     }
     // 注入 SDK 外部脚本 require
     if (patchedGame.indexOf("require('./sdk/sysdk-wxapp')") === -1) {

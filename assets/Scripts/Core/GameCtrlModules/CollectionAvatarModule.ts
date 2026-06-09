@@ -493,27 +493,6 @@ export function installCollectionAvatarModule(target: any): void {
             return ensureCollectionPanelController(this).open();
         },
 
-        getOrCreateCollectionShellActionNode(parent: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
-            let node = parent.getChildByName(name);
-            if (node) {
-                return node;
-            }
-            node = new Node(name);
-            parent.addChild(node);
-            node.layer = parent.layer || Layers.Enum.UI_2D;
-            const width = name === 'ArrowRight' ? 220 : 42;
-            const height = name === 'ArrowRight' ? 56 : 52;
-            (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(width, height);
-            const frameNames = name === 'ArrowRight'
-                ? ['home_start_button', 'popup_primary_button', 'collection_arrow_right']
-                : ['collection_arrow_left'];
-            const frameName = frameNames.find((item) => !!this.getSF(item));
-            if (frameName) {
-                applyCollectionAvatarSpriteFrame(this, node, frameName, width, height);
-            }
-            return node;
-        },
-
         drawCollectionArrow(parent: Node, x: number, y: number, dir: 'left' | 'right') {
             const asset = dir === 'left' ? 'collection_arrow_left' : 'collection_arrow_right';
             const name = dir === 'left' ? 'ArrowLeft' : 'ArrowRight';
@@ -545,58 +524,74 @@ export function installCollectionAvatarModule(target: any): void {
 
         renderCollectionPage(page: number) {
             const content = this._collectionContentNode;
-            if (!content) return;
+            if (!content) return null;
         
             const allIds = this._collectionLevelIds;
             const savedLevel = this.getSavedLevel();
-            const startIdx = page * 8;
-            const endIdx = Math.min(startIdx + 8, allIds.length);
-        
             const contentTransform = content.getComponent(UITransform);
             const availableW = contentTransform?.width || 598;
             const availableH = contentTransform?.height || 820;
             const gapX = 20;
             const gapY = 16;
             const cols = 2;
-            const rows = 4;
+            const visibleRows = 4;
+            const rows = Math.max(visibleRows, Math.ceil(allIds.length / cols));
             const cardW = Math.floor((availableW - gapX * (cols - 1)) / cols);
-            const cardH = Math.floor((availableH - gapY * (rows - 1)) / rows);
+            const cardH = Math.floor((availableH - gapY * (visibleRows - 1)) / visibleRows);
             const totalW = cols * cardW + (cols - 1) * gapX;
             const totalH = rows * cardH + (rows - 1) * gapY;
             const startY = totalH / 2 - cardH / 2;
             const startX = -totalW / 2 + cardW / 2;
-        
-            for (let i = startIdx; i < endIdx; i++) {
+
+            const template = content.getChildByName('CollectionCardSlot_0');
+            if (!template) {
+                throw new Error('[collection-prefab] missing CollectionCardSlot_0');
+            }
+            for (const child of content.children) {
+                if (child.name !== 'CollectionScrollContent') {
+                    child.active = false;
+                }
+            }
+            let scrollContent = content.getChildByName('CollectionScrollContent');
+            if (!scrollContent) {
+                scrollContent = new Node('CollectionScrollContent');
+                content.addChild(scrollContent);
+                scrollContent.addComponent(UITransform);
+            }
+            scrollContent.active = true;
+            scrollContent.layer = content.layer || Layers.Enum.UI_2D;
+            const scrollTransform = scrollContent.getComponent(UITransform) || scrollContent.addComponent(UITransform);
+            scrollTransform.setContentSize(availableW, totalH);
+            const maxOffset = Math.max(0, (totalH - availableH) / 2);
+            scrollContent.setPosition(0, -maxOffset, 0);
+            for (const child of scrollContent.children.slice()) {
+                child.destroy();
+            }
+            this._collectionScrollContentNode = scrollContent;
+            this._collectionTotalPages = 1;
+            this._collectionPage = 0;
+
+            for (let i = 0; i < allIds.length; i++) {
                 const levelId = allIds[i];
-                const idx = i - startIdx;
-                const col = idx % cols;
-                const row = Math.floor(idx / cols);
+                const col = i % cols;
+                const row = Math.floor(i / cols);
                 const cx = startX + col * (cardW + gapX);
                 const cy = startY - row * (cardH + gapY);
                 const unlocked = levelId <= savedLevel;
-                const slotName = `CollectionCardSlot_${idx}`;
-                const slot = content.getChildByName(slotName);
-                if (!slot) {
-                    throw new Error(`[collection-prefab] missing ${slotName}`);
-                }
+                const slot = instantiate(template);
+                slot.name = `CollectionScrollCard_${i}`;
                 slot.active = true;
+                slot.layer = scrollContent.layer;
+                scrollContent.addChild(slot);
                 slot.setPosition(cx, cy, 0);
                 (slot.getComponent(UITransform) || slot.addComponent(UITransform)).setContentSize(cardW, cardH);
                 this.drawCollectionCard(slot, levelId, 0, 0, cardW, cardH, unlocked, savedLevel);
             }
-
-            for (let idx = endIdx - startIdx; idx < 8; idx++) {
-                const stale = content.getChildByName(`CollectionCardSlot_${idx}`);
-                if (stale) {
-                    stale.active = false;
-                }
+            if (this._collectionPageIndicator) {
+                this._collectionPageIndicator.active = false;
             }
-        
-            // 更新页码指示器
-            this.renderPageIndicator(page);
-        
-            // 更新箭头状态
             this.updateCollectionArrows(page);
+            return scrollContent;
         },
 
         getCollectionPreviewBounds(grid: number[][]) {

@@ -2,7 +2,7 @@
   "ver": "1.0.27",
   "importer": "image",
   "imported": true,
-  "uuid": "500dcf3a-feba-4274-91dc-ff3f696bab43",
+  "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4",
   "files": [
     ".json",
     ".png"
@@ -10,20 +10,20 @@
   "subMetas": {
     "6c48a": {
       "importer": "texture",
-      "uuid": "500dcf3a-feba-4274-91dc-ff3f696bab43@6c48a",
-      "displayName": "popup_tool_magnet_icon",
+      "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a",
+      "displayName": "倒计时",
       "id": "6c48a",
       "name": "texture",
       "userData": {
         "wrapModeS": "clamp-to-edge",
         "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "500dcf3a-feba-4274-91dc-ff3f696bab43",
-        "isUuid": true,
-        "visible": false,
         "minfilter": "linear",
         "magfilter": "linear",
         "mipfilter": "none",
-        "anisotropy": 0
+        "anisotropy": 0,
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4",
+        "visible": false
       },
       "ver": "1.0.22",
       "imported": true,
@@ -34,21 +34,21 @@
     },
     "f9941": {
       "importer": "sprite-frame",
-      "uuid": "500dcf3a-feba-4274-91dc-ff3f696bab43@f9941",
-      "displayName": "popup_tool_magnet_icon",
+      "uuid": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941",
+      "displayName": "倒计时",
       "id": "f9941",
       "name": "spriteFrame",
       "userData": {
         "trimThreshold": 1,
         "rotated": false,
-        "offsetX": -2,
-        "offsetY": -2,
-        "trimX": 21,
-        "trimY": 43,
-        "width": 219,
-        "height": 224,
-        "rawWidth": 265,
-        "rawHeight": 306,
+        "offsetX": -16.5,
+        "offsetY": 2,
+        "trimX": 12,
+        "trimY": 3,
+        "width": 183,
+        "height": 85,
+        "rawWidth": 240,
+        "rawHeight": 95,
         "borderTop": 0,
         "borderBottom": 0,
         "borderLeft": 0,
@@ -60,17 +60,17 @@
         "meshType": 0,
         "vertices": {
           "rawPosition": [
-            -109.5,
-            -112,
+            -91.5,
+            -42.5,
             0,
-            109.5,
-            -112,
+            91.5,
+            -42.5,
             0,
-            -109.5,
-            112,
+            -91.5,
+            42.5,
             0,
-            109.5,
-            112,
+            91.5,
+            42.5,
             0
           ],
           "indexes": [
@@ -82,38 +82,38 @@
             3
           ],
           "uv": [
-            21,
-            263,
-            240,
-            263,
-            21,
-            39,
-            240,
-            39
+            12,
+            92,
+            195,
+            92,
+            12,
+            7,
+            195,
+            7
           ],
           "nuv": [
-            0.07924528301886792,
-            0.12745098039215685,
-            0.9056603773584906,
-            0.12745098039215685,
-            0.07924528301886792,
-            0.8594771241830066,
-            0.9056603773584906,
-            0.8594771241830066
+            0.05,
+            0.07368421052631578,
+            0.8125,
+            0.07368421052631578,
+            0.05,
+            0.968421052631579,
+            0.8125,
+            0.968421052631579
           ],
           "minPos": [
-            -109.5,
-            -112,
+            -91.5,
+            -42.5,
             0
           ],
           "maxPos": [
-            109.5,
-            112,
+            91.5,
+            42.5,
             0
           ]
         },
         "isUuid": true,
-        "imageUuidOrDatabaseUri": "500dcf3a-feba-4274-91dc-ff3f696bab43@6c48a",
+        "imageUuidOrDatabaseUri": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a",
         "atlasUuid": "",
         "trimType": "auto"
       },
@@ -127,8 +127,8 @@
   },
   "userData": {
     "type": "sprite-frame",
-    "hasAlpha": true,
     "fixAlphaTransparencyArtifacts": false,
-    "redirect": "500dcf3a-feba-4274-91dc-ff3f696bab43@6c48a"
+    "hasAlpha": true,
+    "redirect": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a"
   }
 }

@@ -23,19 +23,25 @@
       },
       {
         "__id__": 10
+      },
+      {
+        "__id__": 346
+      },
+      {
+        "__id__": 352
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 346
+        "__id__": 358
       },
       {
-        "__id__": 348
+        "__id__": 360
       }
     ],
     "_prefab": {
-      "__id__": 350
+      "__id__": 362
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -8630,6 +8636,278 @@
     "nestedPrefabInstanceRoots": null
   },
   {
+    "__type__": "cc.Node",
+    "_name": "ArrowLeft",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 1
+    },
+    "_children": [],
+    "_active": false,
+    "_components": [
+      {
+        "__id__": 347
+      },
+      {
+        "__id__": 349
+      }
+    ],
+    "_prefab": {
+      "__id__": 351
+    },
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": -316,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 346
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 348
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 42,
+      "height": 52
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "CollectionPanel-ArrowLeft-ui"
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 346
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 350
+    },
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_spriteFrame": {
+      "__uuid__": "c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
+    "_type": 0,
+    "_fillType": 0,
+    "_sizeMode": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": true,
+    "_useGrayscale": false,
+    "_atlas": null,
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "CollectionPanel-ArrowLeft-sprite"
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 1
+    },
+    "asset": {
+      "__id__": 0
+    },
+    "fileId": "CollectionPanel-ArrowLeft-node",
+    "instance": null,
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "ArrowRight",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 1
+    },
+    "_children": [],
+    "_active": false,
+    "_components": [
+      {
+        "__id__": 353
+      },
+      {
+        "__id__": 355
+      }
+    ],
+    "_prefab": {
+      "__id__": 357
+    },
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 316,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 352
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 354
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 42,
+      "height": 52
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "CollectionPanel-ArrowRight-ui"
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 352
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 356
+    },
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_spriteFrame": {
+      "__uuid__": "ec240361-153d-44d4-a268-931851e366ca@f9941",
+      "__expectedType__": "cc.SpriteFrame"
+    },
+    "_type": 0,
+    "_fillType": 0,
+    "_sizeMode": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": true,
+    "_useGrayscale": false,
+    "_atlas": null,
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "CollectionPanel-ArrowRight-sprite"
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 1
+    },
+    "asset": {
+      "__id__": 0
+    },
+    "fileId": "CollectionPanel-ArrowRight-node",
+    "instance": null,
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
     "__type__": "cc.UITransform",
     "_name": "",
     "_objFlags": 0,
@@ -8639,7 +8917,7 @@
     },
     "_enabled": true,
     "__prefab": {
-      "__id__": 347
+      "__id__": 359
     },
     "_contentSize": {
       "__type__": "cc.Size",
@@ -8667,7 +8945,7 @@
     },
     "_enabled": true,
     "__prefab": {
-      "__id__": 349
+      "__id__": 361
     },
     "_alignFlags": 45,
     "_target": null,

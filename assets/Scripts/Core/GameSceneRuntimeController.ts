@@ -8,7 +8,7 @@ import {
     UserStateSyncMgr,
     view,
 } from './GameCtrlShared';
-import { ResolutionPolicy, screen } from 'cc';
+import { ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
 
 export class GameSceneRuntimeController {
@@ -28,7 +28,8 @@ export class GameSceneRuntimeController {
         const fxRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'FxRoot');
         const loadingNode = canvas?.getChildByName('Loading');
         const gameNode = canvas?.getChildByName('Game');
-        const gameplayFixedRoot = screenRoot?.getChildByName('GameplayFixedRoot');
+        const gameplayRoot = screenRoot?.getChildByName('GameplayRoot');
+        const gameplayFixedRoot = gameplayRoot?.getChildByName('GameplayFixedRoot');
         const mainMenuRoot = screenRoot?.getChildByName('MainMenuRoot');
         if (bootRoot?.isValid && loadingNode?.isValid && !screenRoot?.isValid) {
             return 'Loading';
@@ -151,87 +152,97 @@ export class GameSceneRuntimeController {
     }
 
     private prepareSceneFrame(sceneName: string = this.getRuntimeSceneName()): void {
-        const policy = sceneName === 'Home'
-            ? ResolutionPolicy.FIXED_WIDTH
-            : ResolutionPolicy.SHOW_ALL;
         view.setDesignResolutionSize(
             this.runtime.constructor.VIEWPORT_WIDTH,
             this.runtime.constructor.VIEWPORT_HEIGHT,
-            policy,
+            ResolutionPolicy.FIXED_WIDTH,
         );
-        if (sceneName === 'Home') {
-            this.syncHomeOverlayRoots();
-            this.runtime.scheduleOnce(() => {
-                if (this.runtime.node?.isValid) {
-                    this.syncHomeOverlayRoots();
-                }
-            }, 0);
-        } else if (sceneName === 'Game') {
-            this.syncGameFullscreenRoots();
-            this.runtime.scheduleOnce(() => {
-                if (this.runtime.node?.isValid) {
-                    this.syncGameFullscreenRoots();
-                }
-            }, 0);
-        }
+        this.logScreenAdaptDebug(sceneName);
         PerformanceMgr.inst.init();
     }
 
-    private syncHomeOverlayRoots(): void {
-        const visibleSize = view.getVisibleSize();
+    private logScreenAdaptDebug(sceneName: string): void {
+        if (!this.isScreenAdaptDebugEnabled()) return;
         const scene = this.runtime.node?.scene;
-        const canvas = scene?.getChildByName('Canvas');
-        if (!canvas) {
-            throw new Error('[SceneUI] Home scene is missing root node: Canvas');
-        }
-        const screenRoot = canvas.getChildByName('ScreenRoot');
-        if (!screenRoot) {
-            throw new Error('[SceneUI] Home scene is missing root node: ScreenRoot');
-        }
-        for (const rootName of ['PopupRoot', 'OverlayRoot', 'FxRoot']) {
-            const root = this.findScreenOrCanvasRoot(canvas, screenRoot, rootName);
-            if (!root) {
-                throw new Error(`[SceneUI] Home scene is missing root node: ${rootName}`);
-            }
-            this.setRequiredRootSize(root, rootName, visibleSize.width, visibleSize.height);
-        }
+        const canvas = scene?.getChildByName('Canvas') || null;
+        const screenRoot = canvas?.getChildByName('ScreenRoot') || null;
+        const popupRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'PopupRoot');
+        const overlayRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'OverlayRoot');
+        const fxRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'FxRoot');
+        const bootRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'BootRoot');
+        console.warn('[ScreenAdaptDebug:cocos-view]', {
+            stage: 'after-set-design-resolution',
+            sceneName,
+            wx: this.pickWxScreenInfo(this.readWxScreenInfo()),
+            view: {
+                frame: this.sizeToPlain(view.getFrameSize()),
+                visible: this.sizeToPlain(view.getVisibleSize()),
+                design: this.sizeToPlain(view.getDesignResolutionSize()),
+            },
+            nodes: {
+                canvas: this.nodeSizeToPlain(canvas),
+                screenRoot: this.nodeSizeToPlain(screenRoot),
+                popupRoot: this.nodeSizeToPlain(popupRoot),
+                overlayRoot: this.nodeSizeToPlain(overlayRoot),
+                fxRoot: this.nodeSizeToPlain(fxRoot),
+                bootRoot: this.nodeSizeToPlain(bootRoot),
+            },
+        });
     }
 
-    private syncGameFullscreenRoots(): void {
-        const visibleSize = this.getGameFullscreenSize();
-        const scene = this.runtime.node?.scene;
-        const canvas = scene?.getChildByName('Canvas');
-        if (!canvas) {
-            throw new Error('[SceneUI] Game scene is missing root node: Canvas');
-        }
-        const screenRoot = canvas.getChildByName('ScreenRoot');
-        if (!screenRoot) {
-            throw new Error('[SceneUI] Game scene is missing root node: ScreenRoot');
-        }
-        for (const rootName of ['PopupRoot', 'OverlayRoot', 'FxRoot', 'BootRoot']) {
-            const root = this.findScreenOrCanvasRoot(canvas, screenRoot, rootName);
-            if (!root) {
-                throw new Error(`[SceneUI] Game scene is missing root node: ${rootName}`);
-            }
-            this.setRequiredRootSize(root, rootName, visibleSize.width, visibleSize.height);
-        }
+    private isScreenAdaptDebugEnabled(): boolean {
+        const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
+        const windowScope: any = typeof window !== 'undefined' ? window : null;
+        return !!(globalScope?.__PDD_SCREEN_ADAPT_DEBUG__ || windowScope?.__PDD_SCREEN_ADAPT_DEBUG__);
     }
 
-    private getGameFullscreenSize(): { width: number; height: number } {
-        const visibleSize = view.getVisibleSize();
-        const frameSize = screen.windowSize;
-        const designWidth = this.runtime.constructor.VIEWPORT_WIDTH;
-        const designHeight = this.runtime.constructor.VIEWPORT_HEIGHT;
-        let width = Math.max(visibleSize.width || 0, designWidth);
-        let height = Math.max(visibleSize.height || 0, designHeight);
-        if (frameSize.width > 0 && frameSize.height > 0) {
-            const frameAspect = frameSize.width / frameSize.height;
-            height = Math.max(height, width / frameAspect);
-            width = Math.max(width, height * frameAspect);
+    private readWxScreenInfo(): any {
+        const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
+        const windowScope: any = typeof window !== 'undefined' ? window : null;
+        const wxRuntime = globalScope?.__rawWx || windowScope?.wx || globalScope?.wx || null;
+        try {
+            if (typeof wxRuntime?.getWindowInfo === 'function') return wxRuntime.getWindowInfo();
+            if (typeof wxRuntime?.getSystemInfoSync === 'function') return wxRuntime.getSystemInfoSync();
+        } catch (error) {
+            return { error: error instanceof Error ? error.message : String(error) };
         }
+        return null;
+    }
+
+    private pickWxScreenInfo(raw: any): Record<string, unknown> | null {
+        if (!raw) return null;
         return {
-            width: Math.ceil(width),
-            height: Math.ceil(height),
+            windowWidth: raw.windowWidth,
+            windowHeight: raw.windowHeight,
+            screenWidth: raw.screenWidth,
+            screenHeight: raw.screenHeight,
+            pixelRatio: raw.pixelRatio || raw.devicePixelRatio,
+            devicePixelRatio: raw.devicePixelRatio,
+            safeArea: raw.safeArea,
+            platform: raw.platform,
+            model: raw.model,
+            system: raw.system,
+            error: raw.error,
+        };
+    }
+
+    private sizeToPlain(size: { width?: number; height?: number } | null | undefined): Record<string, number> | null {
+        if (!size) return null;
+        return {
+            width: Math.round(Number(size.width) || 0),
+            height: Math.round(Number(size.height) || 0),
+        };
+    }
+
+    private nodeSizeToPlain(node: Node | null | undefined): Record<string, number | string> | null {
+        if (!node?.isValid) return null;
+        const transform = node.getComponent(UITransform);
+        return {
+            name: node.name,
+            width: Math.round(Number(transform?.width) || 0),
+            height: Math.round(Number(transform?.height) || 0),
+            x: Math.round(Number(node.position.x) || 0),
+            y: Math.round(Number(node.position.y) || 0),
         };
     }
 
@@ -241,14 +252,6 @@ export class GameSceneRuntimeController {
         rootName: string,
     ): Node | null {
         return screenRoot?.getChildByName(rootName) || canvas?.getChildByName(rootName) || null;
-    }
-
-    private setRequiredRootSize(node: Node, context: string, width: number, height: number): void {
-        const uiTransform = node.getComponent(UITransform);
-        if (!uiTransform) {
-            throw new Error(`[SceneUI] ${context} is missing UITransform`);
-        }
-        uiTransform.setContentSize(width, height);
     }
 }
 
