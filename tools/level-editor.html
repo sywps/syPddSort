@@ -1759,7 +1759,7 @@ function applyOperation(op) {
         ? 'theme'
         : 'main';
     const filename = getLevelFilenameByType(levelId, currentLevelTargetType);
-    const url = `../assets/RemoteBundle/LevelData/${filename}`;
+    const url = `../assets/LevelData/${filename}`;
     fetch(url).then(r => {
         if (!r.ok) throw new Error('Not found');
         return r.json();

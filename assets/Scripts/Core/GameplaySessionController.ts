@@ -102,13 +102,14 @@ export class GameplaySessionController {
         runtime.assertGameplayVisualReadiness();
         runtime.refreshEndgameHints('init-game');
         if (runtime.isFirstLevelFunnelActive()) {
-            const activeLevel = runtime.getActivePhysicalLevelId();
+            const activePhysicalLevel = runtime.getActivePhysicalLevelId();
+            const activeLogicalLevel = runtime.getActiveLogicalLevelId();
             AnalyticsMgr.inst.markFirstLevelReady({
                 page: runtime.getAnalyticsPage(),
-                levelId: activeLevel,
-                logicalLevelId: activeLevel,
-                physicalLevelId: activeLevel,
-                source: runtime.shouldUseLocalBootstrapBundle(activeLevel) ? 'bootstrap' : 'remote',
+                levelId: activeLogicalLevel,
+                logicalLevelId: activeLogicalLevel,
+                physicalLevelId: activePhysicalLevel,
+                source: runtime.shouldUseLocalBootstrapBundle(activePhysicalLevel) ? 'bootstrap' : 'remote',
             });
         }
 
@@ -123,11 +124,12 @@ export class GameplaySessionController {
 
         runtime.resetIdleHintTimer();
         const analyticsLevelId = runtime.getAnalyticsLevelId();
+        const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
         AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
             abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
             abBucket: runtime._firstLevelRouteBucket,
             logicalLevelId: analyticsLevelId,
-            physicalLevelId: analyticsLevelId,
+            physicalLevelId: analyticsPhysicalLevelId,
         });
         SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
         if (!runtime.isExternalLevelPreviewActive()) {

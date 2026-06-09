@@ -74,11 +74,12 @@ for (const filePath of [
 const buildWechat = read('scripts/build-wechat.js');
 for (const required of [
     'WECHAT_APPID',
-    'WECHAT_REMOTE_MODE',
+    'WECHAT_GAME_ASSETS_MODE',
     'scripts/prepare-wechat-bootstrap.js',
     'scripts/write-level-data-cdn.js',
     'scripts/write-wechat-build-config.js',
     'scripts/postbuild-wechat.js',
+    'scripts/patch-bootstrap-dynamic-assets.js',
     'configPath=',
     'build/level-data-cdn',
     'build/wechatgame',
@@ -86,22 +87,22 @@ for (const required of [
     'stale asset-db/importer',
     'repairCocosMetaFiles',
     'scripts/repair-cocos-meta.js',
-    'RemoteBundle/LevelData',
+    'assets/LevelData',
     'BootstrapBundle',
-    '本地 remote bundle script 缺少稳定入口 index.js',
+    '本地 gameAssets bundle script 缺少稳定入口 index.js',
     'assertRuntimeScenes',
     'db://assets/Scenes/Home.scene',
     'db://assets/Scenes/Game.scene',
     'bean-atlas-data.json',
     'GameUI/bg_game_pindd',
     'GameUI/solid_white',
-    'RemoteBundle 不应包含豆豆图集资源',
-    'RemoteBundle 不应包含旧单豆图片目录',
+    'GameAssetsBundle 不应包含豆豆图集资源',
+    'GameAssetsBundle 不应包含旧单豆图片目录',
     'validateLevelDataCdn',
     'level_live.json',
-    'remote 分包',
-    'remote 微信分包缺少入口 game.js',
-    'main bundle 不应依赖 remote',
+    'gameAssets 分包',
+    'gameAssets 微信分包缺少入口 game.js',
+    'main bundle 不应依赖 \' + bundleName',
 ]) {
     assert.ok(buildWechat.includes(required), `build-wechat.js must include ${required}`);
 }
@@ -113,26 +114,47 @@ assert.strictEqual(buildWechat.includes(legacyResourcesPath), false, 'build-wech
 assert.strictEqual(buildWechat.includes('profiles/v2/packages/wechatgame.json'), false, 'build-wechat.js must not depend on missing Creator profile files');
 assert.strictEqual(buildWechat.includes('Atlas/bootstrap-atlas'), false, 'build-wechat.js must not restore legacy bootstrap atlas path');
 assert.strictEqual(exists('assets/BootstrapBundle/Atlas'), false, 'BootstrapBundle must not keep legacy Atlas/bootstrap-atlas source directory');
-assert.strictEqual(exists('assets/RemoteBundle/Textures/Beans/bean-atlas.json'), false, 'Remote bean atlas JSON must not share the PNG logical path');
-assert.strictEqual(exists('assets/RemoteBundle/Textures/Beans/bean-atlas-data.json'), false, 'Remote bean atlas data must move to BootstrapBundle');
-assert.strictEqual(exists('assets/RemoteBundle/Textures/Beans/bean-atlas.png'), false, 'Remote bean atlas image must move to BootstrapBundle');
+assert.strictEqual(exists('assets/GameAssetsBundle/Textures/Beans/bean-atlas.json'), false, 'Remote bean atlas JSON must not share the PNG logical path');
+assert.strictEqual(exists('assets/GameAssetsBundle/Textures/Beans/bean-atlas-data.json'), false, 'Remote bean atlas data must move to BootstrapBundle');
+assert.strictEqual(exists('assets/GameAssetsBundle/Textures/Beans/bean-atlas.png'), false, 'Remote bean atlas image must move to BootstrapBundle');
 assert.ok(exists('assets/BootstrapBundle/Beans/bean-atlas-data.json'), 'Bootstrap bean atlas JSON must exist');
 assert.ok(exists('assets/BootstrapBundle/Beans/bean-atlas.png'), 'Bootstrap bean atlas PNG must exist');
-assert.strictEqual(exists('assets/RemoteBundle/Textures/Pindd/Beans'), false, 'RemoteBundle must not keep legacy single bean PNG directory');
+assert.strictEqual(exists('assets/GameAssetsBundle/Textures/Pindd/Beans'), false, 'GameAssetsBundle must not keep legacy single bean PNG directory');
 assert.ok(exists('assets/BootstrapBundle/LevelData/level_1.json'), 'BootstrapBundle must keep mainline first level_1');
 assert.strictEqual(exists('assets/BootstrapBundle/LevelData/level_2.json'), false, 'BootstrapBundle must not keep stale first-level snapshot level_2');
+const auditAssets = read('scripts/audit-assets.js');
+assert.ok(auditAssets.includes('solid_white.png must stay a 1x1 8-bit RGBA PNG'), 'audit-assets must guard solid_white.png against WeChat 4930 decode regressions');
+assert.ok(auditAssets.includes('Home.scene startup SpriteFrames must remain in BootstrapBundle'), 'audit-assets must keep Home startup SpriteFrames in BootstrapBundle');
+assert.ok(auditAssets.includes('Scenes must not reference missing SpriteFrame assets'), 'audit-assets must catch deleted scene SpriteFrame sources');
+assert.ok(auditAssets.includes('Scenes must not strong-reference GameAssetsBundle SpriteFrames'), 'audit-assets must keep scene SpriteFrames out of GameAssetsBundle strong references');
+assert.ok(auditAssets.includes('assets/GameAssetsBundle/Textures/UI/主页标题.png'), 'audit-assets must forbid duplicated Home startup art in GameAssetsBundle');
+assert.ok(auditAssets.includes('e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941'), 'audit-assets must require the Bootstrap Home BG SpriteFrame UUID');
+assert.ok(auditAssets.includes('collectSceneSpriteFrameRefs'), 'audit-assets must scan scene SpriteFrame refs for missing source assets');
+assert.ok(auditAssets.includes('slot_row_lock_dash_ui.png'), 'audit-assets must require first-level lock dash source art');
 
 const prepareBootstrap = read('scripts/prepare-wechat-bootstrap.js');
 for (const required of [
     'const bootstrapLevelIds = [1]',
     'BootstrapBundle/Beans',
-    'RemoteBundle/LevelData',
+    'assets/LevelData',
     'bean-atlas-data.json',
     'bean-atlas.png',
     'validateRemoteDoesNotOwnBeanAtlas',
     'Bootstrap bean atlas 缺少首屏/全关卡豆豆帧',
 ]) {
     assert.ok(prepareBootstrap.includes(required), `prepare-wechat-bootstrap.js must include ${required}`);
+}
+const patchBootstrapAssets = read('scripts/patch-bootstrap-dynamic-assets.js');
+for (const required of [
+    'BootstrapBundle',
+    'cc.ImageAsset',
+    'cc.Texture2D',
+    'cc.SpriteFrame',
+    'subMetas',
+    'native',
+    'configEntries',
+]) {
+    assert.ok(patchBootstrapAssets.includes(required), `patch-bootstrap-dynamic-assets.js must include ${required}`);
 }
 const extractBootstrap = read('scripts/extract-bootstrap-bundle.js');
 assert.ok(extractBootstrap.includes('LevelData/level_1'), 'bootstrap extraction must keep level_1');
@@ -146,9 +168,9 @@ for (const required of [
 assert.strictEqual(extractBootstrap.includes('LevelData/level_2'), false, 'bootstrap extraction must not keep stale level_2');
 assert.strictEqual(extractBootstrap.includes('Audio/'), false, 'bootstrap extraction must not copy audio into the main package');
 
-const remoteBundleMeta = JSON.parse(read('assets/RemoteBundle.meta'));
-assert.strictEqual(remoteBundleMeta.userData?.compressionType, 'subpackage', 'RemoteBundle must build as a WeChat subpackage');
-assert.strictEqual(remoteBundleMeta.userData?.isRemote, undefined, 'RemoteBundle must not be a Cocos remote bundle');
+const gameAssetsBundleMeta = JSON.parse(read('assets/GameAssetsBundle.meta'));
+assert.strictEqual(gameAssetsBundleMeta.userData?.compressionType, 'subpackage', 'GameAssetsBundle must build as a WeChat subpackage');
+assert.strictEqual(gameAssetsBundleMeta.userData?.isRemote, undefined, 'GameAssetsBundle must not be a Cocos gameAssets bundle');
 
 const buildConfig = read('scripts/write-wechat-build-config.js');
 for (const required of [
@@ -165,7 +187,10 @@ for (const required of [
     'makeRuntimeScenes',
     'db://assets/Scenes/Home.scene',
     'mainBundleCompressionType: \'subpackage\'',
-    'db://assets/RemoteBundle',
+    'db://assets/GameAssetsBundle',
+    'name: \'gameAssets\'',
+    'db://assets/LevelData',
+    'name: \'levelData\'',
     'compressionType: \'subpackage\'',
     'isRemote: false',
 ]) {
@@ -198,21 +223,23 @@ for (const required of [
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/',
     'PDD_LEVEL_DATA_CDN_URL',
     '__PDD_WECHAT_BUILD__',
-    '__PDD_REMOTE_MODE__',
+    '__PDD_WECHAT_BUILD_MODE__',
+    '__PDD_GAME_ASSETS_MODE__',
     '__PDD_LEVEL_DATA_CDN_URL__',
-    'ensureStableRemoteBundleScriptLoader',
+    'ensureStableGameAssetsBundleScriptLoader',
     'minigameRootPath',
     'openDataContext',
     'globalThis.__rawWx',
-    'remote 必须是微信分包/本地 bundle',
-    'ensureRemoteWechatSubpackage',
+    'gameAssets 必须是微信分包/本地 bundle',
+    'ensureGameAssetsWechatSubpackage',
     'ensureSubpackageGameJs',
-    'subpackages/remote',
+    'subpackages/gameAssets',
+    "'subpackages/' + LEVEL_DATA_BUNDLE_NAME",
     '本地 resources bundle 已移除',
     'projectBundles',
     'ensureStartupPreloadBundles',
     'startup preload: bootstrap -> main',
-    'remote 分包目录由微信 subpackages 承载',
+    'gameAssets 分包目录由微信 subpackages 承载',
 ]) {
     assert.ok(postbuild.includes(required), `fix-game-json.js must include ${required}`);
 }
@@ -238,7 +265,7 @@ for (const required of [
     'PanelPreview',
     'FxPreview',
     'Game.scene 直接引用了未登记 prefab',
-    'Game.scene 直接引用了 RemoteBundle 资源',
+    'Game.scene 直接引用了 GameAssetsBundle 资源',
     'assertRuntimeScenes',
     'db://assets/Scenes/Home.scene',
     'db://assets/Scenes/Game.scene',
@@ -248,21 +275,26 @@ for (const required of [
     '微信包仍引用未授权 Cocos 插件',
     'plugin:cocos',
     'wx0446ba2621dda60a',
+    'Arrow(?:Left|Right)',
+    '微信包仍将 CollectionPanel 翻页箭头当成 prefab 必需节点',
     'findSubpackageRoot',
     'resolveBundleDir',
-    'main bundle 不应依赖 remote',
+    'main bundle 不应依赖 \' + bundleName',
     'subMetas',
     'bootstrap stable index.js',
     'game.js 不应注入 Cocos remote live.json 启动逻辑',
     'level_live.json',
     'levelDataCdnPath',
     '__PDD_WECHAT_BUILD__',
+    '__PDD_WECHAT_BUILD_MODE__',
     '__PDD_LEVEL_DATA_CDN_URL__',
-    'settings.assets.subpackages 缺少 remote',
-    'game.json.subpackages 缺少 remote',
-    'remote 微信分包目录',
-    'remote 分包 game.js',
-    'assets/remote',
+    'settings.assets.subpackages 缺少 gameAssets',
+    'game.json.subpackages 缺少 gameAssets',
+    'gameAssets 微信分包目录',
+    'gameAssets 分包 game.js',
+    'levelData 微信分包目录',
+    'release 包不应包含本地 levelData bundle',
+    'assets/gameAssets',
     'GameCtrl',
     'Beans/bean-atlas-data',
     'GameUI/bg_game_pindd',
@@ -270,7 +302,7 @@ for (const required of [
     '关卡数据 CDN 关卡数量异常',
     'LevelData/level_1',
     'bootstrap 不应包含非首关候选关卡',
-    '未与 RemoteBundle 真源同步',
+    '未与 assets/LevelData 真源同步',
     'assertStartupPreloadOrder',
     'bootstrap -> main',
 ]) {
@@ -282,7 +314,7 @@ for (const forbidden of [
     'pdd_boot_probe',
     'game_js_top',
     'CDN live.json remoteVersion',
-    'remote bundle-scripts versioned stub',
+    'gameAssets bundle-scripts versioned stub',
 ]) {
     assert.strictEqual(verifyWechat.includes(forbidden), false, `verify-wechat-build.js must not require uncertain boot probe ${forbidden}`);
 }
@@ -293,8 +325,8 @@ for (const required of [
     '--screenshot',
     '--logs',
     '--url',
-    'Please load bundle remote first',
-    'remote_bundle_missing_after_preload',
+    'Please load bundle gameAssets first',
+    'gameAssets_bundle_missing_after_preload',
     '预览截图疑似黑屏',
     'WECHAT_PREVIEW_URL',
     'playwright',
@@ -321,8 +353,8 @@ for (const required of [
     assert.ok(syncWechat.includes(required), `sync-cdn-wechat.js must include ${required}`);
 }
 assert.ok(syncWechat.includes('remote_dy'), 'sync-cdn-wechat.js must guard against Douyin CDN targets');
-assert.strictEqual(syncWechat.includes('bundleVers.remote'), false, 'sync-cdn-wechat.js must not depend on Cocos remote bundle versions');
-assert.strictEqual(syncWechat.includes('CDN config'), false, 'sync-cdn-wechat.js must not upload Cocos remote bundle config');
+assert.strictEqual(syncWechat.includes('bundleVers.gameAssets'), false, 'sync-cdn-wechat.js must not depend on Cocos gameAssets bundle versions');
+assert.strictEqual(syncWechat.includes('CDN config'), false, 'sync-cdn-wechat.js must not upload Cocos gameAssets bundle config');
 
 const metaCheck = read('scripts/verify-cocos-meta.js');
 assert.ok(metaCheck.includes("importer === '*'"), 'verify-cocos-meta.js must detect importer "*"');
@@ -342,6 +374,10 @@ for (const required of [
     'frozen stable-UI owner files',
     'code-owned dynamic UI files',
     'new runtime stable-UI owner files detected',
+    'assertGameSceneStaticUiOwnership',
+    'GameplayFixedRoot must not own SafeArea',
+    'BoardArea must not own a static Widget viewport',
+    'CollectionPanel.prefab must declare',
 ]) {
     assert.ok(uiOwnershipCheck.includes(required), `verify-ui-ownership.js must include ${required}`);
 }
@@ -356,20 +392,25 @@ for (const required of [
     assert.ok(assetAudit.includes(required), `audit-assets.js must guard ${required}`);
 }
 
+const openDataContextIndex = read('openDataContext/index.js');
+assert.ok(openDataContextIndex.includes('wx.getSharedCanvas()'), 'openDataContext/index.js must use the WeChat shared canvas');
+assert.strictEqual(openDataContextIndex.includes('Canvas.width ='), false, 'openDataContext/index.js must not assign read-only shared canvas width');
+assert.strictEqual(openDataContextIndex.includes('Canvas.height ='), false, 'openDataContext/index.js must not assign read-only shared canvas height');
+
 const levelManifestWriter = read('scripts/write-level-manifest.js');
 for (const required of [
-    "'assets', 'RemoteBundle', 'LevelData'",
+    "'assets', 'LevelData'",
     'levelId',
     'timeLimit',
     'colorIds',
 ]) {
     assert.ok(levelManifestWriter.includes(required), `write-level-manifest.js must include ${required}`);
 }
-assert.ok(exists('assets/RemoteBundle/LevelData/level-manifest.json'), 'level manifest must be generated into RemoteBundle LevelData');
+assert.ok(exists('assets/LevelData/level-manifest.json'), 'level manifest must be generated into assets/LevelData');
 
 const levelDataCdnWriter = read('scripts/write-level-data-cdn.js');
 for (const required of [
-    "'assets', 'RemoteBundle', 'LevelData'",
+    "'assets', 'LevelData'",
     "'build', 'level-data-cdn'",
     'level_packs',
     'level_live.json',
@@ -388,7 +429,7 @@ const gameCtrlHelperFiles = [
     'assets/Scripts/Core/AppSession.ts',
     'assets/Scripts/Core/SceneRouter.ts',
     'assets/Scripts/Core/GameSceneRuntimeController.ts',
-    'assets/Scripts/Core/RemoteLevelDataService.ts',
+    'assets/Scripts/Core/LevelDataCdnService.ts',
     'assets/Scripts/Core/SlotOnboardingPolicy.ts',
     'assets/Scripts/Core/GameplaySessionController.ts',
     'assets/Scripts/Core/GameplaySlotUiController.ts',
@@ -407,11 +448,196 @@ const gameCtrlModuleFiles = fs.readdirSync(path.join(root, 'assets/Scripts/Core/
     .sort()
     .map((name) => `assets/Scripts/Core/GameCtrlModules/${name}`);
 const gameCtrl = [gameCtrlEntry, gameCtrlShared, ...gameCtrlHelperFiles.map(read), ...gameCtrlPanelControllerFiles.map(read), ...gameCtrlModuleFiles.map(read)].join('\n');
+const levelDataCdnService = read('assets/Scripts/Core/LevelDataCdnService.ts');
+const boardInputViewportModule = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
+const settlementHudModule = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const tutorialGuideModule = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
+const gameplayViewController = read('assets/Scripts/Core/GameplayViewController.ts');
 const audioMgr = read('assets/Scripts/Core/AudioMgr.ts');
 const audioManifest = read('assets/Scripts/Core/AudioManifest.ts');
 const uiManifest = read('assets/Scripts/Core/UiManifest.ts');
 const gameScene = read('assets/Scenes/Game.scene');
 const gameSceneJson = JSON.parse(gameScene);
+const homeScene = read('assets/Scenes/Home.scene');
+const homeSceneJson = JSON.parse(homeScene);
+const collectionPanelJson = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'));
+
+function findSceneNodeByPath(sceneJson, rootName, childPath) {
+    const rootIndex = sceneJson.findIndex((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === rootName);
+    if (rootIndex < 0) return null;
+    let current = sceneJson[rootIndex];
+    for (const segment of childPath.split('/')) {
+        const childRef = (current._children || []).find((ref) => sceneJson[ref.__id__]?._name === segment);
+        if (!childRef) return null;
+        current = sceneJson[childRef.__id__];
+    }
+    return current;
+}
+
+function getSceneDirectChildNames(sceneJson, node) {
+    return (node._children || []).map((ref) => sceneJson[ref.__id__]?._name).filter(Boolean);
+}
+
+function sceneNodeHasComponent(sceneJson, node, componentType) {
+    return (node._components || []).some((ref) => sceneJson[ref.__id__]?.__type__ === componentType);
+}
+
+function getSceneNodeComponent(sceneJson, node, componentType) {
+    const componentRef = (node._components || []).find((ref) => sceneJson[ref.__id__]?.__type__ === componentType);
+    return componentRef ? sceneJson[componentRef.__id__] : null;
+}
+
+function assertSceneSpriteFrame(sceneJson, rootName, childPath, expectedUuid) {
+    const node = findSceneNodeByPath(sceneJson, rootName, childPath);
+    assert.ok(node, `Game.scene must contain ${rootName}/${childPath}`);
+    const sprite = getSceneNodeComponent(sceneJson, node, 'cc.Sprite');
+    assert.ok(sprite, `Game.scene ${rootName}/${childPath} must own a Sprite component`);
+    assert.strictEqual(sprite._spriteFrame?.__uuid__, expectedUuid, `Game.scene ${rootName}/${childPath} must keep SpriteFrame ${expectedUuid}`);
+}
+
+function findPrefabRootChild(prefabJson, name) {
+    const root = prefabJson[1];
+    const childRef = (root._children || []).find((ref) => prefabJson[ref.__id__]?._name === name);
+    return childRef ? prefabJson[childRef.__id__] : null;
+}
+
+function assertSceneComponentBackrefs(sceneJson, scenePath) {
+    sceneJson.forEach((entry, nodeIndex) => {
+        if (!entry || entry.__type__ !== 'cc.Node') return;
+        for (const componentRef of entry._components || []) {
+            const component = sceneJson[componentRef.__id__];
+            assert.ok(component, `${scenePath} node ${entry._name} has missing component ${componentRef.__id__}`);
+            assert.strictEqual(
+                component.node?.__id__,
+                nodeIndex,
+                `${scenePath} component ${componentRef.__id__} (${component.__type__}) must point back to node ${entry._name}`,
+            );
+        }
+    });
+}
+
+assertSceneComponentBackrefs(gameSceneJson, 'Game.scene');
+assertSceneComponentBackrefs(homeSceneJson, 'Home.scene');
+
+for (const [requiredHomePath, expected] of Object.entries({
+    'BackgroundLayer/BG': { uuid: 'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941', asset: 'home_bg' },
+    'TopBarGroup/SettingsButton/HomeSettingsIcon': { uuid: 'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941', asset: '设置' },
+    'TopBarGroup/VigorGroup/LivesBanner': { uuid: '8885ec69-f7f4-bb71-8fd7-e110a5061a63@f9941', asset: '爱心框' },
+    'TopBarGroup/GoldGroup/GoldBanner': { uuid: '47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941', asset: '金币框 (2)' },
+    'TitleLayer/TitleArt': { uuid: 'f7446f73-3160-35a9-ff10-9a1c6940e181@f9941', asset: '主页标题' },
+    'HeroLayer/HeroCard/HeroCardFrame': { uuid: '69f9cc1c-e9a2-8e2a-c828-fbeab6bacd79@f9941', asset: '预览框' },
+    'PrimaryActionLayer/StartBtn': { uuid: '0c366cf2-3492-9b22-9c2d-0ffb827e7cf4@f9941', asset: '主关卡按键 (2)' },
+    'PrimaryActionLayer/ThemeBtn': { uuid: 'f0915f71-2542-ebc5-1541-18f4e1a7656c@f9941', asset: '主题挑战' },
+    'EntryLayer/DailySignInBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
+    'EntryLayer/DailySignInBtn/DailySignInIcon': { uuid: '68e9eb2e-772d-f1ab-a25c-b2f79daa0083@f9941', asset: '签到1' },
+    'EntryLayer/LeaderboardBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
+    'EntryLayer/LeaderboardBtn/LeaderboardIcon': { uuid: '91a910e0-aaeb-094c-4b24-0ee12b074d31@f9941', asset: '排行榜1' },
+    'EntryLayer/CollectionBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
+    'EntryLayer/CollectionBtn/CollectionIcon': { uuid: '382d81c2-e3f4-5d6e-c6de-abcaed0907fd@f9941', asset: '图鉴1' },
+})) {
+    const node = findSceneNodeByPath(homeSceneJson, 'MainMenuFixedRoot', requiredHomePath);
+    assert.ok(node, `Home.scene must contain Bootstrap startup SpriteFrame path ${requiredHomePath}`);
+    assert.ok(sceneNodeHasComponent(homeSceneJson, node, 'cc.Sprite'), `Home.scene Bootstrap startup path must have Sprite component ${requiredHomePath}`);
+    const sprite = getSceneNodeComponent(homeSceneJson, node, 'cc.Sprite');
+    assert.strictEqual(sprite._spriteFrame?.__uuid__, expected.uuid, `Home.scene ${requiredHomePath} must use Bootstrap SpriteFrame ${expected.uuid}`);
+    assert.ok(exists(`assets/BootstrapBundle/GameUI/${expected.asset}.png`), `BootstrapBundle must contain ${expected.asset}.png`);
+    assert.ok(exists(`assets/BootstrapBundle/GameUI/${expected.asset}.png.meta`), `BootstrapBundle must contain ${expected.asset}.png.meta`);
+    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${expected.asset}.png`), false, `GameAssetsBundle must not duplicate ${expected.asset}.png`);
+    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${expected.asset}.png.meta`), false, `GameAssetsBundle must not duplicate ${expected.asset}.png.meta`);
+}
+const gameSettingsIconNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'TopBarGroup/Settings/SettingsIcon');
+assert.ok(gameSettingsIconNode, 'Game.scene must contain first-level Settings/SettingsIcon');
+const gameSettingsIconSprite = getSceneNodeComponent(gameSceneJson, gameSettingsIconNode, 'cc.Sprite');
+assert.ok(gameSettingsIconSprite, 'Game.scene Settings/SettingsIcon must have a Sprite component');
+assert.strictEqual(
+    gameSettingsIconSprite._spriteFrame?.__uuid__,
+    'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941',
+    'Game.scene first-level settings icon must use the Bootstrap settings SpriteFrame',
+);
+const gameCanvasNode = gameSceneJson.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'Canvas');
+const gameScreenRootNode = findSceneNodeByPath(gameSceneJson, 'Canvas', 'ScreenRoot');
+const gameplayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'GameplayRoot');
+const gameplayFixedRootNode = findSceneNodeByPath(gameSceneJson, 'GameplayRoot', 'GameplayFixedRoot');
+const gameplayRuntimeRootNode = findSceneNodeByPath(gameSceneJson, 'GameplayRoot', 'GameplayRuntimeRoot');
+const topBarGroupNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'TopBarGroup');
+const bottomHudGroupNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'BottomHudGroup');
+const boardAreaNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'BoardArea');
+const slotAreaNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'BottomHudGroup/SlotAreaGroup/SlotArea');
+const overlayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'OverlayRoot');
+assert.deepStrictEqual(getSceneDirectChildNames(gameSceneJson, gameCanvasNode), ['Camera', 'Game', 'ScreenRoot'], 'Game.scene Canvas must only directly host Camera, Game, and ScreenRoot');
+assert.deepStrictEqual(
+    getSceneDirectChildNames(gameSceneJson, gameScreenRootNode),
+    ['GameplayRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot', 'BootRoot'],
+    'Game.scene ScreenRoot must directly host gameplay/popup/overlay/fx/boot roots',
+);
+assert.ok(gameplayRootNode, 'Game.scene must expose GameplayRoot under ScreenRoot');
+assert.deepStrictEqual(
+    getSceneDirectChildNames(gameSceneJson, gameplayRootNode),
+    ['GameplayFixedRoot', 'GameplayRuntimeRoot'],
+    'Game.scene GameplayRoot must directly host fixed and runtime roots',
+);
+assert.ok(gameplayFixedRootNode, 'Game.scene must expose GameplayRoot/GameplayFixedRoot');
+assert.ok(gameplayRuntimeRootNode, 'Game.scene must expose GameplayRoot/GameplayRuntimeRoot');
+assert.ok(topBarGroupNode, 'Game.scene must expose GameplayFixedRoot/TopBarGroup');
+assert.ok(bottomHudGroupNode, 'Game.scene must expose GameplayFixedRoot/BottomHudGroup');
+assert.ok(boardAreaNode, 'Game.scene must expose GameplayFixedRoot/BoardArea');
+assert.ok(slotAreaNode, 'Game.scene must expose BottomHudGroup/SlotAreaGroup/SlotArea');
+assert.ok(overlayRootNode, 'Game.scene must expose ScreenRoot/OverlayRoot');
+assert.ok(getSceneDirectChildNames(gameSceneJson, overlayRootNode).includes('TutorialGuidePrompt'), 'OverlayRoot must expose the scene-owned tutorial guide prompt');
+const tutorialGuidePromptNode = findSceneNodeByPath(gameSceneJson, 'OverlayRoot', 'TutorialGuidePrompt');
+const tutorialGuidePromptBgNode = findSceneNodeByPath(gameSceneJson, 'OverlayRoot', 'TutorialGuidePrompt/BubbleBg');
+const tutorialGuidePromptLabelNode = findSceneNodeByPath(gameSceneJson, 'OverlayRoot', 'TutorialGuidePrompt/PromptLabel');
+assert.ok(tutorialGuidePromptNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt');
+assert.ok(tutorialGuidePromptBgNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/BubbleBg');
+assert.ok(tutorialGuidePromptLabelNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/PromptLabel');
+assert.strictEqual(tutorialGuidePromptNode._active, false, 'TutorialGuidePrompt must be hidden until tutorial runtime enables it');
+assert.strictEqual(tutorialGuidePromptNode._lpos.y, 438, 'TutorialGuidePrompt must keep the Cocos-owned default y');
+const tutorialGuidePromptUi = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptNode, 'cc.UITransform');
+assert.strictEqual(tutorialGuidePromptUi?._contentSize?.width, 360, 'TutorialGuidePrompt must keep the Cocos-owned width');
+assert.strictEqual(tutorialGuidePromptUi?._contentSize?.height, 68, 'TutorialGuidePrompt must keep the Cocos-owned height');
+const tutorialGuidePromptBgSprite = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptBgNode, 'cc.Sprite');
+assert.strictEqual(tutorialGuidePromptBgSprite?._spriteFrame?.__uuid__, '52e94005-3ca2-a20b-d083-d9c4e3836418@f9941', 'TutorialGuidePrompt/BubbleBg must use Bootstrap solid_white');
+assert.strictEqual(tutorialGuidePromptBgSprite?._color?.a, 0, 'TutorialGuidePrompt/BubbleBg must default to transparent');
+const tutorialGuidePromptLabel = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptLabelNode, 'cc.Label');
+assert.strictEqual(tutorialGuidePromptLabel?._fontSize, 22, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned font size');
+assert.strictEqual(tutorialGuidePromptLabel?._lineHeight, 28, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned line height');
+const gameplaySafeArea = getSceneNodeComponent(gameSceneJson, gameplayFixedRootNode, 'cc.SafeArea');
+assert.strictEqual(gameplaySafeArea, null, 'GameplayFixedRoot must not own SafeArea');
+for (const [label, node] of [['TopBarGroup', topBarGroupNode], ['BottomHudGroup', bottomHudGroupNode]]) {
+    const safeArea = getSceneNodeComponent(gameSceneJson, node, 'cc.SafeArea');
+    assert.ok(safeArea, `${label} must own a SafeArea`);
+    assert.strictEqual(safeArea._enabled, true, `${label} SafeArea must be enabled`);
+    assert.strictEqual(safeArea.node?.__id__, gameSceneJson.indexOf(node), `${label} SafeArea component must point back to ${label}`);
+}
+const boardAreaWidget = getSceneNodeComponent(gameSceneJson, boardAreaNode, 'cc.Widget');
+assert.strictEqual(boardAreaWidget, null, 'BoardArea must not own a static Widget viewport');
+assert.strictEqual(gameScene.includes('BoardArea_widget_static_viewport_20260608'), false, 'Game.scene must not keep the hard BoardArea viewport Widget id');
+const slotAreaWidget = getSceneNodeComponent(gameSceneJson, slotAreaNode, 'cc.Widget');
+assert.ok(slotAreaWidget, 'SlotArea must keep its Cocos Widget-owned bottom anchor');
+assert.strictEqual(slotAreaWidget._bottom, 110, 'SlotArea must keep the expanded-board scene bottom anchor');
+assert.strictEqual(slotAreaNode._lpos.y, -448.5, 'SlotArea must keep the expanded-board scene y baseline');
+for (const [requiredGamePath, expectedUuid] of [
+    ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
+    ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],
+    ['BottomHudGroup/SkillArea/SkillWand', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+    ['BottomHudGroup/SkillArea/SkillBrush', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+    ['BottomHudGroup/SkillArea/SkillMagnet', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
+    ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
+    ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
+    ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+]) {
+    assertSceneSpriteFrame(gameSceneJson, 'GameplayFixedRoot', requiredGamePath, expectedUuid);
+}
+for (const [arrowName, expectedUuid] of [
+    ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
+    ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
+]) {
+    const arrow = findPrefabRootChild(collectionPanelJson, arrowName);
+    assert.ok(arrow, `CollectionPanel.prefab must declare ${arrowName}`);
+    assert.strictEqual(arrow._active, false, `CollectionPanel.prefab ${arrowName} must be hidden by default`);
+    const sprite = getSceneNodeComponent(collectionPanelJson, arrow, 'cc.Sprite');
+    assert.strictEqual(sprite?._spriteFrame?.__uuid__, expectedUuid, `CollectionPanel.prefab ${arrowName} must keep its SpriteFrame`);
+}
 for (const filePath of ['assets/Scripts/Core/GameCtrl.ts', 'assets/Scripts/Core/GameCtrlShared.ts', ...gameCtrlHelperFiles, ...gameCtrlPanelControllerFiles, ...gameCtrlModuleFiles]) {
     const lineCount = read(filePath).split(/\r?\n/).length;
     assert.ok(lineCount < 1000, `${filePath} must stay below 1000 lines after GameCtrl split (actual ${lineCount})`);
@@ -435,13 +661,24 @@ assert.ok(gameCtrl.includes('evicted ${evicted} panel SpriteFrames from local ca
 assert.strictEqual(gameCtrl.includes('releaseUnusedAssets'), false, 'panel close must not call global releaseUnusedAssets during gameplay');
 assert.strictEqual(gameCtrl.includes('assetManager.releaseAsset(sf)'), false, 'panel close must not release SpriteFrame assets still possibly used by live renderers');
 assert.strictEqual(gameCtrl.includes('releaseAsset(texture)'), false, 'panel close must not release shared textures still possibly used by live renderers');
+assert.strictEqual(gameCtrl.includes('prepareMainMenuSceneSpriteFrames'), false, 'Home startup SpriteFrames must stay scene-authored in BootstrapBundle');
+assert.ok(gameCtrl.includes('Home.scene is missing SpriteFrame'), 'Home menu must fail fast when a scene-authored startup SpriteFrame is missing');
+assert.ok(gameCtrl.includes('renderMainMenuFixedRoot(fixedRoot);'), 'Home menu must render directly from scene-authored Bootstrap SpriteFrames');
+assert.strictEqual(gameCtrl.includes('getSkillShellIconFrameName'), false, 'Gameplay skill shells must not fill missing scene SpriteFrames at runtime');
+assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on SkillArea/${node.name}'), 'Gameplay skill shells must fail fast when scene-authored plate SpriteFrame is missing');
+assert.strictEqual(gameCtrl.includes("getSF('设置') || this.runtime.getSF('home_settings')"), false, 'Gameplay top bar settings icon must stay scene-authored');
+assert.ok(gameCtrl.includes("const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];"), 'Gameplay critical texture preload must include Bootstrap settings icon');
+assert.ok(gameCtrlShared.includes("LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_SLOT_TEXTURE_NAMES, ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES])"), 'Bootstrap settings, mainline slot shells, timer, unlock button, and skill buttons must always load from BootstrapBundle');
+assert.strictEqual(gameCtrl.includes('ensureTimerWrapFrame'), false, 'Gameplay timer frame must stay scene-authored');
+assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on ${path}'), 'Gameplay top-bar scene SpriteFrames must fail fast when missing');
+assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn'), 'Slot unlock button must fail fast when scene-authored SpriteFrame is missing');
 assert.ok(
     gameCtrl.includes("this._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings')")
         || gameCtrl.includes("runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings')"),
     'settings panel must not release textures while destroyed sprites can still render',
 );
 assert.ok(gameCtrl.includes("from './UiManifest'"), 'GameCtrl must import UI resource dependencies from UiManifest');
-assert.ok(uiManifest.includes('REMOTE_PRELOAD_TEXTURE_PATHS'), 'UiManifest must own remote preload textures');
+assert.ok(uiManifest.includes('GAME_ASSETS_PRELOAD_TEXTURE_PATHS'), 'UiManifest must own remote preload textures');
 assert.ok(uiManifest.includes('SETTINGS_PANEL_TEXTURE_NAMES'), 'UiManifest must own settings panel textures');
 assert.ok(uiManifest.includes('LEADERBOARD_TEXTURE_NAMES'), 'UiManifest must own leaderboard panel textures');
 assert.ok(uiManifest.includes('COLLECTION_TEXTURE_NAMES'), 'UiManifest must own collection panel textures');
@@ -462,16 +699,16 @@ for (const requiredPopupTexture of [
     'popup_guide_highlight_ring',
 ]) {
     assert.ok(uiManifest.includes(`'${requiredPopupTexture}'`), `UiManifest popup textures must include ${requiredPopupTexture}`);
-    assert.ok(exists(`assets/RemoteBundle/Textures/UI/${requiredPopupTexture}.png`), `RemoteBundle must contain ${requiredPopupTexture}.png`);
-    assert.ok(exists(`assets/RemoteBundle/Textures/UI/${requiredPopupTexture}.png.meta`), `RemoteBundle must contain ${requiredPopupTexture}.png.meta`);
+    assert.ok(exists(`assets/GameAssetsBundle/Textures/UI/${requiredPopupTexture}.png`), `GameAssetsBundle must contain ${requiredPopupTexture}.png`);
+    assert.ok(exists(`assets/GameAssetsBundle/Textures/UI/${requiredPopupTexture}.png.meta`), `GameAssetsBundle must contain ${requiredPopupTexture}.png.meta`);
 }
 assert.ok(audioMgr.includes("from './AudioManifest'"), 'AudioMgr must import audio resources from AudioManifest');
 assert.ok(audioManifest.includes('AUDIO_SFX_RESOURCE_PATH'), 'AudioManifest must own SFX paths');
 assert.ok(audioManifest.includes('AUDIO_BGM_RESOURCE_PATH'), 'AudioManifest must own BGM path');
 assert.ok(audioManifest.includes("place: 'Audio/pindd/right_place_short'"), 'place SFX must use the trimmed short landing clip');
-assert.ok(exists('assets/RemoteBundle/Audio/pindd/right_place_short.mp3'), 'trimmed place SFX asset must exist');
-assert.ok(exists('assets/RemoteBundle/Audio/pindd/right_place_short.mp3.meta'), 'trimmed place SFX meta must exist');
-assert.ok(fs.statSync(path.join(root, 'assets/RemoteBundle/Audio/win.mp3')).size <= 2968, 'win SFX must keep the compressed asset size');
+assert.ok(exists('assets/GameAssetsBundle/Audio/pindd/right_place_short.mp3'), 'trimmed place SFX asset must exist');
+assert.ok(exists('assets/GameAssetsBundle/Audio/pindd/right_place_short.mp3.meta'), 'trimmed place SFX meta must exist');
+assert.ok(fs.statSync(path.join(root, 'assets/GameAssetsBundle/Audio/win.mp3')).size <= 2968, 'win SFX must keep the compressed asset size');
 assert.ok(audioMgr.includes('preload(name: SfxName)'), 'AudioMgr must expose a no-autoplay SFX preload entry point');
 assert.ok(gameCtrl.includes("AudioMgr.inst.preload('place');"), 'gameplay init must preload place SFX before board-return landings');
 assert.strictEqual(audioMgr.includes('const SFX_RESOURCE_PATH'), false, 'AudioMgr must not keep local SFX path map');
@@ -483,10 +720,10 @@ assert.strictEqual(gameCtrl.includes('this.hideLoadingOverlay();\r\n            
 assert.ok(gameCtrl.includes("void AppRoot.inst.requestHomeSceneTransition('settings');"), 'settings home button must route through AppRoot');
 assert.ok(gameCtrl.includes('function isSceneTraceEnabled()'), 'SceneRouter must gate trace logging by explicit debug query');
 assert.ok(gameCtrl.includes('params.get(\'debug\') === \'1\' || params.get(\'log\') === \'1\' || !!params.get(\'ab\')'), 'SceneSplitTrace must only be enabled by debug/log/ab query');
-assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'Home scene must use fixed-width resolution policy');
-assert.ok(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), 'Game scene must keep show-all resolution policy');
+assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'scene runtime must use fixed-width resolution policy');
+assert.strictEqual(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), false, 'Home/Game must not split into different resolution policies');
 assert.ok(gameCtrl.includes("screenRoot?.getChildByName(name) || host.getChildByName(name)"), 'runtime root lookup must prefer ScreenRoot and fall back to Canvas');
-const progressFillMeta = JSON.parse(read('assets/RemoteBundle/Textures/UI/progress_fill.png.meta'));
+const progressFillMeta = JSON.parse(read('assets/GameAssetsBundle/Textures/UI/progress_fill.png.meta'));
 assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderLeft, 13, 'progress_fill left cap inset must protect rounded ends');
 assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderRight, 13, 'progress_fill right cap inset must protect rounded ends');
 assert.ok(
@@ -523,7 +760,7 @@ assert.strictEqual(gameCtrl.includes('解锁槽 x1'), false, 'gold shop must not
 assert.strictEqual(gameCtrl.includes('purchaseCost.expandSlot'), false, 'economy config must not keep retired unlock-slot purchase cost');
 assert.strictEqual(gameCtrl.includes('reward.expand'), false, 'daily sign-in must not grant retired unlock-slot prop');
 assert.ok(exists('assets/Scripts/Core/SlotOnboardingPolicy.ts.meta'), 'SlotOnboardingPolicy.ts must have Cocos meta');
-assert.ok(exists('assets/Scripts/Core/RemoteLevelDataService.ts.meta'), 'RemoteLevelDataService.ts must have Cocos meta');
+assert.ok(exists('assets/Scripts/Core/LevelDataCdnService.ts.meta'), 'LevelDataCdnService.ts must have Cocos meta');
 assert.ok(gameCtrl.includes('resolveSlotRowPolicy({'), 'gameplay session must resolve slot row policy at level start');
 assert.ok(gameCtrl.includes('if (levelId === 1)'), 'slot policy must special-case level 1 as one-row onboarding');
 assert.ok(gameCtrl.includes('levelId >= 3 && levelId <= 5'), 'slot policy must special-case levels 3-5');
@@ -756,25 +993,28 @@ const abSyncUserState = read('cloudfunctions/syncUserState/index.js');
 assert.strictEqual(abUserStateSyncMgr.includes('firstLevelRouteVariant'), false, 'AB bucket must not be part of client cloud user state');
 assert.strictEqual(abSyncUserState.includes('firstLevelRouteVariant'), false, 'AB bucket must not be persisted by syncUserState');
 for (const required of [
-    'reportRemoteLoadDiagnostic(activeLevelId, \'remote_config_start\'',
-    '\'remote_config_loaded\'',
-    '\'remote_config_failed\'',
-    '\'remote_startup_diagnostics\'',
-    '\'remote_level_load_start\'',
+    'reportLevelDataLoadDiagnostic(activeLevelId, \'gameAssets_config_start\'',
+    '\'gameAssets_config_loaded\'',
+    '\'gameAssets_config_failed\'',
+    '\'level_data_startup_diagnostics\'',
+    '\'level_data_load_start\'',
     '\'bootstrap_level_start\'',
     '\'first_level_json_loaded\'',
     '\'first_level_json_failed\'',
-    'stopRemoteLoadWithFatalError(',
-    'showRemoteLoadFatalError(',
+    'stopLevelDataLoadWithFatalError(',
+    'showLevelDataLoadFatalError(',
     'getRuntimeRemoteHash()',
-    'RemoteLevelDataService',
+    'LevelDataCdnService',
+    'levelDataCdn: LevelDataCdnService.inst.getAvailabilityDiagnostics()',
     'level_data_cdn',
+    'const bundlePath = `${prefix}${levelId}`;',
+    'bundle.load(bundlePath, JsonAsset',
     'remoteHash: this.getRuntimeRemoteHash()',
     'remoteServer: this.getRuntimeRemoteServer()',
     'levelPath',
-    'remote_bundle_missing_after_preload',
-    'remote_bean_assets_failed',
-    'remote_bean_assets_missing',
+    'gameAssets_bundle_missing_after_preload',
+    'gameAssets_bean_assets_failed',
+    'gameAssets_bean_assets_missing',
     '_hasBootstrapAtlasFramesForLevelData(',
     '_bootstrapBeanAtlasReady',
     '[bean] required bean SpriteFrame missing:',
@@ -795,6 +1035,16 @@ for (const required of [
 ]) {
     assert.ok(gameCtrl.includes(required), `GameCtrl must report first-level funnel event ${required}`);
 }
+for (const required of [
+    'function isWechatMiniGameRuntime()',
+    'typeof platform.getSystemInfoSync === \'function\'',
+    'const wechatRuntime = isWechatMiniGameRuntime();',
+    'isBrowserBackedRequester(requester) && !wechatRuntime',
+    'local_browser_external_cdn_disabled',
+    'getAvailabilityDiagnostics()',
+]) {
+    assert.ok(levelDataCdnService.includes(required), `LevelDataCdnService must allow WeChat DevTools CDN requester: ${required}`);
+}
 for (const forbidden of [
     'this.initGame(data || this.getBuiltinLevel()',
     'BeanSpriteFactory',
@@ -802,11 +1052,66 @@ for (const forbidden of [
     '_cacheGeneratedBootstrapBeanFrames',
     'generated fallback',
     '_ensureRemoteBeanAtlasLoaded',
-    '_preloadBeanFrameTasksFromRemoteBundle',
+    '_preloadBeanFrameTasksFromGameAssetsBundle',
     'private _hasRemoteBeanFramesForLevelData(',
 ]) {
     assert.strictEqual(gameCtrl.includes(forbidden), false, `GameCtrl remote loading must not silently fallback with ${forbidden}`);
 }
+for (const required of [
+    'getGameplayNodeBoundsInFixedRoot',
+    'getGameplayNodeVerticalBoundsInFixedRoot',
+    'getGameplayChildrenVerticalBounds',
+    'getTopBarAvoidBottomY',
+    'getBottomHudAvoidTopY',
+]) {
+    assert.ok(boardInputViewportModule.includes(required), `BoardInputViewportModule must use Cocos scene bounds for board safe viewport: ${required}`);
+}
+assert.strictEqual(boardInputViewportModule.includes("getGameplayFixedGroup?.('BoardArea')"), false, 'BoardInputViewportModule must not use BoardArea bounds as the board safe viewport');
+assert.strictEqual(boardInputViewportModule.includes('const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);'), false, 'BoardInputViewportModule must not keep static BoardArea viewport ownership');
+assert.ok(gameplayViewController.includes('const widthFitRatio = 0.95;'), 'GameplayViewController must keep board width fit stable');
+assert.ok(gameplayViewController.includes('const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;'), 'GameplayViewController must give large boards extra vertical breathing room');
+for (const required of [
+    'getGuideNodeVerticalBoundsInLayer',
+    'getGuideTopBarAvoidBottomY',
+    'getGuideBoardAvoidTopY',
+    'getGuidePromptCenterY',
+    'targetUi.convertToNodeSpaceAR(world)',
+    'const bottomLimit = boardTop + promptHeight / 2 + boardGap;',
+    'return (topBarBottom + boardTop) / 2;',
+]) {
+    assert.ok(settlementHudModule.includes(required), `SettlementHudModule must make tutorial prompts avoid the scene TopBar: ${required}`);
+}
+assert.ok(
+    settlementHudModule.includes("root.getChildByName('TutorialGuidePrompt')")
+        && settlementHudModule.includes("guidePrompt.getChildByName('PromptLabel')?.getComponent(Label)"),
+    'SettlementHudModule tutorial prompt must bind the scene-owned OverlayRoot/TutorialGuidePrompt nodes',
+);
+assert.strictEqual(
+    settlementHudModule.includes("new Node('GuideBubble')") || settlementHudModule.includes("new Node('BubbleLbl')"),
+    false,
+    'tutorial guide prompt shell must not be rebuilt at runtime',
+);
+assert.strictEqual(
+    settlementHudModule.includes('bubble.setPosition(') || tutorialGuideModule.includes('bubble.setPosition('),
+    false,
+    'tutorial guide prompt position must stay scene-owned',
+);
+assert.strictEqual(
+    settlementHudModule.includes('bubble.setPosition(0, 470);') || tutorialGuideModule.includes('bubble.setPosition(0, 470);'),
+    false,
+    'tutorial guide prompts must not keep the old fixed y=470 that overlaps WeChat top HUD',
+);
+assert.ok(
+    boardInputViewportModule.includes('this.getSceneGuidePromptBounds()')
+        && boardInputViewportModule.includes('this.getGuidePromptCenterY(450, 52)')
+        && boardInputViewportModule.includes('const tutorialBubbleGap = 12;'),
+    'BoardInputViewportModule must reserve the scene-owned tutorial prompt band with the old topbar-aware fallback',
+);
+assert.strictEqual(
+    gameCtrl.includes('return topEdge - 30 - safeInsets.top;'),
+    false,
+    'gameplay topbar fallback must not subtract safeInsets on top of scene SafeArea',
+);
 
 const analyticsMgr = read('assets/Scripts/Core/AnalyticsMgr.ts');
 for (const required of [
@@ -827,6 +1132,7 @@ for (const required of [
     'errcode: -501000',
     'clearFirstLevelAliveTimers',
     'addFunnelEvents',
+    "this.disableFunnelUpload('addFunnelEvents unavailable');",
 ]) {
     assert.ok(analyticsMgr.includes(required), `AnalyticsMgr must include first-level funnel support ${required}`);
 }
@@ -874,17 +1180,17 @@ for (const required of [
 assert.strictEqual(dashboard.includes('abVariant'), false, 'getAllDashboardData must not keep legacy abVariant field');
 
 const levelPreview = read('tools/level-preview.html');
-assert.ok(levelPreview.includes('../assets/RemoteBundle/LevelData/'), 'level-preview.html must read main levels from RemoteBundle');
+assert.ok(levelPreview.includes('../assets/LevelData/'), 'level-preview.html must read main levels from assets/LevelData');
 assert.strictEqual(levelPreview.includes('../assets/Resources/LevelData/'), false, 'level-preview.html must not read removed Resources LevelData');
 const guankaPreview = read('tools/guanka-preview.html');
-assert.ok(guankaPreview.includes("const DEFAULT_LEVEL_DIR = 'assets/RemoteBundle/LevelData'"), 'guanka-preview.html must default to RemoteBundle LevelData');
+assert.ok(guankaPreview.includes("const DEFAULT_LEVEL_DIR = 'assets/LevelData'"), 'guanka-preview.html must default to assets/LevelData');
 assert.strictEqual(guankaPreview.includes("const DEFAULT_LEVEL_DIR = 'tools/guanka'"), false, 'guanka-preview.html must not default to missing tools/guanka');
-assert.ok(guankaPreview.includes("url.searchParams.set('level', String(data.levelId));"), 'guanka-preview.html must open default RemoteBundle levels with ?level=');
+assert.ok(guankaPreview.includes("url.searchParams.set('level', String(data.levelId));"), 'guanka-preview.html must open default GameAssetsBundle levels with ?level=');
 assert.ok(guankaPreview.includes("url.searchParams.set('levelfile', getLevelFilePath(data));"), 'guanka-preview.html must keep levelfile fallback for custom directories');
 const guankaRefine = read('tools/guanka-refine.html');
-assert.ok(guankaRefine.includes("const DEFAULT_LEVEL_DIR = 'assets/RemoteBundle/LevelData'"), 'guanka-refine.html must default to RemoteBundle LevelData');
+assert.ok(guankaRefine.includes("const DEFAULT_LEVEL_DIR = 'assets/LevelData'"), 'guanka-refine.html must default to assets/LevelData');
 assert.ok(guankaRefine.includes("fetch(buildApiUrl('/api/load-level'"), 'guanka-refine.html must load levels through the tools API');
-assert.ok(guankaRefine.includes("fetch('/api/save-level-game'"), 'guanka-refine.html must save game levels to RemoteBundle through the game save API');
+assert.ok(guankaRefine.includes("fetch('/api/save-level-game'"), 'guanka-refine.html must save game levels to GameAssetsBundle through the game save API');
 assert.ok(guankaRefine.includes("body: JSON.stringify({ targetType: 'main', levelData: levelToSave })"), 'guanka-refine.html must save a clean wrapped main-level payload');
 assert.strictEqual(guankaRefine.includes('./guanka/level_'), false, 'guanka-refine.html must not load from missing tools/guanka');
 
@@ -897,8 +1203,8 @@ const themeLoadingOverlay = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadi
 assert.ok(/startThemeLevel[\s\S]*getRuntimeSceneName\('Game'\) === 'Home'[\s\S]*requestGameplaySceneTransition\(levelId, 'zt_level_', false\)/.test(themeLoadingOverlay), 'Theme challenge levels must route Home -> Game before loading zt_level gameplay');
 
 const toolsServer = read('tools/server.py');
-assert.ok(toolsServer.includes("'assets', 'RemoteBundle', 'LevelData'"), 'tools/server.py must save game levels to RemoteBundle LevelData');
-assert.ok(toolsServer.includes('LEVEL_DATA_DIR = GAME_LEVEL_DATA_DIR'), 'tools/server.py default level directory must be RemoteBundle LevelData');
+assert.ok(toolsServer.includes("'assets', 'LevelData'"), 'tools/server.py must save game levels to assets/LevelData');
+assert.ok(toolsServer.includes('LEVEL_DATA_DIR = GAME_LEVEL_DATA_DIR'), 'tools/server.py default level directory must be assets/LevelData');
 assert.strictEqual(toolsServer.includes("'assets', 'Resources', 'LevelData'"), false, 'tools/server.py must not save game levels to removed Resources LevelData');
 
 const userStateSyncMgr = read('assets/Scripts/Core/UserStateSyncMgr.ts');

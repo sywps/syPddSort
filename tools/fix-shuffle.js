@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const DIR = path.join(__dirname, '..', 'assets', 'RemoteBundle', 'LevelData');
+const DIR = path.join(__dirname, '..', 'assets', 'LevelData');
 
 function seededRandom(seed) {
     let s = seed;

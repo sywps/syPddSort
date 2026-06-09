@@ -5,7 +5,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const projectDir = path.resolve(__dirname, '..');
-const remoteRoot = path.join(projectDir, 'assets', 'RemoteBundle');
+const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
+const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const bootstrapRoot = path.join(projectDir, 'assets', 'BootstrapBundle');
 const bootstrapLevelIds = [1];
 const beanAtlasFrames = Array.from({ length: 21 }, (_, index) => {
@@ -68,9 +69,9 @@ function syncBootstrapLevelData() {
         log(`已移除非首关 Bootstrap 快照: ${name}`);
     }
     for (const levelId of bootstrapLevelIds) {
-        const src = path.join(remoteRoot, 'LevelData', `level_${levelId}.json`);
+        const src = path.join(levelDataRoot, `level_${levelId}.json`);
         const dest = path.join(levelDir, `level_${levelId}.json`);
-        assertFile(src, `RemoteBundle/LevelData/level_${levelId}.json`);
+        assertFile(src, `assets/LevelData/level_${levelId}.json`);
         const srcContent = fs.readFileSync(src, 'utf8');
         if (!fs.existsSync(dest) || fs.readFileSync(dest, 'utf8') !== srcContent) {
             fs.writeFileSync(dest, srcContent);
@@ -95,7 +96,7 @@ function validateBootstrapBeanAtlas() {
 }
 
 function validateRemoteDoesNotOwnBeanAtlas() {
-    const remoteBeanDir = path.join(remoteRoot, 'Textures', 'Beans');
+    const remoteBeanDir = path.join(gameAssetsRoot, 'Textures', 'Beans');
     for (const name of [
         'bean-atlas.json',
         'bean-atlas.json.meta',
@@ -111,4 +112,4 @@ function validateRemoteDoesNotOwnBeanAtlas() {
 syncBootstrapLevelData();
 validateBootstrapBeanAtlas();
 validateRemoteDoesNotOwnBeanAtlas();
-log('BootstrapBundle 已准备完成：首关快照来自 RemoteBundle/LevelData，豆豆图集真源来自 BootstrapBundle/Beans');
+log('BootstrapBundle 已准备完成：首关快照来自 assets/LevelData，豆豆图集真源来自 BootstrapBundle/Beans');

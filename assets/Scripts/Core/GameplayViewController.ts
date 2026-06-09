@@ -24,18 +24,33 @@ import {
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
 
+    private requireSceneSpriteFrame(node: Node, path: string): void {
+        const sprite = node.getComponent(Sprite);
+        if (!sprite) {
+            throw new Error(`[GameplayScene] Game.scene is missing Sprite component on ${path}`);
+        }
+        if (!sprite.spriteFrame) {
+            throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on ${path}`);
+        }
+    }
+
     getGameplayScreenRoot() {
         return this.runtime.requireCanvasUiRoot('ScreenRoot');
     }
 
-    getGameplayFixedRoot() {
+    getGameplayRoot() {
         const screenRoot = this.getGameplayScreenRoot();
-        return this.runtime.requireUiChild(screenRoot, 'GameplayFixedRoot', 'ScreenRoot/GameplayFixedRoot');
+        return this.runtime.requireUiChild(screenRoot, 'GameplayRoot', 'ScreenRoot/GameplayRoot');
+    }
+
+    getGameplayFixedRoot() {
+        const gameplayRoot = this.getGameplayRoot();
+        return this.runtime.requireUiChild(gameplayRoot, 'GameplayFixedRoot', 'GameplayRoot/GameplayFixedRoot');
     }
 
     getGameplayRuntimeRoot() {
-        const screenRoot = this.getGameplayScreenRoot();
-        return this.runtime.requireUiChild(screenRoot, 'GameplayRuntimeRoot', 'ScreenRoot/GameplayRuntimeRoot');
+        const gameplayRoot = this.getGameplayRoot();
+        return this.runtime.requireUiChild(gameplayRoot, 'GameplayRuntimeRoot', 'GameplayRoot/GameplayRuntimeRoot');
     }
 
     getGameplayRuntimeGroup(name: string) {
@@ -254,7 +269,8 @@ export class GameplayViewController {
             return;
         }
         const gear = runtime.requireUiChild(root, 'Settings', 'TopBarGroup/Settings');
-        runtime.requireUiChild(gear, 'SettingsIcon', 'Settings/SettingsIcon');
+        const settingsIcon = runtime.requireUiChild(gear, 'SettingsIcon', 'Settings/SettingsIcon');
+        this.requireSceneSpriteFrame(settingsIcon, 'Settings/SettingsIcon');
         gear.getComponent(Button) || gear.addComponent(Button);
         gear.targetOff(runtime);
         gear.on(Button.EventType.CLICK, () => {
@@ -263,6 +279,7 @@ export class GameplayViewController {
         }, runtime);
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
+        this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
@@ -281,9 +298,11 @@ export class GameplayViewController {
             AudioMgr.inst.play('button');
             runtime.openSettingsPanel();
         }, runtime);
-        runtime.requireUiChild(gearBtn, 'SettingsIcon', 'Settings/SettingsIcon');
+        const settingsIcon = runtime.requireUiChild(gearBtn, 'SettingsIcon', 'Settings/SettingsIcon');
+        this.requireSceneSpriteFrame(settingsIcon, 'Settings/SettingsIcon');
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
+        this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
@@ -298,10 +317,6 @@ export class GameplayViewController {
         const labelNode = node.getChildByName('Label') || node;
         const label = labelNode.getComponent(Label);
         if (!label) throw new Error('[GameplayScene] Game.scene is missing Label component on TopBarGroup/LevelTitle/Label');
-        label.horizontalAlign = Label.HorizontalAlign.CENTER;
-        label.verticalAlign = Label.VerticalAlign.CENTER;
-        label.enableWrapText = false;
-        label.overflow = Label.Overflow.SHRINK;
         runtime.levelLabel = label;
         runtime.refreshCompletionProgressLabel();
     }
@@ -572,8 +587,10 @@ export class GameplayViewController {
         const step = runtime.cellSize + runtime.cellGap;
         const targetW = targetCols * step - runtime.cellGap + padding;
         const targetH = targetRows * step - runtime.cellGap + padding;
-        const widthScale = availableW * 0.9 / Math.max(1, targetW);
-        const heightScale = availableH * 0.9 / Math.max(1, targetH);
+        const widthFitRatio = 0.95;
+        const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;
+        const widthScale = availableW * widthFitRatio / Math.max(1, targetW);
+        const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
         const initScale = Math.min(widthScale, heightScale);
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - bw / 2) * step;
         const targetCenterY = (bh / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;

@@ -107,8 +107,8 @@ const config = {
             output: true,
         },
         {
-            root: 'db://assets/RemoteBundle',
-            name: 'remote',
+            root: 'db://assets/GameAssetsBundle',
+            name: 'gameAssets',
             compressionType: 'subpackage',
             isRemote: false,
             output: true,
@@ -132,6 +132,16 @@ const config = {
     },
 };
 
+if (debugMode) {
+    config.bundleConfigs.push({
+        root: 'db://assets/LevelData',
+        name: 'levelData',
+        compressionType: 'subpackage',
+        isRemote: false,
+        output: true,
+    });
+}
+
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, JSON.stringify(config, null, 2) + '\n');
-console.log('已生成微信构建配置(' + (debugMode ? 'debug-diagnostics' : 'release') + '): ' + outputPath);
+console.log('已生成微信构建配置(' + (debugMode ? 'debug' : 'release') + '): ' + outputPath);

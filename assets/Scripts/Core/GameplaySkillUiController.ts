@@ -100,9 +100,8 @@ export class GameplaySkillUiController {
             throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SkillArea/${node.name}`);
         }
         if (!sprite.spriteFrame) {
-            throw new Error(`[GameplayScene] Game.scene is missing static plate SpriteFrame on SkillArea/${node.name}`);
+            throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on SkillArea/${node.name}`);
         }
-        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         const icon = node.getChildByName('ToolIcon');
         if (!icon?.isValid) {
             throw new Error(`[GameplayScene] Game.scene is missing SkillArea/${node.name}/ToolIcon`);
@@ -110,10 +109,12 @@ export class GameplaySkillUiController {
         icon.active = true;
         icon.layer = Layers.Enum.UI_2D;
         const iconSprite = icon.getComponent(Sprite);
-        if (!iconSprite || !iconSprite.spriteFrame) {
-            throw new Error(`[GameplayScene] Game.scene is missing static ToolIcon SpriteFrame on SkillArea/${node.name}`);
+        if (!iconSprite) {
+            throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SkillArea/${node.name}/ToolIcon`);
         }
-        iconSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        if (!iconSprite.spriteFrame) {
+            throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on SkillArea/${node.name}/ToolIcon`);
+        }
         return sprite;
     }
 
@@ -135,18 +136,6 @@ export class GameplaySkillUiController {
                 node.targetOff(runtime);
             }
             return;
-        }
-        const missingSkillTextures = SKILL_BUTTON_TEXTURE_NAMES.filter((name) => !runtime.getSF(name));
-        if (missingSkillTextures.length > 0 && !runtime._skillTexturesEnsuring) {
-            runtime._skillTexturesEnsuring = true;
-            runtime._ensureSpriteFramesByName(missingSkillTextures, () => {
-                runtime._skillTexturesEnsuring = false;
-                const allReady = SKILL_BUTTON_TEXTURE_NAMES.every((name) => runtime.getSF(name));
-                if (!allReady || !runtime.node?.isValid || !runtime.levelData || runtime.isGameEnd) {
-                    return;
-                }
-                this.rebuildSkillButtonsUI();
-            });
         }
 
         for (let i = 0; i < skills.length; i++) {

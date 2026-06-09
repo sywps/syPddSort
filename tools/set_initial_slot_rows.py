@@ -10,7 +10,7 @@ from pathlib import Path
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Set initialSlotUnlockedRows on level JSON files.")
-    parser.add_argument("--dir", default="assets/RemoteBundle/LevelData")
+    parser.add_argument("--dir", default="assets/LevelData")
     parser.add_argument("--rows", type=int, required=True)
     parser.add_argument("levels", nargs="+", type=int)
     return parser.parse_args()

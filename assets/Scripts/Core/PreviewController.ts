@@ -21,7 +21,7 @@ export class PreviewController extends GameRuntimeHost {
     private fxPreviewPage = 0;
 
     start() {
-        view.setDesignResolutionSize(720, 1280, ResolutionPolicy.SHOW_ALL);
+        view.setDesignResolutionSize(720, 1280, ResolutionPolicy.FIXED_WIDTH);
         this.preparePreviewRuntime();
 
         const screenRoot = (this as any).requireCanvasUiRoot('ScreenRoot') as Node;
@@ -59,7 +59,7 @@ export class PreviewController extends GameRuntimeHost {
         const overlayTemplates = overlayRoot.getChildByName('OverlayTemplates');
         startupLoadingUi.active = false;
         if (overlayTemplates) {
-            this.hidePreviewOverlayTemplate(overlayTemplates, 'RemoteLoadFatalError');
+            this.hidePreviewOverlayTemplate(overlayTemplates, 'LevelDataLoadFatalError');
         }
         runtime._loadingOverlay = null;
         runtime._loadingClosing = false;

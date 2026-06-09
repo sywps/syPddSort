@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish launch selection into assets/RemoteBundle/LevelData sequential slots."""
+"""Publish launch selection into assets/LevelData sequential slots."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Dict, List
 
 ROOT = Path(__file__).resolve().parents[1]
 GUANKA_DIR = ROOT / "guanka"
-LEVELDATA_DIR = ROOT / "assets" / "RemoteBundle" / "LevelData"
+LEVELDATA_DIR = ROOT / "assets" / "LevelData"
 GENERATED_DIR = ROOT / "tools" / "generated_levels"
 
 DEFAULT_SELECTIONS = {
@@ -76,7 +76,7 @@ def color_count(source: Dict[str, object]) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Publish launch selection to assets/RemoteBundle/LevelData.")
+    parser = argparse.ArgumentParser(description="Publish launch selection to assets/LevelData.")
     parser.add_argument("--count", type=int, choices=sorted(DEFAULT_SELECTIONS), default=300)
     parser.add_argument("--selection")
     parser.add_argument("--mapping-out")

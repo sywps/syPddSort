@@ -16,9 +16,9 @@ function assertIncludes(source, needle, label) {
     assert.ok(source.includes(needle), `${label} must include ${needle}`);
 }
 
-const prefabPath = 'assets/RemoteBundle/UI/Prefabs/Fx/EndgameHintCell.prefab';
-const prefabMetaPath = 'assets/RemoteBundle/UI/Prefabs/Fx/EndgameHintCell.prefab.meta';
-const fxMetaPath = 'assets/RemoteBundle/UI/Prefabs/Fx.meta';
+const prefabPath = 'assets/GameAssetsBundle/UI/Prefabs/Fx/EndgameHintCell.prefab';
+const prefabMetaPath = 'assets/GameAssetsBundle/UI/Prefabs/Fx/EndgameHintCell.prefab.meta';
+const fxMetaPath = 'assets/GameAssetsBundle/UI/Prefabs/Fx.meta';
 
 assert.ok(fs.existsSync(path.join(root, prefabPath)), 'EndgameHintCell.prefab must exist');
 assert.ok(fs.existsSync(path.join(root, prefabMetaPath)), 'EndgameHintCell.prefab.meta must exist');

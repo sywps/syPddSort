@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const OUT_DIR = path.join(__dirname, '..', 'assets', 'RemoteBundle', 'LevelData');
+const OUT_DIR = path.join(__dirname, '..', 'assets', 'LevelData');
 
 // Colors: 0=empty, 1=red, 2=orange, 3=yellow, 4=green, 5=blue
 const COLORS = [1, 2, 3, 4, 5];

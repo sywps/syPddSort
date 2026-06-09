@@ -43,13 +43,10 @@ function syncPrefabPopupTitle(box: Node, title?: string): void {
     if (hasTitle) label.string = title!;
 }
 
-function resolveShellActionNode(runtime: any, overlay: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
+function resolveShellActionNode(overlay: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
     const existing = overlay.getChildByName(name);
-    if (existing) {
+    if (existing?.isValid) {
         return existing;
-    }
-    if (typeof runtime.getOrCreateCollectionShellActionNode === 'function') {
-        return runtime.getOrCreateCollectionShellActionNode(overlay, name);
     }
     throw new Error(`[collection-shell] missing node: ${name}`);
 }
@@ -61,9 +58,9 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
     }
 
     const prefabPath = 'UI/Prefabs/Panels/CollectionPanel';
-    runtime._withRemoteBundle((bundle: Bundle | null) => {
+    runtime._withGameAssetsBundle((bundle: Bundle | null) => {
         if (!bundle) {
-            console.error(`[collection-shell] remote bundle unavailable for ${options.overlayName}`);
+            console.error(`[collection-shell] gameAssets bundle unavailable for ${options.overlayName}`);
             return;
         }
         bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
@@ -87,8 +84,8 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             }
             const content = runtime.requirePanelChild(box, 'CollContent');
             const pageIndicator = runtime.requirePanelChild(box, 'PageIndicator');
-            const leftArrow = resolveShellActionNode(runtime, overlay, 'ArrowLeft');
-            const rightArrow = resolveShellActionNode(runtime, overlay, 'ArrowRight');
+            const leftArrow = resolveShellActionNode(overlay, 'ArrowLeft');
+            const rightArrow = resolveShellActionNode(overlay, 'ArrowRight');
             const close = () => {
                 if (!overlay.isValid) return;
                 AudioMgr.inst.play('uiPanel');

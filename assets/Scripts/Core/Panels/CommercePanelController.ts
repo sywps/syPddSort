@@ -80,8 +80,8 @@ export class CommercePanelController {
                 console.error(message);
             };
 
-            runtime._withRemoteBundle((bundle: Bundle | null) => {
-                if (!bundle) { failOpen('[gold-shop-prefab] remote bundle unavailable'); return; }
+            runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!bundle) { failOpen('[gold-shop-prefab] gameAssets bundle unavailable'); return; }
                 bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
                     if (err || !prefab) { failOpen(`[gold-shop-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
                     let overlay: Node | null = null;
@@ -228,8 +228,8 @@ export class CommercePanelController {
             console.error(message);
         };
 
-        runtime._withRemoteBundle((bundle: Bundle | null) => {
-            if (!bundle) { failOpen('[daily-signin-prefab] remote bundle unavailable'); return; }
+        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!bundle) { failOpen('[daily-signin-prefab] gameAssets bundle unavailable'); return; }
             bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
                 if (err || !prefab) { failOpen(`[daily-signin-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
                 let overlay: Node | null = null;

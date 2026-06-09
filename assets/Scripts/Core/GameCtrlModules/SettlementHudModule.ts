@@ -6,18 +6,18 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
@@ -466,6 +466,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         doRestart() {
+            AnalyticsMgr.inst.finalizePendingFailedLevel();
             this.isGameEnd = true;
             this.unschedule(this.tickTimer);
             this.unscheduleAllCallbacks();
@@ -679,22 +680,16 @@ export function installSettlementHudModule(target: any): void {
             this._guideMask.addComponent(UITransform).setContentSize(720, 1280);
             this._guideMask.layer = Layers.Enum.UI_2D;
         
-            this._guideBubble = new Node('GuideBubble');
-            this._guideLayer.addChild(this._guideBubble);
-            this._guideBubble.addComponent(UITransform).setContentSize(440, 120);
-            this._guideBubble.layer = Layers.Enum.UI_2D;
-        
-            const bubbleLblNode = new Node('BubbleLbl');
-            this._guideBubble.addChild(bubbleLblNode);
-            bubbleLblNode.addComponent(UITransform).setContentSize(400, 100);
-            bubbleLblNode.layer = Layers.Enum.UI_2D;
-            bubbleLblNode.setPosition(0, 0);
-            const lbl = bubbleLblNode.addComponent(Label);
-            lbl.fontSize = 24;
-            lbl.color = new Color('#3A3020');
-            lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
-            lbl.verticalAlign = Label.VerticalAlign.CENTER;
-            lbl.overflow = Label.Overflow.SHRINK;
+            const guidePrompt = root.getChildByName('TutorialGuidePrompt');
+            if (!guidePrompt) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt');
+            }
+            const lbl = guidePrompt.getChildByName('PromptLabel')?.getComponent(Label);
+            if (!lbl) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt/PromptLabel Label');
+            }
+            guidePrompt.active = true;
+            this._guideBubble = guidePrompt;
             this._guideBubbleLbl = lbl;
         
             this._guideHand = new Node('GuideHand');
@@ -745,7 +740,7 @@ export function installSettlementHudModule(target: any): void {
             const lbl = this._guideBubbleLbl!;
         
             let gm = mask.getComponent(Graphics); if (!gm) gm = mask.addComponent(Graphics); gm.clear();
-            let gb = bubble.getComponent(Graphics); if (!gb) gb = bubble.addComponent(Graphics); gb.clear();
+            const gb = bubble.getComponent(Graphics); if (gb) gb.clear();
             let gh = hand.getComponent(Graphics); if (!gh) gh = hand.addComponent(Graphics); gh.clear();
             let ga = arrow.getComponent(Graphics); if (!ga) ga = arrow.addComponent(Graphics); ga.clear();
         
@@ -757,20 +752,20 @@ export function installSettlementHudModule(target: any): void {
             switch (this._guideMode) {
                 case 'level_1':
                     switch (step) {
-                        case 0: this.guideStep0(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 1: this.guideStep1(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 2: this.guideStep2(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 3: this.guideStep3(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 4: this.guideStep4(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 5: this.guideStep5(gm, gb, gh, lbl, bubble, hand, arrow); break;
+                        case 0: this.guideStep0(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 1: this.guideStep1(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 2: this.guideStep2(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 3: this.guideStep3(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 4: this.guideStep4(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 5: this.guideStep5(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
                         default: this.endTutorial(); break;
                     }
                     break;
                 case 'level_2':
                     switch (step) {
-                        case 0: this.guideLevel2UnlockStep(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 1: this.guideLevel2PickBlockStep(gm, gb, gh, lbl, bubble, hand, arrow); break;
-                        case 2: this.guideLevel2PlaceBlockStep(gm, gb, gh, lbl, bubble, hand, arrow); break;
+                        case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
                         default: this.endTutorial(); break;
                     }
                     break;
@@ -826,21 +821,116 @@ export function installSettlementHudModule(target: any): void {
         },
 
         formatLevel1GuidePrompt(primaryText: string): string {
-            const restoredCount = Math.floor(this._guideStep / 2);
+            const step = Math.max(0, Number(this._guideStep) || 0);
+            const restoredCount = Math.max(1, Math.min(2, Math.floor(step / 2) + 1));
             return `${primaryText}\n还原进度 ${restoredCount}/2`;
         },
 
-        styleLevel1GuidePrompt(gb: Graphics, bubble: Node, lbl: Label, primaryText: string) {
-            bubble.setPosition(0, 470);
-            bubble.getComponent(UITransform)!.setContentSize(430, 112);
-            this._drawBubbleBg(gb, 430, 112, new Color('#8DBF63'));
+        getGuideNodeVerticalBoundsInLayer(node: Node | null, targetLayer: Node | null): { bottom: number; top: number } | null {
+            const nodeUi = node?.getComponent(UITransform);
+            const targetUi = targetLayer?.getComponent(UITransform);
+            if (!node?.isValid || !node.active || !nodeUi || !targetUi) return null;
+            const width = nodeUi.contentSize.width;
+            const height = nodeUi.contentSize.height;
+            const anchor = nodeUi.anchorPoint;
+            const left = -width * anchor.x;
+            const right = width * (1 - anchor.x);
+            const bottom = -height * anchor.y;
+            const top = height * (1 - anchor.y);
+            const corners = [
+                new Vec3(left, bottom, 0),
+                new Vec3(left, top, 0),
+                new Vec3(right, bottom, 0),
+                new Vec3(right, top, 0),
+            ];
+            let minY = Number.POSITIVE_INFINITY;
+            let maxY = Number.NEGATIVE_INFINITY;
+            for (const corner of corners) {
+                const world = nodeUi.convertToWorldSpaceAR(corner);
+                const local = targetUi.convertToNodeSpaceAR(world);
+                minY = Math.min(minY, local.y);
+                maxY = Math.max(maxY, local.y);
+            }
+            if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return null;
+            return { bottom: minY, top: maxY };
+        },
+
+        getGuideTopBarAvoidBottomY(): number | null {
+            const targetLayer = this._guideLayer as Node | null;
+            let bottomY: number | null = null;
+            try {
+                const topBar = this.getGameplayFixedGroup?.('TopBarGroup') || null;
+                for (const child of topBar?.children || []) {
+                    const bounds = this.getGuideNodeVerticalBoundsInLayer(child, targetLayer);
+                    if (!bounds) continue;
+                    bottomY = bottomY === null ? bounds.bottom : Math.min(bottomY, bounds.bottom);
+                }
+            } catch {}
+            return bottomY;
+        },
+
+        getGuideBoardAvoidTopY(): number | null {
+            const targetLayer = this._guideLayer as Node | null;
+            try {
+                if (Array.isArray(this._guideHighlightCells) && this._guideHighlightCells.length > 0 && typeof this.getGuideCellsLayerBounds === 'function') {
+                    const bounds = this.getGuideCellsLayerBounds(this._guideHighlightCells);
+                    if (Number.isFinite(bounds?.centerY) && Number.isFinite(bounds?.height)) {
+                        return bounds.centerY + bounds.height / 2;
+                    }
+                }
+            } catch {}
+            const boardBounds = this.getGuideNodeVerticalBoundsInLayer(this.boardNode || null, targetLayer);
+            return Number.isFinite(boardBounds?.top) ? boardBounds!.top : null;
+        },
+
+        getGuidePromptCenterY(defaultCenterY: number, promptHeight: number): number {
+            const topGap = 12;
+            const boardGap = 12;
+            let centerY = defaultCenterY;
+            const topBarBottom = this.getGuideTopBarAvoidBottomY();
+            const boardTop = this.getGuideBoardAvoidTopY();
+            if (topBarBottom !== null && boardTop !== null && topBarBottom > boardTop) {
+                const topLimit = topBarBottom - promptHeight / 2 - topGap;
+                const bottomLimit = boardTop + promptHeight / 2 + boardGap;
+                if (topLimit >= bottomLimit) {
+                    return Math.max(bottomLimit, Math.min(centerY, topLimit));
+                }
+                return (topBarBottom + boardTop) / 2;
+            }
+            if (topBarBottom !== null) {
+                centerY = Math.min(centerY, topBarBottom - promptHeight / 2 - topGap);
+            }
+            if (boardTop !== null) {
+                centerY = Math.max(centerY, boardTop + promptHeight / 2 + boardGap);
+            }
+            return centerY;
+        },
+
+        getSceneGuidePromptBounds(): { centerY: number; height: number } | null {
+            try {
+                const root = typeof this.requireCanvasUiRoot === 'function'
+                    ? this.requireCanvasUiRoot('OverlayRoot')
+                    : null;
+                const prompt = root?.getChildByName('TutorialGuidePrompt') ?? null;
+                const transform = prompt?.getComponent(UITransform) ?? null;
+                if (!prompt || !transform) return null;
+                return { centerY: prompt.position.y, height: transform.contentSize.height };
+            } catch {
+                return null;
+            }
+        },
+
+        styleLevel1GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
+            bubble.active = true;
             lbl.string = this.formatLevel1GuidePrompt(primaryText);
-            lbl.fontSize = 22;
-            lbl.lineHeight = 30;
         },
 
         formatLevel2GuidePrompt(primaryText: string): string {
-            const completedCount = Math.max(0, Math.min(2, this._guideStep));
+            const step = Math.max(0, Number(this._guideStep) || 0);
+            const progressStep = this._guideMode === 'level_1'
+                ? Math.floor(step / 2) + 1
+                : step + 1;
+            const completedCount = Math.max(1, Math.min(3, progressStep));
             return `${primaryText}\n完成进度 ${completedCount}/3`;
         },
     });

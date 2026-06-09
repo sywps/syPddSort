@@ -295,11 +295,11 @@ export class AnalyticsMgr {
             sessionId: this.funnelSessionId,
             events: batch,
         }).catch((error) => {
-            console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
             if (this.isPermanentFunnelUploadFailure(error)) {
-                this.disableFunnelUpload('addFunnelEvents unavailable', error);
+                this.disableFunnelUpload('addFunnelEvents unavailable');
                 return;
             }
+            console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
             this.funnelQueue = batch.concat(this.funnelQueue).slice(0, 200);
         }).finally(() => {
             this.funnelInFlight = false;
@@ -314,7 +314,11 @@ export class AnalyticsMgr {
         this.funnelQueue = [];
         if (!this.funnelUploadDisableWarned) {
             this.funnelUploadDisableWarned = true;
-            console.warn('[AnalyticsMgr] funnel upload disabled:', reason, error);
+            if (typeof error === 'undefined') {
+                console.warn('[AnalyticsMgr] funnel upload disabled:', reason);
+            } else {
+                console.warn('[AnalyticsMgr] funnel upload disabled:', reason, error);
+            }
         }
     }
 
@@ -417,6 +421,14 @@ export class AnalyticsMgr {
     }
 
     abandonActiveLevel(): void {
+        void this.finalizeActiveLevel(false);
+    }
+
+    finalizePendingFailedLevel(): void {
+        const session = this.levelSession;
+        if (!session || session.finalized || !session.pendingFailure) {
+            return;
+        }
         void this.finalizeActiveLevel(false);
     }
 

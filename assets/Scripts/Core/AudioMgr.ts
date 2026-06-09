@@ -1,7 +1,7 @@
 /**
  * 全局音效管理 — 中国风 BGM + 轻量 SFX
  *
- * 资源规约：所有音频放在 RemoteBundle/Audio/ 下，文件名与 SfxName 对齐。
+ * 资源规约：所有音频放在 GameAssetsBundle/Audio/ 下，文件名与 SfxName 对齐。
  */
 
 import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, Bundle } from 'cc';
@@ -42,7 +42,7 @@ export class AudioMgr {
     private host: Node | null = null;
     private sfxSrc: AudioSource | null = null;
     private bgmSrc: AudioSource | null = null;
-    private remoteBundle: Bundle | null = null;
+    private gameAssetsBundle: Bundle | null = null;
     private bootstrapBundle: Bundle | null = null;
     private sfxEnabled = true;
     private bgmEnabled = true;
@@ -53,10 +53,10 @@ export class AudioMgr {
     private pendingAutoplaySfx: Set<SfxName> = new Set();
     private deferredBootstrapSfxLoads: Set<SfxName> = new Set();
     private deferredSfxLoads: Set<SfxName> = new Set();
-    private remoteBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
+    private gameAssetsBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
     private bootstrapBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
     private preferRemoteAudio = false;
-    private remoteBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+    private gameAssetsBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
     private bgmLoadState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
     private bgmAutoplayRequested = false;
     private bgmWarmupTimer: any = null;
@@ -122,36 +122,36 @@ export class AudioMgr {
         });
     }
 
-    private _loadFromRemoteBundleAuto(onReady?: (bundle: Bundle | null) => void) {
-        if (this.remoteBundleState === 'ready') {
-            if (onReady) onReady(this.remoteBundle);
+    private _loadFromGameAssetsBundleAuto(onReady?: (bundle: Bundle | null) => void) {
+        if (this.gameAssetsBundleState === 'ready') {
+            if (onReady) onReady(this.gameAssetsBundle);
             return;
         }
-        if (this.remoteBundleState === 'failed') {
+        if (this.gameAssetsBundleState === 'failed') {
             if (onReady) onReady(null);
             return;
         }
-        if (this.remoteBundleState === 'loading') {
+        if (this.gameAssetsBundleState === 'loading') {
             if (onReady) {
-                if (!this.remoteBundleCallbacks) this.remoteBundleCallbacks = [];
-                this.remoteBundleCallbacks.push(onReady);
+                if (!this.gameAssetsBundleCallbacks) this.gameAssetsBundleCallbacks = [];
+                this.gameAssetsBundleCallbacks.push(onReady);
             }
             return;
         }
-        this.remoteBundleCallbacks = onReady ? [onReady] : [];
-        this.remoteBundleState = 'loading';
-        assetManager.loadBundle('remote', (err, bundle) => {
-            const callbacks = this.remoteBundleCallbacks || [];
-            this.remoteBundleCallbacks = null;
+        this.gameAssetsBundleCallbacks = onReady ? [onReady] : [];
+        this.gameAssetsBundleState = 'loading';
+        assetManager.loadBundle('gameAssets', (err, bundle) => {
+            const callbacks = this.gameAssetsBundleCallbacks || [];
+            this.gameAssetsBundleCallbacks = null;
             if (err || !bundle) {
-                this.remoteBundleState = 'failed';
-                console.warn('[Audio] loadBundle remote 失败:', err?.message);
+                this.gameAssetsBundleState = 'failed';
+                console.warn('[Audio] loadBundle gameAssets 失败:', err?.message);
                 this._flushDeferredSfxLoads();
                 callbacks.forEach((callback) => callback(null));
                 return;
             }
-            this.remoteBundleState = 'ready';
-            this.remoteBundle = bundle;
+            this.gameAssetsBundleState = 'ready';
+            this.gameAssetsBundle = bundle;
             this._flushDeferredSfxLoads();
             callbacks.forEach((callback) => callback(bundle));
         });
@@ -245,15 +245,15 @@ export class AudioMgr {
             this._loadSingleSfxFromBundle(this.bootstrapBundle, name, finish);
             return;
         }
-        if (!this.remoteBundle) {
-            if (this.remoteBundleState === 'failed') {
-                console.warn(`[Audio] remote bundle unavailable, skip SFX: ${name}`);
+        if (!this.gameAssetsBundle) {
+            if (this.gameAssetsBundleState === 'failed') {
+                console.warn(`[Audio] gameAssets bundle unavailable, skip SFX: ${name}`);
                 this.pendingAutoplaySfx.delete(name);
                 return;
             }
             this.deferredSfxLoads.add(name);
-            if (this.remoteBundleState === 'idle') {
-                this._loadFromRemoteBundleAuto();
+            if (this.gameAssetsBundleState === 'idle') {
+                this._loadFromGameAssetsBundleAuto();
             }
             return;
         }
@@ -266,8 +266,8 @@ export class AudioMgr {
             }
             this.pendingAutoplaySfx.delete(name);
         };
-        if (this.remoteBundle) {
-            this._loadSingleSfxFromBundle(this.remoteBundle, name, finish);
+        if (this.gameAssetsBundle) {
+            this._loadSingleSfxFromBundle(this.gameAssetsBundle, name, finish);
             return;
         }
         finish(null);
@@ -339,7 +339,7 @@ export class AudioMgr {
         const resourcePath = this.bgmResourcePath;
         const loadToken = this.bgmLoadToken;
         if (this.preferRemoteAudio) {
-            this._loadFromRemoteBundleAuto((bundle) => {
+            this._loadFromGameAssetsBundleAuto((bundle) => {
                 if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
                 if (bundle) {
                     this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken);
@@ -349,7 +349,7 @@ export class AudioMgr {
             });
             return;
         }
-        this._loadFromRemoteBundleAuto((bundle) => {
+        this._loadFromGameAssetsBundleAuto((bundle) => {
             if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
             if (bundle) {
                 this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken);

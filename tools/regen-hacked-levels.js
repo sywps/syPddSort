@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const INPUT_DIR = path.join(__dirname, '..', 'hacked-level');
-const OUTPUT_DIR = path.join(__dirname, '..', 'assets', 'RemoteBundle', 'LevelData');
+const OUTPUT_DIR = path.join(__dirname, '..', 'assets', 'LevelData');
 
 let converted = 0;
 

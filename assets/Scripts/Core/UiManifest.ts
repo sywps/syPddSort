@@ -1,4 +1,4 @@
-export const REMOTE_PRELOAD_TEXTURE_PATHS: string[] = [];
+export const GAME_ASSETS_PRELOAD_TEXTURE_PATHS: string[] = [];
 
 export const POPUP_UI_TEXTURE_NAMES = [
     'popup_modal_shade',
@@ -80,6 +80,7 @@ export const HOME_MENU_TEXTURE_NAMES = [
 ];
 
 export const GAMEPLAY_SLOT_TEXTURE_NAMES = [
+    '倒计时',
     'slot_panel_shell_ui',
     'slot_row_empty_pindd',
     'slot_row_empty_ui',
@@ -107,9 +108,9 @@ export const SETTINGS_PANEL_RELEASE_TEXTURE_NAMES = [...SETTINGS_PANEL_TEXTURE_N
 export const LEADERBOARD_RELEASE_TEXTURE_NAMES = [...LEADERBOARD_TEXTURE_NAMES];
 export const COLLECTION_RELEASE_TEXTURE_NAMES = [...COLLECTION_TEXTURE_NAMES];
 
-export const REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = [];
+export const GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = [];
 
-export const REMOTE_TEXTURE_SEARCH_DIRS = [
+export const GAME_ASSETS_TEXTURE_SEARCH_DIRS = [
     'Textures/UI',
     'Textures/BG',
     'Textures/Pindd/UI',

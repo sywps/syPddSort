@@ -18,13 +18,6 @@ const MAX_ENTRIES = 100;
 const MAX_AVATAR_CACHE = 24;
 const OPEN_DATA_DEBUG = false;
 
-try {
-    Canvas.width = CANVAS_WIDTH;
-    Canvas.height = CANVAS_HEIGHT;
-} catch (e) {
-    // sharedCanvas 尺寸可能为只读，忽略赋值错误
-}
-
 let scrollOffset = 0;
 let lastRenderedScrollOffset = -1;
 

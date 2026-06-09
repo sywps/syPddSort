@@ -6,18 +6,18 @@ import {
     NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REMOTE_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, REMOTE_PRELOAD_TEXTURE_PATHS,
-    REMOTE_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
-    LOCAL_BOOTSTRAP_REMOTE_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
+    LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
-    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, REMOTE_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
+    MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
@@ -493,27 +493,6 @@ export function installCollectionAvatarModule(target: any): void {
             return ensureCollectionPanelController(this).open();
         },
 
-        getOrCreateCollectionShellActionNode(parent: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
-            let node = parent.getChildByName(name);
-            if (node) {
-                return node;
-            }
-            node = new Node(name);
-            parent.addChild(node);
-            node.layer = parent.layer || Layers.Enum.UI_2D;
-            const width = name === 'ArrowRight' ? 220 : 42;
-            const height = name === 'ArrowRight' ? 56 : 52;
-            (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(width, height);
-            const frameNames = name === 'ArrowRight'
-                ? ['home_start_button', 'popup_primary_button', 'collection_arrow_right']
-                : ['collection_arrow_left'];
-            const frameName = frameNames.find((item) => !!this.getSF(item));
-            if (frameName) {
-                applyCollectionAvatarSpriteFrame(this, node, frameName, width, height);
-            }
-            return node;
-        },
-
         drawCollectionArrow(parent: Node, x: number, y: number, dir: 'left' | 'right') {
             const asset = dir === 'left' ? 'collection_arrow_left' : 'collection_arrow_right';
             const name = dir === 'left' ? 'ArrowLeft' : 'ArrowRight';
@@ -545,58 +524,74 @@ export function installCollectionAvatarModule(target: any): void {
 
         renderCollectionPage(page: number) {
             const content = this._collectionContentNode;
-            if (!content) return;
+            if (!content) return null;
         
             const allIds = this._collectionLevelIds;
             const savedLevel = this.getSavedLevel();
-            const startIdx = page * 8;
-            const endIdx = Math.min(startIdx + 8, allIds.length);
-        
             const contentTransform = content.getComponent(UITransform);
             const availableW = contentTransform?.width || 598;
             const availableH = contentTransform?.height || 820;
             const gapX = 20;
             const gapY = 16;
             const cols = 2;
-            const rows = 4;
+            const visibleRows = 4;
+            const rows = Math.max(visibleRows, Math.ceil(allIds.length / cols));
             const cardW = Math.floor((availableW - gapX * (cols - 1)) / cols);
-            const cardH = Math.floor((availableH - gapY * (rows - 1)) / rows);
+            const cardH = Math.floor((availableH - gapY * (visibleRows - 1)) / visibleRows);
             const totalW = cols * cardW + (cols - 1) * gapX;
             const totalH = rows * cardH + (rows - 1) * gapY;
             const startY = totalH / 2 - cardH / 2;
             const startX = -totalW / 2 + cardW / 2;
-        
-            for (let i = startIdx; i < endIdx; i++) {
+
+            const template = content.getChildByName('CollectionCardSlot_0');
+            if (!template) {
+                throw new Error('[collection-prefab] missing CollectionCardSlot_0');
+            }
+            for (const child of content.children) {
+                if (child.name !== 'CollectionScrollContent') {
+                    child.active = false;
+                }
+            }
+            let scrollContent = content.getChildByName('CollectionScrollContent');
+            if (!scrollContent) {
+                scrollContent = new Node('CollectionScrollContent');
+                content.addChild(scrollContent);
+                scrollContent.addComponent(UITransform);
+            }
+            scrollContent.active = true;
+            scrollContent.layer = content.layer || Layers.Enum.UI_2D;
+            const scrollTransform = scrollContent.getComponent(UITransform) || scrollContent.addComponent(UITransform);
+            scrollTransform.setContentSize(availableW, totalH);
+            const maxOffset = Math.max(0, (totalH - availableH) / 2);
+            scrollContent.setPosition(0, -maxOffset, 0);
+            for (const child of scrollContent.children.slice()) {
+                child.destroy();
+            }
+            this._collectionScrollContentNode = scrollContent;
+            this._collectionTotalPages = 1;
+            this._collectionPage = 0;
+
+            for (let i = 0; i < allIds.length; i++) {
                 const levelId = allIds[i];
-                const idx = i - startIdx;
-                const col = idx % cols;
-                const row = Math.floor(idx / cols);
+                const col = i % cols;
+                const row = Math.floor(i / cols);
                 const cx = startX + col * (cardW + gapX);
                 const cy = startY - row * (cardH + gapY);
                 const unlocked = levelId <= savedLevel;
-                const slotName = `CollectionCardSlot_${idx}`;
-                const slot = content.getChildByName(slotName);
-                if (!slot) {
-                    throw new Error(`[collection-prefab] missing ${slotName}`);
-                }
+                const slot = instantiate(template);
+                slot.name = `CollectionScrollCard_${i}`;
                 slot.active = true;
+                slot.layer = scrollContent.layer;
+                scrollContent.addChild(slot);
                 slot.setPosition(cx, cy, 0);
                 (slot.getComponent(UITransform) || slot.addComponent(UITransform)).setContentSize(cardW, cardH);
                 this.drawCollectionCard(slot, levelId, 0, 0, cardW, cardH, unlocked, savedLevel);
             }
-
-            for (let idx = endIdx - startIdx; idx < 8; idx++) {
-                const stale = content.getChildByName(`CollectionCardSlot_${idx}`);
-                if (stale) {
-                    stale.active = false;
-                }
+            if (this._collectionPageIndicator) {
+                this._collectionPageIndicator.active = false;
             }
-        
-            // 更新页码指示器
-            this.renderPageIndicator(page);
-        
-            // 更新箭头状态
             this.updateCollectionArrows(page);
+            return scrollContent;
         },
 
         getCollectionPreviewBounds(grid: number[][]) {
@@ -736,7 +731,7 @@ export function installCollectionAvatarModule(target: any): void {
 
         /** 在图鉴卡片上绘制像素图预览 */
         drawCollectionPixelPreviewOnCard(parent: Node, levelId: number, offsetX: number, offsetY: number, maxW: number, maxH: number, prefix: string = 'level_') {
-            this.loadRemoteLevelData(levelId, (data) => {
+            this.loadLevelData(levelId, (data) => {
                 if (!data || !parent.isValid) return;
                 const correctArr = data.correctColorArr || [];
                 const bounds = this.getCollectionPreviewBounds(correctArr);
