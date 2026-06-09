@@ -789,7 +789,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         getActiveLogicalLevelId(): number {
             if (this._isThemeLevel) return this._currentThemeLevelId || this.levelData?.levelId || 1;
-            return this.getActivePhysicalLevelId();
+            return this.getLogicalMainLevelId(this.getActivePhysicalLevelId());
         },
 
         getActivePhysicalLevelId(): number {

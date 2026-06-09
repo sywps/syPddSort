@@ -1,4 +1,5 @@
 import {
+    AnalyticsMgr,
     AudioMgr,
     BlockInputEvents,
     Bundle,
@@ -250,6 +251,7 @@ export class GameplayResultPanelController {
         this.bindReviveContinueAction(reviveBtn, overlay);
         runtime.bindPanelButton(homeBtn, () => {
             AudioMgr.inst.play('button');
+            AnalyticsMgr.inst.finalizePendingFailedLevel();
             overlay.active = false;
             runtime.showMainMenu();
         });

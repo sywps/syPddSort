@@ -67,7 +67,7 @@ export function installHomeAdFlowModule(target: any): void {
         getAnalyticsLevelId(): number {
             return this._isThemeLevel
                 ? (this._currentThemeLevelId || this.levelData?.levelId || 0)
-                : this.getActivePhysicalLevelId();
+                : this.getActiveLogicalLevelId();
         },
 
         getRewardedAdMinFallbackWatchMs(page: string): number {

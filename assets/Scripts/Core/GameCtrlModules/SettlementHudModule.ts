@@ -466,6 +466,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         doRestart() {
+            AnalyticsMgr.inst.finalizePendingFailedLevel();
             this.isGameEnd = true;
             this.unschedule(this.tickTimer);
             this.unscheduleAllCallbacks();

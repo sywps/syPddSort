@@ -424,6 +424,14 @@ export class AnalyticsMgr {
         void this.finalizeActiveLevel(false);
     }
 
+    finalizePendingFailedLevel(): void {
+        const session = this.levelSession;
+        if (!session || session.finalized || !session.pendingFailure) {
+            return;
+        }
+        void this.finalizeActiveLevel(false);
+    }
+
     trackAdClick(adType: string, page: string, levelId?: number): void {
         void this.wxReportData({
             eventName: 'ad_click',
