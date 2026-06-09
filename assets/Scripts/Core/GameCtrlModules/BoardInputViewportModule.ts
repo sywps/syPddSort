@@ -221,6 +221,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
+            PerformanceMgr.inst.markUserActivity();
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
                 const uiPos = event.getUILocation();
                 const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
@@ -260,6 +261,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchMove(event: EventTouch) {
             if (this.isGameEnd) return;
+            PerformanceMgr.inst.markUserActivity();
             if (this._wandMode && this._wandDragStart && this._wandRectNode) {
                 const uiPos = event.getUILocation();
                 const startLocal = this.uiToBoardLocal(this._wandDragStart);
@@ -384,6 +386,7 @@ export function installBoardInputViewportModule(target: any): void {
         /** PC 端滚轮缩放棋盘 */
         onMouseWheel(event: EventMouse) {
             if (this.isGameEnd || this._guideStep >= 0) return;
+            PerformanceMgr.inst.markUserActivity();
         
             const scrollY = event.getScrollY();
             if (scrollY === 0) return;
@@ -489,9 +492,8 @@ export function installBoardInputViewportModule(target: any): void {
                 const sp = this.slotNodes[i].position;
                 if (Math.abs(localPos.x - sp.x) < (SLOT_SIZE + SLOT_HIT_PADDING) / 2 && Math.abs(localPos.y - sp.y) < (SLOT_SIZE + SLOT_HIT_PADDING) / 2) {
                     const row = Math.floor(i / SLOTS_PER_ROW);
-                    // 锁定行：点击触发广告解锁
+                    // 锁定行只能通过 SlotRowLockedBtn 按钮解锁。
                     if (row >= this.slotUnlockedRows) {
-                        this.tryUnlockSlotRow();
                         return false;
                     }
                     const target = this.slotModel.getBlock(i);
@@ -602,7 +604,7 @@ export function installBoardInputViewportModule(target: any): void {
                 return true;
             }
 
-            if (fromSlot && !slotAreaHit && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
+            if (fromSlot && !this.isWorldPosInSlotArea(worldPos) && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
                 this.playReturnFeedback();
                 return true;
             }
@@ -715,6 +717,23 @@ export function installBoardInputViewportModule(target: any): void {
                 (col - bw / 2 + 0.5) * step,
                 (bh / 2 - row - 0.5) * step,
             );
+        },
+
+        getBoardCellWorldPosition(row: number, col: number): Vec3 | null {
+            if (!this.boardNode?.isValid || !this.levelData) return null;
+            if (row < 0 || row >= this.levelData.boardHeight || col < 0 || col >= this.levelData.boardWidth) return null;
+            const boardUT = this.boardNode.getComponent(UITransform);
+            if (!boardUT) return null;
+            const center = this.getBoardCellCenterLocal(row, col);
+            return boardUT.convertToWorldSpaceAR(new Vec3(center.x, center.y, 0));
+        },
+
+        getBoardCellLayerPosition(row: number, col: number, layer: Node): Vec3 | null {
+            const world = this.getBoardCellWorldPosition(row, col);
+            const layerUT = layer?.getComponent(UITransform) || null;
+            if (!world || !layerUT) return null;
+            const local = layerUT.convertToNodeSpaceAR(world);
+            return new Vec3(local.x, local.y, local.z);
         },
 
         getBoardTapCandidates(worldPos: Vec3, kind: 'select' | 'place' = 'select'): Array<{ row: number; col: number; distSq: number }> {

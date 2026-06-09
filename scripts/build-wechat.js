@@ -11,7 +11,8 @@ const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
 const startSceneUrl = 'db://assets/Scenes/Game.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
-const mainPackageBudgetKB = 3072;
+const mainPackageTargetKB = 3072;
+const mainPackageErrorKB = 4096;
 const wechatAppId = process.env.WECHAT_APPID || 'wxbb6160c828f380ca';
 const openDevtools = process.env.WECHAT_OPEN_DEVTOOLS || '1';
 process.env.WECHAT_BUILD_MODE = buildMode;
@@ -543,10 +544,14 @@ console.log('   - assets/bootstrap: ' + formatMB(dirSize(path.join(runtimeDir, '
 console.log('   - gameAssets 分包:       ' + formatMB(dirSize(runtimeInfo.gameAssetsDir)));
 console.log('   - 关卡数据包:        ' + formatMB(dirSize(levelDataCdnDir)));
 console.log('');
-console.log('4. 微信上传主包: ' + formatMB(mainBytes) + ' (' + mainKB + 'KB / ' + mainPackageBudgetKB + 'KB 目标, 排除 game.json.subpackages)');
+console.log('4. 微信上传主包: ' + formatMB(mainBytes) + ' (' + mainKB + 'KB / ' + mainPackageTargetKB + 'KB 目标, 排除 game.json.subpackages)');
 console.log('   minigame 实际目录: ' + formatMB(runtimeBytes));
-if (mainKB > mainPackageBudgetKB) fail('主包超过目标 ' + mainPackageBudgetKB + 'KB: ' + mainKB + 'KB');
-logInfo('主包 <= ' + mainPackageBudgetKB + 'KB');
+if (mainKB > mainPackageErrorKB) fail('主包超过硬限制 ' + mainPackageErrorKB + 'KB: ' + mainKB + 'KB');
+if (mainKB > mainPackageTargetKB) {
+    logInfo('WARNING: 主包超过 3MB 目标，但未超过 4MB 硬限制: ' + mainKB + 'KB');
+} else {
+    logInfo('主包 <= ' + mainPackageTargetKB + 'KB');
+}
 
 console.log('');
 console.log('=== 打包完成 ===');

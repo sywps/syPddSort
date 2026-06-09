@@ -172,6 +172,9 @@ export function installHomeAdFlowModule(target: any): void {
                 }
                 child.destroy();
             }
+            if (this.boardSlotsNode?.isValid) this.clearChildrenExcept(this.boardSlotsNode, []);
+            if (this.boardNode?.isValid) this.clearChildrenExcept(this.boardNode, ['BoardBg', 'BoardSlots']);
+            this.clearBoardVisualPools?.();
 
             this.boardModel = null!;
             this.slotModel = null!;

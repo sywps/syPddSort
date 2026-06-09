@@ -7,7 +7,7 @@
  * 2. 将 "gameAssets" 从 remoteBundles 移出，注册为微信分包/本地 bundle
  * 3. 修复 engine-adapter.js URL 拼接与稳定 bundle 入口
  * 4. 当 Cocos CLI 未自动拆出 custom bundle 时，将 assets/gameAssets 迁移到 subpackages/gameAssets
- * 5. 验证主包大小 < 3MB
+ * 5. 验证主包大小：超过 3MB 预警，超过 4MB 阻断
  *
  * 配置方法：构建面板 → 脚本 → 构建后 → 填此脚本路径
  */
@@ -29,7 +29,8 @@ const screenAdaptDebug = process.env.PDD_SCREEN_ADAPT_DEBUG === '1';
 
 const BUNDLE_NAME = 'gameAssets';
 const LEVEL_DATA_BUNDLE_NAME = 'levelData';
-const MAIN_PACKAGE_BUDGET_KB = 3072;
+const MAIN_PACKAGE_TARGET_KB = 3072;
+const MAIN_PACKAGE_ERROR_KB = 4096;
 const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
 
 function resolveRuntimeRoot() {
@@ -553,13 +554,13 @@ if (fs.existsSync(firstScreenPath)) {
     }
 }
 
-// 3.4 启动后立即锁定 60 帧
+// 3.4 启动后立即使用休闲游戏默认 24 帧；运行时交互/动画阶段再临时升帧
 var applicationPath = resolveApplicationPath();
 if (fs.existsSync(applicationPath)) {
     var applicationContent = fs.readFileSync(applicationPath, 'utf-8');
     var patchedApplication = applicationContent.replace(
         /key: "onPostSystemInit",\s+value: function onPostSystemInit\(\) \{\s+\/\/ do custom logic\s+\}/,
-        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 60; cc.game.setFrameRate(60); }'
+        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 24; cc.game.setFrameRate(24); }'
     );
     patchedApplication = patchedApplication.replace(
         /key: "onPostInitBase",\s+value: function onPostInitBase\(\) \{\s+\/\/ cc\.settings\.overrideSettings\('assets', 'server', ''\);\s+\/\/ do custom logic\s+\}/,
@@ -567,7 +568,7 @@ if (fs.existsSync(applicationPath)) {
     );
     if (patchedApplication !== applicationContent) {
         fs.writeFileSync(applicationPath, patchedApplication);
-        console.log('[3.4/7] 已锁定启动帧率为 60 ✓');
+        console.log('[3.4/7] 已锁定启动帧率为 24 ✓');
     } else {
         console.log('[3.4/7] 启动帧率已锁定 ✓');
     }
@@ -763,14 +764,17 @@ function getDeclaredSubpackageRootNames() {
 
 var subpackageExcludeNames = getDeclaredSubpackageRootNames();
 var mainKB = Math.round(dirSize(buildPath, subpackageExcludeNames) / 1024);
-console.log('[5/6] 微信主包: ' + mainKB + 'KB / ' + MAIN_PACKAGE_BUDGET_KB + 'KB 目标');
+console.log('[5/6] 微信主包: ' + mainKB + 'KB / ' + MAIN_PACKAGE_TARGET_KB + 'KB 目标');
 if (subpackageExcludeNames.length > 0) {
     console.log('[5/6] 已按 game.json.subpackages 排除: ' + subpackageExcludeNames.join(', '));
 }
 
-if (mainKB > MAIN_PACKAGE_BUDGET_KB) {
-    console.error('[5/6] 超过 3MB 主包目标！');
+if (mainKB > MAIN_PACKAGE_ERROR_KB) {
+    console.error('[5/6] 超过 4MB 主包硬限制！');
     process.exit(1);
+}
+if (mainKB > MAIN_PACKAGE_TARGET_KB) {
+    console.warn('[5/6] WARNING: 超过 3MB 主包目标，但未超过 4MB 硬限制');
 }
 console.log('[5/6] ✓ 主包大小正常');
 

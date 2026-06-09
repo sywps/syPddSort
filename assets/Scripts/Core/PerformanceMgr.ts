@@ -2,8 +2,10 @@ import { AdConfig } from '../Platform/AdConfig';
 import { AudioMgr } from './AudioMgr';
 import { Game, director, game, sys } from 'cc';
 
-const ACTIVE_FPS = 60;
+const IDLE_FPS = 24;
+const ACTIVE_FPS = 30;
 const BACKGROUND_FPS = 15;
+const ACTIVE_HOLD_MS = 2500;
 const RENDER_SCALE = 0.78;
 
 type FrameRateRuntime = {
@@ -24,6 +26,7 @@ export class PerformanceMgr {
     private _hidden = false;
     private _renderScaleApplied = false;
     private _currentFps = 0;
+    private _activeFpsTimer: ReturnType<typeof setTimeout> | null = null;
 
     private constructor() {}
 
@@ -37,16 +40,17 @@ export class PerformanceMgr {
             return;
         }
         this._inited = true;
-        this.applyFrameRate(ACTIVE_FPS);
+        this.applyFrameRate(IDLE_FPS);
         this.bindLifecycleEvents();
         this.applyRenderScale();
     }
 
-    markUserActivity(): void {
+    markUserActivity(holdMs: number = ACTIVE_HOLD_MS): void {
         if (this._hidden) {
             return;
         }
         this.applyFrameRate(ACTIVE_FPS);
+        this.scheduleIdleFrameRate(holdMs);
     }
 
     applyRenderScale(): void {
@@ -64,6 +68,7 @@ export class PerformanceMgr {
 
     private handleHide(): void {
         this._hidden = true;
+        this.clearActiveFrameRateTimer();
         AudioMgr.inst.suspendForBackground();
         this.applyFrameRate(BACKGROUND_FPS);
         if (!game.isPaused()) {
@@ -81,7 +86,23 @@ export class PerformanceMgr {
         if (this._renderScaleApplied) {
             this.applyRenderScale();
         }
-        this.markUserActivity();
+        this.applyFrameRate(IDLE_FPS);
+    }
+
+    private scheduleIdleFrameRate(holdMs: number): void {
+        this.clearActiveFrameRateTimer();
+        this._activeFpsTimer = setTimeout(() => {
+            this._activeFpsTimer = null;
+            if (!this._hidden) {
+                this.applyFrameRate(IDLE_FPS);
+            }
+        }, Math.max(0, holdMs));
+    }
+
+    private clearActiveFrameRateTimer(): void {
+        if (!this._activeFpsTimer) return;
+        clearTimeout(this._activeFpsTimer);
+        this._activeFpsTimer = null;
     }
 
     private shouldManageRuntimePerformance(): boolean {

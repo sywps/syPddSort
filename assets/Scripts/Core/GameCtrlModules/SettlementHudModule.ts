@@ -228,10 +228,6 @@ export function installSettlementHudModule(target: any): void {
                 this.continueTutorialToSlotIntro(this.levelData.levelId + 1);
                 return;
             }
-            if (this.shouldPromptFirstThemeUnlockOnWin()) {
-                this.continueToFirstThemeUnlockPrompt();
-                return;
-            }
             this.goNextLevel();
         },
 

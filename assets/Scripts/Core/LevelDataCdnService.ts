@@ -25,6 +25,8 @@ type LevelPack = {
     levels: Array<{ levelId: number; data: LevelData }>;
 };
 
+const MAX_CACHED_LEVEL_PACKS = 1;
+
 function normalizeBaseUrl(value: unknown): string {
     const text = typeof value === 'string' ? value.trim() : '';
     return text ? text.replace(/\/?$/, '/') : '';
@@ -260,7 +262,11 @@ export class LevelDataCdnService {
                 ? withQuery(joinUrl(baseUrl, packEntry.url), 'v', packEntry.hash.slice(0, 16))
                 : joinUrl(baseUrl, packEntry.url);
             promise = requestText(url, 10000)
-                .then((text) => this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry))
+                .then((text) => {
+                    const pack = this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
+                    this.trimPackCache(cacheKey);
+                    return pack;
+                })
                 .catch((err) => {
                     this.packPromises.delete(cacheKey);
                     console.warn('[LevelDataCDN] pack unavailable:', packEntry.url, err instanceof Error ? err.message : err);
@@ -279,5 +285,19 @@ export class LevelDataCdnService {
             throw new Error('pack id mismatch: ' + pack.id + ' != ' + packEntry.id);
         }
         return pack;
+    }
+
+    private trimPackCache(keepKey: string): void {
+        while (this.packPromises.size > MAX_CACHED_LEVEL_PACKS) {
+            const oldestKey = this.packPromises.keys().next().value;
+            if (!oldestKey) return;
+            if (oldestKey === keepKey) {
+                const promise = this.packPromises.get(oldestKey);
+                this.packPromises.delete(oldestKey);
+                if (promise) this.packPromises.set(oldestKey, promise);
+                continue;
+            }
+            this.packPromises.delete(oldestKey);
+        }
     }
 }

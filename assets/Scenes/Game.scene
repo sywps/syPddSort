@@ -2085,7 +2085,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -434.698,
+      "y": -448.5,
       "z": 0
     },
     "_lrot": {
@@ -15972,7 +15972,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 123.80200000000002,
+    "_bottom": 110,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -17592,7 +17592,7 @@
     "node": {
       "__id__": 51
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
     "_symmetric": true,
     "_id": "d7BpNXoMtAXrrCHX54nmLo"
@@ -19558,10 +19558,10 @@
     "_string": "先选这块豆豆\n完成进度 1/3",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 52.125,
-    "_fontSize": 48,
+    "_actualFontSize": 22,
+    "_fontSize": 22,
     "_fontFamily": "Arial",
-    "_lineHeight": 60,
+    "_lineHeight": 28,
     "_overflow": 0,
     "_enableWrapText": true,
     "_font": null,
