@@ -347,6 +347,13 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         showToastAt(text: string, duration: number, x: number, y: number) {
+            const bubbleFrame = this.getSF('popup_guide_bubble');
+            if (!bubbleFrame) {
+                this._ensureSpriteFramesByName(['popup_guide_bubble'], () => {
+                    this.showToastAt(text, duration, x, y);
+                });
+                return;
+            }
             const toast = new Node('Toast');
             this.node.addChild(toast);
             toast.addComponent(UITransform).setContentSize(720, 1280);
@@ -356,10 +363,6 @@ export function installGuideLeaderboardModule(target: any): void {
             bubble.layer = Layers.Enum.UI_2D;
             bubble.setPosition(x, y, 0);
             bubble.addComponent(UITransform).setContentSize(420, 100);
-            const bubbleFrame = this.getSF('popup_guide_bubble');
-            if (!bubbleFrame) {
-                throw new Error('[toast] missing sprite frame: popup_guide_bubble');
-            }
             this._applySpriteFrame(bubble, bubbleFrame, 420, 100, Sprite.Type.SLICED);
             syncGuideLeaderboardLabelNode(bubble, 'ToastLbl', text, 24, new Color('#5A4A3A'), 340, 48, 0, 4);
         

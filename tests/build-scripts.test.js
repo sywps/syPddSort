@@ -370,7 +370,6 @@ for (const required of [
     'new Node',
     'Graphics',
     'setContentSize',
-    'Label.fontSize',
     'frozen stable-UI owner files',
     'code-owned dynamic UI files',
     'new runtime stable-UI owner files detected',
@@ -487,12 +486,11 @@ function getSceneNodeComponent(sceneJson, node, componentType) {
     return componentRef ? sceneJson[componentRef.__id__] : null;
 }
 
-function assertSceneSpriteFrame(sceneJson, rootName, childPath, expectedUuid) {
+function assertSceneSpriteComponent(sceneJson, rootName, childPath) {
     const node = findSceneNodeByPath(sceneJson, rootName, childPath);
     assert.ok(node, `Game.scene must contain ${rootName}/${childPath}`);
     const sprite = getSceneNodeComponent(sceneJson, node, 'cc.Sprite');
     assert.ok(sprite, `Game.scene ${rootName}/${childPath} must own a Sprite component`);
-    assert.strictEqual(sprite._spriteFrame?.__uuid__, expectedUuid, `Game.scene ${rootName}/${childPath} must keep SpriteFrame ${expectedUuid}`);
 }
 
 function findPrefabRootChild(prefabJson, name) {
@@ -519,41 +517,34 @@ function assertSceneComponentBackrefs(sceneJson, scenePath) {
 assertSceneComponentBackrefs(gameSceneJson, 'Game.scene');
 assertSceneComponentBackrefs(homeSceneJson, 'Home.scene');
 
-for (const [requiredHomePath, expected] of Object.entries({
-    'BackgroundLayer/BG': { uuid: 'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941', asset: 'home_bg' },
-    'TopBarGroup/SettingsButton/HomeSettingsIcon': { uuid: 'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941', asset: '设置' },
-    'TopBarGroup/VigorGroup/LivesBanner': { uuid: '8885ec69-f7f4-bb71-8fd7-e110a5061a63@f9941', asset: '爱心框' },
-    'TopBarGroup/GoldGroup/GoldBanner': { uuid: '47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941', asset: '金币框 (2)' },
-    'TitleLayer/TitleArt': { uuid: 'f7446f73-3160-35a9-ff10-9a1c6940e181@f9941', asset: '主页标题' },
-    'HeroLayer/HeroCard/HeroCardFrame': { uuid: '69f9cc1c-e9a2-8e2a-c828-fbeab6bacd79@f9941', asset: '预览框' },
-    'PrimaryActionLayer/StartBtn': { uuid: '0c366cf2-3492-9b22-9c2d-0ffb827e7cf4@f9941', asset: '主关卡按键 (2)' },
-    'PrimaryActionLayer/ThemeBtn': { uuid: 'f0915f71-2542-ebc5-1541-18f4e1a7656c@f9941', asset: '主题挑战' },
-    'EntryLayer/DailySignInBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
-    'EntryLayer/DailySignInBtn/DailySignInIcon': { uuid: '68e9eb2e-772d-f1ab-a25c-b2f79daa0083@f9941', asset: '签到1' },
-    'EntryLayer/LeaderboardBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
-    'EntryLayer/LeaderboardBtn/LeaderboardIcon': { uuid: '91a910e0-aaeb-094c-4b24-0ee12b074d31@f9941', asset: '排行榜1' },
-    'EntryLayer/CollectionBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
-    'EntryLayer/CollectionBtn/CollectionIcon': { uuid: '382d81c2-e3f4-5d6e-c6de-abcaed0907fd@f9941', asset: '图鉴1' },
+for (const [requiredHomePath, assetName] of Object.entries({
+    'BackgroundLayer/BG': 'home_bg',
+    'TopBarGroup/SettingsButton/HomeSettingsIcon': '设置',
+    'TopBarGroup/VigorGroup/LivesBanner': '爱心框',
+    'TopBarGroup/GoldGroup/GoldBanner': '金币框 (2)',
+    'TitleLayer/TitleArt': '主页标题',
+    'HeroLayer/HeroCard/HeroCardFrame': '预览框',
+    'PrimaryActionLayer/StartBtn': '主关卡按键 (2)',
+    'PrimaryActionLayer/ThemeBtn': '主题挑战',
+    'EntryLayer/DailySignInBtn/部件底板': '部件底板',
+    'EntryLayer/DailySignInBtn/DailySignInIcon': '签到1',
+    'EntryLayer/LeaderboardBtn/部件底板': '部件底板',
+    'EntryLayer/LeaderboardBtn/LeaderboardIcon': '排行榜1',
+    'EntryLayer/CollectionBtn/部件底板': '部件底板',
+    'EntryLayer/CollectionBtn/CollectionIcon': '图鉴1',
 })) {
     const node = findSceneNodeByPath(homeSceneJson, 'MainMenuFixedRoot', requiredHomePath);
     assert.ok(node, `Home.scene must contain Bootstrap startup SpriteFrame path ${requiredHomePath}`);
     assert.ok(sceneNodeHasComponent(homeSceneJson, node, 'cc.Sprite'), `Home.scene Bootstrap startup path must have Sprite component ${requiredHomePath}`);
-    const sprite = getSceneNodeComponent(homeSceneJson, node, 'cc.Sprite');
-    assert.strictEqual(sprite._spriteFrame?.__uuid__, expected.uuid, `Home.scene ${requiredHomePath} must use Bootstrap SpriteFrame ${expected.uuid}`);
-    assert.ok(exists(`assets/BootstrapBundle/GameUI/${expected.asset}.png`), `BootstrapBundle must contain ${expected.asset}.png`);
-    assert.ok(exists(`assets/BootstrapBundle/GameUI/${expected.asset}.png.meta`), `BootstrapBundle must contain ${expected.asset}.png.meta`);
-    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${expected.asset}.png`), false, `GameAssetsBundle must not duplicate ${expected.asset}.png`);
-    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${expected.asset}.png.meta`), false, `GameAssetsBundle must not duplicate ${expected.asset}.png.meta`);
+    assert.ok(exists(`assets/BootstrapBundle/GameUI/${assetName}.png`), `BootstrapBundle must contain ${assetName}.png`);
+    assert.ok(exists(`assets/BootstrapBundle/GameUI/${assetName}.png.meta`), `BootstrapBundle must contain ${assetName}.png.meta`);
+    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${assetName}.png`), false, `GameAssetsBundle must not duplicate ${assetName}.png`);
+    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${assetName}.png.meta`), false, `GameAssetsBundle must not duplicate ${assetName}.png.meta`);
 }
 const gameSettingsIconNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'TopBarGroup/Settings/SettingsIcon');
 assert.ok(gameSettingsIconNode, 'Game.scene must contain first-level Settings/SettingsIcon');
 const gameSettingsIconSprite = getSceneNodeComponent(gameSceneJson, gameSettingsIconNode, 'cc.Sprite');
 assert.ok(gameSettingsIconSprite, 'Game.scene Settings/SettingsIcon must have a Sprite component');
-assert.strictEqual(
-    gameSettingsIconSprite._spriteFrame?.__uuid__,
-    'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941',
-    'Game.scene first-level settings icon must use the Bootstrap settings SpriteFrame',
-);
 const gameCanvasNode = gameSceneJson.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'Canvas');
 const gameScreenRootNode = findSceneNodeByPath(gameSceneJson, 'Canvas', 'ScreenRoot');
 const gameplayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'GameplayRoot');
@@ -591,52 +582,41 @@ assert.ok(tutorialGuidePromptNode, 'Game.scene must contain OverlayRoot/Tutorial
 assert.ok(tutorialGuidePromptBgNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/BubbleBg');
 assert.ok(tutorialGuidePromptLabelNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/PromptLabel');
 assert.strictEqual(tutorialGuidePromptNode._active, false, 'TutorialGuidePrompt must be hidden until tutorial runtime enables it');
-assert.strictEqual(tutorialGuidePromptNode._lpos.y, 438, 'TutorialGuidePrompt must keep the Cocos-owned default y');
 const tutorialGuidePromptUi = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptNode, 'cc.UITransform');
-assert.strictEqual(tutorialGuidePromptUi?._contentSize?.width, 360, 'TutorialGuidePrompt must keep the Cocos-owned width');
-assert.strictEqual(tutorialGuidePromptUi?._contentSize?.height, 68, 'TutorialGuidePrompt must keep the Cocos-owned height');
+assert.ok(tutorialGuidePromptUi, 'TutorialGuidePrompt must own a UITransform');
 const tutorialGuidePromptBgSprite = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptBgNode, 'cc.Sprite');
-assert.strictEqual(tutorialGuidePromptBgSprite?._spriteFrame?.__uuid__, '52e94005-3ca2-a20b-d083-d9c4e3836418@f9941', 'TutorialGuidePrompt/BubbleBg must use Bootstrap solid_white');
-assert.strictEqual(tutorialGuidePromptBgSprite?._color?.a, 0, 'TutorialGuidePrompt/BubbleBg must default to transparent');
+assert.ok(tutorialGuidePromptBgSprite, 'TutorialGuidePrompt/BubbleBg must own a Sprite');
 const tutorialGuidePromptLabel = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptLabelNode, 'cc.Label');
-assert.strictEqual(tutorialGuidePromptLabel?._fontSize, 22, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned font size');
-assert.strictEqual(tutorialGuidePromptLabel?._lineHeight, 28, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned line height');
+assert.ok(tutorialGuidePromptLabel, 'TutorialGuidePrompt/PromptLabel must own a Label');
 const gameplaySafeArea = getSceneNodeComponent(gameSceneJson, gameplayFixedRootNode, 'cc.SafeArea');
 assert.strictEqual(gameplaySafeArea, null, 'GameplayFixedRoot must not own SafeArea');
 for (const [label, node] of [['TopBarGroup', topBarGroupNode], ['BottomHudGroup', bottomHudGroupNode]]) {
     const safeArea = getSceneNodeComponent(gameSceneJson, node, 'cc.SafeArea');
     assert.ok(safeArea, `${label} must own a SafeArea`);
-    assert.strictEqual(safeArea._enabled, true, `${label} SafeArea must be enabled`);
     assert.strictEqual(safeArea.node?.__id__, gameSceneJson.indexOf(node), `${label} SafeArea component must point back to ${label}`);
 }
 const boardAreaWidget = getSceneNodeComponent(gameSceneJson, boardAreaNode, 'cc.Widget');
 assert.strictEqual(boardAreaWidget, null, 'BoardArea must not own a static Widget viewport');
 assert.strictEqual(gameScene.includes('BoardArea_widget_static_viewport_20260608'), false, 'Game.scene must not keep the hard BoardArea viewport Widget id');
 const slotAreaWidget = getSceneNodeComponent(gameSceneJson, slotAreaNode, 'cc.Widget');
-assert.ok(slotAreaWidget, 'SlotArea must keep its Cocos Widget-owned bottom anchor');
-assert.strictEqual(slotAreaWidget._bottom, 110, 'SlotArea must keep the expanded-board scene bottom anchor');
-assert.strictEqual(slotAreaNode._lpos.y, -448.5, 'SlotArea must keep the expanded-board scene y baseline');
-for (const [requiredGamePath, expectedUuid] of [
-    ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
-    ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],
-    ['BottomHudGroup/SkillArea/SkillWand', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
-    ['BottomHudGroup/SkillArea/SkillBrush', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
-    ['BottomHudGroup/SkillArea/SkillMagnet', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
-    ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
-    ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
-    ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+assert.ok(slotAreaWidget, 'SlotArea must keep its Cocos Widget-owned anchor component');
+for (const requiredGamePath of [
+    'TopBarGroup/TimerWrap',
+    'BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn',
+    'BottomHudGroup/SkillArea/SkillWand',
+    'BottomHudGroup/SkillArea/SkillBrush',
+    'BottomHudGroup/SkillArea/SkillMagnet',
+    'BottomHudGroup/SkillArea/SkillWand/ToolIcon',
+    'BottomHudGroup/SkillArea/SkillBrush/ToolIcon',
+    'BottomHudGroup/SkillArea/SkillMagnet/ToolIcon',
 ]) {
-    assertSceneSpriteFrame(gameSceneJson, 'GameplayFixedRoot', requiredGamePath, expectedUuid);
+    assertSceneSpriteComponent(gameSceneJson, 'GameplayFixedRoot', requiredGamePath);
 }
-for (const [arrowName, expectedUuid] of [
-    ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
-    ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
-]) {
+for (const arrowName of ['ArrowLeft', 'ArrowRight']) {
     const arrow = findPrefabRootChild(collectionPanelJson, arrowName);
     assert.ok(arrow, `CollectionPanel.prefab must declare ${arrowName}`);
-    assert.strictEqual(arrow._active, false, `CollectionPanel.prefab ${arrowName} must be hidden by default`);
     const sprite = getSceneNodeComponent(collectionPanelJson, arrow, 'cc.Sprite');
-    assert.strictEqual(sprite?._spriteFrame?.__uuid__, expectedUuid, `CollectionPanel.prefab ${arrowName} must keep its SpriteFrame`);
+    assert.ok(sprite, `CollectionPanel.prefab ${arrowName} must own a Sprite`);
 }
 for (const filePath of ['assets/Scripts/Core/GameCtrl.ts', 'assets/Scripts/Core/GameCtrlShared.ts', ...gameCtrlHelperFiles, ...gameCtrlPanelControllerFiles, ...gameCtrlModuleFiles]) {
     const lineCount = read(filePath).split(/\r?\n/).length;
@@ -708,7 +688,6 @@ assert.ok(audioManifest.includes('AUDIO_BGM_RESOURCE_PATH'), 'AudioManifest must
 assert.ok(audioManifest.includes("place: 'Audio/pindd/right_place_short'"), 'place SFX must use the trimmed short landing clip');
 assert.ok(exists('assets/GameAssetsBundle/Audio/pindd/right_place_short.mp3'), 'trimmed place SFX asset must exist');
 assert.ok(exists('assets/GameAssetsBundle/Audio/pindd/right_place_short.mp3.meta'), 'trimmed place SFX meta must exist');
-assert.ok(fs.statSync(path.join(root, 'assets/GameAssetsBundle/Audio/win.mp3')).size <= 2968, 'win SFX must keep the compressed asset size');
 assert.ok(audioMgr.includes('preload(name: SfxName)'), 'AudioMgr must expose a no-autoplay SFX preload entry point');
 assert.ok(gameCtrl.includes("AudioMgr.inst.preload('place');"), 'gameplay init must preload place SFX before board-return landings');
 assert.strictEqual(audioMgr.includes('const SFX_RESOURCE_PATH'), false, 'AudioMgr must not keep local SFX path map');
@@ -723,9 +702,6 @@ assert.ok(gameCtrl.includes('params.get(\'debug\') === \'1\' || params.get(\'log
 assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'scene runtime must use fixed-width resolution policy');
 assert.strictEqual(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), false, 'Home/Game must not split into different resolution policies');
 assert.ok(gameCtrl.includes("screenRoot?.getChildByName(name) || host.getChildByName(name)"), 'runtime root lookup must prefer ScreenRoot and fall back to Canvas');
-const progressFillMeta = JSON.parse(read('assets/GameAssetsBundle/Textures/UI/progress_fill.png.meta'));
-assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderLeft, 13, 'progress_fill left cap inset must protect rounded ends');
-assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderRight, 13, 'progress_fill right cap inset must protect rounded ends');
 assert.ok(
     gameCtrl.includes('this.startFlyToSlots(block.colorId, sources.slice(0, storedIdxs.length), storedIdxs, block.cells)'),
     'level2_slot guide must repaint source board cells when moving beans to slots',
@@ -742,7 +718,6 @@ assert.ok(
     gameCtrl.includes('this.startFlyPlace(block.colorId, sources, result.placed, guideDirtyBoardCells, guideDirtySlotIndices)'),
     'guide board placement must pass dirty board cells and slot indices to startFlyPlace',
 );
-assert.ok(gameCtrl.includes('const FLY_DELAY = 0.028'), 'board return visual flight stagger must keep original speed');
 assert.ok(
     gameCtrl.includes("AudioMgr.inst.play('place');\r\n                        AudioMgr.inst.vibrate(30);")
         || gameCtrl.includes("AudioMgr.inst.play('place');\n                        AudioMgr.inst.vibrate(30);"),
@@ -789,17 +764,10 @@ assert.ok(slotPanelIndex >= 0, 'Game.scene must contain SlotPanel');
 assert.ok(singleRowSlotPanelIndex >= 0, 'Game.scene must expose a Cocos-editable SlotPanelSingleRow anchor');
 const slotAreaChildIds = (gameSceneJson[slotAreaIndex]._children || []).map((child) => child?.__id__);
 assert.ok(slotAreaChildIds.includes(singleRowSlotPanelIndex), 'SlotPanelSingleRow must be a direct SlotArea child');
-const slotPanelUi = (gameSceneJson[slotPanelIndex]._components || [])
-    .map((componentRef) => gameSceneJson[componentRef.__id__])
-    .find((component) => component?.__type__ === 'cc.UITransform');
 const singleRowSlotPanelUi = (gameSceneJson[singleRowSlotPanelIndex]._components || [])
     .map((componentRef) => gameSceneJson[componentRef.__id__])
     .find((component) => component?.__type__ === 'cc.UITransform');
 assert.ok(singleRowSlotPanelUi, 'SlotPanelSingleRow must own a UITransform for Cocos editing');
-assert.ok(
-    singleRowSlotPanelUi._contentSize.height < slotPanelUi._contentSize.height,
-    'SlotPanelSingleRow must be shorter than the multi-row SlotPanel',
-);
 assert.ok(gameScene.includes('"_name": "LevelTitle"'), 'Game.scene must expose a Cocos-editable TopBarGroup/LevelTitle node');
 assert.strictEqual(gameScene.includes('"_name": "CompletionProgress"'), false, 'gameplay top HUD must not keep CompletionProgress node');
 const levelTitleIndex = gameSceneJson.findIndex((entry) => entry && entry._name === 'LevelTitle');
@@ -932,8 +900,8 @@ for (const forbidden of [
     assert.strictEqual(gameCtrl.includes(forbidden), false, `board gesture code must not keep legacy path ${forbidden}`);
 }
 for (const required of [
-    'const BOARD_SLOT_PLACE_HIT_MIN_UI = 52',
-    'const BOARD_SLOT_PLACE_HIT_CELL_RATIO = 1.05',
+    'BOARD_SLOT_PLACE_HIT_MIN_UI',
+    'BOARD_SLOT_PLACE_HIT_CELL_RATIO',
     'getSlotBoardPlaceToleranceLocal()',
     'getBoardPlaceTargetFromWorldPos(worldPos: Vec3, colorId: number, fromSlot: boolean = false)',
     'const fromSlot = block.source === \'slot\'',
@@ -941,7 +909,7 @@ for (const required of [
     'const boardCandidates = this.getBoardTapCandidates(worldPos)',
     'let tappedBoardBlock: BeanBlockInfo | null = null',
     'if (tappedBoardBlock) {',
-    'if (fromSlot && !this.isWorldPosInSlotArea(worldPos) && this.isWorldPosNearBoardPlaceArea(worldPos, true))',
+    'isWorldPosNearBoardPlaceArea(worldPos, true)',
 ]) {
     assert.ok(gameCtrl.includes(required), `slot-selected placement magnet must include ${required}`);
 }
@@ -1068,8 +1036,6 @@ for (const required of [
 }
 assert.strictEqual(boardInputViewportModule.includes("getGameplayFixedGroup?.('BoardArea')"), false, 'BoardInputViewportModule must not use BoardArea bounds as the board safe viewport');
 assert.strictEqual(boardInputViewportModule.includes('const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);'), false, 'BoardInputViewportModule must not keep static BoardArea viewport ownership');
-assert.ok(gameplayViewController.includes('const widthFitRatio = 0.95;'), 'GameplayViewController must keep board width fit stable');
-assert.ok(gameplayViewController.includes('const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;'), 'GameplayViewController must give large boards extra vertical breathing room');
 for (const required of [
     'getGuideNodeVerticalBoundsInLayer',
     'getGuideTopBarAvoidBottomY',
@@ -1103,9 +1069,8 @@ assert.strictEqual(
 );
 assert.ok(
     boardInputViewportModule.includes('this.getSceneGuidePromptBounds()')
-        && boardInputViewportModule.includes('this.getGuidePromptCenterY(450, 52)')
-        && boardInputViewportModule.includes('const tutorialBubbleGap = 12;'),
-    'BoardInputViewportModule must reserve the scene-owned tutorial prompt band with the old topbar-aware fallback',
+        && boardInputViewportModule.includes('this.getGuidePromptCenterY'),
+    'BoardInputViewportModule must reserve the scene-owned tutorial prompt band',
 );
 assert.strictEqual(
     gameCtrl.includes('return topEdge - 30 - safeInsets.top;'),

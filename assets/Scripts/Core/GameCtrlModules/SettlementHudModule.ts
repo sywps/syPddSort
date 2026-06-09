@@ -265,9 +265,6 @@ export function installSettlementHudModule(target: any): void {
             if (this.shouldChainTutorialLevelsOnWin()) {
                 return '下一关';
             }
-            if (this.shouldPromptFirstThemeUnlockOnWin()) {
-                return '查看主题';
-            }
             return this._isThemeLevel ? '返回主题' : '下一关';
         },
 
@@ -282,7 +279,7 @@ export function installSettlementHudModule(target: any): void {
                 || box?.getChildByName('TimeoutHookAnchor')?.getChildByName('WinHookLbl')?.getComponent(Label);
             if (hookLbl) {
                 hookLbl.string = this.shouldPromptFirstThemeUnlockOnWin()
-                    ? '已解锁主题挑战资格，通关后可直接前往查看'
+                    ? '已解锁主题挑战资格，可在首页查看'
                     : (this.shouldChainTutorialLevelsOnWin()
                         ? '进入第2关，继续挑战'
                         : '本局奖励已结算，继续挑战还能涨');
@@ -292,10 +289,6 @@ export function installSettlementHudModule(target: any): void {
         handleWinSettlementPrimaryAction() {
             if (this.shouldChainTutorialLevelsOnWin()) {
                 this.continueTutorialToSlotIntro(this.levelData.levelId + 1);
-                return;
-            }
-            if (this.shouldPromptFirstThemeUnlockOnWin()) {
-                this.continueToFirstThemeUnlockPrompt();
                 return;
             }
             this.goNextLevel();

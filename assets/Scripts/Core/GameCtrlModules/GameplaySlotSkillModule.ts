@@ -56,7 +56,7 @@ export function installGameplaySlotSkillModule(target: any): void {
             ensureGameplaySlotUiController(this).unlockSlotRow();
         },
 
-        /** 点击锁定行：有库存先消耗库存，没库存再看广告 */
+        /** 点击解锁按钮：免费模式直接解锁，广告模式看广告解锁 */
         tryUnlockSlotRow() {
             ensureGameplaySlotUiController(this).tryUnlockSlotRow();
         },

@@ -489,9 +489,8 @@ export function installBoardInputViewportModule(target: any): void {
                 const sp = this.slotNodes[i].position;
                 if (Math.abs(localPos.x - sp.x) < (SLOT_SIZE + SLOT_HIT_PADDING) / 2 && Math.abs(localPos.y - sp.y) < (SLOT_SIZE + SLOT_HIT_PADDING) / 2) {
                     const row = Math.floor(i / SLOTS_PER_ROW);
-                    // 锁定行：点击触发广告解锁
+                    // 锁定行只能通过 SlotRowLockedBtn 按钮解锁。
                     if (row >= this.slotUnlockedRows) {
-                        this.tryUnlockSlotRow();
                         return false;
                     }
                     const target = this.slotModel.getBlock(i);

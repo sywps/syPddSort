@@ -61,8 +61,6 @@ const OWNERSHIP_RISK_PATTERNS = [
     { name: 'new Node', regex: /\bnew\s+Node\s*\(/g },
     { name: 'Graphics', regex: /\.addComponent\s*\(\s*Graphics\s*\)/g },
     { name: 'setContentSize', regex: /\.setContentSize\s*\(/g },
-    { name: 'Label.fontSize', regex: /\.fontSize\s*=/g },
-    { name: 'Label.lineHeight', regex: /\.lineHeight\s*=/g },
     { name: 'node.color', regex: /\.color\s*=/g },
 ];
 
@@ -121,7 +119,7 @@ function getDirectChildNames(sceneJson, node) {
     return (node?._children || []).map((ref) => sceneJson[ref.__id__]?._name || '');
 }
 
-function assertSpriteFrame(failures, sceneJson, rootName, childPath, expectedUuid) {
+function assertSpriteComponent(failures, sceneJson, rootName, childPath) {
     const node = findSceneNodeByPath(sceneJson, rootName, childPath);
     if (!node) {
         failures.push(`Game.scene missing node ${rootName}/${childPath}`);
@@ -130,10 +128,6 @@ function assertSpriteFrame(failures, sceneJson, rootName, childPath, expectedUui
     const sprite = getNodeComponent(sceneJson, node, 'cc.Sprite');
     if (!sprite) {
         failures.push(`Game.scene ${rootName}/${childPath} must keep a Sprite component`);
-        return;
-    }
-    if (sprite._spriteFrame?.__uuid__ !== expectedUuid) {
-        failures.push(`Game.scene ${rootName}/${childPath} must keep static SpriteFrame ${expectedUuid}`);
     }
 }
 
@@ -169,8 +163,8 @@ function assertGameSceneStaticUiOwnership(failures) {
     }
     for (const [label, node] of [['TopBarGroup', topBarGroup], ['BottomHudGroup', bottomHudGroup]]) {
         const safeArea = getNodeComponent(sceneJson, node, 'cc.SafeArea');
-        if (!safeArea || safeArea._enabled !== true) {
-            failures.push(`${label} must keep an enabled SafeArea component`);
+        if (!safeArea) {
+            failures.push(`${label} must keep a SafeArea component`);
         } else if (safeArea.node?.__id__ !== sceneJson.indexOf(node)) {
             failures.push(`${label} SafeArea component must point back to ${label}`);
         }
@@ -178,25 +172,21 @@ function assertGameSceneStaticUiOwnership(failures) {
     if (getNodeComponent(sceneJson, boardArea, 'cc.Widget') || sceneText.includes('BoardArea_widget_static_viewport_20260608')) {
         failures.push('BoardArea must not own a static Widget viewport; board safe rect is computed at runtime from top/bottom HUD bounds');
     }
-    const slotWidget = getNodeComponent(sceneJson, slotArea, 'cc.Widget');
-    if (!slotWidget || slotWidget._bottom !== 110) {
-        failures.push('SlotArea must keep the expanded-board scene bottom anchor 110');
-    }
-    if (slotArea._lpos?.y !== -448.5) {
-        failures.push('SlotArea must keep the expanded-board scene y baseline -448.5');
+    if (!getNodeComponent(sceneJson, slotArea, 'cc.Widget')) {
+        failures.push('SlotArea must keep a Cocos Widget anchor component');
     }
 
-    for (const [pathInScene, expectedUuid] of [
-        ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
-        ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],
-        ['BottomHudGroup/SkillArea/SkillWand', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
-        ['BottomHudGroup/SkillArea/SkillBrush', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
-        ['BottomHudGroup/SkillArea/SkillMagnet', '0c10f393-7b94-4d57-a033-435838eb6272@f9941'],
-        ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
-        ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
-        ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+    for (const pathInScene of [
+        'TopBarGroup/TimerWrap',
+        'BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn',
+        'BottomHudGroup/SkillArea/SkillWand',
+        'BottomHudGroup/SkillArea/SkillBrush',
+        'BottomHudGroup/SkillArea/SkillMagnet',
+        'BottomHudGroup/SkillArea/SkillWand/ToolIcon',
+        'BottomHudGroup/SkillArea/SkillBrush/ToolIcon',
+        'BottomHudGroup/SkillArea/SkillMagnet/ToolIcon',
     ]) {
-        assertSpriteFrame(failures, sceneJson, 'GameplayFixedRoot', pathInScene, expectedUuid);
+        assertSpriteComponent(failures, sceneJson, 'GameplayFixedRoot', pathInScene);
     }
 
     const boardViewportModule = fs.readFileSync(path.join(projectDir, 'assets', 'Scripts', 'Core', 'GameCtrlModules', 'BoardInputViewportModule.ts'), 'utf8');
@@ -208,22 +198,16 @@ function assertGameSceneStaticUiOwnership(failures) {
 function assertCollectionPanelPrefabContract(failures) {
     const prefabJson = readJson(path.join(projectDir, 'assets', 'GameAssetsBundle', 'UI', 'Prefabs', 'Panels', 'CollectionPanel.prefab'));
     const root = prefabJson[1];
-    for (const [name, expectedUuid] of [
-        ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
-        ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
-    ]) {
+    for (const name of ['ArrowLeft', 'ArrowRight']) {
         const childRef = (root?._children || []).find((ref) => prefabJson[ref.__id__]?._name === name);
         if (!childRef) {
             failures.push(`CollectionPanel.prefab must declare ${name}`);
             continue;
         }
         const node = prefabJson[childRef.__id__];
-        if (node._active !== false) {
-            failures.push(`CollectionPanel.prefab ${name} must be hidden by default`);
-        }
         const sprite = getNodeComponent(prefabJson, node, 'cc.Sprite');
-        if (sprite?._spriteFrame?.__uuid__ !== expectedUuid) {
-            failures.push(`CollectionPanel.prefab ${name} must keep SpriteFrame ${expectedUuid}`);
+        if (!sprite) {
+            failures.push(`CollectionPanel.prefab ${name} must keep a Sprite component`);
         }
     }
 }

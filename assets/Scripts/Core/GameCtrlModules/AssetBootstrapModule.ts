@@ -32,6 +32,14 @@ import type {
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 
+const SHARED_POPUP_SPRITE_FRAME_NAMES = new Set<string>([
+    'popup_guide_bubble',
+    'popup_guide_highlight_ring',
+    'popup_result_preview_plate',
+    'popup_progress_bar_bg',
+    'popup_progress_bar_fill',
+]);
+
 function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserState | null, hadLocalUserState: boolean): void {
     if (!runtime.isValid || !state) {
         return;
@@ -394,7 +402,8 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _ensureSpriteFramesByName(names: string[], callback: () => void) {
-            const missingNames = names.filter((name) => !this.getSF(name));
+            const uniqueNames = Array.from(new Set(names));
+            const missingNames = uniqueNames.filter((name) => !this.getSF(name));
             if (missingNames.length === 0) {
                 callback();
                 return;
@@ -403,6 +412,10 @@ export function installAssetBootstrapModule(target: any): void {
             const finishOne = () => {
                 remaining -= 1;
                 if (remaining > 0) return;
+                const stillMissing = uniqueNames.filter((name) => !this.getSF(name));
+                if (stillMissing.length > 0) {
+                    throw new Error(`[assets] missing required SpriteFrames: ${stillMissing.join(', ')}`);
+                }
                 callback();
             };
             for (const name of missingNames) {
@@ -431,6 +444,7 @@ export function installAssetBootstrapModule(target: any): void {
             const uniqueNames = Array.from(new Set(names));
             let evicted = 0;
             for (const name of uniqueNames) {
+                if (SHARED_POPUP_SPRITE_FRAME_NAMES.has(name)) continue;
                 const sf = this.sfCache.get(name);
                 if (!sf) continue;
                 this.sfCache.delete(name);
