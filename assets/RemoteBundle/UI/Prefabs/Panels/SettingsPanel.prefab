@@ -1086,7 +1086,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "SettingsRow0",
+    "_name": "SettingsRow2",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -1115,7 +1115,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -3.506,
-      "y": 150.377,
+      "y": 151.058,
       "z": 0
     },
     "_lrot": {
@@ -1217,7 +1217,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-13"
+    "fileId": "settings-file-29"
   },
   {
     "__type__": "cc.Sprite",
@@ -1242,7 +1242,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "10d2a973-1612-4858-aab1-187f7760db72@f9941",
+      "__uuid__": "6521e712-bec2-460b-8c14-d47b4c4f7877@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -1272,7 +1272,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-14",
+    "fileId": "settings-file-30",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -1404,7 +1404,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewLabel-ui-1003"
+    "fileId": "PreviewLabel-ui-1033"
   },
   {
     "__type__": "cc.Label",
@@ -1428,13 +1428,13 @@
       "b": 53,
       "a": 255
     },
-    "_string": "音效",
+    "_string": "音乐",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 24,
-    "_fontSize": 24,
+    "_actualFontSize": 26,
+    "_fontSize": 26,
     "_fontFamily": "Arial",
-    "_lineHeight": 36,
+    "_lineHeight": 38,
     "_overflow": 1,
     "_enableWrapText": false,
     "_font": null,
@@ -1472,7 +1472,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewLabel-label-1005"
+    "fileId": "PreviewLabel-label-1035"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1482,7 +1482,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "PreviewLabel-node-1004",
+    "fileId": "PreviewLabel-node-1034",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -1513,7 +1513,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-15"
+    "fileId": "settings-file-31"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1523,7 +1523,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-16",
+    "fileId": "settings-file-32",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -1655,7 +1655,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewToggleBg-ui-1006"
+    "fileId": "PreviewToggleBg-ui-1036"
   },
   {
     "__type__": "cc.Sprite",
@@ -1700,7 +1700,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewToggleBg-sprite-1008"
+    "fileId": "PreviewToggleBg-sprite-1038"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1710,7 +1710,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "PreviewToggleBg-node-1007",
+    "fileId": "PreviewToggleBg-node-1037",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -1741,7 +1741,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-17"
+    "fileId": "settings-file-33"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1751,7 +1751,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-18",
+    "fileId": "settings-file-34",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -1782,7 +1782,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-11"
+    "fileId": "settings-file-27"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1792,14 +1792,12 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-12",
-    "instance": null,
-    "targetOverrides": null,
+    "fileId": "settings-file-28",
     "nestedPrefabInstanceRoots": null
   },
   {
     "__type__": "cc.Node",
-    "_name": "SettingsRow1",
+    "_name": "SettingsRow0",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -1828,7 +1826,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -3.506,
-      "y": 52.446,
+      "y": -46.46,
       "z": 0
     },
     "_lrot": {
@@ -1930,7 +1928,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-21"
+    "fileId": "settings-file-13"
   },
   {
     "__type__": "cc.Sprite",
@@ -1955,7 +1953,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "b53e9977-b2b0-4f41-9185-d6ef593d604f@f9941",
+      "__uuid__": "10d2a973-1612-4858-aab1-187f7760db72@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -1985,7 +1983,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-22",
+    "fileId": "settings-file-14",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2117,7 +2115,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewLabel-ui-1018"
+    "fileId": "PreviewLabel-ui-1003"
   },
   {
     "__type__": "cc.Label",
@@ -2141,7 +2139,7 @@
       "b": 53,
       "a": 255
     },
-    "_string": "震动",
+    "_string": "音效",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -2185,7 +2183,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewLabel-label-1020"
+    "fileId": "PreviewLabel-label-1005"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2195,7 +2193,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "PreviewLabel-node-1019",
+    "fileId": "PreviewLabel-node-1004",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2226,7 +2224,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-23"
+    "fileId": "settings-file-15"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2236,7 +2234,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-24",
+    "fileId": "settings-file-16",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2368,7 +2366,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewToggleBg-ui-1021"
+    "fileId": "PreviewToggleBg-ui-1006"
   },
   {
     "__type__": "cc.Sprite",
@@ -2393,7 +2391,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "ae359614-ac20-4696-a983-acabccd29994@f9941",
+      "__uuid__": "820e53f8-8626-4f86-94f5-2080419f8664@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -2413,7 +2411,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewToggleBg-sprite-1023"
+    "fileId": "PreviewToggleBg-sprite-1008"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2423,7 +2421,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "PreviewToggleBg-node-1022",
+    "fileId": "PreviewToggleBg-node-1007",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2454,7 +2452,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-25"
+    "fileId": "settings-file-17"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2464,7 +2462,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-26",
+    "fileId": "settings-file-18",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2495,7 +2493,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-19"
+    "fileId": "settings-file-11"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2505,14 +2503,14 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-20",
+    "fileId": "settings-file-12",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
     "__type__": "cc.Node",
-    "_name": "SettingsRow2",
+    "_name": "SettingsRow1",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -2541,7 +2539,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -3.506,
-      "y": -46.46,
+      "y": 52.446,
       "z": 0
     },
     "_lrot": {
@@ -2643,7 +2641,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-29"
+    "fileId": "settings-file-21"
   },
   {
     "__type__": "cc.Sprite",
@@ -2668,7 +2666,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "6521e712-bec2-460b-8c14-d47b4c4f7877@f9941",
+      "__uuid__": "b53e9977-b2b0-4f41-9185-d6ef593d604f@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -2698,7 +2696,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-30",
+    "fileId": "settings-file-22",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2830,7 +2828,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewLabel-ui-1033"
+    "fileId": "PreviewLabel-ui-1018"
   },
   {
     "__type__": "cc.Label",
@@ -2854,13 +2852,13 @@
       "b": 53,
       "a": 255
     },
-    "_string": "音乐",
+    "_string": "震动",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 26,
-    "_fontSize": 26,
+    "_actualFontSize": 24,
+    "_fontSize": 24,
     "_fontFamily": "Arial",
-    "_lineHeight": 38,
+    "_lineHeight": 36,
     "_overflow": 1,
     "_enableWrapText": false,
     "_font": null,
@@ -2898,7 +2896,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewLabel-label-1035"
+    "fileId": "PreviewLabel-label-1020"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2908,7 +2906,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "PreviewLabel-node-1034",
+    "fileId": "PreviewLabel-node-1019",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -2939,7 +2937,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-31"
+    "fileId": "settings-file-23"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -2949,7 +2947,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-32",
+    "fileId": "settings-file-24",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -3081,7 +3079,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewToggleBg-ui-1036"
+    "fileId": "PreviewToggleBg-ui-1021"
   },
   {
     "__type__": "cc.Sprite",
@@ -3106,7 +3104,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "820e53f8-8626-4f86-94f5-2080419f8664@f9941",
+      "__uuid__": "ae359614-ac20-4696-a983-acabccd29994@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -3126,7 +3124,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "PreviewToggleBg-sprite-1038"
+    "fileId": "PreviewToggleBg-sprite-1023"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -3136,7 +3134,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "PreviewToggleBg-node-1037",
+    "fileId": "PreviewToggleBg-node-1022",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -3167,7 +3165,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-33"
+    "fileId": "settings-file-25"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -3177,7 +3175,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-34",
+    "fileId": "settings-file-26",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
@@ -3208,7 +3206,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "settings-file-27"
+    "fileId": "settings-file-19"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -3218,7 +3216,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "settings-file-28",
+    "fileId": "settings-file-20",
     "instance": null,
     "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
