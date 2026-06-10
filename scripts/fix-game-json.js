@@ -554,13 +554,17 @@ if (fs.existsSync(firstScreenPath)) {
     }
 }
 
-// 3.4 启动后立即使用休闲游戏默认 24 帧；运行时交互/动画阶段再临时升帧
+// 3.4 启动后立即使用休闲游戏默认 30 帧；运行时交互/动画阶段再临时升帧
 var applicationPath = resolveApplicationPath();
 if (fs.existsSync(applicationPath)) {
     var applicationContent = fs.readFileSync(applicationPath, 'utf-8');
     var patchedApplication = applicationContent.replace(
         /key: "onPostSystemInit",\s+value: function onPostSystemInit\(\) \{\s+\/\/ do custom logic\s+\}/,
-        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 24; cc.game.setFrameRate(24); }'
+        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 30; cc.game.setFrameRate(30); }'
+    );
+    patchedApplication = patchedApplication.replace(
+        /key: "onPostSystemInit",\s+value: function onPostSystemInit\(\) \{\s+cc\.game\.frameRate = \d+;\s+cc\.game\.setFrameRate\(\d+\);\s+\}/,
+        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 30; cc.game.setFrameRate(30); }'
     );
     patchedApplication = patchedApplication.replace(
         /key: "onPostInitBase",\s+value: function onPostInitBase\(\) \{\s+\/\/ cc\.settings\.overrideSettings\('assets', 'server', ''\);\s+\/\/ do custom logic\s+\}/,
@@ -568,7 +572,7 @@ if (fs.existsSync(applicationPath)) {
     );
     if (patchedApplication !== applicationContent) {
         fs.writeFileSync(applicationPath, patchedApplication);
-        console.log('[3.4/7] 已锁定启动帧率为 24 ✓');
+        console.log('[3.4/7] 已锁定启动帧率为 30 ✓');
     } else {
         console.log('[3.4/7] 启动帧率已锁定 ✓');
     }

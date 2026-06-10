@@ -181,6 +181,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.levelData = null!;
             this.boardNode = null!;
             this.boardSlotsNode = null!;
+            this._boardSlotBatchRenderer = null;
             this.boardSlotBgNodes = [];
             this.boardGroup = null!;
             this.cellNodes = [];

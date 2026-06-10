@@ -253,7 +253,8 @@ export class GameplaySkillUiController {
         }
         lblNode.active = true;
         lblNode.layer = Layers.Enum.UI_2D;
-        if (!lblNode.getComponent(UITransform)) {
+        const lblTransform = lblNode.getComponent(UITransform);
+        if (!lblTransform) {
             throw new Error(`[GameplayScene] Game.scene is missing UITransform component on ${parent.name}/CountBadge/CountBadgeLbl`);
         }
         const lbl = lblNode.getComponent(Label);
@@ -266,7 +267,10 @@ export class GameplaySkillUiController {
         lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
         lbl.verticalAlign = Label.VerticalAlign.CENTER;
         lbl.overflow = Label.Overflow.SHRINK;
-        lbl.string = count > 99 ? '99+' : `${Math.max(0, count)}`;
+        lbl.enableWrapText = false;
+        const displayText = count > 99 ? '99+' : `${Math.max(0, count)}`;
+        lblTransform.setContentSize(Math.max(18, badgeW - 8), Math.max(1, badgeH));
+        lbl.string = displayText;
     }
 
     private requireTemplateNode(parent: Node, name: string): Node {

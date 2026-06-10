@@ -576,6 +576,18 @@ export function installTutorialGuideModule(target: any): void {
                     maxY = Math.max(maxY, local.y + halfH);
                     maxCellSize = Math.max(maxCellSize, halfW * 2, halfH * 2);
                 }
+                if (!nodes.some((node) => node?.isValid)) {
+                    const world = this.getBoardCellWorldPosition?.(cell.row, cell.col) || null;
+                    if (!world) continue;
+                    const local = layerUT.convertToNodeSpaceAR(world);
+                    const size = Math.max(1, Number(this.getBoardBeanVisualSize?.() || this.cellSize || 1));
+                    const half = size / 2;
+                    minX = Math.min(minX, local.x - half);
+                    maxX = Math.max(maxX, local.x + half);
+                    minY = Math.min(minY, local.y - half);
+                    maxY = Math.max(maxY, local.y + half);
+                    maxCellSize = Math.max(maxCellSize, size);
+                }
             }
             if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
             const padding = Math.max(24, Math.round(maxCellSize * 0.28));

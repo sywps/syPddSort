@@ -20,6 +20,8 @@ import {
     Vec3,
     view,
 } from './GameCtrlShared';
+import { BoardSlotBatchRenderer } from './BoardSlotBatchRenderer';
+import type { BoardSlotBatchCell } from './BoardSlotBatchRenderer';
 
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
@@ -149,7 +151,8 @@ export class GameplayViewController {
                 }
             }
         }
-        if (visibleBoardSlots === 0) {
+        const batchedBoardSlots = Number(runtime._boardSlotBatchRenderer?.visibleCellCount || 0);
+        if (visibleBoardSlots + batchedBoardSlots === 0) {
             throw new Error('[GameplayVisual] board slot sprites all hidden after render');
         }
         let visibleSlotMarkers = 0;
@@ -266,6 +269,30 @@ export class GameplayViewController {
         node.active = true;
         node.setScale(1, 1, 1);
         return { node, sprite };
+    }
+
+    private prepareBoardSlotBatchRenderer(parent: Node, width: number, height: number): BoardSlotBatchRenderer {
+        const runtime = this.runtime;
+        let batchNode = runtime._boardSlotBatchRenderer?.node?.isValid
+            ? runtime._boardSlotBatchRenderer.node
+            : parent.getChildByName('BoardSlotBatch');
+        if (!batchNode?.isValid) {
+            batchNode = new Node('BoardSlotBatch');
+            parent.addChild(batchNode);
+        } else if (batchNode.parent !== parent) {
+            parent.addChild(batchNode);
+        }
+        batchNode.layer = Layers.Enum.UI_2D;
+        batchNode.active = true;
+        batchNode.setPosition(0, 0, 0);
+        batchNode.setScale(1, 1, 1);
+        let transform = batchNode.getComponent(UITransform);
+        if (!transform) transform = batchNode.addComponent(UITransform);
+        transform.setContentSize(width, height);
+        let renderer = batchNode.getComponent(BoardSlotBatchRenderer);
+        if (!renderer) renderer = batchNode.addComponent(BoardSlotBatchRenderer);
+        runtime._boardSlotBatchRenderer = renderer;
+        return renderer;
     }
 
     private prepareDragLayer(dragRoot: Node): Node {
@@ -445,6 +472,10 @@ export class GameplayViewController {
 
     renderBoardSlotCell(row: number, col: number) {
         const runtime = this.runtime;
+        if (runtime._boardSlotBatchRenderer?.isValid) {
+            runtime._boardSlotBatchRenderer.markForUpdateRenderData();
+            return;
+        }
         const node = runtime.boardSlotBgNodes[row]?.[col] || null;
         if (!node) return;
         const sp = node.getComponent(Sprite);
@@ -507,7 +538,8 @@ export class GameplayViewController {
             runtime.activeBoardTouches.set(id, this.getTouchUiPos(touch));
         }
         if (!removeChanged) {
-            for (const id of Array.from(runtime.activeBoardTouches.keys())) {
+            const trackedTouchIds = Array.from(runtime.activeBoardTouches.keys()) as number[];
+            for (const id of trackedTouchIds) {
                 if (!activeIds.has(id)) {
                     runtime.activeBoardTouches.delete(id);
                 }
@@ -660,7 +692,8 @@ export class GameplayViewController {
         runtime.boardSlotsNode.getComponent(UITransform)?.setContentSize(boardW, boardH);
         runtime.boardSlotsNode.setPosition(0, 0, 0);
         this.recycleBoardNodeGrid(runtime.boardSlotBgNodes, runtime._boardSlotBgPool, boardVisualCellCount);
-        runtime.clearChildrenExcept(runtime.boardSlotsNode, []);
+        runtime.clearChildrenExcept(runtime.boardSlotsNode, ['BoardSlotBatch']);
+        const slotBatchRenderer = this.prepareBoardSlotBatchRenderer(runtime.boardSlotsNode, boardW, boardH);
 
         const safeRect = runtime.getBoardSafeViewportRect();
         const availableW = Math.max(1, safeRect.right - safeRect.left);
@@ -692,6 +725,7 @@ export class GameplayViewController {
         runtime.boardHomeScale = runtime.boardViewport.scale;
         runtime.boardHomePos = new Vec3(runtime.boardGroup.position.x, runtime.boardGroup.position.y, 0);
 
+        const slotBatchCells: BoardSlotBatchCell[] = [];
         runtime.cellNodes = [];
         runtime.boardSlotBgNodes = [];
         for (let r = 0; r < bh; r++) {
@@ -707,15 +741,17 @@ export class GameplayViewController {
                 const x = (c - bw / 2 + 0.5) * (runtime.cellSize + runtime.cellGap);
                 const y = ((bh / 2 - 0.5) - r) * (runtime.cellSize + runtime.cellGap);
 
-                const { node: slotBg, sprite: slotSp } = this.acquireBoardSpriteNode(
-                    runtime._boardSlotBgPool,
-                    `slotbg_${r}_${c}`,
-                    runtime.boardSlotsNode,
-                    runtime.getBoardSlotVisualSize(),
-                );
-                slotSp.sizeMode = Sprite.SizeMode.CUSTOM;
-                slotBg.setPosition(x, y);
-                runtime.boardSlotBgNodes[r][c] = slotBg;
+                const slotFrame = runtime.getSlotSpriteFrame(correctId);
+                if (!slotFrame) {
+                    throw new Error(`[BoardSlotBatch] missing slot frame for color ${correctId}`);
+                }
+                slotBatchCells.push({
+                    x,
+                    y,
+                    size: runtime.getBoardSlotVisualSize(),
+                    spriteFrame: slotFrame,
+                });
+                runtime.boardSlotBgNodes[r][c] = null;
 
                 const { node: cell, sprite: sp } = this.acquireBoardSpriteNode(
                     runtime._boardCellPool,
@@ -728,6 +764,7 @@ export class GameplayViewController {
                 runtime.cellNodes[r][c] = cell;
             }
         }
+        slotBatchRenderer.configure(slotBatchCells);
         this.trimBoardNodePool(runtime._boardCellPool, 0);
         this.trimBoardNodePool(runtime._boardSlotBgPool, 0);
     }

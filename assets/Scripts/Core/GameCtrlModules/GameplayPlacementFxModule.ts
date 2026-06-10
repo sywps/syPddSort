@@ -193,15 +193,16 @@ export function installGameplayPlacementFxModule(target: any): void {
         
             for (let i = 0; i < targets.length; i++) {
                 const t = targets[i];
-                const cellNode = this.cellNodes[t.row]?.[t.col];
-                if (!cellNode) {
+                const targetWorld = this.getBoardCellWorldPosition?.(t.row, t.col)
+                    || this.cellNodes[t.row]?.[t.col]?.getComponent(UITransform)?.convertToWorldSpaceAR(new Vec3(0, 0, 0))
+                    || null;
+                if (!targetWorld) {
                     this._flyingTargets.delete(`${t.row},${t.col}`);
                     this.renderBoardCell(t.row, t.col);
                     remaining--;
                     if (remaining <= 0) finishAfterAllLanded();
                     continue;
                 }
-                const targetWorld = cellNode.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
                 const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
                 const srcWorld = sourcesWorld[i] || sourcesWorld[sourcesWorld.length - 1] || targetWorld;
                 const srcLocal = layerUT.convertToNodeSpaceAR(srcWorld);

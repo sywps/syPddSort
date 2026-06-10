@@ -2,8 +2,8 @@ import { AdConfig } from '../Platform/AdConfig';
 import { AudioMgr } from './AudioMgr';
 import { Game, director, game, sys } from 'cc';
 
-const IDLE_FPS = 24;
-const ACTIVE_FPS = 30;
+const IDLE_FPS = 30;
+const ACTIVE_FPS = 45;
 const BACKGROUND_FPS = 15;
 const ACTIVE_HOLD_MS = 2500;
 const RENDER_SCALE = 0.78;

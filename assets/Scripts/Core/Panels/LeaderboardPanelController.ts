@@ -134,8 +134,8 @@ export class LeaderboardPanelController {
                     const rightHotspot = runtime.requirePanelChild(tabWrap, 'LeaderboardTabFriendHit');
                     const globalBg = runtime.requirePanelChild(tabWrap, 'PopupTabGlobalBg');
                     const friendBg = runtime.requirePanelChild(tabWrap, 'PopupTabFriendBg');
-                    const globalLbl = runtime.requirePanelChild(tabWrap, 'PopupTabGlobalLbl');
-                    const friendLbl = runtime.requirePanelChild(tabWrap, 'PopupTabFriendLbl');
+                    const globalLbl = runtime.requirePanelChild(globalBg, 'PopupTabGlobalLbl');
+                    const friendLbl = runtime.requirePanelChild(friendBg, 'PopupTabFriendLbl');
                     let activeTab: 'global' | 'friend' = 'global';
 
                     const updateTabStyle = () => {

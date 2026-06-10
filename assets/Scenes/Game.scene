@@ -19320,7 +19320,7 @@
         "__id__": 523
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 526
@@ -19558,10 +19558,10 @@
     "_string": "先选这块豆豆\n完成进度 1/3",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 22,
-    "_fontSize": 22,
+    "_actualFontSize": 52.125,
+    "_fontSize": 48,
     "_fontFamily": "Arial",
-    "_lineHeight": 28,
+    "_lineHeight": 60,
     "_overflow": 0,
     "_enableWrapText": true,
     "_font": null,
