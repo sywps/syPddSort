@@ -112,16 +112,12 @@ export class LeaderboardPanelController {
 
                     runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), closeOverlay);
                     const hintAnchor = runtime.requirePanelChild(box, 'HintAnchor');
-                    const hintUi = hintAnchor.getComponent(UITransform) || hintAnchor.addComponent(UITransform);
-                    hintUi.setContentSize(420, 32);
-                    const hintLabel = hintAnchor.getComponent(Label) || hintAnchor.addComponent(Label);
+                    const hintLabel = hintAnchor.getComponent(Label);
+                    if (!hintLabel) {
+                        throw new Error('[leaderboard-prefab] missing label on HintAnchor');
+                    }
                     hintLabel.string = '';
-                    hintLabel.fontSize = 18;
-                    hintLabel.color = new Color('#4D8F45');
-                    hintLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                    hintLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                    hintLabel.overflow = Label.Overflow.SHRINK;
-                    runtime.setLeaderboardHintToTop(hintAnchor);
+                    runtime.resetLeaderboardHintState?.(hintAnchor);
 
                     const tabWrap = runtime.requirePanelChild(box, 'LeaderboardTabs');
                     const listNode = runtime.requirePanelChild(box, 'LeaderboardList');
@@ -163,7 +159,8 @@ export class LeaderboardPanelController {
 
                     updateTabStyle();
                     tabWrap.setSiblingIndex(box.children.length - 1);
-                    await runtime.loadGlobalLeaderboard(box, listNode, selfBox, hintAnchor);
+                    const initialRequestToken = runtime.beginLeaderboardTabRequest?.('global');
+                    await runtime.loadGlobalLeaderboard(box, listNode, selfBox, hintAnchor, initialRequestToken);
                 } catch (error) {
                     failOpen(error instanceof Error ? error.message : '[leaderboard-prefab] build failed', overlay);
                 }

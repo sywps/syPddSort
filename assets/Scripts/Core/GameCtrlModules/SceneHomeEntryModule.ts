@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, Layers, view, ResolutionPolicy, sys, UIOpacity,
+    Layers, view, ResolutionPolicy, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -29,7 +29,6 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 
@@ -100,160 +99,6 @@ export function installSceneHomeEntryModule(target: any): void {
         
             // 呼吸动画
             this.startHomeSceneScalePulse(btn, 1.045, 0.9);
-        },
-
-        // ==================== 侧边栏复访（抖音审核必接） ====================
-        
-        drawSidebarEntry(parent: Node) {
-            const existing = parent.getChildByName('SidebarBtn');
-            if (existing?.isValid) {
-                existing.active = false;
-            }
-            const tt = (globalThis as any).tt;
-            if (!tt || !tt.checkScene) return;
-        
-            tt.checkScene({
-                scene: 'sidebar',
-                success: (res: any) => {
-                    if (!res.isExist) return;
-                    if (!parent.isValid || !this.mainMenuNode?.isValid) return;
-                    this.createSidebarButton(parent);
-                },
-                fail: () => {}
-            });
-        },
-
-        createSidebarButton(parent: Node) {
-            const btn = this.requireUiChild(parent, 'SidebarBtn', 'EntryLayer/SidebarBtn');
-            btn.active = true;
-        
-            const labelNode = this.requireUiChild(btn, 'SidebarLbl', 'SidebarBtn/SidebarLbl');
-            const label = labelNode.getComponent(Label);
-            if (!label) throw new Error('[HomeScene] Home.scene is missing Label component on SidebarBtn/SidebarLbl');
-        
-            btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
-            btn.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('button');
-                this.showSidebarGuide(parent);
-            }, this);
-        
-            // 呼吸动画
-            this.startHomeSceneScalePulse(btn, 1.08, 0.6);
-        },
-
-        showSidebarGuide(parent: Node) {
-            openCollectionShellOverlay(this, {
-                overlayName: 'SidebarGuide',
-                siblingIndex: 999,
-                onReady: ({ overlay, box, content, close }) => {
-                    content.removeAllChildren();
-                    const titleNode = new Node('GuideTitle');
-                    box.addChild(titleNode);
-                    titleNode.layer = Layers.Enum.UI_2D;
-                    titleNode.setPosition(0, 180, 0);
-                    titleNode.addComponent(UITransform).setContentSize(320, 40);
-                    const titleLabel = titleNode.addComponent(Label);
-                    titleLabel.string = '添加到侧边栏';
-                    titleLabel.fontSize = 32;
-                    titleLabel.lineHeight = 36;
-                    titleLabel.color = new Color('#333333');
-                    titleLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                    titleLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                    titleLabel.overflow = Label.Overflow.SHRINK;
-
-                    const descNode = new Node('GuideDesc');
-                    box.addChild(descNode);
-                    descNode.layer = Layers.Enum.UI_2D;
-                    descNode.setPosition(0, 112, 0);
-                    descNode.addComponent(UITransform).setContentSize(420, 64);
-                    const descLabel = descNode.addComponent(Label);
-                    descLabel.string = '添加后可从抖音首页侧边栏\n快速进入游戏，还有奖励哦！';
-                    descLabel.fontSize = 20;
-                    descLabel.lineHeight = 28;
-                    descLabel.color = new Color('#666666');
-                    descLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                    descLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                    descLabel.overflow = Label.Overflow.SHRINK;
-
-                    const demoNode = new Node('Demo');
-                    content.addChild(demoNode);
-                    demoNode.addComponent(UITransform).setContentSize(200, 100);
-                    demoNode.layer = Layers.Enum.UI_2D;
-                    demoNode.setPosition(0, 80);
-                    const dg = demoNode.addComponent(Graphics);
-                    dg.lineWidth = 2;
-                    dg.strokeColor = new Color('#AAAAAA');
-                    dg.roundRect(-50, -40, 100, 80, 8);
-                    dg.stroke();
-                    dg.fillColor = new Color('#FF4757');
-                    dg.roundRect(30, -20, 18, 18, 4);
-                    dg.fill();
-                    dg.strokeColor = new Color('#FF4757');
-                    dg.lineWidth = 2;
-                    dg.moveTo(60, -11); dg.lineTo(75, -11);
-                    dg.moveTo(72, -16); dg.lineTo(78, -11); dg.lineTo(72, -6);
-                    dg.stroke();
-
-                    const addBtn = new Node('AddBtn');
-                    box.addChild(addBtn);
-                    addBtn.layer = Layers.Enum.UI_2D;
-                    addBtn.setPosition(0, -110, 0);
-                    const homeButtonFrame = this.getSF('home_start_button');
-                    if (!homeButtonFrame) {
-                        throw new Error('[sidebar-guide] missing sprite frame: home_start_button');
-                    }
-                    this._applySpriteFrame(addBtn, homeButtonFrame, 220, 56);
-                    const addSprite = addBtn.getComponent(Sprite);
-                    if (addSprite) addSprite.color = new Color('#FF4757');
-                    const addBtnLabelNode = new Node('AddLbl');
-                    addBtn.addChild(addBtnLabelNode);
-                    addBtnLabelNode.layer = Layers.Enum.UI_2D;
-                    addBtnLabelNode.addComponent(UITransform).setContentSize(180, 32);
-                    const addBtnLabel = addBtnLabelNode.addComponent(Label);
-                    addBtnLabel.string = '立即添加';
-                    addBtnLabel.fontSize = 24;
-                    addBtnLabel.lineHeight = 28;
-                    addBtnLabel.color = Color.WHITE;
-                    addBtnLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                    addBtnLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                    addBtnLabel.overflow = Label.Overflow.SHRINK;
-                    addBtn.addComponent(Button);
-                    addBtn.on(Button.EventType.CLICK, () => {
-                        const tt = (globalThis as any).tt;
-                        if (tt && tt.navigateToScene) {
-                            tt.navigateToScene({
-                                scene: 'sidebar',
-                                success: () => {},
-                                fail: () => {}
-                            });
-                        }
-                        if (overlay.isValid) overlay.destroy();
-                    }, this);
-
-                    const closeBtn = new Node('CloseBtn');
-                    box.addChild(closeBtn);
-                    closeBtn.layer = Layers.Enum.UI_2D;
-                    closeBtn.setPosition(0, -170, 0);
-                    this._applySpriteFrame(closeBtn, homeButtonFrame, 160, 42);
-                    const closeSprite = closeBtn.getComponent(Sprite);
-                    if (closeSprite) closeSprite.color = new Color('#CCCCCC');
-                    const closeBtnLabelNode = new Node('CloseLbl');
-                    closeBtn.addChild(closeBtnLabelNode);
-                    closeBtnLabelNode.layer = Layers.Enum.UI_2D;
-                    closeBtnLabelNode.addComponent(UITransform).setContentSize(120, 24);
-                    const closeBtnLabel = closeBtnLabelNode.addComponent(Label);
-                    closeBtnLabel.string = '以后再说';
-                    closeBtnLabel.fontSize = 16;
-                    closeBtnLabel.lineHeight = 20;
-                    closeBtnLabel.color = new Color('#888888');
-                    closeBtnLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                    closeBtnLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                    closeBtnLabel.overflow = Label.Overflow.SHRINK;
-                    closeBtn.addComponent(Button);
-                    closeBtn.on(Button.EventType.CLICK, close, this);
-                },
-            });
         },
 
         loadLevel(levelId: number, prefix: string = 'level_', _mapMainLevel: boolean = true) {

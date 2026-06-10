@@ -261,11 +261,6 @@ export class GameplaySkillUiController {
         if (!lbl) {
             throw new Error(`[GameplayScene] Game.scene is missing Label component on ${parent.name}/CountBadge/CountBadgeLbl`);
         }
-        lbl.fontSize = 14;
-        lbl.lineHeight = 18;
-        lbl.color = Color.WHITE;
-        lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
-        lbl.verticalAlign = Label.VerticalAlign.CENTER;
         lbl.overflow = Label.Overflow.SHRINK;
         lbl.enableWrapText = false;
         const displayText = count > 99 ? '99+' : `${Math.max(0, count)}`;

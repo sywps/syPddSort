@@ -32,6 +32,18 @@ function syncPrefabPopupTitle(box: Node, title: string): void {
     label.string = title;
 }
 
+function syncRequiredPrefabLabel(parent: Node, childName: string, text: string, errorPrefix: string): Label {
+    const labelNode = parent.getChildByName(childName);
+    const label = labelNode?.getComponent(Label);
+    if (!labelNode || !label) {
+        throw new Error(`${errorPrefix} missing Label component on ${parent.name}/${childName}`);
+    }
+    labelNode.active = true;
+    label.string = text;
+    label.enableWrapText = false;
+    return label;
+}
+
 export class CommercePanelController {
     constructor(private readonly runtime: any) {}
 
@@ -120,18 +132,7 @@ export class CommercePanelController {
                         if (!goldIconSprite?.spriteFrame) {
                             throw new Error('[gold-shop-prefab] missing static GoldBalanceIcon SpriteFrame');
                         }
-                        const goldLabelNode = runtime.requirePanelChild(goldAnchor, 'GoldBalanceLbl');
-                        const goldLabel = goldLabelNode.getComponent(Label);
-                        if (!goldLabel) throw new Error('[gold-shop-prefab] missing Label component on GoldBalanceLbl');
-                        (goldLabelNode.getComponent(UITransform) || goldLabelNode.addComponent(UITransform)).setContentSize(82, 30);
-                        goldLabel.string = `${runtime.getGold()}`;
-                        goldLabel.fontSize = 22;
-                        goldLabel.lineHeight = 30;
-                        goldLabel.color = new Color('#6A4A10');
-                        goldLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                        goldLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                        goldLabel.overflow = Label.Overflow.SHRINK;
-                        goldLabel.enableWrapText = false;
+                        const goldLabel = syncRequiredPrefabLabel(goldAnchor, 'GoldBalanceLbl', `${runtime.getGold()}`, '[gold-shop-prefab]');
                         runtime._shopGoldLbl = goldLabel;
 
                         const adRow = runtime.requirePanelChild(box, 'AdRow');
@@ -140,7 +141,7 @@ export class CommercePanelController {
                         runtime.fillPanelAnchorLabel(runtime.requirePanelChild(adRow, 'AdTitleAnchor'), 'GoldShopAdTitle', `看广告领 ${rewardedGold} 金币`, 25, new Color('#5A4A3A'), 248, 34, Label.HorizontalAlign.LEFT);
                         runtime.fillPanelAnchorLabel(runtime.requirePanelChild(adRow, 'AdDescAnchor'), 'GoldShopAdDesc', '完整看完自动到账', 17, new Color('#8A7A6A'), 258, 28, Label.HorizontalAlign.LEFT);
                         const adButton = runtime.requirePanelChild(adRow, 'AdButton');
-                        runtime.fillPanelAnchorLabel(adButton, 'GoldShopAdBtnLbl', '立即领取', 18, Color.WHITE, 100, 24);
+                        syncRequiredPrefabLabel(adButton, 'AdButtonLabel', '立即领取', '[gold-shop-prefab]');
                         runtime.bindPanelButton(adButton, () => {
                             AudioMgr.inst.play('button');
                             runtime.showTrackedRewardedAd('gold_shop_reward', (success: boolean) => {
@@ -157,7 +158,7 @@ export class CommercePanelController {
                             runtime.fillPanelAnchorLabel(runtime.requirePanelChild(rowNode, 'TitleAnchor'), `GoldShopRowTitle${i}`, row.title, 24, new Color('#5A4A3A'), 238, 32, Label.HorizontalAlign.LEFT);
                             runtime.fillPanelAnchorLabel(runtime.requirePanelChild(rowNode, 'DescAnchor'), `GoldShopRowDesc${i}`, row.desc, 16, new Color('#8A7A6A'), 252, 26, Label.HorizontalAlign.LEFT);
                             const buyButton = runtime.requirePanelChild(rowNode, 'BuyButton');
-                            runtime.fillPanelAnchorLabel(buyButton, `GoldShopBuyLbl${i}`, row.priceText, 18, Color.WHITE, 108, 24);
+                            syncRequiredPrefabLabel(buyButton, 'BuyButtonLabel', row.priceText, '[gold-shop-prefab]');
                             runtime.bindPanelButton(buyButton, () => {
                                 AudioMgr.inst.play('button');
                                 if (!runtime.spendGold(row.cost)) { runtime.showToast(`金币不足，还差 ${row.cost - runtime.getGold()} 金币`); return; }
