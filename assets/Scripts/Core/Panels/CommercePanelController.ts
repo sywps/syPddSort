@@ -201,14 +201,6 @@ export class CommercePanelController {
             return '';
         };
 
-        const formatDailyRewardSummary = (reward: DailySignInReward): string => {
-            const parts: string[] = [];
-            if (reward.gold && reward.gold > 0) parts.push(`金币x${reward.gold}`);
-            const extraReward = formatDailyExtraReward(reward);
-            if (extraReward) parts.push(extraReward);
-            return parts.join('、');
-        };
-
         const syncDailyRewardCard = (card: Node, reward: DailySignInReward, cardState: 'available' | 'claimed' | 'locked') => {
             const goldTextNode = runtime.requirePanelChild(card, 'GoldText');
             const goldTextLabel = goldTextNode.getComponent(Label);
@@ -269,14 +261,6 @@ export class CommercePanelController {
                         const cardState = status.canClaim && i === status.nextClaimIndex ? 'available' : i < status.displayClaimedCount ? 'claimed' : 'locked';
                         syncDailyRewardCard(card, reward, cardState);
                     }
-
-                    const previewRewardIndex = status.canClaim ? status.nextClaimIndex : Math.max(0, Math.min(status.displayClaimedCount, rewards.length - 1));
-                    const previewReward = rewards[previewRewardIndex] || rewards[0];
-                    const rewardTextAnchor = runtime.requirePanelChild(box, 'RewardTextAnchor');
-                    rewardTextAnchor.active = true;
-                    const rewardTextLabel = rewardTextAnchor.getComponent(Label);
-                    if (!rewardTextLabel) throw new Error('[daily-signin-prefab] missing RewardTextAnchor label');
-                    rewardTextLabel.string = formatDailyRewardSummary(previewReward);
 
                     const claimButton = runtime.requirePanelChild(box, 'ClaimButton');
                     const claimButtonText = runtime.requirePanelChild(claimButton, 'ClaimButtonText');
