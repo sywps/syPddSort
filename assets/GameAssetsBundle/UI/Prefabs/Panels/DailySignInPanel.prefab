@@ -609,7 +609,7 @@
     "_string": "签到",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 50,
+    "_actualFontSize": 54,
     "_fontSize": 50,
     "_fontFamily": "Arial",
     "_lineHeight": 50,
@@ -994,7 +994,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 78.632,
+      "y": 43.043,
       "z": 0
     },
     "_lrot": {
@@ -1510,7 +1510,7 @@
     "_string": "第1天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -1891,7 +1891,7 @@
     "_string": "x50",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -1943,6 +1943,8 @@
       "__id__": 0
     },
     "fileId": "GoldText-node-34",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -2478,7 +2480,7 @@
     "_string": "第2天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -2859,7 +2861,7 @@
     "_string": "x100",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -3448,7 +3450,7 @@
     "_string": "第3天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -3829,7 +3831,7 @@
     "_string": "x150",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -4418,7 +4420,7 @@
     "_string": "第4天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -4799,7 +4801,7 @@
     "_string": "x200",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -5388,7 +5390,7 @@
     "_string": "第5天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -5769,7 +5771,7 @@
     "_string": "x250",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -6358,7 +6360,7 @@
     "_string": "第6天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -6739,7 +6741,7 @@
     "_string": "x300",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -7328,7 +7330,7 @@
     "_string": "第7天",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 16,
+    "_actualFontSize": 17.375,
     "_fontSize": 16,
     "_fontFamily": "Arial",
     "_lineHeight": 28,
@@ -7709,7 +7711,7 @@
     "_string": "x350",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 14,
+    "_actualFontSize": 15.203125,
     "_fontSize": 14,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -7979,6 +7981,8 @@
       "__id__": 0
     },
     "fileId": "GridRoot-node-20",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -7990,7 +7994,7 @@
       "__id__": 10
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 328
@@ -8443,7 +8447,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -312.748,
+      "y": -286.056,
       "z": 0
     },
     "_lrot": {
@@ -8572,7 +8576,7 @@
     "_string": "签到领取",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
+    "_actualFontSize": 30.40625,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -8968,6 +8972,8 @@
       "__id__": 0
     },
     "fileId": "Box-node-7",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
