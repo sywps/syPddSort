@@ -65,6 +65,20 @@ function syncGuideLeaderboardLabelNode(
     return label;
 }
 
+function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string): Label {
+    const node = parent.getChildByName(name);
+    if (!node) {
+        throw new Error(`[leaderboard-prefab] missing node: ${name}`);
+    }
+    const label = node.getComponent(Label);
+    if (!label) {
+        throw new Error(`[leaderboard-prefab] missing label on ${name}`);
+    }
+    label.string = text;
+    node.active = true;
+    return label;
+}
+
 export function installGuideLeaderboardModule(target: any): void {
     Object.assign(target, {
         raiseGuideHandAboveHighlights(hand?: Node) {
@@ -525,6 +539,26 @@ export function installGuideLeaderboardModule(target: any): void {
             hintNode.getComponent(UITransform)?.setContentSize(520, 28);
         },
 
+        beginLeaderboardTabRequest(tab: 'global' | 'friend'): number {
+            this._leaderboardActiveTab = tab;
+            this._leaderboardTabRequestId = (this._leaderboardTabRequestId || 0) + 1;
+            return this._leaderboardTabRequestId;
+        },
+
+        isLeaderboardTabRequestCurrent(requestToken: number): boolean {
+            return !requestToken || this._leaderboardTabRequestId === requestToken;
+        },
+
+        resetLeaderboardHintState(hintNode: Node) {
+            this.setLeaderboardHintToTop(hintNode);
+            hintNode.active = true;
+            const hintLabel = hintNode.getComponent(Label);
+            if (hintLabel) {
+                hintLabel.string = '';
+                hintLabel.color = new Color('#8A7A6A');
+            }
+        },
+
         async openLeaderboard() {
             return ensureLeaderboardPanelController(this).open();
         },
@@ -533,19 +567,23 @@ export function installGuideLeaderboardModule(target: any): void {
             const listNode = box.getChildByName('LeaderboardList');
             const selfBox = box.getChildByName('LeaderboardSelfBox');
             if (!listNode || !selfBox) return;
+            const requestToken = this.beginLeaderboardTabRequest(tab);
         
             this.clearLeaderboardAuthButtons(box);
             this.deactivateWeChatFriendRank(tab === 'global' ? 'switch-to-global' : 'switch-tab-reset');
+            this.resetLeaderboardHintState(hintNode);
             this.resetLeaderboardListState?.(listNode);
         
             if (tab === 'global') {
-                await this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode);
+                await this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode, requestToken);
             } else {
                 if (!this.getWeChatRuntime()) {
+                    if (!this.isLeaderboardTabRequestCurrent(requestToken)) return;
                     this.showUnsupportedFriendLeaderboard(listNode, selfBox, hintNode);
                 } else if (UserMgr.inst.isWeChatAuthorized) {
-                    await this.loadWeChatFriendLeaderboard(box, listNode, hintNode, selfBox);
+                    await this.loadWeChatFriendLeaderboard(box, listNode, hintNode, selfBox, requestToken);
                 } else {
+                    if (!this.isLeaderboardTabRequestCurrent(requestToken)) return;
                     this.addAuthButtonForGuest(box, box.parent, listNode, selfBox, hintNode);
                     const profile = UserMgr.inst.getProfile();
                     this.renderLeaderboardSelfEntry(selfBox, {
@@ -566,8 +604,8 @@ export function installGuideLeaderboardModule(target: any): void {
                 hintLabel.color = new Color('#B07B4F');
             }
         
-            syncGuideLeaderboardLabelNode(listNode, 'FriendRankUnsupported', '好友排行暂不可用', 24, new Color('#8A7A6A'), 360, 40, 0, 96);
-            syncGuideLeaderboardLabelNode(listNode, 'FriendRankUnsupportedSub', '全国排行可正常查看，好友排行后续接入当前平台能力', 17, new Color('#B09A84'), 420, 48, 0, 52);
+            setGuideLeaderboardPrefabLabel(listNode, 'FriendRankUnsupported', '好友排行暂不可用');
+            setGuideLeaderboardPrefabLabel(listNode, 'FriendRankUnsupportedSub', '全国排行可正常查看，好友排行后续接入当前平台能力');
         
             const profile = UserMgr.inst.getProfile();
             this.renderLeaderboardSelfEntry(selfBox, {
@@ -578,22 +616,26 @@ export function installGuideLeaderboardModule(target: any): void {
             });
         },
 
-        async loadWeChatFriendLeaderboard(box: Node, listNode: Node, hintNode: Node, selfBox: Node) {
+        async loadWeChatFriendLeaderboard(box: Node, listNode: Node, hintNode: Node, selfBox: Node, requestToken?: number) {
+            const isCurrentRequest = () => !requestToken || this.isLeaderboardTabRequestCurrent?.(requestToken) !== false;
             this.resetLeaderboardListState?.(listNode);
         
             const profile = UserMgr.inst.getProfile();
             await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
-            if (!box.isValid) return;
+            if (!box.isValid || !isCurrentRequest()) return;
             void this.getWeChatFriendAvatarEntries();
         
             if (this.getWeChatOpenDataContext()) {
+                if (!isCurrentRequest()) return;
                 this.showOpenDataCanvas(box, listNode, hintNode);
             } else {
-                await this.showFriendRankList(box, listNode, hintNode, selfBox);
-                if (!box.isValid) return;
+                await this.showFriendRankList(box, listNode, hintNode, selfBox, requestToken);
+                if (!box.isValid || !isCurrentRequest()) return;
             }
         
-            await this.renderSelfInFriendRank(selfBox, profile);
+            const selfEntry = await this.buildFriendSelfEntry(profile);
+            if (!box.isValid || !selfBox.isValid || !isCurrentRequest()) return;
+            this.renderLeaderboardSelfEntry(selfBox, selfEntry);
         },
     });
 }

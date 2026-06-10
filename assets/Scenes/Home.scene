@@ -4893,7 +4893,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "SidebarBtn",
+    "_name": "PlatformReservedBtn",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -4941,11 +4941,11 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SidebarBtn_v0gde0wq"
+    "_id": "PlatformReservedBtn_v0gde0wq"
   },
   {
     "__type__": "cc.Node",
-    "_name": "SidebarLbl",
+    "_name": "PlatformReservedLbl",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -4989,7 +4989,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SidebarLbl_o7q905wc"
+    "_id": "PlatformReservedLbl_o7q905wc"
   },
   {
     "__type__": "cc.UITransform",
@@ -5011,7 +5011,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SidebarLbl_ui_24s51m"
+    "_id": "PlatformReservedLbl_ui_24s51m"
   },
   {
     "__type__": "cc.Label",
@@ -5033,7 +5033,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "侧边栏\\n有礼",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 12,
@@ -5095,7 +5095,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SidebarBtn_ui_oe17o5"
+    "_id": "PlatformReservedBtn_ui_oe17o5"
   },
   {
     "__type__": "cc.Widget",

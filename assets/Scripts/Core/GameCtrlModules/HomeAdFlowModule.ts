@@ -336,7 +336,9 @@ export function installHomeAdFlowModule(target: any): void {
             this.drawDailySignInButton(entryLayer);
             this.drawLeaderboardButton(entryLayer);
             this.drawCollectionButton(entryLayer);
-            this.drawSidebarEntry(entryLayer);
+            if (typeof this.drawSidebarEntry === 'function') {
+                this.drawSidebarEntry(entryLayer);
+            }
         },
         showMainMenu() {
             const runtimeSceneName = this.getRuntimeSceneName('Game');

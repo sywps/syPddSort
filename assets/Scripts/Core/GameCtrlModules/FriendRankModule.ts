@@ -71,6 +71,33 @@ function syncFriendRankLabelNode(
     return label;
 }
 
+function requireFriendRankNode(parent: Node, name: string): Node {
+    const node = parent.getChildByName(name);
+    if (!node) {
+        throw new Error(`[leaderboard-prefab] missing node: ${name}`);
+    }
+    return node;
+}
+
+function setFriendRankPrefabLabel(parent: Node, name: string, text: string): Label {
+    const node = requireFriendRankNode(parent, name);
+    const label = node.getComponent(Label);
+    if (!label) {
+        throw new Error(`[leaderboard-prefab] missing label on ${name}`);
+    }
+    label.string = text;
+    node.active = true;
+    return label;
+}
+
+function hideLeaderboardRowTemplate(listNode: Node): void {
+    const template = listNode
+        .getChildByName('LeaderboardViewport')
+        ?.getChildByName('LeaderboardContent')
+        ?.getChildByName('LeaderboardRowTemplate');
+    if (template) template.active = false;
+}
+
 function paintFriendRankButtonShell(node: Node, fillColor: Color, strokeColor: Color) {
     const ui = node.getComponent(UITransform);
     const g = node.getComponent(Graphics) || node.addComponent(Graphics);
@@ -87,29 +114,6 @@ function paintFriendRankButtonShell(node: Node, fillColor: Color, strokeColor: C
     g.stroke();
 }
 
-function syncFriendRankHeaderBg(parent: Node, name: string, width: number, height: number, x: number, y: number): Node {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    const g = node.getComponent(Graphics) || node.addComponent(Graphics);
-    g.clear();
-    g.fillColor = new Color('#FFE7AE');
-    g.roundRect(-width / 2, -height / 2, width, height, 12);
-    g.fill();
-    g.strokeColor = new Color('#D8A75B');
-    g.lineWidth = 2;
-    g.roundRect(-width / 2, -height / 2, width, height, 12);
-    g.stroke();
-    node.active = true;
-    return node;
-}
-
 export function installFriendRankModule(target: any): void {
     Object.assign(target, {
         resetLeaderboardListState(listNode: Node) {
@@ -119,6 +123,10 @@ export function installFriendRankModule(target: any): void {
                 'FriendRankEmpty',
                 'FriendRankEmptySub',
                 'FriendRankError',
+                'FriendRankUnsupported',
+                'FriendRankUnsupportedSub',
+                'AuthHint',
+                'AuthHint2',
                 'OpenDataNotAvailable',
                 'OpenDataDebug',
                 'GlobalLoading',
@@ -132,6 +140,7 @@ export function installFriendRankModule(target: any): void {
                 const node = listNode.getChildByName(name);
                 if (node) node.active = false;
             }
+            hideLeaderboardRowTemplate(listNode);
             const viewport = listNode.getChildByName('LeaderboardViewport');
             if (viewport) {
                 viewport.active = false;
@@ -140,8 +149,9 @@ export function installFriendRankModule(target: any): void {
         },
 
         /** 好友排行旧兜底：主域直接渲染，仅在开放数据域不可用时使用 */
-        async showFriendRankList(box: Node, listNode: Node, hintNode: Node, selfBox: Node) {
+        async showFriendRankList(box: Node, listNode: Node, hintNode: Node, selfBox: Node, requestToken?: number) {
             const wx = this.getWeChatRuntime();
+            const isCurrentRequest = () => !requestToken || this.isLeaderboardTabRequestCurrent?.(requestToken) !== false;
             this.resetLeaderboardListState(listNode);
         
             const hintLabel = hintNode.getComponent(Label);
@@ -151,17 +161,18 @@ export function installFriendRankModule(target: any): void {
                 hintLabel.color = new Color('#B07B4F');
             }
         
-            const loadingNode = syncFriendRankLabelNode(listNode, 'FriendRankLoading', '加载好友排行中...', 22, new Color('#8A7A6A'), 360, 32, 0, 100);
+            const loadingLabel = setFriendRankPrefabLabel(listNode, 'FriendRankLoading', '加载好友排行中...');
         
             if (!wx?.getFriendCloudStorage) {
-                loadingNode.node.active = false;
-                syncFriendRankLabelNode(listNode, 'FriendRankNoWx', '当前环境不支持好友排行', 20, new Color('#8A7A6A'), 360, 30, 0, 100);
+                loadingLabel.node.active = false;
+                setFriendRankPrefabLabel(listNode, 'FriendRankNoWx', '当前环境不支持好友排行');
                 return;
             }
         
             // 确保分数已提交
             const profile = UserMgr.inst.getProfile();
             await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
+            if (!box.isValid || !isCurrentRequest()) return;
         
             try {
                 const friendData: any[] = await new Promise((resolve, reject) => {
@@ -172,12 +183,12 @@ export function installFriendRankModule(target: any): void {
                     });
                 });
         
-                if (!box.isValid) return;
-                loadingNode.node.active = false;
+                if (!box.isValid || !isCurrentRequest()) return;
+                loadingLabel.node.active = false;
         
                 if (!friendData || friendData.length === 0) {
-                    syncFriendRankLabelNode(listNode, 'FriendRankEmpty', '暂无好友排行数据', 24, new Color('#8A7A6A'), 360, 40, 0, 90);
-                    syncFriendRankLabelNode(listNode, 'FriendRankEmptySub', '先闯几关再回来看看', 18, new Color('#B09A84'), 360, 32, 0, 48);
+                    setFriendRankPrefabLabel(listNode, 'FriendRankEmpty', '暂无好友排行数据');
+                    setFriendRankPrefabLabel(listNode, 'FriendRankEmptySub', '先闯几关再回来看看');
                     return;
                 }
         
@@ -186,14 +197,14 @@ export function installFriendRankModule(target: any): void {
                 this.renderFriendRankRows(listNode, entries);
             } catch (err: any) {
                 console.warn('[GameCtrl] getFriendCloudStorage failed:', err);
-                if (!box.isValid) return;
-                loadingNode.node.active = false;
+                if (!box.isValid || !isCurrentRequest()) return;
+                loadingLabel.node.active = false;
         
                 const errMsg = err?.errMsg || '';
                 let msg = '加载好友排行失败';
                 if (errMsg.includes('privacy') || errMsg.includes('authorize')) msg = '请先同意隐私协议';
                 else if (errMsg.includes('login') || errMsg.includes('not exist')) msg = '请先登录微信';
-                syncFriendRankLabelNode(listNode, 'FriendRankError', msg, 20, new Color('#8A7A6A'), 360, 30, 0, 100);
+                setFriendRankPrefabLabel(listNode, 'FriendRankError', msg);
             }
         },
 
@@ -411,7 +422,7 @@ export function installFriendRankModule(target: any): void {
             console.log('  openDataContext.canvas available:', !!openDataContext?.canvas);
         
             if (!openDataContext?.postMessage || !openDataContext?.canvas) {
-                syncFriendRankLabelNode(listNode, 'OpenDataNotAvailable', '当前环境不支持好友排行', 20, new Color('#8A7A6A'), 360, 30, 0, 100);
+                setFriendRankPrefabLabel(listNode, 'OpenDataNotAvailable', '当前环境不支持好友排行');
                 const dbg = `wx=${!!wx} openDataContext=${!!openDataContext} canvas=${!!openDataContext?.canvas}`;
                 syncFriendRankLabelNode(listNode, 'OpenDataDebug', dbg, 13, new Color('#AA8866'), 420, 24, 0, 60);
                 console.warn('[GameCtrl] openDataContext 不可用. wx:', !!wx, 'openDataContext:', !!openDataContext);
@@ -520,21 +531,22 @@ export function installFriendRankModule(target: any): void {
         },
 
         /** 加载全服排行（云函数 → 本地兜底） */
-        async loadGlobalLeaderboard(box: Node, listNode: Node, selfBox: Node, hintNode: Node) {
+        async loadGlobalLeaderboard(box: Node, listNode: Node, selfBox: Node, hintNode: Node, requestToken?: number) {
+            const isCurrentRequest = () => !requestToken || this.isLeaderboardTabRequestCurrent?.(requestToken) !== false;
             this.clearLeaderboardAuthButtons(box);
             this.deactivateWeChatFriendRank('load-global');
             this.resetLeaderboardListState(listNode);
-            const loadingNode = syncFriendRankLabelNode(listNode, 'GlobalLoading', '加载中...', 22, new Color('#8A7A6A'), 360, 32, 0, 100);
+            const loadingLabel = setFriendRankPrefabLabel(listNode, 'GlobalLoading', '加载中...');
         
             const profile = UserMgr.inst.getProfile();
             await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
-            if (!box.isValid) return;
+            if (!box.isValid || !isCurrentRequest()) return;
             let result = await LeaderboardMgr.inst.fetchLeaderboard(100, profile, 'global');
-            if (!box.isValid) return;
+            if (!box.isValid || !isCurrentRequest()) return;
         
             if (!profile.isGuest) {
                 const friendAvatarEntries = await this.getWeChatFriendAvatarEntries();
-                if (!box.isValid) return;
+                if (!box.isValid || !isCurrentRequest()) return;
                 result = {
                     ...result,
                     entries: this.mergeFriendAvatarsIntoRankEntries(result.entries, friendAvatarEntries),
@@ -544,7 +556,7 @@ export function installFriendRankModule(target: any): void {
                 };
             }
         
-            loadingNode.node.active = false;
+            loadingLabel.node.active = false;
         
             const hintLabel = hintNode.getComponent(Label)!;
             this.setLeaderboardHintToTop(hintNode);
@@ -644,6 +656,7 @@ export function installFriendRankModule(target: any): void {
             if (!rowTemplate) {
                 throw new Error('[leaderboard-prefab] missing LeaderboardRowTemplate');
             }
+            rowTemplate.active = false;
             const resolvedRow = existingRow || instantiate(rowTemplate);
             if (!existingRow) {
                 resolvedRow.name = `${nodePrefix}Row`;
@@ -691,29 +704,28 @@ export function installFriendRankModule(target: any): void {
             const viewW = parentTransform?.width || 620;
             const viewH = parentTransform?.height || 690;
             parentTransform?.setContentSize(viewW, viewH);
+            hideLeaderboardRowTemplate(parent);
         
             if (!entries.length) {
-                syncFriendRankLabelNode(parent, 'LeaderboardEmpty', '暂无排行数据', 24, new Color('#8A7A6A'), 360, 40, 0, 90);
-                syncFriendRankLabelNode(parent, 'LeaderboardEmptySub', '先闯几关再回来看看', 18, new Color('#B09A84'), 360, 32, 0, 48);
+                setFriendRankPrefabLabel(parent, 'LeaderboardEmpty', '暂无排行数据');
+                setFriendRankPrefabLabel(parent, 'LeaderboardEmptySub', '先闯几关再回来看看');
                 return;
             }
         
             const rowPitch = 84;
             const rowHeight = 78;
-            const headerWidth = 542;
-            const headerHeight = 44;
-            const headerY = viewH / 2 - 28;
             const viewportH = Math.max(280, viewH - 60);
             const viewportY = -34;
             const topPadding = 18;
             const bottomPadding = 8;
             const totalH = Math.max(viewportH, topPadding + bottomPadding + entries.length * rowPitch);
 
-            const headerBg = syncFriendRankHeaderBg(parent, 'LeaderboardHeaderBg', headerWidth, headerHeight, 2, headerY);
+            const headerBg = requireFriendRankNode(parent, 'LeaderboardHeaderBg');
+            headerBg.active = true;
             headerBg.setSiblingIndex(0);
-            syncFriendRankLabelNode(parent, 'LeaderboardHeaderRank', '排名', 20, new Color('#7C5A2E'), 82, 28, -216, headerY);
-            syncFriendRankLabelNode(parent, 'LeaderboardHeaderPlayer', '玩家', 20, new Color('#7C5A2E'), 180, 28, -10, headerY);
-            syncFriendRankLabelNode(parent, 'LeaderboardHeaderProgress', '进度', 20, new Color('#7C5A2E'), 112, 28, 166, headerY);
+            setFriendRankPrefabLabel(parent, 'LeaderboardHeaderRank', '排名');
+            setFriendRankPrefabLabel(parent, 'LeaderboardHeaderPlayer', '玩家');
+            setFriendRankPrefabLabel(parent, 'LeaderboardHeaderProgress', '进度');
         
             const viewport = parent.getChildByName('LeaderboardViewport');
             if (!viewport) throw new Error('[leaderboard-prefab] missing LeaderboardViewport');

@@ -103,7 +103,6 @@ export class PreviewController extends GameRuntimeHost {
             [
                 { label: '资源获取', onClick: () => this.openAcquireResourcePreview() },
                 { label: '技能解锁', onClick: () => this.openSkillUnlockPreview() },
-                { label: '侧边栏引导', onClick: () => this.openSidebarGuidePreview(root) },
                 { label: '返回 UIPreview', onClick: () => { void director.loadScene('UIPreview'); } },
             ],
         ];
@@ -267,12 +266,6 @@ export class PreviewController extends GameRuntimeHost {
         const runtime = this as any;
         this.clearPreviewPopups();
         runtime.showSkillUnlockGuide?.('魔法棒', () => {});
-    }
-
-    private openSidebarGuidePreview(root: Node) {
-        const runtime = this as any;
-        this.clearPreviewPopups();
-        runtime.showSidebarGuide?.(root);
     }
 
     private playLoadingPreview() {

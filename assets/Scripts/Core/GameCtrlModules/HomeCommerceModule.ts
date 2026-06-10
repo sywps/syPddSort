@@ -64,10 +64,13 @@ export function installHomeCommerceModule(target: any): void {
             align: number = Label.HorizontalAlign.CENTER,
             overflow: number = Label.Overflow.SHRINK,
         ): Label {
-            const anchorLabel = anchor.getComponent(Label);
-            if (anchorLabel) {
-                anchorLabel.string = '';
+            const existingLabel = anchor.getComponent(Label) || anchor.getChildByName(name)?.getComponent(Label);
+            if (existingLabel) {
+                existingLabel.string = text;
+                existingLabel.enableWrapText = false;
+                return existingLabel;
             }
+
             anchor.removeAllChildren();
             const node = new Node(name);
             anchor.addChild(node);
