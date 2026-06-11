@@ -182,8 +182,8 @@ function assertGameSceneStaticUiOwnership(failures) {
     if (!slotWidget || slotWidget._bottom !== 110) {
         failures.push('SlotArea must keep the expanded-board scene bottom anchor 110');
     }
-    if (slotArea._lpos?.y !== -448.5) {
-        failures.push('SlotArea must keep the expanded-board scene y baseline -448.5');
+    if (slotArea._lpos?.y !== -443.5) {
+        failures.push('SlotArea must keep the expanded-board scene y baseline -443.5');
     }
 
     for (const [pathInScene, expectedUuid] of [

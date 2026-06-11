@@ -221,6 +221,10 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
+                this.resetTouchState();
+                return;
+            }
             PerformanceMgr.inst.markUserActivity();
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
                 const uiPos = event.getUILocation();
@@ -261,6 +265,10 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchMove(event: EventTouch) {
             if (this.isGameEnd) return;
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
+                this.resetTouchState();
+                return;
+            }
             PerformanceMgr.inst.markUserActivity();
             if (this._wandMode && this._wandDragStart && this._wandRectNode) {
                 const uiPos = event.getUILocation();
@@ -312,6 +320,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchEnd(event: EventTouch) {
             if (this.isGameEnd) { this.resetTouchState(); return; }
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) { this.resetTouchState(); return; }
             if (this._skillActive && !this._wandMode && !this._skillAnimOnly) { this.resetTouchState(); return; }
             if (this._wandMode && this._wandRectNode) {
                 // 如果魔方框没有被移动过，提醒用户先移动
@@ -386,6 +395,7 @@ export function installBoardInputViewportModule(target: any): void {
         /** PC 端滚轮缩放棋盘 */
         onMouseWheel(event: EventMouse) {
             if (this.isGameEnd || this._guideStep >= 0) return;
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
             PerformanceMgr.inst.markUserActivity();
         
             const scrollY = event.getScrollY();

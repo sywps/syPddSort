@@ -1,5 +1,7 @@
-import { director } from 'cc';
+import { assetManager, director, SceneAsset } from 'cc';
 import { AppSession, type AppSceneName } from './AppSession';
+
+const HOME_ASSETS_BUNDLE_NAME = 'homeAssets';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -65,7 +67,7 @@ export class SceneRouter {
     }
 
     async toHome(): Promise<void> {
-        await this.loadScene(this.homeSceneName);
+        await this.loadBundledScene(this.homeSceneName, HOME_ASSETS_BUNDLE_NAME);
     }
 
     async toGame(): Promise<void> {
@@ -119,6 +121,72 @@ export class SceneRouter {
                     current: this.session.currentSceneName,
                     requested: this.session.requestedSceneName,
                     to: sceneName,
+                    visualState: this.session.visualState,
+                    hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                    hasActiveGameplay: !!this.session.activeGameplayContext,
+                }),
+            );
+        }
+    }
+
+    private async loadBundledScene(sceneName: AppSceneName, bundleName: string): Promise<void> {
+        if (this._transitioning) {
+            throw new Error(`[SceneRouter] scene transition already in flight: ${this.session.requestedSceneName}`);
+        }
+        this._transitioning = true;
+        logSceneTrace(
+            '[SceneSplitTrace] loadBundledScene:start',
+            JSON.stringify({
+                from: this.session.currentSceneName,
+                requestedBefore: this.session.requestedSceneName,
+                to: sceneName,
+                bundleName,
+                visualState: this.session.visualState,
+                hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                hasActiveGameplay: !!this.session.activeGameplayContext,
+            }),
+        );
+        this.session.requestScene(sceneName);
+        try {
+            await new Promise<void>((resolve, reject) => {
+                assetManager.loadBundle(bundleName, (bundleErr, bundle) => {
+                    if (bundleErr || !bundle) {
+                        reject(new Error(`[SceneRouter] load bundle ${bundleName} failed: ${bundleErr?.message || 'missing bundle'}`));
+                        return;
+                    }
+                    bundle.loadScene(sceneName, (sceneErr: Error | null, sceneAsset: SceneAsset) => {
+                        if (sceneErr || !sceneAsset) {
+                            reject(new Error(`[SceneRouter] load scene ${sceneName} from ${bundleName} failed: ${sceneErr?.message || 'missing scene asset'}`));
+                            return;
+                        }
+                        director.runScene(sceneAsset, undefined, () => {
+                            this.session.setCurrentSceneName(sceneName);
+                            logSceneTrace(
+                                '[SceneSplitTrace] loadBundledScene:callback',
+                                JSON.stringify({
+                                    current: this.session.currentSceneName,
+                                    requested: this.session.requestedSceneName,
+                                    to: sceneName,
+                                    bundleName,
+                                    visualState: this.session.visualState,
+                                    hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                                    hasActiveGameplay: !!this.session.activeGameplayContext,
+                                }),
+                            );
+                            resolve();
+                        });
+                    });
+                });
+            });
+        } finally {
+            this._transitioning = false;
+            logSceneTrace(
+                '[SceneSplitTrace] loadBundledScene:finish',
+                JSON.stringify({
+                    current: this.session.currentSceneName,
+                    requested: this.session.requestedSceneName,
+                    to: sceneName,
+                    bundleName,
                     visualState: this.session.visualState,
                     hasPendingGameplay: !!this.session.pendingGameplayRequest,
                     hasActiveGameplay: !!this.session.activeGameplayContext,

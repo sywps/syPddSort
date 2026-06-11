@@ -81,6 +81,91 @@ function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string
 
 export function installGuideLeaderboardModule(target: any): void {
     Object.assign(target, {
+        beginModalFocus(reason: string = 'modal') {
+            this._modalFocusRefs = Math.max(0, Number(this._modalFocusRefs) || 0) + 1;
+            this.suspendGuideForModal(reason);
+        },
+
+        endModalFocus(reason: string = 'modal') {
+            this._modalFocusRefs = Math.max(0, (Number(this._modalFocusRefs) || 0) - 1);
+            if (this._modalFocusRefs === 0) {
+                this.resumeGuideAfterModal(reason);
+            }
+        },
+
+        suspendGuideForModal(_reason: string = 'modal') {
+            this._guideInputSuspended = true;
+            this.clearGuideRuntimeVisuals();
+            if (this._guideLayer?.isValid) {
+                this._guideLayer.active = false;
+            }
+        },
+
+        resumeGuideAfterModal(_reason: string = 'modal') {
+            if ((Number(this._modalFocusRefs) || 0) > 0) return;
+            if (!this._guideInputSuspended) return;
+            this._guideInputSuspended = false;
+            if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) return;
+            if (!this._guideLayer?.isValid) return;
+            this._guideLayer.active = true;
+            if (this._guideMask?.isValid) {
+                this._guideMask.active = true;
+            }
+            this.showGuideStep(this._guideStep);
+        },
+
+        clearGuideRuntimeVisuals() {
+            if (this._guideHand?.isValid) {
+                Tween.stopAllByTarget(this._guideHand);
+                this._guideHand.active = false;
+            }
+            if (this._guideArrow?.isValid) {
+                Tween.stopAllByTarget(this._guideArrow);
+                this._guideArrow.active = false;
+            }
+            if (this._guideMask?.isValid) {
+                const gm = this._guideMask.getComponent(Graphics);
+                if (gm) gm.clear();
+                this._guideMask.active = false;
+            }
+            if (this._guideBubble?.isValid) {
+                const gb = this._guideBubble.getComponent(Graphics);
+                if (gb) gb.clear();
+                this._guideBubble.active = false;
+            }
+            if (typeof this.clearGuideHighlight === 'function') {
+                this.clearGuideHighlight();
+            }
+            const layer = this._guideLayer as Node | null;
+            if (!layer?.isValid) return;
+            const transientNames = new Set(['TapHint', 'StepNum', 'ProgressBar', 'GuideHighlight']);
+            for (const child of [...layer.children]) {
+                if (!transientNames.has(child.name)) continue;
+                Tween.stopAllByTarget(child);
+                child.destroy();
+            }
+        },
+
+        isGuideModalLauncherHit(node: Node | null, worldPos: Vec3, padding: number = 12): boolean {
+            if (!node?.isValid || !node.active) return false;
+            const ui = node.getComponent(UITransform);
+            if (!ui) return false;
+            const local = ui.convertToNodeSpaceAR(worldPos);
+            return Math.abs(local.x) <= ui.contentSize.width / 2 + padding
+                && Math.abs(local.y) <= ui.contentSize.height / 2 + padding;
+        },
+
+        tryHandleGuideSystemModalTap(worldPos: Vec3): boolean {
+            const topBar = this.getGameplayFixedGroup?.('TopBarGroup') || null;
+            const settingsButton = topBar?.getChildByName('Settings')
+                || topBar?.getChildByName('SettingsButton')
+                || null;
+            if (!this.isGuideModalLauncherHit(settingsButton, worldPos)) return false;
+            AudioMgr.inst.play('button');
+            this.openSettingsPanel();
+            return true;
+        },
+
         raiseGuideHandAboveHighlights(hand?: Node) {
             const layer = this._guideLayer as Node | null;
             const guideHand = hand || this._guideHand;
@@ -221,6 +306,7 @@ export function installGuideLeaderboardModule(target: any): void {
 
         advanceTutorial() {
             if (this._guideStep < 0) return;
+            if (this._guideInputSuspended) return;
             const completedStep = this._guideStep;
             this.trackFirstLevelFunnel('tutorial_step_done', {
                 stepId: completedStep,
@@ -255,6 +341,7 @@ export function installGuideLeaderboardModule(target: any): void {
                 success: true,
             });
             SySDKMgr.inst.reportTutorialFinish();
+            this._guideInputSuspended = false;
             this._guideStep = -1;
             this._guideMode = 'none';
             this._guideTotalSteps = 0;

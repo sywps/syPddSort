@@ -2,17 +2,23 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync, spawn } = require('child_process');
+const {
+    assertBundleNativeFilesExist,
+    assertSourceBundleArtifactsExist,
+} = require('./verify-bundle-native-files.js');
 
 const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'wechatgame');
 const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn');
 const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
+const homeAssetsRoot = path.join(projectDir, 'assets', 'HomeAssetsBundle');
 const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
-const startSceneUrl = 'db://assets/Scenes/Game.scene';
+const startSceneUrl = 'db://assets/Scenes/Loading.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
 const mainPackageTargetKB = 3072;
 const mainPackageErrorKB = 4096;
+const startupDownloadTargetKB = 3072;
 const wechatAppId = process.env.WECHAT_APPID || 'wxbb6160c828f380ca';
 const openDevtools = process.env.WECHAT_OPEN_DEVTOOLS || '1';
 process.env.WECHAT_BUILD_MODE = buildMode;
@@ -125,10 +131,12 @@ function repairCocosMetaFiles() {
 }
 
 function getStartSceneUuid() {
-    const configPath = path.join(projectDir, 'settings', 'v2', 'packages', 'project.json');
-    const startScene = readJson(configPath).general && readJson(configPath).general.startScene;
-    if (!startScene) fail('settings/v2/packages/project.json 缺少 general.startScene');
-    return startScene;
+    const relPath = startSceneUrl.replace(/^db:\/\/assets\//, '');
+    const metaPath = path.join(projectDir, 'assets', relPath + '.meta');
+    if (!fs.existsSync(metaPath)) fail('启动场景 meta 不存在: ' + path.relative(projectDir, metaPath));
+    const uuid = readJson(metaPath).uuid;
+    if (!uuid) fail('启动场景 meta 缺少 uuid: ' + path.relative(projectDir, metaPath));
+    return uuid;
 }
 
 function resolveCocosCli() {
@@ -204,6 +212,39 @@ function validateGameAssetsBundle() {
         }
     }
     logInfo('GameAssetsBundle 稳定业务资源校验通过');
+}
+
+function validateHomeAssetsBundle() {
+    const requiredFiles = [
+        path.join(homeAssetsRoot, 'Scenes', 'Home.scene'),
+        path.join(homeAssetsRoot, 'Scenes', 'Home.scene.meta'),
+        path.join(homeAssetsRoot, 'GameUI', 'home_bg.jpeg'),
+        path.join(homeAssetsRoot, 'GameUI', 'home_bg.jpeg.meta'),
+        path.join(homeAssetsRoot, 'GameUI', '主关卡按键 (2).png'),
+        path.join(homeAssetsRoot, 'GameUI', '主页标题.png'),
+        path.join(homeAssetsRoot, 'GameUI', '主题挑战.png'),
+        path.join(homeAssetsRoot, 'GameUI', '图鉴1.png'),
+        path.join(homeAssetsRoot, 'GameUI', '排行榜1.png'),
+        path.join(homeAssetsRoot, 'GameUI', '爱心框.png'),
+        path.join(homeAssetsRoot, 'GameUI', '签到1.png'),
+        path.join(homeAssetsRoot, 'GameUI', '部件底板.png'),
+        path.join(homeAssetsRoot, 'GameUI', '金币框 (2).png'),
+        path.join(homeAssetsRoot, 'GameUI', '预览框.png'),
+    ];
+    for (const filePath of requiredFiles) {
+        if (!fs.existsSync(filePath)) fail('HomeAssetsBundle 缺少首屏资源: ' + path.relative(projectDir, filePath));
+        if (!filePath.endsWith('.meta') && !fs.existsSync(filePath + '.meta')) {
+            fail('HomeAssetsBundle 首屏资源缺少 meta: ' + path.relative(projectDir, filePath));
+        }
+    }
+    for (const filePath of walkFiles(homeAssetsRoot)) {
+        if (/\.webp(?:\.meta)?$/i.test(filePath)) fail('HomeAssetsBundle 禁止使用 WebP: ' + path.relative(projectDir, filePath));
+    }
+    if (fs.existsSync(path.join(homeAssetsRoot, 'GameUI', 'home_bg.png'))
+        || fs.existsSync(path.join(homeAssetsRoot, 'GameUI', 'home_bg.png.meta'))) {
+        fail('HomeAssetsBundle home_bg 已正式改用 JPEG，不应保留 PNG');
+    }
+    logInfo('HomeAssetsBundle 首屏资源校验通过');
 }
 
 function validateLevelDataSource() {
@@ -286,10 +327,14 @@ function getPreloadBundleName(item) {
     return typeof item === 'string' ? item : item && item.bundle;
 }
 
-function assertStartupPreloadOrder(assets) {
-    const preloadNames = Array.isArray(assets.preloadBundles)
+function getPreloadBundleNames(assets) {
+    return Array.isArray(assets.preloadBundles)
         ? assets.preloadBundles.map(getPreloadBundleName).filter(Boolean)
         : [];
+}
+
+function assertStartupPreloadOrder(assets) {
+    const preloadNames = getPreloadBundleNames(assets);
     const requiredOrder = ['bootstrap', 'main'];
     let previous = -1;
     for (const name of requiredOrder) {
@@ -298,8 +343,25 @@ function assertStartupPreloadOrder(assets) {
         if (index <= previous) fail('settings.assets.preloadBundles 启动顺序错误，应为 bootstrap -> main，实际: ' + preloadNames.join(' -> '));
         previous = index;
     }
+    if (preloadNames.includes('homeAssets')) fail('settings.assets.preloadBundles 不应启动预加载 homeAssets 分包');
     if (preloadNames.includes('gameAssets')) fail('settings.assets.preloadBundles 不应启动预加载 gameAssets 分包');
     if (preloadNames.includes('levelData')) fail('settings.assets.preloadBundles 不应启动预加载 levelData 分包');
+}
+
+function computeStartupDownloadBytes(runtimeDir, gameJson, assets, rootPackageBytes) {
+    let total = rootPackageBytes;
+    const included = [];
+    const seenSubpackageRoots = new Set();
+    for (const bundleName of getPreloadBundleNames(assets)) {
+        const subpackageRoot = findSubpackageRoot(gameJson, bundleName);
+        if (!subpackageRoot || seenSubpackageRoots.has(subpackageRoot)) continue;
+        const dir = path.join(runtimeDir, subpackageRoot);
+        const bytes = dirSize(dir);
+        seenSubpackageRoots.add(subpackageRoot);
+        included.push({ bundleName, root: subpackageRoot, bytes });
+        total += bytes;
+    }
+    return { total, included };
 }
 
 function validateBootstrapRuntimeBundle(runtimeDir) {
@@ -314,7 +376,6 @@ function validateBootstrapRuntimeBundle(runtimeDir) {
         'Beans/bean-atlas/texture',
         'Beans/bean-atlas/spriteFrame',
         'GameUI/bg_game_pindd',
-        'GameUI/home_bg',
         'GameUI/slot_groove_b_ui',
         'GameUI/slot_panel_shell_b_ui',
         'GameUI/slot_row_lock_mask_ui',
@@ -326,17 +387,7 @@ function validateBootstrapRuntimeBundle(runtimeDir) {
         'GameUI/popup_tool_brush_icon',
         'GameUI/popup_tool_magnet_icon',
         'GameUI/solid_white',
-        'GameUI/主关卡按键 (2)',
-        'GameUI/主页标题',
-        'GameUI/主题挑战',
-        'GameUI/图鉴1',
-        'GameUI/排行榜1',
-        'GameUI/爱心框',
-        'GameUI/签到1',
         'GameUI/设置',
-        'GameUI/部件底板',
-        'GameUI/金币框 (2)',
-        'GameUI/预览框',
     ]) {
         if (!paths.has(required)) fail('bootstrap 缺少首关必要资源: ' + required);
     }
@@ -350,11 +401,23 @@ function assertRuntimeScenes(runtimeDir) {
     const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
     const mainConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'main', gameJson));
     if (!fs.existsSync(mainConfigPath)) fail('缺少 main bundle 配置: ' + mainConfigPath);
-    const scenes = readJson(mainConfigPath).scenes || {};
-    for (const sceneUrl of ['db://assets/Scenes/Home.scene', 'db://assets/Scenes/Game.scene']) {
-        if (!Object.prototype.hasOwnProperty.call(scenes, sceneUrl)) {
-            fail('微信构建缺少运行态场景: ' + sceneUrl);
+    const mainScenes = readJson(mainConfigPath).scenes || {};
+    for (const sceneUrl of ['db://assets/Scenes/Loading.scene', 'db://assets/Scenes/Game.scene']) {
+        if (!Object.prototype.hasOwnProperty.call(mainScenes, sceneUrl)) {
+            fail('微信 main bundle 缺少运行态场景: ' + sceneUrl);
         }
+    }
+    if (Object.prototype.hasOwnProperty.call(mainScenes, 'db://assets/HomeAssetsBundle/Scenes/Home.scene')) {
+        fail('Home.scene 不应进入 main bundle，应由 homeAssets 分包承载');
+    }
+    const homeAssetsConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'homeAssets', gameJson));
+    if (!fs.existsSync(homeAssetsConfigPath)) fail('缺少 homeAssets bundle 配置: ' + homeAssetsConfigPath);
+    const homeAssetsConfig = readJson(homeAssetsConfigPath);
+    const homeDeps = homeAssetsConfig.deps || [];
+    if (homeDeps.includes('gameAssets')) fail('homeAssets 分包不应依赖 gameAssets；老用户 Home 首屏会被 gameAssets 阻塞');
+    const homeScenes = homeAssetsConfig.scenes || {};
+    if (!Object.prototype.hasOwnProperty.call(homeScenes, 'db://assets/HomeAssetsBundle/Scenes/Home.scene')) {
+        fail('homeAssets 分包缺少 Home.scene');
     }
 }
 
@@ -363,7 +426,7 @@ function assertMainBundleDoesNotDependOnSubpackages(runtimeDir) {
     const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
     const mainConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'main', gameJson));
     const deps = readJson(mainConfigPath).deps || [];
-    for (const bundleName of ['gameAssets', 'levelData']) {
+    for (const bundleName of ['homeAssets', 'gameAssets', 'levelData']) {
         if (deps.includes(bundleName)) fail('main bundle 不应依赖 ' + bundleName + '；启动场景仍有分包强引用');
     }
 }
@@ -380,6 +443,7 @@ function validateRuntime(runtimeDir) {
     const firstScreenPath = path.join(runtimeDir, 'first-screen.js');
     if (fs.existsSync(firstScreenPath) && fs.readFileSync(firstScreenPath, 'utf8').includes('let fitHeight = false;')) fail('first-screen.js 竖屏适配未修正');
     if (fs.existsSync(path.join(runtimeDir, 'assets', 'remote'))) fail('本地包中仍存在 assets/remote');
+    if (fs.existsSync(path.join(runtimeDir, 'assets', 'homeAssets'))) fail('本地包中仍存在 assets/homeAssets');
     if (fs.existsSync(path.join(runtimeDir, 'assets', 'gameAssets'))) fail('本地包中仍存在 assets/gameAssets');
     if (fs.existsSync(path.join(runtimeDir, 'assets', 'resources'))) fail('本地包中仍存在 assets/resources');
     validateBootstrapRuntimeBundle(runtimeDir);
@@ -392,9 +456,13 @@ function validateRuntime(runtimeDir) {
     if (Array.isArray(assets.gameAssetsBundles)) fail('settings.assets.gameAssetsBundles 是误写字段，应使用 Cocos remoteBundles');
     if (Array.isArray(assets.remoteBundles) && assets.remoteBundles.includes('gameAssets')) fail('settings.assets.remoteBundles 不应包含 gameAssets');
     if (!assets.projectBundles || !assets.projectBundles.includes('bootstrap')) fail('settings.json 缺少 bootstrap bundle 声明');
+    if (!assets.projectBundles || !assets.projectBundles.includes('homeAssets')) fail('settings.json 缺少 homeAssets 分包 bundle 声明');
     if (!assets.projectBundles || !assets.projectBundles.includes('gameAssets')) fail('settings.json 缺少 gameAssets 分包 bundle 声明');
     const settingsSubpackages = Array.isArray(assets.subpackages) ? assets.subpackages : [];
     const gameJson = readJson(path.join(runtimeDir, 'game.json'));
+    const homeAssetsSubpackageRoot = findSubpackageRoot(gameJson, 'homeAssets');
+    if (!settingsSubpackages.includes('homeAssets')) fail('settings.assets.subpackages 缺少 homeAssets');
+    if (!homeAssetsSubpackageRoot) fail('game.json.subpackages 缺少 homeAssets');
     const gameAssetsSubpackageRoot = findSubpackageRoot(gameJson, 'gameAssets');
     if (!settingsSubpackages.includes('gameAssets')) fail('settings.assets.subpackages 缺少 gameAssets');
     if (!gameAssetsSubpackageRoot) fail('game.json.subpackages 缺少 gameAssets');
@@ -417,6 +485,17 @@ function validateRuntime(runtimeDir) {
         }
     }
     assertStartupPreloadOrder(assets);
+    if (!fs.existsSync(path.join(runtimeDir, 'src', 'bundle-scripts', 'homeAssets', 'index.js'))) fail('本地 homeAssets bundle script 缺少稳定入口 index.js');
+    const homeAssetsDir = resolveBundleDir(runtimeDir, 'homeAssets', gameJson);
+    const homeAssetsConfigPath = findBundleConfigPath(homeAssetsDir);
+    if (!fs.existsSync(homeAssetsConfigPath)) fail('未找到 homeAssets 分包 bundle 配置: ' + homeAssetsConfigPath);
+    const homeAssetsGameJsPath = path.join(homeAssetsDir, 'game.js');
+    if (!fs.existsSync(homeAssetsGameJsPath)) fail('homeAssets 微信分包缺少入口 game.js: ' + homeAssetsGameJsPath);
+    if (!fs.readFileSync(homeAssetsGameJsPath, 'utf8').includes('virtual:///prerequisite-imports/homeAssets')) {
+        fail('homeAssets 微信分包 game.js 未注册 Cocos prerequisite import');
+    }
+    assertSourceBundleArtifactsExist(homeAssetsDir, 'homeAssets', homeAssetsRoot, fail);
+    assertBundleNativeFilesExist(homeAssetsDir, 'homeAssets', fail);
     if (!fs.existsSync(path.join(runtimeDir, 'src', 'bundle-scripts', 'gameAssets', 'index.js'))) fail('本地 gameAssets bundle script 缺少稳定入口 index.js');
     const gameAssetsDir = resolveBundleDir(runtimeDir, 'gameAssets', gameJson);
     const gameAssetsConfigPath = findBundleConfigPath(gameAssetsDir);
@@ -426,7 +505,7 @@ function validateRuntime(runtimeDir) {
     if (!fs.readFileSync(gameAssetsGameJsPath, 'utf8').includes('virtual:///prerequisite-imports/gameAssets')) {
         fail('gameAssets 微信分包 game.js 未注册 Cocos prerequisite import');
     }
-    return { gameAssetsMode: 'subpackage', server, gameAssetsDir };
+    return { gameAssetsMode: 'subpackage', server, homeAssetsDir, gameAssetsDir };
 }
 
 function validateLevelDataCdn() {
@@ -478,6 +557,7 @@ repairCocosMetaFiles();
 
 logStep('0.1 校验 assets/LevelData 真源...');
 validateGameAssetsBundle();
+validateHomeAssetsBundle();
 validateLevelDataSource();
 
 logStep('0.15 生成远程关卡数据包...');
@@ -523,7 +603,10 @@ const runtimeDir = resolveRuntimeDir();
 logStep('2.1 补齐 bootstrap 动态图片...');
 runNode('scripts/patch-bootstrap-dynamic-assets.js', [runtimeDir]);
 
-logStep('2.2 校验本地包与远程包...');
+logStep('2.2 补齐 homeAssets 分包资源产物...');
+runNode('scripts/patch-home-assets-bundle.js', [runtimeDir]);
+
+logStep('2.3 校验本地包与远程包...');
 const runtimeInfo = validateRuntime(runtimeDir);
 validateLevelDataCdn();
 logInfo('本地包、gameAssets 分包与关卡数据 CDN 校验通过，mode=' + runtimeInfo.gameAssetsMode);
@@ -537,16 +620,25 @@ const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpacka
 const mainBytes = dirSize(runtimeDir, subpackageRoots);
 const runtimeBytes = dirSize(runtimeDir);
 const mainKB = Math.round(mainBytes / 1024);
+const settings = readJson(findSettingsPath(runtimeDir));
+const startupDownload = computeStartupDownloadBytes(runtimeDir, gameJson, settings.assets || {}, mainBytes);
+const startupDownloadKB = Math.round(startupDownload.total / 1024);
 console.log('   - 本地包项目:        ' + buildDir);
 console.log('   - 运行时根目录:      ' + runtimeDir);
 console.log('   - 关卡数据 CDN:      ' + levelDataCdnDir);
 console.log('   - assets/bootstrap: ' + formatMB(dirSize(path.join(runtimeDir, 'assets', 'bootstrap'))));
+console.log('   - homeAssets 分包:       ' + formatMB(dirSize(runtimeInfo.homeAssetsDir)));
 console.log('   - gameAssets 分包:       ' + formatMB(dirSize(runtimeInfo.gameAssetsDir)));
 console.log('   - 关卡数据包:        ' + formatMB(dirSize(levelDataCdnDir)));
 console.log('');
 console.log('4. 微信上传主包: ' + formatMB(mainBytes) + ' (' + mainKB + 'KB / ' + mainPackageTargetKB + 'KB 目标, 排除 game.json.subpackages)');
+console.log('   启动下载量: ' + formatMB(startupDownload.total) + ' (' + startupDownloadKB + 'KB / ' + startupDownloadTargetKB + 'KB 目标, 硬主包 + preloadBundles)');
+for (const item of startupDownload.included) {
+    console.log('     + preload ' + item.bundleName + ' (' + item.root + '): ' + formatMB(item.bytes));
+}
 console.log('   minigame 实际目录: ' + formatMB(runtimeBytes));
 if (mainKB > mainPackageErrorKB) fail('主包超过硬限制 ' + mainPackageErrorKB + 'KB: ' + mainKB + 'KB');
+if (startupDownloadKB > startupDownloadTargetKB) fail('启动下载量超过 ' + startupDownloadTargetKB + 'KB 目标: ' + startupDownloadKB + 'KB');
 if (mainKB > mainPackageTargetKB) {
     logInfo('WARNING: 主包超过 3MB 目标，但未超过 4MB 硬限制: ' + mainKB + 'KB');
 } else {

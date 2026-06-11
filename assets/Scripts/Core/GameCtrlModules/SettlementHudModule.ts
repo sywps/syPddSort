@@ -546,6 +546,7 @@ export function installSettlementHudModule(target: any): void {
             this._guideMode = mode;
             this._guideStep = 0;
             this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : 0);
+            this._guideInputSuspended = false;
             this._guidePhase = typeof this.getTutorialPhaseForStep === 'function'
                 ? this.getTutorialPhaseForStep(0)
                 : 'select';
@@ -595,9 +596,11 @@ export function installSettlementHudModule(target: any): void {
             this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
             this._guideLayer.addComponent(BlockInputEvents);
             this._guideLayer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+                if (this._guideInputSuspended) return;
                 event.propagationStopped = true;
             }, this);
             this._guideLayer.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                if (this._guideInputSuspended) return;
                 if (this.isGameEnd || this._guideStep < 0) return;
                 const uiPos = event.getUILocation();
                 this.handleGuideTap(new Vec3(uiPos.x, uiPos.y, 0));
@@ -637,11 +640,22 @@ export function installSettlementHudModule(target: any): void {
             this._guideArrow.layer = Layers.Enum.UI_2D;
         
             this.showGuideStep(0);
+            if ((Number(this._modalFocusRefs) || 0) > 0) {
+                this.suspendGuideForModal('active-modal');
+            }
         },
 
         showGuideStep(step: number) {
             this._guideStep = step;
+            if (this._guideInputSuspended) {
+                this.clearGuideRuntimeVisuals?.();
+                if (this._guideLayer?.isValid) {
+                    this._guideLayer.active = false;
+                }
+                return;
+            }
             if (!this._guideLayer) return;
+            this._guideLayer.active = true;
             this.trackFirstLevelFunnel('tutorial_step_show', {
                 stepId: step,
                 stepName: `${this._guideMode}:${step}:${this._guidePhase}`,

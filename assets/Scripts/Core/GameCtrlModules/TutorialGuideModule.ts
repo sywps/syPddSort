@@ -150,6 +150,8 @@ export function installTutorialGuideModule(target: any): void {
 
         /** 引导期间触摸处理 */
         handleGuideTap(worldPos: Vec3) {
+            if (this._guideInputSuspended) return;
+            if (this.tryHandleGuideSystemModalTap?.(worldPos)) return;
             if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) {
                 this.advanceTutorial();
                 return;
@@ -484,6 +486,7 @@ export function installTutorialGuideModule(target: any): void {
 
         checkGuideStepComplete() {
             if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) return;
+            if (this._guideInputSuspended) return;
             if (this._guidePhase !== 'place') return;
         
             const step = this._guideStep;

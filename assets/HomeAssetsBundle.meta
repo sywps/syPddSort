@@ -1,0 +1,13 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "9fb9c992-71b4-4c5e-9d2f-6f4f30a34aa7",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "isBundle": true,
+    "bundleName": "homeAssets",
+    "priority": 7
+  }
+}

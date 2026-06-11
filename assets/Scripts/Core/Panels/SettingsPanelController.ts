@@ -71,6 +71,19 @@ export class SettingsPanelController {
 
         let overlay: Node | null = null;
         let settingsClosed = false;
+        let modalFocusActive = false;
+
+        const beginSettingsModalFocus = () => {
+            if (modalFocusActive) return;
+            modalFocusActive = true;
+            runtime.beginModalFocus?.('settings');
+        };
+
+        const endSettingsModalFocus = () => {
+            if (!modalFocusActive) return;
+            modalFocusActive = false;
+            runtime.endModalFocus?.('settings');
+        };
 
         const finishFailure = (message: string) => {
             runtime._panelOpenInFlight.delete(SETTINGS_PREFAB_IN_FLIGHT_KEY);
@@ -78,6 +91,7 @@ export class SettingsPanelController {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
                 overlay.destroy();
             }
+            endSettingsModalFocus();
             runtime.resumeTimerForProp();
             runtime._releasePanelTexturesNextFrame(SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings-prefab-failed');
             console.error(message);
@@ -104,11 +118,14 @@ export class SettingsPanelController {
         };
 
         const closeSettings = () => {
-            if (settingsClosed || !overlay?.isValid) return;
+            if (settingsClosed) return;
             settingsClosed = true;
-            AudioMgr.inst.play('button');
+            if (overlay?.isValid) {
+                AudioMgr.inst.play('button');
+                runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
+            }
             runtime.resumeTimerForProp();
-            runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
+            endSettingsModalFocus();
         };
 
         runtime._withGameAssetsBundle((bundle: any) => {
@@ -131,6 +148,7 @@ export class SettingsPanelController {
                     if (!overlay.getComponent(BlockInputEvents)) {
                         overlay.addComponent(BlockInputEvents);
                     }
+                    beginSettingsModalFocus();
 
                     const box = requireChild(overlay, 'Box');
                     if (!box.getComponent(BlockInputEvents)) {
@@ -150,8 +168,9 @@ export class SettingsPanelController {
                         }
                         settingsClosed = true;
                         AudioMgr.inst.play('button');
-                        runtime.resumeTimerForProp();
                         runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
+                        runtime.resumeTimerForProp();
+                        endSettingsModalFocus();
                         void AppRoot.inst.requestHomeSceneTransition('settings');
                     });
 

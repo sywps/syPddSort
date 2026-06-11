@@ -2,6 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+    assertBundleNativeFilesExist,
+    assertSourceBundleArtifactsExist,
+} = require('./verify-bundle-native-files.js');
 
 const buildPath = process.argv[2] || path.resolve(__dirname, '..', 'build', 'wechatgame');
 const levelDataCdnPath = process.argv[3] || path.resolve(__dirname, '..', 'build', 'level-data-cdn');
@@ -234,11 +238,23 @@ function assertRuntimeScenes(root) {
     const gameJsonPath = path.join(root, 'game.json');
     const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
     const mainConfigPath = findBundleConfigPath(resolveBundleDir(root, 'main', gameJson));
-    const scenes = readJson(mainConfigPath).scenes || {};
-    for (const sceneUrl of ['db://assets/Scenes/Home.scene', 'db://assets/Scenes/Game.scene']) {
-        if (!Object.prototype.hasOwnProperty.call(scenes, sceneUrl)) {
-            fail('微信构建缺少运行态场景: ' + sceneUrl);
+    const mainScenes = readJson(mainConfigPath).scenes || {};
+    for (const sceneUrl of ['db://assets/Scenes/Loading.scene', 'db://assets/Scenes/Game.scene']) {
+        if (!Object.prototype.hasOwnProperty.call(mainScenes, sceneUrl)) {
+            fail('微信 main bundle 缺少运行态场景: ' + sceneUrl);
         }
+    }
+    if (Object.prototype.hasOwnProperty.call(mainScenes, 'db://assets/HomeAssetsBundle/Scenes/Home.scene')) {
+        fail('Home.scene 不应进入 main bundle，应由 homeAssets 分包承载');
+    }
+    const homeAssetsConfigPath = findBundleConfigPath(resolveBundleDir(root, 'homeAssets', gameJson));
+    if (!fs.existsSync(homeAssetsConfigPath)) fail('缺少 homeAssets bundle 配置: ' + homeAssetsConfigPath);
+    const homeAssetsConfig = readJson(homeAssetsConfigPath);
+    const homeDeps = homeAssetsConfig.deps || [];
+    if (homeDeps.includes('gameAssets')) fail('homeAssets 分包不应依赖 gameAssets；老用户 Home 首屏会被 gameAssets 阻塞');
+    const homeScenes = homeAssetsConfig.scenes || {};
+    if (!Object.prototype.hasOwnProperty.call(homeScenes, 'db://assets/HomeAssetsBundle/Scenes/Home.scene')) {
+        fail('homeAssets 分包缺少 Home.scene');
     }
 }
 
@@ -247,7 +263,7 @@ function assertMainBundleDoesNotDependOnSubpackages(root) {
     const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
     const mainConfigPath = findBundleConfigPath(resolveBundleDir(root, 'main', gameJson));
     const deps = readJson(mainConfigPath).deps || [];
-    for (const bundleName of ['gameAssets', 'levelData']) {
+    for (const bundleName of ['homeAssets', 'gameAssets', 'levelData']) {
         if (deps.includes(bundleName)) fail('main bundle 不应依赖 ' + bundleName + '；启动场景仍有分包强引用');
     }
 }
@@ -256,10 +272,14 @@ function getPreloadBundleName(item) {
     return typeof item === 'string' ? item : item && item.bundle;
 }
 
-function assertStartupPreloadOrder(assets) {
-    const preloadNames = Array.isArray(assets.preloadBundles)
+function getPreloadBundleNames(assets) {
+    return Array.isArray(assets.preloadBundles)
         ? assets.preloadBundles.map(getPreloadBundleName).filter(Boolean)
         : [];
+}
+
+function assertStartupPreloadOrder(assets) {
+    const preloadNames = getPreloadBundleNames(assets);
     const requiredOrder = ['bootstrap', 'main'];
     let previous = -1;
     for (const name of requiredOrder) {
@@ -268,8 +288,25 @@ function assertStartupPreloadOrder(assets) {
         if (index <= previous) fail('settings.assets.preloadBundles 启动顺序错误，应为 bootstrap -> main，实际: ' + preloadNames.join(' -> '));
         previous = index;
     }
+    if (preloadNames.includes('homeAssets')) fail('settings.assets.preloadBundles 不应启动预加载 homeAssets 分包');
     if (preloadNames.includes('gameAssets')) fail('settings.assets.preloadBundles 不应启动预加载 gameAssets 分包');
     if (preloadNames.includes('levelData')) fail('settings.assets.preloadBundles 不应启动预加载 levelData 分包');
+}
+
+function computeStartupDownloadBytes(runtimeRoot, gameJson, assets, rootPackageBytes) {
+    let total = rootPackageBytes;
+    const included = [];
+    const seenSubpackageRoots = new Set();
+    for (const bundleName of getPreloadBundleNames(assets)) {
+        const subpackageRoot = findSubpackageRoot(gameJson, bundleName);
+        if (!subpackageRoot || seenSubpackageRoots.has(subpackageRoot)) continue;
+        const dir = path.join(runtimeRoot, subpackageRoot);
+        const bytes = dirSize(dir);
+        seenSubpackageRoots.add(subpackageRoot);
+        included.push({ bundleName, root: subpackageRoot, bytes });
+        total += bytes;
+    }
+    return { total, included };
 }
 
 assertDir(buildPath, '微信构建目录');
@@ -346,10 +383,14 @@ if (staleCollectionShellArrow) {
 assertDir(path.join(runtimeRoot, 'openDataContext'), 'openDataContext');
 
 if (!Array.isArray(assets.projectBundles) || !assets.projectBundles.includes('bootstrap')) fail('settings.assets.projectBundles 缺少 bootstrap');
+if (!Array.isArray(assets.projectBundles) || !assets.projectBundles.includes('homeAssets')) fail('settings.assets.projectBundles 缺少 homeAssets');
 if (!Array.isArray(assets.projectBundles) || !assets.projectBundles.includes('gameAssets')) fail('settings.assets.projectBundles 缺少 gameAssets');
 if (Array.isArray(assets.projectBundles) && assets.projectBundles.includes('resources')) fail('resources bundle 仍在 projectBundles 中');
 const settingsSubpackages = Array.isArray(assets.subpackages) ? assets.subpackages : [];
 const gameSubpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [];
+const homeAssetsSubpackageRoot = findSubpackageRoot(gameJson, 'homeAssets');
+if (!settingsSubpackages.includes('homeAssets')) fail('settings.assets.subpackages 缺少 homeAssets');
+if (!homeAssetsSubpackageRoot) fail('game.json.subpackages 缺少 homeAssets');
 const gameAssetsSubpackageRoot = findSubpackageRoot(gameJson, 'gameAssets');
 if (!settingsSubpackages.includes('gameAssets')) fail('settings.assets.subpackages 缺少 gameAssets');
 if (!gameAssetsSubpackageRoot) fail('game.json.subpackages 缺少 gameAssets');
@@ -363,6 +404,18 @@ if (buildMode === 'debug') {
 }
 assertStartupPreloadOrder(assets);
 assertFile(path.join(runtimeRoot, 'assets', 'bootstrap', 'index.js'), 'bootstrap stable index.js');
+assertFile(path.join(runtimeRoot, 'src', 'bundle-scripts', 'homeAssets', 'index.js'), 'homeAssets bundle-scripts stub');
+const homeAssetsDir = resolveBundleDir(runtimeRoot, 'homeAssets', gameJson);
+assertDir(homeAssetsDir, 'homeAssets 微信分包目录');
+assertFile(findBundleConfigPath(homeAssetsDir), 'homeAssets 分包 config.json');
+assertFile(path.join(homeAssetsDir, 'index.js'), 'homeAssets 分包 index.js');
+assertFile(path.join(homeAssetsDir, 'game.js'), 'homeAssets 分包 game.js');
+const homeAssetsGameJs = fs.readFileSync(path.join(homeAssetsDir, 'game.js'), 'utf8');
+if (!homeAssetsGameJs.includes('virtual:///prerequisite-imports/homeAssets')) {
+    fail('homeAssets 分包 game.js 未注册 Cocos prerequisite import');
+}
+assertSourceBundleArtifactsExist(homeAssetsDir, 'homeAssets', path.join(projectRoot, 'assets', 'HomeAssetsBundle'), fail);
+assertBundleNativeFilesExist(homeAssetsDir, 'homeAssets', fail);
 for (const bundleName of ['internal', 'main']) {
     const bundleDir = resolveBundleDir(runtimeRoot, bundleName, gameJson);
     assertFile(findBundleConfigPath(bundleDir), bundleName + ' 分包 config');
@@ -406,7 +459,6 @@ for (const requiredPath of [
     'Beans/bean-atlas/texture',
     'Beans/bean-atlas/spriteFrame',
     'GameUI/bg_game_pindd',
-    'GameUI/home_bg',
     'GameUI/slot_groove_b_ui',
     'GameUI/slot_panel_shell_b_ui',
     'GameUI/slot_row_lock_mask_ui',
@@ -418,17 +470,7 @@ for (const requiredPath of [
     'GameUI/popup_tool_brush_icon',
     'GameUI/popup_tool_magnet_icon',
     'GameUI/solid_white',
-    'GameUI/主关卡按键 (2)',
-    'GameUI/主页标题',
-    'GameUI/主题挑战',
-    'GameUI/图鉴1',
-    'GameUI/排行榜1',
-    'GameUI/爱心框',
-    'GameUI/签到1',
     'GameUI/设置',
-    'GameUI/部件底板',
-    'GameUI/金币框 (2)',
-    'GameUI/预览框',
 ]) {
     if (!bootstrapPaths.includes(requiredPath)) fail('bootstrap 缺少首关必要资源: ' + requiredPath);
 }
@@ -447,6 +489,7 @@ for (const levelId of [1]) {
     }
 }
 if (fs.existsSync(path.join(runtimeRoot, 'assets', 'remote'))) fail('assets/remote 仍在微信主包内');
+if (fs.existsSync(path.join(runtimeRoot, 'assets', 'homeAssets'))) fail('assets/homeAssets 仍在微信主包内');
 if (fs.existsSync(path.join(runtimeRoot, 'assets', 'gameAssets'))) fail('assets/gameAssets 仍在微信主包内');
 
 assertDir(levelDataCdnPath, '微信关卡数据 CDN 目录');
@@ -472,11 +515,16 @@ const mainBytes = dirSize(runtimeRoot, subpackageRootNames);
 const mainKB = Math.round(mainBytes / 1024);
 const mainPackageTargetKB = 3072;
 const mainPackageErrorKB = 4096;
+const startupDownloadTargetKB = 3072;
+const startupDownload = computeStartupDownloadBytes(runtimeRoot, gameJson, assets, mainBytes);
+const startupDownloadKB = Math.round(startupDownload.total / 1024);
 if (mainKB > mainPackageErrorKB) fail('微信主包超过 4MB 硬限制: ' + mainKB + 'KB');
 if (mainKB > mainPackageTargetKB) console.warn('WARNING: 微信主包超过 3MB 目标，但未超过 4MB 硬限制: ' + mainKB + 'KB');
+if (startupDownloadKB > startupDownloadTargetKB) fail('微信启动下载量超过 3MB 目标: ' + startupDownloadKB + 'KB');
 
 console.log('微信构建产物验证通过');
 console.log('runtime: ' + runtimeRoot);
 console.log('mode: ' + buildMode);
 console.log('main: ' + mainKB + 'KB');
+console.log('startupDownload: ' + startupDownloadKB + 'KB');
 console.log('levelDataCdn: ' + levelDataCdnPath);
