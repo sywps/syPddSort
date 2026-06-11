@@ -172,6 +172,7 @@ function restoreTailToOriginalSlots(model, block, remainingCount, selectedSnapsh
 }
 
 const placementFx = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
+const slotCompaction = read('assets/Scripts/Core/GameCtrlModules/GameplaySlotCompactionModule.ts');
 const boardInput = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
 const tutorialGuide = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 const boardModel = read('assets/Scripts/Core/BoardModel.ts');
@@ -182,7 +183,7 @@ for (const required of [
     'restoreSlotTailToOriginalSlots(block: BeanBlockInfo, remainingCount: number, selectedSlotSnapshot: SlotSnapshotEntry[])',
     'restoreBlockToSlots(selectedSlotSnapshot: SlotSnapshotEntry[])',
 ]) {
-    assert.ok(placementFx.includes(required), `GameplayPlacementFxModule must include ${required}`);
+    assert.ok(slotCompaction.includes(required), `GameplaySlotCompactionModule must include ${required}`);
 }
 
 for (const source of [boardInput, tutorialGuide]) {
@@ -196,6 +197,34 @@ for (const source of [boardInput, tutorialGuide]) {
         'successful slot placement must compact after stable restore',
     );
     assert.ok(source.includes('this.restoreBlockToSlots(selectedSlotSnapshot)'), 'failed slot placement must restore by original slot index');
+}
+
+{
+    const compactStart = slotCompaction.indexOf('compactSlotsAfterSelectionConsume(onComplete?: () => void)');
+    assert.ok(compactStart >= 0, 'slot compact helper must exist');
+    const compactAnimationStart = slotCompaction.indexOf('const SLOT_COMPACT_MOVE_DUR', compactStart);
+    assert.ok(compactAnimationStart > compactStart, 'slot compact helper must define the compact move animation');
+    const beforeCompactAnimation = slotCompaction.slice(compactStart, compactAnimationStart);
+    const compactSnapshotStart = beforeCompactAnimation.indexOf('const rawTotalCount');
+    const finishStart = beforeCompactAnimation.indexOf('const finish = () => {');
+    const callbackPathCompact = beforeCompactAnimation.indexOf('this.slotModel[\'compact\']();', compactSnapshotStart);
+    assert.ok(compactSnapshotStart >= 0, 'slot compact animation must compute a local compact snapshot');
+    assert.ok(beforeCompactAnimation.includes('const afterSlots: Array<BeanBlockInfo | null>'), 'slot compact animation must not use committed slotModel state as the animation target');
+    assert.ok(finishStart > compactSnapshotStart, 'slot compact animation must define a finish commit after computing moves');
+    assert.ok(callbackPathCompact > finishStart, 'slot compact animation must delay committing slotModel compact until finish');
+    assert.ok(beforeCompactAnimation.includes('hideCompactSourceSlot'), 'slot compact animation must hide source real beans before overlay movement');
+    assert.ok(!beforeCompactAnimation.includes('this.renderSlots();\r\n\r\n            const layerUT'), 'slot compact animation must not render final compact state before overlay movement');
+    assert.ok(!beforeCompactAnimation.includes('this.renderSlots();\n\n            const layerUT'), 'slot compact animation must not render final compact state before overlay movement');
+    const compactEnd = slotCompaction.indexOf('restoreSlotTailToOriginalSlots(block: BeanBlockInfo, remainingCount: number, selectedSlotSnapshot: SlotSnapshotEntry[])', compactStart);
+    assert.ok(compactEnd > compactStart, 'slot compact helper must end before restore helper');
+    const compactHelper = slotCompaction.slice(compactStart, compactEnd);
+    assert.ok(compactHelper.includes('const landedCompactBeans'), 'slot compact animation must keep landed overlay beans for render handoff');
+    assert.ok(compactHelper.includes('const SLOT_COMPACT_HANDOFF_DUR = 0.08'), 'slot compact handoff must have a visible fade duration');
+    assert.ok(compactHelper.includes('tween(realOpacity)'), 'slot compact handoff must fade in final real slot beans');
+    assert.ok(compactHelper.includes('tween(beanOpacity)'), 'slot compact handoff must fade out temporary overlay beans');
+    assert.ok(compactHelper.includes('landedCompactBeans.push({ bean, to: move.to })'), 'slot compact movement must retain overlay beans at their targets until handoff');
+    assert.ok(!compactHelper.includes('this.recycleFlyBeanNode(bean);\r\n                        markMoveDone();'), 'slot compact movement must not recycle overlay beans before final render handoff');
+    assert.ok(!compactHelper.includes('this.recycleFlyBeanNode(bean);\n                        markMoveDone();'), 'slot compact movement must not recycle overlay beans before final render handoff');
 }
 
 function prioritizeCellsLikeBoardModel(cells, correctColors, preferredCorrectColor) {

@@ -3,7 +3,7 @@ import {
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
-    NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
+    NodePool, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
@@ -67,29 +67,13 @@ function ensureThemeLabelNode(
     return label;
 }
 
-function setExistingThemeSprite(
-    runtime: any,
-    node: Node,
-    frameName: string,
-    width: number,
-    height: number,
-): void {
-    const frame = runtime.getSF(frameName);
-    const sprite = node.getComponent(Sprite);
-    if (!frame || !sprite) {
-        throw new Error(`[collection-card] missing prefab sprite state: ${frameName}`);
-    }
-    (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(width, height);
-    sprite.spriteFrame = frame;
-    sprite.color = Color.WHITE;
-}
-
 export function installThemePanelFlowModule(target: any): void {
     Object.assign(target, {
         openCollectionImageModal(levelId: number) {
             this.closeCollectionImageModal();
             openCollectionShellOverlay(this, {
                 overlayName: 'CollectionImageModal',
+                title: `第${levelId}关`,
                 siblingIndex: 1001,
                 onClose: () => {
                     this._collectionImageModal = null;
@@ -97,19 +81,21 @@ export function installThemePanelFlowModule(target: any): void {
                 onReady: ({ overlay, content, pageIndicator }) => {
                     this._collectionImageModal = overlay;
                     content.removeAllChildren();
-                    pageIndicator.active = true;
-                    pageIndicator.setPosition(0, 408, 0);
-                    ensureThemeLabelNode(
-                        pageIndicator,
-                        'PixelTitle',
-                        `第${levelId}关`,
-                        24,
-                        new Color('#5A4A3A'),
-                        220,
-                        40,
-                        0,
-                        0,
-                    );
+                    if (pageIndicator) {
+                        pageIndicator.active = true;
+                        pageIndicator.setPosition(0, 408, 0);
+                        ensureThemeLabelNode(
+                            pageIndicator,
+                            'PixelTitle',
+                            `第${levelId}关`,
+                            24,
+                            new Color('#5A4A3A'),
+                            220,
+                            40,
+                            0,
+                            0,
+                        );
+                    }
                     this.drawCollectionPatternOnCard(
                         content,
                         levelId,
@@ -134,20 +120,23 @@ export function installThemePanelFlowModule(target: any): void {
             }
             card.name = 'Card';
             card.active = true;
-            (card.getComponent(UITransform) || card.addComponent(UITransform)).setContentSize(w, h);
             card.layer = parent.layer || Layers.Enum.UI_2D;
-            card.setPosition(cx, cy);
-            const cardFrameScale = Math.min(w / 338, h / 262);
-            const frameW = Math.round(338 * cardFrameScale);
-            const frameH = Math.round(262 * cardFrameScale);
             const frameNode = card.getChildByName('CardFrame');
             if (!frameNode) {
                 throw new Error('[collection-card] missing CardFrame template node');
             }
             frameNode.active = true;
             frameNode.layer = card.layer;
-            frameNode.setPosition(0, 0, 0);
-            setExistingThemeSprite(this, frameNode, unlocked ? 'popup_card_unlocked' : 'popup_card_locked', frameW, frameH);
+            const frameSprite = frameNode.getComponent(Sprite);
+            const frame = this.getSF(unlocked ? 'popup_card_unlocked' : 'popup_card_locked');
+            if (!frameSprite || !frame) {
+                throw new Error(`[collection-card] missing prefab sprite state: ${unlocked ? 'popup_card_unlocked' : 'popup_card_locked'}`);
+            }
+            frameSprite.spriteFrame = frame;
+            frameSprite.color = Color.WHITE;
+            const frameUi = frameNode.getComponent(UITransform);
+            const frameW = frameUi?.width || 248;
+            const frameH = frameUi?.height || 193;
             card.getChildByName('PixelPreview')?.destroy();
             const labelNode = card.getChildByName('Lbl');
             const hintNode = card.getChildByName('TapHint');
@@ -156,8 +145,12 @@ export function installThemePanelFlowModule(target: any): void {
                 // 图鉴卡片展示像素图
                 this.drawCollectionPixelPreviewOnCard(card, levelId, 0, 18, frameW - 56, frameH - 82);
         
-                // 关卡文字
-                ensureThemeLabelNode(card, 'Lbl', `第${levelId}关`, 14, new Color('#5A4A3A'), w - 24, 24, 0, -h / 2 + 18);
+                const label = labelNode?.getComponent(Label);
+                if (!labelNode || !label) {
+                    throw new Error('[collection-card] missing Lbl template node');
+                }
+                labelNode.active = true;
+                label.string = `第${levelId}关`;
                 if (hintNode) hintNode.active = false;
         
                 // 打开图案详情
@@ -165,7 +158,10 @@ export function installThemePanelFlowModule(target: any): void {
                 card.targetOff(this);
                 card.on(Button.EventType.CLICK, (e: EventTouch) => {
                     e.propagationStopped = true;
-                    if (Date.now() < (this._collectionScrollSuppressClickUntil || 0)) return;
+                    if (this._collectionOverlay && this._collectionScrollSuppressClick) {
+                        this._collectionScrollSuppressClick = false;
+                        return;
+                    }
                     AudioMgr.inst.play('uiPanel');
                     this.openCollectionImageModal(levelId);
                 }, this);
@@ -207,37 +203,12 @@ export function installThemePanelFlowModule(target: any): void {
             }, prefix);
         },
 
-        renderPageIndicator(page: number) {
-            const indicator = this._collectionPageIndicator;
-            if (!indicator) return;
-            const total = this._collectionTotalPages;
-            indicator.active = total > 1;
-            indicator.setPosition(0, -474, 0);
-            ensureThemeLabelNode(
-                indicator,
-                'PageIndicatorLabel',
-                `${page + 1} / ${Math.max(1, total)}`,
-                18,
-                new Color('#8C6A43'),
-                160,
-                28,
-                0,
-                0,
-            );
-        },
-
-        updateCollectionArrows(page: number) {
-            // 更新箭头按钮状态：隐藏不可用的箭头
-            const overlay = this._collectionOverlay;
-            if (!overlay) return;
-            const leftArrow = overlay.getChildByName('ArrowLeft');
-            const rightArrow = overlay.getChildByName('ArrowRight');
-            if (leftArrow) leftArrow.active = false;
-            if (rightArrow) rightArrow.active = false;
-        },
-
         closeCollection() {
             this.closeCollectionImageModal();
+            if (this._collectionScrollInertiaStep) {
+                this.unschedule(this._collectionScrollInertiaStep);
+                this._collectionScrollInertiaStep = null;
+            }
             if (this._collectionOverlay) {
                 this._collectionOverlay.destroy();
             }
@@ -245,8 +216,10 @@ export function installThemePanelFlowModule(target: any): void {
             this._collectionOverlay = null;
             this._collectionContentNode = null;
             this._collectionScrollContentNode = null;
-            this._collectionScrollSuppressClickUntil = 0;
             this._collectionPageIndicator = null;
+            this._collectionScrollDragging = false;
+            this._collectionScrollMoved = false;
+            this._collectionScrollSuppressClick = false;
             this._releasePanelTexturesNextFrame(COLLECTION_RELEASE_TEXTURE_NAMES, 'collection');
         },
 
@@ -516,8 +489,10 @@ export function installThemePanelFlowModule(target: any): void {
             const set = this.getThemeCompletedSet();
             set.add(levelId);
             try {
-                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(Array.from(unlocked).sort((a, b) => a - b)));
-                sys.localStorage.setItem(LS_THEME_COMPLETED, JSON.stringify(Array.from(set).sort((a, b) => a - b)));
+                const unlockedLevels = Array.from(unlocked).map((value) => Number(value)).sort((a, b) => a - b);
+                const completedLevels = Array.from(set).map((value) => Number(value)).sort((a, b) => a - b);
+                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(unlockedLevels));
+                sys.localStorage.setItem(LS_THEME_COMPLETED, JSON.stringify(completedLevels));
                 this.queueCloudGameStateSync();
             } catch {
                 /* ignore */
@@ -560,17 +535,29 @@ export function installThemePanelFlowModule(target: any): void {
             const unlocked = this.getThemeUnlockedSet();
             const completed = this.getThemeCompletedSet();
             const mainLevel = this.getSavedLevel();
-        
-            const cardW = (contentW - 60) / 2;
-            const cardH = cardW * 0.75;
-            const gapX = 20;
+
+            const headerTemplate = content.getChildByName('ThemeHeaderTemplate');
+            const cardTemplate = content.getChildByName('ThemeCardTemplate');
+            if (!headerTemplate || !cardTemplate) {
+                throw new Error('[theme-panel] missing ThemeHeaderTemplate or ThemeCardTemplate');
+            }
+            const headerUi = headerTemplate.getComponent(UITransform);
+            const cardUi = cardTemplate.getComponent(UITransform);
+            if (!headerUi || !cardUi) {
+                throw new Error('[theme-panel] theme templates must provide UITransform');
+            }
+
+            const cardW = cardUi.width;
+            const cardH = cardUi.height;
+            const headerH = headerUi.height;
+            const horizontalGap = Math.max(20, contentW - cardW * 2);
+            const leftX = -cardW / 2 - horizontalGap / 4;
+            const rightX = cardW / 2 + horizontalGap / 4;
             const gapY = 18;
-            const headerH = 56;
             const sectionGap = 28;
-            const introH = 76;
-        
-            // 第一遍：算总高度
-            let total = introH;
+            const topPad = 18;
+
+            let total = topPad;
             for (const grp of groups) {
                 total += headerH;
                 const rows = Math.ceil(grp.levelIds.length / 2);
@@ -579,35 +566,21 @@ export function installThemePanelFlowModule(target: any): void {
             }
             total = Math.max(scrollH, total);
             content.getComponent(UITransform)!.setContentSize(contentW, total);
-        
-            // 第二遍：渲染（cursorY 从 content 顶部 total/2 出发，依次向下）
-            let cursorY = total / 2;
-            const introWrap = new Node('ThemeIntro');
-            content.addChild(introWrap);
-            introWrap.addComponent(UITransform).setContentSize(contentW, introH);
-            introWrap.layer = Layers.Enum.UI_2D;
-            introWrap.setPosition(0, cursorY - introH / 2);
-            introWrap.getChildByName('ThemeTitle')?.destroy();
-            ensureThemeLabelNode(
-                introWrap,
-                'ThemeRule',
-                `主线第${this.getThemePanelOpenRequirementLevel()}关解锁第1关，每过${this.getThemeUnlockStepLevel()}关可解锁1个主题关`,
-                18,
-                new Color('#8C6A43'),
-                contentW - 48,
-                56,
-                0,
-                0,
-            );
-            cursorY -= introH;
+
+            let cursorY = total / 2 - topPad;
 
             for (const grp of groups) {
-                const headerNode = new Node('ThemeHeader');
+                const headerNode = instantiate(headerTemplate);
                 content.addChild(headerNode);
-                headerNode.addComponent(UITransform).setContentSize(contentW, headerH);
+                headerNode.name = `ThemeHeader_${grp.name}`;
+                headerNode.active = true;
                 headerNode.layer = Layers.Enum.UI_2D;
                 headerNode.setPosition(0, cursorY - headerH / 2);
-                ensureThemeLabelNode(headerNode, 'ThemeName', grp.name, 28, new Color('#7A5C3A'), contentW - 40, 34, 0, 0);
+                const themeNameLabel = headerNode.getChildByName('ThemeName')?.getComponent(Label);
+                if (!themeNameLabel) {
+                    throw new Error('[theme-panel] ThemeHeaderTemplate is missing ThemeName label');
+                }
+                themeNameLabel.string = grp.name;
                 cursorY -= headerH;
         
                 const rows = Math.ceil(grp.levelIds.length / 2);
@@ -621,7 +594,7 @@ export function installThemePanelFlowModule(target: any): void {
                         const isUnlocked = isCompleted || unlocked.has(lvId);
                         const canUnlock = !isUnlocked && this.canUnlockThemeLevelByMainProgress(lvId, mainLevel);
                         const unlockRequirementLevel = this.getThemeUnlockRequirementLevel(lvId);
-                        const cx = (c === 0 ? -1 : 1) * (cardW / 2 + gapX / 2);
+                        const cx = c === 0 ? leftX : rightX;
                         const cy = cursorY - cardH / 2 - r * (cardH + gapY);
                         this.drawThemeCard(content, lvId, cx, cy, cardW, cardH, isUnlocked, isCompleted, canUnlock, unlockRequirementLevel, lvName);
                     }

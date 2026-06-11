@@ -10,30 +10,14 @@ import {
     LS_SKILL_MAGNET_USED,
     LS_SKILL_WAND_USED,
     Node,
-    POPUP_UI_TEXTURE_NAMES,
-    SKILL_BUTTON_TEXTURE_NAMES,
     SKILL_UNLOCK_BROOM,
     SKILL_UNLOCK_MAGNET,
     SKILL_UNLOCK_WAND,
     Sprite,
-    SpriteFrame,
     UIOpacity,
     UITransform,
     Vec3,
-    tween,
 } from './GameCtrlShared';
-import { openCollectionShellOverlay } from './Panels/CollectionShellOverlay';
-
-type AcquireResourceModalOptions = {
-    title: string;
-    description: string;
-    buyLabel: string;
-    buyCost: number;
-    adLabel: string;
-    onBought: () => void;
-    onWatchAd: () => void;
-    onCancel: () => void;
-};
 
 export class GameplaySkillUiController {
     constructor(private readonly runtime: any) {}
@@ -132,7 +116,7 @@ export class GameplaySkillUiController {
                 const node = root.getChildByName(this.getSkillShellName(kind));
                 if (!node?.isValid) continue;
                 node.active = false;
-                this.updateCountBadge(node, 0, false);
+                this.updateCountBadge(node, 0, true);
                 node.targetOff(runtime);
             }
             return;
@@ -148,7 +132,7 @@ export class GameplaySkillUiController {
 
             if (currentLevel < skill.unlockLevel) {
                 shellOpacity.opacity = 138;
-                this.updateCountBadge(shell, 0, false);
+                this.updateCountBadge(shell, 0, true);
                 button.enabled = true;
                 shell.on(Button.EventType.CLICK, () => {
                     AudioMgr.inst.play('button');
@@ -204,7 +188,7 @@ export class GameplaySkillUiController {
             if (node?.isValid) {
                 node.targetOff(runtime);
                 node.active = false;
-                this.updateCountBadge(node, 0, false);
+                this.updateCountBadge(node, 0, true);
             }
         }
         if (!runtime.levelData || runtime.isGameEnd) {
@@ -243,9 +227,14 @@ export class GameplaySkillUiController {
             bg = badge.addComponent(Graphics);
         }
         bg.clear();
-        bg.fillColor = new Color('#F05A5A');
-        bg.roundRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, badgeH / 2);
+        const radius = Math.min(badgeW, badgeH) / 2;
+        const strokeWidth = Math.max(2, Math.round(radius * 0.18));
+        bg.fillColor = new Color('#43C04F');
+        bg.strokeColor = new Color('#000000');
+        bg.lineWidth = strokeWidth;
+        bg.circle(0, 0, radius - strokeWidth / 2);
         bg.fill();
+        bg.stroke();
 
         let lblNode = badge.getChildByName('CountBadgeLbl');
         if (!lblNode) {
@@ -263,199 +252,11 @@ export class GameplaySkillUiController {
         }
         lbl.overflow = Label.Overflow.SHRINK;
         lbl.enableWrapText = false;
-        const displayText = count > 99 ? '99+' : `${Math.max(0, count)}`;
+        const displayText = count <= 0 ? '+' : (count > 99 ? '99+' : `${count}`);
         lblTransform.setContentSize(Math.max(18, badgeW - 8), Math.max(1, badgeH));
         lbl.string = displayText;
     }
 
-    private requireTemplateNode(parent: Node, name: string): Node {
-        const node = parent.getChildByName(name);
-        if (!node) {
-            throw new Error(`[skill-ui-template] missing node: ${name}`);
-        }
-        node.active = true;
-        return node;
-    }
-
-    private fillTemplateLabel(
-        node: Node,
-        text: string,
-        fontSize: number,
-        color: Color,
-        width: number,
-        height: number,
-    ): Label {
-        (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(width, height);
-        const label = node.getComponent(Label);
-        if (!label) {
-            throw new Error(`[skill-ui-template] missing Label on ${node.name}`);
-        }
-        label.string = text;
-        label.fontSize = fontSize;
-        label.lineHeight = Math.max(fontSize + 4, height);
-        label.color = color;
-        label.horizontalAlign = Label.HorizontalAlign.CENTER;
-        label.verticalAlign = Label.VerticalAlign.CENTER;
-        label.overflow = Label.Overflow.SHRINK;
-        return label;
-    }
-
-    private configureTemplateButton(
-        node: Node,
-        labelName: string,
-        text: string,
-        frame: SpriteFrame,
-        width: number,
-        height: number,
-        color: Color,
-        fontSize: number,
-        onClick: () => void,
-    ) {
-        const runtime = this.runtime;
-        node.active = true;
-        runtime._applySpriteFrame(node, frame, width, height);
-        const sprite = node.getComponent(Sprite);
-        if (sprite) sprite.color = color;
-        const labelNode = this.requireTemplateNode(node, labelName);
-        this.fillTemplateLabel(labelNode, text, fontSize, Color.WHITE, Math.max(1, width - 32), Math.max(1, height - 20));
-        runtime.bindPanelButton(node, onClick);
-    }
-
-    private getSkillGuideIconFrameName(skillName: string): string {
-        if (skillName === '刷子') return 'popup_tool_brush_icon';
-        if (skillName === '磁铁') return 'popup_tool_magnet_icon';
-        return 'popup_tool_wand_icon';
-    }
-
-    private configureSkillGuideIcon(content: Node, skillName: string): void {
-        const runtime = this.runtime;
-        const plateFrame = runtime.getSF('popup_result_preview_plate');
-        const iconFrame = runtime.getSF(this.getSkillGuideIconFrameName(skillName));
-        if (!plateFrame) {
-            throw new Error('[skill-guide] missing sprite frame: popup_result_preview_plate');
-        }
-        if (!iconFrame) {
-            throw new Error(`[skill-guide] missing sprite frame: ${this.getSkillGuideIconFrameName(skillName)}`);
-        }
-
-        const slot = this.requireTemplateNode(content, 'CollectionCardSlot_0');
-        slot.setPosition(0, 132, 0);
-        (slot.getComponent(UITransform) || slot.addComponent(UITransform)).setContentSize(190, 150);
-        const card = this.requireTemplateNode(slot, 'Card');
-        const frame = this.requireTemplateNode(card, 'CardFrame');
-        runtime._applySpriteFrame(frame, plateFrame, 180, 140, Sprite.Type.SLICED);
-
-        const labelNode = card.getChildByName('Lbl');
-        if (labelNode) labelNode.active = false;
-        const tapHintNode = card.getChildByName('TapHint');
-        if (tapHintNode) tapHintNode.active = false;
-
-        let iconNode = frame.getChildByName('SkillGuideIcon');
-        if (!iconNode) {
-            iconNode = new Node('SkillGuideIcon');
-            frame.addChild(iconNode);
-            iconNode.addComponent(UITransform);
-        }
-        iconNode.active = true;
-        iconNode.layer = Layers.Enum.UI_2D;
-        iconNode.setPosition(0, 2, 0);
-        runtime._applySpriteFrame(iconNode, iconFrame, 88, 88);
-    }
-
-    showAcquireResourceModal(opt: AcquireResourceModalOptions) {
-        const runtime = this.runtime;
-        runtime._ensureSpriteFramesByName(POPUP_UI_TEXTURE_NAMES, () => this.openAcquireResourceModalWithReadyFrames(opt));
-    }
-
-    private openAcquireResourceModalWithReadyFrames(opt: AcquireResourceModalOptions) {
-        const runtime = this.runtime;
-        openCollectionShellOverlay(runtime, {
-            overlayName: 'AcquireResourceOverlay',
-            siblingIndex: 1000,
-            onClose: opt.onCancel,
-            onReady: ({ overlay, box, close }) => {
-                const destroyOverlay = () => {
-                    if (overlay.isValid) overlay.destroy();
-                };
-                const primaryButtonFrame = runtime.getSF('popup_primary_button');
-                const secondaryButtonFrame = runtime.getSF('popup_secondary_button');
-                if (!primaryButtonFrame) {
-                    throw new Error('[acquire-modal] missing sprite frame: popup_primary_button');
-                }
-                if (!secondaryButtonFrame) {
-                    throw new Error('[acquire-modal] missing sprite frame: popup_secondary_button');
-                }
-
-                const titleNode = this.requireTemplateNode(box, 'AcquireTitle');
-                this.fillTemplateLabel(titleNode, opt.title, 32, new Color('#5A4A3A'), 360, 40);
-                const descNode = this.requireTemplateNode(box, 'AcquireDesc');
-                this.fillTemplateLabel(descNode, opt.description, 20, new Color('#8A7A6A'), 420, 72);
-
-                const buyBtn = this.requireTemplateNode(box, 'AcquireBuyBtn');
-                this.configureTemplateButton(buyBtn, 'AcquireBuyLbl', opt.buyLabel, secondaryButtonFrame, 200, 56, Color.WHITE, 22, () => {
-                    AudioMgr.inst.play('button');
-                    if (!runtime.spendGold(opt.buyCost)) {
-                        runtime.showToast(`金币不足，还差 ${opt.buyCost - runtime.getGold()} 金币`);
-                        return;
-                    }
-                    destroyOverlay();
-                    opt.onBought();
-                });
-
-                const adBtn = this.requireTemplateNode(box, 'AcquireAdBtn');
-                this.configureTemplateButton(adBtn, 'AcquireAdLbl', opt.adLabel, primaryButtonFrame, 200, 56, Color.WHITE, 22, () => {
-                    AudioMgr.inst.play('button');
-                    destroyOverlay();
-                    opt.onWatchAd();
-                });
-
-                const cancelBtn = this.requireTemplateNode(box, 'AcquireCancelBtn');
-                this.configureTemplateButton(cancelBtn, 'AcquireCancelLbl', '取消', secondaryButtonFrame, 180, 46, Color.WHITE, 20, close);
-            },
-        });
-    }
-
-    showSkillUnlockGuide(skillName: string, onDone: () => void) {
-        const runtime = this.runtime;
-        const requiredTextures = Array.from(new Set([...POPUP_UI_TEXTURE_NAMES, ...SKILL_BUTTON_TEXTURE_NAMES]));
-        runtime._ensureSpriteFramesByName(requiredTextures, () => this.openSkillUnlockGuideWithReadyFrames(skillName, onDone));
-    }
-
-    private openSkillUnlockGuideWithReadyFrames(skillName: string, onDone: () => void) {
-        const runtime = this.runtime;
-        openCollectionShellOverlay(runtime, {
-            overlayName: 'SkillGuideOverlay',
-            title: '道具解锁',
-            siblingIndex: 999,
-            onClose: onDone,
-            onReady: ({ overlay, box, content, close }) => {
-                const descMap: Record<string, string> = {
-                    '魔法棒': '在棋盘上框选区域，框内豆豆自动归位',
-                    '刷子': '清空暂存槽，所有豆豆飞回正确位置',
-                    '磁铁': '随机选一种颜色，全部快速归位',
-                };
-                this.configureSkillGuideIcon(content, skillName);
-
-                const titleNode = this.requireTemplateNode(content, 'SkillGuideTitle');
-                titleNode.setPosition(0, 24, 0);
-                this.fillTemplateLabel(titleNode, `${skillName} 已解锁`, 28, new Color('#D4740F'), 460, 50);
-
-                const descNode = this.requireTemplateNode(content, 'SkillGuideDesc');
-                descNode.setPosition(0, -48, 0);
-                this.fillTemplateLabel(descNode, descMap[skillName] || '', 22, new Color('#5A4A3A'), 460, 72);
-
-                const freeNode = this.requireTemplateNode(content, 'SkillGuideFree');
-                freeNode.setPosition(0, -112, 0);
-                this.fillTemplateLabel(freeNode, '首次免费使用，点击任意位置开始', 20, new Color(100, 180, 80, 255), 420, 36);
-
-                tween(box).to(0.2, { scale: new Vec3(1.05, 1.05, 1) }, { easing: 'backOut' }).to(0.1, { scale: new Vec3(1, 1, 1) }).start();
-                box.on(Node.EventType.TOUCH_END, () => {
-                    if (!overlay.isValid) return;
-                    close();
-                }, runtime);
-            },
-        });
-    }
 }
 
 export function ensureGameplaySkillUiController(runtime: any): GameplaySkillUiController {

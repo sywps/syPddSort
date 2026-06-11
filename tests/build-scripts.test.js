@@ -132,6 +132,7 @@ assert.ok(exists('assets/BootstrapBundle/Beans/bean-atlas.png'), 'Bootstrap bean
 assert.strictEqual(exists('assets/GameAssetsBundle/Textures/Pindd/Beans'), false, 'GameAssetsBundle must not keep legacy single bean PNG directory');
 assert.ok(exists('assets/BootstrapBundle/LevelData/level_1.json'), 'BootstrapBundle must keep mainline first level_1');
 assert.strictEqual(exists('assets/BootstrapBundle/LevelData/level_2.json'), false, 'BootstrapBundle must not keep stale first-level snapshot level_2');
+assert.ok(exists('assets/GameAssetsBundle/UI/Prefabs/Panels/RewardResultPopup.prefab'), 'RewardResultPopup prefab must exist');
 const auditAssets = read('scripts/audit-assets.js');
 assert.ok(auditAssets.includes('solid_white.png must stay a 1x1 8-bit RGBA PNG'), 'audit-assets must guard solid_white.png against WeChat 4930 decode regressions');
 assert.ok(auditAssets.includes('Home.scene startup SpriteFrames must remain in HomeAssetsBundle'), 'audit-assets must keep Home startup SpriteFrames in HomeAssetsBundle');
@@ -423,7 +424,7 @@ for (const required of [
     'assertGameSceneStaticUiOwnership',
     'GameplayFixedRoot must not own SafeArea',
     'BoardArea must not own a static Widget viewport',
-    'CollectionPanel.prefab must declare',
+    'CollectionPanel.prefab must not keep obsolete',
 ]) {
     assert.ok(uiOwnershipCheck.includes(required), `verify-ui-ownership.js must include ${required}`);
 }
@@ -677,15 +678,9 @@ for (const [requiredGamePath, expectedUuid] of [
 ]) {
     assertSceneSpriteFrame(gameSceneJson, 'GameplayFixedRoot', requiredGamePath, expectedUuid);
 }
-for (const [arrowName, expectedUuid] of [
-    ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
-    ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
-]) {
+for (const arrowName of ['ArrowLeft', 'ArrowRight']) {
     const arrow = findPrefabRootChild(collectionPanelJson, arrowName);
-    assert.ok(arrow, `CollectionPanel.prefab must declare ${arrowName}`);
-    assert.strictEqual(arrow._active, false, `CollectionPanel.prefab ${arrowName} must be hidden by default`);
-    const sprite = getSceneNodeComponent(collectionPanelJson, arrow, 'cc.Sprite');
-    assert.strictEqual(sprite?._spriteFrame?.__uuid__, expectedUuid, `CollectionPanel.prefab ${arrowName} must keep its SpriteFrame`);
+    assert.strictEqual(arrow, null, `CollectionPanel.prefab must not keep obsolete ${arrowName}`);
 }
 for (const filePath of ['assets/Scripts/Core/GameCtrl.ts', 'assets/Scripts/Core/GameCtrlShared.ts', ...gameCtrlHelperFiles, ...gameCtrlPanelControllerFiles, ...gameCtrlModuleFiles]) {
     const lineCount = read(filePath).split(/\r?\n/).length;
@@ -731,6 +726,7 @@ assert.ok(uiManifest.includes('GAME_ASSETS_PRELOAD_TEXTURE_PATHS'), 'UiManifest 
 assert.ok(uiManifest.includes('SETTINGS_PANEL_TEXTURE_NAMES'), 'UiManifest must own settings panel textures');
 assert.ok(uiManifest.includes('LEADERBOARD_TEXTURE_NAMES'), 'UiManifest must own leaderboard panel textures');
 assert.ok(uiManifest.includes('COLLECTION_TEXTURE_NAMES'), 'UiManifest must own collection panel textures');
+assert.ok(uiManifest.includes('REWARD_RESULT_TEXTURE_NAMES'), 'UiManifest must own reward-result popup textures');
 for (const requiredPopupTexture of [
     'popup_modal_shade',
     'popup_frame_soft',

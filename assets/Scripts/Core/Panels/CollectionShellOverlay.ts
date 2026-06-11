@@ -15,17 +15,19 @@ export type CollectionShellOverlayContext = {
     overlay: Node;
     box: Node;
     content: Node;
-    pageIndicator: Node;
-    leftArrow: Node;
-    rightArrow: Node;
+    pageIndicator: Node | null;
+    leftArrow: Node | null;
+    rightArrow: Node | null;
     close: () => void;
 };
 
 type CollectionShellOverlayOptions = {
     overlayName: string;
+    prefabPath?: string;
     title?: string;
     siblingIndex?: number;
     hidePager?: boolean;
+    requireActionNodes?: boolean;
     onClose?: () => void;
     onReady: (context: CollectionShellOverlayContext) => void;
 };
@@ -43,10 +45,13 @@ function syncPrefabPopupTitle(box: Node, title?: string): void {
     if (hasTitle) label.string = title!;
 }
 
-function resolveShellActionNode(overlay: Node, name: 'ArrowLeft' | 'ArrowRight'): Node {
+function resolveShellActionNode(overlay: Node, name: 'ArrowLeft' | 'ArrowRight', required: boolean): Node | null {
     const existing = overlay.getChildByName(name);
     if (existing?.isValid) {
         return existing;
+    }
+    if (!required) {
+        return null;
     }
     throw new Error(`[collection-shell] missing node: ${name}`);
 }
@@ -57,7 +62,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
         return;
     }
 
-    const prefabPath = 'UI/Prefabs/Panels/CollectionPanel';
+    const prefabPath = options.prefabPath ?? 'UI/Prefabs/Panels/CollectionPanel';
     runtime._withGameAssetsBundle((bundle: Bundle | null) => {
         if (!bundle) {
             console.error(`[collection-shell] gameAssets bundle unavailable for ${options.overlayName}`);
@@ -83,9 +88,10 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
                 box.addComponent(BlockInputEvents);
             }
             const content = runtime.requirePanelChild(box, 'CollContent');
-            const pageIndicator = runtime.requirePanelChild(box, 'PageIndicator');
-            const leftArrow = resolveShellActionNode(overlay, 'ArrowLeft');
-            const rightArrow = resolveShellActionNode(overlay, 'ArrowRight');
+            const pageIndicator = box.getChildByName('PageIndicator');
+            const requireActionNodes = options.requireActionNodes ?? options.hidePager === false;
+            const leftArrow = resolveShellActionNode(overlay, 'ArrowLeft', requireActionNodes);
+            const rightArrow = resolveShellActionNode(overlay, 'ArrowRight', requireActionNodes);
             const close = () => {
                 if (!overlay.isValid) return;
                 AudioMgr.inst.play('uiPanel');
@@ -94,9 +100,9 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             };
 
             if (options.hidePager !== false) {
-                pageIndicator.active = false;
-                leftArrow.active = false;
-                rightArrow.active = false;
+                if (pageIndicator) pageIndicator.active = false;
+                if (leftArrow) leftArrow.active = false;
+                if (rightArrow) rightArrow.active = false;
             }
 
             const isInsideNode = (node: Node, uiPos: Vec3) => {
@@ -111,7 +117,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
                 const uiPos = e.getUILocation();
                 const point = new Vec3(uiPos.x, uiPos.y, 0);
                 if (isInsideNode(box, point)) return;
-                if ((leftArrow.active && isInsideNode(leftArrow, point)) || (rightArrow.active && isInsideNode(rightArrow, point))) return;
+                if ((leftArrow?.active && isInsideNode(leftArrow, point)) || (rightArrow?.active && isInsideNode(rightArrow, point))) return;
                 close();
             }, runtime);
 

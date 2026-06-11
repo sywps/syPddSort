@@ -1,9 +1,9 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
-    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
+    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
-    NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
+    NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
@@ -70,18 +70,6 @@ function syncCollectionAvatarLabelNode(
     label.enableWrapText = false;
     node.active = true;
     return label;
-}
-
-function applyCollectionAvatarSpriteFrame(runtime: any, node: Node, frameName: string, width: number, height: number, color?: Color) {
-    const frame = runtime.getSF(frameName);
-    if (!frame) {
-        throw new Error(`[collection-avatar] missing sprite frame: ${frameName}`);
-    }
-    runtime._applySpriteFrame(node, frame, width, height);
-    const sprite = node.getComponent(Sprite);
-    if (sprite) {
-        sprite.color = color || Color.WHITE;
-    }
 }
 
 export function installCollectionAvatarModule(target: any): void {
@@ -493,105 +481,190 @@ export function installCollectionAvatarModule(target: any): void {
             return ensureCollectionPanelController(this).open();
         },
 
-        drawCollectionArrow(parent: Node, x: number, y: number, dir: 'left' | 'right') {
-            const asset = dir === 'left' ? 'collection_arrow_left' : 'collection_arrow_right';
-            const name = dir === 'left' ? 'ArrowLeft' : 'ArrowRight';
-            let btn = parent.getChildByName(name);
-            if (!btn) {
-                btn = new Node(name);
-                parent.addChild(btn);
-                btn.layer = parent.layer || Layers.Enum.UI_2D;
+        renderCollectionScroll(contentNode?: Node) {
+            const viewport = contentNode || this._collectionContentNode;
+            if (!viewport) return null;
+            const viewportUi = viewport.getComponent(UITransform);
+            if (!viewportUi) {
+                throw new Error('[collection-scroll] CollContent is missing UITransform');
             }
-            btn.setPosition(x, y, 0);
-            (btn.getComponent(UITransform) || btn.addComponent(UITransform)).setContentSize(42, 52);
-            applyCollectionAvatarSpriteFrame(this, btn, asset, 42, 52);
-            btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
-            btn.on(Button.EventType.CLICK, (e: EventTouch) => {
-                e.propagationStopped = true;
-                const moved = this.changeCollectionPage(dir === 'left' ? -1 : 1);
-                if (moved) AudioMgr.inst.play('uiPanel');
-            }, this);
-        },
 
-        changeCollectionPage(delta: number): boolean {
-            const nextPage = Math.max(0, Math.min(this._collectionTotalPages - 1, this._collectionPage + delta));
-            if (nextPage === this._collectionPage) return false;
-            this._collectionPage = nextPage;
-            this.renderCollectionPage(this._collectionPage);
-            return true;
-        },
+            const guideSlots = viewport.children
+                .filter((child: Node) => /^CollectionCardSlot_\d+$/.test(child.name))
+                .sort((a: Node, b: Node) => {
+                    const aIdx = Number(a.name.match(/\d+$/)?.[0] || 0);
+                    const bIdx = Number(b.name.match(/\d+$/)?.[0] || 0);
+                    return aIdx - bIdx;
+                });
+            const template = guideSlots[0];
+            const templateUi = template?.getComponent(UITransform);
+            if (!template || !templateUi) {
+                throw new Error('[collection-scroll] missing CollectionCardSlot_0 template');
+            }
 
-        renderCollectionPage(page: number) {
-            const content = this._collectionContentNode;
-            if (!content) return null;
-        
-            const allIds = this._collectionLevelIds;
+            const oldScrollContent = viewport.getChildByName('CollectionScrollContent');
+            if (oldScrollContent) {
+                oldScrollContent.removeFromParent();
+                oldScrollContent.destroy();
+            }
+
+            const mask = viewport.getComponent(Mask) || viewport.addComponent(Mask);
+            mask.type = Mask.Type.GRAPHICS_RECT;
+
+            const rowYs: number[] = Array.from(new Set<number>(guideSlots.map((slot: Node) => Math.round(slot.position.y * 10) / 10)))
+                .sort((a: number, b: number) => b - a);
+            const topY = rowYs[0] ?? template.position.y;
+            const topRowSlots = guideSlots
+                .filter((slot: Node) => Math.abs(slot.position.y - topY) < 1)
+                .sort((a: Node, b: Node) => a.position.x - b.position.x);
+            const columnXs = topRowSlots.length
+                ? topRowSlots.map((slot: Node) => slot.position.x)
+                : [template.position.x];
+            const rowPitch = rowYs.length > 1
+                ? Math.max(1, Math.abs(rowYs[0] - rowYs[1]))
+                : Math.max(1, templateUi.height + 16);
+            const viewportH = viewportUi.height || viewportUi.contentSize.height;
+            const viewportW = viewportUi.width || viewportUi.contentSize.width;
+            const bottomY = rowYs.length > 1 ? rowYs[rowYs.length - 1] : topY;
+            const topPadding = Math.max(0, viewportH / 2 - topY);
+            const bottomPadding = rowYs.length > 1 ? Math.max(0, viewportH / 2 + bottomY) : topPadding;
+
+            const allIds = (this._collectionLevelIds?.length ? this._collectionLevelIds : this.collectAllLevelIds()) as number[];
             const savedLevel = this.getSavedLevel();
-            const contentTransform = content.getComponent(UITransform);
-            const availableW = contentTransform?.width || 598;
-            const availableH = contentTransform?.height || 820;
-            const gapX = 20;
-            const gapY = 16;
-            const cols = 2;
-            const visibleRows = 4;
-            const rows = Math.max(visibleRows, Math.ceil(allIds.length / cols));
-            const cardW = Math.floor((availableW - gapX * (cols - 1)) / cols);
-            const cardH = Math.floor((availableH - gapY * (visibleRows - 1)) / visibleRows);
-            const totalW = cols * cardW + (cols - 1) * gapX;
-            const totalH = rows * cardH + (rows - 1) * gapY;
-            const startY = totalH / 2 - cardH / 2;
-            const startX = -totalW / 2 + cardW / 2;
+            const columnCount = Math.max(1, columnXs.length);
+            const rowCount = Math.max(1, Math.ceil(allIds.length / columnCount));
+            const totalH = Math.max(viewportH, topPadding + Math.max(0, rowCount - 1) * rowPitch + bottomPadding);
+            const startY = totalH / 2 - topPadding;
 
-            const template = content.getChildByName('CollectionCardSlot_0');
-            if (!template) {
-                throw new Error('[collection-prefab] missing CollectionCardSlot_0');
-            }
-            for (const child of content.children) {
-                if (child.name !== 'CollectionScrollContent') {
-                    child.active = false;
-                }
-            }
-            let scrollContent = content.getChildByName('CollectionScrollContent');
-            if (!scrollContent) {
-                scrollContent = new Node('CollectionScrollContent');
-                content.addChild(scrollContent);
-                scrollContent.addComponent(UITransform);
-            }
-            scrollContent.active = true;
-            scrollContent.layer = content.layer || Layers.Enum.UI_2D;
-            const scrollTransform = scrollContent.getComponent(UITransform) || scrollContent.addComponent(UITransform);
-            scrollTransform.setContentSize(availableW, totalH);
-            const maxOffset = Math.max(0, (totalH - availableH) / 2);
-            scrollContent.setPosition(0, -maxOffset, 0);
-            for (const child of scrollContent.children.slice()) {
-                child.destroy();
-            }
-            this._collectionScrollContentNode = scrollContent;
-            this._collectionTotalPages = 1;
-            this._collectionPage = 0;
+            const scrollContent = new Node('CollectionScrollContent');
+            scrollContent.layer = viewport.layer || Layers.Enum.UI_2D;
+            viewport.addChild(scrollContent);
+            scrollContent.addComponent(UITransform).setContentSize(viewportW, totalH);
 
-            for (let i = 0; i < allIds.length; i++) {
-                const levelId = allIds[i];
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                const cx = startX + col * (cardW + gapX);
-                const cy = startY - row * (cardH + gapY);
-                const unlocked = levelId <= savedLevel;
+            for (const guideSlot of guideSlots) {
+                guideSlot.active = false;
+            }
+
+            for (let idx = 0; idx < allIds.length; idx++) {
                 const slot = instantiate(template);
-                slot.name = `CollectionScrollCard_${i}`;
+                const levelId = allIds[idx];
+                const row = Math.floor(idx / columnCount);
+                const col = idx % columnCount;
+                slot.name = `CollectionCardSlotItem_${idx}`;
                 slot.active = true;
                 slot.layer = scrollContent.layer;
                 scrollContent.addChild(slot);
-                slot.setPosition(cx, cy, 0);
-                (slot.getComponent(UITransform) || slot.addComponent(UITransform)).setContentSize(cardW, cardH);
-                this.drawCollectionCard(slot, levelId, 0, 0, cardW, cardH, unlocked, savedLevel);
+                slot.setPosition(columnXs[col], startY - row * rowPitch, 0);
+                this.drawCollectionCard(slot, levelId, 0, 0, 0, 0, levelId <= savedLevel, savedLevel);
             }
-            if (this._collectionPageIndicator) {
-                this._collectionPageIndicator.active = false;
-            }
-            this.updateCollectionArrows(page);
+
+            this._collectionContentNode = viewport;
+            this._collectionScrollContentNode = scrollContent;
+            this._collectionTotalPages = 1;
+            this._collectionPage = 0;
+            this.setupCollectionScroll(viewport, scrollContent, viewportH, totalH);
             return scrollContent;
+        },
+
+        setupCollectionScroll(viewport: Node, content: Node, viewH: number, totalH: number) {
+            viewport.targetOff(this);
+            if (this._collectionScrollInertiaStep) {
+                this.unschedule(this._collectionScrollInertiaStep);
+                this._collectionScrollInertiaStep = null;
+            }
+            this._collectionScrollDragging = false;
+            this._collectionScrollMoved = false;
+            this._collectionScrollSuppressClick = false;
+
+            if (totalH <= viewH + 1) {
+                content.setPosition(content.position.x, 0, 0);
+                return;
+            }
+
+            const halfScroll = (totalH - viewH) / 2;
+            const minY = -halfScroll;
+            const maxY = halfScroll;
+            const dragThreshold = 8;
+            content.setPosition(content.position.x, minY, 0);
+            let lastY = 0;
+            let lastMoveAt = 0;
+            let velocity = 0;
+            let dragging = false;
+            let inertiaStep: ((dt: number) => void) | null = null;
+
+            const stopInertia = () => {
+                if (inertiaStep) {
+                    this.unschedule(inertiaStep);
+                    inertiaStep = null;
+                }
+                if (this._collectionScrollInertiaStep) {
+                    this.unschedule(this._collectionScrollInertiaStep);
+                    this._collectionScrollInertiaStep = null;
+                }
+                velocity = 0;
+            };
+            const setScrollY = (nextY: number) => {
+                const clampedY = Math.max(minY, Math.min(maxY, nextY));
+                content.setPosition(content.position.x, clampedY, 0);
+                return clampedY;
+            };
+            const endDrag = () => {
+                dragging = false;
+                this._collectionScrollDragging = false;
+                if (Math.abs(velocity) < LEADERBOARD_SCROLL_MIN_SPEED) {
+                    return;
+                }
+                inertiaStep = (dt: number = 1 / 60) => {
+                    if (!viewport.isValid || !content.isValid) {
+                        stopInertia();
+                        return;
+                    }
+                    const previousY = content.position.y;
+                    const nextY = setScrollY(previousY + velocity * dt);
+                    if ((nextY === minY && velocity < 0) || (nextY === maxY && velocity > 0)) {
+                        stopInertia();
+                        return;
+                    }
+                    velocity *= LEADERBOARD_SCROLL_DECAY;
+                    if (Math.abs(velocity) < LEADERBOARD_SCROLL_MIN_SPEED) {
+                        stopInertia();
+                    }
+                };
+                this._collectionScrollInertiaStep = inertiaStep;
+                this.schedule(inertiaStep, 0);
+            };
+
+            viewport.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
+                stopInertia();
+                const y = e.getUILocation().y;
+                this._collectionScrollStartY = y;
+                this._collectionScrollDragging = true;
+                this._collectionScrollMoved = false;
+                this._collectionScrollSuppressClick = false;
+                lastY = y;
+                lastMoveAt = Date.now();
+                velocity = 0;
+                dragging = true;
+            }, this);
+
+            viewport.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
+                if (!dragging) return;
+                const currentY = e.getUILocation().y;
+                const delta = currentY - lastY;
+                const now = Date.now();
+                const elapsedMs = Math.max(16, now - lastMoveAt);
+                lastY = currentY;
+                lastMoveAt = now;
+                velocity = (delta / elapsedMs) * 1000;
+                if (Math.abs(currentY - this._collectionScrollStartY) > dragThreshold) {
+                    this._collectionScrollMoved = true;
+                    this._collectionScrollSuppressClick = true;
+                }
+                setScrollY(content.position.y + delta);
+            }, this);
+
+            viewport.on(Node.EventType.TOUCH_END, endDrag, this);
+            viewport.on(Node.EventType.TOUCH_CANCEL, endDrag, this);
         },
 
         getCollectionPreviewBounds(grid: number[][]) {

@@ -22,6 +22,12 @@ import {
 } from './GameCtrlShared';
 import { BoardSlotBatchRenderer } from './BoardSlotBatchRenderer';
 import type { BoardSlotBatchCell } from './BoardSlotBatchRenderer';
+import {
+    BOARD_OUTLINE_LAYER_NAME,
+    BOARD_OUTLINE_TOP_LAYER_NAME,
+    buildBoardOutline,
+    ensureBoardOutlineLayer,
+} from './GameplayBoardOutlineRenderer';
 
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
@@ -680,12 +686,7 @@ export class GameplayViewController {
         runtime.boardNode.setPosition(0, 0, 0);
         const boardVisualCellCount = this.countBoardVisualCells(runtime.boardModel.correctColors, bw, bh);
         this.recycleBoardNodeGrid(runtime.cellNodes, runtime._boardCellPool, boardVisualCellCount);
-        runtime.clearChildrenExcept(runtime.boardNode, ['BoardBg', 'BoardSlots']);
-
-        const boardBg = runtime.requireUiChild(runtime.boardNode, 'BoardBg', 'Board/BoardBg');
-        boardBg.layer = Layers.Enum.UI_2D;
-        boardBg.getComponent(UITransform)?.setContentSize(boardW, boardH);
-        boardBg.setPosition(0, 0, 0);
+        runtime.clearChildrenExcept(runtime.boardNode, [BOARD_OUTLINE_LAYER_NAME, BOARD_OUTLINE_TOP_LAYER_NAME, 'BoardSlots']);
 
         runtime.boardSlotsNode = runtime.requireUiChild(runtime.boardNode, 'BoardSlots', 'Board/BoardSlots');
         runtime.boardSlotsNode.layer = Layers.Enum.UI_2D;
@@ -694,6 +695,11 @@ export class GameplayViewController {
         this.recycleBoardNodeGrid(runtime.boardSlotBgNodes, runtime._boardSlotBgPool, boardVisualCellCount);
         runtime.clearChildrenExcept(runtime.boardSlotsNode, ['BoardSlotBatch']);
         const slotBatchRenderer = this.prepareBoardSlotBatchRenderer(runtime.boardSlotsNode, boardW, boardH);
+        const slotIndex = Math.max(0, runtime.boardNode.children.indexOf(runtime.boardSlotsNode));
+        const clearBoardOutlineChildren = runtime.clearChildrenExcept.bind(runtime);
+        const boardOutlineLayer = ensureBoardOutlineLayer(runtime.boardNode, BOARD_OUTLINE_LAYER_NAME, boardW, boardH, slotIndex + 1, clearBoardOutlineChildren);
+        const boardOutlineTopLayer = ensureBoardOutlineLayer(runtime.boardNode, BOARD_OUTLINE_TOP_LAYER_NAME, boardW, boardH, slotIndex + 2, clearBoardOutlineChildren);
+        buildBoardOutline(boardOutlineLayer, boardOutlineTopLayer, runtime.boardModel.correctColors, runtime.cellSize, runtime.cellGap, bw, bh);
 
         const safeRect = runtime.getBoardSafeViewportRect();
         const availableW = Math.max(1, safeRect.right - safeRect.left);

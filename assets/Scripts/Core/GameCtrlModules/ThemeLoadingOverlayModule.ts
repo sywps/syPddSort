@@ -88,8 +88,6 @@ function setExistingThemeSprite(
     runtime: any,
     node: Node,
     frameName: string,
-    width: number,
-    height: number,
     color: Color = Color.WHITE,
 ): void {
     const frame = runtime.getSF(frameName);
@@ -97,7 +95,6 @@ function setExistingThemeSprite(
     if (!frame || !sprite) {
         throw new Error(`[theme-ui] missing prefab sprite state: ${frameName}`);
     }
-    (node.getComponent(UITransform) || node.addComponent(UITransform)).setContentSize(width, height);
     sprite.spriteFrame = frame;
     sprite.color = color;
 }
@@ -128,67 +125,84 @@ export function installThemeLoadingOverlayModule(target: any): void {
             }
             card.name = `ThemeCard_${levelId}`;
             card.active = true;
-            (card.getComponent(UITransform) || card.addComponent(UITransform)).setContentSize(w, h);
             card.layer = parent.layer || Layers.Enum.UI_2D;
             card.setPosition(cx, cy);
-            setExistingThemeSprite(this, card, isUnlocked ? 'popup_card_unlocked' : 'popup_card_locked', w, h);
-        
-            // 裁剪：确保子内容不超出卡片边界
+            const cardUi = card.getComponent(UITransform);
+            if (!cardUi) {
+                throw new Error('[theme-card] ThemeCardTemplate must provide UITransform');
+            }
+            setExistingThemeSprite(this, card, isUnlocked ? 'popup_card_unlocked' : 'popup_card_locked');
+
             const clipNode = card.getChildByName('CardClip');
             if (!clipNode) {
                 throw new Error('[theme-card] missing CardClip template node');
             }
             clipNode.active = true;
-            (clipNode.getComponent(UITransform) || clipNode.addComponent(UITransform)).setContentSize(w - 4, h - 4);
             clipNode.layer = card.layer;
-            (clipNode.getComponent(Mask) || clipNode.addComponent(Mask)).type = Mask.Type.GRAPHICS_RECT;
+            if (!clipNode.getComponent(Mask)) {
+                throw new Error('[theme-card] CardClip template must provide Mask');
+            }
         
             const nameNode = clipNode.getChildByName('ThemeLvName');
+            const nameLabel = nameNode?.getComponent(Label);
             if (levelName) {
-                syncThemeTextNode(clipNode, 'ThemeLvName', levelName, 20, new Color('#5A4A3A'), w - 32, 28, 0, h / 2 - 18);
+                if (!nameNode || !nameLabel) {
+                    throw new Error('[theme-card] ThemeCardTemplate is missing ThemeLvName label');
+                }
+                nameNode.active = true;
+                nameLabel.string = levelName;
             } else if (nameNode) {
                 nameNode.active = false;
             }
-        
-            // 像素图预览容器（先创建占位节点，确保在 btn 前面）
+
             const previewContainer = clipNode.getChildByName('PreviewContainer');
             if (!previewContainer) {
                 throw new Error('[theme-card] missing PreviewContainer template node');
             }
             previewContainer.active = true;
-            (previewContainer.getComponent(UITransform) || previewContainer.addComponent(UITransform)).setContentSize(1, 1);
             previewContainer.layer = clipNode.layer;
+            const previewUi = previewContainer.getComponent(UITransform);
+            if (!previewUi) {
+                throw new Error('[theme-card] PreviewContainer template must provide UITransform');
+            }
             for (const child of previewContainer.children.slice()) {
                 child.destroy();
             }
-        
-            // 底部按钮（开始 / 看广告解锁）— 在 preview 之后 addChild，渲染层级更高
-            const btn = clipNode.getChildByName('ThemeCardBtn');
+
+            const btn = card.getChildByName('ThemeCardBtn');
             if (!btn) {
                 throw new Error('[theme-card] missing ThemeCardBtn template node');
             }
-            const btnW = 138;
-            const btnH = 48;
             btn.active = true;
-            (btn.getComponent(UITransform) || btn.addComponent(UITransform)).setContentSize(btnW, btnH);
-            btn.layer = clipNode.layer;
-            btn.setPosition(0, -h / 2 + btnH / 2 + 10);
+            btn.layer = card.layer;
             let buttonText = '';
             if (isUnlocked) {
-                setExistingThemeSprite(this, btn, isCompleted ? 'popup_secondary_button' : 'popup_primary_button', btnW, btnH);
+                setExistingThemeSprite(this, btn, isCompleted ? 'popup_secondary_button' : 'popup_primary_button');
                 buttonText = isCompleted ? '已通关' : '开始';
             } else if (canUnlock) {
-                setExistingThemeSprite(this, btn, 'popup_secondary_button', btnW, btnH);
+                setExistingThemeSprite(this, btn, 'popup_secondary_button');
                 buttonText = '看广告解锁';
             } else {
-                setExistingThemeSprite(this, btn, 'popup_secondary_button', btnW, btnH, new Color('#C9B8A2'));
+                setExistingThemeSprite(this, btn, 'popup_secondary_button', new Color('#C9B8A2'));
                 buttonText = `主线${unlockRequirementLevel}关开放`;
             }
-            syncThemeTextNode(btn, 'ThemeBtnLbl', buttonText, isUnlocked && !isCompleted ? 22 : 18, Color.WHITE, btnW - 12, btnH - 6, 0, 0);
-        
-            if (!btn.getComponent(Button)) btn.addComponent(Button);
+            const btnLabelNode = btn.getChildByName('ThemeBtnLbl');
+            const btnLabel = btnLabelNode?.getComponent(Label);
+            if (!btnLabelNode || !btnLabel) {
+                throw new Error('[theme-card] ThemeCardBtn is missing ThemeBtnLbl label');
+            }
+            btnLabelNode.active = true;
+            btnLabel.string = buttonText;
+
+            if (!btn.getComponent(Button)) {
+                throw new Error('[theme-card] ThemeCardBtn template must provide Button');
+            }
             btn.targetOff(this);
             btn.on(Button.EventType.CLICK, () => {
+                if (this._themeOverlay && this._themeScrollSuppressClick) {
+                    this._themeScrollSuppressClick = false;
+                    return;
+                }
                 AudioMgr.inst.play(isCompleted ? 'uiPanel' : 'button');
                 if (isUnlocked) {
                     if (isCompleted) {
@@ -202,15 +216,8 @@ export function installThemeLoadingOverlayModule(target: any): void {
                     this.showToast(`主线到第${unlockRequirementLevel}关后可解锁这一关`);
                 }
             }, this);
-        
-            // 异步加载像素图 — 添加到 previewContainer 中（始终在 btn 下层）
-            const nameSpace = levelName ? 30 : 0;
-            const btnSpace = btnH + 16;
-            const areaTop = h / 2 - nameSpace;
-            const areaBot = -h / 2 + btnSpace;
-            const availH = areaTop - areaBot;
-            const availCenterY = (areaTop + areaBot) / 2;
-            this.drawThemePixelPreview(previewContainer, levelId, 0, availCenterY, w - 24, availH);
+
+            this.drawThemePixelPreview(previewContainer, levelId, 0, 0, previewUi.width, previewUi.height);
         },
 
         /** 在主题卡片上绘制像素图预览（基于 zt_level_xxx.json 的 correctColorArr） */
@@ -237,33 +244,40 @@ export function installThemeLoadingOverlayModule(target: any): void {
 
         openThemeImageModal(levelId: number, levelName: string = '') {
             this.closeThemeImageModal();
+            const title = levelName || this.findThemeLevelName(levelId) || `主题关 ${levelId}`;
             openCollectionShellOverlay(this, {
                 overlayName: 'ThemeImageModal',
+                prefabPath: 'UI/Prefabs/Panels/ThemePanel',
+                title,
                 siblingIndex: 1001,
+                requireActionNodes: false,
                 onClose: () => {
                     this._themeImageModal = null;
                 },
-                onReady: ({ overlay, box, content, pageIndicator, leftArrow, rightArrow, close }) => {
+                onReady: ({ overlay, content, pageIndicator, leftArrow, rightArrow, close }) => {
                     this._themeImageModal = overlay;
                     content.removeAllChildren();
-                    const title = levelName || this.findThemeLevelName(levelId) || `主题关 ${levelId}`;
-                    pageIndicator.active = true;
-                    pageIndicator.setPosition(0, 408, 0);
-                    syncThemeTextNode(pageIndicator, 'ThemePixelTitle', title, 22, new Color('#5A4A3A'), 320, 36, 0, 0);
+                    if (pageIndicator) {
+                        pageIndicator.active = true;
+                        pageIndicator.setPosition(0, 408, 0);
+                        syncThemeTextNode(pageIndicator, 'ThemePixelTitle', title, 22, new Color('#5A4A3A'), 320, 36, 0, 0);
+                    }
                     this.drawCollectionPatternOnCard(content, levelId, 0, 10, 548, 760, 'zt_level_');
 
-                    leftArrow.active = false;
-                    rightArrow.active = true;
-                    rightArrow.setPosition(0, -404, 0);
-                    const rightArrowUi = rightArrow.getComponent(UITransform) || rightArrow.addComponent(UITransform);
-                    rightArrowUi.setContentSize(220, 56);
-                    applyThemeSpriteFrame(this, rightArrow, 'home_start_button', 220, 56, new Color('#3AA8E0'));
-                    syncThemeTextNode(rightArrow, 'ThemePixelStartLbl', '再玩一次', 24, Color.WHITE, 180, 32, 0, 0);
-                    this.bindPanelButton(rightArrow, () => {
-                        AudioMgr.inst.play('uiPanel');
-                        close();
-                        this.startThemeLevel(levelId);
-                    });
+                    if (leftArrow) leftArrow.active = false;
+                    if (rightArrow) {
+                        rightArrow.active = true;
+                        rightArrow.setPosition(0, -404, 0);
+                        const rightArrowUi = rightArrow.getComponent(UITransform) || rightArrow.addComponent(UITransform);
+                        rightArrowUi.setContentSize(220, 56);
+                        applyThemeSpriteFrame(this, rightArrow, 'home_start_button', 220, 56, new Color('#3AA8E0'));
+                        syncThemeTextNode(rightArrow, 'ThemePixelStartLbl', '再玩一次', 24, Color.WHITE, 180, 32, 0, 0);
+                        this.bindPanelButton(rightArrow, () => {
+                            AudioMgr.inst.play('uiPanel');
+                            close();
+                            this.startThemeLevel(levelId);
+                        });
+                    }
                 },
             });
         },

@@ -3,7 +3,7 @@ import {
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
-    NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
+    NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
@@ -29,19 +29,19 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-
-type SlotSnapshotEntry = {
-    slotIndex: number;
-    colorId: number;
-    cells: { row: number; col: number }[];
-};
+import { installGameplayColorCompleteFxMethods } from './GameplayColorCompleteFxModule';
+import { installGameplaySlotCompactionMethods } from './GameplaySlotCompactionModule';
 
 type FlyPlaceVisualOptions = {
     sourceBeanSize?: number;
     targetBeanSize?: number;
 };
 
+const BEAN_LAND_GLOW_ENABLED = false;
+
 export function installGameplayPlacementFxModule(target: any): void {
+    installGameplayColorCompleteFxMethods(target);
+    installGameplaySlotCompactionMethods(target);
     Object.assign(target, {
         /** 第二次点击：放置选中的豆豆块（暂存槽优先） */
         handlePlace(worldPos: Vec3) {
@@ -146,6 +146,44 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         /** 启动"一颗颗飞向目标位置"特效 */
+        getNodeScaleInLayer(node: Node | null | undefined, layer: Node | null | undefined): number {
+            if (!node?.isValid || !layer?.isValid) return 1;
+            const nodeScale = node.getWorldScale(new Vec3());
+            const layerScale = layer.getWorldScale(new Vec3());
+            const nodeVisualScale = Math.max(Math.abs(nodeScale.x || 0), Math.abs(nodeScale.y || 0), 0.0001);
+            const layerVisualScale = Math.max(Math.abs(layerScale.x || 0), Math.abs(layerScale.y || 0), 0.0001);
+            return nodeVisualScale / layerVisualScale;
+        },
+
+        getBoardFlyBeanSizeInLayer(layer: Node): number {
+            const boardNode = this.boardNode?.isValid ? this.boardNode : this.boardGroup;
+            return Math.max(1, this.getBoardBeanVisualSize() * this.getNodeScaleInLayer(boardNode, layer));
+        },
+
+        getSlotFlyBeanSizeInLayer(slotNode: Node | null | undefined, layer: Node): number {
+            const beanNode = slotNode?.getChildByName('Bean');
+            const sourceNode = beanNode?.isValid ? beanNode : (slotNode?.isValid ? slotNode : this.slotAreaNode);
+            return Math.max(1, this.getSlotBeanVisualSize() * this.getNodeScaleInLayer(sourceNode, layer));
+        },
+
+        getSelectedSlotFlyBeanSizeInLayer(layer: Node): number {
+            for (const idx of this._selectedSlotIndices || []) {
+                const slotNode = this.slotNodes?.[idx] || null;
+                if (slotNode?.isValid) {
+                    return this.getSlotFlyBeanSizeInLayer(slotNode, layer);
+                }
+            }
+            return this.getSlotFlyBeanSizeInLayer(null, layer);
+        },
+
+        createFlyPlaceVisualOptions(block: BeanBlockInfo): FlyPlaceVisualOptions {
+            const targetBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
+            const sourceBeanSize = block.source === 'slot'
+                ? this.getSelectedSlotFlyBeanSizeInLayer(this.dragLayer)
+                : targetBeanSize;
+            return { sourceBeanSize, targetBeanSize };
+        },
+
         startFlyPlace(
             colorId: number,
             sourcesWorld: Vec3[],
@@ -174,11 +212,12 @@ export function installGameplayPlacementFxModule(target: any): void {
             const FLY_DELAY = 0.028;
             const FLY_GROW_DUR = 0.09;
             const FLY_MOVE_DUR = 0.11;
-            const defaultTargetBeanSize = this.getBoardBeanVisualSize();
+            const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
+            const defaultTargetBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             const targetBeanSize = Math.max(1, visualOptions?.targetBeanSize ?? defaultTargetBeanSize);
             const sourceBeanSize = Math.max(1, visualOptions?.sourceBeanSize ?? targetBeanSize);
-            const useSourceSizeTransition = !!visualOptions?.sourceBeanSize && Math.abs(sourceBeanSize - targetBeanSize) > 0.5;
             const sourceScale = sourceBeanSize / targetBeanSize;
+            const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
             const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
             let remaining = targets.length;
             const finishAfterAllLanded = () => {
@@ -214,26 +253,17 @@ export function installGameplayPlacementFxModule(target: any): void {
                 );
                 this.dragLayer.addChild(bean);
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
-                bean.setScale(
-                    useSourceSizeTransition ? sourceScale : 0.96,
-                    useSourceSizeTransition ? sourceScale : 0.96,
-                    1,
-                );
+                bean.setScale(sourceScale, sourceScale, 1);
 
-                let flyTween = tween(bean).delay(i * FLY_DELAY);
-                if (useSourceSizeTransition) {
-                    flyTween = flyTween.to(FLY_GROW_DUR + FLY_MOVE_DUR, {
-                        position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                        scale: new Vec3(1, 1, 1),
-                    }, { easing: 'circOut' });
-                } else {
-                    flyTween = flyTween
-                        .to(FLY_GROW_DUR, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
-                        .to(FLY_MOVE_DUR, {
-                            position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                            scale: new Vec3(1, 1, 1),
-                        }, { easing: 'circOut' });
+                const flyProps: { position: Vec3; scale?: Vec3 } = {
+                    position: new Vec3(targetLocal.x, targetLocal.y, 0),
+                };
+                if (shouldTweenScale) {
+                    flyProps.scale = new Vec3(1, 1, 1);
                 }
+                const flyTween = tween(bean)
+                    .delay(i * FLY_DELAY)
+                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'circOut' });
 
                 flyTween
                     .call(() => {
@@ -268,6 +298,8 @@ export function installGameplayPlacementFxModule(target: any): void {
             const FLY_DELAY = 0.028;
             const FLY_GROW_DUR = 0.09;
             const FLY_MOVE_DUR = 0.11;
+            const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
+            const sourceBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             let remaining = slotIdxs.length;
             if (remaining === 0) { this.finishPlace(); return; }
         
@@ -278,24 +310,29 @@ export function installGameplayPlacementFxModule(target: any): void {
                 const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
                 const srcWorld = sourcesWorld[i] || sourcesWorld[sourcesWorld.length - 1] || targetWorld;
                 const srcLocal = layerUT.convertToNodeSpaceAR(srcWorld);
+                const targetBeanSize = this.getSlotFlyBeanSizeInLayer(slotNode, this.dragLayer);
+                const sourceScale = sourceBeanSize / targetBeanSize;
+                const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
         
                 const bean = this.acquireFlyBeanNode(
                     'FlyBean',
                     // 从棋盘飞入暂存槽的临时豆豆按棋盘尺寸；槽内最终尺寸由 SlotShell/Bean 单独控制。
-                    this.getBoardBeanVisualSize(),
+                    targetBeanSize,
                     this.getBeanSpriteFrame(colorId, false),
                 );
                 this.dragLayer.addChild(bean);
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
-                bean.setScale(0.96, 0.96, 1);
+                bean.setScale(sourceScale, sourceScale, 1);
+                const flyProps: { position: Vec3; scale?: Vec3 } = {
+                    position: new Vec3(targetLocal.x, targetLocal.y, 0),
+                };
+                if (shouldTweenScale) {
+                    flyProps.scale = new Vec3(1, 1, 1);
+                }
         
                 tween(bean)
                     .delay(i * FLY_DELAY)
-                    .to(FLY_GROW_DUR, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
-                    .to(FLY_MOVE_DUR, {
-                        position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                        scale: new Vec3(1, 1, 1),
-                    }, { easing: 'circOut' })
+                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'circOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');
                         AudioMgr.inst.vibrate(30);
@@ -461,7 +498,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                 .to(0.1, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineIn' })
                 .to(0.08, { scale: new Vec3(1.0, 1.0, 1) })
                 .start();
-            this.playPlaceGlow(cn, 0.035, 210, frameBudget);
+            if (BEAN_LAND_GLOW_ENABLED) {
+                this.playPlaceGlow(cn, 0.035, 210, frameBudget);
+            }
         },
 
         onFlyAllLanded(targets: { row: number; col: number }[]) {
@@ -621,39 +660,6 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
         },
 
-        /** 单色完成特效：对应 pin-dou-dou 的 _playWinColorIfNeeded + _playColorCompletedAni */
-        playColorCompleteEffect(colorId: number) {
-            const bm = this.boardModel;
-            const bw = this.levelData.boardWidth;
-            const bh = this.levelData.boardHeight;
-        
-            // 收集该色的所有格子
-            const cells: { row: number; col: number }[] = [];
-            for (let r = 0; r < bh; r++)
-                for (let c = 0; c < bw; c++)
-                    if (bm.correctColors[r][c] === colorId)
-                        cells.push({ row: r, col: c });
-        
-            // 单色完成：只播放普通 place 音效（简化）
-            AudioMgr.inst.play('winColor');
-            AudioMgr.inst.vibrate(40);
-        
-            // 颜色完成帧动画：每格依次播放完成特效，不再改动格子缩放
-            const effectDelayStep = cells.length > MAX_CONCURRENT_FRAME_EFFECTS ? 0.055 : 0.03;
-            const frameBudget = this.getPlaceGlowFrameBudget(cells.length);
-            for (let i = 0; i < cells.length; i++) {
-                const cell = cells[i];
-                const cn = this.cellNodes[cell.row]?.[cell.col];
-                if (!cn) continue;
-        
-                // 只播放完成帧动画，避免同色完成时整片格子缩放跳动
-                this.scheduleOnce(() => {
-                    const worldPos = cn.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-                    this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, 0.022, 0, frameBudget);
-                }, i * effectDelayStep);
-            }
-        },
-
         /** 恢复所有格子到原始位置和缩放 */
         resetCellPositions() {
             const bw = this.levelData.boardWidth;
@@ -761,174 +767,6 @@ export function installGameplayPlacementFxModule(target: any): void {
             this._selectionOverlayNodes = [];
             this._floatingCells = [];
             this._floatingSlots = [];
-        },
-
-        /** 从暂存槽移除选中的豆豆块（放置前调用） */
-        captureSelectedSlotSnapshot(): SlotSnapshotEntry[] {
-            const snapshot: SlotSnapshotEntry[] = [];
-            for (const slotIndex of this._selectedSlotIndices) {
-                const slotBlock = this.slotModel.getBlock(slotIndex);
-                if (!slotBlock) {
-                    throw new Error(`[GameplaySlot] Selected slot ${slotIndex} is empty before placement`);
-                }
-                snapshot.push({
-                    slotIndex,
-                    colorId: slotBlock.colorId,
-                    cells: slotBlock.cells.map((cell: { row: number; col: number }) => ({ row: cell.row, col: cell.col })),
-                });
-            }
-            if (snapshot.length === 0) {
-                throw new Error('[GameplaySlot] Missing selected slot snapshot before placement');
-            }
-            return snapshot;
-        },
-
-        removeBlockFromSlots() {
-            for (const idx of this._selectedSlotIndices) {
-                this.slotModel.take(idx);
-            }
-            this.slotModel['compact']();
-            this.renderSlots();
-        },
-
-        removeBlockFromSlotsKeepingGaps() {
-            for (const idx of this._selectedSlotIndices) {
-                this.slotModel.take(idx);
-            }
-            this.renderSlots();
-        },
-
-        compactSlotsAfterSelectionConsume(onComplete?: () => void) {
-            const beforeSlots = this.slotModel.getAll().slice();
-            const beforeIndexByBlock = new Map<BeanBlockInfo, number>();
-            for (let i = 0; i < beforeSlots.length; i++) {
-                const block = beforeSlots[i];
-                if (block) beforeIndexByBlock.set(block, i);
-            }
-
-            this.slotModel['compact']();
-            if (!onComplete) {
-                this.renderSlots();
-                return;
-            }
-
-            const afterSlots = this.slotModel.getAll().slice();
-            const moves: Array<{ block: BeanBlockInfo; from: number; to: number }> = [];
-            for (let to = 0; to < afterSlots.length; to++) {
-                const block = afterSlots[to];
-                if (!block) continue;
-                const from = beforeIndexByBlock.get(block);
-                if (typeof from === 'number' && from !== to) {
-                    moves.push({ block, from, to });
-                }
-            }
-
-            const finish = () => {
-                this.renderSlots();
-                if (onComplete) onComplete();
-            };
-            if (moves.length === 0 || !this.dragLayer?.isValid) {
-                finish();
-                return;
-            }
-
-            this.renderSlots();
-
-            const layerUT = this.dragLayer.getComponent(UITransform);
-            if (!layerUT) {
-                finish();
-                return;
-            }
-
-            const SLOT_COMPACT_MOVE_DUR = 0.22;
-            const SLOT_COMPACT_STAGGER = 0.012;
-            let remaining = moves.length;
-            const markMoveDone = () => {
-                remaining--;
-                if (remaining <= 0) finish();
-            };
-
-            for (let i = 0; i < moves.length; i++) {
-                const move = moves[i];
-                const fromNode = this.slotNodes[move.from];
-                const toNode = this.slotNodes[move.to];
-                const fromUT = fromNode?.getComponent(UITransform) || null;
-                const toUT = toNode?.getComponent(UITransform) || null;
-                if (!fromNode || !toNode || !fromUT || !toUT) {
-                    markMoveDone();
-                    continue;
-                }
-
-                const sourceWorld = fromUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-                const targetWorld = toUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-                const sourceLocal = layerUT.convertToNodeSpaceAR(sourceWorld);
-                const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
-                const bean = this.acquireFlyBeanNode(
-                    'SlotCompactBean',
-                    this.getSlotBeanVisualSize(),
-                    this.getBeanSpriteFrame(move.block.colorId, false),
-                );
-                this.dragLayer.addChild(bean);
-                bean.setPosition(sourceLocal.x, sourceLocal.y, 0);
-                bean.setScale(1, 1, 1);
-
-                tween(bean)
-                    .delay(i * SLOT_COMPACT_STAGGER)
-                    .to(SLOT_COMPACT_MOVE_DUR, {
-                        position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                    }, { easing: 'sineOut' })
-                    .call(() => {
-                        this.recycleFlyBeanNode(bean);
-                        markMoveDone();
-                    })
-                    .start();
-            }
-        },
-
-        restoreSlotTailToOriginalSlots(block: BeanBlockInfo, remainingCount: number, selectedSlotSnapshot: SlotSnapshotEntry[]) {
-            if (!selectedSlotSnapshot || selectedSlotSnapshot.length === 0) {
-                throw new Error('[GameplaySlot] Missing selected slot snapshot for restore');
-            }
-            if (remainingCount < 0 || remainingCount > block.cells.length) {
-                throw new Error(`[GameplaySlot] Invalid remaining count ${remainingCount} for block size ${block.cells.length}`);
-            }
-
-            const consumedCount = block.cells.length - remainingCount;
-            let cellCursor = 0;
-            let restoredCount = 0;
-
-            for (const snapshot of selectedSlotSnapshot) {
-                const start = cellCursor;
-                const end = start + snapshot.cells.length;
-                cellCursor = end;
-                if (end <= consumedCount) continue;
-
-                const keepStart = Math.max(consumedCount - start, 0);
-                const keptCells = snapshot.cells.slice(keepStart);
-                if (keptCells.length === 0) continue;
-
-                const restored = this.slotModel.putAt(snapshot.slotIndex, {
-                    colorId: snapshot.colorId,
-                    cells: keptCells.map((cell) => ({ row: cell.row, col: cell.col })),
-                    isLocked: false,
-                    source: 'slot',
-                });
-                if (!restored) {
-                    throw new Error(`[GameplaySlot] Failed to restore slot ${snapshot.slotIndex}`);
-                }
-                restoredCount += keptCells.length;
-            }
-
-            if (restoredCount !== remainingCount) {
-                throw new Error(`[GameplaySlot] Restored ${restoredCount} cells, expected ${remainingCount}`);
-            }
-        },
-
-        /** 将豆豆块恢复到暂存槽原位（放置失败时回退） */
-        restoreBlockToSlots(selectedSlotSnapshot: SlotSnapshotEntry[]) {
-            const block = this.currentBlock!;
-            this.restoreSlotTailToOriginalSlots(block, block.cells.length, selectedSlotSnapshot);
-            this.renderSlots();
         },
 
         // ==================== 倒计时 / 胜负 ====================

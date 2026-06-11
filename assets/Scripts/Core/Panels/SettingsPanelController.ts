@@ -157,22 +157,23 @@ export class SettingsPanelController {
                     const xBtn = requireChild(box, 'XBtn');
                     const homeBtn = requireChild(box, 'Home');
                     const closeBtn = requireChild(box, 'Close');
+                    const showGameplayActions = runtime.getRuntimeSceneName('Game') === 'Game';
+                    homeBtn.active = showGameplayActions;
+                    closeBtn.active = showGameplayActions;
 
                     bindClick(xBtn, closeSettings);
-                    bindClick(closeBtn, closeSettings);
-                    bindClick(homeBtn, () => {
-                        if (settingsClosed || !overlay?.isValid) return;
-                        if (runtime.getRuntimeSceneName('Game') === 'Home') {
-                            closeSettings();
-                            return;
-                        }
-                        settingsClosed = true;
-                        AudioMgr.inst.play('button');
-                        runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
-                        runtime.resumeTimerForProp();
-                        endSettingsModalFocus();
-                        void AppRoot.inst.requestHomeSceneTransition('settings');
-                    });
+                    if (showGameplayActions) {
+                        bindClick(closeBtn, closeSettings);
+                        bindClick(homeBtn, () => {
+                            if (settingsClosed || !overlay?.isValid) return;
+                            settingsClosed = true;
+                            AudioMgr.inst.play('button');
+                            runtime.resumeTimerForProp();
+                            runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
+                            endSettingsModalFocus();
+                            void AppRoot.inst.requestHomeSceneTransition('settings');
+                        });
+                    }
 
                     overlay.on(Node.EventType.TOUCH_END, (event: any) => {
                         const boxTransform = box.getComponent(UITransform);
