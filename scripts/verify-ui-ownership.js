@@ -208,22 +208,10 @@ function assertGameSceneStaticUiOwnership(failures) {
 function assertCollectionPanelPrefabContract(failures) {
     const prefabJson = readJson(path.join(projectDir, 'assets', 'GameAssetsBundle', 'UI', 'Prefabs', 'Panels', 'CollectionPanel.prefab'));
     const root = prefabJson[1];
-    for (const [name, expectedUuid] of [
-        ['ArrowLeft', 'c9c0d53a-6546-47cc-98d6-5b61cc7e1c11@f9941'],
-        ['ArrowRight', 'ec240361-153d-44d4-a268-931851e366ca@f9941'],
-    ]) {
+    for (const name of ['ArrowLeft', 'ArrowRight']) {
         const childRef = (root?._children || []).find((ref) => prefabJson[ref.__id__]?._name === name);
-        if (!childRef) {
-            failures.push(`CollectionPanel.prefab must declare ${name}`);
-            continue;
-        }
-        const node = prefabJson[childRef.__id__];
-        if (node._active !== false) {
-            failures.push(`CollectionPanel.prefab ${name} must be hidden by default`);
-        }
-        const sprite = getNodeComponent(prefabJson, node, 'cc.Sprite');
-        if (sprite?._spriteFrame?.__uuid__ !== expectedUuid) {
-            failures.push(`CollectionPanel.prefab ${name} must keep SpriteFrame ${expectedUuid}`);
+        if (childRef) {
+            failures.push(`CollectionPanel.prefab must not keep obsolete ${name}`);
         }
     }
 }

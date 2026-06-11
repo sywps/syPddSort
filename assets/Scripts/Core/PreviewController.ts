@@ -101,8 +101,6 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '复活结算', onClick: () => this.openResultPanelPreview('revive') },
             ],
             [
-                { label: '资源获取', onClick: () => this.openAcquireResourcePreview() },
-                { label: '技能解锁', onClick: () => this.openSkillUnlockPreview() },
                 { label: '返回 UIPreview', onClick: () => { void director.loadScene('UIPreview'); } },
             ],
         ];
@@ -245,27 +243,6 @@ export class PreviewController extends GameRuntimeHost {
         }
         previewNode.removeAllChildren();
         runtime.drawCollectionPixelPreviewOnCard(previewNode, 1, 0, 0, 280, 230);
-    }
-
-    private openAcquireResourcePreview() {
-        const runtime = this as any;
-        this.clearPreviewPopups();
-        runtime.showAcquireResourceModal?.({
-            title: '补充道具',
-            description: '预览资源获取弹窗的标题、说明、购买和广告按钮。',
-            buyLabel: '120 金币',
-            buyCost: 120,
-            adLabel: '看广告领取',
-            onBought: () => runtime.showToast?.('Preview: 已购买'),
-            onWatchAd: () => runtime.showToast?.('Preview: 广告入口'),
-            onCancel: () => {},
-        });
-    }
-
-    private openSkillUnlockPreview() {
-        const runtime = this as any;
-        this.clearPreviewPopups();
-        runtime.showSkillUnlockGuide?.('魔法棒', () => {});
     }
 
     private playLoadingPreview() {

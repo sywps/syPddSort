@@ -86,21 +86,5 @@ export function installGameplaySlotSkillModule(target: any): void {
             ensureGameplaySkillUiController(this).updateCountBadge(parent, count, showWhenZero);
         },
 
-        showAcquireResourceModal(opt: {
-            title: string;
-            description: string;
-            buyLabel: string;
-            buyCost: number;
-            adLabel: string;
-            onBought: () => void;
-            onWatchAd: () => void;
-            onCancel: () => void;
-        }) {
-            ensureGameplaySkillUiController(this).showAcquireResourceModal(opt);
-        },
-
-        showSkillUnlockGuide(skillName: string, onDone: () => void) {
-            ensureGameplaySkillUiController(this).showSkillUnlockGuide(skillName, onDone);
-        },
     });
 }

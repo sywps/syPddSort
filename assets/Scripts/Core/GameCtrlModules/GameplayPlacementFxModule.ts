@@ -3,7 +3,7 @@ import {
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
-    NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
+    NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
@@ -40,6 +40,32 @@ type FlyPlaceVisualOptions = {
     sourceBeanSize?: number;
     targetBeanSize?: number;
 };
+
+const BEAN_LAND_GLOW_ENABLED = false;
+const COLOR_COMPLETE_MATCH_FX_PREFAB_PATH = 'UI/Prefabs/Fx/ColorCompleteBeanMatchFx';
+const COLOR_COMPLETE_MATCH_FRAME_PREFIX = 'block_match-animation_';
+const COLOR_COMPLETE_MATCH_FRAME_COUNT = 19;
+const COLOR_COMPLETE_MATCH_FRAME_INTERVAL = 0.035;
+const COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX = 15;
+const COLOR_COMPLETE_FACE_NODE_NAMES = ['FaceTL', 'FaceTR', 'FaceBR', 'FaceBL'] as const;
+const COLOR_COMPLETE_FACE_STEP_DELAY = 0.085;
+const COLOR_COMPLETE_FACE_RISE_DURATION = 0.07;
+const COLOR_COMPLETE_FACE_HOLD_DURATION = 0.055;
+const COLOR_COMPLETE_FACE_FADE_DURATION = 0.24;
+const COLOR_COMPLETE_FACE_PEAK_OPACITY = 205;
+const COLOR_COMPLETE_FACE_SIZE_SCALE = 1;
+const COLOR_COMPLETE_MATCH_START_DELAY = 0.2;
+const COLOR_COMPLETE_MATCH_PEAK_OPACITY = 68;
+const COLOR_COMPLETE_MATCH_FADE_DURATION = 0.18;
+const COLOR_COMPLETE_MATCH_SIZE_SCALE = 1;
+const COLOR_COMPLETE_MATCH_POOL_LIMIT = 64;
+
+function setFxLayerDeep(node: Node, layer: number): void {
+    node.layer = layer;
+    for (const child of node.children) {
+        setFxLayerDeep(child, layer);
+    }
+}
 
 export function installGameplayPlacementFxModule(target: any): void {
     Object.assign(target, {
@@ -146,6 +172,44 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         /** 启动"一颗颗飞向目标位置"特效 */
+        getNodeScaleInLayer(node: Node | null | undefined, layer: Node | null | undefined): number {
+            if (!node?.isValid || !layer?.isValid) return 1;
+            const nodeScale = node.getWorldScale(new Vec3());
+            const layerScale = layer.getWorldScale(new Vec3());
+            const nodeVisualScale = Math.max(Math.abs(nodeScale.x || 0), Math.abs(nodeScale.y || 0), 0.0001);
+            const layerVisualScale = Math.max(Math.abs(layerScale.x || 0), Math.abs(layerScale.y || 0), 0.0001);
+            return nodeVisualScale / layerVisualScale;
+        },
+
+        getBoardFlyBeanSizeInLayer(layer: Node): number {
+            const boardNode = this.boardNode?.isValid ? this.boardNode : this.boardGroup;
+            return Math.max(1, this.getBoardBeanVisualSize() * this.getNodeScaleInLayer(boardNode, layer));
+        },
+
+        getSlotFlyBeanSizeInLayer(slotNode: Node | null | undefined, layer: Node): number {
+            const beanNode = slotNode?.getChildByName('Bean');
+            const sourceNode = beanNode?.isValid ? beanNode : (slotNode?.isValid ? slotNode : this.slotAreaNode);
+            return Math.max(1, this.getSlotBeanVisualSize() * this.getNodeScaleInLayer(sourceNode, layer));
+        },
+
+        getSelectedSlotFlyBeanSizeInLayer(layer: Node): number {
+            for (const idx of this._selectedSlotIndices || []) {
+                const slotNode = this.slotNodes?.[idx] || null;
+                if (slotNode?.isValid) {
+                    return this.getSlotFlyBeanSizeInLayer(slotNode, layer);
+                }
+            }
+            return this.getSlotFlyBeanSizeInLayer(null, layer);
+        },
+
+        createFlyPlaceVisualOptions(block: BeanBlockInfo): FlyPlaceVisualOptions {
+            const targetBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
+            const sourceBeanSize = block.source === 'slot'
+                ? this.getSelectedSlotFlyBeanSizeInLayer(this.dragLayer)
+                : targetBeanSize;
+            return { sourceBeanSize, targetBeanSize };
+        },
+
         startFlyPlace(
             colorId: number,
             sourcesWorld: Vec3[],
@@ -174,11 +238,12 @@ export function installGameplayPlacementFxModule(target: any): void {
             const FLY_DELAY = 0.028;
             const FLY_GROW_DUR = 0.09;
             const FLY_MOVE_DUR = 0.11;
-            const defaultTargetBeanSize = this.getBoardBeanVisualSize();
+            const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
+            const defaultTargetBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             const targetBeanSize = Math.max(1, visualOptions?.targetBeanSize ?? defaultTargetBeanSize);
             const sourceBeanSize = Math.max(1, visualOptions?.sourceBeanSize ?? targetBeanSize);
-            const useSourceSizeTransition = !!visualOptions?.sourceBeanSize && Math.abs(sourceBeanSize - targetBeanSize) > 0.5;
             const sourceScale = sourceBeanSize / targetBeanSize;
+            const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
             const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
             let remaining = targets.length;
             const finishAfterAllLanded = () => {
@@ -214,26 +279,17 @@ export function installGameplayPlacementFxModule(target: any): void {
                 );
                 this.dragLayer.addChild(bean);
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
-                bean.setScale(
-                    useSourceSizeTransition ? sourceScale : 0.96,
-                    useSourceSizeTransition ? sourceScale : 0.96,
-                    1,
-                );
+                bean.setScale(sourceScale, sourceScale, 1);
 
-                let flyTween = tween(bean).delay(i * FLY_DELAY);
-                if (useSourceSizeTransition) {
-                    flyTween = flyTween.to(FLY_GROW_DUR + FLY_MOVE_DUR, {
-                        position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                        scale: new Vec3(1, 1, 1),
-                    }, { easing: 'circOut' });
-                } else {
-                    flyTween = flyTween
-                        .to(FLY_GROW_DUR, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
-                        .to(FLY_MOVE_DUR, {
-                            position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                            scale: new Vec3(1, 1, 1),
-                        }, { easing: 'circOut' });
+                const flyProps: { position: Vec3; scale?: Vec3 } = {
+                    position: new Vec3(targetLocal.x, targetLocal.y, 0),
+                };
+                if (shouldTweenScale) {
+                    flyProps.scale = new Vec3(1, 1, 1);
                 }
+                const flyTween = tween(bean)
+                    .delay(i * FLY_DELAY)
+                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'circOut' });
 
                 flyTween
                     .call(() => {
@@ -268,6 +324,8 @@ export function installGameplayPlacementFxModule(target: any): void {
             const FLY_DELAY = 0.028;
             const FLY_GROW_DUR = 0.09;
             const FLY_MOVE_DUR = 0.11;
+            const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
+            const sourceBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             let remaining = slotIdxs.length;
             if (remaining === 0) { this.finishPlace(); return; }
         
@@ -278,24 +336,29 @@ export function installGameplayPlacementFxModule(target: any): void {
                 const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
                 const srcWorld = sourcesWorld[i] || sourcesWorld[sourcesWorld.length - 1] || targetWorld;
                 const srcLocal = layerUT.convertToNodeSpaceAR(srcWorld);
+                const targetBeanSize = this.getSlotFlyBeanSizeInLayer(slotNode, this.dragLayer);
+                const sourceScale = sourceBeanSize / targetBeanSize;
+                const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
         
                 const bean = this.acquireFlyBeanNode(
                     'FlyBean',
                     // 从棋盘飞入暂存槽的临时豆豆按棋盘尺寸；槽内最终尺寸由 SlotShell/Bean 单独控制。
-                    this.getBoardBeanVisualSize(),
+                    targetBeanSize,
                     this.getBeanSpriteFrame(colorId, false),
                 );
                 this.dragLayer.addChild(bean);
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
-                bean.setScale(0.96, 0.96, 1);
+                bean.setScale(sourceScale, sourceScale, 1);
+                const flyProps: { position: Vec3; scale?: Vec3 } = {
+                    position: new Vec3(targetLocal.x, targetLocal.y, 0),
+                };
+                if (shouldTweenScale) {
+                    flyProps.scale = new Vec3(1, 1, 1);
+                }
         
                 tween(bean)
                     .delay(i * FLY_DELAY)
-                    .to(FLY_GROW_DUR, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
-                    .to(FLY_MOVE_DUR, {
-                        position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                        scale: new Vec3(1, 1, 1),
-                    }, { easing: 'circOut' })
+                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'circOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');
                         AudioMgr.inst.vibrate(30);
@@ -461,7 +524,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                 .to(0.1, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineIn' })
                 .to(0.08, { scale: new Vec3(1.0, 1.0, 1) })
                 .start();
-            this.playPlaceGlow(cn, 0.035, 210, frameBudget);
+            if (BEAN_LAND_GLOW_ENABLED) {
+                this.playPlaceGlow(cn, 0.035, 210, frameBudget);
+            }
         },
 
         onFlyAllLanded(targets: { row: number; col: number }[]) {
@@ -621,37 +686,293 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
         },
 
-        /** 单色完成特效：对应 pin-dou-dou 的 _playWinColorIfNeeded + _playColorCompletedAni */
-        playColorCompleteEffect(colorId: number) {
+        warnColorCompleteMatchFxLoadFailure(message: string): void {
+            if (this._colorCompleteMatchFxLoadWarned) return;
+            this._colorCompleteMatchFxLoadWarned = true;
+            console.error(`[color-complete-fx] load skipped: ${message}`);
+        },
+
+        getColorCompleteMatchFrames(): SpriteFrame[] {
+            return this.getEffectFrames(COLOR_COMPLETE_MATCH_FRAME_PREFIX, COLOR_COMPLETE_MATCH_FRAME_COUNT);
+        },
+
+        ensureColorCompleteMatchFrames(onDone: (frames: SpriteFrame[]) => void): void {
+            const cached = this.getColorCompleteMatchFrames();
+            if (cached.length >= COLOR_COMPLETE_MATCH_FRAME_COUNT) {
+                onDone(cached);
+                return;
+            }
+            if (cached.length > 0) {
+                this._effectFrameCache.delete(`${COLOR_COMPLETE_MATCH_FRAME_PREFIX}${COLOR_COMPLETE_MATCH_FRAME_COUNT}`);
+            }
+
+            const loadFromBundle = (bundle: Bundle | null) => {
+                if (!bundle || typeof this._loadEffectsAtlasFromBundle !== 'function') {
+                    this.warnColorCompleteMatchFxLoadFailure('effects atlas loader unavailable');
+                    onDone([]);
+                    return;
+                }
+                this._loadEffectsAtlasFromBundle(bundle, () => {
+                    const frames = this.getColorCompleteMatchFrames();
+                    if (frames.length < COLOR_COMPLETE_MATCH_FRAME_COUNT) {
+                        this._effectFrameCache.delete(`${COLOR_COMPLETE_MATCH_FRAME_PREFIX}${COLOR_COMPLETE_MATCH_FRAME_COUNT}`);
+                        this.warnColorCompleteMatchFxLoadFailure('block_match-animation frames missing');
+                    }
+                    onDone(frames);
+                });
+            };
+
+            if (typeof this._withGameAssetsBundle === 'function') {
+                this._withGameAssetsBundle(loadFromBundle);
+                return;
+            }
+
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
+                if (err || !bundle) {
+                    this.warnColorCompleteMatchFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
+                    onDone([]);
+                    return;
+                }
+                this.gameAssetsBundle = bundle;
+                loadFromBundle(bundle);
+            });
+        },
+
+        ensureColorCompleteMatchFxPrefab(onDone: (prefab: Prefab | null) => void): void {
+            if (this._colorCompleteMatchFxPrefab) {
+                onDone(this._colorCompleteMatchFxPrefab);
+                return;
+            }
+            if (this._colorCompleteMatchFxPrefabLoading) {
+                this._colorCompleteMatchFxPrefabCallbacks.push(onDone);
+                return;
+            }
+
+            this._colorCompleteMatchFxPrefabLoading = true;
+            this._colorCompleteMatchFxPrefabCallbacks = [onDone];
+            const finish = (prefab: Prefab | null) => {
+                this._colorCompleteMatchFxPrefabLoading = false;
+                if (prefab) this._colorCompleteMatchFxPrefab = prefab;
+                const callbacks = this._colorCompleteMatchFxPrefabCallbacks || [];
+                this._colorCompleteMatchFxPrefabCallbacks = [];
+                for (const cb of callbacks) cb(prefab);
+            };
+            const loadFromBundle = (bundle: Bundle | null) => {
+                if (!bundle) {
+                    this.warnColorCompleteMatchFxLoadFailure('gameAssets bundle unavailable');
+                    finish(null);
+                    return;
+                }
+                bundle.load(COLOR_COMPLETE_MATCH_FX_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                    if (err || !prefab) {
+                        this.warnColorCompleteMatchFxLoadFailure(err?.message || 'prefab missing');
+                        finish(null);
+                        return;
+                    }
+                    finish(prefab);
+                });
+            };
+
+            if (typeof this._withGameAssetsBundle === 'function') {
+                this._withGameAssetsBundle(loadFromBundle);
+                return;
+            }
+
+            assetManager.loadBundle('gameAssets', (err, bundle) => {
+                if (err || !bundle) {
+                    this.warnColorCompleteMatchFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
+                    finish(null);
+                    return;
+                }
+                this.gameAssetsBundle = bundle;
+                loadFromBundle(bundle);
+            });
+        },
+
+        acquireColorCompleteMatchFxNode(prefab: Prefab): Node {
+            const pooled = this._colorCompleteMatchFxPool.pop();
+            if (pooled && pooled.isValid) {
+                return pooled;
+            }
+            return instantiate(prefab);
+        },
+
+        recycleColorCompleteMatchFxNode(node: Node): void {
+            Tween.stopAllByTarget(node);
+            const opacity = node.getComponent(UIOpacity);
+            if (opacity) Tween.stopAllByTarget(opacity);
+            for (const faceName of COLOR_COMPLETE_FACE_NODE_NAMES) {
+                const faceNode = node.getChildByName(faceName);
+                if (!faceNode) continue;
+                Tween.stopAllByTarget(faceNode);
+                const faceOpacity = faceNode.getComponent(UIOpacity);
+                if (faceOpacity) {
+                    Tween.stopAllByTarget(faceOpacity);
+                    faceOpacity.opacity = 0;
+                }
+                faceNode.setScale(1, 1, 1);
+            }
+            const matchSpriteNode = node.getChildByName('MatchSprite');
+            if (matchSpriteNode) {
+                Tween.stopAllByTarget(matchSpriteNode);
+                const matchOpacity = matchSpriteNode.getComponent(UIOpacity);
+                if (matchOpacity) {
+                    Tween.stopAllByTarget(matchOpacity);
+                    matchOpacity.opacity = 0;
+                }
+                matchSpriteNode.setScale(1, 1, 1);
+            }
+            const sprite = matchSpriteNode?.getComponent(Sprite) || node.getComponent(Sprite);
+            if (sprite) sprite.spriteFrame = null;
+            node.removeFromParent();
+            node.active = false;
+            if (this._colorCompleteMatchFxPool.length >= COLOR_COMPLETE_MATCH_POOL_LIMIT) {
+                node.destroy();
+                return;
+            }
+            this._colorCompleteMatchFxPool.push(node);
+        },
+
+        prepareColorCompleteFaceNode(fx: Node, faceName: string, size: number): { node: Node; opacity: UIOpacity } | null {
+            const faceNode = fx.getChildByName(faceName);
+            if (!faceNode) return null;
+            Tween.stopAllByTarget(faceNode);
+            faceNode.active = true;
+            faceNode.setPosition(0, 0, 0);
+            faceNode.setScale(1, 1, 1);
+            const faceSize = Math.max(24, Math.round(size * COLOR_COMPLETE_FACE_SIZE_SCALE));
+            const transform = faceNode.getComponent(UITransform) || faceNode.addComponent(UITransform);
+            transform.setContentSize(faceSize, faceSize);
+            const sprite = faceNode.getComponent(Sprite);
+            if (sprite) {
+                sprite.enabled = true;
+                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+                sprite.color = new Color(255, 255, 255, 255);
+            }
+            const opacity = faceNode.getComponent(UIOpacity) || faceNode.addComponent(UIOpacity);
+            Tween.stopAllByTarget(opacity);
+            opacity.opacity = 0;
+            return { node: faceNode, opacity };
+        },
+
+        playColorCompleteMatchFxOnBean(beanNode: Node, frames: SpriteFrame[], prefab: Prefab, size: number): void {
+            if (!beanNode?.isValid || frames.length === 0) return;
+            const fx = this.acquireColorCompleteMatchFxNode(prefab);
+            Tween.stopAllByTarget(fx);
+            beanNode.addChild(fx);
+            setFxLayerDeep(fx, Layers.Enum.UI_2D);
+            fx.name = 'ColorCompleteBeanMatchFx';
+            fx.active = true;
+            fx.setPosition(0, 0, 0);
+            fx.setScale(1, 1, 1);
+            fx.angle = 0;
+
+            const rootTransform = fx.getComponent(UITransform) || fx.addComponent(UITransform);
+            rootTransform.setContentSize(size, size);
+            const opacity = fx.getComponent(UIOpacity) || fx.addComponent(UIOpacity);
+            Tween.stopAllByTarget(opacity);
+            opacity.opacity = 255;
+
+            for (let i = 0; i < COLOR_COMPLETE_FACE_NODE_NAMES.length; i++) {
+                const face = this.prepareColorCompleteFaceNode(fx, COLOR_COMPLETE_FACE_NODE_NAMES[i], size);
+                if (!face) continue;
+                const delay = i * COLOR_COMPLETE_FACE_STEP_DELAY;
+                tween(face.opacity)
+                    .delay(delay)
+                    .to(COLOR_COMPLETE_FACE_RISE_DURATION, { opacity: COLOR_COMPLETE_FACE_PEAK_OPACITY }, { easing: 'sineOut' })
+                    .delay(COLOR_COMPLETE_FACE_HOLD_DURATION)
+                    .to(COLOR_COMPLETE_FACE_FADE_DURATION, { opacity: 0 }, { easing: 'quadIn' })
+                    .start();
+                tween(face.node)
+                    .delay(delay)
+                    .to(COLOR_COMPLETE_FACE_RISE_DURATION + COLOR_COMPLETE_FACE_HOLD_DURATION, { scale: new Vec3(1.01, 1.01, 1) }, { easing: 'sineOut' })
+                    .to(COLOR_COMPLETE_FACE_FADE_DURATION, { scale: new Vec3(1, 1, 1) }, { easing: 'quadOut' })
+                    .start();
+            }
+
+            const sparkleFrames = frames.slice(COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX);
+            const matchFrames = sparkleFrames.length > 0 ? sparkleFrames : frames;
+            const matchSpriteNode = fx.getChildByName('MatchSprite') || fx;
+            Tween.stopAllByTarget(matchSpriteNode);
+            matchSpriteNode.active = true;
+            matchSpriteNode.setPosition(0, 0, 0);
+            matchSpriteNode.setScale(1, 1, 1);
+            const spriteTransform = matchSpriteNode.getComponent(UITransform) || matchSpriteNode.addComponent(UITransform);
+            const effectSize = Math.max(24, Math.round(size * COLOR_COMPLETE_MATCH_SIZE_SCALE));
+            spriteTransform.setContentSize(effectSize, effectSize);
+            const sprite = matchSpriteNode.getComponent(Sprite) || matchSpriteNode.addComponent(Sprite);
+            sprite.enabled = true;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            sprite.color = new Color(255, 255, 255, 255);
+            sprite.spriteFrame = matchFrames[0];
+            const matchOpacity = matchSpriteNode.getComponent(UIOpacity) || matchSpriteNode.addComponent(UIOpacity);
+            Tween.stopAllByTarget(matchOpacity);
+            matchOpacity.opacity = 0;
+
+            const visibleDuration = Math.max(0, matchFrames.length * COLOR_COMPLETE_MATCH_FRAME_INTERVAL);
+            tween(matchOpacity)
+                .delay(COLOR_COMPLETE_MATCH_START_DELAY)
+                .to(0.04, { opacity: COLOR_COMPLETE_MATCH_PEAK_OPACITY }, { easing: 'sineOut' })
+                .delay(Math.max(0, visibleDuration - 0.04))
+                .to(COLOR_COMPLETE_MATCH_FADE_DURATION, { opacity: 0 }, { easing: 'quadIn' })
+                .start();
+
+            let frameTween = tween(fx).delay(COLOR_COMPLETE_MATCH_START_DELAY);
+            for (let i = 0; i < matchFrames.length; i++) {
+                const frame = matchFrames[i];
+                frameTween = frameTween
+                    .call(() => {
+                        if (fx.isValid && sprite.isValid) {
+                            sprite.spriteFrame = frame;
+                        }
+                    })
+                    .delay(COLOR_COMPLETE_MATCH_FRAME_INTERVAL);
+            }
+            frameTween.start();
+
+            const faceDuration = (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_STEP_DELAY
+                + COLOR_COMPLETE_FACE_RISE_DURATION
+                + COLOR_COMPLETE_FACE_HOLD_DURATION
+                + COLOR_COMPLETE_FACE_FADE_DURATION;
+            const matchDuration = COLOR_COMPLETE_MATCH_START_DELAY + visibleDuration + COLOR_COMPLETE_MATCH_FADE_DURATION;
+            tween(fx)
+                .delay(Math.max(faceDuration, matchDuration) + 0.03)
+                .call(() => {
+                    if (fx.isValid) this.recycleColorCompleteMatchFxNode(fx);
+                })
+                .start();
+        },
+
+        playColorCompleteMatchFxForColor(colorId: number): void {
             const bm = this.boardModel;
             const bw = this.levelData.boardWidth;
             const bh = this.levelData.boardHeight;
-        
-            // 收集该色的所有格子
-            const cells: { row: number; col: number }[] = [];
-            for (let r = 0; r < bh; r++)
-                for (let c = 0; c < bw; c++)
-                    if (bm.correctColors[r][c] === colorId)
-                        cells.push({ row: r, col: c });
-        
-            // 单色完成：只播放普通 place 音效（简化）
+            const beanNodes: Node[] = [];
+            for (let r = 0; r < bh; r++) {
+                for (let c = 0; c < bw; c++) {
+                    if (bm.correctColors[r][c] !== colorId) continue;
+                    const beanNode = this.cellNodes[r]?.[c];
+                    if (beanNode?.isValid) beanNodes.push(beanNode);
+                }
+            }
+            if (beanNodes.length === 0) return;
+
+            this.ensureColorCompleteMatchFrames((frames: SpriteFrame[]) => {
+                if (frames.length === 0) return;
+                this.ensureColorCompleteMatchFxPrefab((prefab: Prefab | null) => {
+                    if (!prefab) return;
+                    const size = Math.max(24, Math.round(this.getBoardBeanVisualSize()));
+                    for (const beanNode of beanNodes) {
+                        this.playColorCompleteMatchFxOnBean(beanNode, frames, prefab, size);
+                    }
+                });
+            });
+        },
+
+        playColorCompleteEffect(colorId: number) {
             AudioMgr.inst.play('winColor');
             AudioMgr.inst.vibrate(40);
-        
-            // 颜色完成帧动画：每格依次播放完成特效，不再改动格子缩放
-            const effectDelayStep = cells.length > MAX_CONCURRENT_FRAME_EFFECTS ? 0.055 : 0.03;
-            const frameBudget = this.getPlaceGlowFrameBudget(cells.length);
-            for (let i = 0; i < cells.length; i++) {
-                const cell = cells[i];
-                const cn = this.cellNodes[cell.row]?.[cell.col];
-                if (!cn) continue;
-        
-                // 只播放完成帧动画，避免同色完成时整片格子缩放跳动
-                this.scheduleOnce(() => {
-                    const worldPos = cn.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-                    this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, 0.022, 0, frameBudget);
-                }, i * effectDelayStep);
-            }
+            this.playColorCompleteMatchFxForColor(colorId);
         },
 
         /** 恢复所有格子到原始位置和缩放 */
@@ -806,13 +1127,24 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (block) beforeIndexByBlock.set(block, i);
             }
 
-            this.slotModel['compact']();
             if (!onComplete) {
+                this.slotModel['compact']();
                 this.renderSlots();
                 return;
             }
 
-            const afterSlots = this.slotModel.getAll().slice();
+            const rawTotalCount = Math.floor(Number(this.slotModel.totalCount) || beforeSlots.length);
+            const rawUnlockedCount = Math.floor(Number(this.slotModel.unlockedCount ?? rawTotalCount) || rawTotalCount);
+            const usableCount = Math.max(0, Math.min(rawUnlockedCount, rawTotalCount, beforeSlots.length));
+            const compactedBlocks: BeanBlockInfo[] = [];
+            for (let i = 0; i < usableCount; i++) {
+                const block = beforeSlots[i];
+                if (block) compactedBlocks.push(block);
+            }
+            const afterSlots: Array<BeanBlockInfo | null> = new Array(beforeSlots.length).fill(null);
+            for (let i = 0; i < usableCount; i++) {
+                afterSlots[i] = compactedBlocks[i] || null;
+            }
             const moves: Array<{ block: BeanBlockInfo; from: number; to: number }> = [];
             for (let to = 0; to < afterSlots.length; to++) {
                 const block = afterSlots[to];
@@ -823,22 +1155,91 @@ export function installGameplayPlacementFxModule(target: any): void {
                 }
             }
 
+            const landedCompactBeans: Array<{ bean: Node; to: number }> = [];
+            const SLOT_COMPACT_HANDOFF_DUR = 0.08;
             const finish = () => {
+                this.slotModel['compact']();
                 this.renderSlots();
-                if (onComplete) onComplete();
+                if (landedCompactBeans.length === 0) {
+                    if (onComplete) onComplete();
+                    return;
+                }
+
+                const targetSlots = new Set<number>();
+                for (const landed of landedCompactBeans) targetSlots.add(landed.to);
+                for (const slotIndex of targetSlots) {
+                    const slotNode = this.slotNodes[slotIndex];
+                    const realBeanNode = slotNode?.getChildByName('Bean') || null;
+                    if (!realBeanNode?.isValid) continue;
+                    const realOpacity = realBeanNode.getComponent(UIOpacity) || realBeanNode.addComponent(UIOpacity);
+                    Tween.stopAllByTarget(realOpacity);
+                    realOpacity.opacity = 0;
+                    tween(realOpacity)
+                        .to(SLOT_COMPACT_HANDOFF_DUR, { opacity: 255 }, { easing: 'sineOut' })
+                        .start();
+                }
+
+                let handoffRemaining = landedCompactBeans.length;
+                const completeHandoff = () => {
+                    handoffRemaining--;
+                    if (handoffRemaining > 0) return;
+                    this.renderSlotIndices([...targetSlots]);
+                    if (onComplete) onComplete();
+                };
+                for (const landed of landedCompactBeans) {
+                    const bean = landed.bean;
+                    if (!bean?.isValid) {
+                        completeHandoff();
+                        continue;
+                    }
+                    const beanOpacity = bean.getComponent(UIOpacity) || bean.addComponent(UIOpacity);
+                    Tween.stopAllByTarget(beanOpacity);
+                    beanOpacity.opacity = 255;
+                    tween(beanOpacity)
+                        .to(SLOT_COMPACT_HANDOFF_DUR, { opacity: 0 }, { easing: 'sineIn' })
+                        .call(() => {
+                            beanOpacity.opacity = 255;
+                            this.recycleFlyBeanNode(bean);
+                            completeHandoff();
+                        })
+                        .start();
+                }
             };
             if (moves.length === 0 || !this.dragLayer?.isValid) {
                 finish();
                 return;
             }
 
-            this.renderSlots();
-
             const layerUT = this.dragLayer.getComponent(UITransform);
             if (!layerUT) {
                 finish();
                 return;
             }
+            const hideCompactSourceSlot = (index: number) => {
+                const slot = this.slotNodes[index];
+                if (!slot) return;
+                const beanNode = slot.getChildByName('Bean');
+                const beanSprite = beanNode?.getComponent(Sprite) || null;
+                if (beanSprite) beanSprite.enabled = false;
+                const beanOpacity = beanNode?.getComponent(UIOpacity) || null;
+                if (beanOpacity) beanOpacity.opacity = 255;
+
+                const marker = this.slotMarkerNodes[index];
+                const markerSprite = marker?.getComponent(Sprite) || null;
+                if (markerSprite) {
+                    markerSprite.enabled = true;
+                    markerSprite.spriteFrame = this.getSF(MAINLINE_SLOT_GROOVE_TEXTURE) || markerSprite.spriteFrame;
+                }
+                const markerOpacity = marker?.getComponent(UIOpacity) || null;
+                if (markerOpacity) {
+                    const row = Math.floor(index / SLOTS_PER_ROW);
+                    markerOpacity.opacity = row >= this.slotUnlockedRows ? 112 : 255;
+                }
+            };
+
+            const movingFromSlots = new Set<number>();
+            for (const move of moves) movingFromSlots.add(move.from);
+            for (const index of movingFromSlots) hideCompactSourceSlot(index);
 
             const SLOT_COMPACT_MOVE_DUR = 0.22;
             const SLOT_COMPACT_STAGGER = 0.012;
@@ -878,7 +1279,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                         position: new Vec3(targetLocal.x, targetLocal.y, 0),
                     }, { easing: 'sineOut' })
                     .call(() => {
-                        this.recycleFlyBeanNode(bean);
+                        landedCompactBeans.push({ bean, to: move.to });
                         markMoveDone();
                     })
                     .start();

@@ -6,7 +6,7 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
@@ -29,10 +29,28 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
+const REWARD_RESULT_POPUP_PREFAB_PATH = 'UI/Prefabs/Panels/RewardResultPopup';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
+
+type RewardResultPopupItem = {
+    iconName: string;
+    amountText: string;
+    labelText: string;
+};
+
+type RewardResultPopupOptions = {
+    overlayName?: string;
+    title: string;
+    subtitle: string;
+    items: RewardResultPopupItem[];
+    tip?: string;
+    confirmText?: string;
+    onConfirm?: () => void;
+};
+
+type DailySignInPropRewardKey = 'wand' | 'brush' | 'magnet';
 
 function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     if (!node || !node.isValid) {
@@ -86,6 +104,43 @@ function syncPlayerMetaLabelNode(
     label.enableWrapText = false;
     node.active = true;
     return label;
+}
+
+function syncPlayerMetaPopupTitle(box: Node, title: string): void {
+    const badge = box.getChildByName('PopupTitleBadge');
+    const titleNode = badge?.getChildByName('PopupTitleLabel');
+    const label = titleNode?.getComponent(Label);
+    if (!badge || !titleNode || !label) {
+        throw new Error('[reward-result-prefab] missing popup title nodes');
+    }
+    badge.active = true;
+    titleNode.active = true;
+    label.string = title;
+}
+
+function syncExistingPopupLabel(parent: Node, childName: string, text: string, errorPrefix: string): Label {
+    const labelNode = parent.getChildByName(childName);
+    const label = labelNode?.getComponent(Label);
+    if (!labelNode || !label) {
+        throw new Error(`${errorPrefix} missing Label component on ${parent.name}/${childName}`);
+    }
+    labelNode.active = true;
+    label.string = text;
+    label.enableWrapText = false;
+    return label;
+}
+
+function getDailySignInPropRewardCount(reward: DailySignInReward, key: DailySignInPropRewardKey): number {
+    switch (key) {
+        case 'wand':
+            return 'wand' in reward ? reward.wand : 0;
+        case 'brush':
+            return 'brush' in reward ? reward.brush : 0;
+        case 'magnet':
+            return 'magnet' in reward ? reward.magnet : 0;
+        default:
+            return 0;
+    }
 }
 
 function normalizeFirstLevelRouteBucketPayloadValue(value: unknown): FirstLevelRouteVariant | null {
@@ -315,73 +370,171 @@ export function installPlayerMetaStateModule(target: any): void {
 
         buildDailySignInRewardText(reward: DailySignInReward): string[] {
             const lines: string[] = [];
+            const wandReward = getDailySignInPropRewardCount(reward, 'wand');
+            const brushReward = getDailySignInPropRewardCount(reward, 'brush');
+            const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
             if (reward.gold && reward.gold > 0) lines.push(`+${reward.gold}金币`);
-            if (reward.wand && reward.wand > 0) lines.push(`魔法棒x${reward.wand}`);
-            if (reward.brush && reward.brush > 0) lines.push(`刷子x${reward.brush}`);
-            if (reward.magnet && reward.magnet > 0) lines.push(`磁铁x${reward.magnet}`);
+            if (wandReward > 0) lines.push(`魔法棒x${wandReward}`);
+            if (brushReward > 0) lines.push(`刷子x${brushReward}`);
+            if (magnetReward > 0) lines.push(`磁铁x${magnetReward}`);
             return lines;
         },
 
         grantDailySignInReward(reward: DailySignInReward): string {
+            const wandReward = getDailySignInPropRewardCount(reward, 'wand');
+            const brushReward = getDailySignInPropRewardCount(reward, 'brush');
+            const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
             if (reward.gold && reward.gold > 0) this.addGold(reward.gold);
-            if (reward.wand && reward.wand > 0) this.addPropCount('wand', reward.wand);
-            if (reward.brush && reward.brush > 0) this.addPropCount('brush', reward.brush);
-            if (reward.magnet && reward.magnet > 0) this.addPropCount('magnet', reward.magnet);
+            if (wandReward > 0) this.addPropCount('wand', wandReward);
+            if (brushReward > 0) this.addPropCount('brush', brushReward);
+            if (magnetReward > 0) this.addPropCount('magnet', magnetReward);
             return this.buildDailySignInRewardText(reward).join('、');
         },
 
-        buildDailySignInReceiptLines(reward: DailySignInReward): string[] {
-            const lines: string[] = [];
-            if (reward.gold && reward.gold > 0) {
-                lines.push(`金币 +${reward.gold}（当前 ${this.getGold()}）`);
+        buildDailySignInRewardResultItems(reward: DailySignInReward): RewardResultPopupItem[] {
+            const items: RewardResultPopupItem[] = [];
+            const wandReward = getDailySignInPropRewardCount(reward, 'wand');
+            const brushReward = getDailySignInPropRewardCount(reward, 'brush');
+            const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
+            if (reward.gold && reward.gold > 0) items.push({ iconName: 'daily_signin_gold_icon', amountText: `+${reward.gold}`, labelText: '金币' });
+            if (wandReward > 0) items.push({ iconName: 'popup_tool_wand_icon', amountText: `x${wandReward}`, labelText: '魔法棒' });
+            if (brushReward > 0) items.push({ iconName: 'popup_tool_brush_icon', amountText: `x${brushReward}`, labelText: '刷子' });
+            if (magnetReward > 0) items.push({ iconName: 'popup_tool_magnet_icon', amountText: `x${magnetReward}`, labelText: '磁铁' });
+            return items;
+        },
+
+        showRewardResultPopup(options: RewardResultPopupOptions) {
+            const popupRoot = this.requireCanvasUiRoot('PopupRoot');
+            const overlayName = options.overlayName || 'RewardResultOverlay';
+            const items = options.items.filter((item) => !!item.iconName && !!item.amountText).slice(0, 3);
+            if (items.length <= 0) {
+                throw new Error('[reward-result] at least one reward item is required');
             }
-            if (reward.wand && reward.wand > 0) {
-                lines.push(`魔法棒 +${reward.wand}（当前 ${this.getPropCount('wand')}）`);
+            if (REWARD_RESULT_TEXTURE_NAMES.some((name: string) => !this.getSF(name))) {
+                this._openPanelAfterTextures('reward-result', REWARD_RESULT_TEXTURE_NAMES, () => !!popupRoot.getChildByName(overlayName), () => this.showRewardResultPopup(options));
+                return;
             }
-            if (reward.brush && reward.brush > 0) {
-                lines.push(`刷子 +${reward.brush}（当前 ${this.getPropCount('brush')}）`);
-            }
-            if (reward.magnet && reward.magnet > 0) {
-                lines.push(`磁铁 +${reward.magnet}（当前 ${this.getPropCount('magnet')}）`);
-            }
-            return lines;
+            if (popupRoot.getChildByName(overlayName)) return;
+
+            const failOpen = (message: string, overlay?: Node | null) => {
+                if (overlay?.isValid) {
+                    this._clearSpriteFramesBeforeDestroy(overlay);
+                    overlay.destroy();
+                }
+                this._releasePanelTexturesNextFrame(REWARD_RESULT_RELEASE_TEXTURE_NAMES, 'reward-result-open-failed');
+                throw new Error(message);
+            };
+
+            this._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!bundle) {
+                    failOpen('[reward-result-prefab] gameAssets bundle unavailable');
+                    return;
+                }
+                bundle.load(REWARD_RESULT_POPUP_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                    if (err || !prefab) {
+                        failOpen(`[reward-result-prefab] load failed: ${err?.message || 'prefab missing'}`);
+                        return;
+                    }
+
+                    let overlay: Node | null = null;
+                    try {
+                        overlay = instantiate(prefab);
+                        overlay.name = overlayName;
+                        popupRoot.addChild(overlay);
+                        overlay.setSiblingIndex(999);
+                        if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
+
+                        const box = this.requirePanelChild(overlay, 'Box');
+                        syncPlayerMetaPopupTitle(box, options.title);
+                        if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
+
+                        const closePopup = () => {
+                            if (!overlay?.isValid) return;
+                            AudioMgr.inst.play('button');
+                            this._destroyPanelAndReleaseTextures(overlay, REWARD_RESULT_RELEASE_TEXTURE_NAMES, 'reward-result');
+                        };
+                        const confirmPopup = () => {
+                            if (!overlay?.isValid) return;
+                            AudioMgr.inst.play('button');
+                            this._destroyPanelAndReleaseTextures(overlay, REWARD_RESULT_RELEASE_TEXTURE_NAMES, 'reward-result-confirm');
+                            options.onConfirm?.();
+                        };
+
+                        overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
+                            const boxUT = box.getComponent(UITransform);
+                            if (!boxUT) return;
+                            const uiPos = e.getUILocation();
+                            const local = boxUT.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
+                            const size = boxUT.contentSize;
+                            if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) return;
+                            closePopup();
+                        }, this);
+
+                        this.bindPanelButton(this.requirePanelChild(box, 'XBtn'), closePopup);
+
+                        const subtitleLabel = syncExistingPopupLabel(box, 'RewardSubtitle', options.subtitle, '[reward-result-prefab]');
+                        subtitleLabel.overflow = Label.Overflow.SHRINK;
+                        const tipLabel = syncExistingPopupLabel(box, 'RewardTip', options.tip || '奖励将发放到当前账号', '[reward-result-prefab]');
+                        tipLabel.overflow = Label.Overflow.SHRINK;
+
+                        const confirmButton = this.requirePanelChild(box, 'PrimaryButton');
+                        syncExistingPopupLabel(confirmButton, 'PrimaryButtonLabel', options.confirmText || '我知道了', '[reward-result-prefab]');
+                        this.bindPanelButton(confirmButton, confirmPopup);
+
+                        const template = this.requirePanelChild(box, 'RewardCardTemplate');
+                        const cardParent = template.parent;
+                        if (!cardParent) {
+                            throw new Error('[reward-result-prefab] RewardCardTemplate parent is missing');
+                        }
+                        for (const child of [...cardParent.children]) {
+                            if (child !== template && child.name.startsWith('RewardCardAuto_')) {
+                                child.destroy();
+                            }
+                        }
+
+                        const basePos = template.position.clone();
+                        const spacing = items.length >= 3 ? 176 : 214;
+                        const startX = basePos.x - ((items.length - 1) * spacing) / 2;
+                        for (let i = 0; i < items.length; i++) {
+                            const item = items[i];
+                            const card = i === 0 ? template : instantiate(template);
+                            if (i > 0) {
+                                card.name = `RewardCardAuto_${i}`;
+                                cardParent.addChild(card);
+                            }
+                            card.active = true;
+                            card.setPosition(startX + i * spacing, basePos.y, basePos.z);
+
+                            const iconNode = this.requirePanelChild(card, 'RewardIcon');
+                            const iconSprite = iconNode.getComponent(Sprite);
+                            const spriteFrame = this.getSF(item.iconName);
+                            if (!iconSprite || !spriteFrame) {
+                                throw new Error(`[reward-result-prefab] missing reward icon SpriteFrame: ${item.iconName}`);
+                            }
+                            iconSprite.spriteFrame = spriteFrame;
+
+                            const amountLabel = syncPlayerMetaLabelNode(card, 'RewardAmountLabel', item.amountText, 30, new Color('#5A4A3A'), 160, 34, 0, -48);
+                            amountLabel.overflow = Label.Overflow.SHRINK;
+                            const nameLabel = syncPlayerMetaLabelNode(card, 'RewardNameLabel', item.labelText, 18, new Color('#8A7A6A'), 160, 24, 0, -80);
+                            nameLabel.overflow = Label.Overflow.SHRINK;
+                        }
+                    } catch (error: any) {
+                        failOpen(error?.message || '[reward-result-prefab] build failed', overlay);
+                    }
+                });
+            });
         },
 
         showDailySignInRewardReceipt(reward: DailySignInReward) {
-            openCollectionShellOverlay(this, {
-                overlayName: 'DailySignInReceiptOverlay',
-                siblingIndex: 1000,
-                onReady: ({ overlay, box, content, pageIndicator, leftArrow, rightArrow, close }) => {
-                    content.removeAllChildren();
-                    pageIndicator.active = false;
-                    leftArrow.active = false;
-                    syncPlayerMetaLabelNode(box, 'DailyReceiptTitle', '签到成功', 32, new Color('#5A4A3A'), 420, 40, 0, 170);
-                    syncPlayerMetaLabelNode(box, 'DailyReceiptSub', '奖励已到账', 20, new Color('#8A7A6A'), 420, 28, 0, 126);
-
-                    const lines = this.buildDailySignInReceiptLines(reward);
-                    const startY = 80;
-                    const lineGap = 48;
-                    for (let i = 0; i < lines.length; i++) {
-                        const lineLbl = syncPlayerMetaLabelNode(box, `DailyReceiptLine_${i}`, lines[i], 24, new Color('#5A4A3A'), 420, 32, 0, startY - i * lineGap);
-                        lineLbl.overflow = Label.Overflow.SHRINK;
-                    }
-
-                    syncPlayerMetaLabelNode(box, 'DailyReceiptTip', '道具会在关卡内技能按钮上显示库存', 18, new Color('#B07A47'), 420, 26, 0, -92);
-                    rightArrow.active = true;
-                    rightArrow.setPosition(0, -312, 0);
-                    const rightArrowUi = rightArrow.getComponent(UITransform) || rightArrow.addComponent(UITransform);
-                    rightArrowUi.setContentSize(220, 56);
-                    const rightArrowSprite = rightArrow.getComponent(Sprite);
-                    if (rightArrowSprite) {
-                        rightArrowSprite.color = new Color('#E3A246');
-                    }
-                    syncPlayerMetaLabelNode(rightArrow, 'DailyReceiptOkLbl', '我知道了', 24, Color.WHITE, 180, 32, 0, 0);
-                    this.bindPanelButton(rightArrow, () => {
-                        AudioMgr.inst.play('button');
-                        if (!overlay.isValid) return;
-                        close();
-                    });
-                },
+            const items = this.buildDailySignInRewardResultItems(reward);
+            const hasPropReward = items.some((item) => item.iconName !== 'daily_signin_gold_icon');
+            this.showRewardResultPopup({
+                overlayName: 'RewardResultOverlay',
+                title: '签到成功',
+                subtitle: '奖励已到账',
+                items,
+                tip: hasPropReward ? '道具会在关卡内技能按钮上显示库存' : '奖励将发放到当前账号',
+                confirmText: '我知道了',
             });
         },
 

@@ -1,0 +1,20 @@
+﻿*** Begin Patch
+*** Update File: D:\code\xyx\game-pdd-v2\assets\Scripts\Core\GameplaySkillUiController.ts
+@@
+             for (const kind of ['wand', 'brush', 'magnet'] as const) {
+                 const node = root.getChildByName(this.getSkillShellName(kind));
+                 if (!node?.isValid) continue;
+                 node.active = false;
+-                this.updateCountBadge(node, 0, false);
++                this.updateCountBadge(node, 0, true);
+                 node.targetOff(runtime);
+             }
+             return;
+         }
+@@
+             if (currentLevel < skill.unlockLevel) {
+                 shellOpacity.opacity = 138;
+-                this.updateCountBadge(shell, 0, false);
++                this.updateCountBadge(shell, 0, true);
+                 button.enabled = true;
+*** End Patch

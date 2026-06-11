@@ -877,12 +877,7 @@ export function installBoardInputViewportModule(target: any): void {
             const afterFlyLanded = block.source === 'slot'
                 ? (done: () => void) => this.compactSlotsAfterSelectionConsume(done)
                 : undefined;
-            const flyVisualOptions = block.source === 'slot'
-                ? {
-                    sourceBeanSize: this.getSlotBeanVisualSize(),
-                    targetBeanSize: this.getBoardBeanVisualSize(),
-                }
-                : undefined;
+            const flyVisualOptions = this.createFlyPlaceVisualOptions(block);
             this.startFlyPlace(block.colorId, sources, result.placed, dirtyBoardCells, dirtySlotIndices, afterFlyLanded, flyVisualOptions);
             return true;
         },

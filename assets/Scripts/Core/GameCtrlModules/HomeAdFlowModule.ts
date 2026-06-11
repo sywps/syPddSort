@@ -173,7 +173,7 @@ export function installHomeAdFlowModule(target: any): void {
                 child.destroy();
             }
             if (this.boardSlotsNode?.isValid) this.clearChildrenExcept(this.boardSlotsNode, []);
-            if (this.boardNode?.isValid) this.clearChildrenExcept(this.boardNode, ['BoardBg', 'BoardSlots']);
+            if (this.boardNode?.isValid) this.clearChildrenExcept(this.boardNode, ['BoardOutlineLayer', 'BoardOutlineTopLayer', 'BoardSlots']);
             this.clearBoardVisualPools?.();
 
             this.boardModel = null!;
@@ -209,7 +209,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._collectionOverlay = null;
             this._collectionContentNode = null;
             this._collectionScrollContentNode = null;
-            this._collectionScrollSuppressClickUntil = 0;
             this._collectionPageIndicator = null;
             this._collectionImageModal = null;
             this._themeOverlay = null;

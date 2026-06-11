@@ -37,42 +37,6 @@ export function installTutorialGuideModule(target: any): void {
             lbl.string = this.formatLevel2GuidePrompt(primaryText);
         },
 
-        /** level1 Step 0: 选中 firstColorId 豆豆块 */
-        guideLevel1Step0(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
-            const block = this.findBlockOnBoard(this._guideFirstColorId);
-            if (block) {
-                this.autoHighlightBlock(block.cells);
-                this.startHandGestureOnBlock(block, hand);
-            }
-        
-            this.styleLevel1GuidePrompt(gb, bubble, lbl, '先选这块豆豆');
-        },
-
-        /** level1 Step 1: 直接放到棋盘目标位置 */
-        guideLevel1Step1(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
-            this.highlightEmptyTarget(this._guideFirstColorId);
-            this.startHandGestureOnBoardTarget(this._guideFirstColorId, hand);
-            this.styleLevel1GuidePrompt(gb, bubble, lbl, '放回高亮位置');
-        },
-
-        /** level1 Step 2: 再选中另一块豆豆 */
-        guideLevel1Step2(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
-            const block = this.findBlockOnBoard(this._guideSecondColorId);
-            if (block) {
-                this.autoHighlightBlock(block.cells);
-                this.startHandGestureOnBlock(block, hand);
-            }
-        
-            this.styleLevel1GuidePrompt(gb, bubble, lbl, '再选另一块豆豆');
-        },
-
-        /** level1 Step 3: 继续放到棋盘目标位置 */
-        guideLevel1Step3(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
-            this.highlightEmptyTarget(this._guideSecondColorId);
-            this.startHandGestureOnBoardTarget(this._guideSecondColorId, hand);
-            this.styleLevel1GuidePrompt(gb, bubble, lbl, '放回高亮位置');
-        },
-
         /** Step 0: 选中 firstColorId 豆豆块 */
         guideStep0(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
             const block = this.findBlockOnBoard(this._guideFirstColorId);
@@ -423,7 +387,15 @@ export function installTutorialGuideModule(target: any): void {
                             guideDirtySlotIndices.push(i);
                         }
                     }
-                    this.startFlyPlace(block.colorId, sources, result.placed, guideDirtyBoardCells, guideDirtySlotIndices);
+                    this.startFlyPlace(
+                        block.colorId,
+                        sources,
+                        result.placed,
+                        guideDirtyBoardCells,
+                        guideDirtySlotIndices,
+                        undefined,
+                        this.createFlyPlaceVisualOptions(block),
+                    );
                 } else {
                     if (block.source === 'board') {
                         this.boardModel.restoreBlock(block);
@@ -530,7 +502,7 @@ export function installTutorialGuideModule(target: any): void {
                     } else {
                         this.advanceTutorial();
                     }
-                }, 0.6);
+                }, 0.2);
             } else {
                 // 没有正确放置，重置到当前步骤重新操作（奇数步始终为 place 阶段）
                 this._guidePhase = 'place';

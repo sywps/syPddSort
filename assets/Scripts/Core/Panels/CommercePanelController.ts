@@ -270,14 +270,6 @@ export class CommercePanelController {
                         syncDailyRewardCard(card, reward, cardState);
                     }
 
-                    const previewRewardIndex = status.canClaim ? status.nextClaimIndex : Math.max(0, Math.min(status.displayClaimedCount, rewards.length - 1));
-                    const previewReward = rewards[previewRewardIndex] || rewards[0];
-                    const rewardTextAnchor = runtime.requirePanelChild(box, 'RewardTextAnchor');
-                    rewardTextAnchor.active = true;
-                    const rewardTextLabel = rewardTextAnchor.getComponent(Label);
-                    if (!rewardTextLabel) throw new Error('[daily-signin-prefab] missing RewardTextAnchor label');
-                    rewardTextLabel.string = formatDailyRewardSummary(previewReward);
-
                     const claimButton = runtime.requirePanelChild(box, 'ClaimButton');
                     const claimButtonText = runtime.requirePanelChild(claimButton, 'ClaimButtonText');
                     const claimButtonLabel = claimButtonText.getComponent(Label);
