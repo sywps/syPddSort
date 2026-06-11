@@ -11,7 +11,6 @@ const bootstrapOutputRoot = path.join(runtimeRoot, 'assets', 'bootstrap');
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'GameUI/bg_game_pindd',
-	'GameUI/home_bg',
 	'GameUI/slot_groove_b_ui',
 	'GameUI/slot_panel_shell_b_ui',
 	'GameUI/slot_row_lock_dash_ui',
@@ -23,17 +22,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/popup_tool_brush_icon',
 	'GameUI/popup_tool_magnet_icon',
 	'GameUI/solid_white',
-	'GameUI/主关卡按键 (2)',
-	'GameUI/主页标题',
-	'GameUI/主题挑战',
-	'GameUI/图鉴1',
-	'GameUI/排行榜1',
-	'GameUI/爱心框',
-	'GameUI/签到1',
 	'GameUI/设置',
-	'GameUI/部件底板',
-	'GameUI/金币框 (2)',
-	'GameUI/预览框',
 ]);
 
 function fail(message) {

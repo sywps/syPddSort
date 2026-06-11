@@ -1,4 +1,4 @@
-import { _decorator, Button, Label, Node, ResolutionPolicy, director, view } from 'cc';
+import { _decorator, assetManager, Button, Label, Node, ResolutionPolicy, SceneAsset, director, view } from 'cc';
 import { GameRuntimeHost } from './GameRuntimeHost';
 
 const { ccclass } = _decorator;
@@ -78,7 +78,7 @@ export class PreviewController extends GameRuntimeHost {
             actions: [
                 { label: '打开 Panel Preview', onClick: () => { void director.loadScene('PanelPreview'); } },
                 { label: '打开 Fx Preview', onClick: () => { void director.loadScene('FxPreview'); } },
-                { label: '进入 Home.scene', onClick: () => { void director.loadScene('Home'); } },
+                { label: '进入 Home.scene', onClick: () => { this.loadHomePreviewScene(); } },
                 { label: '进入 Game.scene', onClick: () => { void director.loadScene('Game'); } },
             ],
         });
@@ -113,6 +113,22 @@ export class PreviewController extends GameRuntimeHost {
             subtitle: `第 ${page + 1}/${pages.length} 页：直接拉起 prefab 面板，验证节点绑定和关闭路径。`,
             footnote: 'PanelPreview 使用真实 prefab 与真实关闭逻辑；广告入口在 preview 模式下会被跳过。',
             actions: this.withPreviewPager(root, pages, page, 'panel'),
+        });
+    }
+
+    private loadHomePreviewScene() {
+        assetManager.loadBundle('homeAssets', (bundleErr, bundle) => {
+            if (bundleErr || !bundle) {
+                console.error('[Preview] load homeAssets failed:', bundleErr?.message || 'missing bundle');
+                return;
+            }
+            bundle.loadScene('Home', (sceneErr: Error | null, sceneAsset: SceneAsset) => {
+                if (sceneErr || !sceneAsset) {
+                    console.error('[Preview] load Home.scene failed:', sceneErr?.message || 'missing scene asset');
+                    return;
+                }
+                director.runScene(sceneAsset);
+            });
         });
     }
 

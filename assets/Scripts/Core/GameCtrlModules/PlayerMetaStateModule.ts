@@ -1,5 +1,5 @@
 import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button, Prefab, instantiate,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
@@ -29,8 +29,16 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 
+type DailySignInReceiptItem = {
+    kind: 'gold' | InventoryPropKind;
+    label: string;
+    amount: number;
+    current: number;
+    iconName: string;
+};
+
+const DAILY_SIGNIN_SUCCESS_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/DailySignInSuccessPanel';
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
 
@@ -52,40 +60,6 @@ function logRecoverVigorNodeSize(name: string, node: Node | null): void {
         `[UI尺寸] ${name}: width=${size.width}, height=${size.height}, ` +
         `pos=(${pos.x}, ${pos.y}), active=${node.active}`,
     );
-}
-
-function syncPlayerMetaLabelNode(
-    parent: Node,
-    name: string,
-    text: string,
-    fontSize: number,
-    color: Color,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    horizontalAlign: number = Label.HorizontalAlign.CENTER,
-): Label {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    const label = node.getComponent(Label) || node.addComponent(Label);
-    label.string = text;
-    label.fontSize = fontSize;
-    label.lineHeight = Math.max(fontSize + 4, height);
-    label.color = color;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.overflow = Label.Overflow.SHRINK;
-    label.enableWrapText = false;
-    node.active = true;
-    return label;
 }
 
 function normalizeFirstLevelRouteBucketPayloadValue(value: unknown): FirstLevelRouteVariant | null {
@@ -314,75 +288,148 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         buildDailySignInRewardText(reward: DailySignInReward): string[] {
+            const rewardProps = reward as DailySignInReward & { wand?: number; brush?: number; magnet?: number };
             const lines: string[] = [];
             if (reward.gold && reward.gold > 0) lines.push(`+${reward.gold}金币`);
-            if (reward.wand && reward.wand > 0) lines.push(`魔法棒x${reward.wand}`);
-            if (reward.brush && reward.brush > 0) lines.push(`刷子x${reward.brush}`);
-            if (reward.magnet && reward.magnet > 0) lines.push(`磁铁x${reward.magnet}`);
+            if (rewardProps.wand && rewardProps.wand > 0) lines.push(`魔法棒x${rewardProps.wand}`);
+            if (rewardProps.brush && rewardProps.brush > 0) lines.push(`刷子x${rewardProps.brush}`);
+            if (rewardProps.magnet && rewardProps.magnet > 0) lines.push(`磁铁x${rewardProps.magnet}`);
             return lines;
         },
 
         grantDailySignInReward(reward: DailySignInReward): string {
+            const rewardProps = reward as DailySignInReward & { wand?: number; brush?: number; magnet?: number };
             if (reward.gold && reward.gold > 0) this.addGold(reward.gold);
-            if (reward.wand && reward.wand > 0) this.addPropCount('wand', reward.wand);
-            if (reward.brush && reward.brush > 0) this.addPropCount('brush', reward.brush);
-            if (reward.magnet && reward.magnet > 0) this.addPropCount('magnet', reward.magnet);
+            if (rewardProps.wand && rewardProps.wand > 0) this.addPropCount('wand', rewardProps.wand);
+            if (rewardProps.brush && rewardProps.brush > 0) this.addPropCount('brush', rewardProps.brush);
+            if (rewardProps.magnet && rewardProps.magnet > 0) this.addPropCount('magnet', rewardProps.magnet);
             return this.buildDailySignInRewardText(reward).join('、');
         },
 
-        buildDailySignInReceiptLines(reward: DailySignInReward): string[] {
-            const lines: string[] = [];
+        buildDailySignInReceiptItems(reward: DailySignInReward): DailySignInReceiptItem[] {
+            const rewardProps = reward as DailySignInReward & { wand?: number; brush?: number; magnet?: number };
+            const items: DailySignInReceiptItem[] = [];
             if (reward.gold && reward.gold > 0) {
-                lines.push(`金币 +${reward.gold}（当前 ${this.getGold()}）`);
+                items.push({ kind: 'gold', label: '金币', amount: reward.gold, current: this.getGold(), iconName: 'daily_signin_gold_icon' });
             }
-            if (reward.wand && reward.wand > 0) {
-                lines.push(`魔法棒 +${reward.wand}（当前 ${this.getPropCount('wand')}）`);
+            if (rewardProps.wand && rewardProps.wand > 0) {
+                items.push({ kind: 'wand', label: '魔法棒', amount: rewardProps.wand, current: this.getPropCount('wand'), iconName: 'popup_tool_wand_icon' });
             }
-            if (reward.brush && reward.brush > 0) {
-                lines.push(`刷子 +${reward.brush}（当前 ${this.getPropCount('brush')}）`);
+            if (rewardProps.brush && rewardProps.brush > 0) {
+                items.push({ kind: 'brush', label: '刷子', amount: rewardProps.brush, current: this.getPropCount('brush'), iconName: 'popup_tool_brush_icon' });
             }
-            if (reward.magnet && reward.magnet > 0) {
-                lines.push(`磁铁 +${reward.magnet}（当前 ${this.getPropCount('magnet')}）`);
+            if (rewardProps.magnet && rewardProps.magnet > 0) {
+                items.push({ kind: 'magnet', label: '磁铁', amount: rewardProps.magnet, current: this.getPropCount('magnet'), iconName: 'popup_tool_magnet_icon' });
             }
-            return lines;
+            return items;
         },
 
         showDailySignInRewardReceipt(reward: DailySignInReward) {
-            openCollectionShellOverlay(this, {
-                overlayName: 'DailySignInReceiptOverlay',
-                siblingIndex: 1000,
-                onReady: ({ overlay, box, content, pageIndicator, leftArrow, rightArrow, close }) => {
-                    content.removeAllChildren();
-                    pageIndicator.active = false;
-                    leftArrow.active = false;
-                    syncPlayerMetaLabelNode(box, 'DailyReceiptTitle', '签到成功', 32, new Color('#5A4A3A'), 420, 40, 0, 170);
-                    syncPlayerMetaLabelNode(box, 'DailyReceiptSub', '奖励已到账', 20, new Color('#8A7A6A'), 420, 28, 0, 126);
+            const overlayName = 'DailySignInReceiptOverlay';
+            const panelKey = 'daily-signin-success';
+            const prefabLoadKey = 'daily-signin-success-prefab';
+            this._openPanelAfterTextures(
+                panelKey,
+                DAILY_SIGNIN_TEXTURE_NAMES,
+                () => !!this.requireCanvasUiRoot('PopupRoot').getChildByName(overlayName) || this._panelOpenInFlight.has(prefabLoadKey),
+                () => {
+                    const popupRoot = this.requireCanvasUiRoot('PopupRoot');
+                    this._panelOpenInFlight.add(prefabLoadKey);
 
-                    const lines = this.buildDailySignInReceiptLines(reward);
-                    const startY = 80;
-                    const lineGap = 48;
-                    for (let i = 0; i < lines.length; i++) {
-                        const lineLbl = syncPlayerMetaLabelNode(box, `DailyReceiptLine_${i}`, lines[i], 24, new Color('#5A4A3A'), 420, 32, 0, startY - i * lineGap);
-                        lineLbl.overflow = Label.Overflow.SHRINK;
-                    }
+                    const failOpen = (message: string, overlay?: Node | null) => {
+                        this._panelOpenInFlight.delete(prefabLoadKey);
+                        if (overlay?.isValid) {
+                            this._clearSpriteFramesBeforeDestroy(overlay);
+                            overlay.destroy();
+                        }
+                        this._releasePanelTexturesNextFrame(DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, 'daily-signin-success-open-failed');
+                        throw new Error(message);
+                    };
 
-                    syncPlayerMetaLabelNode(box, 'DailyReceiptTip', '道具会在关卡内技能按钮上显示库存', 18, new Color('#B07A47'), 420, 26, 0, -92);
-                    rightArrow.active = true;
-                    rightArrow.setPosition(0, -312, 0);
-                    const rightArrowUi = rightArrow.getComponent(UITransform) || rightArrow.addComponent(UITransform);
-                    rightArrowUi.setContentSize(220, 56);
-                    const rightArrowSprite = rightArrow.getComponent(Sprite);
-                    if (rightArrowSprite) {
-                        rightArrowSprite.color = new Color('#E3A246');
-                    }
-                    syncPlayerMetaLabelNode(rightArrow, 'DailyReceiptOkLbl', '我知道了', 24, Color.WHITE, 180, 32, 0, 0);
-                    this.bindPanelButton(rightArrow, () => {
-                        AudioMgr.inst.play('button');
-                        if (!overlay.isValid) return;
-                        close();
+                    this._withGameAssetsBundle((bundle: Bundle | null) => {
+                        if (!bundle) {
+                            failOpen('[daily-signin-success-prefab] gameAssets bundle unavailable');
+                            return;
+                        }
+                        bundle.load(DAILY_SIGNIN_SUCCESS_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                            this._panelOpenInFlight.delete(prefabLoadKey);
+                            if (err || !prefab) {
+                                failOpen(`[daily-signin-success-prefab] load failed: ${err?.message || 'prefab missing'}`);
+                                return;
+                            }
+
+                            let overlay: Node | null = null;
+                            try {
+                                popupRoot.getChildByName(overlayName)?.destroy();
+                                overlay = instantiate(prefab);
+                                overlay.name = overlayName;
+                                popupRoot.addChild(overlay);
+                                overlay.setSiblingIndex(1000);
+                                overlay.active = true;
+                                if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
+
+                                const box = this.requirePanelChild(overlay, 'Box');
+                                if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
+
+                                const requirePrefabLabel = (parent: Node, name: string): Label => {
+                                    const label = this.requirePanelChild(parent, name).getComponent(Label);
+                                    if (!label) throw new Error(`[daily-signin-success-prefab] missing Label component on ${parent.name}/${name}`);
+                                    return label;
+                                };
+                                const syncPrefabIcon = (node: Node, iconName: string) => {
+                                    const sprite = node.getComponent(Sprite);
+                                    const frame = this.getSF(iconName);
+                                    if (!sprite) throw new Error(`[daily-signin-success-prefab] missing Sprite component on ${node.name}`);
+                                    if (!frame) throw new Error(`[daily-signin-success-prefab] missing SpriteFrame: ${iconName}`);
+                                    sprite.spriteFrame = frame;
+                                };
+
+                                const titleBadge = this.requirePanelChild(box, 'PopupTitleBadge');
+                                requirePrefabLabel(titleBadge, 'PopupTitleLabel').string = '签到成功';
+
+                                const receiptItems = this.buildDailySignInReceiptItems(reward);
+                                const mainItem = receiptItems[0];
+                                if (!mainItem) throw new Error('[daily-signin-success-prefab] reward receipt is empty');
+
+                                const rewardCard = this.requirePanelChild(box, 'RewardCard');
+                                rewardCard.active = true;
+                                syncPrefabIcon(this.requirePanelChild(rewardCard, 'RewardIcon'), mainItem.iconName);
+                                requirePrefabLabel(rewardCard, 'RewardAmountLabel').string = `+${mainItem.amount}`;
+                                requirePrefabLabel(rewardCard, 'RewardCurrentLabel').string = `${mainItem.label}已到账 · 当前 ${mainItem.current}`;
+
+                                for (let i = 0; i < 3; i++) {
+                                    const row = this.requirePanelChild(box, `ExtraRewardRow${i}`);
+                                    const item = receiptItems[i + 1];
+                                    row.active = !!item;
+                                    if (!item) continue;
+                                    syncPrefabIcon(this.requirePanelChild(row, 'ExtraRewardIcon'), item.iconName);
+                                    requirePrefabLabel(row, 'ExtraRewardLabel').string = `${item.label} +${item.amount} · 当前 ${item.current}`;
+                                }
+
+                                const confirmButton = this.requirePanelChild(box, 'ConfirmButton');
+                                requirePrefabLabel(confirmButton, 'ConfirmButtonLabel').string = '开心收下';
+
+                                let closed = false;
+                                const closeReceipt = () => {
+                                    if (closed) return;
+                                    closed = true;
+                                    if (overlay?.isValid) {
+                                        this._destroyPanelAndReleaseTextures(overlay, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, 'daily-signin-success');
+                                    }
+                                };
+                                const closeWithAudio = () => {
+                                    AudioMgr.inst.play('button');
+                                    closeReceipt();
+                                };
+                                this.bindPanelButton(this.requirePanelChild(box, 'XBtn'), closeWithAudio);
+                                this.bindPanelButton(confirmButton, closeWithAudio);
+                            } catch (error: any) {
+                                failOpen(error?.message || '[daily-signin-success-prefab] build failed', overlay);
+                            }
+                        });
                     });
                 },
-            });
+            );
         },
 
         /** 消耗体力 */

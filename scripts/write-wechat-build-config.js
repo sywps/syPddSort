@@ -27,8 +27,9 @@ function resolveSeparateEngine() {
     return false;
 }
 
-function readSceneUuid(sceneName) {
-    const metaPath = path.join(projectRoot, 'assets', 'Scenes', sceneName + '.scene.meta');
+function readAssetUuid(assetUrl) {
+    const relPath = assetUrl.replace(/^db:\/\/assets\//, '');
+    const metaPath = path.join(projectRoot, 'assets', relPath + '.meta');
     if (!fs.existsSync(metaPath)) {
         console.error('缺少微信运行态场景 meta: ' + metaPath);
         process.exit(1);
@@ -44,7 +45,7 @@ function readSceneUuid(sceneName) {
 function makeRuntimeScenes() {
     const scenes = [
         { url: startSceneUrl, uuid: startSceneUuid },
-        { url: 'db://assets/Scenes/Home.scene', uuid: readSceneUuid('Home') },
+        { url: 'db://assets/Scenes/Game.scene', uuid: readAssetUuid('db://assets/Scenes/Game.scene') },
     ];
     const seen = new Set();
     return scenes.filter((scene) => {
@@ -109,6 +110,13 @@ const config = {
         {
             root: 'db://assets/GameAssetsBundle',
             name: 'gameAssets',
+            compressionType: 'subpackage',
+            isRemote: false,
+            output: true,
+        },
+        {
+            root: 'db://assets/HomeAssetsBundle',
+            name: 'homeAssets',
             compressionType: 'subpackage',
             isRemote: false,
             output: true,

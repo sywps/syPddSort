@@ -446,27 +446,11 @@ export function installFirstLevelRouteModule(target: any): void {
         
         preloadAllAssets(onDone?: () => void) {
             LevelDataCdnService.inst.prefetchLive();
-            let startupAssetsDone = false;
-            let bootstrapBeansDone = false;
-            const tryFinish = () => {
-                if (!startupAssetsDone || !bootstrapBeansDone) return;
+            const finish = () => {
                 if (onDone) onDone();
                 else this.showMainMenu();
             };
-        
-            const finishStartupAssets = () => {
-                startupAssetsDone = true;
-                tryFinish();
-            };
-            const finishBootstrapBeans = () => {
-                bootstrapBeansDone = true;
-                tryFinish();
-            };
-        
-            this._ensureBootstrapBeanAtlasLoaded(() => finishBootstrapBeans());
-        
-            // 只预加载主页首屏 remote 资源；关卡、技能、面板资源按入口懒加载。
-            this._loadFromGameAssetsBundle(finishStartupAssets);
+            this.scheduleOnce(finish, 0);
         },
 
         _isWeChat(): boolean {

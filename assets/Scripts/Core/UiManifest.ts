@@ -50,6 +50,9 @@ export const RECOVER_VIGOR_TEXTURE_NAMES = [
 export const DAILY_SIGNIN_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     'daily_signin_gold_icon',
+    'popup_tool_wand_icon',
+    'popup_tool_brush_icon',
+    'popup_tool_magnet_icon',
 ];
 
 export const SETTINGS_PANEL_TEXTURE_NAMES = [

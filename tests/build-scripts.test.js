@@ -60,6 +60,8 @@ for (const filePath of [
     'scripts/postbuild-wechat.js',
     'scripts/fix-game-json.js',
     'scripts/verify-wechat-build.js',
+    'scripts/patch-home-assets-bundle.js',
+    'scripts/verify-bundle-native-files.js',
     'scripts/smoke-wechat-preview.js',
     'scripts/verify-ui-ownership.js',
     'scripts/verify-cocos-meta.js',
@@ -80,6 +82,7 @@ for (const required of [
     'scripts/write-wechat-build-config.js',
     'scripts/postbuild-wechat.js',
     'scripts/patch-bootstrap-dynamic-assets.js',
+    'scripts/patch-home-assets-bundle.js',
     'configPath=',
     'build/level-data-cdn',
     'build/wechatgame',
@@ -89,9 +92,14 @@ for (const required of [
     'scripts/repair-cocos-meta.js',
     'assets/LevelData',
     'BootstrapBundle',
+    'HomeAssetsBundle',
+    'validateHomeAssetsBundle',
+    '本地 homeAssets bundle script 缺少稳定入口 index.js',
     '本地 gameAssets bundle script 缺少稳定入口 index.js',
     'assertRuntimeScenes',
-    'db://assets/Scenes/Home.scene',
+    'assertSourceBundleArtifactsExist',
+    'db://assets/Scenes/Loading.scene',
+    'db://assets/HomeAssetsBundle/Scenes/Home.scene',
     'db://assets/Scenes/Game.scene',
     'bean-atlas-data.json',
     'GameUI/bg_game_pindd',
@@ -101,6 +109,8 @@ for (const required of [
     'validateLevelDataCdn',
     'level_live.json',
     'gameAssets 分包',
+    'homeAssets 分包',
+    '启动下载量',
     'gameAssets 微信分包缺少入口 game.js',
     'main bundle 不应依赖 \' + bundleName',
 ]) {
@@ -124,11 +134,11 @@ assert.ok(exists('assets/BootstrapBundle/LevelData/level_1.json'), 'BootstrapBun
 assert.strictEqual(exists('assets/BootstrapBundle/LevelData/level_2.json'), false, 'BootstrapBundle must not keep stale first-level snapshot level_2');
 const auditAssets = read('scripts/audit-assets.js');
 assert.ok(auditAssets.includes('solid_white.png must stay a 1x1 8-bit RGBA PNG'), 'audit-assets must guard solid_white.png against WeChat 4930 decode regressions');
-assert.ok(auditAssets.includes('Home.scene startup SpriteFrames must remain in BootstrapBundle'), 'audit-assets must keep Home startup SpriteFrames in BootstrapBundle');
+assert.ok(auditAssets.includes('Home.scene startup SpriteFrames must remain in HomeAssetsBundle'), 'audit-assets must keep Home startup SpriteFrames in HomeAssetsBundle');
 assert.ok(auditAssets.includes('Scenes must not reference missing SpriteFrame assets'), 'audit-assets must catch deleted scene SpriteFrame sources');
 assert.ok(auditAssets.includes('Scenes must not strong-reference GameAssetsBundle SpriteFrames'), 'audit-assets must keep scene SpriteFrames out of GameAssetsBundle strong references');
 assert.ok(auditAssets.includes('assets/GameAssetsBundle/Textures/UI/主页标题.png'), 'audit-assets must forbid duplicated Home startup art in GameAssetsBundle');
-assert.ok(auditAssets.includes('e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941'), 'audit-assets must require the Bootstrap Home BG SpriteFrame UUID');
+assert.ok(auditAssets.includes('e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941'), 'audit-assets must require the Home BG SpriteFrame UUID');
 assert.ok(auditAssets.includes('collectSceneSpriteFrameRefs'), 'audit-assets must scan scene SpriteFrame refs for missing source assets');
 assert.ok(auditAssets.includes('slot_row_lock_dash_ui.png'), 'audit-assets must require first-level lock dash source art');
 
@@ -156,6 +166,28 @@ for (const required of [
 ]) {
     assert.ok(patchBootstrapAssets.includes(required), `patch-bootstrap-dynamic-assets.js must include ${required}`);
 }
+const patchHomeAssets = read('scripts/patch-home-assets-bundle.js');
+for (const required of [
+    'HomeAssetsBundle',
+    'collectSourceBundleArtifacts',
+    'assetDbImportPath',
+    'copyNative',
+    'artifacts patched',
+]) {
+    assert.ok(patchHomeAssets.includes(required), `patch-home-assets-bundle.js must include ${required}`);
+}
+const verifyBundleNativeFiles = read('scripts/verify-bundle-native-files.js');
+for (const required of [
+    'decodeUuid',
+    'collectSourceBundleArtifacts',
+    'assertSourceBundleArtifactsExist',
+    'assertBundleNativeFilesExist',
+    'importArtifactPath',
+    'findNativeArtifact',
+    'isRuntimeImportJson',
+]) {
+    assert.ok(verifyBundleNativeFiles.includes(required), `verify-bundle-native-files.js must include ${required}`);
+}
 const extractBootstrap = read('scripts/extract-bootstrap-bundle.js');
 assert.ok(extractBootstrap.includes('LevelData/level_1'), 'bootstrap extraction must keep level_1');
 for (const required of [
@@ -171,6 +203,9 @@ assert.strictEqual(extractBootstrap.includes('Audio/'), false, 'bootstrap extrac
 const gameAssetsBundleMeta = JSON.parse(read('assets/GameAssetsBundle.meta'));
 assert.strictEqual(gameAssetsBundleMeta.userData?.compressionType, 'subpackage', 'GameAssetsBundle must build as a WeChat subpackage');
 assert.strictEqual(gameAssetsBundleMeta.userData?.isRemote, undefined, 'GameAssetsBundle must not be a Cocos gameAssets bundle');
+const homeAssetsBundleMeta = JSON.parse(read('assets/HomeAssetsBundle.meta'));
+assert.strictEqual(homeAssetsBundleMeta.userData?.isBundle, true, 'HomeAssetsBundle must be a Cocos bundle');
+assert.strictEqual(homeAssetsBundleMeta.userData?.bundleName, 'homeAssets', 'HomeAssetsBundle bundle name must be homeAssets');
 
 const buildConfig = read('scripts/write-wechat-build-config.js');
 for (const required of [
@@ -183,9 +218,11 @@ for (const required of [
     'debug: false',
     'md5Cache: true',
     'startScene',
-    'readSceneUuid',
+    'readAssetUuid',
     'makeRuntimeScenes',
-    'db://assets/Scenes/Home.scene',
+    'db://assets/Scenes/Game.scene',
+    'db://assets/HomeAssetsBundle',
+    'name: \'homeAssets\'',
     'mainBundleCompressionType: \'subpackage\'',
     'db://assets/GameAssetsBundle',
     'name: \'gameAssets\'',
@@ -230,16 +267,18 @@ for (const required of [
     'minigameRootPath',
     'openDataContext',
     'globalThis.__rawWx',
-    'gameAssets 必须是微信分包/本地 bundle',
+    'homeAssets/gameAssets 必须是微信分包/本地 bundle',
+    'ensureHomeAssetsWechatSubpackage',
     'ensureGameAssetsWechatSubpackage',
     'ensureSubpackageGameJs',
+    'HOME_ASSETS_BUNDLE_NAME',
     'subpackages/gameAssets',
     "'subpackages/' + LEVEL_DATA_BUNDLE_NAME",
     '本地 resources bundle 已移除',
     'projectBundles',
     'ensureStartupPreloadBundles',
     'startup preload: bootstrap -> main',
-    'gameAssets 分包目录由微信 subpackages 承载',
+    'homeAssets/gameAssets 分包目录由微信 subpackages 承载',
 ]) {
     assert.ok(postbuild.includes(required), `fix-game-json.js must include ${required}`);
 }
@@ -267,7 +306,8 @@ for (const required of [
     'Game.scene 直接引用了未登记 prefab',
     'Game.scene 直接引用了 GameAssetsBundle 资源',
     'assertRuntimeScenes',
-    'db://assets/Scenes/Home.scene',
+    'db://assets/Scenes/Loading.scene',
+    'db://assets/HomeAssetsBundle/Scenes/Home.scene',
     'db://assets/Scenes/Game.scene',
     'assets/Prefabs/Panels/RevivePanel.prefab',
     'openDataContext',
@@ -288,8 +328,13 @@ for (const required of [
     '__PDD_WECHAT_BUILD__',
     '__PDD_WECHAT_BUILD_MODE__',
     '__PDD_LEVEL_DATA_CDN_URL__',
+    'settings.assets.subpackages 缺少 homeAssets',
+    'game.json.subpackages 缺少 homeAssets',
     'settings.assets.subpackages 缺少 gameAssets',
     'game.json.subpackages 缺少 gameAssets',
+    'homeAssets 微信分包目录',
+    'homeAssets 分包 game.js',
+    'assertSourceBundleArtifactsExist',
     'gameAssets 微信分包目录',
     'gameAssets 分包 game.js',
     'levelData 微信分包目录',
@@ -305,6 +350,7 @@ for (const required of [
     '未与 assets/LevelData 真源同步',
     'assertStartupPreloadOrder',
     'bootstrap -> main',
+    'startupDownload',
 ]) {
     assert.ok(verifyWechat.includes(required), `verify-wechat-build.js must include ${required}`);
 }
@@ -458,7 +504,7 @@ const audioManifest = read('assets/Scripts/Core/AudioManifest.ts');
 const uiManifest = read('assets/Scripts/Core/UiManifest.ts');
 const gameScene = read('assets/Scenes/Game.scene');
 const gameSceneJson = JSON.parse(gameScene);
-const homeScene = read('assets/Scenes/Home.scene');
+const homeScene = read('assets/HomeAssetsBundle/Scenes/Home.scene');
 const homeSceneJson = JSON.parse(homeScene);
 const collectionPanelJson = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'));
 
@@ -520,30 +566,33 @@ assertSceneComponentBackrefs(gameSceneJson, 'Game.scene');
 assertSceneComponentBackrefs(homeSceneJson, 'Home.scene');
 
 for (const [requiredHomePath, expected] of Object.entries({
-    'BackgroundLayer/BG': { uuid: 'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941', asset: 'home_bg' },
-    'TopBarGroup/SettingsButton/HomeSettingsIcon': { uuid: 'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941', asset: '设置' },
-    'TopBarGroup/VigorGroup/LivesBanner': { uuid: '8885ec69-f7f4-bb71-8fd7-e110a5061a63@f9941', asset: '爱心框' },
-    'TopBarGroup/GoldGroup/GoldBanner': { uuid: '47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941', asset: '金币框 (2)' },
-    'TitleLayer/TitleArt': { uuid: 'f7446f73-3160-35a9-ff10-9a1c6940e181@f9941', asset: '主页标题' },
-    'HeroLayer/HeroCard/HeroCardFrame': { uuid: '69f9cc1c-e9a2-8e2a-c828-fbeab6bacd79@f9941', asset: '预览框' },
-    'PrimaryActionLayer/StartBtn': { uuid: '0c366cf2-3492-9b22-9c2d-0ffb827e7cf4@f9941', asset: '主关卡按键 (2)' },
-    'PrimaryActionLayer/ThemeBtn': { uuid: 'f0915f71-2542-ebc5-1541-18f4e1a7656c@f9941', asset: '主题挑战' },
-    'EntryLayer/DailySignInBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
-    'EntryLayer/DailySignInBtn/DailySignInIcon': { uuid: '68e9eb2e-772d-f1ab-a25c-b2f79daa0083@f9941', asset: '签到1' },
-    'EntryLayer/LeaderboardBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
-    'EntryLayer/LeaderboardBtn/LeaderboardIcon': { uuid: '91a910e0-aaeb-094c-4b24-0ee12b074d31@f9941', asset: '排行榜1' },
-    'EntryLayer/CollectionBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', asset: '部件底板' },
-    'EntryLayer/CollectionBtn/CollectionIcon': { uuid: '382d81c2-e3f4-5d6e-c6de-abcaed0907fd@f9941', asset: '图鉴1' },
+    'BackgroundLayer/BG': { uuid: 'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_bg.jpeg' },
+    'TopBarGroup/SettingsButton/HomeSettingsIcon': { uuid: 'd301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941', file: 'assets/BootstrapBundle/GameUI/设置.png' },
+    'TopBarGroup/VigorGroup/LivesBanner': { uuid: '8885ec69-f7f4-bb71-8fd7-e110a5061a63@f9941', file: 'assets/HomeAssetsBundle/GameUI/爱心框.png' },
+    'TopBarGroup/GoldGroup/GoldBanner': { uuid: '47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941', file: 'assets/HomeAssetsBundle/GameUI/金币框 (2).png' },
+    'TitleLayer/TitleArt': { uuid: 'f7446f73-3160-35a9-ff10-9a1c6940e181@f9941', file: 'assets/HomeAssetsBundle/GameUI/主页标题.png' },
+    'HeroLayer/HeroCard/HeroCardFrame': { uuid: '69f9cc1c-e9a2-8e2a-c828-fbeab6bacd79@f9941', file: 'assets/HomeAssetsBundle/GameUI/预览框.png' },
+    'PrimaryActionLayer/StartBtn': { uuid: '0c366cf2-3492-9b22-9c2d-0ffb827e7cf4@f9941', file: 'assets/HomeAssetsBundle/GameUI/主关卡按键 (2).png' },
+    'PrimaryActionLayer/ThemeBtn': { uuid: 'f0915f71-2542-ebc5-1541-18f4e1a7656c@f9941', file: 'assets/HomeAssetsBundle/GameUI/主题挑战.png' },
+    'EntryLayer/DailySignInBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', file: 'assets/HomeAssetsBundle/GameUI/部件底板.png' },
+    'EntryLayer/DailySignInBtn/DailySignInIcon': { uuid: '68e9eb2e-772d-f1ab-a25c-b2f79daa0083@f9941', file: 'assets/HomeAssetsBundle/GameUI/签到1.png' },
+    'EntryLayer/LeaderboardBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', file: 'assets/HomeAssetsBundle/GameUI/部件底板.png' },
+    'EntryLayer/LeaderboardBtn/LeaderboardIcon': { uuid: '91a910e0-aaeb-094c-4b24-0ee12b074d31@f9941', file: 'assets/HomeAssetsBundle/GameUI/排行榜1.png' },
+    'EntryLayer/CollectionBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', file: 'assets/HomeAssetsBundle/GameUI/部件底板.png' },
+    'EntryLayer/CollectionBtn/CollectionIcon': { uuid: '382d81c2-e3f4-5d6e-c6de-abcaed0907fd@f9941', file: 'assets/HomeAssetsBundle/GameUI/图鉴1.png' },
 })) {
     const node = findSceneNodeByPath(homeSceneJson, 'MainMenuFixedRoot', requiredHomePath);
-    assert.ok(node, `Home.scene must contain Bootstrap startup SpriteFrame path ${requiredHomePath}`);
-    assert.ok(sceneNodeHasComponent(homeSceneJson, node, 'cc.Sprite'), `Home.scene Bootstrap startup path must have Sprite component ${requiredHomePath}`);
+    assert.ok(node, `Home.scene must contain startup SpriteFrame path ${requiredHomePath}`);
+    assert.ok(sceneNodeHasComponent(homeSceneJson, node, 'cc.Sprite'), `Home.scene startup path must have Sprite component ${requiredHomePath}`);
     const sprite = getSceneNodeComponent(homeSceneJson, node, 'cc.Sprite');
-    assert.strictEqual(sprite._spriteFrame?.__uuid__, expected.uuid, `Home.scene ${requiredHomePath} must use Bootstrap SpriteFrame ${expected.uuid}`);
-    assert.ok(exists(`assets/BootstrapBundle/GameUI/${expected.asset}.png`), `BootstrapBundle must contain ${expected.asset}.png`);
-    assert.ok(exists(`assets/BootstrapBundle/GameUI/${expected.asset}.png.meta`), `BootstrapBundle must contain ${expected.asset}.png.meta`);
-    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${expected.asset}.png`), false, `GameAssetsBundle must not duplicate ${expected.asset}.png`);
-    assert.strictEqual(exists(`assets/GameAssetsBundle/Textures/UI/${expected.asset}.png.meta`), false, `GameAssetsBundle must not duplicate ${expected.asset}.png.meta`);
+    assert.strictEqual(sprite._spriteFrame?.__uuid__, expected.uuid, `Home.scene ${requiredHomePath} must use startup SpriteFrame ${expected.uuid}`);
+    assert.ok(exists(expected.file), `Startup asset must exist: ${expected.file}`);
+    assert.ok(exists(`${expected.file}.meta`), `Startup asset meta must exist: ${expected.file}.meta`);
+    const gameAssetsDuplicate = expected.file.replace('assets/HomeAssetsBundle/GameUI/', 'assets/GameAssetsBundle/Textures/UI/');
+    if (gameAssetsDuplicate !== expected.file) {
+        assert.strictEqual(exists(gameAssetsDuplicate), false, `GameAssetsBundle must not duplicate ${gameAssetsDuplicate}`);
+        assert.strictEqual(exists(`${gameAssetsDuplicate}.meta`), false, `GameAssetsBundle must not duplicate ${gameAssetsDuplicate}.meta`);
+    }
 }
 const gameSettingsIconNode = findSceneNodeByPath(gameSceneJson, 'GameplayFixedRoot', 'TopBarGroup/Settings/SettingsIcon');
 assert.ok(gameSettingsIconNode, 'Game.scene must contain first-level Settings/SettingsIcon');
@@ -615,7 +664,7 @@ assert.strictEqual(gameScene.includes('BoardArea_widget_static_viewport_20260608
 const slotAreaWidget = getSceneNodeComponent(gameSceneJson, slotAreaNode, 'cc.Widget');
 assert.ok(slotAreaWidget, 'SlotArea must keep its Cocos Widget-owned bottom anchor');
 assert.strictEqual(slotAreaWidget._bottom, 110, 'SlotArea must keep the expanded-board scene bottom anchor');
-assert.strictEqual(slotAreaNode._lpos.y, -448.5, 'SlotArea must keep the expanded-board scene y baseline');
+assert.strictEqual(slotAreaNode._lpos.y, -443.5, 'SlotArea must keep the expanded-board scene y baseline');
 for (const [requiredGamePath, expectedUuid] of [
     ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
     ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],

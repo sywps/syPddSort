@@ -115,6 +115,8 @@ export function initializeGameCtrlState(runtime: any): void {
         _guideArrow: null,
         _guidePulseTweens: [] as Tween<Node>[],
         _guideHighlightCells: [],
+        _guideInputSuspended: false,
+        _modalFocusRefs: 0,
         _lastGuideVoiceToken: '',
         _loadingOverlay: null,
         _loadingProgressFill: null,

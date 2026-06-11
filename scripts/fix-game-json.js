@@ -28,6 +28,7 @@ const debugLevelDataBundle = buildMode === 'debug';
 const screenAdaptDebug = process.env.PDD_SCREEN_ADAPT_DEBUG === '1';
 
 const BUNDLE_NAME = 'gameAssets';
+const HOME_ASSETS_BUNDLE_NAME = 'homeAssets';
 const LEVEL_DATA_BUNDLE_NAME = 'levelData';
 const MAIN_PACKAGE_TARGET_KB = 3072;
 const MAIN_PACKAGE_ERROR_KB = 4096;
@@ -98,6 +99,24 @@ function ensureStableBundleFiles(bundleDir) {
     var stableIndexPath = path.join(bundleDir, 'index.js');
     if (fs.existsSync(indexPath) && indexPath !== stableIndexPath && !fs.existsSync(stableIndexPath)) {
         fs.copyFileSync(indexPath, stableIndexPath);
+    }
+}
+
+function stripBundleConfigDeps(bundleDir, bundleName, forbiddenDeps) {
+    if (!fs.existsSync(bundleDir)) return;
+    var configFiles = fs.readdirSync(bundleDir)
+        .filter(function (name) { return /^config(?:\.[0-9a-f]+)?\.json$/i.test(name); })
+        .map(function (name) { return path.join(bundleDir, name); });
+    for (var i = 0; i < configFiles.length; i++) {
+        var configPath = configFiles[i];
+        var config = readJsonFile(configPath);
+        if (!Array.isArray(config.deps)) continue;
+        var before = config.deps.length;
+        config.deps = config.deps.filter(function (dep) { return forbiddenDeps.indexOf(dep) === -1; });
+        if (config.deps.length !== before) {
+            writeJsonFile(configPath, config);
+            console.log('[4/6] 已移除 ' + bundleName + ' 过宽依赖: ' + forbiddenDeps.join(', ') + ' ✓');
+        }
     }
 }
 
@@ -251,6 +270,23 @@ function ensureGameAssetsWechatSubpackage() {
     return gameAssetsSubpackageDir;
 }
 
+function ensureHomeAssetsWechatSubpackage() {
+    var runtimeRoot = resolveRuntimeRoot();
+    var localBundleDir = path.join(runtimeRoot, 'assets', HOME_ASSETS_BUNDLE_NAME);
+    var homeAssetsRoot = 'subpackages/' + HOME_ASSETS_BUNDLE_NAME;
+    var homeAssetsSubpackageDir = path.join(runtimeRoot, homeAssetsRoot);
+    if (fs.existsSync(localBundleDir)) {
+        movePathSync(localBundleDir, homeAssetsSubpackageDir);
+        console.log('[4/6] 已将 assets/homeAssets 迁移为微信分包: ' + homeAssetsRoot + ' ✓');
+    }
+    ensureStableBundleFiles(homeAssetsSubpackageDir);
+    stripBundleConfigDeps(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME, [BUNDLE_NAME]);
+    ensureSubpackageGameJs(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME);
+    ensureBundleInGameSubpackages(runtimeRoot, HOME_ASSETS_BUNDLE_NAME);
+    ensureBundleInSettingsSubpackages(resolveSettingsPath(), HOME_ASSETS_BUNDLE_NAME);
+    return homeAssetsSubpackageDir;
+}
+
 function ensureLevelDataWechatSubpackage() {
     if (!debugLevelDataBundle) return '';
     var runtimeRoot = resolveRuntimeRoot();
@@ -312,6 +348,7 @@ function ensureStartupPreloadBundles(assets) {
         var existingName = getPreloadBundleName(preloadBundles[j]);
         if (
             requiredOrder.indexOf(existingName) === -1
+            && existingName !== HOME_ASSETS_BUNDLE_NAME
             && existingName !== BUNDLE_NAME
             && existingName !== LEVEL_DATA_BUNDLE_NAME
         ) ordered.push(preloadBundles[j]);
@@ -436,6 +473,7 @@ function ensureBundleScriptStub(runtimeRoot, bundleName, label) {
 }
 
 // 1. 创建 src/bundle-scripts/gameAssets/index.js
+ensureBundleScriptStub(resolveRuntimeRoot(), HOME_ASSETS_BUNDLE_NAME, '[1/6] homeAssets');
 ensureBundleScriptStub(resolveRuntimeRoot(), BUNDLE_NAME, '[1/6] gameAssets');
 if (debugLevelDataBundle) {
     ensureBundleScriptStub(resolveRuntimeRoot(), LEVEL_DATA_BUNDLE_NAME, '[1.1/6] levelData');
@@ -449,15 +487,15 @@ if (fs.existsSync(settingsPath)) {
     a.server = '';
     delete a.gameAssetsBundles;
     a.remoteBundles = (Array.isArray(a.remoteBundles) ? a.remoteBundles : []).filter(function (name) {
-        return name !== BUNDLE_NAME && name !== LEVEL_DATA_BUNDLE_NAME;
+        return name !== HOME_ASSETS_BUNDLE_NAME && name !== BUNDLE_NAME && name !== LEVEL_DATA_BUNDLE_NAME;
     });
     var projectBundles = Array.isArray(a.projectBundles) ? a.projectBundles.slice() : [];
     if (!debugLevelDataBundle) {
         projectBundles = projectBundles.filter(function (name) { return name !== LEVEL_DATA_BUNDLE_NAME; });
     }
     var requiredProjectBundles = debugLevelDataBundle
-        ? ['bootstrap', BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME]
-        : ['bootstrap', BUNDLE_NAME];
+        ? ['bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME]
+        : ['bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
     for (var projectBundleIndex = 0; projectBundleIndex < requiredProjectBundles.length; projectBundleIndex++) {
         var projectBundleName = requiredProjectBundles[projectBundleIndex];
         if (projectBundles.indexOf(projectBundleName) === -1) projectBundles.push(projectBundleName);
@@ -466,7 +504,7 @@ if (fs.existsSync(settingsPath)) {
     ensureStartupPreloadBundles(a);
     settings.assets = a;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, null));
-    console.log('[2/6] projectBundles 已配置 bootstrap + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
+    console.log('[2/6] projectBundles 已配置 bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
     console.log('[2/6] startup preload: bootstrap -> main ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
@@ -644,8 +682,8 @@ if (fs.existsSync(projectConfigPath)) {
 // 注意：这里发生在 minigame 迁移之前，bootstrap 仍然位于 build 根目录；
 // 如果脚本被重复执行，则也可能已经位于 minigame/ 下，所以要同时兼容两种位置。
 var stableBundleNames = debugLevelDataBundle
-    ? ['internal', 'bootstrap', BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, 'main']
-    : ['internal', 'bootstrap', BUNDLE_NAME, 'main'];
+    ? ['internal', 'bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, 'main']
+    : ['internal', 'bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, 'main'];
 stableBundleNames.forEach(function (bundleName) {
     ensureStableBundleFiles(resolveBuildPath(path.join('assets', bundleName)));
 });
@@ -694,8 +732,14 @@ if (fs.existsSync(settingsPath)) {
     }
 }
 
-// 4. gameAssets 必须是微信分包/本地 bundle，不能再作为 Cocos 远程资源包。
+// 4. homeAssets/gameAssets 必须是微信分包/本地 bundle，不能再作为 Cocos 远程资源包。
 // Cocos CLI 有时不会把 custom bundle 自动落到 subpackages/，这里按生成适配器逻辑兜底迁移。
+var homeAssetsSubpackageDir = ensureHomeAssetsWechatSubpackage();
+if (!fs.existsSync(homeAssetsSubpackageDir)) {
+    console.error('[4/6] 未找到 homeAssets 微信分包目录:', homeAssetsSubpackageDir);
+    process.exit(1);
+}
+console.log('[4/6] homeAssets 微信分包已就绪 ✓');
 var gameAssetsSubpackageDir = ensureGameAssetsWechatSubpackage();
 if (!fs.existsSync(gameAssetsSubpackageDir)) {
     console.error('[4/6] 未找到 gameAssets 微信分包目录:', gameAssetsSubpackageDir);
@@ -916,7 +960,12 @@ if (movedRuntimeCount > 0) {
     console.log('[8/8] 已迁移运行时文件到 minigame/ (' + movedRuntimeCount + ' 项) ✓');
 }
 
-// 8.5 gameAssets 分包目录由微信 subpackages 承载。
+// 8.5 homeAssets/gameAssets 分包目录由微信 subpackages 承载。
+var minigameHomeAssetsSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, HOME_ASSETS_BUNDLE_NAME);
+var minigameHomeAssetsSubpackageDir = path.join(minigameRootPath, minigameHomeAssetsSubpackageRoot);
+console.log(fs.existsSync(minigameHomeAssetsSubpackageDir)
+    ? '[8.5/8] homeAssets 微信分包目录已保留: ' + minigameHomeAssetsSubpackageRoot + ' ✓'
+    : '[8.5/8] homeAssets 微信分包目录缺失，交由验证脚本确认: ' + minigameHomeAssetsSubpackageRoot);
 var minigameGameAssetsSubpackageRoot = getGameAssetsSubpackageRoot(minigameRootPath);
 var minigameGameAssetsSubpackageDir = path.join(minigameRootPath, minigameGameAssetsSubpackageRoot);
 console.log(fs.existsSync(minigameGameAssetsSubpackageDir)

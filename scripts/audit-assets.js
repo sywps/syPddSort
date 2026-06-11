@@ -38,11 +38,6 @@ const forbiddenAssetFiles = [
     'assets/GameAssetsBundle/Textures/UI/popup_tool_wand_icon.png',
     'assets/GameAssetsBundle/Textures/UI/popup_tool_brush_icon.png',
     'assets/GameAssetsBundle/Textures/UI/popup_tool_magnet_icon.png',
-];
-const forbiddenAssetDirs = [
-    'assets/GameAssetsBundle/Textures/Pindd/Beans',
-];
-const requiredBootstrapStartupAssetFiles = [
     'assets/BootstrapBundle/GameUI/home_bg.png',
     'assets/BootstrapBundle/GameUI/主关卡按键 (2).png',
     'assets/BootstrapBundle/GameUI/主页标题.png',
@@ -51,10 +46,15 @@ const requiredBootstrapStartupAssetFiles = [
     'assets/BootstrapBundle/GameUI/排行榜1.png',
     'assets/BootstrapBundle/GameUI/爱心框.png',
     'assets/BootstrapBundle/GameUI/签到1.png',
-    'assets/BootstrapBundle/GameUI/设置.png',
     'assets/BootstrapBundle/GameUI/部件底板.png',
     'assets/BootstrapBundle/GameUI/金币框 (2).png',
     'assets/BootstrapBundle/GameUI/预览框.png',
+];
+const forbiddenAssetDirs = [
+    'assets/GameAssetsBundle/Textures/Pindd/Beans',
+];
+const requiredBootstrapStartupAssetFiles = [
+    'assets/BootstrapBundle/GameUI/设置.png',
     'assets/BootstrapBundle/GameUI/slot_row_lock_dash_ui.png',
     'assets/BootstrapBundle/GameUI/slot_row_lock_mask_ui.png',
     'assets/BootstrapBundle/GameUI/倒计时.png',
@@ -63,6 +63,20 @@ const requiredBootstrapStartupAssetFiles = [
     'assets/BootstrapBundle/GameUI/popup_tool_wand_icon.png',
     'assets/BootstrapBundle/GameUI/popup_tool_brush_icon.png',
     'assets/BootstrapBundle/GameUI/popup_tool_magnet_icon.png',
+];
+const requiredHomeStartupAssetFiles = [
+    'assets/HomeAssetsBundle/Scenes/Home.scene',
+    'assets/HomeAssetsBundle/GameUI/home_bg.jpeg',
+    'assets/HomeAssetsBundle/GameUI/主关卡按键 (2).png',
+    'assets/HomeAssetsBundle/GameUI/主页标题.png',
+    'assets/HomeAssetsBundle/GameUI/主题挑战.png',
+    'assets/HomeAssetsBundle/GameUI/图鉴1.png',
+    'assets/HomeAssetsBundle/GameUI/排行榜1.png',
+    'assets/HomeAssetsBundle/GameUI/爱心框.png',
+    'assets/HomeAssetsBundle/GameUI/签到1.png',
+    'assets/HomeAssetsBundle/GameUI/部件底板.png',
+    'assets/HomeAssetsBundle/GameUI/金币框 (2).png',
+    'assets/HomeAssetsBundle/GameUI/预览框.png',
 ];
 const requiredHomeStartupSpriteFrameUuids = [
     'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941',
@@ -104,6 +118,7 @@ function classify(filePath) {
     const relative = rel(filePath);
     if (relative.startsWith('assets/Textures/')) return 'root_textures';
     if (relative.startsWith('assets/BootstrapBundle/')) return 'bootstrap';
+    if (relative.startsWith('assets/HomeAssetsBundle/')) return 'homeAssets';
     if (relative.startsWith('assets/GameAssetsBundle/')) return 'gameAssets';
     return 'other';
 }
@@ -169,16 +184,23 @@ function main() {
     for (const list of groups.values()) {
         if (list.length < 2) continue;
         const classes = new Set(list.map(classify));
-        if (classes.has('root_textures') && (classes.has('bootstrap') || classes.has('gameAssets'))) {
+        if (classes.has('root_textures') && (classes.has('bootstrap') || classes.has('homeAssets') || classes.has('gameAssets'))) {
             violations.push({
                 reason: 'root Textures duplicates runtime bundle source',
                 files: list.map(rel).sort(),
             });
             continue;
         }
-        if (classes.has('bootstrap') && classes.has('gameAssets')) {
+        if ((classes.has('bootstrap') || classes.has('homeAssets')) && classes.has('gameAssets')) {
             violations.push({
-                reason: 'BootstrapBundle and GameAssetsBundle must not contain duplicate images',
+                reason: 'startup/home bundles and GameAssetsBundle must not contain duplicate images',
+                files: list.map(rel).sort(),
+            });
+            continue;
+        }
+        if (classes.has('bootstrap') && classes.has('homeAssets')) {
+            violations.push({
+                reason: 'BootstrapBundle and HomeAssetsBundle must not contain duplicate images',
                 files: list.map(rel).sort(),
             });
             continue;
@@ -230,9 +252,25 @@ function main() {
             files: missingBootstrapStartupFiles,
         });
     }
+    const missingHomeStartupFiles = [];
+    for (const relPath of requiredHomeStartupAssetFiles) {
+        if (!fs.existsSync(resolveProjectPath(relPath))) missingHomeStartupFiles.push(relPath);
+        if (!fs.existsSync(resolveProjectPath(relPath + '.meta'))) missingHomeStartupFiles.push(relPath + '.meta');
+    }
+    if (fs.existsSync(resolveProjectPath('assets/HomeAssetsBundle/GameUI/home_bg.png'))
+        || fs.existsSync(resolveProjectPath('assets/HomeAssetsBundle/GameUI/home_bg.png.meta'))) {
+        missingHomeStartupFiles.push('assets/HomeAssetsBundle/GameUI/home_bg.png should not exist');
+    }
+    if (missingHomeStartupFiles.length > 0) {
+        violations.unshift({
+            reason: 'HomeAssetsBundle startup asset source is invalid',
+            files: missingHomeStartupFiles,
+        });
+    }
     const allSpriteFrameUuids = collectSpriteFrameUuids(assetsDir);
     const unresolvedSceneRefs = [];
-    for (const relPath of ['assets/Scenes/Home.scene', 'assets/Scenes/Game.scene']) {
+    const homeSceneRelPath = 'assets/HomeAssetsBundle/Scenes/Home.scene';
+    for (const relPath of [homeSceneRelPath, 'assets/Scenes/Game.scene']) {
         const fullPath = resolveProjectPath(relPath);
         const content = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf8') : '';
         for (const uuid of collectSceneSpriteFrameRefs(content)) {
@@ -245,18 +283,18 @@ function main() {
             files: unresolvedSceneRefs,
         });
     }
-    const homeScenePath = resolveProjectPath('assets/Scenes/Home.scene');
+    const homeScenePath = resolveProjectPath(homeSceneRelPath);
     const homeSceneContent = fs.existsSync(homeScenePath) ? fs.readFileSync(homeScenePath, 'utf8') : '';
     const missingHomeStartupRefs = requiredHomeStartupSpriteFrameUuids.filter((uuid) => !homeSceneContent.includes(uuid));
     if (missingHomeStartupRefs.length > 0) {
         violations.unshift({
-            reason: 'Home.scene startup SpriteFrames must remain in BootstrapBundle',
+            reason: 'Home.scene startup SpriteFrames must remain in HomeAssetsBundle',
             files: missingHomeStartupRefs,
         });
     }
     const gameAssetsSceneRefs = [];
     const gameAssetsSpriteFrameUuids = collectSpriteFrameUuids(path.join(assetsDir, 'GameAssetsBundle'));
-    for (const relPath of ['assets/Scenes/Home.scene', 'assets/Scenes/Game.scene']) {
+    for (const relPath of [homeSceneRelPath, 'assets/Scenes/Game.scene']) {
         const fullPath = resolveProjectPath(relPath);
         const content = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf8') : '';
         for (const uuid of gameAssetsSpriteFrameUuids) {

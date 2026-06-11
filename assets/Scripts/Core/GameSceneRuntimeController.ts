@@ -1,10 +1,12 @@
 import {
     AnalyticsMgr,
     AudioMgr,
+    LeaderboardMgr,
     Node,
     PerformanceMgr,
     SySDKMgr,
     UITransform,
+    UserMgr,
     UserStateSyncMgr,
     view,
 } from './GameCtrlShared';
@@ -81,11 +83,19 @@ export class GameSceneRuntimeController {
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:afterShowMainMenu', {
             hasMainMenuNode: !!this.runtime.mainMenuNode,
         });
+        this.runtime.scheduleOnce(() => {
+            this.startHomeBackgroundServices();
+        }, 0);
     }
 
     startLoadingSceneRuntime(): void {
         const appRoot = AppRoot.ensure('Loading');
         appRoot.markBoot('Loading');
+        AnalyticsMgr.inst.trackFunnelEvent({
+            eventName: 'app_launch',
+            page: 'app',
+            source: 'GameCtrl.startLoading',
+        });
         this.prepareSceneFrame('Loading');
         this.runtime.bindUserStateLifecycle();
         this.runtime.requireCanvasUiRoot('BootRoot');
@@ -94,11 +104,16 @@ export class GameSceneRuntimeController {
             if (!this.runtime.node?.isValid) {
                 return;
             }
-            void appRoot.router.toGame();
+            if (this.shouldRouteLoadingToHome()) {
+                void appRoot.router.toHome();
+            } else {
+                void appRoot.router.toGame();
+            }
         }, 0);
     }
 
     startGameSceneRuntime(): void {
+        const previousSceneName = AppRoot.tryGet()?.session.currentSceneName || '';
         const appRoot = AppRoot.ensure('Game');
         if (appRoot.session.pendingGameplayRequest) {
             appRoot.router.attachCurrentScene('Game');
@@ -107,11 +122,13 @@ export class GameSceneRuntimeController {
         } else {
             appRoot.markBoot('Game');
         }
-        AnalyticsMgr.inst.trackFunnelEvent({
-            eventName: 'app_launch',
-            page: 'app',
-            source: 'GameCtrl.start',
-        });
+        if (previousSceneName !== 'Loading') {
+            AnalyticsMgr.inst.trackFunnelEvent({
+                eventName: 'app_launch',
+                page: 'app',
+                source: 'GameCtrl.start',
+            });
+        }
         this.prepareSceneFrame('Game');
         this.runtime.bindUserStateLifecycle();
         this.runtime.requireCanvasUiRoot('BootRoot');
@@ -195,6 +212,33 @@ export class GameSceneRuntimeController {
         const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
         const windowScope: any = typeof window !== 'undefined' ? window : null;
         return !!(globalScope?.__PDD_SCREEN_ADAPT_DEBUG__ || windowScope?.__PDD_SCREEN_ADAPT_DEBUG__);
+    }
+
+    private shouldRouteLoadingToHome(): boolean {
+        const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
+        if (pendingSceneGameplayRequest) return false;
+        const urlLevel = typeof this.runtime.getUrlLevel === 'function' ? this.runtime.getUrlLevel() : 0;
+        const urlLevelFile = typeof this.runtime.getUrlLevelFile === 'function' ? this.runtime.getUrlLevelFile() : '';
+        if (urlLevel > 0 || urlLevelFile) return false;
+        return typeof this.runtime.hasLocalUserState === 'function' && this.runtime.hasLocalUserState();
+    }
+
+    private startHomeBackgroundServices(): void {
+        SySDKMgr.inst.init();
+        SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
+        UserMgr.inst.touchSession();
+        void AnalyticsMgr.inst.bootstrap();
+        if (typeof this.runtime.queueCloudGameStateSync === 'function') {
+            this.runtime.queueCloudGameStateSync();
+        }
+        this.runtime.scheduleOnce(() => {
+            const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
+            void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
+            void UserMgr.inst.loginWeChat();
+            if (typeof this.runtime.setupShareMenu === 'function') {
+                this.runtime.setupShareMenu();
+            }
+        }, 0.5);
     }
 
     private readWxScreenInfo(): any {
