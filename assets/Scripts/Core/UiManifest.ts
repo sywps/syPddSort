@@ -34,8 +34,7 @@ export const POPUP_SETTINGS_TEXTURE_NAMES = [
 
 export const GOLD_SHOP_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
-    'daily_signin_gold_icon',
-    'popup_ad_play_icon',
+    '金币',
     'popup_vigor_icon',
     'popup_tool_wand_icon',
     'popup_tool_brush_icon',
@@ -49,7 +48,7 @@ export const RECOVER_VIGOR_TEXTURE_NAMES = [
 
 export const REWARD_RESULT_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
-    'daily_signin_gold_icon',
+    '金币',
     'popup_vigor_icon',
     'popup_tool_wand_icon',
     'popup_tool_brush_icon',
@@ -58,7 +57,7 @@ export const REWARD_RESULT_TEXTURE_NAMES = [
 
 export const DAILY_SIGNIN_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
-    'daily_signin_gold_icon',
+    '金币',
     'popup_tool_wand_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
@@ -75,28 +74,16 @@ export const LEADERBOARD_TEXTURE_NAMES = [
 
 export const COLLECTION_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
-    'collection_arrow_left',
-    'collection_arrow_right',
 ];
 
 export const THEME_PANEL_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
-    'collection_arrow_left',
-    'collection_arrow_right',
-    'home_start_button',
 ];
 
 export const THEME_PANEL_RELEASE_TEXTURE_NAMES: string[] = [];
 
 export const HOME_MENU_TEXTURE_NAMES = [
     'bg_game',
-    'home_lives',
-    'home_gold',
-    'home_settings',
-    'home_start_button',
-    'home_leaderboard',
-    'home_collection',
-    'daily_signin_button_icon',
     'collection_card_unlocked',
 ];
 
@@ -119,21 +106,17 @@ export const SKILL_BUTTON_TEXTURE_NAMES = [
     'popup_tool_wand_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
-];
-
-export const GOLD_SHOP_RELEASE_TEXTURE_NAMES = [
     'popup_ad_play_icon',
 ];
+
+export const GOLD_SHOP_RELEASE_TEXTURE_NAMES: string[] = [];
 
 export const RECOVER_VIGOR_RELEASE_TEXTURE_NAMES: string[] = [];
 export const REWARD_RESULT_RELEASE_TEXTURE_NAMES: string[] = [];
 export const DAILY_SIGNIN_RELEASE_TEXTURE_NAMES: string[] = [];
 export const SETTINGS_PANEL_RELEASE_TEXTURE_NAMES = [...POPUP_SETTINGS_TEXTURE_NAMES];
 export const LEADERBOARD_RELEASE_TEXTURE_NAMES: string[] = [];
-export const COLLECTION_RELEASE_TEXTURE_NAMES = [
-    'collection_arrow_left',
-    'collection_arrow_right',
-];
+export const COLLECTION_RELEASE_TEXTURE_NAMES: string[] = [];
 
 export const GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = [];
 

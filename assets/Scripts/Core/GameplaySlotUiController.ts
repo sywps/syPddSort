@@ -1,8 +1,6 @@
 import {
     AudioMgr,
     Button,
-    Color,
-    Graphics,
     GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE,
     Layers,
@@ -381,58 +379,35 @@ export class GameplaySlotUiController {
         legacyLabel.destroy();
     }
 
-    private getOrCreateSlotUnlockIcon(buttonNode: Node, name: string): Node {
-        let icon = buttonNode.getChildByName(name);
+    private requireSlotUnlockAdIcon(buttonNode: Node): Node {
+        const icon = buttonNode.getChildByName('SlotUnlockIconAd');
         if (!icon?.isValid) {
-            icon = new Node(name);
-            buttonNode.addChild(icon);
-            icon.addComponent(UITransform);
-            icon.addComponent(Graphics);
+            throw new Error('[GameplayScene] Game.scene is missing SlotArea/SlotRowLockedBtn/SlotUnlockIconAd');
         }
         icon.layer = Layers.Enum.UI_2D;
-        icon.setPosition(-46, 0, 0);
-        icon.getComponent(UITransform)?.setContentSize(26, 26);
+        const transform = icon.getComponent(UITransform);
+        if (!transform) {
+            throw new Error('[GameplayScene] Game.scene is missing UITransform component on SlotArea/SlotRowLockedBtn/SlotUnlockIconAd');
+        }
+        const sprite = icon.getComponent(Sprite);
+        if (!sprite) {
+            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockedBtn/SlotUnlockIconAd');
+        }
+        if (!sprite.spriteFrame) {
+            throw new Error('[GameplayScene] Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn/SlotUnlockIconAd');
+        }
         return icon;
-    }
-
-    private drawFreeSlotUnlockIcon(node: Node) {
-        const g = node.getComponent(Graphics);
-        if (!g) throw new Error('[GameplayScene] Slot unlock free icon is missing Graphics component');
-        g.clear();
-        g.fillColor = new Color(255, 219, 78, 245);
-        g.circle(0, 0, 13);
-        g.fill();
-        g.strokeColor = new Color(255, 255, 255, 255);
-        g.lineWidth = 3;
-        g.moveTo(-7, -1);
-        g.lineTo(-2, -6);
-        g.lineTo(8, 6);
-        g.stroke();
-    }
-
-    private drawAdSlotUnlockIcon(node: Node) {
-        const g = node.getComponent(Graphics);
-        if (!g) throw new Error('[GameplayScene] Slot unlock ad icon is missing Graphics component');
-        g.clear();
-        g.fillColor = new Color(255, 95, 95, 245);
-        g.circle(0, 0, 13);
-        g.fill();
-        g.fillColor = new Color(255, 255, 255, 255);
-        g.moveTo(-4, -7);
-        g.lineTo(8, 0);
-        g.lineTo(-4, 7);
-        g.close();
-        g.fill();
     }
 
     private syncSlotUnlockButtonModeIcon(buttonNode: Node) {
         this.destroyLegacySlotUnlockButtonText(buttonNode);
+        if (!this.runtime.shouldUseMainlineSlotUI()) return;
         const unlockMode = this.getCurrentSlotUnlockMode();
-        const freeIcon = this.getOrCreateSlotUnlockIcon(buttonNode, 'SlotUnlockIconFree');
-        const adIcon = this.getOrCreateSlotUnlockIcon(buttonNode, 'SlotUnlockIconAd');
-        this.drawFreeSlotUnlockIcon(freeIcon);
-        this.drawAdSlotUnlockIcon(adIcon);
-        freeIcon.active = buttonNode.active && unlockMode === 'free';
+        const freeIcon = buttonNode.getChildByName('SlotUnlockIconFree');
+        if (freeIcon?.isValid) {
+            freeIcon.active = false;
+        }
+        const adIcon = this.requireSlotUnlockAdIcon(buttonNode);
         adIcon.active = buttonNode.active && unlockMode === 'ad';
     }
 

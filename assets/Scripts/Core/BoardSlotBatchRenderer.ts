@@ -11,7 +11,8 @@ import {
 
 const { ccclass } = _decorator;
 
-const MAX_BATCH_QUADS = Math.floor(65532 / 4);
+const COCOS_DEFAULT_BATCHER2D_MAX_VERTICES = 4096;
+export const BOARD_SLOT_BATCH_MAX_CELLS = Math.floor(COCOS_DEFAULT_BATCHER2D_MAX_VERTICES / 4);
 
 export type BoardSlotBatchCell = {
     x: number;
@@ -34,6 +35,9 @@ const boardSlotBatchAssembler: IAssembler = {
         const renderData = batch.requestRenderData();
         renderData.dataLength = cellCount * 4;
         renderData.resize(cellCount * 4, cellCount * 6);
+        if (!renderData.chunk) {
+            throw new Error(`[BoardSlotBatch] failed to allocate render chunk for ${cellCount} quads`);
+        }
         if (cellCount > 0) {
             renderData.chunk.setIndexBuffer(buildQuadIndices(cellCount));
         }
@@ -108,7 +112,7 @@ export class BoardSlotBatchRenderer extends UIRenderer {
     }
 
     configure(cells: BoardSlotBatchCell[]): void {
-        if (cells.length > MAX_BATCH_QUADS) {
+        if (cells.length > BOARD_SLOT_BATCH_MAX_CELLS) {
             throw new Error(`[BoardSlotBatch] too many slot quads: ${cells.length}`);
         }
         const textureFrame = cells[0]?.spriteFrame || null;

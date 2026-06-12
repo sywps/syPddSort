@@ -2851,7 +2851,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "0c366cf2-3492-9b22-9c2d-0ffb827e7cf4@f9941",
+      "__uuid__": "75cae3b3-5efb-4d61-a32c-bbe6addd9369@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -3264,7 +3264,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "f0915f71-2542-ebc5-1541-18f4e1a7656c@f9941",
+      "__uuid__": "f27b64cc-2534-4939-a213-f7b380e0a442@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -3680,7 +3680,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "部件底板",
+    "_name": "标题底板",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -3905,7 +3905,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "473e2166-a5bd-6e54-7639-efe813c917cb@f9941",
+      "__uuid__": "7eca609a-adaf-43b5-98c8-533ed332b8d5@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -3996,7 +3996,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "473e2166-a5bd-6e54-7639-efe813c917cb@f9941",
+      "__uuid__": "cedf8dec-7628-40a4-a330-516ee01b04df@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -4183,7 +4183,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "部件底板",
+    "_name": "标题底板",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -4408,7 +4408,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "473e2166-a5bd-6e54-7639-efe813c917cb@f9941",
+      "__uuid__": "7eca609a-adaf-43b5-98c8-533ed332b8d5@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -4499,7 +4499,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "473e2166-a5bd-6e54-7639-efe813c917cb@f9941",
+      "__uuid__": "cedf8dec-7628-40a4-a330-516ee01b04df@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -4686,7 +4686,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "部件底板",
+    "_name": "标题底板",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -4911,7 +4911,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "473e2166-a5bd-6e54-7639-efe813c917cb@f9941",
+      "__uuid__": "7eca609a-adaf-43b5-98c8-533ed332b8d5@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -5002,7 +5002,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "473e2166-a5bd-6e54-7639-efe813c917cb@f9941",
+      "__uuid__": "cedf8dec-7628-40a4-a330-516ee01b04df@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,

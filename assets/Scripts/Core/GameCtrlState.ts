@@ -26,6 +26,7 @@ export function initializeGameCtrlState(runtime: any): void {
         boardNode: null,
         boardSlotsNode: null,
         _boardSlotBatchRenderer: null,
+        _boardSlotBatchRenderers: [],
         boardSlotBgNodes: [],
         boardGroup: null,
         cellNodes: [],

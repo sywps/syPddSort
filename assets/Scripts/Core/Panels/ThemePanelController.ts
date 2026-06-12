@@ -21,7 +21,7 @@ export class ThemePanelController {
             runtime.loadThemeConfig(() => this.open());
             return;
         }
-        const themePanelTextureNames = Array.from(new Set([...COLLECTION_TEXTURE_NAMES, ...THEME_PANEL_TEXTURE_NAMES, 'home_start_button']));
+        const themePanelTextureNames = Array.from(new Set([...COLLECTION_TEXTURE_NAMES, ...THEME_PANEL_TEXTURE_NAMES]));
         if (themePanelTextureNames.some((name: string) => !runtime.getSF(name))) {
             runtime._openPanelAfterTextures('theme', themePanelTextureNames, () => !!runtime._themeOverlay, () => this.open());
             return;

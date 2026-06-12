@@ -99,7 +99,29 @@ export class GameplaySkillUiController {
         if (!iconSprite.spriteFrame) {
             throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on SkillArea/${node.name}/ToolIcon`);
         }
+        const adPlayIcon = this.requireSkillAdPlayIcon(node);
+        adPlayIcon.active = false;
         return sprite;
+    }
+
+    private requireSkillAdPlayIcon(parent: Node): Node {
+        const adPlayIcon = parent.getChildByName('AdPlayIcon');
+        if (!adPlayIcon?.isValid) {
+            throw new Error(`[GameplayScene] Game.scene is missing ${parent.name}/AdPlayIcon`);
+        }
+        adPlayIcon.layer = Layers.Enum.UI_2D;
+        const transform = adPlayIcon.getComponent(UITransform);
+        if (!transform) {
+            throw new Error(`[GameplayScene] Game.scene is missing UITransform component on ${parent.name}/AdPlayIcon`);
+        }
+        const sprite = adPlayIcon.getComponent(Sprite);
+        if (!sprite) {
+            throw new Error(`[GameplayScene] Game.scene is missing Sprite component on ${parent.name}/AdPlayIcon`);
+        }
+        if (!sprite.spriteFrame) {
+            throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on ${parent.name}/AdPlayIcon`);
+        }
+        return adPlayIcon;
     }
 
     buildSkillButtons(root: Node) {
@@ -132,7 +154,7 @@ export class GameplaySkillUiController {
 
             if (currentLevel < skill.unlockLevel) {
                 shellOpacity.opacity = 138;
-                this.updateCountBadge(shell, 0, true);
+                this.updateCountBadge(shell, 0, false);
                 button.enabled = true;
                 shell.on(Button.EventType.CLICK, () => {
                     AudioMgr.inst.play('button');
@@ -199,13 +221,17 @@ export class GameplaySkillUiController {
 
     updateCountBadge(parent: Node, count: number, showWhenZero: boolean = false) {
         const existing = parent.getChildByName('CountBadge');
-        const shouldHide = count <= 0 && !showWhenZero;
-        if (shouldHide) {
+        if (count <= 0) {
             if (existing?.isValid) {
                 existing.active = false;
             }
+            const adPlayIcon = this.requireSkillAdPlayIcon(parent);
+            adPlayIcon.active = showWhenZero;
             return;
         }
+
+        const adPlayIcon = this.requireSkillAdPlayIcon(parent);
+        adPlayIcon.active = false;
 
         const badge = existing;
         if (!badge) {
@@ -252,7 +278,7 @@ export class GameplaySkillUiController {
         }
         lbl.overflow = Label.Overflow.SHRINK;
         lbl.enableWrapText = false;
-        const displayText = count <= 0 ? '+' : (count > 99 ? '99+' : `${count}`);
+        const displayText = count > 99 ? '99+' : `${count}`;
         lblTransform.setContentSize(Math.max(18, badgeW - 8), Math.max(1, badgeH));
         lbl.string = displayText;
     }

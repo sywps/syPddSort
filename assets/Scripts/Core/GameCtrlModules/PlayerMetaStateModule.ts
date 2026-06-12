@@ -396,7 +396,7 @@ export function installPlayerMetaStateModule(target: any): void {
             const wandReward = getDailySignInPropRewardCount(reward, 'wand');
             const brushReward = getDailySignInPropRewardCount(reward, 'brush');
             const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
-            if (reward.gold && reward.gold > 0) items.push({ iconName: 'daily_signin_gold_icon', amountText: `+${reward.gold}`, labelText: '金币' });
+            if (reward.gold && reward.gold > 0) items.push({ iconName: '金币', amountText: `+${reward.gold}`, labelText: '金币' });
             if (wandReward > 0) items.push({ iconName: 'popup_tool_wand_icon', amountText: `x${wandReward}`, labelText: '魔法棒' });
             if (brushReward > 0) items.push({ iconName: 'popup_tool_brush_icon', amountText: `x${brushReward}`, labelText: '刷子' });
             if (magnetReward > 0) items.push({ iconName: 'popup_tool_magnet_icon', amountText: `x${magnetReward}`, labelText: '磁铁' });
@@ -527,7 +527,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         showDailySignInRewardReceipt(reward: DailySignInReward) {
             const items = this.buildDailySignInRewardResultItems(reward);
-            const hasPropReward = items.some((item) => item.iconName !== 'daily_signin_gold_icon');
+            const hasPropReward = items.some((item) => item.iconName !== '金币');
             this.showRewardResultPopup({
                 overlayName: 'RewardResultOverlay',
                 title: '签到成功',

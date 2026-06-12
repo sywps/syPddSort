@@ -495,6 +495,7 @@ const gameCtrlModuleFiles = fs.readdirSync(path.join(root, 'assets/Scripts/Core/
     .sort()
     .map((name) => `assets/Scripts/Core/GameCtrlModules/${name}`);
 const gameCtrl = [gameCtrlEntry, gameCtrlShared, ...gameCtrlHelperFiles.map(read), ...gameCtrlPanelControllerFiles.map(read), ...gameCtrlModuleFiles.map(read)].join('\n');
+const gameplaySkillUiController = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const levelDataCdnService = read('assets/Scripts/Core/LevelDataCdnService.ts');
 const boardInputViewportModule = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
 const settlementHudModule = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
@@ -573,14 +574,17 @@ for (const [requiredHomePath, expected] of Object.entries({
     'TopBarGroup/GoldGroup/GoldBanner': { uuid: '47b2f68a-ec42-b2e7-59e3-7ceba831b196@f9941', file: 'assets/HomeAssetsBundle/GameUI/金币框 (2).png' },
     'TitleLayer/TitleArt': { uuid: 'f7446f73-3160-35a9-ff10-9a1c6940e181@f9941', file: 'assets/HomeAssetsBundle/GameUI/主页标题.png' },
     'HeroLayer/HeroCard/HeroCardFrame': { uuid: '69f9cc1c-e9a2-8e2a-c828-fbeab6bacd79@f9941', file: 'assets/HomeAssetsBundle/GameUI/预览框.png' },
-    'PrimaryActionLayer/StartBtn': { uuid: '0c366cf2-3492-9b22-9c2d-0ffb827e7cf4@f9941', file: 'assets/HomeAssetsBundle/GameUI/主关卡按键 (2).png' },
-    'PrimaryActionLayer/ThemeBtn': { uuid: 'f0915f71-2542-ebc5-1541-18f4e1a7656c@f9941', file: 'assets/HomeAssetsBundle/GameUI/主题挑战.png' },
-    'EntryLayer/DailySignInBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', file: 'assets/HomeAssetsBundle/GameUI/部件底板.png' },
+    'PrimaryActionLayer/StartBtn': { uuid: '75cae3b3-5efb-4d61-a32c-bbe6addd9369@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_main_level_button.png' },
+    'PrimaryActionLayer/ThemeBtn': { uuid: 'f27b64cc-2534-4939-a213-f7b380e0a442@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_theme_button.png' },
+    'EntryLayer/DailySignInBtn/标题底板': { uuid: '7eca609a-adaf-43b5-98c8-533ed332b8d5@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_icon_title_plate.png' },
     'EntryLayer/DailySignInBtn/DailySignInIcon': { uuid: '68e9eb2e-772d-f1ab-a25c-b2f79daa0083@f9941', file: 'assets/HomeAssetsBundle/GameUI/签到1.png' },
-    'EntryLayer/LeaderboardBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', file: 'assets/HomeAssetsBundle/GameUI/部件底板.png' },
+    'EntryLayer/DailySignInBtn': { uuid: 'cedf8dec-7628-40a4-a330-516ee01b04df@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_icon_background.png' },
+    'EntryLayer/LeaderboardBtn/标题底板': { uuid: '7eca609a-adaf-43b5-98c8-533ed332b8d5@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_icon_title_plate.png' },
     'EntryLayer/LeaderboardBtn/LeaderboardIcon': { uuid: '91a910e0-aaeb-094c-4b24-0ee12b074d31@f9941', file: 'assets/HomeAssetsBundle/GameUI/排行榜1.png' },
-    'EntryLayer/CollectionBtn/部件底板': { uuid: '473e2166-a5bd-6e54-7639-efe813c917cb@f9941', file: 'assets/HomeAssetsBundle/GameUI/部件底板.png' },
+    'EntryLayer/LeaderboardBtn': { uuid: 'cedf8dec-7628-40a4-a330-516ee01b04df@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_icon_background.png' },
+    'EntryLayer/CollectionBtn/标题底板': { uuid: '7eca609a-adaf-43b5-98c8-533ed332b8d5@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_icon_title_plate.png' },
     'EntryLayer/CollectionBtn/CollectionIcon': { uuid: '382d81c2-e3f4-5d6e-c6de-abcaed0907fd@f9941', file: 'assets/HomeAssetsBundle/GameUI/图鉴1.png' },
+    'EntryLayer/CollectionBtn': { uuid: 'cedf8dec-7628-40a4-a330-516ee01b04df@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_icon_background.png' },
 })) {
     const node = findSceneNodeByPath(homeSceneJson, 'MainMenuFixedRoot', requiredHomePath);
     assert.ok(node, `Home.scene must contain startup SpriteFrame path ${requiredHomePath}`);
@@ -649,8 +653,8 @@ const tutorialGuidePromptBgSprite = getSceneNodeComponent(gameSceneJson, tutoria
 assert.strictEqual(tutorialGuidePromptBgSprite?._spriteFrame?.__uuid__, '52e94005-3ca2-a20b-d083-d9c4e3836418@f9941', 'TutorialGuidePrompt/BubbleBg must use Bootstrap solid_white');
 assert.strictEqual(tutorialGuidePromptBgSprite?._color?.a, 0, 'TutorialGuidePrompt/BubbleBg must default to transparent');
 const tutorialGuidePromptLabel = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptLabelNode, 'cc.Label');
-assert.strictEqual(tutorialGuidePromptLabel?._fontSize, 22, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned font size');
-assert.strictEqual(tutorialGuidePromptLabel?._lineHeight, 28, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned line height');
+assert.strictEqual(tutorialGuidePromptLabel?._fontSize, 48, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned font size');
+assert.strictEqual(tutorialGuidePromptLabel?._lineHeight, 60, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned line height');
 const gameplaySafeArea = getSceneNodeComponent(gameSceneJson, gameplayFixedRootNode, 'cc.SafeArea');
 assert.strictEqual(gameplaySafeArea, null, 'GameplayFixedRoot must not own SafeArea');
 for (const [label, node] of [['TopBarGroup', topBarGroupNode], ['BottomHudGroup', bottomHudGroupNode]]) {
@@ -675,6 +679,9 @@ for (const [requiredGamePath, expectedUuid] of [
     ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
     ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
     ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+    ['BottomHudGroup/SkillArea/SkillWand/AdPlayIcon', '70f86993-4128-41e8-bc6d-f09aff9fd929@f9941'],
+    ['BottomHudGroup/SkillArea/SkillBrush/AdPlayIcon', '70f86993-4128-41e8-bc6d-f09aff9fd929@f9941'],
+    ['BottomHudGroup/SkillArea/SkillMagnet/AdPlayIcon', '70f86993-4128-41e8-bc6d-f09aff9fd929@f9941'],
 ]) {
     assertSceneSpriteFrame(gameSceneJson, 'GameplayFixedRoot', requiredGamePath, expectedUuid);
 }
@@ -710,6 +717,11 @@ assert.ok(gameCtrl.includes('Home.scene is missing SpriteFrame'), 'Home menu mus
 assert.ok(gameCtrl.includes('renderMainMenuFixedRoot(fixedRoot);'), 'Home menu must render directly from scene-authored Bootstrap SpriteFrames');
 assert.strictEqual(gameCtrl.includes('getSkillShellIconFrameName'), false, 'Gameplay skill shells must not fill missing scene SpriteFrames at runtime');
 assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on SkillArea/${node.name}'), 'Gameplay skill shells must fail fast when scene-authored plate SpriteFrame is missing');
+assert.strictEqual(gameplaySkillUiController.includes("new Node('AdPlayIcon')"), false, 'Gameplay skill ad icon must be scene-authored, not runtime-created');
+assert.strictEqual(gameplaySkillUiController.includes('new Node("AdPlayIcon")'), false, 'Gameplay skill ad icon must be scene-authored, not runtime-created');
+assert.ok(gameplaySkillUiController.includes("getChildByName('AdPlayIcon')"), 'Gameplay skill UI must bind the scene-authored AdPlayIcon node');
+assert.ok(gameplaySkillUiController.includes('adPlayIcon.active = showWhenZero'), 'Gameplay skill UI must show AdPlayIcon for zero-count ad entry');
+assert.strictEqual(gameplaySkillUiController.includes("count <= 0 ? '+'"), false, 'Gameplay skill zero count must not render a plus/count badge');
 assert.strictEqual(gameCtrl.includes("getSF('设置') || this.runtime.getSF('home_settings')"), false, 'Gameplay top bar settings icon must stay scene-authored');
 assert.ok(gameCtrl.includes("const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];"), 'Gameplay critical texture preload must include Bootstrap settings icon');
 assert.ok(gameCtrlShared.includes("LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_SLOT_TEXTURE_NAMES, ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES])"), 'Bootstrap settings, mainline slot shells, timer, unlock button, and skill buttons must always load from BootstrapBundle');
@@ -1242,7 +1254,6 @@ assert.strictEqual(guankaRefine.includes('./guanka/level_'), false, 'guanka-refi
 const themePanelController = read('assets/Scripts/Core/Panels/ThemePanelController.ts');
 assert.ok(themePanelController.includes('COLLECTION_TEXTURE_NAMES'), 'ThemePanelController must preload collection card textures before theme card rendering');
 assert.ok(themePanelController.includes("_openPanelAfterTextures('theme'"), 'ThemePanelController must gate theme panel opening on sprite frame availability');
-assert.ok(themePanelController.includes('home_start_button'), 'ThemePanelController must preload the shared theme card button texture');
 assert.strictEqual(/canOpenThemePanel\(\)[\s\S]{0,160}return;/.test(themePanelController), false, 'ThemePanelController must not block the whole theme panel before card-level locks render');
 const themeLoadingOverlay = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
 assert.ok(/startThemeLevel[\s\S]*getRuntimeSceneName\('Game'\) === 'Home'[\s\S]*requestGameplaySceneTransition\(levelId, 'zt_level_', false\)/.test(themeLoadingOverlay), 'Theme challenge levels must route Home -> Game before loading zt_level gameplay');

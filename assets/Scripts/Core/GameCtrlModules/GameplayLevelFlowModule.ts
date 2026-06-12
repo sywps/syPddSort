@@ -45,7 +45,7 @@ const WIN_SETTLEMENT_TEXTURE_NAMES = [
     'popup_result_preview_plate',
     'popup_progress_bar_bg',
     'popup_progress_bar_fill',
-    'daily_signin_gold_icon',
+    '金币',
     '进度条',
     'progress_fill',
 ];
@@ -229,9 +229,6 @@ export function installGameplayLevelFlowModule(target: any): void {
             if (this.shouldUseMainlineWinSettlementUI()) {
                 names.push(...WIN_SETTLEMENT_TEXTURE_NAMES);
             }
-            if (data.levelId >= 3) {
-                names.push('home_settings');
-            }
             if (data.levelId >= 2) {
                 names.push(...SKILL_BUTTON_TEXTURE_NAMES);
             }
@@ -246,9 +243,6 @@ export function installGameplayLevelFlowModule(target: any): void {
             }
             if (this.shouldUseMainlineWinSettlementUI()) {
                 names.push(...WIN_SETTLEMENT_TEXTURE_NAMES);
-            }
-            if (data.levelId >= 3) {
-                names.push('home_settings');
             }
             if (data.levelId >= 2) {
                 names.push(...SKILL_BUTTON_TEXTURE_NAMES);

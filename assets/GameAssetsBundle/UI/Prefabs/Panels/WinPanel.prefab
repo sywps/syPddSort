@@ -561,7 +561,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 236,
+      "width": 235.96891861510792,
       "height": 91.16
     },
     "_anchorPoint": {
@@ -600,7 +600,7 @@
     "_string": "通关成功",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 57,
+    "_actualFontSize": 61.8984375,
     "_fontSize": 57,
     "_fontFamily": "Arial",
     "_lineHeight": 66,
@@ -1127,7 +1127,7 @@
     "_string": "+188 金币",
     "_horizontalAlign": 0,
     "_verticalAlign": 1,
-    "_actualFontSize": 32,
+    "_actualFontSize": 34.75,
     "_fontSize": 32,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -1234,7 +1234,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "24153fdd-75e6-4fd7-8c5b-8931c0deb25e@f9941",
+      "__uuid__": "a705aee4-7e63-4859-a198-f049cbcb7229@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -1349,7 +1349,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -59.484,
+      "x": -75.624,
       "y": 4.886,
       "z": 0
     },
@@ -1427,7 +1427,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "24153fdd-75e6-4fd7-8c5b-8931c0deb25e@f9941",
+      "__uuid__": "a705aee4-7e63-4859-a198-f049cbcb7229@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -1485,7 +1485,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 26.008,
+      "x": 17.887,
       "y": 3.745,
       "z": 0
     },
@@ -1526,8 +1526,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 116,
-      "height": 41.8
+      "width": 129.95564017535972,
+      "height": 34.239999999999995
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1562,13 +1562,13 @@
       "b": 255,
       "a": 255
     },
-    "_string": "五倍领取",
+    "_string": "看视频五倍领取",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
-    "_fontSize": 28,
+    "_actualFontSize": 19.546875,
+    "_fontSize": 18,
     "_fontFamily": "Arial",
-    "_lineHeight": 30,
+    "_lineHeight": 24,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -1825,7 +1825,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 108,
+      "width": 107.99481508543165,
       "height": 48.84
     },
     "_anchorPoint": {
@@ -1864,7 +1864,7 @@
     "_string": "下一关",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 34,
+    "_actualFontSize": 36.921875,
     "_fontSize": 34,
     "_fontFamily": "Arial",
     "_lineHeight": 34,

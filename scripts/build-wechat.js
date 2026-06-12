@@ -179,7 +179,6 @@ function validateGameAssetsBundle() {
     const requiredFiles = [
         path.join(gameAssetsRoot, 'themes.json'),
         path.join(gameAssetsRoot, 'Audio', 'bgm.mp3'),
-        path.join(gameAssetsRoot, 'Textures', 'UI', 'home_start_button.png'),
     ];
     for (const filePath of requiredFiles) {
         if (!fs.existsSync(filePath)) fail('GameAssetsBundle 缺少关键资源: ' + path.relative(projectDir, filePath));
@@ -220,14 +219,15 @@ function validateHomeAssetsBundle() {
         path.join(homeAssetsRoot, 'Scenes', 'Home.scene.meta'),
         path.join(homeAssetsRoot, 'GameUI', 'home_bg.jpeg'),
         path.join(homeAssetsRoot, 'GameUI', 'home_bg.jpeg.meta'),
-        path.join(homeAssetsRoot, 'GameUI', '主关卡按键 (2).png'),
+        path.join(homeAssetsRoot, 'GameUI', 'home_main_level_button.png'),
         path.join(homeAssetsRoot, 'GameUI', '主页标题.png'),
-        path.join(homeAssetsRoot, 'GameUI', '主题挑战.png'),
+        path.join(homeAssetsRoot, 'GameUI', 'home_theme_button.png'),
         path.join(homeAssetsRoot, 'GameUI', '图鉴1.png'),
         path.join(homeAssetsRoot, 'GameUI', '排行榜1.png'),
         path.join(homeAssetsRoot, 'GameUI', '爱心框.png'),
         path.join(homeAssetsRoot, 'GameUI', '签到1.png'),
-        path.join(homeAssetsRoot, 'GameUI', '部件底板.png'),
+        path.join(homeAssetsRoot, 'GameUI', 'home_icon_background.png'),
+        path.join(homeAssetsRoot, 'GameUI', 'home_icon_title_plate.png'),
         path.join(homeAssetsRoot, 'GameUI', '金币框 (2).png'),
         path.join(homeAssetsRoot, 'GameUI', '预览框.png'),
     ];
@@ -382,6 +382,7 @@ function validateBootstrapRuntimeBundle(runtimeDir) {
         'GameUI/slot_row_lock_dash_ui',
         'GameUI/倒计时',
         'GameUI/unlock_button',
+        'GameUI/popup_ad_play_icon',
         'GameUI/popup_gameplay_tool_slot_plate',
         'GameUI/popup_tool_wand_icon',
         'GameUI/popup_tool_brush_icon',

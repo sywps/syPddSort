@@ -197,6 +197,9 @@ function assertGameSceneStaticUiOwnership(failures) {
         ['BottomHudGroup/SkillArea/SkillWand/ToolIcon', 'fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941'],
         ['BottomHudGroup/SkillArea/SkillBrush/ToolIcon', 'c4c67346-098c-476e-8cb0-1e41de104528@f9941'],
         ['BottomHudGroup/SkillArea/SkillMagnet/ToolIcon', '500dcf3a-feba-4274-91dc-ff3f696bab43@f9941'],
+        ['BottomHudGroup/SkillArea/SkillWand/AdPlayIcon', '70f86993-4128-41e8-bc6d-f09aff9fd929@f9941'],
+        ['BottomHudGroup/SkillArea/SkillBrush/AdPlayIcon', '70f86993-4128-41e8-bc6d-f09aff9fd929@f9941'],
+        ['BottomHudGroup/SkillArea/SkillMagnet/AdPlayIcon', '70f86993-4128-41e8-bc6d-f09aff9fd929@f9941'],
     ]) {
         assertSpriteFrame(failures, sceneJson, 'GameplayFixedRoot', pathInScene, expectedUuid);
     }

@@ -270,7 +270,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                         rightArrow.setPosition(0, -404, 0);
                         const rightArrowUi = rightArrow.getComponent(UITransform) || rightArrow.addComponent(UITransform);
                         rightArrowUi.setContentSize(220, 56);
-                        applyThemeSpriteFrame(this, rightArrow, 'home_start_button', 220, 56, new Color('#3AA8E0'));
+                        applyThemeSpriteFrame(this, rightArrow, 'popup_primary_button', 220, 56, new Color('#3AA8E0'));
                         syncThemeTextNode(rightArrow, 'ThemePixelStartLbl', '再玩一次', 24, Color.WHITE, 180, 32, 0, 0);
                         this.bindPanelButton(rightArrow, () => {
                             AudioMgr.inst.play('uiPanel');

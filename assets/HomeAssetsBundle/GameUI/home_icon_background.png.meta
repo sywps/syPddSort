@@ -2,7 +2,7 @@
   "ver": "1.0.27",
   "importer": "image",
   "imported": true,
-  "uuid": "ebce48ca-c5c9-40ec-8226-c5ea4779d328",
+  "uuid": "cedf8dec-7628-40a4-a330-516ee01b04df",
   "files": [
     ".json",
     ".png"
@@ -10,20 +10,20 @@
   "subMetas": {
     "6c48a": {
       "importer": "texture",
-      "uuid": "ebce48ca-c5c9-40ec-8226-c5ea4779d328@6c48a",
-      "displayName": "popup_ad_play_icon",
+      "uuid": "cedf8dec-7628-40a4-a330-516ee01b04df@6c48a",
+      "displayName": "home_icon_background",
       "id": "6c48a",
       "name": "texture",
       "userData": {
         "wrapModeS": "clamp-to-edge",
         "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "ebce48ca-c5c9-40ec-8226-c5ea4779d328",
-        "isUuid": true,
-        "visible": false,
         "minfilter": "linear",
         "magfilter": "linear",
         "mipfilter": "none",
-        "anisotropy": 0
+        "anisotropy": 0,
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "cedf8dec-7628-40a4-a330-516ee01b04df",
+        "visible": false
       },
       "ver": "1.0.22",
       "imported": true,
@@ -34,21 +34,21 @@
     },
     "f9941": {
       "importer": "sprite-frame",
-      "uuid": "ebce48ca-c5c9-40ec-8226-c5ea4779d328@f9941",
-      "displayName": "popup_ad_play_icon",
+      "uuid": "cedf8dec-7628-40a4-a330-516ee01b04df@f9941",
+      "displayName": "home_icon_background",
       "id": "f9941",
       "name": "spriteFrame",
       "userData": {
         "trimThreshold": 1,
         "rotated": false,
-        "offsetX": 14,
-        "offsetY": -2,
-        "trimX": 39,
-        "trimY": 23,
-        "width": 203,
-        "height": 239,
-        "rawWidth": 253,
-        "rawHeight": 281,
+        "offsetX": -1,
+        "offsetY": 3,
+        "trimX": 19,
+        "trimY": 10,
+        "width": 302,
+        "height": 316,
+        "rawWidth": 342,
+        "rawHeight": 342,
         "borderTop": 0,
         "borderBottom": 0,
         "borderLeft": 0,
@@ -60,17 +60,17 @@
         "meshType": 0,
         "vertices": {
           "rawPosition": [
-            -101.5,
-            -119.5,
+            -151,
+            -158,
             0,
-            101.5,
-            -119.5,
+            151,
+            -158,
             0,
-            -101.5,
-            119.5,
+            -151,
+            158,
             0,
-            101.5,
-            119.5,
+            151,
+            158,
             0
           ],
           "indexes": [
@@ -82,38 +82,38 @@
             3
           ],
           "uv": [
-            39,
-            258,
-            242,
-            258,
-            39,
             19,
-            242,
-            19
+            332,
+            321,
+            332,
+            19,
+            16,
+            321,
+            16
           ],
           "nuv": [
-            0.1541501976284585,
-            0.06761565836298933,
-            0.9565217391304348,
-            0.06761565836298933,
-            0.1541501976284585,
-            0.9181494661921709,
-            0.9565217391304348,
-            0.9181494661921709
+            0.05555555555555555,
+            0.04678362573099415,
+            0.9385964912280702,
+            0.04678362573099415,
+            0.05555555555555555,
+            0.9707602339181286,
+            0.9385964912280702,
+            0.9707602339181286
           ],
           "minPos": [
-            -101.5,
-            -119.5,
+            -151,
+            -158,
             0
           ],
           "maxPos": [
-            101.5,
-            119.5,
+            151,
+            158,
             0
           ]
         },
         "isUuid": true,
-        "imageUuidOrDatabaseUri": "ebce48ca-c5c9-40ec-8226-c5ea4779d328@6c48a",
+        "imageUuidOrDatabaseUri": "cedf8dec-7628-40a4-a330-516ee01b04df@6c48a",
         "atlasUuid": "",
         "trimType": "auto"
       },
@@ -127,8 +127,8 @@
   },
   "userData": {
     "type": "sprite-frame",
-    "hasAlpha": true,
     "fixAlphaTransparencyArtifacts": false,
-    "redirect": "ebce48ca-c5c9-40ec-8226-c5ea4779d328@6c48a"
+    "hasAlpha": true,
+    "redirect": "cedf8dec-7628-40a4-a330-516ee01b04df@6c48a"
   }
 }

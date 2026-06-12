@@ -3,7 +3,7 @@
  * 图片优化脚本（Phase 1）
  *
  * 行为：
- * 1. 扫描 assets/BootstrapBundle 和 assets/GameAssetsBundle 下的 .png
+ * 1. 扫描 assets/BootstrapBundle、assets/HomeAssetsBundle 和 assets/GameAssetsBundle 下的 .png
  * 2. 按规则压缩：
  *    - 无 alpha 且大小 > MIN_BYTES → JPEG q85 (用 sips)
  *    - 有 alpha 的 PNG 保持 PNG，避免微信开发者工具/Cocos WebP 兼容风险
@@ -21,6 +21,7 @@ const { execFileSync } = require('child_process');
 const projectDir = path.resolve(__dirname, '..');
 const SCAN_DIRS = [
     path.join(projectDir, 'assets', 'BootstrapBundle'),
+    path.join(projectDir, 'assets', 'HomeAssetsBundle'),
     path.join(projectDir, 'assets', 'GameAssetsBundle'),
 ];
 
