@@ -699,6 +699,8 @@ export function installCollectionAvatarModule(target: any): void {
             options?: {
                 drawTargetBackground?: boolean;
                 beanScale?: number;
+                lockedBeans?: boolean;
+                cellGap?: number;
             },
         ) {
             this.drawLevelPreviewOnCard(card, levelId, offsetX, offsetY, maxW, maxH, prefix, options);
@@ -718,6 +720,8 @@ export function installCollectionAvatarModule(target: any): void {
                 beanScale?: number;
                 cropToContent?: boolean;
                 maxCellSize?: number;
+                lockedBeans?: boolean;
+                cellGap?: number;
             },
         ) {
             if (!parent.isValid || !correctArr || bw <= 0 || bh <= 0) return;
@@ -748,16 +752,17 @@ export function installCollectionAvatarModule(target: any): void {
             const maxCellH = Math.max(1, Math.floor(maxH / renderH));
             const maxCellSize = Math.max(6, Math.floor(options?.maxCellSize ?? 28));
             const cellSize = Math.min(maxCellW, maxCellH, maxCellSize);
-            const cellGap = cellSize > 18 ? 2 : 1;
+            const cellGap = Math.max(0, Math.floor(options?.cellGap ?? (cellSize > 18 ? 2 : 1)));
             const drawTargetBackground = !!options?.drawTargetBackground;
             const beanScale = Math.max(0.35, Math.min(1, options?.beanScale ?? 1));
+            const lockedBeans = !!options?.lockedBeans;
         
             const preview = new Node('Preview');
             parent.addChild(preview);
             preview.addComponent(UITransform).setContentSize(maxW, maxH);
             preview.layer = Layers.Enum.UI_2D;
             preview.setPosition(offsetX, offsetY);
-            const pg = preview.addComponent(Graphics);
+            const pg = drawTargetBackground ? null : preview.addComponent(Graphics);
         
             for (let r = minRow; r <= maxRow; r++) {
                 for (let c = minCol; c <= maxCol; c++) {
@@ -776,6 +781,7 @@ export function installCollectionAvatarModule(target: any): void {
                         preview.addChild(targetNode);
                         continue;
                     }
+                    if (!pg) continue;
                     pg.fillColor = new Color(200, 185, 160, 180);
                     pg.circle(x, y, s);
                     pg.fill();
@@ -795,7 +801,7 @@ export function installCollectionAvatarModule(target: any): void {
                     ut.setContentSize(beanSize, beanSize);
                     const sp = beanNode.addComponent(Sprite);
                     sp.sizeMode = Sprite.SizeMode.CUSTOM;
-                    sp.spriteFrame = this.getBeanSpriteFrame(cid, false);
+                    sp.spriteFrame = this.getBeanSpriteFrame(cid, lockedBeans);
                     beanNode.setPosition(x, y);
                     preview.addChild(beanNode);
                 }

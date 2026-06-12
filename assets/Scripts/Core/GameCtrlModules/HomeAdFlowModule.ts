@@ -163,7 +163,7 @@ export function installHomeAdFlowModule(target: any): void {
         destroyGameplayRuntimeView() {
             const host = this.getCanvasUiHost();
             const preservedRootNames = host === this.node
-                ? new Set(['BootRoot', 'ScreenRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'])
+                ? new Set(['ScreenRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'])
                 : null;
             const runtimeChildren = this.node.children.slice();
             for (const child of runtimeChildren) {
@@ -667,6 +667,20 @@ export function installHomeAdFlowModule(target: any): void {
 
         _ensureGameplayResultPanelPrefabsReady(onDone: () => void) {
             ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone);
+        },
+
+        ensureGameplayResultPanelsCreated(): boolean {
+            if (!this._hasGameplayResultPanelPrefabsReady()) {
+                return false;
+            }
+            if (this.panelWin?.isValid && this.panelLose?.isValid && this.panelTimeoutContinue?.isValid) {
+                return true;
+            }
+            this.destroyGameplayResultOverlays();
+            this.panelWin = this.createWinSettlementPanel();
+            this.panelLose = this.createLoseSettlementPanel();
+            this.panelTimeoutContinue = this.createReviveSettlementPanel();
+            return true;
         },
 
         instantiateResultOverlay(name: string): Node {

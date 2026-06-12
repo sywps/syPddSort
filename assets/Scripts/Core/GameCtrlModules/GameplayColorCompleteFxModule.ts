@@ -13,20 +13,27 @@ import {
     Tween,
     UIOpacity,
     UITransform,
-    Vec3,
 } from '../GameCtrlShared';
 
 const COLOR_COMPLETE_MATCH_FX_PREFAB_PATH = 'UI/Prefabs/Fx/ColorCompleteBeanMatchFx';
 const COLOR_COMPLETE_MATCH_FRAME_PREFIX = 'block_match-animation_';
 const COLOR_COMPLETE_MATCH_FRAME_COUNT = 19;
+const COLOR_COMPLETE_MATCH_SPRITE_ENABLED = false;
 const COLOR_COMPLETE_MATCH_FRAME_INTERVAL = 0.035;
 const COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX = 15;
-const COLOR_COMPLETE_FACE_NODE_NAMES = ['FaceTL', 'FaceTR', 'FaceBR', 'FaceBL'] as const;
-const COLOR_COMPLETE_FACE_STEP_DELAY = 0.085;
-const COLOR_COMPLETE_FACE_RISE_DURATION = 0.07;
-const COLOR_COMPLETE_FACE_HOLD_DURATION = 0.055;
-const COLOR_COMPLETE_FACE_FADE_DURATION = 0.24;
-const COLOR_COMPLETE_FACE_PEAK_OPACITY = 205;
+const COLOR_COMPLETE_FACE_DEFINITIONS = [
+    { nodeName: 'FaceTL' },
+    { nodeName: 'FaceTR' },
+    { nodeName: 'FaceBR' },
+    { nodeName: 'FaceBL' },
+] as const;
+const COLOR_COMPLETE_FACE_NODE_NAMES = COLOR_COMPLETE_FACE_DEFINITIONS.map((def) => def.nodeName);
+const COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY = 0.1;
+const COLOR_COMPLETE_FACE_RISE_DURATION = 0.08;
+const COLOR_COMPLETE_FACE_ALL_LIT_HOLD_DURATION = 0.16;
+const COLOR_COMPLETE_FACE_FADE_STEP_DELAY = 0.09;
+const COLOR_COMPLETE_FACE_FADE_DURATION = 0.14;
+const COLOR_COMPLETE_FACE_PEAK_OPACITY = 220;
 const COLOR_COMPLETE_FACE_SIZE_SCALE = 1;
 const COLOR_COMPLETE_MATCH_START_DELAY = 0.2;
 const COLOR_COMPLETE_MATCH_PEAK_OPACITY = 68;
@@ -213,7 +220,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         },
 
         playColorCompleteMatchFxOnBean(beanNode: Node, frames: SpriteFrame[], prefab: Prefab, size: number): void {
-            if (!beanNode?.isValid || frames.length === 0) return;
+            if (!beanNode?.isValid) return;
             const fx = this.acquireColorCompleteMatchFxNode(prefab);
             Tween.stopAllByTarget(fx);
             beanNode.addChild(fx);
@@ -233,65 +240,72 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             for (let i = 0; i < COLOR_COMPLETE_FACE_NODE_NAMES.length; i++) {
                 const face = this.prepareColorCompleteFaceNode(fx, COLOR_COMPLETE_FACE_NODE_NAMES[i], size);
                 if (!face) continue;
-                const delay = i * COLOR_COMPLETE_FACE_STEP_DELAY;
+                const lightDelay = i * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY;
+                const allLitAt = (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY
+                    + COLOR_COMPLETE_FACE_RISE_DURATION;
+                const fadeStart = allLitAt
+                    + COLOR_COMPLETE_FACE_ALL_LIT_HOLD_DURATION
+                    + i * COLOR_COMPLETE_FACE_FADE_STEP_DELAY;
                 tween(face.opacity)
-                    .delay(delay)
+                    .delay(lightDelay)
                     .to(COLOR_COMPLETE_FACE_RISE_DURATION, { opacity: COLOR_COMPLETE_FACE_PEAK_OPACITY }, { easing: 'sineOut' })
-                    .delay(COLOR_COMPLETE_FACE_HOLD_DURATION)
+                    .delay(Math.max(0, fadeStart - lightDelay - COLOR_COMPLETE_FACE_RISE_DURATION))
                     .to(COLOR_COMPLETE_FACE_FADE_DURATION, { opacity: 0 }, { easing: 'quadIn' })
-                    .start();
-                tween(face.node)
-                    .delay(delay)
-                    .to(COLOR_COMPLETE_FACE_RISE_DURATION + COLOR_COMPLETE_FACE_HOLD_DURATION, { scale: new Vec3(1.01, 1.01, 1) }, { easing: 'sineOut' })
-                    .to(COLOR_COMPLETE_FACE_FADE_DURATION, { scale: new Vec3(1, 1, 1) }, { easing: 'quadOut' })
                     .start();
             }
 
-            const sparkleFrames = frames.slice(COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX);
-            const matchFrames = sparkleFrames.length > 0 ? sparkleFrames : frames;
             const matchSpriteNode = fx.getChildByName('MatchSprite') || fx;
             Tween.stopAllByTarget(matchSpriteNode);
-            matchSpriteNode.active = true;
-            matchSpriteNode.setPosition(0, 0, 0);
-            matchSpriteNode.setScale(1, 1, 1);
-            const spriteTransform = matchSpriteNode.getComponent(UITransform) || matchSpriteNode.addComponent(UITransform);
-            const effectSize = Math.max(24, Math.round(size * COLOR_COMPLETE_MATCH_SIZE_SCALE));
-            spriteTransform.setContentSize(effectSize, effectSize);
-            const sprite = matchSpriteNode.getComponent(Sprite) || matchSpriteNode.addComponent(Sprite);
-            sprite.enabled = true;
-            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-            sprite.color = new Color(255, 255, 255, 255);
-            sprite.spriteFrame = matchFrames[0];
             const matchOpacity = matchSpriteNode.getComponent(UIOpacity) || matchSpriteNode.addComponent(UIOpacity);
             Tween.stopAllByTarget(matchOpacity);
             matchOpacity.opacity = 0;
 
-            const visibleDuration = Math.max(0, matchFrames.length * COLOR_COMPLETE_MATCH_FRAME_INTERVAL);
-            tween(matchOpacity)
-                .delay(COLOR_COMPLETE_MATCH_START_DELAY)
-                .to(0.04, { opacity: COLOR_COMPLETE_MATCH_PEAK_OPACITY }, { easing: 'sineOut' })
-                .delay(Math.max(0, visibleDuration - 0.04))
-                .to(COLOR_COMPLETE_MATCH_FADE_DURATION, { opacity: 0 }, { easing: 'quadIn' })
-                .start();
+            let matchDuration = 0;
+            if (COLOR_COMPLETE_MATCH_SPRITE_ENABLED && frames.length > 0) {
+                const sparkleFrames = frames.slice(COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX);
+                const matchFrames = sparkleFrames.length > 0 ? sparkleFrames : frames;
+                matchSpriteNode.active = true;
+                matchSpriteNode.setPosition(0, 0, 0);
+                matchSpriteNode.setScale(1, 1, 1);
+                const spriteTransform = matchSpriteNode.getComponent(UITransform) || matchSpriteNode.addComponent(UITransform);
+                const effectSize = Math.max(24, Math.round(size * COLOR_COMPLETE_MATCH_SIZE_SCALE));
+                spriteTransform.setContentSize(effectSize, effectSize);
+                const sprite = matchSpriteNode.getComponent(Sprite) || matchSpriteNode.addComponent(Sprite);
+                sprite.enabled = true;
+                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+                sprite.color = new Color(255, 255, 255, 255);
+                sprite.spriteFrame = matchFrames[0];
 
-            let frameTween = tween(fx).delay(COLOR_COMPLETE_MATCH_START_DELAY);
-            for (let i = 0; i < matchFrames.length; i++) {
-                const frame = matchFrames[i];
-                frameTween = frameTween
-                    .call(() => {
-                        if (fx.isValid && sprite.isValid) {
-                            sprite.spriteFrame = frame;
-                        }
-                    })
-                    .delay(COLOR_COMPLETE_MATCH_FRAME_INTERVAL);
+                const visibleDuration = Math.max(0, matchFrames.length * COLOR_COMPLETE_MATCH_FRAME_INTERVAL);
+                tween(matchOpacity)
+                    .delay(COLOR_COMPLETE_MATCH_START_DELAY)
+                    .to(0.04, { opacity: COLOR_COMPLETE_MATCH_PEAK_OPACITY }, { easing: 'sineOut' })
+                    .delay(Math.max(0, visibleDuration - 0.04))
+                    .to(COLOR_COMPLETE_MATCH_FADE_DURATION, { opacity: 0 }, { easing: 'quadIn' })
+                    .start();
+
+                let frameTween = tween(fx).delay(COLOR_COMPLETE_MATCH_START_DELAY);
+                for (let i = 0; i < matchFrames.length; i++) {
+                    const frame = matchFrames[i];
+                    frameTween = frameTween
+                        .call(() => {
+                            if (fx.isValid && sprite.isValid) {
+                                sprite.spriteFrame = frame;
+                            }
+                        })
+                        .delay(COLOR_COMPLETE_MATCH_FRAME_INTERVAL);
+                }
+                frameTween.start();
+                matchDuration = COLOR_COMPLETE_MATCH_START_DELAY + visibleDuration + COLOR_COMPLETE_MATCH_FADE_DURATION;
+            } else {
+                matchSpriteNode.active = false;
             }
-            frameTween.start();
 
-            const faceDuration = (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_STEP_DELAY
+            const faceDuration = (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY
                 + COLOR_COMPLETE_FACE_RISE_DURATION
-                + COLOR_COMPLETE_FACE_HOLD_DURATION
+                + COLOR_COMPLETE_FACE_ALL_LIT_HOLD_DURATION
+                + (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_FADE_STEP_DELAY
                 + COLOR_COMPLETE_FACE_FADE_DURATION;
-            const matchDuration = COLOR_COMPLETE_MATCH_START_DELAY + visibleDuration + COLOR_COMPLETE_MATCH_FADE_DURATION;
             tween(fx)
                 .delay(Math.max(faceDuration, matchDuration) + 0.03)
                 .call(() => {
@@ -314,15 +328,19 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
             if (beanNodes.length === 0) return;
 
+            const playWithFrames = (frames: SpriteFrame[]) => this.ensureColorCompleteMatchFxPrefab((prefab: Prefab | null) => {
+                if (!prefab) return;
+                const size = Math.max(24, Math.round(this.getBoardBeanVisualSize()));
+                for (const beanNode of beanNodes) {
+                    this.playColorCompleteMatchFxOnBean(beanNode, frames, prefab, size);
+                }
+            });
+            if (!COLOR_COMPLETE_MATCH_SPRITE_ENABLED) {
+                playWithFrames([]);
+                return;
+            }
             this.ensureColorCompleteMatchFrames((frames: SpriteFrame[]) => {
-                if (frames.length === 0) return;
-                this.ensureColorCompleteMatchFxPrefab((prefab: Prefab | null) => {
-                    if (!prefab) return;
-                    const size = Math.max(24, Math.round(this.getBoardBeanVisualSize()));
-                    for (const beanNode of beanNodes) {
-                        this.playColorCompleteMatchFxOnBean(beanNode, frames, prefab, size);
-                    }
-                });
+                if (frames.length > 0) playWithFrames(frames);
             });
         },
 

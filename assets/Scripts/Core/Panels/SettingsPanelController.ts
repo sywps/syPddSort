@@ -199,6 +199,7 @@ export class SettingsPanelController {
                         buildSettingsToggle(runtime, toggleWrap, item.get(), (value: boolean) => item.set(value));
                     }
 
+                    runtime.playPopupOpenAnim?.(overlay, box);
                     runtime._panelOpenInFlight.delete(SETTINGS_PREFAB_IN_FLIGHT_KEY);
                 } catch (error: any) {
                     finishFailure(error?.message || '[settings-prefab] build failed');

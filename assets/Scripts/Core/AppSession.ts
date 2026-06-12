@@ -1,4 +1,4 @@
-export type AppSceneName = 'Home' | 'Game' | 'Loading';
+export type AppSceneName = 'Home' | 'Game' | 'Boot';
 export type AppVisualState = 'boot' | 'home' | 'game';
 export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
 

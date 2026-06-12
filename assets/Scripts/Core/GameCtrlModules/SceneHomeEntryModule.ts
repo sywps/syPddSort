@@ -30,6 +30,8 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
+import { ensureHomeIconSparkleFx } from '../HomeIconSparkleFx';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 
 export function installSceneHomeEntryModule(target: any): void {
@@ -59,7 +61,13 @@ export function installSceneHomeEntryModule(target: any): void {
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
             );
-            await appRoot.router.toGame();
+            await appRoot.beginSceneTransition('gameplay');
+            try {
+                await appRoot.router.toGame();
+            } catch (error) {
+                await appRoot.finishSceneTransition('gameplay-error');
+                throw error;
+            }
         },
 
         async requestHomeSceneTransition(): Promise<void> {
@@ -82,7 +90,8 @@ export function installSceneHomeEntryModule(target: any): void {
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
             this.requireSceneSpriteFrame(iconNode, 'LeaderboardBtn/LeaderboardIcon');
         
-            this.startHomeSceneScalePulse(btn, 1.045, 0.9);
+            ensureHomeIconIdleWiggle(iconNode);
+            ensureHomeIconSparkleFx(iconNode);
         },
 
         drawCollectionButton(parent: Node) {
@@ -97,8 +106,8 @@ export function installSceneHomeEntryModule(target: any): void {
             const iconNode = this.requireUiChild(btn, 'CollectionIcon', 'CollectionBtn/CollectionIcon');
             this.requireSceneSpriteFrame(iconNode, 'CollectionBtn/CollectionIcon');
         
-            // 呼吸动画
-            this.startHomeSceneScalePulse(btn, 1.045, 0.9);
+            ensureHomeIconIdleWiggle(iconNode);
+            ensureHomeIconSparkleFx(iconNode);
         },
 
         loadLevel(levelId: number, prefix: string = 'level_', _mapMainLevel: boolean = true) {
@@ -712,6 +721,7 @@ export function installSceneHomeEntryModule(target: any): void {
             if (this._levelDataLoadStopped) return;
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
+            AppRoot.tryGet()?.forceHideSceneTransition('level-data-error');
             this.showLevelDataLoadFatalError(levelPath, errorCode, errorMessage);
         },
     });

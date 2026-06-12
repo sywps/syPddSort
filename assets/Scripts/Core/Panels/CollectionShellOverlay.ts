@@ -132,6 +132,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
                 rightArrow,
                 close,
             });
+            runtime.playPopupOpenAnim?.(overlay, box);
         });
     });
 }

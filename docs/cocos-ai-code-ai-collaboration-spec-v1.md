@@ -230,10 +230,8 @@ Gameplay FX 是玩法调度型动效，例如棋盘通关扫光、豆子飞到�
 为提升 prefab、面板和特效迭代效率，项目应长期保留独立 preview 入口，例如：
 
 1. `UIPreview.scene`。
-2. `PanelPreview.scene`。
-3. `FxPreview.scene`。
-4. `PreviewController`。
-5. mock 状态或 mock 数据注入器。
+2. `PreviewController` 的 UI / Panel / Fx 预览模式。
+3. mock 状态或 mock 数据注入器。
 
 默认分工：
 
@@ -359,9 +357,9 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 
 ### 13.3 常见变更验证入口
 1. `scene` / `prefab` / 静态 UI 改动：打开受影响入口，检查视觉结果与编辑器保存结果一致。
-2. 面板 / 弹窗 / 结算页 / 失败页：使用 `PanelPreview.scene` 或等价 debug 入口，至少打开、关闭、再打开一次。
+2. 面板 / 弹窗 / 结算页 / 失败页：使用 `UIPreview.scene` 的 Panel Preview 模式或等价 debug 入口，至少打开、关闭、再打开一次。
 3. gameplay HUD / 棋盘 / 槽区 / 技能按钮：打开 `Game.scene` 对应入口，验证首关、基础点击/拖拽和普通 UI 不跟随棋盘缩放。
-4. 特效 / 引导 / 条件触发内容：使用 `FxPreview.scene` 或 debug 入口，一键触发并至少复播一次。
+4. 特效 / 引导 / 条件触发内容：使用 `UIPreview.scene` 的 Fx Preview 模式或 debug 入口，一键触发并至少复播一次。
 5. bundle / 启动链 / 构建脚本：跑校验脚本、Browser 启动本地 preview、验证首屏能起、关键 bundle 不缺失、preview 资产未误入正式包。
 
 ### 13.4 默认检查顺序

@@ -161,6 +161,7 @@ export class LeaderboardPanelController {
                     tabWrap.setSiblingIndex(box.children.length - 1);
                     const initialRequestToken = runtime.beginLeaderboardTabRequest?.('global');
                     await runtime.loadGlobalLeaderboard(box, listNode, selfBox, hintAnchor, initialRequestToken);
+                    runtime.playPopupOpenAnim?.(overlay, box);
                 } catch (error) {
                     failOpen(error instanceof Error ? error.message : '[leaderboard-prefab] build failed', overlay);
                 }

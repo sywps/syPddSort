@@ -170,6 +170,7 @@ export function installFirstLevelRouteModule(target: any): void {
             if (this._levelDataLoadStopped) return;
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
+            AppRoot.tryGet()?.forceHideSceneTransition('level-data-error');
             this.reportLevelDataLoadDiagnostic(levelId, eventName, false, levelPath, {
                 errorCode,
                 errorMessage,

@@ -1,0 +1,702 @@
+{
+  "appliedAt": "2026-06-12T11:36:00.320Z",
+  "proposal": "tools/generated_levels/guanka_reorder_proposal_004_100.json",
+  "backupDir": "temp/level_reorder_backups/reorder_004_100_20260612_193600",
+  "targetRange": "assets/LevelData/level_4.json through level_100.json",
+  "unchangedPrefix": [
+    1,
+    2,
+    3
+  ],
+  "updatedFiles": 97,
+  "applied": [
+    {
+      "newLevelId": 4,
+      "sourceLevelId": 21,
+      "role": "setup_1",
+      "complexityScore": 58.84,
+      "difficultyTier": "普通"
+    },
+    {
+      "newLevelId": 5,
+      "sourceLevelId": 54,
+      "role": "setup_2",
+      "complexityScore": 59.76,
+      "difficultyTier": "普通"
+    },
+    {
+      "newLevelId": 6,
+      "sourceLevelId": 96,
+      "role": "setup_3",
+      "complexityScore": 61.28,
+      "difficultyTier": "普通"
+    },
+    {
+      "newLevelId": 7,
+      "sourceLevelId": 47,
+      "role": "challenge",
+      "complexityScore": 66.43,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 8,
+      "sourceLevelId": 80,
+      "role": "setup_1",
+      "complexityScore": 63.24,
+      "difficultyTier": "普通"
+    },
+    {
+      "newLevelId": 9,
+      "sourceLevelId": 15,
+      "role": "setup_2",
+      "complexityScore": 63.81,
+      "difficultyTier": "普通"
+    },
+    {
+      "newLevelId": 10,
+      "sourceLevelId": 4,
+      "role": "setup_3",
+      "complexityScore": 64.66,
+      "difficultyTier": "普通"
+    },
+    {
+      "newLevelId": 11,
+      "sourceLevelId": 40,
+      "role": "challenge",
+      "complexityScore": 67.45,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 12,
+      "sourceLevelId": 14,
+      "role": "setup_1",
+      "complexityScore": 65.27,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 13,
+      "sourceLevelId": 22,
+      "role": "setup_2",
+      "complexityScore": 65.34,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 14,
+      "sourceLevelId": 5,
+      "role": "setup_3",
+      "complexityScore": 66.74,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 15,
+      "sourceLevelId": 31,
+      "role": "challenge",
+      "complexityScore": 68.07,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 16,
+      "sourceLevelId": 17,
+      "role": "setup_1",
+      "complexityScore": 67.06,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 17,
+      "sourceLevelId": 30,
+      "role": "setup_2",
+      "complexityScore": 67.08,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 18,
+      "sourceLevelId": 43,
+      "role": "setup_3",
+      "complexityScore": 67.59,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 19,
+      "sourceLevelId": 87,
+      "role": "challenge",
+      "complexityScore": 69.02,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 20,
+      "sourceLevelId": 66,
+      "role": "setup_1",
+      "complexityScore": 67.59,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 21,
+      "sourceLevelId": 6,
+      "role": "setup_2",
+      "complexityScore": 67.93,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 22,
+      "sourceLevelId": 34,
+      "role": "setup_3",
+      "complexityScore": 68.64,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 23,
+      "sourceLevelId": 11,
+      "role": "challenge",
+      "complexityScore": 70.52,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 24,
+      "sourceLevelId": 19,
+      "role": "setup_1",
+      "complexityScore": 68.69,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 25,
+      "sourceLevelId": 81,
+      "role": "setup_2",
+      "complexityScore": 68.89,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 26,
+      "sourceLevelId": 97,
+      "role": "setup_3",
+      "complexityScore": 69.63,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 27,
+      "sourceLevelId": 46,
+      "role": "challenge",
+      "complexityScore": 71.91,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 28,
+      "sourceLevelId": 76,
+      "role": "setup_1",
+      "complexityScore": 69.79,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 29,
+      "sourceLevelId": 7,
+      "role": "setup_2",
+      "complexityScore": 70.36,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 30,
+      "sourceLevelId": 9,
+      "role": "setup_3",
+      "complexityScore": 70.85,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 31,
+      "sourceLevelId": 49,
+      "role": "challenge",
+      "complexityScore": 72.4,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 32,
+      "sourceLevelId": 44,
+      "role": "setup_1",
+      "complexityScore": 71.14,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 33,
+      "sourceLevelId": 41,
+      "role": "setup_2",
+      "complexityScore": 71.88,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 34,
+      "sourceLevelId": 38,
+      "role": "setup_3",
+      "complexityScore": 71.92,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 35,
+      "sourceLevelId": 68,
+      "role": "challenge",
+      "complexityScore": 72.77,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 36,
+      "sourceLevelId": 57,
+      "role": "setup_1",
+      "complexityScore": 72.01,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 37,
+      "sourceLevelId": 62,
+      "role": "setup_2",
+      "complexityScore": 72.3,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 38,
+      "sourceLevelId": 12,
+      "role": "setup_3",
+      "complexityScore": 72.59,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 39,
+      "sourceLevelId": 8,
+      "role": "challenge",
+      "complexityScore": 73.19,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 40,
+      "sourceLevelId": 45,
+      "role": "setup_1",
+      "complexityScore": 72.6,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 41,
+      "sourceLevelId": 13,
+      "role": "setup_2",
+      "complexityScore": 72.68,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 42,
+      "sourceLevelId": 52,
+      "role": "setup_3",
+      "complexityScore": 72.99,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 43,
+      "sourceLevelId": 20,
+      "role": "challenge",
+      "complexityScore": 73.67,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 44,
+      "sourceLevelId": 95,
+      "role": "setup_1",
+      "complexityScore": 73,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 45,
+      "sourceLevelId": 10,
+      "role": "setup_2",
+      "complexityScore": 73.16,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 46,
+      "sourceLevelId": 59,
+      "role": "setup_3",
+      "complexityScore": 73.32,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 47,
+      "sourceLevelId": 55,
+      "role": "challenge",
+      "complexityScore": 74.06,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 48,
+      "sourceLevelId": 77,
+      "role": "setup_1",
+      "complexityScore": 73.45,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 49,
+      "sourceLevelId": 69,
+      "role": "setup_2",
+      "complexityScore": 73.62,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 50,
+      "sourceLevelId": 51,
+      "role": "setup_3",
+      "complexityScore": 73.68,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 51,
+      "sourceLevelId": 70,
+      "role": "challenge",
+      "complexityScore": 74.76,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 52,
+      "sourceLevelId": 53,
+      "role": "setup_1",
+      "complexityScore": 73.78,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 53,
+      "sourceLevelId": 73,
+      "role": "setup_2",
+      "complexityScore": 73.78,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 54,
+      "sourceLevelId": 89,
+      "role": "setup_3",
+      "complexityScore": 74.08,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 55,
+      "sourceLevelId": 32,
+      "role": "challenge",
+      "complexityScore": 75.25,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 56,
+      "sourceLevelId": 93,
+      "role": "setup_1",
+      "complexityScore": 74.13,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 57,
+      "sourceLevelId": 78,
+      "role": "setup_2",
+      "complexityScore": 74.45,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 58,
+      "sourceLevelId": 18,
+      "role": "setup_3",
+      "complexityScore": 75,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 59,
+      "sourceLevelId": 48,
+      "role": "challenge",
+      "complexityScore": 76.31,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 60,
+      "sourceLevelId": 35,
+      "role": "setup_1",
+      "complexityScore": 75.11,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 61,
+      "sourceLevelId": 91,
+      "role": "setup_2",
+      "complexityScore": 75.17,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 62,
+      "sourceLevelId": 88,
+      "role": "setup_3",
+      "complexityScore": 75.45,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 63,
+      "sourceLevelId": 60,
+      "role": "challenge",
+      "complexityScore": 77.19,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 64,
+      "sourceLevelId": 75,
+      "role": "setup_1",
+      "complexityScore": 75.48,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 65,
+      "sourceLevelId": 39,
+      "role": "setup_2",
+      "complexityScore": 75.95,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 66,
+      "sourceLevelId": 24,
+      "role": "setup_3",
+      "complexityScore": 76.57,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 67,
+      "sourceLevelId": 98,
+      "role": "challenge",
+      "complexityScore": 77.98,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 68,
+      "sourceLevelId": 67,
+      "role": "setup_1",
+      "complexityScore": 76.66,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 69,
+      "sourceLevelId": 25,
+      "role": "setup_2",
+      "complexityScore": 76.72,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 70,
+      "sourceLevelId": 23,
+      "role": "setup_3",
+      "complexityScore": 77.75,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 71,
+      "sourceLevelId": 36,
+      "role": "challenge",
+      "complexityScore": 78.99,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 72,
+      "sourceLevelId": 58,
+      "role": "setup_1",
+      "complexityScore": 77.87,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 73,
+      "sourceLevelId": 72,
+      "role": "setup_2",
+      "complexityScore": 77.95,
+      "difficultyTier": "困难"
+    },
+    {
+      "newLevelId": 74,
+      "sourceLevelId": 90,
+      "role": "setup_3",
+      "complexityScore": 78.21,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 75,
+      "sourceLevelId": 28,
+      "role": "challenge",
+      "complexityScore": 80.09,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 76,
+      "sourceLevelId": 50,
+      "role": "setup_1",
+      "complexityScore": 78.5,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 77,
+      "sourceLevelId": 86,
+      "role": "setup_2",
+      "complexityScore": 78.55,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 78,
+      "sourceLevelId": 29,
+      "role": "setup_3",
+      "complexityScore": 79.21,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 79,
+      "sourceLevelId": 94,
+      "role": "challenge",
+      "complexityScore": 81.42,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 80,
+      "sourceLevelId": 63,
+      "role": "setup_1",
+      "complexityScore": 79.81,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 81,
+      "sourceLevelId": 71,
+      "role": "setup_2",
+      "complexityScore": 79.96,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 82,
+      "sourceLevelId": 33,
+      "role": "setup_3",
+      "complexityScore": 80.48,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 83,
+      "sourceLevelId": 64,
+      "role": "challenge",
+      "complexityScore": 83.53,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 84,
+      "sourceLevelId": 84,
+      "role": "setup_1",
+      "complexityScore": 80.65,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 85,
+      "sourceLevelId": 42,
+      "role": "setup_2",
+      "complexityScore": 81.04,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 86,
+      "sourceLevelId": 79,
+      "role": "setup_3",
+      "complexityScore": 81.44,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 87,
+      "sourceLevelId": 82,
+      "role": "challenge",
+      "complexityScore": 84.51,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 88,
+      "sourceLevelId": 99,
+      "role": "setup_1",
+      "complexityScore": 81.75,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 89,
+      "sourceLevelId": 16,
+      "role": "setup_2",
+      "complexityScore": 82.27,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 90,
+      "sourceLevelId": 74,
+      "role": "setup_3",
+      "complexityScore": 83.59,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 91,
+      "sourceLevelId": 37,
+      "role": "challenge",
+      "complexityScore": 85.79,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 92,
+      "sourceLevelId": 85,
+      "role": "setup_1",
+      "complexityScore": 83.92,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 93,
+      "sourceLevelId": 100,
+      "role": "setup_2",
+      "complexityScore": 84.01,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 94,
+      "sourceLevelId": 26,
+      "role": "setup_3",
+      "complexityScore": 85.02,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 95,
+      "sourceLevelId": 83,
+      "role": "challenge",
+      "complexityScore": 87.61,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 96,
+      "sourceLevelId": 61,
+      "role": "setup_1",
+      "complexityScore": 85.06,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 97,
+      "sourceLevelId": 56,
+      "role": "setup_2",
+      "complexityScore": 85.76,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 98,
+      "sourceLevelId": 27,
+      "role": "setup_3",
+      "complexityScore": 86.79,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 99,
+      "sourceLevelId": 92,
+      "role": "challenge",
+      "complexityScore": 88.46,
+      "difficultyTier": "专家"
+    },
+    {
+      "newLevelId": 100,
+      "sourceLevelId": 65,
+      "role": "final_peak",
+      "complexityScore": 90.22,
+      "difficultyTier": "超高压"
+    }
+  ],
+  "validation": {
+    "newLevelIdMin": 4,
+    "newLevelIdMax": 100,
+    "sourceLevelIdMin": 4,
+    "sourceLevelIdMax": 100,
+    "uniqueNewLevelIds": 97,
+    "uniqueSourceLevelIds": 97,
+    "verifiedContentMatchesProposal": true
+  }
+}

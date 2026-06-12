@@ -28,13 +28,13 @@ export class GameSceneRuntimeController {
         const popupRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'PopupRoot');
         const overlayRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'OverlayRoot');
         const fxRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'FxRoot');
-        const loadingNode = canvas?.getChildByName('Loading');
+        const bootSceneNode = canvas?.getChildByName('Boot');
         const gameNode = canvas?.getChildByName('Game');
         const gameplayRoot = screenRoot?.getChildByName('GameplayRoot');
         const gameplayFixedRoot = gameplayRoot?.getChildByName('GameplayFixedRoot');
         const mainMenuRoot = screenRoot?.getChildByName('MainMenuRoot');
-        if (bootRoot?.isValid && loadingNode?.isValid && !screenRoot?.isValid) {
-            return 'Loading';
+        if (bootRoot?.isValid && bootSceneNode?.isValid && !screenRoot?.isValid) {
+            return 'Boot';
         }
         if (screenRoot?.isValid && mainMenuRoot?.isValid) {
             return 'Home';
@@ -58,8 +58,8 @@ export class GameSceneRuntimeController {
             this.startHomeSceneRuntime();
             return;
         }
-        if (sceneName === 'Loading') {
-            this.startLoadingSceneRuntime();
+        if (sceneName === 'Boot') {
+            this.startBootSceneRuntime();
             return;
         }
         this.startGameSceneRuntime();
@@ -88,15 +88,16 @@ export class GameSceneRuntimeController {
         }, 0);
     }
 
-    startLoadingSceneRuntime(): void {
-        const appRoot = AppRoot.ensure('Loading');
-        appRoot.markBoot('Loading');
+    startBootSceneRuntime(): void {
+        const appRoot = AppRoot.ensure('Boot');
+        appRoot.markBoot('Boot');
+        appRoot.resetSceneTransitionForBoot();
         AnalyticsMgr.inst.trackFunnelEvent({
             eventName: 'app_launch',
             page: 'app',
-            source: 'GameCtrl.startLoading',
+            source: 'GameCtrl.startBoot',
         });
-        this.prepareSceneFrame('Loading');
+        this.prepareSceneFrame('Boot');
         this.runtime.bindUserStateLifecycle();
         this.runtime.requireCanvasUiRoot('BootRoot');
         this.runtime.showLoadingOverlay();
@@ -104,7 +105,7 @@ export class GameSceneRuntimeController {
             if (!this.runtime.node?.isValid) {
                 return;
             }
-            if (this.shouldRouteLoadingToHome()) {
+            if (this.shouldRouteBootToHome()) {
                 void appRoot.router.toHome();
             } else {
                 void appRoot.router.toGame();
@@ -122,7 +123,7 @@ export class GameSceneRuntimeController {
         } else {
             appRoot.markBoot('Game');
         }
-        if (previousSceneName !== 'Loading') {
+        if (previousSceneName !== 'Boot') {
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName: 'app_launch',
                 page: 'app',
@@ -131,12 +132,16 @@ export class GameSceneRuntimeController {
         }
         this.prepareSceneFrame('Game');
         this.runtime.bindUserStateLifecycle();
-        this.runtime.requireCanvasUiRoot('BootRoot');
         this.runtime.requireCanvasUiRoot('ScreenRoot');
         this.runtime.requireCanvasUiRoot('PopupRoot');
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
-        this.runtime.showLoadingOverlay();
+        if (!appRoot.isSceneTransitionHeld()) {
+            void appRoot.beginSceneTransition('game-direct-start').catch((error: unknown) => {
+                console.warn('[SceneTransition] direct game startup cover failed:', error);
+            });
+            appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:beginDirectGameTransition');
+        }
         void this.runtime.continueStartup();
     }
 
@@ -214,7 +219,7 @@ export class GameSceneRuntimeController {
         return !!(globalScope?.__PDD_SCREEN_ADAPT_DEBUG__ || windowScope?.__PDD_SCREEN_ADAPT_DEBUG__);
     }
 
-    private shouldRouteLoadingToHome(): boolean {
+    private shouldRouteBootToHome(): boolean {
         const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
         if (pendingSceneGameplayRequest) return false;
         const urlLevel = typeof this.runtime.getUrlLevel === 'function' ? this.runtime.getUrlLevel() : 0;

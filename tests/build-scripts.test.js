@@ -98,7 +98,7 @@ for (const required of [
     '本地 gameAssets bundle script 缺少稳定入口 index.js',
     'assertRuntimeScenes',
     'assertSourceBundleArtifactsExist',
-    'db://assets/Scenes/Loading.scene',
+    'db://assets/Scenes/Boot.scene',
     'db://assets/HomeAssetsBundle/Scenes/Home.scene',
     'db://assets/Scenes/Game.scene',
     'bean-atlas-data.json',
@@ -302,12 +302,10 @@ for (const required of [
     'wxbb6160c828f380ca',
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/',
     'UIPreview',
-    'PanelPreview',
-    'FxPreview',
     'Game.scene 直接引用了未登记 prefab',
     'Game.scene 直接引用了 GameAssetsBundle 资源',
     'assertRuntimeScenes',
-    'db://assets/Scenes/Loading.scene',
+    'db://assets/Scenes/Boot.scene',
     'db://assets/HomeAssetsBundle/Scenes/Home.scene',
     'db://assets/Scenes/Game.scene',
     'assets/Prefabs/Panels/RevivePanel.prefab',
@@ -469,12 +467,16 @@ for (const required of [
 
 const gameCtrlEntry = read('assets/Scripts/Core/GameCtrl.ts');
 const gameCtrlShared = read('assets/Scripts/Core/GameCtrlShared.ts');
+const appRoot = read('assets/Scripts/Core/AppRoot.ts');
+const gameSceneRuntimeController = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
+const gameplaySessionController = read('assets/Scripts/Core/GameplaySessionController.ts');
 const gameCtrlHelperFiles = [
     'assets/Scripts/Core/GameRuntimeHost.ts',
     'assets/Scripts/Core/GameCtrlState.ts',
     'assets/Scripts/Core/AppRoot.ts',
     'assets/Scripts/Core/AppSession.ts',
     'assets/Scripts/Core/SceneRouter.ts',
+    'assets/Scripts/Core/SceneTransitionController.ts',
     'assets/Scripts/Core/GameSceneRuntimeController.ts',
     'assets/Scripts/Core/LevelDataCdnService.ts',
     'assets/Scripts/Core/SlotOnboardingPolicy.ts',
@@ -495,20 +497,70 @@ const gameCtrlModuleFiles = fs.readdirSync(path.join(root, 'assets/Scripts/Core/
     .sort()
     .map((name) => `assets/Scripts/Core/GameCtrlModules/${name}`);
 const gameCtrl = [gameCtrlEntry, gameCtrlShared, ...gameCtrlHelperFiles.map(read), ...gameCtrlPanelControllerFiles.map(read), ...gameCtrlModuleFiles.map(read)].join('\n');
+const startGameSceneRuntimeBody = gameSceneRuntimeController.slice(
+    gameSceneRuntimeController.indexOf('startGameSceneRuntime(): void'),
+    gameSceneRuntimeController.indexOf('update(dt: number)'),
+);
 const gameplaySkillUiController = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const levelDataCdnService = read('assets/Scripts/Core/LevelDataCdnService.ts');
 const boardInputViewportModule = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
 const settlementHudModule = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const tutorialGuideModule = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 const gameplayViewController = read('assets/Scripts/Core/GameplayViewController.ts');
+const gameplayResultPanelController = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const audioMgr = read('assets/Scripts/Core/AudioMgr.ts');
 const audioManifest = read('assets/Scripts/Core/AudioManifest.ts');
 const uiManifest = read('assets/Scripts/Core/UiManifest.ts');
+const homeCommerceModule = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
+const playerMetaStateModule = read('assets/Scripts/Core/GameCtrlModules/PlayerMetaStateModule.ts');
+const settingsPanelController = read('assets/Scripts/Core/Panels/SettingsPanelController.ts');
+const commercePanelController = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
+const leaderboardPanelController = read('assets/Scripts/Core/Panels/LeaderboardPanelController.ts');
+const collectionPanelController = read('assets/Scripts/Core/Panels/CollectionPanelController.ts');
+const collectionShellOverlay = read('assets/Scripts/Core/Panels/CollectionShellOverlay.ts');
+assert.ok(exists('assets/Scenes/Boot.scene'), 'Boot.scene must own the startup initialization loading scene');
+assert.ok(exists('assets/Scenes/Boot.scene.meta'), 'Boot.scene meta must exist');
+assert.strictEqual(exists('assets/Scenes/Loading.scene'), false, 'Loading.scene must be renamed to Boot.scene');
+assert.strictEqual(exists('assets/Scenes/Loading.scene.meta'), false, 'Loading.scene meta must be renamed to Boot.scene.meta');
+const bootScene = read('assets/Scenes/Boot.scene');
+const bootSceneJson = JSON.parse(bootScene);
 const gameScene = read('assets/Scenes/Game.scene');
 const gameSceneJson = JSON.parse(gameScene);
 const homeScene = read('assets/HomeAssetsBundle/Scenes/Home.scene');
 const homeSceneJson = JSON.parse(homeScene);
 const collectionPanelJson = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'));
+const sceneTransitionPrefabJson = JSON.parse(read('assets/GameAssetsBundle/UI/Prefabs/Fx/SceneTransition.prefab'));
+assert.strictEqual(bootSceneJson[0]._name, 'Boot', 'Boot.scene asset name must be Boot');
+assert.strictEqual(bootSceneJson[1]._name, 'Boot', 'Boot.scene root scene name must be Boot');
+assert.ok(bootScene.includes('"StartupLoadingUI"'), 'Boot.scene must keep the existing startup loading UI');
+
+function countOccurrences(source, needle) {
+    return source.split(needle).length - 1;
+}
+
+for (const required of [
+    'playPopupOpenAnim(overlay: Node, box?: Node | null)',
+    "const shade = overlay.getChildByName('Shade')",
+    'target.setScale(baseScale.x * 0.86, baseScale.y * 0.86, baseScale.z)',
+    'baseScale.x * 1.045',
+    '.to(0.155, { opacity: finalOpacity }',
+    '.to(0.24, { scale: new Vec3',
+    '.to(0.16, { scale: new Vec3',
+]) {
+    assert.ok(homeCommerceModule.includes(required), `popup open animation helper must include ${required}`);
+}
+assert.ok(!homeCommerceModule.includes('baseScale.x * 0.99'), 'popup open animation must return directly from overshoot to original scale');
+
+for (const [source, label] of [
+    [settingsPanelController, 'settings'],
+    [commercePanelController, 'commerce'],
+    [leaderboardPanelController, 'leaderboard'],
+    [collectionPanelController, 'collection'],
+    [collectionShellOverlay, 'collection shell'],
+]) {
+    assert.ok(source.includes('playPopupOpenAnim?.(overlay, box)'), `${label} popup must play the common open animation`);
+}
+assert.ok(countOccurrences(playerMetaStateModule, 'this.playPopupOpenAnim?.') >= 2, 'reward and recover-vigor popups must play the common open animation');
 
 function findSceneNodeByPath(sceneJson, rootName, childPath) {
     const rootIndex = sceneJson.findIndex((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === rootName);
@@ -535,12 +587,12 @@ function getSceneNodeComponent(sceneJson, node, componentType) {
     return componentRef ? sceneJson[componentRef.__id__] : null;
 }
 
-function assertSceneSpriteFrame(sceneJson, rootName, childPath, expectedUuid) {
+function assertSceneSpriteFrame(sceneJson, rootName, childPath, expectedUuid, scenePath = 'Game.scene') {
     const node = findSceneNodeByPath(sceneJson, rootName, childPath);
-    assert.ok(node, `Game.scene must contain ${rootName}/${childPath}`);
+    assert.ok(node, `${scenePath} must contain ${rootName}/${childPath}`);
     const sprite = getSceneNodeComponent(sceneJson, node, 'cc.Sprite');
-    assert.ok(sprite, `Game.scene ${rootName}/${childPath} must own a Sprite component`);
-    assert.strictEqual(sprite._spriteFrame?.__uuid__, expectedUuid, `Game.scene ${rootName}/${childPath} must keep SpriteFrame ${expectedUuid}`);
+    assert.ok(sprite, `${scenePath} ${rootName}/${childPath} must own a Sprite component`);
+    assert.strictEqual(sprite._spriteFrame?.__uuid__, expectedUuid, `${scenePath} ${rootName}/${childPath} must keep SpriteFrame ${expectedUuid}`);
 }
 
 function findPrefabRootChild(prefabJson, name) {
@@ -566,6 +618,24 @@ function assertSceneComponentBackrefs(sceneJson, scenePath) {
 
 assertSceneComponentBackrefs(gameSceneJson, 'Game.scene');
 assertSceneComponentBackrefs(homeSceneJson, 'Home.scene');
+assertSceneComponentBackrefs(bootSceneJson, 'Boot.scene');
+assertSceneSpriteFrame(
+    bootSceneJson,
+    'BootRoot',
+    'StartupLoadingUI/LoadingCover',
+    '68c7d0e7-b854-4fd7-903e-6176fb9aebbb@f9941',
+    'Boot.scene',
+);
+for (const removedBootLoadingNodeName of [
+    'LoadingPercentLabelShadow',
+    'LoadingPercentLabel',
+    'LoadingBarGlow',
+    'LoadingBarFill',
+    'LoadingBarFillHighlight',
+    'LoadingBarShine',
+]) {
+    assert.strictEqual(gameCtrl.includes(removedBootLoadingNodeName), false, `Boot loading code must not require old node ${removedBootLoadingNodeName}`);
+}
 
 for (const [requiredHomePath, expected] of Object.entries({
     'BackgroundLayer/BG': { uuid: 'e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941', file: 'assets/HomeAssetsBundle/GameUI/home_bg.jpeg' },
@@ -621,9 +691,11 @@ const overlayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'Overla
 assert.deepStrictEqual(getSceneDirectChildNames(gameSceneJson, gameCanvasNode), ['Camera', 'Game', 'ScreenRoot'], 'Game.scene Canvas must only directly host Camera, Game, and ScreenRoot');
 assert.deepStrictEqual(
     getSceneDirectChildNames(gameSceneJson, gameScreenRootNode),
-    ['GameplayRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot', 'BootRoot'],
-    'Game.scene ScreenRoot must directly host gameplay/popup/overlay/fx/boot roots',
+    ['GameplayRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'],
+    'Game.scene ScreenRoot must directly host gameplay/popup/overlay/fx roots',
 );
+assert.strictEqual(findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'BootRoot'), null, 'Game.scene must not keep the old BootRoot loading node');
+assert.strictEqual(gameScene.includes('"StartupLoadingUI"'), false, 'Game.scene must not keep the old StartupLoadingUI loading node');
 assert.ok(gameplayRootNode, 'Game.scene must expose GameplayRoot under ScreenRoot');
 assert.deepStrictEqual(
     getSceneDirectChildNames(gameSceneJson, gameplayRootNode),
@@ -739,6 +811,7 @@ assert.ok(uiManifest.includes('SETTINGS_PANEL_TEXTURE_NAMES'), 'UiManifest must 
 assert.ok(uiManifest.includes('LEADERBOARD_TEXTURE_NAMES'), 'UiManifest must own leaderboard panel textures');
 assert.ok(uiManifest.includes('COLLECTION_TEXTURE_NAMES'), 'UiManifest must own collection panel textures');
 assert.ok(uiManifest.includes('REWARD_RESULT_TEXTURE_NAMES'), 'UiManifest must own reward-result popup textures');
+assert.ok(uiManifest.includes('SCENE_TRANSITION_TEXTURE_NAMES'), 'UiManifest must own scene transition textures');
 for (const requiredPopupTexture of [
     'popup_modal_shade',
     'popup_frame_soft',
@@ -759,6 +832,77 @@ for (const requiredPopupTexture of [
     assert.ok(exists(`assets/GameAssetsBundle/Textures/UI/${requiredPopupTexture}.png`), `GameAssetsBundle must contain ${requiredPopupTexture}.png`);
     assert.ok(exists(`assets/GameAssetsBundle/Textures/UI/${requiredPopupTexture}.png.meta`), `GameAssetsBundle must contain ${requiredPopupTexture}.png.meta`);
 }
+for (const requiredTransitionTexture of [
+    'scene_transition_solid',
+    'scene_transition_circle_soft',
+    'scene_transition_logo',
+]) {
+    assert.ok(uiManifest.includes(`'${requiredTransitionTexture}'`), `UiManifest scene transition textures must include ${requiredTransitionTexture}`);
+    assert.ok(exists(`assets/GameAssetsBundle/Textures/UI/${requiredTransitionTexture}.png`), `GameAssetsBundle must contain ${requiredTransitionTexture}.png`);
+    assert.ok(exists(`assets/GameAssetsBundle/Textures/UI/${requiredTransitionTexture}.png.meta`), `GameAssetsBundle must contain ${requiredTransitionTexture}.png.meta`);
+}
+assert.ok(exists('assets/GameAssetsBundle/UI/Prefabs/Fx/SceneTransition.prefab'), 'SceneTransition prefab must exist');
+assert.ok(exists('assets/GameAssetsBundle/UI/Prefabs/Fx/SceneTransition.prefab.meta'), 'SceneTransition prefab meta must exist');
+assert.ok(exists('assets/Scripts/Core/SceneTransitionController.ts'), 'SceneTransitionController script must exist');
+assert.ok(exists('assets/Scripts/Core/SceneTransitionController.ts.meta'), 'SceneTransitionController script meta must exist');
+const sceneTransitionRingOuter = findPrefabRootChild(sceneTransitionPrefabJson, 'RingOuter');
+assert.ok(sceneTransitionRingOuter, 'SceneTransition prefab must keep the outer breathing ring node');
+assert.strictEqual(sceneTransitionRingOuter._active, true, 'SceneTransition outer ring must be active before runtime breathing starts');
+assert.ok(appRoot.includes("SCENE_TRANSITION_PREFAB_PATH = 'UI/Prefabs/Fx/SceneTransition'"), 'AppRoot must load the scene transition prefab from gameAssets');
+assert.ok(appRoot.includes('const SCENE_TRANSITION_RENDER_LAYER = 1 << 29'), 'Scene transition must use a private render layer outside the normal UI_2D camera path');
+assert.ok(appRoot.includes('director.addPersistRootNode(layer)'), 'Scene transition layer must persist across scene switches');
+assert.ok(appRoot.includes("new Node('SceneTransitionCamera')"), 'Scene transition layer must create its own UI camera');
+assert.ok(appRoot.includes('canvas.cameraComponent = camera'), 'Scene transition Canvas must render through its own camera');
+assert.ok(appRoot.includes('layer.layer = SCENE_TRANSITION_RENDER_LAYER'), 'Scene transition layer must not live on the normal UI_2D layer');
+assert.ok(appRoot.includes('cameraNode.layer = SCENE_TRANSITION_RENDER_LAYER'), 'Scene transition camera node must live on the private transition layer');
+assert.ok(appRoot.includes('camera.visibility = SCENE_TRANSITION_RENDER_LAYER'), 'Scene transition camera must render only the private transition layer');
+assert.strictEqual(appRoot.includes('camera.visibility = Layers.BitMask.UI_2D'), false, 'Scene transition camera must not duplicate normal UI_2D rendering');
+assert.ok(appRoot.includes('camera.clearFlags = Camera.ClearFlag.DEPTH_ONLY'), 'Scene transition camera must not clear the scene color buffer');
+assert.ok(appRoot.includes('syncSceneTransitionNodeLayout(node: Node)'), 'Scene transition prefab root must have a runtime layout sync hook');
+assert.ok(appRoot.includes('node.setPosition(0, 0, 0)'), 'Scene transition prefab root must stay centered in the transition Canvas');
+assert.strictEqual(appRoot.includes('node.setPosition(width * 0.5, height * 0.5, 0)'), false, 'Scene transition prefab root must not be offset into the upper-right quadrant');
+assert.ok(appRoot.includes('applySceneTransitionLayerRecursive(node: Node)'), 'Scene transition prefab subtree must be forced onto the private layer');
+assert.ok(appRoot.includes('async playSceneTransition(source: string'), 'AppRoot must expose a shared scene transition playback wrapper');
+assert.ok(appRoot.includes('async beginSceneTransition(source: string)'), 'AppRoot must expose held scene transition begin');
+assert.ok(appRoot.includes('async finishSceneTransition(source: string = \'unknown\')'), 'AppRoot must expose held scene transition finish');
+assert.ok(appRoot.includes('isSceneTransitionHeld(): boolean'), 'AppRoot must expose held transition state for scene startup');
+assert.ok(appRoot.includes('resetSceneTransitionForBoot(): void'), 'AppRoot must expose a Boot-only transition reset');
+assert.ok(appRoot.includes('_sceneTransitionResetVersion += 1'), 'Boot transition reset must invalidate pending scene transition work');
+assert.ok(appRoot.includes('forceHideSceneTransition(source: string = \'unknown\')'), 'AppRoot must expose a deterministic scene transition force-hide path');
+assert.ok(appRoot.includes("sceneTransition:forceHide"), 'Scene transition force-hide path must be traceable');
+assert.ok(appRoot.includes('await this.playSceneTransition(source, async () =>'), 'Home return must be covered by the scene transition animation');
+assert.ok(gameCtrl.includes("await appRoot.beginSceneTransition('gameplay')"), 'Home-to-gameplay route must begin a held scene transition');
+assert.ok(gameCtrl.includes("await appRoot.finishSceneTransition('gameplay-error')"), 'Home-to-gameplay load failure must release the held scene transition');
+assert.ok(gameCtrl.includes("finishSceneTransition('gameplay-ready')"), 'gameplay readiness must release the held scene transition');
+assert.ok(gameCtrl.includes("forceHideSceneTransition('gameplay-init-error')"), 'gameplay init failures must force-hide the held scene transition');
+assert.ok(gameCtrl.includes("forceHideSceneTransition('gameplay-ready-fallback')"), 'gameplay-ready reveal failures must force-hide the held scene transition');
+assert.ok(gameCtrl.includes("forceHideSceneTransition('level-data-error')"), 'fatal level-data errors must not be hidden behind the held scene transition');
+assert.ok(gameplayResultPanelController.includes('ensurePopupSpriteFramesReady'), 'result panel preload must own a transition-safe popup texture readiness path');
+assert.ok(gameplayResultPanelController.includes("forceHideSceneTransition('result-panel-preload-error')"), 'result panel preload failures must force-hide the held scene transition');
+assert.ok(gameCtrl.includes('private warmGameplayResultPanels(): void'), 'gameplay init must warm settlement result panels after first gameplay visuals are ready');
+assert.ok(gameCtrl.includes('runtime.assertGameplayVisualReadiness();\n            this.finishGameplayReadyTransition();\n            this.warmGameplayResultPanels();'), 'gameplay-ready transition release must happen before background result panel warmup');
+assert.ok(gameCtrl.includes('ensureGameplayResultPanelsCreated(): boolean'), 'result panels must have a lazy creation entry point');
+assert.ok(settlementHudModule.includes('this.ensureGameplayResultPanelsCreated?.();'), 'settlement flows must eagerly create result panels when resources are ready');
+assert.ok(settlementHudModule.includes('this._ensureGameplayResultPanelPrefabsReady?.(() =>'), 'settlement flows must wait for result panel prefabs if a result is reached before warmup completes');
+assert.strictEqual(gameplayViewController.includes('runtime.panelWin = runtime.createWinSettlementPanel();'), false, 'gameplay buildUI must not block first visuals on win settlement panel creation');
+assert.strictEqual(gameplayViewController.includes('runtime.panelLose = runtime.createLoseSettlementPanel();'), false, 'gameplay buildUI must not block first visuals on lose settlement panel creation');
+assert.strictEqual(gameplayViewController.includes('runtime.panelTimeoutContinue = runtime.createReviveSettlementPanel();'), false, 'gameplay buildUI must not block first visuals on revive settlement panel creation');
+assert.ok(gameCtrl.includes('appRoot.resetSceneTransitionForBoot()'), 'Boot startup must hide/reset any existing persistent scene transition before showing Boot loading');
+assert.ok(startGameSceneRuntimeBody.includes("beginSceneTransition('game-direct-start')"), 'Game direct startup must use the new scene transition prefab as its fallback cover');
+assert.ok(startGameSceneRuntimeBody.includes('GameCtrl:beginDirectGameTransition'), 'Game direct startup transition must be traceable');
+assert.strictEqual(startGameSceneRuntimeBody.includes("requireCanvasUiRoot('BootRoot')"), false, 'Game startup must not require the old BootRoot loading node');
+assert.strictEqual(startGameSceneRuntimeBody.includes('showLoadingOverlay()'), false, 'Game startup must not show the old StartupLoadingUI overlay');
+assert.strictEqual(gameSceneRuntimeController.includes('hideStartupLoadingUi('), false, 'Game runtime must not keep old StartupLoadingUI suppression code');
+assert.ok(gameCtrl.includes('async beginCover(options: SceneTransitionPlayOptions = {})'), 'SceneTransitionController must support held cover begin');
+assert.ok(gameCtrl.includes('async finishCover(options: SceneTransitionPlayOptions = {})'), 'SceneTransitionController must support held cover finish');
+assert.ok(gameCtrl.includes('const RING_BREATH_PERIOD = 1.7'), 'SceneTransition covered state must have a slow ring breathing cadence');
+assert.ok(gameCtrl.includes('private startRingBreathing(): void'), 'SceneTransitionController must start ring breathing after cover expansion');
+assert.ok(gameCtrl.includes('private applyRingBreathingPose(): void'), 'SceneTransitionController must own a covered breathing pose');
+assert.ok(gameCtrl.includes('this.applyRingBreathingScale(this.ringOuter, OUTER_EXPAND_SCALE'), 'SceneTransition outer ring must breathe from its covered scale');
+assert.ok(gameCtrl.includes('this.setScale(this.logo, LOGO_BASE_SCALE);'), 'SceneTransition logo must stay at its original scale while rings breathe');
+assert.ok(gameCtrl.includes('const finishOnce = () =>'), 'SceneTransition tween promises must have an idempotent completion guard');
+assert.ok(gameCtrl.includes('this.scheduleOnce(finishOnce, duration + 0.05)'), 'SceneTransition tween promises must not hang if Cocos skips a completion callback');
+assert.ok(gameCtrl.includes('let coveredError: unknown = null'), 'SceneTransitionController must shrink back before rethrowing covered-callback errors');
 assert.ok(audioMgr.includes("from './AudioManifest'"), 'AudioMgr must import audio resources from AudioManifest');
 assert.ok(audioManifest.includes('AUDIO_SFX_RESOURCE_PATH'), 'AudioManifest must own SFX paths');
 assert.ok(audioManifest.includes('AUDIO_BGM_RESOURCE_PATH'), 'AudioManifest must own BGM path');
@@ -770,8 +914,7 @@ assert.ok(audioMgr.includes('preload(name: SfxName)'), 'AudioMgr must expose a n
 assert.ok(gameCtrl.includes("AudioMgr.inst.preload('place');"), 'gameplay init must preload place SFX before board-return landings');
 assert.strictEqual(audioMgr.includes('const SFX_RESOURCE_PATH'), false, 'AudioMgr must not keep local SFX path map');
 assert.strictEqual(audioMgr.includes("bundle.load('Audio/bgm'"), false, 'AudioMgr must load BGM through AudioManifest');
-assert.ok(gameCtrl.includes('runtime.hideLoadingOverlayAfterGameplayReady();'), 'gameplay init must close loading only after visual readiness');
-assert.ok(gameCtrl.includes('hideLoadingOverlayAfterGameplayReady()'), 'loading overlay module must expose a readiness-close method');
+assert.strictEqual(gameplaySessionController.includes('runtime.hideLoadingOverlayAfterGameplayReady();'), false, 'gameplay readiness must not close the old Game StartupLoadingUI overlay');
 assert.strictEqual(gameCtrl.includes('this.hideLoadingOverlay();\n                this.initGame(data, activeLevelId);'), false, 'fast startup must not hide loading before initGame');
 assert.strictEqual(gameCtrl.includes('this.hideLoadingOverlay();\r\n                this.initGame(data, activeLevelId);'), false, 'fast startup must not hide loading before initGame');
 assert.ok(gameCtrl.includes("void AppRoot.inst.requestHomeSceneTransition('settings');"), 'settings home button must route through AppRoot');

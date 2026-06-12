@@ -108,6 +108,7 @@ export class CollectionPanelController {
                     if (runtime._collectionPageIndicator) runtime._collectionPageIndicator.active = false;
 
                     runtime.renderCollectionScroll(content);
+                    runtime.playPopupOpenAnim?.(overlay, box);
                 } catch (error) {
                     failOpen(error instanceof Error ? error.message : '[collection-prefab] build failed', overlay);
                 }

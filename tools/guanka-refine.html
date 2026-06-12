@@ -832,6 +832,7 @@ const PNG_HEX = {
 const DEFAULT_LEVEL_DIR = 'assets/LevelData';
 const URL_PARAMS = new URLSearchParams(window.location.search);
 const LEVEL_DIR = normalizeLevelDir(URL_PARAMS.get('dir') || DEFAULT_LEVEL_DIR);
+const SOURCE_LEVEL_FILE = normalizeProjectFilePath(URL_PARAMS.get('levelfile') || URL_PARAMS.get('path') || '');
 const COLOR_NAME_MAP = {
   '红': 10, '红色': 10, '橙': 4, '橙色': 4, '黄': 6, '黄色': 6, '浅黄': 6,
   '绿': 9, '绿色': 9, '蓝': 13, '蓝色': 13, '天蓝': 13, '天蓝色': 13,
@@ -863,6 +864,7 @@ let candidateMetrics = null;
 let candidateNeedsRebuild = false;
 let editorViewMode = 'original';
 let logLines = [];
+let currentLevelSourcePath = SOURCE_LEVEL_FILE;
 
 const PALETTE_COLORS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
 const COLOR_LABELS = {
@@ -893,6 +895,19 @@ function normalizeLevelDir(value) {
   if (!parts.length) return DEFAULT_LEVEL_DIR;
   if (parts.some(part => part === '.' || part === '..')) return DEFAULT_LEVEL_DIR;
   return parts.join('/');
+}
+
+function normalizeProjectFilePath(value) {
+  const raw = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (!raw) return '';
+  const parts = raw.split('/').filter(Boolean);
+  if (!parts.length || parts.some(part => part === '.' || part === '..')) return '';
+  return parts.join('/');
+}
+
+function inferLevelIdFromPath(path) {
+  const match = String(path || '').match(/(?:level|lv|daily)_(\d+)\.json$/);
+  return match ? Number(match[1]) : null;
 }
 
 function buildApiUrl(path, params = {}) {
@@ -995,6 +1010,7 @@ function drawGrid(canvas, grid) {
   }
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1004,17 +1020,16 @@ function drawGrid(canvas, grid) {
       if (!value) continue;
       const x = col * cell;
       const y = row * cell;
-      const size = cell - 1;
-      const radius = Math.max(1, Math.floor(cell * 0.22));
+      const radius = Math.max(0.5, Math.floor(cell * 0.16));
       const hex = PNG_HEX[value] || COLOR_HEX[value] || '#999';
       ctx.beginPath();
-      ctx.roundRect(x + 0.5, y + 0.5, size, size, radius);
+      ctx.roundRect(x, y, cell + 0.35, cell + 0.35, radius);
       ctx.fillStyle = hex;
       ctx.fill();
       if (cell >= 7) {
         ctx.beginPath();
-        ctx.roundRect(x + 1.2, y + 1.2, size - 2.4, Math.max(2, size * 0.36), radius);
-        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.roundRect(x + cell * 0.18, y + cell * 0.16, cell * 0.64, Math.max(2, cell * 0.24), radius);
+        ctx.fillStyle = 'rgba(255,255,255,0.10)';
         ctx.fill();
       }
     }
@@ -1623,6 +1638,7 @@ async function loadLevel(levelId) {
   if (!response.ok || !data.ok || !data.levelData) {
     throw new Error(data.error || `未找到关卡 ${levelId}`);
   }
+  currentLevelSourcePath = data.path || '';
   originalLevel = data.levelData;
   syncComputedLevelFields(originalLevel);
   originalLevel.levelName = originalLevel.levelName || '';
@@ -1635,6 +1651,33 @@ async function loadLevel(levelId) {
   syncMetaInputs(originalLevel);
   setStatus(`已加载关卡 ${originalLevel.levelId}`);
   setLog(`已加载关卡 ${originalLevel.levelId}。\n先看原图，再生成候选。\n重点关注配色是否拉开、图案是否更可爱，以及形状变化是否仍在 5% 内。`);
+  renderAll();
+}
+
+async function loadLevelFile(path) {
+  setStatus(`加载关卡文件 ${path}...`);
+  const response = await fetch(buildApiUrl('/api/load-level-file', { path, _: Date.now() }));
+  const data = await response.json();
+  if (!response.ok || !data.ok || !data.levelData) {
+    throw new Error(data.error || `未找到关卡文件 ${path}`);
+  }
+  currentLevelSourcePath = data.path || path;
+  originalLevel = data.levelData;
+  const inferredLevelId = inferLevelIdFromPath(currentLevelSourcePath);
+  if (!Number.isFinite(Number(originalLevel.levelId)) && Number.isFinite(inferredLevelId)) {
+    originalLevel.levelId = inferredLevelId;
+  }
+  syncComputedLevelFields(originalLevel);
+  originalLevel.levelName = originalLevel.levelName || '';
+  originalLevel.levelCategory = originalLevel.levelCategory || '';
+  candidateLevel = null;
+  candidateMetrics = null;
+  candidateNeedsRebuild = false;
+  setEditorViewMode('original');
+  qs('levelIdInput').value = originalLevel.levelId || inferredLevelId || 1;
+  syncMetaInputs(originalLevel);
+  setStatus(`已加载关卡文件 ${currentLevelSourcePath}`);
+  setLog(`已加载关卡文件。\n文件: ${currentLevelSourcePath}\n先看原图，再生成候选。\n保存时会写回当前文件，不会默认覆盖正式关卡。`);
   renderAll();
 }
 
@@ -1713,10 +1756,13 @@ async function saveCurrentLevel() {
   const levelToSave = cloneLevelWithMeta(candidateLevel || originalLevel);
   syncComputedLevelFields(levelToSave);
   setStatus(`保存关卡 ${levelToSave.levelId}...`);
-  const response = await fetch('/api/save-level-game', {
+  const shouldSaveSourceFile = Boolean(currentLevelSourcePath) && (Boolean(SOURCE_LEVEL_FILE) || LEVEL_DIR !== DEFAULT_LEVEL_DIR);
+  const response = await fetch(shouldSaveSourceFile ? '/api/save-level-file' : '/api/save-level-game', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ targetType: 'main', levelData: levelToSave }),
+    body: JSON.stringify(shouldSaveSourceFile
+      ? { path: currentLevelSourcePath, levelData: levelToSave }
+      : { targetType: 'main', levelData: levelToSave }),
   });
   const data = await response.json();
   if (!response.ok || !data.ok) {
@@ -2349,7 +2395,11 @@ async function init() {
   const level = Number(URL_PARAMS.get('level') || qs('levelIdInput').value || 1000);
   qs('levelIdInput').value = level;
   try {
-    await loadLevel(level);
+    if (SOURCE_LEVEL_FILE) {
+      await loadLevelFile(SOURCE_LEVEL_FILE);
+    } else {
+      await loadLevel(level);
+    }
   } catch (err) {
     setStatus('初始化失败');
     setLog(String(err.message || err));

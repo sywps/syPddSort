@@ -24,6 +24,12 @@ export const POPUP_UI_TEXTURE_NAMES = [
     'popup_guide_highlight_ring',
 ];
 
+export const SCENE_TRANSITION_TEXTURE_NAMES = [
+    'scene_transition_solid',
+    'scene_transition_circle_soft',
+    'scene_transition_logo',
+];
+
 export const POPUP_SETTINGS_TEXTURE_NAMES = [
     'popup_settings_sound_icon',
     'popup_settings_music_icon',

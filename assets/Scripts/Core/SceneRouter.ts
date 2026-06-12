@@ -25,7 +25,7 @@ function logSceneTrace(...args: unknown[]): void {
 }
 
 export class SceneRouter {
-    readonly loadingSceneName: AppSceneName = 'Loading';
+    readonly bootSceneName: AppSceneName = 'Boot';
     readonly homeSceneName: AppSceneName = 'Home';
     readonly gameSceneName: AppSceneName = 'Game';
     private _transitioning = false;
@@ -62,8 +62,8 @@ export class SceneRouter {
         );
     }
 
-    async toLoading(): Promise<void> {
-        await this.loadScene(this.loadingSceneName);
+    async toBoot(): Promise<void> {
+        await this.loadScene(this.bootSceneName);
     }
 
     async toHome(): Promise<void> {

@@ -12,7 +12,7 @@ const levelDataCdnPath = process.argv[3] || path.resolve(__dirname, '..', 'build
 const projectRoot = path.resolve(__dirname, '..');
 const WECHAT_APP_ID = process.env.WECHAT_APPID || 'wxbb6160c828f380ca';
 const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
-const PREVIEW_SCENE_NAMES = ['UIPreview', 'PanelPreview', 'FxPreview'];
+const PREVIEW_SCENE_NAMES = ['UIPreview'];
 const ALLOWED_GAME_SCENE_DIRECT_PREFABS = new Set([
     'assets/Prefabs/Panels/RevivePanel.prefab',
 ]);
@@ -239,7 +239,7 @@ function assertRuntimeScenes(root) {
     const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
     const mainConfigPath = findBundleConfigPath(resolveBundleDir(root, 'main', gameJson));
     const mainScenes = readJson(mainConfigPath).scenes || {};
-    for (const sceneUrl of ['db://assets/Scenes/Loading.scene', 'db://assets/Scenes/Game.scene']) {
+    for (const sceneUrl of ['db://assets/Scenes/Boot.scene', 'db://assets/Scenes/Game.scene']) {
         if (!Object.prototype.hasOwnProperty.call(mainScenes, sceneUrl)) {
             fail('微信 main bundle 缺少运行态场景: ' + sceneUrl);
         }

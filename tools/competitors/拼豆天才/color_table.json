@@ -1,0 +1,2619 @@
+{
+  "sourceGame": "拼豆天才",
+  "sourceImport": "temp/output/competitor_analysis/拼豆天才/color_assets/game/import/05/05e293936.1deee.json",
+  "sourceTexturePaths": {
+    "0": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+    "1": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png"
+  },
+  "sourceColorCount": 21,
+  "sourceColorIds": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k"
+  ],
+  "localColorCount": 20,
+  "localColors": {
+    "1": {
+      "id": 1,
+      "hex": "#ED5090",
+      "rgb": [
+        237,
+        80,
+        144
+      ]
+    },
+    "2": {
+      "id": 2,
+      "hex": "#4EEAEA",
+      "rgb": [
+        78,
+        234,
+        234
+      ]
+    },
+    "3": {
+      "id": 3,
+      "hex": "#F8C811",
+      "rgb": [
+        248,
+        200,
+        17
+      ]
+    },
+    "4": {
+      "id": 4,
+      "hex": "#FE8B10",
+      "rgb": [
+        254,
+        139,
+        16
+      ]
+    },
+    "5": {
+      "id": 5,
+      "hex": "#F4BD9E",
+      "rgb": [
+        244,
+        189,
+        158
+      ]
+    },
+    "6": {
+      "id": 6,
+      "hex": "#EBDEA6",
+      "rgb": [
+        235,
+        222,
+        166
+      ]
+    },
+    "7": {
+      "id": 7,
+      "hex": "#4A4DCF",
+      "rgb": [
+        74,
+        77,
+        207
+      ]
+    },
+    "8": {
+      "id": 8,
+      "hex": "#7221BC",
+      "rgb": [
+        114,
+        33,
+        188
+      ]
+    },
+    "9": {
+      "id": 9,
+      "hex": "#9FCE21",
+      "rgb": [
+        159,
+        206,
+        33
+      ]
+    },
+    "10": {
+      "id": 10,
+      "hex": "#EA281A",
+      "rgb": [
+        234,
+        40,
+        26
+      ]
+    },
+    "11": {
+      "id": 11,
+      "hex": "#37A92D",
+      "rgb": [
+        55,
+        169,
+        45
+      ]
+    },
+    "12": {
+      "id": 12,
+      "hex": "#207955",
+      "rgb": [
+        32,
+        121,
+        85
+      ]
+    },
+    "13": {
+      "id": 13,
+      "hex": "#20A8DC",
+      "rgb": [
+        32,
+        168,
+        220
+      ]
+    },
+    "14": {
+      "id": 14,
+      "hex": "#EEB2BC",
+      "rgb": [
+        238,
+        178,
+        188
+      ]
+    },
+    "15": {
+      "id": 15,
+      "hex": "#C4BED9",
+      "rgb": [
+        196,
+        190,
+        217
+      ]
+    },
+    "16": {
+      "id": 16,
+      "hex": "#974714",
+      "rgb": [
+        151,
+        71,
+        20
+      ]
+    },
+    "17": {
+      "id": 17,
+      "hex": "#782F3C",
+      "rgb": [
+        120,
+        47,
+        60
+      ]
+    },
+    "18": {
+      "id": 18,
+      "hex": "#36387E",
+      "rgb": [
+        54,
+        56,
+        126
+      ]
+    },
+    "19": {
+      "id": 19,
+      "hex": "#373737",
+      "rgb": [
+        55,
+        55,
+        55
+      ]
+    },
+    "20": {
+      "id": 20,
+      "hex": "#F2EDE4",
+      "rgb": [
+        242,
+        237,
+        228
+      ]
+    }
+  },
+  "sourceColors": {
+    "0": {
+      "sourceColorId": "0",
+      "canonicalState": "1",
+      "rgb": [
+        55,
+        169,
+        44
+      ],
+      "hex": "#37A92C",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/0_0",
+          "configPathIndex": 75,
+          "configUuid": "3cde3GcBVD5aV32WM8GXr6",
+          "sourceName": "0_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            159,
+            165,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            48,
+            151,
+            40
+          ],
+          "hex": "#309728"
+        },
+        "1": {
+          "assetPath": "image/dz/0_1",
+          "configPathIndex": 171,
+          "configUuid": "880H27dT9KK6c/AXrJiiKH",
+          "sourceName": "0_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            295,
+            759,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            55,
+            169,
+            44
+          ],
+          "hex": "#37A92C"
+        },
+        "2": {
+          "assetPath": "image/dz/0_2",
+          "configPathIndex": 257,
+          "configUuid": "d8O4UkbzNLaZVblEf0TwrS",
+          "sourceName": "0_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            411,
+            616,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            55,
+            169,
+            44
+          ],
+          "hex": "#37A92C"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 11,
+          "localHex": "#37A92D",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 12,
+          "localHex": "#207955",
+          "distance": 67.186
+        },
+        {
+          "localColorId": 9,
+          "localHex": "#9FCE21",
+          "distance": 110.932
+        },
+        {
+          "localColorId": 19,
+          "localHex": "#373737",
+          "distance": 114.529
+        },
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 139.158
+        }
+      ]
+    },
+    "1": {
+      "sourceColorId": "1",
+      "canonicalState": "1",
+      "rgb": [
+        243,
+        189,
+        158
+      ],
+      "hex": "#F3BD9E",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/1_2",
+          "configPathIndex": 110,
+          "configUuid": "59DOOXDJtFeom2UFLL/U8e",
+          "sourceName": "1_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            413,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            182,
+            214,
+            165
+          ],
+          "hex": "#B6D6A5"
+        },
+        "0": {
+          "assetPath": "image/dz/1_0",
+          "configPathIndex": 118,
+          "configUuid": "62J/hmmT9NqrKT5FungcNP",
+          "sourceName": "1_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            159,
+            243,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            219,
+            160,
+            140
+          ],
+          "hex": "#DBA08C"
+        },
+        "1": {
+          "assetPath": "image/dz/1_1",
+          "configPathIndex": 281,
+          "configUuid": "ebz8i4R7xGA59BmwAGohvP",
+          "sourceName": "1_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            73,
+            910,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            243,
+            189,
+            158
+          ],
+          "hex": "#F3BD9E"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 32.342
+        },
+        {
+          "localColorId": 6,
+          "localHex": "#EBDEA6",
+          "distance": 34.886
+        },
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 75.439
+        },
+        {
+          "localColorId": 20,
+          "localHex": "#F2EDE4",
+          "distance": 84.882
+        }
+      ]
+    },
+    "2": {
+      "sourceColorId": "2",
+      "canonicalState": "1",
+      "rgb": [
+        55,
+        55,
+        55
+      ],
+      "hex": "#373737",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/2_0",
+          "configPathIndex": 127,
+          "configUuid": "6cXIXTCf5LgJn9GhpworAC",
+          "sourceName": "2_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            315,
+            243,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            40,
+            40,
+            40
+          ],
+          "hex": "#282828"
+        },
+        "1": {
+          "assetPath": "image/dz/2_1",
+          "configPathIndex": 209,
+          "configUuid": "afZP5uSipOpLsYH1ryxAUl",
+          "sourceName": "2_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            785,
+            834,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            55,
+            55,
+            55
+          ],
+          "hex": "#373737"
+        },
+        "2": {
+          "assetPath": "image/dz/2_2",
+          "configPathIndex": 265,
+          "configUuid": "e1I8SW91hH0YyM2W0tGPIY",
+          "sourceName": "2_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            139,
+            617,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            55,
+            55,
+            55
+          ],
+          "hex": "#373737"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 19,
+          "localHex": "#373737",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 65.681
+        },
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 71.014
+        },
+        {
+          "localColorId": 12,
+          "localHex": "#207955",
+          "distance": 76.059
+        },
+        {
+          "localColorId": 16,
+          "localHex": "#974714",
+          "distance": 103.426
+        }
+      ]
+    },
+    "3": {
+      "sourceColorId": "3",
+      "canonicalState": "1",
+      "rgb": [
+        73,
+        76,
+        207
+      ],
+      "hex": "#494CCF",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/3_0",
+          "configPathIndex": 107,
+          "configUuid": "56UpmKEFBMgLLtQHK6iulp",
+          "sourceName": "3_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            939,
+            257,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            40,
+            43,
+            158
+          ],
+          "hex": "#282B9E"
+        },
+        "2": {
+          "assetPath": "image/dz/3_2",
+          "configPathIndex": 116,
+          "configUuid": "5fNrWyC7lP8410Id+8FEGa",
+          "sourceName": "3_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            139,
+            413,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            73,
+            76,
+            207
+          ],
+          "hex": "#494CCF"
+        },
+        "1": {
+          "assetPath": "image/dz/3_1",
+          "configPathIndex": 183,
+          "configUuid": "9aMLELUl9CJ68zYblzMHap",
+          "sourceName": "3_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            575,
+            765,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            73,
+            76,
+            207
+          ],
+          "hex": "#494CCF"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 7,
+          "localHex": "#4A4DCF",
+          "distance": 1.414
+        },
+        {
+          "localColorId": 8,
+          "localHex": "#7221BC",
+          "distance": 62.378
+        },
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 85.569
+        },
+        {
+          "localColorId": 13,
+          "localHex": "#20A8DC",
+          "distance": 101.558
+        },
+        {
+          "localColorId": 12,
+          "localHex": "#207955",
+          "distance": 136.345
+        }
+      ]
+    },
+    "4": {
+      "sourceColorId": "4",
+      "canonicalState": "1",
+      "rgb": [
+        77,
+        234,
+        234
+      ],
+      "hex": "#4DEAEA",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/4_2",
+          "configPathIndex": 5,
+          "configUuid": "045wdLh3hDNI7mLNhrlkWq",
+          "sourceName": "4_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            278,
+            277,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            77,
+            235,
+            235
+          ],
+          "hex": "#4DEBEB"
+        },
+        "1": {
+          "assetPath": "image/dz/4_1",
+          "configPathIndex": 69,
+          "configUuid": "36UwMMuShLI5sp5Ona80qr",
+          "sourceName": "4_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            305,
+            689,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            77,
+            234,
+            234
+          ],
+          "hex": "#4DEAEA"
+        },
+        "0": {
+          "assetPath": "image/dz/4_0",
+          "configPathIndex": 147,
+          "configUuid": "7aaT931m9Ki60YJE6FZj1f",
+          "sourceName": "4_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            81,
+            321,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            61,
+            189,
+            179
+          ],
+          "hex": "#3DBDB3"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 2,
+          "localHex": "#4EEAEA",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 13,
+          "localHex": "#20A8DC",
+          "distance": 81.099
+        },
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 128.008
+        },
+        {
+          "localColorId": 7,
+          "localHex": "#4A4DCF",
+          "distance": 159.333
+        },
+        {
+          "localColorId": 20,
+          "localHex": "#F2EDE4",
+          "distance": 165.136
+        }
+      ]
+    },
+    "5": {
+      "sourceColorId": "5",
+      "canonicalState": "1",
+      "rgb": [
+        149,
+        70,
+        19
+      ],
+      "hex": "#954613",
+      "states": {
+        "1": {
+          "assetPath": "image/dz/5_1",
+          "configPathIndex": 24,
+          "configUuid": "15FdAHjGhHZ5q6pFiaB/2N",
+          "sourceName": "5_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            155,
+            699,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            149,
+            70,
+            19
+          ],
+          "hex": "#954613"
+        },
+        "2": {
+          "assetPath": "image/dz/5_2",
+          "configPathIndex": 28,
+          "configUuid": "16L1B7kghOq6P2zWnId9W7",
+          "sourceName": "5_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            414,
+            344,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            150,
+            70,
+            19
+          ],
+          "hex": "#964613"
+        },
+        "0": {
+          "assetPath": "image/dz/5_0",
+          "configPathIndex": 36,
+          "configUuid": "1deYgEG7NMNqGQonXFyAXs",
+          "sourceName": "5_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            315,
+            87,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            124,
+            55,
+            11
+          ],
+          "hex": "#7C370B"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 16,
+          "localHex": "#974714",
+          "distance": 2.449
+        },
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 55.236
+        },
+        {
+          "localColorId": 10,
+          "localHex": "#EA281A",
+          "distance": 90.41
+        },
+        {
+          "localColorId": 19,
+          "localHex": "#373737",
+          "distance": 101.769
+        },
+        {
+          "localColorId": 4,
+          "localHex": "#FE8B10",
+          "distance": 125.678
+        }
+      ]
+    },
+    "6": {
+      "sourceColorId": "6",
+      "canonicalState": "1",
+      "rgb": [
+        121,
+        46,
+        60
+      ],
+      "hex": "#792E3C",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/6_0",
+          "configPathIndex": 35,
+          "configUuid": "1daJlBMxFAqo0MjdgqkU8f",
+          "sourceName": "6_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            237,
+            87,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            112,
+            35,
+            48
+          ],
+          "hex": "#702330"
+        },
+        "2": {
+          "assetPath": "image/dz/6_2",
+          "configPathIndex": 88,
+          "configUuid": "49gYaKieVHpIYdJwJIu/6u",
+          "sourceName": "6_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            906,
+            941,
+            63,
+            63
+          ],
+          "rotated": false,
+          "rgb": [
+            121,
+            46,
+            60
+          ],
+          "hex": "#792E3C"
+        },
+        "1": {
+          "assetPath": "image/dz/6_1",
+          "configPathIndex": 307,
+          "configUuid": "fdR6FAoSxH0LQPLdeDcaU2",
+          "sourceName": "6_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            422,
+            899,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            121,
+            46,
+            60
+          ],
+          "hex": "#792E3C"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 1.414
+        },
+        {
+          "localColorId": 16,
+          "localHex": "#974714",
+          "distance": 55.902
+        },
+        {
+          "localColorId": 19,
+          "localHex": "#373737",
+          "distance": 66.798
+        },
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 94.578
+        },
+        {
+          "localColorId": 10,
+          "localHex": "#EA281A",
+          "distance": 118.157
+        }
+      ]
+    },
+    "7": {
+      "sourceColorId": "7",
+      "canonicalState": "1",
+      "rgb": [
+        54,
+        56,
+        125
+      ],
+      "hex": "#36387D",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/7_2",
+          "configPathIndex": 109,
+          "configUuid": "59B65LHAxEd6KdSDEGnChH",
+          "sourceName": "7_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            411,
+            412,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            55,
+            56,
+            125
+          ],
+          "hex": "#37387D"
+        },
+        "1": {
+          "assetPath": "image/dz/7_1",
+          "configPathIndex": 120,
+          "configUuid": "64fkWVPhFDR4Dsi9ROT+3w",
+          "sourceName": "7_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            795,
+            764,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            54,
+            56,
+            125
+          ],
+          "hex": "#36387D"
+        },
+        "0": {
+          "assetPath": "image/dz/7_0",
+          "configPathIndex": 247,
+          "configUuid": "d0hGMmxEtMo67dKoYQZL07",
+          "sourceName": "7_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            477,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            39,
+            40,
+            101
+          ],
+          "hex": "#272865"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 19,
+          "localHex": "#373737",
+          "distance": 70.014
+        },
+        {
+          "localColorId": 12,
+          "localHex": "#207955",
+          "distance": 79.429
+        },
+        {
+          "localColorId": 7,
+          "localHex": "#4A4DCF",
+          "distance": 86.977
+        },
+        {
+          "localColorId": 8,
+          "localHex": "#7221BC",
+          "distance": 89.989
+        }
+      ]
+    },
+    "8": {
+      "sourceColorId": "8",
+      "canonicalState": "1",
+      "rgb": [
+        32,
+        120,
+        85
+      ],
+      "hex": "#207855",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/8_2",
+          "configPathIndex": 165,
+          "configUuid": "87EbO7ZpxCEJBEZX+Ap2dC",
+          "sourceName": "8_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            343,
+            480,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            214,
+            165,
+            146
+          ],
+          "hex": "#D6A592"
+        },
+        "1": {
+          "assetPath": "image/dz/8_1",
+          "configPathIndex": 184,
+          "configUuid": "9a12NTpj9OyJ/PnDqlpqel",
+          "sourceName": "8_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            645,
+            831,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            32,
+            120,
+            85
+          ],
+          "hex": "#207855"
+        },
+        "0": {
+          "assetPath": "image/dz/8_0",
+          "configPathIndex": 291,
+          "configUuid": "f2WpVoZhlBv5CJvKhtF1SR",
+          "sourceName": "8_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            627,
+            483,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            16,
+            88,
+            59
+          ],
+          "hex": "#10583B"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 12,
+          "localHex": "#207955",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 11,
+          "localHex": "#37A92D",
+          "distance": 67.305
+        },
+        {
+          "localColorId": 19,
+          "localHex": "#373737",
+          "distance": 75.193
+        },
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 79.126
+        },
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 117.038
+        }
+      ]
+    },
+    "9": {
+      "sourceColorId": "9",
+      "canonicalState": "1",
+      "rgb": [
+        158,
+        207,
+        32
+      ],
+      "hex": "#9ECF20",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/9_2",
+          "configPathIndex": 3,
+          "configUuid": "037KeeD35CbJlegJjID/Cx",
+          "sourceName": "9_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            210,
+            277,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            158,
+            207,
+            32
+          ],
+          "hex": "#9ECF20"
+        },
+        "1": {
+          "assetPath": "image/dz/9_1",
+          "configPathIndex": 95,
+          "configUuid": "4b7/lw4DdKiqWnRHBDrh6U",
+          "sourceName": "9_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            515,
+            689,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            158,
+            207,
+            32
+          ],
+          "hex": "#9ECF20"
+        },
+        "0": {
+          "assetPath": "image/dz/9_0",
+          "configPathIndex": 129,
+          "configUuid": "6c5+a7TkpHR7r1hAD9UM3j",
+          "sourceName": "9_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            393,
+            243,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            134,
+            187,
+            8
+          ],
+          "hex": "#86BB08"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 9,
+          "localHex": "#9FCE21",
+          "distance": 1.732
+        },
+        {
+          "localColorId": 3,
+          "localHex": "#F8C811",
+          "distance": 91.51
+        },
+        {
+          "localColorId": 11,
+          "localHex": "#37A92D",
+          "distance": 110.553
+        },
+        {
+          "localColorId": 4,
+          "localHex": "#FE8B10",
+          "distance": 118.727
+        },
+        {
+          "localColorId": 16,
+          "localHex": "#974714",
+          "distance": 136.708
+        }
+      ]
+    },
+    "a": {
+      "sourceColorId": "a",
+      "canonicalState": "1",
+      "rgb": [
+        139,
+        139,
+        139
+      ],
+      "hex": "#8B8B8B",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/a_0",
+          "configPathIndex": 29,
+          "configUuid": "17B0VHvG5Ei4PLRbtC959k",
+          "sourceName": "a_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            87,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            105,
+            105,
+            105
+          ],
+          "hex": "#696969"
+        },
+        "1": {
+          "assetPath": "image/dz/a_1",
+          "configPathIndex": 150,
+          "configUuid": "7bGMnEwvdOO6Bi6A1q4cdW",
+          "sourceName": "a_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            225,
+            759,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            139,
+            139,
+            139
+          ],
+          "hex": "#8B8B8B"
+        },
+        "2": {
+          "assetPath": "image/dz/a_2",
+          "configPathIndex": 279,
+          "configUuid": "ebZnQf4k9IRLGPrBDl8XrU",
+          "sourceName": "a_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            275,
+            617,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            139,
+            139,
+            139
+          ],
+          "hex": "#8B8B8B"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 109.243
+        },
+        {
+          "localColorId": 7,
+          "localHex": "#4A4DCF",
+          "distance": 112.663
+        },
+        {
+          "localColorId": 1,
+          "localHex": "#ED5090",
+          "distance": 114.499
+        },
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 117.145
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 117.839
+        }
+      ]
+    },
+    "b": {
+      "sourceColorId": "b",
+      "canonicalState": "1",
+      "rgb": [
+        196,
+        190,
+        217
+      ],
+      "hex": "#C4BED9",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/b_0",
+          "configPathIndex": 64,
+          "configUuid": "33YPQTEp1NboIjwQ0aPKUX",
+          "sourceName": "b_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            81,
+            165,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            125,
+            118,
+            146
+          ],
+          "hex": "#7D7692"
+        },
+        "2": {
+          "assetPath": "image/dz/b_2",
+          "configPathIndex": 226,
+          "configUuid": "b7IzCepSFBu6hWIsBuhKW2",
+          "sourceName": "b_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            207,
+            549,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            196,
+            190,
+            217
+          ],
+          "hex": "#C4BED9"
+        },
+        "1": {
+          "assetPath": "image/dz/b_1",
+          "configPathIndex": 280,
+          "configUuid": "eby5phGGdCBpmA1MB6ttvP",
+          "sourceName": "b_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            910,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            196,
+            190,
+            217
+          ],
+          "hex": "#C4BED9"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 52.431
+        },
+        {
+          "localColorId": 20,
+          "localHex": "#F2EDE4",
+          "distance": 66.678
+        },
+        {
+          "localColorId": 6,
+          "localHex": "#EBDEA6",
+          "distance": 71.736
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 76.066
+        }
+      ]
+    },
+    "c": {
+      "sourceColorId": "c",
+      "canonicalState": "1",
+      "rgb": [
+        32,
+        168,
+        219
+      ],
+      "hex": "#20A8DB",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/c_0",
+          "configPathIndex": 42,
+          "configUuid": "201te3lglAKJEhjfKYlR6t",
+          "sourceName": "c_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            471,
+            87,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            16,
+            130,
+            182
+          ],
+          "hex": "#1082B6"
+        },
+        "2": {
+          "assetPath": "image/dz/c_2",
+          "configPathIndex": 211,
+          "configUuid": "b0MAEfeNFE7rxYHcYAzc42",
+          "sourceName": "c_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            549,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            250,
+            200,
+            18
+          ],
+          "hex": "#FAC812"
+        },
+        "1": {
+          "assetPath": "image/dz/c_1",
+          "configPathIndex": 231,
+          "configUuid": "bewEkn8S1P9JWJhEX8TxCA",
+          "sourceName": "c_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            855,
+            854,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            32,
+            168,
+            219
+          ],
+          "hex": "#20A8DB"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 13,
+          "localHex": "#20A8DC",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 2,
+          "localHex": "#4EEAEA",
+          "distance": 81.835
+        },
+        {
+          "localColorId": 7,
+          "localHex": "#4A4DCF",
+          "distance": 100.941
+        },
+        {
+          "localColorId": 12,
+          "localHex": "#207955",
+          "distance": 142.004
+        },
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 147.231
+        }
+      ]
+    },
+    "d": {
+      "sourceColorId": "d",
+      "canonicalState": "1",
+      "rgb": [
+        255,
+        139,
+        16
+      ],
+      "hex": "#FF8B10",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/d_2",
+          "configPathIndex": 121,
+          "configUuid": "66hvuERlVOkqgejR4qvykl",
+          "sourceName": "d_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            207,
+            413,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            255,
+            139,
+            16
+          ],
+          "hex": "#FF8B10"
+        },
+        "0": {
+          "assetPath": "image/dz/d_0",
+          "configPathIndex": 153,
+          "configUuid": "7dwVCJ6SlGVqesIz/CGMN+",
+          "sourceName": "d_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            237,
+            321,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            227,
+            106,
+            0
+          ],
+          "hex": "#E36A00"
+        },
+        "1": {
+          "assetPath": "image/dz/d_1",
+          "configPathIndex": 199,
+          "configUuid": "a95COn2MBBbLxgQzkXeErK",
+          "sourceName": "d_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            715,
+            831,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            255,
+            139,
+            16
+          ],
+          "hex": "#FF8B10"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 4,
+          "localHex": "#FE8B10",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 3,
+          "localHex": "#F8C811",
+          "distance": 61.408
+        },
+        {
+          "localColorId": 10,
+          "localHex": "#EA281A",
+          "distance": 101.696
+        },
+        {
+          "localColorId": 9,
+          "localHex": "#9FCE21",
+          "distance": 118.296
+        },
+        {
+          "localColorId": 16,
+          "localHex": "#974714",
+          "distance": 124.322
+        }
+      ]
+    },
+    "e": {
+      "sourceColorId": "e",
+      "canonicalState": "1",
+      "rgb": [
+        238,
+        179,
+        187
+      ],
+      "hex": "#EEB3BB",
+      "states": {
+        "1": {
+          "assetPath": "image/dz/e_1",
+          "configPathIndex": 115,
+          "configUuid": "5dW+4yA61Kzb0jLz4nWB5Z",
+          "sourceName": "e_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            725,
+            761,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            238,
+            179,
+            187
+          ],
+          "hex": "#EEB3BB"
+        },
+        "0": {
+          "assetPath": "image/dz/e_0",
+          "configPathIndex": 143,
+          "configUuid": "756/yDcgpIHYkFxqRVUEqt",
+          "sourceName": "e_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            783,
+            315,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            199,
+            129,
+            138
+          ],
+          "hex": "#C7818A"
+        },
+        "2": {
+          "assetPath": "image/dz/e_2",
+          "configPathIndex": 287,
+          "configUuid": "ed5NQOJaJAiZ02QwD53oTx",
+          "sourceName": "e_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            411,
+            684,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            237,
+            179,
+            187
+          ],
+          "hex": "#EDB3BB"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 1.414
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 31.257
+        },
+        {
+          "localColorId": 6,
+          "localHex": "#EBDEA6",
+          "distance": 47.948
+        },
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 52.773
+        },
+        {
+          "localColorId": 20,
+          "localHex": "#F2EDE4",
+          "distance": 71.141
+        }
+      ]
+    },
+    "f": {
+      "sourceColorId": "f",
+      "canonicalState": "1",
+      "rgb": [
+        238,
+        80,
+        145
+      ],
+      "hex": "#EE5091",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/f_2",
+          "configPathIndex": 207,
+          "configUuid": "aez+oxYA9FUZEKvFbMPIVp",
+          "sourceName": "f_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            343,
+            548,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            237,
+            80,
+            145
+          ],
+          "hex": "#ED5091"
+        },
+        "0": {
+          "assetPath": "image/dz/f_0",
+          "configPathIndex": 285,
+          "configUuid": "edYTP8ofBIHYbTorQoH16V",
+          "sourceName": "f_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            549,
+            477,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            210,
+            51,
+            118
+          ],
+          "hex": "#D23376"
+        },
+        "1": {
+          "assetPath": "image/dz/f_1",
+          "configPathIndex": 293,
+          "configUuid": "f6CkWZUFlOEJRHW5w+Q6ch",
+          "sourceName": "f_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            283,
+            829,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            238,
+            80,
+            145
+          ],
+          "hex": "#EE5091"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 1,
+          "localHex": "#ED5090",
+          "distance": 1.414
+        },
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 107.019
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 109.936
+        },
+        {
+          "localColorId": 10,
+          "localHex": "#EA281A",
+          "distance": 125.607
+        },
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 138.014
+        }
+      ]
+    },
+    "g": {
+      "sourceColorId": "g",
+      "canonicalState": "1",
+      "rgb": [
+        235,
+        40,
+        24
+      ],
+      "hex": "#EB2818",
+      "states": {
+        "1": {
+          "assetPath": "image/dz/g_1",
+          "configPathIndex": 142,
+          "configUuid": "75Z0OVVjdI+JyblPITAyhU",
+          "sourceName": "g_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            935,
+            801,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            235,
+            40,
+            24
+          ],
+          "hex": "#EB2818"
+        },
+        "2": {
+          "assetPath": "image/dz/g_2",
+          "configPathIndex": 210,
+          "configUuid": "af9uBeQeJGmq5J/+nMfCWe",
+          "sourceName": "g_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            411,
+            548,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            235,
+            40,
+            26
+          ],
+          "hex": "#EB281A"
+        },
+        "0": {
+          "assetPath": "image/dz/g_0",
+          "configPathIndex": 275,
+          "configUuid": "e98lFqsTNGaZyVyYvv3DM0",
+          "sourceName": "g_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            471,
+            477,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            205,
+            35,
+            18
+          ],
+          "hex": "#CD2312"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 10,
+          "localHex": "#EA281A",
+          "distance": 2.236
+        },
+        {
+          "localColorId": 16,
+          "localHex": "#974714",
+          "distance": 89.627
+        },
+        {
+          "localColorId": 4,
+          "localHex": "#FE8B10",
+          "distance": 101.124
+        },
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 120.706
+        },
+        {
+          "localColorId": 1,
+          "localHex": "#ED5090",
+          "distance": 126.507
+        }
+      ]
+    },
+    "h": {
+      "sourceColorId": "h",
+      "canonicalState": "1",
+      "rgb": [
+        114,
+        32,
+        189
+      ],
+      "hex": "#7220BD",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/h_0",
+          "configPathIndex": 80,
+          "configUuid": "424XsouEtIxYf403EHKldv",
+          "sourceName": "h_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            315,
+            165,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            100,
+            24,
+            170
+          ],
+          "hex": "#6418AA"
+        },
+        "1": {
+          "assetPath": "image/dz/h_1",
+          "configPathIndex": 163,
+          "configUuid": "86Dl9IwRpBaoME89X0iZz3",
+          "sourceName": "h_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            770,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            114,
+            32,
+            189
+          ],
+          "hex": "#7220BD"
+        },
+        "2": {
+          "assetPath": "image/dz/h_2",
+          "configPathIndex": 187,
+          "configUuid": "9cR9FDTVdCM5EyK8Q/O5pN",
+          "sourceName": "h_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            71,
+            481,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            238,
+            179,
+            188
+          ],
+          "hex": "#EEB3BC"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 8,
+          "localHex": "#7221BC",
+          "distance": 1.414
+        },
+        {
+          "localColorId": 7,
+          "localHex": "#4A4DCF",
+          "distance": 62.841
+        },
+        {
+          "localColorId": 18,
+          "localHex": "#36387E",
+          "distance": 90.25
+        },
+        {
+          "localColorId": 17,
+          "localHex": "#782F3C",
+          "distance": 130.008
+        },
+        {
+          "localColorId": 1,
+          "localHex": "#ED5090",
+          "distance": 139.492
+        }
+      ]
+    },
+    "i": {
+      "sourceColorId": "i",
+      "canonicalState": "1",
+      "rgb": [
+        243,
+        236,
+        227
+      ],
+      "hex": "#F3ECE3",
+      "states": {
+        "2": {
+          "assetPath": "image/dz/i_2",
+          "configPathIndex": 23,
+          "configUuid": "14H1Ml3gtAUZhROhSLYSEX",
+          "sourceName": "i_2",
+          "textureIndex": 1,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/15/15585d687.d176d.png",
+          "rect": [
+            346,
+            344,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            243,
+            237,
+            227
+          ],
+          "hex": "#F3EDE3"
+        },
+        "0": {
+          "assetPath": "image/dz/i_0",
+          "configPathIndex": 232,
+          "configUuid": "be31H5PbhFa4zNAY2rwch1",
+          "sourceName": "i_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            705,
+            471,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            216,
+            211,
+            201
+          ],
+          "hex": "#D8D3C9"
+        },
+        "1": {
+          "assetPath": "image/dz/i_1",
+          "configPathIndex": 254,
+          "configUuid": "d3rtu180JOgZXc+clXs2+q",
+          "sourceName": "i_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            73,
+            840,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            243,
+            236,
+            227
+          ],
+          "hex": "#F3ECE3"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 20,
+          "localHex": "#F2EDE4",
+          "distance": 1.732
+        },
+        {
+          "localColorId": 6,
+          "localHex": "#EBDEA6",
+          "distance": 63.095
+        },
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 66.521
+        },
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 70.071
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 83.493
+        }
+      ]
+    },
+    "j": {
+      "sourceColorId": "j",
+      "canonicalState": "1",
+      "rgb": [
+        235,
+        223,
+        166
+      ],
+      "hex": "#EBDFA6",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/j_0",
+          "configPathIndex": 189,
+          "configUuid": "9eXw4XQmlMyqeBMb0vhlaH",
+          "sourceName": "j_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            939,
+            413,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            215,
+            201,
+            142
+          ],
+          "hex": "#D7C98E"
+        },
+        "2": {
+          "assetPath": "image/dz/j_2",
+          "configPathIndex": 202,
+          "configUuid": "abHZefAqJG8q0SUw8v/jKL",
+          "sourceName": "j_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            207,
+            481,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            68,
+            191,
+            48
+          ],
+          "hex": "#44BF30"
+        },
+        "1": {
+          "assetPath": "image/dz/j_1",
+          "configPathIndex": 238,
+          "configUuid": "c3bFI/wTtEhbZc43yfyslE",
+          "sourceName": "j_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            143,
+            839,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            235,
+            223,
+            166
+          ],
+          "hex": "#EBDFA6"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 6,
+          "localHex": "#EBDEA6",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 36.069
+        },
+        {
+          "localColorId": 14,
+          "localHex": "#EEB2BC",
+          "distance": 50.18
+        },
+        {
+          "localColorId": 20,
+          "localHex": "#F2EDE4",
+          "distance": 63.945
+        },
+        {
+          "localColorId": 15,
+          "localHex": "#C4BED9",
+          "distance": 72.187
+        }
+      ]
+    },
+    "k": {
+      "sourceColorId": "k",
+      "canonicalState": "1",
+      "rgb": [
+        250,
+        199,
+        17
+      ],
+      "hex": "#FAC711",
+      "states": {
+        "0": {
+          "assetPath": "image/dz/k_0",
+          "configPathIndex": 86,
+          "configUuid": "476K6+xoRMAq7ENKd2lZ7g",
+          "sourceName": "k_0",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            471,
+            165,
+            72,
+            72
+          ],
+          "rotated": false,
+          "rgb": [
+            234,
+            152,
+            1
+          ],
+          "hex": "#EA9801"
+        },
+        "2": {
+          "assetPath": "image/dz/k_2",
+          "configPathIndex": 186,
+          "configUuid": "9b6NQy+ZdK36CzMRh3fOlD",
+          "sourceName": "k_2",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            3,
+            481,
+            62,
+            62
+          ],
+          "rotated": false,
+          "rgb": [
+            39,
+            40,
+            101
+          ],
+          "hex": "#272865"
+        },
+        "1": {
+          "assetPath": "image/dz/k_1",
+          "configPathIndex": 294,
+          "configUuid": "f6X9MD2y5AbJknGSlpAmml",
+          "sourceName": "k_1",
+          "textureIndex": 0,
+          "texturePath": "temp/output/competitor_analysis/拼豆天才/color_assets/game/native/17/171b8b2cb.548e1.png",
+          "rect": [
+            352,
+            899,
+            64,
+            64
+          ],
+          "rotated": false,
+          "rgb": [
+            250,
+            199,
+            17
+          ],
+          "hex": "#FAC711"
+        }
+      },
+      "nearestLocal": [
+        {
+          "localColorId": 3,
+          "localHex": "#F8C811",
+          "distance": 2.236
+        },
+        {
+          "localColorId": 4,
+          "localHex": "#FE8B10",
+          "distance": 60.141
+        },
+        {
+          "localColorId": 9,
+          "localHex": "#9FCE21",
+          "distance": 92.661
+        },
+        {
+          "localColorId": 5,
+          "localHex": "#F4BD9E",
+          "distance": 141.481
+        },
+        {
+          "localColorId": 6,
+          "localHex": "#EBDEA6",
+          "distance": 151.509
+        }
+      ]
+    }
+  },
+  "sourceToLocalMapping": {
+    "0": {
+      "sourceColorId": "0",
+      "sourceHex": "#37A92C",
+      "sourceRgb": [
+        55,
+        169,
+        44
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "distance": 1.0
+    },
+    "1": {
+      "sourceColorId": "1",
+      "sourceHex": "#F3BD9E",
+      "sourceRgb": [
+        243,
+        189,
+        158
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 1.0
+    },
+    "2": {
+      "sourceColorId": "2",
+      "sourceHex": "#373737",
+      "sourceRgb": [
+        55,
+        55,
+        55
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 0.0
+    },
+    "3": {
+      "sourceColorId": "3",
+      "sourceHex": "#494CCF",
+      "sourceRgb": [
+        73,
+        76,
+        207
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 1.414
+    },
+    "4": {
+      "sourceColorId": "4",
+      "sourceHex": "#4DEAEA",
+      "sourceRgb": [
+        77,
+        234,
+        234
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 1.0
+    },
+    "5": {
+      "sourceColorId": "5",
+      "sourceHex": "#954613",
+      "sourceRgb": [
+        149,
+        70,
+        19
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 2.449
+    },
+    "6": {
+      "sourceColorId": "6",
+      "sourceHex": "#792E3C",
+      "sourceRgb": [
+        121,
+        46,
+        60
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 1.414
+    },
+    "7": {
+      "sourceColorId": "7",
+      "sourceHex": "#36387D",
+      "sourceRgb": [
+        54,
+        56,
+        125
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 1.0
+    },
+    "8": {
+      "sourceColorId": "8",
+      "sourceHex": "#207855",
+      "sourceRgb": [
+        32,
+        120,
+        85
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 1.0
+    },
+    "9": {
+      "sourceColorId": "9",
+      "sourceHex": "#9ECF20",
+      "sourceRgb": [
+        158,
+        207,
+        32
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "distance": 1.732
+    },
+    "a": {
+      "sourceColorId": "a",
+      "sourceHex": "#8B8B8B",
+      "sourceRgb": [
+        139,
+        139,
+        139
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 109.243
+    },
+    "b": {
+      "sourceColorId": "b",
+      "sourceHex": "#C4BED9",
+      "sourceRgb": [
+        196,
+        190,
+        217
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 0.0
+    },
+    "c": {
+      "sourceColorId": "c",
+      "sourceHex": "#20A8DB",
+      "sourceRgb": [
+        32,
+        168,
+        219
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 1.0
+    },
+    "d": {
+      "sourceColorId": "d",
+      "sourceHex": "#FF8B10",
+      "sourceRgb": [
+        255,
+        139,
+        16
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 1.0
+    },
+    "e": {
+      "sourceColorId": "e",
+      "sourceHex": "#EEB3BB",
+      "sourceRgb": [
+        238,
+        179,
+        187
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "distance": 1.414
+    },
+    "f": {
+      "sourceColorId": "f",
+      "sourceHex": "#EE5091",
+      "sourceRgb": [
+        238,
+        80,
+        145
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 1.414
+    },
+    "g": {
+      "sourceColorId": "g",
+      "sourceHex": "#EB2818",
+      "sourceRgb": [
+        235,
+        40,
+        24
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 2.236
+    },
+    "h": {
+      "sourceColorId": "h",
+      "sourceHex": "#7220BD",
+      "sourceRgb": [
+        114,
+        32,
+        189
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 1.414
+    },
+    "i": {
+      "sourceColorId": "i",
+      "sourceHex": "#F3ECE3",
+      "sourceRgb": [
+        243,
+        236,
+        227
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 1.732
+    },
+    "j": {
+      "sourceColorId": "j",
+      "sourceHex": "#EBDFA6",
+      "sourceRgb": [
+        235,
+        223,
+        166
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 1.0
+    },
+    "k": {
+      "sourceColorId": "k",
+      "sourceHex": "#FAC711",
+      "sourceRgb": [
+        250,
+        199,
+        17
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 2.236
+    }
+  },
+  "localCollisions": {
+    "15": [
+      "a",
+      "b"
+    ]
+  }
+}

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Level editor server with save support."""
 import http.server
+import datetime
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,6 +18,8 @@ NL_API_BASE = os.environ.get('NL_API_BASE', 'https://doubao.zwchat.cn/v1')
 NL_API_KEY = os.environ.get('NL_API_KEY', 'sk-4Oz0LSt9ruBO5W054NGYN2jD82dVyw3D8wmwAS62lNLfyzHn')
 NL_MODEL = os.environ.get('NL_MODEL', 'gemini-3-flash-preview')
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+COMPETITOR_TOOLS_DIR = os.path.join(PROJECT_ROOT, 'tools', 'competitors')
+IMPORT_MAP_FILENAME = 'official_import_map.json'
 
 GAME_LEVEL_DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'assets', 'LevelData')
@@ -29,6 +34,8 @@ ONLINE_LEVEL_KEYS = (
     'correctColorArr',
     'initRandomColorArr',
 )
+LEVEL_FINGERPRINT_VERSION = 1
+LEVEL_FINGERPRINT_KEYS = tuple(key for key in ONLINE_LEVEL_KEYS if key != 'levelId')
 
 
 def build_game_level_filename(target_type, target_level_id):
@@ -37,18 +44,216 @@ def build_game_level_filename(target_type, target_level_id):
     return f'level_{target_level_id}.json'
 
 
+def build_level_swap_backup_dir(level_a_id, level_b_id):
+    stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+    return os.path.join(
+        PROJECT_ROOT,
+        'temp',
+        'level_swap_backups',
+        f'{stamp}_level_{level_a_id}_level_{level_b_id}',
+    )
+
+
 def normalize_online_level_payload(source_level_data, target_level_id):
-    normalized = {key: source_level_data[key] for key in ONLINE_LEVEL_KEYS}
+    required_keys = [key for key in ONLINE_LEVEL_KEYS if key != 'levelId']
+    missing_keys = [key for key in required_keys if key not in source_level_data]
+    if missing_keys:
+        raise ValueError(f'missing online level fields: {", ".join(missing_keys)}')
+    normalized = {key: source_level_data[key] for key in required_keys}
     normalized['levelId'] = target_level_id
     return normalized
 
 
-LEVEL_FILENAME_RE = re.compile(r'^level_(\d+)\.json$')
+def load_level_json(filepath):
+    with open(filepath, 'r', encoding='utf-8-sig') as f:
+        return json.load(f)
+
+
+def build_level_content_fingerprint(level_data):
+    missing_keys = [key for key in LEVEL_FINGERPRINT_KEYS if key not in level_data]
+    if missing_keys:
+        raise ValueError(f'missing level fingerprint fields: {", ".join(missing_keys)}')
+    canonical = {key: level_data[key] for key in LEVEL_FINGERPRINT_KEYS}
+    body = json.dumps(
+        canonical,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(',', ':'),
+    ).encode('utf-8')
+    return hashlib.sha256(body).hexdigest()
+
+
+def read_level_content_fingerprint(filepath):
+    return build_level_content_fingerprint(load_level_json(filepath))
+
+
+def build_formal_level_fingerprint_index():
+    index = {}
+    for name in os.listdir(GAME_LEVEL_DATA_DIR):
+        match = LEVEL_FILENAME_RE.match(name)
+        if not match or match.group(1) != 'level':
+            continue
+        filepath = os.path.join(GAME_LEVEL_DATA_DIR, name)
+        level_id = int(match.group(2))
+        fingerprint = read_level_content_fingerprint(filepath)
+        index.setdefault(fingerprint, []).append({
+            'targetLevelId': level_id,
+            'targetPath': path_to_project_rel(filepath),
+        })
+    for matches in index.values():
+        matches.sort(key=lambda item: item['targetLevelId'])
+    return index
+
+
+LEVEL_FILENAME_RE = re.compile(r'^(level|lv|daily|zt_level)_(\d+)\.json$')
 JSONP_CALLBACK_RE = re.compile(r'^[A-Za-z_$][0-9A-Za-z_$]*$')
 
 
 def path_to_project_rel(path):
     return os.path.relpath(path, PROJECT_ROOT).replace(os.sep, '/')
+
+
+def normalize_level_kind(kind_value=None):
+    kind = str(kind_value or 'main').strip().lower()
+    if kind in ('theme', 'zt', 'zt_level'):
+        return 'theme'
+    return 'main'
+
+
+def level_filename_matches_kind(prefix, kind='main'):
+    kind = normalize_level_kind(kind)
+    if kind == 'theme':
+        return prefix == 'zt_level'
+    return prefix in ('level', 'lv', 'daily')
+
+
+def get_competitor_import_map_path(path_value):
+    rel_path = path_to_project_rel(os.path.abspath(path_value))
+    parts = rel_path.split('/')
+    if len(parts) >= 3 and parts[0] == 'tools' and parts[1] == 'competitors':
+        return os.path.join(COMPETITOR_TOOLS_DIR, parts[2], IMPORT_MAP_FILENAME)
+    return None
+
+
+def read_import_map(map_path):
+    if not map_path or not os.path.exists(map_path):
+        return {}
+    if os.path.getsize(map_path) == 0:
+        return {}
+    with open(map_path, 'r', encoding='utf-8-sig') as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError(f'import map must be an object: {path_to_project_rel(map_path)}')
+    return data
+
+
+def write_import_map(map_path, data):
+    os.makedirs(os.path.dirname(map_path), exist_ok=True)
+    with open(map_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write('\n')
+
+
+def repair_official_import_marker(source_path, marker, formal_fingerprint_index):
+    if not isinstance(marker, dict):
+        return marker, False
+
+    source_fingerprint = read_level_content_fingerprint(source_path)
+    updated = dict(marker)
+    changed = False
+
+    if updated.get('sourcePath') != path_to_project_rel(source_path):
+        updated['sourcePath'] = path_to_project_rel(source_path)
+        changed = True
+    if updated.get('targetType') != 'online':
+        return updated, changed
+    if updated.get('fingerprintVersion') != LEVEL_FINGERPRINT_VERSION:
+        updated['fingerprintVersion'] = LEVEL_FINGERPRINT_VERSION
+        changed = True
+    if updated.get('contentFingerprint') != source_fingerprint:
+        updated['contentFingerprint'] = source_fingerprint
+        changed = True
+
+    matches = formal_fingerprint_index.get(source_fingerprint, [])
+    if not matches:
+        return updated, changed
+
+    try:
+        current_target_id = int(updated.get('targetLevelId'))
+    except Exception:
+        current_target_id = None
+
+    chosen = next(
+        (item for item in matches if item['targetLevelId'] == current_target_id),
+        None,
+    )
+    if chosen is None:
+        chosen = matches[0]
+        if current_target_id is not None and current_target_id != chosen['targetLevelId']:
+            updated['previousTargetLevelId'] = current_target_id
+            updated['previousTargetPath'] = updated.get('targetPath')
+            updated['repairedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
+            changed = True
+
+    if updated.get('targetLevelId') != chosen['targetLevelId']:
+        updated['targetLevelId'] = chosen['targetLevelId']
+        changed = True
+    if updated.get('targetPath') != chosen['targetPath']:
+        updated['targetPath'] = chosen['targetPath']
+        changed = True
+
+    duplicate_count = len(matches)
+    if duplicate_count > 1:
+        if updated.get('targetDuplicateCount') != duplicate_count:
+            updated['targetDuplicateCount'] = duplicate_count
+            changed = True
+    elif 'targetDuplicateCount' in updated:
+        updated.pop('targetDuplicateCount', None)
+        changed = True
+
+    return updated, changed
+
+
+def repair_import_map(import_map):
+    if not import_map:
+        return import_map, False
+
+    repaired_map = dict(import_map)
+    formal_fingerprint_index = None
+    changed = False
+    for source_rel, marker in list(import_map.items()):
+        source_path = os.path.abspath(os.path.join(PROJECT_ROOT, source_rel.replace('/', os.sep)))
+        if (
+            os.path.commonpath([PROJECT_ROOT, source_path]) != PROJECT_ROOT
+            or not os.path.isfile(source_path)
+        ):
+            continue
+        if formal_fingerprint_index is None:
+            formal_fingerprint_index = build_formal_level_fingerprint_index()
+        repaired_marker, marker_changed = repair_official_import_marker(
+            source_path,
+            marker,
+            formal_fingerprint_index,
+        )
+        if marker_changed:
+            repaired_map[source_rel] = repaired_marker
+            changed = True
+
+    return repaired_map, changed
+
+
+def build_official_import_marker(source_path, target_level_id, target_path, target_type, level_data=None):
+    marker = {
+        'sourcePath': path_to_project_rel(source_path),
+        'targetLevelId': int(target_level_id),
+        'targetPath': path_to_project_rel(target_path),
+        'targetType': target_type,
+        'importedAt': datetime.datetime.now().isoformat(timespec='seconds'),
+    }
+    if target_type == 'online' and level_data is not None:
+        marker['fingerprintVersion'] = LEVEL_FINGERPRINT_VERSION
+        marker['contentFingerprint'] = build_level_content_fingerprint(level_data)
+    return marker
 
 
 def resolve_level_dir(dir_value=None):
@@ -75,6 +280,37 @@ def build_level_path(level_dir, level_id):
     return os.path.join(level_dir, f'level_{level_id}.json')
 
 
+def build_level_filename_candidates(level_id, kind='main'):
+    if normalize_level_kind(kind) == 'theme':
+        return (f'zt_level_{level_id}.json',)
+    return (
+        f'level_{level_id}.json',
+        f'lv_{level_id}.json',
+        f'lv_{level_id:03d}.json',
+        f'daily_{level_id}.json',
+        f'daily_{level_id:03d}.json',
+    )
+
+
+def find_level_path(level_dir, level_id, kind='main'):
+    level_id = int(level_id)
+    kind = normalize_level_kind(kind)
+    for filename in build_level_filename_candidates(level_id, kind):
+        filepath = os.path.join(level_dir, filename)
+        if os.path.exists(filepath):
+            return filepath
+
+    for name in os.listdir(level_dir):
+        match = LEVEL_FILENAME_RE.match(name)
+        if (
+            match
+            and level_filename_matches_kind(match.group(1), kind)
+            and int(match.group(2)) == int(level_id)
+        ):
+            return os.path.join(level_dir, name)
+    return build_level_path(level_dir, level_id)
+
+
 def resolve_project_file(path_value):
     if path_value in (None, ''):
         raise ValueError('path is required')
@@ -96,19 +332,135 @@ def resolve_project_file(path_value):
     return resolved
 
 
-def list_main_level_ids(level_dir):
+def list_main_level_ids(level_dir, kind='main'):
+    kind = normalize_level_kind(kind)
     level_ids = []
     for name in os.listdir(level_dir):
         match = LEVEL_FILENAME_RE.match(name)
         if not match:
             continue
-        level_ids.append(int(match.group(1)))
+        if not level_filename_matches_kind(match.group(1), kind):
+            continue
+        level_ids.append(int(match.group(2)))
     level_ids.sort()
     return level_ids
 
 
-def get_next_main_level_id(level_dir):
-    existing = list_main_level_ids(level_dir)
+def list_level_entries(level_dir, kind='main'):
+    kind = normalize_level_kind(kind)
+    import_map_path = get_competitor_import_map_path(level_dir)
+    import_map = read_import_map(import_map_path) if import_map_path else {}
+    if import_map_path and import_map:
+        import_map, import_map_changed = repair_import_map(import_map)
+        if import_map_changed:
+            write_import_map(import_map_path, import_map)
+    entries = []
+    for name in os.listdir(level_dir):
+        match = LEVEL_FILENAME_RE.match(name)
+        if not match:
+            continue
+        if not level_filename_matches_kind(match.group(1), kind):
+            continue
+        level_id = int(match.group(2))
+        filepath = os.path.join(level_dir, name)
+        source_path = path_to_project_rel(filepath)
+        entry = {
+            'levelId': level_id,
+            'prefix': match.group(1),
+            'filename': name,
+            'path': source_path,
+        }
+        official_import = import_map.get(source_path)
+        if isinstance(official_import, dict):
+            entry['officialImport'] = official_import
+        entries.append(entry)
+    entries.sort(key=lambda item: (item['levelId'], item['filename']))
+    return entries
+
+
+def build_level_dir_label(rel_dir, kind='main'):
+    game_rel = path_to_project_rel(GAME_LEVEL_DATA_DIR)
+    if rel_dir == game_rel and normalize_level_kind(kind) == 'theme':
+        return '主题关卡'
+    if rel_dir == game_rel:
+        return '正式关卡'
+    parts = rel_dir.split('/')
+    if len(parts) >= 5 and parts[0] == 'tools' and parts[1] == 'competitors':
+        game_name = parts[2]
+        if parts[-1] == 'main':
+            return f'{game_name} 主线'
+        if parts[-1] == 'daily':
+            return f'{game_name} Daily'
+    if rel_dir == path_to_project_rel(GAME_LEVEL_DATA_DIR):
+        return '正式关卡'
+    if rel_dir.endswith('/official20/main'):
+        return '竞品主线'
+    if rel_dir.endswith('/official20/daily'):
+        return '竞品 Daily'
+    name = rel_dir.rsplit('/', 1)[-1]
+    parent = rel_dir.rsplit('/', 2)[-2] if '/' in rel_dir else ''
+    return f'{parent}/{name}' if parent else name
+
+
+def discover_level_dirs():
+    scan_roots = (
+        GAME_LEVEL_DATA_DIR,
+        COMPETITOR_TOOLS_DIR,
+    )
+    dirs = []
+    seen = set()
+    game_rel = path_to_project_rel(GAME_LEVEL_DATA_DIR)
+
+    for root in scan_roots:
+        if not os.path.isdir(root):
+            continue
+        for current, child_dirs, files in os.walk(root):
+            child_dirs[:] = [
+                name for name in child_dirs
+                if not name.startswith('.') and name not in ('__pycache__', 'node_modules')
+            ]
+            level_ids_by_kind = {'main': [], 'theme': []}
+            for name in files:
+                match = LEVEL_FILENAME_RE.match(name)
+                if not match:
+                    continue
+                kind = 'theme' if match.group(1) == 'zt_level' else 'main'
+                level_ids_by_kind[kind].append(int(match.group(2)))
+            if not level_ids_by_kind['main'] and not level_ids_by_kind['theme']:
+                continue
+            rel_dir = path_to_project_rel(current)
+
+            for kind, level_ids in level_ids_by_kind.items():
+                if not level_ids:
+                    continue
+                seen_key = (rel_dir, kind)
+                if seen_key in seen:
+                    continue
+                seen.add(seen_key)
+
+                level_ids.sort()
+                dirs.append({
+                    'dir': rel_dir,
+                    'kind': kind,
+                    'label': build_level_dir_label(rel_dir, kind),
+                    'count': len(level_ids),
+                    'firstLevelId': level_ids[0] if level_ids else None,
+                    'lastLevelId': level_ids[-1] if level_ids else None,
+                    'isDefault': rel_dir == game_rel and kind == 'main',
+                })
+
+    dirs.sort(key=lambda item: (
+        0 if item['isDefault'] else 1,
+        0 if item['dir'] == game_rel and item.get('kind') == 'theme' else 1,
+        0 if item['dir'].startswith('tools/competitors/') and item['dir'].endswith('/levels/main') else 1,
+        0 if item['dir'].startswith('tools/competitors/') and item['dir'].endswith('/levels/daily') else 1,
+        item['dir'],
+    ))
+    return dirs
+
+
+def get_next_main_level_id(level_dir, kind='main'):
+    existing = list_main_level_ids(level_dir, kind)
     if not existing:
         return 1
     return existing[-1] + 1
@@ -370,23 +722,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == '/api/list-level-dirs':
+            self._send_json(200, {
+                'ok': True,
+                'defaultDir': path_to_project_rel(GAME_LEVEL_DATA_DIR),
+                'dirs': discover_level_dirs(),
+            })
+            return
+
         if parsed.path == '/api/list-levels':
             query = urllib.parse.parse_qs(parsed.query)
             dir_value = query.get('dir', [''])[0]
+            kind = normalize_level_kind(query.get('kind', ['main'])[0])
             level_dir = self._resolve_level_dir_or_send(dir_value)
             if level_dir is None:
+                return
+            try:
+                level_ids = list_main_level_ids(level_dir, kind)
+                levels = list_level_entries(level_dir, kind)
+                next_level_id = get_next_main_level_id(level_dir, kind)
+            except ValueError as exc:
+                self._send_json(500, {'ok': False, 'error': str(exc)})
                 return
 
             self._send_json(200, {
                 'ok': True,
                 'dir': path_to_project_rel(level_dir),
-                'levelIds': list_main_level_ids(level_dir),
+                'kind': kind,
+                'levelIds': level_ids,
+                'levels': levels,
+                'nextLevelId': next_level_id,
             })
             return
 
         if parsed.path == '/api/load-level':
             query = urllib.parse.parse_qs(parsed.query)
             dir_value = query.get('dir', [''])[0]
+            kind = normalize_level_kind(query.get('kind', ['main'])[0])
             level_id_raw = query.get('levelId', [''])[0]
             try:
                 level_id = int(level_id_raw)
@@ -398,20 +770,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if level_dir is None:
                 return
 
-            filepath = build_level_path(level_dir, level_id)
+            filepath = find_level_path(level_dir, level_id, kind)
             if not os.path.exists(filepath):
                 self._send_json(404, {
                     'ok': False,
-                    'error': f'level_{level_id}.json not found in {path_to_project_rel(level_dir)}',
+                    'error': f'level {level_id} not found in {path_to_project_rel(level_dir)}',
                 })
                 return
 
             with open(filepath, 'r', encoding='utf-8') as f:
                 level_data = json.load(f)
+            level_data.setdefault('levelId', level_id)
 
             self._send_json(200, {
                 'ok': True,
                 'dir': path_to_project_rel(level_dir),
+                'kind': kind,
                 'path': path_to_project_rel(filepath),
                 'levelData': level_data,
             })
@@ -460,18 +834,45 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if isinstance(payload.get('levelData'), dict):
                 data = payload['levelData']
                 dir_value = payload.get('dir')
+                kind = normalize_level_kind(payload.get('kind'))
             else:
                 data = payload
                 dir_value = data.pop('dir', None)
+                kind = normalize_level_kind(data.pop('kind', None))
 
             level_id = data.get('levelId', 1)
             level_dir = self._resolve_level_dir_or_send(dir_value)
             if level_dir is None:
                 return
-            filepath = build_level_path(level_dir, level_id)
+            filepath = find_level_path(level_dir, level_id, kind)
 
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
+                f.write('\n')
+
+            self._send_json(200, {'ok': True, 'path': filepath})
+        elif parsed.path == '/api/save-level-file':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            payload = json.loads(body)
+            level_data = payload.get('levelData')
+            path_value = payload.get('path')
+
+            if not isinstance(level_data, dict):
+                self._send_json(400, {'ok': False, 'error': 'levelData is required'})
+                return
+
+            try:
+                filepath = resolve_project_file(path_value)
+            except FileNotFoundError as exc:
+                self._send_json(404, {'ok': False, 'error': str(exc)})
+                return
+            except ValueError as exc:
+                self._send_json(400, {'ok': False, 'error': str(exc)})
+                return
+
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(level_data, f, ensure_ascii=False, indent=4)
                 f.write('\n')
 
             self._send_json(200, {'ok': True, 'path': filepath})
@@ -776,10 +1177,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             data = json.loads(body)
 
             level_id = data.get('levelId')
+            kind = normalize_level_kind(data.get('kind'))
             level_dir = self._resolve_level_dir_or_send(data.get('dir'))
             if level_dir is None:
                 return
-            filepath = build_level_path(level_dir, level_id)
+            filepath = find_level_path(level_dir, level_id, kind)
 
             if not os.path.exists(filepath):
                 self.send_response(404)
@@ -807,10 +1209,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             data = json.loads(body)
 
             level_id = data.get('levelId')
+            kind = normalize_level_kind(data.get('kind'))
             level_dir = self._resolve_level_dir_or_send(data.get('dir'))
             if level_dir is None:
                 return
-            filepath = build_level_path(level_dir, level_id)
+            filepath = find_level_path(level_dir, level_id, kind)
 
             if not os.path.exists(filepath):
                 self.send_response(404)
@@ -838,6 +1241,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             data = json.loads(body)
 
             source_level_id = data.get('sourceLevelId')
+            source_kind = normalize_level_kind(data.get('sourceKind') or data.get('kind'))
             target_type = data.get('targetType')  # 'online' | 'theme'
             target_level_id = data.get('targetLevelId')
             overwrite = bool(data.get('overwrite', False))
@@ -877,7 +1281,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 ).encode())
                 return
 
-            source_path = build_level_path(source_level_dir, source_level_id)
+            source_path = find_level_path(source_level_dir, source_level_id, source_kind)
             if not os.path.exists(source_path):
                 self.send_response(404)
                 self.send_header('Content-Type', 'application/json')
@@ -886,13 +1290,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     {
                         'ok': False,
                         'error': (
-                            f'source level_{source_level_id}.json not found '
+                            f'source level {source_level_id} not found '
                             f'in {path_to_project_rel(source_level_dir)}'
                         ),
                     },
                     ensure_ascii=False,
                 ).encode())
                 return
+
+            import_map_path = None
+            import_map = None
+            if target_type == 'online':
+                import_map_path = get_competitor_import_map_path(source_path)
+                if import_map_path:
+                    try:
+                        import_map = read_import_map(import_map_path)
+                    except ValueError as exc:
+                        self._send_json(500, {'ok': False, 'error': str(exc)})
+                        return
 
             target_filename = build_game_level_filename(target_type, target_level_id)
             target_path = os.path.join(GAME_LEVEL_DATA_DIR, target_filename)
@@ -906,19 +1321,40 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 ).encode())
                 return
 
-            with open(source_path, 'r', encoding='utf-8') as f:
-                level_data = json.load(f)
+            level_data = load_level_json(source_path)
 
-            if target_type == 'online':
-                level_data = normalize_online_level_payload(level_data, target_level_id)
-            else:
-                level_data['levelId'] = target_level_id
-                level_data['isFeatured'] = True
-                level_data['sourceLevelId'] = source_level_id
+            try:
+                if target_type == 'online':
+                    level_data = normalize_online_level_payload(level_data, target_level_id)
+                else:
+                    level_data['levelId'] = target_level_id
+                    level_data['isFeatured'] = True
+                    level_data['sourceLevelId'] = source_level_id
+            except ValueError as exc:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(
+                    {'ok': False, 'error': str(exc)},
+                    ensure_ascii=False,
+                ).encode())
+                return
 
             with open(target_path, 'w', encoding='utf-8') as f:
                 json.dump(level_data, f, ensure_ascii=False, indent=4)
                 f.write('\n')
+
+            official_import = None
+            if import_map_path and import_map is not None:
+                official_import = build_official_import_marker(
+                    source_path,
+                    target_level_id,
+                    target_path,
+                    target_type,
+                    level_data,
+                )
+                import_map[path_to_project_rel(source_path)] = official_import
+                write_import_map(import_map_path, import_map)
 
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -930,9 +1366,81 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     'targetFilename': target_filename,
                     'targetLevelId': target_level_id,
                     'targetType': target_type,
+                    'officialImport': official_import,
                 },
                 ensure_ascii=False,
             ).encode())
+        elif parsed.path == '/api/swap-formal-levels':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body.decode('utf-8-sig'))
+
+            try:
+                level_a_id = int(data.get('levelA'))
+                level_b_id = int(data.get('levelB'))
+            except Exception:
+                self._send_json(400, {'ok': False, 'error': 'levelA and levelB must be integers'})
+                return
+
+            if level_a_id < 1 or level_b_id < 1:
+                self._send_json(400, {'ok': False, 'error': 'level ids must be >= 1'})
+                return
+            if level_a_id == level_b_id:
+                self._send_json(400, {'ok': False, 'error': 'levelA and levelB must be different'})
+                return
+
+            path_a = build_level_path(GAME_LEVEL_DATA_DIR, level_a_id)
+            path_b = build_level_path(GAME_LEVEL_DATA_DIR, level_b_id)
+            missing = [
+                path_to_project_rel(path)
+                for path in (path_a, path_b)
+                if not os.path.exists(path)
+            ]
+            if missing:
+                self._send_json(404, {'ok': False, 'error': 'level file not found', 'missing': missing})
+                return
+
+            try:
+                with open(path_a, 'r', encoding='utf-8-sig') as f:
+                    payload_a = json.load(f)
+                with open(path_b, 'r', encoding='utf-8-sig') as f:
+                    payload_b = json.load(f)
+
+                swapped_a = dict(payload_b)
+                swapped_b = dict(payload_a)
+                swapped_a['levelId'] = level_a_id
+                swapped_b['levelId'] = level_b_id
+
+                backup_dir = build_level_swap_backup_dir(level_a_id, level_b_id)
+                os.makedirs(backup_dir, exist_ok=False)
+                backup_a = os.path.join(backup_dir, os.path.basename(path_a))
+                backup_b = os.path.join(backup_dir, os.path.basename(path_b))
+                shutil.copy2(path_a, backup_a)
+                shutil.copy2(path_b, backup_b)
+
+                temp_a = os.path.join(backup_dir, f'.swap_{os.path.basename(path_a)}')
+                temp_b = os.path.join(backup_dir, f'.swap_{os.path.basename(path_b)}')
+                with open(temp_a, 'w', encoding='utf-8') as f:
+                    json.dump(swapped_a, f, ensure_ascii=False, indent=4)
+                    f.write('\n')
+                with open(temp_b, 'w', encoding='utf-8') as f:
+                    json.dump(swapped_b, f, ensure_ascii=False, indent=4)
+                    f.write('\n')
+
+                os.replace(temp_a, path_a)
+                os.replace(temp_b, path_b)
+            except Exception as exc:
+                self._send_json(500, {'ok': False, 'error': str(exc)})
+                return
+
+            self._send_json(200, {
+                'ok': True,
+                'levelA': level_a_id,
+                'levelB': level_b_id,
+                'pathA': path_to_project_rel(path_a),
+                'pathB': path_to_project_rel(path_b),
+                'backupDir': path_to_project_rel(backup_dir),
+            })
         else:
             self.send_response(404)
             self.end_headers()
@@ -943,8 +1451,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.send_header('Access-Control-Allow-Private-Network', 'true')
-        # Prevent browser caching for JSON files
-        if self.path.endswith('.json'):
+        # Prevent browser caching for local preview tool files and JSON data.
+        if self.path.endswith('.json') or self.path.endswith('.html'):
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
             self.send_header('Pragma', 'no-cache')
         super().end_headers()

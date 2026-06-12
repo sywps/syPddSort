@@ -1,5 +1,5 @@
 ﻿import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
@@ -477,7 +477,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const overlayParent = this.requireCanvasUiRoot('BootRoot');
             const layer = this.requireUiChild(overlayParent, 'StartupLoadingUI', 'BootRoot/StartupLoadingUI');
             const layerUT = layer.getComponent(UITransform);
-            if (!layerUT) throw new Error('[LoadingScene] Loading.scene is missing UITransform on BootRoot/StartupLoadingUI');
+            if (!layerUT) throw new Error('[BootScene] Boot.scene is missing UITransform on BootRoot/StartupLoadingUI');
             layerUT.setContentSize(visibleSize.width, visibleSize.height);
             layer.setPosition(0, 0, 0);
             layer.layer = Layers.Enum.UI_2D;
@@ -532,89 +532,39 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 sourceSize.height * coverScale,
             );
         
-            this._buildLoadingProgressBar(layer, visibleSize);
+            this._buildLoadingProgressBar(layer);
         },
 
-        _buildLoadingProgressBar(layer: Node, visibleSize: Size) {
-            const w = (this.constructor as any).LOADING_BAR_WIDTH;
-            const h = (this.constructor as any).LOADING_BAR_HEIGHT;
-            const y = -visibleSize.height / 2 + visibleSize.height / 3;
+        _buildLoadingProgressBar(layer: Node) {
             const group = this.requireUiChild(layer, 'LoadingProgressGroup', 'StartupLoadingUI/LoadingProgressGroup');
             const groupUI = group.getComponent(UITransform);
-            if (!groupUI) throw new Error('[LoadingScene] Loading.scene is missing UITransform on StartupLoadingUI/LoadingProgressGroup');
-            groupUI.setContentSize(w + 60, 132);
-            group.setPosition(0, y, 0);
+            if (!groupUI) throw new Error('[BootScene] Boot.scene is missing UITransform on StartupLoadingUI/LoadingProgressGroup');
 
-            const labelShadowNode = this.requireUiChild(group, 'LoadingPercentLabelShadow', 'LoadingProgressGroup/LoadingPercentLabelShadow');
-            const shadowLabel = labelShadowNode.getComponent(Label);
-            if (!shadowLabel) throw new Error('[LoadingScene] Loading.scene is missing Label component on LoadingProgressGroup/LoadingPercentLabelShadow');
-            shadowLabel.string = '正在加载：0%';
-            shadowLabel.enableWrapText = false;
-            this._loadingProgressLabelShadow = shadowLabel;
-
-            const labelNode = this.requireUiChild(group, 'LoadingPercentLabel', 'LoadingProgressGroup/LoadingPercentLabel');
+            const labelNode = this.requireUiChild(group, 'Label', 'LoadingProgressGroup/Label');
             const label = labelNode.getComponent(Label);
-            if (!label) throw new Error('[LoadingScene] Loading.scene is missing Label component on LoadingProgressGroup/LoadingPercentLabel');
-            label.string = '正在加载：0%';
+            if (!label) throw new Error('[BootScene] Boot.scene is missing Label component on LoadingProgressGroup/Label');
             label.enableWrapText = false;
             this._loadingProgressLabel = label;
-            this._setLoadingProgressPercentText(0);
-
-            const glow = this.requireUiChild(group, 'LoadingBarGlow', 'LoadingProgressGroup/LoadingBarGlow');
-            const glowGraphics = glow.getComponent(Graphics) || glow.addComponent(Graphics);
-            glowGraphics.clear();
-            const glowUI = glow.getComponent(UITransform);
-            if (!glowUI) throw new Error('[LoadingScene] Loading.scene is missing UITransform on LoadingProgressGroup/LoadingBarGlow');
-            glowGraphics.fillColor = new Color(255, 255, 255, 58);
-            glowGraphics.roundRect(-glowUI.width / 2, -glowUI.height / 2, glowUI.width, glowUI.height, glowUI.height / 2);
-            glowGraphics.fill();
 
             const track = this.requireUiChild(group, 'LoadingBarTrack', 'LoadingProgressGroup/LoadingBarTrack');
-            const trackGraphics = track.getComponent(Graphics) || track.addComponent(Graphics);
-            trackGraphics.clear();
             const trackUI = track.getComponent(UITransform);
-            if (!trackUI) throw new Error('[LoadingScene] Loading.scene is missing UITransform on LoadingProgressGroup/LoadingBarTrack');
-            const radius = trackUI.height / 2;
-            trackGraphics.fillColor = new Color(255, 255, 255, 60);
-            trackGraphics.roundRect(-trackUI.width / 2, -trackUI.height / 2, trackUI.width, trackUI.height, radius);
-            trackGraphics.fill();
-            trackGraphics.strokeColor = new Color(255, 255, 255, 210);
-            trackGraphics.lineWidth = 3;
-            trackGraphics.roundRect(-trackUI.width / 2, -trackUI.height / 2, trackUI.width, trackUI.height, radius);
-            trackGraphics.stroke();
+            if (!trackUI) throw new Error('[BootScene] Boot.scene is missing UITransform on LoadingProgressGroup/LoadingBarTrack');
 
-            const fillW = w - 14;
-            const fillH = Math.max(6, h - 6);
-            const fill = this.requireUiChild(group, 'LoadingBarFill', 'LoadingProgressGroup/LoadingBarFill');
-            fill.setScale(0, 1, 1);
-            const fillGraphics = fill.getComponent(Graphics) || fill.addComponent(Graphics);
-            fillGraphics.clear();
-            const fillUI = fill.getComponent(UITransform);
-            if (!fillUI) throw new Error('[LoadingScene] Loading.scene is missing UITransform on LoadingProgressGroup/LoadingBarFill');
-            fillGraphics.fillColor = new Color('#52D997');
-            fillGraphics.roundRect(0, -fillUI.height / 2, fillUI.width, fillUI.height, fillUI.height / 2);
-            fillGraphics.fill();
-            this._loadingProgressFill = fill;
+            const progressArea = this.requireUiChild(track, 'ProgressBarArea', 'LoadingBarTrack/ProgressBarArea');
+            const progressBar = progressArea.getComponent(ProgressBar);
+            if (!progressBar) throw new Error('[BootScene] Boot.scene is missing ProgressBar component on LoadingBarTrack/ProgressBarArea');
 
-            const fillHighlight = this.requireUiChild(fill, 'LoadingBarFillHighlight', 'LoadingBarFill/LoadingBarFillHighlight');
-            const highlightGraphics = fillHighlight.getComponent(Graphics) || fillHighlight.addComponent(Graphics);
-            highlightGraphics.clear();
-            const highlightUI = fillHighlight.getComponent(UITransform);
-            if (!highlightUI) throw new Error('[LoadingScene] Loading.scene is missing UITransform on LoadingBarFill/LoadingBarFillHighlight');
-            highlightGraphics.fillColor = new Color(255, 255, 255, 72);
-            highlightGraphics.roundRect(-highlightUI.width / 2, -highlightUI.height / 2, highlightUI.width, highlightUI.height, highlightUI.height / 2);
-            highlightGraphics.fill();
-        
-            const shine = this.requireUiChild(fill, 'LoadingBarShine', 'LoadingBarFill/LoadingBarShine');
-            const shineGraphics = shine.getComponent(Graphics) || shine.addComponent(Graphics);
-            shineGraphics.clear();
-            const shineUI = shine.getComponent(UITransform);
-            if (!shineUI) throw new Error('[LoadingScene] Loading.scene is missing UITransform on LoadingBarFill/LoadingBarShine');
-            shineGraphics.fillColor = new Color(255, 255, 255, 108);
-            shineGraphics.roundRect(-shineUI.width / 2, -shineUI.height / 2, shineUI.width, shineUI.height, shineUI.height / 2);
-            shineGraphics.fill();
-            this._loadingShine = shine;
-            this._startLoadingShine();
+            const fill = this.requireUiChild(progressArea, 'ProgressFill', 'ProgressBarArea/ProgressFill');
+            const fillSprite = fill.getComponent(Sprite);
+            if (!fillSprite) throw new Error('[BootScene] Boot.scene is missing Sprite component on ProgressBarArea/ProgressFill');
+            if (!progressBar.barSprite) {
+                progressBar.barSprite = fillSprite;
+            }
+
+            this._loadingProgressFill = progressBar;
+            this._loadingProgressLabelShadow = null;
+            this._loadingShine = null;
+            this._setLoadingProgressPercentText(0);
         },
 
         _startLoadingProgressIntro(overlayVersion: number) {
@@ -630,28 +580,25 @@ export function installThemeLoadingOverlayModule(target: any): void {
         },
 
         _setLoadingProgress(progress: number, duration = 0.2, overlayVersion: number = this._loadingOverlayVersion || 0) {
-            const fill = this._loadingProgressFill;
+            const progressBar = this._loadingProgressFill as ProgressBar | null;
             const prev = this._loadingProgress;
             const next = Math.max(this._loadingProgress, Math.max(0, Math.min(1, progress)));
             this._loadingProgress = next;
             this._animateLoadingProgressPercent(prev, next, duration, overlayVersion);
-            if (!fill) return;
-            Tween.stopAllByTarget(fill);
+            if (!progressBar) return;
+            Tween.stopAllByTarget(progressBar);
             if (duration <= 0) {
-                fill.setScale(next, 1, 1);
+                progressBar.progress = next;
                 return;
             }
-            tween(fill).to(duration, { scale: new Vec3(next, 1, 1) }, { easing: 'sineOut' }).start();
+            tween(progressBar).to(duration, { progress: next }, { easing: 'sineOut' }).start();
         },
 
         _setLoadingProgressPercentText(percent: number) {
             const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
             this._loadingProgressPercent = safePercent;
             if (this._loadingProgressLabel) {
-                this._loadingProgressLabel.string = `正在加载：${safePercent}%`;
-            }
-            if (this._loadingProgressLabelShadow) {
-                this._loadingProgressLabelShadow.string = `正在加载：${safePercent}%`;
+                this._loadingProgressLabel.string = `加载中...${safePercent}%`;
             }
         },
 
@@ -669,10 +616,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
                 this._loadingProgressPercent = safePercent;
                 if (this._loadingProgressLabel) {
-                    this._loadingProgressLabel.string = `正在加载：${safePercent}%`;
-                }
-                if (this._loadingProgressLabelShadow) {
-                    this._loadingProgressLabelShadow.string = `正在加载：${safePercent}%`;
+                    this._loadingProgressLabel.string = `加载中...${safePercent}%`;
                 }
             };
             if (duration <= 0 || fromPercent === toPercent) {
@@ -696,25 +640,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 .start();
         },
 
-        _startLoadingShine() {
-            const shine = this._loadingShine;
-            const fill = this._loadingProgressFill;
-            if (!shine) return;
-            const fillWidth = fill?.getComponent(UITransform)?.width || ((this.constructor as any).LOADING_BAR_WIDTH - 14);
-            this._loadingShineTween = tween(shine)
-                .set({ position: new Vec3(24, 0, 0) })
-                .to(0.9, { position: new Vec3(fillWidth - 24, 0, 0) }, { easing: 'sineInOut' })
-                .delay(0.2)
-                .union()
-                .repeatForever()
-                .start();
-        },
-
         _stopLoadingShine() {
-            if (this._loadingShineTween) {
-                this._loadingShineTween.stop();
-                this._loadingShineTween = null;
-            }
             if (this._loadingProgressLabelTween) {
                 this._loadingProgressLabelTween.stop();
                 this._loadingProgressLabelTween = null;
