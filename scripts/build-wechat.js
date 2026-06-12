@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync, spawn } = require('child_process');
+const buildCommon = require('./minigame-build-common.js');
 const {
     assertBundleNativeFilesExist,
     assertSourceBundleArtifactsExist,
@@ -40,11 +41,7 @@ function fail(message) {
 }
 
 function parseBuildMode(args) {
-    if (args.length > 1) fail('用法: node scripts/build-wechat.js [--release|--debug]');
-    const mode = args[0] || '--release';
-    if (mode === '--release' || mode === 'release') return 'release';
-    if (mode === '--debug' || mode === 'debug') return 'debug';
-    fail('未知构建模式: ' + mode);
+    return buildCommon.parseBuildMode(args, 'node scripts/build-wechat.js <--release|--debug>');
 }
 
 function readJson(filePath) {
@@ -61,19 +58,7 @@ function rm(target) {
 }
 
 function cleanCocosGeneratedCaches() {
-    if (process.env.WECHAT_CLEAN_COCOS_CACHE === '0') {
-        logInfo('已跳过 Cocos 项目级生成缓存清理');
-        return;
-    }
-    for (const relPath of [
-        'library',
-        'temp/asset-db',
-        'temp/builder',
-        'temp/programming',
-    ]) {
-        rm(path.join(projectDir, relPath));
-    }
-    logInfo('已清理 Cocos 项目级生成缓存，避免 stale asset-db/importer 状态污染构建');
+    buildCommon.cleanCocosGeneratedCaches(projectDir, 'WECHAT_CLEAN_COCOS_CACHE', logInfo);
 }
 
 function movePath(src, dest) {
@@ -126,32 +111,15 @@ function runNode(script, args = []) {
 }
 
 function repairCocosMetaFiles() {
-    runNode('scripts/repair-cocos-meta.js', ['assets']);
-    runNode('scripts/verify-cocos-meta.js', ['assets']);
+    buildCommon.repairCocosMetaFiles(projectDir);
 }
 
 function getStartSceneUuid() {
-    const relPath = startSceneUrl.replace(/^db:\/\/assets\//, '');
-    const metaPath = path.join(projectDir, 'assets', relPath + '.meta');
-    if (!fs.existsSync(metaPath)) fail('启动场景 meta 不存在: ' + path.relative(projectDir, metaPath));
-    const uuid = readJson(metaPath).uuid;
-    if (!uuid) fail('启动场景 meta 缺少 uuid: ' + path.relative(projectDir, metaPath));
-    return uuid;
+    return buildCommon.readAssetUuid(projectDir, startSceneUrl, '启动场景');
 }
 
 function resolveCocosCli() {
-    if (process.env.COCOS_CLI) return process.env.COCOS_CLI;
-    const candidates = process.platform === 'win32'
-        ? [
-            'C:\\Program Files\\Cocos\\Creator\\3.8.8\\CocosCreator.exe',
-            'C:\\Program Files\\CocosCreator\\CocosCreator.exe',
-        ]
-        : [
-            '/Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/MacOS/CocosCreator',
-            '/Applications/CocosCreator/3.8.8/CocosCreator.app/Contents/MacOS/CocosCreator',
-            '/Applications/CocosCreator.app/Contents/MacOS/CocosCreator',
-        ];
-    return candidates.find((candidate) => fs.existsSync(candidate)) || '';
+    return buildCommon.resolveCocosCli();
 }
 
 const forbiddenRemoteSourceFiles = [
@@ -247,15 +215,44 @@ function validateHomeAssetsBundle() {
     logInfo('HomeAssetsBundle 首屏资源校验通过');
 }
 
+function parseLevelDataSourceFile(name) {
+    const match = /^(zt_level_|level_)(\d+)\.json$/.exec(name);
+    if (!match) return null;
+    return {
+        file: name,
+        prefix: match[1],
+        levelId: Math.max(1, Math.floor(Number(match[2]) || 1)),
+        key: match[1] + Math.max(1, Math.floor(Number(match[2]) || 1)),
+    };
+}
+
+function collectSourceLevelDataEntries() {
+    if (!fs.existsSync(levelDataRoot)) fail('assets/LevelData 目录不存在');
+    return fs.readdirSync(levelDataRoot)
+        .map(parseLevelDataSourceFile)
+        .filter(Boolean)
+        .sort((a, b) => a.prefix.localeCompare(b.prefix) || a.levelId - b.levelId);
+}
+
+function countLevelDataPrefixes(entries) {
+    return entries.reduce((counts, entry) => {
+        counts[entry.prefix] = (counts[entry.prefix] || 0) + 1;
+        return counts;
+    }, {});
+}
+
 function validateLevelDataSource() {
     if (!fs.existsSync(levelDataRoot)) fail('assets/LevelData 目录不存在');
-    const levels = fs.readdirSync(levelDataRoot).filter((name) => /^level_\d+\.json$/.test(name));
-    if (levels.length < 300) fail('assets/LevelData 数量异常: ' + levels.length);
+    const levels = collectSourceLevelDataEntries();
+    const mainlineCount = levels.filter((entry) => entry.prefix === 'level_').length;
+    const themeCount = levels.filter((entry) => entry.prefix === 'zt_level_').length;
+    if (mainlineCount < 300) fail('assets/LevelData 主线关卡数量异常: ' + mainlineCount);
+    if (themeCount < 1) fail('assets/LevelData 缺少主题关卡 zt_level_*.json');
     for (const filePath of walkFiles(levelDataRoot).filter((item) => item.endsWith('.json'))) {
         JSON.parse(fs.readFileSync(filePath, 'utf8'));
         if (!fs.existsSync(filePath + '.meta')) fail('assets/LevelData 缺少 meta: ' + path.basename(filePath));
     }
-    logInfo('assets/LevelData 真源校验通过，levels=' + levels.length);
+    logInfo('assets/LevelData 真源校验通过，mainline=' + mainlineCount + ', theme=' + themeCount);
 }
 
 function findSettingsPath(runtimeDir) {
@@ -447,6 +444,13 @@ function validateRuntime(runtimeDir) {
     if (fs.existsSync(path.join(runtimeDir, 'assets', 'homeAssets'))) fail('本地包中仍存在 assets/homeAssets');
     if (fs.existsSync(path.join(runtimeDir, 'assets', 'gameAssets'))) fail('本地包中仍存在 assets/gameAssets');
     if (fs.existsSync(path.join(runtimeDir, 'assets', 'resources'))) fail('本地包中仍存在 assets/resources');
+    const runtimeJsText = walkFiles(runtimeDir)
+        .filter((filePath) => filePath.endsWith('.js'))
+        .map((filePath) => fs.readFileSync(filePath, 'utf8'))
+        .join('\n');
+    for (const forbidden of ['getAnimationInterval', 'setAnimationInterval']) {
+        if (runtimeJsText.includes(forbidden)) fail('微信包仍包含 director.' + forbidden + ' 废弃属性告警入口');
+    }
     validateBootstrapRuntimeBundle(runtimeDir);
     assertRuntimeScenes(runtimeDir);
     assertMainBundleDoesNotDependOnSubpackages(runtimeDir);
@@ -515,18 +519,60 @@ function validateLevelDataCdn() {
     const manifest = readJson(livePath);
     if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) fail('level_live.json schema 不正确');
     if (!Array.isArray(manifest.packs) || manifest.packs.length < 1) fail('level_live.json 缺少 packs');
+    const sourceEntries = collectSourceLevelDataEntries();
+    const sourceKeys = new Set(sourceEntries.map((entry) => entry.key));
+    const sourcePrefixCounts = countLevelDataPrefixes(sourceEntries);
+    const manifestPrefixCounts = manifest.levelCounts || {};
+    const cdnKeys = new Set();
+    const cdnPrefixCounts = {};
     let levelCount = 0;
     for (const pack of manifest.packs) {
         if (!pack || typeof pack.url !== 'string') fail('level_live.json pack.url 不正确');
+        const packPrefix = String(pack.prefix || 'level_');
+        if (packPrefix !== 'level_' && packPrefix !== 'zt_level_') fail('level_live.json pack.prefix 不正确: ' + pack.url);
         const packPath = path.join(levelDataCdnDir, pack.url);
         if (!fs.existsSync(packPath)) fail('关卡数据 CDN 缺少 pack: ' + pack.url);
         const packJson = readJson(packPath);
         if (packJson.id !== pack.id) fail('关卡数据 pack id 不一致: ' + pack.url);
+        if (String(packJson.prefix || packPrefix) !== packPrefix) fail('关卡数据 pack prefix 不一致: ' + pack.url);
         if (!Array.isArray(packJson.levels) || packJson.levels.length !== pack.levelCount) fail('关卡数据 pack levelCount 不一致: ' + pack.url);
+        const packPayloadKeys = [];
+        for (const entry of packJson.levels) {
+            const levelId = Math.max(1, Math.floor(Number(entry && entry.levelId) || 1));
+            const entryPrefix = String((entry && entry.prefix) || packJson.prefix || packPrefix);
+            const key = entryPrefix + levelId;
+            if (entryPrefix !== packPrefix) fail('关卡数据 pack entry prefix 不一致: ' + pack.url + ' ' + key);
+            if (cdnKeys.has(key)) fail('关卡数据 CDN 重复关卡 key: ' + key);
+            cdnKeys.add(key);
+            packPayloadKeys.push(key);
+            cdnPrefixCounts[entryPrefix] = (cdnPrefixCounts[entryPrefix] || 0) + 1;
+        }
+        if (Array.isArray(pack.levelKeys)) {
+            const manifestKeys = pack.levelKeys.slice().sort();
+            const payloadKeys = packPayloadKeys.slice().sort();
+            if (manifestKeys.length !== payloadKeys.length || manifestKeys.some((key, index) => key !== payloadKeys[index])) {
+                fail('level_live.json pack.levelKeys 与 pack 内容不一致: ' + pack.url);
+            }
+        }
         levelCount += packJson.levels.length;
     }
     if (levelCount !== manifest.levelCount) fail('level_live.json levelCount 不一致: ' + levelCount + ' != ' + manifest.levelCount);
-    if (levelCount < 300) fail('关卡数据 CDN 关卡数量异常: ' + levelCount);
+    if (levelCount !== sourceKeys.size) fail('关卡数据 CDN 关卡数量异常: ' + levelCount + ' != assets/LevelData ' + sourceKeys.size);
+    for (const prefix of ['level_', 'zt_level_']) {
+        const sourceCount = sourcePrefixCounts[prefix] || 0;
+        if ((manifestPrefixCounts[prefix] || 0) !== sourceCount) {
+            fail('level_live.json levelCounts.' + prefix + ' 不一致: ' + (manifestPrefixCounts[prefix] || 0) + ' != ' + sourceCount);
+        }
+        if ((cdnPrefixCounts[prefix] || 0) !== sourceCount) {
+            fail('关卡数据 CDN ' + prefix + ' 数量异常: ' + (cdnPrefixCounts[prefix] || 0) + ' != assets/LevelData ' + sourceCount);
+        }
+    }
+    for (const key of sourceKeys) {
+        if (!cdnKeys.has(key)) fail('关卡数据 CDN 缺少真源关卡: ' + key);
+    }
+    for (const key of cdnKeys) {
+        if (!sourceKeys.has(key)) fail('关卡数据 CDN 包含未知关卡: ' + key);
+    }
     logInfo('关卡数据 CDN 校验通过，packs=' + manifest.packs.length + ' levels=' + levelCount + ' version=' + manifest.dataVersion);
 }
 
@@ -566,7 +612,7 @@ runNode('scripts/write-level-data-cdn.js', [levelDataCdnDir]);
 logInfo('关卡数据 CDN 产物已生成: ' + levelDataCdnDir);
 
 logStep('0.2 准备 BootstrapBundle 首关快照...');
-runNode('scripts/prepare-wechat-bootstrap.js');
+runNode('scripts/prepare-bootstrap.js');
 logInfo('BootstrapBundle 源目录已通过首关快照与首屏豆豆图集校验');
 
 const startSceneUuid = getStartSceneUuid();
@@ -574,15 +620,7 @@ runNode('scripts/write-wechat-build-config.js', [buildConfigPath, startSceneUrl,
 logInfo('微信构建配置已生成: ' + buildConfigPath);
 
 logStep('1. Cocos Creator 构建 wechatgame...');
-const cocosCli = resolveCocosCli();
-if (!cocosCli || !fs.existsSync(cocosCli)) fail('Cocos Creator CLI 不存在，请安装 Cocos Creator 3.8.8，或用 COCOS_CLI 指定路径');
-const buildResult = spawnSync(cocosCli, ['--project', projectDir, '--build', 'configPath=' + buildConfigPath], {
-    cwd: projectDir,
-    env: process.env,
-    stdio: 'inherit',
-    shell: false,
-});
-if (buildResult.error) fail(buildResult.error.message);
+const buildResult = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
 repairCocosMetaFiles();
 if (!findSettingsPath(buildDir) && !findSettingsPath(path.join(buildDir, 'minigame'))) {
     fail('Cocos 构建失败，未生成 settings.json/settings.<hash>.json');
@@ -601,13 +639,10 @@ if (fs.existsSync(path.join(projectDir, 'cloudfunctions'))) {
 }
 
 const runtimeDir = resolveRuntimeDir();
-logStep('2.1 补齐 bootstrap 动态图片...');
-runNode('scripts/patch-bootstrap-dynamic-assets.js', [runtimeDir]);
+logStep('2.1 补齐本地小游戏公共 bundle 产物...');
+runNode('scripts/postbuild-minigame-bundles.js', [runtimeDir]);
 
-logStep('2.2 补齐 homeAssets 分包资源产物...');
-runNode('scripts/patch-home-assets-bundle.js', [runtimeDir]);
-
-logStep('2.3 校验本地包与远程包...');
+logStep('2.2 校验本地包与远程包...');
 const runtimeInfo = validateRuntime(runtimeDir);
 validateLevelDataCdn();
 logInfo('本地包、gameAssets 分包与关卡数据 CDN 校验通过，mode=' + runtimeInfo.gameAssetsMode);

@@ -220,20 +220,26 @@ export class GameSceneRuntimeController {
         const urlLevel = typeof this.runtime.getUrlLevel === 'function' ? this.runtime.getUrlLevel() : 0;
         const urlLevelFile = typeof this.runtime.getUrlLevelFile === 'function' ? this.runtime.getUrlLevelFile() : '';
         if (urlLevel > 0 || urlLevelFile) return false;
-        return typeof this.runtime.hasLocalUserState === 'function' && this.runtime.hasLocalUserState();
+        return typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
+            && this.runtime.hasReliableLocalUserStateForStartup();
     }
 
     private startHomeBackgroundServices(): void {
+        const canAutoSaveGameState =
+            typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
+            && this.runtime.hasReliableLocalUserStateForStartup();
         SySDKMgr.inst.init();
         SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
-        UserMgr.inst.touchSession();
+        UserMgr.inst.touchSession(canAutoSaveGameState);
         void AnalyticsMgr.inst.bootstrap();
-        if (typeof this.runtime.queueCloudGameStateSync === 'function') {
+        if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {
             this.runtime.queueCloudGameStateSync();
         }
         this.runtime.scheduleOnce(() => {
-            const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
-            void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
+            if (canAutoSaveGameState) {
+                const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
+                void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
+            }
             void UserMgr.inst.loginWeChat();
             if (typeof this.runtime.setupShareMenu === 'function') {
                 this.runtime.setupShareMenu();

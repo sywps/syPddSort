@@ -46,6 +46,59 @@ type CloudFunctionResult = {
     gameState?: Partial<CloudGameState> | null;
 };
 
+type CloudSyncDiagnosticTarget = {
+    __PDD_CLOUD_SYNC_LAST?: unknown;
+};
+
+declare const wx: CloudSyncDiagnosticTarget | undefined;
+declare const GameGlobal: CloudSyncDiagnosticTarget | undefined;
+
+function getDirectWxDiagnosticTarget(): CloudSyncDiagnosticTarget | null {
+    try {
+        return typeof wx !== 'undefined' ? wx : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function getGameGlobalDiagnosticTarget(): CloudSyncDiagnosticTarget | null {
+    try {
+        return typeof GameGlobal !== 'undefined' ? GameGlobal : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function isCloudSyncWarnEnabled(): boolean {
+    const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    const windowScope: any = typeof window !== 'undefined' ? window : null;
+    const mode = String(globalScope?.__PDD_WECHAT_BUILD_MODE__ || windowScope?.__PDD_WECHAT_BUILD_MODE__ || '');
+    return mode === 'debug' || !!globalScope?.__PDD_CLOUD_SYNC_DEBUG__ || !!windowScope?.__PDD_CLOUD_SYNC_DEBUG__;
+}
+
+function emitCloudSyncDiagnostic(phase: string, detail: Record<string, unknown> = {}): void {
+    const payload = {
+        phase,
+        ts: Date.now(),
+        ...detail,
+    };
+    const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    const windowScope: any = typeof window !== 'undefined' ? window : null;
+    const targets = [
+        globalScope,
+        windowScope,
+        getDirectWxDiagnosticTarget(),
+        getGameGlobalDiagnosticTarget(),
+    ];
+    for (const target of targets) {
+        if (target) {
+            target.__PDD_CLOUD_SYNC_LAST = payload;
+        }
+    }
+    const logger = isCloudSyncWarnEnabled() ? console.warn : console.log;
+    logger('[CloudSync]', phase, payload);
+}
+
 @ccclass('UserStateSyncMgr')
 export class UserStateSyncMgr {
     private static _inst: UserStateSyncMgr | null = null;
@@ -62,8 +115,13 @@ export class UserStateSyncMgr {
     private inflightSave: Promise<boolean> | null = null;
     private cloudUnavailableWarned = false;
     private cloudDisabledForSession = false;
+    private authoritativeStateHandler: ((state: CloudUserState) => void) | null = null;
 
     private constructor() {}
+
+    setAuthoritativeStateHandler(handler: ((state: CloudUserState) => void) | null): void {
+        this.authoritativeStateHandler = handler;
+    }
 
     canUseCloud(): boolean {
         return !this.cloudDisabledForSession && WxCloudMgr.inst.canUseCloud();
@@ -71,21 +129,36 @@ export class UserStateSyncMgr {
 
     async loadState(): Promise<CloudUserState | null> {
         if (!this.canUseCloud()) {
+            emitCloudSyncDiagnostic('load:skip', {
+                reason: 'cloud_unavailable',
+                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+            });
             return null;
         }
 
         try {
+            emitCloudSyncDiagnostic('load:start', {
+                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+            });
             const result = await WxCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
                 action: 'get',
             });
             if (result?.ok === false) {
                 throw new Error(result.errorMessage || 'load user state failed');
             }
+            emitCloudSyncDiagnostic('load:success', {
+                hasProfile: !!result?.profile,
+                savedLevel: result?.gameState?.savedLevel ?? null,
+            });
             return {
                 profile: result?.profile || null,
                 gameState: result?.gameState || null,
             };
         } catch (error) {
+            emitCloudSyncDiagnostic('load:fail', {
+                message: String((error as any)?.message || error || 'unknown error'),
+                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+            });
             if (this.isExpectedCloudFailure(error)) {
                 this.disableCloudForSession('loadState', error);
                 return null;
@@ -97,10 +170,20 @@ export class UserStateSyncMgr {
 
     queueSave(patch: CloudUserState): void {
         if (!this.canUseCloud()) {
+            emitCloudSyncDiagnostic('save:queue-skip', {
+                reason: 'cloud_unavailable',
+                savedLevel: patch.gameState?.savedLevel ?? null,
+                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+            });
             return;
         }
 
         this.pendingPatch = this.mergeState(this.pendingPatch, patch);
+        emitCloudSyncDiagnostic('save:queued', {
+            savedLevel: patch.gameState?.savedLevel ?? null,
+            hasProfile: !!patch.profile,
+            hasGameState: !!patch.gameState,
+        });
         if (this.saveTimer) {
             clearTimeout(this.saveTimer);
         }
@@ -130,6 +213,11 @@ export class UserStateSyncMgr {
         const patch = this.pendingPatch;
         this.pendingPatch = null;
 
+        emitCloudSyncDiagnostic('save:flush', {
+            savedLevel: patch.gameState?.savedLevel ?? null,
+            hasProfile: !!patch.profile,
+            hasGameState: !!patch.gameState,
+        });
         this.inflightSave = this.saveNow(patch);
         try {
             return await this.inflightSave;
@@ -140,6 +228,10 @@ export class UserStateSyncMgr {
 
     private async saveNow(patch: CloudUserState): Promise<boolean> {
         try {
+            emitCloudSyncDiagnostic('save:start', {
+                savedLevel: patch.gameState?.savedLevel ?? null,
+                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+            });
             const result = await WxCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
                 action: 'save',
                 profile: patch.profile || undefined,
@@ -148,8 +240,24 @@ export class UserStateSyncMgr {
             if (result?.ok === false) {
                 throw new Error(result.errorMessage || 'save user state failed');
             }
+            emitCloudSyncDiagnostic('save:success', {
+                savedLevel: result?.gameState?.savedLevel ?? patch.gameState?.savedLevel ?? null,
+                hasProfile: !!result?.profile,
+                hasGameState: !!result?.gameState,
+            });
+            if (result?.profile || result?.gameState) {
+                this.emitAuthoritativeState({
+                    profile: result.profile || null,
+                    gameState: result.gameState || null,
+                });
+            }
             return true;
         } catch (error) {
+            emitCloudSyncDiagnostic('save:fail', {
+                savedLevel: patch.gameState?.savedLevel ?? null,
+                message: String((error as any)?.message || error || 'unknown error'),
+                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+            });
             if (this.isExpectedCloudFailure(error)) {
                 this.disableCloudForSession('saveNow', error);
             } else {
@@ -157,6 +265,17 @@ export class UserStateSyncMgr {
             }
             this.pendingPatch = this.mergeState(patch, this.pendingPatch);
             return false;
+        }
+    }
+
+    private emitAuthoritativeState(state: CloudUserState): void {
+        if (!this.authoritativeStateHandler) {
+            return;
+        }
+        try {
+            this.authoritativeStateHandler(state);
+        } catch (error) {
+            console.warn('[UserStateSyncMgr] authoritative state handler failed:', error);
         }
     }
 

@@ -1,7 +1,7 @@
 import { Component, ECONOMY_NUMERIC_TABLE, SpriteFrame, ccclass, property } from './GameCtrlShared';
 import { ensureGameSceneRuntimeController } from './GameSceneRuntimeController';
 import { initializeGameCtrlState } from './GameCtrlState';
-import { installGameCtrlModules } from './installGameCtrlModules';
+import { installPlatformGameCtrlModules } from '../Platform/installPlatformGameCtrlModules';
 
 @ccclass('GameRuntimeHost')
 export class GameRuntimeHost extends Component {
@@ -30,7 +30,7 @@ export class GameRuntimeHost extends Component {
     protected loadingCover: SpriteFrame | null = null;
 
     onLoad() {
-        installGameCtrlModules(this);
+        installPlatformGameCtrlModules(this);
         initializeGameCtrlState(this);
         ensureGameSceneRuntimeController(this);
     }

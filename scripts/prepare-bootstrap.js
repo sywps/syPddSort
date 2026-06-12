@@ -15,12 +15,12 @@ const beanAtlasFrames = Array.from({ length: 21 }, (_, index) => {
 }).flat();
 
 function fail(message) {
-    console.error('[prepare-wechat-bootstrap] ' + message);
+    console.error('[prepare-bootstrap] ' + message);
     process.exit(1);
 }
 
 function log(message) {
-    console.log('[prepare-wechat-bootstrap] ' + message);
+    console.log('[prepare-bootstrap] ' + message);
 }
 
 function readJson(filePath) {

@@ -1,3 +1,3 @@
 #!/usr/bin/env node
 
-require('./fix-game-json.js');
+require('./postbuild-wechat-minigame.js');

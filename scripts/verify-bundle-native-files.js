@@ -94,6 +94,15 @@ function importArtifactPath(bundleDir, uuid, importBase) {
     return path.join(bundleDir, importBase || 'import', uuid.slice(0, 2), `${uuid}.json`);
 }
 
+function findImportArtifact(bundleDir, uuid, importBase) {
+    const exact = importArtifactPath(bundleDir, uuid, importBase);
+    if (fs.existsSync(exact)) return exact;
+    const importDir = path.join(bundleDir, importBase || 'import', uuid.slice(0, 2));
+    if (!fs.existsSync(importDir)) return '';
+    const match = fs.readdirSync(importDir).find((fileName) => fileName.startsWith(`${uuid}.`) && fileName.endsWith('.json'));
+    return match ? path.join(importDir, match) : '';
+}
+
 function isRuntimeImportJson(filePath) {
     const text = fs.readFileSync(filePath, 'utf8').trimStart();
     return text.startsWith('[');
@@ -114,6 +123,18 @@ function failWith(fail, message) {
     throw new Error(message);
 }
 
+function collectVersionedUuids(config, kind) {
+    const uuids = Array.isArray(config.uuids) ? config.uuids : [];
+    const versions = config.versions && Array.isArray(config.versions[kind])
+        ? config.versions[kind]
+        : [];
+    if (versions.length % 2 !== 0) return new Set();
+    return new Set(Array.from({ length: versions.length / 2 }, (_unused, index) => {
+        const uuidIndex = versions[index * 2];
+        return typeof uuids[uuidIndex] === 'string' ? decodeUuid(uuids[uuidIndex]) : '';
+    }).filter(Boolean));
+}
+
 function assertSourceBundleArtifactsExist(bundleDir, bundleName, sourceRoot, fail) {
     const configPath = findBundleConfigPath(bundleDir);
     if (!fs.existsSync(configPath)) {
@@ -125,9 +146,9 @@ function assertSourceBundleArtifactsExist(bundleDir, bundleName, sourceRoot, fai
     const nativeBase = typeof config.nativeBase === 'string' && config.nativeBase ? config.nativeBase : 'native';
     const missing = [];
     for (const artifact of collectSourceBundleArtifacts(sourceRoot, bundleName, fail)) {
-        const importPath = importArtifactPath(bundleDir, artifact.uuid, importBase);
-        if (!fs.existsSync(importPath)) {
-            missing.push(path.relative(bundleDir, importPath));
+        const importPath = findImportArtifact(bundleDir, artifact.uuid, importBase);
+        if (!importPath) {
+            missing.push(path.relative(bundleDir, importArtifactPath(bundleDir, artifact.uuid, importBase)));
         } else if (!isRuntimeImportJson(importPath)) {
             missing.push(path.relative(bundleDir, importPath) + ' is not runtime import JSON');
         }
@@ -189,7 +210,9 @@ module.exports = {
     assertBundleNativeFilesExist,
     assertSourceBundleArtifactsExist,
     collectSourceBundleArtifacts,
+    collectVersionedUuids,
     decodeUuid,
+    findImportArtifact,
     findNativeArtifact,
     importArtifactPath,
     isRuntimeImportJson,

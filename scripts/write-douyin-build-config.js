@@ -2,50 +2,30 @@
 
 const fs = require('fs');
 const path = require('path');
+const { readAssetUuid } = require('./minigame-build-common.js');
 
 const [outputPath, startSceneUrl, startSceneUuid, modeArg] = process.argv.slice(2);
 
 if (!outputPath || !startSceneUrl || !startSceneUuid || !modeArg) {
-    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
+    console.error('用法: node scripts/write-douyin-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
     process.exit(1);
 }
 
 const debugMode = modeArg === '--debug' || modeArg === 'debug';
 const releaseMode = modeArg === '--release' || modeArg === 'release';
 const projectRoot = path.resolve(__dirname, '..');
+const douyinAppId = process.env.DOUYIN_APPID || 'ttf45082ed6a36c15802';
 
 if (!debugMode && !releaseMode) {
-    console.error('未知微信构建模式: ' + modeArg);
-    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
+    console.error('未知抖音构建模式: ' + modeArg);
+    console.error('用法: node scripts/write-douyin-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
     process.exit(1);
-}
-
-function resolveSeparateEngine() {
-    const override = process.env.WECHAT_SEPARATE_ENGINE;
-    if (override === '1') return true;
-    if (override === '0') return false;
-    return false;
-}
-
-function readAssetUuid(assetUrl) {
-    const relPath = assetUrl.replace(/^db:\/\/assets\//, '');
-    const metaPath = path.join(projectRoot, 'assets', relPath + '.meta');
-    if (!fs.existsSync(metaPath)) {
-        console.error('缺少微信运行态场景 meta: ' + metaPath);
-        process.exit(1);
-    }
-    const uuid = JSON.parse(fs.readFileSync(metaPath, 'utf8')).uuid;
-    if (!uuid) {
-        console.error('微信运行态场景 meta 缺少 uuid: ' + metaPath);
-        process.exit(1);
-    }
-    return uuid;
 }
 
 function makeRuntimeScenes() {
     const scenes = [
         { url: startSceneUrl, uuid: startSceneUuid },
-        { url: 'db://assets/Scenes/Game.scene', uuid: readAssetUuid('db://assets/Scenes/Game.scene') },
+        { url: 'db://assets/Scenes/Game.scene', uuid: readAssetUuid(projectRoot, 'db://assets/Scenes/Game.scene', '抖音运行态 Game.scene') },
     ];
     const seen = new Set();
     return scenes.filter((scene) => {
@@ -57,7 +37,7 @@ function makeRuntimeScenes() {
 }
 
 const config = {
-    platform: 'wechatgame',
+    platform: 'bytedance-mini-game',
     buildMode: 'minify',
     mangleProperties: 'true',
     skipCompressTexture: 'false',
@@ -65,16 +45,14 @@ const config = {
     wasmCompressionMode: 'true',
     scenes: makeRuntimeScenes(),
     startScene: startSceneUuid,
-    outputName: 'wechatgame',
-    taskName: 'wechatgame',
+    outputName: 'bytedance-mini-game',
+    taskName: 'bytedance-mini-game',
     mainBundleCompressionType: 'subpackage',
     packages: {
-        wechatgame: {
+        'bytedance-mini-game': {
+            appid: douyinAppId,
             orientation: 'portrait',
-            appid: 'wxbb6160c828f380ca',
-            buildOpenDataContextTemplate: '',
-            separateEngine: resolveSeparateEngine(),
-            highPerformanceMode: false,
+            separateEngine: false,
         },
     },
     name: 'NewProject',
@@ -152,4 +130,4 @@ if (debugMode) {
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, JSON.stringify(config, null, 2) + '\n');
-console.log('已生成微信构建配置(' + (debugMode ? 'debug' : 'release') + '): ' + outputPath);
+console.log('已生成抖音构建配置(' + (debugMode ? 'debug' : 'release') + '): ' + outputPath);

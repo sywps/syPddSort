@@ -8,11 +8,21 @@ const db = cloud.database();
 const _ = db.command;
 const COLLECTION_NAME = 'leaderboard';
 const USER_PROFILE_COLLECTION = 'user_profile';
+const NEW_USER_STARTER_PROP_COUNT = 3;
 const PAGE_SIZE = 100;
 const MAX_SCAN_SIZE = 5000;
 
 function normalizeProgress(value) {
   return Math.max(1, Math.floor(Number(value) || 1));
+}
+
+function readPositiveInt(value) {
+  const num = Math.floor(Number(value) || 0);
+  return num > 0 ? num : 0;
+}
+
+function isAdminSavedLevelSentinel(doc) {
+  return !!doc && typeof doc.savedLevel === 'number' && Math.floor(Number(doc.savedLevel)) <= 0;
 }
 
 function normalizeDisplayName(value, uuid) {
@@ -54,6 +64,81 @@ async function findEntryByOpenId(openid) {
   }
 }
 
+async function findUserProfile(openid) {
+  try {
+    const res = await db.collection(USER_PROFILE_COLLECTION).where({ openid }).limit(1).get();
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
+  } catch (error) {
+    if (isCollectionMissing(error)) {
+      throw new Error(`missing ${USER_PROFILE_COLLECTION} collection`);
+    }
+    throw error;
+  }
+}
+
+function buildBaseUserProfile(openid, timestamp, progressLevel) {
+  return {
+    openid,
+    channel: '',
+    device: '',
+    system: '',
+    firstLoginTime: timestamp,
+    lastLoginTime: timestamp,
+    totalPlayTimes: 0,
+    isPay: false,
+    createTime: timestamp,
+    savedLevel: progressLevel,
+    lastLevelId: progressLevel,
+    stateUpdatedAt: timestamp,
+    gold: 0,
+    expandSlotCount: 0,
+    magicWandCount: NEW_USER_STARTER_PROP_COUNT,
+    brushCount: NEW_USER_STARTER_PROP_COUNT,
+    magnetCount: NEW_USER_STARTER_PROP_COUNT,
+    addTimeCount: 0,
+  };
+}
+
+async function syncProgressToUserProfile(openid, progressLevel, timestamp) {
+  const collection = db.collection(USER_PROFILE_COLLECTION);
+  const current = await findUserProfile(openid);
+  const normalizedProgress = normalizeProgress(progressLevel);
+
+  if (!current) {
+    await collection.add({
+      data: buildBaseUserProfile(openid, timestamp, normalizedProgress),
+    });
+    return;
+  }
+
+  if (isAdminSavedLevelSentinel(current)) {
+    return;
+  }
+
+  const currentSavedLevel = readPositiveInt(current.savedLevel);
+  const currentLastLevelId = readPositiveInt(current.lastLevelId);
+  const nextProgress = Math.max(currentSavedLevel, currentLastLevelId, normalizedProgress);
+  const patch = {
+    lastLoginTime: timestamp,
+  };
+
+  if (nextProgress > currentSavedLevel) {
+    patch.savedLevel = nextProgress;
+  }
+  if (nextProgress > currentLastLevelId) {
+    patch.lastLevelId = nextProgress;
+  }
+  if ((patch.savedLevel || patch.lastLevelId) && readPositiveInt(current.stateUpdatedAt) <= 0) {
+    patch.stateUpdatedAt = timestamp;
+  } else if (nextProgress > Math.max(currentSavedLevel, currentLastLevelId)) {
+    patch.stateUpdatedAt = timestamp;
+  }
+
+  if (Object.keys(patch).length > 0 && current._id) {
+    await collection.doc(current._id).update({ data: patch });
+  }
+}
+
 async function submitProgress(event, wxContext) {
   const openid = wxContext.OPENID;
   if (!openid) throw new Error('missing openid');
@@ -87,6 +172,7 @@ async function submitProgress(event, wxContext) {
       }
       throw error;
     }
+    await syncProgressToUserProfile(openid, progressLevel, now);
     return {
       ok: true,
       progressLevel,
@@ -109,6 +195,7 @@ async function submitProgress(event, wxContext) {
   if (Object.keys(patch).length > 0) {
     await collection.doc(current._id).update({ data: patch });
   }
+  await syncProgressToUserProfile(openid, nextProgress, now);
 
   return {
     ok: true,

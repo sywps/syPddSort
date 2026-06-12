@@ -2,11 +2,14 @@ import type { LevelData } from './LevelConfig';
 
 type LevelPackEntry = {
     id: string;
+    kind?: string;
+    prefix?: string;
     url: string;
     hash?: string;
     levelRange: [number, number];
     levelCount: number;
-    levels?: number[];
+    levels?: Array<number | { levelId: number; prefix?: string }>;
+    levelKeys?: string[];
 };
 
 type LevelLiveManifest = {
@@ -20,12 +23,16 @@ type LevelLiveManifest = {
 
 type LevelPack = {
     id: string;
+    kind?: string;
+    prefix?: string;
     dataVersion?: string;
     levelRange: [number, number];
-    levels: Array<{ levelId: number; data: LevelData }>;
+    levels: Array<{ levelId: number; prefix?: string; data: LevelData }>;
 };
 
 const MAX_CACHED_LEVEL_PACKS = 1;
+const DEFAULT_LEVEL_PREFIX = 'level_';
+const THEME_LEVEL_PREFIX = 'zt_level_';
 
 function normalizeBaseUrl(value: unknown): string {
     const text = typeof value === 'string' ? value.trim() : '';
@@ -120,6 +127,12 @@ function parseJsonText<T>(text: string, label: string): T {
     }
 }
 
+function normalizeLevelPrefix(prefix: string): string {
+    if (!prefix || prefix === DEFAULT_LEVEL_PREFIX) return DEFAULT_LEVEL_PREFIX;
+    if (prefix === THEME_LEVEL_PREFIX) return THEME_LEVEL_PREFIX;
+    return '';
+}
+
 function requestText(url: string, timeoutMs: number): Promise<string> {
     return new Promise((resolve, reject) => {
         const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
@@ -178,14 +191,18 @@ export class LevelDataCdnService {
 
     async loadLevel(levelId: number, prefix: string = 'level_'): Promise<LevelData | null> {
         const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
-        if (prefix !== 'level_') return null;
+        const normalizedPrefix = normalizeLevelPrefix(prefix);
+        if (!normalizedPrefix) return null;
         const manifest = await this.getLiveManifest();
         if (!manifest) return null;
-        const packEntry = this.findPack(manifest, normalizedLevelId);
+        const packEntry = this.findPack(manifest, normalizedLevelId, normalizedPrefix);
         if (!packEntry) return null;
         const pack = await this.loadPack(packEntry);
         if (!pack) return null;
-        const level = pack.levels.find((entry) => entry.levelId === normalizedLevelId);
+        const level = pack.levels.find((entry) => {
+            if (entry.levelId !== normalizedLevelId) return false;
+            return this.getPackPrefix(entry.prefix ? { prefix: entry.prefix } : pack) === normalizedPrefix;
+        });
         return level ? level.data : null;
     }
 
@@ -240,12 +257,15 @@ export class LevelDataCdnService {
         return manifest;
     }
 
-    private findPack(manifest: LevelLiveManifest, levelId: number): LevelPackEntry | null {
+    private findPack(manifest: LevelLiveManifest, levelId: number, prefix: string): LevelPackEntry | null {
         for (const pack of manifest.packs) {
+            const packPrefix = this.getPackPrefix(pack);
+            if (packPrefix !== prefix) continue;
             const range = pack.levelRange;
             if (!Array.isArray(range) || range.length !== 2) continue;
             if (levelId >= Number(range[0]) && levelId <= Number(range[1])) {
-                if (Array.isArray(pack.levels) && pack.levels.indexOf(levelId) === -1) continue;
+                if (Array.isArray(pack.levelKeys) && pack.levelKeys.indexOf(this.getLevelKey(levelId, prefix)) === -1) continue;
+                if (Array.isArray(pack.levels) && !this.packLevelListContains(pack.levels, levelId, prefix, packPrefix)) continue;
                 return pack;
             }
         }
@@ -255,7 +275,7 @@ export class LevelDataCdnService {
     private async loadPack(packEntry: LevelPackEntry): Promise<LevelPack | null> {
         const baseUrl = runtimeLevelDataBaseUrl();
         if (!canUseLevelDataCdn(baseUrl)) return null;
-        const cacheKey = packEntry.hash || packEntry.url;
+        const cacheKey = packEntry.id + ':' + this.getPackPrefix(packEntry) + ':' + (packEntry.hash || packEntry.url);
         let promise = this.packPromises.get(cacheKey);
         if (!promise) {
             const url = packEntry.hash
@@ -284,7 +304,49 @@ export class LevelDataCdnService {
         if (pack.id !== packEntry.id) {
             throw new Error('pack id mismatch: ' + pack.id + ' != ' + packEntry.id);
         }
+        const expectedPrefix = this.getPackPrefix(packEntry);
+        const actualPrefix = this.getPackPrefix(pack);
+        if (actualPrefix !== expectedPrefix) {
+            throw new Error('pack prefix mismatch: ' + actualPrefix + ' != ' + expectedPrefix);
+        }
+        const seenKeys = new Set<string>();
+        for (const entry of pack.levels) {
+            const entryLevelId = Math.max(1, Math.floor(Number(entry?.levelId) || 1));
+            const entryPrefix = this.getPackPrefix(entry?.prefix ? { prefix: entry.prefix } : pack);
+            if (entryPrefix !== expectedPrefix) {
+                throw new Error('pack entry prefix mismatch: ' + entryPrefix + ' != ' + expectedPrefix);
+            }
+            const key = this.getLevelKey(entryLevelId, entryPrefix);
+            if (seenKeys.has(key)) {
+                throw new Error('pack duplicate level key: ' + key);
+            }
+            seenKeys.add(key);
+        }
         return pack;
+    }
+
+    private getPackPrefix(pack: { prefix?: string } | null | undefined): string {
+        return normalizeLevelPrefix(pack?.prefix || DEFAULT_LEVEL_PREFIX) || DEFAULT_LEVEL_PREFIX;
+    }
+
+    private getLevelKey(levelId: number, prefix: string): string {
+        return prefix + Math.max(1, Math.floor(Number(levelId) || 1));
+    }
+
+    private packLevelListContains(
+        levels: Array<number | { levelId: number; prefix?: string }>,
+        levelId: number,
+        prefix: string,
+        packPrefix: string,
+    ): boolean {
+        return levels.some((entry) => {
+            if (typeof entry === 'number') {
+                return packPrefix === prefix && entry === levelId;
+            }
+            const entryLevelId = Math.max(1, Math.floor(Number(entry?.levelId) || 1));
+            const entryPrefix = this.getPackPrefix(entry?.prefix ? { prefix: entry.prefix } : { prefix: packPrefix });
+            return entryLevelId === levelId && entryPrefix === prefix;
+        });
     }
 
     private trimPackCache(keepKey: string): void {

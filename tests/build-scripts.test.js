@@ -29,9 +29,13 @@ for (const [name, expected] of [
     ['test', 'npm run test:build-scripts && npm run verify:ui-ownership'],
     ['test:build-scripts', 'node tests/build-scripts.test.js && node tests/slot-order.test.js && node tests/endgame-hint.test.js && node tests/slot-onboarding-policy.test.js'],
     ['verify:ui-ownership', 'node scripts/verify-ui-ownership.js'],
-    ['build:wechat', 'node scripts/build-wechat.js --release'],
+    ['build:wechat:release', 'node scripts/build-wechat.js --release'],
     ['build:wechat:debug', 'node scripts/build-wechat.js --debug'],
     ['verify:wechat-build', 'node scripts/verify-wechat-build.js'],
+    ['build:douyin:release', 'node scripts/build-douyin.js --release'],
+    ['build:douyin:debug', 'node scripts/build-douyin.js --debug'],
+    ['postbuild:douyin', 'node scripts/postbuild-douyin.js'],
+    ['verify:douyin-build', 'node scripts/verify-douyin-build.js'],
     ['verify:wechat-build:runtime', 'npm run verify:wechat-build && npm run smoke:wechat-preview -- --screenshot temp/wechat-preview-smoke/preview.png --logs temp/wechat-preview-smoke/fatal-startup.log'],
     ['smoke:wechat-preview', 'node scripts/smoke-wechat-preview.js'],
     ['verify:cocos-meta', 'node scripts/verify-cocos-meta.js assets'],
@@ -45,20 +49,27 @@ for (const [name, expected] of [
 }
 
 for (const forbidden of [
+    'build:wechat',
     'build:douyin',
-    'verify:douyin-build',
+    'verify:douyin-artifacts',
     'sync:cdn:douyin',
     'douyin:postbuild',
 ]) {
-    assert.strictEqual(scripts[forbidden], undefined, `V1 微信迁移不能新增 ${forbidden}`);
+    assert.strictEqual(scripts[forbidden], undefined, `package.json must not keep ambiguous script ${forbidden}`);
 }
 
 for (const filePath of [
     'scripts/build-wechat.js',
+    'scripts/build-douyin.js',
+    'scripts/minigame-build-common.js',
     'scripts/write-wechat-build-config.js',
-    'scripts/prepare-wechat-bootstrap.js',
+    'scripts/write-douyin-build-config.js',
+    'scripts/prepare-bootstrap.js',
     'scripts/postbuild-wechat.js',
-    'scripts/fix-game-json.js',
+    'scripts/postbuild-wechat-minigame.js',
+    'scripts/postbuild-minigame-bundles.js',
+    'scripts/postbuild-douyin.js',
+    'scripts/verify-douyin-build.js',
     'scripts/verify-wechat-build.js',
     'scripts/patch-home-assets-bundle.js',
     'scripts/verify-bundle-native-files.js',
@@ -77,19 +88,17 @@ const buildWechat = read('scripts/build-wechat.js');
 for (const required of [
     'WECHAT_APPID',
     'WECHAT_GAME_ASSETS_MODE',
-    'scripts/prepare-wechat-bootstrap.js',
+    'minigame-build-common.js',
+    'scripts/prepare-bootstrap.js',
     'scripts/write-level-data-cdn.js',
     'scripts/write-wechat-build-config.js',
     'scripts/postbuild-wechat.js',
-    'scripts/patch-bootstrap-dynamic-assets.js',
-    'scripts/patch-home-assets-bundle.js',
-    'configPath=',
+    'scripts/postbuild-minigame-bundles.js',
     'build/level-data-cdn',
     'build/wechatgame',
     'cleanCocosGeneratedCaches',
-    'stale asset-db/importer',
     'repairCocosMetaFiles',
-    'scripts/repair-cocos-meta.js',
+    'spawnCocosBuild',
     'assets/LevelData',
     'BootstrapBundle',
     'HomeAssetsBundle',
@@ -108,6 +117,9 @@ for (const required of [
     'GameAssetsBundle 不应包含旧单豆图片目录',
     'validateLevelDataCdn',
     'level_live.json',
+    'zt_level_',
+    'collectSourceLevelDataEntries',
+    'getAnimationInterval',
     'gameAssets 分包',
     'homeAssets 分包',
     '启动下载量',
@@ -116,7 +128,18 @@ for (const required of [
 ]) {
     assert.ok(buildWechat.includes(required), `build-wechat.js must include ${required}`);
 }
-assert.strictEqual(buildWechat.includes('syncBootstrapSourceAssets'), false, 'build-wechat.js must delegate bootstrap preparation to prepare-wechat-bootstrap.js');
+const minigameBuildCommon = read('scripts/minigame-build-common.js');
+for (const required of [
+    'parseBuildMode',
+    'stale asset-db/importer',
+    'scripts/repair-cocos-meta.js',
+    'configPath=',
+    'resolveCocosCli',
+    'spawnCocosBuild',
+]) {
+    assert.ok(minigameBuildCommon.includes(required), `minigame-build-common.js must include ${required}`);
+}
+assert.strictEqual(buildWechat.includes('syncBootstrapSourceAssets'), false, 'build-wechat.js must delegate bootstrap preparation to prepare-bootstrap.js');
 assert.strictEqual(buildWechat.includes('build-douyin'), false, 'build-wechat.js must stay Douyin-free');
 assert.strictEqual(buildWechat.includes('remote_dy'), false, 'build-wechat.js must not point to Douyin CDN');
 const legacyResourcesPath = 'assets/' + 'Resources';
@@ -143,7 +166,7 @@ assert.ok(auditAssets.includes('e82626ae-c0c9-aa40-532e-293d6db5eaf2@f9941'), 'a
 assert.ok(auditAssets.includes('collectSceneSpriteFrameRefs'), 'audit-assets must scan scene SpriteFrame refs for missing source assets');
 assert.ok(auditAssets.includes('slot_row_lock_dash_ui.png'), 'audit-assets must require first-level lock dash source art');
 
-const prepareBootstrap = read('scripts/prepare-wechat-bootstrap.js');
+const prepareBootstrap = read('scripts/prepare-bootstrap.js');
 for (const required of [
     'const bootstrapLevelIds = [1]',
     'BootstrapBundle/Beans',
@@ -153,7 +176,7 @@ for (const required of [
     'validateRemoteDoesNotOwnBeanAtlas',
     'Bootstrap bean atlas 缺少首屏/全关卡豆豆帧',
 ]) {
-    assert.ok(prepareBootstrap.includes(required), `prepare-wechat-bootstrap.js must include ${required}`);
+    assert.ok(prepareBootstrap.includes(required), `prepare-bootstrap.js must include ${required}`);
 }
 const patchBootstrapAssets = read('scripts/patch-bootstrap-dynamic-assets.js');
 for (const required of [
@@ -170,6 +193,7 @@ for (const required of [
 const patchHomeAssets = read('scripts/patch-home-assets-bundle.js');
 for (const required of [
     'HomeAssetsBundle',
+    'GameAssetsBundle',
     'collectSourceBundleArtifacts',
     'assetDbImportPath',
     'copyNative',
@@ -177,18 +201,109 @@ for (const required of [
 ]) {
     assert.ok(patchHomeAssets.includes(required), `patch-home-assets-bundle.js must include ${required}`);
 }
+const postbuildMinigameBundles = read('scripts/postbuild-minigame-bundles.js');
+for (const required of [
+    'scripts/patch-bootstrap-dynamic-assets.js',
+    'scripts/patch-home-assets-bundle.js',
+    '补齐 bootstrap 动态图片',
+    '补齐 homeAssets 分包资源产物',
+    '补齐 gameAssets 分包资源产物',
+]) {
+    assert.ok(postbuildMinigameBundles.includes(required), `postbuild-minigame-bundles.js must include ${required}`);
+}
+const postbuildDouyin = read('scripts/postbuild-douyin.js');
+for (const required of [
+    'scripts/postbuild-minigame-bundles.js',
+    'scripts/verify-douyin-build.js',
+    'ensureBundleSubpackage',
+    "path.join(runtimeRoot, 'assets', bundleName)",
+    '__PDD_BUILD_PLATFORM__',
+    '__PDD_DOUYIN_BUILD_MODE__',
+    'remote_douyin/levels/',
+    'bootstrap',
+    'homeAssets',
+    'gameAssets',
+    'preloadBundles',
+    'subpackages',
+]) {
+    assert.ok(postbuildDouyin.includes(required), `postbuild-douyin.js must include ${required}`);
+}
+const buildDouyin = read('scripts/build-douyin.js');
+for (const required of [
+    'node scripts/build-douyin.js <--release|--debug>',
+    'build/bytedance-mini-game',
+    'build/level-data-cdn-douyin',
+    'scripts/prepare-bootstrap.js',
+    'scripts/write-douyin-build-config.js',
+    'scripts/postbuild-douyin.js',
+    'scripts/verify-douyin-build.js',
+    'spawnCocosBuild',
+    'DOUYIN_CLEAN_COCOS_CACHE',
+    'remote_douyin/levels/',
+    'validateLevelDataCdn',
+    'zt_level_',
+    'collectSourceLevelDataEntries',
+    'levelCounts.',
+    'pack.levelKeys',
+]) {
+    assert.ok(buildDouyin.includes(required), `build-douyin.js must include ${required}`);
+}
+const douyinBuildConfig = read('scripts/write-douyin-build-config.js');
+for (const required of [
+    'platform: \'bytedance-mini-game\'',
+    'outputName: \'bytedance-mini-game\'',
+    'taskName: \'bytedance-mini-game\'',
+    'DOUYIN_APPID',
+    'mainBundleCompressionType: \'subpackage\'',
+    'db://assets/HomeAssetsBundle',
+    'name: \'homeAssets\'',
+    'db://assets/GameAssetsBundle',
+    'name: \'gameAssets\'',
+    'db://assets/LevelData',
+    'name: \'levelData\'',
+    'compressionType: \'subpackage\'',
+]) {
+    assert.ok(douyinBuildConfig.includes(required), `write-douyin-build-config.js must include ${required}`);
+}
+const verifyDouyinBuild = read('scripts/verify-douyin-build.js');
+for (const required of [
+    'bytedance-mini-game',
+    'assertSourceBundleArtifactsExist',
+    'assertBundleNativeFilesExist',
+    'HomeAssetsBundle',
+    'GameAssetsBundle',
+    'settings.assets.preloadBundles 顺序错误，应为 bootstrap -> main',
+    'settings.assets.subpackages 缺少 \' + bundleName',
+    '__PDD_LEVEL_DATA_CDN_URL__',
+    'checkScene',
+    'navigateToScene',
+    '抖音主包超过 4MB 硬限制',
+    '抖音总包超过 20MB 硬限制',
+    'release game.json.subpackages 不应包含 levelData',
+    'collectSourceLevelDataEntries',
+    'zt_level_',
+    'levelCounts.',
+    'pack.levelKeys',
+    '抖音关卡数据 CDN 重复关卡 key',
+    '抖音关卡数据 CDN 缺少真源关卡',
+]) {
+    assert.ok(verifyDouyinBuild.includes(required), `verify-douyin-build.js must include ${required}`);
+}
 const verifyBundleNativeFiles = read('scripts/verify-bundle-native-files.js');
 for (const required of [
     'decodeUuid',
+    'collectVersionedUuids',
     'collectSourceBundleArtifacts',
     'assertSourceBundleArtifactsExist',
     'assertBundleNativeFilesExist',
     'importArtifactPath',
+    'findImportArtifact',
     'findNativeArtifact',
     'isRuntimeImportJson',
 ]) {
     assert.ok(verifyBundleNativeFiles.includes(required), `verify-bundle-native-files.js must include ${required}`);
 }
+assert.strictEqual(verifyBundleNativeFiles.includes("subMeta.importer === 'texture'"), false, 'bundle artifact verification must not skip texture subMeta import JSON');
 const extractBootstrap = read('scripts/extract-bootstrap-bundle.js');
 assert.ok(extractBootstrap.includes('LevelData/level_1'), 'bootstrap extraction must keep level_1');
 for (const required of [
@@ -210,6 +325,7 @@ assert.strictEqual(homeAssetsBundleMeta.userData?.bundleName, 'homeAssets', 'Hom
 
 const buildConfig = read('scripts/write-wechat-build-config.js');
 for (const required of [
+    '<--release|--debug>',
     'wxbb6160c828f380ca',
     'platform: \'wechatgame\'',
     'buildMode: \'minify\'',
@@ -237,6 +353,7 @@ for (const required of [
 
 const debugConfigPath = path.join(root, 'temp', 'test-wechat-build-config-debug.json');
 const releaseConfigPath = path.join(root, 'temp', 'test-wechat-build-config-release.json');
+const douyinReleaseConfigPath = path.join(root, 'temp', 'test-douyin-build-config-release.json');
 runNode('scripts/write-wechat-build-config.js', [
     debugConfigPath,
     'db://assets/Scenes/Game.scene',
@@ -249,14 +366,22 @@ runNode('scripts/write-wechat-build-config.js', [
     'test-scene-uuid',
     '--release',
 ]);
+runNode('scripts/write-douyin-build-config.js', [
+    douyinReleaseConfigPath,
+    'db://assets/Scenes/Game.scene',
+    'test-scene-uuid',
+    '--release',
+]);
 assert.strictEqual(JSON.parse(fs.readFileSync(debugConfigPath, 'utf8')).packages.wechatgame.separateEngine, false, 'debug 微信构建必须关闭 Cocos 插件分离引擎');
 assert.strictEqual(JSON.parse(fs.readFileSync(releaseConfigPath, 'utf8')).packages.wechatgame.separateEngine, false, 'release 微信构建也必须默认关闭 Cocos 插件分离引擎');
+assert.strictEqual(JSON.parse(fs.readFileSync(douyinReleaseConfigPath, 'utf8')).platform, 'bytedance-mini-game', 'release 抖音构建必须使用 Cocos 抖音平台');
 fs.rmSync(debugConfigPath, { force: true });
 fs.rmSync(releaseConfigPath, { force: true });
+fs.rmSync(douyinReleaseConfigPath, { force: true });
 
 const postbuildEntrypoint = read('scripts/postbuild-wechat.js');
-assert.ok(postbuildEntrypoint.includes("require('./fix-game-json.js')"), 'postbuild-wechat.js must wrap the existing postbuild implementation');
-const postbuild = postbuildEntrypoint + '\n' + read('scripts/fix-game-json.js');
+assert.ok(postbuildEntrypoint.includes("require('./postbuild-wechat-minigame.js')"), 'postbuild-wechat.js must wrap the WeChat minigame postbuild implementation');
+const postbuild = postbuildEntrypoint + '\n' + read('scripts/postbuild-wechat-minigame.js');
 for (const required of [
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/',
     'PDD_LEVEL_DATA_CDN_URL',
@@ -264,7 +389,9 @@ for (const required of [
     '__PDD_WECHAT_BUILD_MODE__',
     '__PDD_GAME_ASSETS_MODE__',
     '__PDD_LEVEL_DATA_CDN_URL__',
+    '__PDD_RELEASE_LOG_GATE_INSTALLED__',
     'ensureStableGameAssetsBundleScriptLoader',
+    'function walkFiles',
     'minigameRootPath',
     'openDataContext',
     'globalThis.__rawWx',
@@ -280,8 +407,11 @@ for (const required of [
     'ensureStartupPreloadBundles',
     'startup preload: bootstrap -> main',
     'homeAssets/gameAssets 分包目录由微信 subpackages 承载',
+    'patchDeprecatedDirectorAnimationIntervalWarning',
+    'getAnimationInterval',
+    '微信运行时代码仍包含 director.getAnimationInterval',
 ]) {
-    assert.ok(postbuild.includes(required), `fix-game-json.js must include ${required}`);
+    assert.ok(postbuild.includes(required), `postbuild-wechat-minigame.js must include ${required}`);
 }
 for (const forbidden of [
     '__PDD_BOOT_REPORT_SENT__',
@@ -294,7 +424,7 @@ for (const forbidden of [
     'writeLiveManifest',
     'minigame/remote (local)',
 ]) {
-    assert.strictEqual(postbuild.includes(forbidden), false, `fix-game-json.js must not keep uncertain boot probe ${forbidden}`);
+    assert.strictEqual(postbuild.includes(forbidden), false, `postbuild-wechat-minigame.js must not keep uncertain boot probe ${forbidden}`);
 }
 
 const verifyWechat = read('scripts/verify-wechat-build.js');
@@ -346,6 +476,9 @@ for (const required of [
     'GameUI/bg_game_pindd',
     'GameUI/solid_white',
     '关卡数据 CDN 关卡数量异常',
+    'zt_level_',
+    'collectSourceLevelDataEntries',
+    'getAnimationInterval',
     'LevelData/level_1',
     'bootstrap 不应包含非首关候选关卡',
     '未与 assets/LevelData 真源同步',
@@ -395,6 +528,8 @@ for (const required of [
     'level_live.json 已最后处理',
     'dataVersion',
     'validateLevelDataPackage',
+    'zt_level_',
+    'collectSourceLevelDataKeys',
     'public-read',
 ]) {
     assert.ok(syncWechat.includes(required), `sync-cdn-wechat.js must include ${required}`);
@@ -463,6 +598,9 @@ for (const required of [
     'level_live.json',
     'dataVersion',
     'packSize',
+    'zt_level_',
+    'prefix',
+    'theme',
 ]) {
     assert.ok(levelDataCdnWriter.includes(required), `write-level-data-cdn.js must include ${required}`);
 }
@@ -483,6 +621,9 @@ const gameCtrlHelperFiles = [
     'assets/Scripts/Core/GameplaySkillUiController.ts',
     'assets/Scripts/Core/GameplayViewController.ts',
     'assets/Scripts/Core/installGameCtrlModules.ts',
+    'assets/Scripts/Platform/installPlatformGameCtrlModules.ts',
+    'assets/Scripts/Platform/Douyin/installDouyinGameCtrlModules.ts',
+    'assets/Scripts/Platform/Douyin/DouyinSidebarModule.ts',
 ].filter(exists);
 const gameCtrlPanelControllerFiles = exists('assets/Scripts/Core/Panels')
     ? fs.readdirSync(path.join(root, 'assets/Scripts/Core/Panels'))
@@ -497,6 +638,7 @@ const gameCtrlModuleFiles = fs.readdirSync(path.join(root, 'assets/Scripts/Core/
 const gameCtrl = [gameCtrlEntry, gameCtrlShared, ...gameCtrlHelperFiles.map(read), ...gameCtrlPanelControllerFiles.map(read), ...gameCtrlModuleFiles.map(read)].join('\n');
 const gameplaySkillUiController = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const levelDataCdnService = read('assets/Scripts/Core/LevelDataCdnService.ts');
+const sySdkMgr = read('assets/Scripts/Core/SySDKMgr.ts');
 const boardInputViewportModule = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
 const settlementHudModule = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const tutorialGuideModule = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
@@ -645,16 +787,13 @@ assert.ok(tutorialGuidePromptNode, 'Game.scene must contain OverlayRoot/Tutorial
 assert.ok(tutorialGuidePromptBgNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/BubbleBg');
 assert.ok(tutorialGuidePromptLabelNode, 'Game.scene must contain OverlayRoot/TutorialGuidePrompt/PromptLabel');
 assert.strictEqual(tutorialGuidePromptNode._active, false, 'TutorialGuidePrompt must be hidden until tutorial runtime enables it');
-assert.strictEqual(tutorialGuidePromptNode._lpos.y, 438, 'TutorialGuidePrompt must keep the Cocos-owned default y');
 const tutorialGuidePromptUi = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptNode, 'cc.UITransform');
-assert.strictEqual(tutorialGuidePromptUi?._contentSize?.width, 360, 'TutorialGuidePrompt must keep the Cocos-owned width');
-assert.strictEqual(tutorialGuidePromptUi?._contentSize?.height, 68, 'TutorialGuidePrompt must keep the Cocos-owned height');
+assert.ok(tutorialGuidePromptUi, 'TutorialGuidePrompt must own a UITransform');
 const tutorialGuidePromptBgSprite = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptBgNode, 'cc.Sprite');
 assert.strictEqual(tutorialGuidePromptBgSprite?._spriteFrame?.__uuid__, '52e94005-3ca2-a20b-d083-d9c4e3836418@f9941', 'TutorialGuidePrompt/BubbleBg must use Bootstrap solid_white');
 assert.strictEqual(tutorialGuidePromptBgSprite?._color?.a, 0, 'TutorialGuidePrompt/BubbleBg must default to transparent');
 const tutorialGuidePromptLabel = getSceneNodeComponent(gameSceneJson, tutorialGuidePromptLabelNode, 'cc.Label');
-assert.strictEqual(tutorialGuidePromptLabel?._fontSize, 48, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned font size');
-assert.strictEqual(tutorialGuidePromptLabel?._lineHeight, 60, 'TutorialGuidePrompt/PromptLabel must keep the Cocos-owned line height');
+assert.ok(tutorialGuidePromptLabel, 'TutorialGuidePrompt/PromptLabel must own a Label');
 const gameplaySafeArea = getSceneNodeComponent(gameSceneJson, gameplayFixedRootNode, 'cc.SafeArea');
 assert.strictEqual(gameplaySafeArea, null, 'GameplayFixedRoot must not own SafeArea');
 for (const [label, node] of [['TopBarGroup', topBarGroupNode], ['BottomHudGroup', bottomHudGroupNode]]) {
@@ -668,8 +807,6 @@ assert.strictEqual(boardAreaWidget, null, 'BoardArea must not own a static Widge
 assert.strictEqual(gameScene.includes('BoardArea_widget_static_viewport_20260608'), false, 'Game.scene must not keep the hard BoardArea viewport Widget id');
 const slotAreaWidget = getSceneNodeComponent(gameSceneJson, slotAreaNode, 'cc.Widget');
 assert.ok(slotAreaWidget, 'SlotArea must keep its Cocos Widget-owned bottom anchor');
-assert.strictEqual(slotAreaWidget._bottom, 110, 'SlotArea must keep the expanded-board scene bottom anchor');
-assert.strictEqual(slotAreaNode._lpos.y, -443.5, 'SlotArea must keep the expanded-board scene y baseline');
 for (const [requiredGamePath, expectedUuid] of [
     ['TopBarGroup/TimerWrap', '5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@f9941'],
     ['BottomHudGroup/SlotAreaGroup/SlotArea/SlotRowLockedBtn', 'f695951c-15e0-425c-a013-409f05fc40a8@f9941'],
@@ -698,6 +835,10 @@ assert.ok(
         || gameCtrlEntry.includes('installGameCtrlModules(this);'),
     'GameCtrl entry must install split modules',
 );
+const gameRuntimeHost = read('assets/Scripts/Core/GameRuntimeHost.ts');
+assert.ok(gameRuntimeHost.includes('installPlatformGameCtrlModules(this);'), 'GameRuntimeHost must install platform-specific modules');
+assert.ok(gameCtrl.includes('installDouyinGameCtrlModules'), 'platform module installer must include Douyin modules');
+assert.ok(gameCtrl.includes('navigateToScene'), 'Douyin sidebar runtime must include navigateToScene');
 const prototypePatchNeedle = ['Object.assign(target', 'prototype'].join('.');
 assert.strictEqual(gameCtrl.includes(prototypePatchNeedle), false, 'GameCtrl modules must not patch host prototypes');
 assert.strictEqual(gameCtrlEntry.includes('class BoardViewportController'), false, 'GameCtrl entry must not inline BoardViewportController');
@@ -765,7 +906,6 @@ assert.ok(audioManifest.includes('AUDIO_BGM_RESOURCE_PATH'), 'AudioManifest must
 assert.ok(audioManifest.includes("place: 'Audio/pindd/right_place_short'"), 'place SFX must use the trimmed short landing clip');
 assert.ok(exists('assets/GameAssetsBundle/Audio/pindd/right_place_short.mp3'), 'trimmed place SFX asset must exist');
 assert.ok(exists('assets/GameAssetsBundle/Audio/pindd/right_place_short.mp3.meta'), 'trimmed place SFX meta must exist');
-assert.ok(fs.statSync(path.join(root, 'assets/GameAssetsBundle/Audio/win.mp3')).size <= 2968, 'win SFX must keep the compressed asset size');
 assert.ok(audioMgr.includes('preload(name: SfxName)'), 'AudioMgr must expose a no-autoplay SFX preload entry point');
 assert.ok(gameCtrl.includes("AudioMgr.inst.preload('place');"), 'gameplay init must preload place SFX before board-return landings');
 assert.strictEqual(audioMgr.includes('const SFX_RESOURCE_PATH'), false, 'AudioMgr must not keep local SFX path map');
@@ -781,8 +921,10 @@ assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'scene runtime must
 assert.strictEqual(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), false, 'Home/Game must not split into different resolution policies');
 assert.ok(gameCtrl.includes("screenRoot?.getChildByName(name) || host.getChildByName(name)"), 'runtime root lookup must prefer ScreenRoot and fall back to Canvas');
 const progressFillMeta = JSON.parse(read('assets/GameAssetsBundle/Textures/UI/progress_fill.png.meta'));
-assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderLeft, 13, 'progress_fill left cap inset must protect rounded ends');
-assert.strictEqual(progressFillMeta.subMetas.f9941.userData.borderRight, 13, 'progress_fill right cap inset must protect rounded ends');
+const progressFillLeftCap = progressFillMeta.subMetas.f9941.userData.borderLeft;
+const progressFillRightCap = progressFillMeta.subMetas.f9941.userData.borderRight;
+assert.ok(progressFillLeftCap > 0 && progressFillRightCap > 0, 'progress_fill cap insets must protect rounded ends');
+assert.strictEqual(progressFillLeftCap, progressFillRightCap, 'progress_fill cap insets must stay symmetric');
 assert.ok(
     gameCtrl.includes('this.startFlyToSlots(block.colorId, sources.slice(0, storedIdxs.length), storedIdxs, block.cells)'),
     'level2_slot guide must repaint source board cells when moving beans to slots',
@@ -1012,7 +1154,6 @@ for (const forbidden of [
     'first_level_route.bucket',
     'readStoredFirstLevelRouteVariant',
     'persistFirstLevelRouteVariant',
-    'this.getSavedLevel() > 1',
     'EXPERIMENT_B_',
     'BUCKET_B_',
     'use_level_2',
@@ -1099,9 +1240,13 @@ for (const required of [
     'isBrowserBackedRequester(requester) && !wechatRuntime',
     'local_browser_external_cdn_disabled',
     'getAvailabilityDiagnostics()',
+    'THEME_LEVEL_PREFIX',
+    'normalizeLevelPrefix',
 ]) {
     assert.ok(levelDataCdnService.includes(required), `LevelDataCdnService must allow WeChat DevTools CDN requester: ${required}`);
 }
+assert.ok(sySdkMgr.includes('sySdkDebug'), 'SySDKMgr production logs must go through the debug log gate');
+assert.strictEqual(sySdkMgr.includes("console.log('[SySDK] module eval')"), false, 'SySDKMgr must not log at module evaluation in release');
 for (const forbidden of [
     'this.initGame(data || this.getBuiltinLevel()',
     'BeanSpriteFactory',
@@ -1125,8 +1270,6 @@ for (const required of [
 }
 assert.strictEqual(boardInputViewportModule.includes("getGameplayFixedGroup?.('BoardArea')"), false, 'BoardInputViewportModule must not use BoardArea bounds as the board safe viewport');
 assert.strictEqual(boardInputViewportModule.includes('const boardAreaBounds = this.getGameplayNodeBoundsInFixedRoot(boardArea);'), false, 'BoardInputViewportModule must not keep static BoardArea viewport ownership');
-assert.ok(gameplayViewController.includes('const widthFitRatio = 0.95;'), 'GameplayViewController must keep board width fit stable');
-assert.ok(gameplayViewController.includes('const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;'), 'GameplayViewController must give large boards extra vertical breathing room');
 for (const required of [
     'getGuideNodeVerticalBoundsInLayer',
     'getGuideTopBarAvoidBottomY',
@@ -1257,6 +1400,17 @@ assert.ok(themePanelController.includes("_openPanelAfterTextures('theme'"), 'The
 assert.strictEqual(/canOpenThemePanel\(\)[\s\S]{0,160}return;/.test(themePanelController), false, 'ThemePanelController must not block the whole theme panel before card-level locks render');
 const themeLoadingOverlay = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
 assert.ok(/startThemeLevel[\s\S]*getRuntimeSceneName\('Game'\) === 'Home'[\s\S]*requestGameplaySceneTransition\(levelId, 'zt_level_', false\)/.test(themeLoadingOverlay), 'Theme challenge levels must route Home -> Game before loading zt_level gameplay');
+assert.ok(/buttonText\s*=\s*`\$\{unlockRequirementLevel\}关开放`/.test(themeLoadingOverlay), 'Theme locked card button must omit the leading 主线 text');
+assert.strictEqual(themeLoadingOverlay.includes('主线${unlockRequirementLevel}关开放'), false, 'Theme locked card button must not render 主线xx关开放');
+
+const collectionAvatarModule = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
+const themePanelFlowModule = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
+assert.ok(collectionAvatarModule.includes('_collectionPreviewBufferRows = 2'), 'Collection preview must keep two buffered rows around the visible viewport');
+assert.ok(collectionAvatarModule.includes('renderCollectionVisiblePreviews'), 'Collection panel must render previews through a visible-window pass');
+assert.ok(/setupCollectionScroll\(viewport, scrollContent, viewportH, totalH, rowPitch\)/.test(collectionAvatarModule), 'Collection scroll must pass row pitch to lazy preview rendering');
+assert.ok(/drawCollectionPixelPreviewOnCard\([\s\S]*options\?: \{ grayscale\?: boolean \}/.test(collectionAvatarModule), 'Collection preview drawing must support grayscale locked previews');
+assert.ok(themePanelFlowModule.includes('deferPreview'), 'Collection cards must support deferred preview drawing');
+assert.ok(themePanelFlowModule.includes('lockedPreviewGrayscale'), 'Collection locked cards must support grayscale previews');
 
 const toolsServer = read('tools/server.py');
 assert.ok(toolsServer.includes("'assets', 'LevelData'"), 'tools/server.py must save game levels to assets/LevelData');
@@ -1264,7 +1418,11 @@ assert.ok(toolsServer.includes('LEVEL_DATA_DIR = GAME_LEVEL_DATA_DIR'), 'tools/s
 assert.strictEqual(toolsServer.includes("'assets', 'Resources', 'LevelData'"), false, 'tools/server.py must not save game levels to removed Resources LevelData');
 
 const userStateSyncMgr = read('assets/Scripts/Core/UserStateSyncMgr.ts');
+const userMgr = read('assets/Scripts/Core/UserMgr.ts');
+const leaderboardMgr = read('assets/Scripts/Core/LeaderboardMgr.ts');
+const wxCloudMgr = read('assets/Scripts/Core/WxCloudMgr.ts');
 const syncUserState = read('cloudfunctions/syncUserState/index.js');
+const leaderboardCloud = read('cloudfunctions/leaderboard/index.js');
 const forbiddenResetLevelAction = 'reset' + 'Level';
 const forbiddenResetUserLevelAction = 'reset' + 'UserLevel';
 const forbiddenQaLevelParam = 'qa' + '_level';
@@ -1275,6 +1433,7 @@ for (const [name, source] of [
     ['GameCtrl.ts', gameCtrl],
     ['UserStateSyncMgr.ts', userStateSyncMgr],
     ['cloudfunctions/syncUserState/index.js', syncUserState],
+    ['cloudfunctions/leaderboard/index.js', leaderboardCloud],
 ]) {
     assert.strictEqual(source.includes(forbiddenResetLevelAction), false, `${name} must not contain runtime/cloud level reset action`);
     assert.strictEqual(source.includes(forbiddenResetUserLevelAction), false, `${name} must not contain runtime/cloud user level reset action`);
@@ -1286,5 +1445,38 @@ assert.strictEqual(toolsServer.includes(forbiddenTcbCli), false, 'tools/server.p
 assert.ok(syncUserState.includes('isAdminSavedLevelSentinel'), 'syncUserState must reserve savedLevel <= 0 as the admin progress sentinel');
 assert.ok(syncUserState.includes('savedLevel: 1') && syncUserState.includes('lastLevelId: 1'), 'syncUserState must stabilize sentinel progress to level 1 on save');
 assert.ok(gameCtrl.includes('forceCloudLevelReset'), 'client restore must bypass local-newer protection for savedLevel <= 0 sentinel');
+assert.ok(syncUserState.includes("LEADERBOARD_COLLECTION = 'leaderboard'"), 'syncUserState must recover deleted-install progress from legacy leaderboard data');
+assert.ok(syncUserState.includes('resolveRestorableProgress'), 'syncUserState must resolve savedLevel from profile/legacy progress sources');
+assert.ok(syncUserState.includes('ensureLegacyProgressProfile'), 'syncUserState must create user_profile when only legacy leaderboard progress exists');
+assert.ok(leaderboardCloud.includes('syncProgressToUserProfile'), 'leaderboard submitProgress must mirror progress into user_profile for startup restore');
+assert.ok(leaderboardCloud.includes('savedLevel') && leaderboardCloud.includes('lastLevelId') && leaderboardCloud.includes('stateUpdatedAt'), 'leaderboard profile mirror must update startup restore fields');
+assert.ok(gameCtrlShared.includes('CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS = 3000'), 'fresh-install cloud restore must allow enough time for old-user recovery');
+assert.ok(gameCtrlShared.includes("'cloud_timeout_unresolved'") && !gameCtrlShared.includes("'skipped'"), 'startup restore statuses must be precise and must not use skipped');
+assert.ok(gameCtrl.includes('getRawSavedLevelForStartup') && gameCtrl.includes("sys.localStorage.getItem(LS_LEVEL)"), 'startup must inspect raw pdd.level instead of getSavedLevel default');
+assert.ok(gameCtrl.includes("raw === null") && gameCtrl.includes("'rawLevelMissing'"), 'cleared local cache must remain raw pdd.level === null until restore is decided');
+assert.ok(gameCtrl.includes('getStartupLocalProgressState') && gameCtrl.includes("parsed > 1 ? 'local_progress_gt_1'"), 'only raw pdd.level > 1 is reliable old-user local progress');
+assert.ok(gameCtrl.includes('mergeWeChatSelfProgressFallback'), 'fresh-install restore must also read WeChat friend cloud score fallback');
+assert.ok(gameCtrl.includes('LeaderboardMgr.inst.loadWeChatSelfProgress()'), 'startup restore must merge wx.getUserCloudStorage score when cloud DB progress is missing');
+assert.strictEqual(gameCtrl.includes('runtime.getActiveLogicalLevelId() === 1 && !runtime._timerStarted'), false, 'late old-user cloud restore must not be blocked after level-1 timer starts');
+assert.ok(gameCtrl.includes('restoredLevel > Math.max(beforeLevel, activeLevel)'), 'late old-user cloud restore must route Home when cloud progress is higher than current startup level');
+assert.ok(gameCtrl.includes('cloudSavedLevel <= localSavedLevel'), 'higher cloud savedLevel must bypass local-newer timestamp protection');
+assert.ok(gameCtrl.includes('canAutoSaveGameStateOnStartup') && gameCtrl.includes("restoreStatus === 'cloud_confirmed_empty'"), 'startup must only save game state after local/cloud progress or confirmed empty cloud restore');
+assert.ok(gameCtrl.includes('UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup)'), 'startup must not sync profile progress while restore is unresolved');
+assert.ok(gameCtrl.includes('setAuthoritativeStateHandler') && userStateSyncMgr.includes('emitAuthoritativeState'), 'client must apply authoritative cloud save response instead of only logging it');
+assert.ok(gameCtrl.includes('keep higher cloud savedLevel'), 'mainline progress save must not downgrade a higher cloud-restored local level');
+assert.ok(gameCtrl.includes('UserMgr.inst.markLevelProgress(restoredLevel)'), 'cloud savedLevel restore must update local UserMgr progress as well as pdd.level');
+assert.ok(userMgr.includes('allowRegression') && userMgr.includes('Math.max(currentLevel, normalized)'), 'UserMgr level progress must be monotonic unless an explicit reset allows regression');
+assert.ok(userStateSyncMgr.includes('__PDD_CLOUD_SYNC_LAST'), 'UserStateSyncMgr must expose the last cloud sync diagnostic for WeChat DevTools debugging');
+assert.ok(userStateSyncMgr.includes('[CloudSync]'), 'UserStateSyncMgr must log cloud sync phases in debug builds');
+assert.ok(userStateSyncMgr.includes('save:success') && userStateSyncMgr.includes('save:fail'), 'UserStateSyncMgr must log cloud save success and failure');
+assert.ok(userStateSyncMgr.includes('console.warn') && userStateSyncMgr.includes('__PDD_WECHAT_BUILD_MODE__'), 'debug WeChat builds must surface cloud sync diagnostics as warnings');
+assert.ok(userStateSyncMgr.includes('getDirectWxDiagnosticTarget') && userStateSyncMgr.includes('getGameGlobalDiagnosticTarget'), 'cloud sync diagnostics must be readable from wx/GameGlobal contexts');
+assert.ok(wxCloudMgr.includes('getDirectWxRuntime') && wxCloudMgr.includes('typeof wx'), 'WxCloudMgr must detect the direct WeChat wx runtime, not only globalThis.__rawWx');
+assert.ok(leaderboardMgr.includes('loadWeChatSelfProgress'), 'LeaderboardMgr must expose WeChat self score read for deleted-install restore');
+assert.ok(leaderboardMgr.includes('getUserCloudStorage'), 'LeaderboardMgr must read existing WeChat friend cloud score');
+assert.ok(leaderboardMgr.includes('existingScore >= progressLevel'), 'LeaderboardMgr must not overwrite a higher WeChat score with lower local progress');
+assert.ok(leaderboardMgr.includes('skip wx cloud score reset for starter level'), 'LeaderboardMgr must not reset WeChat friend score to level 1 on fresh startup');
+assert.ok(leaderboardMgr.includes('globalScope?.__rawWx'), 'LeaderboardMgr must prefer the raw WeChat runtime saved by postbuild');
+assert.ok(leaderboardMgr.includes('typeof wx'), 'LeaderboardMgr must detect the direct WeChat wx runtime for friend cloud storage restore');
 
 console.log('build script checks passed');

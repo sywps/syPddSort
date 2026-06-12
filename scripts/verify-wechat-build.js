@@ -94,6 +94,34 @@ function normalizeSubpackageRoot(root) {
     return String(root || '').replace(/^\/+|\/+$/g, '');
 }
 
+function parseLevelDataSourceFile(name) {
+    const match = /^(zt_level_|level_)(\d+)\.json$/.exec(name);
+    if (!match) return null;
+    const levelId = Math.max(1, Math.floor(Number(match[2]) || 1));
+    return {
+        file: name,
+        prefix: match[1],
+        levelId,
+        key: match[1] + levelId,
+    };
+}
+
+function collectSourceLevelDataEntries() {
+    const levelDataRoot = path.join(projectRoot, 'assets', 'LevelData');
+    assertDir(levelDataRoot, 'assets/LevelData');
+    return fs.readdirSync(levelDataRoot)
+        .map(parseLevelDataSourceFile)
+        .filter(Boolean)
+        .sort((a, b) => a.prefix.localeCompare(b.prefix) || a.levelId - b.levelId);
+}
+
+function countLevelDataPrefixes(entries) {
+    return entries.reduce((counts, entry) => {
+        counts[entry.prefix] = (counts[entry.prefix] || 0) + 1;
+        return counts;
+    }, {});
+}
+
 function findSubpackageRoot(gameJson, bundleName) {
     const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [];
     for (const item of subpackages) {
@@ -376,6 +404,11 @@ for (const forbidden of ['plugin:cocos', 'wx0446ba2621dda60a', '__plugin__/wx044
         fail('微信包仍引用未授权 Cocos 插件: ' + forbidden);
     }
 }
+for (const forbidden of ['getAnimationInterval', 'setAnimationInterval']) {
+    if (runtimeJsText.includes(forbidden)) {
+        fail('微信包仍包含 director.' + forbidden + ' 废弃属性告警入口');
+    }
+}
 const staleCollectionShellArrow = runtimeJsText.match(/requirePanelChild\([^)]*["']Arrow(?:Left|Right)["'][^)]*\)/);
 if (staleCollectionShellArrow) {
     fail('微信包仍将 CollectionPanel 翻页箭头当成 prefab 必需节点: ' + staleCollectionShellArrow[0]);
@@ -431,6 +464,8 @@ const gameAssetsGameJs = fs.readFileSync(path.join(gameAssetsDir, 'game.js'), 'u
 if (!gameAssetsGameJs.includes('virtual:///prerequisite-imports/gameAssets')) {
     fail('gameAssets 分包 game.js 未注册 Cocos prerequisite import');
 }
+assertSourceBundleArtifactsExist(gameAssetsDir, 'gameAssets', path.join(projectRoot, 'assets', 'GameAssetsBundle'), fail);
+assertBundleNativeFilesExist(gameAssetsDir, 'gameAssets', fail);
 if (buildMode === 'debug') {
     assertFile(path.join(runtimeRoot, 'src', 'bundle-scripts', 'levelData', 'index.js'), 'levelData bundle-scripts stub');
     const levelDataDir = resolveBundleDir(runtimeRoot, 'levelData', gameJson);
@@ -498,16 +533,58 @@ assertFile(path.join(levelDataCdnPath, 'level_live.json'), 'level_live.json');
 const levelLiveManifest = readJson(path.join(levelDataCdnPath, 'level_live.json'));
 if (levelLiveManifest.manifestVersion !== 1 || levelLiveManifest.schemaVersion !== 1) fail('level_live.json schema 不正确');
 if (!Array.isArray(levelLiveManifest.packs) || levelLiveManifest.packs.length < 1) fail('level_live.json 缺少 packs');
+const sourceLevelEntries = collectSourceLevelDataEntries();
+const sourceLevelKeys = new Set(sourceLevelEntries.map((entry) => entry.key));
+const sourceLevelPrefixCounts = countLevelDataPrefixes(sourceLevelEntries);
+const manifestLevelPrefixCounts = levelLiveManifest.levelCounts || {};
+const cdnLevelKeys = new Set();
+const cdnLevelPrefixCounts = {};
 let cdnLevelCount = 0;
 for (const pack of levelLiveManifest.packs) {
     assertFile(path.join(levelDataCdnPath, pack.url), '关卡数据 pack');
+    const packPrefix = String(pack.prefix || 'level_');
+    if (packPrefix !== 'level_' && packPrefix !== 'zt_level_') fail('level_live.json pack.prefix 不正确: ' + pack.url);
     const packJson = readJson(path.join(levelDataCdnPath, pack.url));
     if (packJson.id !== pack.id) fail('关卡数据 pack id 不一致: ' + pack.url);
+    if (String(packJson.prefix || packPrefix) !== packPrefix) fail('关卡数据 pack prefix 不一致: ' + pack.url);
     if (!Array.isArray(packJson.levels) || packJson.levels.length !== pack.levelCount) fail('关卡数据 pack levelCount 不一致: ' + pack.url);
+    const packPayloadKeys = [];
+    for (const entry of packJson.levels) {
+        const levelId = Math.max(1, Math.floor(Number(entry && entry.levelId) || 1));
+        const entryPrefix = String((entry && entry.prefix) || packJson.prefix || packPrefix);
+        const key = entryPrefix + levelId;
+        if (entryPrefix !== packPrefix) fail('关卡数据 pack entry prefix 不一致: ' + pack.url + ' ' + key);
+        if (cdnLevelKeys.has(key)) fail('关卡数据 CDN 重复关卡 key: ' + key);
+        cdnLevelKeys.add(key);
+        packPayloadKeys.push(key);
+        cdnLevelPrefixCounts[entryPrefix] = (cdnLevelPrefixCounts[entryPrefix] || 0) + 1;
+    }
+    if (Array.isArray(pack.levelKeys)) {
+        const manifestKeys = pack.levelKeys.slice().sort();
+        const payloadKeys = packPayloadKeys.slice().sort();
+        if (manifestKeys.length !== payloadKeys.length || manifestKeys.some((key, index) => key !== payloadKeys[index])) {
+            fail('level_live.json pack.levelKeys 与 pack 内容不一致: ' + pack.url);
+        }
+    }
     cdnLevelCount += packJson.levels.length;
 }
 if (cdnLevelCount !== levelLiveManifest.levelCount) fail('level_live.json levelCount 不一致');
-if (cdnLevelCount < 300) fail('关卡数据 CDN 关卡数量异常: ' + cdnLevelCount);
+if (cdnLevelCount !== sourceLevelKeys.size) fail('关卡数据 CDN 关卡数量异常: ' + cdnLevelCount + ' != assets/LevelData ' + sourceLevelKeys.size);
+for (const prefix of ['level_', 'zt_level_']) {
+    const sourceCount = sourceLevelPrefixCounts[prefix] || 0;
+    if ((manifestLevelPrefixCounts[prefix] || 0) !== sourceCount) {
+        fail('level_live.json levelCounts.' + prefix + ' 不一致: ' + (manifestLevelPrefixCounts[prefix] || 0) + ' != ' + sourceCount);
+    }
+    if ((cdnLevelPrefixCounts[prefix] || 0) !== sourceCount) {
+        fail('关卡数据 CDN ' + prefix + ' 数量异常: ' + (cdnLevelPrefixCounts[prefix] || 0) + ' != assets/LevelData ' + sourceCount);
+    }
+}
+for (const key of sourceLevelKeys) {
+    if (!cdnLevelKeys.has(key)) fail('关卡数据 CDN 缺少真源关卡: ' + key);
+}
+for (const key of cdnLevelKeys) {
+    if (!sourceLevelKeys.has(key)) fail('关卡数据 CDN 包含未知关卡: ' + key);
+}
 
 const subpackageRootNames = gameSubpackages
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, '').split('/')[0])

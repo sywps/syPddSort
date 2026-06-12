@@ -10,10 +10,15 @@ const {
 
 const projectRoot = path.resolve(__dirname, '..');
 const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatgame', 'minigame');
-const sourceRoot = path.join(projectRoot, 'assets', 'HomeAssetsBundle');
+const bundleName = process.argv[3] || 'homeAssets';
+const sourceBundleDirName = bundleName === 'homeAssets'
+    ? 'HomeAssetsBundle'
+    : bundleName === 'gameAssets'
+        ? 'GameAssetsBundle'
+        : '';
+const sourceRoot = sourceBundleDirName ? path.join(projectRoot, 'assets', sourceBundleDirName) : '';
 const libraryRoot = path.join(projectRoot, 'library');
 const assetDbRoot = path.join(projectRoot, 'temp', 'asset-db', 'assets');
-const bundleName = 'homeAssets';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -111,9 +116,10 @@ function copyNative(bundleDir, uuid) {
 }
 
 const bundleDir = resolveBundleDir();
-if (!fs.existsSync(bundleDir)) fail('未找到 homeAssets 分包目录: ' + bundleDir);
+if (!sourceRoot) fail('不支持的 bundle: ' + bundleName);
+if (!fs.existsSync(bundleDir)) fail('未找到 ' + bundleName + ' 分包目录: ' + bundleDir);
 
-const artifacts = collectSourceBundleArtifacts(sourceRoot, 'HomeAssetsBundle', fail);
+const artifacts = collectSourceBundleArtifacts(sourceRoot, sourceBundleDirName, fail);
 const copiedImports = new Set();
 const copiedNative = new Set();
 for (const artifact of artifacts) {
@@ -121,4 +127,4 @@ for (const artifact of artifacts) {
     if (artifact.native && copyNative(bundleDir, artifact.uuid)) copiedNative.add(artifact.uuid);
 }
 
-console.log(`[homeAssets] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}`);
+console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}`);

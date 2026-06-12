@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -113,7 +113,17 @@ export function installThemePanelFlowModule(target: any): void {
             });
         },
 
-        drawCollectionCard(parent: Node, levelId: number, cx: number, cy: number, w: number, h: number, unlocked: boolean, savedLevel: number) {
+        drawCollectionCard(
+            parent: Node,
+            levelId: number,
+            cx: number,
+            cy: number,
+            w: number,
+            h: number,
+            unlocked: boolean,
+            savedLevel: number,
+            options?: { deferPreview?: boolean; lockedPreviewGrayscale?: boolean },
+        ) {
             const card = parent.getChildByName('Card') || parent.children.find((child: Node) => child.name.startsWith('Card_'));
             if (!card) {
                 throw new Error('[collection-card] missing Card template node');
@@ -140,19 +150,32 @@ export function installThemePanelFlowModule(target: any): void {
             card.getChildByName('PixelPreview')?.destroy();
             const labelNode = card.getChildByName('Lbl');
             const hintNode = card.getChildByName('TapHint');
-        
+            const previewX = 0;
+            const previewY = 18;
+            const previewW = frameW - 56;
+            const previewH = frameH - 82;
+            const label = labelNode?.getComponent(Label);
+            if (!labelNode || !label) {
+                throw new Error('[collection-card] missing Lbl template node');
+            }
+            labelNode.active = true;
+            label.string = `第${levelId}关`;
+            if (hintNode) hintNode.active = false;
+
+            if (!options?.deferPreview) {
+                this.drawCollectionPixelPreviewOnCard(
+                    card,
+                    levelId,
+                    previewX,
+                    previewY,
+                    previewW,
+                    previewH,
+                    'level_',
+                    { grayscale: !unlocked && !!options?.lockedPreviewGrayscale },
+                );
+            }
+
             if (unlocked) {
-                // 图鉴卡片展示像素图
-                this.drawCollectionPixelPreviewOnCard(card, levelId, 0, 18, frameW - 56, frameH - 82);
-        
-                const label = labelNode?.getComponent(Label);
-                if (!labelNode || !label) {
-                    throw new Error('[collection-card] missing Lbl template node');
-                }
-                labelNode.active = true;
-                label.string = `第${levelId}关`;
-                if (hintNode) hintNode.active = false;
-        
                 // 打开图案详情
                 if (!card.getComponent(Button)) card.addComponent(Button);
                 card.targetOff(this);
@@ -166,10 +189,10 @@ export function installThemePanelFlowModule(target: any): void {
                     this.openCollectionImageModal(levelId);
                 }, this);
             } else {
-                if (labelNode) labelNode.active = false;
-                if (hintNode) hintNode.active = false;
                 card.targetOff(this);
             }
+
+            return { card, previewX, previewY, previewW, previewH };
         },
 
         drawLevelPreviewOnCard(
@@ -216,6 +239,8 @@ export function installThemePanelFlowModule(target: any): void {
             this._collectionOverlay = null;
             this._collectionContentNode = null;
             this._collectionScrollContentNode = null;
+            this._collectionPreviewItems = [];
+            this._collectionPreviewRowPitch = 0;
             this._collectionPageIndicator = null;
             this._collectionScrollDragging = false;
             this._collectionScrollMoved = false;

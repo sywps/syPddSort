@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -70,6 +70,14 @@ function syncCollectionAvatarLabelNode(
     label.enableWrapText = false;
     node.active = true;
     return label;
+}
+
+function getCollectionPreviewColor(colorId: number, grayscale: boolean): Color {
+    const base = new Color(COLOR_HEX[colorId] || '#CCCCCC');
+    if (!grayscale) return base;
+    const luma = Math.round(base.r * 0.299 + base.g * 0.587 + base.b * 0.114);
+    const softened = Math.max(118, Math.min(218, Math.round(luma * 0.58 + 92)));
+    return new Color(softened, softened, softened, 190);
 }
 
 export function installCollectionAvatarModule(target: any): void {
@@ -545,28 +553,81 @@ export function installCollectionAvatarModule(target: any): void {
                 guideSlot.active = false;
             }
 
+            this._collectionPreviewItems = [];
+            this._collectionPreviewRowPitch = rowPitch;
+            this._collectionPreviewBufferRows = 2;
+
             for (let idx = 0; idx < allIds.length; idx++) {
                 const slot = instantiate(template);
                 const levelId = allIds[idx];
                 const row = Math.floor(idx / columnCount);
                 const col = idx % columnCount;
+                const unlocked = levelId <= savedLevel;
                 slot.name = `CollectionCardSlotItem_${idx}`;
                 slot.active = true;
                 slot.layer = scrollContent.layer;
                 scrollContent.addChild(slot);
                 slot.setPosition(columnXs[col], startY - row * rowPitch, 0);
-                this.drawCollectionCard(slot, levelId, 0, 0, 0, 0, levelId <= savedLevel, savedLevel);
+                const previewInfo = this.drawCollectionCard(slot, levelId, 0, 0, 0, 0, unlocked, savedLevel, {
+                    deferPreview: true,
+                    lockedPreviewGrayscale: true,
+                });
+                this._collectionPreviewItems.push({
+                    slot,
+                    levelId,
+                    row,
+                    unlocked,
+                    rendered: false,
+                    card: previewInfo?.card || slot.getChildByName('Card'),
+                    previewX: previewInfo?.previewX ?? 0,
+                    previewY: previewInfo?.previewY ?? 18,
+                    previewW: previewInfo?.previewW ?? Math.max(1, templateUi.width - 56),
+                    previewH: previewInfo?.previewH ?? Math.max(1, templateUi.height - 82),
+                    grayscale: !unlocked,
+                });
             }
 
             this._collectionContentNode = viewport;
             this._collectionScrollContentNode = scrollContent;
             this._collectionTotalPages = 1;
             this._collectionPage = 0;
-            this.setupCollectionScroll(viewport, scrollContent, viewportH, totalH);
+            this.setupCollectionScroll(viewport, scrollContent, viewportH, totalH, rowPitch);
+            this.renderCollectionVisiblePreviews(viewport, scrollContent, viewportH, rowPitch, 2);
             return scrollContent;
         },
 
-        setupCollectionScroll(viewport: Node, content: Node, viewH: number, totalH: number) {
+        renderCollectionVisiblePreviews(viewport?: Node, content?: Node, viewH?: number, rowPitch?: number, bufferRows: number = 2) {
+            const resolvedViewport = viewport || this._collectionContentNode;
+            const resolvedContent = content || this._collectionScrollContentNode;
+            const items = this._collectionPreviewItems as Array<any>;
+            if (!resolvedViewport || !resolvedContent || !Array.isArray(items) || items.length === 0) return;
+            const viewportUi = resolvedViewport.getComponent(UITransform);
+            const resolvedViewH = Math.max(1, viewH || viewportUi?.height || viewportUi?.contentSize.height || 1);
+            const resolvedRowPitch = Math.max(1, rowPitch || this._collectionPreviewRowPitch || 1);
+            const resolvedBufferRows = Math.max(0, Math.floor(Number(bufferRows) || 0));
+            const bufferPx = resolvedRowPitch * resolvedBufferRows;
+            const minY = -resolvedViewH / 2 - bufferPx - resolvedContent.position.y;
+            const maxY = resolvedViewH / 2 + bufferPx - resolvedContent.position.y;
+
+            for (const item of items) {
+                if (!item || item.rendered || !item.slot?.isValid || !item.card?.isValid) continue;
+                const slotY = item.slot.position.y;
+                if (slotY < minY || slotY > maxY) continue;
+                item.rendered = true;
+                this.drawCollectionPixelPreviewOnCard(
+                    item.card,
+                    item.levelId,
+                    item.previewX,
+                    item.previewY,
+                    item.previewW,
+                    item.previewH,
+                    'level_',
+                    { grayscale: !!item.grayscale },
+                );
+            }
+        },
+
+        setupCollectionScroll(viewport: Node, content: Node, viewH: number, totalH: number, rowPitch: number = 0) {
             viewport.targetOff(this);
             if (this._collectionScrollInertiaStep) {
                 this.unschedule(this._collectionScrollInertiaStep);
@@ -591,6 +652,9 @@ export function installCollectionAvatarModule(target: any): void {
             let velocity = 0;
             let dragging = false;
             let inertiaStep: ((dt: number) => void) | null = null;
+            const renderPreviewWindow = () => {
+                this.renderCollectionVisiblePreviews(viewport, content, viewH, rowPitch, 2);
+            };
 
             const stopInertia = () => {
                 if (inertiaStep) {
@@ -606,6 +670,7 @@ export function installCollectionAvatarModule(target: any): void {
             const setScrollY = (nextY: number) => {
                 const clampedY = Math.max(minY, Math.min(maxY, nextY));
                 content.setPosition(content.position.x, clampedY, 0);
+                renderPreviewWindow();
                 return clampedY;
             };
             const endDrag = () => {
@@ -803,7 +868,16 @@ export function installCollectionAvatarModule(target: any): void {
         },
 
         /** 在图鉴卡片上绘制像素图预览 */
-        drawCollectionPixelPreviewOnCard(parent: Node, levelId: number, offsetX: number, offsetY: number, maxW: number, maxH: number, prefix: string = 'level_') {
+        drawCollectionPixelPreviewOnCard(
+            parent: Node,
+            levelId: number,
+            offsetX: number,
+            offsetY: number,
+            maxW: number,
+            maxH: number,
+            prefix: string = 'level_',
+            options?: { grayscale?: boolean },
+        ) {
             this.loadLevelData(levelId, (data) => {
                 if (!data || !parent.isValid) return;
                 const correctArr = data.correctColorArr || [];
@@ -840,7 +914,7 @@ export function installCollectionAvatarModule(target: any): void {
                         if (!colorId) continue;
                         const x = -contentW / 2 + c * (cellSize + gap);
                         const y = contentH / 2 - (r + 1) * cellSize - r * gap;
-                        pg.fillColor = new Color(COLOR_HEX[colorId] || '#CCCCCC');
+                        pg.fillColor = getCollectionPreviewColor(colorId, !!options?.grayscale);
                         pg.rect(x, y, cellSize, cellSize);
                         pg.fill();
                     }

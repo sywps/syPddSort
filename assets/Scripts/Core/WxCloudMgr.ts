@@ -14,6 +14,16 @@ type WeChatRuntime = {
     getLaunchOptionsSync?: () => Record<string, unknown>;
 };
 
+declare const wx: WeChatRuntime | undefined;
+
+function getDirectWxRuntime(): WeChatRuntime | null {
+    try {
+        return typeof wx !== 'undefined' ? wx : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 @ccclass('WxCloudMgr')
 export class WxCloudMgr {
     private static _inst: WxCloudMgr | null = null;
@@ -35,10 +45,22 @@ export class WxCloudMgr {
         return !!wx?.cloud?.init && !!wx?.cloud?.callFunction;
     }
 
+    getDiagnostics(): Record<string, unknown> {
+        const wx = this.getWx(false) as any;
+        return {
+            env: WECHAT_CLOUD_ENV_ID,
+            hasWx: !!wx,
+            hasCloud: !!wx?.cloud,
+            hasInit: typeof wx?.cloud?.init === 'function',
+            hasCallFunction: typeof wx?.cloud?.callFunction === 'function',
+            cloudReady: this.cloudReady,
+        };
+    }
+
     getWx(throwOnMissing: boolean = true): WeChatRuntime | null {
         const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
         const windowScope: any = typeof window !== 'undefined' ? window : null;
-        const wxRuntime = globalScope?.__rawWx || windowScope?.wx || globalScope?.wx || null;
+        const wxRuntime = globalScope?.__rawWx || getDirectWxRuntime() || windowScope?.wx || globalScope?.wx || null;
         if (!wxRuntime && throwOnMissing) {
             throw new Error('wx runtime is unavailable');
         }

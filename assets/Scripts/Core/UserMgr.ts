@@ -55,19 +55,20 @@ export class UserMgr {
         return this.profile.uuid;
     }
 
-    touchSession() {
+    touchSession(syncCloud: boolean = true) {
         const now = Date.now();
         this.profile.lastActiveAt = now;
         if (!this.sessionTouched) {
             this.sessionTouched = true;
             this.profile.loginCount += 1;
         }
-        this.persist();
+        this.persist(this.profile, syncCloud);
     }
 
-    markLevelProgress(levelId: number) {
+    markLevelProgress(levelId: number, allowRegression: boolean = false) {
         const normalized = Math.max(1, Math.floor(levelId || 1));
-        this.profile.lastLevelId = normalized;
+        const currentLevel = Math.max(1, Math.floor(Number(this.profile.lastLevelId) || 1));
+        this.profile.lastLevelId = allowRegression ? normalized : Math.max(currentLevel, normalized);
         this.profile.lastActiveAt = Date.now();
         this.persist();
     }

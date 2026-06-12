@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -279,9 +279,11 @@ export function installFirstLevelRouteModule(target: any): void {
             const urlLevel = this.getUrlLevel();
             const urlLevelFile = this.getUrlLevelFile();
             const urlTheme = this.getUrlTheme();
-            const hadLocalUserState = this.hasLocalUserState();
+            const hadAnyLocalUserState = this.hasLocalUserState();
+            const startupLocalProgressState = this.getStartupLocalProgressState();
+            const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const firstLevelRouteResolveTask = this.startFirstLevelRouteExperimentResolve();
-            // 云端恢复只给短预算：超时先按本地状态进关，云端结果后续再合并保存。
+            // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
@@ -298,7 +300,9 @@ export function installFirstLevelRouteModule(target: any): void {
                 abBucket: this._firstLevelRouteBucket,
                 extra: {
                     hadLocalUserState,
+                    hadAnyLocalUserState,
                     restoreStatus,
+                    startupLocalProgressState,
                     savedLevel: this.getSavedLevel(),
                 },
             });
@@ -313,7 +317,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 !urlLevelFile &&
                 urlLevel <= 0 &&
                 !pendingSceneGameplayRequest &&
-                this.hasLocalUserState();
+                this.hasReliableLocalUserStateForStartup();
             if (!urlLevelFile && startupLevelId > 0) {
                 this.reportLevelDataLoadDiagnostic(
                     startupLevelId,
@@ -326,6 +330,7 @@ export function installFirstLevelRouteModule(target: any): void {
                             urlLevel,
                             urlTheme,
                             restoreStatus,
+                            startupLocalProgressState,
                             savedLevel: this.getSavedLevel(),
                             shouldEnterHomeOnStartup,
                         },
@@ -391,20 +396,26 @@ export function installFirstLevelRouteModule(target: any): void {
                 this.scheduleOnce(onReady, 15);
             }
         
+            const canAutoSaveGameStateOnStartup =
+                restoreStatus === 'local_progress_gt_1' ||
+                restoreStatus === 'cloud_progress_gt_1' ||
+                restoreStatus === 'cloud_confirmed_empty';
             AudioMgr.inst.init(this.node);
-            UserMgr.inst.touchSession();
+            UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup);
             void AnalyticsMgr.inst.bootstrap();
-            if (!hadLocalUserState && (restoreStatus === 'empty' || restoreStatus === 'skipped')) {
+            if (restoreStatus === 'cloud_confirmed_empty') {
                 this.grantStarterPropsForNewUser();
             }
-            if (hadLocalUserState || restoreStatus === 'restored' || restoreStatus === 'empty' || restoreStatus === 'skipped') {
+            if (canAutoSaveGameStateOnStartup) {
                 this.queueCloudGameStateSync();
             } else {
                 console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
             }
             // 延迟微信相关初始化，避免与 Cocos 场景渲染冲突
             this.scheduleOnce(() => {
-                void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
+                if (canAutoSaveGameStateOnStartup) {
+                    void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
+                }
                 void UserMgr.inst.loginWeChat();
                 this.setupShareMenu();
             }, 0.5);

@@ -144,6 +144,18 @@ function writeJsonFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+function walkFiles(dir) {
+    if (!fs.existsSync(dir)) return [];
+    var result = [];
+    var items = fs.readdirSync(dir, { withFileTypes: true });
+    for (var i = 0; i < items.length; i++) {
+        var full = path.join(dir, items[i].name);
+        if (items[i].isDirectory()) result.push.apply(result, walkFiles(full));
+        else result.push(full);
+    }
+    return result;
+}
+
 function normalizeSubpackageRoot(root) {
     return String(root || '').replace(/^\/+|\/+$/g, '');
 }
@@ -367,6 +379,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
+    var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
@@ -390,6 +403,25 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
+    if (content.indexOf(releaseLogGateMarker) === -1) {
+        missingLines.push(
+            '(function installPddReleaseLogGate(){',
+            'if(' + JSON.stringify(buildMode) + '!=="release")return;',
+            'var g=typeof globalThis!=="undefined"?globalThis:{};',
+            'if(g.__PDD_RELEASE_LOG_GATE_INSTALLED__)return;',
+            'function readQueryFlag(name){',
+            'try{var wxApi=typeof wx!=="undefined"?wx:g.__rawWx;if(wxApi&&wxApi.getLaunchOptionsSync){var q=(wxApi.getLaunchOptionsSync()||{}).query||{};if(String(q[name]||"")==="1")return true;if(name==="debug"&&String(q.ab||"").length>0)return true;}}catch(e){}',
+            'try{var loc=g.location||(typeof window!=="undefined"?window.location:null);var search=String(loc&&loc.search||"");if(search&&new RegExp("(?:^|[?&])"+name+"=1(?:&|$)").test(search))return true;if(name==="debug"&&/(?:^|[?&])ab=/.test(search))return true;}catch(e){}',
+            'return false;',
+            '}',
+            'if(readQueryFlag("debug")||readQueryFlag("log"))return;',
+            'var c=typeof console!=="undefined"?console:null;if(!c||c.__pddLogGateInstalled)return;',
+            'c.__pddLogGateInstalled=true;c.__pddOriginalLog=c.log;c.__pddOriginalInfo=c.info;c.__pddOriginalDebug=c.debug;c.__pddOriginalWarn=c.warn;',
+            'var noop=function(){};c.log=noop;c.info=noop;c.debug=noop;c.warn=noop;',
+            releaseLogGateMarker,
+            '})();'
+        );
+    }
     if (content.indexOf(domCtorMarker) === -1) {
         missingLines.push(
             '(function ensurePddMiniGameDomConstructors(){',
@@ -411,6 +443,28 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content !== originalContent) {
         fs.writeFileSync(gameJsPath, content);
     }
+}
+
+function patchDeprecatedDirectorAnimationIntervalWarning(runtimeRoot) {
+    var engineFiles = walkFiles(runtimeRoot)
+        .filter(function (name) { return /\.js$/i.test(name); });
+    var patchedCount = 0;
+    for (var i = 0; i < engineFiles.length; i++) {
+        var enginePath = engineFiles[i];
+        var content = fs.readFileSync(enginePath, 'utf-8');
+        var patched = content
+            .replace(/,?\{name:"(?:setAnimationInterval|getAnimationInterval)",suggest:"please use game\.frameRate instead"\}/g, '')
+            .replace(/\[\s*,/g, '[');
+        if (patched !== content) {
+            fs.writeFileSync(enginePath, patched);
+            patchedCount += 1;
+        }
+        if (patched.indexOf('getAnimationInterval') !== -1 || patched.indexOf('setAnimationInterval') !== -1) {
+            console.error('[3.4b/7] 微信运行时代码仍包含 director.getAnimationInterval 废弃属性告警入口: ' + enginePath);
+            process.exit(1);
+        }
+    }
+    return patchedCount > 0;
 }
 
 function injectScreenAdaptGameJsLog(content) {
@@ -615,6 +669,9 @@ if (fs.existsSync(applicationPath)) {
         console.log('[3.4/7] 启动帧率已锁定 ✓');
     }
 }
+console.log(patchDeprecatedDirectorAnimationIntervalWarning(resolveRuntimeRoot())
+    ? '[3.4b/7] 已清理 director.getAnimationInterval 废弃属性告警 ✓'
+    : '[3.4b/7] director.getAnimationInterval 废弃属性告警已清理 ✓');
 // 微信开发者工具里 USER_DATA_PATH 可能表现为 http://usr/...
 // Cocos 每次 load gameAssets bundle 都会重复 mkdir 缓存目录；目录已存在时不应打印警告。
 var webAdapterPath = resolveBuildPath('web-adapter.js');

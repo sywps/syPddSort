@@ -6,6 +6,7 @@ cloud.init({
 
 const db = cloud.database();
 const USER_PROFILE_COLLECTION = 'user_profile';
+const LEADERBOARD_COLLECTION = 'leaderboard';
 const NEW_USER_STARTER_PROP_COUNT = 3;
 
 function cleanString(value, maxLength = 96) {
@@ -29,6 +30,11 @@ function normalizeNonNegativeInt(value, fallback = 0) {
 function normalizePositiveInt(value, fallback = 1) {
   const num = Math.floor(Number(value) || 0);
   return num > 0 ? num : fallback;
+}
+
+function readPositiveInt(value) {
+  const num = Math.floor(Number(value) || 0);
+  return num > 0 ? num : 0;
 }
 
 function isAdminSavedLevelSentinel(doc) {
@@ -83,6 +89,67 @@ async function findUserProfile(openid) {
   }
 }
 
+async function findLeaderboardEntry(openid) {
+  try {
+    const res = await db.collection(LEADERBOARD_COLLECTION).where({ openid }).limit(1).get();
+    return Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
+  } catch (error) {
+    if (isCollectionMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function shouldReadLegacyProgress(doc) {
+  if (isAdminSavedLevelSentinel(doc)) return false;
+  const savedLevel = typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0;
+  const lastLevelId = typeof doc?.lastLevelId === 'number' ? readPositiveInt(doc.lastLevelId) : 0;
+  return Math.max(savedLevel, lastLevelId) <= 1;
+}
+
+function resolveRestorableProgress(doc, legacyEntry) {
+  if (isAdminSavedLevelSentinel(doc)) {
+    return Math.floor(Number(doc.savedLevel));
+  }
+  return Math.max(
+    typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0,
+    typeof doc?.lastLevelId === 'number' ? readPositiveInt(doc.lastLevelId) : 0,
+    typeof legacyEntry?.progressLevel === 'number' ? readPositiveInt(legacyEntry.progressLevel) : 0
+  );
+}
+
+function resolveStateUpdatedAt(doc, legacyEntry, savedLevel) {
+  const fromProfile = normalizeTimestamp(doc?.stateUpdatedAt, 0);
+  const fromLeaderboard = normalizeTimestamp(legacyEntry?.updatedAt, 0);
+  const resolved = Math.max(fromProfile, fromLeaderboard);
+  return resolved > 0 ? resolved : (savedLevel > 1 ? Date.now() : 0);
+}
+
+async function migrateLegacyProgress(collection, current, gameState) {
+  if (!current?._id || isAdminSavedLevelSentinel(current)) return current;
+  const savedLevel = readPositiveInt(gameState?.savedLevel);
+  if (savedLevel <= 1) return current;
+
+  const currentSavedLevel = typeof current.savedLevel === 'number' ? readPositiveInt(current.savedLevel) : 0;
+  const currentLastLevelId = typeof current.lastLevelId === 'number' ? readPositiveInt(current.lastLevelId) : 0;
+  if (savedLevel <= Math.max(currentSavedLevel, currentLastLevelId)) return current;
+
+  const stateUpdatedAt = normalizeTimestamp(gameState.stateUpdatedAt, Date.now());
+  const patch = {
+    savedLevel,
+    lastLevelId: savedLevel,
+    stateUpdatedAt,
+  };
+  try {
+    await collection.doc(current._id).update({ data: patch });
+    Object.assign(current, patch);
+  } catch (error) {
+    console.warn('[syncUserState] legacy progress migration failed:', error);
+  }
+  return current;
+}
+
 function buildBaseProfile(openid, timestamp) {
   return {
     openid,
@@ -101,6 +168,36 @@ function buildBaseProfile(openid, timestamp) {
     magnetCount: NEW_USER_STARTER_PROP_COUNT,
     addTimeCount: 0,
   };
+}
+
+async function ensureLegacyProgressProfile(collection, openid, current, gameState) {
+  const savedLevel = readPositiveInt(gameState?.savedLevel);
+  if (savedLevel <= 1 || isAdminSavedLevelSentinel(current)) {
+    return current;
+  }
+
+  if (current?._id) {
+    return migrateLegacyProgress(collection, current, gameState);
+  }
+
+  const timestamp = Date.now();
+  const stateUpdatedAt = normalizeTimestamp(gameState.stateUpdatedAt, timestamp);
+  const profile = {
+    ...buildBaseProfile(openid, timestamp),
+    savedLevel,
+    lastLevelId: savedLevel,
+    stateUpdatedAt,
+  };
+  try {
+    const addResult = await collection.add({ data: profile });
+    return {
+      _id: addResult?._id,
+      ...profile,
+    };
+  } catch (error) {
+    console.warn('[syncUserState] legacy progress profile create failed:', error);
+    return current;
+  }
 }
 
 function extractProfile(doc) {
@@ -122,41 +219,30 @@ function extractProfile(doc) {
   };
 }
 
-function extractGameState(doc) {
-  if (!doc) return null;
-  if (
-    typeof doc.savedLevel !== 'number' &&
-    typeof doc.vigor !== 'number' &&
-    typeof doc.vigorTime !== 'number' &&
-    typeof doc.gold !== 'number' &&
-    typeof doc.expandSlotCount !== 'number' &&
-    typeof doc.magicWandCount !== 'number' &&
-    typeof doc.brushCount !== 'number' &&
-    typeof doc.magnetCount !== 'number' &&
-    typeof doc.dailySignInClaimedCount !== 'number' &&
-    typeof doc.dailySignInLastClaimDateKey !== 'number' &&
-    !Array.isArray(doc.themeUnlockedIds) &&
-    !Array.isArray(doc.themeCompletedIds)
-  ) {
-    return null;
+function extractGameState(doc, legacyEntry = null) {
+  const savedLevel = resolveRestorableProgress(doc, legacyEntry);
+  const state = {};
+
+  if (savedLevel !== 0) {
+    state.savedLevel = savedLevel;
+    state.stateUpdatedAt = resolveStateUpdatedAt(doc, legacyEntry, savedLevel);
+  } else if (typeof doc?.stateUpdatedAt === 'number') {
+    state.stateUpdatedAt = normalizeTimestamp(doc.stateUpdatedAt, 0);
   }
-  return {
-    savedLevel: isAdminSavedLevelSentinel(doc)
-      ? Math.floor(Number(doc.savedLevel))
-      : normalizePositiveInt(doc.savedLevel, 1),
-    vigor: normalizeNonNegativeInt(doc.vigor, 10),
-    vigorTime: normalizeNonNegativeInt(doc.vigorTime, 0),
-    gold: normalizeNonNegativeInt(doc.gold, 0),
-    expandSlotCount: normalizeNonNegativeInt(doc.expandSlotCount, 0),
-    magicWandCount: normalizeNonNegativeInt(doc.magicWandCount, 0),
-    brushCount: normalizeNonNegativeInt(doc.brushCount, 0),
-    magnetCount: normalizeNonNegativeInt(doc.magnetCount, 0),
-    dailySignInClaimedCount: normalizeNonNegativeInt(doc.dailySignInClaimedCount, 0),
-    dailySignInLastClaimDateKey: normalizeNonNegativeInt(doc.dailySignInLastClaimDateKey, 0),
-    themeUnlockedIds: normalizeThemeUnlockedIds(doc.themeUnlockedIds),
-    themeCompletedIds: normalizeThemeCompletedIds(doc.themeCompletedIds),
-    stateUpdatedAt: normalizeTimestamp(doc.stateUpdatedAt, 0),
-  };
+
+  if (typeof doc?.vigor === 'number') state.vigor = normalizeNonNegativeInt(doc.vigor, 10);
+  if (typeof doc?.vigorTime === 'number') state.vigorTime = normalizeNonNegativeInt(doc.vigorTime, 0);
+  if (typeof doc?.gold === 'number') state.gold = normalizeNonNegativeInt(doc.gold, 0);
+  if (typeof doc?.expandSlotCount === 'number') state.expandSlotCount = normalizeNonNegativeInt(doc.expandSlotCount, 0);
+  if (typeof doc?.magicWandCount === 'number') state.magicWandCount = normalizeNonNegativeInt(doc.magicWandCount, 0);
+  if (typeof doc?.brushCount === 'number') state.brushCount = normalizeNonNegativeInt(doc.brushCount, 0);
+  if (typeof doc?.magnetCount === 'number') state.magnetCount = normalizeNonNegativeInt(doc.magnetCount, 0);
+  if (typeof doc?.dailySignInClaimedCount === 'number') state.dailySignInClaimedCount = normalizeNonNegativeInt(doc.dailySignInClaimedCount, 0);
+  if (typeof doc?.dailySignInLastClaimDateKey === 'number') state.dailySignInLastClaimDateKey = normalizeNonNegativeInt(doc.dailySignInLastClaimDateKey, 0);
+  if (Array.isArray(doc?.themeUnlockedIds)) state.themeUnlockedIds = normalizeThemeUnlockedIds(doc.themeUnlockedIds);
+  if (Array.isArray(doc?.themeCompletedIds)) state.themeCompletedIds = normalizeThemeCompletedIds(doc.themeCompletedIds);
+
+  return Object.keys(state).length > 0 ? state : null;
 }
 
 function buildProfilePatch(source = {}, current = {}) {
@@ -269,10 +355,13 @@ exports.main = async (event = {}) => {
     let current = await findUserProfile(openid);
 
     if (action === 'get') {
+      const legacyEntry = shouldReadLegacyProgress(current) ? await findLeaderboardEntry(openid) : null;
+      const gameState = extractGameState(current, legacyEntry);
+      current = await ensureLegacyProgressProfile(collection, openid, current, gameState);
       return {
         ok: true,
         profile: extractProfile(current),
-        gameState: extractGameState(current),
+        gameState,
       };
     }
 
