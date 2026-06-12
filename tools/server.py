@@ -963,7 +963,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    with http.server.HTTPServer(('', PORT), Handler) as httpd:
+    with http.server.ThreadingHTTPServer(('', PORT), Handler) as httpd:
         print(f'Level editor server at http://localhost:{PORT}')
         print(f'Serving from: {os.path.abspath(os.curdir)}')
         print(f'Level data dir: {LEVEL_DATA_DIR}')

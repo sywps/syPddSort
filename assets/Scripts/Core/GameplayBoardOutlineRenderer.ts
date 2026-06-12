@@ -249,9 +249,14 @@ function offsetBoardOutlineLoop(loop: BoardOutlinePoint[], distance: number): Bo
     });
 }
 
-function offsetBoardOutlineLoops(loops: BoardOutlinePoint[][], distance: number): BoardOutlinePoint[][] {
+function offsetBoardOutlineLoopsTowardEmpty(loops: BoardOutlinePoint[][], distance: number): BoardOutlinePoint[][] {
     return loops
-        .map((loop) => offsetBoardOutlineLoop(loop, distance))
+        .map((loop) => {
+            // External loops are clockwise while internal hole loops are counterclockwise.
+            const loopSign = Math.sign(getBoardOutlineLoopSignedArea(loop)) || 1;
+            const signedDistance = loopSign < 0 ? -distance : distance;
+            return offsetBoardOutlineLoop(loop, signedDistance);
+        })
         .filter((loop) => loop.length > 2);
 }
 
@@ -341,9 +346,9 @@ export function buildBoardOutline(
     const highlightRadius = Math.max(2, radius + highlightOutset * 0.25);
     const shadowOffsetX = step * BOARD_OUTLINE_SHADOW_OFFSET_X_RATIO;
     const shadowOffsetY = step * BOARD_OUTLINE_SHADOW_OFFSET_Y_RATIO;
-    const outlineLoops = offsetBoardOutlineLoops(loops, -outlineOutset);
-    const innerLoops = offsetBoardOutlineLoops(loops, -innerOutset);
-    const highlightLoops = offsetBoardOutlineLoops(loops, -highlightOutset);
+    const outlineLoops = offsetBoardOutlineLoopsTowardEmpty(loops, outlineOutset);
+    const innerLoops = offsetBoardOutlineLoopsTowardEmpty(loops, innerOutset);
+    const highlightLoops = offsetBoardOutlineLoopsTowardEmpty(loops, highlightOutset);
 
     const shadow = ensureBoardOutlineGraphics(baseLayer, BOARD_OUTLINE_SHADOW_NAME, width, height, 0, shadowOffsetX, shadowOffsetY);
     const outer = ensureBoardOutlineGraphics(baseLayer, BOARD_OUTLINE_OUTER_NAME, width, height, 1);
