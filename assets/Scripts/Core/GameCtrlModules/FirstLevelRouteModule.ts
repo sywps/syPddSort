@@ -25,6 +25,7 @@ import {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
@@ -36,6 +37,12 @@ export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
         trackFirstLevelFunnel(eventName: string, opt: Record<string, unknown> = {}, force: boolean = false): void {
             if (!force && !this.isFirstLevelFunnelActive()) return;
+            const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
+                ? {
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                }
+                : {};
             const activeLevelId = this.getActivePhysicalLevelId();
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
@@ -43,8 +50,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 levelId: activeLevelId,
                 logicalLevelId: activeLevelId,
                 physicalLevelId: activeLevelId,
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
+                ...experimentPayload,
                 ...opt,
             });
         },
@@ -57,14 +63,19 @@ export function installFirstLevelRouteModule(target: any): void {
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             if (!force && normalizedLevelId !== 1) return;
+            const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
+                ? {
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                }
+                : {};
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
                 page: 'level_game',
                 levelId: normalizedLevelId,
                 logicalLevelId: normalizedLevelId,
                 physicalLevelId: normalizedLevelId,
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
+                ...experimentPayload,
                 ...opt,
             });
         },
@@ -120,15 +131,18 @@ export function installFirstLevelRouteModule(target: any): void {
             levelPath: string,
             extra: Record<string, unknown> = {},
         ): Record<string, unknown> {
-            return {
+            const diagnostics: Record<string, unknown> = {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
                 levelDataCdn: LevelDataCdnService.inst.getAvailabilityDiagnostics(),
                 levelId,
-                abBucket: this._firstLevelRouteBucket,
                 levelPath,
                 ...extra,
             };
+            if (this.shouldUseFirstLevelRouteExperiment?.()) {
+                diagnostics.abBucket = this._firstLevelRouteBucket;
+            }
+            return diagnostics;
         },
 
         reportLevelDataLoadDiagnostic(
@@ -282,30 +296,37 @@ export function installFirstLevelRouteModule(target: any): void {
             const hadAnyLocalUserState = this.hasLocalUserState();
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
-            const firstLevelRouteResolveTask = this.startFirstLevelRouteExperimentResolve();
+            const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
+            const firstLevelRouteResolveTask: Promise<FirstLevelRouteResolution> = shouldUseFirstLevelExperiment
+                ? this.startFirstLevelRouteExperimentResolve()
+                : Promise.resolve({ bucket: 'bucket_a', source: 'default' });
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
-            await this.initFirstLevelRouteExperiment(firstLevelRouteResolveTask);
-            AnalyticsMgr.inst.setExperimentContext({
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
-            });
-            AnalyticsMgr.inst.trackFunnelEvent({
-                eventName: 'ab_assigned',
-                page: 'app',
-                source: 'first_level_route',
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
-                extra: {
-                    hadLocalUserState,
-                    hadAnyLocalUserState,
-                    restoreStatus,
-                    startupLocalProgressState,
-                    savedLevel: this.getSavedLevel(),
-                },
-            });
+            if (shouldUseFirstLevelExperiment) {
+                await this.initFirstLevelRouteExperiment(firstLevelRouteResolveTask);
+                AnalyticsMgr.inst.setExperimentContext({
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                });
+                AnalyticsMgr.inst.trackFunnelEvent({
+                    eventName: 'ab_assigned',
+                    page: 'app',
+                    source: 'first_level_route',
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                    extra: {
+                        hadLocalUserState,
+                        hadAnyLocalUserState,
+                        restoreStatus,
+                        startupLocalProgressState,
+                        savedLevel: this.getSavedLevel(),
+                    },
+                });
+            } else {
+                this._firstLevelRouteBucket = 'bucket_a';
+            }
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
@@ -375,7 +396,7 @@ export function installFirstLevelRouteModule(target: any): void {
             SySDKMgr.inst.init();
             SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
         
-            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isWeChat() || this._isUrlLevelPreview())) {
+            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
                 const useLocalBootstrapStartup =
                     urlLevel <= 0 &&
                     defaultEntryLevel <= 1 &&
@@ -408,7 +429,7 @@ export function installFirstLevelRouteModule(target: any): void {
             }
             if (canAutoSaveGameStateOnStartup) {
                 this.queueCloudGameStateSync();
-            } else {
+            } else if (this._isWeChat()) {
                 console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
             }
             // 延迟微信相关初始化，避免与 Cocos 场景渲染冲突
@@ -416,7 +437,9 @@ export function installFirstLevelRouteModule(target: any): void {
                 if (canAutoSaveGameStateOnStartup) {
                     void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
                 }
-                void UserMgr.inst.loginWeChat();
+                if (this._isWeChat()) {
+                    void UserMgr.inst.loginWeChat();
+                }
                 this.setupShareMenu();
             }, 0.5);
         },
@@ -465,9 +488,15 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         _isWeChat(): boolean {
-            const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-            const w: any = typeof window !== 'undefined' ? window : null;
-            return !!(g?.__rawWx?.getSystemInfoSync) || !!(w?.wx?.getSystemInfoSync);
+            return isWeChatMiniGameRuntime();
+        },
+
+        _isDouyin(): boolean {
+            return isDouyinMiniGameRuntime();
+        },
+
+        _isMiniGame(): boolean {
+            return isMiniGameRuntime();
         },
 
         _isUrlLevelPreview(): boolean {

@@ -1,5 +1,6 @@
 import { _decorator } from 'cc';
-import { WxCloudMgr } from './WxCloudMgr';
+import { getMiniGameBuildMode } from './MiniGamePlatform';
+import { PlatformCloudMgr } from './PlatformCloudMgr';
 
 const { ccclass } = _decorator;
 
@@ -51,6 +52,7 @@ type CloudSyncDiagnosticTarget = {
 };
 
 declare const wx: CloudSyncDiagnosticTarget | undefined;
+declare const tt: CloudSyncDiagnosticTarget | undefined;
 declare const GameGlobal: CloudSyncDiagnosticTarget | undefined;
 
 function getDirectWxDiagnosticTarget(): CloudSyncDiagnosticTarget | null {
@@ -69,10 +71,18 @@ function getGameGlobalDiagnosticTarget(): CloudSyncDiagnosticTarget | null {
     }
 }
 
+function getDirectTtDiagnosticTarget(): CloudSyncDiagnosticTarget | null {
+    try {
+        return typeof tt !== 'undefined' ? tt : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 function isCloudSyncWarnEnabled(): boolean {
     const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
     const windowScope: any = typeof window !== 'undefined' ? window : null;
-    const mode = String(globalScope?.__PDD_WECHAT_BUILD_MODE__ || windowScope?.__PDD_WECHAT_BUILD_MODE__ || '');
+    const mode = getMiniGameBuildMode();
     return mode === 'debug' || !!globalScope?.__PDD_CLOUD_SYNC_DEBUG__ || !!windowScope?.__PDD_CLOUD_SYNC_DEBUG__;
 }
 
@@ -88,6 +98,7 @@ function emitCloudSyncDiagnostic(phase: string, detail: Record<string, unknown> 
         globalScope,
         windowScope,
         getDirectWxDiagnosticTarget(),
+        getDirectTtDiagnosticTarget(),
         getGameGlobalDiagnosticTarget(),
     ];
     for (const target of targets) {
@@ -124,23 +135,23 @@ export class UserStateSyncMgr {
     }
 
     canUseCloud(): boolean {
-        return !this.cloudDisabledForSession && WxCloudMgr.inst.canUseCloud();
+        return !this.cloudDisabledForSession && PlatformCloudMgr.inst.canUseCloud();
     }
 
     async loadState(): Promise<CloudUserState | null> {
         if (!this.canUseCloud()) {
             emitCloudSyncDiagnostic('load:skip', {
                 reason: 'cloud_unavailable',
-                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+                diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             return null;
         }
 
         try {
             emitCloudSyncDiagnostic('load:start', {
-                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+                diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
-            const result = await WxCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
+            const result = await PlatformCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
                 action: 'get',
             });
             if (result?.ok === false) {
@@ -157,7 +168,7 @@ export class UserStateSyncMgr {
         } catch (error) {
             emitCloudSyncDiagnostic('load:fail', {
                 message: String((error as any)?.message || error || 'unknown error'),
-                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+                diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             if (this.isExpectedCloudFailure(error)) {
                 this.disableCloudForSession('loadState', error);
@@ -173,7 +184,7 @@ export class UserStateSyncMgr {
             emitCloudSyncDiagnostic('save:queue-skip', {
                 reason: 'cloud_unavailable',
                 savedLevel: patch.gameState?.savedLevel ?? null,
-                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+                diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             return;
         }
@@ -230,9 +241,9 @@ export class UserStateSyncMgr {
         try {
             emitCloudSyncDiagnostic('save:start', {
                 savedLevel: patch.gameState?.savedLevel ?? null,
-                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+                diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
-            const result = await WxCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
+            const result = await PlatformCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
                 action: 'save',
                 profile: patch.profile || undefined,
                 gameState: patch.gameState || undefined,
@@ -256,7 +267,7 @@ export class UserStateSyncMgr {
             emitCloudSyncDiagnostic('save:fail', {
                 savedLevel: patch.gameState?.savedLevel ?? null,
                 message: String((error as any)?.message || error || 'unknown error'),
-                diagnostics: WxCloudMgr.inst.getDiagnostics(),
+                diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             if (this.isExpectedCloudFailure(error)) {
                 this.disableCloudForSession('saveNow', error);
@@ -307,6 +318,7 @@ export class UserStateSyncMgr {
         }
         return (
             message.includes('cloud.callfunction:fail') ||
+            message.includes('douyin cloud') ||
             message.includes('system error') ||
             message.includes('environment not found') ||
             message.includes('function not found') ||

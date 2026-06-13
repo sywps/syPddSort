@@ -832,6 +832,9 @@ export function installAssetBootstrapModule(target: any): void {
                 }
                 return 'local_progress_gt_1';
             }
+            if (!canUseCloudState) {
+                return 'cloud_unavailable_unresolved';
+            }
             const timeoutMs = CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS;
             const startedAt = Date.now();
             const loadPromise = (async () => {

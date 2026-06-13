@@ -1,4 +1,5 @@
 import { _decorator, sys } from 'cc';
+import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { UserStateSyncMgr, type CloudUserProfile } from './UserStateSyncMgr';
 
 const { ccclass } = _decorator;
@@ -109,14 +110,14 @@ export class UserMgr {
     /** 微信登录（静默），获取 code 建立会话 */
     async loginWeChat(): Promise<boolean> {
         try {
-            const w: any = typeof window !== 'undefined' ? window : null;
-            if (!w?.wx?.login) {
+            const wxRuntime = getWeChatMiniGameRuntime();
+            if (!wxRuntime?.login) {
                 console.log('[UserMgr] wx.login not available, skipping');
                 return false;
             }
 
             const res = await new Promise<any>((resolve, reject) => {
-                w.wx.login({ success: resolve, fail: reject });
+                wxRuntime.login({ success: resolve, fail: reject });
             });
 
             if (res?.code) {
@@ -138,8 +139,7 @@ export class UserMgr {
     createUserInfoButton(x: number, y: number, width: number, height: number): Promise<boolean> {
         return new Promise<boolean>((resolve) => {
             try {
-                const w: any = typeof window !== 'undefined' ? window : null;
-                const wxRuntime = w?.wx;
+                const wxRuntime = getWeChatMiniGameRuntime();
                 if (!wxRuntime) {
                     console.warn('[UserMgr] wx runtime not available');
                     resolve(false);

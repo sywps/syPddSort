@@ -1,4 +1,6 @@
 import { _decorator, sys } from 'cc';
+import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { PlatformCloudMgr } from './PlatformCloudMgr';
 import type { UserProfile } from './UserMgr';
 
 const { ccclass } = _decorator;
@@ -8,16 +10,7 @@ const CLOUD_FUNCTION_NAME = 'leaderboard';
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
 
-declare const wx: any;
-
-/**
- * 微信云开发环境 ID。
- * 留空时跳过云调用，仅使用本地排行榜。
- * 填入后需在微信公众平台配置云函数并部署。
- */
-const WECHAT_CLOUD_ENV_ID = 'cloud1-d5gzq8ia0c404ee3e';
-
-type LeaderboardSource = 'wechat-cloud' | 'wechat-friend' | 'local-preview';
+type LeaderboardSource = 'wechat-cloud' | 'douyin-cloud' | 'wechat-friend' | 'local-preview';
 
 type LeaderboardRawEntry = {
     uuid: string;
@@ -62,23 +55,15 @@ export class LeaderboardMgr {
 
     async init(): Promise<boolean> {
         if (this.cloudInitDeferred) return false;
-        if (!WECHAT_CLOUD_ENV_ID) return false;
-        if (!this.canUseWeChatCloud()) return false;
         if (this.cloudInitPromise) return this.cloudInitPromise;
 
-        this.cloudInitPromise = Promise.resolve().then(() => {
-            try {
-                const wx = this.getWx();
-                const initOptions: any = { traceUser: true };
-                if (WECHAT_CLOUD_ENV_ID) initOptions.env = WECHAT_CLOUD_ENV_ID;
-                wx.cloud.init(initOptions);
-                this.cloudReady = true;
-                return true;
-            } catch (error) {
-                this.cloudReady = false;
-                console.warn('[LeaderboardMgr] wx.cloud.init failed:', error);
-                return false;
-            }
+        this.cloudInitPromise = PlatformCloudMgr.inst.init().then((ready) => {
+            this.cloudReady = ready;
+            return ready;
+        }).catch((error) => {
+            this.cloudReady = false;
+            console.warn('[LeaderboardMgr] platform cloud init failed:', error);
+            return false;
         });
 
         return this.cloudInitPromise;
@@ -107,12 +92,15 @@ export class LeaderboardMgr {
         );
         if (shouldSubmitCloud) {
             try {
-                const wx = this.getWx();
-                const callOpts: any = { name: CLOUD_FUNCTION_NAME, data: { action: 'submitProgress', uuid: profile.uuid, displayName: profile.displayName, avatarUrl: profile.avatarUrl, progressLevel: normalized }};
-                if (WECHAT_CLOUD_ENV_ID) callOpts.config = { env: WECHAT_CLOUD_ENV_ID };
-                const res = await wx.cloud.callFunction(callOpts);
-                if (res?.result?.ok === false) {
-                    throw new Error(res.result.errorMessage || 'submit leaderboard failed');
+                const result = await PlatformCloudMgr.inst.callFunction<any>(CLOUD_FUNCTION_NAME, {
+                    action: 'submitProgress',
+                    uuid: profile.uuid,
+                    displayName: profile.displayName,
+                    avatarUrl: profile.avatarUrl,
+                    progressLevel: normalized,
+                });
+                if (result?.ok === false) {
+                    throw new Error(result.errorMessage || 'submit leaderboard failed');
                 }
                 cloudSubmitted = true;
                 this.sessionCloudSyncedProgress = Math.max(this.sessionCloudSyncedProgress, normalized);
@@ -303,17 +291,17 @@ export class LeaderboardMgr {
         // 全服排行（云函数 → 本地兜底）
         if (await this.init()) {
             try {
-                const wx = this.getWx();
-                const callOpts: any = { name: CLOUD_FUNCTION_NAME, data: { action: 'getLeaderboard', limit: normalizedLimit }};
-                if (WECHAT_CLOUD_ENV_ID) callOpts.config = { env: WECHAT_CLOUD_ENV_ID };
-                const res = await wx.cloud.callFunction(callOpts);
-                const result = res?.result || {};
+                const result = await PlatformCloudMgr.inst.callFunction<any>(CLOUD_FUNCTION_NAME, {
+                    action: 'getLeaderboard',
+                    limit: normalizedLimit,
+                });
                 if (result.ok === false) {
                     throw new Error(result.errorMessage || 'fetch leaderboard failed');
                 }
+                const platform = PlatformCloudMgr.inst.getPlatform();
                 return {
-                    source: 'wechat-cloud',
-                    modeLabel: '微信云开发',
+                    source: platform === 'douyin' ? 'douyin-cloud' : 'wechat-cloud',
+                    modeLabel: platform === 'douyin' ? '抖音云' : '微信云开发',
                     entries: this.normalizeRankedEntries(result.entries),
                     self: this.normalizeRankedEntry(result.self),
                 };
@@ -450,20 +438,11 @@ export class LeaderboardMgr {
     }
 
     private canUseWeChatCloud(): boolean {
-        const wx = this.getWx(false);
-        return !!wx?.cloud?.init && !!wx?.cloud?.callFunction;
+        return PlatformCloudMgr.inst.getPlatform() === 'wechat' && PlatformCloudMgr.inst.canUseCloud();
     }
 
     private getWx(throwsOnMissing: boolean = true): any {
-        const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
-        const windowScope: any = typeof window !== 'undefined' ? window : null;
-        let directWx: any = null;
-        try {
-            directWx = typeof wx !== 'undefined' ? wx : null;
-        } catch (_) {
-            directWx = null;
-        }
-        const wxRuntime = globalScope?.__rawWx || directWx || windowScope?.wx || globalScope?.wx || null;
+        const wxRuntime = getWeChatMiniGameRuntime();
         if (!wxRuntime && throwsOnMissing) {
             throw new Error('wx runtime is unavailable');
         }

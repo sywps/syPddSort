@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureLeaderboardPanelController } from '../Panels/LeaderboardPanelController';
+import { getWeChatMiniGameRuntime } from '../MiniGamePlatform';
 
 function syncGuideLeaderboardLabelNode(
     parent: Node,
@@ -496,11 +497,7 @@ export function installGuideLeaderboardModule(target: any): void {
         // ==================== 排行榜 ====================
         
         getWeChatRuntime (): any {
-            const rawWx = typeof globalThis !== 'undefined' ? (globalThis as any).__rawWx : null;
-            const windowWx = typeof window !== 'undefined' ? (window as any).wx : null;
-            const globalAdapter = typeof window !== 'undefined' ? (window as any).__globalAdapter : null;
-            const globalWx = typeof globalThis !== 'undefined' ? (globalThis as any).wx : null;
-            return rawWx || windowWx || globalAdapter || globalWx || null;
+            return getWeChatMiniGameRuntime();
         },
 
         isWeChatDevtoolsRuntime(): boolean {
@@ -515,9 +512,10 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         shouldUseBrowserMainMenuPreview(): boolean {
+            const isMiniGame = typeof this._isMiniGame === 'function' ? this._isMiniGame() : this._isWeChat();
             return !sys.isNative
                 && typeof window !== 'undefined'
-                && !this._isWeChat()
+                && !isMiniGame
                 && !this._isUrlLevelPreview()
                 && this.hasLocalUserState();
         },
@@ -527,6 +525,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         getWeChatOpenDataContext (): any {
+            if (!this._isWeChat()) return null;
             return this.getWeChatRuntime()?.getOpenDataContext?.() || null;
         },
 

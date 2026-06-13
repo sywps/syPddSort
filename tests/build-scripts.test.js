@@ -219,6 +219,8 @@ for (const required of [
     "path.join(runtimeRoot, 'assets', bundleName)",
     '__PDD_BUILD_PLATFORM__',
     '__PDD_DOUYIN_BUILD_MODE__',
+    '__PDD_DOUYIN_CLOUD_ENV__',
+    '__PDD_DOUYIN_CLOUD_PATH_PREFIX__',
     'remote_douyin/levels/',
     'bootstrap',
     'homeAssets',
@@ -385,6 +387,7 @@ const postbuild = postbuildEntrypoint + '\n' + read('scripts/postbuild-wechat-mi
 for (const required of [
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/',
     'PDD_LEVEL_DATA_CDN_URL',
+    '__PDD_BUILD_PLATFORM__',
     '__PDD_WECHAT_BUILD__',
     '__PDD_WECHAT_BUILD_MODE__',
     '__PDD_GAME_ASSETS_MODE__',
@@ -1165,8 +1168,9 @@ assert.ok(
     'AB runtime must wait long enough for WeChat experiment APIs',
 );
 assert.ok(
-    gameCtrl.includes('const firstLevelRouteResolveTask = this.startFirstLevelRouteExperimentResolve()'),
-    'AB runtime must start WeChat experiment resolving in parallel with cloud save restore',
+    gameCtrl.includes('shouldUseFirstLevelExperiment')
+        && gameCtrl.includes('this.startFirstLevelRouteExperimentResolve()'),
+    'AB runtime must start WeChat experiment resolving only for WeChat builds',
 );
 assert.ok(
     gameCtrl.includes('source: bucket ? \'wechat_experiment\' : \'default\''),
@@ -1421,6 +1425,13 @@ const userStateSyncMgr = read('assets/Scripts/Core/UserStateSyncMgr.ts');
 const userMgr = read('assets/Scripts/Core/UserMgr.ts');
 const leaderboardMgr = read('assets/Scripts/Core/LeaderboardMgr.ts');
 const wxCloudMgr = read('assets/Scripts/Core/WxCloudMgr.ts');
+const miniGamePlatform = read('assets/Scripts/Core/MiniGamePlatform.ts');
+const platformCloudMgr = read('assets/Scripts/Core/PlatformCloudMgr.ts');
+const douyinCloudMgr = read('assets/Scripts/Core/DouyinCloudMgr.ts');
+const adConfig = read('assets/Scripts/Platform/AdConfig.ts');
+const rewardedAdProvider = read('assets/Scripts/Platform/RewardedAdProvider.ts');
+const homeAdFlowModule = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
+const gameplaySessionController = read('assets/Scripts/Core/GameplaySessionController.ts');
 const syncUserState = read('cloudfunctions/syncUserState/index.js');
 const leaderboardCloud = read('cloudfunctions/leaderboard/index.js');
 const forbiddenResetLevelAction = 'reset' + 'Level';
@@ -1469,14 +1480,30 @@ assert.ok(userMgr.includes('allowRegression') && userMgr.includes('Math.max(curr
 assert.ok(userStateSyncMgr.includes('__PDD_CLOUD_SYNC_LAST'), 'UserStateSyncMgr must expose the last cloud sync diagnostic for WeChat DevTools debugging');
 assert.ok(userStateSyncMgr.includes('[CloudSync]'), 'UserStateSyncMgr must log cloud sync phases in debug builds');
 assert.ok(userStateSyncMgr.includes('save:success') && userStateSyncMgr.includes('save:fail'), 'UserStateSyncMgr must log cloud save success and failure');
-assert.ok(userStateSyncMgr.includes('console.warn') && userStateSyncMgr.includes('__PDD_WECHAT_BUILD_MODE__'), 'debug WeChat builds must surface cloud sync diagnostics as warnings');
-assert.ok(userStateSyncMgr.includes('getDirectWxDiagnosticTarget') && userStateSyncMgr.includes('getGameGlobalDiagnosticTarget'), 'cloud sync diagnostics must be readable from wx/GameGlobal contexts');
-assert.ok(wxCloudMgr.includes('getDirectWxRuntime') && wxCloudMgr.includes('typeof wx'), 'WxCloudMgr must detect the direct WeChat wx runtime, not only globalThis.__rawWx');
+assert.ok(userStateSyncMgr.includes('console.warn') && userStateSyncMgr.includes('getMiniGameBuildMode'), 'debug mini-game builds must surface cloud sync diagnostics as warnings');
+assert.ok(userStateSyncMgr.includes('getDirectWxDiagnosticTarget') && userStateSyncMgr.includes('getDirectTtDiagnosticTarget') && userStateSyncMgr.includes('getGameGlobalDiagnosticTarget'), 'cloud sync diagnostics must be readable from platform contexts');
+assert.ok(miniGamePlatform.includes('getMiniGameBuildPlatform') && miniGamePlatform.includes('__PDD_BUILD_PLATFORM__'), 'mini-game platform detection must use the injected build platform marker');
+assert.ok(wxCloudMgr.includes('getWeChatMiniGameRuntime') && miniGamePlatform.includes('getDirectWxRuntime'), 'WxCloudMgr must use the unified WeChat runtime resolver');
+assert.ok(platformCloudMgr.includes('WxCloudMgr') && platformCloudMgr.includes('DouyinCloudMgr'), 'PlatformCloudMgr must route cloud calls to the active platform provider');
+assert.ok(platformCloudMgr.includes('getDouyinLaunchChannel') && platformCloudMgr.includes('getDouyinSystemInfo'), 'PlatformCloudMgr must own platform-specific analytics context lookups');
+assert.ok(douyinCloudMgr.includes('callFunction') && douyinCloudMgr.includes('callContainer'), 'DouyinCloudMgr must support Douyin cloud function/container entry points');
+assert.ok(adConfig.includes('getRewardedAdProvider') && adConfig.includes('preloadRewardedAd'), 'AdConfig must delegate rewarded ads to the platform provider and expose preload');
+assert.strictEqual(adConfig.includes('(window as any).tt'), false, 'AdConfig must not pick rewarded ad platform by probing window.tt directly');
+assert.strictEqual(adConfig.includes('(window as any).wx'), false, 'AdConfig must not pick rewarded ad platform by probing window.wx directly');
+assert.ok(rewardedAdProvider.includes('getMiniGameBuildPlatform'), 'RewardedAdProvider must use the injected mini-game build platform marker');
+assert.ok(rewardedAdProvider.includes("platform === 'douyin'") && rewardedAdProvider.includes("platform === 'wechat'"), 'RewardedAdProvider must split Douyin and WeChat providers explicitly');
+assert.ok(rewardedAdProvider.includes('preload(reason') && rewardedAdProvider.includes('after-show'), 'RewardedAdProvider must preload before and after rewarded ad display');
+assert.ok(rewardedAdProvider.includes('res?.isEnded') && rewardedAdProvider.includes('shouldSimulateDevtoolsCompletion'), 'RewardedAdProvider must keep strict close semantics while simulating devtools safely');
+assert.ok(homeAdFlowModule.includes('AdConfig.hasRewardedAdWindow()'), 'post-ad finalize must use the unified ad provider window state');
+assert.strictEqual(homeAdFlowModule.includes('createRewardedVideoAd'), false, 'HomeAdFlowModule must not directly inspect rewarded ad platform APIs');
+assert.ok(homeAdFlowModule.includes("AdConfig.preloadRewardedAd('home:visible')"), 'Home screen must warm rewarded ads when ad entries become visible');
+assert.ok(gameplaySessionController.includes("AdConfig.preloadRewardedAd('gameplay:init')"), 'Gameplay must warm rewarded ads before prop/ad unlock clicks');
+assert.strictEqual(analyticsMgr.includes('WxCloudMgr'), false, 'AnalyticsMgr must not call WeChat cloud directly');
+assert.ok(analyticsMgr.includes('PlatformCloudMgr.inst.callFunction'), 'AnalyticsMgr must route cloud calls through PlatformCloudMgr');
 assert.ok(leaderboardMgr.includes('loadWeChatSelfProgress'), 'LeaderboardMgr must expose WeChat self score read for deleted-install restore');
 assert.ok(leaderboardMgr.includes('getUserCloudStorage'), 'LeaderboardMgr must read existing WeChat friend cloud score');
 assert.ok(leaderboardMgr.includes('existingScore >= progressLevel'), 'LeaderboardMgr must not overwrite a higher WeChat score with lower local progress');
 assert.ok(leaderboardMgr.includes('skip wx cloud score reset for starter level'), 'LeaderboardMgr must not reset WeChat friend score to level 1 on fresh startup');
-assert.ok(leaderboardMgr.includes('globalScope?.__rawWx'), 'LeaderboardMgr must prefer the raw WeChat runtime saved by postbuild');
-assert.ok(leaderboardMgr.includes('typeof wx'), 'LeaderboardMgr must detect the direct WeChat wx runtime for friend cloud storage restore');
+assert.ok(leaderboardMgr.includes('getWeChatMiniGameRuntime'), 'LeaderboardMgr must use the unified WeChat runtime resolver for friend cloud storage restore');
 
 console.log('build script checks passed');

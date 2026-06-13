@@ -690,6 +690,10 @@ export class GameplaySlotUiController {
         const guideMode: 'expand' | 'unlock' = unlockBtn ? 'unlock' : 'expand';
         const targetUT = targetNode.getComponent(UITransform);
         if (!targetUT) return;
+        if (!runtime.getSF('guide_hand') || !runtime.getSF('popup_guide_highlight_ring')) {
+            runtime._ensureSpriteFramesByName(['guide_hand', 'popup_guide_highlight_ring'], () => this.showExpandSlotGuide());
+            return;
+        }
         const guideHandFrame = runtime.getSF('guide_hand');
         if (!guideHandFrame) {
             throw new Error('[slot-guide] missing sprite frame: guide_hand');

@@ -351,6 +351,7 @@ if (Array.isArray(assets.remoteBundles) && assets.remoteBundles.includes('gameAs
 
 assertFile(path.join(runtimeRoot, 'game.js'), 'game.js');
 const gameJs = fs.readFileSync(path.join(runtimeRoot, 'game.js'), 'utf8');
+if (!gameJs.includes('globalThis.__PDD_BUILD_PLATFORM__="wechat";')) fail('game.js 缺少统一平台标记 __PDD_BUILD_PLATFORM__="wechat"');
 if (!gameJs.includes('globalThis.__PDD_WECHAT_BUILD__=true;')) fail('game.js 缺少微信构建标记 __PDD_WECHAT_BUILD__');
 const buildModeMatch = gameJs.match(/globalThis\.__PDD_WECHAT_BUILD_MODE__="([^"]+)";/);
 if (!buildModeMatch) fail('game.js 缺少构建模式标记 __PDD_WECHAT_BUILD_MODE__');

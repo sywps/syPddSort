@@ -240,7 +240,9 @@ export class GameSceneRuntimeController {
                 const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
                 void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
             }
-            void UserMgr.inst.loginWeChat();
+            if (typeof this.runtime._isWeChat === 'function' && this.runtime._isWeChat()) {
+                void UserMgr.inst.loginWeChat();
+            }
             if (typeof this.runtime.setupShareMenu === 'function') {
                 this.runtime.setupShareMenu();
             }

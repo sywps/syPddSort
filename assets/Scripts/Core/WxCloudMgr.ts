@@ -1,4 +1,5 @@
 import { _decorator } from 'cc';
+import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 
 const { ccclass } = _decorator;
 
@@ -13,16 +14,6 @@ type WeChatRuntime = {
     getSystemInfoSync?: () => Record<string, unknown>;
     getLaunchOptionsSync?: () => Record<string, unknown>;
 };
-
-declare const wx: WeChatRuntime | undefined;
-
-function getDirectWxRuntime(): WeChatRuntime | null {
-    try {
-        return typeof wx !== 'undefined' ? wx : null;
-    } catch (_) {
-        return null;
-    }
-}
 
 @ccclass('WxCloudMgr')
 export class WxCloudMgr {
@@ -41,6 +32,7 @@ export class WxCloudMgr {
     private constructor() {}
 
     canUseCloud(): boolean {
+        if (!isWeChatMiniGameRuntime()) return false;
         const wx = this.getWx(false);
         return !!wx?.cloud?.init && !!wx?.cloud?.callFunction;
     }
@@ -48,6 +40,7 @@ export class WxCloudMgr {
     getDiagnostics(): Record<string, unknown> {
         const wx = this.getWx(false) as any;
         return {
+            platform: 'wechat',
             env: WECHAT_CLOUD_ENV_ID,
             hasWx: !!wx,
             hasCloud: !!wx?.cloud,
@@ -58,9 +51,7 @@ export class WxCloudMgr {
     }
 
     getWx(throwOnMissing: boolean = true): WeChatRuntime | null {
-        const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
-        const windowScope: any = typeof window !== 'undefined' ? window : null;
-        const wxRuntime = globalScope?.__rawWx || getDirectWxRuntime() || windowScope?.wx || globalScope?.wx || null;
+        const wxRuntime = getWeChatMiniGameRuntime();
         if (!wxRuntime && throwOnMissing) {
             throw new Error('wx runtime is unavailable');
         }

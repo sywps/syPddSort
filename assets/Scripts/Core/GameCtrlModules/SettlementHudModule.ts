@@ -543,6 +543,10 @@ export function installSettlementHudModule(target: any): void {
         },
 
         startTutorial(mode: TutorialMode) {
+            if (!this.getSF('guide_hand')) {
+                this._ensureSpriteFramesByName(['guide_hand'], () => this.startTutorial(mode));
+                return;
+            }
             this._guideMode = mode;
             this._guideStep = 0;
             this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : 0);
@@ -629,9 +633,7 @@ export function installSettlementHudModule(target: any): void {
             this._guideHand.addComponent(UITransform).setContentSize(GUIDE_HAND_BOX_SIZE, GUIDE_HAND_BOX_SIZE);
             this._guideHand.layer = Layers.Enum.UI_2D;
             const guideHandFrame = this.getSF('guide_hand');
-            if (!guideHandFrame) {
-                throw new Error('[guide] missing sprite frame: guide_hand');
-            }
+            if (!guideHandFrame) throw new Error('[guide] missing sprite frame: guide_hand');
             this._applySpriteFrame(this._guideHand, guideHandFrame, GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_SPRITE_SIZE);
 
             this._guideArrow = new Node('GuideArrow');

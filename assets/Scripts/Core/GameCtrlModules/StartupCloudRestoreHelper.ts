@@ -1,5 +1,6 @@
 import { LeaderboardMgr } from '../GameCtrlShared';
 import type { CloudUserState } from '../GameCtrlShared';
+import { isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 
 export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserState | null, hadLocalUserState: boolean): void {
     if (!runtime.isValid || !state) return;
@@ -18,6 +19,9 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
 }
 
 export async function mergeWeChatSelfProgressFallback(state: CloudUserState | null): Promise<CloudUserState | null> {
+    if (!isWeChatMiniGameRuntime()) {
+        return state;
+    }
     const rawSavedLevel = state?.gameState?.savedLevel;
     const savedLevel = Math.floor(Number(rawSavedLevel) || 0);
     if ((typeof rawSavedLevel === 'number' && savedLevel <= 0) || savedLevel > 1) {

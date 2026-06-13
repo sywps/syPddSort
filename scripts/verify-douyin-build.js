@@ -170,10 +170,13 @@ function assertRuntimeMarkers(runtimeRoot) {
         '__PDD_DOUYIN_BUILD__',
         '__PDD_DOUYIN_BUILD_MODE__',
         '__PDD_LEVEL_DATA_CDN_URL__',
+        '__PDD_DOUYIN_CLOUD_ENV__',
+        '__PDD_DOUYIN_CLOUD_PATH_PREFIX__',
         expectedLevelDataCdnUrl,
     ]) {
         if (!gameJs.includes(required)) fail('抖音 game.js 缺少运行时标记: ' + required);
     }
+    if (gameJs.includes('__PDD_WECHAT_BUILD__')) fail('抖音 game.js 不应包含微信构建标记 __PDD_WECHAT_BUILD__');
 }
 
 function assertDouyinSidebarCode(runtimeRoot) {

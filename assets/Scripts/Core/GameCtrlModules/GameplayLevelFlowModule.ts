@@ -127,7 +127,7 @@ export function installGameplayLevelFlowModule(target: any): void {
                 this._loadLocalLevelDataImpl(levelId, callback, prefix);
                 return;
             }
-            if (sys.isNative || this._isWeChat() || this._isUrlLevelPreview()) {
+            if (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview()) {
                 this._loadLevelDataImpl(levelId, callback, prefix);
             } else {
                 this._loadLocalLevelDataImpl(levelId, callback, prefix);

@@ -10,6 +10,8 @@ const buildPath = process.argv[2] || process.env.BUILD_PATH || path.join(project
 const buildMode = process.env.DOUYIN_BUILD_MODE || 'release';
 const debugLevelDataBundle = buildMode === 'debug';
 const levelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
+const douyinCloudEnv = process.env.PDD_DOUYIN_CLOUD_ENV || '';
+const douyinCloudPathPrefix = process.env.PDD_DOUYIN_CLOUD_PATH_PREFIX || '';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -144,6 +146,22 @@ function ensureBundleSubpackage(runtimeRoot, bundleName) {
     return bundleDir;
 }
 
+function removeReleaseLevelDataSubpackage(runtimeRoot) {
+    if (debugLevelDataBundle) return;
+    const gameJsonPath = path.join(runtimeRoot, 'game.json');
+    const gameJson = readJson(gameJsonPath);
+    const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [];
+    const filtered = subpackages.filter((item) => {
+        const root = normalizeSubpackageRoot(item && item.root);
+        return item?.name !== 'levelData' && root !== 'levelData' && root !== 'subpackages/levelData';
+    });
+    if (filtered.length !== subpackages.length) {
+        gameJson.subpackages = filtered;
+        writeJson(gameJsonPath, gameJson);
+    }
+    fs.rmSync(path.join(runtimeRoot, 'subpackages', 'levelData'), { recursive: true, force: true });
+}
+
 function getPreloadBundleName(item) {
     return typeof item === 'string' ? item : item && item.bundle;
 }
@@ -178,16 +196,20 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
     const buildMarker = 'globalThis.__PDD_DOUYIN_BUILD__=true;';
     const modeMarker = 'globalThis.__PDD_DOUYIN_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     const levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(levelDataCdnUrl) + ';';
+    const cloudEnvMarker = 'globalThis.__PDD_DOUYIN_CLOUD_ENV__=' + JSON.stringify(douyinCloudEnv) + ';';
+    const cloudPathPrefixMarker = 'globalThis.__PDD_DOUYIN_CLOUD_PATH_PREFIX__=' + JSON.stringify(douyinCloudPathPrefix) + ';';
     const replacements = [
         [/globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g, platformMarker],
         [/globalThis\.__PDD_DOUYIN_BUILD_MODE__="[^"]*";/g, modeMarker],
         [/globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g, levelDataCdnMarker],
+        [/globalThis\.__PDD_DOUYIN_CLOUD_ENV__="[^"]*";/g, cloudEnvMarker],
+        [/globalThis\.__PDD_DOUYIN_CLOUD_PATH_PREFIX__="[^"]*";/g, cloudPathPrefixMarker],
     ];
     for (const [pattern, value] of replacements) {
         content = pattern.test(content) ? content.replace(pattern, value) : content;
     }
     const missingLines = [];
-    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker]) {
+    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
         if (!content.includes(line)) missingLines.push(line);
     }
     if (missingLines.length) content = missingLines.join('\n') + '\n' + content;
@@ -227,6 +249,7 @@ if (!fs.existsSync(runtimeRoot)) fail('抖音构建目录不存在: ' + runtimeR
 ensureBundleSubpackage(runtimeRoot, 'homeAssets');
 ensureBundleSubpackage(runtimeRoot, 'gameAssets');
 if (debugLevelDataBundle) ensureBundleSubpackage(runtimeRoot, 'levelData');
+removeReleaseLevelDataSubpackage(runtimeRoot);
 normalizeSettings(runtimeRoot);
 ensureDouyinRuntimeMarker(runtimeRoot);
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeRoot]);

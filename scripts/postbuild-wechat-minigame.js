@@ -373,6 +373,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var gameJsPath = path.join(runtimeRoot, 'game.js');
     if (!fs.existsSync(gameJsPath)) return;
     var content = fs.readFileSync(gameJsPath, 'utf-8');
+    var platformMarker = 'globalThis.__PDD_BUILD_PLATFORM__="wechat";';
     var marker = 'globalThis.__PDD_WECHAT_BUILD__=true;';
     var buildModeMarker = 'globalThis.__PDD_WECHAT_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     var gameAssetsModeMarker = 'globalThis.__PDD_GAME_ASSETS_MODE__=' + JSON.stringify(gameAssetsMode) + ';';
@@ -380,11 +381,15 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
+    var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
     var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
+    if (platformMarkerPattern.test(content)) {
+        content = content.replace(platformMarkerPattern, platformMarker);
+    }
     if (buildModeMarkerPattern.test(content)) {
         content = content.replace(buildModeMarkerPattern, buildModeMarker);
     }
@@ -398,6 +403,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
         content = content.replace(screenAdaptDebugPattern, screenAdaptDebugMarker);
     }
     var missingLines = [];
+    if (content.indexOf(platformMarker) === -1) missingLines.push(platformMarker);
     if (content.indexOf(marker) === -1) missingLines.push(marker);
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);

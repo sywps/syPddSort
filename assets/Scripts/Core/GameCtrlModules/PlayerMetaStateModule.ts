@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const REWARD_RESULT_POPUP_PREFAB_PATH = 'UI/Prefabs/Panels/RewardResultPopup';
@@ -790,6 +791,10 @@ export function installPlayerMetaStateModule(target: any): void {
             return null;
         },
 
+        shouldUseFirstLevelRouteExperiment(): boolean {
+            return isWeChatMiniGameRuntime();
+        },
+
         isFirstLevelRouteExperimentQuery(value: string): boolean {
             const text = value.trim().toLowerCase();
             return text === FIRST_LEVEL_ROUTE_EXPERIMENT_ID;
@@ -813,6 +818,7 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         applyFirstLevelRouteUrlOverride(): boolean {
+            if (!this.shouldUseFirstLevelRouteExperiment()) return false;
             const ab = this.getRuntimeQueryParam('ab').trim();
             if (!ab) return false;
             const normalizedAb = ab.toLowerCase();
@@ -844,6 +850,7 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         async fetchFirstLevelRouteBucketFromWx(): Promise<FirstLevelRouteVariant | null> {
+            if (!this.shouldUseFirstLevelRouteExperiment()) return null;
             const wx: any = this.getWeChatRuntime();
             if (!wx) {
                 console.warn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: wx runtime unavailable`);
@@ -902,6 +909,12 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         startFirstLevelRouteExperimentResolve(): Promise<FirstLevelRouteResolution> {
+            if (!this.shouldUseFirstLevelRouteExperiment()) {
+                return Promise.resolve({
+                    bucket: 'bucket_a',
+                    source: 'default',
+                });
+            }
             if (this.applyFirstLevelRouteUrlOverride()) {
                 return Promise.resolve({
                     bucket: this._firstLevelRouteBucket,
@@ -915,6 +928,10 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         async initFirstLevelRouteExperiment(resolveTask?: Promise<FirstLevelRouteResolution>): Promise<void> {
+            if (!this.shouldUseFirstLevelRouteExperiment()) {
+                this._firstLevelRouteBucket = 'bucket_a';
+                return;
+            }
             const result = await (resolveTask || this.startFirstLevelRouteExperimentResolve());
             this._firstLevelRouteBucket = result.bucket;
             console.warn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);

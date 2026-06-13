@@ -103,13 +103,10 @@ export function installHomeAdFlowModule(target: any): void {
                     return;
                 }
                 if (options.waitForCloseBeforeComplete && success) {
-                    // 闂堢偛绠嶉崨濠勫箚婢у喛绱欓弮?tt/wx SDK閿涘绗夋导姘承曢崣?onClose閿涘瞼娲块幒銉ョ暚閹?
-                    const tt = (window as any).tt;
-                    const wx = (window as any).wx || (typeof globalThis !== 'undefined' ? (globalThis as any).wx : null);
-                    if (!tt?.createRewardedVideoAd && !wx?.createRewardedVideoAd) {
-                        finalize();
-                    } else {
+                    if (AdConfig.hasRewardedAdWindow()) {
                         pendingAfterCloseFinalize = finalize;
+                    } else {
+                        finalize();
                     }
                     return;
                 }
@@ -369,6 +366,7 @@ export function installHomeAdFlowModule(target: any): void {
             const fixedRoot = this.mountMainMenuFixedRoot(menuRoot);
             AppRoot.tryGet()?.markHomeVisible(sceneName);
             this.renderMainMenuFixedRoot(fixedRoot);
+            AdConfig.preloadRewardedAd('home:visible');
             this.logRuntimeTrace(
                 '[SceneSplitTrace] showMainMenu:finish',
                 JSON.stringify({

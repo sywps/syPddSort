@@ -1,4 +1,5 @@
 import {
+    AdConfig,
     AnalyticsMgr,
     AudioMgr,
     BoardModel,
@@ -100,6 +101,7 @@ export class GameplaySessionController {
         runtime.renderBoard();
         runtime.renderSlots();
         runtime.assertGameplayVisualReadiness();
+        AdConfig.preloadRewardedAd('gameplay:init');
         runtime.refreshEndgameHints('init-game');
         if (runtime.isFirstLevelFunnelActive()) {
             const activePhysicalLevel = runtime.getActivePhysicalLevelId();
