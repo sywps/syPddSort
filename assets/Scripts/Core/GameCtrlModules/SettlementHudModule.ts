@@ -168,7 +168,7 @@ export function installSettlementHudModule(target: any): void {
                 || adBtn.getChildByName('ContinueBtnSubLblAnchor')?.getChildByName('AdBonusSubLbl')?.getComponent(Label);
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
-            const eligible = !this._isThemeLevel && this._pendingWinAdBonusReward > 0;
+            const eligible = !this._isThemeLevel && this._pendingWinAdBonusReward > 0 && !this._settlementNextTransitioning;
             const useMainlineWin = this.shouldUseMainlineWinSettlementUI();
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
             const adIcon = adBtn.getChildByName('AdBonusAdIcon');
@@ -191,7 +191,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         claimWinAdBonusReward() {
-            if (this._isThemeLevel || this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing) {
+            if (this._isThemeLevel || this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
                 return;
             }
             this._adShowing = true;
@@ -224,11 +224,34 @@ export function installSettlementHudModule(target: any): void {
         },
 
         handleWinSettlementPrimaryAction() {
+            if (!this.beginSettlementNextTransition()) return;
             if (this.shouldChainTutorialLevelsOnWin()) {
                 this.continueTutorialToSlotIntro(this.levelData.levelId + 1);
                 return;
             }
             this.goNextLevel();
+        },
+
+        beginSettlementNextTransition(): boolean {
+            if (this._settlementNextTransitioning) return false;
+            this._settlementNextTransitioning = true;
+            this.setWinPrimaryButtonInteractable(false);
+            this.refreshWinAdBonusUI();
+            return true;
+        },
+
+        endSettlementNextTransition(): void {
+            this._settlementNextTransitioning = false;
+            this.setWinPrimaryButtonInteractable(true);
+            this.refreshWinAdBonusUI();
+        },
+
+        setWinPrimaryButtonInteractable(interactable: boolean): void {
+            const primaryBtn = this.panelWin
+                ?.getChildByName('Box')
+                ?.getChildByName('PrimaryBtn')
+                ?.getComponent(Button);
+            if (primaryBtn) primaryBtn.interactable = interactable;
         },
 
         shouldChainTutorialLevelsOnWin() {
@@ -289,6 +312,7 @@ export function installSettlementHudModule(target: any): void {
                 ? 0
                 : this._pendingWinGoldReward * Math.max(0, ECONOMY_NUMERIC_TABLE.adReward.winBonusMultiplier - 1);
             this._winAdRewardClaimed = false;
+            this._settlementNextTransitioning = false;
             this.addGold(this._pendingWinGoldReward);
             this.ensureGameplayResultPanelsCreated?.();
             this.updateWinRewardLabel(this._pendingWinGoldReward);
@@ -473,6 +497,8 @@ export function installSettlementHudModule(target: any): void {
                 this.showNoLivesAdModal(() => {
                     if (this.costVigor()) {
                         this.loadLevel(nextId);
+                    } else {
+                        this.endSettlementNextTransition();
                     }
                 });
                 return;

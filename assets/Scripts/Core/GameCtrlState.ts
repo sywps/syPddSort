@@ -73,6 +73,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _pendingWinGoldReward: 0,
         _pendingWinAdBonusReward: 0,
         _winAdRewardClaimed: false,
+        _settlementNextTransitioning: false,
         currentBlock: null,
         isSelected: false,
         timeRemain: 0,

@@ -96,9 +96,9 @@ export class GameplaySessionController {
             runtime.renderBoard();
             runtime.renderSlots();
             runtime.assertGameplayVisualReadiness();
-            AdConfig.preloadRewardedAd('gameplay:init');
             this.finishGameplayReadyTransition();
             this.warmGameplayResultPanels();
+            AdConfig.preloadRewardedAd('gameplay:init');
             runtime.refreshEndgameHints('init-game');
             if (runtime.isFirstLevelFunnelActive()) {
                 const activePhysicalLevel = runtime.getActivePhysicalLevelId();

@@ -1381,16 +1381,21 @@ for (const required of [
     assert.ok(gameCtrl.includes(required), `GameCtrl must report first-level funnel event ${required}`);
 }
 for (const required of [
-    'function isWechatMiniGameRuntime()',
-    'typeof platform.getSystemInfoSync === \'function\'',
-    'const wechatRuntime = isWechatMiniGameRuntime();',
-    'isBrowserBackedRequester(requester) && !wechatRuntime',
+    'getMiniGameBuildPlatform',
+    'isMiniGameRuntime',
+    'isDouyinMiniGameRuntime',
+    'isWeChatMiniGameRuntime',
+    'const miniGameRuntime = isMiniGameRuntime();',
+    'isBrowserBackedRequester(requester) && !miniGameRuntime',
     'local_browser_external_cdn_disabled',
+    'LIVE_MANIFEST_FAILURE_COOLDOWN_MS',
+    'liveUnavailableUntil',
+    'liveUnavailableCooldownMs',
     'getAvailabilityDiagnostics()',
     'THEME_LEVEL_PREFIX',
     'normalizeLevelPrefix',
 ]) {
-    assert.ok(levelDataCdnService.includes(required), `LevelDataCdnService must allow WeChat DevTools CDN requester: ${required}`);
+    assert.ok(levelDataCdnService.includes(required), `LevelDataCdnService must use platform-aware CDN diagnostics and cooldown: ${required}`);
 }
 assert.ok(sySdkMgr.includes('sySdkDebug'), 'SySDKMgr production logs must go through the debug log gate');
 assert.strictEqual(sySdkMgr.includes("console.log('[SySDK] module eval')"), false, 'SySDKMgr must not log at module evaluation in release');
@@ -1433,6 +1438,15 @@ assert.ok(
         && settlementHudModule.includes("guidePrompt.getChildByName('PromptLabel')?.getComponent(Label)"),
     'SettlementHudModule tutorial prompt must bind the scene-owned OverlayRoot/TutorialGuidePrompt nodes',
 );
+for (const required of [
+    'beginSettlementNextTransition()',
+    'if (!this.beginSettlementNextTransition()) return;',
+    'setWinPrimaryButtonInteractable(false)',
+    'endSettlementNextTransition()',
+    '_settlementNextTransitioning',
+]) {
+    assert.ok(settlementHudModule.includes(required), `SettlementHudModule must prevent duplicate settlement next-level transitions: ${required}`);
+}
 assert.strictEqual(
     settlementHudModule.includes("new Node('GuideBubble')") || settlementHudModule.includes("new Node('BubbleLbl')"),
     false,
@@ -1574,7 +1588,6 @@ const douyinCloudMgr = read('assets/Scripts/Core/DouyinCloudMgr.ts');
 const adConfig = read('assets/Scripts/Platform/AdConfig.ts');
 const rewardedAdProvider = read('assets/Scripts/Platform/RewardedAdProvider.ts');
 const homeAdFlowModule = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
-const gameplaySessionController = read('assets/Scripts/Core/GameplaySessionController.ts');
 const syncUserState = read('cloudfunctions/syncUserState/index.js');
 const leaderboardCloud = read('cloudfunctions/leaderboard/index.js');
 const forbiddenResetLevelAction = 'reset' + 'Level';

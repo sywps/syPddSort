@@ -1,4 +1,12 @@
 import type { LevelData } from './LevelConfig';
+import {
+    getDouyinMiniGameRuntime,
+    getMiniGameBuildPlatform,
+    getWeChatMiniGameRuntime,
+    isDouyinMiniGameRuntime,
+    isMiniGameRuntime,
+    isWeChatMiniGameRuntime,
+} from './MiniGamePlatform';
 
 type LevelPackEntry = {
     id: string;
@@ -31,6 +39,7 @@ type LevelPack = {
 };
 
 const MAX_CACHED_LEVEL_PACKS = 1;
+const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
 
@@ -60,25 +69,14 @@ function isLocalBrowserPreview(): boolean {
 
 function isPlainBrowserRuntime(): boolean {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    const n: any = typeof navigator !== 'undefined' ? navigator : null;
-    const ua = String(n?.userAgent || '');
-    return typeof g?.fetch === 'function' && !/MicroMessenger/i.test(ua) && !isWechatMiniGameRuntime();
+    return typeof g?.fetch === 'function' && !isMiniGameRuntime();
 }
 
 function getPlatformObject(): any {
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    const w: any = typeof window !== 'undefined' ? window : null;
-    return g?.__rawWx || g?.wx || g?.tt || w?.__rawWx || w?.wx || w?.tt || null;
-}
-
-function isWechatMiniGameRuntime(): boolean {
-    const platform = getPlatformObject();
-    if (!platform) return false;
-    return typeof platform.getSystemInfoSync === 'function'
-        || typeof platform.getSystemInfo === 'function'
-        || typeof platform.getLaunchOptionsSync === 'function'
-        || typeof platform.createRewardedVideoAd === 'function'
-        || typeof platform.createCanvas === 'function';
+    const buildPlatform = getMiniGameBuildPlatform();
+    if (buildPlatform === 'douyin') return getDouyinMiniGameRuntime();
+    if (buildPlatform === 'wechat') return getWeChatMiniGameRuntime();
+    return getWeChatMiniGameRuntime() || getDouyinMiniGameRuntime();
 }
 
 function getPlatformRequester(): unknown {
@@ -99,10 +97,10 @@ function getLevelDataCdnUnavailableReason(baseUrl: string): string {
     if (!baseUrl) return 'cdn_url_missing';
     const externalHttp = /^https?:\/\//i.test(baseUrl);
     const requester = getPlatformRequester();
-    const wechatRuntime = isWechatMiniGameRuntime();
-    if (externalHttp && typeof requester !== 'function') return 'platform_request_unavailable';
-    if (externalHttp && isBrowserBackedRequester(requester) && !wechatRuntime) return 'browser_backed_requester';
-    if ((isLocalBrowserPreview() || isPlainBrowserRuntime()) && externalHttp && !wechatRuntime) return 'local_browser_external_cdn_disabled';
+    const miniGameRuntime = isMiniGameRuntime();
+    if ((isLocalBrowserPreview() || isPlainBrowserRuntime()) && externalHttp && !miniGameRuntime) return 'local_browser_external_cdn_disabled';
+    if (externalHttp && miniGameRuntime && typeof requester !== 'function') return 'platform_request_unavailable';
+    if (externalHttp && isBrowserBackedRequester(requester) && !miniGameRuntime) return 'browser_backed_requester';
     return '';
 }
 
@@ -177,15 +175,17 @@ export class LevelDataCdnService {
 
     private liveTextPromise: Promise<string> | null = null;
     private liveManifest: LevelLiveManifest | null = null;
+    private liveUnavailableUntil = 0;
+    private liveUnavailableReason = '';
     private readonly packPromises = new Map<string, Promise<LevelPack | null>>();
 
     prefetchLive(): void {
-        if (!canUseLevelDataCdn(runtimeLevelDataBaseUrl()) || this.liveTextPromise) return;
+        if (!canUseLevelDataCdn(runtimeLevelDataBaseUrl()) || this.liveTextPromise || this.isLiveManifestCoolingDown()) return;
         const promise = this.requestLiveText();
         this.liveTextPromise = promise;
         promise.catch((err) => {
             if (this.liveTextPromise === promise) this.liveTextPromise = null;
-            console.warn('[LevelDataCDN] level_live.json prefetch failed:', err instanceof Error ? err.message : err);
+            this.markLiveManifestUnavailable('level_live.json prefetch failed', err);
         });
     }
 
@@ -218,29 +218,55 @@ export class LevelDataCdnService {
             baseUrl,
             canUse: !reason,
             reason,
-            wechatRuntime: isWechatMiniGameRuntime(),
+            platform: getMiniGameBuildPlatform(),
+            wechatRuntime: isWeChatMiniGameRuntime(),
+            douyinRuntime: isDouyinMiniGameRuntime(),
+            miniGameRuntime: isMiniGameRuntime(),
             browserBackedRequester: isBrowserBackedRequester(requester),
             hasRequester: typeof requester === 'function',
+            liveUnavailableCooldownMs: Math.max(0, this.liveUnavailableUntil - Date.now()),
+            liveUnavailableReason: this.liveUnavailableReason,
         };
     }
 
     private async getLiveManifest(): Promise<LevelLiveManifest | null> {
         const baseUrl = runtimeLevelDataBaseUrl();
         if (!canUseLevelDataCdn(baseUrl)) return null;
+        if (this.liveManifest) return this.liveManifest;
+        if (this.isLiveManifestCoolingDown()) return null;
         if (!this.liveTextPromise) {
             this.liveTextPromise = this.requestLiveText();
         }
         try {
-            if (!this.liveManifest) {
-                const text = await this.liveTextPromise;
-                this.liveManifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
-            }
+            const text = await this.liveTextPromise;
+            this.liveManifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
+            this.clearLiveManifestUnavailable();
             return this.liveManifest;
         } catch (err) {
             this.liveTextPromise = null;
-            console.warn('[LevelDataCDN] level_live.json unavailable:', err instanceof Error ? err.message : err);
+            this.markLiveManifestUnavailable('level_live.json unavailable', err);
             return null;
         }
+    }
+
+    private isLiveManifestCoolingDown(): boolean {
+        return Date.now() < this.liveUnavailableUntil;
+    }
+
+    private markLiveManifestUnavailable(label: string, err: unknown): void {
+        const reason = err instanceof Error ? err.message : String(err || 'unknown error');
+        const now = Date.now();
+        const shouldWarn = now >= this.liveUnavailableUntil || this.liveUnavailableReason !== reason;
+        this.liveUnavailableReason = reason;
+        this.liveUnavailableUntil = now + LIVE_MANIFEST_FAILURE_COOLDOWN_MS;
+        if (shouldWarn) {
+            console.warn(`[LevelDataCDN] ${label}:`, reason);
+        }
+    }
+
+    private clearLiveManifestUnavailable(): void {
+        this.liveUnavailableReason = '';
+        this.liveUnavailableUntil = 0;
     }
 
     private requestLiveText(): Promise<string> {
