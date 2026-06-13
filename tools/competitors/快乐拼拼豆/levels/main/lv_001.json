@@ -1,0 +1,108 @@
+{
+  "sourceGame": "快乐拼拼豆",
+  "sourcePackage": "C:/Users/EDY/workspaces/快乐拼拼豆",
+  "sourceFile": "https://res.wqop2018.com/mp/projects/pdzsh/config/level/24_1776136841153.json",
+  "sourceSet": "main",
+  "sourceLevel": 1,
+  "sourceLevelName": "invoke_24",
+  "colorMappingMode": "official20-stable-fallback-no-rgb",
+  "sourceColorIdToLocalColorId": {
+    "2": 1,
+    "38": 2
+  },
+  "sourceColorMergeGroupsInLevel": {},
+  "sourceHighDistanceColorsInLevel": [
+    "2",
+    "38"
+  ],
+  "sourceColorUsed": [
+    "2",
+    "38"
+  ],
+  "boardWidth": 6,
+  "boardHeight": 4,
+  "timeLimit": 60,
+  "slotTotalCount": 24,
+  "correctColorArr": [
+    [
+      1,
+      1,
+      1,
+      2,
+      2,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      2,
+      2,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      2,
+      2,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      2,
+      2,
+      2
+    ]
+  ],
+  "initRandomColorArr": [
+    [
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      2,
+      2,
+      2,
+      1,
+      1,
+      1
+    ]
+  ],
+  "sourceMeta": {
+    "invokeId": 24,
+    "hash": 1776136841153,
+    "configLevel": {
+      "id": 1,
+      "invokeId": 24,
+      "limitTime": 60,
+      "difficulty": 0,
+      "CoinAward": 66,
+      "ingnoreDda": 0,
+      "limitProp": []
+    },
+    "orderConfidence": "local-configLevel"
+  }
+}

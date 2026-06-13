@@ -183,6 +183,7 @@ export class GameplaySkillUiController {
                     return;
                 }
                 if (runtime.consumePropCount(skill.kind)) {
+                    runtime.markDynamicCountdownAssisted();
                     this.rebuildSkillButtonsUI();
                     handler(true);
                     return;
@@ -195,6 +196,7 @@ export class GameplaySkillUiController {
                         return;
                     }
                     runtime._skillActive = false;
+                    runtime.markDynamicCountdownAssisted();
                     handler(true);
                 }, { waitForCloseBeforeComplete: true });
             }, runtime);

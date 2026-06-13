@@ -1,0 +1,86 @@
+{
+  "sourceGame": "豆豆全扫光",
+  "status": "blocked",
+  "dataCdn": "https://lfrjtxx-cou.gusspro.com/app-vy/Release/pdpx_vy/XYX/weixin/base/1.24/26060912114003216165",
+  "dataFileMd5": "66c5e719ed7dcb3a",
+  "downloadedDataPackage": true,
+  "unityWebDataHeader": "UnityWebData1.0",
+  "downloadedBundleFiles": [
+    "data.unity3d",
+    "RuntimeInitializeOnLoads.json",
+    "ScriptingAssemblies.json",
+    "boot.config",
+    "Il2CppData/Metadata/global-metadata.dat",
+    "Resources/unity_default_resources"
+  ],
+  "baseBundleSummary": {
+    "monoScriptCount": 3045,
+    "monoBehaviourCount": 1380,
+    "textAssetCount": 5,
+    "plainLevelTextAssetsFound": false
+  },
+  "plainTextAssets": [
+    "AdzConfig_OTHER_62.json",
+    "DefineSymbols_60.txt",
+    "Domain_63.json",
+    "ge_public_config_59.txt"
+  ],
+  "scriptEvidence": [
+    "PBGameLevelConfig",
+    "PBGameLevelData",
+    "PBGameMapConfig",
+    "PBGameLevelBuilder",
+    "MapConfig",
+    "LevelConfig",
+    "MapConfigParseCache",
+    "ConfigProxy",
+    "CDNResProxy",
+    "PreDLProxy",
+    "UpdateVersionProxy",
+    "AssetBundleManager",
+    "YooAssetSettings",
+    "YooAssetsDriver"
+  ],
+  "instanceEvidence": {
+    "pbGameLevelRelatedMonoBehaviourInstancesFoundInBaseBundle": false,
+    "notes": [
+      "The extracted base bundle contains PB/Map/Config/YooAsset class definitions as MonoScript entries.",
+      "No live MonoBehaviour instances for PBGameLevelConfig, PBGameLevelData, PBGameMapConfig, MapConfig, LevelConfig, PBGameLevelBuilder, or YooAssetSettings were found in the base data.unity3d scene objects."
+    ]
+  },
+  "secondaryBundleProbe": {
+    "preloadDataListCount": 23,
+    "gameJsRelativeUnity3dUrlsReachable": false,
+    "reachableCommonFontBundle": "https://lfrjtxx-cou.gusspro.com/app-3/Test/GFCode/WebGL/CommonFontAB/hwfont.ttf.unity3d",
+    "notes": [
+      "All 23 direct unity3d URLs copied from game.js preloadDataList returned 404 when probed against the public DATA_CDN root.",
+      "Likely second-stage GFCode/WebGL asset roots exist, because CommonFontAB/hwfont.ttf.unity3d is publicly reachable.",
+      "The exact bundle path or manifest path for gameplay/config assets is still not exposed by the local package."
+    ]
+  },
+  "remoteConfigProbe": {
+    "remotecfgObtainUrl": "https://wjrtyjhkl.lumosfun.com:8508/DbtRemoteConfig/getParameter/obtain",
+    "remotecfgObtainParamUrl": "https://wjrtyjhkl.lumosfun.com:8508/DbtRemoteConfig/getParameter/obtain/param",
+    "decodeV2Url": "https://zxjwqtlns.lumosfun.com:8503/MiniGameServer/minigame/decodeV2",
+    "encryptDataUrl": "https://zxjwqtlns.lumosfun.com:8503/MiniGameServer/minigame/encryptData",
+    "observations": [
+      "The remotecfg service is alive. GET returns 405 and OPTIONS/POST confirm the endpoints exist.",
+      "POST {} to /obtain and /obtain/param returns the same 80-byte base64 blob.",
+      "/obtain/param explicitly reports a missing JSON ObtainReq body when called without a body.",
+      "decodeV2 explicitly reports a missing EncodeDataDTO body when called without a body.",
+      "decodeV2 accepts JSON with an encodeData field, but the remotecfg blob still decodes only to opaque binary-like output rather than readable JSON/text.",
+      "encryptData requires login, so anonymous probing cannot produce a trusted local encode/decode round-trip."
+    ]
+  },
+  "artifacts": {
+    "analysisRoot": "temp/output/competitor_analysis/豆豆全扫光",
+    "probeReport": "temp/output/competitor_analysis/豆豆全扫光/preload_bundle_probe.json",
+    "stringMatches": "temp/output/competitor_analysis/豆豆全扫光/string_matches.json",
+    "unityWebDataManifest": "temp/output/competitor_analysis/豆豆全扫光/unity_webdata/unity_webdata_manifest.json",
+    "bundleSummary": "temp/output/competitor_analysis/豆豆全扫光/unity_export/summary.json",
+    "monoTypetrees": "temp/output/competitor_analysis/豆豆全扫光/unity_export/monobehaviour_typetrees.json",
+    "decodeProbeRawResponse": "temp/decode-response.json"
+  },
+  "blocker": "The public data package is reachable and decodable, and the supporting remotecfg/decode backends are alive, but the actual level/map payload is not stored as plain TextAssets in the base bundle. The remaining payload is still hidden behind a second-stage GFCode/WebGL asset-bundle manifest, a protobuf/table asset layer, or a remote-config decode/parsing step that is not directly discoverable from the local package shell.",
+  "nextStep": "Either capture the real second-stage bundle/manifest requests at runtime, or decompile the GFRunning/Assembly-CSharp asset-loading path deeply enough to recover the exact YooAsset/package URL builder plus the request/parse logic that turns the remotecfg blob into gameplay asset addresses."
+}

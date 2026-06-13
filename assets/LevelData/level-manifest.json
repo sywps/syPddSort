@@ -107,7 +107,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 288,
-      "timeLimit": 300,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },
@@ -126,7 +126,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 228,
-      "timeLimit": 300,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },
@@ -146,7 +146,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 546,
-      "timeLimit": 360,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },
@@ -165,7 +165,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 360,
-      "timeLimit": 300,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },
@@ -185,7 +185,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 274,
-      "timeLimit": 300,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },
@@ -204,7 +204,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 298,
-      "timeLimit": 180,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -223,7 +223,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 288,
-      "timeLimit": 220,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -243,7 +243,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 323,
-      "timeLimit": 240,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -261,7 +261,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 309,
-      "timeLimit": 240,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -279,7 +279,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 342,
-      "timeLimit": 260,
+      "timeLimit": 300,
       "isMainline": true,
       "isTutorial": false
     },
@@ -296,7 +296,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 339,
-      "timeLimit": 240,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -314,7 +314,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 728,
-      "timeLimit": 218,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -331,7 +331,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 468,
-      "timeLimit": 300,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -366,7 +366,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 576,
-      "timeLimit": 360,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -383,7 +383,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 118,
-      "timeLimit": 300,
+      "timeLimit": 270,
       "isMainline": true,
       "isTutorial": false
     },
@@ -401,7 +401,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 794,
-      "timeLimit": 420,
+      "timeLimit": 300,
       "isMainline": true,
       "isTutorial": false
     },
@@ -420,7 +420,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 88,
-      "timeLimit": 210,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -438,7 +438,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 300,
-      "timeLimit": 320,
+      "timeLimit": 300,
       "isMainline": true,
       "isTutorial": false
     },
@@ -457,7 +457,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 240,
-      "timeLimit": 192,
+      "timeLimit": 300,
       "isMainline": true,
       "isTutorial": false
     },
@@ -475,7 +475,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 266,
-      "timeLimit": 200,
+      "timeLimit": 300,
       "isMainline": true,
       "isTutorial": false
     },
@@ -492,7 +492,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 445,
-      "timeLimit": 431,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -512,7 +512,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 192,
-      "timeLimit": 180,
+      "timeLimit": 300,
       "isMainline": true,
       "isTutorial": false
     },
@@ -531,7 +531,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 100,
-      "timeLimit": 180,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -549,7 +549,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 459,
-      "timeLimit": 258,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -566,7 +566,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 273,
-      "timeLimit": 202,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -585,7 +585,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 312,
-      "timeLimit": 480,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -608,7 +608,7 @@
       ],
       "colorCount": 9,
       "slotTotalCount": 117,
-      "timeLimit": 180,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -625,7 +625,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 136,
-      "timeLimit": 240,
+      "timeLimit": 330,
       "isMainline": true,
       "isTutorial": false
     },
@@ -643,7 +643,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 197,
-      "timeLimit": 300,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -661,7 +661,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 679,
-      "timeLimit": 324,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -680,7 +680,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 624,
-      "timeLimit": 307,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -699,7 +699,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 710,
-      "timeLimit": 420,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -718,7 +718,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 559,
-      "timeLimit": 420,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -735,7 +735,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 496,
-      "timeLimit": 453,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -751,7 +751,7 @@
       ],
       "colorCount": 2,
       "slotTotalCount": 264,
-      "timeLimit": 210,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -789,7 +789,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 326,
-      "timeLimit": 300,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -807,7 +807,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 584,
-      "timeLimit": 480,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -828,7 +828,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 304,
-      "timeLimit": 211,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -849,7 +849,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 410,
-      "timeLimit": 300,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -866,7 +866,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 546,
-      "timeLimit": 420,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -885,7 +885,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 462,
-      "timeLimit": 420,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -906,7 +906,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 302,
-      "timeLimit": 211,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -923,7 +923,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 260,
-      "timeLimit": 198,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -946,7 +946,7 @@
       ],
       "colorCount": 9,
       "slotTotalCount": 117,
-      "timeLimit": 180,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -965,7 +965,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 584,
-      "timeLimit": 295,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -982,7 +982,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 281,
-      "timeLimit": 210,
+      "timeLimit": 360,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1000,7 +1000,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 406,
-      "timeLimit": 242,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1020,7 +1020,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 156,
-      "timeLimit": 240,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1039,7 +1039,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 924,
-      "timeLimit": 397,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1058,7 +1058,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 327,
-      "timeLimit": 218,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1077,7 +1077,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 263,
-      "timeLimit": 199,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1097,7 +1097,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 509,
-      "timeLimit": 480,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1114,7 +1114,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 274,
-      "timeLimit": 202,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1130,7 +1130,7 @@
       ],
       "colorCount": 2,
       "slotTotalCount": 190,
-      "timeLimit": 180,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1148,7 +1148,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 149,
-      "timeLimit": 180,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1166,7 +1166,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 614,
-      "timeLimit": 390,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1183,7 +1183,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 238,
-      "timeLimit": 191,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1200,7 +1200,7 @@
       ],
       "colorCount": 3,
       "slotTotalCount": 313,
-      "timeLimit": 214,
+      "timeLimit": 390,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1220,7 +1220,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 182,
-      "timeLimit": 300,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1239,7 +1239,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 348,
-      "timeLimit": 224,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1259,7 +1259,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 196,
-      "timeLimit": 300,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1278,7 +1278,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 440,
-      "timeLimit": 300,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1298,7 +1298,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 225,
-      "timeLimit": 360,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1317,7 +1317,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 841,
-      "timeLimit": 440,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1335,7 +1335,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 460,
-      "timeLimit": 258,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1354,7 +1354,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 278,
-      "timeLimit": 203,
+      "timeLimit": 420,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1374,7 +1374,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 189,
-      "timeLimit": 300,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1409,7 +1409,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 354,
-      "timeLimit": 226,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1428,7 +1428,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 309,
-      "timeLimit": 360,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1447,7 +1447,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 719,
-      "timeLimit": 336,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1468,7 +1468,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 410,
-      "timeLimit": 300,
+      "timeLimit": 480,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1486,7 +1486,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 261,
-      "timeLimit": 198,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1506,7 +1506,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 550,
-      "timeLimit": 360,
+      "timeLimit": 450,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1525,7 +1525,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 216,
-      "timeLimit": 320,
+      "timeLimit": 480,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1546,7 +1546,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 667,
-      "timeLimit": 320,
+      "timeLimit": 510,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1565,7 +1565,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 754,
-      "timeLimit": 346,
+      "timeLimit": 480,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1586,7 +1586,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 462,
-      "timeLimit": 259,
+      "timeLimit": 480,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1605,7 +1605,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 629,
-      "timeLimit": 420,
+      "timeLimit": 480,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1627,7 +1627,7 @@
       ],
       "colorCount": 8,
       "slotTotalCount": 487,
-      "timeLimit": 360,
+      "timeLimit": 540,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1645,7 +1645,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 626,
-      "timeLimit": 308,
+      "timeLimit": 480,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1663,7 +1663,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 728,
-      "timeLimit": 338,
+      "timeLimit": 510,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1684,7 +1684,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 725,
-      "timeLimit": 440,
+      "timeLimit": 510,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1702,7 +1702,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 396,
-      "timeLimit": 360,
+      "timeLimit": 540,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1722,7 +1722,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 493,
-      "timeLimit": 268,
+      "timeLimit": 510,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1741,7 +1741,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 180,
-      "timeLimit": 180,
+      "timeLimit": 540,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1761,7 +1761,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 878,
-      "timeLimit": 383,
+      "timeLimit": 540,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1780,7 +1780,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 557,
-      "timeLimit": 287,
+      "timeLimit": 570,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1800,7 +1800,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 773,
-      "timeLimit": 352,
+      "timeLimit": 540,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1820,7 +1820,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 336,
-      "timeLimit": 320,
+      "timeLimit": 540,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1840,7 +1840,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 638,
-      "timeLimit": 360,
+      "timeLimit": 570,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1859,7 +1859,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 234,
-      "timeLimit": 190,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1879,7 +1879,7 @@
       ],
       "colorCount": 6,
       "slotTotalCount": 502,
-      "timeLimit": 360,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": false
     },

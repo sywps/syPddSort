@@ -146,8 +146,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                 <option value="">常用目录</option>
                 <option value="assets/LevelData::main">正式关卡</option>
                 <option value="assets/LevelData::theme">主题关卡</option>
+                <option value="tools/competitors/拼豆1000关/levels/main::main">拼豆1000关 主线</option>
+                <option value="tools/competitors/全民拼豆/levels/main::main">全民拼豆 主线</option>
+                <option value="tools/competitors/欢乐拼豆  跟全民拼豆重复/levels/main::main">欢乐拼豆  跟全民拼豆重复 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/daily::main">拼豆解解压 Daily</option>
+                <option value="tools/competitors/拼豆达人赛/levels/main::main">拼豆达人赛 主线</option>
+                <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
             </select>
         </div>
@@ -260,8 +265,13 @@ const DEFAULT_LEVEL_KIND = 'main';
 const PRESET_LEVEL_DIR_ITEMS = [
     { label: '正式关卡', dir: DEFAULT_LEVEL_DIR, kind: 'main' },
     { label: '主题关卡', dir: DEFAULT_LEVEL_DIR, kind: 'theme' },
+    { label: '拼豆1000关 主线', dir: 'tools/competitors/拼豆1000关/levels/main', kind: 'main' },
+    { label: '全民拼豆 主线', dir: 'tools/competitors/全民拼豆/levels/main', kind: 'main' },
+    { label: '欢乐拼豆  跟全民拼豆重复 主线', dir: 'tools/competitors/欢乐拼豆  跟全民拼豆重复/levels/main', kind: 'main' },
     { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
     { label: '拼豆解解压 Daily', dir: 'tools/competitors/拼豆解解压/levels/daily', kind: 'main' },
+    { label: '拼豆达人赛 主线', dir: 'tools/competitors/拼豆达人赛/levels/main', kind: 'main' },
+    { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
     { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
 ];
 const PRESET_LEVEL_DIR_KEYS = PRESET_LEVEL_DIR_ITEMS.map(item => makeLevelDirKey(item.dir, item.kind));

@@ -59,8 +59,9 @@ export class GameplaySessionController {
                 entryMode: gameplayEntryMode,
                 configuredTimeLimit: data.timeLimit,
             });
-            runtime._currentLevelUnlimitedTime = resolvedTimeLimit <= 0;
-            runtime.timeRemain = resolvedTimeLimit;
+            const dynamicTimeLimit = runtime.resolveDynamicCountdownTimeLimit(resolvedTimeLimit, resolvedLevelId, gameplayEntryMode);
+            runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
+            runtime.timeRemain = dynamicTimeLimit;
             runtime.isGameEnd = false;
             runtime.isSelected = false;
             runtime.currentBlock = null;

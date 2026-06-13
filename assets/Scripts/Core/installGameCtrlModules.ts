@@ -2,6 +2,7 @@ import { installAssetBootstrapModule } from './GameCtrlModules/AssetBootstrapMod
 import { installBoardInputViewportModule } from './GameCtrlModules/BoardInputViewportModule';
 import { installGameplayLevelFlowModule } from './GameCtrlModules/GameplayLevelFlowModule';
 import { installGameplayPlacementFxModule } from './GameCtrlModules/GameplayPlacementFxModule';
+import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
 import { installGameplaySkillMagnetModule } from './GameCtrlModules/GameplaySkillMagnetModule';
 import { installFirstLevelRouteModule } from './GameCtrlModules/FirstLevelRouteModule';
 import { installHomeCommerceModule } from './GameCtrlModules/HomeCommerceModule';
@@ -35,6 +36,7 @@ export function installGameCtrlModules(runtime: any): void {
     installGameplaySlotSkillModule(runtime);
     installGameplaySkillWandModule(runtime);
     installGameplaySkillMagnetModule(runtime);
+    installDynamicCountdownDdaModule(runtime);
     installBoardInputViewportModule(runtime);
     installGameplayPlacementFxModule(runtime);
     installEndgameHintModule(runtime);

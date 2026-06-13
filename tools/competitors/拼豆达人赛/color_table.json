@@ -1,0 +1,565 @@
+{
+  "sourceGame": "拼豆达人赛",
+  "sourceColorCount": 31,
+  "sourceColorIds": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "p",
+    "q",
+    "t",
+    "m",
+    "s",
+    "o",
+    "r",
+    "n",
+    "u",
+    "l"
+  ],
+  "localColorCount": 20,
+  "localColors": {
+    "1": {
+      "hex": "#ED5090",
+      "rgb": [
+        237,
+        80,
+        144
+      ]
+    },
+    "2": {
+      "hex": "#4EEAEA",
+      "rgb": [
+        78,
+        234,
+        234
+      ]
+    },
+    "3": {
+      "hex": "#F8C811",
+      "rgb": [
+        248,
+        200,
+        17
+      ]
+    },
+    "4": {
+      "hex": "#FE8B10",
+      "rgb": [
+        254,
+        139,
+        16
+      ]
+    },
+    "5": {
+      "hex": "#F4BD9E",
+      "rgb": [
+        244,
+        189,
+        158
+      ]
+    },
+    "6": {
+      "hex": "#EBDEA6",
+      "rgb": [
+        235,
+        222,
+        166
+      ]
+    },
+    "7": {
+      "hex": "#4A4DCF",
+      "rgb": [
+        74,
+        77,
+        207
+      ]
+    },
+    "8": {
+      "hex": "#7221BC",
+      "rgb": [
+        114,
+        33,
+        188
+      ]
+    },
+    "9": {
+      "hex": "#9FCE21",
+      "rgb": [
+        159,
+        206,
+        33
+      ]
+    },
+    "10": {
+      "hex": "#EA281A",
+      "rgb": [
+        234,
+        40,
+        26
+      ]
+    },
+    "11": {
+      "hex": "#37A92D",
+      "rgb": [
+        55,
+        169,
+        45
+      ]
+    },
+    "12": {
+      "hex": "#207955",
+      "rgb": [
+        32,
+        121,
+        85
+      ]
+    },
+    "13": {
+      "hex": "#20A8DC",
+      "rgb": [
+        32,
+        168,
+        220
+      ]
+    },
+    "14": {
+      "hex": "#EEB2BC",
+      "rgb": [
+        238,
+        178,
+        188
+      ]
+    },
+    "15": {
+      "hex": "#C4BED9",
+      "rgb": [
+        196,
+        190,
+        217
+      ]
+    },
+    "16": {
+      "hex": "#974714",
+      "rgb": [
+        151,
+        71,
+        20
+      ]
+    },
+    "17": {
+      "hex": "#782F3C",
+      "rgb": [
+        120,
+        47,
+        60
+      ]
+    },
+    "18": {
+      "hex": "#36387E",
+      "rgb": [
+        54,
+        56,
+        126
+      ]
+    },
+    "19": {
+      "hex": "#373737",
+      "rgb": [
+        55,
+        55,
+        55
+      ]
+    },
+    "20": {
+      "hex": "#F2EDE4",
+      "rgb": [
+        242,
+        237,
+        228
+      ]
+    }
+  },
+  "sourceColors": {
+    "0": {
+      "sourceColorId": "0",
+      "sourceHex": "#37A92C",
+      "sourceRgb": [
+        55,
+        169,
+        44
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "unresolved": false,
+      "note": null
+    },
+    "1": {
+      "sourceColorId": "1",
+      "sourceHex": "#F3BD9E",
+      "sourceRgb": [
+        243,
+        189,
+        158
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "unresolved": false,
+      "note": null
+    },
+    "2": {
+      "sourceColorId": "2",
+      "sourceHex": "#373737",
+      "sourceRgb": [
+        55,
+        55,
+        55
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "unresolved": false,
+      "note": null
+    },
+    "3": {
+      "sourceColorId": "3",
+      "sourceHex": "#494CCF",
+      "sourceRgb": [
+        73,
+        76,
+        207
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "unresolved": false,
+      "note": null
+    },
+    "4": {
+      "sourceColorId": "4",
+      "sourceHex": "#4DEAEA",
+      "sourceRgb": [
+        77,
+        234,
+        234
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "unresolved": false,
+      "note": null
+    },
+    "5": {
+      "sourceColorId": "5",
+      "sourceHex": "#954613",
+      "sourceRgb": [
+        149,
+        70,
+        19
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "unresolved": false,
+      "note": null
+    },
+    "6": {
+      "sourceColorId": "6",
+      "sourceHex": "#792E3C",
+      "sourceRgb": [
+        121,
+        46,
+        60
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "unresolved": false,
+      "note": null
+    },
+    "7": {
+      "sourceColorId": "7",
+      "sourceHex": "#36387D",
+      "sourceRgb": [
+        54,
+        56,
+        125
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "unresolved": false,
+      "note": null
+    },
+    "8": {
+      "sourceColorId": "8",
+      "sourceHex": "#207855",
+      "sourceRgb": [
+        32,
+        120,
+        85
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "unresolved": false,
+      "note": null
+    },
+    "9": {
+      "sourceColorId": "9",
+      "sourceHex": "#9ECF20",
+      "sourceRgb": [
+        158,
+        207,
+        32
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "unresolved": false,
+      "note": null
+    },
+    "a": {
+      "sourceColorId": "a",
+      "sourceHex": "#8B8B8B",
+      "sourceRgb": [
+        139,
+        139,
+        139
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "unresolved": false,
+      "note": null
+    },
+    "b": {
+      "sourceColorId": "b",
+      "sourceHex": "#C4BED9",
+      "sourceRgb": [
+        196,
+        190,
+        217
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "unresolved": false,
+      "note": null
+    },
+    "c": {
+      "sourceColorId": "c",
+      "sourceHex": "#20A8DB",
+      "sourceRgb": [
+        32,
+        168,
+        219
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "unresolved": false,
+      "note": null
+    },
+    "d": {
+      "sourceColorId": "d",
+      "sourceHex": "#FF8B10",
+      "sourceRgb": [
+        255,
+        139,
+        16
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "unresolved": false,
+      "note": null
+    },
+    "e": {
+      "sourceColorId": "e",
+      "sourceHex": "#EEB3BB",
+      "sourceRgb": [
+        238,
+        179,
+        187
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "unresolved": false,
+      "note": null
+    },
+    "f": {
+      "sourceColorId": "f",
+      "sourceHex": "#EE5091",
+      "sourceRgb": [
+        238,
+        80,
+        145
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "unresolved": false,
+      "note": null
+    },
+    "g": {
+      "sourceColorId": "g",
+      "sourceHex": "#EB2818",
+      "sourceRgb": [
+        235,
+        40,
+        24
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "unresolved": false,
+      "note": null
+    },
+    "h": {
+      "sourceColorId": "h",
+      "sourceHex": "#7220BD",
+      "sourceRgb": [
+        114,
+        32,
+        189
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "unresolved": false,
+      "note": null
+    },
+    "i": {
+      "sourceColorId": "i",
+      "sourceHex": "#F3ECE3",
+      "sourceRgb": [
+        243,
+        236,
+        227
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "unresolved": false,
+      "note": null
+    },
+    "j": {
+      "sourceColorId": "j",
+      "sourceHex": "#EBDFA6",
+      "sourceRgb": [
+        235,
+        223,
+        166
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "unresolved": false,
+      "note": null
+    },
+    "k": {
+      "sourceColorId": "k",
+      "sourceHex": "#FAC711",
+      "sourceRgb": [
+        250,
+        199,
+        17
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "unresolved": false,
+      "note": null
+    },
+    "p": {
+      "sourceColorId": "p",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "q": {
+      "sourceColorId": "q",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "t": {
+      "sourceColorId": "t",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "m": {
+      "sourceColorId": "m",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "s": {
+      "sourceColorId": "s",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "o": {
+      "sourceColorId": "o",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "r": {
+      "sourceColorId": "r",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "n": {
+      "sourceColorId": "n",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "u": {
+      "sourceColorId": "u",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    },
+    "l": {
+      "sourceColorId": "l",
+      "sourceHex": null,
+      "sourceRgb": null,
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "unresolved": true,
+      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    }
+  }
+}

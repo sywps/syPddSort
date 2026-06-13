@@ -635,6 +635,7 @@ export class GameplaySlotUiController {
         runtime.pauseTimerForProp();
         if (this.getCurrentSlotUnlockMode() === 'free') {
             this.unlockSlotRow();
+            runtime.markDynamicCountdownAssisted();
             runtime.resumeTimerForProp();
             sys.localStorage.setItem(LS_EXPAND_USED, '1');
             runtime.showToast('已免费解锁一排暂存槽', 1.2);
@@ -646,6 +647,7 @@ export class GameplaySlotUiController {
             runtime.resumeTimerForProp();
             if (success) {
                 this.unlockSlotRow();
+                runtime.markDynamicCountdownAssisted();
             }
         }, { waitForCloseBeforeComplete: true });
     }

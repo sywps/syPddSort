@@ -1,0 +1,32 @@
+{
+  "sourceGame": "拼豆达人赛",
+  "status": "converted",
+  "levelCount": 2861,
+  "configCount": 2861,
+  "sourceColorIds": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u"
+  ],
+  "warnings": [
+    "Source RGB palette is reused from 拼豆天才 because this package does not expose local color textures in the extracted OUTPUT shell."
+  ]
+}

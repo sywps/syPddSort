@@ -216,6 +216,7 @@ export function installSettlementHudModule(target: any): void {
 
         showLosePanel() {
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
+            this.recordDynamicCountdownFinalFail();
             this.updateLoseProgressLabel();
             if (this.panelLose) {
                 this.panelLose.active = true;
@@ -279,6 +280,7 @@ export function installSettlementHudModule(target: any): void {
             AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage());
             const logicalLevelId = this.getActiveLogicalLevelId();
             SySDKMgr.inst.reportLevelPass(logicalLevelId);
+            this.recordDynamicCountdownWin();
             if (this._isThemeLevel) {
                 this.setThemeCompleted(this._currentThemeLevelId || this.levelData.levelId);
             } else {
@@ -426,6 +428,8 @@ export function installSettlementHudModule(target: any): void {
 
         /** 看广告后继续游戏：恢复交互，但计时器需等重新选中豆豆后再开始 */
         continueAfterLose(addSeconds: number) {
+            this.undoDynamicCountdownRecordedFail();
+            this.markDynamicCountdownAssisted();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             if (this.panelLose) this.panelLose.active = false;
             this.timeRemain += addSeconds;

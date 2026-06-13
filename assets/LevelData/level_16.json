@@ -1,7 +1,7 @@
 {
   "boardWidth": 13,
   "boardHeight": 14,
-  "timeLimit": 0,
+  "timeLimit": 270,
   "slotTotalCount": 0,
   "correctColorArr": [
     [
