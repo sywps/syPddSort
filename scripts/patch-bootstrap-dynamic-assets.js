@@ -22,8 +22,10 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/popup_tool_wand_icon',
 	'GameUI/popup_tool_brush_icon',
 	'GameUI/popup_tool_magnet_icon',
+	'GameUI/progress_fill',
 	'GameUI/solid_white',
 	'GameUI/设置',
+	'GameUI/进度条',
 ]);
 
 function fail(message) {

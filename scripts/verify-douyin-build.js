@@ -128,7 +128,7 @@ function assertRuntimeScenes(runtimeRoot, gameJson) {
     const mainRoot = findSubpackageRoot(gameJson, 'main');
     const mainDir = mainRoot ? path.join(runtimeRoot, mainRoot) : path.join(runtimeRoot, 'assets', 'main');
     const scenes = getConfigScenes(mainDir);
-    for (const sceneUrl of ['db://assets/Scenes/Loading.scene', 'db://assets/Scenes/Game.scene']) {
+    for (const sceneUrl of ['db://assets/Scenes/Boot.scene', 'db://assets/Scenes/Game.scene']) {
         if (!Object.prototype.hasOwnProperty.call(scenes, sceneUrl)) {
             fail('抖音 main bundle 缺少运行态场景: ' + sceneUrl);
         }

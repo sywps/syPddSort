@@ -187,6 +187,8 @@ for (const required of [
     'subMetas',
     'native',
     'configEntries',
+    'GameUI/progress_fill',
+    'GameUI/进度条',
 ]) {
     assert.ok(patchBootstrapAssets.includes(required), `patch-bootstrap-dynamic-assets.js must include ${required}`);
 }
@@ -243,6 +245,7 @@ for (const required of [
     'DOUYIN_CLEAN_COCOS_CACHE',
     'remote_douyin/levels/',
     'validateLevelDataCdn',
+    'db://assets/Scenes/Boot.scene',
     'zt_level_',
     'collectSourceLevelDataEntries',
     'levelCounts.',
@@ -250,6 +253,7 @@ for (const required of [
 ]) {
     assert.ok(buildDouyin.includes(required), `build-douyin.js must include ${required}`);
 }
+assert.strictEqual(buildDouyin.includes('db://assets/Scenes/Loading.scene'), false, 'build-douyin.js must use Boot.scene instead of the deleted Loading.scene');
 const douyinBuildConfig = read('scripts/write-douyin-build-config.js');
 for (const required of [
     'platform: \'bytedance-mini-game\'',
@@ -278,6 +282,7 @@ for (const required of [
     'settings.assets.subpackages 缺少 \' + bundleName',
     '__PDD_LEVEL_DATA_CDN_URL__',
     'checkScene',
+    'db://assets/Scenes/Boot.scene',
     'navigateToScene',
     '抖音主包超过 4MB 硬限制',
     '抖音总包超过 20MB 硬限制',
@@ -291,6 +296,7 @@ for (const required of [
 ]) {
     assert.ok(verifyDouyinBuild.includes(required), `verify-douyin-build.js must include ${required}`);
 }
+assert.strictEqual(verifyDouyinBuild.includes('db://assets/Scenes/Loading.scene'), false, 'verify-douyin-build.js must validate Boot.scene instead of the deleted Loading.scene');
 const verifyBundleNativeFiles = read('scripts/verify-bundle-native-files.js');
 for (const required of [
     'decodeUuid',
