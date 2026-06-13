@@ -39,6 +39,8 @@ const CODE_OWNED_DYNAMIC_UI_FILES = new Set([
     'assets/Scripts/Core/GameCtrlState.ts',
     'assets/Scripts/Core/GameSceneRuntimeController.ts',
     'assets/Scripts/Core/GameplayBoardOutlineRenderer.ts',
+    'assets/Scripts/Core/HomeIconSparkleFx.ts',
+    'assets/Scripts/Core/SceneTransitionController.ts',
     'assets/Scripts/Core/GameplayViewController.ts',
     'assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts',
     'assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts',

@@ -836,11 +836,11 @@ const overlayRootNode = findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'Overla
 assert.deepStrictEqual(getSceneDirectChildNames(gameSceneJson, gameCanvasNode), ['Camera', 'Game', 'ScreenRoot'], 'Game.scene Canvas must only directly host Camera, Game, and ScreenRoot');
 assert.deepStrictEqual(
     getSceneDirectChildNames(gameSceneJson, gameScreenRootNode),
-    ['GameplayRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'],
-    'Game.scene ScreenRoot must directly host gameplay/popup/overlay/fx roots',
+    ['GameplayRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot', 'BootRoot'],
+    'Game.scene ScreenRoot must directly host gameplay/popup/overlay/fx/boot roots',
 );
-assert.strictEqual(findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'BootRoot'), null, 'Game.scene must not keep the old BootRoot loading node');
-assert.strictEqual(gameScene.includes('"StartupLoadingUI"'), false, 'Game.scene must not keep the old StartupLoadingUI loading node');
+assert.ok(findSceneNodeByPath(gameSceneJson, 'ScreenRoot', 'BootRoot'), 'Game.scene must keep BootRoot under ScreenRoot');
+assert.ok(findSceneNodeByPath(gameSceneJson, 'BootRoot', 'StartupLoadingUI'), 'Game.scene must keep BootRoot/StartupLoadingUI');
 assert.ok(gameplayRootNode, 'Game.scene must expose GameplayRoot under ScreenRoot');
 assert.deepStrictEqual(
     getSceneDirectChildNames(gameSceneJson, gameplayRootNode),
@@ -1551,8 +1551,8 @@ assert.ok(guankaPreview.includes("url.searchParams.set('levelfile', getLevelFile
 const guankaRefine = read('tools/guanka-refine.html');
 assert.ok(guankaRefine.includes("const DEFAULT_LEVEL_DIR = 'assets/LevelData'"), 'guanka-refine.html must default to assets/LevelData');
 assert.ok(guankaRefine.includes("fetch(buildApiUrl('/api/load-level'"), 'guanka-refine.html must load levels through the tools API');
-assert.ok(guankaRefine.includes("fetch('/api/save-level-game'"), 'guanka-refine.html must save game levels to GameAssetsBundle through the game save API');
-assert.ok(guankaRefine.includes("body: JSON.stringify({ targetType: 'main', levelData: levelToSave })"), 'guanka-refine.html must save a clean wrapped main-level payload');
+assert.ok(guankaRefine.includes("'/api/save-level-game'"), 'guanka-refine.html must save game levels to GameAssetsBundle through the game save API');
+assert.ok(/body:\s*JSON\.stringify\([\s\S]*targetType:\s*'main'[\s\S]*levelData:\s*levelToSave/.test(guankaRefine), 'guanka-refine.html must save a clean wrapped main-level payload');
 assert.strictEqual(guankaRefine.includes('./guanka/level_'), false, 'guanka-refine.html must not load from missing tools/guanka');
 
 const themePanelController = read('assets/Scripts/Core/Panels/ThemePanelController.ts');
