@@ -940,7 +940,8 @@ assert.ok(gameplaySkillUiController.includes('adPlayIcon.active = showWhenZero')
 assert.strictEqual(gameplaySkillUiController.includes("count <= 0 ? '+'"), false, 'Gameplay skill zero count must not render a plus/count badge');
 assert.strictEqual(gameCtrl.includes("getSF('设置') || this.runtime.getSF('home_settings')"), false, 'Gameplay top bar settings icon must stay scene-authored');
 assert.ok(gameCtrl.includes("const names: string[] = ['设置', ...GAMEPLAY_SLOT_TEXTURE_NAMES];"), 'Gameplay critical texture preload must include Bootstrap settings icon');
-assert.ok(gameCtrlShared.includes("LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_SLOT_TEXTURE_NAMES, ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES])"), 'Bootstrap settings, mainline slot shells, timer, unlock button, and skill buttons must always load from BootstrapBundle');
+assert.ok(gameCtrlShared.includes("MAINLINE_SETTLEMENT_PROGRESS_TEXTURE_NAMES = ['进度条', 'progress_fill']"), 'Settlement progress textures must be declared as Bootstrap startup assets');
+assert.ok(gameCtrlShared.includes("LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_SLOT_TEXTURE_NAMES, ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES, ...MAINLINE_SETTLEMENT_PROGRESS_TEXTURE_NAMES])"), 'Bootstrap settings, mainline slot shells, timer, unlock button, skill buttons, and settlement progress textures must always load from BootstrapBundle');
 assert.strictEqual(gameCtrl.includes('ensureTimerWrapFrame'), false, 'Gameplay timer frame must stay scene-authored');
 assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on ${path}'), 'Gameplay top-bar scene SpriteFrames must fail fast when missing');
 assert.ok(gameCtrl.includes('Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn'), 'Slot unlock button must fail fast when scene-authored SpriteFrame is missing');
@@ -1066,7 +1067,9 @@ assert.ok(gameCtrl.includes('params.get(\'debug\') === \'1\' || params.get(\'log
 assert.ok(gameCtrl.includes('ResolutionPolicy.FIXED_WIDTH'), 'scene runtime must use fixed-width resolution policy');
 assert.strictEqual(gameCtrl.includes('ResolutionPolicy.SHOW_ALL'), false, 'Home/Game must not split into different resolution policies');
 assert.ok(gameCtrl.includes("screenRoot?.getChildByName(name) || host.getChildByName(name)"), 'runtime root lookup must prefer ScreenRoot and fall back to Canvas');
-const progressFillMeta = JSON.parse(read('assets/GameAssetsBundle/Textures/UI/progress_fill.png.meta'));
+assert.strictEqual(exists('assets/GameAssetsBundle/Textures/UI/progress_fill.png'), false, 'GameAssetsBundle must not keep progress_fill startup duplicate');
+assert.strictEqual(exists('assets/GameAssetsBundle/Textures/UI/进度条.png'), false, 'GameAssetsBundle must not keep 进度条 startup duplicate');
+const progressFillMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/progress_fill.png.meta'));
 const progressFillLeftCap = progressFillMeta.subMetas.f9941.userData.borderLeft;
 const progressFillRightCap = progressFillMeta.subMetas.f9941.userData.borderRight;
 assert.ok(progressFillLeftCap > 0 && progressFillRightCap > 0, 'progress_fill cap insets must protect rounded ends');
