@@ -15,7 +15,7 @@ const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
 const homeAssetsRoot = path.join(projectDir, 'assets', 'HomeAssetsBundle');
 const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
-const startSceneUrl = 'db://assets/Scenes/Loading.scene';
+const startSceneUrl = 'db://assets/Scenes/Boot.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
 const mainPackageTargetKB = 3072;
 const mainPackageErrorKB = 4096;
@@ -400,7 +400,7 @@ function assertRuntimeScenes(runtimeDir) {
     const mainConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'main', gameJson));
     if (!fs.existsSync(mainConfigPath)) fail('缺少 main bundle 配置: ' + mainConfigPath);
     const mainScenes = readJson(mainConfigPath).scenes || {};
-    for (const sceneUrl of ['db://assets/Scenes/Loading.scene', 'db://assets/Scenes/Game.scene']) {
+    for (const sceneUrl of ['db://assets/Scenes/Boot.scene', 'db://assets/Scenes/Game.scene']) {
         if (!Object.prototype.hasOwnProperty.call(mainScenes, sceneUrl)) {
             fail('微信 main bundle 缺少运行态场景: ' + sceneUrl);
         }

@@ -290,6 +290,7 @@ export function installSettlementHudModule(target: any): void {
                 : this._pendingWinGoldReward * Math.max(0, ECONOMY_NUMERIC_TABLE.adReward.winBonusMultiplier - 1);
             this._winAdRewardClaimed = false;
             this.addGold(this._pendingWinGoldReward);
+            this.ensureGameplayResultPanelsCreated?.();
             this.updateWinRewardLabel(this._pendingWinGoldReward);
         
             const bm = this.boardModel;
@@ -321,6 +322,17 @@ export function installSettlementHudModule(target: any): void {
                         .to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
                         .start();
                 }
+                if (!this.ensureGameplayResultPanelsCreated?.()) {
+                    this._ensureGameplayResultPanelPrefabsReady?.(() => {
+                        if (!this.isValid || !this.isGameEnd) return;
+                        this.ensureGameplayResultPanelsCreated?.();
+                        this.updateWinRewardLabel(this._pendingWinGoldReward);
+                        this.drawWinPatternPreview();
+                        if (this.panelWin) { this.panelWin.active = true; this.panelWin.setSiblingIndex(999); }
+                    });
+                    return;
+                }
+                this.updateWinRewardLabel(this._pendingWinGoldReward);
                 this.drawWinPatternPreview();
                 if (this.panelWin) { this.panelWin.active = true; this.panelWin.setSiblingIndex(999); }
             }, totalAnimTime + 0.18);
@@ -347,17 +359,14 @@ export function installSettlementHudModule(target: any): void {
                 0,
                 maxW,
                 maxH,
-                this.shouldUseMainlineWinSettlementUI()
-                    ? {
-                        drawTargetBackground: true,
-                        beanScale: 0.78,
-                        cropToContent: true,
-                        maxCellSize: 42,
-                    }
-                    : {
-                        cropToContent: true,
-                        maxCellSize: 42,
-                    },
+                {
+                    drawTargetBackground: true,
+                    beanScale: PINDD_BEAN_TO_SLOT_RATIO,
+                    cropToContent: true,
+                    maxCellSize: Math.max(maxW, maxH),
+                    lockedBeans: true,
+                    cellGap: 0,
+                },
             );
         },
 
@@ -372,14 +381,25 @@ export function installSettlementHudModule(target: any): void {
             AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage());
             SySDKMgr.inst.reportLevelFail(this.getAnalyticsLevelId());
             AudioMgr.inst.play('lose');
-            this.updateLoseProgressLabel();
-            if (this.panelTimeoutContinue) {
-                this.panelTimeoutContinue.active = true;
-                this.panelTimeoutContinue.setSiblingIndex(999);
-                if (this.panelLose) this.panelLose.active = false;
+            const showLoseResult = () => {
+                this.updateLoseProgressLabel();
+                if (this.panelTimeoutContinue) {
+                    this.panelTimeoutContinue.active = true;
+                    this.panelTimeoutContinue.setSiblingIndex(999);
+                    if (this.panelLose) this.panelLose.active = false;
+                    return;
+                }
+                this.showLosePanel();
+            };
+            if (!this.ensureGameplayResultPanelsCreated?.()) {
+                this._ensureGameplayResultPanelPrefabsReady?.(() => {
+                    if (!this.isValid || !this.isGameEnd) return;
+                    this.ensureGameplayResultPanelsCreated?.();
+                    showLoseResult();
+                });
                 return;
             }
-            this.showLosePanel();
+            showLoseResult();
         },
 
         restart() {

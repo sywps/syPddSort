@@ -519,6 +519,7 @@ export function installPlayerMetaStateModule(target: any): void {
                             const nameLabel = syncPlayerMetaLabelNode(card, 'RewardNameLabel', item.labelText, 18, new Color('#8A7A6A'), 160, 24, 0, -80);
                             nameLabel.overflow = Label.Overflow.SHRINK;
                         }
+                        this.playPopupOpenAnim?.(overlay, box);
                     } catch (error: any) {
                         failOpen(error?.message || '[reward-result-prefab] build failed', overlay);
                     }
@@ -720,6 +721,7 @@ export function installPlayerMetaStateModule(target: any): void {
                                 }, this);
 
                                 this._noLivesModal = modal;
+                                this.playPopupOpenAnim?.(modal, box);
                             } catch (error: any) {
                                 failOpen(error?.message || '[recover-vigor-prefab] build failed', modal);
                             }

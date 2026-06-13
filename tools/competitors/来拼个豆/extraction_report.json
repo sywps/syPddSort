@@ -1,0 +1,45 @@
+{
+  "sourceGame": "来拼个豆",
+  "sourcePackage": "C:/Users/EDY/workspaces/来拼个豆",
+  "status": "remote_manifest_not_located",
+  "localPackageType": "Unity WebGL WeChat mini game",
+  "localFindings": {
+    "dataPackage": "OUTPUT/data-package/4faee22b2005a1fa.webgl.data.unityweb.bin.br",
+    "unityWebData": "temp/output/competitor_analysis/来拼个豆/unity_webdata/data.unity3d",
+    "textAssets": [
+      {
+        "name": "BootstrapConfig",
+        "path": "temp/output/competitor_analysis/来拼个豆/unity_export/text_assets/BootstrapConfig_28.json",
+        "content": {
+          "CDN": "https://dixin-cdn.feigo.fun",
+          "Folder": "tanji/wx1.0.4"
+        }
+      }
+    ],
+    "businessClassNamesFound": [
+      "LocalLevelData",
+      "LocalLevelModule",
+      "bead",
+      "beadTb",
+      "copy",
+      "copyTb",
+      "globalTb",
+      "guideTb",
+      "itemTb",
+      "GameConfig",
+      "TableData"
+    ]
+  },
+  "probes": [
+    "temp/output/competitor_analysis/来拼个豆/cdn_probe/probe_results.json",
+    "temp/output/competitor_analysis/来拼个豆/cdn_probe_yoo/probe_results.json",
+    "temp/output/competitor_analysis/来拼个豆/cdn_probe_streamingassets/probe_results.json"
+  ],
+  "probeResult": "No direct .version/.hash/.bytes/.json manifest URL was found from common YooAsset, yoo, StreamingAssets, BuildinCatalog, or version-directory patterns.",
+  "levels": {
+    "convertedCount": 0,
+    "toolsDir": "tools/competitors/来拼个豆/levels/main",
+    "reason": "The local package only exposes the BootstrapConfig CDN/folder and runtime class names. Actual level tables appear to be loaded from a remote AssetBundle or runtime-resolved manifest that needs a network capture from the mini game session."
+  },
+  "nextStep": "Run the mini game in WeChat DevTools or a proxy session and capture requests containing yoo, .version, .bytes, .bundle, PackageManifest, beadTb, copyTb, or table assets under https://dixin-cdn.feigo.fun."
+}

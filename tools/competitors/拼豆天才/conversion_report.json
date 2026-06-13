@@ -1,0 +1,14 @@
+{
+  "sourceGame": "拼豆天才",
+  "baseUrl": "https://pd-cdn.xyx.mmhygame.com/pdz/remotelevel/level/level",
+  "tableRows": 1615,
+  "downloaded": 1615,
+  "reused": 0,
+  "converted": 1615,
+  "failed": [],
+  "output": {
+    "rawDir": "temp/output/competitor_analysis/拼豆天才/raw_levels/main",
+    "convertedDir": "temp/output/competitor_analysis/拼豆天才/converted/official20/main",
+    "toolsMainDir": "tools/competitors/拼豆天才/levels/main"
+  }
+}

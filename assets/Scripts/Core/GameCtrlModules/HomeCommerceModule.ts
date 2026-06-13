@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
-    EventMouse, Vec2, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, Layers, view, ResolutionPolicy, sys, UIOpacity,
+    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
+    Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -29,6 +29,8 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
+import { ensureHomeIconSparkleFx } from '../HomeIconSparkleFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
 
 export function installHomeCommerceModule(target: any): void {
@@ -51,6 +53,38 @@ export function installHomeCommerceModule(target: any): void {
             }
             node.targetOff(this);
             node.on(Button.EventType.CLICK, handler, this);
+        },
+
+        playPopupOpenAnim(overlay: Node, box?: Node | null) {
+            if (!overlay?.isValid) return;
+            const target = box?.isValid ? box : (overlay.getChildByName('Box') || overlay);
+            if (!target?.isValid) return;
+
+            const baseScale = target.scale.clone();
+            const targetOpacity = target.getComponent(UIOpacity) || target.addComponent(UIOpacity);
+            Tween.stopAllByTarget(target);
+            Tween.stopAllByTarget(targetOpacity);
+            target.setScale(baseScale.x * 0.86, baseScale.y * 0.86, baseScale.z);
+            targetOpacity.opacity = 0;
+
+            const shade = overlay.getChildByName('Shade');
+            if (shade?.isValid) {
+                const shadeOpacity = shade.getComponent(UIOpacity) || shade.addComponent(UIOpacity);
+                const finalOpacity = Math.max(0, Math.min(255, shadeOpacity.opacity || 255));
+                Tween.stopAllByTarget(shadeOpacity);
+                shadeOpacity.opacity = 0;
+                tween(shadeOpacity)
+                    .to(0.155, { opacity: finalOpacity }, { easing: 'linear' })
+                    .start();
+            }
+
+            tween(targetOpacity)
+                .to(0.08, { opacity: 255 }, { easing: 'sineOut' })
+                .start();
+            tween(target)
+                .to(0.24, { scale: new Vec3(baseScale.x * 1.045, baseScale.y * 1.045, baseScale.z) }, { easing: 'sineOut' })
+                .to(0.16, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) }, { easing: 'sineOut' })
+                .start();
         },
 
         fillPanelAnchorLabel(
@@ -210,7 +244,8 @@ export function installHomeCommerceModule(target: any): void {
                 this.openDailySignInPanel();
             }, this);
         
-            this.startHomeSceneScalePulse(btn, 1.045, 0.9);
+            ensureHomeIconIdleWiggle(iconNode);
+            ensureHomeIconSparkleFx(iconNode);
         },
     });
 }

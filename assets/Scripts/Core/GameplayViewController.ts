@@ -403,9 +403,7 @@ export class GameplayViewController {
         this.prepareDragLayer(dragRoot);
 
         runtime.destroyGameplayResultOverlays();
-        runtime.panelWin = runtime.createWinSettlementPanel();
-        runtime.panelLose = runtime.createLoseSettlementPanel();
-        runtime.panelTimeoutContinue = runtime.createReviveSettlementPanel();
+        runtime.ensureGameplayResultPanelsCreated?.();
 
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_START, runtime.onTouchStart, runtime);
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_MOVE, runtime.onTouchMove, runtime);

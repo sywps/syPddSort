@@ -1,0 +1,254 @@
+{
+  "0": {
+    "sourceColorId": "0",
+    "sourceHex": "#37A92C",
+    "sourceRgb": [
+      55,
+      169,
+      44
+    ],
+    "localColorId": 11,
+    "localHex": "#37A92D",
+    "distance": 1.0
+  },
+  "1": {
+    "sourceColorId": "1",
+    "sourceHex": "#F3BD9E",
+    "sourceRgb": [
+      243,
+      189,
+      158
+    ],
+    "localColorId": 5,
+    "localHex": "#F4BD9E",
+    "distance": 1.0
+  },
+  "2": {
+    "sourceColorId": "2",
+    "sourceHex": "#373737",
+    "sourceRgb": [
+      55,
+      55,
+      55
+    ],
+    "localColorId": 19,
+    "localHex": "#373737",
+    "distance": 0.0
+  },
+  "3": {
+    "sourceColorId": "3",
+    "sourceHex": "#494CCF",
+    "sourceRgb": [
+      73,
+      76,
+      207
+    ],
+    "localColorId": 7,
+    "localHex": "#4A4DCF",
+    "distance": 1.414
+  },
+  "4": {
+    "sourceColorId": "4",
+    "sourceHex": "#4DEAEA",
+    "sourceRgb": [
+      77,
+      234,
+      234
+    ],
+    "localColorId": 2,
+    "localHex": "#4EEAEA",
+    "distance": 1.0
+  },
+  "5": {
+    "sourceColorId": "5",
+    "sourceHex": "#954613",
+    "sourceRgb": [
+      149,
+      70,
+      19
+    ],
+    "localColorId": 16,
+    "localHex": "#974714",
+    "distance": 2.449
+  },
+  "6": {
+    "sourceColorId": "6",
+    "sourceHex": "#792E3C",
+    "sourceRgb": [
+      121,
+      46,
+      60
+    ],
+    "localColorId": 17,
+    "localHex": "#782F3C",
+    "distance": 1.414
+  },
+  "7": {
+    "sourceColorId": "7",
+    "sourceHex": "#36387D",
+    "sourceRgb": [
+      54,
+      56,
+      125
+    ],
+    "localColorId": 18,
+    "localHex": "#36387E",
+    "distance": 1.0
+  },
+  "8": {
+    "sourceColorId": "8",
+    "sourceHex": "#207855",
+    "sourceRgb": [
+      32,
+      120,
+      85
+    ],
+    "localColorId": 12,
+    "localHex": "#207955",
+    "distance": 1.0
+  },
+  "9": {
+    "sourceColorId": "9",
+    "sourceHex": "#9ECF20",
+    "sourceRgb": [
+      158,
+      207,
+      32
+    ],
+    "localColorId": 9,
+    "localHex": "#9FCE21",
+    "distance": 1.732
+  },
+  "a": {
+    "sourceColorId": "a",
+    "sourceHex": "#8B8B8B",
+    "sourceRgb": [
+      139,
+      139,
+      139
+    ],
+    "localColorId": 15,
+    "localHex": "#C4BED9",
+    "distance": 109.243
+  },
+  "b": {
+    "sourceColorId": "b",
+    "sourceHex": "#C4BED9",
+    "sourceRgb": [
+      196,
+      190,
+      217
+    ],
+    "localColorId": 15,
+    "localHex": "#C4BED9",
+    "distance": 0.0
+  },
+  "c": {
+    "sourceColorId": "c",
+    "sourceHex": "#20A8DB",
+    "sourceRgb": [
+      32,
+      168,
+      219
+    ],
+    "localColorId": 13,
+    "localHex": "#20A8DC",
+    "distance": 1.0
+  },
+  "d": {
+    "sourceColorId": "d",
+    "sourceHex": "#FF8B10",
+    "sourceRgb": [
+      255,
+      139,
+      16
+    ],
+    "localColorId": 4,
+    "localHex": "#FE8B10",
+    "distance": 1.0
+  },
+  "e": {
+    "sourceColorId": "e",
+    "sourceHex": "#EEB3BB",
+    "sourceRgb": [
+      238,
+      179,
+      187
+    ],
+    "localColorId": 14,
+    "localHex": "#EEB2BC",
+    "distance": 1.414
+  },
+  "f": {
+    "sourceColorId": "f",
+    "sourceHex": "#EE5091",
+    "sourceRgb": [
+      238,
+      80,
+      145
+    ],
+    "localColorId": 1,
+    "localHex": "#ED5090",
+    "distance": 1.414
+  },
+  "g": {
+    "sourceColorId": "g",
+    "sourceHex": "#EB2818",
+    "sourceRgb": [
+      235,
+      40,
+      24
+    ],
+    "localColorId": 10,
+    "localHex": "#EA281A",
+    "distance": 2.236
+  },
+  "h": {
+    "sourceColorId": "h",
+    "sourceHex": "#7220BD",
+    "sourceRgb": [
+      114,
+      32,
+      189
+    ],
+    "localColorId": 8,
+    "localHex": "#7221BC",
+    "distance": 1.414
+  },
+  "i": {
+    "sourceColorId": "i",
+    "sourceHex": "#F3ECE3",
+    "sourceRgb": [
+      243,
+      236,
+      227
+    ],
+    "localColorId": 20,
+    "localHex": "#F2EDE4",
+    "distance": 1.732
+  },
+  "j": {
+    "sourceColorId": "j",
+    "sourceHex": "#EBDFA6",
+    "sourceRgb": [
+      235,
+      223,
+      166
+    ],
+    "localColorId": 6,
+    "localHex": "#EBDEA6",
+    "distance": 1.0
+  },
+  "k": {
+    "sourceColorId": "k",
+    "sourceHex": "#FAC711",
+    "sourceRgb": [
+      250,
+      199,
+      17
+    ],
+    "localColorId": 3,
+    "localHex": "#F8C811",
+    "distance": 2.236
+  }
+}

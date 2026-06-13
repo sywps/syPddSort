@@ -8,6 +8,8 @@ type PreviewAction = {
     onClick: () => void;
 };
 
+type PreviewMode = 'ui' | 'panel' | 'fx';
+
 type PreviewSceneConfig = {
     title: string;
     subtitle: string;
@@ -19,22 +21,15 @@ type PreviewSceneConfig = {
 export class PreviewController extends GameRuntimeHost {
     private panelPreviewPage = 0;
     private fxPreviewPage = 0;
+    private previewMode: PreviewMode = 'ui';
 
     start() {
         view.setDesignResolutionSize(720, 1280, ResolutionPolicy.FIXED_WIDTH);
         this.preparePreviewRuntime();
 
         const screenRoot = (this as any).requireCanvasUiRoot('ScreenRoot') as Node;
-        const sceneName = this.getRuntimeSceneName('UIPreview');
-        if (sceneName === 'PanelPreview') {
-            this.renderPanelPreview(screenRoot);
-            return;
-        }
-        if (sceneName === 'FxPreview') {
-            this.renderFxPreview(screenRoot);
-            return;
-        }
-        this.renderUiPreview(screenRoot);
+        this.previewMode = 'ui';
+        this.renderCurrentPreviewMode(screenRoot);
     }
 
     async requestHomeSceneTransition() {
@@ -42,8 +37,7 @@ export class PreviewController extends GameRuntimeHost {
     }
 
     showMainMenu() {
-        const currentScene = this.getRuntimeSceneName('UIPreview');
-        void director.loadScene(currentScene === 'PanelPreview' ? 'PanelPreview' : 'UIPreview');
+        this.switchPreviewMode('ui');
     }
 
     showTrackedRewardedAd(_tag: string, onDone: (success: boolean) => void) {
@@ -70,14 +64,41 @@ export class PreviewController extends GameRuntimeHost {
         if (node) node.active = false;
     }
 
+    private renderCurrentPreviewMode(root: Node) {
+        if (this.previewMode === 'panel') {
+            this.renderPanelPreview(root);
+            return;
+        }
+        if (this.previewMode === 'fx') {
+            this.renderFxPreview(root);
+            return;
+        }
+        this.renderUiPreview(root);
+    }
+
+    private switchPreviewMode(mode: PreviewMode) {
+        const root = (this as any).requireCanvasUiRoot('ScreenRoot') as Node;
+        this.previewMode = mode;
+        this.clearPreviewTransientState();
+        this.renderCurrentPreviewMode(root);
+    }
+
+    private clearPreviewTransientState() {
+        const runtime = this as any;
+        this.unscheduleAllCallbacks();
+        runtime.hideLoadingOverlay?.();
+        this.clearPreviewPopups();
+    }
+
     private renderUiPreview(root: Node) {
+        this.previewMode = 'ui';
         this.renderPreviewShell(root, {
             title: 'UI Preview',
             subtitle: '把预览入口从真流程里拆出来，后续调 panel / 动效都从这里进。',
             footnote: 'UIPreview 现在承担统一入口；Panel/Fx 预览不再必须从首页或真打一局进入。',
             actions: [
-                { label: '打开 Panel Preview', onClick: () => { void director.loadScene('PanelPreview'); } },
-                { label: '打开 Fx Preview', onClick: () => { void director.loadScene('FxPreview'); } },
+                { label: '打开 Panel Preview', onClick: () => this.switchPreviewMode('panel') },
+                { label: '打开 Fx Preview', onClick: () => this.switchPreviewMode('fx') },
                 { label: '进入 Home.scene', onClick: () => { this.loadHomePreviewScene(); } },
                 { label: '进入 Game.scene', onClick: () => { void director.loadScene('Game'); } },
             ],
@@ -85,6 +106,7 @@ export class PreviewController extends GameRuntimeHost {
     }
 
     private renderPanelPreview(root: Node) {
+        this.previewMode = 'panel';
         const pages: PreviewAction[][] = [
             [
                 { label: '设置面板', onClick: () => this.openPanelPreview(() => { (this as any).openSettingsPanel(); }) },
@@ -101,7 +123,7 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '复活结算', onClick: () => this.openResultPanelPreview('revive') },
             ],
             [
-                { label: '返回 UIPreview', onClick: () => { void director.loadScene('UIPreview'); } },
+                { label: '返回 UIPreview', onClick: () => this.switchPreviewMode('ui') },
             ],
         ];
         const page = this.clampPreviewPage(this.panelPreviewPage, pages.length);
@@ -109,7 +131,7 @@ export class PreviewController extends GameRuntimeHost {
         this.renderPreviewShell(root, {
             title: 'Panel Preview',
             subtitle: `第 ${page + 1}/${pages.length} 页：直接拉起 prefab 面板，验证节点绑定和关闭路径。`,
-            footnote: 'PanelPreview 使用真实 prefab 与真实关闭逻辑；广告入口在 preview 模式下会被跳过。',
+            footnote: 'Panel Preview 模式使用真实 prefab 与真实关闭逻辑；广告入口在 preview 模式下会被跳过。',
             actions: this.withPreviewPager(root, pages, page, 'panel'),
         });
     }
@@ -131,17 +153,18 @@ export class PreviewController extends GameRuntimeHost {
     }
 
     private renderFxPreview(root: Node) {
+        this.previewMode = 'fx';
         const pages: PreviewAction[][] = [
             [
                 { label: '播放 Loading', onClick: () => this.playLoadingPreview() },
                 { label: '隐藏 Loading', onClick: () => { (this as any).hideLoadingOverlay?.(); } },
                 { label: '显示 Toast', onClick: () => { (this as any).showToast?.('Preview Toast 正常触发', 1.5); } },
                 { label: '计时器 Toast', onClick: () => { (this as any).showToastBelowTimer?.('计时器下方 Toast 预览', 1.5); } },
-                { label: '返回 UIPreview', onClick: () => { void director.loadScene('UIPreview'); } },
+                { label: '返回 UIPreview', onClick: () => this.switchPreviewMode('ui') },
             ],
             [
                 { label: '进入 Game.scene', onClick: () => { void director.loadScene('Game'); } },
-                { label: '返回 UIPreview', onClick: () => { void director.loadScene('UIPreview'); } },
+                { label: '返回 UIPreview', onClick: () => this.switchPreviewMode('ui') },
             ],
         ];
         const page = this.clampPreviewPage(this.fxPreviewPage, pages.length);
@@ -149,7 +172,7 @@ export class PreviewController extends GameRuntimeHost {
         this.renderPreviewShell(root, {
             title: 'Fx Preview',
             subtitle: `第 ${page + 1}/${pages.length} 页：覆盖 Loading / Toast，玩法引导先从 Game.scene 入口验。`,
-            footnote: 'FxPreview 用于本地 Browser smoke；微信或真机验证放在之后。',
+            footnote: 'Fx Preview 模式用于本地 Browser smoke；微信或真机验证放在之后。',
             actions: this.withPreviewPager(root, pages, page, 'fx'),
         });
     }
@@ -207,7 +230,10 @@ export class PreviewController extends GameRuntimeHost {
                 runtime.panelWin = runtime.createWinSettlementPanel();
                 runtime.updateWinRewardLabel?.(80);
                 runtime.refreshWinAdBonusUI?.();
-                this.drawPreviewWinPattern(runtime.panelWin);
+                if (typeof runtime.drawWinPatternPreview !== 'function') {
+                    throw new Error('[panel-preview] missing drawWinPatternPreview');
+                }
+                runtime.drawWinPatternPreview();
                 runtime.panelWin.active = true;
                 return;
             }
@@ -243,22 +269,6 @@ export class PreviewController extends GameRuntimeHost {
             correctColors,
             locked,
         };
-    }
-
-    private drawPreviewWinPattern(panel: Node) {
-        const runtime = this as any;
-        const previewNode = panel
-            .getChildByName('Box')
-            ?.getChildByName('PreviewFrame')
-            ?.getChildByName('PatternPreview');
-        if (!previewNode) {
-            throw new Error('[panel-preview] WinPanel is missing Box/PreviewFrame/PatternPreview');
-        }
-        if (typeof runtime.drawCollectionPixelPreviewOnCard !== 'function') {
-            throw new Error('[panel-preview] missing drawCollectionPixelPreviewOnCard');
-        }
-        previewNode.removeAllChildren();
-        runtime.drawCollectionPixelPreviewOnCard(previewNode, 1, 0, 0, 280, 230);
     }
 
     private playLoadingPreview() {

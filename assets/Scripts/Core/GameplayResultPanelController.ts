@@ -11,6 +11,7 @@ import {
     UIOpacity,
     instantiate,
 } from './GameCtrlShared';
+import { AppRoot } from './AppRoot';
 
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
@@ -28,6 +29,32 @@ export class GameplayResultPanelController {
         return RESULT_PANEL_KINDS.every((kind) => !!this.runtime._gameplayResultPanelPrefabCache.get(kind));
     }
 
+    private ensurePopupSpriteFramesReady(onDone: () => void, onError: (error: Error) => void): void {
+        const runtime = this.runtime;
+        const uniqueNames = Array.from(new Set(POPUP_UI_TEXTURE_NAMES));
+        const missingNames = uniqueNames.filter((name) => !runtime.getSF(name));
+        if (missingNames.length === 0) {
+            onDone();
+            return;
+        }
+        let remaining = missingNames.length;
+        const finishOne = () => {
+            remaining -= 1;
+            if (remaining > 0) return;
+            const stillMissing = uniqueNames.filter((name) => !runtime.getSF(name));
+            if (stillMissing.length > 0) {
+                onError(new Error(`[result-panel] missing popup SpriteFrames: ${stillMissing.join(', ')}`));
+                return;
+            }
+            onDone();
+        };
+        for (const name of missingNames) {
+            runtime._loadSpriteFrameByName(name, () => {
+                finishOne();
+            });
+        }
+    }
+
     ensurePrefabsReady(onDone: () => void) {
         const runtime = this.runtime;
         if (this.hasPrefabsReady()) {
@@ -39,11 +66,15 @@ export class GameplayResultPanelController {
             return;
         }
         runtime._gameplayResultPanelPrefabLoadCallbacks = [onDone];
+        const fail = (error: Error): never => {
+            runtime._gameplayResultPanelPrefabLoadCallbacks = null;
+            AppRoot.tryGet()?.forceHideSceneTransition('result-panel-preload-error');
+            throw error;
+        };
         const loadPrefabs = () => {
             runtime._withGameAssetsBundle((bundle: Bundle | null) => {
                 if (!bundle) {
-                    runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-                    throw new Error('[result-panel] failed to load gameAssets bundle');
+                    fail(new Error('[result-panel] failed to load gameAssets bundle'));
                 }
                 const missingKinds = RESULT_PANEL_KINDS.filter((kind) => !runtime._gameplayResultPanelPrefabCache.get(kind));
                 let remaining = missingKinds.length;
@@ -64,8 +95,7 @@ export class GameplayResultPanelController {
                         if (failed) return;
                         if (err || !prefab) {
                             failed = true;
-                            runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-                            throw new Error(`[result-panel] failed to load remote prefab "${kind}" from ${RESULT_PANEL_PREFAB_PATHS[kind]}: ${err?.message || 'missing prefab'}`);
+                            fail(new Error(`[result-panel] failed to load remote prefab "${kind}" from ${RESULT_PANEL_PREFAB_PATHS[kind]}: ${err?.message || 'missing prefab'}`));
                         }
                         runtime._gameplayResultPanelPrefabCache.set(kind, prefab);
                         remaining -= 1;
@@ -76,7 +106,7 @@ export class GameplayResultPanelController {
                 }
             });
         };
-        runtime._ensureSpriteFramesByName(POPUP_UI_TEXTURE_NAMES, loadPrefabs);
+        this.ensurePopupSpriteFramesReady(loadPrefabs, fail);
     }
 
     instantiateGameplayOverlay(kind: ResultPanelKind, name: string): Node {

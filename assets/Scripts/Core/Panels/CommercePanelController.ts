@@ -172,6 +172,7 @@ export class CommercePanelController {
                         }
 
                         runtime.refreshGoldUI();
+                        runtime.playPopupOpenAnim?.(overlay, box);
                     } catch (error: any) {
                         failOpen(error?.message || '[gold-shop-prefab] build failed', overlay);
                     }
@@ -280,6 +281,7 @@ export class CommercePanelController {
                         runtime.showDailySignInRewardReceipt(reward);
                         runtime.showToast(`签到成功，获得${rewardSummary}`, 2);
                     });
+                    runtime.playPopupOpenAnim?.(overlay, box);
                 } catch (error: any) {
                     failOpen(error?.message || '[daily-signin-prefab] build failed', overlay);
                 }

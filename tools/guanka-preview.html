@@ -7,13 +7,21 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0e8; color: #3a3020; }
-.header { background: linear-gradient(135deg, #4a6fa5, #3b4d8c); color: #fff; padding: 20px 30px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.15); display: flex; align-items: center; gap: 20px; }
-.header h1 { font-size: 22px; font-weight: 600; }
-.header .stats { font-size: 14px; opacity: .85; }
-.controls { display: flex; gap: 12px; margin-left: auto; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.header { background: linear-gradient(135deg, #4a6fa5, #3b4d8c); color: #fff; padding: 14px 28px 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.15); display: flex; flex-direction: column; align-items: stretch; gap: 10px; overflow-x: hidden; }
+.header-top { display: grid; grid-template-columns: minmax(280px, 0.9fr) minmax(520px, 1.4fr); gap: 14px; align-items: center; min-width: 0; }
+.header-title-block { min-width: 0; }
+.header h1 { font-size: 22px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header .stats { margin-top: 4px; font-size: 13px; line-height: 1.4; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dir-summary { margin-top: 2px; font-size: 12px; line-height: 1.4; opacity: .76; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.controls { display: flex; gap: 10px; margin-left: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 .controls select, .controls input { padding: 6px 10px; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; background: rgba(255,255,255,.15); color: #fff; font-size: 13px; }
 .controls select option { color: #333; background: #fff; }
 .controls input::placeholder { color: rgba(255,255,255,.5); }
+.dir-control { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; border-radius: 8px; background: rgba(255,255,255,.12); position: relative; z-index: 2; }
+.dir-control .dir-label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.dir-control input { flex: 1 1 auto; width: auto; min-width: 180px; max-width: none; pointer-events: auto; cursor: text; text-overflow: ellipsis; }
+.dir-control select { flex: 0 0 auto; max-width: 140px; }
+.dir-control .control-btn { flex: 0 0 auto; }
 .control-btn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.28); border-radius: 6px; background: rgba(255,255,255,.18); color: #fff; font-size: 13px; cursor: pointer; transition: background .15s, opacity .15s; }
 .control-btn:hover { background: rgba(255,255,255,.26); }
 .control-btn:disabled { opacity: .65; cursor: wait; }
@@ -70,11 +78,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .copy-modal .copy-feedback.error { color: #d8513f; }
 .copy-modal .copy-feedback.success { color: #4a8e5e; }
 .copy-modal .copy-target-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.dir-modal { background: #fff; border-radius: 14px; max-width: 680px; width: 92%; padding: 22px; position: relative; box-shadow: 0 18px 40px rgba(0,0,0,.25); }
+.dir-modal h3 { font-size: 18px; margin-bottom: 4px; }
+.dir-modal .dir-sub { font-size: 12px; color: #777; margin-bottom: 14px; word-break: break-all; }
+.dir-modal label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 500; }
+.dir-path-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.dir-path-row input { flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid #d4d4d4; border-radius: 8px; font-size: 13px; }
+.dir-path-row button { flex: 0 0 auto; padding: 9px 14px; border: none; border-radius: 8px; background: #4a6fa5; color: #fff; cursor: pointer; font-weight: 600; }
+.dir-list-title { font-size: 12px; color: #666; margin: 8px 0 6px; font-weight: 600; }
+.dir-list { max-height: 360px; overflow-y: auto; border: 1px solid #e5e1d8; border-radius: 10px; background: #fbfaf7; }
+.dir-option { width: 100%; display: block; padding: 11px 12px; text-align: left; border: 0; border-bottom: 1px solid #ece7dc; background: transparent; cursor: pointer; color: #3a3020; }
+.dir-option:last-child { border-bottom: 0; }
+.dir-option:hover { background: #f1eadf; }
+.dir-option.active { background: #e8f2ea; box-shadow: inset 3px 0 0 #59b66d; }
+.dir-option-title { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 700; }
+.dir-option-path { margin-top: 3px; font-size: 12px; color: #6f685c; word-break: break-all; }
+.dir-option-meta { flex: 0 0 auto; font-size: 12px; color: #8a8174; font-weight: 500; }
+.dir-empty { padding: 18px; color: #888; font-size: 13px; text-align: center; }
+.dir-modal-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+.dir-modal-actions button { padding: 9px 16px; border: none; border-radius: 8px; background: #eee; color: #555; cursor: pointer; font-weight: 600; }
 .card.featured { position: relative; box-shadow: 0 0 0 2px #f0c040, 0 2px 8px rgba(0,0,0,.08); }
 .card.online { box-shadow: 0 0 0 2px #59b66d, 0 2px 8px rgba(0,0,0,.08); }
 .card.featured.online { box-shadow: 0 0 0 2px #59b66d, 0 0 0 4px #f0c040, 0 2px 8px rgba(0,0,0,.08); }
+.card.imported { position: relative; }
 .badge-featured { position: absolute; top: 6px; right: 6px; background: #f0c040; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
 .badge-online { position: absolute; top: 6px; left: 6px; background: #59b66d; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
+.badge-imported { position: absolute; top: 6px; left: 6px; background: #4f6fa6; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
 
 /* Detail modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
@@ -92,18 +121,42 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .loading { text-align: center; padding: 60px; font-size: 16px; color: #999; }
 
 .color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 2px; vertical-align: middle; }
+@media (max-width: 900px) {
+    .header-top { grid-template-columns: 1fr; }
+    .controls { justify-content: flex-start; }
+    .dir-control input { min-width: 180px; }
+}
 </style>
 </head>
 <body>
 
 <div class="header">
-    <h1>🎮 拼豆豆 关卡预览</h1>
-    <div class="stats" id="stats">加载中...</div>
+    <div class="header-top">
+        <div class="header-title-block">
+            <h1>🎮 拼豆豆 关卡预览</h1>
+            <div class="stats" id="stats">加载中...</div>
+            <div class="dir-summary" id="dirSummary">目录: assets/LevelData</div>
+        </div>
+        <div class="dir-control">
+            <span id="dirBadge" class="dir-label">目录</span>
+            <input type="text" id="dirInput" placeholder="assets/LevelData">
+            <button id="dirApplyBtn" class="control-btn" type="button">切换</button>
+            <button id="dirPickerBtn" class="control-btn" type="button">选择目录</button>
+            <select id="dirPreset">
+                <option value="">常用目录</option>
+                <option value="assets/LevelData::main">正式关卡</option>
+                <option value="assets/LevelData::theme">主题关卡</option>
+                <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
+                <option value="tools/competitors/拼豆解解压/levels/daily::main">拼豆解解压 Daily</option>
+                <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
+            </select>
+        </div>
+    </div>
     <div class="controls">
-        <span id="dirBadge" style="font-size:13px;background:rgba(255,255,255,.2);padding:4px 8px;border-radius:6px;">目录: assets/LevelData</span>
         <span id="startBadge" style="font-size:13px;background:rgba(255,255,255,.2);padding:4px 8px;border-radius:6px;display:none;">从第 <b id="startBadgeNum"></b> 关开始</span>
         <input type="number" id="startInput" placeholder="起始关卡" size="8" min="0" style="width:90px;">
         <button id="startBtn" style="padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.2);color:#fff;font-size:13px;cursor:pointer;">跳转</button>
+        <button id="swapLevelBtn" class="control-btn" type="button">交换关卡</button>
         <select id="filterColors">
             <option value="0">全部颜色数</option>
             <option value="2">2色</option>
@@ -132,6 +185,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
     <div class="modal" id="modal"></div>
+</div>
+
+<div class="modal-overlay" id="dirOverlay" onclick="if(event.target===this)closeDirPicker()">
+    <div class="dir-modal" id="dirModal">
+        <h3>选择关卡目录</h3>
+        <div class="dir-sub">当前: <span id="dirCurrentText">assets/LevelData</span></div>
+
+        <label>项目内相对路径</label>
+        <div class="dir-path-row">
+            <input type="text" id="dirModalInput" placeholder="assets/LevelData">
+            <button type="button" id="dirModalApplyBtn">切换</button>
+        </div>
+
+        <div class="dir-list-title">可用目录</div>
+        <div class="dir-list" id="dirPickerList">
+            <div class="dir-empty">正在扫描目录...</div>
+        </div>
+
+        <div class="dir-modal-actions">
+            <button type="button" onclick="closeDirPicker()">关闭</button>
+        </div>
+    </div>
 </div>
 
 <div class="loading" id="loading">正在加载关卡数据...</div>
@@ -168,21 +243,39 @@ let levels = [];
 let levelIds = [];
 let loadedUpTo = 0;
 const levelPathMap = new Map();
+const levelEntryMap = new Map();
 const PAGE_SIZE = 100;
 const BATCH_SIZE = 50;
 let isLoadingMore = false;
 let activeFilter = null; // { type, value }
 let importStatusTimer = null;
 let isImportingImage = false;
+let defaultNextLevelId = null;
+let availableLevelDirs = null;
 
 // Parse start level from URL query string
 const URL_PARAMS = new URLSearchParams(window.location.search);
 const DEFAULT_LEVEL_DIR = 'assets/LevelData';
+const DEFAULT_LEVEL_KIND = 'main';
+const PRESET_LEVEL_DIR_ITEMS = [
+    { label: '正式关卡', dir: DEFAULT_LEVEL_DIR, kind: 'main' },
+    { label: '主题关卡', dir: DEFAULT_LEVEL_DIR, kind: 'theme' },
+    { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
+    { label: '拼豆解解压 Daily', dir: 'tools/competitors/拼豆解解压/levels/daily', kind: 'main' },
+    { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
+];
+const PRESET_LEVEL_DIR_KEYS = PRESET_LEVEL_DIR_ITEMS.map(item => makeLevelDirKey(item.dir, item.kind));
 const BASE_TITLE = '🎮 拼豆豆 关卡预览';
 const START_LEVEL = URL_PARAMS.get('start') ? parseInt(URL_PARAMS.get('start')) : 0;
 const ONLINE_FILTER = URL_PARAMS.get('online') ? parseInt(URL_PARAMS.get('online')) : 0;
 const LEVEL_DIR = normalizeLevelDir(URL_PARAMS.get('dir') || DEFAULT_LEVEL_DIR);
+const LEVEL_KIND = normalizeLevelKind(URL_PARAMS.get('kind') || DEFAULT_LEVEL_KIND);
 const LEVEL_DIR_LABEL = LEVEL_DIR || DEFAULT_LEVEL_DIR;
+const LEVEL_DIR_KEY = makeLevelDirKey(LEVEL_DIR, LEVEL_KIND);
+const IS_FORMAL_MAIN_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'main';
+const IS_THEME_LEVEL_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'theme';
+const IS_DEFAULT_LEVEL_DIR = IS_FORMAL_MAIN_DIR;
+const CAN_IMPORT_TO_OFFICIAL = !IS_FORMAL_MAIN_DIR && !IS_THEME_LEVEL_DIR && LEVEL_KIND === 'main';
 const GAME_PREVIEW_URL = 'http://localhost:7456/';
 
 function normalizeLevelDir(value) {
@@ -196,6 +289,63 @@ function normalizeLevelDir(value) {
     return parts.join('/');
 }
 
+function normalizeLevelKind(value) {
+    const kind = String(value || DEFAULT_LEVEL_KIND).trim().toLowerCase();
+    return ['theme', 'zt', 'zt_level'].includes(kind) ? 'theme' : 'main';
+}
+
+function makeLevelDirKey(dir = DEFAULT_LEVEL_DIR, kind = DEFAULT_LEVEL_KIND) {
+    return `${normalizeLevelDir(dir)}::${normalizeLevelKind(kind)}`;
+}
+
+function parseLevelDirChoice(value, fallbackKind = DEFAULT_LEVEL_KIND) {
+    const raw = String(value || '').trim();
+    const separatorIndex = raw.lastIndexOf('::');
+    if (separatorIndex >= 0) {
+        return {
+            dir: normalizeLevelDir(raw.slice(0, separatorIndex)),
+            kind: normalizeLevelKind(raw.slice(separatorIndex + 2)),
+        };
+    }
+    return {
+        dir: normalizeLevelDir(raw || DEFAULT_LEVEL_DIR),
+        kind: normalizeLevelKind(fallbackKind),
+    };
+}
+
+function getManualApplyKind(value) {
+    return normalizeLevelDir(value) === LEVEL_DIR ? LEVEL_KIND : DEFAULT_LEVEL_KIND;
+}
+
+function getLevelDirDisplayName(dir = LEVEL_DIR, kind = LEVEL_KIND) {
+    const normalized = normalizeLevelDir(dir);
+    const normalizedKind = normalizeLevelKind(kind);
+    const preset = PRESET_LEVEL_DIR_ITEMS.find(
+        item => item.dir === normalized && normalizeLevelKind(item.kind) === normalizedKind
+    );
+    if (preset) return preset.label;
+    if (normalized === DEFAULT_LEVEL_DIR && normalizedKind === 'theme') return '主题关卡';
+    if (normalized.startsWith('tools/competitors/')) {
+        const parts = normalized.split('/').filter(Boolean);
+        const gameName = parts[2] || '竞品';
+        if (normalized.endsWith('/levels/main')) return `${gameName} 主线`;
+        if (normalized.endsWith('/levels/daily')) return `${gameName} Daily`;
+    }
+    const parts = normalized.split('/').filter(Boolean);
+    return parts.length > 1 ? parts.slice(-2).join('/') : normalized;
+}
+
+function updateDirectoryHeader() {
+    const shortName = getLevelDirDisplayName();
+    const fullLabel = LEVEL_KIND === 'main' ? LEVEL_DIR_LABEL : `${LEVEL_DIR_LABEL} | ${LEVEL_KIND}`;
+    const badge = document.getElementById('dirBadge');
+    const summary = document.getElementById('dirSummary');
+    badge.textContent = `目录: ${shortName}`;
+    badge.title = fullLabel;
+    summary.textContent = `完整路径: ${fullLabel}`;
+    summary.title = fullLabel;
+}
+
 function buildApiUrl(path, params = {}) {
     const url = new URL(path, window.location.origin);
     for (const [key, value] of Object.entries(params)) {
@@ -205,17 +355,197 @@ function buildApiUrl(path, params = {}) {
     return url.toString();
 }
 
+function applyLevelDir(value, fallbackKind = DEFAULT_LEVEL_KIND) {
+    const { dir: nextDir, kind: nextKind } = parseLevelDirChoice(value || DEFAULT_LEVEL_DIR, fallbackKind);
+    const url = new URL(window.location);
+    if (nextDir === DEFAULT_LEVEL_DIR) {
+        url.searchParams.delete('dir');
+    } else {
+        url.searchParams.set('dir', nextDir);
+    }
+    if (nextKind === DEFAULT_LEVEL_KIND) {
+        url.searchParams.delete('kind');
+    } else {
+        url.searchParams.set('kind', nextKind);
+    }
+    url.searchParams.delete('start');
+    window.location.href = url.toString();
+}
+
+function initDirectoryControls() {
+    const input = document.getElementById('dirInput');
+    const preset = document.getElementById('dirPreset');
+    input.value = LEVEL_DIR_LABEL;
+    input.title = LEVEL_DIR_LABEL;
+    input.disabled = false;
+    input.readOnly = false;
+    updateDirectoryHeader();
+    if (PRESET_LEVEL_DIR_KEYS.includes(LEVEL_DIR_KEY)) {
+        preset.value = LEVEL_DIR_KEY;
+    }
+    input.addEventListener('pointerdown', event => event.stopPropagation());
+    input.addEventListener('click', event => event.stopPropagation());
+    document.getElementById('dirApplyBtn').addEventListener('click', () => applyLevelDir(input.value, getManualApplyKind(input.value)));
+    document.getElementById('dirPickerBtn').addEventListener('click', openDirPicker);
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') applyLevelDir(input.value, getManualApplyKind(input.value));
+    });
+    preset.addEventListener('change', () => {
+        if (!preset.value) return;
+        const { dir } = parseLevelDirChoice(preset.value);
+        input.value = dir;
+        applyLevelDir(preset.value);
+    });
+    const modalInput = document.getElementById('dirModalInput');
+    document.getElementById('dirModalApplyBtn').addEventListener('click', applyDirModalInput);
+    modalInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') applyDirModalInput();
+        if (event.key === 'Escape') closeDirPicker();
+    });
+}
+
+function mergeLevelDirChoices(scannedDirs = []) {
+    const byKey = new Map();
+    for (const item of PRESET_LEVEL_DIR_ITEMS) {
+        const kind = normalizeLevelKind(item.kind);
+        const key = makeLevelDirKey(item.dir, kind);
+        byKey.set(key, {
+            dir: item.dir,
+            kind,
+            key,
+            label: item.label,
+            count: null,
+            firstLevelId: null,
+            lastLevelId: null,
+            isDefault: item.dir === DEFAULT_LEVEL_DIR && kind === 'main',
+            isPreset: true,
+        });
+    }
+    for (const item of scannedDirs) {
+        const dir = normalizeLevelDir(item.dir);
+        const kind = normalizeLevelKind(item.kind);
+        const key = makeLevelDirKey(dir, kind);
+        byKey.set(key, {
+            ...byKey.get(key),
+            ...item,
+            dir,
+            kind,
+            key,
+            label: item.label || byKey.get(key)?.label || getLevelDirDisplayName(dir, kind),
+        });
+    }
+    return Array.from(byKey.values()).sort((a, b) => {
+        if (a.dir === DEFAULT_LEVEL_DIR && a.kind === 'main') return -1;
+        if (b.dir === DEFAULT_LEVEL_DIR && b.kind === 'main') return 1;
+        if (a.dir === DEFAULT_LEVEL_DIR && a.kind === 'theme') return -1;
+        if (b.dir === DEFAULT_LEVEL_DIR && b.kind === 'theme') return 1;
+        if (a.dir.startsWith('tools/competitors/') && a.dir.endsWith('/levels/main')) return -1;
+        if (b.dir.startsWith('tools/competitors/') && b.dir.endsWith('/levels/main')) return 1;
+        return a.dir.localeCompare(b.dir);
+    });
+}
+
+async function loadLevelDirChoices() {
+    if (availableLevelDirs) return availableLevelDirs;
+    try {
+        const resp = await fetch(buildApiUrl('/api/list-level-dirs', { _: Date.now() }));
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) throw new Error(result.error || `HTTP ${resp.status}`);
+        availableLevelDirs = mergeLevelDirChoices(result.dirs || []);
+    } catch (_) {
+        availableLevelDirs = mergeLevelDirChoices([]);
+    }
+    return availableLevelDirs;
+}
+
+function renderDirPickerList(dirs) {
+    const list = document.getElementById('dirPickerList');
+    list.innerHTML = '';
+    if (!dirs.length) {
+        list.innerHTML = '<div class="dir-empty">没有扫描到可用目录，可以手动输入项目内相对路径。</div>';
+        return;
+    }
+    for (const item of dirs) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dir-option' + (item.key === LEVEL_DIR_KEY ? ' active' : '');
+        btn.addEventListener('click', () => applyLevelDir(item.dir, item.kind));
+
+        const title = document.createElement('div');
+        title.className = 'dir-option-title';
+        const name = document.createElement('span');
+        name.textContent = item.label || item.dir;
+        const meta = document.createElement('span');
+        meta.className = 'dir-option-meta';
+        meta.textContent = Number.isFinite(item.count)
+            ? `${item.count} 关`
+            : '常用';
+        title.appendChild(name);
+        title.appendChild(meta);
+
+        const path = document.createElement('div');
+        path.className = 'dir-option-path';
+        path.textContent = item.kind === 'main' ? item.dir : `${item.dir} | ${item.kind}`;
+
+        btn.appendChild(title);
+        btn.appendChild(path);
+        list.appendChild(btn);
+    }
+}
+
+async function openDirPicker() {
+    document.getElementById('dirCurrentText').textContent =
+        LEVEL_KIND === 'main' ? LEVEL_DIR_LABEL : `${LEVEL_DIR_LABEL} | ${LEVEL_KIND}`;
+    document.getElementById('dirModalInput').value = LEVEL_DIR_LABEL;
+    document.getElementById('dirPickerList').innerHTML = '<div class="dir-empty">正在扫描目录...</div>';
+    document.getElementById('dirOverlay').classList.add('active');
+    document.getElementById('dirModalInput').focus();
+    renderDirPickerList(await loadLevelDirChoices());
+}
+
+function closeDirPicker() {
+    document.getElementById('dirOverlay').classList.remove('active');
+}
+
+function applyDirModalInput() {
+    const input = document.getElementById('dirModalInput').value;
+    applyLevelDir(input, getManualApplyKind(input));
+}
+
+async function loadDefaultNextLevelId() {
+    try {
+        const resp = await fetch(buildApiUrl('/api/list-levels', {
+            dir: DEFAULT_LEVEL_DIR,
+            kind: DEFAULT_LEVEL_KIND,
+            _: Date.now(),
+        }));
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) return null;
+        if (Number.isInteger(result.nextLevelId)) {
+            defaultNextLevelId = result.nextLevelId;
+            return defaultNextLevelId;
+        }
+        const ids = (result.levelIds || []).map(Number).filter(Number.isFinite);
+        defaultNextLevelId = ids.length ? Math.max(...ids) + 1 : 1;
+        return defaultNextLevelId;
+    } catch (_) {
+        return null;
+    }
+}
+
 function updateStats() {
     document.getElementById('stats').textContent =
-        `目录 ${LEVEL_DIR_LABEL} | 共 ${levelIds.length} 关 | 已加载 ${levels.length} 关 | 显示 ${getFilteredLevels().length} 关`;
+        `共 ${levelIds.length} 关 | 已加载 ${levels.length} 关 | 显示 ${getFilteredLevels().length} 关`;
 }
 
 function getLevelFilePath(data) {
-    return levelPathMap.get(data.levelId) || `${LEVEL_DIR_LABEL}/level_${data.levelId}.json`;
+    const levelId = Number(data.levelId);
+    const entry = levelEntryMap.get(levelId);
+    return levelPathMap.get(levelId) || entry?.path || `${LEVEL_DIR_LABEL}/level_${levelId}.json`;
 }
 
 function shouldUseDirectLevelParam(data) {
-    return LEVEL_DIR === DEFAULT_LEVEL_DIR
+    return IS_FORMAL_MAIN_DIR
         && getLevelFilePath(data) === `${DEFAULT_LEVEL_DIR}/level_${data.levelId}.json`;
 }
 
@@ -229,18 +559,43 @@ function buildPlayUrl(data) {
     return url.toString();
 }
 
+function buildRefineUrl(data) {
+    const url = new URL('guanka-refine.html', window.location.href);
+    if (IS_FORMAL_MAIN_DIR) {
+        url.searchParams.set('level', String(data.levelId));
+        return url.toString();
+    }
+    url.searchParams.set('dir', LEVEL_DIR);
+    if (LEVEL_KIND !== DEFAULT_LEVEL_KIND) {
+        url.searchParams.set('kind', LEVEL_KIND);
+    }
+    url.searchParams.set('level', String(data.levelId));
+    url.searchParams.set('levelfile', getLevelFilePath(data));
+    return url.toString();
+}
+
 // Discover all level IDs first
 async function discoverLevels() {
-    const resp = await fetch(buildApiUrl('/api/list-levels', { dir: LEVEL_DIR, _: Date.now() }));
+    const resp = await fetch(buildApiUrl('/api/list-levels', { dir: LEVEL_DIR, kind: LEVEL_KIND, _: Date.now() }));
     const result = await resp.json();
     if (!resp.ok || !result.ok) {
         throw new Error(result.error || `HTTP ${resp.status}`);
     }
 
     levelIds = [];
-    for (const id of (result.levelIds || [])) {
+    levelEntryMap.clear();
+    levelPathMap.clear();
+    const entries = Array.isArray(result.levels)
+        ? result.levels
+        : (result.levelIds || []).map(id => ({ levelId: id }));
+    for (const entry of entries) {
+        const id = Number(entry.levelId);
         if (id >= START_LEVEL) {
             levelIds.push(id);
+            levelEntryMap.set(id, entry);
+            if (entry.path) {
+                levelPathMap.set(id, entry.path);
+            }
         }
     }
     levelIds.sort((a, b) => a - b);
@@ -264,13 +619,17 @@ async function loadMoreLevels() {
     for (let i = 0; i < idsToLoad.length; i += BATCH_SIZE) {
         const batch = idsToLoad.slice(i, i + BATCH_SIZE);
         const promises = batch.map(id =>
-            fetch(buildApiUrl('/api/load-level', { dir: LEVEL_DIR, levelId: id, _: cacheBust }))
+            fetch(buildApiUrl('/api/load-level', { dir: LEVEL_DIR, kind: LEVEL_KIND, levelId: id, _: cacheBust }))
                 .then(async r => {
                     if (!r.ok) return null;
                     const result = await r.json();
                     if (!result.ok || !result.levelData) return null;
                     if (result.path) {
                         levelPathMap.set(result.levelData.levelId, result.path);
+                    }
+                    const entry = levelEntryMap.get(Number(result.levelData.levelId));
+                    if (entry?.officialImport) {
+                        result.levelData.officialImport = entry.officialImport;
                     }
                     return result.levelData;
                 })
@@ -354,14 +713,15 @@ function getNextGuankaLevelId() {
     return levelIds[levelIds.length - 1] + 1;
 }
 
-function setImportStatus(message, type = '') {
+function setImportStatus(message, type = '', title = '') {
     const el = document.getElementById('importStatus');
     el.textContent = message;
+    el.title = title || message;
     el.className = 'import-status' + (type ? ` ${type}` : '');
 }
 
 function refreshImportStatus() {
-    setImportStatus(`${LEVEL_DIR_LABEL} | 默认追加为第 ${getNextGuankaLevelId()} 关`);
+    setImportStatus(`${getLevelDirDisplayName()} | 默认追加为第 ${getNextGuankaLevelId()} 关`, '', LEVEL_DIR_LABEL);
 }
 
 function stripExtension(filename) {
@@ -773,7 +1133,7 @@ async function importImageLevel(file) {
             const card = document.querySelector(`.card[data-level="${result.levelId}"]`);
             if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
-        setImportStatus(`已生成到 ${LEVEL_DIR_LABEL} / 第 ${result.levelId} 关`, 'success');
+        setImportStatus(`已生成到 ${getLevelDirDisplayName()} / 第 ${result.levelId} 关`, 'success', LEVEL_DIR_LABEL);
         importStatusTimer = setTimeout(() => {
             refreshImportStatus();
             importStatusTimer = null;
@@ -799,6 +1159,7 @@ function drawGrid(canvas, grid, cellSize) {
     canvas.height = h * cellSize;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
 
     for (let r = 0; r < h; r++) {
         for (let c = 0; c < w; c++) {
@@ -806,20 +1167,19 @@ function drawGrid(canvas, grid, cellSize) {
             if (v === 0) continue;
             const hex = COLOR_HEX[v] || '#ccc';
             const x = c * cellSize, y = r * cellSize;
-            const s = cellSize - 1;
-            const radius = Math.max(1, s * 0.18);
+            const radius = Math.max(0.5, cellSize * 0.14);
 
-            // Draw rounded rect bean
+            // Fill the full cell so preview scaling does not create white seams.
             ctx.beginPath();
-            ctx.roundRect(x + 0.5, y + 0.5, s, s, radius);
+            ctx.roundRect(x, y, cellSize + 0.35, cellSize + 0.35, radius);
             ctx.fillStyle = hex;
             ctx.fill();
 
             // Subtle highlight
-            if (cellSize >= 6) {
+            if (cellSize >= 7) {
                 ctx.beginPath();
-                ctx.roundRect(x + 1, y + 1, s - 2, s * 0.4, radius);
-                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.roundRect(x + cellSize * 0.18, y + cellSize * 0.16, cellSize * 0.64, cellSize * 0.24, radius);
+                ctx.fillStyle = 'rgba(255,255,255,0.10)';
                 ctx.fill();
             }
         }
@@ -845,11 +1205,30 @@ function getDisplacementRate(correct, init) {
     return total > 0 ? (displaced / total * 100).toFixed(1) : '0';
 }
 
+function getOfficialImportForLevel(levelId) {
+    const id = Number(levelId);
+    const data = levels.find(item => Number(item.levelId) === id);
+    if (data?.officialImport) return data.officialImport;
+    const entry = levelEntryMap.get(id);
+    return entry?.officialImport || null;
+}
+
 function renderCard(data) {
     const isFeatured = data.isFeatured || false;
     const isOnline = data.online === true;
+    const officialImport = getOfficialImportForLevel(data.levelId);
+    const hasOfficialImport = Boolean(officialImport);
+    const onlineActionText = CAN_IMPORT_TO_OFFICIAL
+        ? (hasOfficialImport ? '✅ 已导入' : '⬆ 上线')
+        : (isOnline ? '🟢 上线' : '⚪ 上线');
+    const onlineActionTitle = CAN_IMPORT_TO_OFFICIAL
+        ? (hasOfficialImport ? `已导入到正式第 ${officialImport.targetLevelId} 关` : '导入到正式关卡目录')
+        : (isOnline ? '取消上线' : '标记上线');
     const card = document.createElement('div');
-    card.className = 'card' + (isFeatured ? ' featured' : '') + (isOnline ? ' online' : '');
+    card.className = 'card'
+        + (isFeatured ? ' featured' : '')
+        + (isOnline ? ' online' : '')
+        + (hasOfficialImport ? ' imported' : '');
     card.dataset.level = data.levelId;
     card.dataset.colors = Object.keys(getColorInfo(data.correctColorArr)).length;
     card.dataset.featured = isFeatured ? '1' : '0';
@@ -859,6 +1238,14 @@ function renderCard(data) {
         const badge = document.createElement('div');
         badge.className = 'badge-online';
         badge.textContent = '🟢 上线';
+        card.appendChild(badge);
+    }
+
+    if (hasOfficialImport) {
+        const badge = document.createElement('div');
+        badge.className = 'badge-imported';
+        badge.textContent = `已导入 #${officialImport.targetLevelId}`;
+        badge.title = officialImport.targetPath || '';
         card.appendChild(badge);
     }
 
@@ -920,9 +1307,9 @@ function renderCard(data) {
     actions.className = 'actions';
     actions.innerHTML = `
         <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank" onclick="event.stopPropagation()">▶ 玩</a>
-        <a class="btn-edit" href="guanka-refine.html?level=${data.levelId}" target="_blank" onclick="event.stopPropagation()">✏️ 微调</a>
+        <a class="btn-edit" href="${buildRefineUrl(data)}" target="_blank" onclick="event.stopPropagation()">✏️ 微调</a>
         <button class="btn-copy" data-level="${data.levelId}" onclick="event.stopPropagation(); openCopyModal(${data.levelId})" title="复制到线上 / 主题关卡">📋 复制</button>
-        <button class="btn-online${isOnline ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); toggleOnline(${data.levelId}, this)" title="${isOnline ? '取消上线' : '标记上线'}">${isOnline ? '🟢 上线' : '⚪ 上线'}</button>
+        <button class="btn-online${isOnline ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); handleOnlineAction(${data.levelId}, this)" title="${onlineActionTitle}">${onlineActionText}</button>
         <button class="btn-featured${isFeatured ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); toggleFeatured(${data.levelId}, this)" title="加入精选">${isFeatured ? '⭐ 精选' : '☆ 精选'}</button>
     `;
     card.appendChild(actions);
@@ -971,7 +1358,7 @@ function showDetail(data) {
         </div>
         <div class="detail-actions">
             <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank">▶ 开始游戏</a>
-            <a class="btn-edit" href="guanka-refine.html?level=${data.levelId}" target="_blank">✏️ 微调本关</a>
+            <a class="btn-edit" href="${buildRefineUrl(data)}" target="_blank">✏️ 微调本关</a>
             <a class="btn-shuffle" href="javascript:void(0)" onclick="event.stopPropagation(); toggleDetailView(this, ${data.levelId})">🔄 切换视图</a>
         </div>
     `;
@@ -1091,6 +1478,7 @@ document.getElementById('startBtn').addEventListener('click', jumpToStart);
 document.getElementById('startInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') jumpToStart();
 });
+document.getElementById('swapLevelBtn').addEventListener('click', () => openSwapModal());
 document.getElementById('imageImportBtn').addEventListener('click', () => {
     document.getElementById('imageImportInput').click();
 });
@@ -1110,7 +1498,7 @@ async function toggleFeatured(levelId, btn) {
         const resp = await fetch('/api/toggle-featured', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ levelId, dir: LEVEL_DIR }),
+            body: JSON.stringify({ levelId, dir: LEVEL_DIR, kind: LEVEL_KIND }),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const result = await resp.json();
@@ -1145,12 +1533,20 @@ async function toggleFeatured(levelId, btn) {
     }
 }
 
+function handleOnlineAction(levelId, btn) {
+    if (CAN_IMPORT_TO_OFFICIAL) {
+        openCopyModal(levelId, { mode: 'import' });
+        return;
+    }
+    toggleOnline(levelId, btn);
+}
+
 async function toggleOnline(levelId, btn) {
     try {
         const resp = await fetch('/api/toggle-online', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ levelId, dir: LEVEL_DIR }),
+            body: JSON.stringify({ levelId, dir: LEVEL_DIR, kind: LEVEL_KIND }),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const result = await resp.json();
@@ -1189,18 +1585,23 @@ async function toggleOnline(levelId, btn) {
 }
 
 (async () => {
+    initDirectoryControls();
+    const swapLevelBtn = document.getElementById('swapLevelBtn');
+    swapLevelBtn.disabled = !IS_FORMAL_MAIN_DIR;
+    swapLevelBtn.title = IS_FORMAL_MAIN_DIR ? '交换两个正式关卡文件' : '仅正式关卡入口可交换';
+    await loadDefaultNextLevelId();
     if (ONLINE_FILTER >= 0 && ONLINE_FILTER <= 2) {
         document.getElementById('filterOnline').value = String(ONLINE_FILTER);
     }
-    document.getElementById('dirBadge').textContent = `目录: ${LEVEL_DIR_LABEL}`;
+    updateDirectoryHeader();
     if (START_LEVEL > 0) {
         document.getElementById('startBadge').style.display = 'inline-block';
         document.getElementById('startBadgeNum').textContent = START_LEVEL;
         document.getElementById('startInput').value = START_LEVEL;
     }
     let title = BASE_TITLE;
-    if (LEVEL_DIR !== DEFAULT_LEVEL_DIR) {
-        title += ` (${LEVEL_DIR_LABEL})`;
+    if (!IS_FORMAL_MAIN_DIR) {
+        title += ` - ${getLevelDirDisplayName()}`;
     }
     if (START_LEVEL > 0) {
         title += ` (从${START_LEVEL}关起)`;
@@ -1220,11 +1621,11 @@ async function toggleOnline(levelId, btn) {
 </script>
 <div class="modal-overlay" id="copyOverlay" onclick="if(event.target===this)closeCopyModal()">
     <div class="copy-modal" id="copyModal">
-        <h3>复制关卡到线上/主题</h3>
+        <h3 id="copyTitle">复制关卡到线上/主题</h3>
         <div class="copy-sub" id="copySourceInfo">来源关卡 #...</div>
 
-        <label>目标类型</label>
-        <div class="seg-row">
+        <label id="copyTypeLabel">目标类型</label>
+        <div class="seg-row" id="copyTypeRow">
             <button class="seg-btn active" id="segOnline" onclick="setCopyType('online')">线上关卡 (1~300)</button>
             <button class="seg-btn" id="segTheme" onclick="setCopyType('theme')">主题关卡 (zt_level_xxx)</button>
         </div>
@@ -1243,22 +1644,158 @@ async function toggleOnline(levelId, btn) {
     </div>
 </div>
 
+<div class="modal-overlay" id="swapOverlay" onclick="if(event.target===this)closeSwapModal()">
+    <div class="copy-modal" id="swapModal">
+        <h3>交换正式关卡</h3>
+        <div class="copy-sub">会先备份两个原文件，再交换内容并修正 levelId。</div>
+
+        <label>位置 A（例如要变成的关卡位）</label>
+        <input type="number" id="swapLevelA" value="11" min="1">
+
+        <label>位置 B（例如要换过来的关卡）</label>
+        <input type="number" id="swapLevelB" value="301" min="1">
+        <div class="copy-target-hint" id="swapTargetHint">将交换 assets/LevelData/level_11.json 和 level_301.json</div>
+
+        <div class="copy-actions">
+            <button class="btn-cancel" onclick="closeSwapModal()">取消</button>
+            <button class="btn-confirm" id="swapConfirmBtn" onclick="executeLevelSwap()">确认交换</button>
+        </div>
+        <div class="copy-feedback" id="swapFeedback"></div>
+    </div>
+</div>
+
 <script>
+function getSwapIds() {
+    return {
+        levelA: parseInt(document.getElementById('swapLevelA').value, 10),
+        levelB: parseInt(document.getElementById('swapLevelB').value, 10),
+    };
+}
+
+function updateSwapHint() {
+    const { levelA, levelB } = getSwapIds();
+    const hint = document.getElementById('swapTargetHint');
+    if (!levelA || !levelB) {
+        hint.textContent = '请填写两个正式关卡 ID';
+        return;
+    }
+    hint.textContent = `将交换 assets/LevelData/level_${levelA}.json 和 level_${levelB}.json`;
+}
+
+function showSwapFeedback(msg, type = '') {
+    const el = document.getElementById('swapFeedback');
+    el.textContent = msg;
+    el.className = 'copy-feedback' + (type ? ' ' + type : '');
+}
+
+function openSwapModal() {
+    if (!IS_FORMAL_MAIN_DIR) {
+        alert('交换关卡只支持正式关卡入口。');
+        return;
+    }
+    document.getElementById('swapLevelA').value = document.getElementById('swapLevelA').value || 11;
+    document.getElementById('swapLevelB').value = document.getElementById('swapLevelB').value || 301;
+    showSwapFeedback('');
+    updateSwapHint();
+    document.getElementById('swapOverlay').classList.add('active');
+    document.getElementById('swapLevelA').focus();
+}
+
+function closeSwapModal() {
+    document.getElementById('swapOverlay').classList.remove('active');
+}
+
+async function executeLevelSwap() {
+    const { levelA, levelB } = getSwapIds();
+    if (!levelA || !levelB || levelA < 1 || levelB < 1) {
+        showSwapFeedback('请填写两个有效的正式关卡 ID', 'error');
+        return;
+    }
+    if (levelA === levelB) {
+        showSwapFeedback('两个关卡 ID 不能相同', 'error');
+        return;
+    }
+    if (!window.confirm(`确认交换正式关卡 ${levelA} 和 ${levelB}？\n会先备份原文件，再交换内容。`)) {
+        return;
+    }
+
+    const btn = document.getElementById('swapConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = '交换中...';
+    showSwapFeedback('');
+    try {
+        const resp = await fetch('/api/swap-formal-levels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ levelA, levelB }),
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) {
+            throw new Error(result.error || `HTTP ${resp.status}`);
+        }
+        showSwapFeedback(`已交换，备份在 ${result.backupDir}。页面即将刷新。`, 'success');
+        setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+        showSwapFeedback(`交换失败: ${error.message}`, 'error');
+    } finally {
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = '确认交换';
+        }, 1200);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const swapA = document.getElementById('swapLevelA');
+    const swapB = document.getElementById('swapLevelB');
+    if (swapA) swapA.addEventListener('input', updateSwapHint);
+    if (swapB) swapB.addEventListener('input', updateSwapHint);
+});
+
 let copySourceId = null;
 let copyType = 'online';
 let copyOverwriteAllowed = false;
+let copyMode = 'copy';
+
+function getCopyConfirmText() {
+    return copyMode === 'import' ? '确认导入' : '确认复制';
+}
 
 function getCopyTargetFilename(type, id) {
     return `${type === 'theme' ? 'zt_level' : 'level'}_${id}.json`;
 }
 
-function openCopyModal(levelId) {
+function getCopySourcePath(levelId) {
+    const data = levels.find(item => Number(item.levelId) === Number(levelId)) || { levelId };
+    return getLevelFilePath(data);
+}
+
+async function openCopyModal(levelId, options = {}) {
     copySourceId = levelId;
+    copyMode = options.mode || 'copy';
     copyOverwriteAllowed = false;
-    document.getElementById('copySourceInfo').textContent = `来源: ${LEVEL_DIR_LABEL}/level_${levelId}.json`;
+    document.getElementById('copyTitle').textContent = copyMode === 'import'
+        ? '导入到正式关卡目录'
+        : '复制关卡到线上/主题';
+    document.getElementById('copySourceInfo').textContent = `来源: ${getCopySourcePath(levelId)}`;
     document.getElementById('copyFeedback').textContent = '';
     document.getElementById('copyFeedback').className = 'copy-feedback';
+    document.getElementById('copyTypeLabel').style.display = copyMode === 'import' ? 'none' : '';
+    document.getElementById('copyTypeRow').style.display = copyMode === 'import' ? 'none' : '';
+    document.getElementById('copyConfirmBtn').textContent = getCopyConfirmText();
+    if (copyMode === 'import' && defaultNextLevelId === null) {
+        await loadDefaultNextLevelId();
+    }
     setCopyType('online');
+    const existingImport = copyMode === 'import' ? getOfficialImportForLevel(levelId) : null;
+    if (existingImport?.targetLevelId) {
+        document.getElementById('copyTargetId').value = existingImport.targetLevelId;
+        updateCopyTargetHint();
+        showCopyFeedback(
+            `这关已导入到正式第 ${existingImport.targetLevelId} 关：${existingImport.targetPath || ''}`,
+            'success'
+        );
+    }
     updateCopyQuickRow();
     document.getElementById('copyOverlay').classList.add('active');
 }
@@ -1269,14 +1806,19 @@ function closeCopyModal() {
 }
 
 function setCopyType(type) {
+    if (copyMode === 'import') {
+        type = 'online';
+    }
     copyType = type;
     document.getElementById('segOnline').classList.toggle('active', type === 'online');
     document.getElementById('segTheme').classList.toggle('active', type === 'theme');
     document.getElementById('copySourceInfo').textContent = type === 'online'
-        ? `来源: ${LEVEL_DIR_LABEL}/level_${copySourceId}.json | 线上复制仅保留运行所需字段`
-        : `来源: ${LEVEL_DIR_LABEL}/level_${copySourceId}.json | 主题复制保留主题所需附加字段`;
+        ? `来源: ${getCopySourcePath(copySourceId)} | 线上复制仅保留运行所需字段`
+        : `来源: ${getCopySourcePath(copySourceId)} | 主题复制保留主题所需附加字段`;
     const target = document.getElementById('copyTargetId');
-    if (type === 'online') {
+    if (copyMode === 'import' && type === 'online') {
+        target.value = defaultNextLevelId || getNextGuankaLevelId();
+    } else if (type === 'online') {
         target.value = copySourceId <= 300 ? copySourceId : 1;
     } else {
         target.value = 1001;
@@ -1301,7 +1843,9 @@ function updateCopyQuickRow() {
     container.innerHTML = '';
     let ids = [];
     if (copyType === 'online') {
-        const base = Math.max(1, (copySourceId || 1));
+        const base = copyMode === 'import'
+            ? Math.max(1, defaultNextLevelId || getNextGuankaLevelId())
+            : Math.max(1, (copySourceId || 1));
         ids = [base, base + 1, base + 2, 100, 200, 300];
     } else {
         ids = [1001, 1002, 1003, 1004, 1101, 1201, 1301];
@@ -1328,7 +1872,7 @@ async function executeCopy() {
     }
     const btn = document.getElementById('copyConfirmBtn');
     btn.disabled = true;
-    btn.textContent = '复制中...';
+    btn.textContent = copyMode === 'import' ? '导入中...' : '复制中...';
     showCopyFeedback('', '');
     try {
         const resp = await fetch('/api/copy-level', {
@@ -1337,6 +1881,7 @@ async function executeCopy() {
             body: JSON.stringify({
                 sourceLevelId: copySourceId,
                 sourceDir: LEVEL_DIR,
+                sourceKind: LEVEL_KIND,
                 targetType: copyType,
                 targetLevelId: targetId,
                 overwrite: copyOverwriteAllowed,
@@ -1347,13 +1892,23 @@ async function executeCopy() {
             if (result.exists) {
                 showCopyFeedback(`目标 ${getCopyTargetFilename(copyType, targetId)} 已存在！再次点击将覆盖`, 'error');
                 copyOverwriteAllowed = true;
-                btn.textContent = '确认覆盖';
+                btn.textContent = copyMode === 'import' ? '确认覆盖导入' : '确认覆盖';
                 btn.disabled = false;
                 return;
             }
             throw new Error(result.error || '复制失败');
         }
         showCopyFeedback(`已成功复制到 ${result.targetPath}`, 'success');
+        if (copyMode === 'import' && copyType === 'online') {
+            defaultNextLevelId = Math.max(defaultNextLevelId || 1, targetId + 1);
+            if (result.officialImport) {
+                const level = levels.find(item => Number(item.levelId) === Number(copySourceId));
+                if (level) level.officialImport = result.officialImport;
+                const entry = levelEntryMap.get(Number(copySourceId));
+                if (entry) entry.officialImport = result.officialImport;
+                renderAll();
+            }
+        }
         copyOverwriteAllowed = false;
         btn.textContent = '完成';
         setTimeout(() => closeCopyModal(), 1800);
@@ -1363,7 +1918,7 @@ async function executeCopy() {
     } finally {
         setTimeout(() => {
             btn.disabled = false;
-            btn.textContent = '确认复制';
+            btn.textContent = getCopyConfirmText();
         }, 2000);
     }
 }
