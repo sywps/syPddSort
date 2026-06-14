@@ -294,12 +294,12 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 this._adShowing = false;
                 if (success) {
                     this.setThemeUnlocked(levelId);
-                    this.refreshThemePanel();
                     this.showToast('解锁成功');
+                    this.startThemeLevel(levelId);
                 } else {
                     this.showToast('广告未完成，未解锁');
                 }
-            }, { levelId });
+            }, { levelId, waitForCloseBeforeComplete: true });
         },
 
         refreshThemePanel() {

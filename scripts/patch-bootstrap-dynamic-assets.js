@@ -17,6 +17,8 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/slot_row_lock_mask_ui',
 	'GameUI/倒计时',
 	'GameUI/unlock_button',
+	'GameUI/guide_hand',
+	'GameUI/popup_guide_highlight_ring',
 	'GameUI/popup_ad_play_icon',
 	'GameUI/popup_gameplay_tool_slot_plate',
 	'GameUI/popup_tool_wand_icon',
@@ -26,6 +28,9 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/solid_white',
 	'GameUI/设置',
 	'GameUI/进度条',
+	'UI/Textures/scene_transition_circle_soft',
+	'UI/Textures/scene_transition_logo',
+	'UI/Textures/scene_transition_solid',
 ]);
 
 function fail(message) {
@@ -83,11 +88,12 @@ function nativePathForUuid(uuid) {
 
 function copyImport(uuid) {
     const src = importPathForUuid(uuid);
-    if (!fs.existsSync(src)) fail('BootstrapBundle 图片导入缓存不存在: ' + src);
+    if (!fs.existsSync(src)) return false;
     const dest = path.join(bootstrapOutputRoot, 'import', uuid.slice(0, 2), `${uuid}.json`);
-    if (fs.existsSync(dest)) return;
+    if (fs.existsSync(dest)) return false;
     ensureDir(path.dirname(dest));
     fs.copyFileSync(src, dest);
+    return true;
 }
 
 function copyNative(uuid) {
@@ -149,17 +155,8 @@ function collectAssets() {
             assetPath: baseRel,
             typeName: typeNameForImporter(meta.importer),
             native: true,
+            optionalImport: true,
         });
-        for (const subMeta of Object.values(meta.subMetas || {})) {
-            const typeName = typeNameForImporter(subMeta.importer);
-            if (!typeName || !subMeta.uuid || !subMeta.name) continue;
-            assets.push({
-                uuid: subMeta.uuid,
-                assetPath: `${baseRel}/${subMeta.name}`,
-                typeName,
-                native: false,
-            });
-        }
     }
     return assets;
 }
@@ -181,8 +178,8 @@ const copiedImports = new Set();
 const copiedNative = new Set();
 for (const asset of missingAssets) {
     if (!copiedImports.has(asset.uuid)) {
-        copyImport(asset.uuid);
-        copiedImports.add(asset.uuid);
+        if (copyImport(asset.uuid)) copiedImports.add(asset.uuid);
+        else if (!asset.optionalImport) fail('BootstrapBundle 图片导入缓存不存在: ' + importPathForUuid(asset.uuid));
     }
     if (asset.native && !copiedNative.has(asset.uuid)) {
         copyNative(asset.uuid);

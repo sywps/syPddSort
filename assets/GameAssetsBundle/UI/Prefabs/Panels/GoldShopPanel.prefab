@@ -948,7 +948,7 @@
     "_string": "1665",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 22,
+    "_actualFontSize": 23,
     "_fontSize": 22,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -1230,7 +1230,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 4.771,
+      "x": 0,
       "y": 0,
       "z": 0
     },
@@ -1271,7 +1271,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 64,
+      "width": 46,
       "height": 46
     },
     "_anchorPoint": {
@@ -1765,7 +1765,7 @@
     "_string": "立即领取",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
+    "_actualFontSize": 19.546875,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -2233,7 +2233,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 46,
-      "height": 55
+      "height": 46
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2726,7 +2726,7 @@
     "_string": "50金币",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
+    "_actualFontSize": 19.546875,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -3193,8 +3193,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42,
-      "height": 60
+      "width": 46,
+      "height": 46
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3687,7 +3687,7 @@
     "_string": "80金币",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
+    "_actualFontSize": 19.546875,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -4154,8 +4154,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 48,
-      "height": 58
+      "width": 46,
+      "height": 46
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -4648,7 +4648,7 @@
     "_string": "100金币",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
+    "_actualFontSize": 19.546875,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -5115,8 +5115,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 50,
-      "height": 58
+      "width": 46,
+      "height": 46
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -5609,7 +5609,7 @@
     "_string": "150金币",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 18,
+    "_actualFontSize": 19.546875,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -7013,7 +7013,7 @@
     "_string": "商城",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 35,
+    "_actualFontSize": 38,
     "_fontSize": 35,
     "_fontFamily": "Arial",
     "_lineHeight": 42,

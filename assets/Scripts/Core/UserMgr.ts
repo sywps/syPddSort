@@ -66,12 +66,12 @@ export class UserMgr {
         this.persist(this.profile, syncCloud);
     }
 
-    markLevelProgress(levelId: number, allowRegression: boolean = false) {
+    markLevelProgress(levelId: number, allowRegression: boolean = false, syncCloud: boolean = true) {
         const normalized = Math.max(1, Math.floor(levelId || 1));
         const currentLevel = Math.max(1, Math.floor(Number(this.profile.lastLevelId) || 1));
         this.profile.lastLevelId = allowRegression ? normalized : Math.max(currentLevel, normalized);
         this.profile.lastActiveAt = Date.now();
-        this.persist();
+        this.persist(this.profile, syncCloud);
     }
 
     applyCloudProfile(source: Partial<CloudUserProfile> | null | undefined): void {

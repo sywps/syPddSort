@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { ensureHomeIconSparkleFx } from '../HomeIconSparkleFx';
 import { LevelDataCdnService } from '../LevelDataCdnService';
@@ -41,16 +42,17 @@ export function installSceneHomeEntryModule(target: any): void {
             return prefix === 'zt_level_' ? 'theme' : 'main';
         },
 
-        syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false): void {
+        syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'auto'): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             AppRoot.tryGet()?.markGameRequested(
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
+                entryCoverMode,
             );
         },
 
-        async requestGameplaySceneTransition(levelId: number, prefix: string = 'level_', external: boolean = false): Promise<void> {
+        async requestGameplaySceneTransition(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'none'): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
                 throw new Error('[SceneSplit] AppRoot is not ready for gameplay scene transition');
@@ -60,22 +62,104 @@ export function installSceneHomeEntryModule(target: any): void {
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
+                entryCoverMode,
             );
-            await appRoot.beginSceneTransition('gameplay');
+            const shouldCover = entryCoverMode !== 'none';
+            if (shouldCover) {
+                await appRoot.beginSceneTransition('gameplay');
+            }
             try {
                 await appRoot.router.toGame();
             } catch (error) {
-                await appRoot.finishSceneTransition('gameplay-error');
+                if (shouldCover) {
+                    await appRoot.finishSceneTransition('gameplay-error');
+                }
                 throw error;
             }
         },
 
-        async requestHomeSceneTransition(): Promise<void> {
+        async requestHomeSceneTransition(source: string = 'runtime', coverMode: AppSceneTransitionCoverMode = 'none'): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
                 throw new Error('[SceneSplit] AppRoot is not ready for home scene transition');
             }
-            await appRoot.requestHomeSceneTransition('runtime');
+            await appRoot.requestHomeSceneTransition(source, coverMode);
+        },
+
+        scheduleHomeGameplayEntryWarmup(levelId: number, prefix: string = 'level_'): void {
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            if (this.shouldUseLocalBootstrapBundle(normalizedLevelId, prefix)) {
+                return;
+            }
+            const warmupKey = `${prefix}${normalizedLevelId}`;
+            if (
+                this._homeGameplayWarmupKey === warmupKey
+                && (this._homeGameplayWarmupState === 'loading' || this._homeGameplayWarmupState === 'ready')
+            ) {
+                return;
+            }
+            this._homeGameplayWarmupKey = warmupKey;
+            this._homeGameplayWarmupState = 'loading';
+            this.scheduleOnce(() => {
+                if (!this.isValid) return;
+                this.prewarmGameplayEntryResources(normalizedLevelId, prefix, (ok) => {
+                    if (this._homeGameplayWarmupKey !== warmupKey) return;
+                    this._homeGameplayWarmupState = ok ? 'ready' : 'failed';
+                    this.logRuntimeTrace?.('[HomeWarmup] gameplay entry warmup finish', JSON.stringify({
+                        key: warmupKey,
+                        ok,
+                    }));
+                });
+            }, 0.4);
+        },
+
+        prewarmGameplayEntryResources(levelId: number, prefix: string = 'level_', onDone?: (ok: boolean) => void): void {
+            if (this._levelDataLoadStopped) {
+                onDone?.(false);
+                return;
+            }
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const levelPath = this.getLevelDataPath(normalizedLevelId, prefix);
+            LevelDataCdnService.inst.prefetchLive();
+            this._withGameAssetsBundle((bundle) => {
+                if (!bundle) {
+                    console.warn('[HomeWarmup] gameAssets bundle unavailable for', levelPath);
+                    onDone?.(false);
+                    return;
+                }
+                this._loadLevelDataFromCdnOrLocal(normalizedLevelId, prefix, (levelData, source, err) => {
+                    if (!levelData) {
+                        console.warn('[HomeWarmup] level data unavailable for', levelPath, source, err?.message || 'missing level data');
+                        onDone?.(false);
+                        return;
+                    }
+                    let beanDone = false;
+                    let uiDone = false;
+                    let ok = true;
+                    const finish = () => {
+                        if (!beanDone || !uiDone) return;
+                        this.scheduleGameAssetsEffectsWarmup?.(bundle);
+                        onDone?.(ok);
+                    };
+                    this._prepareBeanFramesForLevelData(levelData, () => {
+                        if (this.needsBeanFramesForLevelData(levelData)) {
+                            ok = false;
+                            console.warn('[HomeWarmup] bean assets still missing for', levelPath);
+                        }
+                        beanDone = true;
+                        finish();
+                    });
+                    this.prepareCriticalUiTexturesForLevel(levelData, () => {
+                        const missingTextureNames = this.getMissingCriticalGameplayShellTextureNamesForLevel(levelData);
+                        if (missingTextureNames.length > 0) {
+                            ok = false;
+                            console.warn('[HomeWarmup] critical ui textures still missing for', levelPath, missingTextureNames);
+                        }
+                        uiDone = true;
+                        finish();
+                    });
+                });
+            });
         },
 
         drawLeaderboardButton(parent: Node) {
@@ -481,6 +565,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 if (finished) return;
                 finished = true;
                 this.initGame(data, activeLevelId);
+                this.hideLoadingOverlayAfterGameplayReady();
             };
             const failMissingBeans = () => {
                 this.stopLevelDataLoadWithFatalError(
@@ -603,6 +688,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 const tryInit = () => {
                     if (!beanDone || !uiDone) return;
                     this.initGame(data, activeLevelId);
+                    this.hideLoadingOverlayAfterGameplayReady();
                     this.scheduleOnce(() => {
                         if (this._preloadingBundle) return;
                         if (this.gameAssetsBundle && this._effectsAtlasReady) return;

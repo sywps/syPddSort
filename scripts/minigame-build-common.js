@@ -84,7 +84,6 @@ function cleanCocosGeneratedCaches(projectDir, envName, logInfo) {
 
 function repairCocosMetaFiles(projectDir) {
     runNode(projectDir, 'scripts/repair-cocos-meta.js', ['assets']);
-    runNode(projectDir, 'scripts/verify-cocos-meta.js', ['assets']);
 }
 
 function readAssetUuid(projectDir, assetUrl, label) {

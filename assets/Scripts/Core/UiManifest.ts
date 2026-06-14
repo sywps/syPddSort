@@ -7,7 +7,6 @@ export const POPUP_UI_TEXTURE_NAMES = [
     'popup_close_button',
     'popup_card_unlocked',
     'popup_card_locked',
-    'popup_lock_icon',
     'popup_list_row_bg',
     'popup_shop_icon_plate',
     'popup_reward_card',
@@ -17,11 +16,6 @@ export const POPUP_UI_TEXTURE_NAMES = [
     'popup_tab_active',
     'popup_tab_inactive',
     'popup_currency_chip',
-    'popup_result_preview_plate',
-    'popup_progress_bar_bg',
-    'popup_progress_bar_fill',
-    'popup_guide_bubble',
-    'popup_guide_highlight_ring',
 ];
 
 export const SCENE_TRANSITION_TEXTURE_NAMES = [
@@ -95,15 +89,10 @@ export const HOME_MENU_TEXTURE_NAMES = [
 
 export const GAMEPLAY_SLOT_TEXTURE_NAMES = [
     '倒计时',
-    'slot_panel_shell_ui',
-    'slot_row_empty_pindd',
-    'slot_row_empty_ui',
-    'slot_row_locked_ui',
     'slot_row_lock_mask_ui',
     'slot_row_lock_dash_ui',
     'unlock_button',
     'guide_hand',
-    'popup_guide_bubble',
     'popup_guide_highlight_ring',
 ];
 

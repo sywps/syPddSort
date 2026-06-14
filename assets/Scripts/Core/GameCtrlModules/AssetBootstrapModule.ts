@@ -31,14 +31,10 @@ import type {
 } from '../GameCtrlShared';
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { LevelDataCdnService } from '../LevelDataCdnService';
-import { applyLateCloudUserStateToRuntime, mergeWeChatSelfProgressFallback } from './StartupCloudRestoreHelper';
+import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 
 const SHARED_POPUP_SPRITE_FRAME_NAMES = new Set<string>([
-    'popup_guide_bubble',
     'popup_guide_highlight_ring',
-    'popup_result_preview_plate',
-    'popup_progress_bar_bg',
-    'popup_progress_bar_fill',
 ]);
 
 export function installAssetBootstrapModule(target: any): void {
@@ -111,6 +107,10 @@ export function installAssetBootstrapModule(target: any): void {
 
         _getGameAssetsTextureCandidatePaths(imgName: string): string[] {
             return GAME_ASSETS_TEXTURE_SEARCH_DIRS.flatMap((dir) => this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
+        },
+
+        _getGameAssetsImageAssetCandidatePaths(imgName: string): string[] {
+            return GAME_ASSETS_TEXTURE_SEARCH_DIRS.map((dir) => `${dir}/${imgName}`);
         },
 
         _getBootstrapTextureBaseCandidates(imgName: string): string[] {
@@ -338,13 +338,40 @@ export function installAssetBootstrapModule(target: any): void {
                     (candidate, done) => bundle.load(candidate, SpriteFrame, done),
                     candidates,
                     (sf) => {
-                        if (!sf) {
-                            console.warn(`[gameAssets] SpriteFrame not found: ${imgName}`);
+                        if (sf) {
+                            callback(sf);
+                            return;
                         }
-                        callback(sf);
+                        this._loadGameAssetsImageSpriteFrame(bundle, imgName, (imageSf) => {
+                            if (!imageSf) {
+                                console.warn(`[gameAssets] SpriteFrame not found: ${imgName}`);
+                            }
+                            callback(imageSf);
+                        });
                     },
                 );
             });
+        },
+
+        _loadGameAssetsImageSpriteFrame(bundle: Bundle, imgName: string, callback: (sf: SpriteFrame | null) => void) {
+            const candidates = this._getGameAssetsImageAssetCandidatePaths(imgName);
+            const tryLoad = (index: number) => {
+                if (index >= candidates.length) {
+                    callback(null);
+                    return;
+                }
+                bundle.load(candidates[index], ImageAsset, (err, imgAsset) => {
+                    if (!err && imgAsset) {
+                        const sf = this._createSpriteFrameFromImageAsset(imgName, imgAsset);
+                        if (sf) {
+                            callback(sf);
+                            return;
+                        }
+                    }
+                    tryLoad(index + 1);
+                });
+            };
+            tryLoad(0);
         },
 
         _loadSpriteFrameByName(imgName: string, callback: (sf: SpriteFrame | null) => void) {
@@ -748,14 +775,17 @@ export function installAssetBootstrapModule(target: any): void {
             const raw = this.getRawSavedLevelForStartup();
             if (raw === null) return null;
             const parsed = parseInt(raw, 10);
-            return Number.isFinite(parsed) ? Math.floor(parsed) : null;
+            if (!Number.isFinite(parsed)) return null;
+            const normalized = Math.floor(parsed);
+            return normalized >= 1 ? normalized : null;
         },
 
-        getStartupLocalProgressState(): 'rawLevelMissing' | 'rawLevelInvalidOrLow' | 'local_progress_gt_1' {
+        getStartupLocalProgressState(): 'rawLevelMissing' | 'rawLevelInvalid' | 'local_progress_1' | 'local_progress_gt_1' {
             const raw = this.getRawSavedLevelForStartup();
             if (raw === null) return 'rawLevelMissing';
             const parsed = this.getParsedSavedLevelForStartup();
-            return parsed !== null && parsed > 1 ? 'local_progress_gt_1' : 'rawLevelInvalidOrLow';
+            if (parsed === null) return 'rawLevelInvalid';
+            return parsed > 1 ? 'local_progress_gt_1' : 'local_progress_1';
         },
 
         getLocalUserStateUpdatedAt(): number {
@@ -775,18 +805,28 @@ export function installAssetBootstrapModule(target: any): void {
 
         hasReliableLocalUserStateForStartup(): boolean { return this.getStartupLocalProgressState() === 'local_progress_gt_1'; },
 
+        recordMainlineLevelEntry(levelId: number): void {
+            const normalizedLevel = Math.max(1, Math.floor(Number(levelId) || 1));
+            const currentLevel = this.getParsedSavedLevelForStartup();
+            const nextLevel = Math.max(currentLevel || 0, normalizedLevel);
+            if (nextLevel <= 0) return;
+            if (currentLevel !== nextLevel || this.getRawSavedLevelForStartup() === null) {
+                sys.localStorage.setItem(LS_LEVEL, String(nextLevel));
+            }
+            UserMgr.inst.markLevelProgress(nextLevel, false, false);
+        },
+
         saveLevelProgress(levelId: number) {
             const normalizedLevel = Math.max(1, Math.floor(Number(levelId) || 1));
             const currentLevel = this.getSavedLevel();
             const nextLevel = Math.max(currentLevel, normalizedLevel);
             if (nextLevel > normalizedLevel) {
-                console.warn('[GameCtrl] keep higher cloud savedLevel, skip lower local progress save', {
-                    currentLevel, requestedLevel: normalizedLevel, nextLevel,
-                });
+                console.warn('[GameCtrl] keep higher cloud savedLevel, skip lower local progress save', { currentLevel, requestedLevel: normalizedLevel, nextLevel });
             }
             sys.localStorage.setItem(LS_LEVEL, '' + nextLevel);
-            UserMgr.inst.markLevelProgress(nextLevel);
+            UserMgr.inst.markLevelProgress(nextLevel, false, !this._startupCloudRestorePending && !this._startupCloudSaveBlockedForSession);
             this.queueCloudGameStateSync();
+            if (deferLeaderboardProgressDuringStartup(this, nextLevel)) return;
             void LeaderboardMgr.inst.submitProgress(nextLevel, UserMgr.inst.getProfile());
         },
 
@@ -802,65 +842,50 @@ export function installAssetBootstrapModule(target: any): void {
                 magnetCount: this.getPropCount('magnet'),
                 dailySignInClaimedCount: this.getDailySignInClaimedCount(),
                 dailySignInLastClaimDateKey: this.getDailySignInLastClaimDateKey(),
-                themeUnlockedIds: Array.from(this.getThemeUnlockedSet()).sort((a, b) => a - b),
-                themeCompletedIds: Array.from(this.getThemeCompletedSet()).sort((a, b) => a - b),
+                themeUnlockedIds: Array.from(this.getThemeUnlockedSet() as Set<number>).sort((a, b) => a - b),
+                themeCompletedIds: Array.from(this.getThemeCompletedSet() as Set<number>).sort((a, b) => a - b),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
 
         queueCloudGameStateSync(): void {
+            if (deferCloudGameStateSyncDuringStartup(this)) return;
             const timestamp = Date.now();
             this.setLocalUserStateUpdatedAt(timestamp);
             const state = this.captureCloudGameState();
             state.stateUpdatedAt = timestamp;
-            UserStateSyncMgr.inst.queueSave({
-                profile: UserMgr.inst.getCloudProfile(),
-                gameState: state,
-            });
+            UserStateSyncMgr.inst.queueSave({ profile: UserMgr.inst.getCloudProfile(), gameState: state });
         },
 
-        async loadRestorableUserStateFromCloud(): Promise<CloudUserState | null> {
-            const cloudState = await UserStateSyncMgr.inst.loadState();
-            return mergeWeChatSelfProgressFallback(cloudState);
-        },
+        async loadRestorableUserStateFromCloud(): Promise<CloudUserState | null> { return UserStateSyncMgr.inst.loadState(); },
 
         async restoreUserStateFromCloud(hadLocalUserState: boolean): Promise<UserStateRestoreStatus> {
             const canUseCloudState = UserStateSyncMgr.inst.canUseCloud();
-            if (hadLocalUserState) {
-                if (canUseCloudState) {
-                    void this.loadRestorableUserStateFromCloud().then((lateState) => applyLateCloudUserStateToRuntime(this, lateState, true)).catch((error) => console.warn('[GameCtrl] background cloud user state restore failed:', error));
+            if (!canUseCloudState) {
+                if (!hadLocalUserState) this._startupCloudSaveBlockedForSession = true;
+                return hadLocalUserState ? 'local_progress_gt_1' : 'cloud_unavailable_unresolved';
+            }
+
+            this._startupCloudRestorePending = true;
+            this._startupCloudSaveBlockedForSession = false;
+            this._startupCloudRestoreHadLocalUserState = hadLocalUserState;
+            void this.loadRestorableUserStateFromCloud().then((lateState) => {
+                let status: UserStateRestoreStatus;
+                if (!lateState) {
+                    status = UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
+                } else {
+                    status = applyLateCloudUserStateToRuntime(this, lateState, hadLocalUserState) || 'cloud_failed_unresolved';
                 }
+                resolveStartupCloudRestorePending(this, status);
+            }).catch((error) => {
+                resolveStartupCloudRestorePending(this, 'cloud_failed_unresolved');
+                console.warn('[GameCtrl] background cloud user state restore failed:', error);
+            });
+
+            if (hadLocalUserState) {
                 return 'local_progress_gt_1';
             }
-            if (!canUseCloudState) {
-                return 'cloud_unavailable_unresolved';
-            }
-            const timeoutMs = CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS;
-            const startedAt = Date.now();
-            const loadPromise = (async () => {
-                while (!UserStateSyncMgr.inst.canUseCloud() && Date.now() - startedAt < timeoutMs) {
-                    await new Promise<void>((resolve) => this.scheduleOnce(resolve, 0.1));
-                }
-                return this.loadRestorableUserStateFromCloud();
-            })();
-            const timeoutTag = Symbol('restore-timeout');
-            const restoreResult = await Promise.race([
-                loadPromise,
-                new Promise<typeof timeoutTag>((resolve) => {
-                    this.scheduleOnce(() => resolve(timeoutTag), timeoutMs / 1000);
-                }),
-            ]);
-            if (restoreResult === timeoutTag) {
-                console.warn('[GameCtrl] restoreUserStateFromCloud timed out after', timeoutMs, 'ms');
-                void loadPromise.then((lateState) => {
-                    applyLateCloudUserStateToRuntime(this, lateState, hadLocalUserState);
-                }).catch((error) => {
-                    console.warn('[GameCtrl] late cloud user state restore failed:', error);
-                });
-                return 'cloud_timeout_unresolved';
-            }
-            if (!restoreResult) return UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
-            return this.applyCloudUserState(restoreResult);
+            return 'cloud_restore_pending';
         },
 
         applyLateCloudUserState(state: CloudUserState | null, hadLocalUserState: boolean): void {
@@ -881,23 +906,26 @@ export function installAssetBootstrapModule(target: any): void {
                 return 'cloud_confirmed_empty';
             }
         
-            const cloudSavedLevel = Math.floor(Number(gameState.savedLevel) || 0);
-            const forceCloudLevelReset = typeof gameState.savedLevel === 'number' && cloudSavedLevel <= 0;
+            const cloudSavedLevel = typeof gameState.savedLevel === 'number'
+                ? Math.max(0, Math.floor(Number(gameState.savedLevel) || 0))
+                : 0;
             const cloudUpdatedAt = Math.max(0, Math.floor(Number(gameState.stateUpdatedAt) || 0));
             const localUpdatedAt = this.getLocalUserStateUpdatedAt();
             const localSavedLevel = this.getSavedLevel();
-            if (!forceCloudLevelReset && cloudUpdatedAt > 0 && localUpdatedAt > cloudUpdatedAt && cloudSavedLevel <= localSavedLevel) {
+            const shouldSkipVolatileRestore = cloudUpdatedAt > 0 && localUpdatedAt > cloudUpdatedAt && cloudSavedLevel <= localSavedLevel;
+            if (shouldSkipVolatileRestore) {
                 console.warn('[GameCtrl] local user state is newer than cloud, skip restore', { localUpdatedAt, cloudUpdatedAt, localSavedLevel, cloudSavedLevel });
-                return cloudSavedLevel > 1 ? 'cloud_progress_gt_1' : 'cloud_confirmed_empty';
             }
         
-            if (forceCloudLevelReset) {
-                sys.localStorage.setItem(LS_LEVEL, '1');
-                UserMgr.inst.markLevelProgress(1, true);
-            } else if (typeof gameState.savedLevel === 'number' && gameState.savedLevel > 0) {
-                const restoredLevel = Math.floor(gameState.savedLevel);
-                sys.localStorage.setItem(LS_LEVEL, String(restoredLevel));
-                UserMgr.inst.markLevelProgress(restoredLevel);
+            const effectiveLevel = Math.max(localSavedLevel, cloudSavedLevel);
+            if (effectiveLevel > 0 && (cloudSavedLevel > 0 || this.getRawSavedLevelForStartup() !== null)) {
+                sys.localStorage.setItem(LS_LEVEL, String(effectiveLevel));
+                UserMgr.inst.markLevelProgress(effectiveLevel, false, false);
+            }
+            if (shouldSkipVolatileRestore) {
+                this.refreshGoldUI();
+                if (effectiveLevel > cloudSavedLevel && effectiveLevel > 1) return 'local_progress_gt_1';
+                return cloudSavedLevel > 1 ? 'cloud_progress_gt_1' : 'cloud_confirmed_empty';
             }
             if (typeof gameState.vigor === 'number') {
                 sys.localStorage.setItem((this.constructor as any).LS_VIGOR, String(Math.max(0, Math.floor(gameState.vigor))));
@@ -942,7 +970,9 @@ export function installAssetBootstrapModule(target: any): void {
                 this.setLocalUserStateUpdatedAt(cloudUpdatedAt);
             }
             this.refreshGoldUI();
-            return cloudSavedLevel > 1 ? 'cloud_progress_gt_1' : 'cloud_confirmed_empty';
+            if (cloudSavedLevel > localSavedLevel && cloudSavedLevel > 1) return 'cloud_progress_gt_1';
+            if (effectiveLevel > cloudSavedLevel && effectiveLevel > 1) return 'local_progress_gt_1';
+            return cloudSavedLevel > 1 ? 'local_progress_gt_1' : 'cloud_confirmed_empty';
         },
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
@@ -975,6 +1005,7 @@ export function installAssetBootstrapModule(target: any): void {
             game.off(Game.EVENT_HIDE, this.handleGameHideFlushUserState, this);
             game.off(Game.EVENT_SHOW, this.handleGameShowLifecycle, this);
             this._pendingPostAdSkillAction = null;
+            this.cancelRewardedAdPreload?.();
         },
 
         handleGameHideFlushUserState(): void {

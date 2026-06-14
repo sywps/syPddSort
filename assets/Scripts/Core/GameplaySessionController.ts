@@ -1,5 +1,4 @@
 import {
-    AdConfig,
     AnalyticsMgr,
     AudioMgr,
     BoardModel,
@@ -60,8 +59,15 @@ export class GameplaySessionController {
                 entryMode: gameplayEntryMode,
                 configuredTimeLimit: data.timeLimit,
             });
-            runtime._currentLevelUnlimitedTime = resolvedTimeLimit <= 0;
-            runtime.timeRemain = resolvedTimeLimit;
+            const dynamicTimeLimit = typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
+                ? runtime.resolveDynamicCountdownTimeLimit({
+                    levelId: resolvedLevelId,
+                    entryMode: gameplayEntryMode,
+                    baseTimeLimit: resolvedTimeLimit,
+                })
+                : resolvedTimeLimit;
+            runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
+            runtime.timeRemain = dynamicTimeLimit;
             runtime.isGameEnd = false;
             runtime.isSelected = false;
             runtime.currentBlock = null;
@@ -96,10 +102,15 @@ export class GameplaySessionController {
             runtime.renderBoard();
             runtime.renderSlots();
             runtime.assertGameplayVisualReadiness();
+            runtime.hideLoadingOverlayAfterGameplayReady?.();
+            const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
+            if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
+                runtime.recordMainlineLevelEntry(resolvedLevelId);
+            }
             this.finishGameplayReadyTransition();
             this.warmGameplayResultPanels();
-            AdConfig.preloadRewardedAd('gameplay:init');
             runtime.refreshEndgameHints('init-game');
+            runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0.8);
             if (runtime.isFirstLevelFunnelActive()) {
                 const activePhysicalLevel = runtime.getActivePhysicalLevelId();
                 const activeLogicalLevel = runtime.getActiveLogicalLevelId();
@@ -152,9 +163,29 @@ export class GameplaySessionController {
 
     private finishGameplayReadyTransition(): void {
         const appRoot = AppRoot.tryGet();
-        void appRoot?.finishSceneTransition('gameplay-ready').catch((error: unknown) => {
+        if (!appRoot) return;
+        let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const clearFallback = () => {
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+        };
+        const forceHideOnce = (source: string) => {
+            if (settled) return;
+            settled = true;
+            clearFallback();
+            appRoot.forceHideSceneTransition(source);
+        };
+        timeoutId = setTimeout(() => {
+            forceHideOnce('gameplay-ready-timeout');
+        }, 1800);
+        void appRoot.finishSceneTransition('gameplay-ready').then(() => {
+            forceHideOnce('gameplay-ready-complete');
+        }).catch((error: unknown) => {
             console.warn('[SceneTransition] finish after gameplay ready failed:', error);
-            appRoot.forceHideSceneTransition('gameplay-ready-fallback');
+            forceHideOnce('gameplay-ready-fallback');
         });
     }
 

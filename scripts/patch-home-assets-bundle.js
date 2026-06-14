@@ -6,7 +6,7 @@ const {
     collectSourceBundleArtifacts,
     findNativeArtifact,
     importArtifactPath,
-} = require('./verify-bundle-native-files.js');
+} = require('./bundle-artifact-utils.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatgame', 'minigame');
@@ -79,6 +79,17 @@ function assetDbImportPath(uuid) {
     return '';
 }
 
+function libraryImportPath(uuid) {
+    const importDir = path.join(libraryRoot, uuid.slice(0, 2));
+    if (!fs.existsSync(importDir)) return '';
+    const fileName = fs.readdirSync(importDir).find((name) => {
+        if (name === `${uuid}.json`) return true;
+        if (!name.startsWith(`${uuid}.`)) return false;
+        return /\.json$/i.test(name);
+    });
+    return fileName ? path.join(importDir, fileName) : '';
+}
+
 function libraryNativePath(uuid) {
     const nativeDir = path.join(libraryRoot, uuid.slice(0, 2));
     if (!fs.existsSync(nativeDir)) return '';
@@ -100,10 +111,10 @@ function copyFileIfChanged(src, dest) {
 }
 
 function copyImport(bundleDir, uuid) {
-    const src = assetDbImportPath(uuid);
-    if (!src) fail('HomeAssetsBundle runtime import 缓存不存在: ' + uuid);
+    const src = assetDbImportPath(uuid) || libraryImportPath(uuid);
+    if (!src) return 'missing';
     const dest = importArtifactPath(bundleDir, uuid, 'import');
-    return copyFileIfChanged(src, dest);
+    return copyFileIfChanged(src, dest) ? 'copied' : 'exists';
 }
 
 function copyNative(bundleDir, uuid) {
@@ -123,7 +134,9 @@ const artifacts = collectSourceBundleArtifacts(sourceRoot, sourceBundleDirName, 
 const copiedImports = new Set();
 const copiedNative = new Set();
 for (const artifact of artifacts) {
-    if (copyImport(bundleDir, artifact.uuid)) copiedImports.add(artifact.uuid);
+    const importStatus = copyImport(bundleDir, artifact.uuid);
+    if (importStatus === 'copied') copiedImports.add(artifact.uuid);
+    else if (importStatus === 'missing' && !artifact.optionalImport) fail(sourceBundleDirName + ' runtime import 缓存不存在: ' + artifact.uuid);
     if (artifact.native && copyNative(bundleDir, artifact.uuid)) copiedNative.add(artifact.uuid);
 }
 

@@ -710,7 +710,7 @@ export function installCollectionAvatarModule(target: any): void {
                 lastMoveAt = Date.now();
                 velocity = 0;
                 dragging = true;
-            }, this);
+            }, this, true);
 
             viewport.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
                 if (!dragging) return;
@@ -726,10 +726,10 @@ export function installCollectionAvatarModule(target: any): void {
                     this._collectionScrollSuppressClick = true;
                 }
                 setScrollY(content.position.y + delta);
-            }, this);
+            }, this, true);
 
-            viewport.on(Node.EventType.TOUCH_END, endDrag, this);
-            viewport.on(Node.EventType.TOUCH_CANCEL, endDrag, this);
+            viewport.on(Node.EventType.TOUCH_END, endDrag, this, true);
+            viewport.on(Node.EventType.TOUCH_CANCEL, endDrag, this, true);
         },
 
         getCollectionPreviewBounds(grid: number[][]) {

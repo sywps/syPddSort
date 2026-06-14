@@ -215,6 +215,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         showLosePanel() {
+            this.recordDynamicCountdownFinalFailure?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             this.updateLoseProgressLabel();
             if (this.panelLose) {
@@ -302,6 +303,7 @@ export function installSettlementHudModule(target: any): void {
             AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage());
             const logicalLevelId = this.getActiveLogicalLevelId();
             SySDKMgr.inst.reportLevelPass(logicalLevelId);
+            this.recordDynamicCountdownWin?.();
             if (this._isThemeLevel) {
                 this.setThemeCompleted(this._currentThemeLevelId || this.levelData.levelId);
             } else {
@@ -450,6 +452,8 @@ export function installSettlementHudModule(target: any): void {
 
         /** 看广告后继续游戏：恢复交互，但计时器需等重新选中豆豆后再开始 */
         continueAfterLose(addSeconds: number) {
+            this.revokeDynamicCountdownFinalFailure?.();
+            this.markDynamicCountdownAssisted?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             if (this.panelLose) this.panelLose.active = false;
             this.timeRemain += addSeconds;
@@ -681,11 +685,6 @@ export function installSettlementHudModule(target: any): void {
             const guideHandFrame = this.getSF('guide_hand');
             if (!guideHandFrame) throw new Error('[guide] missing sprite frame: guide_hand');
             this._applySpriteFrame(this._guideHand, guideHandFrame, GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_SPRITE_SIZE);
-
-            this._guideArrow = new Node('GuideArrow');
-            this._guideLayer.addChild(this._guideArrow);
-            this._guideArrow.addComponent(UITransform).setContentSize(40, 60);
-            this._guideArrow.layer = Layers.Enum.UI_2D;
         
             this.showGuideStep(0);
             if ((Number(this._modalFocusRefs) || 0) > 0) {
@@ -711,74 +710,48 @@ export function installSettlementHudModule(target: any): void {
             });
         
             Tween.stopAllByTarget(this._guideHand!);
-            Tween.stopAllByTarget(this._guideArrow!);
             this._guideHand!.setScale(1, 1, 1);
             this._guideHand!.active = false;
-            this._guideArrow!.active = false;
             this.clearGuideHighlight();
         
             // 清理临时节点
             const toRemove: Node[] = [];
             for (const child of this._guideLayer!.children) {
-                if (child.name === 'TapHint' || child.name === 'StepNum' || child.name === 'ProgressBar' || child.name === 'GuideHighlight') toRemove.push(child);
+                if (child.name === 'GuideHighlight') toRemove.push(child);
             }
             for (const n of toRemove) { Tween.stopAllByTarget(n); n.destroy(); }
         
             const mask = this._guideMask!;
             const hand = this._guideHand!;
-            const arrow = this._guideArrow!;
             const bubble = this._guideBubble!;
             const lbl = this._guideBubbleLbl!;
         
             let gm = mask.getComponent(Graphics); if (!gm) gm = mask.addComponent(Graphics); gm.clear();
             const gb = bubble.getComponent(Graphics); if (gb) gb.clear();
-            let gh = hand.getComponent(Graphics); if (!gh) gh = hand.addComponent(Graphics); gh.clear();
-            let ga = arrow.getComponent(Graphics); if (!ga) ga = arrow.addComponent(Graphics); ga.clear();
-        
-            const minimalGuide = this.isMinimalTutorialGuide();
-            if (!minimalGuide) {
-                this._drawProgressDots(step);
-            }
         
             switch (this._guideMode) {
                 case 'level_1':
                     switch (step) {
-                        case 0: this.guideStep0(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 1: this.guideStep1(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 2: this.guideStep2(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 3: this.guideStep3(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 4: this.guideStep4(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 5: this.guideStep5(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 0: this.guideStep0(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 1: this.guideStep1(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 2: this.guideStep2(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 3: this.guideStep3(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 4: this.guideStep4(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 5: this.guideStep5(gm, gb as Graphics, lbl, bubble, hand); break;
                         default: this.endTutorial(); break;
                     }
                     break;
                 case 'level_2':
                     switch (step) {
-                        case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
-                        case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, gh, lbl, bubble, hand, arrow); break;
+                        case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
                         default: this.endTutorial(); break;
                     }
                     break;
                 default:
                     this.endTutorial();
                     break;
-            }
-        
-            if (!minimalGuide) {
-                const tapHint = new Node('TapHint');
-                this._guideLayer!.addChild(tapHint);
-                tapHint.addComponent(UITransform).setContentSize(300, 30);
-                tapHint.layer = Layers.Enum.UI_2D;
-                tapHint.setPosition(0, -560);
-                const tapLbl = tapHint.addComponent(Label);
-                tapLbl.string = '点击豆豆选中，再点击目标位置';
-                tapLbl.fontSize = 18;
-                tapLbl.color = new Color(255, 255, 255, 180);
-                tapLbl.horizontalAlign = Label.HorizontalAlign.CENTER;
-                tween(tapHint)
-                    .repeatForever(tween(tapHint).to(0.8, { scale: new Vec3(1, 1, 1) }).to(0.8, { scale: new Vec3(0.92, 0.92, 1) }))
-                    .start();
             }
         
             this.playGuideVoiceForCurrentStep(step);

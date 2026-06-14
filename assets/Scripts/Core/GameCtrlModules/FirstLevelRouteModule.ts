@@ -430,7 +430,7 @@ export function installFirstLevelRouteModule(target: any): void {
             }
             if (canAutoSaveGameStateOnStartup) {
                 this.queueCloudGameStateSync();
-            } else if (this._isWeChat()) {
+            } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
                 console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
             }
             // 延迟微信相关初始化，避免与 Cocos 场景渲染冲突

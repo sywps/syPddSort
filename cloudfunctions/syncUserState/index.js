@@ -6,7 +6,6 @@ cloud.init({
 
 const db = cloud.database();
 const USER_PROFILE_COLLECTION = 'user_profile';
-const LEADERBOARD_COLLECTION = 'leaderboard';
 const NEW_USER_STARTER_PROP_COUNT = 3;
 
 function cleanString(value, maxLength = 96) {
@@ -37,8 +36,8 @@ function readPositiveInt(value) {
   return num > 0 ? num : 0;
 }
 
-function isAdminSavedLevelSentinel(doc) {
-  return !!doc && typeof doc.savedLevel === 'number' && Math.floor(Number(doc.savedLevel)) <= 0;
+function hasOwn(source, key) {
+  return Object.prototype.hasOwnProperty.call(source || {}, key);
 }
 
 function normalizeThemeUnlockedIds(value) {
@@ -89,65 +88,13 @@ async function findUserProfile(openid) {
   }
 }
 
-async function findLeaderboardEntry(openid) {
-  try {
-    const res = await db.collection(LEADERBOARD_COLLECTION).where({ openid }).limit(1).get();
-    return Array.isArray(res.data) && res.data.length > 0 ? res.data[0] : null;
-  } catch (error) {
-    if (isCollectionMissing(error)) {
-      return null;
-    }
-    throw error;
-  }
+function resolveRestorableProgress(doc) {
+  return typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0;
 }
 
-function shouldReadLegacyProgress(doc) {
-  if (isAdminSavedLevelSentinel(doc)) return false;
-  const savedLevel = typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0;
-  const lastLevelId = typeof doc?.lastLevelId === 'number' ? readPositiveInt(doc.lastLevelId) : 0;
-  return Math.max(savedLevel, lastLevelId) <= 1;
-}
-
-function resolveRestorableProgress(doc, legacyEntry) {
-  if (isAdminSavedLevelSentinel(doc)) {
-    return Math.floor(Number(doc.savedLevel));
-  }
-  return Math.max(
-    typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0,
-    typeof doc?.lastLevelId === 'number' ? readPositiveInt(doc.lastLevelId) : 0,
-    typeof legacyEntry?.progressLevel === 'number' ? readPositiveInt(legacyEntry.progressLevel) : 0
-  );
-}
-
-function resolveStateUpdatedAt(doc, legacyEntry, savedLevel) {
+function resolveStateUpdatedAt(doc, savedLevel) {
   const fromProfile = normalizeTimestamp(doc?.stateUpdatedAt, 0);
-  const fromLeaderboard = normalizeTimestamp(legacyEntry?.updatedAt, 0);
-  const resolved = Math.max(fromProfile, fromLeaderboard);
-  return resolved > 0 ? resolved : (savedLevel > 1 ? Date.now() : 0);
-}
-
-async function migrateLegacyProgress(collection, current, gameState) {
-  if (!current?._id || isAdminSavedLevelSentinel(current)) return current;
-  const savedLevel = readPositiveInt(gameState?.savedLevel);
-  if (savedLevel <= 1) return current;
-
-  const currentSavedLevel = typeof current.savedLevel === 'number' ? readPositiveInt(current.savedLevel) : 0;
-  const currentLastLevelId = typeof current.lastLevelId === 'number' ? readPositiveInt(current.lastLevelId) : 0;
-  if (savedLevel <= Math.max(currentSavedLevel, currentLastLevelId)) return current;
-
-  const stateUpdatedAt = normalizeTimestamp(gameState.stateUpdatedAt, Date.now());
-  const patch = {
-    savedLevel,
-    lastLevelId: savedLevel,
-    stateUpdatedAt,
-  };
-  try {
-    await collection.doc(current._id).update({ data: patch });
-    Object.assign(current, patch);
-  } catch (error) {
-    console.warn('[syncUserState] legacy progress migration failed:', error);
-  }
-  return current;
+  return fromProfile > 0 ? fromProfile : (savedLevel > 1 ? Date.now() : 0);
 }
 
 function buildBaseProfile(openid, timestamp) {
@@ -170,36 +117,6 @@ function buildBaseProfile(openid, timestamp) {
   };
 }
 
-async function ensureLegacyProgressProfile(collection, openid, current, gameState) {
-  const savedLevel = readPositiveInt(gameState?.savedLevel);
-  if (savedLevel <= 1 || isAdminSavedLevelSentinel(current)) {
-    return current;
-  }
-
-  if (current?._id) {
-    return migrateLegacyProgress(collection, current, gameState);
-  }
-
-  const timestamp = Date.now();
-  const stateUpdatedAt = normalizeTimestamp(gameState.stateUpdatedAt, timestamp);
-  const profile = {
-    ...buildBaseProfile(openid, timestamp),
-    savedLevel,
-    lastLevelId: savedLevel,
-    stateUpdatedAt,
-  };
-  try {
-    const addResult = await collection.add({ data: profile });
-    return {
-      _id: addResult?._id,
-      ...profile,
-    };
-  } catch (error) {
-    console.warn('[syncUserState] legacy progress profile create failed:', error);
-    return current;
-  }
-}
-
 function extractProfile(doc) {
   if (!doc) return null;
   const uuid = cleanString(doc.clientUuid, 64);
@@ -219,13 +136,13 @@ function extractProfile(doc) {
   };
 }
 
-function extractGameState(doc, legacyEntry = null) {
-  const savedLevel = resolveRestorableProgress(doc, legacyEntry);
+function extractGameState(doc) {
+  const savedLevel = resolveRestorableProgress(doc);
   const state = {};
 
   if (savedLevel !== 0) {
     state.savedLevel = savedLevel;
-    state.stateUpdatedAt = resolveStateUpdatedAt(doc, legacyEntry, savedLevel);
+    state.stateUpdatedAt = resolveStateUpdatedAt(doc, savedLevel);
   } else if (typeof doc?.stateUpdatedAt === 'number') {
     state.stateUpdatedAt = normalizeTimestamp(doc.stateUpdatedAt, 0);
   }
@@ -289,8 +206,9 @@ function buildGameStatePatch(source = {}, current = {}) {
     source.stateUpdatedAt,
     currentStateUpdatedAt || Date.now()
   );
-  const currentSavedLevel = normalizePositiveInt(current.savedLevel, 1);
-  const sourceSavedLevel = normalizePositiveInt(source.savedLevel, currentSavedLevel);
+  const currentSavedLevel = readPositiveInt(current.savedLevel);
+  const sourceSavedLevel = hasOwn(source, 'savedLevel') ? readPositiveInt(source.savedLevel) : 0;
+  const mergedSavedLevel = Math.max(currentSavedLevel, sourceSavedLevel);
   const currentGold = normalizeNonNegativeInt(current.gold, 0);
   const sourceGold = normalizeNonNegativeInt(source.gold, currentGold);
   const currentExpandSlotCount = normalizeNonNegativeInt(current.expandSlotCount, 0);
@@ -310,13 +228,12 @@ function buildGameStatePatch(source = {}, current = {}) {
   const shouldPreserveCurrentVolatileState =
     currentStateUpdatedAt > 0 &&
     (
-      sourceSavedLevel < currentSavedLevel ||
+      (hasOwn(source, 'savedLevel') && sourceSavedLevel < currentSavedLevel) ||
       mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
       mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length
     );
 
-  return {
-    savedLevel: Math.max(currentSavedLevel, sourceSavedLevel),
+  const patch = {
     vigor: shouldPreserveCurrentVolatileState
       ? normalizeNonNegativeInt(current.vigor, 10)
       : normalizeNonNegativeInt(source.vigor, normalizeNonNegativeInt(current.vigor, 10)),
@@ -336,6 +253,10 @@ function buildGameStatePatch(source = {}, current = {}) {
       ? currentStateUpdatedAt
       : Math.max(currentStateUpdatedAt, sourceStateUpdatedAt),
   };
+  if (mergedSavedLevel > 0) {
+    patch.savedLevel = mergedSavedLevel;
+  }
+  return patch;
 }
 
 exports.main = async (event = {}) => {
@@ -355,9 +276,7 @@ exports.main = async (event = {}) => {
     let current = await findUserProfile(openid);
 
     if (action === 'get') {
-      const legacyEntry = shouldReadLegacyProgress(current) ? await findLeaderboardEntry(openid) : null;
-      const gameState = extractGameState(current, legacyEntry);
-      current = await ensureLegacyProgressProfile(collection, openid, current, gameState);
+      const gameState = extractGameState(current);
       return {
         ok: true,
         profile: extractProfile(current),
@@ -392,14 +311,6 @@ exports.main = async (event = {}) => {
     if (event.gameState && typeof event.gameState === 'object') {
       Object.assign(patch, buildGameStatePatch(event.gameState, current));
     }
-    if (isAdminSavedLevelSentinel(current)) {
-      Object.assign(patch, {
-        savedLevel: 1,
-        lastLevelId: 1,
-        stateUpdatedAt: timestamp,
-      });
-    }
-
     if (current._id) {
       await collection.doc(current._id).update({ data: patch });
     }

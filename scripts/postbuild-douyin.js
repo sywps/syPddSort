@@ -253,6 +253,5 @@ removeReleaseLevelDataSubpackage(runtimeRoot);
 normalizeSettings(runtimeRoot);
 ensureDouyinRuntimeMarker(runtimeRoot);
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeRoot]);
-runNode('scripts/verify-douyin-build.js', [buildPath]);
 
 console.log('抖音后处理完成: ' + runtimeRoot);

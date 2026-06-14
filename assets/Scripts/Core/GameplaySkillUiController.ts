@@ -124,6 +124,19 @@ export class GameplaySkillUiController {
         return adPlayIcon;
     }
 
+    private runAfterAdUiSettled(callback: () => void): void {
+        const runtime = this.runtime;
+        const run = () => {
+            if (!runtime?.isValid) return;
+            callback();
+        };
+        if (typeof runtime?.scheduleOnce === 'function') {
+            runtime.scheduleOnce(run, 0.12);
+            return;
+        }
+        run();
+    }
+
     buildSkillButtons(root: Node) {
         const runtime = this.runtime;
         const skills = [
@@ -183,6 +196,7 @@ export class GameplaySkillUiController {
                     return;
                 }
                 if (runtime.consumePropCount(skill.kind)) {
+                    runtime.markDynamicCountdownAssisted?.();
                     this.rebuildSkillButtonsUI();
                     handler(true);
                     return;
@@ -191,11 +205,14 @@ export class GameplaySkillUiController {
                 runtime.showTrackedRewardedAd(skill.adType, (success: boolean) => {
                     if (!success) {
                         runtime._skillActive = false;
-                        runtime.resumeTimerForProp();
+                        this.runAfterAdUiSettled(() => runtime.resumeTimerForProp());
                         return;
                     }
                     runtime._skillActive = false;
-                    handler(true);
+                    this.runAfterAdUiSettled(() => {
+                        runtime.markDynamicCountdownAssisted?.();
+                        handler(true);
+                    });
                 }, { waitForCloseBeforeComplete: true });
             }, runtime);
         }
@@ -209,11 +226,16 @@ export class GameplaySkillUiController {
             const node = skillRoot.getChildByName(name);
             if (node?.isValid) {
                 node.targetOff(runtime);
-                node.active = false;
-                this.updateCountBadge(node, 0, true);
             }
         }
         if (!runtime.levelData || runtime.isGameEnd) {
+            for (const name of skillNodeNames) {
+                const node = skillRoot.getChildByName(name);
+                if (node?.isValid) {
+                    node.active = false;
+                    this.updateCountBadge(node, 0, true);
+                }
+            }
             return;
         }
         this.buildSkillButtons(skillRoot);

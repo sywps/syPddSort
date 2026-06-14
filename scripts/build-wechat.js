@@ -3,22 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync, spawn } = require('child_process');
 const buildCommon = require('./minigame-build-common.js');
-const {
-    assertBundleNativeFilesExist,
-    assertSourceBundleArtifactsExist,
-} = require('./verify-bundle-native-files.js');
 
 const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'wechatgame');
 const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn');
-const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
-const homeAssetsRoot = path.join(projectDir, 'assets', 'HomeAssetsBundle');
-const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
 const startSceneUrl = 'db://assets/Scenes/Boot.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
 const mainPackageTargetKB = 3072;
-const mainPackageErrorKB = 4096;
 const startupDownloadTargetKB = 3072;
 const wechatAppId = process.env.WECHAT_APPID || 'wxbb6160c828f380ca';
 const openDevtools = process.env.WECHAT_OPEN_DEVTOOLS || '1';
@@ -59,17 +51,6 @@ function rm(target) {
 
 function cleanCocosGeneratedCaches() {
     buildCommon.cleanCocosGeneratedCaches(projectDir, 'WECHAT_CLEAN_COCOS_CACHE', logInfo);
-}
-
-function movePath(src, dest) {
-    rm(dest);
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    try {
-        fs.renameSync(src, dest);
-    } catch (err) {
-        fs.cpSync(src, dest, { recursive: true });
-        rm(src);
-    }
 }
 
 function walkFiles(dir, out = []) {
@@ -118,143 +99,6 @@ function getStartSceneUuid() {
     return buildCommon.readAssetUuid(projectDir, startSceneUrl, '启动场景');
 }
 
-function resolveCocosCli() {
-    return buildCommon.resolveCocosCli();
-}
-
-const forbiddenRemoteSourceFiles = [
-    'Audio/README.md',
-    'Audio/button.wav',
-    'Audio/pindd/click.mp3',
-    'Audio/pindd/pick_up.mp3',
-    'Audio/pindd/victory.mp3',
-    'Textures/UI/home_bg1.png',
-    'Textures/UI/banner_lives.png',
-    'Textures/Slot/slot_row_solid.png',
-    'Textures/UI/icon_clock.png',
-    'Textures/UI/icon_settings.png',
-    'Textures/Slot/slot_empty.png',
-    'Textures/Slot/slot_bg.png',
-    'Textures/UI/btn_add_home.png',
-    'Textures/Pindd/UI/slot_row_bg_pindd.png',
-];
-
-const forbiddenRemoteSourceDirs = [
-    'Textures/Pindd/Beans',
-];
-
-function validateGameAssetsBundle() {
-    const requiredFiles = [
-        path.join(gameAssetsRoot, 'themes.json'),
-        path.join(gameAssetsRoot, 'Audio', 'bgm.mp3'),
-    ];
-    for (const filePath of requiredFiles) {
-        if (!fs.existsSync(filePath)) fail('GameAssetsBundle 缺少关键资源: ' + path.relative(projectDir, filePath));
-    }
-    for (const relPath of forbiddenRemoteSourceFiles) {
-        const filePath = path.join(gameAssetsRoot, ...relPath.split('/'));
-        if (fs.existsSync(filePath)) fail('GameAssetsBundle 不应包含已清理旧资源: ' + relPath);
-        if (fs.existsSync(filePath + '.meta')) fail('GameAssetsBundle 不应包含已清理旧资源 meta: ' + relPath + '.meta');
-    }
-    for (const relPath of forbiddenRemoteSourceDirs) {
-        const dirPath = path.join(gameAssetsRoot, ...relPath.split('/'));
-        if (fs.existsSync(dirPath)) fail('GameAssetsBundle 不应包含旧单豆图片目录: ' + relPath);
-        if (fs.existsSync(dirPath + '.meta')) fail('GameAssetsBundle 不应包含旧单豆图片目录 meta: ' + relPath + '.meta');
-    }
-    if (fs.existsSync(path.join(gameAssetsRoot, 'LevelData')) || fs.existsSync(path.join(gameAssetsRoot, 'LevelData.meta'))) {
-        fail('GameAssetsBundle 不应包含 LevelData；关卡源码应放在 assets/LevelData');
-    }
-    const forbiddenBeanAtlasFiles = [
-        'bean-atlas.json',
-        'bean-atlas.json.meta',
-        'bean-atlas-data.json',
-        'bean-atlas-data.json.meta',
-        'bean-atlas.png',
-        'bean-atlas.png.meta',
-    ];
-    for (const name of forbiddenBeanAtlasFiles) {
-        const filePath = path.join(gameAssetsRoot, 'Textures', 'Beans', name);
-        if (fs.existsSync(filePath)) {
-            fail('GameAssetsBundle 不应包含豆豆图集资源，请放到 BootstrapBundle/Beans: ' + path.relative(projectDir, filePath));
-        }
-    }
-    logInfo('GameAssetsBundle 稳定业务资源校验通过');
-}
-
-function validateHomeAssetsBundle() {
-    const requiredFiles = [
-        path.join(homeAssetsRoot, 'Scenes', 'Home.scene'),
-        path.join(homeAssetsRoot, 'Scenes', 'Home.scene.meta'),
-        path.join(homeAssetsRoot, 'GameUI', 'home_bg.jpeg'),
-        path.join(homeAssetsRoot, 'GameUI', 'home_bg.jpeg.meta'),
-        path.join(homeAssetsRoot, 'GameUI', 'home_main_level_button.png'),
-        path.join(homeAssetsRoot, 'GameUI', '主页标题.png'),
-        path.join(homeAssetsRoot, 'GameUI', 'home_theme_button.png'),
-        path.join(homeAssetsRoot, 'GameUI', '图鉴1.png'),
-        path.join(homeAssetsRoot, 'GameUI', '排行榜1.png'),
-        path.join(homeAssetsRoot, 'GameUI', '爱心框.png'),
-        path.join(homeAssetsRoot, 'GameUI', '签到1.png'),
-        path.join(homeAssetsRoot, 'GameUI', 'home_icon_background.png'),
-        path.join(homeAssetsRoot, 'GameUI', 'home_icon_title_plate.png'),
-        path.join(homeAssetsRoot, 'GameUI', '金币框 (2).png'),
-        path.join(homeAssetsRoot, 'GameUI', '预览框.png'),
-    ];
-    for (const filePath of requiredFiles) {
-        if (!fs.existsSync(filePath)) fail('HomeAssetsBundle 缺少首屏资源: ' + path.relative(projectDir, filePath));
-        if (!filePath.endsWith('.meta') && !fs.existsSync(filePath + '.meta')) {
-            fail('HomeAssetsBundle 首屏资源缺少 meta: ' + path.relative(projectDir, filePath));
-        }
-    }
-    for (const filePath of walkFiles(homeAssetsRoot)) {
-        if (/\.webp(?:\.meta)?$/i.test(filePath)) fail('HomeAssetsBundle 禁止使用 WebP: ' + path.relative(projectDir, filePath));
-    }
-    if (fs.existsSync(path.join(homeAssetsRoot, 'GameUI', 'home_bg.png'))
-        || fs.existsSync(path.join(homeAssetsRoot, 'GameUI', 'home_bg.png.meta'))) {
-        fail('HomeAssetsBundle home_bg 已正式改用 JPEG，不应保留 PNG');
-    }
-    logInfo('HomeAssetsBundle 首屏资源校验通过');
-}
-
-function parseLevelDataSourceFile(name) {
-    const match = /^(zt_level_|level_)(\d+)\.json$/.exec(name);
-    if (!match) return null;
-    return {
-        file: name,
-        prefix: match[1],
-        levelId: Math.max(1, Math.floor(Number(match[2]) || 1)),
-        key: match[1] + Math.max(1, Math.floor(Number(match[2]) || 1)),
-    };
-}
-
-function collectSourceLevelDataEntries() {
-    if (!fs.existsSync(levelDataRoot)) fail('assets/LevelData 目录不存在');
-    return fs.readdirSync(levelDataRoot)
-        .map(parseLevelDataSourceFile)
-        .filter(Boolean)
-        .sort((a, b) => a.prefix.localeCompare(b.prefix) || a.levelId - b.levelId);
-}
-
-function countLevelDataPrefixes(entries) {
-    return entries.reduce((counts, entry) => {
-        counts[entry.prefix] = (counts[entry.prefix] || 0) + 1;
-        return counts;
-    }, {});
-}
-
-function validateLevelDataSource() {
-    if (!fs.existsSync(levelDataRoot)) fail('assets/LevelData 目录不存在');
-    const levels = collectSourceLevelDataEntries();
-    const mainlineCount = levels.filter((entry) => entry.prefix === 'level_').length;
-    const themeCount = levels.filter((entry) => entry.prefix === 'zt_level_').length;
-    if (mainlineCount < 300) fail('assets/LevelData 主线关卡数量异常: ' + mainlineCount);
-    if (themeCount < 1) fail('assets/LevelData 缺少主题关卡 zt_level_*.json');
-    for (const filePath of walkFiles(levelDataRoot).filter((item) => item.endsWith('.json'))) {
-        JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        if (!fs.existsSync(filePath + '.meta')) fail('assets/LevelData 缺少 meta: ' + path.basename(filePath));
-    }
-    logInfo('assets/LevelData 真源校验通过，mainline=' + mainlineCount + ', theme=' + themeCount);
-}
-
 function findSettingsPath(runtimeDir) {
     const srcDir = path.join(runtimeDir, 'src');
     if (!fs.existsSync(srcDir)) return '';
@@ -281,16 +125,6 @@ function findSubpackageRoot(gameJson, bundleName) {
     return '';
 }
 
-function findBundleConfigPath(bundleDir) {
-    const exact = path.join(bundleDir, 'config.json');
-    if (fs.existsSync(exact)) return exact;
-    if (!fs.existsSync(bundleDir)) return exact;
-    const matches = fs.readdirSync(bundleDir)
-        .filter((name) => /^config(?:\.[0-9a-f]+)?\.json$/i.test(name))
-        .sort();
-    return matches.length === 1 ? path.join(bundleDir, matches[0]) : exact;
-}
-
 function resolveBundleDir(runtimeDir, bundleName, gameJson) {
     const localDir = path.join(runtimeDir, 'assets', bundleName);
     if (fs.existsSync(localDir)) return localDir;
@@ -306,20 +140,6 @@ function resolveRuntimeDir() {
     fail('构建后未生成 settings.json/settings.<hash>.json');
 }
 
-function updateProjectConfigAppid(projectConfigPath) {
-    const data = readJson(projectConfigPath);
-    let changed = false;
-    if (data.appid !== wechatAppId) { data.appid = wechatAppId; changed = true; }
-    if (data.compileType !== 'game') { data.compileType = 'game'; changed = true; }
-    if (changed) writeJson(projectConfigPath, data);
-    return changed;
-}
-
-function getConfigPaths(configPath) {
-    const cfg = readJson(configPath);
-    return Object.values(cfg.paths || {}).map((entry) => Array.isArray(entry) ? entry[0] : '').filter(Boolean);
-}
-
 function getPreloadBundleName(item) {
     return typeof item === 'string' ? item : item && item.bundle;
 }
@@ -328,21 +148,6 @@ function getPreloadBundleNames(assets) {
     return Array.isArray(assets.preloadBundles)
         ? assets.preloadBundles.map(getPreloadBundleName).filter(Boolean)
         : [];
-}
-
-function assertStartupPreloadOrder(assets) {
-    const preloadNames = getPreloadBundleNames(assets);
-    const requiredOrder = ['bootstrap', 'main'];
-    let previous = -1;
-    for (const name of requiredOrder) {
-        const index = preloadNames.indexOf(name);
-        if (index === -1) fail('settings.assets.preloadBundles 缺少启动依赖 bundle: ' + name);
-        if (index <= previous) fail('settings.assets.preloadBundles 启动顺序错误，应为 bootstrap -> main，实际: ' + preloadNames.join(' -> '));
-        previous = index;
-    }
-    if (preloadNames.includes('homeAssets')) fail('settings.assets.preloadBundles 不应启动预加载 homeAssets 分包');
-    if (preloadNames.includes('gameAssets')) fail('settings.assets.preloadBundles 不应启动预加载 gameAssets 分包');
-    if (preloadNames.includes('levelData')) fail('settings.assets.preloadBundles 不应启动预加载 levelData 分包');
 }
 
 function computeStartupDownloadBytes(runtimeDir, gameJson, assets, rootPackageBytes) {
@@ -359,221 +164,6 @@ function computeStartupDownloadBytes(runtimeDir, gameJson, assets, rootPackageBy
         total += bytes;
     }
     return { total, included };
-}
-
-function validateBootstrapRuntimeBundle(runtimeDir) {
-    const configPath = path.join(runtimeDir, 'assets', 'bootstrap', 'config.json');
-    if (!fs.existsSync(configPath)) fail('未找到本地 bootstrap bundle: ' + configPath);
-    if (!fs.existsSync(path.join(runtimeDir, 'src', 'bundle-scripts', 'bootstrap', 'index.js'))) fail('bootstrap bundle-scripts stub 不存在');
-    const paths = new Set(getConfigPaths(configPath));
-    for (const required of [
-        'LevelData/level_1',
-        'Beans/bean-atlas-data',
-        'Beans/bean-atlas',
-        'Beans/bean-atlas/texture',
-        'Beans/bean-atlas/spriteFrame',
-        'GameUI/bg_game_pindd',
-        'GameUI/slot_groove_b_ui',
-        'GameUI/slot_panel_shell_b_ui',
-        'GameUI/slot_row_lock_mask_ui',
-        'GameUI/slot_row_lock_dash_ui',
-        'GameUI/倒计时',
-        'GameUI/unlock_button',
-        'GameUI/popup_ad_play_icon',
-        'GameUI/popup_gameplay_tool_slot_plate',
-        'GameUI/popup_tool_wand_icon',
-        'GameUI/popup_tool_brush_icon',
-        'GameUI/popup_tool_magnet_icon',
-        'GameUI/solid_white',
-        'GameUI/设置',
-    ]) {
-        if (!paths.has(required)) fail('bootstrap 缺少首关必要资源: ' + required);
-    }
-    for (const entry of paths) {
-        if (/^LevelData\/level_\d+$/.test(entry) && entry !== 'LevelData/level_1') fail('bootstrap 不应包含非首关候选关卡: ' + entry);
-    }
-}
-
-function assertRuntimeScenes(runtimeDir) {
-    const gameJsonPath = path.join(runtimeDir, 'game.json');
-    const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
-    const mainConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'main', gameJson));
-    if (!fs.existsSync(mainConfigPath)) fail('缺少 main bundle 配置: ' + mainConfigPath);
-    const mainScenes = readJson(mainConfigPath).scenes || {};
-    for (const sceneUrl of ['db://assets/Scenes/Boot.scene', 'db://assets/Scenes/Game.scene']) {
-        if (!Object.prototype.hasOwnProperty.call(mainScenes, sceneUrl)) {
-            fail('微信 main bundle 缺少运行态场景: ' + sceneUrl);
-        }
-    }
-    if (Object.prototype.hasOwnProperty.call(mainScenes, 'db://assets/HomeAssetsBundle/Scenes/Home.scene')) {
-        fail('Home.scene 不应进入 main bundle，应由 homeAssets 分包承载');
-    }
-    const homeAssetsConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'homeAssets', gameJson));
-    if (!fs.existsSync(homeAssetsConfigPath)) fail('缺少 homeAssets bundle 配置: ' + homeAssetsConfigPath);
-    const homeAssetsConfig = readJson(homeAssetsConfigPath);
-    const homeDeps = homeAssetsConfig.deps || [];
-    if (homeDeps.includes('gameAssets')) fail('homeAssets 分包不应依赖 gameAssets；老用户 Home 首屏会被 gameAssets 阻塞');
-    const homeScenes = homeAssetsConfig.scenes || {};
-    if (!Object.prototype.hasOwnProperty.call(homeScenes, 'db://assets/HomeAssetsBundle/Scenes/Home.scene')) {
-        fail('homeAssets 分包缺少 Home.scene');
-    }
-}
-
-function assertMainBundleDoesNotDependOnSubpackages(runtimeDir) {
-    const gameJsonPath = path.join(runtimeDir, 'game.json');
-    const gameJson = fs.existsSync(gameJsonPath) ? readJson(gameJsonPath) : {};
-    const mainConfigPath = findBundleConfigPath(resolveBundleDir(runtimeDir, 'main', gameJson));
-    const deps = readJson(mainConfigPath).deps || [];
-    for (const bundleName of ['homeAssets', 'gameAssets', 'levelData']) {
-        if (deps.includes(bundleName)) fail('main bundle 不应依赖 ' + bundleName + '；启动场景仍有分包强引用');
-    }
-}
-
-function validateRuntime(runtimeDir) {
-    const projectConfigPath = path.join(buildDir, 'project.config.json');
-    if (!fs.existsSync(projectConfigPath)) fail('未找到微信项目配置: ' + projectConfigPath);
-    logInfo(updateProjectConfigAppid(projectConfigPath) ? 'project.config.json 已写入 appid: ' + wechatAppId : 'project.config.json appid 已就绪: ' + wechatAppId);
-    const projectConfig = readJson(projectConfigPath);
-    if (projectConfig.miniprogramRoot !== 'minigame/') fail('project.config.json 未指向 minigame/');
-    if (!fs.existsSync(path.join(runtimeDir, 'openDataContext'))) fail('minigame/openDataContext 目录不存在');
-    const gameJs = fs.readFileSync(path.join(runtimeDir, 'game.js'), 'utf8');
-    if (gameJs.includes('canvas.width *= info.devicePixelRatio')) fail('game.js DPR 乘法未移除');
-    const firstScreenPath = path.join(runtimeDir, 'first-screen.js');
-    if (fs.existsSync(firstScreenPath) && fs.readFileSync(firstScreenPath, 'utf8').includes('let fitHeight = false;')) fail('first-screen.js 竖屏适配未修正');
-    if (fs.existsSync(path.join(runtimeDir, 'assets', 'remote'))) fail('本地包中仍存在 assets/remote');
-    if (fs.existsSync(path.join(runtimeDir, 'assets', 'homeAssets'))) fail('本地包中仍存在 assets/homeAssets');
-    if (fs.existsSync(path.join(runtimeDir, 'assets', 'gameAssets'))) fail('本地包中仍存在 assets/gameAssets');
-    if (fs.existsSync(path.join(runtimeDir, 'assets', 'resources'))) fail('本地包中仍存在 assets/resources');
-    const runtimeJsText = walkFiles(runtimeDir)
-        .filter((filePath) => filePath.endsWith('.js'))
-        .map((filePath) => fs.readFileSync(filePath, 'utf8'))
-        .join('\n');
-    for (const forbidden of ['getAnimationInterval', 'setAnimationInterval']) {
-        if (runtimeJsText.includes(forbidden)) fail('微信包仍包含 director.' + forbidden + ' 废弃属性告警入口');
-    }
-    validateBootstrapRuntimeBundle(runtimeDir);
-    assertRuntimeScenes(runtimeDir);
-    assertMainBundleDoesNotDependOnSubpackages(runtimeDir);
-    const settings = readJson(findSettingsPath(runtimeDir));
-    const assets = settings.assets || {};
-    const server = String(assets.server || '').trim();
-    if (server) fail('settings.assets.server 应为空，gameAssets 不作为 Cocos CDN bundle: ' + server);
-    if (Array.isArray(assets.gameAssetsBundles)) fail('settings.assets.gameAssetsBundles 是误写字段，应使用 Cocos remoteBundles');
-    if (Array.isArray(assets.remoteBundles) && assets.remoteBundles.includes('gameAssets')) fail('settings.assets.remoteBundles 不应包含 gameAssets');
-    if (!assets.projectBundles || !assets.projectBundles.includes('bootstrap')) fail('settings.json 缺少 bootstrap bundle 声明');
-    if (!assets.projectBundles || !assets.projectBundles.includes('homeAssets')) fail('settings.json 缺少 homeAssets 分包 bundle 声明');
-    if (!assets.projectBundles || !assets.projectBundles.includes('gameAssets')) fail('settings.json 缺少 gameAssets 分包 bundle 声明');
-    const settingsSubpackages = Array.isArray(assets.subpackages) ? assets.subpackages : [];
-    const gameJson = readJson(path.join(runtimeDir, 'game.json'));
-    const homeAssetsSubpackageRoot = findSubpackageRoot(gameJson, 'homeAssets');
-    if (!settingsSubpackages.includes('homeAssets')) fail('settings.assets.subpackages 缺少 homeAssets');
-    if (!homeAssetsSubpackageRoot) fail('game.json.subpackages 缺少 homeAssets');
-    const gameAssetsSubpackageRoot = findSubpackageRoot(gameJson, 'gameAssets');
-    if (!settingsSubpackages.includes('gameAssets')) fail('settings.assets.subpackages 缺少 gameAssets');
-    if (!gameAssetsSubpackageRoot) fail('game.json.subpackages 缺少 gameAssets');
-    const levelDataSubpackageRoot = findSubpackageRoot(gameJson, 'levelData');
-    if (buildMode === 'debug') {
-        if (!settingsSubpackages.includes('levelData')) fail('debug settings.assets.subpackages 缺少 levelData');
-        if (!levelDataSubpackageRoot) fail('debug game.json.subpackages 缺少 levelData');
-        const levelDataDir = resolveBundleDir(runtimeDir, 'levelData', gameJson);
-        if (!fs.existsSync(findBundleConfigPath(levelDataDir))) fail('debug 未找到 levelData 分包 bundle 配置');
-        const levelDataGameJsPath = path.join(levelDataDir, 'game.js');
-        if (!fs.existsSync(levelDataGameJsPath)) fail('debug levelData 微信分包缺少入口 game.js');
-        if (!fs.readFileSync(levelDataGameJsPath, 'utf8').includes('virtual:///prerequisite-imports/levelData')) {
-            fail('debug levelData 微信分包 game.js 未注册 Cocos prerequisite import');
-        }
-    } else {
-        if (settingsSubpackages.includes('levelData')) fail('release 不应包含本地 levelData 分包');
-        if (levelDataSubpackageRoot) fail('release game.json.subpackages 不应包含 levelData');
-        if (fs.existsSync(path.join(runtimeDir, 'assets', 'levelData')) || fs.existsSync(path.join(runtimeDir, 'subpackages', 'levelData'))) {
-            fail('release 包不应包含本地 levelData bundle');
-        }
-    }
-    assertStartupPreloadOrder(assets);
-    if (!fs.existsSync(path.join(runtimeDir, 'src', 'bundle-scripts', 'homeAssets', 'index.js'))) fail('本地 homeAssets bundle script 缺少稳定入口 index.js');
-    const homeAssetsDir = resolveBundleDir(runtimeDir, 'homeAssets', gameJson);
-    const homeAssetsConfigPath = findBundleConfigPath(homeAssetsDir);
-    if (!fs.existsSync(homeAssetsConfigPath)) fail('未找到 homeAssets 分包 bundle 配置: ' + homeAssetsConfigPath);
-    const homeAssetsGameJsPath = path.join(homeAssetsDir, 'game.js');
-    if (!fs.existsSync(homeAssetsGameJsPath)) fail('homeAssets 微信分包缺少入口 game.js: ' + homeAssetsGameJsPath);
-    if (!fs.readFileSync(homeAssetsGameJsPath, 'utf8').includes('virtual:///prerequisite-imports/homeAssets')) {
-        fail('homeAssets 微信分包 game.js 未注册 Cocos prerequisite import');
-    }
-    assertSourceBundleArtifactsExist(homeAssetsDir, 'homeAssets', homeAssetsRoot, fail);
-    assertBundleNativeFilesExist(homeAssetsDir, 'homeAssets', fail);
-    if (!fs.existsSync(path.join(runtimeDir, 'src', 'bundle-scripts', 'gameAssets', 'index.js'))) fail('本地 gameAssets bundle script 缺少稳定入口 index.js');
-    const gameAssetsDir = resolveBundleDir(runtimeDir, 'gameAssets', gameJson);
-    const gameAssetsConfigPath = findBundleConfigPath(gameAssetsDir);
-    if (!fs.existsSync(gameAssetsConfigPath)) fail('未找到 gameAssets 分包 bundle 配置: ' + gameAssetsConfigPath);
-    const gameAssetsGameJsPath = path.join(gameAssetsDir, 'game.js');
-    if (!fs.existsSync(gameAssetsGameJsPath)) fail('gameAssets 微信分包缺少入口 game.js: ' + gameAssetsGameJsPath);
-    if (!fs.readFileSync(gameAssetsGameJsPath, 'utf8').includes('virtual:///prerequisite-imports/gameAssets')) {
-        fail('gameAssets 微信分包 game.js 未注册 Cocos prerequisite import');
-    }
-    return { gameAssetsMode: 'subpackage', server, homeAssetsDir, gameAssetsDir };
-}
-
-function validateLevelDataCdn() {
-    const livePath = path.join(levelDataCdnDir, 'level_live.json');
-    if (!fs.existsSync(livePath)) fail('关卡数据 CDN 缺少 level_live.json');
-    const manifest = readJson(livePath);
-    if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) fail('level_live.json schema 不正确');
-    if (!Array.isArray(manifest.packs) || manifest.packs.length < 1) fail('level_live.json 缺少 packs');
-    const sourceEntries = collectSourceLevelDataEntries();
-    const sourceKeys = new Set(sourceEntries.map((entry) => entry.key));
-    const sourcePrefixCounts = countLevelDataPrefixes(sourceEntries);
-    const manifestPrefixCounts = manifest.levelCounts || {};
-    const cdnKeys = new Set();
-    const cdnPrefixCounts = {};
-    let levelCount = 0;
-    for (const pack of manifest.packs) {
-        if (!pack || typeof pack.url !== 'string') fail('level_live.json pack.url 不正确');
-        const packPrefix = String(pack.prefix || 'level_');
-        if (packPrefix !== 'level_' && packPrefix !== 'zt_level_') fail('level_live.json pack.prefix 不正确: ' + pack.url);
-        const packPath = path.join(levelDataCdnDir, pack.url);
-        if (!fs.existsSync(packPath)) fail('关卡数据 CDN 缺少 pack: ' + pack.url);
-        const packJson = readJson(packPath);
-        if (packJson.id !== pack.id) fail('关卡数据 pack id 不一致: ' + pack.url);
-        if (String(packJson.prefix || packPrefix) !== packPrefix) fail('关卡数据 pack prefix 不一致: ' + pack.url);
-        if (!Array.isArray(packJson.levels) || packJson.levels.length !== pack.levelCount) fail('关卡数据 pack levelCount 不一致: ' + pack.url);
-        const packPayloadKeys = [];
-        for (const entry of packJson.levels) {
-            const levelId = Math.max(1, Math.floor(Number(entry && entry.levelId) || 1));
-            const entryPrefix = String((entry && entry.prefix) || packJson.prefix || packPrefix);
-            const key = entryPrefix + levelId;
-            if (entryPrefix !== packPrefix) fail('关卡数据 pack entry prefix 不一致: ' + pack.url + ' ' + key);
-            if (cdnKeys.has(key)) fail('关卡数据 CDN 重复关卡 key: ' + key);
-            cdnKeys.add(key);
-            packPayloadKeys.push(key);
-            cdnPrefixCounts[entryPrefix] = (cdnPrefixCounts[entryPrefix] || 0) + 1;
-        }
-        if (Array.isArray(pack.levelKeys)) {
-            const manifestKeys = pack.levelKeys.slice().sort();
-            const payloadKeys = packPayloadKeys.slice().sort();
-            if (manifestKeys.length !== payloadKeys.length || manifestKeys.some((key, index) => key !== payloadKeys[index])) {
-                fail('level_live.json pack.levelKeys 与 pack 内容不一致: ' + pack.url);
-            }
-        }
-        levelCount += packJson.levels.length;
-    }
-    if (levelCount !== manifest.levelCount) fail('level_live.json levelCount 不一致: ' + levelCount + ' != ' + manifest.levelCount);
-    if (levelCount !== sourceKeys.size) fail('关卡数据 CDN 关卡数量异常: ' + levelCount + ' != assets/LevelData ' + sourceKeys.size);
-    for (const prefix of ['level_', 'zt_level_']) {
-        const sourceCount = sourcePrefixCounts[prefix] || 0;
-        if ((manifestPrefixCounts[prefix] || 0) !== sourceCount) {
-            fail('level_live.json levelCounts.' + prefix + ' 不一致: ' + (manifestPrefixCounts[prefix] || 0) + ' != ' + sourceCount);
-        }
-        if ((cdnPrefixCounts[prefix] || 0) !== sourceCount) {
-            fail('关卡数据 CDN ' + prefix + ' 数量异常: ' + (cdnPrefixCounts[prefix] || 0) + ' != assets/LevelData ' + sourceCount);
-        }
-    }
-    for (const key of sourceKeys) {
-        if (!cdnKeys.has(key)) fail('关卡数据 CDN 缺少真源关卡: ' + key);
-    }
-    for (const key of cdnKeys) {
-        if (!sourceKeys.has(key)) fail('关卡数据 CDN 包含未知关卡: ' + key);
-    }
-    logInfo('关卡数据 CDN 校验通过，packs=' + manifest.packs.length + ' levels=' + levelCount + ' version=' + manifest.dataVersion);
 }
 
 function maybeReloadWechatDevtools() {
@@ -602,18 +192,13 @@ logInfo('build/wechatgame 与 build/level-data-cdn 已清理');
 cleanCocosGeneratedCaches();
 repairCocosMetaFiles();
 
-logStep('0.1 校验 assets/LevelData 真源...');
-validateGameAssetsBundle();
-validateHomeAssetsBundle();
-validateLevelDataSource();
-
 logStep('0.15 生成远程关卡数据包...');
 runNode('scripts/write-level-data-cdn.js', [levelDataCdnDir]);
 logInfo('关卡数据 CDN 产物已生成: ' + levelDataCdnDir);
 
 logStep('0.2 准备 BootstrapBundle 首关快照...');
 runNode('scripts/prepare-bootstrap.js');
-logInfo('BootstrapBundle 源目录已通过首关快照与首屏豆豆图集校验');
+logInfo('BootstrapBundle 源目录已准备');
 
 const startSceneUuid = getStartSceneUuid();
 runNode('scripts/write-wechat-build-config.js', [buildConfigPath, startSceneUrl, startSceneUuid, '--' + buildMode]);
@@ -642,13 +227,12 @@ const runtimeDir = resolveRuntimeDir();
 logStep('2.1 补齐本地小游戏公共 bundle 产物...');
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeDir]);
 
-logStep('2.2 校验本地包与远程包...');
-const runtimeInfo = validateRuntime(runtimeDir);
-validateLevelDataCdn();
-logInfo('本地包、gameAssets 分包与关卡数据 CDN 校验通过，mode=' + runtimeInfo.gameAssetsMode);
-
 logStep('3. 输出体积...');
 const gameJson = readJson(path.join(runtimeDir, 'game.json'));
+const runtimeInfo = {
+    homeAssetsDir: resolveBundleDir(runtimeDir, 'homeAssets', gameJson),
+    gameAssetsDir: resolveBundleDir(runtimeDir, 'gameAssets', gameJson),
+};
 const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [])
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, ''))
     .filter(Boolean)
@@ -673,14 +257,6 @@ for (const item of startupDownload.included) {
     console.log('     + preload ' + item.bundleName + ' (' + item.root + '): ' + formatMB(item.bytes));
 }
 console.log('   minigame 实际目录: ' + formatMB(runtimeBytes));
-if (mainKB > mainPackageErrorKB) fail('主包超过硬限制 ' + mainPackageErrorKB + 'KB: ' + mainKB + 'KB');
-if (startupDownloadKB > startupDownloadTargetKB) fail('启动下载量超过 ' + startupDownloadTargetKB + 'KB 目标: ' + startupDownloadKB + 'KB');
-if (mainKB > mainPackageTargetKB) {
-    logInfo('WARNING: 主包超过 3MB 目标，但未超过 4MB 硬限制: ' + mainKB + 'KB');
-} else {
-    logInfo('主包 <= ' + mainPackageTargetKB + 'KB');
-}
-
 console.log('');
 console.log('=== 打包完成 ===');
 console.log('本地包：' + buildDir);

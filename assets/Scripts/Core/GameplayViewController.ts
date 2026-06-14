@@ -377,6 +377,7 @@ export class GameplayViewController {
         const slotRoot = this.getGameplayBottomHudChild('SlotAreaGroup');
         const skillRoot = this.getGameplayBottomHudChild('SkillArea');
         const dragRoot = this.getGameplayRuntimeGroup('DragRuntime');
+        runtime.clearToastNodes?.();
         Tween.stopAll();
         backgroundRoot.active = true;
         backgroundRoot.destroyAllChildren();

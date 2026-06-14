@@ -71,7 +71,7 @@ export class LeaderboardMgr {
 
     async submitProgress(progressLevel: number, profile: UserProfile): Promise<void> {
         const normalized = this.normalizeProgress(progressLevel);
-        if (normalized <= 0) return;
+        if (normalized <= 1) return;
 
         let cloudSubmitted = false;
         const profileFingerprint = this.buildProfileFingerprint(profile);
@@ -116,11 +116,6 @@ export class LeaderboardMgr {
         }
     }
 
-    /** 读取微信好友排行里自己的分数，用于删除本地缓存后的启动恢复。 */
-    async loadWeChatSelfProgress(): Promise<number | null> {
-        return this.readWeChatSelfScore();
-    }
-
     /** 通过微信 setUserCloudStorage 提交分数 */
     private async submitWeChatScore(progressLevel: number): Promise<boolean> {
         const wx = this.getWx(false);
@@ -134,15 +129,9 @@ export class LeaderboardMgr {
         }
 
         try {
-            const existingScore = await this.readWeChatSelfScore();
-            if (existingScore !== null && existingScore >= progressLevel) {
-                this.sessionFriendSyncedProgress = Math.max(this.sessionFriendSyncedProgress, existingScore);
-                console.log('[LeaderboardMgr] keep existing wx cloud score:', existingScore);
-                return true;
-            }
             if (progressLevel <= 1) {
                 console.log('[LeaderboardMgr] skip wx cloud score reset for starter level');
-                return existingScore !== null;
+                return false;
             }
 
             const kvData = {
@@ -213,48 +202,6 @@ export class LeaderboardMgr {
             console.warn('[LeaderboardMgr] setUserCloudStorage failed:', error);
         }
         return false;
-    }
-
-    private async readWeChatSelfScore(): Promise<number | null> {
-        const wx = this.getWx(false);
-        if (!wx?.getUserCloudStorage) {
-            return null;
-        }
-
-        try {
-            const res: any = await new Promise((resolve, reject) => {
-                wx.getUserCloudStorage({
-                    keyList: ['score'],
-                    success: resolve,
-                    fail: reject,
-                });
-            });
-            return this.extractWeChatCloudStorageScore(res?.KVDataList || []);
-        } catch (error) {
-            console.warn('[LeaderboardMgr] getUserCloudStorage failed:', error);
-            return null;
-        }
-    }
-
-    private extractWeChatCloudStorageScore(kvList: any[]): number {
-        if (!Array.isArray(kvList)) {
-            return 0;
-        }
-        for (const kv of kvList) {
-            if (kv?.key !== 'score' || !kv.value) {
-                continue;
-            }
-            try {
-                const parsed = JSON.parse(kv.value);
-                const score = Math.floor(Number(parsed?.wxgame?.score ?? parsed?.score) || 0);
-                if (score > 0) {
-                    return score;
-                }
-            } catch (_) {
-                // ignore malformed score entries
-            }
-        }
-        return 0;
     }
 
     /** 调用 wx.login 建立微信会话 */
