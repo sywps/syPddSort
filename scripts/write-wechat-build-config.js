@@ -3,10 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const [outputPath, startSceneUrl, startSceneUuid, modeArg = '--release'] = process.argv.slice(2);
+const [outputPath, startSceneUrl, startSceneUuid, modeArg] = process.argv.slice(2);
 
-if (!outputPath || !startSceneUrl || !startSceneUuid) {
-    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> [--release|--debug]');
+if (!outputPath || !startSceneUrl || !startSceneUuid || !modeArg) {
+    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
     process.exit(1);
 }
 
@@ -16,7 +16,7 @@ const projectRoot = path.resolve(__dirname, '..');
 
 if (!debugMode && !releaseMode) {
     console.error('未知微信构建模式: ' + modeArg);
-    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> [--release|--debug]');
+    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
     process.exit(1);
 }
 

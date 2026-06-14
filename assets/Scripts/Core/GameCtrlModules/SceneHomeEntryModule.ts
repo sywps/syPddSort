@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { ensureHomeIconSparkleFx } from '../HomeIconSparkleFx';
 import { LevelDataCdnService } from '../LevelDataCdnService';
@@ -41,16 +42,17 @@ export function installSceneHomeEntryModule(target: any): void {
             return prefix === 'zt_level_' ? 'theme' : 'main';
         },
 
-        syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false): void {
+        syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'auto'): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             AppRoot.tryGet()?.markGameRequested(
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
+                entryCoverMode,
             );
         },
 
-        async requestGameplaySceneTransition(levelId: number, prefix: string = 'level_', external: boolean = false): Promise<void> {
+        async requestGameplaySceneTransition(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'none'): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
                 throw new Error('[SceneSplit] AppRoot is not ready for gameplay scene transition');
@@ -60,22 +62,104 @@ export function installSceneHomeEntryModule(target: any): void {
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
+                entryCoverMode,
             );
-            await appRoot.beginSceneTransition('gameplay');
+            const shouldCover = entryCoverMode !== 'none';
+            if (shouldCover) {
+                await appRoot.beginSceneTransition('gameplay');
+            }
             try {
                 await appRoot.router.toGame();
             } catch (error) {
-                await appRoot.finishSceneTransition('gameplay-error');
+                if (shouldCover) {
+                    await appRoot.finishSceneTransition('gameplay-error');
+                }
                 throw error;
             }
         },
 
-        async requestHomeSceneTransition(): Promise<void> {
+        async requestHomeSceneTransition(source: string = 'runtime', coverMode: AppSceneTransitionCoverMode = 'none'): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
                 throw new Error('[SceneSplit] AppRoot is not ready for home scene transition');
             }
-            await appRoot.requestHomeSceneTransition('runtime');
+            await appRoot.requestHomeSceneTransition(source, coverMode);
+        },
+
+        scheduleHomeGameplayEntryWarmup(levelId: number, prefix: string = 'level_'): void {
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            if (this.shouldUseLocalBootstrapBundle(normalizedLevelId, prefix)) {
+                return;
+            }
+            const warmupKey = `${prefix}${normalizedLevelId}`;
+            if (
+                this._homeGameplayWarmupKey === warmupKey
+                && (this._homeGameplayWarmupState === 'loading' || this._homeGameplayWarmupState === 'ready')
+            ) {
+                return;
+            }
+            this._homeGameplayWarmupKey = warmupKey;
+            this._homeGameplayWarmupState = 'loading';
+            this.scheduleOnce(() => {
+                if (!this.isValid) return;
+                this.prewarmGameplayEntryResources(normalizedLevelId, prefix, (ok) => {
+                    if (this._homeGameplayWarmupKey !== warmupKey) return;
+                    this._homeGameplayWarmupState = ok ? 'ready' : 'failed';
+                    this.logRuntimeTrace?.('[HomeWarmup] gameplay entry warmup finish', JSON.stringify({
+                        key: warmupKey,
+                        ok,
+                    }));
+                });
+            }, 0.4);
+        },
+
+        prewarmGameplayEntryResources(levelId: number, prefix: string = 'level_', onDone?: (ok: boolean) => void): void {
+            if (this._levelDataLoadStopped) {
+                onDone?.(false);
+                return;
+            }
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const levelPath = this.getLevelDataPath(normalizedLevelId, prefix);
+            LevelDataCdnService.inst.prefetchLive();
+            this._withGameAssetsBundle((bundle) => {
+                if (!bundle) {
+                    console.warn('[HomeWarmup] gameAssets bundle unavailable for', levelPath);
+                    onDone?.(false);
+                    return;
+                }
+                this._loadLevelDataFromCdnOrLocal(normalizedLevelId, prefix, (levelData, source, err) => {
+                    if (!levelData) {
+                        console.warn('[HomeWarmup] level data unavailable for', levelPath, source, err?.message || 'missing level data');
+                        onDone?.(false);
+                        return;
+                    }
+                    let beanDone = false;
+                    let uiDone = false;
+                    let ok = true;
+                    const finish = () => {
+                        if (!beanDone || !uiDone) return;
+                        this.scheduleGameAssetsEffectsWarmup?.(bundle);
+                        onDone?.(ok);
+                    };
+                    this._prepareBeanFramesForLevelData(levelData, () => {
+                        if (this.needsBeanFramesForLevelData(levelData)) {
+                            ok = false;
+                            console.warn('[HomeWarmup] bean assets still missing for', levelPath);
+                        }
+                        beanDone = true;
+                        finish();
+                    });
+                    this.prepareCriticalUiTexturesForLevel(levelData, () => {
+                        const missingTextureNames = this.getMissingCriticalGameplayShellTextureNamesForLevel(levelData);
+                        if (missingTextureNames.length > 0) {
+                            ok = false;
+                            console.warn('[HomeWarmup] critical ui textures still missing for', levelPath, missingTextureNames);
+                        }
+                        uiDone = true;
+                        finish();
+                    });
+                });
+            });
         },
 
         drawLeaderboardButton(parent: Node) {
@@ -481,6 +565,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 if (finished) return;
                 finished = true;
                 this.initGame(data, activeLevelId);
+                this.hideLoadingOverlayAfterGameplayReady();
             };
             const failMissingBeans = () => {
                 this.stopLevelDataLoadWithFatalError(
@@ -603,6 +688,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 const tryInit = () => {
                     if (!beanDone || !uiDone) return;
                     this.initGame(data, activeLevelId);
+                    this.hideLoadingOverlayAfterGameplayReady();
                     this.scheduleOnce(() => {
                         if (this._preloadingBundle) return;
                         if (this.gameAssetsBundle && this._effectsAtlasReady) return;

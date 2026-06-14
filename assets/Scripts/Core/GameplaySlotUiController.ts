@@ -20,9 +20,6 @@ import {
     SLOT_AREA_CENTER_Y,
     SLOTS_PER_ROW,
     SLOT_ROW_BG_WIDTH,
-    SLOT_ROW_EMPTY_HEIGHT,
-    SLOT_ROW_EMPTY_WIDTH,
-    SLOT_SIZE,
     Sprite,
     Tween,
     UIOpacity,
@@ -430,7 +427,6 @@ export class GameplaySlotUiController {
         runtime.slotNodes = [];
         runtime.slotMarkerNodes = [];
 
-        const useMainlineSlotUI = runtime.shouldUseMainlineSlotUI();
         const totalSlots = runtime.slotModel.totalCount;
         const rowCount = runtime.slotRowCount;
         const maxRows = runtime.getMaxSlotRows();
@@ -457,67 +453,14 @@ export class GameplaySlotUiController {
         if (!panelSprite) {
             throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotPanel');
         }
-        const panelFrameName = useMainlineSlotUI ? MAINLINE_SLOT_PANEL_TEXTURE : 'slot_panel_shell_ui';
-        const panelFrame = runtime.getSF(panelFrameName);
+        const panelFrame = runtime.getSF(MAINLINE_SLOT_PANEL_TEXTURE);
         if (panelFrame) {
             panelSprite.spriteFrame = panelFrame;
         }
-        panelSprite.type = useMainlineSlotUI ? Sprite.Type.SLICED : Sprite.Type.SIMPLE;
-        const rowArt = runtime.getSF('slot_row_empty_pindd') ? 'slot_row_empty_pindd' : 'slot_row_empty_ui';
+        panelSprite.type = Sprite.Type.SLICED;
         const lockedPreviewRow = runtime.slotUnlockedRows < rowCount ? rowCount - 1 : -1;
 
         for (let r = 0; r < maxRows; r++) {
-            const rowY = runtime.getSlotRowY(r, rowCount);
-            if (!useMainlineSlotUI) {
-                const rowBand = this.getOrCreateSlotAreaSpriteChild(`SlotRowBand_${r}`);
-                rowBand.layer = Layers.Enum.UI_2D;
-                rowBand.active = r < rowCount;
-                rowBand.setPosition(0, rowY, 0);
-                rowBand.getComponent(UITransform)?.setContentSize(SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT);
-                const rowBandSprite = rowBand.getComponent(Sprite);
-                if (!rowBandSprite) {
-                    throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowBand_${r}`);
-                }
-                rowBandSprite.spriteFrame = runtime.getSF(rowArt) || rowBandSprite.spriteFrame;
-                rowBandSprite.type = Sprite.Type.SIMPLE;
-
-                const lockMask = this.getOrCreateSlotAreaSpriteChild(`SlotRowLockMask_${r}`);
-                lockMask.layer = Layers.Enum.UI_2D;
-                lockMask.active = r === lockedPreviewRow;
-                lockMask.setPosition(0, rowY, 0);
-                lockMask.getComponent(UITransform)?.setContentSize(596, 44);
-                const lockMaskSprite = lockMask.getComponent(Sprite);
-                if (!lockMaskSprite) {
-                    throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockMask_${r}`);
-                }
-                lockMaskSprite.spriteFrame = runtime.getSF('slot_row_locked_ui') || runtime.getSF(rowArt) || lockMaskSprite.spriteFrame;
-                lockMaskSprite.type = Sprite.Type.SLICED;
-                const lockMaskOpacity = lockMask.getComponent(UIOpacity) || lockMask.addComponent(UIOpacity);
-                lockMaskOpacity.opacity = 176;
-
-                const lockBtn = this.getOrCreateSlotAreaSpriteChild(`SlotRowLockedBtn_${r}`);
-                lockBtn.layer = Layers.Enum.UI_2D;
-                lockBtn.active = r === lockedPreviewRow;
-                lockBtn.setPosition(0, rowY, 0);
-                lockBtn.getComponent(UITransform)?.setContentSize(132, 42);
-                const lockBtnSprite = lockBtn.getComponent(Sprite);
-                if (!lockBtnSprite) {
-                    throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockedBtn_${r}`);
-                }
-                const unlockFrame = runtime.getSF('unlock_button') || lockBtnSprite.spriteFrame;
-                if (!unlockFrame) {
-                    throw new Error(`[GameplayScene] missing SpriteFrame unlock_button for SlotArea/SlotRowLockedBtn_${r}`);
-                }
-                lockBtnSprite.spriteFrame = unlockFrame;
-                lockBtnSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-                const lockButton = lockBtn.getComponent(Button) || lockBtn.addComponent(Button);
-                lockButton.enabled = lockBtn.active;
-                lockBtn.targetOff(runtime);
-                lockBtn.on(Button.EventType.CLICK, () => this.tryUnlockSlotRow(), runtime);
-                this.syncSlotUnlockButtonModeIcon(lockBtn);
-                this.hideCountBadge(lockBtn);
-            }
-
             for (let c = 0; c < SLOTS_PER_ROW; c++) {
                 const idx = r * SLOTS_PER_ROW + c;
                 const shell = runtime.requireUiChild(panel, this.getSlotShellName(idx), `SlotArea/SlotPanel/${this.getSlotShellName(idx)}`);
@@ -529,8 +472,8 @@ export class GameplaySlotUiController {
                 const slotPos = this.getSlotLocalPosition(idx, rowCount);
                 shell.setPosition(slotPos.x, slotPos.y, slotPos.z);
                 const shellLayout = this.getSlotShellSceneLayout(idx);
-                const shellWidth = Number.isFinite(shellLayout?.width) ? shellLayout!.width : (useMainlineSlotUI ? MAINLINE_SLOT_MARKER_WIDTH : SLOT_SIZE);
-                const shellHeight = Number.isFinite(shellLayout?.height) ? shellLayout!.height : (useMainlineSlotUI ? MAINLINE_SLOT_MARKER_HEIGHT : SLOT_SIZE);
+                const shellWidth = Number.isFinite(shellLayout?.width) ? shellLayout!.width : MAINLINE_SLOT_MARKER_WIDTH;
+                const shellHeight = Number.isFinite(shellLayout?.height) ? shellLayout!.height : MAINLINE_SLOT_MARKER_HEIGHT;
                 shell.getComponent(UITransform)?.setContentSize(shellWidth, shellHeight);
                 const shellSprite = shell.getComponent(Sprite);
                 if (!shellSprite) {
@@ -558,56 +501,54 @@ export class GameplaySlotUiController {
             }
         }
 
-        if (useMainlineSlotUI) {
-            const lockedRowAnchor = lockedPreviewRow >= 0 ? this.getSlotLocalPosition(lockedPreviewRow * SLOTS_PER_ROW, rowCount) : new Vec3(0, 0, 0);
-            const lockRowCenterY = lockedPreviewRow >= 0 ? panel.position.y + lockedRowAnchor.y : 0;
-            const lockMask = this.getOrCreateSlotAreaSpriteChild('SlotRowLockMask');
-            lockMask.layer = Layers.Enum.UI_2D;
-            lockMask.active = lockedPreviewRow >= 0;
-            this.applyMainlineLockLayout(lockMask, runtime._slotAreaSceneLockMaskLayout, lockRowCenterY, MAINLINE_SLOT_LOCK_MASK_WIDTH, MAINLINE_SLOT_LOCK_MASK_HEIGHT);
-            const lockMaskSprite = lockMask.getComponent(Sprite);
-            if (!lockMaskSprite) {
-                throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockMask');
-            }
-            lockMaskSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_LOCK_MASK_TEXTURE) || lockMaskSprite.spriteFrame;
-            lockMaskSprite.type = Sprite.Type.SIMPLE;
-            const lockMaskOpacity = lockMask.getComponent(UIOpacity) || lockMask.addComponent(UIOpacity);
-            lockMaskOpacity.opacity = 255;
-
-            const lockDash = this.getOrCreateSlotAreaSpriteChild('SlotRowLockDash');
-            lockDash.layer = Layers.Enum.UI_2D;
-            lockDash.active = lockedPreviewRow >= 0;
-            this.applyMainlineLockLayout(lockDash, runtime._slotAreaSceneLockDashLayout, lockRowCenterY, MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT);
-            const lockDashSprite = lockDash.getComponent(Sprite);
-            if (!lockDashSprite) {
-                throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockDash');
-            }
-            lockDashSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_LOCK_DASH_TEXTURE) || lockDashSprite.spriteFrame;
-            lockDashSprite.type = Sprite.Type.SIMPLE;
-            const lockDashOpacity = lockDash.getComponent(UIOpacity) || lockDash.addComponent(UIOpacity);
-            lockDashOpacity.opacity = 255;
-
-            const lockBtn = this.getOrCreateSlotAreaSpriteChild('SlotRowLockedBtn');
-            lockBtn.layer = Layers.Enum.UI_2D;
-            lockBtn.active = lockedPreviewRow >= 0;
-            this.applyMainlineLockLayout(lockBtn, runtime._slotAreaSceneLockedBtnLayout, lockRowCenterY, 132, 42);
-            const lockBtnSprite = lockBtn.getComponent(Sprite);
-            if (!lockBtnSprite) {
-                throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockedBtn');
-            }
-            if (!lockBtnSprite.spriteFrame) {
-                throw new Error('[GameplayScene] Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn');
-            }
-            const lockButton = lockBtn.getComponent(Button) || lockBtn.addComponent(Button);
-            lockButton.enabled = lockBtn.active;
-            lockBtn.targetOff(runtime);
-            lockBtn.on(Button.EventType.CLICK, () => this.tryUnlockSlotRow(), runtime);
-            this.syncSlotUnlockButtonModeIcon(lockBtn);
-            this.hideCountBadge(lockBtn);
-            lockMask.setSiblingIndex(1);
-            lockDash.setSiblingIndex(2);
-            lockBtn.setSiblingIndex(3);
+        const lockedRowAnchor = lockedPreviewRow >= 0 ? this.getSlotLocalPosition(lockedPreviewRow * SLOTS_PER_ROW, rowCount) : new Vec3(0, 0, 0);
+        const lockRowCenterY = lockedPreviewRow >= 0 ? panel.position.y + lockedRowAnchor.y : 0;
+        const lockMask = this.getOrCreateSlotAreaSpriteChild('SlotRowLockMask');
+        lockMask.layer = Layers.Enum.UI_2D;
+        lockMask.active = lockedPreviewRow >= 0;
+        this.applyMainlineLockLayout(lockMask, runtime._slotAreaSceneLockMaskLayout, lockRowCenterY, MAINLINE_SLOT_LOCK_MASK_WIDTH, MAINLINE_SLOT_LOCK_MASK_HEIGHT);
+        const lockMaskSprite = lockMask.getComponent(Sprite);
+        if (!lockMaskSprite) {
+            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockMask');
         }
+        lockMaskSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_LOCK_MASK_TEXTURE) || lockMaskSprite.spriteFrame;
+        lockMaskSprite.type = Sprite.Type.SIMPLE;
+        const lockMaskOpacity = lockMask.getComponent(UIOpacity) || lockMask.addComponent(UIOpacity);
+        lockMaskOpacity.opacity = 255;
+
+        const lockDash = this.getOrCreateSlotAreaSpriteChild('SlotRowLockDash');
+        lockDash.layer = Layers.Enum.UI_2D;
+        lockDash.active = lockedPreviewRow >= 0;
+        this.applyMainlineLockLayout(lockDash, runtime._slotAreaSceneLockDashLayout, lockRowCenterY, MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT);
+        const lockDashSprite = lockDash.getComponent(Sprite);
+        if (!lockDashSprite) {
+            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockDash');
+        }
+        lockDashSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_LOCK_DASH_TEXTURE) || lockDashSprite.spriteFrame;
+        lockDashSprite.type = Sprite.Type.SIMPLE;
+        const lockDashOpacity = lockDash.getComponent(UIOpacity) || lockDash.addComponent(UIOpacity);
+        lockDashOpacity.opacity = 255;
+
+        const lockBtn = this.getOrCreateSlotAreaSpriteChild('SlotRowLockedBtn');
+        lockBtn.layer = Layers.Enum.UI_2D;
+        lockBtn.active = lockedPreviewRow >= 0;
+        this.applyMainlineLockLayout(lockBtn, runtime._slotAreaSceneLockedBtnLayout, lockRowCenterY, 132, 42);
+        const lockBtnSprite = lockBtn.getComponent(Sprite);
+        if (!lockBtnSprite) {
+            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockedBtn');
+        }
+        if (!lockBtnSprite.spriteFrame) {
+            throw new Error('[GameplayScene] Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn');
+        }
+        const lockButton = lockBtn.getComponent(Button) || lockBtn.addComponent(Button);
+        lockButton.enabled = lockBtn.active;
+        lockBtn.targetOff(runtime);
+        lockBtn.on(Button.EventType.CLICK, () => this.tryUnlockSlotRow(), runtime);
+        this.syncSlotUnlockButtonModeIcon(lockBtn);
+        this.hideCountBadge(lockBtn);
+        lockMask.setSiblingIndex(1);
+        lockDash.setSiblingIndex(2);
+        lockBtn.setSiblingIndex(3);
     }
 
     onAddSlotRow() {
@@ -635,7 +576,7 @@ export class GameplaySlotUiController {
         runtime.pauseTimerForProp();
         if (this.getCurrentSlotUnlockMode() === 'free') {
             this.unlockSlotRow();
-            runtime.markDynamicCountdownAssisted();
+            runtime.markDynamicCountdownAssisted?.();
             runtime.resumeTimerForProp();
             sys.localStorage.setItem(LS_EXPAND_USED, '1');
             runtime.showToast('已免费解锁一排暂存槽', 1.2);
@@ -647,7 +588,7 @@ export class GameplaySlotUiController {
             runtime.resumeTimerForProp();
             if (success) {
                 this.unlockSlotRow();
-                runtime.markDynamicCountdownAssisted();
+                runtime.markDynamicCountdownAssisted?.();
             }
         }, { waitForCloseBeforeComplete: true });
     }
@@ -692,6 +633,10 @@ export class GameplaySlotUiController {
         const guideMode: 'expand' | 'unlock' = unlockBtn ? 'unlock' : 'expand';
         const targetUT = targetNode.getComponent(UITransform);
         if (!targetUT) return;
+        if (!runtime.getSF('guide_hand') || !runtime.getSF('popup_guide_highlight_ring')) {
+            runtime._ensureSpriteFramesByName(['guide_hand', 'popup_guide_highlight_ring'], () => this.showExpandSlotGuide());
+            return;
+        }
         const guideHandFrame = runtime.getSF('guide_hand');
         if (!guideHandFrame) {
             throw new Error('[slot-guide] missing sprite frame: guide_hand');

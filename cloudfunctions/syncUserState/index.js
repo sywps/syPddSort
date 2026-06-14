@@ -31,8 +31,13 @@ function normalizePositiveInt(value, fallback = 1) {
   return num > 0 ? num : fallback;
 }
 
-function isAdminSavedLevelSentinel(doc) {
-  return !!doc && typeof doc.savedLevel === 'number' && Math.floor(Number(doc.savedLevel)) <= 0;
+function readPositiveInt(value) {
+  const num = Math.floor(Number(value) || 0);
+  return num > 0 ? num : 0;
+}
+
+function hasOwn(source, key) {
+  return Object.prototype.hasOwnProperty.call(source || {}, key);
 }
 
 function normalizeThemeUnlockedIds(value) {
@@ -83,6 +88,15 @@ async function findUserProfile(openid) {
   }
 }
 
+function resolveRestorableProgress(doc) {
+  return typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0;
+}
+
+function resolveStateUpdatedAt(doc, savedLevel) {
+  const fromProfile = normalizeTimestamp(doc?.stateUpdatedAt, 0);
+  return fromProfile > 0 ? fromProfile : (savedLevel > 1 ? Date.now() : 0);
+}
+
 function buildBaseProfile(openid, timestamp) {
   return {
     openid,
@@ -123,40 +137,29 @@ function extractProfile(doc) {
 }
 
 function extractGameState(doc) {
-  if (!doc) return null;
-  if (
-    typeof doc.savedLevel !== 'number' &&
-    typeof doc.vigor !== 'number' &&
-    typeof doc.vigorTime !== 'number' &&
-    typeof doc.gold !== 'number' &&
-    typeof doc.expandSlotCount !== 'number' &&
-    typeof doc.magicWandCount !== 'number' &&
-    typeof doc.brushCount !== 'number' &&
-    typeof doc.magnetCount !== 'number' &&
-    typeof doc.dailySignInClaimedCount !== 'number' &&
-    typeof doc.dailySignInLastClaimDateKey !== 'number' &&
-    !Array.isArray(doc.themeUnlockedIds) &&
-    !Array.isArray(doc.themeCompletedIds)
-  ) {
-    return null;
+  const savedLevel = resolveRestorableProgress(doc);
+  const state = {};
+
+  if (savedLevel !== 0) {
+    state.savedLevel = savedLevel;
+    state.stateUpdatedAt = resolveStateUpdatedAt(doc, savedLevel);
+  } else if (typeof doc?.stateUpdatedAt === 'number') {
+    state.stateUpdatedAt = normalizeTimestamp(doc.stateUpdatedAt, 0);
   }
-  return {
-    savedLevel: isAdminSavedLevelSentinel(doc)
-      ? Math.floor(Number(doc.savedLevel))
-      : normalizePositiveInt(doc.savedLevel, 1),
-    vigor: normalizeNonNegativeInt(doc.vigor, 10),
-    vigorTime: normalizeNonNegativeInt(doc.vigorTime, 0),
-    gold: normalizeNonNegativeInt(doc.gold, 0),
-    expandSlotCount: normalizeNonNegativeInt(doc.expandSlotCount, 0),
-    magicWandCount: normalizeNonNegativeInt(doc.magicWandCount, 0),
-    brushCount: normalizeNonNegativeInt(doc.brushCount, 0),
-    magnetCount: normalizeNonNegativeInt(doc.magnetCount, 0),
-    dailySignInClaimedCount: normalizeNonNegativeInt(doc.dailySignInClaimedCount, 0),
-    dailySignInLastClaimDateKey: normalizeNonNegativeInt(doc.dailySignInLastClaimDateKey, 0),
-    themeUnlockedIds: normalizeThemeUnlockedIds(doc.themeUnlockedIds),
-    themeCompletedIds: normalizeThemeCompletedIds(doc.themeCompletedIds),
-    stateUpdatedAt: normalizeTimestamp(doc.stateUpdatedAt, 0),
-  };
+
+  if (typeof doc?.vigor === 'number') state.vigor = normalizeNonNegativeInt(doc.vigor, 10);
+  if (typeof doc?.vigorTime === 'number') state.vigorTime = normalizeNonNegativeInt(doc.vigorTime, 0);
+  if (typeof doc?.gold === 'number') state.gold = normalizeNonNegativeInt(doc.gold, 0);
+  if (typeof doc?.expandSlotCount === 'number') state.expandSlotCount = normalizeNonNegativeInt(doc.expandSlotCount, 0);
+  if (typeof doc?.magicWandCount === 'number') state.magicWandCount = normalizeNonNegativeInt(doc.magicWandCount, 0);
+  if (typeof doc?.brushCount === 'number') state.brushCount = normalizeNonNegativeInt(doc.brushCount, 0);
+  if (typeof doc?.magnetCount === 'number') state.magnetCount = normalizeNonNegativeInt(doc.magnetCount, 0);
+  if (typeof doc?.dailySignInClaimedCount === 'number') state.dailySignInClaimedCount = normalizeNonNegativeInt(doc.dailySignInClaimedCount, 0);
+  if (typeof doc?.dailySignInLastClaimDateKey === 'number') state.dailySignInLastClaimDateKey = normalizeNonNegativeInt(doc.dailySignInLastClaimDateKey, 0);
+  if (Array.isArray(doc?.themeUnlockedIds)) state.themeUnlockedIds = normalizeThemeUnlockedIds(doc.themeUnlockedIds);
+  if (Array.isArray(doc?.themeCompletedIds)) state.themeCompletedIds = normalizeThemeCompletedIds(doc.themeCompletedIds);
+
+  return Object.keys(state).length > 0 ? state : null;
 }
 
 function buildProfilePatch(source = {}, current = {}) {
@@ -203,8 +206,9 @@ function buildGameStatePatch(source = {}, current = {}) {
     source.stateUpdatedAt,
     currentStateUpdatedAt || Date.now()
   );
-  const currentSavedLevel = normalizePositiveInt(current.savedLevel, 1);
-  const sourceSavedLevel = normalizePositiveInt(source.savedLevel, currentSavedLevel);
+  const currentSavedLevel = readPositiveInt(current.savedLevel);
+  const sourceSavedLevel = hasOwn(source, 'savedLevel') ? readPositiveInt(source.savedLevel) : 0;
+  const mergedSavedLevel = Math.max(currentSavedLevel, sourceSavedLevel);
   const currentGold = normalizeNonNegativeInt(current.gold, 0);
   const sourceGold = normalizeNonNegativeInt(source.gold, currentGold);
   const currentExpandSlotCount = normalizeNonNegativeInt(current.expandSlotCount, 0);
@@ -224,13 +228,12 @@ function buildGameStatePatch(source = {}, current = {}) {
   const shouldPreserveCurrentVolatileState =
     currentStateUpdatedAt > 0 &&
     (
-      sourceSavedLevel < currentSavedLevel ||
+      (hasOwn(source, 'savedLevel') && sourceSavedLevel < currentSavedLevel) ||
       mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
       mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length
     );
 
-  return {
-    savedLevel: Math.max(currentSavedLevel, sourceSavedLevel),
+  const patch = {
     vigor: shouldPreserveCurrentVolatileState
       ? normalizeNonNegativeInt(current.vigor, 10)
       : normalizeNonNegativeInt(source.vigor, normalizeNonNegativeInt(current.vigor, 10)),
@@ -250,6 +253,10 @@ function buildGameStatePatch(source = {}, current = {}) {
       ? currentStateUpdatedAt
       : Math.max(currentStateUpdatedAt, sourceStateUpdatedAt),
   };
+  if (mergedSavedLevel > 0) {
+    patch.savedLevel = mergedSavedLevel;
+  }
+  return patch;
 }
 
 exports.main = async (event = {}) => {
@@ -269,10 +276,11 @@ exports.main = async (event = {}) => {
     let current = await findUserProfile(openid);
 
     if (action === 'get') {
+      const gameState = extractGameState(current);
       return {
         ok: true,
         profile: extractProfile(current),
-        gameState: extractGameState(current),
+        gameState,
       };
     }
 
@@ -303,14 +311,6 @@ exports.main = async (event = {}) => {
     if (event.gameState && typeof event.gameState === 'object') {
       Object.assign(patch, buildGameStatePatch(event.gameState, current));
     }
-    if (isAdminSavedLevelSentinel(current)) {
-      Object.assign(patch, {
-        savedLevel: 1,
-        lastLevelId: 1,
-        stateUpdatedAt: timestamp,
-      });
-    }
-
     if (current._id) {
       await collection.doc(current._id).update({ data: patch });
     }

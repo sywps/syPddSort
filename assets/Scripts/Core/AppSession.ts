@@ -1,11 +1,14 @@
 export type AppSceneName = 'Home' | 'Game' | 'Boot';
 export type AppVisualState = 'boot' | 'home' | 'game';
 export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
+export type AppSceneTransitionCoverMode = 'auto' | 'cover' | 'none';
+export type AppGameplayEntryCoverMode = AppSceneTransitionCoverMode;
 
 export interface PendingGameplayRequest {
     levelId: number;
     prefix: string;
     entryMode: AppGameplayEntryMode;
+    entryCoverMode: AppGameplayEntryCoverMode;
     requestedAt: number;
 }
 
@@ -14,12 +17,18 @@ export interface ActiveGameplayContext extends PendingGameplayRequest {
     activatedAt: number;
 }
 
+export interface PendingHomeToast {
+    text: string;
+    duration: number;
+}
+
 export class AppSession {
     private _currentSceneName: AppSceneName = 'Game';
     private _requestedSceneName: AppSceneName = 'Game';
     private _visualState: AppVisualState = 'boot';
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
+    private _pendingHomeToast: PendingHomeToast | null = null;
 
     get currentSceneName(): AppSceneName {
         return this._currentSceneName;
@@ -66,15 +75,32 @@ export class AppSession {
         this._activeGameplayContext = null;
     }
 
+    setPendingHomeToast(text: string, duration: number = 2.5): void {
+        const trimmed = String(text || '').trim();
+        if (!trimmed) return;
+        this._pendingHomeToast = {
+            text: trimmed,
+            duration: Math.max(0.5, Number(duration) || 2.5),
+        };
+    }
+
+    consumePendingHomeToast(): PendingHomeToast | null {
+        const toast = this._pendingHomeToast;
+        this._pendingHomeToast = null;
+        return toast;
+    }
+
     markPendingGameplayRequest(
         levelId: number,
         prefix: string,
         entryMode: AppGameplayEntryMode,
+        entryCoverMode: AppGameplayEntryCoverMode = 'auto',
     ): PendingGameplayRequest {
         const request: PendingGameplayRequest = {
             levelId: Math.max(1, Math.floor(Number(levelId) || 1)),
             prefix: String(prefix || 'level_'),
             entryMode,
+            entryCoverMode,
             requestedAt: Date.now(),
         };
         this._pendingGameplayRequest = request;
@@ -93,6 +119,7 @@ export class AppSession {
             levelId: pending?.levelId ?? Math.max(1, Math.floor(Number(activeLevelId) || 1)),
             prefix: String(prefix || pending?.prefix || 'level_'),
             entryMode,
+            entryCoverMode: pending?.entryCoverMode ?? 'auto',
             requestedAt: pending?.requestedAt ?? now,
             activeLevelId: Math.max(1, Math.floor(Number(activeLevelId) || 1)),
             activatedAt: now,

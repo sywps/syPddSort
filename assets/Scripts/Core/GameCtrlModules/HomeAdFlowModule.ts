@@ -17,7 +17,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -44,7 +44,7 @@ export function installHomeAdFlowModule(target: any): void {
                 this.scheduleOnce(() => {
                     if (!this.isValid) return;
                     onReady();
-                }, 0.08);
+                }, 0.2);
             };
             const waitForForeground = (remainingPolls: number) => {
                 if (settled || !this.isValid) return;
@@ -58,6 +58,37 @@ export function installHomeAdFlowModule(target: any): void {
             };
             this._pendingPostAdSkillAction = run;
             waitForForeground(20);
+        },
+
+        cancelRewardedAdPreload(): void {
+            const pending = this._pendingRewardedAdPreload;
+            if (pending) {
+                this.unschedule(pending);
+                this._pendingRewardedAdPreload = null;
+            }
+        },
+
+        scheduleRewardedAdPreload(reason: string = 'idle', delaySeconds: number = 0.8): void {
+            if (!this.isValid) return;
+            this.cancelRewardedAdPreload();
+            if (!AdConfig.canAutoPreloadRewardedAd()) {
+                console.log(`[AdConfig] skip rewarded ad preload schedule: ${reason}`);
+                return;
+            }
+            const safeDelay = Math.max(0, Number(delaySeconds) || 0);
+            const preload = () => {
+                if (!this.isValid) return;
+                this._pendingRewardedAdPreload = null;
+                if (!AdConfig.canAutoPreloadRewardedAd()) return;
+                if (!this._gameForeground || this._adTimerSuspended || this._skillActive) return;
+                const sceneName = typeof this.getRuntimeSceneName === 'function'
+                    ? this.getRuntimeSceneName('Game')
+                    : 'Game';
+                if (sceneName === 'Game' && this.isGameEnd) return;
+                AdConfig.preloadRewardedAd(reason);
+            };
+            this._pendingRewardedAdPreload = preload;
+            this.scheduleOnce(preload, safeDelay);
         },
 
         getAnalyticsPage(): string {
@@ -97,19 +128,17 @@ export function installHomeAdFlowModule(target: any): void {
                         }
                     }
                     onComplete(success);
+                    this.scheduleRewardedAdPreload(success ? 'after-ad-success' : 'after-ad-fail', 1.5);
                 };
                 if (options.waitForCloseBeforeComplete && adClosed) {
                     this.runAfterAdWindowClosed(finalize);
                     return;
                 }
                 if (options.waitForCloseBeforeComplete && success) {
-                    // 闂堢偛绠嶉崨濠勫箚婢у喛绱欓弮?tt/wx SDK閿涘绗夋导姘承曢崣?onClose閿涘瞼娲块幒銉ョ暚閹?
-                    const tt = (window as any).tt;
-                    const wx = (window as any).wx || (typeof globalThis !== 'undefined' ? (globalThis as any).wx : null);
-                    if (!tt?.createRewardedVideoAd && !wx?.createRewardedVideoAd) {
-                        finalize();
-                    } else {
+                    if (AdConfig.hasRewardedAdWindow()) {
                         pendingAfterCloseFinalize = finalize;
+                    } else {
+                        finalize();
                     }
                     return;
                 }
@@ -210,6 +239,8 @@ export function installHomeAdFlowModule(target: any): void {
             this._collectionOverlay = null;
             this._collectionContentNode = null;
             this._collectionScrollContentNode = null;
+            this._collectionPreviewItems = [];
+            this._collectionPreviewRowPitch = 0;
             this._collectionPageIndicator = null;
             this._collectionImageModal = null;
             this._themeOverlay = null;
@@ -221,7 +252,9 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         cleanupGameplayForHomeTransition() {
+            this.clearToastNodes?.();
             Tween.stopAll();
+            this.cancelRewardedAdPreload?.();
             this.unscheduleAllCallbacks();
             this.deactivateWeChatFriendRank('cleanup-for-main-menu');
             this.detachGameplayInputHandlers();
@@ -258,7 +291,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._guideHand = null;
             this._guideBubble = null;
             this._guideBubbleLbl = null;
-            this._guideArrow = null;
             for (const t of this._guidePulseTweens) t.stop();
             this._guidePulseTweens.length = 0;
             this._guideHighlightCells = [];
@@ -367,6 +399,15 @@ export function installHomeAdFlowModule(target: any): void {
             const fixedRoot = this.mountMainMenuFixedRoot(menuRoot);
             AppRoot.tryGet()?.markHomeVisible(sceneName);
             this.renderMainMenuFixedRoot(fixedRoot);
+            const pendingHomeToast = AppRoot.tryGet()?.session.consumePendingHomeToast();
+            if (pendingHomeToast) {
+                this.scheduleOnce(() => {
+                    if (!this.isValid) return;
+                    this.showToast(pendingHomeToast.text, pendingHomeToast.duration);
+                }, 0.05);
+            }
+            this.scheduleHomeGameplayEntryWarmup?.(this.getSavedLevel(), 'level_');
+            this.scheduleRewardedAdPreload('home:visible', 1.2);
             this.logRuntimeTrace(
                 '[SceneSplitTrace] showMainMenu:finish',
                 JSON.stringify({
@@ -487,7 +528,6 @@ export function installHomeAdFlowModule(target: any): void {
             this.panelTimeoutContinue = null!;
         },
 
-        /** 鐏炴洜銇氶崶鐐攳閿涙氨鏁ょ挒鍡氱湸缂佸嫭鍨氱亸蹇曞敽閼撮潻绱欓崣鍌濃偓?main.jpg閿?*/
         drawShowcaseBean(parent: Node, cx: number, cy: number) {
             const node = new Node('Showcase');
             parent.addChild(node);
@@ -496,8 +536,6 @@ export function installHomeAdFlowModule(target: any): void {
             node.setPosition(cx, cy);
             const g = node.addComponent(Graphics);
         
-            // 鐏忓繒鍞洪惃鍕湸鐠炲棛鐓╅梼?(14鑴?4)
-            // 0=缁?1=濞ｈ鲸顥?#6B3A2A) 2=濞村懐鑳?#F0E0CC) 3=濮楁瑨鍙?#D4944A)
             const pattern = [
                 [0,0,0,1,1,0,0,0,0,1,1,0,0,0],
                 [0,0,1,1,1,1,0,0,1,1,1,1,0,0],
@@ -535,7 +573,6 @@ export function installHomeAdFlowModule(target: any): void {
                     const bx = ox + c * gap;
                     const by = oy - r * gap;
                     const base = colorMap[v];
-                    // 濞ｈ精澹婃惔鏇炴箑
                     const dark = new Color(
                         Math.max(0, Math.floor(base.r * 0.6)),
                         Math.max(0, Math.floor(base.g * 0.6)),
@@ -543,15 +580,12 @@ export function installHomeAdFlowModule(target: any): void {
                         255,
                     );
                     const rr = 3;
-                    // 濞ｈ精澹婃惔鏇燁攱
                     g.fillColor = dark;
                     g.roundRect(bx - beanR, by - beanR, beanR * 2, beanR * 2, rr);
                     g.fill();
-                    // 娑撹缍嬮懝?
                     g.fillColor = base;
                     g.roundRect(bx - beanR + 1.5, by - beanR + 1.5, (beanR - 1.5) * 2, (beanR - 1.5) * 2, rr - 1);
                     g.fill();
-                    // X閸掑洭娼版妯哄帨
                     const m = beanR - 2.5;
                     g.fillColor = new Color(255, 255, 255, 50);
                     g.moveTo(bx - m, by + m); g.lineTo(bx + m, by + m); g.lineTo(bx, by); g.close(); g.fill();
@@ -562,27 +596,24 @@ export function installHomeAdFlowModule(target: any): void {
                 }
             }
         
-            // 姒ц鐡?
             g.fillColor = new Color('#5A3020');
             const noseY = oy - 6.5 * gap;
             g.ellipse(0, noseY + 3, 8, 5);
             g.fill();
         
-            // 閻偐娼?
             const eyeY = oy - 5.5 * gap;
             g.fillColor = new Color('#2A1810');
             g.circle(-2.5 * gap, eyeY, 5);
             g.fill();
             g.circle(2.5 * gap, eyeY, 5);
             g.fill();
-            // 閻偐娼ф妯哄帨
             g.fillColor = new Color(255, 255, 255, 200);
             g.circle(-2.5 * gap + 2, eyeY + 2, 2);
             g.fill();
             g.circle(2.5 * gap + 2, eyeY + 2, 2);
             g.fill();
         
-            // 鎼存洟鍎撮梼鏉戝
+            // 豆豆预览阴影
             g.fillColor = new Color(0, 0, 0, 20);
             g.ellipse(0, oy - rows * gap + 10, 180, 18);
             g.fill();
@@ -599,31 +630,19 @@ export function installHomeAdFlowModule(target: any): void {
         drawLivesBanner(parent: Node) {
             const bannerNode = this.requireUiChild(parent, 'LivesBanner', 'VigorGroup/LivesBanner');
             this.requireSceneSpriteFrame(bannerNode, 'VigorGroup/LivesBanner');
-            // 閻愮懓鍤担鎾冲閸栧搫鐓欓敍灞炬弓濠娾剝妞傚鐟板毉閻绠嶉崨?
             // Bind to the group so the banner, count, and timer share one hitbox.
             parent.targetOff(this);
             parent.getComponent(Button) || parent.addComponent(Button);
             parent.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 this.showNoLivesAdModal(() => {});
-                return;
-                if (this.getVigor() < (this.constructor as any).VIGOR_CEILING) {
-                    this.showNoLivesAdModal(() => {
-                        // 婵″倹鐏夊鎻掔磻婵鐖堕幋蹇撳灟娑撳秹顤傛径鏍ь槱閻?
-                    });
-                } else {
-                    this.showToast('娴ｆ挸濮忓鑼病濠娾€茬啊');
-                }
             }, this);
-            // 娴ｆ挸濮忛弫鏉跨摟 (banner 娑擃參妫?
             const countLbl = this.requireUiChild(parent, 'VigorCount', 'VigorGroup/VigorCount');
             const vigorLabel = countLbl.getComponent(Label);
             if (!vigorLabel) throw new Error('[HomeScene] Home.scene is missing Label component on VigorGroup/VigorCount');
             vigorLabel.string = `${this.getVigor()}/${(this.constructor as any).VIGOR_CEILING}`;
             this._vigorCountLbl = vigorLabel;
-            // 閸婃帟顓搁弮鎯板剹閺?(缁毖冨櫨閸栧懓锛欓弬鍥х摟)
             this.requireUiChild(parent, 'TimeBg', 'VigorGroup/TimeBg');
-            // 閸婃帟顓搁弮鑸垫瀮鐎?(鏉堝啫鐨€涙ぞ缍?
             const timeLbl = this.requireUiChild(parent, 'VigorTime', 'VigorGroup/VigorTime');
             const timeLabel = timeLbl.getComponent(Label);
             if (!timeLabel) throw new Error('[HomeScene] Home.scene is missing Label component on VigorGroup/VigorTime');

@@ -1,4 +1,5 @@
 import { _decorator, sys } from 'cc';
+import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { UserStateSyncMgr, type CloudUserProfile } from './UserStateSyncMgr';
 
 const { ccclass } = _decorator;
@@ -55,21 +56,22 @@ export class UserMgr {
         return this.profile.uuid;
     }
 
-    touchSession() {
+    touchSession(syncCloud: boolean = true) {
         const now = Date.now();
         this.profile.lastActiveAt = now;
         if (!this.sessionTouched) {
             this.sessionTouched = true;
             this.profile.loginCount += 1;
         }
-        this.persist();
+        this.persist(this.profile, syncCloud);
     }
 
-    markLevelProgress(levelId: number) {
+    markLevelProgress(levelId: number, allowRegression: boolean = false, syncCloud: boolean = true) {
         const normalized = Math.max(1, Math.floor(levelId || 1));
-        this.profile.lastLevelId = normalized;
+        const currentLevel = Math.max(1, Math.floor(Number(this.profile.lastLevelId) || 1));
+        this.profile.lastLevelId = allowRegression ? normalized : Math.max(currentLevel, normalized);
         this.profile.lastActiveAt = Date.now();
-        this.persist();
+        this.persist(this.profile, syncCloud);
     }
 
     applyCloudProfile(source: Partial<CloudUserProfile> | null | undefined): void {
@@ -108,14 +110,14 @@ export class UserMgr {
     /** 微信登录（静默），获取 code 建立会话 */
     async loginWeChat(): Promise<boolean> {
         try {
-            const w: any = typeof window !== 'undefined' ? window : null;
-            if (!w?.wx?.login) {
+            const wxRuntime = getWeChatMiniGameRuntime();
+            if (!wxRuntime?.login) {
                 console.log('[UserMgr] wx.login not available, skipping');
                 return false;
             }
 
             const res = await new Promise<any>((resolve, reject) => {
-                w.wx.login({ success: resolve, fail: reject });
+                wxRuntime.login({ success: resolve, fail: reject });
             });
 
             if (res?.code) {
@@ -137,8 +139,7 @@ export class UserMgr {
     createUserInfoButton(x: number, y: number, width: number, height: number): Promise<boolean> {
         return new Promise<boolean>((resolve) => {
             try {
-                const w: any = typeof window !== 'undefined' ? window : null;
-                const wxRuntime = w?.wx;
+                const wxRuntime = getWeChatMiniGameRuntime();
                 if (!wxRuntime) {
                     console.warn('[UserMgr] wx runtime not available');
                     resolve(false);

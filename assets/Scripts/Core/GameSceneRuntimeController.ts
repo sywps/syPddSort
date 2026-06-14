@@ -116,7 +116,10 @@ export class GameSceneRuntimeController {
     startGameSceneRuntime(): void {
         const previousSceneName = AppRoot.tryGet()?.session.currentSceneName || '';
         const appRoot = AppRoot.ensure('Game');
-        if (appRoot.session.pendingGameplayRequest) {
+        const pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
+        const explicitGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'cover';
+        const suppressGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'none';
+        if (pendingGameplayRequest) {
             appRoot.router.attachCurrentScene('Game');
             appRoot.session.markVisualState('boot');
             appRoot.session.clearActiveGameplayContext();
@@ -136,13 +139,43 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('PopupRoot');
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
-        if (!appRoot.isSceneTransitionHeld()) {
+        this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
+        if (appRoot.isSceneTransitionHeld()) {
+            appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:useHeldGameTransition', {
+                entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
+            });
+        } else if (explicitGameplayEntryCover) {
             void appRoot.beginSceneTransition('game-direct-start').catch((error: unknown) => {
                 console.warn('[SceneTransition] direct game startup cover failed:', error);
             });
             appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:beginDirectGameTransition');
+        } else {
+            appRoot.forceHideSceneTransition(suppressGameplayEntryCover ? 'gameplay-entry-no-cover' : 'game-direct-start-skip');
+            appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:skipDirectGameTransition', {
+                entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
+                reason: suppressGameplayEntryCover ? 'no-cover-entry' : 'no-explicit-cover',
+            });
         }
         void this.runtime.continueStartup();
+    }
+
+    private bindExistingGameLoadingOverlay(showOverlay: boolean = true): void {
+        const bootRoot = this.runtime.requireCanvasUiRoot('BootRoot');
+        const layer = this.runtime.requireUiChild(
+            bootRoot,
+            'StartupLoadingUI',
+            'BootRoot/StartupLoadingUI',
+        );
+        const layerUT = layer.getComponent(UITransform);
+        if (!layerUT) {
+            throw new Error('[GameScene] Game.scene is missing UITransform on BootRoot/StartupLoadingUI');
+        }
+        const visibleSize = view.getVisibleSize();
+        layerUT.setContentSize(visibleSize.width, visibleSize.height);
+        layer.setPosition(0, 0, 0);
+        layer.active = showOverlay;
+        this.runtime._loadingOverlay = showOverlay ? layer : null;
+        this.runtime._loadingClosing = false;
     }
 
     update(dt: number): void {
@@ -225,21 +258,29 @@ export class GameSceneRuntimeController {
         const urlLevel = typeof this.runtime.getUrlLevel === 'function' ? this.runtime.getUrlLevel() : 0;
         const urlLevelFile = typeof this.runtime.getUrlLevelFile === 'function' ? this.runtime.getUrlLevelFile() : '';
         if (urlLevel > 0 || urlLevelFile) return false;
-        return typeof this.runtime.hasLocalUserState === 'function' && this.runtime.hasLocalUserState();
+        return typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
+            && this.runtime.hasReliableLocalUserStateForStartup();
     }
 
     private startHomeBackgroundServices(): void {
+        const canAutoSaveGameState =
+            typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
+            && this.runtime.hasReliableLocalUserStateForStartup();
         SySDKMgr.inst.init();
         SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
-        UserMgr.inst.touchSession();
+        UserMgr.inst.touchSession(canAutoSaveGameState);
         void AnalyticsMgr.inst.bootstrap();
-        if (typeof this.runtime.queueCloudGameStateSync === 'function') {
+        if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {
             this.runtime.queueCloudGameStateSync();
         }
         this.runtime.scheduleOnce(() => {
-            const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
-            void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
-            void UserMgr.inst.loginWeChat();
+            if (canAutoSaveGameState) {
+                const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
+                void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
+            }
+            if (typeof this.runtime._isWeChat === 'function' && this.runtime._isWeChat()) {
+                void UserMgr.inst.loginWeChat();
+            }
             if (typeof this.runtime.setupShareMenu === 'function') {
                 this.runtime.setupShareMenu();
             }

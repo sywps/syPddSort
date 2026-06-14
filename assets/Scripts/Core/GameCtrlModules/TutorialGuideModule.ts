@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -38,7 +38,7 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         /** Step 0: 选中 firstColorId 豆豆块 */
-        guideStep0(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideStep0(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             const block = this.findBlockOnBoard(this._guideFirstColorId);
             if (block) {
                 this.autoHighlightBlock(block.cells);
@@ -48,12 +48,12 @@ export function installTutorialGuideModule(target: any): void {
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '先选这块豆豆');
         },
 
-        guideLevel2UnlockStep(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideLevel2UnlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotUnlockButtonForGuide(hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '先解锁一排暂存槽');
         },
 
-        guideLevel2PickBlockStep(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideLevel2PickBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             const block = this.findBlockOnBoard(this._guideFirstColorId);
             if (block) {
                 this.autoHighlightBlock(block.cells);
@@ -62,14 +62,14 @@ export function installTutorialGuideModule(target: any): void {
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '再选这块大豆豆');
         },
 
-        guideLevel2PlaceBlockStep(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideLevel2PlaceBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '放进扩展后的暂存槽');
         },
 
         /** Step 1: 点击暂存槽放入（place 阶段） */
-        guideStep1(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideStep1(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
             const prompt = this._guideMode === 'level_2' ? '把这一大块放进暂存槽' : '把它放到下方暂存槽';
@@ -77,7 +77,7 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         /** Step 2: 选中 secondColorId 豆豆块 */
-        guideStep2(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideStep2(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             const block = this.findBlockOnBoard(this._guideSecondColorId);
             if (block) {
                 this.autoHighlightBlock(block.cells);
@@ -88,14 +88,14 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         /** Step 3: 点击棋盘目标放置 secondColorId（place 阶段） */
-        guideStep3(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideStep3(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightEmptyTarget(this._guideSecondColorId);
             this.startHandGestureOnBoardTarget(this._guideSecondColorId, hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回高亮位置');
         },
 
         /** Step 4: 从暂存槽选中 firstColorId 豆豆 */
-        guideStep4(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideStep4(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             const block = this.findSlotBlock(this._guideFirstColorId);
             if (block) {
                 this.autoHighlightSlotBeans(this._guideFirstColorId);
@@ -106,7 +106,7 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         /** Step 5: 点击棋盘目标放置 firstColorId → 通关（place 阶段） */
-        guideStep5(gm: Graphics, gb: Graphics, gh: Graphics, lbl: Label, bubble: Node, hand: Node, arrow: Node) {
+        guideStep5(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightEmptyTarget(this._guideFirstColorId);
             this.startHandGestureOnBoardTarget(this._guideFirstColorId, hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回高亮位置');

@@ -20,6 +20,7 @@ import { installThemeLoadingOverlayModule } from './GameCtrlModules/ThemeLoading
 import { installSettingsPanelModule } from './GameCtrlModules/SettingsPanelModule';
 import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModule';
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
+import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -29,6 +30,7 @@ export function installGameCtrlModules(runtime: any): void {
     installPlayerMetaStateModule(runtime);
     installFirstLevelRouteModule(runtime);
     installAssetBootstrapModule(runtime);
+    installDynamicCountdownDdaModule(runtime);
     installHomeAdFlowModule(runtime);
     installHomeCommerceModule(runtime);
     installSceneHomeEntryModule(runtime);

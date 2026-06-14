@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -25,6 +25,7 @@ import {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
@@ -36,6 +37,12 @@ export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
         trackFirstLevelFunnel(eventName: string, opt: Record<string, unknown> = {}, force: boolean = false): void {
             if (!force && !this.isFirstLevelFunnelActive()) return;
+            const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
+                ? {
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                }
+                : {};
             const activeLevelId = this.getActivePhysicalLevelId();
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
@@ -43,8 +50,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 levelId: activeLevelId,
                 logicalLevelId: activeLevelId,
                 physicalLevelId: activeLevelId,
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
+                ...experimentPayload,
                 ...opt,
             });
         },
@@ -57,14 +63,19 @@ export function installFirstLevelRouteModule(target: any): void {
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             if (!force && normalizedLevelId !== 1) return;
+            const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
+                ? {
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                }
+                : {};
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
                 page: 'level_game',
                 levelId: normalizedLevelId,
                 logicalLevelId: normalizedLevelId,
                 physicalLevelId: normalizedLevelId,
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
+                ...experimentPayload,
                 ...opt,
             });
         },
@@ -120,15 +131,18 @@ export function installFirstLevelRouteModule(target: any): void {
             levelPath: string,
             extra: Record<string, unknown> = {},
         ): Record<string, unknown> {
-            return {
+            const diagnostics: Record<string, unknown> = {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
                 levelDataCdn: LevelDataCdnService.inst.getAvailabilityDiagnostics(),
                 levelId,
-                abBucket: this._firstLevelRouteBucket,
                 levelPath,
                 ...extra,
             };
+            if (this.shouldUseFirstLevelRouteExperiment?.()) {
+                diagnostics.abBucket = this._firstLevelRouteBucket;
+            }
+            return diagnostics;
         },
 
         reportLevelDataLoadDiagnostic(
@@ -280,29 +294,40 @@ export function installFirstLevelRouteModule(target: any): void {
             const urlLevel = this.getUrlLevel();
             const urlLevelFile = this.getUrlLevelFile();
             const urlTheme = this.getUrlTheme();
-            const hadLocalUserState = this.hasLocalUserState();
-            const firstLevelRouteResolveTask = this.startFirstLevelRouteExperimentResolve();
-            // 云端恢复只给短预算：超时先按本地状态进关，云端结果后续再合并保存。
+            const hadAnyLocalUserState = this.hasLocalUserState();
+            const startupLocalProgressState = this.getStartupLocalProgressState();
+            const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
+            const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
+            const firstLevelRouteResolveTask: Promise<FirstLevelRouteResolution> = shouldUseFirstLevelExperiment
+                ? this.startFirstLevelRouteExperimentResolve()
+                : Promise.resolve({ bucket: 'bucket_a', source: 'default' });
+            // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
-            await this.initFirstLevelRouteExperiment(firstLevelRouteResolveTask);
-            AnalyticsMgr.inst.setExperimentContext({
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
-            });
-            AnalyticsMgr.inst.trackFunnelEvent({
-                eventName: 'ab_assigned',
-                page: 'app',
-                source: 'first_level_route',
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: this._firstLevelRouteBucket,
-                extra: {
-                    hadLocalUserState,
-                    restoreStatus,
-                    savedLevel: this.getSavedLevel(),
-                },
-            });
+            if (shouldUseFirstLevelExperiment) {
+                await this.initFirstLevelRouteExperiment(firstLevelRouteResolveTask);
+                AnalyticsMgr.inst.setExperimentContext({
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                });
+                AnalyticsMgr.inst.trackFunnelEvent({
+                    eventName: 'ab_assigned',
+                    page: 'app',
+                    source: 'first_level_route',
+                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                    abBucket: this._firstLevelRouteBucket,
+                    extra: {
+                        hadLocalUserState,
+                        hadAnyLocalUserState,
+                        restoreStatus,
+                        startupLocalProgressState,
+                        savedLevel: this.getSavedLevel(),
+                    },
+                });
+            } else {
+                this._firstLevelRouteBucket = 'bucket_a';
+            }
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
@@ -314,7 +339,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 !urlLevelFile &&
                 urlLevel <= 0 &&
                 !pendingSceneGameplayRequest &&
-                this.hasLocalUserState();
+                this.hasReliableLocalUserStateForStartup();
             if (!urlLevelFile && startupLevelId > 0) {
                 this.reportLevelDataLoadDiagnostic(
                     startupLevelId,
@@ -327,6 +352,7 @@ export function installFirstLevelRouteModule(target: any): void {
                             urlLevel,
                             urlTheme,
                             restoreStatus,
+                            startupLocalProgressState,
                             savedLevel: this.getSavedLevel(),
                             shouldEnterHomeOnStartup,
                         },
@@ -371,7 +397,7 @@ export function installFirstLevelRouteModule(target: any): void {
             SySDKMgr.inst.init();
             SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
         
-            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isWeChat() || this._isUrlLevelPreview())) {
+            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
                 const useLocalBootstrapStartup =
                     urlLevel <= 0 &&
                     defaultEntryLevel <= 1 &&
@@ -392,21 +418,29 @@ export function installFirstLevelRouteModule(target: any): void {
                 this.scheduleOnce(onReady, 15);
             }
         
+            const canAutoSaveGameStateOnStartup =
+                restoreStatus === 'local_progress_gt_1' ||
+                restoreStatus === 'cloud_progress_gt_1' ||
+                restoreStatus === 'cloud_confirmed_empty';
             AudioMgr.inst.init(this.node);
-            UserMgr.inst.touchSession();
+            UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup);
             void AnalyticsMgr.inst.bootstrap();
-            if (!hadLocalUserState && (restoreStatus === 'empty' || restoreStatus === 'skipped')) {
+            if (restoreStatus === 'cloud_confirmed_empty') {
                 this.grantStarterPropsForNewUser();
             }
-            if (hadLocalUserState || restoreStatus === 'restored' || restoreStatus === 'empty' || restoreStatus === 'skipped') {
+            if (canAutoSaveGameStateOnStartup) {
                 this.queueCloudGameStateSync();
-            } else {
+            } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
                 console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
             }
             // 延迟微信相关初始化，避免与 Cocos 场景渲染冲突
             this.scheduleOnce(() => {
-                void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
-                void UserMgr.inst.loginWeChat();
+                if (canAutoSaveGameStateOnStartup) {
+                    void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
+                }
+                if (this._isWeChat()) {
+                    void UserMgr.inst.loginWeChat();
+                }
                 this.setupShareMenu();
             }, 0.5);
         },
@@ -455,9 +489,15 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         _isWeChat(): boolean {
-            const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-            const w: any = typeof window !== 'undefined' ? window : null;
-            return !!(g?.__rawWx?.getSystemInfoSync) || !!(w?.wx?.getSystemInfoSync);
+            return isWeChatMiniGameRuntime();
+        },
+
+        _isDouyin(): boolean {
+            return isDouyinMiniGameRuntime();
+        },
+
+        _isMiniGame(): boolean {
+            return isMiniGameRuntime();
         },
 
         _isUrlLevelPreview(): boolean {

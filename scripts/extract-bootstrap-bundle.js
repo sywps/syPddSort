@@ -12,7 +12,6 @@ const BOOTSTRAP_PATH_MAP = (() => {
     map.set('LevelData/level_1', 'LevelData/level_1');
 
     const uiNames = [
-        'slot_row_empty_pindd',
         'block_bright_pindd',
     ];
     for (const uiName of uiNames) {

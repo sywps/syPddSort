@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const REWARD_RESULT_POPUP_PREFAB_PATH = 'UI/Prefabs/Panels/RewardResultPopup';
@@ -792,6 +793,10 @@ export function installPlayerMetaStateModule(target: any): void {
             return null;
         },
 
+        shouldUseFirstLevelRouteExperiment(): boolean {
+            return isWeChatMiniGameRuntime();
+        },
+
         isFirstLevelRouteExperimentQuery(value: string): boolean {
             const text = value.trim().toLowerCase();
             return text === FIRST_LEVEL_ROUTE_EXPERIMENT_ID;
@@ -815,6 +820,7 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         applyFirstLevelRouteUrlOverride(): boolean {
+            if (!this.shouldUseFirstLevelRouteExperiment()) return false;
             const ab = this.getRuntimeQueryParam('ab').trim();
             if (!ab) return false;
             const normalizedAb = ab.toLowerCase();
@@ -846,6 +852,7 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         async fetchFirstLevelRouteBucketFromWx(): Promise<FirstLevelRouteVariant | null> {
+            if (!this.shouldUseFirstLevelRouteExperiment()) return null;
             const wx: any = this.getWeChatRuntime();
             if (!wx) {
                 console.warn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: wx runtime unavailable`);
@@ -904,6 +911,12 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         startFirstLevelRouteExperimentResolve(): Promise<FirstLevelRouteResolution> {
+            if (!this.shouldUseFirstLevelRouteExperiment()) {
+                return Promise.resolve({
+                    bucket: 'bucket_a',
+                    source: 'default',
+                });
+            }
             if (this.applyFirstLevelRouteUrlOverride()) {
                 return Promise.resolve({
                     bucket: this._firstLevelRouteBucket,
@@ -917,6 +930,10 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         async initFirstLevelRouteExperiment(resolveTask?: Promise<FirstLevelRouteResolution>): Promise<void> {
+            if (!this.shouldUseFirstLevelRouteExperiment()) {
+                this._firstLevelRouteBucket = 'bucket_a';
+                return;
+            }
             const result = await (resolveTask || this.startFirstLevelRouteExperimentResolve());
             this._firstLevelRouteBucket = result.bucket;
             console.warn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);

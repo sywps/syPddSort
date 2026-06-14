@@ -1,8 +1,10 @@
 import { _decorator, assetManager, Camera, Canvas, Component, director, instantiate, Node, Prefab, UITransform, view } from 'cc';
 import {
     AppSession,
+    type AppGameplayEntryCoverMode,
     type AppGameplayEntryMode,
     type AppSceneName,
+    type AppSceneTransitionCoverMode,
 } from './AppSession';
 import { SceneRouter } from './SceneRouter';
 import {
@@ -11,7 +13,7 @@ import {
 } from './SceneTransitionController';
 
 const { ccclass } = _decorator;
-const GAME_ASSETS_BUNDLE_NAME = 'gameAssets';
+const SCENE_TRANSITION_BUNDLE_NAME = 'bootstrap';
 const SCENE_TRANSITION_PREFAB_PATH = 'UI/Prefabs/Fx/SceneTransition';
 const SCENE_TRANSITION_LAYER_NAME = 'SceneTransitionLayer';
 const SCENE_TRANSITION_RENDER_LAYER = 1 << 29;
@@ -133,13 +135,20 @@ export class AppRoot extends Component {
         this.session.clearGameplayContext();
     }
 
-    async requestHomeSceneTransition(source: string = 'unknown'): Promise<void> {
-        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:start', { source });
+    async requestHomeSceneTransition(source: string = 'unknown', coverMode: AppSceneTransitionCoverMode = 'cover'): Promise<void> {
+        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:start', { source, coverMode });
+        if (coverMode === 'none') {
+            this.markHomeVisible('Home');
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source, coverMode });
+            await this.router.toHome();
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source, coverMode });
+            return;
+        }
         await this.playSceneTransition(source, async () => {
             this.markHomeVisible('Home');
-            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source });
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source, coverMode });
             await this.router.toHome();
-            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source });
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source, coverMode });
         });
     }
 
@@ -199,9 +208,10 @@ export class AppRoot extends Component {
         levelId: number,
         prefix: string,
         entryMode: AppGameplayEntryMode,
+        entryCoverMode: AppGameplayEntryCoverMode = 'auto',
     ): void {
         this.router.requestGameScene();
-        this.session.markPendingGameplayRequest(levelId, prefix, entryMode);
+        this.session.markPendingGameplayRequest(levelId, prefix, entryMode, entryCoverMode);
     }
 
     markGameActive(
@@ -341,9 +351,9 @@ export class AppRoot extends Component {
             return this._sceneTransitionPrefab;
         }
         const bundle = await new Promise<any>((resolve, reject) => {
-            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, loadedBundle) => {
+            assetManager.loadBundle(SCENE_TRANSITION_BUNDLE_NAME, (err, loadedBundle) => {
                 if (err || !loadedBundle) {
-                    reject(new Error(`[SceneTransition] load bundle ${GAME_ASSETS_BUNDLE_NAME} failed: ${err?.message || 'missing bundle'}`));
+                    reject(new Error(`[SceneTransition] load bundle ${SCENE_TRANSITION_BUNDLE_NAME} failed: ${err?.message || 'missing bundle'}`));
                     return;
                 }
                 resolve(loadedBundle);

@@ -1,5 +1,5 @@
 import { _decorator, Game, game, sys } from 'cc';
-import { WxCloudMgr } from './WxCloudMgr';
+import { PlatformCloudMgr } from './PlatformCloudMgr';
 
 const { ccclass } = _decorator;
 
@@ -133,17 +133,17 @@ export class AnalyticsMgr {
         }
 
         this.readyPromise = Promise.resolve().then(async () => {
-            if (!WxCloudMgr.inst.canUseCloud()) {
+            if (!PlatformCloudMgr.inst.canUseCloud()) {
                 this.warnUnavailableOnce();
                 return false;
             }
-            if (WxCloudMgr.inst.isDevtools()) {
+            if (PlatformCloudMgr.inst.isDevtools()) {
                 return false;
             }
 
-            const { device, system } = WxCloudMgr.inst.getSystemInfo();
+            const { device, system } = PlatformCloudMgr.inst.getSystemInfo();
             const channel = this.resolveChannel();
-            const result = await WxCloudMgr.inst.callFunction<CloudResult>('getOpenid', {
+            const result = await PlatformCloudMgr.inst.callFunction<CloudResult>('getOpenid', {
                 channel,
                 device,
                 system,
@@ -178,7 +178,7 @@ export class AnalyticsMgr {
         }
 
         try {
-            return await WxCloudMgr.inst.callFunction<CloudResult>('addBehaviorData', {
+            return await PlatformCloudMgr.inst.callFunction<CloudResult>('addBehaviorData', {
                 openid: this.openid,
                 eventName: opt.eventName,
                 levelId: opt.levelId ?? 0,
@@ -285,13 +285,13 @@ export class AnalyticsMgr {
         if (this.funnelInFlight || this.funnelQueue.length === 0) {
             return;
         }
-        if (!WxCloudMgr.inst.canUseCloud()) {
+        if (!PlatformCloudMgr.inst.canUseCloud()) {
             return;
         }
 
         const batch = this.funnelQueue.splice(0, 20);
         this.funnelInFlight = true;
-        void WxCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
+        void PlatformCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
             sessionId: this.funnelSessionId,
             events: batch,
         }).catch((error) => {
@@ -483,13 +483,13 @@ export class AnalyticsMgr {
     }
 
     async fetchLevelRate(levelId: number): Promise<Record<string, unknown>> {
-        return WxCloudMgr.inst.callFunction('calcLevelRate', {
+        return PlatformCloudMgr.inst.callFunction('calcLevelRate', {
             levelId: Math.max(1, Math.floor(Number(levelId) || 1)),
         });
     }
 
     async fetchDashboardData(opt: { startDate?: string; endDate?: string; days?: number; topLimit?: number } = {}): Promise<Record<string, unknown>> {
-        return WxCloudMgr.inst.callFunction('getAllDashboardData', opt);
+        return PlatformCloudMgr.inst.callFunction('getAllDashboardData', opt);
     }
 
     async updateUserProfileAssets(opt: UpdateUserProfileAssetsOptions): Promise<Record<string, unknown> | { ok: false; skipped: true }> {
@@ -499,7 +499,7 @@ export class AnalyticsMgr {
         }
 
         try {
-            return await WxCloudMgr.inst.callFunction('updateUserProfileAssets', {
+            return await PlatformCloudMgr.inst.callFunction('updateUserProfileAssets', {
                 ...opt,
                 openid: opt.openid || this.openid,
             });
@@ -547,7 +547,7 @@ export class AnalyticsMgr {
         }
 
         try {
-            await WxCloudMgr.inst.callFunction('saveLevelRecord', {
+            await PlatformCloudMgr.inst.callFunction('saveLevelRecord', {
                 openid: this.openid,
                 levelId: session.levelId,
                 tryCount: Math.max(1, Math.floor(session.tryCount || 1)),
@@ -621,7 +621,7 @@ export class AnalyticsMgr {
     }
 
     private resolveChannel(): string {
-        const launchChannel = WxCloudMgr.inst.getLaunchChannel();
+        const launchChannel = PlatformCloudMgr.inst.getLaunchChannel();
         if (launchChannel) {
             return launchChannel;
         }
@@ -669,6 +669,8 @@ export class AnalyticsMgr {
             message.includes('system error') ||
             message.includes('environment not found') ||
             message.includes('function not found') ||
+            message.includes('douyin cloud') ||
+            message.includes('platform cloud') ||
             message.includes('collection') && message.includes('not exist')
         );
     }

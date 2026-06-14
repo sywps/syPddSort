@@ -1,200 +1,227 @@
 import { sys } from '../GameCtrlShared';
 
-const DYNAMIC_COUNTDOWN_ENABLE_LEVEL = 11;
-const DYNAMIC_COUNTDOWN_CLEAN_WIN_TRIGGER = 3;
-const DYNAMIC_COUNTDOWN_CLEAN_REMAIN_RATIO = 0.15;
-const DYNAMIC_COUNTDOWN_COMPRESS_FACTOR = 0.8;
-const DYNAMIC_COUNTDOWN_FAIL_FACTOR_2 = 1.15;
-const DYNAMIC_COUNTDOWN_FAIL_FACTOR_3_PLUS = 1.3;
+export type DynamicCountdownDdaState = {
+    cleanWinStreak: number;
+    hardLevel: number;
+    failLevel: number;
+    failCount: number;
+};
 
-const LS_DYNAMIC_FAIL_LEVEL = 'pdd.dynamicCountdown.failLevel';
-const LS_DYNAMIC_FAIL_COUNT = 'pdd.dynamicCountdown.failCount';
-const LS_DYNAMIC_WIN_STREAK = 'pdd.dynamicCountdown.winStreak';
-const LS_DYNAMIC_COMPRESSED_LEVEL = 'pdd.dynamicCountdown.compressedLevel';
+export const DYNAMIC_COUNTDOWN_DDA_STORAGE_KEY = 'pdd.dynamicCountdownDda.v1';
+export const DYNAMIC_COUNTDOWN_DDA_MIN_LEVEL = 11;
+export const DYNAMIC_COUNTDOWN_CLEAN_WIN_STREAK_TRIGGER = 3;
+export const DYNAMIC_COUNTDOWN_CLEAN_WIN_REMAIN_RATIO = 0.15;
+export const DYNAMIC_COUNTDOWN_HARD_TIME_FACTOR = 0.8;
+export const DYNAMIC_COUNTDOWN_SECOND_FAIL_FACTOR = 1.15;
+export const DYNAMIC_COUNTDOWN_THIRD_FAIL_FACTOR = 1.3;
 
-function normalizeLevelId(levelId: unknown): number {
-    return Math.max(1, Math.floor(Number(levelId) || 1));
+const DEFAULT_DDA_STATE: DynamicCountdownDdaState = {
+    cleanWinStreak: 0,
+    hardLevel: 0,
+    failLevel: 0,
+    failCount: 0,
+};
+
+function normalizePositiveInt(value: unknown): number {
+    return Math.max(0, Math.floor(Number(value) || 0));
 }
 
-function readStorageInt(key: string): number {
-    const raw = sys.localStorage.getItem(key);
-    const value = raw ? parseInt(raw, 10) : 0;
-    return Number.isFinite(value) && value > 0 ? value : 0;
+function normalizeLevelId(value: unknown): number {
+    return Math.max(1, Math.floor(Number(value) || 1));
 }
 
-function writeStorageInt(key: string, value: number): void {
-    const normalized = Math.max(0, Math.floor(Number(value) || 0));
-    if (normalized <= 0) {
-        sys.localStorage.removeItem(key);
-        return;
-    }
-    sys.localStorage.setItem(key, String(normalized));
+function normalizeTimeLimit(value: unknown): number {
+    return Math.max(0, Math.floor(Number(value) || 0));
 }
 
-function applyTimeFactor(baseSeconds: number, factor: number): number {
-    if (factor > 1) {
-        return Math.max(1, Math.ceil(baseSeconds * factor));
+function cloneDefaultState(): DynamicCountdownDdaState {
+    return { ...DEFAULT_DDA_STATE };
+}
+
+export function normalizeDynamicCountdownDdaState(value: any): DynamicCountdownDdaState {
+    if (!value || typeof value !== 'object') {
+        return cloneDefaultState();
     }
-    if (factor < 1) {
-        return Math.max(1, Math.floor(baseSeconds * factor));
+    return {
+        cleanWinStreak: normalizePositiveInt(value.cleanWinStreak),
+        hardLevel: normalizePositiveInt(value.hardLevel),
+        failLevel: normalizePositiveInt(value.failLevel),
+        failCount: normalizePositiveInt(value.failCount),
+    };
+}
+
+export function getDynamicCountdownFailureFactor(failCount: number): number {
+    const count = normalizePositiveInt(failCount);
+    if (count < 2) return 1;
+    return count === 2 ? DYNAMIC_COUNTDOWN_SECOND_FAIL_FACTOR : DYNAMIC_COUNTDOWN_THIRD_FAIL_FACTOR;
+}
+
+export function isDynamicCountdownDdaLevel(levelId: unknown, entryMode: unknown, baseTimeLimit: unknown): boolean {
+    return entryMode === 'main'
+        && normalizeLevelId(levelId) >= DYNAMIC_COUNTDOWN_DDA_MIN_LEVEL
+        && normalizeTimeLimit(baseTimeLimit) > 0;
+}
+
+export function resolveDynamicCountdownTime(baseTimeLimit: unknown, levelId: unknown, entryMode: unknown, stateValue: any) {
+    const baseTime = normalizeTimeLimit(baseTimeLimit);
+    const level = normalizeLevelId(levelId);
+    const enabled = isDynamicCountdownDdaLevel(level, entryMode, baseTime);
+    const state = normalizeDynamicCountdownDdaState(stateValue);
+    let factor = 1;
+    let reason: 'disabled' | 'base' | 'fail_compensation' | 'clean_streak_compression' = enabled ? 'base' : 'disabled';
+
+    if (enabled) {
+        const failCount = state.failLevel === level ? state.failCount : 0;
+        if (failCount >= 2) {
+            factor = getDynamicCountdownFailureFactor(failCount);
+            reason = 'fail_compensation';
+        } else if (state.hardLevel === level) {
+            factor = DYNAMIC_COUNTDOWN_HARD_TIME_FACTOR;
+            reason = 'clean_streak_compression';
+        }
     }
-    return baseSeconds;
+
+    const dynamicTime = factor < 1
+        ? Math.max(1, Math.floor(baseTime * factor))
+        : Math.max(0, Math.ceil(baseTime * factor));
+
+    return {
+        enabled,
+        baseTime,
+        dynamicTime,
+        factor,
+        reason,
+    };
 }
 
 export function installDynamicCountdownDdaModule(target: any): void {
     Object.assign(target, {
-        isDynamicCountdownMainEntry(entryMode: unknown = this._activeGameplayEntryMode): boolean {
-            return (entryMode || 'main') === 'main';
-        },
-
-        isDynamicCountdownEnabledFor(levelId: unknown = this.getActiveLogicalLevelId?.(), entryMode: unknown = this._activeGameplayEntryMode): boolean {
-            return this.isDynamicCountdownMainEntry(entryMode) && normalizeLevelId(levelId) >= DYNAMIC_COUNTDOWN_ENABLE_LEVEL;
-        },
-
-        getDynamicCountdownFailCount(levelId: unknown = this.getActiveLogicalLevelId?.()): number {
-            const normalizedLevel = normalizeLevelId(levelId);
-            return readStorageInt(LS_DYNAMIC_FAIL_LEVEL) === normalizedLevel ? readStorageInt(LS_DYNAMIC_FAIL_COUNT) : 0;
-        },
-
-        setDynamicCountdownFailCount(levelId: unknown, count: number): void {
-            const normalizedLevel = normalizeLevelId(levelId);
-            const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
-            if (normalizedCount <= 0) {
-                if (readStorageInt(LS_DYNAMIC_FAIL_LEVEL) === normalizedLevel) {
-                    sys.localStorage.removeItem(LS_DYNAMIC_FAIL_LEVEL);
-                    sys.localStorage.removeItem(LS_DYNAMIC_FAIL_COUNT);
-                }
-                return;
+        readDynamicCountdownDdaState(): DynamicCountdownDdaState {
+            const raw = sys.localStorage.getItem(DYNAMIC_COUNTDOWN_DDA_STORAGE_KEY);
+            if (!raw) {
+                return cloneDefaultState();
             }
-            writeStorageInt(LS_DYNAMIC_FAIL_LEVEL, normalizedLevel);
-            writeStorageInt(LS_DYNAMIC_FAIL_COUNT, normalizedCount);
-        },
-
-        clearDynamicCountdownFail(levelId?: unknown): void {
-            if (levelId !== undefined && readStorageInt(LS_DYNAMIC_FAIL_LEVEL) !== normalizeLevelId(levelId)) {
-                return;
+            try {
+                return normalizeDynamicCountdownDdaState(JSON.parse(raw));
+            } catch (_error) {
+                return cloneDefaultState();
             }
-            sys.localStorage.removeItem(LS_DYNAMIC_FAIL_LEVEL);
-            sys.localStorage.removeItem(LS_DYNAMIC_FAIL_COUNT);
         },
 
-        addDynamicCountdownFail(levelId: unknown = this.getActiveLogicalLevelId?.()): number {
-            const normalizedLevel = normalizeLevelId(levelId);
-            const nextCount = this.getDynamicCountdownFailCount(normalizedLevel) + 1;
-            this.setDynamicCountdownFailCount(normalizedLevel, nextCount);
-            return nextCount;
+        writeDynamicCountdownDdaState(state: DynamicCountdownDdaState): void {
+            sys.localStorage.setItem(
+                DYNAMIC_COUNTDOWN_DDA_STORAGE_KEY,
+                JSON.stringify(normalizeDynamicCountdownDdaState(state)),
+            );
         },
 
-        undoDynamicCountdownFail(levelId: unknown = this.getActiveLogicalLevelId?.()): void {
-            const normalizedLevel = normalizeLevelId(levelId);
-            const current = this.getDynamicCountdownFailCount(normalizedLevel);
-            this.setDynamicCountdownFailCount(normalizedLevel, Math.max(0, current - 1));
-        },
-
-        getDynamicCountdownWinStreak(): number {
-            return readStorageInt(LS_DYNAMIC_WIN_STREAK);
-        },
-
-        setDynamicCountdownWinStreak(value: number): void {
-            writeStorageInt(LS_DYNAMIC_WIN_STREAK, value);
-        },
-
-        getDynamicCountdownCompressedLevel(): number {
-            return readStorageInt(LS_DYNAMIC_COMPRESSED_LEVEL);
-        },
-
-        setDynamicCountdownCompressedLevel(levelId: unknown): void {
-            writeStorageInt(LS_DYNAMIC_COMPRESSED_LEVEL, normalizeLevelId(levelId));
-        },
-
-        clearDynamicCountdownCompressedLevel(levelId?: unknown): void {
-            if (levelId !== undefined && this.getDynamicCountdownCompressedLevel() !== normalizeLevelId(levelId)) {
-                return;
+        getDynamicCountdownLevelId(): number {
+            if (typeof this.getActiveLogicalLevelId === 'function') {
+                return normalizeLevelId(this.getActiveLogicalLevelId());
             }
-            sys.localStorage.removeItem(LS_DYNAMIC_COMPRESSED_LEVEL);
+            return normalizeLevelId(this._activeLogicalLevelId || this.levelData?.levelId);
         },
 
-        getDynamicCountdownTimeFactor(levelId: unknown = this.getActiveLogicalLevelId?.(), entryMode: unknown = this._activeGameplayEntryMode): number {
-            const normalizedLevel = normalizeLevelId(levelId);
-            if (!this.isDynamicCountdownEnabledFor(normalizedLevel, entryMode)) {
-                return 1;
-            }
-            const failCount = this.getDynamicCountdownFailCount(normalizedLevel);
-            if (failCount >= 3) return DYNAMIC_COUNTDOWN_FAIL_FACTOR_3_PLUS;
-            if (failCount >= 2) return DYNAMIC_COUNTDOWN_FAIL_FACTOR_2;
-            if (this.getDynamicCountdownCompressedLevel() === normalizedLevel) return DYNAMIC_COUNTDOWN_COMPRESS_FACTOR;
-            return 1;
+        getDynamicCountdownEntryMode(): string {
+            return this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
         },
 
-        resolveDynamicCountdownTimeLimit(baseTimeLimit: unknown, levelId: unknown, entryMode: unknown = this._activeGameplayEntryMode): number {
-            const baseSeconds = Math.max(0, Math.floor(Number(baseTimeLimit) || 0));
-            const factor = baseSeconds > 0 ? this.getDynamicCountdownTimeFactor(levelId, entryMode) : 1;
-            const resolvedSeconds = baseSeconds > 0 ? applyTimeFactor(baseSeconds, factor) : baseSeconds;
-            this._currentLevelBaseTimeLimit = baseSeconds;
-            this._currentLevelDynamicFactor = factor;
-            this._currentLevelDynamicTimeLimit = resolvedSeconds;
-            this._usedAssistanceThisLevel = false;
-            this._ddaFailureRecordedThisLevel = false;
-            return resolvedSeconds;
+        resolveDynamicCountdownTimeLimit(options: {
+            levelId?: unknown;
+            entryMode?: unknown;
+            baseTimeLimit?: unknown;
+        }): number {
+            const levelId = normalizeLevelId(options?.levelId ?? this.getDynamicCountdownLevelId());
+            const entryMode = options?.entryMode ?? this.getDynamicCountdownEntryMode();
+            const baseTimeLimit = normalizeTimeLimit(options?.baseTimeLimit ?? this.levelData?.timeLimit);
+            const state = this.readDynamicCountdownDdaState();
+            const result = resolveDynamicCountdownTime(baseTimeLimit, levelId, entryMode, state);
+
+            this._dynamicCountdownLevelId = levelId;
+            this._dynamicCountdownEntryMode = String(entryMode || '');
+            this._dynamicCountdownBaseTimeLimit = result.baseTime;
+            this._dynamicCountdownTimeLimit = result.dynamicTime;
+            this._dynamicCountdownFactor = result.factor;
+            this._dynamicCountdownReason = result.reason;
+            this._dynamicCountdownEnabled = result.enabled;
+            this._dynamicCountdownAssisted = false;
+            this._dynamicCountdownFinalFailureRecorded = false;
+            this._dynamicCountdownFinalFailureLevel = 0;
+
+            return result.dynamicTime;
         },
 
         markDynamicCountdownAssisted(): void {
-            if (this.isDynamicCountdownEnabledFor(this.getActiveLogicalLevelId?.(), this._activeGameplayEntryMode)) {
-                this._usedAssistanceThisLevel = true;
-            }
+            if (!this._dynamicCountdownEnabled) return;
+            this._dynamicCountdownAssisted = true;
         },
 
         isDynamicCountdownCleanWin(): boolean {
-            const levelId = this.getActiveLogicalLevelId?.();
-            if (!this.isDynamicCountdownEnabledFor(levelId, this._activeGameplayEntryMode)) {
-                return false;
-            }
-            const total = Math.max(0, Math.floor(Number(this._currentLevelDynamicTimeLimit) || 0));
-            if (total <= 0 || this._usedAssistanceThisLevel) {
-                return false;
-            }
-            const remainRatio = Math.max(0, Number(this.timeRemain) || 0) / total;
-            return remainRatio > DYNAMIC_COUNTDOWN_CLEAN_REMAIN_RATIO;
+            if (!this._dynamicCountdownEnabled || this._dynamicCountdownAssisted) return false;
+            const total = Math.max(1, normalizeTimeLimit(this._dynamicCountdownTimeLimit));
+            const remain = Math.max(0, Number(this.timeRemain) || 0);
+            return remain / total > DYNAMIC_COUNTDOWN_CLEAN_WIN_REMAIN_RATIO;
         },
 
         recordDynamicCountdownWin(): void {
-            const levelId = normalizeLevelId(this.getActiveLogicalLevelId?.());
-            if (!this.isDynamicCountdownEnabledFor(levelId, this._activeGameplayEntryMode)) {
-                return;
+            if (!this._dynamicCountdownEnabled) return;
+            const levelId = normalizeLevelId(this._dynamicCountdownLevelId || this.getDynamicCountdownLevelId());
+            const state = this.readDynamicCountdownDdaState();
+            if (state.failLevel === levelId) {
+                state.failLevel = 0;
+                state.failCount = 0;
             }
-            this.clearDynamicCountdownFail(levelId);
-            this.clearDynamicCountdownCompressedLevel(levelId);
-            if (!this.isDynamicCountdownCleanWin()) {
-                this.setDynamicCountdownWinStreak(0);
-                return;
+            if (state.hardLevel === levelId) {
+                state.hardLevel = 0;
             }
-            const nextStreak = this.getDynamicCountdownWinStreak() + 1;
-            this.setDynamicCountdownWinStreak(nextStreak);
-            if (nextStreak >= DYNAMIC_COUNTDOWN_CLEAN_WIN_TRIGGER) {
-                const nextLevel = levelId + 1;
-                if (this.isDynamicCountdownEnabledFor(nextLevel, 'main')) {
-                    this.setDynamicCountdownCompressedLevel(nextLevel);
+
+            if (this.isDynamicCountdownCleanWin()) {
+                state.cleanWinStreak += 1;
+                if (state.cleanWinStreak >= DYNAMIC_COUNTDOWN_CLEAN_WIN_STREAK_TRIGGER) {
+                    state.hardLevel = levelId + 1;
                 }
+            } else {
+                state.cleanWinStreak = 0;
             }
+
+            this.writeDynamicCountdownDdaState(state);
+            this._dynamicCountdownFinalFailureRecorded = false;
+            this._dynamicCountdownFinalFailureLevel = 0;
         },
 
-        recordDynamicCountdownFinalFail(): void {
-            const levelId = normalizeLevelId(this.getActiveLogicalLevelId?.());
-            if (!this.isDynamicCountdownEnabledFor(levelId, this._activeGameplayEntryMode) || this._ddaFailureRecordedThisLevel) {
-                return;
+        recordDynamicCountdownFinalFailure(): void {
+            if (!this._dynamicCountdownEnabled || this._dynamicCountdownFinalFailureRecorded) return;
+            const levelId = normalizeLevelId(this._dynamicCountdownLevelId || this.getDynamicCountdownLevelId());
+            const state = this.readDynamicCountdownDdaState();
+            if (state.failLevel === levelId) {
+                state.failCount += 1;
+            } else {
+                state.failLevel = levelId;
+                state.failCount = 1;
             }
-            this._ddaFailureRecordedThisLevel = true;
-            this.addDynamicCountdownFail(levelId);
-            this.setDynamicCountdownWinStreak(0);
-            this.clearDynamicCountdownCompressedLevel(levelId);
+            state.cleanWinStreak = 0;
+            if (state.hardLevel === levelId) {
+                state.hardLevel = 0;
+            }
+            this.writeDynamicCountdownDdaState(state);
+            this._dynamicCountdownFinalFailureRecorded = true;
+            this._dynamicCountdownFinalFailureLevel = levelId;
         },
 
-        undoDynamicCountdownRecordedFail(): void {
-            if (!this._ddaFailureRecordedThisLevel) {
-                return;
+        revokeDynamicCountdownFinalFailure(): void {
+            if (!this._dynamicCountdownFinalFailureRecorded) return;
+            const levelId = normalizeLevelId(this._dynamicCountdownFinalFailureLevel || this._dynamicCountdownLevelId);
+            const state = this.readDynamicCountdownDdaState();
+            if (state.failLevel === levelId) {
+                state.failCount = Math.max(0, state.failCount - 1);
+                if (state.failCount <= 0) {
+                    state.failLevel = 0;
+                    state.failCount = 0;
+                }
+                this.writeDynamicCountdownDdaState(state);
             }
-            this.undoDynamicCountdownFail(this.getActiveLogicalLevelId?.());
-            this._ddaFailureRecordedThisLevel = false;
+            this._dynamicCountdownFinalFailureRecorded = false;
+            this._dynamicCountdownFinalFailureLevel = 0;
         },
     });
 }

@@ -1,4 +1,5 @@
 import { _decorator } from 'cc';
+import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 
 const { ccclass } = _decorator;
 
@@ -31,14 +32,26 @@ export class WxCloudMgr {
     private constructor() {}
 
     canUseCloud(): boolean {
+        if (!isWeChatMiniGameRuntime()) return false;
         const wx = this.getWx(false);
         return !!wx?.cloud?.init && !!wx?.cloud?.callFunction;
     }
 
+    getDiagnostics(): Record<string, unknown> {
+        const wx = this.getWx(false) as any;
+        return {
+            platform: 'wechat',
+            env: WECHAT_CLOUD_ENV_ID,
+            hasWx: !!wx,
+            hasCloud: !!wx?.cloud,
+            hasInit: typeof wx?.cloud?.init === 'function',
+            hasCallFunction: typeof wx?.cloud?.callFunction === 'function',
+            cloudReady: this.cloudReady,
+        };
+    }
+
     getWx(throwOnMissing: boolean = true): WeChatRuntime | null {
-        const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
-        const windowScope: any = typeof window !== 'undefined' ? window : null;
-        const wxRuntime = globalScope?.__rawWx || windowScope?.wx || globalScope?.wx || null;
+        const wxRuntime = getWeChatMiniGameRuntime();
         if (!wxRuntime && throwOnMissing) {
             throw new Error('wx runtime is unavailable');
         }

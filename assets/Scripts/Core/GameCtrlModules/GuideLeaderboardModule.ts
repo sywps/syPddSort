@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    Graphics, view, ResolutionPolicy, tween, Tween, sys,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -16,12 +16,12 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
-    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
+    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, BoardViewportController
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
@@ -30,40 +30,8 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureLeaderboardPanelController } from '../Panels/LeaderboardPanelController';
-
-function syncGuideLeaderboardLabelNode(
-    parent: Node,
-    name: string,
-    text: string,
-    fontSize: number,
-    color: Color,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    horizontalAlign: number = Label.HorizontalAlign.CENTER,
-): Label {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    const label = node.getComponent(Label) || node.addComponent(Label);
-    label.string = text;
-    label.fontSize = fontSize;
-    label.lineHeight = Math.max(fontSize + 4, height);
-    label.color = color;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.overflow = Label.Overflow.SHRINK;
-    label.enableWrapText = false;
-    node.active = true;
-    return label;
-}
+import { getWeChatMiniGameRuntime } from '../MiniGamePlatform';
+import { ToastService } from '../ToastService';
 
 function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string): Label {
     const node = parent.getChildByName(name);
@@ -119,10 +87,6 @@ export function installGuideLeaderboardModule(target: any): void {
                 Tween.stopAllByTarget(this._guideHand);
                 this._guideHand.active = false;
             }
-            if (this._guideArrow?.isValid) {
-                Tween.stopAllByTarget(this._guideArrow);
-                this._guideArrow.active = false;
-            }
             if (this._guideMask?.isValid) {
                 const gm = this._guideMask.getComponent(Graphics);
                 if (gm) gm.clear();
@@ -138,7 +102,7 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             const layer = this._guideLayer as Node | null;
             if (!layer?.isValid) return;
-            const transientNames = new Set(['TapHint', 'StepNum', 'ProgressBar', 'GuideHighlight']);
+            const transientNames = new Set(['GuideHighlight']);
             for (const child of [...layer.children]) {
                 if (!transientNames.has(child.name)) continue;
                 Tween.stopAllByTarget(child);
@@ -181,9 +145,6 @@ export function installGuideLeaderboardModule(target: any): void {
                 }
             }
             guideHand.setSiblingIndex(nextIndex++);
-            if (this._guideArrow?.isValid && this._guideArrow.parent === layer) {
-                this._guideArrow.setSiblingIndex(nextIndex++);
-            }
             if (this._guideBubble?.isValid && this._guideBubble.parent === layer) {
                 this._guideBubble.setSiblingIndex(nextIndex++);
             }
@@ -352,46 +313,18 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             if (this._guideLayer) {
                 Tween.stopAllByTarget(this._guideHand!);
-                Tween.stopAllByTarget(this._guideArrow!);
                 this._guideLayer.destroy();
                 this._guideLayer = null;
                 this._guideMask = null;
                 this._guideHand = null;
                 this._guideBubble = null;
                 this._guideBubbleLbl = null;
-                this._guideArrow = null;
             }
             this.unschedule(this.tickTimer);
             if (!this._currentLevelUnlimitedTime) {
                 this.schedule(this.tickTimer, 1);
             }
             this.resetIdleHintTimer();
-        },
-
-        _drawProgressDots(current: number) {
-            const total = Math.max(1, this._guideTotalSteps);
-            const dotNode = new Node('ProgressBar');
-            this._guideLayer!.addChild(dotNode);
-            dotNode.addComponent(UITransform).setContentSize(200, 20);
-            dotNode.layer = Layers.Enum.UI_2D;
-            dotNode.setPosition(0, -520);
-            const g = dotNode.addComponent(Graphics);
-            const gap = 28;
-            const startX = -(total - 1) * gap / 2;
-            for (let i = 0; i < total; i++) {
-                g.fillColor = i <= current ? new Color('#FFD700') : new Color(255, 255, 255, 80);
-                g.circle(startX + i * gap, 0, i === current ? 5 : 3.5);
-                g.fill();
-            }
-        },
-
-        _drawBubbleBg(gb: Graphics, w: number, h: number, borderColor: Color) {
-            gb.clear();
-            const frame = this.getSF('popup_guide_bubble');
-            if (!frame) {
-                throw new Error('[guide] missing sprite frame: popup_guide_bubble');
-            }
-            this._applySpriteFrame(gb.node, frame, w, h, Sprite.Type.SLICED);
         },
 
         // ==================== 工具方法 ====================
@@ -447,60 +380,35 @@ export function installGuideLeaderboardModule(target: any): void {
             node.getComponent(UITransform)!.setContentSize(w, h);
         },
 
-        showToastAt(text: string, duration: number, x: number, y: number) {
-            const bubbleFrame = this.getSF('popup_guide_bubble');
-            if (!bubbleFrame) {
-                this._ensureSpriteFramesByName(['popup_guide_bubble'], () => {
-                    this.showToastAt(text, duration, x, y);
-                });
-                return;
-            }
-            const toast = new Node('Toast');
-            this.node.addChild(toast);
-            toast.addComponent(UITransform).setContentSize(720, 1280);
-            toast.layer = Layers.Enum.UI_2D;
-            const bubble = new Node('ToastBubble');
-            toast.addChild(bubble);
-            bubble.layer = Layers.Enum.UI_2D;
-            bubble.setPosition(x, y, 0);
-            bubble.addComponent(UITransform).setContentSize(420, 100);
-            this._applySpriteFrame(bubble, bubbleFrame, 420, 100, Sprite.Type.SLICED);
-            syncGuideLeaderboardLabelNode(bubble, 'ToastLbl', text, 24, new Color('#5A4A3A'), 340, 48, 0, 4);
-        
-            tween(bubble).set({ scale: new Vec3(0.5, 0.5, 1) }).to(0.15, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' }).start();
-        
-            this.scheduleOnce(() => {
-                tween(bubble).to(0.2, { scale: new Vec3(0.8, 0.8, 1) }, { easing: 'sineIn' }).call(() => toast.destroy()).start();
-            }, duration);
+        getToastHost(): Node {
+            return ToastService.getToastHost(this);
         },
 
-        /** 弹出提示：在屏幕中央显示一个圆角气泡，N秒后自动消失 */
+        destroyToastNode(toast: Node | null) {
+            ToastService.destroyLegacyToastNode(this, toast);
+        },
+
+        clearToastNodes() {
+            ToastService.clear(this);
+        },
+
+        showToastAt(text: string, duration: number, x: number, y: number) {
+            ToastService.showAt(this, text, duration, x, y);
+        },
+
+        /** 弹出提示：在屏幕中央显示临时文本，N秒后自动消失 */
         showToast(text: string, duration: number = 1.5) {
-            this.showToastAt(text, duration, 0, 0);
+            ToastService.show(this, text, duration);
         },
 
         showToastBelowTimer(text: string, duration: number = 1.5) {
-            const timerNode = this.timerLabel?.node;
-            const timerWrap = timerNode?.parent;
-            const timerUT = timerWrap?.getComponent(UITransform);
-            const rootUT = this.node.getComponent(UITransform);
-            if (!timerWrap || !timerUT || !rootUT) {
-                this.showToast(text, duration);
-                return;
-            }
-            const worldPos = timerUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-            const localPos = rootUT.convertToNodeSpaceAR(worldPos);
-            this.showToastAt(text, duration, localPos.x, localPos.y - 72);
+            ToastService.showBelowTimer(this, text, duration);
         },
 
         // ==================== 排行榜 ====================
         
         getWeChatRuntime (): any {
-            const rawWx = typeof globalThis !== 'undefined' ? (globalThis as any).__rawWx : null;
-            const windowWx = typeof window !== 'undefined' ? (window as any).wx : null;
-            const globalAdapter = typeof window !== 'undefined' ? (window as any).__globalAdapter : null;
-            const globalWx = typeof globalThis !== 'undefined' ? (globalThis as any).wx : null;
-            return rawWx || windowWx || globalAdapter || globalWx || null;
+            return getWeChatMiniGameRuntime();
         },
 
         isWeChatDevtoolsRuntime(): boolean {
@@ -515,9 +423,10 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         shouldUseBrowserMainMenuPreview(): boolean {
+            const isMiniGame = typeof this._isMiniGame === 'function' ? this._isMiniGame() : this._isWeChat();
             return !sys.isNative
                 && typeof window !== 'undefined'
-                && !this._isWeChat()
+                && !isMiniGame
                 && !this._isUrlLevelPreview()
                 && this.hasLocalUserState();
         },
@@ -527,6 +436,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         getWeChatOpenDataContext (): any {
+            if (!this._isWeChat()) return null;
             return this.getWeChatRuntime()?.getOpenDataContext?.() || null;
         },
 

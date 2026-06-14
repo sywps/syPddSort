@@ -2,7 +2,21 @@
 function getSygame() {
     return (globalThis as any).Sygame;
 }
-console.log('[SySDK] module eval');
+
+function isSySdkDebugEnabled(): boolean {
+    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    if (g?.__PDD_DEBUG_LOGS__ || g?.__PDD_SYSDK_DEBUG__) return true;
+    const loc = g?.location || g?.window?.location;
+    const search = String(loc?.search || '');
+    return /(?:^|[?&])(?:debug|pddDebug|sySdkDebug)=1(?:&|$)/.test(search);
+}
+
+function sySdkDebug(...args: unknown[]): void {
+    if (!isSySdkDebugEnabled()) return;
+    console.log(...args);
+}
+
+sySdkDebug('[SySDK] module eval');
 
 class SySDKMgr {
     static inst = new SySDKMgr();
@@ -31,13 +45,13 @@ class SySDKMgr {
 
     init() {
         const sdk = getSygame();
-        console.log('[SySDK] init() called, _inited=', this._inited, 'Sygame=', typeof sdk);
+        sySdkDebug('[SySDK] init() called, _inited=', this._inited, 'Sygame=', typeof sdk);
         if (this._inited) return;
         if (this.shouldSkipExternalSdk()) {
             this._inited = true;
             this._disabledForPreview = true;
             this._levelEnded = true;
-            console.log('[SySDK] skipped external SDK in local preview/devtools');
+            sySdkDebug('[SySDK] skipped external SDK in local preview/devtools');
             return;
         }
         this._inited = true;
@@ -45,24 +59,24 @@ class SySDKMgr {
         this._levelEnded = true;
         try {
             const wxRef = (globalThis as any).wx;
-            console.log('[SySDK] init, wx=', typeof wxRef);
+            sySdkDebug('[SySDK] init, wx=', typeof wxRef);
             if (wxRef && sdk?.init) {
                 const launchOptions = wxRef.getLaunchOptionsSync();
-                console.log('[SySDK] init, calling Sygame.init with:', launchOptions);
+                sySdkDebug('[SySDK] init, calling Sygame.init with:', launchOptions);
                 sdk.init({ query: launchOptions.query, scene: launchOptions.scene });
-                console.log('[SySDK] init done');
+                sySdkDebug('[SySDK] init done');
             }
         } catch(e) { console.warn('[SySDK] init error:', e); }
     }
 
     async login() {
         const sdk = getSygame();
-        console.log('[SySDK] login() called, Sygame=', typeof sdk);
+        sySdkDebug('[SySDK] login() called, Sygame=', typeof sdk);
         if (this._disabledForPreview) return;
         if (!sdk?.syLogin) return;
         try {
             await sdk.syLogin();
-            console.log('[SySDK] login done');
+            sySdkDebug('[SySDK] login done');
         } catch(e) { console.warn('[SySDK] login error:', e); }
     }
 

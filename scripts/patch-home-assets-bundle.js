@@ -6,14 +6,19 @@ const {
     collectSourceBundleArtifacts,
     findNativeArtifact,
     importArtifactPath,
-} = require('./verify-bundle-native-files.js');
+} = require('./bundle-artifact-utils.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatgame', 'minigame');
-const sourceRoot = path.join(projectRoot, 'assets', 'HomeAssetsBundle');
+const bundleName = process.argv[3] || 'homeAssets';
+const sourceBundleDirName = bundleName === 'homeAssets'
+    ? 'HomeAssetsBundle'
+    : bundleName === 'gameAssets'
+        ? 'GameAssetsBundle'
+        : '';
+const sourceRoot = sourceBundleDirName ? path.join(projectRoot, 'assets', sourceBundleDirName) : '';
 const libraryRoot = path.join(projectRoot, 'library');
 const assetDbRoot = path.join(projectRoot, 'temp', 'asset-db', 'assets');
-const bundleName = 'homeAssets';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -74,6 +79,17 @@ function assetDbImportPath(uuid) {
     return '';
 }
 
+function libraryImportPath(uuid) {
+    const importDir = path.join(libraryRoot, uuid.slice(0, 2));
+    if (!fs.existsSync(importDir)) return '';
+    const fileName = fs.readdirSync(importDir).find((name) => {
+        if (name === `${uuid}.json`) return true;
+        if (!name.startsWith(`${uuid}.`)) return false;
+        return /\.json$/i.test(name);
+    });
+    return fileName ? path.join(importDir, fileName) : '';
+}
+
 function libraryNativePath(uuid) {
     const nativeDir = path.join(libraryRoot, uuid.slice(0, 2));
     if (!fs.existsSync(nativeDir)) return '';
@@ -95,10 +111,10 @@ function copyFileIfChanged(src, dest) {
 }
 
 function copyImport(bundleDir, uuid) {
-    const src = assetDbImportPath(uuid);
-    if (!src) fail('HomeAssetsBundle runtime import 缓存不存在: ' + uuid);
+    const src = assetDbImportPath(uuid) || libraryImportPath(uuid);
+    if (!src) return 'missing';
     const dest = importArtifactPath(bundleDir, uuid, 'import');
-    return copyFileIfChanged(src, dest);
+    return copyFileIfChanged(src, dest) ? 'copied' : 'exists';
 }
 
 function copyNative(bundleDir, uuid) {
@@ -111,14 +127,17 @@ function copyNative(bundleDir, uuid) {
 }
 
 const bundleDir = resolveBundleDir();
-if (!fs.existsSync(bundleDir)) fail('未找到 homeAssets 分包目录: ' + bundleDir);
+if (!sourceRoot) fail('不支持的 bundle: ' + bundleName);
+if (!fs.existsSync(bundleDir)) fail('未找到 ' + bundleName + ' 分包目录: ' + bundleDir);
 
-const artifacts = collectSourceBundleArtifacts(sourceRoot, 'HomeAssetsBundle', fail);
+const artifacts = collectSourceBundleArtifacts(sourceRoot, sourceBundleDirName, fail);
 const copiedImports = new Set();
 const copiedNative = new Set();
 for (const artifact of artifacts) {
-    if (copyImport(bundleDir, artifact.uuid)) copiedImports.add(artifact.uuid);
+    const importStatus = copyImport(bundleDir, artifact.uuid);
+    if (importStatus === 'copied') copiedImports.add(artifact.uuid);
+    else if (importStatus === 'missing' && !artifact.optionalImport) fail(sourceBundleDirName + ' runtime import 缓存不存在: ' + artifact.uuid);
     if (artifact.native && copyNative(bundleDir, artifact.uuid)) copiedNative.add(artifact.uuid);
 }
 
-console.log(`[homeAssets] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}`);
+console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}`);
