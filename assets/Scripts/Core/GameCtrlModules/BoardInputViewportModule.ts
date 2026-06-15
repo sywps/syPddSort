@@ -149,6 +149,30 @@ export function installBoardInputViewportModule(target: any): void {
             if (bottomHudTop !== null) {
                 bottom = Math.max(bottom, bottomHudTop + gap);
             }
+            const rawTop = top;
+            const rawBottom = bottom;
+            const minViewportH = Math.min(
+                Math.max(240, visibleH * 0.34),
+                Math.max(120, visibleH - 220),
+            );
+            if (top <= bottom + minViewportH) {
+                const center = (top + bottom) / 2;
+                const halfH = minViewportH / 2;
+                const minCenter = -visibleH / 2 + 110 + halfH;
+                const maxCenter = visibleH / 2 - 110 - halfH;
+                const safeCenter = Math.max(minCenter, Math.min(maxCenter, center));
+                bottom = safeCenter - halfH;
+                top = safeCenter + halfH;
+                if (typeof this.getUrlDebug === 'function' && this.getUrlDebug()) {
+                    console.warn('[BoardViewport] expanded collapsed safe rect', {
+                        rawTop,
+                        rawBottom,
+                        top,
+                        bottom,
+                        visibleH,
+                    });
+                }
+            }
             if (top <= bottom + 80) {
                 const center = (top + bottom) / 2;
                 return {

@@ -756,7 +756,13 @@ export class GameplayViewController {
         const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;
         const widthScale = availableW * widthFitRatio / Math.max(1, targetW);
         const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
-        const initScale = Math.min(widthScale, heightScale);
+        const rawInitScale = Math.min(widthScale, heightScale);
+        const minScale = Number(runtime.constructor.MIN_SCALE) || 0.7;
+        const maxScale = Math.max(minScale, Number(runtime.constructor.MAX_SCALE) || 2.2);
+        const initScale = Math.max(
+            minScale,
+            Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
+        );
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - bw / 2) * step;
         const targetCenterY = (bh / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
         const viewportCenterX = (safeRect.left + safeRect.right) / 2;
@@ -767,7 +773,6 @@ export class GameplayViewController {
                 viewportCenterX - targetCenterX * initScale,
                 viewportCenterY - targetCenterY * initScale,
             ),
-            false,
         );
         runtime.boardViewScale = runtime.boardViewport.scale;
         runtime.boardHomeScale = runtime.boardViewport.scale;
