@@ -1,38 +1,23 @@
 {
   "sourceGame": "全民拼豆",
-  "sourcePackage": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/全民拼豆/unity_export/text_assets",
+  "sourcePackage": "C:/Users/EDY/workspaces/全民拼豆",
   "sourceFile": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/全民拼豆/unity_export/text_assets/level3764_top_3635.txt",
   "sourceSet": "main",
   "sourceLevel": 3764,
   "sourceLevelName": "level3764",
-  "colorMappingMode": "official20-unity-textasset-level-and-level_top",
+  "colorMappingMode": "official20-nearest-rgb-unity-sprite-rebuilt",
   "sourceColorIdToLocalColorId": {
-    "1": 1,
-    "2": 2,
-    "3": 3,
-    "4": 4,
-    "5": 5,
-    "6": 6,
-    "7": 7,
-    "8": 8,
     "9": 9,
-    "10": 10,
-    "11": 11,
-    "12": 12,
-    "13": 13,
-    "14": 14,
-    "15": 15,
-    "16": 16,
-    "17": 17,
-    "18": 18,
-    "19": 19,
-    "20": 20,
-    "21": 2,
-    "22": 1,
-    "23": 3
+    "11": 2,
+    "18": 3,
+    "19": 14
   },
   "sourceColorMergeGroupsInLevel": {},
-  "sourceHighDistanceColorsInLevel": [],
+  "sourceHighDistanceColorsInLevel": [
+    "9",
+    "11",
+    "18"
+  ],
   "sourceColorUsed": [
     "9",
     "11",
@@ -45,75 +30,74 @@
   "slotTotalCount": 24,
   "correctColorArr": [
     [
+      2,
+      2,
+      2,
       9,
       9,
-      9,
-      11,
-      11,
-      11
+      9
     ],
     [
+      2,
+      2,
+      2,
       9,
       9,
-      9,
-      11,
-      11,
-      11
+      9
     ],
     [
-      19,
-      19,
-      19,
-      18,
-      18,
-      18
+      3,
+      3,
+      3,
+      14,
+      14,
+      14
     ],
     [
-      19,
-      19,
-      19,
-      18,
-      18,
-      18
+      3,
+      3,
+      3,
+      14,
+      14,
+      14
     ]
   ],
   "initRandomColorArr": [
     [
-      11,
-      11,
-      11,
       9,
       9,
-      9
+      9,
+      2,
+      2,
+      2
     ],
     [
-      11,
-      11,
-      11,
       9,
       9,
-      9
+      9,
+      2,
+      2,
+      2
     ],
     [
-      18,
-      18,
-      18,
-      19,
-      19,
-      19
+      14,
+      14,
+      14,
+      3,
+      3,
+      3
     ],
     [
-      18,
-      18,
-      18,
-      19,
-      19,
-      19
+      14,
+      14,
+      14,
+      3,
+      3,
+      3
     ]
   ],
   "sourceMeta": {
-    "baseFile": "level3764_7837.txt",
-    "topFile": "level3764_top_3635.txt",
-    "note": "levelN treated as initial grid, levelN_top treated as target grid based on asset naming and paired matrix structure."
+    "baseFile": "level3764_3635.txt",
+    "topFile": "level3764_top_3635.txt"
   }
 }

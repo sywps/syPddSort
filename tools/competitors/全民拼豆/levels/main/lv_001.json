@@ -1,35 +1,20 @@
 {
   "sourceGame": "全民拼豆",
-  "sourcePackage": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/全民拼豆/unity_export/text_assets",
+  "sourcePackage": "C:/Users/EDY/workspaces/全民拼豆",
   "sourceFile": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/全民拼豆/unity_export/text_assets/level1_top_5104.txt",
   "sourceSet": "main",
   "sourceLevel": 1,
   "sourceLevelName": "level1",
-  "colorMappingMode": "official20-unity-textasset-level-and-level_top",
+  "colorMappingMode": "official20-nearest-rgb-unity-sprite-rebuilt",
   "sourceColorIdToLocalColorId": {
-    "1": 1,
-    "2": 2,
-    "3": 3,
-    "4": 4,
-    "5": 5,
-    "6": 6,
-    "7": 7,
-    "8": 8,
-    "9": 9,
-    "10": 10,
-    "11": 11,
-    "12": 12,
-    "13": 13,
-    "14": 14,
-    "15": 15,
-    "16": 16,
-    "17": 17,
-    "18": 18,
-    "19": 19,
-    "20": 20
+    "5": 10,
+    "10": 11
   },
   "sourceColorMergeGroupsInLevel": {},
-  "sourceHighDistanceColorsInLevel": [],
+  "sourceHighDistanceColorsInLevel": [
+    "5",
+    "10"
+  ],
   "sourceColorUsed": [
     "5",
     "10"
@@ -64,26 +49,26 @@
       10
     ],
     [
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
+      11,
+      11,
+      11,
+      11,
+      11,
+      11
     ],
     [
       0,
-      5,
-      5,
-      5,
-      5,
+      11,
+      11,
+      11,
+      11,
       0
     ],
     [
       0,
       0,
-      5,
-      5,
+      11,
+      11,
       0,
       0
     ]
@@ -92,26 +77,26 @@
     [
       0,
       0,
-      5,
-      5,
+      11,
+      11,
       0,
       0
     ],
     [
       0,
-      5,
-      5,
-      5,
-      5,
+      11,
+      11,
+      11,
+      11,
       0
     ],
     [
-      5,
-      5,
-      5,
-      5,
-      5,
-      5
+      11,
+      11,
+      11,
+      11,
+      11,
+      11
     ],
     [
       10,
@@ -139,8 +124,7 @@
     ]
   ],
   "sourceMeta": {
-    "baseFile": "level1_4159.txt",
-    "topFile": "level1_top_5104.txt",
-    "note": "levelN treated as initial grid, levelN_top treated as target grid based on asset naming and paired matrix structure."
+    "baseFile": "level1_5104.txt",
+    "topFile": "level1_top_5104.txt"
   }
 }

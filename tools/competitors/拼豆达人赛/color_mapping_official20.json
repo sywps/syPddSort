@@ -1,17 +1,7 @@
 {
   "sourceGame": "拼豆达人赛",
-  "sourceColorCount": 31,
+  "sourceColorCount": 21,
   "sourceColorIds": [
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
     "a",
     "b",
     "c",
@@ -23,16 +13,16 @@
     "i",
     "j",
     "k",
+    "l",
+    "m",
+    "n",
+    "o",
     "p",
     "q",
-    "t",
-    "m",
-    "s",
-    "o",
     "r",
-    "n",
-    "u",
-    "l"
+    "s",
+    "t",
+    "u"
   ],
   "localColorCount": 20,
   "localColors": {
@@ -198,151 +188,1129 @@
     }
   },
   "sourceColors": {
-    "0": {
-      "sourceColorId": "0",
-      "sourceHex": "#37A92C",
+    "a": {
+      "sourceColorId": "a",
+      "sourceName": "b001_2",
+      "sourceHex": "#ED5090",
       "sourceRgb": [
-        55,
-        169,
-        44
+        237,
+        80,
+        144
       ],
-      "localColorId": 11,
-      "localHex": "#37A92D",
-      "unresolved": false,
-      "note": null
-    },
-    "1": {
-      "sourceColorId": "1",
-      "sourceHex": "#F3BD9E",
-      "sourceRgb": [
-        243,
-        189,
-        158
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 107.429
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 110.118
+        }
       ],
-      "localColorId": 5,
-      "localHex": "#F4BD9E",
-      "unresolved": false,
-      "note": null
+      "states": {
+        "2": {
+          "frame": "b001_2",
+          "rect": [
+            3,
+            931,
+            121,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            237,
+            80,
+            144
+          ],
+          "hex": "#ED5090"
+        },
+        "4": {
+          "frame": "b001_4",
+          "rect": [
+            563,
+            143,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            211,
+            52,
+            119
+          ],
+          "hex": "#D33477"
+        },
+        "1": {
+          "frame": "b001_1",
+          "rect": [
+            257,
+            1312,
+            120,
+            119
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            237,
+            80,
+            144
+          ],
+          "hex": "#ED5090"
+        }
+      }
     },
-    "2": {
-      "sourceColorId": "2",
-      "sourceHex": "#373737",
+    "b": {
+      "sourceColorId": "b",
+      "sourceName": "b002_2",
+      "sourceHex": "#4EEAEA",
       "sourceRgb": [
-        55,
-        55,
-        55
-      ],
-      "localColorId": 19,
-      "localHex": "#373737",
-      "unresolved": false,
-      "note": null
-    },
-    "3": {
-      "sourceColorId": "3",
-      "sourceHex": "#494CCF",
-      "sourceRgb": [
-        73,
-        76,
-        207
-      ],
-      "localColorId": 7,
-      "localHex": "#4A4DCF",
-      "unresolved": false,
-      "note": null
-    },
-    "4": {
-      "sourceColorId": "4",
-      "sourceHex": "#4DEAEA",
-      "sourceRgb": [
-        77,
+        78,
         234,
         234
       ],
       "localColorId": 2,
       "localHex": "#4EEAEA",
-      "unresolved": false,
-      "note": null
-    },
-    "5": {
-      "sourceColorId": "5",
-      "sourceHex": "#954613",
-      "sourceRgb": [
-        149,
-        70,
-        19
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 81.658
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 127.079
+        }
       ],
-      "localColorId": 16,
-      "localHex": "#974714",
-      "unresolved": false,
-      "note": null
+      "states": {
+        "4": {
+          "frame": "b002_4",
+          "rect": [
+            3,
+            123,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            61,
+            188,
+            179
+          ],
+          "hex": "#3DBCB3"
+        },
+        "1": {
+          "frame": "b002_1",
+          "rect": [
+            378,
+            1567,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            78,
+            234,
+            234
+          ],
+          "hex": "#4EEAEA"
+        },
+        "2": {
+          "frame": "b002_2",
+          "rect": [
+            272,
+            804,
+            122,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            78,
+            234,
+            234
+          ],
+          "hex": "#4EEAEA"
+        }
+      }
     },
-    "6": {
-      "sourceColorId": "6",
-      "sourceHex": "#792E3C",
+    "c": {
+      "sourceColorId": "c",
+      "sourceName": "b003_2",
+      "sourceHex": "#F8C811",
       "sourceRgb": [
-        121,
-        46,
-        60
+        248,
+        200,
+        17
       ],
-      "localColorId": 17,
-      "localHex": "#782F3C",
-      "unresolved": false,
-      "note": null
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 61.303
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 90.626
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b003_1",
+          "rect": [
+            509,
+            1441,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            248,
+            200,
+            17
+          ],
+          "hex": "#F8C811"
+        },
+        "4": {
+          "frame": "b003_4",
+          "rect": [
+            283,
+            283,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            235,
+            153,
+            2
+          ],
+          "hex": "#EB9902"
+        },
+        "2": {
+          "frame": "b003_2",
+          "rect": [
+            260,
+            932,
+            122,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            248,
+            200,
+            17
+          ],
+          "hex": "#F8C811"
+        }
+      }
     },
-    "7": {
-      "sourceColorId": "7",
-      "sourceHex": "#36387D",
+    "d": {
+      "sourceColorId": "d",
+      "sourceName": "b004_2",
+      "sourceHex": "#FE8B10",
       "sourceRgb": [
-        54,
-        56,
-        125
+        254,
+        139,
+        16
       ],
-      "localColorId": 18,
-      "localHex": "#36387E",
-      "unresolved": false,
-      "note": null
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 61.303
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 101.494
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b004_1",
+          "rect": [
+            637,
+            1207,
+            120,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            254,
+            139,
+            16
+          ],
+          "hex": "#FE8B10"
+        },
+        "2": {
+          "frame": "b004_2",
+          "rect": [
+            131,
+            956,
+            121,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            254,
+            139,
+            16
+          ],
+          "hex": "#FE8B10"
+        },
+        "4": {
+          "frame": "b004_4",
+          "rect": [
+            3,
+            543,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            227,
+            107,
+            0
+          ],
+          "hex": "#E36B00"
+        }
+      }
     },
-    "8": {
-      "sourceColorId": "8",
-      "sourceHex": "#207855",
+    "e": {
+      "sourceColorId": "e",
+      "sourceName": "b005_2",
+      "sourceHex": "#F4BD9E",
+      "sourceRgb": [
+        244,
+        189,
+        158
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 32.512
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 35.128
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b005_1",
+          "rect": [
+            128,
+            1585,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            244,
+            189,
+            158
+          ],
+          "hex": "#F4BD9E"
+        },
+        "2": {
+          "frame": "b005_2",
+          "rect": [
+            143,
+            703,
+            120,
+            123
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            244,
+            189,
+            158
+          ],
+          "hex": "#F4BD9E"
+        },
+        "4": {
+          "frame": "b005_4",
+          "rect": [
+            423,
+            423,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            218,
+            160,
+            140
+          ],
+          "hex": "#DAA08C"
+        }
+      }
+    },
+    "f": {
+      "sourceColorId": "f",
+      "sourceName": "b006_2",
+      "sourceHex": "#EBDEA6",
+      "sourceRgb": [
+        235,
+        222,
+        166
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 35.128
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 49.285
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b006_4",
+          "rect": [
+            283,
+            143,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            215,
+            201,
+            143
+          ],
+          "hex": "#D7C98F"
+        },
+        "1": {
+          "frame": "b006_1",
+          "rect": [
+            254,
+            1560,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            235,
+            222,
+            166
+          ],
+          "hex": "#EBDEA6"
+        },
+        "2": {
+          "frame": "b006_2",
+          "rect": [
+            386,
+            1068,
+            120,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            235,
+            222,
+            166
+          ],
+          "hex": "#EBDEA6"
+        }
+      }
+    },
+    "g": {
+      "sourceColorId": "g",
+      "sourceName": "b007_2",
+      "sourceHex": "#4A4DCF",
+      "sourceRgb": [
+        74,
+        77,
+        207
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 62.426
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 86.035
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b007_1",
+          "rect": [
+            129,
+            1461,
+            119,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            74,
+            77,
+            207
+          ],
+          "hex": "#4A4DCF"
+        },
+        "4": {
+          "frame": "b007_4",
+          "rect": [
+            425,
+            3,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            41,
+            43,
+            157
+          ],
+          "hex": "#292B9D"
+        },
+        "2": {
+          "frame": "b007_2",
+          "rect": [
+            388,
+            941,
+            121,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            74,
+            77,
+            207
+          ],
+          "hex": "#4A4DCF"
+        }
+      }
+    },
+    "h": {
+      "sourceColorId": "h",
+      "sourceName": "b008_2",
+      "sourceHex": "#7221BC",
+      "sourceRgb": [
+        114,
+        33,
+        188
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 62.426
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 89.292
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b008_1",
+          "rect": [
+            382,
+            1443,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            114,
+            33,
+            188
+          ],
+          "hex": "#7221BC"
+        },
+        "2": {
+          "frame": "b008_2",
+          "rect": [
+            416,
+            688,
+            120,
+            123
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            114,
+            33,
+            188
+          ],
+          "hex": "#7221BC"
+        },
+        "4": {
+          "frame": "b008_4",
+          "rect": [
+            563,
+            423,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            100,
+            24,
+            170
+          ],
+          "hex": "#6418AA"
+        }
+      }
+    },
+    "i": {
+      "sourceColorId": "i",
+      "sourceName": "b009_2",
+      "sourceHex": "#9FCE21",
+      "sourceRgb": [
+        159,
+        206,
+        33
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 90.626
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 111.036
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b009_4",
+          "rect": [
+            423,
+            143,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            135,
+            187,
+            8
+          ],
+          "hex": "#87BB08"
+        },
+        "2": {
+          "frame": "b009_2",
+          "rect": [
+            259,
+            1059,
+            121,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            159,
+            206,
+            33
+          ],
+          "hex": "#9FCE21"
+        },
+        "1": {
+          "frame": "b009_1",
+          "rect": [
+            3,
+            1310,
+            121,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            159,
+            206,
+            33
+          ],
+          "hex": "#9FCE21"
+        }
+      }
+    },
+    "j": {
+      "sourceColorId": "j",
+      "sourceName": "b010_2",
+      "sourceHex": "#EA281A",
+      "sourceRgb": [
+        234,
+        40,
+        26
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 88.803
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 101.494
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b010_1",
+          "rect": [
+            3,
+            1434,
+            120,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            234,
+            40,
+            26
+          ],
+          "hex": "#EA281A"
+        },
+        "4": {
+          "frame": "b010_4",
+          "rect": [
+            565,
+            3,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            205,
+            34,
+            18
+          ],
+          "hex": "#CD2212"
+        },
+        "2": {
+          "frame": "b010_2",
+          "rect": [
+            131,
+            1083,
+            121,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            234,
+            40,
+            26
+          ],
+          "hex": "#EA281A"
+        }
+      }
+    },
+    "k": {
+      "sourceColorId": "k",
+      "sourceName": "b011_2",
+      "sourceHex": "#37A92D",
+      "sourceRgb": [
+        55,
+        169,
+        45
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 66.581
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 111.036
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b011_4",
+          "rect": [
+            145,
+            3,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            48,
+            151,
+            41
+          ],
+          "hex": "#309729"
+        },
+        "1": {
+          "frame": "b011_1",
+          "rect": [
+            639,
+            1083,
+            120,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            55,
+            169,
+            45
+          ],
+          "hex": "#37A92D"
+        },
+        "2": {
+          "frame": "b011_2",
+          "rect": [
+            3,
+            1184,
+            120,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            55,
+            169,
+            45
+          ],
+          "hex": "#37A92D"
+        }
+      }
+    },
+    "l": {
+      "sourceColorId": "l",
+      "sourceName": "b012_2",
+      "sourceHex": "#207955",
       "sourceRgb": [
         32,
-        120,
+        121,
         85
       ],
       "localColorId": 12,
       "localHex": "#207955",
-      "unresolved": false,
-      "note": null
-    },
-    "9": {
-      "sourceColorId": "9",
-      "sourceHex": "#9ECF20",
-      "sourceRgb": [
-        158,
-        207,
-        32
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 66.581
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 76.059
+        }
       ],
-      "localColorId": 9,
-      "localHex": "#9FCE21",
-      "unresolved": false,
-      "note": null
+      "states": {
+        "1": {
+          "frame": "b012_1",
+          "rect": [
+            633,
+            1455,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            32,
+            121,
+            85
+          ],
+          "hex": "#207955"
+        },
+        "4": {
+          "frame": "b012_4",
+          "rect": [
+            423,
+            283,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            17,
+            88,
+            59
+          ],
+          "hex": "#11583B"
+        },
+        "2": {
+          "frame": "b012_2",
+          "rect": [
+            258,
+            1186,
+            120,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            32,
+            121,
+            85
+          ],
+          "hex": "#207955"
+        }
+      }
     },
-    "a": {
-      "sourceColorId": "a",
-      "sourceHex": "#8B8B8B",
+    "m": {
+      "sourceColorId": "m",
+      "sourceName": "b013_2",
+      "sourceHex": "#20A8DC",
       "sourceRgb": [
-        139,
-        139,
-        139
+        32,
+        168,
+        220
       ],
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "unresolved": false,
-      "note": null
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 81.658
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 101.064
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b013_1",
+          "rect": [
+            3,
+            1682,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            32,
+            168,
+            220
+          ],
+          "hex": "#20A8DC"
+        },
+        "2": {
+          "frame": "b013_2",
+          "rect": [
+            3,
+            1058,
+            120,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            32,
+            168,
+            220
+          ],
+          "hex": "#20A8DC"
+        },
+        "4": {
+          "frame": "b013_4",
+          "rect": [
+            283,
+            423,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            16,
+            129,
+            183
+          ],
+          "hex": "#1081B7"
+        }
+      }
     },
-    "b": {
-      "sourceColorId": "b",
+    "n": {
+      "sourceColorId": "n",
+      "sourceName": "b014_2",
+      "sourceHex": "#EEB2BC",
+      "sourceRgb": [
+        238,
+        178,
+        188
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 32.512
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 49.285
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b014_4",
+          "rect": [
+            143,
+            143,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            199,
+            129,
+            138
+          ],
+          "hex": "#C7818A"
+        },
+        "1": {
+          "frame": "b014_1",
+          "rect": [
+            130,
+            1336,
+            120,
+            119
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            238,
+            178,
+            188
+          ],
+          "hex": "#EEB2BC"
+        },
+        "2": {
+          "frame": "b014_2",
+          "rect": [
+            556,
+            563,
+            120,
+            123
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            238,
+            178,
+            188
+          ],
+          "hex": "#EEB2BC"
+        }
+      }
+    },
+    "o": {
+      "sourceColorId": "o",
+      "sourceName": "b015_2",
       "sourceHex": "#C4BED9",
       "sourceRgb": [
         196,
@@ -351,215 +1319,554 @@
       ],
       "localColorId": 15,
       "localHex": "#C4BED9",
-      "unresolved": false,
-      "note": null
-    },
-    "c": {
-      "sourceColorId": "c",
-      "sourceHex": "#20A8DB",
-      "sourceRgb": [
-        32,
-        168,
-        219
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 52.431
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 66.678
+        }
       ],
-      "localColorId": 13,
-      "localHex": "#20A8DC",
-      "unresolved": false,
-      "note": null
-    },
-    "d": {
-      "sourceColorId": "d",
-      "sourceHex": "#FF8B10",
-      "sourceRgb": [
-        255,
-        139,
-        16
-      ],
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "unresolved": false,
-      "note": null
-    },
-    "e": {
-      "sourceColorId": "e",
-      "sourceHex": "#EEB3BB",
-      "sourceRgb": [
-        238,
-        179,
-        187
-      ],
-      "localColorId": 14,
-      "localHex": "#EEB2BC",
-      "unresolved": false,
-      "note": null
-    },
-    "f": {
-      "sourceColorId": "f",
-      "sourceHex": "#EE5091",
-      "sourceRgb": [
-        238,
-        80,
-        145
-      ],
-      "localColorId": 1,
-      "localHex": "#ED5090",
-      "unresolved": false,
-      "note": null
-    },
-    "g": {
-      "sourceColorId": "g",
-      "sourceHex": "#EB2818",
-      "sourceRgb": [
-        235,
-        40,
-        24
-      ],
-      "localColorId": 10,
-      "localHex": "#EA281A",
-      "unresolved": false,
-      "note": null
-    },
-    "h": {
-      "sourceColorId": "h",
-      "sourceHex": "#7220BD",
-      "sourceRgb": [
-        114,
-        32,
-        189
-      ],
-      "localColorId": 8,
-      "localHex": "#7221BC",
-      "unresolved": false,
-      "note": null
-    },
-    "i": {
-      "sourceColorId": "i",
-      "sourceHex": "#F3ECE3",
-      "sourceRgb": [
-        243,
-        236,
-        227
-      ],
-      "localColorId": 20,
-      "localHex": "#F2EDE4",
-      "unresolved": false,
-      "note": null
-    },
-    "j": {
-      "sourceColorId": "j",
-      "sourceHex": "#EBDFA6",
-      "sourceRgb": [
-        235,
-        223,
-        166
-      ],
-      "localColorId": 6,
-      "localHex": "#EBDEA6",
-      "unresolved": false,
-      "note": null
-    },
-    "k": {
-      "sourceColorId": "k",
-      "sourceHex": "#FAC711",
-      "sourceRgb": [
-        250,
-        199,
-        17
-      ],
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "unresolved": false,
-      "note": null
+      "states": {
+        "4": {
+          "frame": "b015_4",
+          "rect": [
+            3,
+            263,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            124,
+            118,
+            145
+          ],
+          "hex": "#7C7691"
+        },
+        "1": {
+          "frame": "b015_1",
+          "rect": [
+            383,
+            1319,
+            120,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            196,
+            190,
+            217
+          ],
+          "hex": "#C4BED9"
+        },
+        "2": {
+          "frame": "b015_2",
+          "rect": [
+            515,
+            943,
+            120,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            196,
+            190,
+            217
+          ],
+          "hex": "#C4BED9"
+        }
+      }
     },
     "p": {
       "sourceColorId": "p",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 2,
-      "localHex": "#4EEAEA",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+      "sourceName": "b016_2",
+      "sourceHex": "#974714",
+      "sourceRgb": [
+        151,
+        71,
+        20
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 56.009
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 88.803
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b016_4",
+          "rect": [
+            563,
+            283,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            125,
+            55,
+            11
+          ],
+          "hex": "#7D370B"
+        },
+        "1": {
+          "frame": "b016_1",
+          "rect": [
+            506,
+            1565,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            151,
+            71,
+            20
+          ],
+          "hex": "#974714"
+        },
+        "2": {
+          "frame": "b016_2",
+          "rect": [
+            642,
+            957,
+            120,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            151,
+            71,
+            20
+          ],
+          "hex": "#974714"
+        }
+      }
     },
     "q": {
       "sourceColorId": "q",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
-    },
-    "t": {
-      "sourceColorId": "t",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
-    },
-    "m": {
-      "sourceColorId": "m",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 5,
-      "localHex": "#F4BD9E",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
-    },
-    "s": {
-      "sourceColorId": "s",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 6,
-      "localHex": "#EBDEA6",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
-    },
-    "o": {
-      "sourceColorId": "o",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 7,
-      "localHex": "#4A4DCF",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+      "sourceName": "b017_2",
+      "sourceHex": "#782F3C",
+      "sourceRgb": [
+        120,
+        47,
+        60
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 56.009
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 65.681
+        }
+      ],
+      "states": {
+        "1": {
+          "frame": "b017_1",
+          "rect": [
+            634,
+            1331,
+            118,
+            118
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            120,
+            47,
+            60
+          ],
+          "hex": "#782F3C"
+        },
+        "2": {
+          "frame": "b017_2",
+          "rect": [
+            3,
+            805,
+            120,
+            123
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            120,
+            47,
+            60
+          ],
+          "hex": "#782F3C"
+        },
+        "4": {
+          "frame": "b017_4",
+          "rect": [
+            143,
+            563,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            112,
+            35,
+            48
+          ],
+          "hex": "#702330"
+        }
+      }
     },
     "r": {
       "sourceColorId": "r",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 8,
-      "localHex": "#7221BC",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+      "sourceName": "b018_2",
+      "sourceHex": "#36387E",
+      "sourceRgb": [
+        54,
+        56,
+        126
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 71.014
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 79.937
+        }
+      ],
+      "states": {
+        "2": {
+          "frame": "b018_2",
+          "rect": [
+            132,
+            829,
+            121,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            54,
+            56,
+            126
+          ],
+          "hex": "#36387E"
+        },
+        "4": {
+          "frame": "b018_4",
+          "rect": [
+            3,
+            403,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            41,
+            42,
+            106
+          ],
+          "hex": "#292A6A"
+        },
+        "1": {
+          "frame": "b018_1",
+          "rect": [
+            385,
+            1194,
+            119,
+            120
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            54,
+            56,
+            126
+          ],
+          "hex": "#36387E"
+        }
+      }
     },
-    "n": {
-      "sourceColorId": "n",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 9,
-      "localHex": "#9FCE21",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+    "s": {
+      "sourceColorId": "s",
+      "sourceName": "b019_2",
+      "sourceHex": "#373737",
+      "sourceRgb": [
+        55,
+        55,
+        55
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 65.681
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 71.014
+        }
+      ],
+      "states": {
+        "2": {
+          "frame": "b019_2",
+          "rect": [
+            400,
+            814,
+            122,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            55,
+            55,
+            55
+          ],
+          "hex": "#373737"
+        },
+        "1": {
+          "frame": "b019_1",
+          "rect": [
+            513,
+            1069,
+            120,
+            120
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            55,
+            55,
+            55
+          ],
+          "hex": "#373737"
+        },
+        "4": {
+          "frame": "b019_4",
+          "rect": [
+            143,
+            423,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            41,
+            41,
+            41
+          ],
+          "hex": "#292929"
+        }
+      }
+    },
+    "t": {
+      "sourceColorId": "t",
+      "sourceName": "b020_2",
+      "sourceHex": "#F3EDE4",
+      "sourceRgb": [
+        243,
+        237,
+        228
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 1.0,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 64.288
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 67.372
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b020_4",
+          "rect": [
+            143,
+            283,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            217,
+            212,
+            202
+          ],
+          "hex": "#D9D4CA"
+        },
+        "2": {
+          "frame": "b020_2",
+          "rect": [
+            130,
+            1210,
+            120,
+            121
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            243,
+            237,
+            228
+          ],
+          "hex": "#F3EDE4"
+        },
+        "1": {
+          "frame": "b020_1",
+          "rect": [
+            3,
+            1558,
+            118,
+            119
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            243,
+            237,
+            228
+          ],
+          "hex": "#F3EDE4"
+        }
+      }
     },
     "u": {
       "sourceColorId": "u",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 10,
-      "localHex": "#EA281A",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
-    },
-    "l": {
-      "sourceColorId": "l",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 11,
-      "localHex": "#37A92D",
-      "unresolved": true,
-      "note": "Char color ID was not present in the reused 拼豆天才 palette and was assigned a fallback local color."
+      "sourceName": "b021_2",
+      "sourceHex": "#8B8B8B",
+      "sourceRgb": [
+        139,
+        139,
+        139
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 109.243,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 109.243
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 112.663
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 114.499
+        }
+      ],
+      "states": {
+        "4": {
+          "frame": "b021_4",
+          "rect": [
+            285,
+            3,
+            134,
+            134
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            105,
+            105,
+            104
+          ],
+          "hex": "#696968"
+        },
+        "1": {
+          "frame": "b021_1",
+          "rect": [
+            545,
+            689,
+            122,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            139,
+            139,
+            139
+          ],
+          "hex": "#8B8B8B"
+        },
+        "2": {
+          "frame": "b021_2",
+          "rect": [
+            528,
+            817,
+            120,
+            122
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\拼豆达人赛\\palette_cache\\1f6cf032d.png",
+          "rgb": [
+            139,
+            139,
+            139
+          ],
+          "hex": "#8B8B8B"
+        }
+      }
     }
   }
 }

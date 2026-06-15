@@ -1,7 +1,7 @@
 {
   "sourceGame": "快乐拼拼豆",
   "status": "converted",
-  "levelCount": 229,
+  "levelCount": 1374,
   "sourceColorIds": [
     "1",
     "2",
@@ -48,8 +48,7 @@
     "43",
     "44"
   ],
-  "warnings": [
-    "Only the first two formal order entries are locally explicit. Later entries are ordered by available invokeId resources.",
-    "Source RGB palette was not located in package or CDN config."
-  ]
+  "colorSource": "skin_2001 native atlas",
+  "packUrl": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/import/0c/0cfb73628.10087.json",
+  "skinPackId": "0cfb73628"
 }

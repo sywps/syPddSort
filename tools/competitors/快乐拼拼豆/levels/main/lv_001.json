@@ -5,10 +5,10 @@
   "sourceSet": "main",
   "sourceLevel": 1,
   "sourceLevelName": "invoke_24",
-  "colorMappingMode": "official20-stable-fallback-no-rgb",
+  "colorMappingMode": "official20-nearest-rgb-rebuilt",
   "sourceColorIdToLocalColorId": {
-    "2": 1,
-    "38": 2
+    "2": 11,
+    "38": 16
   },
   "sourceColorMergeGroupsInLevel": {},
   "sourceHighDistanceColorsInLevel": [
@@ -25,84 +25,88 @@
   "slotTotalCount": 24,
   "correctColorArr": [
     [
-      1,
-      1,
-      1,
-      2,
-      2,
-      2
+      11,
+      11,
+      11,
+      16,
+      16,
+      16
     ],
     [
-      1,
-      1,
-      1,
-      2,
-      2,
-      2
+      11,
+      11,
+      11,
+      16,
+      16,
+      16
     ],
     [
-      1,
-      1,
-      1,
-      2,
-      2,
-      2
+      11,
+      11,
+      11,
+      16,
+      16,
+      16
     ],
     [
-      1,
-      1,
-      1,
-      2,
-      2,
-      2
+      11,
+      11,
+      11,
+      16,
+      16,
+      16
     ]
   ],
   "initRandomColorArr": [
     [
-      2,
-      2,
-      2,
-      1,
-      1,
-      1
+      16,
+      16,
+      16,
+      11,
+      11,
+      11
     ],
     [
-      2,
-      2,
-      2,
-      1,
-      1,
-      1
+      16,
+      16,
+      16,
+      11,
+      11,
+      11
     ],
     [
-      2,
-      2,
-      2,
-      1,
-      1,
-      1
+      16,
+      16,
+      16,
+      11,
+      11,
+      11
     ],
     [
-      2,
-      2,
-      2,
-      1,
-      1,
-      1
+      16,
+      16,
+      16,
+      11,
+      11,
+      11
     ]
   ],
   "sourceMeta": {
     "invokeId": 24,
     "hash": 1776136841153,
+    "configLevelId": 1,
     "configLevel": {
-      "id": 1,
-      "invokeId": 24,
-      "limitTime": 60,
-      "difficulty": 0,
       "CoinAward": 66,
+      "difficulty": 0,
+      "id": 1,
       "ingnoreDda": 0,
-      "limitProp": []
+      "invokeId": 24,
+      "limitProp": [],
+      "limitTime": 60
     },
-    "orderConfidence": "local-configLevel"
+    "skinId": 2001,
+    "skinPackId": "0cfb73628",
+    "colorSource": "skin_2001 native atlas",
+    "colorSamplingError": null
   }
 }

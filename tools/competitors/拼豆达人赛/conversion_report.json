@@ -2,7 +2,6 @@
   "sourceGame": "拼豆达人赛",
   "status": "converted",
   "levelCount": 2861,
-  "configCount": 2861,
   "sourceColorIds": [
     "a",
     "b",
@@ -26,7 +25,5 @@
     "t",
     "u"
   ],
-  "warnings": [
-    "Source RGB palette is reused from 拼豆天才 because this package does not expose local color textures in the extracted OUTPUT shell."
-  ]
+  "packUrl": "https://pindoucdn.darknight.games/pddrs/wx/2026060302/remote/SpriteFrames/import/09/09423f672.json"
 }

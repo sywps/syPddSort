@@ -211,401 +211,3525 @@
     }
   },
   "sourceColors": {
-    "1": {
-      "sourceColorId": "1",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 7,
-      "localHex": "#4A4DCF",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "2": {
-      "sourceColorId": "2",
-      "sourceHex": null,
-      "sourceRgb": null,
+    "24": {
+      "sourceColorId": "24",
+      "sourceName": "di_24",
+      "sourceHex": "#AE8567",
+      "sourceRgb": [
+        174,
+        133,
+        103
+      ],
       "localColorId": 1,
       "localHex": "#ED5090",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+      "distance": 91.973,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 91.973
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 102.245
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 105.171
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_24",
+          "rect": [
+            127,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            174,
+            133,
+            103
+          ],
+          "hex": "#AE8567"
+        },
+        "down": {
+          "frame": "down_24",
+          "rect": [
+            316,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            191,
+            149,
+            117
+          ],
+          "hex": "#BF9575"
+        },
+        "up": {
+          "frame": "up_24",
+          "rect": [
+            386,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            191,
+            149,
+            117
+          ],
+          "hex": "#BF9575"
+        }
+      }
     },
     "3": {
       "sourceColorId": "3",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 8,
-      "localHex": "#7221BC",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "4": {
-      "sourceColorId": "4",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 9,
-      "localHex": "#9FCE21",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "5": {
-      "sourceColorId": "5",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 10,
-      "localHex": "#EA281A",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "6": {
-      "sourceColorId": "6",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "7": {
-      "sourceColorId": "7",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 11,
-      "localHex": "#37A92D",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "8": {
-      "sourceColorId": "8",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 16,
-      "localHex": "#974714",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "9": {
-      "sourceColorId": "9",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 11,
-      "localHex": "#37A92D",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "10": {
-      "sourceColorId": "10",
-      "sourceHex": null,
-      "sourceRgb": null,
+      "sourceName": "di_3",
+      "sourceHex": "#00803D",
+      "sourceRgb": [
+        0,
+        128,
+        61
+      ],
       "localColorId": 12,
       "localHex": "#207955",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "11": {
-      "sourceColorId": "11",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 16,
-      "localHex": "#974714",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "12": {
-      "sourceColorId": "12",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 5,
-      "localHex": "#F4BD9E",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "13": {
-      "sourceColorId": "13",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "14": {
-      "sourceColorId": "14",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 8,
-      "localHex": "#7221BC",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "15": {
-      "sourceColorId": "15",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 6,
-      "localHex": "#EBDEA6",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "16": {
-      "sourceColorId": "16",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 13,
-      "localHex": "#20A8DC",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "17": {
-      "sourceColorId": "17",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 14,
-      "localHex": "#EEB2BC",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "18": {
-      "sourceColorId": "18",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "19": {
-      "sourceColorId": "19",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "20": {
-      "sourceColorId": "20",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 19,
-      "localHex": "#373737",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "21": {
-      "sourceColorId": "21",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 17,
-      "localHex": "#782F3C",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "22": {
-      "sourceColorId": "22",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 20,
-      "localHex": "#F2EDE4",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "23": {
-      "sourceColorId": "23",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 2,
-      "localHex": "#4EEAEA",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "24": {
-      "sourceColorId": "24",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "25": {
-      "sourceColorId": "25",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 17,
-      "localHex": "#782F3C",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "26": {
-      "sourceColorId": "26",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 5,
-      "localHex": "#F4BD9E",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "27": {
-      "sourceColorId": "27",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 12,
-      "localHex": "#207955",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "28": {
-      "sourceColorId": "28",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 6,
-      "localHex": "#EBDEA6",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "29": {
-      "sourceColorId": "29",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 13,
-      "localHex": "#20A8DC",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "30": {
-      "sourceColorId": "30",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 7,
-      "localHex": "#4A4DCF",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "31": {
-      "sourceColorId": "31",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 14,
-      "localHex": "#EEB2BC",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "32": {
-      "sourceColorId": "32",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 20,
-      "localHex": "#F2EDE4",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "33": {
-      "sourceColorId": "33",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 19,
-      "localHex": "#373737",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "34": {
-      "sourceColorId": "34",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 18,
-      "localHex": "#36387E",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "35": {
-      "sourceColorId": "35",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "36": {
-      "sourceColorId": "36",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 1,
-      "localHex": "#ED5090",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "37": {
-      "sourceColorId": "37",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 10,
-      "localHex": "#EA281A",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
-    },
-    "38": {
-      "sourceColorId": "38",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 2,
-      "localHex": "#4EEAEA",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+      "distance": 40.608,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 40.608
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 70.441
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 91.597
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_3",
+          "rect": [
+            141,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            6,
+            182,
+            89
+          ],
+          "hex": "#06B659"
+        },
+        "di": {
+          "frame": "di_3",
+          "rect": [
+            225,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            128,
+            61
+          ],
+          "hex": "#00803D"
+        },
+        "down": {
+          "frame": "down_3",
+          "rect": [
+            71,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            174,
+            82
+          ],
+          "hex": "#00AE52"
+        }
+      }
     },
     "39": {
       "sourceColorId": "39",
-      "sourceHex": null,
-      "sourceRgb": null,
+      "sourceName": "di_39",
+      "sourceHex": "#C68B68",
+      "sourceRgb": [
+        198,
+        139,
+        104
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 81.253,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 81.253
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 86.787
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 100.881
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_39",
+          "rect": [
+            253,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            198,
+            139,
+            104
+          ],
+          "hex": "#C68B68"
+        },
+        "down": {
+          "frame": "down_39",
+          "rect": [
+            351,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            247,
+            203,
+            174
+          ],
+          "hex": "#F7CBAE"
+        },
+        "up": {
+          "frame": "up_39",
+          "rect": [
+            421,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            247,
+            203,
+            174
+          ],
+          "hex": "#F7CBAE"
+        }
+      }
+    },
+    "22": {
+      "sourceColorId": "22",
+      "sourceName": "di_22",
+      "sourceHex": "#3132A3",
+      "sourceRgb": [
+        49,
+        50,
+        163
+      ],
       "localColorId": 18,
       "localHex": "#36387E",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+      "distance": 37.815,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 37.815
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 57.359
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 71.687
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_22",
+          "rect": [
+            316,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            61,
+            62,
+            192
+          ],
+          "hex": "#3D3EC0"
+        },
+        "down": {
+          "frame": "down_22",
+          "rect": [
+            246,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            61,
+            62,
+            192
+          ],
+          "hex": "#3D3EC0"
+        },
+        "di": {
+          "frame": "di_22",
+          "rect": [
+            43,
+            288,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            49,
+            50,
+            163
+          ],
+          "hex": "#3132A3"
+        }
+      }
     },
-    "40": {
-      "sourceColorId": "40",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 9,
-      "localHex": "#9FCE21",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+    "15": {
+      "sourceColorId": "15",
+      "sourceName": "di_15",
+      "sourceHex": "#DD5E92",
+      "sourceRgb": [
+        221,
+        94,
+        146
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 21.354,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 21.354
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 95.441
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 98.478
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_15",
+          "rect": [
+            71,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            238,
+            106,
+            160
+          ],
+          "hex": "#EE6AA0"
+        },
+        "down": {
+          "frame": "down_15",
+          "rect": [
+            1,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            238,
+            106,
+            160
+          ],
+          "hex": "#EE6AA0"
+        },
+        "di": {
+          "frame": "di_15",
+          "rect": [
+            253,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            221,
+            94,
+            146
+          ],
+          "hex": "#DD5E92"
+        }
+      }
     },
-    "41": {
-      "sourceColorId": "41",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+    "28": {
+      "sourceColorId": "28",
+      "sourceName": "di_28",
+      "sourceHex": "#CC57BF",
+      "sourceRgb": [
+        204,
+        87,
+        191
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 57.853,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 57.853
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 97.191
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 105.0
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_28",
+          "rect": [
+            36,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            248,
+            152,
+            243
+          ],
+          "hex": "#F898F3"
+        },
+        "di": {
+          "frame": "di_28",
+          "rect": [
+            295,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            204,
+            87,
+            191
+          ],
+          "hex": "#CC57BF"
+        },
+        "down": {
+          "frame": "down_28",
+          "rect": [
+            456,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            255,
+            152,
+            243
+          ],
+          "hex": "#FF98F3"
+        }
+      }
+    },
+    "31": {
+      "sourceColorId": "31",
+      "sourceName": "di_31",
+      "sourceHex": "#9A9A99",
+      "sourceRgb": [
+        154,
+        154,
+        153
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 84.593,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 84.593
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 94.112
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 96.695
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_31",
+          "rect": [
+            71,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            207,
+            207
+          ],
+          "hex": "#CFCFCF"
+        },
+        "up": {
+          "frame": "up_31",
+          "rect": [
+            141,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            207,
+            207
+          ],
+          "hex": "#CFCFCF"
+        },
+        "di": {
+          "frame": "di_31",
+          "rect": [
+            421,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            154,
+            154,
+            153
+          ],
+          "hex": "#9A9A99"
+        }
+      }
+    },
+    "4": {
+      "sourceColorId": "4",
+      "sourceName": "di_4",
+      "sourceHex": "#C85B1D",
+      "sourceRgb": [
+        200,
+        91,
+        29
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 53.684,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 53.684
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 61.368
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 73.41
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_4",
+          "rect": [
+            106,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            241,
+            144,
+            57
+          ],
+          "hex": "#F19039"
+        },
+        "up": {
+          "frame": "up_4",
+          "rect": [
+            176,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            241,
+            144,
+            57
+          ],
+          "hex": "#F19039"
+        },
+        "di": {
+          "frame": "di_4",
+          "rect": [
+            267,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            200,
+            91,
+            29
+          ],
+          "hex": "#C85B1D"
+        }
+      }
     },
     "42": {
       "sourceColorId": "42",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+      "sourceName": "di_42",
+      "sourceHex": "#5B1FA3",
+      "sourceRgb": [
+        91,
+        31,
+        163
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 34.029,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 34.029
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 57.991
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 65.886
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_42",
+          "rect": [
+            456,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            105,
+            39,
+            181
+          ],
+          "hex": "#6927B5"
+        },
+        "di": {
+          "frame": "di_42",
+          "rect": [
+            379,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            91,
+            31,
+            163
+          ],
+          "hex": "#5B1FA3"
+        },
+        "up": {
+          "frame": "up_42",
+          "rect": [
+            36,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            105,
+            39,
+            181
+          ],
+          "hex": "#6927B5"
+        }
+      }
     },
-    "43": {
-      "sourceColorId": "43",
-      "sourceHex": null,
-      "sourceRgb": null,
+    "32": {
+      "sourceColorId": "32",
+      "sourceName": "di_32",
+      "sourceHex": "#3473A2",
+      "sourceRgb": [
+        52,
+        115,
+        162
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 62.873,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 62.873
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 69.145
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 79.781
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_32",
+          "rect": [
+            463,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            52,
+            115,
+            162
+          ],
+          "hex": "#3473A2"
+        },
+        "down": {
+          "frame": "down_32",
+          "rect": [
+            106,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            80,
+            165,
+            215
+          ],
+          "hex": "#50A5D7"
+        },
+        "up": {
+          "frame": "up_32",
+          "rect": [
+            176,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            80,
+            165,
+            215
+          ],
+          "hex": "#50A5D7"
+        }
+      }
+    },
+    "34": {
+      "sourceColorId": "34",
+      "sourceName": "di_34",
+      "sourceHex": "#D54333",
+      "sourceRgb": [
+        213,
+        67,
+        51
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 42.367,
+      "topCandidates": [
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 42.367
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 69.433
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 89.944
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_34",
+          "rect": [
+            43,
+            330,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            213,
+            67,
+            51
+          ],
+          "hex": "#D54333"
+        },
+        "up": {
+          "frame": "up_34",
+          "rect": [
+            246,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            255,
+            129,
+            116
+          ],
+          "hex": "#FF8174"
+        },
+        "down": {
+          "frame": "down_34",
+          "rect": [
+            176,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            255,
+            129,
+            116
+          ],
+          "hex": "#FF8174"
+        }
+      }
+    },
+    "8": {
+      "sourceColorId": "8",
+      "sourceName": "di_8",
+      "sourceHex": "#DEA336",
+      "sourceRgb": [
+        222,
+        163,
+        54
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 55.172,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 55.172
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 58.429
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 79.114
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_8",
+          "rect": [
+            246,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            202,
+            71
+          ],
+          "hex": "#F0CA47"
+        },
+        "di": {
+          "frame": "di_8",
+          "rect": [
+            435,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            222,
+            163,
+            54
+          ],
+          "hex": "#DEA336"
+        },
+        "up": {
+          "frame": "up_8",
+          "rect": [
+            316,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            202,
+            71
+          ],
+          "hex": "#F0CA47"
+        }
+      }
+    },
+    "19": {
+      "sourceColorId": "19",
+      "sourceName": "di_19",
+      "sourceHex": "#2FA9A5",
+      "sourceRgb": [
+        47,
+        169,
+        165
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 57.018,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 57.018
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 94.493
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 99.735
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_19",
+          "rect": [
+            211,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            81,
+            211,
+            207
+          ],
+          "hex": "#51D3CF"
+        },
+        "down": {
+          "frame": "down_19",
+          "rect": [
+            141,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            81,
+            211,
+            207
+          ],
+          "hex": "#51D3CF"
+        },
+        "di": {
+          "frame": "di_19",
+          "rect": [
+            421,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            47,
+            169,
+            165
+          ],
+          "hex": "#2FA9A5"
+        }
+      }
+    },
+    "2": {
+      "sourceColorId": "2",
+      "sourceName": "di_2",
+      "sourceHex": "#38990E",
+      "sourceRgb": [
+        56,
+        153,
+        14
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "distance": 34.9,
+      "topCandidates": [
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 34.9
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 81.492
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 106.236
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_2",
+          "rect": [
+            106,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            95,
+            217,
+            42
+          ],
+          "hex": "#5FD92A"
+        },
+        "di": {
+          "frame": "di_2",
+          "rect": [
+            183,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            56,
+            153,
+            14
+          ],
+          "hex": "#38990E"
+        },
+        "down": {
+          "frame": "down_2",
+          "rect": [
+            36,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            95,
+            217,
+            42
+          ],
+          "hex": "#5FD92A"
+        }
+      }
+    },
+    "20": {
+      "sourceColorId": "20",
+      "sourceName": "di_20",
+      "sourceHex": "#72BDC1",
+      "sourceRgb": [
+        114,
+        189,
+        193
+      ],
       "localColorId": 2,
       "localHex": "#4EEAEA",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+      "distance": 70.725,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 70.725
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 85.446
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 88.848
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_20",
+          "rect": [
+            246,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            229,
+            240
+          ],
+          "hex": "#AAE5F0"
+        },
+        "down": {
+          "frame": "down_20",
+          "rect": [
+            176,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            229,
+            240
+          ],
+          "hex": "#AAE5F0"
+        },
+        "di": {
+          "frame": "di_20",
+          "rect": [
+            463,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            114,
+            189,
+            193
+          ],
+          "hex": "#72BDC1"
+        }
+      }
+    },
+    "13": {
+      "sourceColorId": "13",
+      "sourceName": "di_13",
+      "sourceHex": "#90B625",
+      "sourceRgb": [
+        144,
+        182,
+        37
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "distance": 28.583,
+      "topCandidates": [
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 28.583
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 90.3
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 107.424
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_13",
+          "rect": [
+            169,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            144,
+            182,
+            37
+          ],
+          "hex": "#90B625"
+        },
+        "up": {
+          "frame": "up_13",
+          "rect": [
+            1,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            175,
+            217,
+            59
+          ],
+          "hex": "#AFD93B"
+        },
+        "down": {
+          "frame": "down_13",
+          "rect": [
+            421,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            175,
+            217,
+            59
+          ],
+          "hex": "#AFD93B"
+        }
+      }
+    },
+    "23": {
+      "sourceColorId": "23",
+      "sourceName": "di_23",
+      "sourceHex": "#DF9776",
+      "sourceRgb": [
+        223,
+        151,
+        118
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 59.034,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 59.034
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 76.511
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 76.896
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_23",
+          "rect": [
+            85,
+            288,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            223,
+            151,
+            118
+          ],
+          "hex": "#DF9776"
+        },
+        "down": {
+          "frame": "down_23",
+          "rect": [
+            281,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            254,
+            184,
+            152
+          ],
+          "hex": "#FEB898"
+        },
+        "up": {
+          "frame": "up_23",
+          "rect": [
+            351,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            254,
+            184,
+            152
+          ],
+          "hex": "#FEB898"
+        }
+      }
+    },
+    "37": {
+      "sourceColorId": "37",
+      "sourceName": "di_37",
+      "sourceHex": "#C85B1D",
+      "sourceRgb": [
+        200,
+        91,
+        29
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 53.684,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 53.684
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 61.368
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 73.41
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_37",
+          "rect": [
+            169,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            200,
+            91,
+            29
+          ],
+          "hex": "#C85B1D"
+        },
+        "up": {
+          "frame": "up_37",
+          "rect": [
+            351,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            223,
+            110,
+            33
+          ],
+          "hex": "#DF6E21"
+        },
+        "down": {
+          "frame": "down_37",
+          "rect": [
+            281,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            223,
+            110,
+            33
+          ],
+          "hex": "#DF6E21"
+        }
+      }
+    },
+    "9": {
+      "sourceColorId": "9",
+      "sourceName": "di_9",
+      "sourceHex": "#B93B2D",
+      "sourceRgb": [
+        185,
+        59,
+        45
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 43.875,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 43.875
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 55.884
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 67.779
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_9",
+          "rect": [
+            281,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            213,
+            67,
+            51
+          ],
+          "hex": "#D54333"
+        },
+        "di": {
+          "frame": "di_9",
+          "rect": [
+            1,
+            246,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            185,
+            59,
+            45
+          ],
+          "hex": "#B93B2D"
+        },
+        "up": {
+          "frame": "up_9",
+          "rect": [
+            351,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            213,
+            67,
+            51
+          ],
+          "hex": "#D54333"
+        }
+      }
+    },
+    "30": {
+      "sourceColorId": "30",
+      "sourceName": "di_30",
+      "sourceHex": "#777777",
+      "sourceRgb": [
+        119,
+        119,
+        119
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 90.791,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 90.791
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 93.091
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 93.429
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_30",
+          "rect": [
+            379,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            119,
+            119
+          ],
+          "hex": "#777777"
+        },
+        "up": {
+          "frame": "up_30",
+          "rect": [
+            106,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            162,
+            162,
+            162
+          ],
+          "hex": "#A2A2A2"
+        },
+        "down": {
+          "frame": "down_30",
+          "rect": [
+            36,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            162,
+            162,
+            162
+          ],
+          "hex": "#A2A2A2"
+        }
+      }
+    },
+    "11": {
+      "sourceColorId": "11",
+      "sourceName": "di_11",
+      "sourceHex": "#92BB8B",
+      "sourceRgb": [
+        146,
+        187,
+        139
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 92.698,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 92.698
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 99.373
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 99.845
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_11",
+          "rect": [
+            421,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            194,
+            237,
+            188
+          ],
+          "hex": "#C2EDBC"
+        },
+        "down": {
+          "frame": "down_11",
+          "rect": [
+            351,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            194,
+            237,
+            188
+          ],
+          "hex": "#C2EDBC"
+        },
+        "di": {
+          "frame": "di_11",
+          "rect": [
+            85,
+            246,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            146,
+            187,
+            139
+          ],
+          "hex": "#92BB8B"
+        }
+      }
+    },
+    "27": {
+      "sourceColorId": "27",
+      "sourceName": "di_27",
+      "sourceHex": "#B07FBC",
+      "sourceRgb": [
+        176,
+        127,
+        188
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 72.18,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 72.18
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 80.281
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 88.69
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_27",
+          "rect": [
+            421,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            216,
+            162,
+            229
+          ],
+          "hex": "#D8A2E5"
+        },
+        "di": {
+          "frame": "di_27",
+          "rect": [
+            253,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            176,
+            127,
+            188
+          ],
+          "hex": "#B07FBC"
+        },
+        "up": {
+          "frame": "up_27",
+          "rect": [
+            1,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            216,
+            162,
+            229
+          ],
+          "hex": "#D8A2E5"
+        }
+      }
+    },
+    "26": {
+      "sourceColorId": "26",
+      "sourceName": "di_26",
+      "sourceHex": "#8152B9",
+      "sourceRgb": [
+        129,
+        82,
+        185
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 51.332,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 51.332
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 59.447
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 98.904
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_26",
+          "rect": [
+            211,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            129,
+            82,
+            185
+          ],
+          "hex": "#8152B9"
+        },
+        "down": {
+          "frame": "down_26",
+          "rect": [
+            386,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            165,
+            111,
+            226
+          ],
+          "hex": "#A56FE2"
+        },
+        "up": {
+          "frame": "up_26",
+          "rect": [
+            456,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            165,
+            111,
+            226
+          ],
+          "hex": "#A56FE2"
+        }
+      }
     },
     "44": {
       "sourceColorId": "44",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 1,
-      "localHex": "#ED5090",
-      "unresolved": true,
-      "note": "Source RGB palette was not located. Local color assignment is a stable fallback by first-seen source color order."
+      "sourceName": "di_44",
+      "sourceHex": "#007DC1",
+      "sourceRgb": [
+        0,
+        125,
+        193
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 60.017,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 60.017
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 89.308
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 110.3
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_44",
+          "rect": [
+            36,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            158,
+            245
+          ],
+          "hex": "#009EF5"
+        },
+        "up": {
+          "frame": "up_44",
+          "rect": [
+            106,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            158,
+            245
+          ],
+          "hex": "#009EF5"
+        },
+        "di": {
+          "frame": "di_44",
+          "rect": [
+            463,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            125,
+            193
+          ],
+          "hex": "#007DC1"
+        }
+      }
+    },
+    "7": {
+      "sourceColorId": "7",
+      "sourceName": "di_7",
+      "sourceHex": "#009BD1",
+      "sourceRgb": [
+        0,
+        155,
+        209
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 36.249,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 36.249
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 107.536
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 113.798
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_7",
+          "rect": [
+            211,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            46,
+            199,
+            255
+          ],
+          "hex": "#2EC7FF"
+        },
+        "di": {
+          "frame": "di_7",
+          "rect": [
+            393,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            155,
+            209
+          ],
+          "hex": "#009BD1"
+        },
+        "up": {
+          "frame": "up_7",
+          "rect": [
+            281,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            46,
+            199,
+            247
+          ],
+          "hex": "#2EC7F7"
+        }
+      }
+    },
+    "43": {
+      "sourceColorId": "43",
+      "sourceName": "di_43",
+      "sourceHex": "#872244",
+      "sourceRgb": [
+        135,
+        34,
+        68
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 21.401,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 21.401
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 62.682
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 83.726
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_43",
+          "rect": [
+            421,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            135,
+            34,
+            68
+          ],
+          "hex": "#872244"
+        },
+        "up": {
+          "frame": "up_43",
+          "rect": [
+            71,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            160,
+            41,
+            81
+          ],
+          "hex": "#A02951"
+        },
+        "down": {
+          "frame": "down_43",
+          "rect": [
+            1,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            160,
+            41,
+            81
+          ],
+          "hex": "#A02951"
+        }
+      }
+    },
+    "38": {
+      "sourceColorId": "38",
+      "sourceName": "di_38",
+      "sourceHex": "#AE0D00",
+      "sourceRgb": [
+        174,
+        13,
+        0
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 65.521,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 65.521
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 70.746
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 87.59
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_38",
+          "rect": [
+            316,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            229,
+            18,
+            0
+          ],
+          "hex": "#E51200"
+        },
+        "up": {
+          "frame": "up_38",
+          "rect": [
+            386,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            229,
+            18,
+            0
+          ],
+          "hex": "#E51200"
+        },
+        "di": {
+          "frame": "di_38",
+          "rect": [
+            211,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            174,
+            13,
+            0
+          ],
+          "hex": "#AE0D00"
+        }
+      }
+    },
+    "6": {
+      "sourceColorId": "6",
+      "sourceName": "di_6",
+      "sourceHex": "#D8D4CB",
+      "sourceRgb": [
+        216,
+        212,
+        203
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 32.863,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 32.863
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 42.778
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 43.186
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_6",
+          "rect": [
+            176,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            242,
+            238,
+            229
+          ],
+          "hex": "#F2EEE5"
+        },
+        "up": {
+          "frame": "up_6",
+          "rect": [
+            246,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            242,
+            238,
+            229
+          ],
+          "hex": "#F2EEE5"
+        },
+        "di": {
+          "frame": "di_6",
+          "rect": [
+            351,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            216,
+            212,
+            203
+          ],
+          "hex": "#D8D4CB"
+        }
+      }
+    },
+    "21": {
+      "sourceColorId": "21",
+      "sourceName": "di_21",
+      "sourceHex": "#139076",
+      "sourceRgb": [
+        19,
+        144,
+        118
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 42.273,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 42.273
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 85.147
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 95.042
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_21",
+          "rect": [
+            1,
+            288,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            19,
+            144,
+            118
+          ],
+          "hex": "#139076"
+        },
+        "up": {
+          "frame": "up_21",
+          "rect": [
+            281,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            31,
+            175,
+            146
+          ],
+          "hex": "#1FAF92"
+        },
+        "down": {
+          "frame": "down_21",
+          "rect": [
+            211,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            31,
+            175,
+            146
+          ],
+          "hex": "#1FAF92"
+        }
+      }
+    },
+    "35": {
+      "sourceColorId": "35",
+      "sourceName": "di_35",
+      "sourceHex": "#9C5C00",
+      "sourceRgb": [
+        156,
+        92,
+        0
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 29.428,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 29.428
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 83.193
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 97.283
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_35",
+          "rect": [
+            85,
+            330,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            156,
+            92,
+            0
+          ],
+          "hex": "#9C5C00"
+        },
+        "down": {
+          "frame": "down_35",
+          "rect": [
+            211,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            133,
+            0
+          ],
+          "hex": "#CF8500"
+        },
+        "up": {
+          "frame": "up_35",
+          "rect": [
+            281,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            133,
+            1
+          ],
+          "hex": "#CF8501"
+        }
+      }
+    },
+    "14": {
+      "sourceColorId": "14",
+      "sourceName": "di_14",
+      "sourceHex": "#777777",
+      "sourceRgb": [
+        119,
+        119,
+        119
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 90.791,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 90.791
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 93.091
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 93.429
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_14",
+          "rect": [
+            211,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            119,
+            119
+          ],
+          "hex": "#777777"
+        },
+        "down": {
+          "frame": "down_14",
+          "rect": [
+            456,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            139,
+            138,
+            138
+          ],
+          "hex": "#8B8A8A"
+        },
+        "up": {
+          "frame": "up_14",
+          "rect": [
+            36,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            139,
+            138,
+            138
+          ],
+          "hex": "#8B8A8A"
+        }
+      }
+    },
+    "25": {
+      "sourceColorId": "25",
+      "sourceName": "di_25",
+      "sourceHex": "#502A18",
+      "sourceRgb": [
+        80,
+        42,
+        24
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 41.893,
+      "topCandidates": [
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 41.893
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 54.046
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 76.798
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_25",
+          "rect": [
+            421,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            108,
+            55,
+            33
+          ],
+          "hex": "#6C3721"
+        },
+        "down": {
+          "frame": "down_25",
+          "rect": [
+            351,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            108,
+            55,
+            33
+          ],
+          "hex": "#6C3721"
+        },
+        "di": {
+          "frame": "di_25",
+          "rect": [
+            169,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            80,
+            42,
+            24
+          ],
+          "hex": "#502A18"
+        }
+      }
+    },
+    "5": {
+      "sourceColorId": "5",
+      "sourceName": "di_5",
+      "sourceHex": "#724D38",
+      "sourceRgb": [
+        114,
+        77,
+        56
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 30.854,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 30.854
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 51.971
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 62.976
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_5",
+          "rect": [
+            141,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            159,
+            115,
+            89
+          ],
+          "hex": "#9F7359"
+        },
+        "up": {
+          "frame": "up_5",
+          "rect": [
+            211,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            159,
+            115,
+            89
+          ],
+          "hex": "#9F7359"
+        },
+        "di": {
+          "frame": "di_5",
+          "rect": [
+            309,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            114,
+            77,
+            56
+          ],
+          "hex": "#724D38"
+        }
+      }
+    },
+    "12": {
+      "sourceColorId": "12",
+      "sourceName": "di_12",
+      "sourceHex": "#2159BF",
+      "sourceRgb": [
+        33,
+        89,
+        191
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 45.618,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 45.618
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 75.862
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 84.161
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_12",
+          "rect": [
+            386,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            82,
+            143,
+            255
+          ],
+          "hex": "#528FFF"
+        },
+        "up": {
+          "frame": "up_12",
+          "rect": [
+            456,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            82,
+            143,
+            255
+          ],
+          "hex": "#528FFF"
+        },
+        "di": {
+          "frame": "di_12",
+          "rect": [
+            127,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            33,
+            89,
+            191
+          ],
+          "hex": "#2159BF"
+        }
+      }
+    },
+    "29": {
+      "sourceColorId": "29",
+      "sourceName": "di_29",
+      "sourceHex": "#4636A6",
+      "sourceRgb": [
+        70,
+        54,
+        166
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 43.128,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 43.128
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 47.181
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 53.488
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_29",
+          "rect": [
+            1,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            99,
+            234
+          ],
+          "hex": "#7763EA"
+        },
+        "up": {
+          "frame": "up_29",
+          "rect": [
+            71,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            99,
+            234
+          ],
+          "hex": "#7763EA"
+        },
+        "di": {
+          "frame": "di_29",
+          "rect": [
+            337,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            70,
+            54,
+            166
+          ],
+          "hex": "#4636A6"
+        }
+      }
+    },
+    "10": {
+      "sourceColorId": "10",
+      "sourceName": "di_10",
+      "sourceHex": "#3B3B3B",
+      "sourceRgb": [
+        59,
+        59,
+        59
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 6.928,
+      "topCandidates": [
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 6.928
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 62.177
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 67.253
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_10",
+          "rect": [
+            316,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            76,
+            76,
+            76
+          ],
+          "hex": "#4C4C4C"
+        },
+        "di": {
+          "frame": "di_10",
+          "rect": [
+            43,
+            246,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            59,
+            59,
+            59
+          ],
+          "hex": "#3B3B3B"
+        },
+        "up": {
+          "frame": "up_10",
+          "rect": [
+            386,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            76,
+            76,
+            76
+          ],
+          "hex": "#4C4C4C"
+        }
+      }
+    },
+    "16": {
+      "sourceColorId": "16",
+      "sourceName": "di_16",
+      "sourceHex": "#DE9FB8",
+      "sourceRgb": [
+        222,
+        159,
+        184
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "distance": 25.159,
+      "topCandidates": [
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 25.159
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 45.387
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 52.211
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_16",
+          "rect": [
+            295,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            222,
+            159,
+            184
+          ],
+          "hex": "#DE9FB8"
+        },
+        "down": {
+          "frame": "down_16",
+          "rect": [
+            36,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            245,
+            176,
+            204
+          ],
+          "hex": "#F5B0CC"
+        },
+        "up": {
+          "frame": "up_16",
+          "rect": [
+            106,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            245,
+            176,
+            204
+          ],
+          "hex": "#F5B0CC"
+        }
+      }
+    },
+    "41": {
+      "sourceColorId": "41",
+      "sourceName": "di_41",
+      "sourceHex": "#49948D",
+      "sourceRgb": [
+        73,
+        148,
+        141
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 74.471,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 74.471
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 91.225
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 95.131
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_41",
+          "rect": [
+            421,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            125,
+            233,
+            233
+          ],
+          "hex": "#7DE9E9"
+        },
+        "up": {
+          "frame": "up_41",
+          "rect": [
+            1,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            125,
+            233,
+            233
+          ],
+          "hex": "#7DE9E9"
+        },
+        "di": {
+          "frame": "di_41",
+          "rect": [
+            337,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            73,
+            148,
+            141
+          ],
+          "hex": "#49948D"
+        }
+      }
+    },
+    "36": {
+      "sourceColorId": "36",
+      "sourceName": "di_36",
+      "sourceHex": "#E2CF01",
+      "sourceRgb": [
+        226,
+        207,
+        1
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 28.089,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 28.089
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 74.256
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 75.053
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_36",
+          "rect": [
+            246,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            243,
+            232,
+            25
+          ],
+          "hex": "#F3E819"
+        },
+        "up": {
+          "frame": "up_36",
+          "rect": [
+            316,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            243,
+            232,
+            25
+          ],
+          "hex": "#F3E819"
+        },
+        "di": {
+          "frame": "di_36",
+          "rect": [
+            127,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            226,
+            207,
+            1
+          ],
+          "hex": "#E2CF01"
+        }
+      }
+    },
+    "40": {
+      "sourceColorId": "40",
+      "sourceName": "di_40",
+      "sourceHex": "#9D71C8",
+      "sourceRgb": [
+        157,
+        113,
+        200
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 87.972,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 87.972
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 90.741
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 91.613
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_40",
+          "rect": [
+            456,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            219,
+            181,
+            255
+          ],
+          "hex": "#DBB5FF"
+        },
+        "down": {
+          "frame": "down_40",
+          "rect": [
+            386,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            219,
+            181,
+            255
+          ],
+          "hex": "#DBB5FF"
+        },
+        "di": {
+          "frame": "di_40",
+          "rect": [
+            295,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            157,
+            113,
+            200
+          ],
+          "hex": "#9D71C8"
+        }
+      }
+    },
+    "17": {
+      "sourceColorId": "17",
+      "sourceName": "di_17",
+      "sourceHex": "#E6D6B1",
+      "sourceRgb": [
+        230,
+        214,
+        177
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 14.491,
+      "topCandidates": [
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 14.491
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 34.38
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 38.484
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_17",
+          "rect": [
+            71,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            245,
+            232,
+            199
+          ],
+          "hex": "#F5E8C7"
+        },
+        "up": {
+          "frame": "up_17",
+          "rect": [
+            141,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            242,
+            232,
+            199
+          ],
+          "hex": "#F2E8C7"
+        },
+        "di": {
+          "frame": "di_17",
+          "rect": [
+            337,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            230,
+            214,
+            177
+          ],
+          "hex": "#E6D6B1"
+        }
+      }
+    },
+    "1": {
+      "sourceColorId": "1",
+      "sourceName": "di_1",
+      "sourceHex": "#DCD855",
+      "sourceRgb": [
+        220,
+        216,
+        85
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 75.26,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 75.26
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 80.777
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 81.449
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_1",
+          "rect": [
+            71,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            236,
+            124
+          ],
+          "hex": "#F0EC7C"
+        },
+        "down": {
+          "frame": "down_1",
+          "rect": [
+            1,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            236,
+            124
+          ],
+          "hex": "#F0EC7C"
+        },
+        "di": {
+          "frame": "di_1",
+          "rect": [
+            141,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            220,
+            216,
+            85
+          ],
+          "hex": "#DCD855"
+        }
+      }
+    },
+    "33": {
+      "sourceColorId": "33",
+      "sourceName": "di_33",
+      "sourceHex": "#204A66",
+      "sourceRgb": [
+        32,
+        74,
+        102
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 37.202,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 37.202
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 49.98
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 55.669
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_33",
+          "rect": [
+            141,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            67,
+            117,
+            151
+          ],
+          "hex": "#437597"
+        },
+        "up": {
+          "frame": "up_33",
+          "rect": [
+            211,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            67,
+            117,
+            151
+          ],
+          "hex": "#437597"
+        },
+        "di": {
+          "frame": "di_33",
+          "rect": [
+            1,
+            330,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            32,
+            74,
+            102
+          ],
+          "hex": "#204A66"
+        }
+      }
+    },
+    "18": {
+      "sourceColorId": "18",
+      "sourceName": "di_18",
+      "sourceHex": "#92515B",
+      "sourceRgb": [
+        146,
+        81,
+        91
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 52.849,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 52.849
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 71.875
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 101.257
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_18",
+          "rect": [
+            106,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            99,
+            108
+          ],
+          "hex": "#AA636C"
+        },
+        "di": {
+          "frame": "di_18",
+          "rect": [
+            379,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            146,
+            81,
+            91
+          ],
+          "hex": "#92515B"
+        },
+        "up": {
+          "frame": "up_18",
+          "rect": [
+            176,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            99,
+            108
+          ],
+          "hex": "#AA636C"
+        }
+      }
     }
   }
 }

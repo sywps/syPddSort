@@ -2,7 +2,6 @@
   "sourceGame": "全民拼豆",
   "status": "converted",
   "levelCount": 4355,
-  "pairCount": 4355,
   "sourceColorIds": [
     "1",
     "2",
@@ -28,8 +27,5 @@
     "22",
     "23"
   ],
-  "warnings": [
-    "Converted from Unity TextAsset pairs levelN / levelN_top after offline UnityWebData extraction.",
-    "Source RGB palette was not separately located in the extracted assets."
-  ]
+  "unresolvedSourceColorIds": []
 }

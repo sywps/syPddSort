@@ -191,201 +191,1059 @@
   "sourceColors": {
     "1": {
       "sourceColorId": "1",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 1,
-      "localHex": "#ED5090",
-      "unresolved": false,
-      "note": null
+      "sourceName": "1",
+      "sourceHex": "#3C3940",
+      "sourceRgb": [
+        60,
+        57,
+        64
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 10.488,
+      "topCandidates": [
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 10.488
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 60.959
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 62.298
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "1",
+          "rect": [
+            1,
+            1,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            60,
+            57,
+            64
+          ],
+          "hex": "#3C3940"
+        }
+      }
     },
     "2": {
       "sourceColorId": "2",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 2,
-      "localHex": "#4EEAEA",
-      "unresolved": false,
-      "note": null
+      "sourceName": "2",
+      "sourceHex": "#F1684C",
+      "sourceRgb": [
+        241,
+        104,
+        76
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 70.668,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 70.668
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 72.222
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 81.517
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "2",
+          "rect": [
+            77,
+            229,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            241,
+            104,
+            76
+          ],
+          "hex": "#F1684C"
+        }
+      }
     },
     "3": {
       "sourceColorId": "3",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "unresolved": false,
-      "note": null
+      "sourceName": "3",
+      "sourceHex": "#FEB5C2",
+      "sourceRgb": [
+        254,
+        181,
+        194
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "distance": 17.349,
+      "topCandidates": [
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 17.349
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 38.21
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 53.16
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "3",
+          "rect": [
+            305,
+            77,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            254,
+            181,
+            194
+          ],
+          "hex": "#FEB5C2"
+        }
+      }
     },
     "4": {
       "sourceColorId": "4",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "unresolved": false,
-      "note": null
+      "sourceName": "4",
+      "sourceHex": "#EFEDF3",
+      "sourceRgb": [
+        239,
+        237,
+        243
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 15.297,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 15.297
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 68.804
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 78.549
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "4",
+          "rect": [
+            153,
+            153,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            239,
+            237,
+            243
+          ],
+          "hex": "#EFEDF3"
+        }
+      }
     },
     "5": {
       "sourceColorId": "5",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 5,
-      "localHex": "#F4BD9E",
-      "unresolved": false,
-      "note": null
+      "sourceName": "5",
+      "sourceHex": "#FBE91E",
+      "sourceRgb": [
+        251,
+        233,
+        30
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 35.595,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 35.595
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 95.084
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 95.927
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "5",
+          "rect": [
+            153,
+            229,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            251,
+            233,
+            30
+          ],
+          "hex": "#FBE91E"
+        }
+      }
     },
     "6": {
       "sourceColorId": "6",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 6,
-      "localHex": "#EBDEA6",
-      "unresolved": false,
-      "note": null
+      "sourceName": "6",
+      "sourceHex": "#5FB6FA",
+      "sourceRgb": [
+        95,
+        182,
+        250
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 57.0,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 57.0
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 71.169
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 106.555
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "6",
+          "rect": [
+            153,
+            305,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            95,
+            182,
+            250
+          ],
+          "hex": "#5FB6FA"
+        }
+      }
     },
     "7": {
       "sourceColorId": "7",
-      "sourceHex": null,
-      "sourceRgb": null,
+      "sourceName": "7",
+      "sourceHex": "#4736B4",
+      "sourceRgb": [
+        71,
+        54,
+        180
+      ],
       "localColorId": 7,
       "localHex": "#4A4DCF",
-      "unresolved": false,
-      "note": null
+      "distance": 35.595,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 35.595
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 48.518
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 56.648
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "7",
+          "rect": [
+            229,
+            153,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            71,
+            54,
+            180
+          ],
+          "hex": "#4736B4"
+        }
+      }
     },
     "8": {
       "sourceColorId": "8",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 8,
-      "localHex": "#7221BC",
-      "unresolved": false,
-      "note": null
+      "sourceName": "8",
+      "sourceHex": "#AFED2C",
+      "sourceRgb": [
+        175,
+        237,
+        44
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "distance": 36.579,
+      "topCandidates": [
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 36.579
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 86.18
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 128.953
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "8",
+          "rect": [
+            305,
+            153,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            175,
+            237,
+            44
+          ],
+          "hex": "#AFED2C"
+        }
+      }
     },
     "9": {
       "sourceColorId": "9",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 9,
-      "localHex": "#9FCE21",
-      "unresolved": false,
-      "note": null
+      "sourceName": "9",
+      "sourceHex": "#74F2F7",
+      "sourceRgb": [
+        116,
+        242,
+        247
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 40.951,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 40.951
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 100.02
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 115.156
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "9",
+          "rect": [
+            229,
+            229,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            116,
+            242,
+            247
+          ],
+          "hex": "#74F2F7"
+        }
+      }
     },
     "10": {
       "sourceColorId": "10",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 10,
-      "localHex": "#EA281A",
-      "unresolved": false,
-      "note": null
+      "sourceName": "10",
+      "sourceHex": "#5F666F",
+      "sourceRgb": [
+        95,
+        102,
+        111
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 63.419,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 63.419
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 70.753
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 79.063
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "10",
+          "rect": [
+            1,
+            77,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            95,
+            102,
+            111
+          ],
+          "hex": "#5F666F"
+        }
+      }
     },
     "11": {
       "sourceColorId": "11",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 11,
-      "localHex": "#37A92D",
-      "unresolved": false,
-      "note": null
+      "sourceName": "11",
+      "sourceHex": "#F5E7C1",
+      "sourceRgb": [
+        245,
+        231,
+        193
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 30.166,
+      "topCandidates": [
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 30.166
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 35.637
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 53.694
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "11",
+          "rect": [
+            1,
+            153,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            245,
+            231,
+            193
+          ],
+          "hex": "#F5E7C1"
+        }
+      }
     },
     "12": {
       "sourceColorId": "12",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 12,
-      "localHex": "#207955",
-      "unresolved": false,
-      "note": null
+      "sourceName": "12",
+      "sourceHex": "#FC59AB",
+      "sourceRgb": [
+        252,
+        89,
+        171
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 32.171,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 32.171
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 91.684
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 101.158
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "12",
+          "rect": [
+            1,
+            229,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            252,
+            89,
+            171
+          ],
+          "hex": "#FC59AB"
+        }
+      }
     },
     "13": {
       "sourceColorId": "13",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 13,
-      "localHex": "#20A8DC",
-      "unresolved": false,
-      "note": null
+      "sourceName": "13",
+      "sourceHex": "#207480",
+      "sourceRgb": [
+        32,
+        116,
+        128
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 43.29,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 43.29
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 63.937
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 97.601
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "13",
+          "rect": [
+            1,
+            305,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            32,
+            116,
+            128
+          ],
+          "hex": "#207480"
+        }
+      }
     },
     "14": {
       "sourceColorId": "14",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 14,
-      "localHex": "#EEB2BC",
-      "unresolved": false,
-      "note": null
+      "sourceName": "14",
+      "sourceHex": "#915237",
+      "sourceRgb": [
+        145,
+        82,
+        55
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 37.175,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 37.175
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 43.301
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 93.963
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "14",
+          "rect": [
+            77,
+            1,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            145,
+            82,
+            55
+          ],
+          "hex": "#915237"
+        }
+      }
     },
     "15": {
       "sourceColorId": "15",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "unresolved": false,
-      "note": null
+      "sourceName": "15",
+      "sourceHex": "#9021E3",
+      "sourceRgb": [
+        144,
+        33,
+        227
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 49.204,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 49.204
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 85.065
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 133.218
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "15",
+          "rect": [
+            153,
+            1,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            144,
+            33,
+            227
+          ],
+          "hex": "#9021E3"
+        }
+      }
     },
     "16": {
       "sourceColorId": "16",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 16,
-      "localHex": "#974714",
-      "unresolved": false,
-      "note": null
+      "sourceName": "16",
+      "sourceHex": "#DB9262",
+      "sourceRgb": [
+        219,
+        146,
+        98
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 77.936,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 77.936
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 82.438
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 89.432
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "16",
+          "rect": [
+            229,
+            1,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            219,
+            146,
+            98
+          ],
+          "hex": "#DB9262"
+        }
+      }
     },
     "17": {
       "sourceColorId": "17",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 17,
-      "localHex": "#782F3C",
-      "unresolved": false,
-      "note": null
+      "sourceName": "17",
+      "sourceHex": "#C2C4C8",
+      "sourceRgb": [
+        194,
+        196,
+        200
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 18.138,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 18.138
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 49.031
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 59.271
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "17",
+          "rect": [
+            305,
+            1,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            194,
+            196,
+            200
+          ],
+          "hex": "#C2C4C8"
+        }
+      }
     },
     "18": {
       "sourceColorId": "18",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 18,
-      "localHex": "#36387E",
-      "unresolved": false,
-      "note": null
+      "sourceName": "18",
+      "sourceHex": "#40943B",
+      "sourceRgb": [
+        64,
+        148,
+        59
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "distance": 26.796,
+      "topCandidates": [
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 26.796
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 49.285
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 93.52
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "18",
+          "rect": [
+            77,
+            77,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            64,
+            148,
+            59
+          ],
+          "hex": "#40943B"
+        }
+      }
     },
     "19": {
       "sourceColorId": "19",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 19,
-      "localHex": "#373737",
-      "unresolved": false,
-      "note": null
+      "sourceName": "19",
+      "sourceHex": "#FE902E",
+      "sourceRgb": [
+        254,
+        144,
+        46
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 30.414,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 30.414
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 63.348
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 107.778
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "19",
+          "rect": [
+            77,
+            153,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            254,
+            144,
+            46
+          ],
+          "hex": "#FE902E"
+        }
+      }
     },
     "20": {
       "sourceColorId": "20",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 20,
-      "localHex": "#F2EDE4",
-      "unresolved": false,
-      "note": null
+      "sourceName": "20",
+      "sourceHex": "#B99DD8",
+      "sourceRgb": [
+        185,
+        157,
+        216
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 34.799,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 34.799
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 63.514
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 88.707
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "20",
+          "rect": [
+            77,
+            305,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            185,
+            157,
+            216
+          ],
+          "hex": "#B99DD8"
+        }
+      }
     },
     "21": {
       "sourceColorId": "21",
-      "sourceHex": null,
-      "sourceRgb": null,
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "unresolved": true,
-      "note": "Observed in level data, but package RGB palette was not located."
+      "sourceName": "21",
+      "sourceHex": "#8F1130",
+      "sourceRgb": [
+        143,
+        17,
+        48
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 39.661,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 39.661
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 61.351
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 96.109
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "21",
+          "rect": [
+            153,
+            77,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            143,
+            17,
+            48
+          ],
+          "hex": "#8F1130"
+        }
+      }
     },
     "22": {
       "sourceColorId": "22",
-      "sourceHex": null,
-      "sourceRgb": null,
+      "sourceName": "22",
+      "sourceHex": "#EDE5D2",
+      "sourceRgb": [
+        237,
+        229,
+        210
+      ],
       "localColorId": 20,
       "localHex": "#F2EDE4",
-      "unresolved": true,
-      "note": "Observed in level data, but package RGB palette was not located."
+      "distance": 20.322,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 20.322
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 44.598
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 55.552
+        }
+      ],
+      "states": {
+        "atlas": {
+          "frame": "22",
+          "rect": [
+            229,
+            77,
+            74,
+            74
+          ],
+          "texturePath": "C:\\Users\\EDY\\workspaces\\拼豆1000关\\OUTPUT\\subpackages\\res\\native\\d2\\d24398ed-aa90-46bf-8cae-42a9b573f2ce.fa27c.png",
+          "rgb": [
+            237,
+            229,
+            210
+          ],
+          "hex": "#EDE5D2"
+        }
+      }
     }
   }
 }
