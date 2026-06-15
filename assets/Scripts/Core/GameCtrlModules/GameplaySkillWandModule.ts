@@ -340,13 +340,14 @@ export function installGameplaySkillWandModule(target: any): void {
         finishWandSequence() {
             this.clearForcedSkillHiddenState();
             this.renderBoard();
-            this.renderSlots();
-            this.finishSkillUsage();
-            this.checkColorCompletion();
-            this.checkGuideStepComplete();
-            if (this.boardModel.isAllLocked()) {
-                this.gameWin();
-            }
+            this.compactSlotsAfterPropConsume(() => {
+                this.finishSkillUsage();
+                this.checkColorCompletion();
+                this.checkGuideStepComplete();
+                if (this.boardModel.isAllLocked()) {
+                    this.gameWin();
+                }
+            });
         },
 
         runWandGroupsSequential(
@@ -664,6 +665,7 @@ export function installGameplaySkillWandModule(target: any): void {
 
         /** 刷子归位完成后的清理 */
         finishClearSlot() {
+            this.clearForcedSkillHiddenState();
             this._flyingTargets.clear();
             this.renderBoard();
             this.renderSlots();

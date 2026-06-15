@@ -26,6 +26,7 @@ export class PreviewController extends GameRuntimeHost {
     start() {
         view.setDesignResolutionSize(720, 1280, ResolutionPolicy.FIXED_WIDTH);
         this.preparePreviewRuntime();
+        this.installPreviewNavigationOverrides();
 
         const screenRoot = (this as any).requireCanvasUiRoot('ScreenRoot') as Node;
         this.previewMode = 'ui';
@@ -38,6 +39,16 @@ export class PreviewController extends GameRuntimeHost {
 
     showMainMenu() {
         this.switchPreviewMode('ui');
+    }
+
+    private installPreviewNavigationOverrides() {
+        const runtime = this as any;
+        runtime.requestHomeSceneTransition = async () => {
+            this.switchPreviewMode('ui');
+        };
+        runtime.showMainMenu = () => {
+            this.switchPreviewMode('ui');
+        };
     }
 
     showTrackedRewardedAd(_tag: string, onDone: (success: boolean) => void) {
@@ -112,8 +123,15 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '设置面板', onClick: () => this.openPanelPreview(() => { (this as any).openSettingsPanel(); }) },
                 { label: '排行榜', onClick: () => this.openPanelPreview(() => { void (this as any).openLeaderboard(); }) },
                 { label: '签到面板', onClick: () => this.openPanelPreview(() => { (this as any).openDailySignInPanel(); }) },
-                { label: '金币商店', onClick: () => this.openPanelPreview(() => { (this as any).openGoldShop(); }) },
+                { label: '获取金币', onClick: () => this.openPanelPreview(() => { (this as any).openGoldAcquirePanel(); }) },
                 { label: '图鉴面板', onClick: () => this.openPanelPreview(() => { (this as any).openCollection(); }) },
+            ],
+            [
+                { label: '道具-框选归位', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('wand'); }) },
+                { label: '道具-清空槽位', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('brush'); }) },
+                { label: '道具-消色', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('magnet'); }) },
+                { label: '获取金币', onClick: () => this.openPanelPreview(() => { (this as any).openGoldAcquirePanel(); }) },
+                { label: '恢复体力', onClick: () => this.openPanelPreview(() => { (this as any).openRecoverVigorPrefabModal(() => {}); }) },
             ],
             [
                 { label: '主题挑战', onClick: () => this.openPanelPreview(() => { (this as any).openThemePanel(); }) },
@@ -224,17 +242,24 @@ export class PreviewController extends GameRuntimeHost {
             this.prepareResultPreviewBoardModel(runtime);
             runtime._isThemeLevel = false;
             runtime._pendingWinGoldReward = 80;
-            runtime._pendingWinAdBonusReward = 320;
+            runtime._pendingWinAdBonusReward = 50;
             runtime._winAdRewardClaimed = false;
             if (kind === 'win') {
-                runtime.panelWin = runtime.createWinSettlementPanel();
-                runtime.updateWinRewardLabel?.(80);
-                runtime.refreshWinAdBonusUI?.();
-                if (typeof runtime.drawWinPatternPreview !== 'function') {
-                    throw new Error('[panel-preview] missing drawWinPatternPreview');
+                const showWinPanel = () => {
+                    runtime.panelWin = runtime.createWinSettlementPanel();
+                    runtime.updateWinRewardLabel?.(80);
+                    runtime.refreshWinAdBonusUI?.();
+                    if (typeof runtime.drawWinPatternPreview !== 'function') {
+                        throw new Error('[panel-preview] missing drawWinPatternPreview');
+                    }
+                    runtime.drawWinPatternPreview();
+                    runtime.panelWin.active = true;
+                };
+                if (typeof runtime._ensureBootstrapBeanAtlasLoaded === 'function') {
+                    runtime._ensureBootstrapBeanAtlasLoaded(showWinPanel);
+                    return;
                 }
-                runtime.drawWinPatternPreview();
-                runtime.panelWin.active = true;
+                showWinPanel();
                 return;
             }
             if (kind === 'lose') {

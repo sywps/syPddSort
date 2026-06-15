@@ -128,6 +128,15 @@ export function installHomeCommerceModule(target: any): void {
             return ensureCommercePanelController(this).openGoldShop();
         },
 
+        openGoldAcquirePanel() {
+            return ensureCommercePanelController(this).openGoldAcquirePanel();
+        },
+
+        openToolAcquirePanel(kind: InventoryPropKind, options?: { resumeTimerOnClose?: boolean; onInventoryChanged?: () => void }) {
+            if (kind === 'expand') return false;
+            return ensureCommercePanelController(this).openToolAcquirePanel(kind, options);
+        },
+
         openDailySignInPanel() {
             return ensureCommercePanelController(this).openDailySignInPanel();
         },

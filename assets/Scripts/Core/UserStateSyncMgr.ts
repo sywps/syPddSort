@@ -86,6 +86,14 @@ function isCloudSyncWarnEnabled(): boolean {
     return mode === 'debug' || !!globalScope?.__PDD_CLOUD_SYNC_DEBUG__ || !!windowScope?.__PDD_CLOUD_SYNC_DEBUG__;
 }
 
+function shouldEmitCloudSyncDiagnosticLog(): boolean {
+    const mode = getMiniGameBuildMode();
+    if (mode === 'release') {
+        return false;
+    }
+    return true;
+}
+
 function emitCloudSyncDiagnostic(phase: string, detail: Record<string, unknown> = {}): void {
     const payload = {
         phase,
@@ -105,6 +113,9 @@ function emitCloudSyncDiagnostic(phase: string, detail: Record<string, unknown> 
         if (target) {
             target.__PDD_CLOUD_SYNC_LAST = payload;
         }
+    }
+    if (!shouldEmitCloudSyncDiagnosticLog()) {
+        return;
     }
     const logger = isCloudSyncWarnEnabled() ? console.warn : console.log;
     logger('[CloudSync]', phase, payload);
@@ -337,6 +348,8 @@ export class UserStateSyncMgr {
         }
         this.cloudUnavailableWarned = true;
         const message = String((error as any)?.message || error || 'unknown error');
-        console.log(`[UserStateSyncMgr] cloud sync skipped for this session during ${phase}: ${message}`);
+        if (shouldEmitCloudSyncDiagnosticLog()) {
+            console.log(`[UserStateSyncMgr] cloud sync skipped for this session during ${phase}: ${message}`);
+        }
     }
 }

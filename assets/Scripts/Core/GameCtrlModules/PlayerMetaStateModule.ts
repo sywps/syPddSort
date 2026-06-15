@@ -73,40 +73,6 @@ function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     );
 }
 
-function syncPlayerMetaLabelNode(
-    parent: Node,
-    name: string,
-    text: string,
-    fontSize: number,
-    color: Color,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    horizontalAlign: number = Label.HorizontalAlign.CENTER,
-): Label {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    const label = node.getComponent(Label) || node.addComponent(Label);
-    label.string = text;
-    label.fontSize = fontSize;
-    label.lineHeight = Math.max(fontSize + 4, height);
-    label.color = color;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.overflow = Label.Overflow.SHRINK;
-    label.enableWrapText = false;
-    node.active = true;
-    return label;
-}
-
 function syncPlayerMetaPopupTitle(box: Node, title: string): void {
     const badge = box.getChildByName('PopupTitleBadge');
     const titleNode = badge?.getChildByName('PopupTitleLabel');
@@ -514,9 +480,9 @@ export function installPlayerMetaStateModule(target: any): void {
                             }
                             iconSprite.spriteFrame = spriteFrame;
 
-                            const amountLabel = syncPlayerMetaLabelNode(card, 'RewardAmountLabel', item.amountText, 30, new Color('#5A4A3A'), 160, 34, 0, -48);
+                            const amountLabel = syncExistingPopupLabel(card, 'RewardAmountLabel', item.amountText, '[reward-result-prefab]');
                             amountLabel.overflow = Label.Overflow.SHRINK;
-                            const nameLabel = syncPlayerMetaLabelNode(card, 'RewardNameLabel', item.labelText, 18, new Color('#8A7A6A'), 160, 24, 0, -80);
+                            const nameLabel = syncExistingPopupLabel(card, 'RewardNameLabel', item.labelText, '[reward-result-prefab]');
                             nameLabel.overflow = Label.Overflow.SHRINK;
                         }
                         this.playPopupOpenAnim?.(overlay, box);

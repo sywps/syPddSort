@@ -2,7 +2,6 @@ import {
     AudioMgr,
     BlockInputEvents,
     Bundle,
-    Color,
     EventTouch,
     Label,
     LEADERBOARD_RELEASE_TEXTURE_NAMES,
@@ -10,7 +9,6 @@ import {
     LeaderboardMgr,
     Node,
     Prefab,
-    Sprite,
     UITransform,
     Vec3,
     instantiate,
@@ -26,26 +24,6 @@ function syncPrefabPopupTitle(box: Node, title: string): void {
     badge.active = true;
     titleNode.active = true;
     label.string = title;
-}
-
-function setExistingSprite(runtime: any, node: Node, frameName: string): void {
-    const sprite = node.getComponent(Sprite);
-    const frame = runtime.getSF(frameName);
-    if (!sprite || !frame) {
-        throw new Error(`[leaderboard-prefab] missing sprite state for ${node.name}: ${frameName}`);
-    }
-    sprite.enabled = true;
-    sprite.spriteFrame = frame;
-    sprite.color = Color.WHITE;
-}
-
-function setExistingLabelColor(node: Node, text: string, color: Color): void {
-    const label = node.getComponent(Label);
-    if (!label) {
-        throw new Error(`[leaderboard-prefab] missing label on ${node.name}`);
-    }
-    label.string = text;
-    label.color = color;
 }
 
 export class LeaderboardPanelController {
@@ -121,24 +99,20 @@ export class LeaderboardPanelController {
 
                     const tabWrap = runtime.requirePanelChild(box, 'LeaderboardTabs');
                     const listNode = runtime.requirePanelChild(box, 'LeaderboardList');
-                    listNode.setPosition(0, -24, 0);
-                    (listNode.getComponent(UITransform) || listNode.addComponent(UITransform)).setContentSize(596, 500);
                     const selfBox = runtime.requirePanelChild(box, 'LeaderboardSelfBox');
-                    selfBox.setPosition(0, -350, 0);
-                    (selfBox.getComponent(UITransform) || selfBox.addComponent(UITransform)).setContentSize(596, 76);
                     const leftHotspot = runtime.requirePanelChild(tabWrap, 'LeaderboardTabGlobalHit');
                     const rightHotspot = runtime.requirePanelChild(tabWrap, 'LeaderboardTabFriendHit');
                     const globalBg = runtime.requirePanelChild(tabWrap, 'PopupTabGlobalBg');
                     const friendBg = runtime.requirePanelChild(tabWrap, 'PopupTabFriendBg');
-                    const globalLbl = runtime.requirePanelChild(globalBg, 'PopupTabGlobalLbl');
-                    const friendLbl = runtime.requirePanelChild(friendBg, 'PopupTabFriendLbl');
+                    const globalInactiveBg = runtime.requirePanelChild(tabWrap, 'PopupTabGlobalInactiveBg');
+                    const friendActiveBg = runtime.requirePanelChild(tabWrap, 'PopupTabFriendActiveBg');
                     let activeTab: 'global' | 'friend' = 'global';
 
                     const updateTabStyle = () => {
-                        setExistingSprite(runtime, globalBg, activeTab === 'global' ? 'popup_tab_active' : 'popup_tab_inactive');
-                        setExistingSprite(runtime, friendBg, activeTab === 'friend' ? 'popup_tab_active' : 'popup_tab_inactive');
-                        setExistingLabelColor(globalLbl, '全国排行', new Color(activeTab === 'global' ? '#5944B3' : '#7D7A88'));
-                        setExistingLabelColor(friendLbl, '微信好友', new Color(activeTab === 'friend' ? '#5944B3' : '#7D7A88'));
+                        globalBg.active = activeTab === 'global';
+                        friendBg.active = activeTab === 'global';
+                        globalInactiveBg.active = activeTab === 'friend';
+                        friendActiveBg.active = activeTab === 'friend';
                         leftHotspot.setSiblingIndex(tabWrap.children.length - 1);
                         rightHotspot.setSiblingIndex(tabWrap.children.length - 1);
                         runtime.bindPanelButton(leftHotspot, () => {

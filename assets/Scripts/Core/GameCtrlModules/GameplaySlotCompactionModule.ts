@@ -42,7 +42,7 @@ export function installGameplaySlotCompactionMethods(target: any): void {
             for (const idx of this._selectedSlotIndices) {
                 this.slotModel.take(idx);
             }
-            this.slotModel['compact']();
+            this.slotModel.compactPreserveOrder();
             this.renderSlots();
         },
 
@@ -54,6 +54,10 @@ export function installGameplaySlotCompactionMethods(target: any): void {
         },
 
         compactSlotsAfterSelectionConsume(onComplete?: () => void) {
+            this.compactSlotsAfterPropConsume(onComplete);
+        },
+
+        compactSlotsAfterPropConsume(onComplete?: () => void) {
             const beforeSlots = this.slotModel.getAll().slice();
             const beforeIndexByBlock = new Map<BeanBlockInfo, number>();
             for (let i = 0; i < beforeSlots.length; i++) {
@@ -62,7 +66,7 @@ export function installGameplaySlotCompactionMethods(target: any): void {
             }
 
             if (!onComplete) {
-                this.slotModel['compact']();
+                this.slotModel.compactPreserveOrder();
                 this.renderSlots();
                 return;
             }
@@ -92,7 +96,7 @@ export function installGameplaySlotCompactionMethods(target: any): void {
             const landedCompactBeans: Array<{ bean: Node; to: number }> = [];
             const SLOT_COMPACT_HANDOFF_DUR = 0.08;
             const finish = () => {
-                this.slotModel['compact']();
+                this.slotModel.compactPreserveOrder();
                 this.renderSlots();
                 if (landedCompactBeans.length === 0) {
                     if (onComplete) onComplete();

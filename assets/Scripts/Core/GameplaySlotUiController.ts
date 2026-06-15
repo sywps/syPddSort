@@ -405,6 +405,18 @@ export class GameplaySlotUiController {
             freeIcon.active = false;
         }
         const adIcon = this.requireSlotUnlockAdIcon(buttonNode);
+        const adSprite = adIcon.getComponent(Sprite);
+        const adTransform = adIcon.getComponent(UITransform);
+        if (!adSprite || !adTransform) {
+            throw new Error('[GameplayScene] SlotRowLockedBtn/SlotUnlockIconAd is missing Sprite or UITransform');
+        }
+        const adFrame = this.runtime.getSF('popup_ad_play_icon') || adSprite.spriteFrame;
+        if (!adFrame) {
+            throw new Error('[GameplayScene] missing sprite frame: popup_ad_play_icon');
+        }
+        adSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        adSprite.spriteFrame = adFrame;
+        adTransform.setContentSize(38, 30);
         adIcon.active = buttonNode.active && unlockMode === 'ad';
     }
 
