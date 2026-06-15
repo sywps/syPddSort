@@ -226,6 +226,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _activePhysicalLevelId: 1,
         _activeGameplayEntryMode: 'main',
         _activeSlotRowPolicy: null,
+        _bootstrapOnlyGameplayStartup: false,
         _currentLevelUnlimitedTime: false,
         _firstFunnelTouchSent: false,
         _firstFunnelSelectSent: false,

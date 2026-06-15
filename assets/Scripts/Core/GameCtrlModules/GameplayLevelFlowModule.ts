@@ -34,19 +34,6 @@ import { ensureGameplaySessionController } from '../GameplaySessionController';
 import { ensureGameplayViewController } from '../GameplayViewController';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 
-const WIN_SETTLEMENT_TEXTURE_NAMES = [
-    'popup_frame_soft',
-    'popup_title_badge_blank',
-    'popup_close_button',
-    'popup_reward_card',
-    'popup_primary_button',
-    'popup_secondary_button',
-    'popup_result_time_icon',
-    '金币',
-    '进度条',
-    'progress_fill',
-];
-
 export function installGameplayLevelFlowModule(target: any): void {
     Object.assign(target, {
         scheduleGameAssetsEffectsWarmup(bundle: Bundle, delaySec: number = 1.5) {
@@ -223,9 +210,6 @@ export function installGameplayLevelFlowModule(target: any): void {
             if (this.shouldUseMainlineSlotUI()) {
                 names.push(...MAINLINE_SLOT_TEXTURE_NAMES);
             }
-            if (this.shouldUseMainlineWinSettlementUI()) {
-                names.push(...WIN_SETTLEMENT_TEXTURE_NAMES);
-            }
             if (data.levelId >= 2) {
                 names.push(...SKILL_BUTTON_TEXTURE_NAMES);
             }
@@ -238,9 +222,6 @@ export function installGameplayLevelFlowModule(target: any): void {
             if (this.shouldUseMainlineSlotUI()) {
                 names.push(...MAINLINE_SLOT_TEXTURE_NAMES);
             }
-            if (this.shouldUseMainlineWinSettlementUI()) {
-                names.push(...WIN_SETTLEMENT_TEXTURE_NAMES);
-            }
             if (data.levelId >= 2) {
                 names.push(...SKILL_BUTTON_TEXTURE_NAMES);
             }
@@ -251,7 +232,7 @@ export function installGameplayLevelFlowModule(target: any): void {
             return this.getCriticalGameplayShellTextureNamesForLevel(data).filter((name) => !this.sfCache.has(name));
         },
 
-        prepareCriticalUiTexturesForLevel(data: LevelData | null, callback: () => void) {
+        prepareCriticalUiTexturesForLevel(data: LevelData | null, callback: () => void, options: { bootstrapOnly?: boolean } = {}) {
             const textureNames = this.getCriticalUiTextureNamesForLevel(data);
             if (textureNames.length === 0) {
                 callback();
@@ -262,9 +243,11 @@ export function installGameplayLevelFlowModule(target: any): void {
             const gameAssetsTextureNames = textureNames.filter((name) => !this.shouldUseLocalBootstrapTexture(name, levelId));
             const tasks: Array<(done: () => void) => void> = [];
             if (bootstrapTextureNames.length > 0) {
-                tasks.push((done) => this._preloadBootstrapTextureSet(bootstrapTextureNames, done));
+                tasks.push((done) => options.bootstrapOnly
+                    ? this._preloadBootstrapTextureSetStrict(bootstrapTextureNames, done)
+                    : this._preloadBootstrapTextureSet(bootstrapTextureNames, done));
             }
-            if (gameAssetsTextureNames.length > 0) {
+            if (!options.bootstrapOnly && gameAssetsTextureNames.length > 0) {
                 tasks.push((done) => this._ensureSpriteFramesByName(gameAssetsTextureNames, done));
             }
             if (tasks.length === 0) {
@@ -278,6 +261,29 @@ export function installGameplayLevelFlowModule(target: any): void {
             };
             for (const task of tasks) {
                 task(finishOne);
+            }
+        },
+
+        _preloadBootstrapTextureSetStrict(imgNames: string[], callback: () => void) {
+            if (imgNames.length === 0) {
+                callback();
+                return;
+            }
+            let remaining = imgNames.length;
+            const finishOne = () => {
+                remaining -= 1;
+                if (remaining > 0) return;
+                callback();
+            };
+            for (const imgName of imgNames) {
+                this._loadSpriteFrameFromBootstrapBundle(imgName, (sf) => {
+                    if (sf) {
+                        this._cacheSpriteFrame(sf, imgName);
+                    } else {
+                        console.warn('[bootstrap] critical UI texture missing:', imgName);
+                    }
+                    finishOne();
+                });
             }
         },
 

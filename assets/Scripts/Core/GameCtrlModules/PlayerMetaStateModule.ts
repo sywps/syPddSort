@@ -692,17 +692,17 @@ export function installPlayerMetaStateModule(target: any): void {
                                         return;
                                     }
                                     finalizeModal(false);
-                                    this._adShowing = true;
-                                    this.showTrackedRewardedAd('vigor_recover', (success: boolean) => {
-                                        this._adShowing = false;
-                                        if (success) {
-                                            this.setVigor((this.constructor as any).VIGOR_CEILING);
-                                            this.setVigorTime(0);
-                                            this.refreshVigorUI();
-                                        } else {
-                                            this.showToast('\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u6062\u590d\u4f53\u529b');
-                                        }
-                                        if (onDone) onDone();
+                                    this.runRewardedGrant('vigor_recover', () => {
+                                        this.setVigor((this.constructor as any).VIGOR_CEILING);
+                                        this.setVigorTime(0);
+                                        this.refreshVigorUI();
+                                    }, {
+                                        busyFlag: '_adShowing',
+                                        adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u6062\u590d\u4f53\u529b',
+                                        grantFailToast: '\u4f53\u529b\u6062\u590d\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
+                                        onFinally: () => {
+                                            if (onDone) onDone();
+                                        },
                                     });
                                 });
 
