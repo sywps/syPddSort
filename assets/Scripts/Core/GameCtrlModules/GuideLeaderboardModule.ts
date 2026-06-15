@@ -1,5 +1,5 @@
 import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, view, ResolutionPolicy, tween, Tween, sys,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
@@ -526,14 +526,33 @@ export function installGuideLeaderboardModule(target: any): void {
             this._friendRankScrollPostScheduled = false;
         },
 
+        getLeaderboardHintNode(hintNode: Node, placement: 'top' | 'bottom'): Node {
+            const parent = hintNode.parent;
+            const topNode = parent?.getChildByName('HintAnchor') || hintNode;
+            const bottomNode = parent?.getChildByName('HintBottomAnchor') || topNode;
+            topNode.active = placement === 'top';
+            if (bottomNode !== topNode) {
+                bottomNode.active = placement === 'bottom';
+            }
+            return placement === 'bottom' ? bottomNode : topNode;
+        },
+
         setLeaderboardHintToTop(hintNode: Node) {
-            hintNode.setPosition(0, 248);
-            hintNode.getComponent(UITransform)?.setContentSize(420, 28);
+            this.getLeaderboardHintNode(hintNode, 'top');
         },
 
         setLeaderboardHintToBottom(hintNode: Node) {
-            hintNode.setPosition(0, -474);
-            hintNode.getComponent(UITransform)?.setContentSize(520, 28);
+            this.getLeaderboardHintNode(hintNode, 'bottom');
+        },
+
+        setLeaderboardHintText(hintNode: Node, placement: 'top' | 'bottom', text: string): Label {
+            const targetNode = this.getLeaderboardHintNode(hintNode, placement);
+            const hintLabel = targetNode.getComponent(Label);
+            if (!hintLabel) {
+                throw new Error(`[leaderboard-prefab] missing label on ${targetNode.name}`);
+            }
+            hintLabel.string = text;
+            return hintLabel;
         },
 
         beginLeaderboardTabRequest(tab: 'global' | 'friend'): number {
@@ -547,13 +566,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         resetLeaderboardHintState(hintNode: Node) {
-            this.setLeaderboardHintToTop(hintNode);
-            hintNode.active = true;
-            const hintLabel = hintNode.getComponent(Label);
-            if (hintLabel) {
-                hintLabel.string = '';
-                hintLabel.color = new Color('#8A7A6A');
-            }
+            this.setLeaderboardHintText(hintNode, 'top', '');
         },
 
         async openLeaderboard() {
@@ -594,12 +607,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         showUnsupportedFriendLeaderboard(listNode: Node, selfBox: Node, hintNode: Node) {
-            const hintLabel = hintNode.getComponent(Label);
-            if (hintLabel) {
-                this.setLeaderboardHintToBottom(hintNode);
-                hintLabel.string = '当前平台暂未接入好友排行';
-                hintLabel.color = new Color('#B07B4F');
-            }
+            this.setLeaderboardHintText(hintNode, 'bottom', '当前平台暂未接入好友排行');
         
             setGuideLeaderboardPrefabLabel(listNode, 'FriendRankUnsupported', '好友排行暂不可用');
             setGuideLeaderboardPrefabLabel(listNode, 'FriendRankUnsupportedSub', '全国排行可正常查看，好友排行后续接入当前平台能力');

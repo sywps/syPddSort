@@ -470,6 +470,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
+    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=2;';
     var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
@@ -498,22 +499,17 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
-    if (content.indexOf(releaseLogGateMarker) === -1) {
+    if (content.indexOf(releaseLogGateVersionMarker) === -1) {
         missingLines.push(
             '(function installPddReleaseLogGate(){',
             'if(' + JSON.stringify(buildMode) + '!=="release")return;',
             'var g=typeof globalThis!=="undefined"?globalThis:{};',
             'if(g.__PDD_RELEASE_LOG_GATE_INSTALLED__)return;',
-            'function readQueryFlag(name){',
-            'try{var wxApi=typeof wx!=="undefined"?wx:g.__rawWx;if(wxApi&&wxApi.getLaunchOptionsSync){var q=(wxApi.getLaunchOptionsSync()||{}).query||{};if(String(q[name]||"")==="1")return true;if(name==="debug"&&String(q.ab||"").length>0)return true;}}catch(e){}',
-            'try{var loc=g.location||(typeof window!=="undefined"?window.location:null);var search=String(loc&&loc.search||"");if(search&&new RegExp("(?:^|[?&])"+name+"=1(?:&|$)").test(search))return true;if(name==="debug"&&/(?:^|[?&])ab=/.test(search))return true;}catch(e){}',
-            'return false;',
-            '}',
-            'if(readQueryFlag("debug")||readQueryFlag("log"))return;',
             'var c=typeof console!=="undefined"?console:null;if(!c||c.__pddLogGateInstalled)return;',
             'c.__pddLogGateInstalled=true;c.__pddOriginalLog=c.log;c.__pddOriginalInfo=c.info;c.__pddOriginalDebug=c.debug;c.__pddOriginalWarn=c.warn;',
             'var noop=function(){};c.log=noop;c.info=noop;c.debug=noop;c.warn=noop;',
             releaseLogGateMarker,
+            releaseLogGateVersionMarker,
             '})();'
         );
     }

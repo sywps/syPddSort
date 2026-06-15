@@ -130,6 +130,11 @@ Canvas
 3. 动效调度、tween、视口控制、触发和生命周期。
 4. `scene` / `prefab` 复用逻辑，不重建稳定视觉骨架。
 
+### 5.3.1 弹窗 / 面板 prefab 细则
+弹窗和面板默认遵循“静态视觉归 prefab，运行时状态归代码”的更细边界：固定标题、固定说明文案、按钮文字、按钮皮肤、图标位置、字号、颜色、间距、尺寸、多状态视觉和多业务变体应在 prefab 中可见、可选、可调；代码只负责打开关闭、绑定事件、切换已有状态节点和填动态数据。
+
+详细规范见 `docs/popup-prefab-ownership-v1.md`。
+
 ### 5.4 构建脚本负责
 1. Cocos CLI 构建、平台打包、bundle 校验和主包大小校验。
 2. `main`、`bootstrap`、微信小游戏分包、远程关卡数据边界校验。
@@ -345,15 +350,48 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 ### 13.1 工具优先级
 对于当前 Cocos Creator + localhost preview 项目，默认顺序是：
 
-1. `Browser` 插件：日常本地 smoke。
-2. `playwright` skill：稳定流程的可重复回归。
-3. `Chrome` 插件：依赖真实登录态、已有标签页、扩展或用户特定 profile 的复现。
+1. `Browser` 插件 / in-app Browser：日常本地 smoke，适用于 `localhost`、`127.0.0.1`、`file://`、当前 Codex 内置浏览器标签和普通本地预览。
+2. `playwright` skill：稳定流程的可重复回归，适用于脚本化点击、截图、canvas 视觉检查、控制台错误采集和构建后 web 产物验证。
+3. `Chrome` 插件：只用于用户明确要求 `@chrome`，或必须依赖真实 Chrome profile、已有标签页、登录态、扩展状态的复现。
+4. 微信开发者工具 CLI：微信小游戏平台验证必须使用，适用于 `build/wechatgame` 的真实包结构、分包路径、微信基础库、模拟器 console 和平台 API 行为。
+
+### 13.1.1 Browser / Playwright 本地验证实践
+1. 本地用户可见改动优先用 `Browser` 插件打开真实入口；如果只是自测，不需要把浏览器窗口显式展示给 Human。
+2. 代码或构建变更后，必须 reload 当前本地页面，再采集新的 DOM、console 或截图；不能用旧页面状态证明新改动通过。
+3. 需要稳定复现、截图留证、控制台采集或多步骤交互时，用 `playwright` skill；Playwright 能力来自 Codex skill，不要求项目 `node_modules` 安装 `playwright`。
+4. 如果 `~/.codex/skills/playwright/scripts/playwright_cli.sh` 没有执行权限，可以用 `sh ~/.codex/skills/playwright/scripts/playwright_cli.sh ...` 调用；不要因为 `require.resolve('playwright')` 失败就判定 Playwright 不可用。
+5. `playwright run-code` 传入异步函数表达式，例如 `async (page) => { ... }`；不要传裸 `await page...`，也不要在该入口里依赖动态 `import(...)`。
+6. Cocos canvas 页面必须验证实际画面或运行时状态。对 bundle / scene 问题，优先在页面内用 `cc.assetManager.loadBundle`、`bundle.loadScene`、`cc.director.loadScene` 等运行时 API 验证目标 bundle 和场景，而不是只看页面是否能打开。
+7. 构建后的 web 产物用本地静态服务验证；验证结束后关闭临时服务。`favicon.ico` 这类无关 404 可以记录但不阻断，业务资源、bundle、scene、脚本、贴图缺失必须阻断。
+
+### 13.1.2 Chrome 插件使用边界
+1. Chrome 不是普通本地预览的默认工具；除非 Human 明确要求 Chrome，或问题依赖用户当前 Chrome 的真实 profile 状态，否则不要用 Chrome 替代 Browser / Playwright。
+2. 接管已有 Chrome 标签页时，只能从当前 `openTabs()` 返回结果中选择目标标签并 claim；不要猜 tab id。
+3. Chrome 任务结束前必须 finalize 标签页；只有 Human 需要继续查看或接手的页面才保留。
+4. 不得检查或导出 Chrome cookie、local storage、密码、profile 存储和会话仓库。需要登录态复现时，只验证页面可见行为和 console / network 现象。
+
+### 13.1.3 微信开发者工具验证实践
+1. 先完成对应构建，再打开平台包；debug 验证用 debug 包，release 验证用 release 包，不能用 web preview 代替微信小游戏平台验证。
+2. 打开项目必须传绝对路径。相对路径如 `--project build/wechatgame` 容易在当前进程目录变化时解析错，出现 `project.config` 无效或资源路径误判。
+3. 当前验证过的默认调用方式如下，端口被占用时换一个空闲端口：
+
+```bash
+/Applications/wechatwebdevtools.app/Contents/MacOS/cli open --project /ABS/PROJECT/build/wechatgame --port 34653 --debug
+/Applications/wechatwebdevtools.app/Contents/MacOS/cli auto --project /ABS/PROJECT/build/wechatgame --port 9420 --trust-project --debug
+```
+
+4. 当前微信开发者工具 CLI 的 `auto` 命令使用全局 `--port` 参数；不要沿用旧口径写成 `--auto-port`。
+5. 微信开发者工具自动化通道只作为辅助证据。`miniprogram-automator` 可能出现 `launch/open` 成功但 `evaluate`、截图或 direct connect 超时；这类情况应记录为工具通道受阻，不能据此判定游戏通过，也不能据此判定游戏失败。
+6. 平台验证至少要结合三类证据：模拟器实际画面或系统截图、调试器 console 中红色 error / 新增 error 数、`build/wechatgame` 包内资源和分包文件检查。
+7. 自动截图不稳定时，使用系统截图留证，例如 `screencapture -x temp/wechat-devtools-validation/<case>.png`，并在截图后人工/视觉检查启动画面、目标场景、弹窗或错误状态。
+8. 遇到微信平台专属错误，例如分包文件缺失、`ReadFile:fail no such file or directory`、基础库 API 差异、`game.js` require 路径错误，必须在 `build/wechatgame` 中查真实产物和 `game.json/project.config.json`，不能只修浏览器预览。
+9. 如果开发者工具已打开旧项目，优先用绝对路径重新 open 当前 `build/wechatgame`；必要时先 `close` / `quit` 再打开。除非 Human 要求关闭，否则平台验证后可以保留窗口便于继续观察。
 
 ### 13.2 最低验证要求
 1. 用户可见结果必须实际打开对应入口验证。
 2. console 不应有本次新增 `error`。
 3. 脚本校验通过，或说明为什么本轮不适用。
-4. 如果浏览器、preview、平台环境或构建阻塞，必须明确记录阻塞点，不能把未验证包装成通过。
+4. 如果浏览器、preview、平台环境、自动化通道或构建阻塞，必须明确区分“游戏失败”和“验证工具失败”，记录阻塞点，不能把未验证包装成通过。
 
 ### 13.3 常见变更验证入口
 1. `scene` / `prefab` / 静态 UI 改动：打开受影响入口，检查视觉结果与编辑器保存结果一致。
@@ -364,8 +402,8 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 
 ### 13.4 默认检查顺序
 1. 先看 plain Cocos / web preview。
-2. 再看小游戏本地 debug。
-3. 再构建微信 release。
+2. 再看小游戏本地 debug，并用微信开发者工具 CLI 打开绝对路径 `build/wechatgame` 验证。
+3. 再构建微信 release，并复查 release 包内分包、资源、console 和启动画面。
 4. 再跑远程关卡数据 CDN dry-run。
 5. 最后同步远程关卡数据并看真机 / CDN。
 

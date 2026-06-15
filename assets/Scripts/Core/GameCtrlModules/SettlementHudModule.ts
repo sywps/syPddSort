@@ -133,16 +133,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         calcWinGoldReward(): number {
-            const stats = this.getBoardCompletionStats();
             const rewardCfg = ECONOMY_NUMERIC_TABLE.reward;
-            const boardReward = Math.max(rewardCfg.winGoldMin, Math.ceil(stats.total * rewardCfg.winGoldPerCell));
-            const levelBonus = Math.min(
-                rewardCfg.levelBonusMax,
-                Math.floor(Math.max(0, this.getActiveLogicalLevelId() - 1) / rewardCfg.levelBonusEvery) * rewardCfg.levelBonusStep,
-            );
-            const themeBonus = this._isThemeLevel ? rewardCfg.themeWinGoldBonus : 0;
-            const totalReward = boardReward + levelBonus + themeBonus;
-            return Math.max(1, Math.ceil(totalReward / 2));
+            return Math.max(1, Math.floor(Number(rewardCfg.winGoldMin) || 10));
         },
 
         updateWinRewardLabel(rewardGold: number) {
@@ -169,23 +161,31 @@ export function installSettlementHudModule(target: any): void {
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
             const eligible = !this._isThemeLevel && this._pendingWinAdBonusReward > 0 && !this._settlementNextTransitioning;
-            const useMainlineWin = this.shouldUseMainlineWinSettlementUI();
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
-            const adIcon = adBtn.getChildByName('AdBonusAdIcon');
+            const adIcon = adBtn.getChildByName('AdBonusAdIcon') || coinIcon;
+            const claimedLbl = adBtn.getChildByName('AdBonusClaimedLbl');
         
             adBtn.active = eligible;
             if (!eligible) return;
         
             if (this._winAdRewardClaimed) {
-                if (titleLbl) titleLbl.string = useMainlineWin ? '已领取' : `已加领 ${this._pendingWinAdBonusReward} 金币`;
-                if (subLbl) subLbl.string = useMainlineWin ? '' : '本局 5 倍奖励已到账';
-                if (coinIcon) coinIcon.active = !useMainlineWin;
-                if (adIcon) adIcon.active = !useMainlineWin;
+                if (titleLbl) titleLbl.node.active = false;
+                if (subLbl) subLbl.string = '';
+                if (coinIcon) coinIcon.active = false;
+                if (adIcon) adIcon.active = false;
+                if (claimedLbl) claimedLbl.active = true;
                 if (btn) btn.interactable = false;
                 opacity.opacity = 178;
                 return;
             }
         
+            if (titleLbl) titleLbl.node.active = true;
+            if (subLbl) subLbl.string = '';
+            if (claimedLbl) claimedLbl.active = false;
+            if (coinIcon) coinIcon.active = false;
+            if (adIcon) {
+                adIcon.active = true;
+            }
             if (btn) btn.interactable = true;
             opacity.opacity = 255;
         },
@@ -201,7 +201,7 @@ export function installSettlementHudModule(target: any): void {
             }, {
                 busyFlag: '_adShowing',
                 adFailToast: '广告未完成，未获得加领奖励',
-                successToast: () => `已额外获得 ${this._pendingWinAdBonusReward} 金币`,
+                successToast: () => `额外获取${this._pendingWinAdBonusReward}金币`,
                 grantFailToast: '加领奖励发放失败，请重试',
             });
         },
@@ -310,7 +310,7 @@ export function installSettlementHudModule(target: any): void {
             this._pendingWinGoldReward = this.calcWinGoldReward();
             this._pendingWinAdBonusReward = this._isThemeLevel
                 ? 0
-                : this._pendingWinGoldReward * Math.max(0, ECONOMY_NUMERIC_TABLE.adReward.winBonusMultiplier - 1);
+                : Math.max(0, ECONOMY_NUMERIC_TABLE.adReward.winBonusGold);
             this._winAdRewardClaimed = false;
             this._settlementNextTransitioning = false;
             this.addGold(this._pendingWinGoldReward);

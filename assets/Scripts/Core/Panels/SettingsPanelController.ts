@@ -4,7 +4,6 @@ import {
     Button,
     Node,
     Prefab,
-    Sprite,
     SETTINGS_PANEL_RELEASE_TEXTURE_NAMES,
     SETTINGS_PANEL_TEXTURE_NAMES,
     UITransform,
@@ -17,25 +16,18 @@ const SETTINGS_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/SettingsPanel';
 const SETTINGS_PREFAB_IN_FLIGHT_KEY = 'settings-prefab';
 
 function buildSettingsToggle(runtime: any, parent: Node, initialOn: boolean, onToggle: (v: boolean) => void) {
-    const toggle = parent.getChildByName('PreviewToggleBg');
-    const sprite = toggle?.getComponent(Sprite);
-    if (!toggle || !sprite) {
-        throw new Error('[settings-prefab] missing PreviewToggleBg sprite');
+    const toggle = parent;
+    const onState = parent.getChildByName('ToggleOnState');
+    const offState = parent.getChildByName('ToggleOffState');
+    if (!onState || !offState) {
+        throw new Error('[settings-prefab] missing ToggleOnState/ToggleOffState');
     }
-    const knob = toggle.getChildByName('PreviewToggleKnob');
-    const textNode = toggle.getChildByName('PreviewToggleText');
     let currentOn = initialOn;
     const sync = (on: boolean) => {
         currentOn = on;
         toggle.active = true;
-        const frameName = on ? 'popup_settings_toggle_on' : 'popup_settings_toggle_off';
-        const frame = runtime.getSF(frameName);
-        if (!frame) {
-            throw new Error(`[settings-prefab] missing toggle sprite frame: ${frameName}`);
-        }
-        sprite.spriteFrame = frame;
-        if (knob) knob.active = false;
-        if (textNode) textNode.active = false;
+        onState.active = on;
+        offState.active = !on;
     };
     sync(initialOn);
     toggle.targetOff(runtime);

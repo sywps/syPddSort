@@ -1,7 +1,7 @@
 import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -30,47 +30,6 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 
-function getRankTextColor(rank: number): Color {
-    if (rank === 1) return new Color('#D99A16');
-    if (rank === 2) return new Color('#6D7F9C');
-    if (rank === 3) return new Color('#B97845');
-    return new Color('#5A4A3A');
-}
-
-function syncFriendRankLabelNode(
-    parent: Node,
-    name: string,
-    text: string,
-    fontSize: number,
-    color: Color,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    horizontalAlign: number = Label.HorizontalAlign.CENTER,
-): Label {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    const label = node.getComponent(Label) || node.addComponent(Label);
-    label.string = text;
-    label.fontSize = fontSize;
-    label.lineHeight = Math.max(fontSize + 4, height);
-    label.color = color;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.overflow = Label.Overflow.SHRINK;
-    label.enableWrapText = false;
-    node.active = true;
-    return label;
-}
-
 function requireFriendRankNode(parent: Node, name: string): Node {
     const node = parent.getChildByName(name);
     if (!node) {
@@ -96,22 +55,6 @@ function hideLeaderboardRowTemplate(listNode: Node): void {
         ?.getChildByName('LeaderboardContent')
         ?.getChildByName('LeaderboardRowTemplate');
     if (template) template.active = false;
-}
-
-function paintFriendRankButtonShell(node: Node, fillColor: Color, strokeColor: Color) {
-    const ui = node.getComponent(UITransform);
-    const g = node.getComponent(Graphics) || node.addComponent(Graphics);
-    if (!ui) return;
-    const width = ui.width;
-    const height = ui.height;
-    g.clear();
-    g.fillColor = fillColor;
-    g.roundRect(-width / 2, -height / 2, width, height, 16);
-    g.fill();
-    g.strokeColor = strokeColor;
-    g.lineWidth = 2;
-    g.roundRect(-width / 2, -height / 2, width, height, 16);
-    g.stroke();
 }
 
 export function installFriendRankModule(target: any): void {
@@ -154,12 +97,7 @@ export function installFriendRankModule(target: any): void {
             const isCurrentRequest = () => !requestToken || this.isLeaderboardTabRequestCurrent?.(requestToken) !== false;
             this.resetLeaderboardListState(listNode);
         
-            const hintLabel = hintNode.getComponent(Label);
-            if (hintLabel) {
-                this.setLeaderboardHintToBottom(hintNode);
-                hintLabel.string = '仅展示已提交成绩的微信好友';
-                hintLabel.color = new Color('#B07B4F');
-            }
+            this.setLeaderboardHintText(hintNode, 'bottom', '仅展示已提交成绩的微信好友');
         
             const loadingLabel = setFriendRankPrefabLabel(listNode, 'FriendRankLoading', '加载好友排行中...');
         
@@ -406,12 +344,7 @@ export function installFriendRankModule(target: any): void {
             const wx = this.getWeChatRuntime();
             const openDataContext = this.getWeChatOpenDataContext();
             this.deactivateWeChatFriendRank('show-open-data-reset');
-            const hintLabel = hintNode.getComponent(Label);
-            if (hintLabel) {
-                this.setLeaderboardHintToBottom(hintNode);
-                hintLabel.string = '仅展示已提交成绩的微信好友';
-                hintLabel.color = new Color('#B07B4F');
-            }
+            this.setLeaderboardHintText(hintNode, 'bottom', '仅展示已提交成绩的微信好友');
         
             // 诊断日志
             console.log('[GameCtrl] OpenData diagnostic:');
@@ -424,7 +357,7 @@ export function installFriendRankModule(target: any): void {
             if (!openDataContext?.postMessage || !openDataContext?.canvas) {
                 setFriendRankPrefabLabel(listNode, 'OpenDataNotAvailable', '当前环境不支持好友排行');
                 const dbg = `wx=${!!wx} openDataContext=${!!openDataContext} canvas=${!!openDataContext?.canvas}`;
-                syncFriendRankLabelNode(listNode, 'OpenDataDebug', dbg, 13, new Color('#AA8866'), 420, 24, 0, 60);
+                setFriendRankPrefabLabel(listNode, 'OpenDataDebug', dbg);
                 console.warn('[GameCtrl] openDataContext 不可用. wx:', !!wx, 'openDataContext:', !!openDataContext);
                 return;
             }
@@ -482,19 +415,12 @@ export function installFriendRankModule(target: any): void {
 
         /** 未授权用户在好友排行显示授权按钮 */
         addAuthButtonForGuest(box: Node, overlay: Node, listNode: Node, selfBox: Node, hintNode: Node) {
-            const authHint = syncFriendRankLabelNode(listNode, 'AuthHint', '好友排行需要微信授权', 20, new Color('#8A7A6A'), 360, 30, 0, 160);
-            const authHint2 = syncFriendRankLabelNode(listNode, 'AuthHint2', '点击下方按钮授权后即可查看', 16, new Color('#B09A84'), 360, 24, 0, 130);
-        
-            const authBtn = new Node('AuthBtn');
-            box.addChild(authBtn);
-            authBtn.addComponent(UITransform).setContentSize(320, 56);
-            authBtn.layer = Layers.Enum.UI_2D;
-            authBtn.setPosition(0, -40);
-        
-            paintFriendRankButtonShell(authBtn, new Color('#4CAF50'), new Color('#2F7B33'));
-            syncFriendRankLabelNode(authBtn, 'AuthBtnLabel', '授权微信头像和昵称', 22, Color.WHITE, 260, 32, 0, 0);
-        
-            authBtn.addComponent(Button);
+            const authHint = setFriendRankPrefabLabel(listNode, 'AuthHint', '好友排行需要微信授权').node;
+            const authHint2 = setFriendRankPrefabLabel(listNode, 'AuthHint2', '点击下方按钮授权后即可查看').node;
+            const authBtn = requireFriendRankNode(box, 'GuestAuthBtn');
+            authBtn.active = true;
+            authBtn.targetOff(this);
+            authBtn.getComponent(Button) || authBtn.addComponent(Button);
             authBtn.on(Button.EventType.CLICK, async () => {
                 AudioMgr.inst.play('button');
                 // 将设计分辨率坐标 (720×1280) 转换为屏幕物理像素坐标
@@ -516,15 +442,12 @@ export function installFriendRankModule(target: any): void {
                 const btnScreenH = 56 * scaleY;
                 const ok = await UserMgr.inst.createUserInfoButton(btnScreenX, btnScreenY, btnScreenW, btnScreenH);
                 if (!box.isValid) return;
+                authBtn.active = false;
+                authHint.active = false;
+                authHint2.active = false;
                 if (ok) {
-                    authBtn.destroy();
-                    authHint.destroy();
-                    authHint2.destroy();
                     await this.loadWeChatFriendLeaderboard(box, listNode, hintNode, selfBox);
                 } else {
-                    authBtn.destroy();
-                    authHint.destroy();
-                    authHint2.destroy();
                     this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode);
                 }
             }, this);
@@ -558,12 +481,9 @@ export function installFriendRankModule(target: any): void {
         
             loadingLabel.node.active = false;
         
-            const hintLabel = hintNode.getComponent(Label)!;
-            this.setLeaderboardHintToTop(hintNode);
-            hintLabel.string = result.source === 'wechat-cloud' && result.entries.length === 0
+            this.setLeaderboardHintText(hintNode, 'top', result.source === 'wechat-cloud' && result.entries.length === 0
                 ? '云端排行榜暂时为空'
-                : '';
-            hintLabel.color = new Color('#8A7A6A');
+                : '');
         
             this.resetLeaderboardListState(listNode);
             this.renderLeaderboardRows(listNode, result.entries);
@@ -572,17 +492,10 @@ export function installFriendRankModule(target: any): void {
 
         /** 显示微信授权按钮（保留，用于全服排行的昵称授权） */
         showAuthButton(box: Node, overlay: Node, listNode: Node, selfBox: Node, hintNode: Node) {
-            const authBtn = new Node('AuthBtn');
-            box.addChild(authBtn);
-            authBtn.addComponent(UITransform).setContentSize(300, 60);
-            authBtn.layer = Layers.Enum.UI_2D;
-            authBtn.setPosition(0, 180);
-        
-            // 按钮背景
-            paintFriendRankButtonShell(authBtn, new Color('#4CAF50'), new Color('#2F7B33'));
-            syncFriendRankLabelNode(authBtn, 'AuthBtnLabel', '授权微信头像和昵称', 22, Color.WHITE, 260, 32, 0, 0);
-        
-            authBtn.addComponent(Button);
+            const authBtn = requireFriendRankNode(box, 'AuthBtn');
+            authBtn.active = true;
+            authBtn.targetOff(this);
+            authBtn.getComponent(Button) || authBtn.addComponent(Button);
             authBtn.on(Button.EventType.CLICK, async () => {
                 AudioMgr.inst.play('button');
                 // 将设计分辨率坐标转换为屏幕物理像素坐标
@@ -604,29 +517,24 @@ export function installFriendRankModule(target: any): void {
                     const lvl = profile.lastLevelId || 1;
                     void LeaderboardMgr.inst.submitProgress(lvl, profile);
                     // 重新加载排行榜
-                    authBtn.destroy();
+                    authBtn.active = false;
                     this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode);
                 } else {
                     // 授权失败，隐藏按钮，显示普通内容
-                    authBtn.destroy();
+                    authBtn.active = false;
                     this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode);
                 }
             }, this);
         
-            // 跳过按钮
-            const skipBtn = new Node('SkipAuthBtn');
-            box.addChild(skipBtn);
-            skipBtn.addComponent(UITransform).setContentSize(300, 44);
-            skipBtn.layer = Layers.Enum.UI_2D;
-            skipBtn.setPosition(0, 110);
-        
-            syncFriendRankLabelNode(skipBtn, 'SkipAuthLabel', '暂不授权，使用游客昵称', 16, new Color('#8A7A6A'), 260, 24, 0, 0);
-            skipBtn.addComponent(Button);
+            const skipBtn = requireFriendRankNode(box, 'SkipAuthBtn');
+            skipBtn.active = true;
+            skipBtn.targetOff(this);
+            skipBtn.getComponent(Button) || skipBtn.addComponent(Button);
             skipBtn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 if (!overlay.isValid) return;
-                authBtn.destroy();
-                skipBtn.destroy();
+                authBtn.active = false;
+                skipBtn.active = false;
                 this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode);
             }, this);
         },
@@ -641,16 +549,10 @@ export function installFriendRankModule(target: any): void {
             entry: RankListEntry,
             y: number,
             rowIndex: number,
-            options?: { badgeText?: string; badgeColor?: Color; rowColor?: Color },
+            options?: { badgeText?: string },
         ) {
             const badgeText = options?.badgeText ?? `${entry.rank}`;
             const displayName = entry.displayName || '微信用户';
-            const rowWidth = 542;
-            const rowOffsetX = 2;
-            const rankColumnX = -218;
-            const avatarColumnX = -139;
-            const nameColumnX = -2;
-            const progressColumnX = 166;
             const existingRow = parent.getChildByName(`${nodePrefix}Row`);
             const rowTemplate = parent.getChildByName('LeaderboardRowTemplate');
             if (!rowTemplate) {
@@ -664,46 +566,27 @@ export function installFriendRankModule(target: any): void {
                 resolvedRow.layer = parent.layer || Layers.Enum.UI_2D;
             }
             resolvedRow.active = true;
-            (resolvedRow.getComponent(UITransform) || resolvedRow.addComponent(UITransform)).setContentSize(rowWidth, 78);
-            resolvedRow.setPosition(rowOffsetX, y, 0);
-            let bgNode = resolvedRow.getChildByName('RowBg') || resolvedRow.getChildByName(`${nodePrefix}Bg`);
-            if (!bgNode) throw new Error('[leaderboard-prefab] missing row background node');
-            bgNode.name = `${nodePrefix}Bg`;
-            bgNode.setPosition(0, 0, 0);
-            (bgNode.getComponent(UITransform) || bgNode.addComponent(UITransform)).setContentSize(rowWidth, 78);
+            resolvedRow.setPosition(rowTemplate.position.x, y, rowTemplate.position.z);
 
-            const badgeTemplate = resolvedRow.getChildByName('BadgeLbl');
-            if (badgeTemplate) badgeTemplate.name = `${nodePrefix}BadgeLbl`;
-            const nameTemplate = resolvedRow.getChildByName('Name');
-            if (nameTemplate) nameTemplate.name = `${nodePrefix}Name`;
-            const progressTemplate = resolvedRow.getChildByName('Progress');
-            if (progressTemplate) progressTemplate.name = `${nodePrefix}Progress`;
-        
-            const badge = syncFriendRankLabelNode(resolvedRow, `${nodePrefix}BadgeLbl`, badgeText, 22, getRankTextColor(entry.rank), 70, 32, rankColumnX, 0);
-            badge.horizontalAlign = Label.HorizontalAlign.CENTER;
-        
-            let avatarNode = resolvedRow.getChildByName('Avatar') || resolvedRow.getChildByName(`${nodePrefix}Avatar`);
-            if (!avatarNode) throw new Error('[leaderboard-prefab] missing avatar node');
-            avatarNode.name = `${nodePrefix}Avatar`;
-            (avatarNode.getComponent(UITransform) || avatarNode.addComponent(UITransform)).setContentSize(44, 44);
-            avatarNode.setPosition(avatarColumnX, 0, 0);
-            this.loadAvatarToNode(entry.avatarUrl, avatarNode, 44, 44, displayName);
-        
-            const nameLabel = syncFriendRankLabelNode(resolvedRow, `${nodePrefix}Name`, displayName, 20, new Color('#4C331D'), 190, 30, nameColumnX, 0, Label.HorizontalAlign.LEFT);
-            nameLabel.horizontalAlign = Label.HorizontalAlign.LEFT;
-            nameLabel.overflow = Label.Overflow.SHRINK;
-        
-            const progressLabel = syncFriendRankLabelNode(resolvedRow, `${nodePrefix}Progress`, `第${entry.progressLevel}关`, 20, new Color('#5E4326'), 118, 30, progressColumnX, 0);
-            progressLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-            progressLabel.overflow = Label.Overflow.SHRINK;
+            const badge = requireFriendRankNode(resolvedRow, 'BadgeLbl').getComponent(Label);
+            if (!badge) throw new Error('[leaderboard-prefab] missing BadgeLbl label');
+            badge.string = badgeText;
+
+            const avatarNode = requireFriendRankNode(resolvedRow, 'Avatar');
+            const avatarSize = avatarNode.getComponent(UITransform)?.contentSize;
+            this.loadAvatarToNode(entry.avatarUrl, avatarNode, avatarSize?.width || 44, avatarSize?.height || 44, displayName);
+
+            const nameLabel = requireFriendRankNode(resolvedRow, 'Name').getComponent(Label);
+            if (!nameLabel) throw new Error('[leaderboard-prefab] missing Name label');
+            nameLabel.string = displayName;
+
+            const progressLabel = requireFriendRankNode(resolvedRow, 'Progress').getComponent(Label);
+            if (!progressLabel) throw new Error('[leaderboard-prefab] missing Progress label');
+            progressLabel.string = `第${entry.progressLevel}关`;
         },
 
         renderLeaderboardRows(parent: Node, entries: RankListEntry[]) {
             this.resetLeaderboardListState(parent);
-            const parentTransform = parent.getComponent(UITransform);
-            const viewW = parentTransform?.width || 620;
-            const viewH = parentTransform?.height || 690;
-            parentTransform?.setContentSize(viewW, viewH);
             hideLeaderboardRowTemplate(parent);
         
             if (!entries.length) {
@@ -714,11 +597,8 @@ export function installFriendRankModule(target: any): void {
         
             const rowPitch = 84;
             const rowHeight = 78;
-            const viewportH = Math.max(280, viewH - 60);
-            const viewportY = -34;
             const topPadding = 18;
             const bottomPadding = 8;
-            const totalH = Math.max(viewportH, topPadding + bottomPadding + entries.length * rowPitch);
 
             const headerBg = requireFriendRankNode(parent, 'LeaderboardHeaderBg');
             headerBg.active = true;
@@ -730,9 +610,12 @@ export function installFriendRankModule(target: any): void {
             const viewport = parent.getChildByName('LeaderboardViewport');
             if (!viewport) throw new Error('[leaderboard-prefab] missing LeaderboardViewport');
             viewport.active = true;
-            viewport.setPosition(0, viewportY, 0);
-            (viewport.getComponent(UITransform) || viewport.addComponent(UITransform)).setContentSize(viewW, viewportH);
+            const viewportTransform = viewport.getComponent(UITransform);
+            if (!viewportTransform) throw new Error('[leaderboard-prefab] LeaderboardViewport is missing UITransform');
+            const viewW = viewportTransform.width || viewportTransform.contentSize.width;
+            const viewportH = Math.max(1, viewportTransform.height || viewportTransform.contentSize.height);
             (viewport.getComponent(Mask) || viewport.addComponent(Mask)).type = Mask.Type.GRAPHICS_RECT;
+            const totalH = Math.max(viewportH, topPadding + bottomPadding + entries.length * rowPitch);
 
             const content = viewport.getChildByName('LeaderboardContent');
             if (!content) throw new Error('[leaderboard-prefab] missing LeaderboardContent');
@@ -753,8 +636,21 @@ export function installFriendRankModule(target: any): void {
         },
 
         clearLeaderboardAuthButtons(box: Node) {
-            box.getChildByName('AuthBtn')?.destroy();
-            box.getChildByName('SkipAuthBtn')?.destroy();
+            const authBtn = box.getChildByName('AuthBtn');
+            const guestAuthBtn = box.getChildByName('GuestAuthBtn');
+            const skipBtn = box.getChildByName('SkipAuthBtn');
+            if (authBtn) {
+                authBtn.targetOff(this);
+                authBtn.active = false;
+            }
+            if (guestAuthBtn) {
+                guestAuthBtn.targetOff(this);
+                guestAuthBtn.active = false;
+            }
+            if (skipBtn) {
+                skipBtn.targetOff(this);
+                skipBtn.active = false;
+            }
         },
     });
 }

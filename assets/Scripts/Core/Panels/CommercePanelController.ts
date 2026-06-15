@@ -2,23 +2,40 @@ import {
     AudioMgr,
     BlockInputEvents,
     Bundle,
-    Button,
-    Color,
     DAILY_SIGNIN_RELEASE_TEXTURE_NAMES,
     DAILY_SIGNIN_TEXTURE_NAMES,
     ECONOMY_NUMERIC_TABLE,
     EventTouch,
-    GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES,
     Label,
     Node,
     Prefab,
-    Sprite,
+    RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
+    RESOURCE_ACQUIRE_TEXTURE_NAMES,
     UITransform,
     Vec3,
     instantiate,
 } from '../GameCtrlShared';
-import type { DailySignInReward } from '../GameCtrlShared';
+import type { DailySignInReward, InventoryPropKind } from '../GameCtrlShared';
+
+type ToolAcquireKind = Exclude<InventoryPropKind, 'expand'>;
+type ResourceAcquireVariant = ToolAcquireKind | 'gold';
+
+type ResourceAcquireOptions = {
+    variant: ResourceAcquireVariant;
+    panelKey: string;
+    overlayName: string;
+    adType: string;
+    successToast: string | (() => string);
+    grantFailToast: string;
+    onAdGrant: () => void;
+    buyLabel?: string;
+    goldAmountText?: string;
+    onBuy?: () => boolean;
+    resumeTimerOnClose?: boolean;
+    onInventoryChanged?: () => void;
+};
+
+const ACQUIRE_RESOURCE_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/AcquireResourcePanel';
 
 function syncPrefabPopupTitle(box: Node, title: string): void {
     const badge = box.getChildByName('PopupTitleBadge');
@@ -47,140 +64,255 @@ function syncRequiredPrefabLabel(parent: Node, childName: string, text: string, 
 export class CommercePanelController {
     constructor(private readonly runtime: any) {}
 
-    openGoldShop() {
+    private setAcquireVariantActive(parent: Node, activeName: string, names: string[]): void {
+        for (const name of names) {
+            const node = this.runtime.requirePanelChild(parent, name);
+            node.active = name === activeName;
+        }
+    }
+
+    private setAcquireLabelText(parent: Node, childName: string, text: string): Label {
+        const label = syncRequiredPrefabLabel(parent, childName, text, '[resource-acquire-prefab]');
+        label.enableWrapText = false;
+        return label;
+    }
+
+    private syncAcquireVariant(box: Node, options: ResourceAcquireOptions): void {
+        const runtime = this.runtime;
+        const titleBadge = runtime.requirePanelChild(box, 'PopupTitleBadge');
+        const titleByVariant: Record<ResourceAcquireVariant, string> = {
+            gold: 'TitleGold',
+            wand: 'TitleWand',
+            brush: 'TitleBrush',
+            magnet: 'TitleMagnet',
+        };
+        const iconByVariant: Record<ResourceAcquireVariant, string> = {
+            gold: 'IconGold',
+            wand: 'IconWand',
+            brush: 'IconBrush',
+            magnet: 'IconMagnet',
+        };
+        const textByVariant: Record<ResourceAcquireVariant, string> = {
+            gold: 'GoldAmountLabel',
+            wand: 'TextWand',
+            brush: 'TextBrush',
+            magnet: 'TextMagnet',
+        };
+        this.setAcquireVariantActive(titleBadge, titleByVariant[options.variant], ['TitleGold', 'TitleWand', 'TitleBrush', 'TitleMagnet']);
+        this.setAcquireVariantActive(box, iconByVariant[options.variant], ['IconGold', 'IconWand', 'IconBrush', 'IconMagnet']);
+        this.setAcquireVariantActive(box, textByVariant[options.variant], ['GoldAmountLabel', 'TextWand', 'TextBrush', 'TextMagnet']);
+
+        const goldDesc = runtime.requirePanelChild(box, 'GoldDesc');
+        const toolBuyBtn = runtime.requirePanelChild(box, 'AcquireBuyBtn');
+        const toolAdBtn = runtime.requirePanelChild(box, 'AcquireAdBtn');
+        const goldAdBtn = runtime.requirePanelChild(box, 'AcquireGoldAdBtn');
+        const cancelBtn = runtime.requirePanelChild(box, 'AcquireCancelBtn');
+        const isGold = options.variant === 'gold';
+        goldDesc.active = isGold;
+        toolBuyBtn.active = !isGold;
+        toolAdBtn.active = !isGold;
+        goldAdBtn.active = isGold;
+        cancelBtn.active = false;
+
+        if (isGold) {
+            this.setAcquireLabelText(box, 'GoldAmountLabel', options.goldAmountText || '');
+            return;
+        }
+        if (!options.buyLabel) {
+            throw new Error('[resource-acquire-prefab] tool acquire panel requires buyLabel');
+        }
+        this.setAcquireLabelText(toolBuyBtn, 'AcquireBuyLbl', options.buyLabel);
+    }
+
+    private openResourceAcquirePanel(options: ResourceAcquireOptions): boolean {
         const runtime = this.runtime;
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
-        if (popupRoot.getChildByName('GoldShopOverlay') || runtime._goldShopOpening) return;
-        runtime._goldShopOpening = true;
-        const prefabPath = 'UI/Prefabs/Panels/GoldShopPanel';
-        const rewardedGold = ECONOMY_NUMERIC_TABLE.adReward.goldShopReward;
-        runtime._ensureSpriteFramesByName(GOLD_SHOP_TEXTURE_NAMES, () => {
-            runtime._goldShopOpening = false;
-            if (popupRoot.getChildByName('GoldShopOverlay')) return;
+        const isAlreadyOpen = () => !!popupRoot.getChildByName(options.overlayName);
+        if (RESOURCE_ACQUIRE_TEXTURE_NAMES.some((name: string) => !runtime.getSF(name))) {
+            runtime._openPanelAfterTextures(options.panelKey, RESOURCE_ACQUIRE_TEXTURE_NAMES, isAlreadyOpen, () => {
+                this.openResourceAcquirePanel(options);
+            });
+            return true;
+        }
+        if (isAlreadyOpen()) return false;
+        const prefabLoadKey = `${options.panelKey}-prefab`;
+        if (runtime._panelOpenInFlight.has(prefabLoadKey)) return false;
+        runtime._panelOpenInFlight.add(prefabLoadKey);
+        let modalFocusActive = false;
 
-            const buyRows = [
-                { title: '补满体力', desc: `恢复到 ${(runtime.constructor as any).VIGOR_CEILING}/${(runtime.constructor as any).VIGOR_CEILING}`, cost: ECONOMY_NUMERIC_TABLE.purchaseCost.fullVigor, priceText: `${ECONOMY_NUMERIC_TABLE.purchaseCost.fullVigor} 金币`, icon: 'vigor' as const, onBuy: () => { if (runtime.getVigor() >= (runtime.constructor as any).VIGOR_CEILING) { runtime.showToast('体力已经满了'); return false; } runtime.setVigor((runtime.constructor as any).VIGOR_CEILING); runtime.setVigorTime(0); runtime.refreshVigorUI(); runtime.showToast('体力已补满'); return true; } },
-                { title: '魔法棒 x1', desc: '框选区域后豆子自动归位', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.magicWand, priceText: `${ECONOMY_NUMERIC_TABLE.purchaseCost.magicWand} 金币`, icon: 'wand' as const, onBuy: () => { runtime.addPropCount('wand', 1); runtime.showToast('已购买魔法棒'); return true; } },
-                { title: '刷子 x1', desc: '清空暂存槽并归位豆子', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.brush, priceText: `${ECONOMY_NUMERIC_TABLE.purchaseCost.brush} 金币`, icon: 'brush' as const, onBuy: () => { runtime.addPropCount('brush', 1); runtime.showToast('已购买刷子'); return true; } },
-                { title: '磁铁 x1', desc: '吸附一种颜色并快速归位', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.magnet, priceText: `${ECONOMY_NUMERIC_TABLE.purchaseCost.magnet} 金币`, icon: 'magnet' as const, onBuy: () => { runtime.addPropCount('magnet', 1); runtime.showToast('已购买磁铁'); return true; } },
-            ];
+        const beginAcquireModalFocus = () => {
+            if (modalFocusActive) return;
+            modalFocusActive = true;
+            runtime.beginModalFocus?.('resource-acquire');
+        };
 
-            const requireStaticShopItemIcon = (parent: Node, icon: 'ad' | 'vigor' | 'wand' | 'brush' | 'magnet') => {
-                const iconNode = runtime.requirePanelChild(parent, 'PreviewIcon');
-                const iconSprite = iconNode.getComponent(Sprite);
-                if (!iconSprite || !iconSprite.spriteFrame) {
-                    throw new Error(`[gold-shop-prefab] missing static PreviewIcon SpriteFrame for ${icon}`);
-                }
-                const iconTransform = iconNode.getComponent(UITransform);
-                if (!iconTransform || iconTransform.contentSize.width <= 0 || iconTransform.contentSize.height <= 0) {
-                    throw new Error(`[gold-shop-prefab] missing static PreviewIcon size for ${icon}`);
-                }
-                const label = iconNode.getComponent(Label);
-                if (label?.enabled && label.string.trim()) {
-                    throw new Error(`[gold-shop-prefab] PreviewIcon for ${icon} must be an image, not text`);
-                }
-                return iconNode;
-            };
+        const endAcquireModalFocus = () => {
+            if (!modalFocusActive) return;
+            modalFocusActive = false;
+            runtime.endModalFocus?.('resource-acquire');
+        };
 
-            const failOpen = (message: string, overlay?: Node | null) => {
-                if (overlay?.isValid) {
-                    runtime._clearSpriteFramesBeforeDestroy(overlay);
-                    overlay.destroy();
-                }
-                runtime._shopGoldLbl = null;
-                runtime._releasePanelTexturesNextFrame(GOLD_SHOP_RELEASE_TEXTURE_NAMES, 'gold-shop-open-failed');
-                console.error(message);
-            };
+        const failOpen = (message: string, overlay?: Node | null) => {
+            runtime._panelOpenInFlight.delete(prefabLoadKey);
+            if (overlay?.isValid) {
+                runtime._clearSpriteFramesBeforeDestroy(overlay);
+                overlay.destroy();
+            }
+            endAcquireModalFocus();
+            if (options.resumeTimerOnClose) {
+                runtime.resumeTimerForProp?.();
+            }
+            runtime._releasePanelTexturesNextFrame(RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES, 'resource-acquire-open-failed');
+            console.error(message);
+        };
 
-            runtime._withGameAssetsBundle((bundle: Bundle | null) => {
-                if (!bundle) { failOpen('[gold-shop-prefab] gameAssets bundle unavailable'); return; }
-                bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
-                    if (err || !prefab) { failOpen(`[gold-shop-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
-                    let overlay: Node | null = null;
-                    try {
-                        overlay = instantiate(prefab);
-                        overlay.name = 'GoldShopOverlay';
-                        popupRoot.addChild(overlay);
-                        overlay.setSiblingIndex(998);
-                        if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
-
-                        const closeShop = () => {
-                            if (!overlay?.isValid) return;
-                            AudioMgr.inst.play('button');
-                            runtime._shopGoldLbl = null;
-                            runtime._destroyPanelAndReleaseTextures(overlay, GOLD_SHOP_RELEASE_TEXTURE_NAMES, 'gold-shop');
-                        };
-
-                        const box = runtime.requirePanelChild(overlay, 'Box');
-                        syncPrefabPopupTitle(box, '商城');
-                        if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
-                        overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
-                            const boxUT = box.getComponent(UITransform);
-                            if (!boxUT) return;
-                            const uiPos = e.getUILocation();
-                            const local = boxUT.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
-                            const size = boxUT.contentSize;
-                            if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) return;
-                            closeShop();
-                        }, runtime);
-
-                        runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), closeShop);
-                        const goldAnchor = runtime.requirePanelChild(box, 'GoldBalanceAnchor');
-                        (goldAnchor.getComponent(UITransform) || goldAnchor.addComponent(UITransform)).setContentSize(154, 42);
-                        const goldIcon = runtime.requirePanelChild(goldAnchor, 'GoldBalanceIcon');
-                        const goldIconSprite = goldIcon.getComponent(Sprite);
-                        if (!goldIconSprite?.spriteFrame) {
-                            throw new Error('[gold-shop-prefab] missing static GoldBalanceIcon SpriteFrame');
-                        }
-                        const goldLabel = syncRequiredPrefabLabel(goldAnchor, 'GoldBalanceLbl', `${runtime.getGold()}`, '[gold-shop-prefab]');
-                        runtime._shopGoldLbl = goldLabel;
-
-                        const adRow = runtime.requirePanelChild(box, 'AdRow');
-                        const adIconPlate = runtime.requirePanelChild(adRow, 'AdIconPlate');
-                        requireStaticShopItemIcon(adIconPlate, 'ad');
-                        runtime.fillPanelAnchorLabel(runtime.requirePanelChild(adRow, 'AdTitleAnchor'), 'GoldShopAdTitle', `看广告领 ${rewardedGold} 金币`, 25, new Color('#5A4A3A'), 248, 34, Label.HorizontalAlign.LEFT);
-                        runtime.fillPanelAnchorLabel(runtime.requirePanelChild(adRow, 'AdDescAnchor'), 'GoldShopAdDesc', '完整看完自动到账', 17, new Color('#8A7A6A'), 258, 28, Label.HorizontalAlign.LEFT);
-                        const adButton = runtime.requirePanelChild(adRow, 'AdButton');
-                        syncRequiredPrefabLabel(adButton, 'AdButtonLabel', '立即领取', '[gold-shop-prefab]');
-                        runtime.bindPanelButton(adButton, () => {
-                            AudioMgr.inst.play('button');
-                            runtime.runRewardedGrant('gold_shop_reward', () => {
-                                runtime.addGold(rewardedGold);
-                            }, {
-                                busyFlag: '_adShowing',
-                                successToast: () => `已获得 ${rewardedGold} 金币`,
-                                grantFailToast: '金币领取失败，请重试',
-                            });
-                        });
-
-                        for (let i = 0; i < buyRows.length; i++) {
-                            const row = buyRows[i];
-                            const rowNode = runtime.requirePanelChild(box, `ItemRow${i}`);
-                            requireStaticShopItemIcon(runtime.requirePanelChild(rowNode, 'IconPlate'), row.icon);
-                            runtime.fillPanelAnchorLabel(runtime.requirePanelChild(rowNode, 'TitleAnchor'), `GoldShopRowTitle${i}`, row.title, 24, new Color('#5A4A3A'), 238, 32, Label.HorizontalAlign.LEFT);
-                            runtime.fillPanelAnchorLabel(runtime.requirePanelChild(rowNode, 'DescAnchor'), `GoldShopRowDesc${i}`, row.desc, 16, new Color('#8A7A6A'), 252, 26, Label.HorizontalAlign.LEFT);
-                            const buyButton = runtime.requirePanelChild(rowNode, 'BuyButton');
-                            syncRequiredPrefabLabel(buyButton, 'BuyButtonLabel', row.priceText, '[gold-shop-prefab]');
-                            runtime.bindPanelButton(buyButton, () => {
-                                AudioMgr.inst.play('button');
-                                if (!runtime.spendGold(row.cost)) { runtime.showToast(`金币不足，还差 ${row.cost - runtime.getGold()} 金币`); return; }
-                                if (!row.onBuy()) { runtime.addGold(row.cost); return; }
-                                runtime.refreshGoldUI();
-                            });
-                        }
-                        for (let i = buyRows.length; i < 5; i++) {
-                            const unusedRow = box.getChildByName(`ItemRow${i}`);
-                            if (unusedRow?.isValid) unusedRow.active = false;
-                        }
-
-                        runtime.refreshGoldUI();
-                        runtime.playPopupOpenAnim?.(overlay, box);
-                    } catch (error: any) {
-                        failOpen(error?.message || '[gold-shop-prefab] build failed', overlay);
+        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!bundle) { failOpen('[resource-acquire-prefab] gameAssets bundle unavailable'); return; }
+            bundle.load(ACQUIRE_RESOURCE_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                runtime._panelOpenInFlight.delete(prefabLoadKey);
+                if (err || !prefab) { failOpen(`[resource-acquire-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
+                let overlay: Node | null = null;
+                let closed = false;
+                const closePanel = (resumeTimer = !!options.resumeTimerOnClose, playSound = true) => {
+                    if (closed) return;
+                    closed = true;
+                    if (playSound) AudioMgr.inst.play('button');
+                    if (overlay?.isValid) {
+                        runtime._destroyPanelAndReleaseTextures(overlay, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES, 'resource-acquire');
                     }
-                });
+                    endAcquireModalFocus();
+                    if (resumeTimer) {
+                        runtime.resumeTimerForProp?.();
+                    }
+                };
+
+                try {
+                    overlay = instantiate(prefab);
+                    overlay.name = options.overlayName;
+                    popupRoot.addChild(overlay);
+                    overlay.setSiblingIndex(999);
+                    if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
+                    beginAcquireModalFocus();
+
+                    const box = runtime.requirePanelChild(overlay, 'Box');
+                    this.syncAcquireVariant(box, options);
+                    if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
+                    overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
+                        const boxUT = box.getComponent(UITransform);
+                        if (!boxUT) return;
+                        const uiPos = e.getUILocation();
+                        const local = boxUT.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
+                        const size = boxUT.contentSize;
+                        if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) {
+                            e.propagationStopped = true;
+                            return;
+                        }
+                        closePanel();
+                    }, runtime);
+
+                    runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), () => closePanel());
+
+                    const buyBtn = runtime.requirePanelChild(box, 'AcquireBuyBtn');
+                    const adBtn = runtime.requirePanelChild(box, 'AcquireAdBtn');
+                    const goldAdBtn = runtime.requirePanelChild(box, 'AcquireGoldAdBtn');
+                    const activeAdBtn = options.variant === 'gold' ? goldAdBtn : adBtn;
+
+                    if (options.onBuy && options.buyLabel) {
+                        runtime.bindPanelButton(buyBtn, () => {
+                            AudioMgr.inst.play('button');
+                            if (!options.onBuy?.()) return;
+                            options.onInventoryChanged?.();
+                            closePanel(!!options.resumeTimerOnClose, false);
+                        });
+                    }
+
+                    runtime.bindPanelButton(activeAdBtn, () => {
+                        if (runtime._adShowing) return;
+                        AudioMgr.inst.play('button');
+                        const started = runtime.runRewardedGrant(options.adType, () => {
+                            options.onAdGrant();
+                            options.onInventoryChanged?.();
+                        }, {
+                            busyFlag: '_adShowing',
+                            waitForCloseBeforeComplete: true,
+                            successToast: options.successToast,
+                            grantFailToast: options.grantFailToast,
+                            onFinally: () => {
+                                if (options.resumeTimerOnClose) {
+                                    runtime.resumeTimerForProp?.();
+                                }
+                            },
+                        });
+                        if (started) {
+                            closePanel(false, false);
+                        }
+                    });
+
+                    runtime.playPopupOpenAnim?.(overlay, box);
+                } catch (error: any) {
+                    failOpen(error?.message || '[resource-acquire-prefab] build failed', overlay);
+                }
             });
         });
+        return true;
+    }
+
+    openGoldAcquirePanel(): boolean {
+        const rewardedGold = ECONOMY_NUMERIC_TABLE.adReward.goldShopReward;
+        return this.openResourceAcquirePanel({
+            variant: 'gold',
+            panelKey: 'gold-acquire',
+            overlayName: 'GoldAcquireOverlay',
+            goldAmountText: `金币 x${rewardedGold}`,
+            adType: 'gold_acquire_reward',
+            successToast: () => `已获得 ${rewardedGold} 金币`,
+            grantFailToast: '金币领取失败，请重试',
+            onAdGrant: () => {
+                this.runtime.addGold(rewardedGold);
+                this.runtime.refreshGoldUI?.();
+            },
+        });
+    }
+
+    private getToolAcquireMeta(kind: ToolAcquireKind): { itemLabel: string; cost: number; adType: string } {
+        if (kind === 'wand') {
+            return { itemLabel: '魔法棒', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.magicWand, adType: 'skill_wand_acquire' };
+        }
+        if (kind === 'brush') {
+            return { itemLabel: '刷子', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.brush, adType: 'skill_brush_acquire' };
+        }
+        return { itemLabel: '磁铁', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.magnet, adType: 'skill_magnet_acquire' };
+    }
+
+    openToolAcquirePanel(kind: ToolAcquireKind, options: { resumeTimerOnClose?: boolean; onInventoryChanged?: () => void } = {}): boolean {
+        const meta = this.getToolAcquireMeta(kind);
+        return this.openResourceAcquirePanel({
+            variant: kind,
+            panelKey: `tool-acquire-${kind}`,
+            overlayName: `ToolAcquireOverlay_${kind}`,
+            buyLabel: `${meta.cost}`,
+            adType: meta.adType,
+            successToast: () => `已获得 ${meta.itemLabel} x1`,
+            grantFailToast: `${meta.itemLabel}领取失败，请重试`,
+            resumeTimerOnClose: options.resumeTimerOnClose,
+            onInventoryChanged: options.onInventoryChanged,
+            onBuy: () => {
+                if (!this.runtime.spendGold(meta.cost)) {
+                    this.runtime.showToast(`金币不足，还差 ${meta.cost - this.runtime.getGold()} 金币`);
+                    return false;
+                }
+                this.runtime.addPropCount(kind, 1);
+                this.runtime.showToast(`已获得 ${meta.itemLabel} x1`);
+                return true;
+            },
+            onAdGrant: () => {
+                this.runtime.addPropCount(kind, 1);
+            },
+        });
+    }
+
+    openGoldShop(): boolean {
+        return this.openGoldAcquirePanel();
     }
 
     openDailySignInPanel() {

@@ -802,7 +802,7 @@ export function installHomeAdFlowModule(target: any): void {
             parent.getComponent(Button) || parent.addComponent(Button);
             parent.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
-                this.openGoldShop();
+                this.openGoldAcquirePanel();
             }, this);
             this.refreshGoldUI();
         },

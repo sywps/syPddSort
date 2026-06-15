@@ -1,9 +1,6 @@
 import {
     AudioMgr,
     Button,
-    Color,
-    ECONOMY_NUMERIC_TABLE,
-    Graphics,
     Label,
     Layers,
     LS_SKILL_BROOM_USED,
@@ -124,25 +121,31 @@ export class GameplaySkillUiController {
         return adPlayIcon;
     }
 
-    private runAfterAdUiSettled(callback: () => void): void {
-        const runtime = this.runtime;
-        const run = () => {
-            if (!runtime?.isValid) return;
-            callback();
-        };
-        if (typeof runtime?.scheduleOnce === 'function') {
-            runtime.scheduleOnce(run, 0.12);
-            return;
+    private requireSkillSpriteFrame(frameName: string, fallbackFrame: any = null) {
+        const frame = this.runtime.getSF(frameName) || fallbackFrame;
+        if (!frame) {
+            throw new Error(`[GameplayScene] missing skill SpriteFrame: ${frameName}`);
         }
-        run();
+        return frame;
+    }
+
+    private applySkillBadgeSprite(node: Node, frameName: string, width: number, height: number): void {
+        const transform = node.getComponent(UITransform);
+        if (!transform) {
+            throw new Error(`[GameplayScene] ${node.name} is missing UITransform`);
+        }
+        const sprite = node.getComponent(Sprite) || node.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        sprite.spriteFrame = this.requireSkillSpriteFrame(frameName, sprite.spriteFrame);
+        transform.setContentSize(width, height);
     }
 
     buildSkillButtons(root: Node) {
         const runtime = this.runtime;
         const skills = [
-            { kind: 'wand' as const, label: '魔法棒', unlockLevel: SKILL_UNLOCK_WAND, lsKey: LS_SKILL_WAND_USED, goldCost: ECONOMY_NUMERIC_TABLE.purchaseCost.magicWand, adType: 'skill_魔法棒', handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearArea(timerAlreadyPaused) },
-            { kind: 'brush' as const, label: '刷子', unlockLevel: SKILL_UNLOCK_BROOM, lsKey: LS_SKILL_BROOM_USED, goldCost: ECONOMY_NUMERIC_TABLE.purchaseCost.brush, adType: 'skill_刷子', preCheck: () => runtime.slotHasBeans(), handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearSlot(timerAlreadyPaused) },
-            { kind: 'magnet' as const, label: '磁铁', unlockLevel: SKILL_UNLOCK_MAGNET, lsKey: LS_SKILL_MAGNET_USED, goldCost: ECONOMY_NUMERIC_TABLE.purchaseCost.magnet, adType: 'skill_磁铁', handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearColor(timerAlreadyPaused) },
+            { kind: 'wand' as const, label: '魔法棒', unlockLevel: SKILL_UNLOCK_WAND, lsKey: LS_SKILL_WAND_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearArea(timerAlreadyPaused) },
+            { kind: 'brush' as const, label: '刷子', unlockLevel: SKILL_UNLOCK_BROOM, lsKey: LS_SKILL_BROOM_USED, preCheck: () => runtime.slotHasBeans(), handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearSlot(timerAlreadyPaused) },
+            { kind: 'magnet' as const, label: '磁铁', unlockLevel: SKILL_UNLOCK_MAGNET, lsKey: LS_SKILL_MAGNET_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearColor(timerAlreadyPaused) },
         ];
 
         const currentLevel = runtime.getActiveLogicalLevelId();
@@ -189,45 +192,35 @@ export class GameplaySkillUiController {
                 if (runtime.isSelected || runtime.currentBlock) {
                     runtime.cancelSelection();
                 }
+                const inventoryCount = runtime.getPropCount(skill.kind);
+                if (inventoryCount <= 0) {
+                    runtime.pauseTimerForProp();
+                    const opened = typeof runtime.openToolAcquirePanel === 'function'
+                        ? runtime.openToolAcquirePanel(skill.kind, {
+                            resumeTimerOnClose: true,
+                            onInventoryChanged: () => this.rebuildSkillButtonsUI(),
+                        })
+                        : false;
+                    if (!opened) {
+                        runtime.resumeTimerForProp();
+                        runtime.showToast(`${skill.label}不足`);
+                    }
+                    return;
+                }
                 runtime.pauseTimerForProp();
                 if (preCheck && !preCheck()) {
                     runtime.showToast('暂存槽没有豆豆');
                     runtime.resumeTimerForProp();
                     return;
                 }
-                if (runtime.consumePropCount(skill.kind)) {
-                    runtime.markDynamicCountdownAssisted?.();
+                if (!runtime.consumePropCount(skill.kind)) {
+                    runtime.resumeTimerForProp();
                     this.rebuildSkillButtonsUI();
-                    handler(true);
                     return;
                 }
-                runtime._skillActive = true;
-                const rewardStarted = runtime.runRewardedGrant(skill.adType, () => {
-                    return new Promise<void>((resolve, reject) => {
-                        this.runAfterAdUiSettled(() => {
-                            try {
-                                runtime._skillActive = false;
-                                runtime.markDynamicCountdownAssisted?.();
-                                handler(true);
-                                resolve();
-                            } catch (error) {
-                                runtime._skillActive = false;
-                                reject(error);
-                            }
-                        });
-                    });
-                }, {
-                    busyFlag: '_rewardedSkillAdShowing',
-                    waitForCloseBeforeComplete: true,
-                    onAdFail: () => {
-                        runtime._skillActive = false;
-                        this.runAfterAdUiSettled(() => runtime.resumeTimerForProp());
-                    },
-                    grantFailToast: '道具使用失败，请重试',
-                });
-                if (!rewardStarted) {
-                    runtime._skillActive = false;
-                }
+                runtime.markDynamicCountdownAssisted?.();
+                this.rebuildSkillButtonsUI();
+                handler(true);
             }, runtime);
         }
     }
@@ -262,6 +255,7 @@ export class GameplaySkillUiController {
                 existing.active = false;
             }
             const adPlayIcon = this.requireSkillAdPlayIcon(parent);
+            this.applySkillBadgeSprite(adPlayIcon, 'popup_tool_add_badge', 42, 42);
             adPlayIcon.active = showWhenZero;
             return;
         }
@@ -284,19 +278,7 @@ export class GameplaySkillUiController {
         if (badgeW <= 0 || badgeH <= 0) {
             throw new Error(`[GameplayScene] Game.scene has invalid CountBadge size on ${parent.name}`);
         }
-        let bg = badge.getComponent(Graphics);
-        if (!bg) {
-            bg = badge.addComponent(Graphics);
-        }
-        bg.clear();
-        const radius = Math.min(badgeW, badgeH) / 2;
-        const strokeWidth = Math.max(2, Math.round(radius * 0.18));
-        bg.fillColor = new Color('#43C04F');
-        bg.strokeColor = new Color('#000000');
-        bg.lineWidth = strokeWidth;
-        bg.circle(0, 0, radius - strokeWidth / 2);
-        bg.fill();
-        bg.stroke();
+        this.applySkillBadgeSprite(badge, 'popup_tool_count_badge', Math.max(40, badgeW), Math.max(40, badgeH));
 
         let lblNode = badge.getChildByName('CountBadgeLbl');
         if (!lblNode) {

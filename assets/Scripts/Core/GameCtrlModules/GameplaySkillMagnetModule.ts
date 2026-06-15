@@ -684,9 +684,12 @@ export function installGameplaySkillMagnetModule(target: any): void {
 
         runForcedSkillPlansSequential(plans: ForcedSkillPlan[], index: number = 0, onComplete?: () => void) {
             if (index >= plans.length) {
-                this.finishSkillUsage();
-                this.renderSlots();
-                onComplete?.();
+                this.clearForcedSkillHiddenState();
+                this.renderBoard();
+                this.compactSlotsAfterPropConsume(() => {
+                    this.finishSkillUsage();
+                    onComplete?.();
+                });
                 return;
             }
             this.playForcedSkillPlan(plans[index], () => {

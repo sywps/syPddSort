@@ -1,9 +1,9 @@
 export const ECONOMY_NUMERIC_TABLE = {
     purchaseCost: {
         fullVigor: 120,
-        magicWand: 60,
-        brush: 70,
-        magnet: 90,
+        magicWand: 250,
+        brush: 250,
+        magnet: 250,
         reviveContinue: 100,
     },
     revive: {
@@ -20,8 +20,8 @@ export const ECONOMY_NUMERIC_TABLE = {
         largePlacementGoldBonus: 5,
     },
     adReward: {
-        goldShopReward: 100,
-        winBonusMultiplier: 5,
+        goldShopReward: 30,
+        winBonusGold: 50,
     },
     dailySignIn: {
         rewards: [

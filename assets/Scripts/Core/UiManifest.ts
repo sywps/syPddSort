@@ -41,6 +41,15 @@ export const GOLD_SHOP_TEXTURE_NAMES = [
     'popup_tool_magnet_icon',
 ];
 
+export const RESOURCE_ACQUIRE_TEXTURE_NAMES = [
+    ...POPUP_UI_TEXTURE_NAMES,
+    '金币',
+    'popup_tool_wand_icon',
+    'popup_tool_brush_icon',
+    'popup_tool_magnet_icon',
+    'popup_ad_play_icon',
+];
+
 export const RECOVER_VIGOR_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     'popup_vigor_icon',
@@ -59,6 +68,7 @@ export const RESULT_PANEL_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     'popup_result_time_icon',
     '金币',
+    'popup_ad_play_icon',
     '进度条',
     'progress_fill',
 ];
@@ -99,7 +109,7 @@ export const GAMEPLAY_SLOT_TEXTURE_NAMES = [
     '倒计时',
     'slot_row_lock_mask_ui',
     'slot_row_lock_dash_ui',
-    'unlock_button',
+    'popup_ad_play_icon',
     'guide_hand',
     'popup_guide_highlight_ring',
 ];
@@ -113,6 +123,7 @@ export const SKILL_BUTTON_TEXTURE_NAMES = [
 ];
 
 export const GOLD_SHOP_RELEASE_TEXTURE_NAMES = [...GOLD_SHOP_TEXTURE_NAMES];
+export const RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES = [...RESOURCE_ACQUIRE_TEXTURE_NAMES];
 
 export const RECOVER_VIGOR_RELEASE_TEXTURE_NAMES = [...RECOVER_VIGOR_TEXTURE_NAMES];
 export const REWARD_RESULT_RELEASE_TEXTURE_NAMES = [...REWARD_RESULT_TEXTURE_NAMES];

@@ -124,7 +124,7 @@ export class SlotModel {
         }
 
         // 压缩空位，把后面的往前挪
-        this.compact();
+        this.compactPreserveOrder();
 
         return {
             colorId,
@@ -134,8 +134,8 @@ export class SlotModel {
         };
     }
 
-    /** 压缩空位，所有非空元素靠前排列 */
-    private compact() {
+    /** 压缩空位，所有非空元素按原顺序靠前排列 */
+    compactPreserveOrder() {
         const nonNull: BeanBlockInfo[] = [];
         const usableCount = this.getUsableCount();
         for (let i = 0; i < usableCount; i++) {

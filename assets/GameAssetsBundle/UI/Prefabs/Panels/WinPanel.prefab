@@ -1283,6 +1283,9 @@
       },
       {
         "__id__": 58
+      },
+      {
+        "__id__": 90
       }
     ],
     "_active": true,
@@ -1349,7 +1352,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -75.624,
+      "x": -66.319,
       "y": 4.886,
       "z": 0
     },
@@ -1390,8 +1393,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 44.240312051299966,
-      "height": 44
+      "width": 46,
+      "height": 36
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1427,7 +1430,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "a705aee4-7e63-4859-a198-f049cbcb7229@f9941",
+      "__uuid__": "70f86993-4128-41e8-bc6d-f09aff9fd929@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -1485,7 +1488,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 17.887,
+      "x": 27,
       "y": 3.745,
       "z": 0
     },
@@ -1526,8 +1529,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 129.95564017535972,
-      "height": 34.239999999999995
+      "width": 124.90303226169065,
+      "height": 46.84
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1562,13 +1565,13 @@
       "b": 255,
       "a": 255
     },
-    "_string": "看视频五倍领取",
+    "_string": "5倍金币",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 19.546875,
-    "_fontSize": 18,
+    "_actualFontSize": 36.921875,
+    "_fontSize": 34,
     "_fontFamily": "Arial",
-    "_lineHeight": 24,
+    "_lineHeight": 34,
     "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
@@ -2122,5 +2125,141 @@
     "fileId": "WinPanel-node-2",
     "instance": null,
     "targetOverrides": null
+  },
+  {
+    "__type__": "cc.PrefabInfo",
+    "root": {
+      "__id__": 1
+    },
+    "asset": {
+      "__id__": 0
+    },
+    "fileId": "AdBonusClaimedLbl-node-1781508592426-89",
+    "instance": null,
+    "targetOverrides": null,
+    "nestedPrefabInstanceRoots": null
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "AdBonusClaimedLbl",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 51
+    },
+    "_children": [],
+    "_active": false,
+    "_components": [
+      {
+        "__id__": 92
+      },
+      {
+        "__id__": 94
+      }
+    ],
+    "_prefab": {
+      "__id__": 89
+    },
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 3.745,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "AdBonusClaimedLbl-ui-91"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 90
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 91
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 130,
+      "height": 42
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "AdBonusClaimedLbl-label-93"
+  },
+  {
+    "__type__": "cc.Label",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 90
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 93
+    },
+    "_customMaterial": null,
+    "_srcBlendFactor": 2,
+    "_dstBlendFactor": 4,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_string": "已领取",
+    "_horizontalAlign": 1,
+    "_verticalAlign": 1,
+    "_actualFontSize": 34,
+    "_fontSize": 34,
+    "_fontFamily": "Arial",
+    "_lineHeight": 40,
+    "_overflow": 2,
+    "_enableWrapText": false,
+    "_font": null,
+    "_isSystemFontUsed": true,
+    "_spacingX": 0,
+    "_isItalic": false,
+    "_isBold": false,
+    "_isUnderline": false,
+    "_underlineHeight": 2,
+    "_cacheMode": 0,
+    "_id": ""
   }
 ]
