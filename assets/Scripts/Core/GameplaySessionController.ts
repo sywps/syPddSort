@@ -19,6 +19,9 @@ export class GameplaySessionController {
     initGame(data: LevelData, activeLevelId?: number) {
         const runtime = this.runtime;
         try {
+            runtime._gameplayInitSeq = (Number(runtime._gameplayInitSeq) || 0) + 1;
+            runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
+            runtime._gameplayResultPanelPrefabLoadCallbacks = null;
             AudioMgr.inst.init(runtime.node);
             AudioMgr.inst.preload('place');
             AudioMgr.inst.playGameBgm();
@@ -108,7 +111,6 @@ export class GameplaySessionController {
                 runtime.recordMainlineLevelEntry(resolvedLevelId);
             }
             this.finishGameplayReadyTransition();
-            this.warmGameplayResultPanels();
             runtime.refreshEndgameHints('init-game');
             runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0.8);
             if (runtime.isFirstLevelFunnelActive()) {
@@ -189,25 +191,6 @@ export class GameplaySessionController {
         });
     }
 
-    private warmGameplayResultPanels(): void {
-        const runtime = this.runtime;
-        if (runtime._hasGameplayResultPanelPrefabsReady()) {
-            runtime.ensureGameplayResultPanelsCreated?.();
-            return;
-        }
-        runtime.scheduleOnce(() => {
-            if (!runtime.isValid) return;
-            try {
-                runtime._ensureGameplayResultPanelPrefabsReady(() => {
-                    if (!runtime.isValid) return;
-                    runtime.ensureGameplayResultPanelsCreated?.();
-                });
-            } catch (error) {
-                AppRoot.tryGet()?.forceHideSceneTransition('gameplay-result-preload-error');
-                throw error;
-            }
-        }, 0);
-    }
 }
 
 export function ensureGameplaySessionController(runtime: any): GameplaySessionController {

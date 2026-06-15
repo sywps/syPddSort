@@ -90,6 +90,8 @@ export class GameSceneRuntimeController {
 
     startBootSceneRuntime(): void {
         const appRoot = AppRoot.ensure('Boot');
+        const bootRouteKey = String((this.runtime.node as any)?.uuid || (this.runtime.node as any)?._id || 'Boot');
+        appRoot.session.resetBootRouteGuard(bootRouteKey);
         appRoot.markBoot('Boot');
         appRoot.resetSceneTransitionForBoot();
         AnalyticsMgr.inst.trackFunnelEvent({
@@ -105,11 +107,17 @@ export class GameSceneRuntimeController {
             if (!this.runtime.node?.isValid) {
                 return;
             }
-            if (this.shouldRouteBootToHome()) {
-                void appRoot.router.toHome();
-            } else {
-                void appRoot.router.toGame();
+            if (!appRoot.session.consumeBootRoute()) {
+                appRoot.router.logTransitionTrace('[SceneSplitTrace] bootRoute:skipDuplicate');
+                return;
             }
+            const route = this.shouldRouteBootToHome()
+                ? appRoot.router.toHome()
+                : appRoot.router.toGame();
+            route.catch((error) => {
+                console.error('[SceneSplit] boot route failed:', error);
+                appRoot.forceHideSceneTransition('boot-route-error');
+            });
         }, 0);
     }
 
