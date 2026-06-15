@@ -23,8 +23,10 @@ export class GameplaySessionController {
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
             AudioMgr.inst.init(runtime.node);
-            AudioMgr.inst.preload('place');
-            AudioMgr.inst.playGameBgm();
+            if (!runtime._bootstrapOnlyGameplayStartup) {
+                AudioMgr.inst.preload('place');
+                AudioMgr.inst.playGameBgm();
+            }
             runtime.levelData = data;
             const resolvedLevelId = runtime._isThemeLevel
                 ? Math.max(1, Math.floor(Number(runtime._currentThemeLevelId || data.levelId) || 1))

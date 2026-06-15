@@ -5,9 +5,9 @@ import {
     Bundle,
     Label,
     Node,
-    POPUP_UI_TEXTURE_NAMES,
     Prefab,
     ProgressBar,
+    RESULT_PANEL_TEXTURE_NAMES,
     UIOpacity,
     instantiate,
 } from './GameCtrlShared';
@@ -43,9 +43,9 @@ export class GameplayResultPanelController {
         return RESULT_PANEL_KINDS.every((kind) => !!cache.get(kind));
     }
 
-    private ensurePopupSpriteFramesReady(onDone: () => void, onError: (error: Error) => void): void {
+    private ensureResultPanelSpriteFramesReady(onDone: () => void, onError: (error: Error) => void): void {
         const runtime = this.runtime;
-        const uniqueNames = Array.from(new Set(POPUP_UI_TEXTURE_NAMES));
+        const uniqueNames = Array.from(new Set(RESULT_PANEL_TEXTURE_NAMES));
         const missingNames = uniqueNames.filter((name) => !runtime.getSF(name));
         if (missingNames.length === 0) {
             onDone();
@@ -57,7 +57,7 @@ export class GameplayResultPanelController {
             if (remaining > 0) return;
             const stillMissing = uniqueNames.filter((name) => !runtime.getSF(name));
             if (stillMissing.length > 0) {
-                onError(new Error(`[result-panel] missing popup SpriteFrames: ${stillMissing.join(', ')}`));
+                onError(new Error(`[result-panel] missing panel SpriteFrames: ${stillMissing.join(', ')}`));
                 return;
             }
             onDone();
@@ -141,7 +141,7 @@ export class GameplayResultPanelController {
                 }
             });
         };
-        this.ensurePopupSpriteFramesReady(loadPrefabs, fail);
+        this.ensureResultPanelSpriteFramesReady(loadPrefabs, fail);
     }
 
     instantiateGameplayOverlay(kind: ResultPanelKind, name: string): Node {
@@ -240,14 +240,15 @@ export class GameplayResultPanelController {
         runtime.bindPanelButton(triggerNode, () => {
             if (runtime._adShowing) return;
             AudioMgr.inst.play('button');
-            runtime._adShowing = true;
-            runtime.showTrackedRewardedAd('level_revive', (success: boolean) => {
-                runtime._adShowing = false;
-                if (!success) return;
+            runtime.runRewardedGrant('level_revive', () => {
                 overlay.active = false;
                 AudioMgr.inst.play('revivePop');
                 runtime.continueAfterLose(continueSeconds);
-            }, { markLevelRevive: true });
+            }, {
+                busyFlag: '_adShowing',
+                markLevelRevive: true,
+                grantFailToast: '复活失败，请重试',
+            });
         });
     }
 

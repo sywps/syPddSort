@@ -225,14 +225,32 @@ export function installThemeLoadingOverlayModule(target: any): void {
             this.drawCollectionPixelPreviewOnCard(parent, levelId, offsetX, offsetY, maxW, maxH, 'zt_level_');
         },
 
-        startThemeLevel(levelId: number) {
+        startThemeLevel(levelId: number, options: { suppressFailureToast?: boolean } = {}): boolean | Promise<boolean> {
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const onFail = (error: unknown): false => {
+                console.error('[theme_unlock] start theme level failed:', { levelId: normalizedLevelId, error });
+                if (!options.suppressFailureToast) {
+                    this.showToast('主题关启动失败，请重试');
+                }
+                this.scheduleOnce(() => {
+                    if (!this.isValid) return;
+                    this.openThemePanel();
+                }, 0.05);
+                return false;
+            };
             this.closeThemePanel();
             if (this.getRuntimeSceneName('Game') === 'Home') {
-                void this.requestGameplaySceneTransition(levelId, 'zt_level_', false);
-                return;
+                return this.requestGameplaySceneTransition(normalizedLevelId, 'zt_level_', false)
+                    .then(() => true)
+                    .catch(onFail);
             }
-            this.deactivateMainMenuNode();
-            this.loadThemeLevel(levelId);
+            try {
+                this.deactivateMainMenuNode();
+                this.loadThemeLevel(normalizedLevelId);
+                return true;
+            } catch (error) {
+                return onFail(error);
+            }
         },
 
         closeThemeImageModal() {
@@ -289,17 +307,30 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 this.showToast(`主线到第${requirementLevel}关后可解锁这一关`);
                 return;
             }
-            this._adShowing = true;
-            this.showTrackedRewardedAd('theme_unlock', (success: boolean) => {
-                this._adShowing = false;
-                if (success) {
-                    this.setThemeUnlocked(levelId);
-                    this.showToast('解锁成功');
-                    this.startThemeLevel(levelId);
-                } else {
-                    this.showToast('广告未完成，未解锁');
+            this.runRewardedGrant('theme_unlock', () => {
+                const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+                if (!this.setThemeUnlocked(normalizedLevelId)) {
+                    return false;
                 }
-            }, { levelId, waitForCloseBeforeComplete: true });
+                const unlocked = this.getThemeUnlockedSet();
+                const verified = unlocked.has(normalizedLevelId);
+                if (!verified) {
+                    console.error('[theme_unlock] unlocked level missing after grant:', {
+                        levelId: normalizedLevelId,
+                        unlocked: Array.from(unlocked),
+                    });
+                }
+                return verified;
+            }, {
+                busyFlag: '_adShowing',
+                levelId,
+                waitForCloseBeforeComplete: true,
+                adFailToast: '广告未完成，未解锁',
+                grantFailToast: '解锁保存失败，请重试',
+                successToast: '解锁成功',
+                afterGrantFailToast: '主题关启动失败，请重试',
+                afterGrant: () => this.startThemeLevel(levelId, { suppressFailureToast: true }),
+            });
         },
 
         refreshThemePanel() {

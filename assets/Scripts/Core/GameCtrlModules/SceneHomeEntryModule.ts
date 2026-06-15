@@ -232,6 +232,14 @@ export function installSceneHomeEntryModule(target: any): void {
             this.loadGameAssetsLevel(resolvedLevelId, prefix, resolvedLevelId);
         },
 
+        shouldUseBootstrapOnlyMainlineLevel(levelId: number, prefix: string = 'level_'): boolean {
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            if (this.shouldUseLocalBootstrapBundle(normalizedLevelId, prefix)) return false;
+            return prefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX
+                && !this._isThemeLevel
+                && !this._currentExternalLevelFilePath;
+        },
+
         /** 加载主题关卡（zt_level_*.json） */
         loadThemeLevel(levelId: number) {
             this._isThemeLevel = true;
@@ -466,13 +474,19 @@ export function installSceneHomeEntryModule(target: any): void {
                     );
                     return;
                 }
-                this.openLocalLevelWithAssets(data, undefined, activeLevelId);
+                this.openLocalLevelWithAssets(data, undefined, activeLevelId, this.shouldUseLocalBootstrapBundle(levelId, prefix));
             }, prefix);
         },
 
-        openLocalLevelWithAssets(data: LevelData, onInitialized?: () => void, activeLevelId?: number) {
+        openLocalLevelWithAssets(data: LevelData, onInitialized?: () => void, activeLevelId?: number, bootstrapOnlyCriticalUi: boolean = false) {
             const onReady = () => {
-                this.initGame(data, activeLevelId);
+                const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
+                this._bootstrapOnlyGameplayStartup = bootstrapOnlyCriticalUi;
+                try {
+                    this.initGame(data, activeLevelId);
+                } finally {
+                    this._bootstrapOnlyGameplayStartup = previousBootstrapOnlyGameplayStartup;
+                }
                 if (onInitialized) onInitialized();
             };
             let beanReady = false;
@@ -505,8 +519,10 @@ export function installSceneHomeEntryModule(target: any): void {
                 }
                 uiReady = true;
                 tryReady();
-            });
-            this._preloadEffectsFrames();
+            }, { bootstrapOnly: bootstrapOnlyCriticalUi });
+            if (!bootstrapOnlyCriticalUi) {
+                this._preloadEffectsFrames();
+            }
         },
 
         _preloadEffectsFrames(callback?: () => void) {
@@ -518,9 +534,49 @@ export function installSceneHomeEntryModule(target: any): void {
             if (callback) callback();
         },
 
+        loadBootstrapOnlyMainlineLevel(
+            levelId: number,
+            prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX,
+            activeLevelId: number = levelId,
+            onInitialized?: () => void,
+        ) {
+            if (this._levelDataLoadStopped) return;
+            const levelPath = this.getLevelDataPath(levelId, prefix);
+            this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath, {
+                extra: { assetMode: 'bootstrap_only_mainline' },
+            });
+            this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+                if (!levelData) {
+                    this.stopLevelDataLoadWithFatalError(
+                        activeLevelId,
+                        levelPath,
+                        'first_level_json_failed',
+                        source === 'level_data_cdn' ? 'level_data_cdn_unavailable' : 'level_data_json_failed',
+                        err?.message || 'missing json asset',
+                        { assetMode: 'bootstrap_only_mainline' },
+                    );
+                    return;
+                }
+                this.reportLevelDataLoadDiagnostic(activeLevelId, 'first_level_json_loaded', true, levelPath, {
+                    extra: {
+                        source,
+                        assetMode: 'bootstrap_only_mainline',
+                        dataVersion: source === 'level_data_cdn' ? LevelDataCdnService.inst.getDataVersion() : '',
+                        actualLevelId: levelData.levelId,
+                        jsonKeys: Object.keys(levelData || {}).slice(0, 12),
+                    },
+                });
+                this.openLocalLevelWithAssets(levelData, onInitialized, activeLevelId, true);
+            });
+        },
+
         loadGameAssetsLevel(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             if (this.shouldUseLocalBootstrapBundle(levelId, prefix)) {
                 this.loadLocalLevel(levelId, prefix, activeLevelId);
+                return;
+            }
+            if (this.shouldUseBootstrapOnlyMainlineLevel(levelId, prefix)) {
+                this.loadBootstrapOnlyMainlineLevel(levelId, prefix, activeLevelId);
                 return;
             }
             if (this._levelDataLoadStopped) return;
@@ -574,13 +630,21 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         /**
-         * 首次直进关卡时走更短的启动路径：
-         * 只等待 gameAssets bundle、关卡 JSON、豆豆图集；
-         * 非关键 UI 贴图与特效图集进入关卡后再后台补齐。
+         * 首次直进关卡时走更短的启动路径。
+         * 普通主线关卡优先走 bootstrap-only；主题/外部资源仍走 gameAssets。
          */
         startGameAssetsLevelFast(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             if (this._levelDataLoadStopped) return;
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
+            if (this.shouldUseBootstrapOnlyMainlineLevel(levelId, prefix)) {
+                this.loadBootstrapOnlyMainlineLevel(
+                    levelId,
+                    prefix,
+                    activeLevelId,
+                    () => this.hideLoadingOverlayAfterGameplayReady(),
+                );
+                return;
+            }
             const levelPath = this.getLevelDataPath(levelId, prefix);
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'gameAssets_config_start', true, levelPath);
             let finished = false;
@@ -710,7 +774,13 @@ export function installSceneHomeEntryModule(target: any): void {
                 let uiDone = false;
                 const tryInit = () => {
                     if (!beanDone || !uiDone) return;
-                    this.initGame(data, activeLevelId);
+                    const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
+                    this._bootstrapOnlyGameplayStartup = true;
+                    try {
+                        this.initGame(data, activeLevelId);
+                    } finally {
+                        this._bootstrapOnlyGameplayStartup = previousBootstrapOnlyGameplayStartup;
+                    }
                     this.hideLoadingOverlayAfterGameplayReady();
                     this.scheduleOnce(() => {
                         if (!this.shouldPrewarmGameAssetsAfterBootstrap()) return;

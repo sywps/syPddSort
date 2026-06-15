@@ -194,17 +194,15 @@ export function installSettlementHudModule(target: any): void {
             if (this._isThemeLevel || this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
                 return;
             }
-            this._adShowing = true;
-            this.showTrackedRewardedAd('win_bonus_reward', (success: boolean) => {
-                this._adShowing = false;
-                if (!success) {
-                    this.showToast('广告未完成，未获得加领奖励');
-                    return;
-                }
-                this._winAdRewardClaimed = true;
+            this.runRewardedGrant('win_bonus_reward', () => {
                 this.addGold(this._pendingWinAdBonusReward);
+                this._winAdRewardClaimed = true;
                 this.refreshWinAdBonusUI();
-                this.showToast(`已额外获得 ${this._pendingWinAdBonusReward} 金币`);
+            }, {
+                busyFlag: '_adShowing',
+                adFailToast: '广告未完成，未获得加领奖励',
+                successToast: () => `已额外获得 ${this._pendingWinAdBonusReward} 金币`,
+                grantFailToast: '加领奖励发放失败，请重试',
             });
         },
 

@@ -202,18 +202,32 @@ export class GameplaySkillUiController {
                     return;
                 }
                 runtime._skillActive = true;
-                runtime.showTrackedRewardedAd(skill.adType, (success: boolean) => {
-                    if (!success) {
+                const rewardStarted = runtime.runRewardedGrant(skill.adType, () => {
+                    return new Promise<void>((resolve, reject) => {
+                        this.runAfterAdUiSettled(() => {
+                            try {
+                                runtime._skillActive = false;
+                                runtime.markDynamicCountdownAssisted?.();
+                                handler(true);
+                                resolve();
+                            } catch (error) {
+                                runtime._skillActive = false;
+                                reject(error);
+                            }
+                        });
+                    });
+                }, {
+                    busyFlag: '_rewardedSkillAdShowing',
+                    waitForCloseBeforeComplete: true,
+                    onAdFail: () => {
                         runtime._skillActive = false;
                         this.runAfterAdUiSettled(() => runtime.resumeTimerForProp());
-                        return;
-                    }
+                    },
+                    grantFailToast: '道具使用失败，请重试',
+                });
+                if (!rewardStarted) {
                     runtime._skillActive = false;
-                    this.runAfterAdUiSettled(() => {
-                        runtime.markDynamicCountdownAssisted?.();
-                        handler(true);
-                    });
-                }, { waitForCloseBeforeComplete: true });
+                }
             }, runtime);
         }
     }
