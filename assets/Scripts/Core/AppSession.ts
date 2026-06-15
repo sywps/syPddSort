@@ -26,6 +26,8 @@ export class AppSession {
     private _currentSceneName: AppSceneName = 'Game';
     private _requestedSceneName: AppSceneName = 'Game';
     private _visualState: AppVisualState = 'boot';
+    private _bootRouteGuardKey = '';
+    private _bootRouteConsumed = false;
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
@@ -60,6 +62,22 @@ export class AppSession {
 
     markVisualState(state: AppVisualState): void {
         this._visualState = state;
+    }
+
+    resetBootRouteGuard(guardKey: string = ''): void {
+        if (guardKey && this._bootRouteGuardKey === guardKey) {
+            return;
+        }
+        this._bootRouteGuardKey = guardKey;
+        this._bootRouteConsumed = false;
+    }
+
+    consumeBootRoute(): boolean {
+        if (this._bootRouteConsumed) {
+            return false;
+        }
+        this._bootRouteConsumed = true;
+        return true;
     }
 
     clearPendingGameplayRequest(): void {

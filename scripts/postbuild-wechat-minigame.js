@@ -102,6 +102,33 @@ function ensureStableBundleFiles(bundleDir) {
     }
 }
 
+function getBundleVersionFromSettings(settingsFilePath, bundleName) {
+    if (!settingsFilePath || !fs.existsSync(settingsFilePath)) return '';
+    var settings = readJsonFile(settingsFilePath);
+    var bundleVers = settings.assets && settings.assets.bundleVers ? settings.assets.bundleVers : {};
+    var version = bundleVers[bundleName];
+    return /^[0-9a-f]+$/i.test(String(version || '')) ? String(version) : '';
+}
+
+function ensureVersionedBundleIndexFile(bundleDir, bundleName, settingsFilePath) {
+    if (!fs.existsSync(bundleDir)) return;
+    var version = getBundleVersionFromSettings(settingsFilePath, bundleName);
+    if (!version) return;
+    var stableIndexPath = path.join(bundleDir, 'index.js');
+    var versionedIndexPath = path.join(bundleDir, 'index.' + version + '.js');
+    if (fs.existsSync(versionedIndexPath)) return;
+    if (!fs.existsSync(stableIndexPath)) {
+        var indexPath = findBundleFile(bundleDir, 'index', 'js');
+        if (fs.existsSync(indexPath)) {
+            fs.copyFileSync(indexPath, stableIndexPath);
+        }
+    }
+    if (fs.existsSync(stableIndexPath)) {
+        fs.copyFileSync(stableIndexPath, versionedIndexPath);
+        console.log('[4.2/6] 已为 assets/' + bundleName + ' 生成版本入口 index.' + version + '.js ✓');
+    }
+}
+
 function stripBundleConfigDeps(bundleDir, bundleName, forbiddenDeps) {
     if (!fs.existsSync(bundleDir)) return;
     var configFiles = fs.readdirSync(bundleDir)
@@ -314,6 +341,68 @@ function ensureLevelDataWechatSubpackage() {
     ensureBundleInGameSubpackages(runtimeRoot, LEVEL_DATA_BUNDLE_NAME);
     ensureBundleInSettingsSubpackages(resolveSettingsPath(), LEVEL_DATA_BUNDLE_NAME);
     return levelDataSubpackageDir;
+}
+
+function isBundleSubpackageItem(item, bundleName) {
+    var root = normalizeSubpackageRoot(item && item.root);
+    return item && (item.name === bundleName || root === bundleName || root === 'subpackages/' + bundleName);
+}
+
+function ensureLocalBundleIndexFile(bundleDir, bundleName) {
+    if (!fs.existsSync(bundleDir)) return;
+    ensureStableBundleFiles(bundleDir);
+    var stableIndexPath = path.join(bundleDir, 'index.js');
+    if (fs.existsSync(stableIndexPath)) return;
+    var gameJsPath = path.join(bundleDir, 'game.js');
+    if (!fs.existsSync(gameJsPath)) {
+        console.warn('[4.2/6] ' + bundleName + ' 本地 bundle 缺少 index.js/game.js，保留原样');
+        return;
+    }
+    fs.copyFileSync(gameJsPath, stableIndexPath);
+    console.log('[4.2/6] 已为 assets/' + bundleName + ' 生成本地 index.js ✓');
+}
+
+function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
+    var bundleName = 'internal';
+    var subpackageDir = path.join(runtimeRoot, 'subpackages', bundleName);
+    var localBundleDir = path.join(runtimeRoot, 'assets', bundleName);
+    if (fs.existsSync(subpackageDir)) {
+        movePathSync(subpackageDir, localBundleDir);
+        ensureLocalBundleIndexFile(localBundleDir, bundleName);
+        console.log('[4.2/6] internal 已从微信分包归回本地 bundle ✓');
+    } else if (fs.existsSync(localBundleDir)) {
+        ensureLocalBundleIndexFile(localBundleDir, bundleName);
+    }
+    ensureVersionedBundleIndexFile(localBundleDir, bundleName, settingsFilePath);
+
+    var gameJsonPath = path.join(runtimeRoot, 'game.json');
+    if (fs.existsSync(gameJsonPath)) {
+        var gameJson = readJsonFile(gameJsonPath);
+        var subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages.slice() : [];
+        var filtered = subpackages.filter(function (item) {
+            return !isBundleSubpackageItem(item, bundleName);
+        });
+        if (filtered.length !== subpackages.length) {
+            gameJson.subpackages = filtered;
+            writeJsonFile(gameJsonPath, gameJson);
+            console.log('[4.2/6] 已从 game.json.subpackages 移除 internal ✓');
+        }
+    }
+
+    if (fs.existsSync(settingsFilePath)) {
+        var settings = readJsonFile(settingsFilePath);
+        var assets = settings.assets || {};
+        var settingsSubpackages = Array.isArray(assets.subpackages) ? assets.subpackages.slice() : [];
+        var nextSubpackages = settingsSubpackages.filter(function (name) {
+            return name !== bundleName;
+        });
+        if (nextSubpackages.length !== settingsSubpackages.length) {
+            assets.subpackages = nextSubpackages;
+            settings.assets = assets;
+            writeJsonFile(settingsFilePath, settings);
+            console.log('[4.2/6] 已从 settings.assets.subpackages 移除 internal ✓');
+        }
+    }
 }
 
 function removeDuplicateStableBundleIndex(runtimeRoot, settingsFilePath) {
@@ -817,6 +906,7 @@ if (debugLevelDataBundle && !fs.existsSync(levelDataSubpackageDir)) {
 if (debugLevelDataBundle) {
     console.log('[4.1/6] levelData debug 分包已就绪 ✓');
 }
+normalizeInternalBundleAsLocal(resolveRuntimeRoot(), resolveSettingsPath());
 
 // 4.6 移除本地主包里的 resources bundle。
 // 小游戏环境的音频、主题、纹理优先走 gameAssets/bootstrap；resources 是历史兜底包。

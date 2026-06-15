@@ -86,8 +86,30 @@ export function installSceneHomeEntryModule(target: any): void {
             await appRoot.requestHomeSceneTransition(source, coverMode);
         },
 
+        shouldPrewarmHomeGameplayEntry(): boolean {
+            try {
+                if (
+                    this.getRuntimeQueryParam?.('prewarmHomeGameplay') === '1'
+                    || this.getRuntimeQueryParam?.('prewarmGameplayEntry') === '1'
+                ) {
+                    return true;
+                }
+            } catch (_) {}
+            const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : {};
+            const windowScope: any = typeof window !== 'undefined' ? window : {};
+            return !!(
+                globalScope.__PDD_PREWARM_HOME_GAMEPLAY_ENTRY__
+                || windowScope.__PDD_PREWARM_HOME_GAMEPLAY_ENTRY__
+            );
+        },
+
         scheduleHomeGameplayEntryWarmup(levelId: number, prefix: string = 'level_'): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            if (!this.shouldPrewarmHomeGameplayEntry?.()) {
+                this._homeGameplayWarmupKey = '';
+                this._homeGameplayWarmupState = 'disabled';
+                return;
+            }
             if (this.shouldUseLocalBootstrapBundle(normalizedLevelId, prefix)) {
                 return;
             }
@@ -102,6 +124,7 @@ export function installSceneHomeEntryModule(target: any): void {
             this._homeGameplayWarmupState = 'loading';
             this.scheduleOnce(() => {
                 if (!this.isValid) return;
+                if (this._homeGameplayWarmupKey !== warmupKey || this._homeGameplayWarmupState !== 'loading') return;
                 this.prewarmGameplayEntryResources(normalizedLevelId, prefix, (ok) => {
                     if (this._homeGameplayWarmupKey !== warmupKey) return;
                     this._homeGameplayWarmupState = ok ? 'ready' : 'failed';
@@ -690,6 +713,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     this.initGame(data, activeLevelId);
                     this.hideLoadingOverlayAfterGameplayReady();
                     this.scheduleOnce(() => {
+                        if (!this.shouldPrewarmGameAssetsAfterBootstrap()) return;
                         if (this._preloadingBundle) return;
                         if (this.gameAssetsBundle && this._effectsAtlasReady) return;
                         this.prewarmGameAssetsBundleAfterBootstrap();
@@ -734,6 +758,23 @@ export function installSceneHomeEntryModule(target: any): void {
                     }
                 });
             }, prefix);
+        },
+
+        shouldPrewarmGameAssetsAfterBootstrap(): boolean {
+            try {
+                if (
+                    this.getRuntimeQueryParam?.('prewarmGameAssets') === '1'
+                    || this.getRuntimeQueryParam?.('prewarmBootstrapAssets') === '1'
+                ) {
+                    return true;
+                }
+            } catch (_) {}
+            const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : {};
+            const windowScope: any = typeof window !== 'undefined' ? window : {};
+            return !!(
+                globalScope.__PDD_PREWARM_GAME_ASSETS_AFTER_BOOTSTRAP__
+                || windowScope.__PDD_PREWARM_GAME_ASSETS_AFTER_BOOTSTRAP__
+            );
         },
 
         prewarmGameAssetsBundleAfterBootstrap() {

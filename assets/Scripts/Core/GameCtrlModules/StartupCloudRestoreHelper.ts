@@ -3,6 +3,45 @@ import type { CloudUserState } from '../GameCtrlShared';
 import type { UserStateRestoreStatus } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 
+function normalizePositiveLevel(value: unknown): number {
+    const level = Math.floor(Number(value) || 0);
+    return Number.isFinite(level) && level > 0 ? level : 0;
+}
+
+function getRuntimeActiveMainLevel(runtime: any): number {
+    if (runtime?._isThemeLevel) return 0;
+    try {
+        return normalizePositiveLevel(runtime?.getActiveLogicalLevelId?.());
+    } catch (_) {
+        return 0;
+    }
+}
+
+function shouldSkipLateCloudHomeRoute(runtime: any, restoredLevel: number): boolean {
+    const appRoot = AppRoot.tryGet();
+    const session = appRoot?.session;
+    const pending = session?.pendingGameplayRequest;
+    if (pending?.entryMode === 'main' && pending.levelId >= restoredLevel) {
+        return true;
+    }
+    const active = session?.activeGameplayContext;
+    if (active?.entryMode === 'main' && active.activeLevelId >= restoredLevel) {
+        return true;
+    }
+    if (getRuntimeActiveMainLevel(runtime) >= restoredLevel) {
+        return true;
+    }
+    const savedLevel = normalizePositiveLevel(runtime?.getSavedLevel?.());
+    return !!appRoot?.router.isTransitioning
+        && session?.requestedSceneName === 'Game'
+        && savedLevel >= restoredLevel;
+}
+
+function warnCloudRestoreHomeRouteFailed(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[GameCtrl] late cloud progress home route failed:', message);
+}
+
 export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserState | null, hadLocalUserState: boolean): UserStateRestoreStatus | null {
     if (!runtime.isValid || !state) return null;
     const beforeLevel = runtime.getSavedLevel();
@@ -11,24 +50,34 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
     const restoredLevel = runtime.getSavedLevel();
     const activeLevel = Math.max(1, Math.floor(Number(runtime.getActiveLogicalLevelId?.() || 1) || 1));
     if (!runtime.isExternalLevelPreviewActive() && runtime.getUrlLevel() <= 0 && restoredLevel > Math.max(beforeLevel, activeLevel)) {
-        console.warn('[GameCtrl] late cloud progress restored, switching startup route to Home', {
+        console.warn('[GameCtrl] late cloud progress restored', {
             beforeLevel, activeLevel, restoredLevel, hadLocalUserState,
         });
         const toastText = `已恢复进度到第${restoredLevel}关`;
-        AppRoot.tryGet()?.session.setPendingHomeToast(toastText, 2.5);
         const routeHome = runtime.requestHomeSceneTransition || runtime.showMainMenu;
         if (typeof routeHome === 'function') {
             const runRouteHome = () => {
                 if (!runtime.isValid) return;
+                if (shouldSkipLateCloudHomeRoute(runtime, restoredLevel)) {
+                    if (typeof runtime.showToast === 'function') {
+                        runtime.showToast(toastText, 2.5);
+                    }
+                    console.warn('[GameCtrl] late cloud progress restored, keep current gameplay route', {
+                        beforeLevel, activeLevel: getRuntimeActiveMainLevel(runtime), restoredLevel, hadLocalUserState,
+                    });
+                    return;
+                }
+                console.warn('[GameCtrl] late cloud progress restored, switching startup route to Home', {
+                    beforeLevel, activeLevel: getRuntimeActiveMainLevel(runtime), restoredLevel, hadLocalUserState,
+                });
+                AppRoot.tryGet()?.session.setPendingHomeToast(toastText, 2.5);
                 const result = typeof runtime.requestHomeSceneTransition === 'function'
                     ? runtime.requestHomeSceneTransition('cloud-restore', 'cover')
                     : routeHome.call(runtime);
                 if (!AppRoot.tryGet() && typeof runtime.showToast === 'function') {
                     runtime.showToast(toastText, 2.5);
                 }
-                void Promise.resolve(result).catch((error) => {
-                    console.warn('[GameCtrl] late cloud progress home route failed:', error);
-                });
+                void Promise.resolve(result).catch(warnCloudRestoreHomeRouteFailed);
             };
             if (typeof runtime.scheduleOnce === 'function') {
                 runtime.scheduleOnce(runRouteHome, 0.2);
