@@ -542,13 +542,36 @@ export function installThemePanelFlowModule(target: any): void {
             }
         },
 
-        setThemeUnlocked(levelId: number) {
+        setThemeUnlocked(levelId: number): boolean {
+            const normalizedLevelId = Math.max(0, Math.floor(Number(levelId) || 0));
+            if (normalizedLevelId <= 0) {
+                console.error('[theme_unlock] invalid levelId:', levelId);
+                return false;
+            }
             const set = this.getThemeUnlockedSet();
-            set.add(levelId);
+            set.add(normalizedLevelId);
+            const unlockedLevels = Array.from(set)
+                .map((value) => Math.floor(Number(value) || 0))
+                .filter((value) => value > 0)
+                .sort((a, b) => a - b);
             try {
-                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(Array.from(set)));
+                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(unlockedLevels));
+            } catch (error) {
+                console.error('[theme_unlock] persist unlocked level failed:', { levelId: normalizedLevelId, error });
+                return false;
+            }
+            const verified = this.getThemeUnlockedSet().has(normalizedLevelId);
+            if (!verified) {
+                console.error('[theme_unlock] unlocked level readback failed:', { levelId: normalizedLevelId, unlockedLevels });
+                return false;
+            }
+            try {
                 this.queueCloudGameStateSync();
-            } catch { /* ignore */ }
+            } catch (error) {
+                console.error('[theme_unlock] queue cloud sync failed:', { levelId: normalizedLevelId, error });
+                return false;
+            }
+            return true;
         },
 
         openThemePanel() {

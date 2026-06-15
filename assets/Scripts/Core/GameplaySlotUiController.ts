@@ -582,15 +582,15 @@ export class GameplaySlotUiController {
             runtime.showToast('已免费解锁一排暂存槽', 1.2);
             return;
         }
-        runtime._skillActive = true;
-        runtime.showTrackedRewardedAd('unlock_slot_row', (success: boolean) => {
-            runtime._skillActive = false;
-            runtime.resumeTimerForProp();
-            if (success) {
-                this.unlockSlotRow();
-                runtime.markDynamicCountdownAssisted?.();
-            }
-        }, { waitForCloseBeforeComplete: true });
+        runtime.runRewardedGrant('unlock_slot_row', () => {
+            this.unlockSlotRow();
+            runtime.markDynamicCountdownAssisted?.();
+        }, {
+            busyFlag: '_skillActive',
+            waitForCloseBeforeComplete: true,
+            onAdComplete: () => runtime.resumeTimerForProp(),
+            grantFailToast: '暂存槽解锁失败，请重试',
+        });
     }
 
     slotHasBeans(): boolean {

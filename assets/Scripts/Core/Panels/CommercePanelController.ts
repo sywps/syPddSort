@@ -144,10 +144,12 @@ export class CommercePanelController {
                         syncRequiredPrefabLabel(adButton, 'AdButtonLabel', '立即领取', '[gold-shop-prefab]');
                         runtime.bindPanelButton(adButton, () => {
                             AudioMgr.inst.play('button');
-                            runtime.showTrackedRewardedAd('gold_shop_reward', (success: boolean) => {
-                                if (!success) return;
+                            runtime.runRewardedGrant('gold_shop_reward', () => {
                                 runtime.addGold(rewardedGold);
-                                runtime.showToast(`已获得 ${rewardedGold} 金币`);
+                            }, {
+                                busyFlag: '_adShowing',
+                                successToast: () => `已获得 ${rewardedGold} 金币`,
+                                grantFailToast: '金币领取失败，请重试',
                             });
                         });
 

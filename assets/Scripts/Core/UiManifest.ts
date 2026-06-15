@@ -55,6 +55,14 @@ export const REWARD_RESULT_TEXTURE_NAMES = [
     'popup_tool_magnet_icon',
 ];
 
+export const RESULT_PANEL_TEXTURE_NAMES = [
+    ...POPUP_UI_TEXTURE_NAMES,
+    'popup_result_time_icon',
+    '金币',
+    '进度条',
+    'progress_fill',
+];
+
 export const DAILY_SIGNIN_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     '金币',
@@ -80,7 +88,7 @@ export const THEME_PANEL_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
 ];
 
-export const THEME_PANEL_RELEASE_TEXTURE_NAMES: string[] = [];
+export const THEME_PANEL_RELEASE_TEXTURE_NAMES = [...THEME_PANEL_TEXTURE_NAMES];
 
 export const HOME_MENU_TEXTURE_NAMES = [
     'bg_game',
@@ -104,14 +112,14 @@ export const SKILL_BUTTON_TEXTURE_NAMES = [
     'popup_ad_play_icon',
 ];
 
-export const GOLD_SHOP_RELEASE_TEXTURE_NAMES: string[] = [];
+export const GOLD_SHOP_RELEASE_TEXTURE_NAMES = [...GOLD_SHOP_TEXTURE_NAMES];
 
-export const RECOVER_VIGOR_RELEASE_TEXTURE_NAMES: string[] = [];
-export const REWARD_RESULT_RELEASE_TEXTURE_NAMES: string[] = [];
-export const DAILY_SIGNIN_RELEASE_TEXTURE_NAMES: string[] = [];
-export const SETTINGS_PANEL_RELEASE_TEXTURE_NAMES = [...POPUP_SETTINGS_TEXTURE_NAMES];
-export const LEADERBOARD_RELEASE_TEXTURE_NAMES: string[] = [];
-export const COLLECTION_RELEASE_TEXTURE_NAMES: string[] = [];
+export const RECOVER_VIGOR_RELEASE_TEXTURE_NAMES = [...RECOVER_VIGOR_TEXTURE_NAMES];
+export const REWARD_RESULT_RELEASE_TEXTURE_NAMES = [...REWARD_RESULT_TEXTURE_NAMES];
+export const DAILY_SIGNIN_RELEASE_TEXTURE_NAMES = [...DAILY_SIGNIN_TEXTURE_NAMES];
+export const SETTINGS_PANEL_RELEASE_TEXTURE_NAMES = [...SETTINGS_PANEL_TEXTURE_NAMES];
+export const LEADERBOARD_RELEASE_TEXTURE_NAMES = [...LEADERBOARD_TEXTURE_NAMES];
+export const COLLECTION_RELEASE_TEXTURE_NAMES = [...COLLECTION_TEXTURE_NAMES];
 
 export const GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = [];
 

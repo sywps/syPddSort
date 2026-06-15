@@ -8,7 +8,7 @@ import {
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
-    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, RESULT_PANEL_TEXTURE_NAMES, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
@@ -32,6 +32,40 @@ import type {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
+
+type RewardedGrantToast = string | (() => string);
+type RewardedGrantResult = boolean | void | Promise<boolean | void>;
+type RewardedGrantOptions = {
+    levelId?: number;
+    markLevelRevive?: boolean;
+    waitForCloseBeforeComplete?: boolean;
+    busyFlag?: string;
+    adFailToast?: RewardedGrantToast;
+    grantFailToast?: RewardedGrantToast;
+    afterGrantFailToast?: RewardedGrantToast;
+    successToast?: RewardedGrantToast;
+    onAdComplete?: (success: boolean) => void;
+    onAdFail?: () => void;
+    afterGrant?: () => RewardedGrantResult;
+    onFinally?: () => void;
+};
+
+function resolveRewardedGrantToast(toast?: RewardedGrantToast): string {
+    if (!toast) return '';
+    try {
+        return String(typeof toast === 'function' ? toast() : toast).trim();
+    } catch (error) {
+        console.warn('[RewardedGrant] toast resolver failed:', error);
+        return '';
+    }
+}
+
+function showRewardedGrantToast(runtime: any, toast?: RewardedGrantToast): void {
+    const text = resolveRewardedGrantToast(toast);
+    if (text && typeof runtime.showToast === 'function') {
+        runtime.showToast(text);
+    }
+}
 
 export function installHomeAdFlowModule(target: any): void {
     Object.assign(target, {
@@ -159,6 +193,105 @@ export function installHomeAdFlowModule(target: any): void {
             });
         },
 
+        runRewardedGrant(
+            page: string,
+            grant: () => RewardedGrantResult,
+            options: RewardedGrantOptions = {},
+        ): boolean {
+            const busyFlag = options.busyFlag || '';
+            if (busyFlag && this[busyFlag]) {
+                return false;
+            }
+            if (busyFlag) {
+                this[busyFlag] = true;
+            }
+
+            const clearBusy = () => {
+                if (busyFlag) {
+                    this[busyFlag] = false;
+                }
+            };
+            let finalized = false;
+            const runFinally = () => {
+                if (finalized) return;
+                finalized = true;
+                clearBusy();
+                try {
+                    options.onFinally?.();
+                } catch (error) {
+                    console.warn(`[RewardedGrant] ${page} finally failed:`, error);
+                }
+            };
+            const runAdFail = () => {
+                showRewardedGrantToast(this, options.adFailToast);
+                try {
+                    options.onAdFail?.();
+                } catch (error) {
+                    console.warn(`[RewardedGrant] ${page} ad-fail handler failed:`, error);
+                }
+                runFinally();
+            };
+
+            let adCompleteHandled = false;
+            try {
+                this.showTrackedRewardedAd(page, (success: boolean) => {
+                    if (adCompleteHandled) {
+                        console.warn(`[RewardedGrant] ${page} duplicate ad-complete ignored`);
+                        return;
+                    }
+                    adCompleteHandled = true;
+                    try {
+                        options.onAdComplete?.(success);
+                    } catch (error) {
+                        console.warn(`[RewardedGrant] ${page} ad-complete handler failed:`, error);
+                    }
+                    if (!success) {
+                        runAdFail();
+                        return;
+                    }
+
+                    Promise.resolve()
+                        .then(() => grant())
+                        .then(async (grantResult) => {
+                            if (grantResult === false) {
+                                console.warn(`[RewardedGrant] ${page} grant returned false`);
+                                showRewardedGrantToast(this, options.grantFailToast);
+                                return;
+                            }
+                            showRewardedGrantToast(this, options.successToast);
+                            if (!options.afterGrant) {
+                                return;
+                            }
+                            try {
+                                const afterResult = await options.afterGrant();
+                                if (afterResult === false) {
+                                    console.warn(`[RewardedGrant] ${page} afterGrant returned false`);
+                                    showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
+                                }
+                            } catch (error) {
+                                console.error(`[RewardedGrant] ${page} afterGrant failed:`, error);
+                                showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
+                            }
+                        })
+                        .catch((error) => {
+                            console.error(`[RewardedGrant] ${page} grant failed:`, error);
+                            showRewardedGrantToast(this, options.grantFailToast);
+                        })
+                        .then(runFinally, runFinally);
+                }, {
+                    levelId: options.levelId,
+                    markLevelRevive: options.markLevelRevive,
+                    waitForCloseBeforeComplete: options.waitForCloseBeforeComplete,
+                });
+            } catch (error) {
+                console.error(`[RewardedGrant] ${page} ad request failed:`, error);
+                this.resumeTimerAfterAd?.();
+                runAdFail();
+                return false;
+            }
+            return true;
+        },
+
         suspendTimerForAd() {
             if (this._adTimerSuspended) return;
             this._adTimerSuspended = true;
@@ -223,7 +356,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.levelLabel = null!;
             this.dragLayer = null!;
             this.dragNodes = [];
-            this.destroyGameplayResultOverlays();
+            this.destroyGameplayResultOverlays(true);
             this._loadingProgressLabelTween?.stop?.();
             this._loadingShineTween?.stop?.();
             this._loadingOverlayVersion = (this._loadingOverlayVersion || 0) + 1;
@@ -517,11 +650,17 @@ export function installHomeAdFlowModule(target: any): void {
                 .start();
         },
 
-        destroyGameplayResultOverlays() {
+        destroyGameplayResultOverlays(releaseResources: boolean = false) {
             for (const panel of [this.panelWin, this.panelLose, this.panelTimeoutContinue]) {
                 if (panel?.isValid) {
+                    if (releaseResources) {
+                        this._clearSpriteFramesBeforeDestroy(panel);
+                    }
                     panel.destroy();
                 }
+            }
+            if (releaseResources) {
+                this._releasePanelTexturesNextFrame(RESULT_PANEL_TEXTURE_NAMES, 'gameplay-result-overlays');
             }
             this.panelWin = null!;
             this.panelLose = null!;
