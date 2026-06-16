@@ -25,6 +25,7 @@ GAME_LEVEL_DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'assets', 'LevelData')
 )
 LEVEL_DATA_DIR = GAME_LEVEL_DATA_DIR
+DAILY_REPORT_DIR = os.path.join(PROJECT_ROOT, 'artifacts', 'cloudbase-daily-report')
 ONLINE_LEVEL_KEYS = (
     'levelId',
     'boardWidth',
@@ -106,11 +107,27 @@ def build_formal_level_fingerprint_index():
 
 
 LEVEL_FILENAME_RE = re.compile(r'^(level|lv|daily|zt_level)_(\d+)\.json$')
+REPORT_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 JSONP_CALLBACK_RE = re.compile(r'^[A-Za-z_$][0-9A-Za-z_$]*$')
 
 
 def path_to_project_rel(path):
     return os.path.relpath(path, PROJECT_ROOT).replace(os.sep, '/')
+
+
+def list_report_dates():
+    if not os.path.isdir(DAILY_REPORT_DIR):
+        return []
+
+    dates = []
+    for name in os.listdir(DAILY_REPORT_DIR):
+        if not REPORT_DATE_RE.fullmatch(name):
+            continue
+        summary_path = os.path.join(DAILY_REPORT_DIR, name, 'combined_summary.json')
+        if os.path.isfile(summary_path):
+            dates.append(name)
+    dates.sort()
+    return dates
 
 
 def normalize_level_kind(kind_value=None):
@@ -722,6 +739,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == '/api/list-report-dates':
+            try:
+                dates = list_report_dates()
+            except OSError as exc:
+                self._send_json(500, {'ok': False, 'error': str(exc)})
+                return
+
+            self._send_json(200, {
+                'ok': True,
+                'reportRoot': path_to_project_rel(DAILY_REPORT_DIR),
+                'dates': dates,
+                'latestDate': dates[-1] if dates else '',
+            })
+            return
+
         if parsed.path == '/api/list-level-dirs':
             self._send_json(200, {
                 'ok': True,
