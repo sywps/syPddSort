@@ -224,7 +224,7 @@ CDN 只承载动态关卡数据。
 1. 微信小游戏启动壳。
 2. 平台适配代码。
 3. Cocos 运行时入口和最小 settings。
-4. 必须随启动可用的 `bootstrap` 内容。
+4. 必须随启动可用的最小路由代码和 `Boot.scene` 静态资源。
 
 不应包含：
 
@@ -238,8 +238,8 @@ CDN 只承载动态关卡数据。
 
 1. `main` 是 Cocos Creator 构建出来的默认主 bundle，在微信小游戏中被放入 `subpackages/main`。
 2. 当前目标阶段，`main` 只承载启动第一口气必须用到的场景和脚本。
-3. 当前 release 构建口径中，`main` 应包含 `Boot.scene` 和 `Game.scene` 这类启动/首关场景骨架；不要在文档中把已经合并或不存在的 `Loading.scene` 当作独立启动依赖。
-4. `Game.scene` 在 `main` 中只表示首关运行所需的场景骨架、控制器挂载点和 Cocos 保存的稳定节点，不表示后续玩法大资源都应进入 `main`。
+3. 当前 release 构建口径中，`main` 只包含 `Boot.scene` 和启动路由脚本；不要在文档中把已经合并或不存在的 `Loading.scene` 当作独立启动依赖。
+4. `Game.scene` 归属 `bootstrap/firstPlay`，表示首关运行所需的场景骨架、控制器挂载点和 Cocos 保存的稳定节点，不表示后续玩法大资源都应进入 `main`。
 
 当前如果 `main` 被放在：
 
@@ -398,8 +398,8 @@ A 类首屏依赖：
 
 | 来源 | 是否依赖 | 内容 |
 |---|---|---|
-| Root | 是 | 启动壳、运行时代码、settings、bootstrap |
-| `main` | 当前阶段是 | Boot.scene / Game.scene 骨架和启动脚本 |
+| Root | 是 | 启动壳、运行时代码、settings |
+| `main` | 是 | Boot.scene 和启动脚本 |
 | `bootstrap` | 是 | level_1 和首关同步资源 |
 | `homeAssets` | 否 | 不应下载 |
 | `gameAssets` | 否 | 不应下载 |
@@ -435,7 +435,7 @@ B 类首屏依赖：
 
 | 来源 | 是否依赖 | 内容 |
 |---|---|---|
-| Root | 是 | 启动壳、运行时代码、settings、bootstrap |
+| Root | 是 | 启动壳、运行时代码、settings |
 | `main` | 当前阶段是 | Boot / Router / Home 路由所需最小代码和启动场景骨架 |
 | `homeAssets` | 是 | Home.scene 和主页 UI |
 | `bootstrap` | 当前阶段会下载 | 因为统一预加载；长期目标是减少这个对 B 的成本 |
@@ -485,8 +485,8 @@ C 类首屏依赖：
 
 | 来源 | 是否依赖 | 内容 |
 |---|---|---|
-| Root | 是 | 启动壳、运行时代码、settings、bootstrap |
-| `main` | 当前阶段是 | Boot.scene / Game.scene 骨架和启动脚本 |
+| Root | 是 | 启动壳、运行时代码、settings |
+| `main` | 是 | Boot.scene 和启动脚本 |
 | `bootstrap` | 是 | 第 1 关 fallback 所需资源 |
 | `homeAssets` | 云端恢复后需要 | 恢复到 Home 时下载 |
 | `gameAssets` | 否 | 恢复前不应下载 |

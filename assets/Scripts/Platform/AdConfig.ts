@@ -64,7 +64,7 @@ export class AdConfig extends Component {
         if (getMiniGameBuildPlatform() !== 'wechat') return 'native';
         const mockOverride = AdConfig.getRewardedAdMockOverride();
         if (mockOverride && AdConfig.canUseRewardedAdMockOverride()) return mockOverride;
-        if (AdConfig.isWeChatDevtoolsLike()) return 'mock-fail';
+        if (AdConfig.isWeChatDeveloperToolRuntime()) return 'mock-fail';
         return 'native';
     }
 
@@ -85,7 +85,7 @@ export class AdConfig extends Component {
     }
 
     private static canUseRewardedAdMockOverride(): boolean {
-        return AdConfig.isWeChatDevtoolsLike() || getMiniGameBuildMode() !== 'release';
+        return AdConfig.isWeChatDeveloperToolRuntime() || getMiniGameBuildMode() !== 'release';
     }
 
     private static getLaunchQueryValue(name: string): string {
@@ -108,7 +108,7 @@ export class AdConfig extends Component {
         }
     }
 
-    private static isWeChatDevtoolsLike(): boolean {
+    private static isWeChatDeveloperToolRuntime(): boolean {
         const api = getWeChatMiniGameRuntime();
         try {
             const deviceInfo = api?.getDeviceInfo?.() || {};
@@ -126,15 +126,11 @@ export class AdConfig extends Component {
                 systemInfo.model,
             ].map((value) => String(value || '').toLowerCase());
             return markers.some((value) => {
+                // `windows` / `mac` / `ohos_pc` are real WeChat clients, not DevTools.
                 return value === 'devtools'
                     || value === 'simulator'
-                    || value === 'mac'
-                    || value === 'macos'
-                    || value === 'windows'
                     || value.includes('devtools')
-                    || value.includes('simulator')
-                    || value.includes('mac os')
-                    || value.includes('windows');
+                    || value.includes('simulator');
             });
         } catch {
             return false;

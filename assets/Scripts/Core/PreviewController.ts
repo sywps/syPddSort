@@ -1,5 +1,6 @@
 import { _decorator, assetManager, Button, Label, Node, ResolutionPolicy, SceneAsset, director, view } from 'cc';
 import { GameRuntimeHost } from './GameRuntimeHost';
+import { HOME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from './PackageNames';
 
 const { ccclass } = _decorator;
 
@@ -111,7 +112,7 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '打开 Panel Preview', onClick: () => this.switchPreviewMode('panel') },
                 { label: '打开 Fx Preview', onClick: () => this.switchPreviewMode('fx') },
                 { label: '进入 Home.scene', onClick: () => { this.loadHomePreviewScene(); } },
-                { label: '进入 Game.scene', onClick: () => { void director.loadScene('Game'); } },
+                { label: '进入 Game.scene', onClick: () => { this.loadGamePreviewScene(); } },
             ],
         });
     }
@@ -155,14 +156,22 @@ export class PreviewController extends GameRuntimeHost {
     }
 
     private loadHomePreviewScene() {
-        assetManager.loadBundle('homeAssets', (bundleErr, bundle) => {
+        this.loadPreviewSceneFromBundle(HOME_ASSETS_BUNDLE_NAME, 'Home');
+    }
+
+    private loadGamePreviewScene() {
+        this.loadPreviewSceneFromBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME, 'Game');
+    }
+
+    private loadPreviewSceneFromBundle(bundleName: string, sceneName: string) {
+        assetManager.loadBundle(bundleName, (bundleErr, bundle) => {
             if (bundleErr || !bundle) {
-                console.error('[Preview] load homeAssets failed:', bundleErr?.message || 'missing bundle');
+                console.error(`[Preview] load ${bundleName} failed:`, bundleErr?.message || 'missing bundle');
                 return;
             }
-            bundle.loadScene('Home', (sceneErr: Error | null, sceneAsset: SceneAsset) => {
+            bundle.loadScene(sceneName, (sceneErr: Error | null, sceneAsset: SceneAsset) => {
                 if (sceneErr || !sceneAsset) {
-                    console.error('[Preview] load Home.scene failed:', sceneErr?.message || 'missing scene asset');
+                    console.error(`[Preview] load ${sceneName}.scene failed:`, sceneErr?.message || 'missing scene asset');
                     return;
                 }
                 director.runScene(sceneAsset);
@@ -181,7 +190,7 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '返回 UIPreview', onClick: () => this.switchPreviewMode('ui') },
             ],
             [
-                { label: '进入 Game.scene', onClick: () => { void director.loadScene('Game'); } },
+                { label: '进入 Game.scene', onClick: () => { this.loadGamePreviewScene(); } },
                 { label: '返回 UIPreview', onClick: () => this.switchPreviewMode('ui') },
             ],
         ];

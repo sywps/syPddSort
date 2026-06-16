@@ -7,10 +7,11 @@ const projectRoot = path.resolve(__dirname, '..');
 const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatgame', 'minigame');
 const bootstrapSourceRoot = path.join(projectRoot, 'assets', 'BootstrapBundle');
 const libraryRoot = path.join(projectRoot, 'library');
-const bootstrapOutputRoot = path.join(runtimeRoot, 'assets', 'bootstrap');
+const bootstrapBundleName = 'bootstrap';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'GameUI/bg_game_pindd',
+	'GameUI/loading_cover_firstplay',
 	'GameUI/slot_groove_b_ui',
 	'GameUI/slot_panel_shell_b_ui',
 	'GameUI/slot_row_lock_dash_ui',
@@ -19,6 +20,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/guide_hand',
 	'GameUI/popup_guide_highlight_ring',
 	'GameUI/popup_ad_play_icon',
+	'GameUI/popup_primary_button',
 	'GameUI/popup_gameplay_tool_slot_plate',
 	'GameUI/popup_tool_add_badge',
 	'GameUI/popup_tool_count_badge',
@@ -54,6 +56,28 @@ function writeJson(filePath, data) {
 function normalizeSlashes(filePath) {
     return filePath.split(path.sep).join('/');
 }
+
+function readGameJson() {
+    const gameJsonPath = path.join(runtimeRoot, 'game.json');
+    if (!fs.existsSync(gameJsonPath)) return null;
+    return readJson(gameJsonPath);
+}
+
+function resolveBootstrapOutputRoot() {
+    const localRoot = path.join(runtimeRoot, 'assets', bootstrapBundleName);
+    if (fs.existsSync(localRoot)) return localRoot;
+    const gameJson = readGameJson();
+    const subpackages = Array.isArray(gameJson?.subpackages) ? gameJson.subpackages : [];
+    for (const item of subpackages) {
+        const root = String(item?.root || '').replace(/^\/+|\/+$/g, '');
+        if (item?.name === bootstrapBundleName || root === bootstrapBundleName || root === `subpackages/${bootstrapBundleName}`) {
+            return path.join(runtimeRoot, root || `subpackages/${bootstrapBundleName}`);
+        }
+    }
+    return path.join(runtimeRoot, 'subpackages', bootstrapBundleName);
+}
+
+const bootstrapOutputRoot = resolveBootstrapOutputRoot();
 
 function walkImages(dir) {
     if (!fs.existsSync(dir)) return [];
@@ -162,7 +186,7 @@ function collectAssets() {
     return assets;
 }
 
-if (!fs.existsSync(bootstrapOutputRoot)) fail('未找到本地 bootstrap bundle: ' + bootstrapOutputRoot);
+if (!fs.existsSync(bootstrapOutputRoot)) fail('未找到 bootstrap bundle: ' + bootstrapOutputRoot);
 const configPaths = fs.readdirSync(bootstrapOutputRoot)
     .filter((name) => /^config(?:\.[0-9a-f]+)?\.json$/i.test(name))
     .map((name) => path.join(bootstrapOutputRoot, name))

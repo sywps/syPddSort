@@ -28,6 +28,7 @@ const debugLevelDataBundle = buildMode === 'debug';
 const screenAdaptDebug = process.env.PDD_SCREEN_ADAPT_DEBUG === '1';
 
 const BUNDLE_NAME = 'gameAssets';
+const BOOTSTRAP_BUNDLE_NAME = 'bootstrap';
 const HOME_ASSETS_BUNDLE_NAME = 'homeAssets';
 const LEVEL_DATA_BUNDLE_NAME = 'levelData';
 const MAIN_PACKAGE_TARGET_KB = 3072;
@@ -171,6 +172,17 @@ function writeJsonFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+function normalizeWechatProjectConfig(config) {
+    if (!config || typeof config !== 'object') return config;
+    if (config.libVersion !== undefined) {
+        var libVersion = typeof config.libVersion === 'string' ? config.libVersion.trim() : '';
+        var isValidLibVersion = libVersion === 'latest' || /^[0-9]+\.[0-9]+(?:\.[0-9]+)?$/.test(libVersion);
+        if (isValidLibVersion) config.libVersion = libVersion;
+        else delete config.libVersion;
+    }
+    return config;
+}
+
 function walkFiles(dir) {
     if (!fs.existsSync(dir)) return [];
     var result = [];
@@ -309,6 +321,22 @@ function ensureGameAssetsWechatSubpackage() {
     return gameAssetsSubpackageDir;
 }
 
+function ensureBootstrapWechatSubpackage() {
+    var runtimeRoot = resolveRuntimeRoot();
+    var localBundleDir = path.join(runtimeRoot, 'assets', BOOTSTRAP_BUNDLE_NAME);
+    var bootstrapRoot = 'subpackages/' + BOOTSTRAP_BUNDLE_NAME;
+    var bootstrapSubpackageDir = path.join(runtimeRoot, bootstrapRoot);
+    if (fs.existsSync(localBundleDir)) {
+        movePathSync(localBundleDir, bootstrapSubpackageDir);
+        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 firstPlay/bootstrap: ' + bootstrapRoot + ' ✓');
+    }
+    ensureStableBundleFiles(bootstrapSubpackageDir);
+    ensureSubpackageGameJs(bootstrapSubpackageDir, BOOTSTRAP_BUNDLE_NAME);
+    ensureBundleInGameSubpackages(runtimeRoot, BOOTSTRAP_BUNDLE_NAME);
+    ensureBundleInSettingsSubpackages(resolveSettingsPath(), BOOTSTRAP_BUNDLE_NAME);
+    return bootstrapSubpackageDir;
+}
+
 function ensureHomeAssetsWechatSubpackage() {
     var runtimeRoot = resolveRuntimeRoot();
     var localBundleDir = path.join(runtimeRoot, 'assets', HOME_ASSETS_BUNDLE_NAME);
@@ -436,7 +464,7 @@ function getPreloadBundleName(item) {
 
 function ensureStartupPreloadBundles(assets) {
     var preloadBundles = Array.isArray(assets.preloadBundles) ? assets.preloadBundles.slice() : [];
-    var requiredOrder = ['bootstrap', 'main'];
+    var requiredOrder = ['main'];
     var byName = new Map();
     for (var i = 0; i < preloadBundles.length; i++) {
         var name = getPreloadBundleName(preloadBundles[i]);
@@ -449,6 +477,7 @@ function ensureStartupPreloadBundles(assets) {
         var existingName = getPreloadBundleName(preloadBundles[j]);
         if (
             requiredOrder.indexOf(existingName) === -1
+            && existingName !== BOOTSTRAP_BUNDLE_NAME
             && existingName !== HOME_ASSETS_BUNDLE_NAME
             && existingName !== BUNDLE_NAME
             && existingName !== LEVEL_DATA_BUNDLE_NAME
@@ -639,8 +668,8 @@ if (fs.existsSync(settingsPath)) {
         projectBundles = projectBundles.filter(function (name) { return name !== LEVEL_DATA_BUNDLE_NAME; });
     }
     var requiredProjectBundles = debugLevelDataBundle
-        ? ['bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME]
-        : ['bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
+        ? [BOOTSTRAP_BUNDLE_NAME, HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME]
+        : [BOOTSTRAP_BUNDLE_NAME, HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
     for (var projectBundleIndex = 0; projectBundleIndex < requiredProjectBundles.length; projectBundleIndex++) {
         var projectBundleName = requiredProjectBundles[projectBundleIndex];
         if (projectBundles.indexOf(projectBundleName) === -1) projectBundles.push(projectBundleName);
@@ -649,8 +678,8 @@ if (fs.existsSync(settingsPath)) {
     ensureStartupPreloadBundles(a);
     settings.assets = a;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, null));
-    console.log('[2/6] projectBundles 已配置 bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
-    console.log('[2/6] startup preload: bootstrap -> main ✓');
+    console.log('[2/6] projectBundles 已配置 firstPlay/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
+    console.log('[2/6] startup preload: cocosCore/main only; firstPlay/bootstrap 按 A/C 路由按需加载 ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
 }
@@ -784,6 +813,7 @@ if (fs.existsSync(webAdapterPath)) {
 var projectConfigPath = path.join(buildPath, 'project.config.json');
 if (fs.existsSync(projectConfigPath)) {
     var pc = JSON.parse(fs.readFileSync(projectConfigPath, 'utf-8'));
+    normalizeWechatProjectConfig(pc);
     // 关闭域名校验（开发阶段）
     if (pc.setting.urlCheck) {
         pc.setting.urlCheck = false;
@@ -826,16 +856,15 @@ if (fs.existsSync(projectConfigPath)) {
     }
 }
 
-// 3.7 直接使用 Creator 构建出的 bootstrap bundle
-// 注意：这里发生在 minigame 迁移之前，bootstrap 仍然位于 build 根目录；
-// 如果脚本被重复执行，则也可能已经位于 minigame/ 下，所以要同时兼容两种位置。
+// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 firstPlay/bootstrap 是微信分包。
 var stableBundleNames = debugLevelDataBundle
-    ? ['internal', 'bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, 'main']
-    : ['internal', 'bootstrap', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, 'main'];
+    ? ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, 'main']
+    : ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, 'main'];
 stableBundleNames.forEach(function (bundleName) {
     ensureStableBundleFiles(resolveBuildPath(path.join('assets', bundleName)));
 });
-var bootstrapConfigPath = resolveBuildPath(path.join('assets', 'bootstrap', 'config.json'));
+var bootstrapBundleDir = ensureBootstrapWechatSubpackage();
+var bootstrapConfigPath = path.join(bootstrapBundleDir, 'config.json');
 if (!fs.existsSync(bootstrapConfigPath)) {
     console.error('[3.7/7] 未找到 Creator 生成的 bootstrap bundle:', bootstrapConfigPath);
     process.exit(1);
@@ -845,7 +874,7 @@ try {
     var bootstrapPathEntries = Object.values(bootstrapConfig.paths || {}).filter((value) => Array.isArray(value) && value.length > 0);
     var importVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.import) ? bootstrapConfig.versions.import.length / 2 : 0;
     var nativeVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.native) ? bootstrapConfig.versions.native.length / 2 : 0;
-    console.log('[3.7/7] 已使用 Creator 生成的 bootstrap bundle ✓');
+    console.log('[3.7/7] 已使用 Creator 生成的 firstPlay/bootstrap bundle ✓');
     console.log('         entries=' + bootstrapPathEntries.length + ', import=' + importVersions + ', native=' + nativeVersions);
 } catch (e) {
     console.error('[3.7/7] 读取 bootstrap bundle 失败:', e.message || e);
@@ -853,24 +882,15 @@ try {
 }
 
 // 3.7b 创建 bootstrap bundle-scripts stub（引擎 require 需要此文件才能 loadBundle）
-var bootstrapScriptDir = path.join(buildPath, 'src', 'bundle-scripts', 'bootstrap');
-var bootstrapScriptFile = path.join(bootstrapScriptDir, 'index.js');
-if (!fs.existsSync(bootstrapScriptFile)) {
-    fs.mkdirSync(bootstrapScriptDir, { recursive: true });
-    fs.writeFileSync(bootstrapScriptFile,
-        'System.register("virtual:///prerequisite-imports/bootstrap", [], function() { return { setters: [], execute: function() {} }; });\n');
-    console.log('[3.7b] bootstrap bundle-scripts stub 已创建 ✓');
-} else {
-    console.log('[3.7b] bootstrap bundle-scripts stub 已存在 ✓');
-}
+ensureBundleScriptStub(resolveRuntimeRoot(), BOOTSTRAP_BUNDLE_NAME, '[3.7b] bootstrap');
 
 // 3.8 注册 bootstrap bundle 到 settings.json（否则 loadBundle 找不到它）
 if (fs.existsSync(settingsPath)) {
     var settingsForBootstrap = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     var assetsSection = settingsForBootstrap.assets || {};
     var projBundles = Array.isArray(assetsSection.projectBundles) ? assetsSection.projectBundles.slice() : [];
-    if (!projBundles.includes('bootstrap')) {
-        projBundles.push('bootstrap');
+    if (!projBundles.includes(BOOTSTRAP_BUNDLE_NAME)) {
+        projBundles.push(BOOTSTRAP_BUNDLE_NAME);
         assetsSection.projectBundles = projBundles;
         settingsForBootstrap.assets = assetsSection;
         fs.writeFileSync(settingsPath, JSON.stringify(settingsForBootstrap, null, null));
@@ -1083,6 +1103,7 @@ for (var runtimeFileIndex = 0; runtimeFileIndex < rootRuntimeFiles.length; runti
 
 if (fs.existsSync(projectConfigRootPath)) {
     var rootProjectConfig = JSON.parse(fs.readFileSync(projectConfigRootPath, 'utf-8'));
+    normalizeWechatProjectConfig(rootProjectConfig);
     // 运行时代码放到 minigame/，避免 cloudfunctions 被小游戏运行时扫描
     rootProjectConfig.miniprogramRoot = 'minigame/';
     rootProjectConfig.cloudfunctionRoot = 'cloudfunctions';
@@ -1112,6 +1133,11 @@ if (movedRuntimeCount > 0) {
 // 8.5 homeAssets/gameAssets 分包目录由微信 subpackages 承载。
 var minigameHomeAssetsSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, HOME_ASSETS_BUNDLE_NAME);
 var minigameHomeAssetsSubpackageDir = path.join(minigameRootPath, minigameHomeAssetsSubpackageRoot);
+var minigameBootstrapSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, BOOTSTRAP_BUNDLE_NAME);
+var minigameBootstrapSubpackageDir = path.join(minigameRootPath, minigameBootstrapSubpackageRoot);
+console.log(fs.existsSync(minigameBootstrapSubpackageDir)
+    ? '[8.5/8] firstPlay/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
+    : '[8.5/8] firstPlay/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameHomeAssetsSubpackageDir)
     ? '[8.5/8] homeAssets 微信分包目录已保留: ' + minigameHomeAssetsSubpackageRoot + ' ✓'
     : '[8.5/8] homeAssets 微信分包目录缺失，交由验证脚本确认: ' + minigameHomeAssetsSubpackageRoot);

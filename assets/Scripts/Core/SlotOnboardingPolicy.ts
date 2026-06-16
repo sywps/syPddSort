@@ -11,6 +11,9 @@ export type SlotRowPolicy = {
 };
 
 export const ONBOARDING_TEACHING_TIME_LIMIT_SECONDS = 600;
+const MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MIN_LEVEL = 3;
+const MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MAX_LEVEL = 10;
+const MAINLINE_APPEND_LOCKED_SLOT_ROW_MIN_LEVEL = MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MAX_LEVEL + 1;
 
 function normalizeLevelId(levelId: unknown): number {
     return Math.max(1, Math.floor(Number(levelId) || 1));
@@ -45,7 +48,7 @@ export function getSlotUnlockMode(levelId: unknown, entryMode: SlotOnboardingEnt
 
 export function shouldAppendLockedSlotRowAfterUnlock(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): boolean {
     if (!isMainlineSlotEntry(entryMode)) return true;
-    return normalizeLevelId(levelId) >= 6;
+    return normalizeLevelId(levelId) >= MAINLINE_APPEND_LOCKED_SLOT_ROW_MIN_LEVEL;
 }
 
 export function resolveSlotOnboardingTimeLimit(options: {
@@ -87,7 +90,7 @@ export function resolveSlotRowPolicy(options: {
     let rowCount = 2;
     if (levelId === 1) {
         rowCount = 1;
-    } else if (levelId >= 3 && levelId <= 5) {
+    } else if (levelId >= MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MIN_LEVEL && levelId <= MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MAX_LEVEL) {
         unlockedRows = 2;
         rowCount = 3;
     }

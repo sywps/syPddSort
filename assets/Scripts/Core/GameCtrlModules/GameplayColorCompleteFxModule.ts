@@ -4,6 +4,7 @@ import {
     Bundle,
     Color,
     instantiate,
+    GAME_ASSETS_BUNDLE_NAME,
     Layers,
     Node,
     Prefab,
@@ -91,7 +92,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
 
-            assetManager.loadBundle('gameAssets', (err, bundle) => {
+            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 if (err || !bundle) {
                     this.warnColorCompleteMatchFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     onDone([]);
@@ -142,7 +143,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
 
-            assetManager.loadBundle('gameAssets', (err, bundle) => {
+            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 if (err || !bundle) {
                     this.warnColorCompleteMatchFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     finish(null);

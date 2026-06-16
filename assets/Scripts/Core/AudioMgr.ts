@@ -18,6 +18,7 @@ import {
     AUDIO_SFX_VOLUME_VARIANCE,
     type SfxName,
 } from './AudioManifest';
+import { GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from './PackageNames';
 const { ccclass } = _decorator;
 
 export type { SfxName } from './AudioManifest';
@@ -25,7 +26,6 @@ export type { SfxName } from './AudioManifest';
 const LS_SFX = 'pdd.setting.sfx';
 const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
-const LOCAL_BOOTSTRAP_BUNDLE_NAME = 'bootstrap';
 
 const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);
 
@@ -140,12 +140,12 @@ export class AudioMgr {
         }
         this.gameAssetsBundleCallbacks = onReady ? [onReady] : [];
         this.gameAssetsBundleState = 'loading';
-        assetManager.loadBundle('gameAssets', (err, bundle) => {
+        assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
             const callbacks = this.gameAssetsBundleCallbacks || [];
             this.gameAssetsBundleCallbacks = null;
             if (err || !bundle) {
                 this.gameAssetsBundleState = 'failed';
-                console.warn('[Audio] loadBundle gameAssets 失败:', err?.message);
+                console.warn(`[Audio] loadBundle ${GAME_ASSETS_BUNDLE_NAME} 失败:`, err?.message);
                 this._flushDeferredSfxLoads();
                 callbacks.forEach((callback) => callback(null));
                 return;

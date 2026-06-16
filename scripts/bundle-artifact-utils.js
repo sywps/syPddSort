@@ -47,7 +47,12 @@ function collectSourceBundleArtifacts(sourceRoot, bundleName, fail) {
         }
         for (const subMeta of Object.values(meta.subMetas || {})) {
             if (!subMeta || typeof subMeta.uuid !== 'string' || !subMeta.uuid || !hasJsonArtifact(subMeta)) continue;
-            pushArtifact({ uuid: subMeta.uuid, native: false, source: metaPath });
+            pushArtifact({
+                uuid: subMeta.uuid,
+                native: false,
+                optionalImport: subMeta.importer === 'texture' || subMeta.importer === 'sprite-frame',
+                source: metaPath,
+            });
         }
     }
     return artifacts;

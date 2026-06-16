@@ -372,20 +372,22 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 
 ### 13.1.3 微信开发者工具验证实践
 1. 先完成对应构建，再打开平台包；debug 验证用 debug 包，release 验证用 release 包，不能用 web preview 代替微信小游戏平台验证。
-2. 打开项目必须传绝对路径。相对路径如 `--project build/wechatgame` 容易在当前进程目录变化时解析错，出现 `project.config` 无效或资源路径误判。
-3. 当前验证过的默认调用方式如下，端口被占用时换一个空闲端口：
+2. 微信开发者工具不是真实微信客户端；手机微信和电脑微信客户端都是真实微信运行环境。不得把 `wx.getDeviceInfo().platform` 的 `windows`、`mac`、`ohos_pc` 当成 `devtools`。
+3. 微信开发者工具只能验证包结构、基础库、模拟器 console、平台 API 接入和 mock / failure 分支；真实广告播放、真实登录态和真实客户端表现必须在手机微信或电脑微信客户端验证。
+4. 打开项目必须传绝对路径。相对路径如 `--project build/wechatgame` 容易在当前进程目录变化时解析错，出现 `project.config` 无效或资源路径误判。
+5. 当前验证过的默认调用方式如下，端口被占用时换一个空闲端口：
 
 ```bash
 /Applications/wechatwebdevtools.app/Contents/MacOS/cli open --project /ABS/PROJECT/build/wechatgame --port 34653 --debug
 /Applications/wechatwebdevtools.app/Contents/MacOS/cli auto --project /ABS/PROJECT/build/wechatgame --port 9420 --trust-project --debug
 ```
 
-4. 当前微信开发者工具 CLI 的 `auto` 命令使用全局 `--port` 参数；不要沿用旧口径写成 `--auto-port`。
-5. 微信开发者工具自动化通道只作为辅助证据。`miniprogram-automator` 可能出现 `launch/open` 成功但 `evaluate`、截图或 direct connect 超时；这类情况应记录为工具通道受阻，不能据此判定游戏通过，也不能据此判定游戏失败。
-6. 平台验证至少要结合三类证据：模拟器实际画面或系统截图、调试器 console 中红色 error / 新增 error 数、`build/wechatgame` 包内资源和分包文件检查。
-7. 自动截图不稳定时，使用系统截图留证，例如 `screencapture -x temp/wechat-devtools-validation/<case>.png`，并在截图后人工/视觉检查启动画面、目标场景、弹窗或错误状态。
-8. 遇到微信平台专属错误，例如分包文件缺失、`ReadFile:fail no such file or directory`、基础库 API 差异、`game.js` require 路径错误，必须在 `build/wechatgame` 中查真实产物和 `game.json/project.config.json`，不能只修浏览器预览。
-9. 如果开发者工具已打开旧项目，优先用绝对路径重新 open 当前 `build/wechatgame`；必要时先 `close` / `quit` 再打开。除非 Human 要求关闭，否则平台验证后可以保留窗口便于继续观察。
+6. 当前微信开发者工具 CLI 的 `auto` 命令使用全局 `--port` 参数；不要沿用旧口径写成 `--auto-port`。
+7. 微信开发者工具自动化通道只作为辅助证据。`miniprogram-automator` 可能出现 `launch/open` 成功但 `evaluate`、截图或 direct connect 超时；这类情况应记录为工具通道受阻，不能据此判定游戏通过，也不能据此判定游戏失败。
+8. 平台验证至少要结合三类证据：模拟器实际画面或系统截图、调试器 console 中红色 error / 新增 error 数、`build/wechatgame` 包内资源和分包文件检查。
+9. 自动截图不稳定时，使用系统截图留证，例如 `screencapture -x temp/wechat-devtools-validation/<case>.png`，并在截图后人工/视觉检查启动画面、目标场景、弹窗或错误状态。
+10. 遇到微信平台专属错误，例如分包文件缺失、`ReadFile:fail no such file or directory`、基础库 API 差异、`game.js` require 路径错误，必须在 `build/wechatgame` 中查真实产物和 `game.json/project.config.json`，不能只修浏览器预览。
+11. 如果开发者工具已打开旧项目，优先用绝对路径重新 open 当前 `build/wechatgame`；必要时先 `close` / `quit` 再打开。除非 Human 要求关闭，否则平台验证后可以保留窗口便于继续观察。
 
 ### 13.2 最低验证要求
 1. 用户可见结果必须实际打开对应入口验证。
