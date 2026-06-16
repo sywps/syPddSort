@@ -84,6 +84,7 @@ function libraryImportPath(uuid) {
     if (!fs.existsSync(importDir)) return '';
     const fileName = fs.readdirSync(importDir).find((name) => {
         if (name === `${uuid}.json`) return true;
+        if (name === `${uuid}.scene` || name === `${uuid}.prefab`) return true;
         if (!name.startsWith(`${uuid}.`)) return false;
         return /\.json$/i.test(name);
     });
@@ -111,9 +112,10 @@ function copyFileIfChanged(src, dest) {
 }
 
 function copyImport(bundleDir, uuid) {
+    const dest = importArtifactPath(bundleDir, uuid, 'import');
+    if (fs.existsSync(dest)) return 'exists';
     const src = assetDbImportPath(uuid) || libraryImportPath(uuid);
     if (!src) return 'missing';
-    const dest = importArtifactPath(bundleDir, uuid, 'import');
     return copyFileIfChanged(src, dest) ? 'copied' : 'exists';
 }
 

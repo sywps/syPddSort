@@ -13,6 +13,21 @@ if (!outputPath || !startSceneUrl || !startSceneUuid || !modeArg) {
 const debugMode = modeArg === '--debug' || modeArg === 'debug';
 const releaseMode = modeArg === '--release' || modeArg === 'release';
 const projectRoot = path.resolve(__dirname, '..');
+const MINIGAME_ENGINE_MODULES = [
+    '2d',
+    'affine-transform',
+    'animation',
+    'audio',
+    'base',
+    'gfx-webgl',
+    'graphics',
+    'intersection-2d',
+    'legacy-pipeline',
+    'mask',
+    'rich-text',
+    'tween',
+    'ui',
+];
 
 if (!debugMode && !releaseMode) {
     console.error('未知微信构建模式: ' + modeArg);
@@ -45,7 +60,6 @@ function readAssetUuid(assetUrl) {
 function makeRuntimeScenes() {
     const scenes = [
         { url: startSceneUrl, uuid: startSceneUuid },
-        { url: 'db://assets/Scenes/Game.scene', uuid: readAssetUuid('db://assets/Scenes/Game.scene') },
     ];
     const seen = new Set();
     return scenes.filter((scene) => {
@@ -80,6 +94,7 @@ const config = {
     name: 'NewProject',
     server: '',
     engineModulesConfigKey: 'defaultConfig',
+    includeModules: MINIGAME_ENGINE_MODULES,
     buildPath: 'project://build',
     debug: false,
     md5Cache: true,
@@ -105,19 +120,18 @@ const config = {
         {
             root: 'db://assets/BootstrapBundle',
             name: 'bootstrap',
+            isRemote: false,
             output: true,
         },
         {
             root: 'db://assets/GameAssetsBundle',
             name: 'gameAssets',
-            compressionType: 'subpackage',
             isRemote: false,
             output: true,
         },
         {
             root: 'db://assets/HomeAssetsBundle',
             name: 'homeAssets',
-            compressionType: 'subpackage',
             isRemote: false,
             output: true,
         },

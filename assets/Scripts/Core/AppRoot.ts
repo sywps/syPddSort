@@ -11,9 +11,10 @@ import {
     SceneTransitionController,
     ensureSceneTransitionController as attachSceneTransitionController,
 } from './SceneTransitionController';
+import { LOCAL_BOOTSTRAP_BUNDLE_NAME } from './PackageNames';
 
 const { ccclass } = _decorator;
-const SCENE_TRANSITION_BUNDLE_NAME = 'bootstrap';
+const SCENE_TRANSITION_BUNDLE_NAME = LOCAL_BOOTSTRAP_BUNDLE_NAME;
 const SCENE_TRANSITION_PREFAB_PATH = 'UI/Prefabs/Fx/SceneTransition';
 const SCENE_TRANSITION_LAYER_NAME = 'SceneTransitionLayer';
 const SCENE_TRANSITION_RENDER_LAYER = 1 << 29;

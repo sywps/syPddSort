@@ -1,5 +1,5 @@
 import {
-    Color, Node, UITransform, UIOpacity, Prefab, instantiate, assetManager, tween, Tween, Layers, Sprite, SpriteFrame, Vec3,
+    Color, Node, UITransform, UIOpacity, Prefab, instantiate, assetManager, GAME_ASSETS_BUNDLE_NAME, tween, Tween, Layers, Sprite, SpriteFrame, Vec3,
 } from '../GameCtrlShared';
 
 const ENDGAME_HINT_PREFAB_PATH = 'UI/Prefabs/Fx/EndgameHintCell';
@@ -124,7 +124,7 @@ export function installEndgameHintModule(target: any): void {
                 loadFromBundle(this.gameAssetsBundle);
                 return;
             }
-            assetManager.loadBundle('gameAssets', (err, bundle) => {
+            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 if (err || !bundle) {
                     this.warnEndgameHintLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     finish(null);
@@ -170,7 +170,7 @@ export function installEndgameHintModule(target: any): void {
                 loadFromBundle(this.gameAssetsBundle);
                 return;
             }
-            assetManager.loadBundle('gameAssets', (err, bundle) => {
+            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 if (err || !bundle) {
                     this.warnEndgameHintLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     onDone([]);

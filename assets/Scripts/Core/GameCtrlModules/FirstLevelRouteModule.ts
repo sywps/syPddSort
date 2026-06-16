@@ -13,7 +13,7 @@ import {
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
-    LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
+    LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
@@ -298,36 +298,11 @@ export function installFirstLevelRouteModule(target: any): void {
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
-            const firstLevelRouteResolveTask: Promise<FirstLevelRouteResolution> = shouldUseFirstLevelExperiment
-                ? this.startFirstLevelRouteExperimentResolve()
-                : Promise.resolve({ bucket: 'bucket_a', source: 'default' });
+            this._firstLevelRouteBucket = 'bucket_a';
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
-            if (shouldUseFirstLevelExperiment) {
-                await this.initFirstLevelRouteExperiment(firstLevelRouteResolveTask);
-                AnalyticsMgr.inst.setExperimentContext({
-                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                    abBucket: this._firstLevelRouteBucket,
-                });
-                AnalyticsMgr.inst.trackFunnelEvent({
-                    eventName: 'ab_assigned',
-                    page: 'app',
-                    source: 'first_level_route',
-                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                    abBucket: this._firstLevelRouteBucket,
-                    extra: {
-                        hadLocalUserState,
-                        hadAnyLocalUserState,
-                        restoreStatus,
-                        startupLocalProgressState,
-                        savedLevel: this.getSavedLevel(),
-                    },
-                });
-            } else {
-                this._firstLevelRouteBucket = 'bucket_a';
-            }
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
@@ -416,6 +391,37 @@ export function installFirstLevelRouteModule(target: any): void {
                 this.preloadAllAssets(onReady);
                 // 超时兜底：15秒（给远程 bundle 足够的加载时间）
                 this.scheduleOnce(onReady, 15);
+            }
+
+            if (shouldUseFirstLevelExperiment) {
+                void this.startFirstLevelRouteExperimentResolve()
+                    .then((result: FirstLevelRouteResolution) => {
+                        this._firstLevelRouteBucket = result.bucket;
+                        AnalyticsMgr.inst.setExperimentContext({
+                            abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                            abBucket: this._firstLevelRouteBucket,
+                        });
+                        AnalyticsMgr.inst.trackFunnelEvent({
+                            eventName: 'ab_assigned',
+                            page: 'app',
+                            source: 'first_level_route',
+                            abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
+                            abBucket: this._firstLevelRouteBucket,
+                            extra: {
+                                abSource: result.source,
+                                hadLocalUserState,
+                                hadAnyLocalUserState,
+                                restoreStatus,
+                                startupLocalProgressState,
+                                savedLevel: this.getSavedLevel(),
+                            },
+                        });
+                        console.warn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
+                    })
+                    .catch((err: Error) => {
+                        this._firstLevelRouteBucket = 'bucket_a';
+                        console.warn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: background assignment failed, use default bucket_a`, err?.message || err);
+                    });
             }
         
             const canAutoSaveGameStateOnStartup =
@@ -514,7 +520,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 return;
             }
             this._preloadingBundle = true;
-            assetManager.loadBundle('gameAssets', (err, bundle) => {
+            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 this._preloadingBundle = false;
                 if (err) {
                     console.warn('loadBundle gameAssets failed:', err.message);

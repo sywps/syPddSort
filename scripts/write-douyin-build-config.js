@@ -25,7 +25,6 @@ if (!debugMode && !releaseMode) {
 function makeRuntimeScenes() {
     const scenes = [
         { url: startSceneUrl, uuid: startSceneUuid },
-        { url: 'db://assets/Scenes/Game.scene', uuid: readAssetUuid(projectRoot, 'db://assets/Scenes/Game.scene', '抖音运行态 Game.scene') },
     ];
     const seen = new Set();
     return scenes.filter((scene) => {

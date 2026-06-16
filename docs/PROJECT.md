@@ -210,7 +210,7 @@ node tools/generate-levels.js
 
 ### 启动预览
 1. 用 Cocos Creator 3.8.8 打开项目
-2. 双击 `assets/Scenes/Game.scene`
+2. 启动链路预览双击 `assets/Scenes/Boot.scene`；首关场景直开预览使用 `assets/BootstrapBundle/Scenes/Game.scene`
 3. 点击预览按钮，浏览器访问 `http://localhost:7456/`
 
 ### 新增关卡

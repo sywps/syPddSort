@@ -8,10 +8,10 @@ import {
     UITransform,
     UIOpacity,
 } from 'cc';
+import { HOME_ASSETS_BUNDLE_NAME } from './PackageNames';
 
 const { ccclass } = _decorator;
 
-const HOME_ASSETS_BUNDLE_NAME = 'homeAssets';
 const HOME_ICON_SPARKLE_PATH = 'GameUI/home_icon_sparkle';
 
 interface HomeIconSparklePoint {

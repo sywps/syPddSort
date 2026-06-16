@@ -8,6 +8,7 @@ const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'wechatgame');
 const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
+const assetDbPrewarmPath = path.join(projectDir, 'temp', 'pdd-assetdb-prewarm.json');
 const startSceneUrl = 'db://assets/Scenes/Boot.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
 const mainPackageTargetKB = 3072;
@@ -18,6 +19,8 @@ process.env.WECHAT_BUILD_MODE = buildMode;
 process.env.WECHAT_GAME_ASSETS_MODE = 'subpackage';
 process.env.WECHAT_APPID = wechatAppId;
 process.env.WECHAT_OPEN_DEVTOOLS = openDevtools;
+process.env.PDD_COCOS_ASSETDB_PREWARM = process.env.PDD_COCOS_ASSETDB_PREWARM || '0';
+process.env.PDD_COCOS_ASSETDB_PREWARM_FILE = assetDbPrewarmPath;
 
 function logStep(message) {
     console.log('');
@@ -140,6 +143,62 @@ function resolveRuntimeDir() {
     fail('构建后未生成 settings.json/settings.<hash>.json');
 }
 
+function getRecentLogFiles(logDir, startedAtMs) {
+    if (!fs.existsSync(logDir)) return [];
+    return fs.readdirSync(logDir)
+        .map((name) => path.join(logDir, name))
+        .filter((filePath) => fs.statSync(filePath).isFile())
+        .filter((filePath) => fs.statSync(filePath).mtimeMs >= startedAtMs - 5000)
+        .sort();
+}
+
+function assertCocosImporterLogsHealthy(startedAtMs) {
+    const assetDbLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'asset-db', 'log'), startedAtMs);
+    const builderLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'builder', 'log'), startedAtMs);
+    const importerFailures = [];
+    for (const logPath of assetDbLogs) {
+        const text = fs.readFileSync(logPath, 'utf8');
+        const matches = text.match(/Can not find the importer [^\r\n]+ in editor/g);
+        if (matches && matches.length > 0) {
+            importerFailures.push(`${path.relative(projectDir, logPath)}: ${matches.slice(0, 5).join('; ')}`);
+        }
+    }
+    const emptyAssetStats = [];
+    for (const logPath of builderLogs) {
+        const text = fs.readFileSync(logPath, 'utf8');
+        if (/Number of all scenes:\s*0\b/.test(text) && /Number of all scripts:\s*0\b/.test(text)) {
+            emptyAssetStats.push(path.relative(projectDir, logPath));
+        }
+    }
+    if (importerFailures.length > 0 || emptyAssetStats.length > 0) {
+        fail([
+            'Cocos AssetDB 导入器未正确注册，构建产物不可用。',
+            importerFailures.length ? '导入器错误: ' + importerFailures.join(' | ') : '',
+            emptyAssetStats.length ? '空资源统计: ' + emptyAssetStats.join(', ') : '',
+            '请先修复 Cocos batch/importer 环境，不能继续用空 bundle 做浏览器或微信验证。',
+        ].filter(Boolean).join(' '));
+    }
+}
+
+function assertCocosAssetDbPrewarmRan(startedAtMs) {
+    if (process.env.PDD_COCOS_ASSETDB_PREWARM !== '1') return;
+    if (!fs.existsSync(assetDbPrewarmPath)) {
+        fail('Cocos AssetDB prewarm 扩展未执行: ' + path.relative(projectDir, assetDbPrewarmPath));
+    }
+    const stat = fs.statSync(assetDbPrewarmPath);
+    if (stat.mtimeMs < startedAtMs - 5000) {
+        fail('Cocos AssetDB prewarm 哨兵文件不是本次构建生成: ' + path.relative(projectDir, assetDbPrewarmPath));
+    }
+    const result = readJson(assetDbPrewarmPath);
+    if (!result.assetDbReady) {
+        fail('Cocos AssetDB prewarm 未等到 asset-db ready: ' + (result.refreshError || '<unknown>'));
+    }
+    if (result.refreshError) {
+        fail('Cocos AssetDB prewarm refresh 失败: ' + result.refreshError);
+    }
+    logInfo('AssetDB prewarm 已执行: ' + path.relative(projectDir, assetDbPrewarmPath));
+}
+
 function getPreloadBundleName(item) {
     return typeof item === 'string' ? item : item && item.bundle;
 }
@@ -164,6 +223,68 @@ function computeStartupDownloadBytes(runtimeDir, gameJson, assets, rootPackageBy
         total += bytes;
     }
     return { total, included };
+}
+
+function readBundleConfig(bundleDir, bundleName) {
+    let configPath = path.join(bundleDir, 'config.json');
+    if (!fs.existsSync(configPath) && fs.existsSync(bundleDir)) {
+        const matches = fs.readdirSync(bundleDir)
+            .filter((name) => /^config(?:\.[0-9a-f]+)?\.json$/i.test(name))
+            .sort();
+        if (matches.length > 0) configPath = path.join(bundleDir, matches[0]);
+    }
+    if (!fs.existsSync(configPath)) fail(bundleName + ' 缺少 config.json: ' + configPath);
+    return readJson(configPath);
+}
+
+function bundleConfigHasPath(config, expectedPath) {
+    return Object.values(config.paths || {}).some((entry) => Array.isArray(entry) && entry[0] === expectedPath);
+}
+
+function assertRuntimeBundleConfig(bundleDir, bundleName, expectedPaths, expectedSceneUrl) {
+    const config = readBundleConfig(bundleDir, bundleName);
+    if (expectedSceneUrl && (!config.scenes || config.scenes[expectedSceneUrl] === undefined)) {
+        fail(bundleName + ' config 缺少场景: ' + expectedSceneUrl);
+    }
+    for (const expectedPath of expectedPaths) {
+        if (!bundleConfigHasPath(config, expectedPath)) {
+            fail(bundleName + ' config 缺少资源路径: ' + expectedPath);
+        }
+    }
+}
+
+function assertRuntimeBundleNoDeps(bundleDir, bundleName, forbiddenDeps) {
+    const config = readBundleConfig(bundleDir, bundleName);
+    const deps = Array.isArray(config.deps) ? config.deps : [];
+    const forbidden = forbiddenDeps.filter((dep) => deps.includes(dep));
+    if (forbidden.length > 0) {
+        fail(bundleName + ' config 不应依赖: ' + forbidden.join(', '));
+    }
+}
+
+function assertRuntimeCoreConfig(runtimeDir, gameJson, settings) {
+    const launchScene = settings && settings.launch && settings.launch.launchScene;
+    if (launchScene !== startSceneUrl) {
+        fail('settings.launch.launchScene 不正确: ' + (launchScene || '<empty>'));
+    }
+    const preloadBundles = getPreloadBundleNames(settings.assets || {});
+    for (const forbidden of ['bootstrap', 'homeAssets', 'gameAssets']) {
+        if (preloadBundles.includes(forbidden)) {
+            fail('启动 preloadBundles 不应包含 ' + forbidden + ': ' + preloadBundles.join(', '));
+        }
+    }
+}
+
+function assertWechatProjectConfig() {
+    const projectConfigPath = path.join(buildDir, 'project.config.json');
+    if (!fs.existsSync(projectConfigPath)) return;
+    const config = readJson(projectConfigPath);
+    if (Object.prototype.hasOwnProperty.call(config, 'libVersion')) {
+        const libVersion = String(config.libVersion || '').trim();
+        if (libVersion !== 'latest' && !/^[0-9]+\.[0-9]+(?:\.[0-9]+)?$/.test(libVersion)) {
+            fail('project.config.json libVersion 无效: ' + libVersion);
+        }
+    }
 }
 
 function maybeReloadWechatDevtools() {
@@ -205,8 +326,12 @@ runNode('scripts/write-wechat-build-config.js', [buildConfigPath, startSceneUrl,
 logInfo('微信构建配置已生成: ' + buildConfigPath);
 
 logStep('1. Cocos Creator 构建 wechatgame...');
+rm(assetDbPrewarmPath);
+const cocosBuildStartedAt = Date.now();
 const buildResult = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
 repairCocosMetaFiles();
+assertCocosAssetDbPrewarmRan(cocosBuildStartedAt);
+assertCocosImporterLogsHealthy(cocosBuildStartedAt);
 if (!findSettingsPath(buildDir) && !findSettingsPath(path.join(buildDir, 'minigame'))) {
     fail('Cocos 构建失败，未生成 settings.json/settings.<hash>.json');
 }
@@ -224,15 +349,25 @@ if (fs.existsSync(path.join(projectDir, 'cloudfunctions'))) {
 }
 
 const runtimeDir = resolveRuntimeDir();
+const gameJson = readJson(path.join(runtimeDir, 'game.json'));
+const settings = readJson(findSettingsPath(runtimeDir));
+assertWechatProjectConfig();
+assertRuntimeCoreConfig(runtimeDir, gameJson, settings);
 logStep('2.1 补齐本地小游戏公共 bundle 产物...');
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeDir]);
 
 logStep('3. 输出体积...');
-const gameJson = readJson(path.join(runtimeDir, 'game.json'));
 const runtimeInfo = {
+    mainDir: resolveBundleDir(runtimeDir, 'main', gameJson),
+    bootstrapDir: resolveBundleDir(runtimeDir, 'bootstrap', gameJson),
     homeAssetsDir: resolveBundleDir(runtimeDir, 'homeAssets', gameJson),
     gameAssetsDir: resolveBundleDir(runtimeDir, 'gameAssets', gameJson),
 };
+assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
+assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
+assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'firstPlay/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
+assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Textures/BG/bg_game'], '');
 const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [])
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, ''))
     .filter(Boolean)
@@ -240,13 +375,12 @@ const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpacka
 const mainBytes = dirSize(runtimeDir, subpackageRoots);
 const runtimeBytes = dirSize(runtimeDir);
 const mainKB = Math.round(mainBytes / 1024);
-const settings = readJson(findSettingsPath(runtimeDir));
 const startupDownload = computeStartupDownloadBytes(runtimeDir, gameJson, settings.assets || {}, mainBytes);
 const startupDownloadKB = Math.round(startupDownload.total / 1024);
 console.log('   - 本地包项目:        ' + buildDir);
 console.log('   - 运行时根目录:      ' + runtimeDir);
 console.log('   - 关卡数据 CDN:      ' + levelDataCdnDir);
-console.log('   - assets/bootstrap: ' + formatMB(dirSize(path.join(runtimeDir, 'assets', 'bootstrap'))));
+console.log('   - firstPlay/bootstrap: ' + formatMB(dirSize(runtimeInfo.bootstrapDir)));
 console.log('   - homeAssets 分包:       ' + formatMB(dirSize(runtimeInfo.homeAssetsDir)));
 console.log('   - gameAssets 分包:       ' + formatMB(dirSize(runtimeInfo.gameAssetsDir)));
 console.log('   - 关卡数据包:        ' + formatMB(dirSize(levelDataCdnDir)));
