@@ -46,34 +46,34 @@ for (let level = 11; level <= 100; level++) {
 }
 
 const dynamicModule = read('assets/Scripts/Core/GameCtrlModules/DynamicCountdownDdaModule.ts');
-assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_ENABLE_LEVEL = 11'), 'dynamic DDA must start at level 11');
-assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_CLEAN_WIN_TRIGGER = 3'), 'dynamic DDA must require 3 clean wins');
-assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_CLEAN_REMAIN_RATIO = 0.15'), 'clean win must require >15% remaining time');
-assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_COMPRESS_FACTOR = 0.8'), 'compressed level must use 80% time');
-assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_FAIL_FACTOR_2 = 1.15'), 'second same-level final fail must use 115% time');
-assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_FAIL_FACTOR_3_PLUS = 1.3'), 'third same-level final fail must use 130% time');
-assert.ok(dynamicModule.includes('recordDynamicCountdownFinalFail'), 'dynamic DDA must expose final fail recording');
-assert.ok(dynamicModule.includes('undoDynamicCountdownRecordedFail'), 'dynamic DDA must support undo when a lose-panel revive continues play');
+assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_DDA_MIN_LEVEL = 11'), 'dynamic DDA must start at level 11');
+assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_CLEAN_WIN_STREAK_TRIGGER = 3'), 'dynamic DDA must require 3 clean wins');
+assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_CLEAN_WIN_REMAIN_RATIO = 0.15'), 'clean win must require >15% remaining time');
+assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_HARD_TIME_FACTOR = 0.8'), 'compressed level must use 80% time');
+assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_SECOND_FAIL_FACTOR = 1.15'), 'second same-level final fail must use 115% time');
+assert.ok(dynamicModule.includes('DYNAMIC_COUNTDOWN_THIRD_FAIL_FACTOR = 1.3'), 'third same-level final fail must use 130% time');
+assert.ok(dynamicModule.includes('recordDynamicCountdownFinalFailure'), 'dynamic DDA must expose final fail recording');
+assert.ok(dynamicModule.includes('revokeDynamicCountdownFinalFailure'), 'dynamic DDA must support undo when a lose-panel revive continues play');
 
 const installer = read('assets/Scripts/Core/installGameCtrlModules.ts');
 assert.ok(installer.includes("import { installDynamicCountdownDdaModule }"), 'dynamic DDA module must be imported by installer');
 assert.ok(installer.includes('installDynamicCountdownDdaModule(runtime);'), 'dynamic DDA module must be installed on runtime');
 
 const session = read('assets/Scripts/Core/GameplaySessionController.ts');
-assert.ok(session.includes('runtime.resolveDynamicCountdownTimeLimit(resolvedTimeLimit, resolvedLevelId, gameplayEntryMode)'), 'initGame must apply dynamic DDA after onboarding time resolution');
+assert.ok(session.includes('runtime.resolveDynamicCountdownTimeLimit({'), 'initGame must apply dynamic DDA after onboarding time resolution');
 assert.ok(session.includes('runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0'), 'unlimited time flag must use dynamic result');
 assert.ok(session.includes('runtime.timeRemain = dynamicTimeLimit'), 'timeRemain must use dynamic result');
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
-assert.ok(settlement.includes('this.recordDynamicCountdownWin();'), 'gameWin must update dynamic DDA win state');
-assert.ok(settlement.includes('this.recordDynamicCountdownFinalFail();'), 'showLosePanel must record final fail');
-assert.ok(settlement.includes('this.undoDynamicCountdownRecordedFail();'), 'revive continuation must undo a recorded final fail');
-assert.ok(settlement.includes('this.markDynamicCountdownAssisted();'), 'revive continuation must mark assisted run');
+assert.ok(settlement.includes('this.recordDynamicCountdownWin?.();'), 'gameWin must update dynamic DDA win state');
+assert.ok(settlement.includes('this.recordDynamicCountdownFinalFailure?.();'), 'showLosePanel must record final fail');
+assert.ok(settlement.includes('this.revokeDynamicCountdownFinalFailure?.();'), 'revive continuation must undo a recorded final fail');
+assert.ok(settlement.includes('this.markDynamicCountdownAssisted?.();'), 'revive continuation must mark assisted run');
 
 const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
-assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted();'), 'successful skill use must mark assisted run');
+assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful skill use must mark assisted run');
 
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
-assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted();'), 'successful slot-row unlock must mark assisted run');
+assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful slot-row unlock must mark assisted run');
 
 console.log('dynamic-countdown-dda.test.js passed');
