@@ -1,0 +1,170 @@
+{
+  "sourceGame": "拼豆达人赛",
+  "sourcePackage": "C:/Users/EDY/workspaces/拼豆达人赛",
+  "sourceFile": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/拼豆达人赛/raw_levels/main/lv_2204.json",
+  "sourceSet": "main",
+  "sourceLevel": 2204,
+  "sourceLevelName": "30002",
+  "colorMappingMode": "official20-nearest-rgb-rebuilt",
+  "sourceColorIdToLocalColorId": {
+    "f": 6,
+    "j": 10,
+    "q": 17
+  },
+  "sourceColorMergeGroupsInLevel": {},
+  "sourceHighDistanceColorsInLevel": [],
+  "sourceColorUsed": [
+    "f",
+    "j",
+    "q"
+  ],
+  "boardWidth": 6,
+  "boardHeight": 8,
+  "timeLimit": 360,
+  "slotTotalCount": 30,
+  "correctColorArr": [
+    [
+      0,
+      0,
+      10,
+      10,
+      0,
+      0
+    ],
+    [
+      0,
+      10,
+      6,
+      10,
+      10,
+      0
+    ],
+    [
+      10,
+      6,
+      10,
+      10,
+      6,
+      10
+    ],
+    [
+      10,
+      10,
+      10,
+      10,
+      10,
+      10
+    ],
+    [
+      0,
+      0,
+      6,
+      6,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      6,
+      6,
+      0,
+      0
+    ],
+    [
+      0,
+      17,
+      17,
+      17,
+      17,
+      0
+    ],
+    [
+      0,
+      17,
+      17,
+      17,
+      17,
+      0
+    ]
+  ],
+  "initRandomColorArr": [
+    [
+      0,
+      0,
+      10,
+      10,
+      0,
+      0
+    ],
+    [
+      0,
+      6,
+      10,
+      10,
+      10,
+      0
+    ],
+    [
+      6,
+      10,
+      10,
+      6,
+      10,
+      10
+    ],
+    [
+      10,
+      10,
+      10,
+      10,
+      10,
+      6
+    ],
+    [
+      0,
+      0,
+      6,
+      6,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      6,
+      17,
+      0,
+      0
+    ],
+    [
+      0,
+      17,
+      17,
+      17,
+      17,
+      0
+    ],
+    [
+      0,
+      17,
+      17,
+      17,
+      10,
+      0
+    ]
+  ],
+  "sourceMeta": {
+    "id": 2204,
+    "level": "30002",
+    "icon": "level_30002",
+    "time": 360,
+    "time_add": 150,
+    "energy": 15,
+    "type": 1,
+    "store": 1,
+    "guide": 0,
+    "generatedInitFromTarget": true,
+    "initGenerationMode": "deterministic-rotate-shuffle"
+  }
+}

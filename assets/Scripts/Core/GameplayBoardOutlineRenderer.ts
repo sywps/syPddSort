@@ -22,6 +22,12 @@ const BOARD_OUTLINE_OUTER_WIDTH_RATIO = 0.17;
 const BOARD_OUTLINE_MAIN_WIDTH_RATIO = 0.115;
 const BOARD_OUTLINE_INNER_WIDTH_RATIO = 0.048;
 const BOARD_OUTLINE_HIGHLIGHT_WIDTH_RATIO = 0.026;
+const BOARD_OUTLINE_CORNER_RADIUS_MIN = 1.1;
+const BOARD_OUTLINE_SHADOW_WIDTH_MIN = 0.72;
+const BOARD_OUTLINE_OUTER_WIDTH_MIN = 0.58;
+const BOARD_OUTLINE_MAIN_WIDTH_MIN = 0.46;
+const BOARD_OUTLINE_INNER_WIDTH_MIN = 0.28;
+const BOARD_OUTLINE_HIGHLIGHT_WIDTH_MIN = 0.2;
 const BOARD_OUTLINE_OUTSET_RATIO = 0.07;
 const BOARD_OUTLINE_INNER_OUTSET_RATIO = 0.018;
 const BOARD_OUTLINE_HIGHLIGHT_OUTSET_RATIO = 0.044;
@@ -260,6 +266,10 @@ function offsetBoardOutlineLoopsTowardEmpty(loops: BoardOutlinePoint[][], distan
         .filter((loop) => loop.length > 2);
 }
 
+function getBoardOutlineScaledMetric(step: number, ratio: number, minValue: number): number {
+    return Math.max(step * ratio, minValue);
+}
+
 function ensureBoardOutlineGraphics(parent: Node, name: string, width: number, height: number, siblingIndex: number, offsetX: number = 0, offsetY: number = 0): Graphics {
     let node = parent.getChildByName(name);
     if (!node?.isValid) {
@@ -332,18 +342,18 @@ export function buildBoardOutline(
     const transform = baseLayer.getComponent(UITransform);
     const width = transform?.width || boardWidth * step;
     const height = transform?.height || boardHeight * step;
-    const radius = Math.max(4, step * BOARD_OUTLINE_CORNER_RADIUS_RATIO);
-    const shadowWidth = Math.max(6, step * BOARD_OUTLINE_SHADOW_WIDTH_RATIO);
-    const outerWidth = Math.max(5, step * BOARD_OUTLINE_OUTER_WIDTH_RATIO);
-    const mainWidth = Math.max(4, step * BOARD_OUTLINE_MAIN_WIDTH_RATIO);
-    const innerWidth = Math.max(2, step * BOARD_OUTLINE_INNER_WIDTH_RATIO);
-    const highlightWidth = Math.max(2, step * BOARD_OUTLINE_HIGHLIGHT_WIDTH_RATIO);
-    const outlineOutset = Math.max(mainWidth / 2 + 0.35, step * BOARD_OUTLINE_OUTSET_RATIO);
-    const innerOutset = Math.max(0.5, step * BOARD_OUTLINE_INNER_OUTSET_RATIO);
-    const highlightOutset = Math.max(highlightWidth / 2 + 0.25, step * BOARD_OUTLINE_HIGHLIGHT_OUTSET_RATIO);
-    const outlineRadius = Math.max(4, radius + outlineOutset * 0.45);
-    const innerRadius = Math.max(2, radius + innerOutset * 0.2);
-    const highlightRadius = Math.max(2, radius + highlightOutset * 0.25);
+    const radius = getBoardOutlineScaledMetric(step, BOARD_OUTLINE_CORNER_RADIUS_RATIO, BOARD_OUTLINE_CORNER_RADIUS_MIN);
+    const shadowWidth = getBoardOutlineScaledMetric(step, BOARD_OUTLINE_SHADOW_WIDTH_RATIO, BOARD_OUTLINE_SHADOW_WIDTH_MIN);
+    const outerWidth = getBoardOutlineScaledMetric(step, BOARD_OUTLINE_OUTER_WIDTH_RATIO, BOARD_OUTLINE_OUTER_WIDTH_MIN);
+    const mainWidth = getBoardOutlineScaledMetric(step, BOARD_OUTLINE_MAIN_WIDTH_RATIO, BOARD_OUTLINE_MAIN_WIDTH_MIN);
+    const innerWidth = getBoardOutlineScaledMetric(step, BOARD_OUTLINE_INNER_WIDTH_RATIO, BOARD_OUTLINE_INNER_WIDTH_MIN);
+    const highlightWidth = getBoardOutlineScaledMetric(step, BOARD_OUTLINE_HIGHLIGHT_WIDTH_RATIO, BOARD_OUTLINE_HIGHLIGHT_WIDTH_MIN);
+    const outlineOutset = Math.max(mainWidth / 2 + Math.min(0.35, step * 0.055), step * BOARD_OUTLINE_OUTSET_RATIO);
+    const innerOutset = Math.max(Math.min(0.5, step * 0.08), step * BOARD_OUTLINE_INNER_OUTSET_RATIO);
+    const highlightOutset = Math.max(highlightWidth / 2 + Math.min(0.25, step * 0.04), step * BOARD_OUTLINE_HIGHLIGHT_OUTSET_RATIO);
+    const outlineRadius = Math.max(BOARD_OUTLINE_CORNER_RADIUS_MIN, radius + outlineOutset * 0.45);
+    const innerRadius = Math.max(BOARD_OUTLINE_CORNER_RADIUS_MIN, radius + innerOutset * 0.2);
+    const highlightRadius = Math.max(BOARD_OUTLINE_CORNER_RADIUS_MIN, radius + highlightOutset * 0.25);
     const shadowOffsetX = step * BOARD_OUTLINE_SHADOW_OFFSET_X_RATIO;
     const shadowOffsetY = step * BOARD_OUTLINE_SHADOW_OFFSET_Y_RATIO;
     const outlineLoops = offsetBoardOutlineLoopsTowardEmpty(loops, outlineOutset);

@@ -234,9 +234,11 @@ export function installBoardInputViewportModule(target: any): void {
         
             const dist = Math.max(1, Vec2.distance(p1, p2));
             const center = new Vec2((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+            const minScale = Number(this.boardViewport?.minScale) || (this.constructor as any).MIN_SCALE;
+            const maxScale = Number(this.boardViewport?.maxScale) || (this.constructor as any).MAX_SCALE;
             const nextScale = Math.max(
-                (this.constructor as any).MIN_SCALE,
-                Math.min((this.constructor as any).MAX_SCALE, this.pinchStartScale * (dist / this.pinchStartDist)),
+                minScale,
+                Math.min(maxScale, this.pinchStartScale * (dist / this.pinchStartDist)),
             );
             this.zoomBoardViewportAround(center, this.pinchAnchorBoardLocal, nextScale);
             this.suppressTap = true;
@@ -429,7 +431,9 @@ export function installBoardInputViewportModule(target: any): void {
             // 滚轮向上（scrollY > 0）放大，向下缩小
             const delta = scrollY > 0 ? 0.08 : -0.08;
             let newScale = currentScale + delta;
-            newScale = Math.max((this.constructor as any).MIN_SCALE, Math.min((this.constructor as any).MAX_SCALE, newScale));
+            const minScale = Number(this.boardViewport?.minScale) || (this.constructor as any).MIN_SCALE;
+            const maxScale = Number(this.boardViewport?.maxScale) || (this.constructor as any).MAX_SCALE;
+            newScale = Math.max(minScale, Math.min(maxScale, newScale));
         
             const uiLoc = typeof (event as any).getUILocation === 'function'
                 ? (event as any).getUILocation()
@@ -653,7 +657,7 @@ export function installBoardInputViewportModule(target: any): void {
             this.clearSelectionOverlay();
             this._floatingCells = block.cells.map(c => ({ row: c.row, col: c.col }));
         
-            const floatY = Math.max(5, Math.round(this.cellSize * 0.18));
+            const floatY = Math.max(1, Math.round(this.cellSize * 0.18));
         
             for (const cell of block.cells) {
                 const cellNode = this.cellNodes[cell.row]?.[cell.col];

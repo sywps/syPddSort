@@ -1,0 +1,3779 @@
+{
+  "sourceGame": "快乐拼拼豆",
+  "sourceColorCount": 44,
+  "sourceColorIds": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
+    "27",
+    "28",
+    "29",
+    "30",
+    "31",
+    "32",
+    "33",
+    "34",
+    "35",
+    "36",
+    "37",
+    "38",
+    "39",
+    "40",
+    "41",
+    "42",
+    "43",
+    "44"
+  ],
+  "localColorCount": 20,
+  "localColors": {
+    "1": {
+      "hex": "#ED5090",
+      "rgb": [
+        237,
+        80,
+        144
+      ]
+    },
+    "2": {
+      "hex": "#4EEAEA",
+      "rgb": [
+        78,
+        234,
+        234
+      ]
+    },
+    "3": {
+      "hex": "#F8C811",
+      "rgb": [
+        248,
+        200,
+        17
+      ]
+    },
+    "4": {
+      "hex": "#FE8B10",
+      "rgb": [
+        254,
+        139,
+        16
+      ]
+    },
+    "5": {
+      "hex": "#F4BD9E",
+      "rgb": [
+        244,
+        189,
+        158
+      ]
+    },
+    "6": {
+      "hex": "#EBDEA6",
+      "rgb": [
+        235,
+        222,
+        166
+      ]
+    },
+    "7": {
+      "hex": "#4A4DCF",
+      "rgb": [
+        74,
+        77,
+        207
+      ]
+    },
+    "8": {
+      "hex": "#7221BC",
+      "rgb": [
+        114,
+        33,
+        188
+      ]
+    },
+    "9": {
+      "hex": "#9FCE21",
+      "rgb": [
+        159,
+        206,
+        33
+      ]
+    },
+    "10": {
+      "hex": "#EA281A",
+      "rgb": [
+        234,
+        40,
+        26
+      ]
+    },
+    "11": {
+      "hex": "#37A92D",
+      "rgb": [
+        55,
+        169,
+        45
+      ]
+    },
+    "12": {
+      "hex": "#207955",
+      "rgb": [
+        32,
+        121,
+        85
+      ]
+    },
+    "13": {
+      "hex": "#20A8DC",
+      "rgb": [
+        32,
+        168,
+        220
+      ]
+    },
+    "14": {
+      "hex": "#EEB2BC",
+      "rgb": [
+        238,
+        178,
+        188
+      ]
+    },
+    "15": {
+      "hex": "#C4BED9",
+      "rgb": [
+        196,
+        190,
+        217
+      ]
+    },
+    "16": {
+      "hex": "#974714",
+      "rgb": [
+        151,
+        71,
+        20
+      ]
+    },
+    "17": {
+      "hex": "#782F3C",
+      "rgb": [
+        120,
+        47,
+        60
+      ]
+    },
+    "18": {
+      "hex": "#36387E",
+      "rgb": [
+        54,
+        56,
+        126
+      ]
+    },
+    "19": {
+      "hex": "#373737",
+      "rgb": [
+        55,
+        55,
+        55
+      ]
+    },
+    "20": {
+      "hex": "#F2EDE4",
+      "rgb": [
+        242,
+        237,
+        228
+      ]
+    }
+  },
+  "sourceColors": {
+    "24": {
+      "sourceColorId": "24",
+      "sourceName": "up_24",
+      "canonicalState": "up",
+      "sourceHex": "#BF9575",
+      "sourceRgb": [
+        191,
+        149,
+        117
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 78.038,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 78.038
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 87.212
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 89.95
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_24",
+          "rect": [
+            127,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            174,
+            133,
+            103
+          ],
+          "hex": "#AE8567"
+        },
+        "down": {
+          "frame": "down_24",
+          "rect": [
+            316,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            191,
+            149,
+            117
+          ],
+          "hex": "#BF9575"
+        },
+        "up": {
+          "frame": "up_24",
+          "rect": [
+            386,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            191,
+            149,
+            117
+          ],
+          "hex": "#BF9575"
+        }
+      }
+    },
+    "3": {
+      "sourceColorId": "3",
+      "sourceName": "di_3",
+      "canonicalState": "di",
+      "sourceHex": "#00803D",
+      "sourceRgb": [
+        0,
+        128,
+        61
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 40.608,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 40.608
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 70.441
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 91.597
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_3",
+          "rect": [
+            141,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            6,
+            182,
+            89
+          ],
+          "hex": "#06B659"
+        },
+        "di": {
+          "frame": "di_3",
+          "rect": [
+            225,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            128,
+            61
+          ],
+          "hex": "#00803D"
+        },
+        "down": {
+          "frame": "down_3",
+          "rect": [
+            71,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            174,
+            82
+          ],
+          "hex": "#00AE52"
+        }
+      }
+    },
+    "39": {
+      "sourceColorId": "39",
+      "sourceName": "up_39",
+      "canonicalState": "up",
+      "sourceHex": "#F7CBAE",
+      "sourceRgb": [
+        247,
+        203,
+        174
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 21.471,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 21.471
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 23.854
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 30.033
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_39",
+          "rect": [
+            253,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            198,
+            139,
+            104
+          ],
+          "hex": "#C68B68"
+        },
+        "down": {
+          "frame": "down_39",
+          "rect": [
+            351,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            247,
+            203,
+            174
+          ],
+          "hex": "#F7CBAE"
+        },
+        "up": {
+          "frame": "up_39",
+          "rect": [
+            421,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            247,
+            203,
+            174
+          ],
+          "hex": "#F7CBAE"
+        }
+      }
+    },
+    "22": {
+      "sourceColorId": "22",
+      "sourceName": "up_22",
+      "canonicalState": "up",
+      "sourceHex": "#3D3EC0",
+      "sourceRgb": [
+        61,
+        62,
+        192
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 24.88,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 24.88
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 60.548
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 66.641
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_22",
+          "rect": [
+            316,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            61,
+            62,
+            192
+          ],
+          "hex": "#3D3EC0"
+        },
+        "down": {
+          "frame": "down_22",
+          "rect": [
+            246,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            61,
+            62,
+            192
+          ],
+          "hex": "#3D3EC0"
+        },
+        "di": {
+          "frame": "di_22",
+          "rect": [
+            43,
+            288,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            49,
+            50,
+            163
+          ],
+          "hex": "#3132A3"
+        }
+      }
+    },
+    "15": {
+      "sourceColorId": "15",
+      "sourceName": "di_15",
+      "canonicalState": "di",
+      "sourceHex": "#DD5E92",
+      "sourceRgb": [
+        221,
+        94,
+        146
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 21.354,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 21.354
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 95.441
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 98.478
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_15",
+          "rect": [
+            71,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            238,
+            106,
+            160
+          ],
+          "hex": "#EE6AA0"
+        },
+        "down": {
+          "frame": "down_15",
+          "rect": [
+            1,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            238,
+            106,
+            160
+          ],
+          "hex": "#EE6AA0"
+        },
+        "di": {
+          "frame": "di_15",
+          "rect": [
+            253,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            221,
+            94,
+            146
+          ],
+          "hex": "#DD5E92"
+        }
+      }
+    },
+    "28": {
+      "sourceColorId": "28",
+      "sourceName": "di_28",
+      "canonicalState": "di",
+      "sourceHex": "#CC57BF",
+      "sourceRgb": [
+        204,
+        87,
+        191
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 57.853,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 57.853
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 97.191
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 105.0
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_28",
+          "rect": [
+            36,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            248,
+            152,
+            243
+          ],
+          "hex": "#F898F3"
+        },
+        "di": {
+          "frame": "di_28",
+          "rect": [
+            295,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            204,
+            87,
+            191
+          ],
+          "hex": "#CC57BF"
+        },
+        "down": {
+          "frame": "down_28",
+          "rect": [
+            456,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            255,
+            152,
+            243
+          ],
+          "hex": "#FF98F3"
+        }
+      }
+    },
+    "31": {
+      "sourceColorId": "31",
+      "sourceName": "up_31",
+      "canonicalState": "up",
+      "sourceHex": "#CFCFCF",
+      "sourceRgb": [
+        207,
+        207,
+        207
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 22.583,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 22.583
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 46.508
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 50.656
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_31",
+          "rect": [
+            71,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            207,
+            207
+          ],
+          "hex": "#CFCFCF"
+        },
+        "up": {
+          "frame": "up_31",
+          "rect": [
+            141,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            207,
+            207
+          ],
+          "hex": "#CFCFCF"
+        },
+        "di": {
+          "frame": "di_31",
+          "rect": [
+            421,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            154,
+            154,
+            153
+          ],
+          "hex": "#9A9A99"
+        }
+      }
+    },
+    "4": {
+      "sourceColorId": "4",
+      "sourceName": "up_4",
+      "canonicalState": "up",
+      "sourceHex": "#F19039",
+      "sourceRgb": [
+        241,
+        144,
+        57
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 43.301,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 43.301
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 69.174
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 105.565
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_4",
+          "rect": [
+            106,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            241,
+            144,
+            57
+          ],
+          "hex": "#F19039"
+        },
+        "up": {
+          "frame": "up_4",
+          "rect": [
+            176,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            241,
+            144,
+            57
+          ],
+          "hex": "#F19039"
+        },
+        "di": {
+          "frame": "di_4",
+          "rect": [
+            267,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            200,
+            91,
+            29
+          ],
+          "hex": "#C85B1D"
+        }
+      }
+    },
+    "42": {
+      "sourceColorId": "42",
+      "sourceName": "up_42",
+      "canonicalState": "up",
+      "sourceHex": "#6927B5",
+      "sourceRgb": [
+        105,
+        39,
+        181
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 12.884,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 12.884
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 55.507
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 76.909
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_42",
+          "rect": [
+            456,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            105,
+            39,
+            181
+          ],
+          "hex": "#6927B5"
+        },
+        "di": {
+          "frame": "di_42",
+          "rect": [
+            379,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            91,
+            31,
+            163
+          ],
+          "hex": "#5B1FA3"
+        },
+        "up": {
+          "frame": "up_42",
+          "rect": [
+            36,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            105,
+            39,
+            181
+          ],
+          "hex": "#6927B5"
+        }
+      }
+    },
+    "32": {
+      "sourceColorId": "32",
+      "sourceName": "up_32",
+      "canonicalState": "up",
+      "sourceHex": "#50A5D7",
+      "sourceRgb": [
+        80,
+        165,
+        215
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 48.353,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 48.353
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 71.596
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 88.566
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_32",
+          "rect": [
+            463,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            52,
+            115,
+            162
+          ],
+          "hex": "#3473A2"
+        },
+        "down": {
+          "frame": "down_32",
+          "rect": [
+            106,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            80,
+            165,
+            215
+          ],
+          "hex": "#50A5D7"
+        },
+        "up": {
+          "frame": "up_32",
+          "rect": [
+            176,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            80,
+            165,
+            215
+          ],
+          "hex": "#50A5D7"
+        }
+      }
+    },
+    "34": {
+      "sourceColorId": "34",
+      "sourceName": "di_34",
+      "canonicalState": "di",
+      "sourceHex": "#D54333",
+      "sourceRgb": [
+        213,
+        67,
+        51
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 42.367,
+      "topCandidates": [
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 42.367
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 69.433
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 89.944
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_34",
+          "rect": [
+            43,
+            330,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            213,
+            67,
+            51
+          ],
+          "hex": "#D54333"
+        },
+        "up": {
+          "frame": "up_34",
+          "rect": [
+            246,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            255,
+            129,
+            116
+          ],
+          "hex": "#FF8174"
+        },
+        "down": {
+          "frame": "down_34",
+          "rect": [
+            176,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            255,
+            129,
+            116
+          ],
+          "hex": "#FF8174"
+        }
+      }
+    },
+    "8": {
+      "sourceColorId": "8",
+      "sourceName": "up_8",
+      "canonicalState": "up",
+      "sourceHex": "#F0CA47",
+      "sourceRgb": [
+        240,
+        202,
+        71
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 54.626,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 54.626
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 84.794
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 88.057
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_8",
+          "rect": [
+            246,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            202,
+            71
+          ],
+          "hex": "#F0CA47"
+        },
+        "di": {
+          "frame": "di_8",
+          "rect": [
+            435,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            222,
+            163,
+            54
+          ],
+          "hex": "#DEA336"
+        },
+        "up": {
+          "frame": "up_8",
+          "rect": [
+            316,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            202,
+            71
+          ],
+          "hex": "#F0CA47"
+        }
+      }
+    },
+    "19": {
+      "sourceColorId": "19",
+      "sourceName": "up_19",
+      "canonicalState": "up",
+      "sourceHex": "#51D3CF",
+      "sourceRgb": [
+        81,
+        211,
+        207
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 35.595,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 35.595
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 66.476
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 117.329
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_19",
+          "rect": [
+            211,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            81,
+            211,
+            207
+          ],
+          "hex": "#51D3CF"
+        },
+        "down": {
+          "frame": "down_19",
+          "rect": [
+            141,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            81,
+            211,
+            207
+          ],
+          "hex": "#51D3CF"
+        },
+        "di": {
+          "frame": "di_19",
+          "rect": [
+            421,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            47,
+            169,
+            165
+          ],
+          "hex": "#2FA9A5"
+        }
+      }
+    },
+    "2": {
+      "sourceColorId": "2",
+      "sourceName": "di_2",
+      "canonicalState": "di",
+      "sourceHex": "#38990E",
+      "sourceRgb": [
+        56,
+        153,
+        14
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "distance": 34.9,
+      "topCandidates": [
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 34.9
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 81.492
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 106.236
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_2",
+          "rect": [
+            106,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            95,
+            217,
+            42
+          ],
+          "hex": "#5FD92A"
+        },
+        "di": {
+          "frame": "di_2",
+          "rect": [
+            183,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            56,
+            153,
+            14
+          ],
+          "hex": "#38990E"
+        },
+        "down": {
+          "frame": "down_2",
+          "rect": [
+            36,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            95,
+            217,
+            42
+          ],
+          "hex": "#5FD92A"
+        }
+      }
+    },
+    "20": {
+      "sourceColorId": "20",
+      "sourceName": "up_20",
+      "canonicalState": "up",
+      "sourceHex": "#AAE5F0",
+      "sourceRgb": [
+        170,
+        229,
+        240
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 52.211,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 52.211
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 73.43
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 92.331
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_20",
+          "rect": [
+            246,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            229,
+            240
+          ],
+          "hex": "#AAE5F0"
+        },
+        "down": {
+          "frame": "down_20",
+          "rect": [
+            176,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            229,
+            240
+          ],
+          "hex": "#AAE5F0"
+        },
+        "di": {
+          "frame": "di_20",
+          "rect": [
+            463,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            114,
+            189,
+            193
+          ],
+          "hex": "#72BDC1"
+        }
+      }
+    },
+    "13": {
+      "sourceColorId": "13",
+      "sourceName": "di_13",
+      "canonicalState": "di",
+      "sourceHex": "#90B625",
+      "sourceRgb": [
+        144,
+        182,
+        37
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "distance": 28.583,
+      "topCandidates": [
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 28.583
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 90.3
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 107.424
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_13",
+          "rect": [
+            169,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            144,
+            182,
+            37
+          ],
+          "hex": "#90B625"
+        },
+        "up": {
+          "frame": "up_13",
+          "rect": [
+            1,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            175,
+            217,
+            59
+          ],
+          "hex": "#AFD93B"
+        },
+        "down": {
+          "frame": "down_13",
+          "rect": [
+            421,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            175,
+            217,
+            59
+          ],
+          "hex": "#AFD93B"
+        }
+      }
+    },
+    "23": {
+      "sourceColorId": "23",
+      "sourceName": "up_23",
+      "canonicalState": "up",
+      "sourceHex": "#FEB898",
+      "sourceRgb": [
+        254,
+        184,
+        152
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 12.689,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 12.689
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 39.85
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 44.733
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_23",
+          "rect": [
+            85,
+            288,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            223,
+            151,
+            118
+          ],
+          "hex": "#DF9776"
+        },
+        "down": {
+          "frame": "down_23",
+          "rect": [
+            281,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            254,
+            184,
+            152
+          ],
+          "hex": "#FEB898"
+        },
+        "up": {
+          "frame": "up_23",
+          "rect": [
+            351,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            254,
+            184,
+            152
+          ],
+          "hex": "#FEB898"
+        }
+      }
+    },
+    "37": {
+      "sourceColorId": "37",
+      "sourceName": "up_37",
+      "canonicalState": "up",
+      "sourceHex": "#DF6E21",
+      "sourceRgb": [
+        223,
+        110,
+        33
+      ],
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 45.727,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 45.727
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 71.204
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 82.91
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_37",
+          "rect": [
+            169,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            200,
+            91,
+            29
+          ],
+          "hex": "#C85B1D"
+        },
+        "up": {
+          "frame": "up_37",
+          "rect": [
+            351,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            223,
+            110,
+            33
+          ],
+          "hex": "#DF6E21"
+        },
+        "down": {
+          "frame": "down_37",
+          "rect": [
+            281,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            223,
+            110,
+            33
+          ],
+          "hex": "#DF6E21"
+        }
+      }
+    },
+    "9": {
+      "sourceColorId": "9",
+      "sourceName": "up_9",
+      "canonicalState": "up",
+      "sourceHex": "#D54333",
+      "sourceRgb": [
+        213,
+        67,
+        51
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 42.367,
+      "topCandidates": [
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 42.367
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 69.433
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 89.944
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_9",
+          "rect": [
+            281,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            213,
+            67,
+            51
+          ],
+          "hex": "#D54333"
+        },
+        "di": {
+          "frame": "di_9",
+          "rect": [
+            1,
+            246,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            185,
+            59,
+            45
+          ],
+          "hex": "#B93B2D"
+        },
+        "up": {
+          "frame": "up_9",
+          "rect": [
+            351,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            213,
+            67,
+            51
+          ],
+          "hex": "#D54333"
+        }
+      }
+    },
+    "30": {
+      "sourceColorId": "30",
+      "sourceName": "up_30",
+      "canonicalState": "up",
+      "sourceHex": "#A2A2A2",
+      "sourceRgb": [
+        162,
+        162,
+        162
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 70.463,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 70.463
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 81.902
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 86.423
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_30",
+          "rect": [
+            379,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            119,
+            119
+          ],
+          "hex": "#777777"
+        },
+        "up": {
+          "frame": "up_30",
+          "rect": [
+            106,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            162,
+            162,
+            162
+          ],
+          "hex": "#A2A2A2"
+        },
+        "down": {
+          "frame": "down_30",
+          "rect": [
+            36,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            162,
+            162,
+            162
+          ],
+          "hex": "#A2A2A2"
+        }
+      }
+    },
+    "11": {
+      "sourceColorId": "11",
+      "sourceName": "up_11",
+      "canonicalState": "up",
+      "sourceHex": "#C2EDBC",
+      "sourceRgb": [
+        194,
+        237,
+        188
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 48.888,
+      "topCandidates": [
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 48.888
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 55.263
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 62.482
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_11",
+          "rect": [
+            421,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            194,
+            237,
+            188
+          ],
+          "hex": "#C2EDBC"
+        },
+        "down": {
+          "frame": "down_11",
+          "rect": [
+            351,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            194,
+            237,
+            188
+          ],
+          "hex": "#C2EDBC"
+        },
+        "di": {
+          "frame": "di_11",
+          "rect": [
+            85,
+            246,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            146,
+            187,
+            139
+          ],
+          "hex": "#92BB8B"
+        }
+      }
+    },
+    "27": {
+      "sourceColorId": "27",
+      "sourceName": "up_27",
+      "canonicalState": "up",
+      "sourceHex": "#D8A2E5",
+      "sourceRgb": [
+        216,
+        162,
+        229
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 36.442,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 36.442
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 49.204
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 79.385
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_27",
+          "rect": [
+            421,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            216,
+            162,
+            229
+          ],
+          "hex": "#D8A2E5"
+        },
+        "di": {
+          "frame": "di_27",
+          "rect": [
+            253,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            176,
+            127,
+            188
+          ],
+          "hex": "#B07FBC"
+        },
+        "up": {
+          "frame": "up_27",
+          "rect": [
+            1,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            216,
+            162,
+            229
+          ],
+          "hex": "#D8A2E5"
+        }
+      }
+    },
+    "26": {
+      "sourceColorId": "26",
+      "sourceName": "di_26",
+      "canonicalState": "di",
+      "sourceHex": "#8152B9",
+      "sourceRgb": [
+        129,
+        82,
+        185
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 51.332,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 51.332
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 59.447
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 98.904
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_26",
+          "rect": [
+            211,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            129,
+            82,
+            185
+          ],
+          "hex": "#8152B9"
+        },
+        "down": {
+          "frame": "down_26",
+          "rect": [
+            386,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            165,
+            111,
+            226
+          ],
+          "hex": "#A56FE2"
+        },
+        "up": {
+          "frame": "up_26",
+          "rect": [
+            456,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            165,
+            111,
+            226
+          ],
+          "hex": "#A56FE2"
+        }
+      }
+    },
+    "44": {
+      "sourceColorId": "44",
+      "sourceName": "up_44",
+      "canonicalState": "up",
+      "sourceHex": "#009EF5",
+      "sourceRgb": [
+        0,
+        158,
+        245
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 41.821,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 41.821
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 109.458
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 116.108
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_44",
+          "rect": [
+            36,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            158,
+            245
+          ],
+          "hex": "#009EF5"
+        },
+        "up": {
+          "frame": "up_44",
+          "rect": [
+            106,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            158,
+            245
+          ],
+          "hex": "#009EF5"
+        },
+        "di": {
+          "frame": "di_44",
+          "rect": [
+            463,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            125,
+            193
+          ],
+          "hex": "#007DC1"
+        }
+      }
+    },
+    "7": {
+      "sourceColorId": "7",
+      "sourceName": "di_7",
+      "canonicalState": "di",
+      "sourceHex": "#009BD1",
+      "sourceRgb": [
+        0,
+        155,
+        209
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 36.249,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 36.249
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 107.536
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 113.798
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_7",
+          "rect": [
+            211,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            46,
+            199,
+            255
+          ],
+          "hex": "#2EC7FF"
+        },
+        "di": {
+          "frame": "di_7",
+          "rect": [
+            393,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            0,
+            155,
+            209
+          ],
+          "hex": "#009BD1"
+        },
+        "up": {
+          "frame": "up_7",
+          "rect": [
+            281,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            46,
+            199,
+            247
+          ],
+          "hex": "#2EC7F7"
+        }
+      }
+    },
+    "43": {
+      "sourceColorId": "43",
+      "sourceName": "di_43",
+      "canonicalState": "di",
+      "sourceHex": "#872244",
+      "sourceRgb": [
+        135,
+        34,
+        68
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 21.401,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 21.401
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 62.682
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 83.726
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_43",
+          "rect": [
+            421,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            135,
+            34,
+            68
+          ],
+          "hex": "#872244"
+        },
+        "up": {
+          "frame": "up_43",
+          "rect": [
+            71,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            160,
+            41,
+            81
+          ],
+          "hex": "#A02951"
+        },
+        "down": {
+          "frame": "down_43",
+          "rect": [
+            1,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            160,
+            41,
+            81
+          ],
+          "hex": "#A02951"
+        }
+      }
+    },
+    "38": {
+      "sourceColorId": "38",
+      "sourceName": "up_38",
+      "canonicalState": "up",
+      "sourceHex": "#E51200",
+      "sourceRgb": [
+        229,
+        18,
+        0
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 34.424,
+      "topCandidates": [
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 34.424
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 96.4
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 124.587
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_38",
+          "rect": [
+            316,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            229,
+            18,
+            0
+          ],
+          "hex": "#E51200"
+        },
+        "up": {
+          "frame": "up_38",
+          "rect": [
+            386,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            229,
+            18,
+            0
+          ],
+          "hex": "#E51200"
+        },
+        "di": {
+          "frame": "di_38",
+          "rect": [
+            211,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            174,
+            13,
+            0
+          ],
+          "hex": "#AE0D00"
+        }
+      }
+    },
+    "6": {
+      "sourceColorId": "6",
+      "sourceName": "up_6",
+      "canonicalState": "up",
+      "sourceHex": "#F2EEE5",
+      "sourceRgb": [
+        242,
+        238,
+        229
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 1.414,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 1.414
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 65.376
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 67.557
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_6",
+          "rect": [
+            176,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            242,
+            238,
+            229
+          ],
+          "hex": "#F2EEE5"
+        },
+        "up": {
+          "frame": "up_6",
+          "rect": [
+            246,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            242,
+            238,
+            229
+          ],
+          "hex": "#F2EEE5"
+        },
+        "di": {
+          "frame": "di_6",
+          "rect": [
+            351,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            216,
+            212,
+            203
+          ],
+          "hex": "#D8D4CB"
+        }
+      }
+    },
+    "21": {
+      "sourceColorId": "21",
+      "sourceName": "di_21",
+      "canonicalState": "di",
+      "sourceHex": "#139076",
+      "sourceRgb": [
+        19,
+        144,
+        118
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 42.273,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 42.273
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 85.147
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 95.042
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_21",
+          "rect": [
+            1,
+            288,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            19,
+            144,
+            118
+          ],
+          "hex": "#139076"
+        },
+        "up": {
+          "frame": "up_21",
+          "rect": [
+            281,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            31,
+            175,
+            146
+          ],
+          "hex": "#1FAF92"
+        },
+        "down": {
+          "frame": "down_21",
+          "rect": [
+            211,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            31,
+            175,
+            146
+          ],
+          "hex": "#1FAF92"
+        }
+      }
+    },
+    "35": {
+      "sourceColorId": "35",
+      "sourceName": "di_35",
+      "canonicalState": "di",
+      "sourceHex": "#9C5C00",
+      "sourceRgb": [
+        156,
+        92,
+        0
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 29.428,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 29.428
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 83.193
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 97.283
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_35",
+          "rect": [
+            85,
+            330,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            156,
+            92,
+            0
+          ],
+          "hex": "#9C5C00"
+        },
+        "down": {
+          "frame": "down_35",
+          "rect": [
+            211,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            133,
+            0
+          ],
+          "hex": "#CF8500"
+        },
+        "up": {
+          "frame": "up_35",
+          "rect": [
+            281,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            207,
+            133,
+            1
+          ],
+          "hex": "#CF8501"
+        }
+      }
+    },
+    "14": {
+      "sourceColorId": "14",
+      "sourceName": "di_14",
+      "canonicalState": "di",
+      "sourceHex": "#777777",
+      "sourceRgb": [
+        119,
+        119,
+        119
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 90.791,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 90.791
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 93.091
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 93.429
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_14",
+          "rect": [
+            211,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            119,
+            119
+          ],
+          "hex": "#777777"
+        },
+        "down": {
+          "frame": "down_14",
+          "rect": [
+            456,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            139,
+            138,
+            138
+          ],
+          "hex": "#8B8A8A"
+        },
+        "up": {
+          "frame": "up_14",
+          "rect": [
+            36,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            139,
+            138,
+            138
+          ],
+          "hex": "#8B8A8A"
+        }
+      }
+    },
+    "25": {
+      "sourceColorId": "25",
+      "sourceName": "up_25",
+      "canonicalState": "up",
+      "sourceHex": "#6C3721",
+      "sourceRgb": [
+        108,
+        55,
+        33
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 30.61,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 30.61
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 47.686
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 57.385
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_25",
+          "rect": [
+            421,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            108,
+            55,
+            33
+          ],
+          "hex": "#6C3721"
+        },
+        "down": {
+          "frame": "down_25",
+          "rect": [
+            351,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            108,
+            55,
+            33
+          ],
+          "hex": "#6C3721"
+        },
+        "di": {
+          "frame": "di_25",
+          "rect": [
+            169,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            80,
+            42,
+            24
+          ],
+          "hex": "#502A18"
+        }
+      }
+    },
+    "5": {
+      "sourceColorId": "5",
+      "sourceName": "di_5",
+      "canonicalState": "di",
+      "sourceHex": "#724D38",
+      "sourceRgb": [
+        114,
+        77,
+        56
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 30.854,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 30.854
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 51.971
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 62.976
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_5",
+          "rect": [
+            141,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            159,
+            115,
+            89
+          ],
+          "hex": "#9F7359"
+        },
+        "up": {
+          "frame": "up_5",
+          "rect": [
+            211,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            159,
+            115,
+            89
+          ],
+          "hex": "#9F7359"
+        },
+        "di": {
+          "frame": "di_5",
+          "rect": [
+            309,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            114,
+            77,
+            56
+          ],
+          "hex": "#724D38"
+        }
+      }
+    },
+    "12": {
+      "sourceColorId": "12",
+      "sourceName": "di_12",
+      "canonicalState": "di",
+      "sourceHex": "#2159BF",
+      "sourceRgb": [
+        33,
+        89,
+        191
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 45.618,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 45.618
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 75.862
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 84.161
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_12",
+          "rect": [
+            386,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            82,
+            143,
+            255
+          ],
+          "hex": "#528FFF"
+        },
+        "up": {
+          "frame": "up_12",
+          "rect": [
+            456,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            82,
+            143,
+            255
+          ],
+          "hex": "#528FFF"
+        },
+        "di": {
+          "frame": "di_12",
+          "rect": [
+            127,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            33,
+            89,
+            191
+          ],
+          "hex": "#2159BF"
+        }
+      }
+    },
+    "29": {
+      "sourceColorId": "29",
+      "sourceName": "di_29",
+      "canonicalState": "di",
+      "sourceHex": "#4636A6",
+      "sourceRgb": [
+        70,
+        54,
+        166
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 43.128,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 43.128
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 47.181
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 53.488
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_29",
+          "rect": [
+            1,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            99,
+            234
+          ],
+          "hex": "#7763EA"
+        },
+        "up": {
+          "frame": "up_29",
+          "rect": [
+            71,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            119,
+            99,
+            234
+          ],
+          "hex": "#7763EA"
+        },
+        "di": {
+          "frame": "di_29",
+          "rect": [
+            337,
+            295,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            70,
+            54,
+            166
+          ],
+          "hex": "#4636A6"
+        }
+      }
+    },
+    "10": {
+      "sourceColorId": "10",
+      "sourceName": "di_10",
+      "canonicalState": "di",
+      "sourceHex": "#3B3B3B",
+      "sourceRgb": [
+        59,
+        59,
+        59
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 6.928,
+      "topCandidates": [
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 6.928
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 62.177
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 67.253
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_10",
+          "rect": [
+            316,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            76,
+            76,
+            76
+          ],
+          "hex": "#4C4C4C"
+        },
+        "di": {
+          "frame": "di_10",
+          "rect": [
+            43,
+            246,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            59,
+            59,
+            59
+          ],
+          "hex": "#3B3B3B"
+        },
+        "up": {
+          "frame": "up_10",
+          "rect": [
+            386,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            76,
+            76,
+            76
+          ],
+          "hex": "#4C4C4C"
+        }
+      }
+    },
+    "16": {
+      "sourceColorId": "16",
+      "sourceName": "up_16",
+      "canonicalState": "up",
+      "sourceHex": "#F5B0CC",
+      "sourceRgb": [
+        245,
+        176,
+        204
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "distance": 17.578,
+      "topCandidates": [
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 17.578
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 47.812
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 52.593
+        }
+      ],
+      "states": {
+        "di": {
+          "frame": "di_16",
+          "rect": [
+            295,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            222,
+            159,
+            184
+          ],
+          "hex": "#DE9FB8"
+        },
+        "down": {
+          "frame": "down_16",
+          "rect": [
+            36,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            245,
+            176,
+            204
+          ],
+          "hex": "#F5B0CC"
+        },
+        "up": {
+          "frame": "up_16",
+          "rect": [
+            106,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            245,
+            176,
+            204
+          ],
+          "hex": "#F5B0CC"
+        }
+      }
+    },
+    "41": {
+      "sourceColorId": "41",
+      "sourceName": "up_41",
+      "canonicalState": "up",
+      "sourceHex": "#7DE9E9",
+      "sourceRgb": [
+        125,
+        233,
+        233
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 47.021,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 47.021
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 84.534
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 114.206
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_41",
+          "rect": [
+            421,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            125,
+            233,
+            233
+          ],
+          "hex": "#7DE9E9"
+        },
+        "up": {
+          "frame": "up_41",
+          "rect": [
+            1,
+            211,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            125,
+            233,
+            233
+          ],
+          "hex": "#7DE9E9"
+        },
+        "di": {
+          "frame": "di_41",
+          "rect": [
+            337,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            73,
+            148,
+            141
+          ],
+          "hex": "#49948D"
+        }
+      }
+    },
+    "36": {
+      "sourceColorId": "36",
+      "sourceName": "di_36",
+      "canonicalState": "di",
+      "sourceHex": "#E2CF01",
+      "sourceRgb": [
+        226,
+        207,
+        1
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 28.089,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 28.089
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 74.256
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 75.053
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_36",
+          "rect": [
+            246,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            243,
+            232,
+            25
+          ],
+          "hex": "#F3E819"
+        },
+        "up": {
+          "frame": "up_36",
+          "rect": [
+            316,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            243,
+            232,
+            25
+          ],
+          "hex": "#F3E819"
+        },
+        "di": {
+          "frame": "di_36",
+          "rect": [
+            127,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            226,
+            207,
+            1
+          ],
+          "hex": "#E2CF01"
+        }
+      }
+    },
+    "40": {
+      "sourceColorId": "40",
+      "sourceName": "up_40",
+      "canonicalState": "up",
+      "sourceHex": "#DBB5FF",
+      "sourceRgb": [
+        219,
+        181,
+        255
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 45.321,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 45.321
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 66.287
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 69.707
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_40",
+          "rect": [
+            456,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            219,
+            181,
+            255
+          ],
+          "hex": "#DBB5FF"
+        },
+        "down": {
+          "frame": "down_40",
+          "rect": [
+            386,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            219,
+            181,
+            255
+          ],
+          "hex": "#DBB5FF"
+        },
+        "di": {
+          "frame": "di_40",
+          "rect": [
+            295,
+            337,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            157,
+            113,
+            200
+          ],
+          "hex": "#9D71C8"
+        }
+      }
+    },
+    "17": {
+      "sourceColorId": "17",
+      "sourceName": "di_17",
+      "canonicalState": "di",
+      "sourceHex": "#E6D6B1",
+      "sourceRgb": [
+        230,
+        214,
+        177
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 14.491,
+      "topCandidates": [
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 14.491
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 34.38
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 38.484
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_17",
+          "rect": [
+            71,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            245,
+            232,
+            199
+          ],
+          "hex": "#F5E8C7"
+        },
+        "up": {
+          "frame": "up_17",
+          "rect": [
+            141,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            242,
+            232,
+            199
+          ],
+          "hex": "#F2E8C7"
+        },
+        "di": {
+          "frame": "di_17",
+          "rect": [
+            337,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            230,
+            214,
+            177
+          ],
+          "hex": "#E6D6B1"
+        }
+      }
+    },
+    "1": {
+      "sourceColorId": "1",
+      "sourceName": "up_1",
+      "canonicalState": "up",
+      "sourceHex": "#F0EC7C",
+      "sourceRgb": [
+        240,
+        236,
+        124
+      ],
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 44.553,
+      "topCandidates": [
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 44.553
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 58.146
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 86.394
+        }
+      ],
+      "states": {
+        "up": {
+          "frame": "up_1",
+          "rect": [
+            71,
+            106,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            236,
+            124
+          ],
+          "hex": "#F0EC7C"
+        },
+        "down": {
+          "frame": "down_1",
+          "rect": [
+            1,
+            1,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            240,
+            236,
+            124
+          ],
+          "hex": "#F0EC7C"
+        },
+        "di": {
+          "frame": "di_1",
+          "rect": [
+            141,
+            211,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            220,
+            216,
+            85
+          ],
+          "hex": "#DCD855"
+        }
+      }
+    },
+    "33": {
+      "sourceColorId": "33",
+      "sourceName": "di_33",
+      "canonicalState": "di",
+      "sourceHex": "#204A66",
+      "sourceRgb": [
+        32,
+        74,
+        102
+      ],
+      "localColorId": 18,
+      "localHex": "#36387E",
+      "distance": 37.202,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 37.202
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 49.98
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 55.669
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_33",
+          "rect": [
+            141,
+            71,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            67,
+            117,
+            151
+          ],
+          "hex": "#437597"
+        },
+        "up": {
+          "frame": "up_33",
+          "rect": [
+            211,
+            176,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            67,
+            117,
+            151
+          ],
+          "hex": "#437597"
+        },
+        "di": {
+          "frame": "di_33",
+          "rect": [
+            1,
+            330,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            32,
+            74,
+            102
+          ],
+          "hex": "#204A66"
+        }
+      }
+    },
+    "18": {
+      "sourceColorId": "18",
+      "sourceName": "di_18",
+      "canonicalState": "di",
+      "sourceHex": "#92515B",
+      "sourceRgb": [
+        146,
+        81,
+        91
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 52.849,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 52.849
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 71.875
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 101.257
+        }
+      ],
+      "states": {
+        "down": {
+          "frame": "down_18",
+          "rect": [
+            106,
+            36,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            99,
+            108
+          ],
+          "hex": "#AA636C"
+        },
+        "di": {
+          "frame": "di_18",
+          "rect": [
+            379,
+            253,
+            40,
+            40
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            146,
+            81,
+            91
+          ],
+          "hex": "#92515B"
+        },
+        "up": {
+          "frame": "up_18",
+          "rect": [
+            176,
+            141,
+            33,
+            33
+          ],
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "rgb": [
+            170,
+            99,
+            108
+          ],
+          "hex": "#AA636C"
+        }
+      }
+    }
+  }
+}

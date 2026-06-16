@@ -1,0 +1,8 @@
+{
+  "sourceGame": "快乐拼拼豆",
+  "sourceSet": "daily",
+  "levelCount": 635,
+  "sourceLevelMin": 1000,
+  "sourceLevelMax": null,
+  "fileGlob": "*.json"
+}

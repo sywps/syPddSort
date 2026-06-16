@@ -1,0 +1,240 @@
+{
+  "sourceGame": "全民拼豆",
+  "sourcePackage": "C:/Users/EDY/workspaces/全民拼豆",
+  "sourceFile": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/全民拼豆/unity_export/text_assets/level3390_top_1587.txt",
+  "sourceSet": "main",
+  "sourceLevel": 3390,
+  "sourceLevelName": "level3390",
+  "colorMappingMode": "official20-nearest-rgb-unity-sprite-rebuilt",
+  "sourceColorIdToLocalColorId": {
+    "2": 20,
+    "11": 2,
+    "12": 13,
+    "14": 7,
+    "15": 1
+  },
+  "sourceColorMergeGroupsInLevel": {},
+  "sourceHighDistanceColorsInLevel": [
+    "11",
+    "12",
+    "14",
+    "15"
+  ],
+  "sourceColorUsed": [
+    "2",
+    "11",
+    "12",
+    "14",
+    "15"
+  ],
+  "boardWidth": 7,
+  "boardHeight": 11,
+  "timeLimit": 0,
+  "slotTotalCount": 77,
+  "correctColorArr": [
+    [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      1,
+      1,
+      1,
+      2,
+      2
+    ],
+    [
+      2,
+      1,
+      20,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      7,
+      1,
+      1,
+      1,
+      1,
+      1,
+      7
+    ],
+    [
+      7,
+      1,
+      20,
+      1,
+      20,
+      1,
+      7
+    ],
+    [
+      7,
+      20,
+      20,
+      20,
+      20,
+      20,
+      7
+    ],
+    [
+      7,
+      7,
+      7,
+      13,
+      7,
+      7,
+      7
+    ],
+    [
+      7,
+      7,
+      7,
+      13,
+      7,
+      7,
+      7
+    ],
+    [
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7
+    ]
+  ],
+  "initRandomColorArr": [
+    [
+      20,
+      20,
+      20,
+      20,
+      7,
+      7,
+      7
+    ],
+    [
+      20,
+      7,
+      7,
+      2,
+      7,
+      7,
+      7
+    ],
+    [
+      20,
+      7,
+      2,
+      7,
+      7,
+      7,
+      7
+    ],
+    [
+      20,
+      7,
+      7,
+      2,
+      7,
+      7,
+      13
+    ],
+    [
+      20,
+      7,
+      7,
+      7,
+      2,
+      7,
+      13
+    ],
+    [
+      1,
+      7,
+      7,
+      7,
+      7,
+      2,
+      1
+    ],
+    [
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      1
+    ],
+    [
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  ],
+  "sourceMeta": {
+    "baseFile": "level3390_1587.txt",
+    "topFile": "level3390_top_1587.txt"
+  }
+}

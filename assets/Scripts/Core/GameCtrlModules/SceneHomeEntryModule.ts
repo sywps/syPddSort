@@ -32,7 +32,6 @@ import type {
 import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
-import { ensureHomeIconSparkleFx } from '../HomeIconSparkleFx';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 
 export function installSceneHomeEntryModule(target: any): void {
@@ -196,9 +195,8 @@ export function installSceneHomeEntryModule(target: any): void {
             }, this);
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
             this.requireSceneSpriteFrame(iconNode, 'LeaderboardBtn/LeaderboardIcon');
-        
+
             ensureHomeIconIdleWiggle(iconNode);
-            ensureHomeIconSparkleFx(iconNode);
         },
 
         drawCollectionButton(parent: Node) {
@@ -212,9 +210,8 @@ export function installSceneHomeEntryModule(target: any): void {
             }, this);
             const iconNode = this.requireUiChild(btn, 'CollectionIcon', 'CollectionBtn/CollectionIcon');
             this.requireSceneSpriteFrame(iconNode, 'CollectionBtn/CollectionIcon');
-        
+
             ensureHomeIconIdleWiggle(iconNode);
-            ensureHomeIconSparkleFx(iconNode);
         },
 
         loadLevel(levelId: number, prefix: string = 'level_', _mapMainLevel: boolean = true) {

@@ -20,7 +20,7 @@ export const POPUP_UI_TEXTURE_NAMES = [
 
 export const SCENE_TRANSITION_TEXTURE_NAMES = [
     'scene_transition_solid',
-    'scene_transition_circle_soft',
+    'scene_transition_circle_crisp',
     'scene_transition_logo',
 ];
 

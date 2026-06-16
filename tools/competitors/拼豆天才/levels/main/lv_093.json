@@ -40,7 +40,7 @@
   "boardWidth": 8,
   "boardHeight": 11,
   "timeLimit": 300,
-  "slotTotalCount": 0,
+  "slotTotalCount": 88,
   "correctColorArr": [
     [
       2,
@@ -165,104 +165,104 @@
       2
     ],
     [
+      18,
+      18,
+      18,
+      18,
       2,
       2,
+      2,
+      2
+    ],
+    [
       18,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
       18,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
       18,
-      18,
-      18,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
       2
     ],
     [
       18,
       18,
-      18,
-      18,
-      18,
-      19,
+      2,
+      2,
+      2,
+      2,
       18,
       18
     ],
     [
       18,
       18,
+      2,
+      2,
+      2,
       18,
       18,
+      18
+    ],
+    [
+      18,
+      18,
+      2,
+      2,
+      2,
+      2,
+      18,
+      18
+    ],
+    [
       20,
       20,
       2,
-      2
+      2,
+      2,
+      2,
+      18,
+      18
     ],
     [
+      20,
+      19,
+      2,
+      2,
       2,
       18,
       18,
+      18
+    ],
+    [
       20,
       20,
-      2,
-      2,
-      2
-    ],
-    [
-      2,
-      18,
-      18,
       20,
       2,
-      2,
-      2,
-      2
-    ],
-    [
-      2,
-      2,
-      18,
-      20,
-      2,
-      2,
-      2,
-      2
-    ],
-    [
-      2,
-      2,
-      18,
-      18,
-      2,
-      2,
-      2,
-      2
-    ],
-    [
-      2,
-      2,
-      2,
       18,
       18,
       18,
-      2,
-      2
-    ],
-    [
-      2,
-      2,
-      2,
-      18,
-      18,
-      2,
-      2,
-      2
-    ],
-    [
-      2,
-      2,
-      2,
-      18,
-      2,
-      2,
-      2,
-      2
+      18
     ]
   ],
   "sourceMeta": {
@@ -278,6 +278,25 @@
       "7",
       "2",
       "i"
-    ]
-  }
+    ],
+    "generatedInitFromTarget": true,
+    "initGenerationMode": "official-clustered-growth",
+    "initGenerationSource": "tools/generate_initial_shuffle.py",
+    "initGenerationDifficulty": "normal",
+    "initGenerationTargetDisplacement": 0.72,
+    "initGenerationMinDisplacement": 0.62,
+    "initGenerationMaxDisplacement": 0.82,
+    "initGenerationAttempts": 1
+  },
+  "filledCellCount": 88,
+  "colorCount": 4,
+  "colorStats": {
+    "2": 49,
+    "18": 32,
+    "19": 1,
+    "20": 6
+  },
+  "displacementRatio": 0.7045,
+  "initShuffleSeed": 20997475,
+  "initShuffleMaxGroupsPerColor": 3
 }

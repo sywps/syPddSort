@@ -1,0 +1,1965 @@
+{
+  "sourceGame": "全民拼豆",
+  "sourceColorCount": 23,
+  "sourceColorIds": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23"
+  ],
+  "localColorCount": 20,
+  "localColors": {
+    "1": {
+      "hex": "#ED5090",
+      "rgb": [
+        237,
+        80,
+        144
+      ]
+    },
+    "2": {
+      "hex": "#4EEAEA",
+      "rgb": [
+        78,
+        234,
+        234
+      ]
+    },
+    "3": {
+      "hex": "#F8C811",
+      "rgb": [
+        248,
+        200,
+        17
+      ]
+    },
+    "4": {
+      "hex": "#FE8B10",
+      "rgb": [
+        254,
+        139,
+        16
+      ]
+    },
+    "5": {
+      "hex": "#F4BD9E",
+      "rgb": [
+        244,
+        189,
+        158
+      ]
+    },
+    "6": {
+      "hex": "#EBDEA6",
+      "rgb": [
+        235,
+        222,
+        166
+      ]
+    },
+    "7": {
+      "hex": "#4A4DCF",
+      "rgb": [
+        74,
+        77,
+        207
+      ]
+    },
+    "8": {
+      "hex": "#7221BC",
+      "rgb": [
+        114,
+        33,
+        188
+      ]
+    },
+    "9": {
+      "hex": "#9FCE21",
+      "rgb": [
+        159,
+        206,
+        33
+      ]
+    },
+    "10": {
+      "hex": "#EA281A",
+      "rgb": [
+        234,
+        40,
+        26
+      ]
+    },
+    "11": {
+      "hex": "#37A92D",
+      "rgb": [
+        55,
+        169,
+        45
+      ]
+    },
+    "12": {
+      "hex": "#207955",
+      "rgb": [
+        32,
+        121,
+        85
+      ]
+    },
+    "13": {
+      "hex": "#20A8DC",
+      "rgb": [
+        32,
+        168,
+        220
+      ]
+    },
+    "14": {
+      "hex": "#EEB2BC",
+      "rgb": [
+        238,
+        178,
+        188
+      ]
+    },
+    "15": {
+      "hex": "#C4BED9",
+      "rgb": [
+        196,
+        190,
+        217
+      ]
+    },
+    "16": {
+      "hex": "#974714",
+      "rgb": [
+        151,
+        71,
+        20
+      ]
+    },
+    "17": {
+      "hex": "#782F3C",
+      "rgb": [
+        120,
+        47,
+        60
+      ]
+    },
+    "18": {
+      "hex": "#36387E",
+      "rgb": [
+        54,
+        56,
+        126
+      ]
+    },
+    "19": {
+      "hex": "#373737",
+      "rgb": [
+        55,
+        55,
+        55
+      ]
+    },
+    "20": {
+      "hex": "#F2EDE4",
+      "rgb": [
+        242,
+        237,
+        228
+      ]
+    }
+  },
+  "sourceColors": {
+    "1": {
+      "sourceColorId": "1",
+      "sourceName": "1",
+      "sourceHex": "#393939",
+      "sourceRgb": [
+        57,
+        57,
+        57
+      ],
+      "localColorId": 19,
+      "localHex": "#373737",
+      "distance": 3.464,
+      "topCandidates": [
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 3.464
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 63.859
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 69.072
+        }
+      ],
+      "variants": [
+        {
+          "name": "1",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            57,
+            57,
+            57
+          ],
+          "hex": "#393939",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_1",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            51,
+            51,
+            51
+          ],
+          "hex": "#333333",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_1",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            57,
+            57,
+            57
+          ],
+          "hex": "#393939",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "2": {
+      "sourceColorId": "2",
+      "sourceName": "2",
+      "sourceHex": "#EFEDE3",
+      "sourceRgb": [
+        239,
+        237,
+        227
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 3.162,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 3.162
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 62.944
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 64.483
+        }
+      ],
+      "variants": [
+        {
+          "name": "2",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            239,
+            237,
+            227
+          ],
+          "hex": "#EFEDE3",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_2",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            203,
+            197,
+            174
+          ],
+          "hex": "#CBC5AE",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_2",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            239,
+            237,
+            227
+          ],
+          "hex": "#EFEDE3",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "3": {
+      "sourceColorId": "3",
+      "sourceName": "3",
+      "sourceHex": "#8A8A8A",
+      "sourceRgb": [
+        138,
+        138,
+        138
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 110.946,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 110.946
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 112.152
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 114.896
+        }
+      ],
+      "variants": [
+        {
+          "name": "3",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            138,
+            138,
+            138
+          ],
+          "hex": "#8A8A8A",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_3",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            109,
+            109,
+            109
+          ],
+          "hex": "#6D6D6D",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_3",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            138,
+            138,
+            138
+          ],
+          "hex": "#8A8A8A",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "4": {
+      "sourceColorId": "4",
+      "sourceName": "4",
+      "sourceHex": "#C3BED9",
+      "sourceRgb": [
+        195,
+        190,
+        217
+      ],
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 1.0,
+      "topCandidates": [
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 1.0
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 53.235
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 67.372
+        }
+      ],
+      "variants": [
+        {
+          "name": "4",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            195,
+            190,
+            217
+          ],
+          "hex": "#C3BED9",
+          "size": [
+            122,
+            123
+          ]
+        },
+        {
+          "name": "di_4",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            125,
+            118,
+            145
+          ],
+          "hex": "#7D7691",
+          "size": [
+            136,
+            136
+          ]
+        },
+        {
+          "name": "get_4",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            195,
+            190,
+            218
+          ],
+          "hex": "#C3BEDA",
+          "size": [
+            120,
+            122
+          ]
+        }
+      ]
+    },
+    "5": {
+      "sourceColorId": "5",
+      "sourceName": "5",
+      "sourceHex": "#EB5241",
+      "sourceRgb": [
+        235,
+        82,
+        65
+      ],
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 57.324,
+      "topCandidates": [
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 57.324
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 77.531
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 79.051
+        }
+      ],
+      "variants": [
+        {
+          "name": "5",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            235,
+            82,
+            65
+          ],
+          "hex": "#EB5241",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_5",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            199,
+            46,
+            28
+          ],
+          "hex": "#C72E1C",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_5",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            235,
+            82,
+            65
+          ],
+          "hex": "#EB5241",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "6": {
+      "sourceColorId": "6",
+      "sourceName": "6",
+      "sourceHex": "#893341",
+      "sourceRgb": [
+        137,
+        51,
+        65
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 18.166,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 18.166
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 51.196
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 82.704
+        }
+      ],
+      "variants": [
+        {
+          "name": "6",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            137,
+            51,
+            65
+          ],
+          "hex": "#893341",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_6",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            85,
+            18,
+            20
+          ],
+          "hex": "#551214",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_6",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            138,
+            52,
+            65
+          ],
+          "hex": "#8A3441",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "7": {
+      "sourceColorId": "7",
+      "sourceName": "7",
+      "sourceHex": "#FFE904",
+      "sourceRgb": [
+        255,
+        233,
+        4
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 36.152,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 36.152
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 94.768
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 103.856
+        }
+      ],
+      "variants": [
+        {
+          "name": "7",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            255,
+            233,
+            4
+          ],
+          "hex": "#FFE904",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_7",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            239,
+            195,
+            0
+          ],
+          "hex": "#EFC300",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_7",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            255,
+            233,
+            4
+          ],
+          "hex": "#FFE904",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "8": {
+      "sourceColorId": "8",
+      "sourceName": "8",
+      "sourceHex": "#278133",
+      "sourceRgb": [
+        39,
+        129,
+        51
+      ],
+      "localColorId": 12,
+      "localHex": "#207955",
+      "distance": 35.623,
+      "topCandidates": [
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 35.623
+        },
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 43.497
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 75.816
+        }
+      ],
+      "variants": [
+        {
+          "name": "8",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            39,
+            129,
+            51
+          ],
+          "hex": "#278133",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_8",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            16,
+            88,
+            60
+          ],
+          "hex": "#10583C",
+          "size": [
+            136,
+            136
+          ]
+        },
+        {
+          "name": "get_8",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            39,
+            135,
+            52
+          ],
+          "hex": "#278734",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "9": {
+      "sourceColorId": "9",
+      "sourceName": "9",
+      "sourceHex": "#B2D94C",
+      "sourceRgb": [
+        178,
+        217,
+        76
+      ],
+      "localColorId": 9,
+      "localHex": "#9FCE21",
+      "distance": 48.28,
+      "topCandidates": [
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 48.28
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 93.113
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 106.649
+        }
+      ],
+      "variants": [
+        {
+          "name": "9",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            178,
+            217,
+            76
+          ],
+          "hex": "#B2D94C",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_9",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            121,
+            183,
+            4
+          ],
+          "hex": "#79B704",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_9",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            178,
+            217,
+            77
+          ],
+          "hex": "#B2D94D",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "10": {
+      "sourceColorId": "10",
+      "sourceName": "10",
+      "sourceHex": "#65BD48",
+      "sourceRgb": [
+        101,
+        189,
+        72
+      ],
+      "localColorId": 11,
+      "localHex": "#37A92D",
+      "distance": 56.965,
+      "topCandidates": [
+        {
+          "localColorId": 11,
+          "hex": "#37A92D",
+          "distance": 56.965
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 71.931
+        },
+        {
+          "localColorId": 12,
+          "hex": "#207955",
+          "distance": 97.745
+        }
+      ],
+      "variants": [
+        {
+          "name": "10",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            101,
+            189,
+            72
+          ],
+          "hex": "#65BD48",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_10",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            28,
+            145,
+            16
+          ],
+          "hex": "#1C9110",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_10",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            101,
+            189,
+            73
+          ],
+          "hex": "#65BD49",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "11": {
+      "sourceColorId": "11",
+      "sourceName": "11",
+      "sourceHex": "#7DE5E7",
+      "sourceRgb": [
+        125,
+        229,
+        231
+      ],
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 47.36,
+      "topCandidates": [
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 47.36
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 82.207
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 111.763
+        }
+      ],
+      "variants": [
+        {
+          "name": "11",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            125,
+            229,
+            231
+          ],
+          "hex": "#7DE5E7",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_11",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            0,
+            191,
+            195
+          ],
+          "hex": "#00BFC3",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_11",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            125,
+            229,
+            231
+          ],
+          "hex": "#7DE5E7",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "12": {
+      "sourceColorId": "12",
+      "sourceName": "12",
+      "sourceHex": "#50A5D7",
+      "sourceRgb": [
+        80,
+        165,
+        215
+      ],
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 48.353,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 48.353
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 71.596
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 88.566
+        }
+      ],
+      "variants": [
+        {
+          "name": "12",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            80,
+            165,
+            215
+          ],
+          "hex": "#50A5D7",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_12",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            28,
+            108,
+            182
+          ],
+          "hex": "#1C6CB6",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_12",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            81,
+            165,
+            215
+          ],
+          "hex": "#51A5D7",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "13": {
+      "sourceColorId": "13",
+      "sourceName": "13",
+      "sourceHex": "#6060D7",
+      "sourceRgb": [
+        96,
+        96,
+        215
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 30.15,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 30.15
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 70.866
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 96.462
+        }
+      ],
+      "variants": [
+        {
+          "name": "13",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            96,
+            96,
+            215
+          ],
+          "hex": "#6060D7",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_13",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            62,
+            62,
+            181
+          ],
+          "hex": "#3E3EB5",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_13",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            96,
+            96,
+            215
+          ],
+          "hex": "#6060D7",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "14": {
+      "sourceColorId": "14",
+      "sourceName": "14",
+      "sourceHex": "#5C5C9E",
+      "sourceRgb": [
+        92,
+        92,
+        158
+      ],
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 54.314,
+      "topCandidates": [
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 54.314
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 61.351
+        },
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 69.75
+        }
+      ],
+      "variants": [
+        {
+          "name": "14",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            92,
+            92,
+            158
+          ],
+          "hex": "#5C5C9E",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_14",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            56,
+            54,
+            134
+          ],
+          "hex": "#383686",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_14",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            92,
+            92,
+            158
+          ],
+          "hex": "#5C5C9E",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "15": {
+      "sourceColorId": "15",
+      "sourceName": "15",
+      "sourceHex": "#E0759E",
+      "sourceRgb": [
+        224,
+        117,
+        158
+      ],
+      "localColorId": 1,
+      "localHex": "#ED5090",
+      "distance": 41.641,
+      "topCandidates": [
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 41.641
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 69.405
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 74.726
+        }
+      ],
+      "variants": [
+        {
+          "name": "15",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            224,
+            117,
+            158
+          ],
+          "hex": "#E0759E",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_15",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            186,
+            78,
+            121
+          ],
+          "hex": "#BA4E79",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_15",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            224,
+            117,
+            158
+          ],
+          "hex": "#E0759E",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "16": {
+      "sourceColorId": "16",
+      "sourceName": "16",
+      "sourceHex": "#7936C4",
+      "sourceRgb": [
+        121,
+        54,
+        196
+      ],
+      "localColorId": 8,
+      "localHex": "#7221BC",
+      "distance": 23.537,
+      "topCandidates": [
+        {
+          "localColorId": 8,
+          "hex": "#7221BC",
+          "distance": 23.537
+        },
+        {
+          "localColorId": 7,
+          "hex": "#4A4DCF",
+          "distance": 53.47
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 96.917
+        }
+      ],
+      "variants": [
+        {
+          "name": "16",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            121,
+            54,
+            196
+          ],
+          "hex": "#7936C4",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_16",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            81,
+            16,
+            158
+          ],
+          "hex": "#51109E",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_16",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            121,
+            55,
+            196
+          ],
+          "hex": "#7937C4",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "17": {
+      "sourceColorId": "17",
+      "sourceName": "17",
+      "sourceHex": "#FFAE02",
+      "sourceRgb": [
+        255,
+        174,
+        2
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 30.822,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 30.822
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 37.709
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 105.835
+        }
+      ],
+      "variants": [
+        {
+          "name": "17",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            255,
+            174,
+            2
+          ],
+          "hex": "#FFAE02",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_17",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            239,
+            123,
+            0
+          ],
+          "hex": "#EF7B00",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_17",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            255,
+            175,
+            1
+          ],
+          "hex": "#FFAF01",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "18": {
+      "sourceColorId": "18",
+      "sourceName": "18",
+      "sourceHex": "#FFE904",
+      "sourceRgb": [
+        255,
+        233,
+        4
+      ],
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 36.152,
+      "topCandidates": [
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 36.152
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 94.768
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 103.856
+        }
+      ],
+      "variants": [
+        {
+          "name": "18",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            255,
+            233,
+            4
+          ],
+          "hex": "#FFE904",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_18",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            239,
+            195,
+            0
+          ],
+          "hex": "#EFC300",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_18",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            255,
+            233,
+            4
+          ],
+          "hex": "#FFE904",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "19": {
+      "sourceColorId": "19",
+      "sourceName": "19",
+      "sourceHex": "#E5B3BB",
+      "sourceRgb": [
+        229,
+        179,
+        187
+      ],
+      "localColorId": 14,
+      "localHex": "#EEB2BC",
+      "distance": 9.11,
+      "topCandidates": [
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 9.11
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 34.147
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 45.935
+        }
+      ],
+      "variants": [
+        {
+          "name": "19",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            229,
+            179,
+            187
+          ],
+          "hex": "#E5B3BB",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_19",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            207,
+            137,
+            146
+          ],
+          "hex": "#CF8992",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_19",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            229,
+            179,
+            187
+          ],
+          "hex": "#E5B3BB",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "20": {
+      "sourceColorId": "20",
+      "sourceName": "20",
+      "sourceHex": "#784226",
+      "sourceRgb": [
+        120,
+        66,
+        38
+      ],
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 29.069,
+      "topCandidates": [
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 29.069
+        },
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 36.194
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 68.081
+        }
+      ],
+      "variants": [
+        {
+          "name": "20",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            120,
+            66,
+            38
+          ],
+          "hex": "#784226",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_20",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            107,
+            56,
+            27
+          ],
+          "hex": "#6B381B",
+          "size": [
+            136,
+            136
+          ]
+        },
+        {
+          "name": "get_20",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            124,
+            68,
+            41
+          ],
+          "hex": "#7C4429",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "21": {
+      "sourceColorId": "21",
+      "sourceName": "21",
+      "sourceHex": "#FCF4CB",
+      "sourceRgb": [
+        252,
+        244,
+        203
+      ],
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 27.821,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 27.821
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 46.282
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 69.116
+        }
+      ],
+      "variants": [
+        {
+          "name": "21",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            252,
+            244,
+            203
+          ],
+          "hex": "#FCF4CB",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_21",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            239,
+            219,
+            170
+          ],
+          "hex": "#EFDBAA",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_21",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            252,
+            244,
+            203
+          ],
+          "hex": "#FCF4CB",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "22": {
+      "sourceColorId": "22",
+      "sourceName": "22",
+      "sourceHex": "#AA6230",
+      "sourceRgb": [
+        170,
+        98,
+        48
+      ],
+      "localColorId": 16,
+      "localHex": "#974714",
+      "distance": 43.29,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 43.29
+        },
+        {
+          "localColorId": 17,
+          "hex": "#782F3C",
+          "distance": 72.422
+        },
+        {
+          "localColorId": 10,
+          "hex": "#EA281A",
+          "distance": 89.129
+        }
+      ],
+      "variants": [
+        {
+          "name": "22",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            170,
+            98,
+            48
+          ],
+          "hex": "#AA6230",
+          "size": [
+            128,
+            136
+          ]
+        },
+        {
+          "name": "di_22",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            130,
+            26,
+            12
+          ],
+          "hex": "#821A0C",
+          "size": [
+            148,
+            148
+          ]
+        },
+        {
+          "name": "get_22",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            170,
+            98,
+            48
+          ],
+          "hex": "#AA6230",
+          "size": [
+            128,
+            128
+          ]
+        }
+      ]
+    },
+    "23": {
+      "sourceColorId": "23",
+      "sourceName": "23",
+      "sourceHex": "#F4BD9E",
+      "sourceRgb": [
+        244,
+        189,
+        158
+      ],
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 0.0,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 0.0
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 32.512
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 35.128
+        }
+      ],
+      "variants": [
+        {
+          "name": "23",
+          "variant": "plain",
+          "priority": 0,
+          "rgb": [
+            244,
+            189,
+            158
+          ],
+          "hex": "#F4BD9E",
+          "size": [
+            124,
+            125
+          ]
+        },
+        {
+          "name": "di_23",
+          "variant": "di",
+          "priority": 1,
+          "rgb": [
+            218,
+            159,
+            139
+          ],
+          "hex": "#DA9F8B",
+          "size": [
+            134,
+            134
+          ]
+        },
+        {
+          "name": "get_23",
+          "variant": "get",
+          "priority": 2,
+          "rgb": [
+            244,
+            189,
+            158
+          ],
+          "hex": "#F4BD9E",
+          "size": [
+            122,
+            122
+          ]
+        }
+      ]
+    }
+  }
+}

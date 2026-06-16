@@ -383,6 +383,22 @@ class BoardViewportController {
         return this.viewScale;
     }
 
+    get minScale(): number {
+        return this.options.minScale;
+    }
+
+    get maxScale(): number {
+        return this.options.maxScale;
+    }
+
+    setScaleBounds(minScale: number, maxScale: number): void {
+        const safeMin = Number.isFinite(minScale) && minScale > 0 ? minScale : this.options.minScale;
+        const safeMax = Number.isFinite(maxScale) && maxScale >= safeMin ? maxScale : this.options.maxScale;
+        this.options.minScale = safeMin;
+        this.options.maxScale = Math.max(safeMin, safeMax);
+        this.viewScale = Math.max(this.options.minScale, Math.min(this.options.maxScale, this.viewScale));
+    }
+
     setScaleSnapshot(scale: number): void {
         this.viewScale = Math.max(this.options.minScale, Math.min(this.options.maxScale, scale));
     }

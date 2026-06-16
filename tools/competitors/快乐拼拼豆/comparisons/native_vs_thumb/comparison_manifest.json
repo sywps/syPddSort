@@ -1,0 +1,309 @@
+{
+  "levels": [
+    {
+      "levelNumber": 1327,
+      "sourceLevel": 1327,
+      "invokeId": "1618",
+      "hash": 1781236258728,
+      "score": 567683.601,
+      "usedSourceColors": [
+        "1",
+        "10",
+        "11",
+        "20",
+        "39"
+      ],
+      "changedLocalMappingColors": [
+        "1",
+        "10",
+        "11",
+        "20",
+        "39"
+      ],
+      "topSourceColorDeltas": [
+        {
+          "colorId": "39",
+          "delta": 116.37,
+          "cells": 1480
+        },
+        {
+          "colorId": "20",
+          "delta": 91.597,
+          "cells": 1366
+        },
+        {
+          "colorId": "11",
+          "delta": 94.154,
+          "cells": 1110
+        },
+        {
+          "colorId": "1",
+          "delta": 61.106,
+          "cells": 1480
+        },
+        {
+          "colorId": "10",
+          "delta": 67.55,
+          "cells": 1116
+        }
+      ],
+      "sourceFile": "https://res.wqop2018.com/mp/projects/pdzsh/config/level/1618_1781236258728.json",
+      "images": {
+        "target_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_target_thumb.png",
+        "target_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_target_atlas.png",
+        "init_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_init_thumb.png",
+        "init_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_init_atlas.png",
+        "target_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_target_official.png",
+        "init_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_init_official.png",
+        "montage": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1327_montage.png"
+      }
+    },
+    {
+      "levelNumber": 1350,
+      "sourceLevel": 1350,
+      "invokeId": "1617",
+      "hash": 1781236258728,
+      "score": 560452.161,
+      "usedSourceColors": [
+        "6",
+        "10",
+        "20",
+        "24",
+        "39"
+      ],
+      "changedLocalMappingColors": [
+        "6",
+        "10",
+        "20",
+        "24",
+        "39"
+      ],
+      "topSourceColorDeltas": [
+        {
+          "colorId": "39",
+          "delta": 116.37,
+          "cells": 1874
+        },
+        {
+          "colorId": "10",
+          "delta": 67.55,
+          "cells": 1884
+        },
+        {
+          "colorId": "20",
+          "delta": 91.597,
+          "cells": 1382
+        },
+        {
+          "colorId": "24",
+          "delta": 46.915,
+          "cells": 1136
+        },
+        {
+          "colorId": "6",
+          "delta": 47.35,
+          "cells": 744
+        }
+      ],
+      "sourceFile": "https://res.wqop2018.com/mp/projects/pdzsh/config/level/1617_1781236258728.json",
+      "images": {
+        "target_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_target_thumb.png",
+        "target_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_target_atlas.png",
+        "init_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_init_thumb.png",
+        "init_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_init_atlas.png",
+        "target_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_target_official.png",
+        "init_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_init_official.png",
+        "montage": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1350_montage.png"
+      }
+    },
+    {
+      "levelNumber": 1296,
+      "sourceLevel": 1296,
+      "invokeId": "1751",
+      "hash": 1781236258728,
+      "score": 527481.987,
+      "usedSourceColors": [
+        "5",
+        "6",
+        "16",
+        "18",
+        "20",
+        "23",
+        "34"
+      ],
+      "changedLocalMappingColors": [
+        "5",
+        "6",
+        "18",
+        "20",
+        "34"
+      ],
+      "topSourceColorDeltas": [
+        {
+          "colorId": "34",
+          "delta": 119.042,
+          "cells": 1702
+        },
+        {
+          "colorId": "20",
+          "delta": 91.597,
+          "cells": 1964
+        },
+        {
+          "colorId": "5",
+          "delta": 93.541,
+          "cells": 1044
+        },
+        {
+          "colorId": "6",
+          "delta": 47.35,
+          "cells": 572
+        },
+        {
+          "colorId": "23",
+          "delta": 68.315,
+          "cells": 162
+        },
+        {
+          "colorId": "16",
+          "delta": 43.909,
+          "cells": 160
+        }
+      ],
+      "sourceFile": "https://res.wqop2018.com/mp/projects/pdzsh/config/level/1751_1781236258728.json",
+      "images": {
+        "target_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_target_thumb.png",
+        "target_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_target_atlas.png",
+        "init_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_init_thumb.png",
+        "init_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_init_atlas.png",
+        "target_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_target_official.png",
+        "init_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_init_official.png",
+        "montage": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1296_montage.png"
+      }
+    },
+    {
+      "levelNumber": 1249,
+      "sourceLevel": 1249,
+      "invokeId": "1702",
+      "hash": 1781236258728,
+      "score": 474461.665,
+      "usedSourceColors": [
+        "4",
+        "6",
+        "10",
+        "11",
+        "20"
+      ],
+      "changedLocalMappingColors": [
+        "4",
+        "6",
+        "10",
+        "11",
+        "20"
+      ],
+      "topSourceColorDeltas": [
+        {
+          "colorId": "11",
+          "delta": 94.154,
+          "cells": 1748
+        },
+        {
+          "colorId": "4",
+          "delta": 93.654,
+          "cells": 1428
+        },
+        {
+          "colorId": "10",
+          "delta": 67.55,
+          "cells": 1690
+        },
+        {
+          "colorId": "6",
+          "delta": 47.35,
+          "cells": 1104
+        },
+        {
+          "colorId": "20",
+          "delta": 91.597,
+          "cells": 106
+        }
+      ],
+      "sourceFile": "https://res.wqop2018.com/mp/projects/pdzsh/config/level/1702_1781236258728.json",
+      "images": {
+        "target_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_target_thumb.png",
+        "target_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_target_atlas.png",
+        "init_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_init_thumb.png",
+        "init_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_init_atlas.png",
+        "target_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_target_official.png",
+        "init_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_init_official.png",
+        "montage": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1249_montage.png"
+      }
+    },
+    {
+      "levelNumber": 1209,
+      "sourceLevel": 1209,
+      "invokeId": "1754",
+      "hash": 1781236258728,
+      "score": 458923.645,
+      "usedSourceColors": [
+        "1",
+        "2",
+        "6",
+        "10",
+        "11",
+        "16",
+        "18"
+      ],
+      "changedLocalMappingColors": [
+        "1",
+        "2",
+        "6",
+        "10",
+        "11",
+        "18"
+      ],
+      "topSourceColorDeltas": [
+        {
+          "colorId": "2",
+          "delta": 102.845,
+          "cells": 1432
+        },
+        {
+          "colorId": "11",
+          "delta": 94.154,
+          "cells": 1290
+        },
+        {
+          "colorId": "10",
+          "delta": 67.55,
+          "cells": 1230
+        },
+        {
+          "colorId": "1",
+          "delta": 61.106,
+          "cells": 1244
+        },
+        {
+          "colorId": "16",
+          "delta": 43.909,
+          "cells": 396
+        },
+        {
+          "colorId": "18",
+          "delta": 59.506,
+          "cells": 200
+        }
+      ],
+      "sourceFile": "https://res.wqop2018.com/mp/projects/pdzsh/config/level/1754_1781236258728.json",
+      "images": {
+        "target_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_target_thumb.png",
+        "target_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_target_atlas.png",
+        "init_thumb": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_init_thumb.png",
+        "init_atlas": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_init_atlas.png",
+        "target_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_target_official.png",
+        "init_official": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_init_official.png",
+        "montage": "D:\\code\\xyx\\game-pdd-v2\\tools\\competitors\\快乐拼拼豆\\comparisons\\native_vs_thumb\\lv_1209_montage.png"
+      }
+    }
+  ]
+}

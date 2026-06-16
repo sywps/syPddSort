@@ -1,0 +1,258 @@
+{
+  "sourceGame": "全民拼豆",
+  "sourcePackage": "C:/Users/EDY/workspaces/全民拼豆",
+  "sourceFile": "D:/code/xyx/game-pdd-v2/temp/output/competitor_analysis/全民拼豆/unity_export/text_assets/level2_top_7795.txt",
+  "sourceSet": "main",
+  "sourceLevel": 2,
+  "sourceLevelName": "level2",
+  "colorMappingMode": "official20-nearest-rgb-unity-sprite-rebuilt",
+  "sourceColorIdToLocalColorId": {
+    "1": 19,
+    "2": 20,
+    "11": 2,
+    "16": 8
+  },
+  "sourceColorMergeGroupsInLevel": {},
+  "sourceHighDistanceColorsInLevel": [
+    "11",
+    "16"
+  ],
+  "sourceColorUsed": [
+    "1",
+    "2",
+    "11",
+    "16"
+  ],
+  "boardWidth": 8,
+  "boardHeight": 11,
+  "timeLimit": 0,
+  "slotTotalCount": 88,
+  "correctColorArr": [
+    [
+      2,
+      2,
+      2,
+      8,
+      8,
+      8,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      8,
+      8,
+      8,
+      8,
+      8,
+      2
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      8,
+      19,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      8,
+      20,
+      20,
+      2,
+      2
+    ],
+    [
+      2,
+      8,
+      8,
+      20,
+      20,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      8,
+      8,
+      20,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      8,
+      20,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      8,
+      8,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2,
+      8,
+      8,
+      8,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2,
+      8,
+      8,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2,
+      8,
+      2,
+      2,
+      2,
+      2
+    ]
+  ],
+  "initRandomColorArr": [
+    [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2,
+      2,
+      2,
+      19,
+      2,
+      2
+    ],
+    [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      8,
+      8
+    ],
+    [
+      8,
+      2,
+      2,
+      2,
+      2,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      2,
+      2,
+      2,
+      20,
+      20,
+      20,
+      8
+    ],
+    [
+      8,
+      8,
+      2,
+      2,
+      20,
+      20,
+      20,
+      8
+    ],
+    [
+      8,
+      8,
+      2,
+      2,
+      2,
+      8,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      2,
+      2,
+      2,
+      8,
+      8
+    ],
+    [
+      8,
+      8,
+      8,
+      2,
+      2,
+      8,
+      8,
+      2
+    ],
+    [
+      8,
+      8,
+      8,
+      2,
+      8,
+      8,
+      8,
+      2
+    ]
+  ],
+  "sourceMeta": {
+    "baseFile": "level2_7795.txt",
+    "topFile": "level2_top_7795.txt"
+  }
+}

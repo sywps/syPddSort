@@ -1,0 +1,203 @@
+{
+  "generatedAt": "2026-06-16T02:13:15.811028Z",
+  "proposal": "tools/generated_levels/guanka_allocation_proposal_101_350.json",
+  "backupDir": "temp/backup_leveldata_101_350_before_allocation_20260616-101131",
+  "range": "101-350",
+  "mappedCount": 250,
+  "uniqueSourceIds": 250,
+  "uniqueNewIds": 250,
+  "challengeCount": 50,
+  "validation": {
+    "jsonParseErrors": 0,
+    "payloadHashMismatches": 0,
+    "correctColorArrMismatches": 0,
+    "initRandomColorArrMismatches": 0,
+    "levelIdMismatches": 0,
+    "sourceSlotTotalCountMismatches": 45,
+    "appliedSlotTotalCountMismatches": 45,
+    "slotTotalCountMismatchNote": "Existing metadata drift is preserved and reported; this apply pass only reorders levels and updates internal levelId."
+  },
+  "sourceSlotTotalCountMismatchExamples": [
+    {
+      "levelId": 105,
+      "slotTotalCount": 0,
+      "filled": 576
+    },
+    {
+      "levelId": 106,
+      "slotTotalCount": 0,
+      "filled": 709
+    },
+    {
+      "levelId": 107,
+      "slotTotalCount": 0,
+      "filled": 701
+    },
+    {
+      "levelId": 109,
+      "slotTotalCount": 0,
+      "filled": 576
+    },
+    {
+      "levelId": 110,
+      "slotTotalCount": 0,
+      "filled": 519
+    },
+    {
+      "levelId": 111,
+      "slotTotalCount": 0,
+      "filled": 1225
+    },
+    {
+      "levelId": 112,
+      "slotTotalCount": 0,
+      "filled": 1080
+    },
+    {
+      "levelId": 113,
+      "slotTotalCount": 0,
+      "filled": 934
+    },
+    {
+      "levelId": 114,
+      "slotTotalCount": 0,
+      "filled": 1600
+    },
+    {
+      "levelId": 115,
+      "slotTotalCount": 0,
+      "filled": 489
+    }
+  ],
+  "appliedSlotTotalCountMismatchExamples": [
+    {
+      "levelId": 107,
+      "slotTotalCount": 0,
+      "filled": 625,
+      "sourceLevelId": 128
+    },
+    {
+      "levelId": 111,
+      "slotTotalCount": 0,
+      "filled": 306,
+      "sourceLevelId": 139
+    },
+    {
+      "levelId": 117,
+      "slotTotalCount": 0,
+      "filled": 347,
+      "sourceLevelId": 127
+    },
+    {
+      "levelId": 120,
+      "slotTotalCount": 0,
+      "filled": 576,
+      "sourceLevelId": 126
+    },
+    {
+      "levelId": 127,
+      "slotTotalCount": 0,
+      "filled": 268,
+      "sourceLevelId": 119
+    },
+    {
+      "levelId": 134,
+      "slotTotalCount": 0,
+      "filled": 625,
+      "sourceLevelId": 133
+    },
+    {
+      "levelId": 140,
+      "slotTotalCount": 0,
+      "filled": 692,
+      "sourceLevelId": 117
+    },
+    {
+      "levelId": 143,
+      "slotTotalCount": 0,
+      "filled": 309,
+      "sourceLevelId": 137
+    },
+    {
+      "levelId": 147,
+      "slotTotalCount": 0,
+      "filled": 450,
+      "sourceLevelId": 122
+    },
+    {
+      "levelId": 151,
+      "slotTotalCount": 0,
+      "filled": 625,
+      "sourceLevelId": 149
+    }
+  ],
+  "largeGroupAvgScores": [
+    69.4,
+    75.57,
+    78.98,
+    83.15,
+    90.75
+  ],
+  "sampleMapping": [
+    {
+      "newLevelId": 101,
+      "sourceLevelId": 326,
+      "role": "setup_1",
+      "score": 58.02
+    },
+    {
+      "newLevelId": 102,
+      "sourceLevelId": 246,
+      "role": "setup_2",
+      "score": 59.86
+    },
+    {
+      "newLevelId": 103,
+      "sourceLevelId": 212,
+      "role": "setup_3",
+      "score": 60.01
+    },
+    {
+      "newLevelId": 104,
+      "sourceLevelId": 254,
+      "role": "setup_4",
+      "score": 63.49
+    },
+    {
+      "newLevelId": 105,
+      "sourceLevelId": 201,
+      "role": "challenge",
+      "score": 69.46
+    },
+    {
+      "newLevelId": 346,
+      "sourceLevelId": 169,
+      "role": "setup_1",
+      "score": 94.69
+    },
+    {
+      "newLevelId": 347,
+      "sourceLevelId": 321,
+      "role": "setup_2",
+      "score": 95.36
+    },
+    {
+      "newLevelId": 348,
+      "sourceLevelId": 202,
+      "role": "setup_3",
+      "score": 95.49
+    },
+    {
+      "newLevelId": 349,
+      "sourceLevelId": 289,
+      "role": "setup_4",
+      "score": 95.6
+    },
+    {
+      "newLevelId": 350,
+      "sourceLevelId": 197,
+      "role": "challenge",
+      "score": 96.74
+    }
+  ]
+}
