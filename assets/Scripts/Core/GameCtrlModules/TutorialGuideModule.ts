@@ -127,7 +127,7 @@ export function installTutorialGuideModule(target: any): void {
                 if (this.isSlotUnlockTargetHit(worldPos)) {
                     this.executeGuideSlotUnlock();
                 } else {
-                    this.showGuideWrongTargetHint();
+                    this.showGuideWrongTargetHint(worldPos);
                 }
                 return;
             }
@@ -154,7 +154,7 @@ export function installTutorialGuideModule(target: any): void {
                     if (this.isGuidePlaceTargetHit(worldPos)) {
                         this.executeGuidePlacement();
                     } else {
-                        this.showGuideWrongTargetHint();
+                        this.showGuideWrongTargetHint(worldPos);
                     }
                     return;
                 }
@@ -163,7 +163,7 @@ export function installTutorialGuideModule(target: any): void {
                 if (target) {
                     this.executeGuidePlacement(target.row, target.col);
                 } else {
-                    this.showGuideWrongTargetHint();
+                    this.showGuideWrongTargetHint(worldPos);
                 }
             }
         },
@@ -296,12 +296,19 @@ export function installTutorialGuideModule(target: any): void {
             this._guidePulseTweens.push(ht);
         },
 
-        showGuideWrongTargetHint() {
+        showGuideWrongTargetHint(worldPos?: Vec3) {
             this.trackFirstLevelFunnel('tutorial_wrong_tap', {
                 stepId: this._guideStep,
                 stepName: `${this._guideMode}:${this._guideStep}:${this._guidePhase}`,
+                touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
                 source: 'tutorial',
                 success: false,
+                extra: {
+                    guideMode: this._guideMode,
+                    guideStep: this._guideStep,
+                    guidePhase: this._guidePhase,
+                    hasCurrentBlock: !!this.currentBlock,
+                },
             });
             if (!this._guideBubbleLbl) return;
             const step = this._guideStep;
@@ -333,6 +340,20 @@ export function installTutorialGuideModule(target: any): void {
             if (this.isGuideSlotPlaceStep(step)) {
                 // 将目标块放入暂存槽
                 const sources = this.collectSourceWorldPositions(block);
+                if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
+                    this._firstFunnelPlaceAttemptSent = true;
+                    this.trackFirstLevelFunnel('first_place_attempt', {
+                        touchTarget: 'slot',
+                        source: 'tutorial',
+                        extra: {
+                            colorId: block.colorId,
+                            sourceBlock: block.source,
+                            guideMode: this._guideMode,
+                            guideStep: step,
+                            guidePhase: this._guidePhase,
+                        },
+                    });
+                }
                 this.boardModel.removeBlock(block);
                 const storedIdxs: number[] = [];
                 for (const cell of block.cells) {
@@ -352,6 +373,22 @@ export function installTutorialGuideModule(target: any): void {
                     });
                 }
                 if (storedIdxs.length > 0) {
+                    if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {
+                        this._firstFunnelPlaceSuccessSent = true;
+                        this.trackFirstLevelFunnel('first_place_success', {
+                            touchTarget: 'slot',
+                            source: 'tutorial',
+                            success: true,
+                            extra: {
+                                colorId: block.colorId,
+                                placedCount: storedIdxs.length,
+                                sourceBlock: block.source,
+                                guideMode: this._guideMode,
+                                guideStep: step,
+                                guidePhase: this._guidePhase,
+                            },
+                        });
+                    }
                     AudioMgr.inst.vibrate(20);
                     this.startFlyToSlots(block.colorId, sources.slice(0, storedIdxs.length), storedIdxs, block.cells);
                 } else {
@@ -367,6 +404,20 @@ export function installTutorialGuideModule(target: any): void {
                 const selectedSlotSnapshot = block.source === 'slot'
                     ? this.captureSelectedSlotSnapshot()
                     : [];
+                if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
+                    this._firstFunnelPlaceAttemptSent = true;
+                    this.trackFirstLevelFunnel('first_place_attempt', {
+                        touchTarget: 'board',
+                        source: 'tutorial',
+                        extra: {
+                            colorId: block.colorId,
+                            sourceBlock: block.source,
+                            guideMode: this._guideMode,
+                            guideStep: step,
+                            guidePhase: this._guidePhase,
+                        },
+                    });
+                }
                 if (block.source === 'board') {
                     this.boardModel.removeBlock(block);
                 } else {
@@ -375,6 +426,22 @@ export function installTutorialGuideModule(target: any): void {
                 const result = this.boardModel.placeBlockMaximize(block, nearRow, nearCol);
                 this._lastPlacedCells = result.placed;
                 if (result.placed.length > 0) {
+                    if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {
+                        this._firstFunnelPlaceSuccessSent = true;
+                        this.trackFirstLevelFunnel('first_place_success', {
+                            touchTarget: 'board',
+                            source: 'tutorial',
+                            success: true,
+                            extra: {
+                                colorId: block.colorId,
+                                placedCount: result.placed.length,
+                                sourceBlock: block.source,
+                                guideMode: this._guideMode,
+                                guideStep: step,
+                                guidePhase: this._guidePhase,
+                            },
+                        });
+                    }
                     if (result.remaining > 0) {
                         if (block.source === 'board') {
                             this.boardModel.restoreRemaining(block, result.remaining);
