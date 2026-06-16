@@ -1,1 +1,11 @@
-{}
+{
+  "tools/competitors/拼豆达人赛/levels/main/lv_023.json": {
+    "sourcePath": "tools/competitors/拼豆达人赛/levels/main/lv_023.json",
+    "targetLevelId": 31,
+    "targetPath": "assets/LevelData/level_31.json",
+    "targetType": "online",
+    "importedAt": "2026-06-16T11:14:52",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "7485605bf3fa89f32ac71e6aed19d7756503b36c2289ef8b21c0380a59d41701"
+  }
+}
