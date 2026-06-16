@@ -34,9 +34,11 @@ export function installGameplaySkillMagnetModule(target: any): void {
     Object.assign(target, {
         /** 磁铁：随机选择一种未归位颜色，将该颜色所有豆豆快速全部归位。 */
         useSkillClearColor(timerAlreadyPaused: boolean = false) {
+            if (this._skillActive) return;
             this._skillActive = true;
             if (!timerAlreadyPaused) this.pauseTimerForProp();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
+            this.prepareSkillMoveAnimation();
             const groups = this.collectUnmatchedTargetsByColor();
             if (groups.length === 0) {
                 this.showToast('关卡已完成');
@@ -371,6 +373,241 @@ export function installGameplaySkillMagnetModule(target: any): void {
             this.clearForcedSkillHiddenState();
         },
 
+        playForcedSkillPlanNearParallel(
+            plan: ForcedSkillPlan,
+            onDone: () => void,
+        ) {
+            this.prepareSkillMoveAnimation();
+            for (const target of plan.immediateLockTargets) {
+                this.boardModel.setLocked(target.row, target.col, true);
+            }
+            if (plan.steps.length === 0) {
+                if (plan.immediateLockTargets.length > 0) {
+                    this.onFlyDone(plan.immediateLockTargets);
+                    this.scheduleOnce(onDone, 0.08);
+                } else {
+                    onDone();
+                }
+                return;
+            }
+
+            const SKILL_FLY_DUR = 0.2;
+            const SKILL_MOVE_STAGGER = 0.028;
+            const SKILL_OVERLAP = 0.014;
+            const SKILL_DONE_DELAY = 0.02;
+            const nodeWorldPos = (node: Node): Vec3 => node.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+            const layerUT = this.dragLayer.getComponent(UITransform)!;
+            const boardMoves: (ForcedSkillBoardMove & { delay: number; feedbackIndex: number })[] = [];
+            const slotMoves: (ForcedSkillSlotMove & { delay: number; feedbackIndex: number })[] = [];
+            const hiddenBoardCells: { row: number; col: number }[] = [];
+            const hiddenSlotIdxs: number[] = [];
+            const lockTargets: { row: number; col: number }[] = [];
+            const seenLockTargets = new Set<string>();
+            let moveIndex = 0;
+
+            const nextDelay = (extraDelay: number = 0): { delay: number; feedbackIndex: number } => {
+                const feedbackIndex = moveIndex;
+                const delay = moveIndex * SKILL_MOVE_STAGGER + extraDelay;
+                moveIndex++;
+                return { delay, feedbackIndex };
+            };
+            const pushLockTarget = (target: { row: number; col: number }) => {
+                const key = `${target.row},${target.col}`;
+                if (seenLockTargets.has(key)) return;
+                seenLockTargets.add(key);
+                lockTargets.push({ row: target.row, col: target.col });
+            };
+
+            for (const step of plan.steps) {
+                if (!step.sourceBoard) continue;
+                this.boardModel.currentColors[step.sourceBoard.row][step.sourceBoard.col] = 0;
+                this.boardModel.setLocked(step.sourceBoard.row, step.sourceBoard.col, false);
+            }
+
+            for (const step of plan.steps) {
+                const targetNode = this.cellNodes[step.target.row]?.[step.target.col];
+                const sourceNode = step.sourceBoard
+                    ? this.cellNodes[step.sourceBoard.row]?.[step.sourceBoard.col]
+                    : this.slotNodes[step.sourceSlotIdx!];
+                if (!targetNode || !sourceNode) continue;
+
+                const targetWorld = nodeWorldPos(targetNode);
+                const primarySrcWorld = nodeWorldPos(sourceNode);
+                const targetLock = step.targetLock ?? true;
+                for (const cell of step.hiddenBoardCells) hiddenBoardCells.push(cell);
+                for (const idx of step.hiddenSlotIdxs) hiddenSlotIdxs.push(idx);
+                for (const target of step.lockTargets) pushLockTarget(target);
+
+                if (step.sourceBoard) {
+                    if (step.displacedBoard) {
+                        boardMoves.push({
+                            colorId: step.displacedBoard.colorId,
+                            srcWorld: targetWorld,
+                            target: step.displacedBoard.target,
+                            lock: step.displacedBoard.lock,
+                            ...nextDelay(),
+                        });
+                        this.boardModel.currentColors[step.displacedBoard.target.row][step.displacedBoard.target.col] = step.displacedBoard.colorId;
+                        this.boardModel.setLocked(step.displacedBoard.target.row, step.displacedBoard.target.col, step.displacedBoard.lock);
+                    }
+                    boardMoves.push({
+                        colorId: step.colorId,
+                        srcWorld: primarySrcWorld,
+                        target: step.target,
+                        lock: targetLock,
+                        ...nextDelay(step.displacedBoard ? SKILL_OVERLAP : 0),
+                    });
+                    this.boardModel.currentColors[step.target.row][step.target.col] = step.colorId;
+                    this.boardModel.setLocked(step.target.row, step.target.col, targetLock);
+                    continue;
+                }
+
+                const sourceSlotIdx = step.sourceSlotIdx!;
+                const sourceBlock = this.slotModel.take(sourceSlotIdx);
+                if (!sourceBlock || sourceBlock.colorId !== step.colorId) continue;
+
+                boardMoves.push({
+                    colorId: step.colorId,
+                    srcWorld: primarySrcWorld,
+                    target: step.target,
+                    lock: targetLock,
+                    ...nextDelay(),
+                });
+                if (step.displacedBoard) {
+                    boardMoves.push({
+                        colorId: step.displacedBoard.colorId,
+                        srcWorld: targetWorld,
+                        target: step.displacedBoard.target,
+                        lock: step.displacedBoard.lock,
+                        ...nextDelay(SKILL_OVERLAP),
+                    });
+                    this.boardModel.currentColors[step.displacedBoard.target.row][step.displacedBoard.target.col] = step.displacedBoard.colorId;
+                    this.boardModel.setLocked(step.displacedBoard.target.row, step.displacedBoard.target.col, step.displacedBoard.lock);
+                } else if (step.displacedSlot) {
+                    const swapped = this.slotModel.putAt(step.displacedSlot.slotIdx, {
+                        colorId: step.displacedSlot.colorId,
+                        cells: [{ row: step.target.row, col: step.target.col }],
+                        isLocked: false,
+                        source: 'slot',
+                        slotIndex: step.displacedSlot.slotIdx,
+                    });
+                    if (!swapped) {
+                        this.slotModel.putAt(sourceSlotIdx, sourceBlock);
+                        continue;
+                    }
+                    slotMoves.push({
+                        colorId: step.displacedSlot.colorId,
+                        srcWorld: targetWorld,
+                        slotIdx: step.displacedSlot.slotIdx,
+                        ...nextDelay(SKILL_OVERLAP),
+                    });
+                }
+                this.boardModel.currentColors[step.target.row][step.target.col] = step.colorId;
+                this.boardModel.setLocked(step.target.row, step.target.col, targetLock);
+            }
+
+            this.setForcedSkillHiddenState(hiddenBoardCells, hiddenSlotIdxs);
+            for (const move of boardMoves) {
+                this._flyingTargets.add(`${move.target.row},${move.target.col}`);
+            }
+            this.renderBoard();
+            this.renderSlots();
+            this._skillAnimOnly = true;
+
+            const totalMoves = boardMoves.length + slotMoves.length;
+            if (totalMoves === 0) {
+                if (lockTargets.length > 0) this.onFlyDone(lockTargets);
+                this.scheduleOnce(onDone, SKILL_DONE_DELAY);
+                return;
+            }
+
+            const getFinishTargets = (): { row: number; col: number }[] => {
+                const targets = lockTargets.map((target) => ({ row: target.row, col: target.col }));
+                const seen = new Set<string>();
+                for (const target of targets) seen.add(`${target.row},${target.col}`);
+                for (const move of boardMoves) {
+                    const key = `${move.target.row},${move.target.col}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    targets.push({ row: move.target.row, col: move.target.col });
+                }
+                return targets;
+            };
+
+            let remaining = totalMoves;
+            const finish = () => {
+                remaining--;
+                if (remaining <= 0) {
+                    const finishTargets = getFinishTargets();
+                    this.onFlyDone(lockTargets);
+                    const lockTargetKeys = new Set(lockTargets.map((target) => `${target.row},${target.col}`));
+                    const extraRenderTargets = finishTargets.filter((target) => !lockTargetKeys.has(`${target.row},${target.col}`));
+                    if (extraRenderTargets.length > 0) this.renderBoardCells(extraRenderTargets);
+                    this.scheduleOnce(onDone, SKILL_DONE_DELAY);
+                }
+            };
+            const playFeedback = (sfx: SfxName, feedbackIndex: number) => {
+                if (feedbackIndex < 3 || feedbackIndex % 4 === 0) {
+                    AudioMgr.inst.play(sfx);
+                    AudioMgr.inst.vibrate(30);
+                }
+            };
+
+            for (const move of boardMoves) {
+                const targetNode = this.cellNodes[move.target.row]?.[move.target.col];
+                if (!targetNode) {
+                    finish();
+                    continue;
+                }
+                const targetWorldPos = nodeWorldPos(targetNode);
+                const targetLocal = layerUT.convertToNodeSpaceAR(targetWorldPos);
+                const sourceLocal = layerUT.convertToNodeSpaceAR(move.srcWorld);
+                const bean = this.acquireFlyBeanNode(
+                    'SkillStepBoard',
+                    this.getBoardBeanVisualSize(),
+                    this.getBeanSpriteFrame(move.colorId, false),
+                );
+                this.dragLayer.addChild(bean);
+                bean.setPosition(sourceLocal.x, sourceLocal.y, 0);
+                tween(bean)
+                    .delay(move.delay)
+                    .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
+                    .call(() => {
+                        playFeedback('slot', move.feedbackIndex);
+                        this.recycleFlyBeanNode(bean);
+                        finish();
+                    })
+                    .start();
+            }
+
+            for (const move of slotMoves) {
+                const slotNode = this.slotNodes[move.slotIdx];
+                if (!slotNode) {
+                    finish();
+                    continue;
+                }
+                const targetWorldPos = nodeWorldPos(slotNode);
+                const targetLocal = layerUT.convertToNodeSpaceAR(targetWorldPos);
+                const sourceLocal = layerUT.convertToNodeSpaceAR(move.srcWorld);
+                const bean = this.acquireFlyBeanNode(
+                    'SkillStepSlot',
+                    this.getSlotBeanVisualSize(),
+                    this.getBeanSpriteFrame(move.colorId, false),
+                );
+                this.dragLayer.addChild(bean);
+                bean.setPosition(sourceLocal.x, sourceLocal.y, 0);
+                tween(bean)
+                    .delay(move.delay)
+                    .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
+                    .call(() => {
+                        playFeedback('slot', move.feedbackIndex);
+                        this.recycleFlyBeanNode(bean);
+                        finish();
+                    })
+                    .start();
+            }
+        },
+
         playForcedSkillPlan(
             plan: ForcedSkillPlan,
             onDone: () => void,
@@ -692,7 +929,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 });
                 return;
             }
-            this.playForcedSkillPlan(plans[index], () => {
+            this.playForcedSkillPlanNearParallel(plans[index], () => {
                 this.runForcedSkillPlansSequential(plans, index + 1, onComplete);
             });
         },

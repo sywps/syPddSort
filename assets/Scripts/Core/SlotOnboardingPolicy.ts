@@ -36,6 +36,13 @@ export function isMainlineSlotEntry(entryMode: SlotOnboardingEntryMode = 'main')
     return entryMode === 'main';
 }
 
+export function isMainlineEarlyExpandedSlotLevel(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): boolean {
+    const normalizedLevelId = normalizeLevelId(levelId);
+    return isMainlineSlotEntry(entryMode)
+        && normalizedLevelId >= MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MIN_LEVEL
+        && normalizedLevelId <= MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MAX_LEVEL;
+}
+
 export function shouldShowGameplaySkillArea(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): boolean {
     if (!isMainlineSlotEntry(entryMode)) return true;
     return normalizeLevelId(levelId) >= 2;
@@ -48,7 +55,8 @@ export function getSlotUnlockMode(levelId: unknown, entryMode: SlotOnboardingEnt
 
 export function shouldAppendLockedSlotRowAfterUnlock(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): boolean {
     if (!isMainlineSlotEntry(entryMode)) return true;
-    return normalizeLevelId(levelId) >= MAINLINE_APPEND_LOCKED_SLOT_ROW_MIN_LEVEL;
+    return isMainlineEarlyExpandedSlotLevel(levelId, entryMode)
+        || normalizeLevelId(levelId) >= MAINLINE_APPEND_LOCKED_SLOT_ROW_MIN_LEVEL;
 }
 
 export function resolveSlotOnboardingTimeLimit(options: {

@@ -42,11 +42,10 @@ export function installGameplaySkillWandModule(target: any): void {
             this._skillActive = true;
             this.resetIdleHintTimer();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
+            this.prepareSkillMoveAnimation();
             this._wandMode = true;
-            this.isSelected = false;
-            this.currentBlock = null;
-            this.clearDragNodes();
             this.renderBoard();
+            this.renderSlots();
         
             const step = this.cellSize + this.cellGap;
             const frameW = (this.constructor as any).WAND_GRID_SIZE * step;
@@ -315,16 +314,18 @@ export function installGameplaySkillWandModule(target: any): void {
                     candidateCells.push({ row: r, col: c });
                 }
             }
-            const groups = this.collectUnmatchedTargetsByColor(candidateCells);
+            const plan = this.buildWandSwapPlan(candidateCells);
         
-            if (groups.length === 0) {
+            if (plan.immediateLockTargets.length === 0 && plan.steps.length === 0) {
                 this.showToast('没有可还原的格子');
                 this.finishSkillUsage();
                 return;
             }
         
             this.playWandCastEffect();
-            this.runWandGroupsSequential(groups);
+            this.playForcedSkillPlanNearParallel(plan, () => {
+                this.finishWandSequence();
+            });
         },
 
         playWandCastEffect() {
@@ -350,6 +351,140 @@ export function installGameplaySkillWandModule(target: any): void {
             });
         },
 
+        buildWandSwapPlan(candidateCells: { row: number; col: number }[]): ForcedSkillPlan {
+            const bm = this.boardModel;
+            const immediateLockTargets: { row: number; col: number }[] = [];
+            const steps: ForcedSkillStep[] = [];
+            const currentColors = bm.currentColors.map((row: number[]) => [...row]);
+            const locked = bm.locked.map((row: boolean[]) => [...row]);
+            const slotColors = this.slotModel.getAll().map((block: any) => block?.colorId ?? 0);
+            const keyOf = (row: number, col: number) => `${row},${col}`;
+            const targetKeys = new Set<string>();
+            const usedBoardSources = new Set<string>();
+            const usedSlotSources = new Set<number>();
+            const sourceCellPool: { row: number; col: number }[] = [];
+            const usedFallbackCells = new Set<string>();
+            const pendingDisplaced: { step: ForcedSkillStep; colorId: number }[] = [];
+
+            const targets: { row: number; col: number; colorId: number }[] = [];
+            for (const cell of candidateCells) {
+                const correctColor = bm.correctColors[cell.row][cell.col];
+                if (correctColor === 0) continue;
+                if (locked[cell.row][cell.col]) continue;
+                if (currentColors[cell.row][cell.col] === correctColor) {
+                    locked[cell.row][cell.col] = true;
+                    immediateLockTargets.push({ row: cell.row, col: cell.col });
+                    continue;
+                }
+                targetKeys.add(keyOf(cell.row, cell.col));
+                targets.push({ row: cell.row, col: cell.col, colorId: correctColor });
+            }
+
+            const findBoardSource = (colorId: number): { row: number; col: number; inTarget: boolean } | null => {
+                for (const outsideOnly of [true, false]) {
+                    for (let r = 0; r < bm.height; r++) {
+                        for (let c = 0; c < bm.width; c++) {
+                            const key = keyOf(r, c);
+                            if (usedBoardSources.has(key)) continue;
+                            if (outsideOnly && targetKeys.has(key)) continue;
+                            if (currentColors[r][c] !== colorId) continue;
+                            if (locked[r][c]) continue;
+                            if (currentColors[r][c] === bm.correctColors[r][c]) continue;
+                            return { row: r, col: c, inTarget: targetKeys.has(key) };
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const findSlotSource = (colorId: number): number => {
+                for (let i = 0; i < slotColors.length; i++) {
+                    if (usedSlotSources.has(i)) continue;
+                    if (slotColors[i] === colorId) return i;
+                }
+                return -1;
+            };
+
+            const findRandomEmptyTarget = (excludeKey: string | null = null): { row: number; col: number } | null => {
+                const candidates: { row: number; col: number }[] = [];
+                for (let r = 0; r < bm.height; r++) {
+                    for (let c = 0; c < bm.width; c++) {
+                        const key = keyOf(r, c);
+                        if (key === excludeKey || usedFallbackCells.has(key)) continue;
+                        if (bm.correctColors[r][c] === 0) continue;
+                        if (locked[r][c]) continue;
+                        if (currentColors[r][c] !== 0) continue;
+                        candidates.push({ row: r, col: c });
+                    }
+                }
+                if (candidates.length === 0) return null;
+                return candidates[Math.floor(Math.random() * candidates.length)];
+            };
+
+            for (const target of targets) {
+                const targetKey = keyOf(target.row, target.col);
+                const occupiedColor = currentColors[target.row][target.col];
+                const boardSource = findBoardSource(target.colorId);
+                const slotSource = boardSource ? -1 : findSlotSource(target.colorId);
+                if (!boardSource && slotSource < 0) continue;
+                if (occupiedColor !== 0 && (!boardSource || boardSource.inTarget)) continue;
+
+                const step: ForcedSkillStep = {
+                    colorId: target.colorId,
+                    target: { row: target.row, col: target.col },
+                    lockTargets: [{ row: target.row, col: target.col }],
+                    hiddenBoardCells: [{ row: target.row, col: target.col }],
+                    hiddenSlotIdxs: [],
+                };
+
+                if (boardSource) {
+                    const sourceKey = keyOf(boardSource.row, boardSource.col);
+                    usedBoardSources.add(sourceKey);
+                    step.sourceBoard = { row: boardSource.row, col: boardSource.col };
+                    currentColors[boardSource.row][boardSource.col] = 0;
+                    locked[boardSource.row][boardSource.col] = false;
+                    if (!boardSource.inTarget) sourceCellPool.push({ row: boardSource.row, col: boardSource.col });
+                } else {
+                    usedSlotSources.add(slotSource);
+                    slotColors[slotSource] = 0;
+                    step.sourceSlotIdx = slotSource;
+                    step.hiddenSlotIdxs.push(slotSource);
+                }
+
+                if (occupiedColor !== 0) pendingDisplaced.push({ step, colorId: occupiedColor });
+                currentColors[target.row][target.col] = target.colorId;
+                locked[target.row][target.col] = true;
+                steps.push(step);
+            }
+
+            const takeRandomSourceCell = (): { row: number; col: number } | null => {
+                if (sourceCellPool.length === 0) return null;
+                const index = Math.floor(Math.random() * sourceCellPool.length);
+                const [cell] = sourceCellPool.splice(index, 1);
+                return cell;
+            };
+
+            for (const displaced of pendingDisplaced) {
+                let destination = takeRandomSourceCell();
+                if (!destination) destination = findRandomEmptyTarget(keyOf(displaced.step.target.row, displaced.step.target.col));
+                if (!destination) continue;
+
+                const lock = bm.correctColors[destination.row][destination.col] === displaced.colorId;
+                displaced.step.displacedBoard = {
+                    colorId: displaced.colorId,
+                    target: destination,
+                    lock,
+                };
+                displaced.step.hiddenBoardCells.push(destination);
+                if (lock) displaced.step.lockTargets.push(destination);
+                currentColors[destination.row][destination.col] = displaced.colorId;
+                locked[destination.row][destination.col] = lock;
+                usedFallbackCells.add(keyOf(destination.row, destination.col));
+            }
+
+            return { immediateLockTargets, steps };
+        },
+
         runWandGroupsSequential(
             groups: Array<{ colorId: number; targets: { row: number; col: number }[] }>,
             index: number = 0,
@@ -366,7 +501,7 @@ export function installGameplaySkillWandModule(target: any): void {
                 this.collectCurrentSlotSkillSources(group.colorId),
                 group.targets,
             );
-            this.playForcedSkillPlan(plan, () => {
+            this.playForcedSkillPlanNearParallel(plan, () => {
                 this.runWandGroupsSequential(groups, index + 1);
             });
         },
@@ -445,6 +580,7 @@ export function installGameplaySkillWandModule(target: any): void {
         },
 
         useSkillClearSlot(timerAlreadyPaused: boolean = false) {
+            if (this._skillActive) return;
             if (!timerAlreadyPaused) this.pauseTimerForProp();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             const slotAllInit = this.slotModel.getAll();
@@ -459,11 +595,132 @@ export function installGameplaySkillWandModule(target: any): void {
             }
             this._skillActive = true;
             this.resetIdleHintTimer();
-            const groups = this.buildSkillSourceGroups([], slotMovable);
-            this.runForcedSkillPlansForBrush(groups);
+            const plan = this.buildBrushClearSlotPlan(slotMovable);
+            this.playForcedSkillPlanNearParallel(plan, () => {
+                this.finishClearSlot();
+            });
         },
 
-        /** 刷子专属：所有计划完成后把暂存槽剩余豆豆倒到棋盘空位。 */
+        /** Brush plan: slot beans go to targets; displaced board beans go to empty board cells. */
+        buildBrushClearSlotPlan(slotMovable: { slotIdx: number; colorId: number }[]): ForcedSkillPlan {
+            const bm = this.boardModel;
+            const immediateLockTargets: { row: number; col: number }[] = [];
+            const steps: ForcedSkillStep[] = [];
+            const currentColors = bm.currentColors.map((row: number[]) => [...row]);
+            const locked = bm.locked.map((row: boolean[]) => [...row]);
+            const slotColors = this.slotModel.getAll().map((block: any) => block?.colorId ?? 0);
+            const usedCells = new Set<string>();
+            const keyOf = (row: number, col: number) => `${row},${col}`;
+
+            for (let r = 0; r < bm.height; r++) {
+                for (let c = 0; c < bm.width; c++) {
+                    const colorId = currentColors[r][c];
+                    if (colorId !== 0 && colorId === bm.correctColors[r][c] && !locked[r][c]) {
+                        locked[r][c] = true;
+                        immediateLockTargets.push({ row: r, col: c });
+                    }
+                }
+            }
+
+            const isOpenTargetCell = (row: number, col: number, excludeKey: string | null = null): boolean => {
+                const key = keyOf(row, col);
+                return bm.correctColors[row][col] !== 0
+                    && !locked[row][col]
+                    && currentColors[row][col] === 0
+                    && !usedCells.has(key)
+                    && key !== excludeKey;
+            };
+
+            const findRandomEmptyTarget = (excludeKey: string | null = null): { row: number; col: number } | null => {
+                const candidates: { row: number; col: number }[] = [];
+                for (let r = 0; r < bm.height; r++) {
+                    for (let c = 0; c < bm.width; c++) {
+                        if (isOpenTargetCell(r, c, excludeKey)) candidates.push({ row: r, col: c });
+                    }
+                }
+                if (candidates.length === 0) return null;
+                return candidates[Math.floor(Math.random() * candidates.length)];
+            };
+
+            const findMatchingEmptyTarget = (colorId: number): { row: number; col: number } | null => {
+                for (let r = 0; r < bm.height; r++) {
+                    for (let c = 0; c < bm.width; c++) {
+                        if (bm.correctColors[r][c] === colorId && isOpenTargetCell(r, c)) {
+                            return { row: r, col: c };
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const findMatchingOccupiedTarget = (colorId: number): { target: { row: number; col: number }; displacedTarget: { row: number; col: number } } | null => {
+                for (let r = 0; r < bm.height; r++) {
+                    for (let c = 0; c < bm.width; c++) {
+                        const key = keyOf(r, c);
+                        if (bm.correctColors[r][c] !== colorId) continue;
+                        if (locked[r][c] || usedCells.has(key)) continue;
+                        if (currentColors[r][c] === 0 || currentColors[r][c] === colorId) continue;
+                        const displacedTarget = findRandomEmptyTarget(key);
+                        if (displacedTarget) return { target: { row: r, col: c }, displacedTarget };
+                    }
+                }
+                return null;
+            };
+
+            for (const source of slotMovable) {
+                if (slotColors[source.slotIdx] !== source.colorId) continue;
+
+                let target = findMatchingEmptyTarget(source.colorId);
+                let displacedTarget: { row: number; col: number } | null = null;
+                if (!target) {
+                    const occupiedPick = findMatchingOccupiedTarget(source.colorId);
+                    if (occupiedPick) {
+                        target = occupiedPick.target;
+                        displacedTarget = occupiedPick.displacedTarget;
+                    }
+                }
+                if (!target) target = findRandomEmptyTarget();
+                if (!target) continue;
+
+                const targetKey = keyOf(target.row, target.col);
+                const occupiedColor = currentColors[target.row][target.col];
+                const targetLock = bm.correctColors[target.row][target.col] === source.colorId;
+                const step: ForcedSkillStep = {
+                    colorId: source.colorId,
+                    sourceSlotIdx: source.slotIdx,
+                    target,
+                    targetLock,
+                    lockTargets: targetLock ? [{ row: target.row, col: target.col }] : [],
+                    hiddenBoardCells: [{ row: target.row, col: target.col }],
+                    hiddenSlotIdxs: [source.slotIdx],
+                };
+
+                if (occupiedColor !== 0) {
+                    if (!displacedTarget) displacedTarget = findRandomEmptyTarget(targetKey);
+                    if (!displacedTarget) continue;
+                    const displacedLock = bm.correctColors[displacedTarget.row][displacedTarget.col] === occupiedColor;
+                    step.displacedBoard = {
+                        colorId: occupiedColor,
+                        target: displacedTarget,
+                        lock: displacedLock,
+                    };
+                    step.hiddenBoardCells.push(displacedTarget);
+                    if (displacedLock) step.lockTargets.push(displacedTarget);
+                    currentColors[displacedTarget.row][displacedTarget.col] = occupiedColor;
+                    locked[displacedTarget.row][displacedTarget.col] = displacedLock;
+                    usedCells.add(keyOf(displacedTarget.row, displacedTarget.col));
+                }
+
+                currentColors[target.row][target.col] = source.colorId;
+                locked[target.row][target.col] = targetLock;
+                slotColors[source.slotIdx] = 0;
+                usedCells.add(targetKey);
+                steps.push(step);
+            }
+
+            return { immediateLockTargets, steps };
+        },
+
         runForcedSkillPlansForBrush(groups: SkillSourceGroup[]) {
             const plans: ForcedSkillPlan[] = [];
             for (let i = 0; i < groups.length; i++) {
@@ -482,7 +739,7 @@ export function installGameplaySkillWandModule(target: any): void {
                 onComplete?.();
                 return;
             }
-            this.playForcedSkillPlan(plans[index], () => {
+            this.playForcedSkillPlanNearParallel(plans[index], () => {
                 this.runForcedSkillPlansSequentialNoFinish(plans, index + 1, onComplete);
             });
         },

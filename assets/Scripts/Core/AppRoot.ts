@@ -136,20 +136,29 @@ export class AppRoot extends Component {
         this.session.clearGameplayContext();
     }
 
+    shouldDisableSceneTransitionForRoute(targetSceneName: AppSceneName): boolean {
+        const currentSceneName = this.session.currentSceneName;
+        return (
+            (currentSceneName === 'Home' && targetSceneName === 'Game')
+            || (currentSceneName === 'Game' && targetSceneName === 'Home')
+        );
+    }
+
     async requestHomeSceneTransition(source: string = 'unknown', coverMode: AppSceneTransitionCoverMode = 'cover'): Promise<void> {
-        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:start', { source, coverMode });
-        if (coverMode === 'none') {
+        const effectiveCoverMode: AppSceneTransitionCoverMode = this.shouldDisableSceneTransitionForRoute('Home') ? 'none' : coverMode;
+        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:start', { source, coverMode, effectiveCoverMode });
+        if (effectiveCoverMode === 'none') {
             this.markHomeVisible('Home');
-            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source, coverMode });
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source, coverMode: effectiveCoverMode });
             await this.router.toHome();
-            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source, coverMode });
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source, coverMode: effectiveCoverMode });
             return;
         }
         await this.playSceneTransition(source, async () => {
             this.markHomeVisible('Home');
-            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source, coverMode });
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterMarkHomeVisible', { source, coverMode: effectiveCoverMode });
             await this.router.toHome();
-            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source, coverMode });
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeSceneTransition:afterToHome', { source, coverMode: effectiveCoverMode });
         });
     }
 

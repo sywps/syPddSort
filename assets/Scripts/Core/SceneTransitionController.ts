@@ -10,13 +10,13 @@ export interface SceneTransitionPlayOptions {
 
 const DEFAULT_EXPAND_DURATION = 0.22;
 const DEFAULT_SHRINK_DURATION = 0.20;
-const DEFAULT_HOLD_DURATION = 0;
+const DEFAULT_HOLD_DURATION = 0.5;
 const LOGO_BASE_SCALE = new Vec3(1, 1, 1);
 const LOGO_START_SCALE = new Vec3(0.34, 0.34, 1);
 const LOGO_END_SCALE = new Vec3(0.05, 0.05, 1);
 const RING_START_SCALE = new Vec3(0.16, 0.16, 1);
 const MIDDLE_EXPAND_SCALE = new Vec3(1.65, 1.65, 1);
-const INNER_EXPAND_SCALE = new Vec3(1.08, 1.08, 1);
+const INNER_EXPAND_SCALE = new Vec3(1.22, 1.22, 1);
 const RING_END_SCALE = new Vec3(0.04, 0.04, 1);
 const RING_BREATH_PERIOD = 0.9;
 const RING_BREATH_TAU = Math.PI * 2;
@@ -30,6 +30,7 @@ export class SceneTransitionController extends Component {
     private logo: Node | null = null;
     private playing = false;
     private covered = false;
+    private coveredAtMs = 0;
     private ringBreathing = false;
     private ringBreathTime = 0;
 
@@ -49,6 +50,7 @@ export class SceneTransitionController extends Component {
         this.stopRingBreathing();
         this.playing = false;
         this.covered = false;
+        this.coveredAtMs = 0;
     }
 
     protected update(dt: number): void {
@@ -105,6 +107,7 @@ export class SceneTransitionController extends Component {
 
         this.applyCoveredPose();
         this.covered = true;
+        this.coveredAtMs = Date.now();
         this.playing = false;
         this.startRingBreathing();
     }
@@ -121,9 +124,15 @@ export class SceneTransitionController extends Component {
         this.stopTweens();
         if (!this.covered) {
             this.applyCoveredPose();
+            this.coveredAtMs = Date.now();
         }
 
         const shrinkDuration = Math.max(0.1, options.shrinkDuration ?? DEFAULT_SHRINK_DURATION);
+        const holdDuration = Math.max(0, options.holdDuration ?? DEFAULT_HOLD_DURATION);
+        const remainingHoldMs = Math.max(0, holdDuration * 1000 - (Date.now() - this.coveredAtMs));
+        if (remainingHoldMs > 0) {
+            await this.delay(remainingHoldMs / 1000);
+        }
 
         await Promise.all([
             this.tweenScale(this.ringMiddle, shrinkDuration, RING_END_SCALE, 'sineInOut'),
@@ -133,6 +142,7 @@ export class SceneTransitionController extends Component {
 
         this.node.active = false;
         this.covered = false;
+        this.coveredAtMs = 0;
         this.playing = false;
     }
 
@@ -143,6 +153,7 @@ export class SceneTransitionController extends Component {
         this.node.active = false;
         this.playing = false;
         this.covered = false;
+        this.coveredAtMs = 0;
     }
 
     private captureNodes(): void {
@@ -159,7 +170,7 @@ export class SceneTransitionController extends Component {
         this.setContentSize(this.blueBg, size.width + 8, size.height + 8);
         this.setContentSize(this.ringOuter, 520, 520);
         this.setContentSize(this.ringMiddle, 520, 520);
-        this.setContentSize(this.ringInner, 340, 340);
+        this.setContentSize(this.ringInner, 400, 400);
         this.setContentSize(this.logo, 330, 80);
         for (const node of [this.blueBg, this.ringOuter, this.ringMiddle, this.ringInner, this.logo]) {
             node?.setPosition(0, 0, 0);
