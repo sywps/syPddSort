@@ -53,13 +53,14 @@ class ApiError(Exception):
         self.payload = payload
 
 
-def build_level_swap_backup_dir(level_a_id, level_b_id):
+def build_level_swap_backup_dir(level_a_id, level_b_id, target_type='online'):
     stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+    prefix = 'zt_level' if normalize_import_target_type(target_type) == 'theme' else 'level'
     return os.path.join(
         PROJECT_ROOT,
         'temp',
         'level_swap_backups',
-        f'{stamp}_level_{level_a_id}_level_{level_b_id}',
+        f'{stamp}_{prefix}_{level_a_id}_{prefix}_{level_b_id}',
     )
 
 
@@ -1596,6 +1597,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 self._send_json(400, {'ok': False, 'error': 'levelA and levelB must be integers'})
                 return
+            target_type = normalize_import_target_type(data.get('targetType') or data.get('kind') or 'online')
 
             if level_a_id < 1 or level_b_id < 1:
                 self._send_json(400, {'ok': False, 'error': 'level ids must be >= 1'})
@@ -1604,8 +1606,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(400, {'ok': False, 'error': 'levelA and levelB must be different'})
                 return
 
-            path_a = build_level_path(GAME_LEVEL_DATA_DIR, level_a_id)
-            path_b = build_level_path(GAME_LEVEL_DATA_DIR, level_b_id)
+            path_a = os.path.join(GAME_LEVEL_DATA_DIR, build_game_level_filename(target_type, level_a_id))
+            path_b = os.path.join(GAME_LEVEL_DATA_DIR, build_game_level_filename(target_type, level_b_id))
             missing = [
                 path_to_project_rel(path)
                 for path in (path_a, path_b)
@@ -1626,7 +1628,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 swapped_a['levelId'] = level_a_id
                 swapped_b['levelId'] = level_b_id
 
-                backup_dir = build_level_swap_backup_dir(level_a_id, level_b_id)
+                backup_dir = build_level_swap_backup_dir(level_a_id, level_b_id, target_type)
                 os.makedirs(backup_dir, exist_ok=False)
                 backup_a = os.path.join(backup_dir, os.path.basename(path_a))
                 backup_b = os.path.join(backup_dir, os.path.basename(path_b))
@@ -1650,6 +1652,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             self._send_json(200, {
                 'ok': True,
+                'targetType': target_type,
                 'levelA': level_a_id,
                 'levelB': level_b_id,
                 'pathA': path_to_project_rel(path_a),

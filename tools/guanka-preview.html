@@ -56,6 +56,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .btn-featured:hover { background: #f0e0a0; }
 .btn-copy { background: #e7eef9; color: #4a6fa5; border: none; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all .15s; flex: 1; }
 .btn-copy:hover { background: #d2dcef; }
+.btn-swap-card { background: #eef1f6; color: #51647d; border: none; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all .15s; flex: 1; }
+.btn-swap-card:hover { background: #dde4ee; }
 .batch-controls { display: none; align-items: center; gap: 8px; }
 .batch-controls.active { display: flex; }
 .batch-status { font-size: 12px; opacity: .9; white-space: nowrap; }
@@ -158,12 +160,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                 <option value="tools/competitors/拼豆1000关/levels/main::main">拼豆1000关 主线</option>
                 <option value="tools/competitors/全民拼豆/levels/main::main">全民拼豆 主线</option>
                 <option value="tools/competitors/全民拼豆/levels/daily::main">全民拼豆 Daily</option>
-                <option value="tools/competitors/欢乐拼豆  跟全民拼豆重复/levels/main::main">欢乐拼豆  跟全民拼豆重复 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/daily::main">拼豆解解压 Daily</option>
                 <option value="tools/competitors/拼豆达人赛/levels/main::main">拼豆达人赛 主线</option>
                 <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
-                <option value="tools/competitors/快乐拼拼豆/levels/daily::main">快乐拼拼豆 Daily</option>
                 <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/daily::main">拼豆天才 Daily</option>
             </select>
@@ -173,7 +173,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <span id="startBadge" style="font-size:13px;background:rgba(255,255,255,.2);padding:4px 8px;border-radius:6px;display:none;">从第 <b id="startBadgeNum"></b> 关开始</span>
         <input type="number" id="startInput" placeholder="起始关卡" size="8" min="0" style="width:90px;">
         <button id="startBtn" style="padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.2);color:#fff;font-size:13px;cursor:pointer;">跳转</button>
-        <button id="swapLevelBtn" class="control-btn" type="button">交换关卡</button>
         <select id="filterColors">
             <option value="0">全部颜色数</option>
             <option value="2">2色</option>
@@ -182,14 +181,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <option value="5">5色</option>
             <option value="6">6+色</option>
         </select>
-        <select id="filterFeatured">
-            <option value="0">全部关卡</option>
-            <option value="1">仅精选</option>
-        </select>
-        <select id="filterOnline">
-            <option value="0">全部上线状态</option>
-            <option value="1">仅上线</option>
-            <option value="2">仅未上线</option>
+        <select id="filterCard">
+            <option value="all">全部关卡</option>
+            <option value="imported">已导入</option>
+            <option value="notImported">未导入</option>
+            <option value="featured">精选</option>
         </select>
         <input type="file" id="imageImportInput" accept="image/*">
         <div id="batchControls" class="batch-controls">
@@ -288,19 +284,17 @@ const PRESET_LEVEL_DIR_ITEMS = [
     { label: '拼豆1000关 主线', dir: 'tools/competitors/拼豆1000关/levels/main', kind: 'main' },
     { label: '全民拼豆 主线', dir: 'tools/competitors/全民拼豆/levels/main', kind: 'main' },
     { label: '全民拼豆 Daily', dir: 'tools/competitors/全民拼豆/levels/daily', kind: 'main' },
-    { label: '欢乐拼豆  跟全民拼豆重复 主线', dir: 'tools/competitors/欢乐拼豆  跟全民拼豆重复/levels/main', kind: 'main' },
     { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
     { label: '拼豆解解压 Daily', dir: 'tools/competitors/拼豆解解压/levels/daily', kind: 'main' },
     { label: '拼豆达人赛 主线', dir: 'tools/competitors/拼豆达人赛/levels/main', kind: 'main' },
     { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
-    { label: '快乐拼拼豆 Daily', dir: 'tools/competitors/快乐拼拼豆/levels/daily', kind: 'main' },
     { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
     { label: '拼豆天才 Daily', dir: 'tools/competitors/拼豆天才/levels/daily', kind: 'main' },
 ];
 const PRESET_LEVEL_DIR_KEYS = PRESET_LEVEL_DIR_ITEMS.map(item => makeLevelDirKey(item.dir, item.kind));
 const BASE_TITLE = '🎮 拼豆豆 关卡预览';
 const START_LEVEL = URL_PARAMS.get('start') ? parseInt(URL_PARAMS.get('start')) : 0;
-const ONLINE_FILTER = URL_PARAMS.get('online') ? parseInt(URL_PARAMS.get('online')) : 0;
+const CARD_FILTER = getInitialCardFilter();
 const LEVEL_DIR = normalizeLevelDir(URL_PARAMS.get('dir') || DEFAULT_LEVEL_DIR);
 const LEVEL_KIND = normalizeLevelKind(URL_PARAMS.get('kind') || DEFAULT_LEVEL_KIND);
 const LEVEL_DIR_LABEL = LEVEL_DIR || DEFAULT_LEVEL_DIR;
@@ -309,6 +303,8 @@ const IS_FORMAL_MAIN_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'ma
 const IS_THEME_LEVEL_DIR = LEVEL_DIR === DEFAULT_LEVEL_DIR && LEVEL_KIND === 'theme';
 const IS_DEFAULT_LEVEL_DIR = IS_FORMAL_MAIN_DIR;
 const CAN_IMPORT_TO_OFFICIAL = !IS_FORMAL_MAIN_DIR && !IS_THEME_LEVEL_DIR && LEVEL_KIND === 'main';
+const CAN_SWAP_LEVELS = IS_FORMAL_MAIN_DIR || IS_THEME_LEVEL_DIR;
+const SHOW_ONLINE_ACTION = !CAN_IMPORT_TO_OFFICIAL && !CAN_SWAP_LEVELS;
 const GAME_PREVIEW_URL = 'http://localhost:7456/';
 
 function normalizeLevelDir(value) {
@@ -325,6 +321,22 @@ function normalizeLevelDir(value) {
 function normalizeLevelKind(value) {
     const kind = String(value || DEFAULT_LEVEL_KIND).trim().toLowerCase();
     return ['theme', 'zt', 'zt_level'].includes(kind) ? 'theme' : 'main';
+}
+
+function normalizeCardFilter(value) {
+    const filter = String(value || '').trim();
+    if (['imported', 'notImported', 'featured'].includes(filter)) return filter;
+    return 'all';
+}
+
+function getInitialCardFilter() {
+    const explicit = URL_PARAMS.get('filter') || URL_PARAMS.get('cardFilter');
+    if (explicit) return normalizeCardFilter(explicit);
+    if (URL_PARAMS.get('featured') === '1') return 'featured';
+    const legacyOnline = URL_PARAMS.get('online') ? parseInt(URL_PARAMS.get('online')) : 0;
+    if (legacyOnline === 1) return 'imported';
+    if (legacyOnline === 2) return 'notImported';
+    return 'all';
 }
 
 function makeLevelDirKey(dir = DEFAULT_LEVEL_DIR, kind = DEFAULT_LEVEL_KIND) {
@@ -377,20 +389,6 @@ function updateDirectoryHeader() {
     badge.title = fullLabel;
     summary.textContent = `完整路径: ${fullLabel}`;
     summary.title = fullLabel;
-}
-
-function updateImportFilterLabels() {
-    const select = document.getElementById('filterOnline');
-    if (!select) return;
-    if (CAN_IMPORT_TO_OFFICIAL) {
-        select.options[0].textContent = '全部导入状态';
-        select.options[1].textContent = '已导入';
-        select.options[2].textContent = '未导入';
-        return;
-    }
-    select.options[0].textContent = '全部上线状态';
-    select.options[1].textContent = '仅上线';
-    select.options[2].textContent = '仅未上线';
 }
 
 function buildApiUrl(path, params = {}) {
@@ -1308,16 +1306,12 @@ function renderCard(data) {
     const hasOfficialImport = isImportedLevel(data);
     const importBadgeText = getImportBadgeText(data.levelId);
     const importBadgeTitle = getImportBadgeTitle(data.levelId);
-    const onlineActionText = CAN_IMPORT_TO_OFFICIAL
-        ? '导入'
-        : (isOnline ? '🟢 上线' : '⚪ 上线');
-    const onlineActionTitle = CAN_IMPORT_TO_OFFICIAL
-        ? '导入到正式关卡或主题挑战'
-        : (isOnline ? '取消上线' : '标记上线');
+    const onlineActionText = isOnline ? '🟢 上线' : '⚪ 上线';
+    const onlineActionTitle = isOnline ? '取消上线' : '标记上线';
     const card = document.createElement('div');
     card.className = 'card'
         + (isFeatured ? ' featured' : '')
-        + (isOnline ? ' online' : '')
+        + (SHOW_ONLINE_ACTION && isOnline ? ' online' : '')
         + (hasOfficialImport ? ' imported' : '');
     card.dataset.level = data.levelId;
     card.dataset.colors = Object.keys(getColorInfo(data.correctColorArr)).length;
@@ -1341,7 +1335,7 @@ function renderCard(data) {
         card.appendChild(check);
     }
 
-    if (isOnline) {
+    if (SHOW_ONLINE_ACTION && isOnline) {
         const badge = document.createElement('div');
         badge.className = 'badge-online';
         badge.textContent = '🟢 上线';
@@ -1395,6 +1389,9 @@ function renderCard(data) {
     const colorDots = Object.keys(colors).map(c =>
         `<span class="color-dot" style="background:${colorHexMap[c]}" title="${COLOR_NAMES[c]}"></span>`
     ).join('');
+    const statusHtml = CAN_IMPORT_TO_OFFICIAL
+        ? `<span class="online-status">${hasOfficialImport ? `已导入 ${importBadgeText}` : '未导入'}</span>`
+        : (SHOW_ONLINE_ACTION ? `<span class="online-status">${isOnline ? '🟢 已上线' : '⚪ 未上线'}</span>` : '');
     info.innerHTML = `
         <div class="title">第 ${data.levelId} 关</div>
         <div class="meta">
@@ -1403,7 +1400,7 @@ function renderCard(data) {
             <span>🔢 ${beanCount}豆</span><br>
             <span>⏱ ${data.timeLimit}s</span>
             <span>🔀 ${dispRate}%</span>
-            <span class="online-status">${CAN_IMPORT_TO_OFFICIAL ? (hasOfficialImport ? `已导入 ${importBadgeText}` : '未导入') : (isOnline ? '🟢 已上线' : '⚪ 未上线')}</span>
+            ${statusHtml}
             <span>${colorDots}</span>
         </div>
     `;
@@ -1412,13 +1409,20 @@ function renderCard(data) {
     // Actions
     const actions = document.createElement('div');
     actions.className = 'actions';
-    const onlineButtonHtml = CAN_IMPORT_TO_OFFICIAL ? '' : `
+    const importButtonHtml = CAN_IMPORT_TO_OFFICIAL ? `
+        <button class="btn-copy" data-level="${data.levelId}" onclick="event.stopPropagation(); openCopyModal(${data.levelId})" title="导入到正式关卡 / 主题挑战">📋 导入</button>
+    ` : '';
+    const swapButtonHtml = CAN_SWAP_LEVELS ? `
+        <button class="btn-swap-card" data-level="${data.levelId}" onclick="event.stopPropagation(); openSwapModal(${data.levelId})" title="交换关卡">↔ 交换</button>
+    ` : '';
+    const onlineButtonHtml = SHOW_ONLINE_ACTION ? `
         <button class="btn-online${isOnline ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); handleOnlineAction(${data.levelId}, this)" title="${onlineActionTitle}">${onlineActionText}</button>
-    `;
+    ` : '';
     actions.innerHTML = `
         <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank" onclick="event.stopPropagation()">▶ 玩</a>
         <a class="btn-edit" href="${buildRefineUrl(data)}" target="_blank" onclick="event.stopPropagation()">✏️ 微调</a>
-        <button class="btn-copy" data-level="${data.levelId}" onclick="event.stopPropagation(); openCopyModal(${data.levelId})" title="导入到正式关卡 / 主题挑战">📥 导入</button>
+        ${importButtonHtml}
+        ${swapButtonHtml}
         ${onlineButtonHtml}
         <button class="btn-featured${isFeatured ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); toggleFeatured(${data.levelId}, this)" title="加入精选">${isFeatured ? '⭐ 精选' : '☆ 精选'}</button>
     `;
@@ -1512,16 +1516,14 @@ function closeModal() {
 
 function getFilteredLevels() {
     const filterColors = parseInt(document.getElementById('filterColors').value);
-    const filterFeatured = parseInt(document.getElementById('filterFeatured').value);
-    const filterOnline = parseInt(document.getElementById('filterOnline').value);
+    const filterCard = document.getElementById('filterCard').value;
     let filtered = levels;
-    if (filterFeatured === 1) {
+    if (filterCard === 'featured') {
         filtered = filtered.filter(d => d.isFeatured);
-    }
-    if (filterOnline === 1) {
-        filtered = filtered.filter(d => CAN_IMPORT_TO_OFFICIAL ? isImportedLevel(d) : d.online === true);
-    } else if (filterOnline === 2) {
-        filtered = filtered.filter(d => CAN_IMPORT_TO_OFFICIAL ? !isImportedLevel(d) : d.online !== true);
+    } else if (filterCard === 'imported') {
+        filtered = filtered.filter(d => isImportedLevel(d));
+    } else if (filterCard === 'notImported') {
+        filtered = filtered.filter(d => !isImportedLevel(d));
     }
     if (filterColors > 0) {
         if (filterColors === 6) {
@@ -1545,13 +1547,16 @@ function renderAll() {
     }
 }
 
-function syncOnlineFilterParam() {
-    const value = document.getElementById('filterOnline').value;
+function syncCardFilterParam() {
+    const value = document.getElementById('filterCard').value;
     const url = new URL(window.location);
-    if (value === '0') {
-        url.searchParams.delete('online');
+    url.searchParams.delete('online');
+    url.searchParams.delete('featured');
+    url.searchParams.delete('cardFilter');
+    if (value === 'all') {
+        url.searchParams.delete('filter');
     } else {
-        url.searchParams.set('online', value);
+        url.searchParams.set('filter', value);
     }
     window.history.replaceState({}, '', url.toString());
 }
@@ -1569,9 +1574,8 @@ async function onScroll() {
 }
 
 document.getElementById('filterColors').addEventListener('change', renderAll);
-document.getElementById('filterFeatured').addEventListener('change', renderAll);
-document.getElementById('filterOnline').addEventListener('change', () => {
-    syncOnlineFilterParam();
+document.getElementById('filterCard').addEventListener('change', () => {
+    syncCardFilterParam();
     renderAll();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
@@ -1588,7 +1592,6 @@ document.getElementById('startBtn').addEventListener('click', jumpToStart);
 document.getElementById('startInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') jumpToStart();
 });
-document.getElementById('swapLevelBtn').addEventListener('click', () => openSwapModal());
 document.getElementById('imageImportBtn').addEventListener('click', () => {
     document.getElementById('imageImportInput').click();
 });
@@ -1686,7 +1689,7 @@ async function toggleOnline(levelId, btn) {
             badge.remove();
         }
 
-        if (parseInt(document.getElementById('filterOnline').value) !== 0) {
+        if (document.getElementById('filterCard')?.value !== 'all') {
             renderAll();
         }
     } catch (e) {
@@ -1893,15 +1896,9 @@ async function executeBatchImport() {
 
 (async () => {
     initDirectoryControls();
-    const swapLevelBtn = document.getElementById('swapLevelBtn');
-    swapLevelBtn.disabled = false;
-    swapLevelBtn.title = '交换两个正式关卡文件';
     await loadDefaultNextLevelId();
-    if (ONLINE_FILTER >= 0 && ONLINE_FILTER <= 2) {
-        document.getElementById('filterOnline').value = String(ONLINE_FILTER);
-    }
+    document.getElementById('filterCard').value = CARD_FILTER;
     updateDirectoryHeader();
-    updateImportFilterLabels();
     initBatchControls();
     if (START_LEVEL > 0) {
         document.getElementById('startBadge').style.display = 'inline-block';
@@ -1978,8 +1975,8 @@ async function executeBatchImport() {
 
 <div class="modal-overlay" id="swapOverlay" onclick="if(event.target===this)closeSwapModal()">
     <div class="copy-modal" id="swapModal">
-        <h3>交换正式关卡</h3>
-        <div class="copy-sub">会先备份两个原文件，再交换内容并修正 levelId。</div>
+        <h3 id="swapTitle">交换关卡</h3>
+        <div class="copy-sub" id="swapSubTitle">会先备份两个原文件，再交换内容并修正 levelId。</div>
 
         <label>位置 A（例如要变成的关卡位）</label>
         <input type="number" id="swapLevelA" min="1" placeholder="请输入位置 A">
@@ -2004,6 +2001,18 @@ function getSwapIds() {
     };
 }
 
+function getSwapTargetType() {
+    return IS_THEME_LEVEL_DIR ? 'theme' : 'online';
+}
+
+function getSwapLevelLabel() {
+    return IS_THEME_LEVEL_DIR ? '主题关卡' : '正式关卡';
+}
+
+function getSwapTargetFilename(levelId) {
+    return `${IS_THEME_LEVEL_DIR ? 'zt_level' : 'level'}_${levelId}.json`;
+}
+
 function updateSwapConfirmState() {
     const btn = document.getElementById('swapConfirmBtn');
     if (!btn) return;
@@ -2019,10 +2028,10 @@ function updateSwapHint() {
     const { levelA, levelB } = getSwapIds();
     const hint = document.getElementById('swapTargetHint');
     if (!levelA || !levelB) {
-        hint.textContent = '请填写两个正式关卡 ID';
+        hint.textContent = `请填写两个${getSwapLevelLabel()} ID`;
         return;
     }
-    hint.textContent = `将交换 assets/LevelData/level_${levelA}.json 和 level_${levelB}.json`;
+    hint.textContent = `将交换 assets/LevelData/${getSwapTargetFilename(levelA)} 和 ${getSwapTargetFilename(levelB)}`;
 }
 
 function showSwapFeedback(msg, type = '') {
@@ -2031,13 +2040,17 @@ function showSwapFeedback(msg, type = '') {
     el.className = 'copy-feedback' + (type ? ' ' + type : '');
 }
 
-function openSwapModal() {
-    document.getElementById('swapLevelA').value = '';
+function openSwapModal(defaultLevelA = '') {
+    const label = getSwapLevelLabel();
+    const targetType = getSwapTargetType();
+    document.getElementById('swapTitle').textContent = `交换${label}`;
+    document.getElementById('swapSubTitle').textContent = `会先备份两个原文件，再交换内容并修正 levelId。目标类型: ${targetType === 'theme' ? 'zt_level_*.json' : 'level_*.json'}`;
+    document.getElementById('swapLevelA').value = defaultLevelA || '';
     document.getElementById('swapLevelB').value = '';
     showSwapFeedback('');
     handleSwapInput();
     document.getElementById('swapOverlay').classList.add('active');
-    document.getElementById('swapLevelA').focus();
+    document.getElementById(defaultLevelA ? 'swapLevelB' : 'swapLevelA').focus();
 }
 
 function closeSwapModal() {
@@ -2051,14 +2064,14 @@ function closeSwapModal() {
 async function executeLevelSwap() {
     const { levelA, levelB } = getSwapIds();
     if (!levelA || !levelB || levelA < 1 || levelB < 1) {
-        showSwapFeedback('请填写两个有效的正式关卡 ID', 'error');
+        showSwapFeedback(`请填写两个有效的${getSwapLevelLabel()} ID`, 'error');
         return;
     }
     if (levelA === levelB) {
         showSwapFeedback('两个关卡 ID 不能相同', 'error');
         return;
     }
-    if (!window.confirm(`确认交换正式关卡 ${levelA} 和 ${levelB}？\n会先备份原文件，再交换内容。`)) {
+    if (!window.confirm(`确认交换${getSwapLevelLabel()} ${levelA} 和 ${levelB}？\n会先备份原文件，再交换内容。`)) {
         return;
     }
 
@@ -2070,7 +2083,7 @@ async function executeLevelSwap() {
         const resp = await fetch('/api/swap-formal-levels', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ levelA, levelB }),
+            body: JSON.stringify({ levelA, levelB, targetType: getSwapTargetType() }),
         });
         const result = await resp.json();
         if (!resp.ok || !result.ok) {

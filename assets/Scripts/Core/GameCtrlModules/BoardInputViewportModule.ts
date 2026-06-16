@@ -251,6 +251,10 @@ export function installBoardInputViewportModule(target: any): void {
                 this.resetTouchState();
                 return;
             }
+            if (this._skillActive && !this._wandMode) {
+                this.resetTouchState();
+                return;
+            }
             PerformanceMgr.inst.markUserActivity();
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
                 const uiPos = event.getUILocation();
@@ -292,6 +296,10 @@ export function installBoardInputViewportModule(target: any): void {
         onTouchMove(event: EventTouch) {
             if (this.isGameEnd) return;
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
+                this.resetTouchState();
+                return;
+            }
+            if (this._skillActive && !this._wandMode) {
                 this.resetTouchState();
                 return;
             }
@@ -347,7 +355,7 @@ export function installBoardInputViewportModule(target: any): void {
         onTouchEnd(event: EventTouch) {
             if (this.isGameEnd) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) { this.resetTouchState(); return; }
-            if (this._skillActive && !this._wandMode && !this._skillAnimOnly) { this.resetTouchState(); return; }
+            if (this._skillActive && !this._wandMode) { this.resetTouchState(); return; }
             if (this._wandMode && this._wandRectNode) {
                 // 如果魔方框没有被移动过，提醒用户先移动
                 if (Vec3.equals(this._wandRectNode.position, Vec3.ZERO)) {
@@ -422,6 +430,7 @@ export function installBoardInputViewportModule(target: any): void {
         onMouseWheel(event: EventMouse) {
             if (this.isGameEnd || this._guideStep >= 0) return;
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
+            if (this._skillActive && !this._wandMode) return;
             PerformanceMgr.inst.markUserActivity();
         
             const scrollY = event.getScrollY();

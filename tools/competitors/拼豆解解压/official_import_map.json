@@ -1591,5 +1591,14 @@
     "importedAt": "2026-06-15T16:41:18",
     "fingerprintVersion": 1,
     "contentFingerprint": "ba32668ff2d74fa44337fa07497232ec2aca0e0b66ac46dcd68b043e6c5d76ba"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_004.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_004.json",
+    "targetLevelId": 351,
+    "targetPath": "assets/LevelData/level_351.json",
+    "targetType": "online",
+    "importedAt": "2026-06-16T11:37:20",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "726c4ea49225f61e13dc79c63487932ea9405c9900a2692067c5d04ac2fb5683"
   }
 }

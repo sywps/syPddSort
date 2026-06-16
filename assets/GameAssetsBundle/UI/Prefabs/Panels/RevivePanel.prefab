@@ -1551,6 +1551,8 @@
       "__id__": 0
     },
     "fileId": "74PE1p34lOlI/AgIxqQ1n9",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -1658,6 +1660,8 @@
       "__id__": 0
     },
     "fileId": "b9nSvUDwhNYoQImjpasf1j",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -2298,8 +2302,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -80.779,
-      "y": 5.144,
+      "x": -93.711,
+      "y": 5.143,
       "z": 0
     },
     "_lrot": {

@@ -57,13 +57,15 @@ export function installSceneHomeEntryModule(target: any): void {
                 throw new Error('[SceneSplit] AppRoot is not ready for gameplay scene transition');
             }
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const disableSceneTransition = appRoot.shouldDisableSceneTransitionForRoute('Game');
+            const effectiveEntryCoverMode: AppGameplayEntryCoverMode = disableSceneTransition ? 'auto' : entryCoverMode;
             appRoot.markGameRequested(
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
-                entryCoverMode,
+                effectiveEntryCoverMode,
             );
-            const shouldCover = entryCoverMode !== 'none';
+            const shouldCover = !disableSceneTransition && entryCoverMode !== 'none';
             if (shouldCover) {
                 await appRoot.beginSceneTransition('gameplay');
             }

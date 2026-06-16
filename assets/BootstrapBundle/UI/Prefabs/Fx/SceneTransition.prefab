@@ -365,6 +365,8 @@
       "__id__": 0
     },
     "fileId": "sceneTransitionOuter",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -564,8 +566,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 1.08,
-      "y": 1.08,
+      "x": 1.22,
+      "y": 1.22,
       "z": 1
     },
     "_mobility": 0,
@@ -592,8 +594,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 340,
-      "height": 340
+      "width": 400,
+      "height": 400
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",

@@ -217,6 +217,7 @@ type ForcedSkillStep = {
     sourceBoard?: { row: number; col: number };
     sourceSlotIdx?: number;
     target: { row: number; col: number };
+    targetLock?: boolean;
     displacedBoard?: { colorId: number; target: { row: number; col: number }; lock: boolean };
     displacedSlot?: { colorId: number; slotIdx: number };
     lockTargets: { row: number; col: number }[];

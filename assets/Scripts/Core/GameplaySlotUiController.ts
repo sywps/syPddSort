@@ -396,10 +396,27 @@ export class GameplaySlotUiController {
         return icon;
     }
 
+    private syncSlotUnlockButtonLabelPosition(buttonNode: Node, unlockMode: SlotUnlockMode) {
+        const label = buttonNode.getChildByName('SlotUnlockLabel');
+        if (!label?.isValid) {
+            throw new Error('[GameplayScene] Game.scene is missing SlotArea/SlotRowLockedBtn/SlotUnlockLabel');
+        }
+        const runtime = this.runtime;
+        if (typeof runtime._slotUnlockLabelSceneX !== 'number') {
+            runtime._slotUnlockLabelSceneX = label.position.x;
+            runtime._slotUnlockLabelSceneY = label.position.y;
+            runtime._slotUnlockLabelSceneZ = label.position.z;
+        }
+        label.layer = Layers.Enum.UI_2D;
+        const x = unlockMode === 'free' ? 0 : runtime._slotUnlockLabelSceneX;
+        label.setPosition(x, runtime._slotUnlockLabelSceneY, runtime._slotUnlockLabelSceneZ);
+    }
+
     private syncSlotUnlockButtonModeIcon(buttonNode: Node) {
         this.destroyLegacySlotUnlockButtonText(buttonNode);
         if (!this.runtime.shouldUseMainlineSlotUI()) return;
         const unlockMode = this.getCurrentSlotUnlockMode();
+        this.syncSlotUnlockButtonLabelPosition(buttonNode, unlockMode);
         const freeIcon = buttonNode.getChildByName('SlotUnlockIconFree');
         if (freeIcon?.isValid) {
             freeIcon.active = false;
