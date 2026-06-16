@@ -8,18 +8,17 @@ export interface SceneTransitionPlayOptions {
     holdDuration?: number;
 }
 
-const DEFAULT_EXPAND_DURATION = 0.46;
-const DEFAULT_SHRINK_DURATION = 0.50;
+const DEFAULT_EXPAND_DURATION = 0.22;
+const DEFAULT_SHRINK_DURATION = 0.20;
 const DEFAULT_HOLD_DURATION = 0;
 const LOGO_BASE_SCALE = new Vec3(1, 1, 1);
 const LOGO_START_SCALE = new Vec3(0.34, 0.34, 1);
 const LOGO_END_SCALE = new Vec3(0.05, 0.05, 1);
-const RING_START_SCALE = new Vec3(0.18, 0.18, 1);
-const OUTER_EXPAND_SCALE = new Vec3(3.35, 3.35, 1);
-const MIDDLE_EXPAND_SCALE = new Vec3(2.55, 2.55, 1);
-const INNER_EXPAND_SCALE = new Vec3(1.75, 1.75, 1);
+const RING_START_SCALE = new Vec3(0.16, 0.16, 1);
+const MIDDLE_EXPAND_SCALE = new Vec3(1.65, 1.65, 1);
+const INNER_EXPAND_SCALE = new Vec3(1.08, 1.08, 1);
 const RING_END_SCALE = new Vec3(0.04, 0.04, 1);
-const RING_BREATH_PERIOD = 1.7;
+const RING_BREATH_PERIOD = 0.9;
 const RING_BREATH_TAU = Math.PI * 2;
 
 @ccclass('SceneTransitionController')
@@ -99,7 +98,6 @@ export class SceneTransitionController extends Component {
         const expandDuration = Math.max(0.1, options.expandDuration ?? DEFAULT_EXPAND_DURATION);
 
         await Promise.all([
-            this.tweenScale(this.ringOuter, expandDuration, OUTER_EXPAND_SCALE, 'sineOut'),
             this.tweenScale(this.ringMiddle, expandDuration, MIDDLE_EXPAND_SCALE, 'sineOut'),
             this.tweenScale(this.ringInner, expandDuration, INNER_EXPAND_SCALE, 'sineOut'),
             this.tweenScale(this.logo, expandDuration * 0.88, LOGO_BASE_SCALE, 'backOut'),
@@ -128,7 +126,6 @@ export class SceneTransitionController extends Component {
         const shrinkDuration = Math.max(0.1, options.shrinkDuration ?? DEFAULT_SHRINK_DURATION);
 
         await Promise.all([
-            this.tweenScale(this.ringOuter, shrinkDuration, RING_END_SCALE, 'sineInOut'),
             this.tweenScale(this.ringMiddle, shrinkDuration, RING_END_SCALE, 'sineInOut'),
             this.tweenScale(this.ringInner, shrinkDuration, RING_END_SCALE, 'sineInOut'),
             this.tweenScale(this.logo, shrinkDuration * 0.82, LOGO_END_SCALE, 'sineInOut'),
@@ -161,8 +158,8 @@ export class SceneTransitionController extends Component {
         this.setContentSize(this.node, size.width, size.height);
         this.setContentSize(this.blueBg, size.width + 8, size.height + 8);
         this.setContentSize(this.ringOuter, 520, 520);
-        this.setContentSize(this.ringMiddle, 420, 420);
-        this.setContentSize(this.ringInner, 300, 300);
+        this.setContentSize(this.ringMiddle, 520, 520);
+        this.setContentSize(this.ringInner, 340, 340);
         this.setContentSize(this.logo, 330, 80);
         for (const node of [this.blueBg, this.ringOuter, this.ringMiddle, this.ringInner, this.logo]) {
             node?.setPosition(0, 0, 0);
@@ -171,28 +168,35 @@ export class SceneTransitionController extends Component {
 
     private applyStartPose(): void {
         this.activateVisualNodes();
-        this.setScale(this.ringOuter, RING_START_SCALE);
+        this.hideOuterRing();
         this.setScale(this.ringMiddle, RING_START_SCALE);
         this.setScale(this.ringInner, RING_START_SCALE);
         this.setScale(this.logo, LOGO_START_SCALE);
-        this.setOpacity(this.ringOuter, 170);
-        this.setOpacity(this.ringMiddle, 210);
-        this.setOpacity(this.ringInner, 255);
+        this.setOpacity(this.ringMiddle, 190);
+        this.setOpacity(this.ringInner, 235);
         this.setOpacity(this.logo, 255);
     }
 
     private applyCoveredPose(): void {
         this.activateVisualNodes();
-        this.setScale(this.ringOuter, OUTER_EXPAND_SCALE);
+        this.hideOuterRing();
         this.setScale(this.ringMiddle, MIDDLE_EXPAND_SCALE);
         this.setScale(this.ringInner, INNER_EXPAND_SCALE);
         this.setScale(this.logo, LOGO_BASE_SCALE);
     }
 
     private activateVisualNodes(): void {
-        for (const node of [this.blueBg, this.ringOuter, this.ringMiddle, this.ringInner, this.logo]) {
+        if (this.ringOuter) this.ringOuter.active = false;
+        for (const node of [this.blueBg, this.ringMiddle, this.ringInner, this.logo]) {
             if (node) node.active = true;
         }
+    }
+
+    private hideOuterRing(): void {
+        if (!this.ringOuter) return;
+        this.ringOuter.active = false;
+        this.setScale(this.ringOuter, RING_END_SCALE);
+        this.setOpacity(this.ringOuter, 0);
     }
 
     private ensureInputBlocker(): void {
@@ -219,9 +223,9 @@ export class SceneTransitionController extends Component {
     }
 
     private applyRingBreathingPose(): void {
-        this.applyRingBreathingScale(this.ringOuter, OUTER_EXPAND_SCALE, 0.042, 0);
-        this.applyRingBreathingScale(this.ringMiddle, MIDDLE_EXPAND_SCALE, 0.032, 0.18);
-        this.applyRingBreathingScale(this.ringInner, INNER_EXPAND_SCALE, 0.024, 0.34);
+        this.hideOuterRing();
+        this.applyRingBreathingScale(this.ringMiddle, MIDDLE_EXPAND_SCALE, 0.025, 0);
+        this.applyRingBreathingScale(this.ringInner, INNER_EXPAND_SCALE, 0.018, 0);
         this.setScale(this.logo, LOGO_BASE_SCALE);
     }
 

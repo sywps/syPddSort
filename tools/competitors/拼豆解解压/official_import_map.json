@@ -856,15 +856,12 @@
   },
   "tools/competitors/拼豆解解压/levels/main/lv_098.json": {
     "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_098.json",
-    "targetLevelId": 48,
-    "targetPath": "assets/LevelData/level_48.json",
+    "targetLevelId": 108,
+    "targetPath": "assets/LevelData/level_108.json",
     "targetType": "online",
-    "importedAt": "2026-06-12T17:27:32",
+    "importedAt": "2026-06-15T16:34:02",
     "fingerprintVersion": 1,
-    "contentFingerprint": "5cba43a8fdaaa367d7bb81a5acac0471234d077c0c43a44c68b51bb88ce20d62",
-    "previousTargetLevelId": 77,
-    "previousTargetPath": "assets/LevelData/level_77.json",
-    "repairedAt": "2026-06-12T20:22:01"
+    "contentFingerprint": "5cba43a8fdaaa367d7bb81a5acac0471234d077c0c43a44c68b51bb88ce20d62"
   },
   "tools/competitors/拼豆解解压/levels/main/lv_095.json": {
     "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_095.json",
@@ -1189,5 +1186,410 @@
     "importedAt": "2026-06-12T20:30:07",
     "fingerprintVersion": 1,
     "contentFingerprint": "130f0eb88855f1c1494cc2fb4700b95d79eda85bc820d48faae0bbbeecbc22d7"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_081.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_081.json",
+    "targetLevelId": 105,
+    "targetPath": "assets/LevelData/level_105.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:33:32",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "a7400c01ee097bad1d0ac51c35702f6a6d89b26750b9071aae3ee7d1f6c1ebd4"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_090.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_090.json",
+    "targetLevelId": 106,
+    "targetPath": "assets/LevelData/level_106.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:33:47",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "2cf5ef47c84b69c4e2e9a540eb6e5b80d1e81f6bcf4e5aded66029de8cb260eb"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_092.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_092.json",
+    "targetLevelId": 107,
+    "targetPath": "assets/LevelData/level_107.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:33:54",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "16cc196aee2319bf66161d88d5dcc2aca3bd327ad5a2aa4a8d7b35702b4303fc"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_097.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_097.json",
+    "targetLevelId": 109,
+    "targetPath": "assets/LevelData/level_109.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:34:07",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "a9eab116a8b825f095a4d18e353e79e29d9f7d608017d3b8f095e3288f2cf92e"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_101.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_101.json",
+    "targetLevelId": 110,
+    "targetPath": "assets/LevelData/level_110.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:34:13",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "648e460a105644b9809a1100b124ffd4139df2d22ac66f952d923a6a5c9c847d"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_204.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_204.json",
+    "targetLevelId": 111,
+    "targetPath": "assets/LevelData/level_111.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:35:00",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "16747d14645dcfa935f80c4029231d3df69d83642f738e077c6abb5e97af2a7e"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_199.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_199.json",
+    "targetLevelId": 112,
+    "targetPath": "assets/LevelData/level_112.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:35:10",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "460658ecac67be6fd516884de3669190f73f72997a00b92e60584c4ec9613bb2"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_205.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_205.json",
+    "targetLevelId": 113,
+    "targetPath": "assets/LevelData/level_113.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:35:16",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "ea8911f0c57455643831752c0214582e87d3ff5eb0337cbf8515a1124ef379de"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_211.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_211.json",
+    "targetLevelId": 114,
+    "targetPath": "assets/LevelData/level_114.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:35:41",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "388b1233c9e6c42e87131f060d6a5639fca368ff3a1cf3f1e81c246ede46617a"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_014.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_014.json",
+    "targetLevelId": 115,
+    "targetPath": "assets/LevelData/level_115.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:04",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "7858f29298c595378220ada45a90b339ec60f881761f219833e8ac2803d37a7c"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_028.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_028.json",
+    "targetLevelId": 116,
+    "targetPath": "assets/LevelData/level_116.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:12",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "1469616c3ba47f5a90527ea70574d3ea136100c016bc122f532560e19fb66328"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_029.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_029.json",
+    "targetLevelId": 117,
+    "targetPath": "assets/LevelData/level_117.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:18",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "055c4fc20e0aa03c1cb3b543ae6428fe10d7062a6973aae6a2f754132a2dd1aa"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_025.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_025.json",
+    "targetLevelId": 118,
+    "targetPath": "assets/LevelData/level_118.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:23",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "ab8ed826137c079d164468daf088e6ddbe68691f226910e12aa234e54ba31a45"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_026.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_026.json",
+    "targetLevelId": 119,
+    "targetPath": "assets/LevelData/level_119.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:28",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "b47dc1854cef68e6d8772e91bbffaf40f621281ce9482241bfc36e495f848d0d"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_031.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_031.json",
+    "targetLevelId": 120,
+    "targetPath": "assets/LevelData/level_120.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:33",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "bd8949d24bf36e447dc3f5ea579802bff7f241937c8b6b26ca6119aa59fdbac3"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_038.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_038.json",
+    "targetLevelId": 121,
+    "targetPath": "assets/LevelData/level_121.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:42",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "ded8b316974f7073ca542c4c9e315523b8417ed1eccca4920d6d23e93c1645e5"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_037.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_037.json",
+    "targetLevelId": 122,
+    "targetPath": "assets/LevelData/level_122.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:47",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "6eaab5daf038d35a7b47b2418c89c9fe0a6e36b3e08da56dda14f2da72ef99ae"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_045.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_045.json",
+    "targetLevelId": 123,
+    "targetPath": "assets/LevelData/level_123.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:36:52",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "517ec995d223a306b8b6b0a28464556dc72a9d405fb6d14261ed12e1b60a2493"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_198.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_198.json",
+    "targetLevelId": 124,
+    "targetPath": "assets/LevelData/level_124.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:00",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "f91753bb5bd8b4a5c63323760a6cb74b300be92867c5cfbb791f963a2b0eada9"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_194.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_194.json",
+    "targetLevelId": 125,
+    "targetPath": "assets/LevelData/level_125.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:06",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "110a2353ea05e540cbf7d5c6c77332a506462dbff4a3fa2b0450152b03ae55e5"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_193.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_193.json",
+    "targetLevelId": 126,
+    "targetPath": "assets/LevelData/level_126.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:10",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "5f1b862876a268e7ac92d3dbcc96f3cb4b5f5ca9a4f19e50b74f68d9005d38aa"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_184.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_184.json",
+    "targetLevelId": 127,
+    "targetPath": "assets/LevelData/level_127.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:19",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "e60b793e1e60160172d60a0bf87f847df08228b751b085a02b75fec89c4c38e2"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_180.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_180.json",
+    "targetLevelId": 128,
+    "targetPath": "assets/LevelData/level_128.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:25",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "81ca9910c069ee9eeec0dae1d8677c54118a9beb41e9016df333e55e040d8fd7"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_179.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_179.json",
+    "targetLevelId": 129,
+    "targetPath": "assets/LevelData/level_129.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:30",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "6e5ec7355a78b5f9b9786b769987cfe2cf042dbd707390312edd21d6c9c1a2d9"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_175.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_175.json",
+    "targetLevelId": 130,
+    "targetPath": "assets/LevelData/level_130.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:37",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "81085f36f0eb5476c9b04abbb08b883769cd155100c897b80c2516d6da422564"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_176.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_176.json",
+    "targetLevelId": 131,
+    "targetPath": "assets/LevelData/level_131.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:42",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "668c4e0936dfaa3e2e212f56f2fb90a66804dadc41c924bb9c2e58518b6bbb70"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_178.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_178.json",
+    "targetLevelId": 132,
+    "targetPath": "assets/LevelData/level_132.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:48",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "3ffb1c88b90dc20522fb0429b262ce2176eceb25b6b05794300058dedd1ee840"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_170.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_170.json",
+    "targetLevelId": 133,
+    "targetPath": "assets/LevelData/level_133.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:37:57",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "5490a50f9a9dd28bf2961097dbabbc89c284c05d7c94e7f36a317509ed9b845c"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_172.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_172.json",
+    "targetLevelId": 134,
+    "targetPath": "assets/LevelData/level_134.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:04",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "8fb469023951785c10cc7a76e11b0125908807b11491785b93af783fc89fd96e"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_173.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_173.json",
+    "targetLevelId": 135,
+    "targetPath": "assets/LevelData/level_135.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:10",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "f977afdc604a15a7813ff97313bb371bd3f44c6557db086863354ce33ed2bd6f"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_168.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_168.json",
+    "targetLevelId": 136,
+    "targetPath": "assets/LevelData/level_136.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:20",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "3b5bb6e47ea9d6ce54627e9861cfc7adfb19e06fd041dbe2adaf27419db64061"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_162.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_162.json",
+    "targetLevelId": 137,
+    "targetPath": "assets/LevelData/level_137.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:26",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "862c242b66ff5cafe8b99cb1ed66979453a2e6079face50cf03ba51ccc1763e9"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_158.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_158.json",
+    "targetLevelId": 138,
+    "targetPath": "assets/LevelData/level_138.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:31",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "013a80e0253a2a8fc2f8dbda691b86711d0c9ca8160d5688e090b49ab69279dd"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_155.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_155.json",
+    "targetLevelId": 139,
+    "targetPath": "assets/LevelData/level_139.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:39",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "0416132a0590e1d90fee6631ec75c24b57cd0135a79e87f6c7e159c63430a1ac"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_153.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_153.json",
+    "targetLevelId": 140,
+    "targetPath": "assets/LevelData/level_140.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:38:45",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "c56a3127ceaaa1b39db256bb075b80677d2ea21d6d2b2fcd0533683a20da7229"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_152.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_152.json",
+    "targetLevelId": 141,
+    "targetPath": "assets/LevelData/level_141.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:20",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "277f8ed547ce4c4588dbc3dbb44986d7b988ac97394deb1d9f9361332eac9b45"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_159.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_159.json",
+    "targetLevelId": 142,
+    "targetPath": "assets/LevelData/level_142.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:25",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "e8ab0722a5648569bd18a08bdfa3d356711535f45fd7e0728dd92b934108552c"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_157.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_157.json",
+    "targetLevelId": 143,
+    "targetPath": "assets/LevelData/level_143.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:30",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "b0939ed2f6e7a5d1a2897719456cd13d3add528569d810ec475d6375a73a5950"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_269.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_269.json",
+    "targetLevelId": 145,
+    "targetPath": "assets/LevelData/level_145.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:37",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "e41db549995336ca207a32ad3a561e3a1afbacbff16aed7ca7a9165c67ae1084"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_266.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_266.json",
+    "targetLevelId": 144,
+    "targetPath": "assets/LevelData/level_144.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:41",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "ef36ae8f0b12f9eb4fd8f030fce9055f82a6180bd1a1b9976e66b22b3430e9d4"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_270.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_270.json",
+    "targetLevelId": 146,
+    "targetPath": "assets/LevelData/level_146.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:47",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "be264fca84b47c39ae0f4d4c42a7e199157d4c1c1e5f9ed618a94d5074ffc612"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_260.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_260.json",
+    "targetLevelId": 147,
+    "targetPath": "assets/LevelData/level_147.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:40:55",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "962d354ec457ed525baa94fff23fbd472daefdf855404eef4b241d0d7816b9b5"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_272.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_272.json",
+    "targetLevelId": 148,
+    "targetPath": "assets/LevelData/level_148.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:41:05",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "f4fe0ac2e243eb9c5783ede35b0fb04245fa48c447d8c42e012a97c69abc9668"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_276.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_276.json",
+    "targetLevelId": 149,
+    "targetPath": "assets/LevelData/level_149.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:41:13",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "cebc2913a3182ae7259223f47b284864cd9f4efcc8cd5ff17fe209be7ec29d88"
+  },
+  "tools/competitors/拼豆解解压/levels/main/lv_275.json": {
+    "sourcePath": "tools/competitors/拼豆解解压/levels/main/lv_275.json",
+    "targetLevelId": 150,
+    "targetPath": "assets/LevelData/level_150.json",
+    "targetType": "online",
+    "importedAt": "2026-06-15T16:41:18",
+    "fingerprintVersion": 1,
+    "contentFingerprint": "ba32668ff2d74fa44337fa07497232ec2aca0e0b66ac46dcd68b043e6c5d76ba"
   }
 }

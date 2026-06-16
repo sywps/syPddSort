@@ -213,31 +213,32 @@
   "sourceColors": {
     "24": {
       "sourceColorId": "24",
-      "sourceName": "di_24",
-      "sourceHex": "#AE8567",
+      "sourceName": "up_24",
+      "canonicalState": "up",
+      "sourceHex": "#BF9575",
       "sourceRgb": [
-        174,
-        133,
-        103
+        191,
+        149,
+        117
       ],
-      "localColorId": 1,
-      "localHex": "#ED5090",
-      "distance": 91.973,
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 78.038,
       "topCandidates": [
-        {
-          "localColorId": 1,
-          "hex": "#ED5090",
-          "distance": 91.973
-        },
-        {
-          "localColorId": 9,
-          "hex": "#9FCE21",
-          "distance": 102.245
-        },
         {
           "localColorId": 5,
           "hex": "#F4BD9E",
-          "distance": 105.171
+          "distance": 78.038
+        },
+        {
+          "localColorId": 1,
+          "hex": "#ED5090",
+          "distance": 87.212
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 89.95
         }
       ],
       "states": {
@@ -249,7 +250,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             174,
             133,
@@ -265,7 +266,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             191,
             149,
@@ -281,7 +282,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             191,
             149,
@@ -294,6 +295,7 @@
     "3": {
       "sourceColorId": "3",
       "sourceName": "di_3",
+      "canonicalState": "di",
       "sourceHex": "#00803D",
       "sourceRgb": [
         0,
@@ -329,7 +331,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             6,
             182,
@@ -345,7 +347,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             0,
             128,
@@ -361,7 +363,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             0,
             174,
@@ -373,31 +375,32 @@
     },
     "39": {
       "sourceColorId": "39",
-      "sourceName": "di_39",
-      "sourceHex": "#C68B68",
+      "sourceName": "up_39",
+      "canonicalState": "up",
+      "sourceHex": "#F7CBAE",
       "sourceRgb": [
-        198,
-        139,
-        104
+        247,
+        203,
+        174
       ],
-      "localColorId": 1,
-      "localHex": "#ED5090",
-      "distance": 81.253,
+      "localColorId": 5,
+      "localHex": "#F4BD9E",
+      "distance": 21.471,
       "topCandidates": [
-        {
-          "localColorId": 1,
-          "hex": "#ED5090",
-          "distance": 81.253
-        },
         {
           "localColorId": 5,
           "hex": "#F4BD9E",
-          "distance": 86.787
+          "distance": 21.471
+        },
+        {
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 23.854
         },
         {
           "localColorId": 14,
           "hex": "#EEB2BC",
-          "distance": 100.881
+          "distance": 30.033
         }
       ],
       "states": {
@@ -409,7 +412,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             198,
             139,
@@ -425,7 +428,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             247,
             203,
@@ -441,7 +444,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             247,
             203,
@@ -453,31 +456,32 @@
     },
     "22": {
       "sourceColorId": "22",
-      "sourceName": "di_22",
-      "sourceHex": "#3132A3",
+      "sourceName": "up_22",
+      "canonicalState": "up",
+      "sourceHex": "#3D3EC0",
       "sourceRgb": [
-        49,
-        50,
-        163
+        61,
+        62,
+        192
       ],
-      "localColorId": 18,
-      "localHex": "#36387E",
-      "distance": 37.815,
+      "localColorId": 7,
+      "localHex": "#4A4DCF",
+      "distance": 24.88,
       "topCandidates": [
-        {
-          "localColorId": 18,
-          "hex": "#36387E",
-          "distance": 37.815
-        },
         {
           "localColorId": 7,
           "hex": "#4A4DCF",
-          "distance": 57.359
+          "distance": 24.88
         },
         {
           "localColorId": 8,
           "hex": "#7221BC",
-          "distance": 71.687
+          "distance": 60.548
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 66.641
         }
       ],
       "states": {
@@ -489,7 +493,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             61,
             62,
@@ -505,7 +509,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             61,
             62,
@@ -521,7 +525,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             49,
             50,
@@ -534,6 +538,7 @@
     "15": {
       "sourceColorId": "15",
       "sourceName": "di_15",
+      "canonicalState": "di",
       "sourceHex": "#DD5E92",
       "sourceRgb": [
         221,
@@ -569,7 +574,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             238,
             106,
@@ -585,7 +590,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             238,
             106,
@@ -601,7 +606,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             221,
             94,
@@ -614,6 +619,7 @@
     "28": {
       "sourceColorId": "28",
       "sourceName": "di_28",
+      "canonicalState": "di",
       "sourceHex": "#CC57BF",
       "sourceRgb": [
         204,
@@ -649,7 +655,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             248,
             152,
@@ -665,7 +671,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             204,
             87,
@@ -681,7 +687,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             255,
             152,
@@ -693,31 +699,32 @@
     },
     "31": {
       "sourceColorId": "31",
-      "sourceName": "di_31",
-      "sourceHex": "#9A9A99",
+      "sourceName": "up_31",
+      "canonicalState": "up",
+      "sourceHex": "#CFCFCF",
       "sourceRgb": [
-        154,
-        154,
-        153
+        207,
+        207,
+        207
       ],
       "localColorId": 15,
       "localHex": "#C4BED9",
-      "distance": 84.593,
+      "distance": 22.583,
       "topCandidates": [
         {
           "localColorId": 15,
           "hex": "#C4BED9",
-          "distance": 84.593
+          "distance": 22.583
         },
         {
           "localColorId": 14,
           "hex": "#EEB2BC",
-          "distance": 94.112
+          "distance": 46.508
         },
         {
-          "localColorId": 5,
-          "hex": "#F4BD9E",
-          "distance": 96.695
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 50.656
         }
       ],
       "states": {
@@ -729,7 +736,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             207,
             207,
@@ -745,7 +752,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             207,
             207,
@@ -761,7 +768,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             154,
             154,
@@ -773,31 +780,32 @@
     },
     "4": {
       "sourceColorId": "4",
-      "sourceName": "di_4",
-      "sourceHex": "#C85B1D",
+      "sourceName": "up_4",
+      "canonicalState": "up",
+      "sourceHex": "#F19039",
       "sourceRgb": [
-        200,
-        91,
-        29
+        241,
+        144,
+        57
       ],
-      "localColorId": 16,
-      "localHex": "#974714",
-      "distance": 53.684,
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 43.301,
       "topCandidates": [
-        {
-          "localColorId": 16,
-          "hex": "#974714",
-          "distance": 53.684
-        },
-        {
-          "localColorId": 10,
-          "hex": "#EA281A",
-          "distance": 61.368
-        },
         {
           "localColorId": 4,
           "hex": "#FE8B10",
-          "distance": 73.41
+          "distance": 43.301
+        },
+        {
+          "localColorId": 3,
+          "hex": "#F8C811",
+          "distance": 69.174
+        },
+        {
+          "localColorId": 9,
+          "hex": "#9FCE21",
+          "distance": 105.565
         }
       ],
       "states": {
@@ -809,7 +817,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             241,
             144,
@@ -825,7 +833,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             241,
             144,
@@ -841,7 +849,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             200,
             91,
@@ -853,31 +861,32 @@
     },
     "42": {
       "sourceColorId": "42",
-      "sourceName": "di_42",
-      "sourceHex": "#5B1FA3",
+      "sourceName": "up_42",
+      "canonicalState": "up",
+      "sourceHex": "#6927B5",
       "sourceRgb": [
-        91,
-        31,
-        163
+        105,
+        39,
+        181
       ],
       "localColorId": 8,
       "localHex": "#7221BC",
-      "distance": 34.029,
+      "distance": 12.884,
       "topCandidates": [
         {
           "localColorId": 8,
           "hex": "#7221BC",
-          "distance": 34.029
-        },
-        {
-          "localColorId": 18,
-          "hex": "#36387E",
-          "distance": 57.991
+          "distance": 12.884
         },
         {
           "localColorId": 7,
           "hex": "#4A4DCF",
-          "distance": 65.886
+          "distance": 55.507
+        },
+        {
+          "localColorId": 18,
+          "hex": "#36387E",
+          "distance": 76.909
         }
       ],
       "states": {
@@ -889,7 +898,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             105,
             39,
@@ -905,7 +914,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             91,
             31,
@@ -921,7 +930,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             105,
             39,
@@ -933,31 +942,32 @@
     },
     "32": {
       "sourceColorId": "32",
-      "sourceName": "di_32",
-      "sourceHex": "#3473A2",
+      "sourceName": "up_32",
+      "canonicalState": "up",
+      "sourceHex": "#50A5D7",
       "sourceRgb": [
-        52,
-        115,
-        162
+        80,
+        165,
+        215
       ],
-      "localColorId": 7,
-      "localHex": "#4A4DCF",
-      "distance": 62.873,
+      "localColorId": 13,
+      "localHex": "#20A8DC",
+      "distance": 48.353,
       "topCandidates": [
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 48.353
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 71.596
+        },
         {
           "localColorId": 7,
           "hex": "#4A4DCF",
-          "distance": 62.873
-        },
-        {
-          "localColorId": 18,
-          "hex": "#36387E",
-          "distance": 69.145
-        },
-        {
-          "localColorId": 12,
-          "hex": "#207955",
-          "distance": 79.781
+          "distance": 88.566
         }
       ],
       "states": {
@@ -969,7 +979,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             52,
             115,
@@ -985,7 +995,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             80,
             165,
@@ -1001,7 +1011,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             80,
             165,
@@ -1014,6 +1024,7 @@
     "34": {
       "sourceColorId": "34",
       "sourceName": "di_34",
+      "canonicalState": "di",
       "sourceHex": "#D54333",
       "sourceRgb": [
         213,
@@ -1049,7 +1060,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             213,
             67,
@@ -1065,7 +1076,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             255,
             129,
@@ -1081,7 +1092,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             255,
             129,
@@ -1093,31 +1104,32 @@
     },
     "8": {
       "sourceColorId": "8",
-      "sourceName": "di_8",
-      "sourceHex": "#DEA336",
+      "sourceName": "up_8",
+      "canonicalState": "up",
+      "sourceHex": "#F0CA47",
       "sourceRgb": [
-        222,
-        163,
-        54
+        240,
+        202,
+        71
       ],
-      "localColorId": 4,
-      "localHex": "#FE8B10",
-      "distance": 55.172,
+      "localColorId": 3,
+      "localHex": "#F8C811",
+      "distance": 54.626,
       "topCandidates": [
-        {
-          "localColorId": 4,
-          "hex": "#FE8B10",
-          "distance": 55.172
-        },
         {
           "localColorId": 3,
           "hex": "#F8C811",
-          "distance": 58.429
+          "distance": 54.626
         },
         {
-          "localColorId": 9,
-          "hex": "#9FCE21",
-          "distance": 79.114
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 84.794
+        },
+        {
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 88.057
         }
       ],
       "states": {
@@ -1129,7 +1141,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             240,
             202,
@@ -1145,7 +1157,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             222,
             163,
@@ -1161,7 +1173,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             240,
             202,
@@ -1173,31 +1185,32 @@
     },
     "19": {
       "sourceColorId": "19",
-      "sourceName": "di_19",
-      "sourceHex": "#2FA9A5",
+      "sourceName": "up_19",
+      "canonicalState": "up",
+      "sourceHex": "#51D3CF",
       "sourceRgb": [
-        47,
-        169,
-        165
+        81,
+        211,
+        207
       ],
-      "localColorId": 13,
-      "localHex": "#20A8DC",
-      "distance": 57.018,
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 35.595,
       "topCandidates": [
-        {
-          "localColorId": 13,
-          "hex": "#20A8DC",
-          "distance": 57.018
-        },
-        {
-          "localColorId": 12,
-          "hex": "#207955",
-          "distance": 94.493
-        },
         {
           "localColorId": 2,
           "hex": "#4EEAEA",
-          "distance": 99.735
+          "distance": 35.595
+        },
+        {
+          "localColorId": 13,
+          "hex": "#20A8DC",
+          "distance": 66.476
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 117.329
         }
       ],
       "states": {
@@ -1209,7 +1222,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             81,
             211,
@@ -1225,7 +1238,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             81,
             211,
@@ -1241,7 +1254,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             47,
             169,
@@ -1254,6 +1267,7 @@
     "2": {
       "sourceColorId": "2",
       "sourceName": "di_2",
+      "canonicalState": "di",
       "sourceHex": "#38990E",
       "sourceRgb": [
         56,
@@ -1289,7 +1303,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             95,
             217,
@@ -1305,7 +1319,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             56,
             153,
@@ -1321,7 +1335,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             95,
             217,
@@ -1333,31 +1347,32 @@
     },
     "20": {
       "sourceColorId": "20",
-      "sourceName": "di_20",
-      "sourceHex": "#72BDC1",
+      "sourceName": "up_20",
+      "canonicalState": "up",
+      "sourceHex": "#AAE5F0",
       "sourceRgb": [
-        114,
-        189,
-        193
+        170,
+        229,
+        240
       ],
-      "localColorId": 2,
-      "localHex": "#4EEAEA",
-      "distance": 70.725,
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 52.211,
       "topCandidates": [
-        {
-          "localColorId": 2,
-          "hex": "#4EEAEA",
-          "distance": 70.725
-        },
         {
           "localColorId": 15,
           "hex": "#C4BED9",
-          "distance": 85.446
+          "distance": 52.211
         },
         {
-          "localColorId": 13,
-          "hex": "#20A8DC",
-          "distance": 88.848
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 73.43
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 92.331
         }
       ],
       "states": {
@@ -1369,7 +1384,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             170,
             229,
@@ -1385,7 +1400,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             170,
             229,
@@ -1401,7 +1416,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             114,
             189,
@@ -1414,6 +1429,7 @@
     "13": {
       "sourceColorId": "13",
       "sourceName": "di_13",
+      "canonicalState": "di",
       "sourceHex": "#90B625",
       "sourceRgb": [
         144,
@@ -1449,7 +1465,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             144,
             182,
@@ -1465,7 +1481,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             175,
             217,
@@ -1481,7 +1497,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             175,
             217,
@@ -1493,31 +1509,32 @@
     },
     "23": {
       "sourceColorId": "23",
-      "sourceName": "di_23",
-      "sourceHex": "#DF9776",
+      "sourceName": "up_23",
+      "canonicalState": "up",
+      "sourceHex": "#FEB898",
       "sourceRgb": [
-        223,
-        151,
-        118
+        254,
+        184,
+        152
       ],
       "localColorId": 5,
       "localHex": "#F4BD9E",
-      "distance": 59.034,
+      "distance": 12.689,
       "topCandidates": [
         {
           "localColorId": 5,
           "hex": "#F4BD9E",
-          "distance": 59.034
+          "distance": 12.689
         },
         {
           "localColorId": 14,
           "hex": "#EEB2BC",
-          "distance": 76.511
+          "distance": 39.85
         },
         {
-          "localColorId": 1,
-          "hex": "#ED5090",
-          "distance": 76.896
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 44.733
         }
       ],
       "states": {
@@ -1529,7 +1546,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             223,
             151,
@@ -1545,7 +1562,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             254,
             184,
@@ -1561,7 +1578,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             254,
             184,
@@ -1573,31 +1590,32 @@
     },
     "37": {
       "sourceColorId": "37",
-      "sourceName": "di_37",
-      "sourceHex": "#C85B1D",
+      "sourceName": "up_37",
+      "canonicalState": "up",
+      "sourceHex": "#DF6E21",
       "sourceRgb": [
-        200,
-        91,
-        29
+        223,
+        110,
+        33
       ],
-      "localColorId": 16,
-      "localHex": "#974714",
-      "distance": 53.684,
+      "localColorId": 4,
+      "localHex": "#FE8B10",
+      "distance": 45.727,
       "topCandidates": [
         {
-          "localColorId": 16,
-          "hex": "#974714",
-          "distance": 53.684
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 45.727
         },
         {
           "localColorId": 10,
           "hex": "#EA281A",
-          "distance": 61.368
+          "distance": 71.204
         },
         {
-          "localColorId": 4,
-          "hex": "#FE8B10",
-          "distance": 73.41
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 82.91
         }
       ],
       "states": {
@@ -1609,7 +1627,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             200,
             91,
@@ -1625,7 +1643,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             223,
             110,
@@ -1641,7 +1659,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             223,
             110,
@@ -1653,31 +1671,32 @@
     },
     "9": {
       "sourceColorId": "9",
-      "sourceName": "di_9",
-      "sourceHex": "#B93B2D",
+      "sourceName": "up_9",
+      "canonicalState": "up",
+      "sourceHex": "#D54333",
       "sourceRgb": [
-        185,
-        59,
-        45
+        213,
+        67,
+        51
       ],
-      "localColorId": 16,
-      "localHex": "#974714",
-      "distance": 43.875,
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 42.367,
       "topCandidates": [
-        {
-          "localColorId": 16,
-          "hex": "#974714",
-          "distance": 43.875
-        },
         {
           "localColorId": 10,
           "hex": "#EA281A",
-          "distance": 55.884
+          "distance": 42.367
         },
         {
-          "localColorId": 17,
-          "hex": "#782F3C",
-          "distance": 67.779
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 69.433
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 89.944
         }
       ],
       "states": {
@@ -1689,7 +1708,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             213,
             67,
@@ -1705,7 +1724,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             185,
             59,
@@ -1721,7 +1740,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             213,
             67,
@@ -1733,31 +1752,32 @@
     },
     "30": {
       "sourceColorId": "30",
-      "sourceName": "di_30",
-      "sourceHex": "#777777",
+      "sourceName": "up_30",
+      "canonicalState": "up",
+      "sourceHex": "#A2A2A2",
       "sourceRgb": [
-        119,
-        119,
-        119
+        162,
+        162,
+        162
       ],
-      "localColorId": 18,
-      "localHex": "#36387E",
-      "distance": 90.791,
+      "localColorId": 15,
+      "localHex": "#C4BED9",
+      "distance": 70.463,
       "topCandidates": [
         {
-          "localColorId": 18,
-          "hex": "#36387E",
-          "distance": 90.791
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 70.463
         },
         {
-          "localColorId": 17,
-          "hex": "#782F3C",
-          "distance": 93.091
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 81.902
         },
         {
-          "localColorId": 12,
-          "hex": "#207955",
-          "distance": 93.429
+          "localColorId": 5,
+          "hex": "#F4BD9E",
+          "distance": 86.423
         }
       ],
       "states": {
@@ -1769,7 +1789,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             119,
             119,
@@ -1785,7 +1805,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             162,
             162,
@@ -1801,7 +1821,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             162,
             162,
@@ -1813,31 +1833,32 @@
     },
     "11": {
       "sourceColorId": "11",
-      "sourceName": "di_11",
-      "sourceHex": "#92BB8B",
+      "sourceName": "up_11",
+      "canonicalState": "up",
+      "sourceHex": "#C2EDBC",
       "sourceRgb": [
-        146,
-        187,
-        139
+        194,
+        237,
+        188
       ],
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "distance": 92.698,
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 48.888,
       "topCandidates": [
-        {
-          "localColorId": 15,
-          "hex": "#C4BED9",
-          "distance": 92.698
-        },
         {
           "localColorId": 6,
           "hex": "#EBDEA6",
-          "distance": 99.373
+          "distance": 48.888
         },
         {
-          "localColorId": 5,
-          "hex": "#F4BD9E",
-          "distance": 99.845
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 55.263
+        },
+        {
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 62.482
         }
       ],
       "states": {
@@ -1849,7 +1870,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             194,
             237,
@@ -1865,7 +1886,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             194,
             237,
@@ -1881,7 +1902,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             146,
             187,
@@ -1893,31 +1914,32 @@
     },
     "27": {
       "sourceColorId": "27",
-      "sourceName": "di_27",
-      "sourceHex": "#B07FBC",
+      "sourceName": "up_27",
+      "canonicalState": "up",
+      "sourceHex": "#D8A2E5",
       "sourceRgb": [
-        176,
-        127,
-        188
+        216,
+        162,
+        229
       ],
       "localColorId": 15,
       "localHex": "#C4BED9",
-      "distance": 72.18,
+      "distance": 36.442,
       "topCandidates": [
         {
           "localColorId": 15,
           "hex": "#C4BED9",
-          "distance": 72.18
+          "distance": 36.442
         },
         {
           "localColorId": 14,
           "hex": "#EEB2BC",
-          "distance": 80.281
+          "distance": 49.204
         },
         {
-          "localColorId": 1,
-          "hex": "#ED5090",
-          "distance": 88.69
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 79.385
         }
       ],
       "states": {
@@ -1929,7 +1951,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             216,
             162,
@@ -1945,7 +1967,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             176,
             127,
@@ -1961,7 +1983,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             216,
             162,
@@ -1974,6 +1996,7 @@
     "26": {
       "sourceColorId": "26",
       "sourceName": "di_26",
+      "canonicalState": "di",
       "sourceHex": "#8152B9",
       "sourceRgb": [
         129,
@@ -2009,7 +2032,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             129,
             82,
@@ -2025,7 +2048,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             165,
             111,
@@ -2041,7 +2064,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             165,
             111,
@@ -2053,31 +2076,32 @@
     },
     "44": {
       "sourceColorId": "44",
-      "sourceName": "di_44",
-      "sourceHex": "#007DC1",
+      "sourceName": "up_44",
+      "canonicalState": "up",
+      "sourceHex": "#009EF5",
       "sourceRgb": [
         0,
-        125,
-        193
+        158,
+        245
       ],
       "localColorId": 13,
       "localHex": "#20A8DC",
-      "distance": 60.017,
+      "distance": 41.821,
       "topCandidates": [
         {
           "localColorId": 13,
           "hex": "#20A8DC",
-          "distance": 60.017
+          "distance": 41.821
+        },
+        {
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 109.458
         },
         {
           "localColorId": 7,
           "hex": "#4A4DCF",
-          "distance": 89.308
-        },
-        {
-          "localColorId": 18,
-          "hex": "#36387E",
-          "distance": 110.3
+          "distance": 116.108
         }
       ],
       "states": {
@@ -2089,7 +2113,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             0,
             158,
@@ -2105,7 +2129,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             0,
             158,
@@ -2121,7 +2145,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             0,
             125,
@@ -2134,6 +2158,7 @@
     "7": {
       "sourceColorId": "7",
       "sourceName": "di_7",
+      "canonicalState": "di",
       "sourceHex": "#009BD1",
       "sourceRgb": [
         0,
@@ -2169,7 +2194,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             46,
             199,
@@ -2185,7 +2210,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             0,
             155,
@@ -2201,7 +2226,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             46,
             199,
@@ -2214,6 +2239,7 @@
     "43": {
       "sourceColorId": "43",
       "sourceName": "di_43",
+      "canonicalState": "di",
       "sourceHex": "#872244",
       "sourceRgb": [
         135,
@@ -2249,7 +2275,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             135,
             34,
@@ -2265,7 +2291,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             160,
             41,
@@ -2281,7 +2307,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             160,
             41,
@@ -2293,31 +2319,32 @@
     },
     "38": {
       "sourceColorId": "38",
-      "sourceName": "di_38",
-      "sourceHex": "#AE0D00",
+      "sourceName": "up_38",
+      "canonicalState": "up",
+      "sourceHex": "#E51200",
       "sourceRgb": [
-        174,
-        13,
+        229,
+        18,
         0
       ],
-      "localColorId": 16,
-      "localHex": "#974714",
-      "distance": 65.521,
+      "localColorId": 10,
+      "localHex": "#EA281A",
+      "distance": 34.424,
       "topCandidates": [
-        {
-          "localColorId": 16,
-          "hex": "#974714",
-          "distance": 65.521
-        },
         {
           "localColorId": 10,
           "hex": "#EA281A",
-          "distance": 70.746
+          "distance": 34.424
         },
         {
-          "localColorId": 17,
-          "hex": "#782F3C",
-          "distance": 87.59
+          "localColorId": 16,
+          "hex": "#974714",
+          "distance": 96.4
+        },
+        {
+          "localColorId": 4,
+          "hex": "#FE8B10",
+          "distance": 124.587
         }
       ],
       "states": {
@@ -2329,7 +2356,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             229,
             18,
@@ -2345,7 +2372,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             229,
             18,
@@ -2361,7 +2388,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             174,
             13,
@@ -2373,31 +2400,32 @@
     },
     "6": {
       "sourceColorId": "6",
-      "sourceName": "di_6",
-      "sourceHex": "#D8D4CB",
+      "sourceName": "up_6",
+      "canonicalState": "up",
+      "sourceHex": "#F2EEE5",
       "sourceRgb": [
-        216,
-        212,
-        203
+        242,
+        238,
+        229
       ],
-      "localColorId": 15,
-      "localHex": "#C4BED9",
-      "distance": 32.863,
+      "localColorId": 20,
+      "localHex": "#F2EDE4",
+      "distance": 1.414,
       "topCandidates": [
         {
-          "localColorId": 15,
-          "hex": "#C4BED9",
-          "distance": 32.863
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 1.414
         },
         {
           "localColorId": 6,
           "hex": "#EBDEA6",
-          "distance": 42.778
+          "distance": 65.376
         },
         {
-          "localColorId": 14,
-          "hex": "#EEB2BC",
-          "distance": 43.186
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 67.557
         }
       ],
       "states": {
@@ -2409,7 +2437,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             242,
             238,
@@ -2425,7 +2453,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             242,
             238,
@@ -2441,7 +2469,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             216,
             212,
@@ -2454,6 +2482,7 @@
     "21": {
       "sourceColorId": "21",
       "sourceName": "di_21",
+      "canonicalState": "di",
       "sourceHex": "#139076",
       "sourceRgb": [
         19,
@@ -2489,7 +2518,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             19,
             144,
@@ -2505,7 +2534,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             31,
             175,
@@ -2521,7 +2550,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             31,
             175,
@@ -2534,6 +2563,7 @@
     "35": {
       "sourceColorId": "35",
       "sourceName": "di_35",
+      "canonicalState": "di",
       "sourceHex": "#9C5C00",
       "sourceRgb": [
         156,
@@ -2569,7 +2599,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             156,
             92,
@@ -2585,7 +2615,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             207,
             133,
@@ -2601,7 +2631,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             207,
             133,
@@ -2614,6 +2644,7 @@
     "14": {
       "sourceColorId": "14",
       "sourceName": "di_14",
+      "canonicalState": "di",
       "sourceHex": "#777777",
       "sourceRgb": [
         119,
@@ -2649,7 +2680,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             119,
             119,
@@ -2665,7 +2696,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             139,
             138,
@@ -2681,7 +2712,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             139,
             138,
@@ -2693,31 +2724,32 @@
     },
     "25": {
       "sourceColorId": "25",
-      "sourceName": "di_25",
-      "sourceHex": "#502A18",
+      "sourceName": "up_25",
+      "canonicalState": "up",
+      "sourceHex": "#6C3721",
       "sourceRgb": [
-        80,
-        42,
-        24
+        108,
+        55,
+        33
       ],
-      "localColorId": 19,
-      "localHex": "#373737",
-      "distance": 41.893,
+      "localColorId": 17,
+      "localHex": "#782F3C",
+      "distance": 30.61,
       "topCandidates": [
-        {
-          "localColorId": 19,
-          "hex": "#373737",
-          "distance": 41.893
-        },
         {
           "localColorId": 17,
           "hex": "#782F3C",
-          "distance": 54.046
+          "distance": 30.61
         },
         {
           "localColorId": 16,
           "hex": "#974714",
-          "distance": 76.798
+          "distance": 47.686
+        },
+        {
+          "localColorId": 19,
+          "hex": "#373737",
+          "distance": 57.385
         }
       ],
       "states": {
@@ -2729,7 +2761,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             108,
             55,
@@ -2745,7 +2777,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             108,
             55,
@@ -2761,7 +2793,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             80,
             42,
@@ -2774,6 +2806,7 @@
     "5": {
       "sourceColorId": "5",
       "sourceName": "di_5",
+      "canonicalState": "di",
       "sourceHex": "#724D38",
       "sourceRgb": [
         114,
@@ -2809,7 +2842,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             159,
             115,
@@ -2825,7 +2858,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             159,
             115,
@@ -2841,7 +2874,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             114,
             77,
@@ -2854,6 +2887,7 @@
     "12": {
       "sourceColorId": "12",
       "sourceName": "di_12",
+      "canonicalState": "di",
       "sourceHex": "#2159BF",
       "sourceRgb": [
         33,
@@ -2889,7 +2923,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             82,
             143,
@@ -2905,7 +2939,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             82,
             143,
@@ -2921,7 +2955,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             33,
             89,
@@ -2934,6 +2968,7 @@
     "29": {
       "sourceColorId": "29",
       "sourceName": "di_29",
+      "canonicalState": "di",
       "sourceHex": "#4636A6",
       "sourceRgb": [
         70,
@@ -2969,7 +3004,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             119,
             99,
@@ -2985,7 +3020,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             119,
             99,
@@ -3001,7 +3036,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             70,
             54,
@@ -3014,6 +3049,7 @@
     "10": {
       "sourceColorId": "10",
       "sourceName": "di_10",
+      "canonicalState": "di",
       "sourceHex": "#3B3B3B",
       "sourceRgb": [
         59,
@@ -3049,7 +3085,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             76,
             76,
@@ -3065,7 +3101,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             59,
             59,
@@ -3081,7 +3117,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             76,
             76,
@@ -3093,31 +3129,32 @@
     },
     "16": {
       "sourceColorId": "16",
-      "sourceName": "di_16",
-      "sourceHex": "#DE9FB8",
+      "sourceName": "up_16",
+      "canonicalState": "up",
+      "sourceHex": "#F5B0CC",
       "sourceRgb": [
-        222,
-        159,
-        184
+        245,
+        176,
+        204
       ],
       "localColorId": 14,
       "localHex": "#EEB2BC",
-      "distance": 25.159,
+      "distance": 17.578,
       "topCandidates": [
         {
           "localColorId": 14,
           "hex": "#EEB2BC",
-          "distance": 25.159
+          "distance": 17.578
         },
         {
           "localColorId": 5,
           "hex": "#F4BD9E",
-          "distance": 45.387
+          "distance": 47.812
         },
         {
           "localColorId": 15,
           "hex": "#C4BED9",
-          "distance": 52.211
+          "distance": 52.593
         }
       ],
       "states": {
@@ -3129,7 +3166,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             222,
             159,
@@ -3145,7 +3182,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             245,
             176,
@@ -3161,7 +3198,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             245,
             176,
@@ -3173,31 +3210,32 @@
     },
     "41": {
       "sourceColorId": "41",
-      "sourceName": "di_41",
-      "sourceHex": "#49948D",
+      "sourceName": "up_41",
+      "canonicalState": "up",
+      "sourceHex": "#7DE9E9",
       "sourceRgb": [
-        73,
-        148,
-        141
+        125,
+        233,
+        233
       ],
-      "localColorId": 12,
-      "localHex": "#207955",
-      "distance": 74.471,
+      "localColorId": 2,
+      "localHex": "#4EEAEA",
+      "distance": 47.021,
       "topCandidates": [
         {
-          "localColorId": 12,
-          "hex": "#207955",
-          "distance": 74.471
+          "localColorId": 2,
+          "hex": "#4EEAEA",
+          "distance": 47.021
+        },
+        {
+          "localColorId": 15,
+          "hex": "#C4BED9",
+          "distance": 84.534
         },
         {
           "localColorId": 13,
           "hex": "#20A8DC",
-          "distance": 91.225
-        },
-        {
-          "localColorId": 18,
-          "hex": "#36387E",
-          "distance": 95.131
+          "distance": 114.206
         }
       ],
       "states": {
@@ -3209,7 +3247,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             125,
             233,
@@ -3225,7 +3263,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             125,
             233,
@@ -3241,7 +3279,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             73,
             148,
@@ -3254,6 +3292,7 @@
     "36": {
       "sourceColorId": "36",
       "sourceName": "di_36",
+      "canonicalState": "di",
       "sourceHex": "#E2CF01",
       "sourceRgb": [
         226,
@@ -3289,7 +3328,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             243,
             232,
@@ -3305,7 +3344,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             243,
             232,
@@ -3321,7 +3360,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             226,
             207,
@@ -3333,31 +3372,32 @@
     },
     "40": {
       "sourceColorId": "40",
-      "sourceName": "di_40",
-      "sourceHex": "#9D71C8",
+      "sourceName": "up_40",
+      "canonicalState": "up",
+      "sourceHex": "#DBB5FF",
       "sourceRgb": [
-        157,
-        113,
-        200
+        219,
+        181,
+        255
       ],
       "localColorId": 15,
       "localHex": "#C4BED9",
-      "distance": 87.972,
+      "distance": 45.321,
       "topCandidates": [
         {
           "localColorId": 15,
           "hex": "#C4BED9",
-          "distance": 87.972
+          "distance": 45.321
         },
         {
-          "localColorId": 7,
-          "hex": "#4A4DCF",
-          "distance": 90.741
+          "localColorId": 20,
+          "hex": "#F2EDE4",
+          "distance": 66.287
         },
         {
-          "localColorId": 8,
-          "hex": "#7221BC",
-          "distance": 91.613
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 69.707
         }
       ],
       "states": {
@@ -3369,7 +3409,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             219,
             181,
@@ -3385,7 +3425,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             219,
             181,
@@ -3401,7 +3441,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             157,
             113,
@@ -3414,6 +3454,7 @@
     "17": {
       "sourceColorId": "17",
       "sourceName": "di_17",
+      "canonicalState": "di",
       "sourceHex": "#E6D6B1",
       "sourceRgb": [
         230,
@@ -3449,7 +3490,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             245,
             232,
@@ -3465,7 +3506,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             242,
             232,
@@ -3481,7 +3522,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             230,
             214,
@@ -3493,31 +3534,32 @@
     },
     "1": {
       "sourceColorId": "1",
-      "sourceName": "di_1",
-      "sourceHex": "#DCD855",
+      "sourceName": "up_1",
+      "canonicalState": "up",
+      "sourceHex": "#F0EC7C",
       "sourceRgb": [
-        220,
-        216,
-        85
+        240,
+        236,
+        124
       ],
-      "localColorId": 3,
-      "localHex": "#F8C811",
-      "distance": 75.26,
+      "localColorId": 6,
+      "localHex": "#EBDEA6",
+      "distance": 44.553,
       "topCandidates": [
         {
-          "localColorId": 3,
-          "hex": "#F8C811",
-          "distance": 75.26
-        },
-        {
-          "localColorId": 9,
-          "hex": "#9FCE21",
-          "distance": 80.777
+          "localColorId": 6,
+          "hex": "#EBDEA6",
+          "distance": 44.553
         },
         {
           "localColorId": 5,
           "hex": "#F4BD9E",
-          "distance": 81.449
+          "distance": 58.146
+        },
+        {
+          "localColorId": 14,
+          "hex": "#EEB2BC",
+          "distance": 86.394
         }
       ],
       "states": {
@@ -3529,7 +3571,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             240,
             236,
@@ -3545,7 +3587,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             240,
             236,
@@ -3561,7 +3603,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             220,
             216,
@@ -3574,6 +3616,7 @@
     "33": {
       "sourceColorId": "33",
       "sourceName": "di_33",
+      "canonicalState": "di",
       "sourceHex": "#204A66",
       "sourceRgb": [
         32,
@@ -3609,7 +3652,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             67,
             117,
@@ -3625,7 +3668,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             67,
             117,
@@ -3641,7 +3684,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             32,
             74,
@@ -3654,6 +3697,7 @@
     "18": {
       "sourceColorId": "18",
       "sourceName": "di_18",
+      "canonicalState": "di",
       "sourceHex": "#92515B",
       "sourceRgb": [
         146,
@@ -3689,7 +3733,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             170,
             99,
@@ -3705,7 +3749,7 @@
             40,
             40
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             146,
             81,
@@ -3721,7 +3765,7 @@
             33,
             33
           ],
-          "texturePath": "D:\\code\\xyx\\game-pdd-v2\\temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
+          "texturePath": "temp\\output\\competitor_analysis\\快乐拼拼豆\\palette_cache\\native\\539789e5-300b-4ad1-bcd1-9a4b79986df4.bdf16.png",
           "rgb": [
             170,
             99,

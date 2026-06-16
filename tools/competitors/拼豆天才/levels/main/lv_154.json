@@ -40,7 +40,7 @@
   "boardWidth": 6,
   "boardHeight": 4,
   "timeLimit": 300,
-  "slotTotalCount": 0,
+  "slotTotalCount": 24,
   "correctColorArr": [
     [
       10,
@@ -80,33 +80,33 @@
       10,
       10,
       10,
-      11,
-      11,
-      11
+      13,
+      13,
+      13
     ],
     [
-      10,
-      10,
-      10,
-      11,
-      11,
-      11
+      3,
+      3,
+      3,
+      13,
+      13,
+      13
     ],
     [
-      13,
-      13,
-      13,
+      11,
+      11,
+      11,
       3,
       3,
       3
     ],
     [
-      13,
-      13,
-      13,
-      3,
-      3,
-      3
+      11,
+      11,
+      11,
+      10,
+      10,
+      10
     ]
   ],
   "sourceMeta": {
@@ -122,6 +122,25 @@
       "0",
       "c",
       "k"
-    ]
-  }
+    ],
+    "generatedInitFromTarget": true,
+    "initGenerationMode": "official-clustered-growth",
+    "initGenerationSource": "tools/generate_initial_shuffle.py",
+    "initGenerationDifficulty": "hard",
+    "initGenerationTargetDisplacement": 0.8,
+    "initGenerationMinDisplacement": 0.7,
+    "initGenerationMaxDisplacement": 0.9,
+    "initGenerationAttempts": 1
+  },
+  "filledCellCount": 24,
+  "colorCount": 4,
+  "colorStats": {
+    "3": 6,
+    "10": 6,
+    "11": 6,
+    "13": 6
+  },
+  "displacementRatio": 0.75,
+  "initShuffleSeed": 21480665,
+  "initShuffleMaxGroupsPerColor": 4
 }

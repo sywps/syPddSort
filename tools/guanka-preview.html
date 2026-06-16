@@ -56,6 +56,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .btn-featured:hover { background: #f0e0a0; }
 .btn-copy { background: #e7eef9; color: #4a6fa5; border: none; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all .15s; flex: 1; }
 .btn-copy:hover { background: #d2dcef; }
+.batch-controls { display: none; align-items: center; gap: 8px; }
+.batch-controls.active { display: flex; }
+.batch-status { font-size: 12px; opacity: .9; white-space: nowrap; }
+.card.batch-mode { cursor: pointer; }
+.card.selected { box-shadow: 0 0 0 3px #4a6fa5, 0 2px 8px rgba(0,0,0,.08); }
+.select-check { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 6px; border: 2px solid #4a6fa5; background: #fff; color: #4a6fa5; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; z-index: 2; }
+.card.selected .select-check { background: #4a6fa5; color: #fff; }
 
 /* Copy modal */
 .copy-modal { background: #fff; border-radius: 14px; max-width: 460px; width: 92%; padding: 22px; position: relative; box-shadow: 0 18px 40px rgba(0,0,0,.25); }
@@ -73,6 +80,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .copy-modal .copy-actions button { flex: 1; padding: 10px 12px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
 .copy-modal .btn-confirm { background: #4a6fa5; color: #fff; }
 .copy-modal .btn-confirm:hover { background: #3b5d8c; }
+.copy-modal .btn-confirm:disabled,
+.copy-modal .btn-confirm:disabled:hover { background: #9db2d4; color: #fff; cursor: not-allowed; }
 .copy-modal .btn-cancel { background: #eee; color: #555; }
 .copy-modal .copy-feedback { font-size: 12px; margin-top: 10px; min-height: 18px; line-height: 1.5; }
 .copy-modal .copy-feedback.error { color: #d8513f; }
@@ -148,12 +157,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                 <option value="assets/LevelData::theme">主题关卡</option>
                 <option value="tools/competitors/拼豆1000关/levels/main::main">拼豆1000关 主线</option>
                 <option value="tools/competitors/全民拼豆/levels/main::main">全民拼豆 主线</option>
+                <option value="tools/competitors/全民拼豆/levels/daily::main">全民拼豆 Daily</option>
                 <option value="tools/competitors/欢乐拼豆  跟全民拼豆重复/levels/main::main">欢乐拼豆  跟全民拼豆重复 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/daily::main">拼豆解解压 Daily</option>
                 <option value="tools/competitors/拼豆达人赛/levels/main::main">拼豆达人赛 主线</option>
                 <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
+                <option value="tools/competitors/快乐拼拼豆/levels/daily::main">快乐拼拼豆 Daily</option>
                 <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
+                <option value="tools/competitors/拼豆天才/levels/daily::main">拼豆天才 Daily</option>
             </select>
         </div>
     </div>
@@ -179,8 +191,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <option value="1">仅上线</option>
             <option value="2">仅未上线</option>
         </select>
-        <input type="text" id="searchBox" placeholder="搜索关卡号..." size="10">
         <input type="file" id="imageImportInput" accept="image/*">
+        <div id="batchControls" class="batch-controls">
+            <button id="batchSelectBtn" class="control-btn" type="button">批量选择</button>
+            <button id="batchImportBtn" class="control-btn" type="button">批量导入</button>
+            <span id="batchStatus" class="batch-status">已选 0 关</span>
+        </div>
         <button id="imageImportBtn" class="control-btn" type="button">上传图片生成关卡</button>
         <span id="importStatus" class="import-status">默认追加到最后一关</span>
     </div>
@@ -257,6 +273,10 @@ let importStatusTimer = null;
 let isImportingImage = false;
 let defaultNextLevelId = null;
 let availableLevelDirs = null;
+let batchSelectMode = false;
+const selectedLevelIds = new Set();
+let batchOverwriteAllowed = false;
+let batchStartMode = 'append';
 
 // Parse start level from URL query string
 const URL_PARAMS = new URLSearchParams(window.location.search);
@@ -267,12 +287,15 @@ const PRESET_LEVEL_DIR_ITEMS = [
     { label: '主题关卡', dir: DEFAULT_LEVEL_DIR, kind: 'theme' },
     { label: '拼豆1000关 主线', dir: 'tools/competitors/拼豆1000关/levels/main', kind: 'main' },
     { label: '全民拼豆 主线', dir: 'tools/competitors/全民拼豆/levels/main', kind: 'main' },
+    { label: '全民拼豆 Daily', dir: 'tools/competitors/全民拼豆/levels/daily', kind: 'main' },
     { label: '欢乐拼豆  跟全民拼豆重复 主线', dir: 'tools/competitors/欢乐拼豆  跟全民拼豆重复/levels/main', kind: 'main' },
     { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
     { label: '拼豆解解压 Daily', dir: 'tools/competitors/拼豆解解压/levels/daily', kind: 'main' },
     { label: '拼豆达人赛 主线', dir: 'tools/competitors/拼豆达人赛/levels/main', kind: 'main' },
     { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
+    { label: '快乐拼拼豆 Daily', dir: 'tools/competitors/快乐拼拼豆/levels/daily', kind: 'main' },
     { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
+    { label: '拼豆天才 Daily', dir: 'tools/competitors/拼豆天才/levels/daily', kind: 'main' },
 ];
 const PRESET_LEVEL_DIR_KEYS = PRESET_LEVEL_DIR_ITEMS.map(item => makeLevelDirKey(item.dir, item.kind));
 const BASE_TITLE = '🎮 拼豆豆 关卡预览';
@@ -354,6 +377,20 @@ function updateDirectoryHeader() {
     badge.title = fullLabel;
     summary.textContent = `完整路径: ${fullLabel}`;
     summary.title = fullLabel;
+}
+
+function updateImportFilterLabels() {
+    const select = document.getElementById('filterOnline');
+    if (!select) return;
+    if (CAN_IMPORT_TO_OFFICIAL) {
+        select.options[0].textContent = '全部导入状态';
+        select.options[1].textContent = '已导入';
+        select.options[2].textContent = '未导入';
+        return;
+    }
+    select.options[0].textContent = '全部上线状态';
+    select.options[1].textContent = '仅上线';
+    select.options[2].textContent = '仅未上线';
 }
 
 function buildApiUrl(path, params = {}) {
@@ -1223,16 +1260,59 @@ function getOfficialImportForLevel(levelId) {
     return entry?.officialImport || null;
 }
 
+function normalizeImportMarker(marker) {
+    if (!marker || typeof marker !== 'object') return null;
+    if (marker.targets && typeof marker.targets === 'object') return marker;
+    if (marker.targetType || marker.targetLevelId) {
+        const targetType = marker.targetType === 'theme' ? 'theme' : 'online';
+        return {
+            sourcePath: marker.sourcePath,
+            targets: { [targetType]: marker },
+        };
+    }
+    return null;
+}
+
+function getImportTargetsForLevel(levelId) {
+    const marker = normalizeImportMarker(getOfficialImportForLevel(levelId));
+    return marker?.targets || {};
+}
+
+function isImportedLevel(data) {
+    return Object.keys(getImportTargetsForLevel(data.levelId)).length > 0;
+}
+
+function getImportTargetLabel(type) {
+    return type === 'theme' ? '主题' : '正式';
+}
+
+function getImportBadgeText(levelId) {
+    const targets = getImportTargetsForLevel(levelId);
+    return Object.entries(targets)
+        .filter(([, target]) => target && target.targetLevelId)
+        .map(([type, target]) => `${getImportTargetLabel(type)} #${target.targetLevelId}`)
+        .join(' / ');
+}
+
+function getImportBadgeTitle(levelId) {
+    const targets = getImportTargetsForLevel(levelId);
+    return Object.entries(targets)
+        .filter(([, target]) => target && target.targetPath)
+        .map(([type, target]) => `${getImportTargetLabel(type)}: ${target.targetPath}`)
+        .join('\n');
+}
+
 function renderCard(data) {
     const isFeatured = data.isFeatured || false;
     const isOnline = data.online === true;
-    const officialImport = getOfficialImportForLevel(data.levelId);
-    const hasOfficialImport = Boolean(officialImport);
+    const hasOfficialImport = isImportedLevel(data);
+    const importBadgeText = getImportBadgeText(data.levelId);
+    const importBadgeTitle = getImportBadgeTitle(data.levelId);
     const onlineActionText = CAN_IMPORT_TO_OFFICIAL
-        ? (hasOfficialImport ? '✅ 已导入' : '⬆ 上线')
+        ? '导入'
         : (isOnline ? '🟢 上线' : '⚪ 上线');
     const onlineActionTitle = CAN_IMPORT_TO_OFFICIAL
-        ? (hasOfficialImport ? `已导入到正式第 ${officialImport.targetLevelId} 关` : '导入到正式关卡目录')
+        ? '导入到正式关卡或主题挑战'
         : (isOnline ? '取消上线' : '标记上线');
     const card = document.createElement('div');
     card.className = 'card'
@@ -1243,6 +1323,23 @@ function renderCard(data) {
     card.dataset.colors = Object.keys(getColorInfo(data.correctColorArr)).length;
     card.dataset.featured = isFeatured ? '1' : '0';
     card.dataset.online = isOnline ? '1' : '0';
+    card.dataset.imported = hasOfficialImport ? '1' : '0';
+
+    if (batchSelectMode) {
+        card.classList.add('batch-mode');
+        if (selectedLevelIds.has(Number(data.levelId))) {
+            card.classList.add('selected');
+        }
+        const check = document.createElement('div');
+        check.className = 'select-check';
+        check.textContent = selectedLevelIds.has(Number(data.levelId)) ? '✓' : '';
+        check.title = '选择关卡';
+        check.onclick = event => {
+            event.stopPropagation();
+            toggleLevelSelection(data.levelId);
+        };
+        card.appendChild(check);
+    }
 
     if (isOnline) {
         const badge = document.createElement('div');
@@ -1254,8 +1351,8 @@ function renderCard(data) {
     if (hasOfficialImport) {
         const badge = document.createElement('div');
         badge.className = 'badge-imported';
-        badge.textContent = `已导入 #${officialImport.targetLevelId}`;
-        badge.title = officialImport.targetPath || '';
+        badge.textContent = importBadgeText || '已导入';
+        badge.title = importBadgeTitle || '';
         card.appendChild(badge);
     }
 
@@ -1306,7 +1403,7 @@ function renderCard(data) {
             <span>🔢 ${beanCount}豆</span><br>
             <span>⏱ ${data.timeLimit}s</span>
             <span>🔀 ${dispRate}%</span>
-            <span class="online-status">${isOnline ? '🟢 已上线' : '⚪ 未上线'}</span>
+            <span class="online-status">${CAN_IMPORT_TO_OFFICIAL ? (hasOfficialImport ? `已导入 ${importBadgeText}` : '未导入') : (isOnline ? '🟢 已上线' : '⚪ 未上线')}</span>
             <span>${colorDots}</span>
         </div>
     `;
@@ -1315,16 +1412,25 @@ function renderCard(data) {
     // Actions
     const actions = document.createElement('div');
     actions.className = 'actions';
+    const onlineButtonHtml = CAN_IMPORT_TO_OFFICIAL ? '' : `
+        <button class="btn-online${isOnline ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); handleOnlineAction(${data.levelId}, this)" title="${onlineActionTitle}">${onlineActionText}</button>
+    `;
     actions.innerHTML = `
         <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank" onclick="event.stopPropagation()">▶ 玩</a>
         <a class="btn-edit" href="${buildRefineUrl(data)}" target="_blank" onclick="event.stopPropagation()">✏️ 微调</a>
-        <button class="btn-copy" data-level="${data.levelId}" onclick="event.stopPropagation(); openCopyModal(${data.levelId})" title="复制到线上 / 主题关卡">📋 复制</button>
-        <button class="btn-online${isOnline ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); handleOnlineAction(${data.levelId}, this)" title="${onlineActionTitle}">${onlineActionText}</button>
+        <button class="btn-copy" data-level="${data.levelId}" onclick="event.stopPropagation(); openCopyModal(${data.levelId})" title="导入到正式关卡 / 主题挑战">📥 导入</button>
+        ${onlineButtonHtml}
         <button class="btn-featured${isFeatured ? ' active' : ''}" data-level="${data.levelId}" onclick="event.stopPropagation(); toggleFeatured(${data.levelId}, this)" title="加入精选">${isFeatured ? '⭐ 精选' : '☆ 精选'}</button>
     `;
     card.appendChild(actions);
 
-    card.addEventListener('click', () => showDetail(data));
+    card.addEventListener('click', () => {
+        if (batchSelectMode) {
+            toggleLevelSelection(data.levelId);
+            return;
+        }
+        showDetail(data);
+    });
     return card;
 }
 
@@ -1408,16 +1514,14 @@ function getFilteredLevels() {
     const filterColors = parseInt(document.getElementById('filterColors').value);
     const filterFeatured = parseInt(document.getElementById('filterFeatured').value);
     const filterOnline = parseInt(document.getElementById('filterOnline').value);
-    const search = document.getElementById('searchBox').value.trim();
-
     let filtered = levels;
     if (filterFeatured === 1) {
         filtered = filtered.filter(d => d.isFeatured);
     }
     if (filterOnline === 1) {
-        filtered = filtered.filter(d => d.online === true);
+        filtered = filtered.filter(d => CAN_IMPORT_TO_OFFICIAL ? isImportedLevel(d) : d.online === true);
     } else if (filterOnline === 2) {
-        filtered = filtered.filter(d => d.online !== true);
+        filtered = filtered.filter(d => CAN_IMPORT_TO_OFFICIAL ? !isImportedLevel(d) : d.online !== true);
     }
     if (filterColors > 0) {
         if (filterColors === 6) {
@@ -1425,9 +1529,6 @@ function getFilteredLevels() {
         } else {
             filtered = filtered.filter(d => Object.keys(getColorInfo(d.correctColorArr)).length === filterColors);
         }
-    }
-    if (search) {
-        filtered = filtered.filter(d => String(d.levelId).includes(search));
     }
     return filtered;
 }
@@ -1473,7 +1574,6 @@ document.getElementById('filterOnline').addEventListener('change', () => {
     syncOnlineFilterParam();
     renderAll();
 });
-document.getElementById('searchBox').addEventListener('input', renderAll);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 // Jump to start level
@@ -1594,16 +1694,215 @@ async function toggleOnline(levelId, btn) {
     }
 }
 
+function initBatchControls() {
+    const controls = document.getElementById('batchControls');
+    if (!controls) return;
+    if (!CAN_IMPORT_TO_OFFICIAL) {
+        controls.classList.remove('active');
+        return;
+    }
+    controls.classList.add('active');
+    document.getElementById('batchSelectBtn').addEventListener('click', () => {
+        setBatchSelectMode(!batchSelectMode);
+    });
+    document.getElementById('batchImportBtn').addEventListener('click', openBatchImportModal);
+    const startInput = document.getElementById('batchStartTargetId');
+    if (startInput) {
+        startInput.addEventListener('input', updateBatchTargetHint);
+        startInput.addEventListener('input', resetBatchOverwriteState);
+    }
+    updateBatchStatus();
+}
+
+function setBatchSelectMode(enabled) {
+    batchSelectMode = Boolean(enabled);
+    if (!batchSelectMode) {
+        selectedLevelIds.clear();
+    }
+    updateBatchStatus();
+    renderAll();
+}
+
+function toggleLevelSelection(levelId) {
+    const id = Number(levelId);
+    if (selectedLevelIds.has(id)) {
+        selectedLevelIds.delete(id);
+    } else {
+        selectedLevelIds.add(id);
+    }
+    updateBatchStatus();
+    renderAll();
+}
+
+function getSelectedLevelIdsInViewOrder() {
+    const selected = new Set(selectedLevelIds);
+    return levels
+        .map(level => Number(level.levelId))
+        .filter(id => selected.has(id));
+}
+
+function updateBatchStatus() {
+    const selectBtn = document.getElementById('batchSelectBtn');
+    const importBtn = document.getElementById('batchImportBtn');
+    const status = document.getElementById('batchStatus');
+    if (!selectBtn || !importBtn || !status) return;
+    const count = selectedLevelIds.size;
+    selectBtn.textContent = batchSelectMode ? '退出多选' : '批量选择';
+    importBtn.disabled = count <= 0;
+    status.textContent = `已选 ${count} 关`;
+}
+
+async function openBatchImportModal() {
+    if (!selectedLevelIds.size) {
+        alert('请先选择要导入的竞品关卡');
+        return;
+    }
+    batchOverwriteAllowed = false;
+    batchStartMode = 'append';
+    await loadDefaultNextLevelId();
+    document.getElementById('batchSourceInfo').textContent = `已选择 ${selectedLevelIds.size} 关`;
+    document.getElementById('batchStartTargetId').value = '';
+    document.getElementById('batchConfirmBtn').textContent = '确认批量导入';
+    showBatchFeedback('');
+    setBatchStartMode('append');
+    document.getElementById('batchOverlay').classList.add('active');
+}
+
+function closeBatchImportModal() {
+    document.getElementById('batchOverlay').classList.remove('active');
+    document.getElementById('batchStartTargetId').value = '';
+    showBatchFeedback('');
+    batchOverwriteAllowed = false;
+}
+
+function setBatchStartMode(mode) {
+    batchStartMode = mode === 'start' ? 'start' : 'append';
+    resetBatchOverwriteState();
+    document.getElementById('batchAppendBtn').classList.toggle('active', batchStartMode === 'append');
+    document.getElementById('batchStartBtn').classList.toggle('active', batchStartMode === 'start');
+    document.getElementById('batchStartTargetId').disabled = batchStartMode === 'append';
+    updateBatchTargetHint();
+}
+
+function resetBatchOverwriteState() {
+    batchOverwriteAllowed = false;
+    const btn = document.getElementById('batchConfirmBtn');
+    if (btn) btn.textContent = '确认批量导入';
+}
+
+function updateBatchTargetHint() {
+    const count = selectedLevelIds.size;
+    const input = document.getElementById('batchStartTargetId');
+    const hint = document.getElementById('batchTargetHint');
+    if (!hint || !input) return;
+    let startId = null;
+    if (batchStartMode === 'append') {
+        startId = defaultNextLevelId || getNextGuankaLevelId();
+        hint.textContent = `将追加到正式关卡末尾：level_${startId}.json 起，共 ${count} 关`;
+        return;
+    }
+    const parsed = parseInt(input.value, 10);
+    if (!parsed || parsed < 1) {
+        hint.textContent = '请输入有效的起始正式关卡 ID';
+        return;
+    }
+    hint.textContent = `将从 level_${parsed}.json 开始连续导入 ${count} 关`;
+}
+
+function showBatchFeedback(msg, type = '') {
+    const el = document.getElementById('batchFeedback');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'copy-feedback' + (type ? ' ' + type : '');
+}
+
+async function executeBatchImport() {
+    const ids = getSelectedLevelIdsInViewOrder();
+    if (!ids.length) {
+        showBatchFeedback('请先选择要导入的关卡', 'error');
+        return;
+    }
+    let startTargetLevelId = null;
+    if (batchStartMode === 'start') {
+        startTargetLevelId = parseInt(document.getElementById('batchStartTargetId').value, 10);
+        if (!startTargetLevelId || startTargetLevelId < 1) {
+            showBatchFeedback('请填写有效的起始正式关卡 ID', 'error');
+            return;
+        }
+    }
+
+    const btn = document.getElementById('batchConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = '导入中...';
+    showBatchFeedback('');
+    try {
+        const resp = await fetch('/api/batch-copy-levels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sourceLevelIds: ids,
+                sourceDir: LEVEL_DIR,
+                sourceKind: LEVEL_KIND,
+                targetType: 'online',
+                startTargetLevelId,
+                overwrite: batchOverwriteAllowed,
+            }),
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.ok) {
+            if (result.exists && Array.isArray(result.conflicts)) {
+                const preview = result.conflicts
+                    .slice(0, 8)
+                    .map(item => `#${item.targetLevelId}`)
+                    .join('、');
+                const more = result.conflicts.length > 8 ? ` 等 ${result.conflicts.length} 个` : '';
+                showBatchFeedback(`目标 ${preview}${more} 已存在，再次确认将覆盖这些正式关卡`, 'error');
+                batchOverwriteAllowed = true;
+                btn.textContent = '确认覆盖导入';
+                btn.disabled = false;
+                return;
+            }
+            throw new Error(result.error || `HTTP ${resp.status}`);
+        }
+        for (const item of result.results || []) {
+            if (!item.officialImport) continue;
+            const level = levels.find(entry => Number(entry.levelId) === Number(item.sourceLevelId));
+            if (level) level.officialImport = item.officialImport;
+            const mapEntry = levelEntryMap.get(Number(item.sourceLevelId));
+            if (mapEntry) mapEntry.officialImport = item.officialImport;
+        }
+        defaultNextLevelId = Math.max(defaultNextLevelId || 1, (result.startTargetLevelId || 1) + (result.count || 0));
+        showBatchFeedback(`已成功导入 ${result.count || ids.length} 关`, 'success');
+        selectedLevelIds.clear();
+        batchOverwriteAllowed = false;
+        updateBatchStatus();
+        renderAll();
+        setTimeout(() => closeBatchImportModal(), 1500);
+    } catch (error) {
+        showBatchFeedback(`批量导入失败: ${error.message}`, 'error');
+        batchOverwriteAllowed = false;
+    } finally {
+        setTimeout(() => {
+            btn.disabled = false;
+            if (!batchOverwriteAllowed) {
+                btn.textContent = '确认批量导入';
+            }
+        }, 1200);
+    }
+}
+
 (async () => {
     initDirectoryControls();
     const swapLevelBtn = document.getElementById('swapLevelBtn');
-    swapLevelBtn.disabled = !IS_FORMAL_MAIN_DIR;
-    swapLevelBtn.title = IS_FORMAL_MAIN_DIR ? '交换两个正式关卡文件' : '仅正式关卡入口可交换';
+    swapLevelBtn.disabled = false;
+    swapLevelBtn.title = '交换两个正式关卡文件';
     await loadDefaultNextLevelId();
     if (ONLINE_FILTER >= 0 && ONLINE_FILTER <= 2) {
         document.getElementById('filterOnline').value = String(ONLINE_FILTER);
     }
     updateDirectoryHeader();
+    updateImportFilterLabels();
+    initBatchControls();
     if (START_LEVEL > 0) {
         document.getElementById('startBadge').style.display = 'inline-block';
         document.getElementById('startBadgeNum').textContent = START_LEVEL;
@@ -1631,26 +1930,49 @@ async function toggleOnline(levelId, btn) {
 </script>
 <div class="modal-overlay" id="copyOverlay" onclick="if(event.target===this)closeCopyModal()">
     <div class="copy-modal" id="copyModal">
-        <h3 id="copyTitle">复制关卡到线上/主题</h3>
+        <h3 id="copyTitle">导入关卡到正式/主题</h3>
         <div class="copy-sub" id="copySourceInfo">来源关卡 #...</div>
 
         <label id="copyTypeLabel">目标类型</label>
         <div class="seg-row" id="copyTypeRow">
-            <button class="seg-btn active" id="segOnline" onclick="setCopyType('online')">线上关卡 (1~300)</button>
-            <button class="seg-btn" id="segTheme" onclick="setCopyType('theme')">主题关卡 (zt_level_xxx)</button>
+            <button class="seg-btn active" id="segOnline" onclick="setCopyType('online')">正式关卡 level_*.json</button>
+            <button class="seg-btn" id="segTheme" onclick="setCopyType('theme')">主题挑战 zt_level_***.json</button>
         </div>
 
         <label>目标关卡 ID</label>
-        <input type="number" id="copyTargetId" value="1" min="1">
-        <div class="copy-target-hint" id="copyTargetHint">目标文件: assets/LevelData/level_1.json</div>
+        <input type="number" id="copyTargetId" min="1" placeholder="请输入目标关卡 ID">
+        <div class="copy-target-hint" id="copyTargetHint">请选择或输入目标关卡 ID</div>
 
         <div class="quick-row" id="copyQuickRow"></div>
 
         <div class="copy-actions">
             <button class="btn-cancel" onclick="closeCopyModal()">取消</button>
-            <button class="btn-confirm" id="copyConfirmBtn" onclick="executeCopy()">确认复制</button>
+            <button class="btn-confirm" id="copyConfirmBtn" onclick="executeCopy()">确认导入</button>
         </div>
         <div class="copy-feedback" id="copyFeedback"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="batchOverlay" onclick="if(event.target===this)closeBatchImportModal()">
+    <div class="copy-modal" id="batchModal">
+        <h3>批量导入到正式关卡</h3>
+        <div class="copy-sub" id="batchSourceInfo">已选择 0 关</div>
+
+        <label>编号策略</label>
+        <div class="seg-row">
+            <button class="seg-btn active" id="batchAppendBtn" onclick="setBatchStartMode('append')">追加到末尾</button>
+            <button class="seg-btn" id="batchStartBtn" onclick="setBatchStartMode('start')">指定起始 ID</button>
+        </div>
+
+        <label>起始正式关卡 ID</label>
+        <input type="number" id="batchStartTargetId" min="1" placeholder="追加模式可留空">
+        <div class="copy-target-hint" id="batchTargetHint">将按选择顺序连续导入</div>
+
+        <div class="copy-actions">
+            <button class="btn-cancel" onclick="closeBatchImportModal()">取消</button>
+            <button class="btn-confirm" id="batchConfirmBtn" onclick="executeBatchImport()">确认批量导入</button>
+        </div>
+        <div class="copy-feedback" id="batchFeedback"></div>
     </div>
 </div>
 
@@ -1660,11 +1982,11 @@ async function toggleOnline(levelId, btn) {
         <div class="copy-sub">会先备份两个原文件，再交换内容并修正 levelId。</div>
 
         <label>位置 A（例如要变成的关卡位）</label>
-        <input type="number" id="swapLevelA" value="11" min="1">
+        <input type="number" id="swapLevelA" min="1" placeholder="请输入位置 A">
 
         <label>位置 B（例如要换过来的关卡）</label>
-        <input type="number" id="swapLevelB" value="301" min="1">
-        <div class="copy-target-hint" id="swapTargetHint">将交换 assets/LevelData/level_11.json 和 level_301.json</div>
+        <input type="number" id="swapLevelB" min="1" placeholder="请输入位置 B">
+        <div class="copy-target-hint" id="swapTargetHint">请填写两个正式关卡 ID</div>
 
         <div class="copy-actions">
             <button class="btn-cancel" onclick="closeSwapModal()">取消</button>
@@ -1680,6 +2002,17 @@ function getSwapIds() {
         levelA: parseInt(document.getElementById('swapLevelA').value, 10),
         levelB: parseInt(document.getElementById('swapLevelB').value, 10),
     };
+}
+
+function updateSwapConfirmState() {
+    const btn = document.getElementById('swapConfirmBtn');
+    if (!btn) return;
+    btn.disabled = false;
+}
+
+function handleSwapInput() {
+    updateSwapHint();
+    updateSwapConfirmState();
 }
 
 function updateSwapHint() {
@@ -1699,20 +2032,20 @@ function showSwapFeedback(msg, type = '') {
 }
 
 function openSwapModal() {
-    if (!IS_FORMAL_MAIN_DIR) {
-        alert('交换关卡只支持正式关卡入口。');
-        return;
-    }
-    document.getElementById('swapLevelA').value = document.getElementById('swapLevelA').value || 11;
-    document.getElementById('swapLevelB').value = document.getElementById('swapLevelB').value || 301;
+    document.getElementById('swapLevelA').value = '';
+    document.getElementById('swapLevelB').value = '';
     showSwapFeedback('');
-    updateSwapHint();
+    handleSwapInput();
     document.getElementById('swapOverlay').classList.add('active');
     document.getElementById('swapLevelA').focus();
 }
 
 function closeSwapModal() {
     document.getElementById('swapOverlay').classList.remove('active');
+    document.getElementById('swapLevelA').value = '';
+    document.getElementById('swapLevelB').value = '';
+    showSwapFeedback('');
+    handleSwapInput();
 }
 
 async function executeLevelSwap() {
@@ -1749,7 +2082,7 @@ async function executeLevelSwap() {
         showSwapFeedback(`交换失败: ${error.message}`, 'error');
     } finally {
         setTimeout(() => {
-            btn.disabled = false;
+            updateSwapConfirmState();
             btn.textContent = '确认交换';
         }, 1200);
     }
@@ -1758,17 +2091,18 @@ async function executeLevelSwap() {
 document.addEventListener('DOMContentLoaded', () => {
     const swapA = document.getElementById('swapLevelA');
     const swapB = document.getElementById('swapLevelB');
-    if (swapA) swapA.addEventListener('input', updateSwapHint);
-    if (swapB) swapB.addEventListener('input', updateSwapHint);
+    if (swapA) swapA.addEventListener('input', handleSwapInput);
+    if (swapB) swapB.addEventListener('input', handleSwapInput);
+    updateSwapConfirmState();
 });
 
 let copySourceId = null;
 let copyType = 'online';
 let copyOverwriteAllowed = false;
-let copyMode = 'copy';
+let copyMode = 'import';
 
 function getCopyConfirmText() {
-    return copyMode === 'import' ? '确认导入' : '确认复制';
+    return '确认导入';
 }
 
 function getCopyTargetFilename(type, id) {
@@ -1782,16 +2116,16 @@ function getCopySourcePath(levelId) {
 
 async function openCopyModal(levelId, options = {}) {
     copySourceId = levelId;
-    copyMode = options.mode || 'copy';
+    copyMode = 'import';
     copyOverwriteAllowed = false;
-    document.getElementById('copyTitle').textContent = copyMode === 'import'
-        ? '导入到正式关卡目录'
-        : '复制关卡到线上/主题';
+    document.getElementById('copyTitle').textContent = '导入关卡到正式/主题';
     document.getElementById('copySourceInfo').textContent = `来源: ${getCopySourcePath(levelId)}`;
     document.getElementById('copyFeedback').textContent = '';
     document.getElementById('copyFeedback').className = 'copy-feedback';
-    document.getElementById('copyTypeLabel').style.display = copyMode === 'import' ? 'none' : '';
-    document.getElementById('copyTypeRow').style.display = copyMode === 'import' ? 'none' : '';
+    document.getElementById('segOnline').textContent = '正式关卡 level_*.json';
+    document.getElementById('segTheme').textContent = '主题挑战 zt_level_***.json';
+    document.getElementById('copyTypeLabel').style.display = '';
+    document.getElementById('copyTypeRow').style.display = '';
     document.getElementById('copyConfirmBtn').textContent = getCopyConfirmText();
     if (copyMode === 'import' && defaultNextLevelId === null) {
         await loadDefaultNextLevelId();
@@ -1799,63 +2133,92 @@ async function openCopyModal(levelId, options = {}) {
     setCopyType('online');
     const existingImport = copyMode === 'import' ? getOfficialImportForLevel(levelId) : null;
     if (existingImport?.targetLevelId) {
-        document.getElementById('copyTargetId').value = existingImport.targetLevelId;
+        document.getElementById('copyTargetId').value = '';
         updateCopyTargetHint();
         showCopyFeedback(
             `这关已导入到正式第 ${existingImport.targetLevelId} 关：${existingImport.targetPath || ''}`,
             'success'
         );
     }
+    const existingImportText = getImportBadgeText(levelId);
+    if (existingImportText) {
+        showCopyFeedback(`这关已导入：${existingImportText}`, 'success');
+    }
     updateCopyQuickRow();
     document.getElementById('copyOverlay').classList.add('active');
+    document.getElementById('copyTargetId').focus();
 }
 
 function closeCopyModal() {
     document.getElementById('copyOverlay').classList.remove('active');
+    document.getElementById('copyTargetId').value = '';
+    document.getElementById('copyFeedback').textContent = '';
+    document.getElementById('copyFeedback').className = 'copy-feedback';
+    updateCopyTargetHint();
     copySourceId = null;
 }
 
 function setCopyType(type) {
-    if (copyMode === 'import') {
-        type = 'online';
-    }
     copyType = type;
     document.getElementById('segOnline').classList.toggle('active', type === 'online');
     document.getElementById('segTheme').classList.toggle('active', type === 'theme');
     document.getElementById('copySourceInfo').textContent = type === 'online'
-        ? `来源: ${getCopySourcePath(copySourceId)} | 线上复制仅保留运行所需字段`
-        : `来源: ${getCopySourcePath(copySourceId)} | 主题复制保留主题所需附加字段`;
+        ? `来源: ${getCopySourcePath(copySourceId)} | 正式导入仅保留运行所需字段`
+        : `来源: ${getCopySourcePath(copySourceId)} | 主题导入保留主题所需附加字段`;
     const target = document.getElementById('copyTargetId');
-    if (copyMode === 'import' && type === 'online') {
-        target.value = defaultNextLevelId || getNextGuankaLevelId();
-    } else if (type === 'online') {
-        target.value = copySourceId <= 300 ? copySourceId : 1;
-    } else {
-        target.value = 1001;
-    }
+    target.value = '';
+    copyOverwriteAllowed = false;
     updateCopyTargetHint();
     updateCopyQuickRow();
 }
 
 function updateCopyTargetHint() {
-    const id = parseInt(document.getElementById('copyTargetId').value) || 1;
+    const rawValue = document.getElementById('copyTargetId').value.trim();
+    if (!rawValue) {
+        document.getElementById('copyTargetHint').textContent = '请选择或输入目标关卡 ID';
+        updateCopyConfirmState();
+        return;
+    }
+    const id = parseInt(rawValue, 10);
+    if (!id || id < 1) {
+        document.getElementById('copyTargetHint').textContent = '请输入有效的目标关卡 ID';
+        updateCopyConfirmState();
+        return;
+    }
     document.getElementById('copyTargetHint').textContent =
         `目标文件: assets/LevelData/${getCopyTargetFilename(copyType, id)}`;
+    updateCopyConfirmState();
+}
+
+function updateCopyConfirmState() {
+    const btn = document.getElementById('copyConfirmBtn');
+    const input = document.getElementById('copyTargetId');
+    if (!btn || !input) return;
+    const id = parseInt(input.value, 10);
+    btn.disabled = !id || id < 1;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('copyTargetId');
-    if (input) input.addEventListener('input', updateCopyTargetHint);
+    if (input) {
+        input.addEventListener('input', updateCopyTargetHint);
+        input.addEventListener('input', resetCopyOverwriteState);
+    }
+    updateCopyConfirmState();
 });
+
+function resetCopyOverwriteState() {
+    copyOverwriteAllowed = false;
+    const btn = document.getElementById('copyConfirmBtn');
+    if (btn) btn.textContent = getCopyConfirmText();
+}
 
 function updateCopyQuickRow() {
     const container = document.getElementById('copyQuickRow');
     container.innerHTML = '';
     let ids = [];
     if (copyType === 'online') {
-        const base = copyMode === 'import'
-            ? Math.max(1, defaultNextLevelId || getNextGuankaLevelId())
-            : Math.max(1, (copySourceId || 1));
+        const base = Math.max(1, defaultNextLevelId || getNextGuankaLevelId());
         ids = [base, base + 1, base + 2, 100, 200, 300];
     } else {
         ids = [1001, 1002, 1003, 1004, 1101, 1201, 1301];
@@ -1867,6 +2230,7 @@ function updateCopyQuickRow() {
         chip.textContent = `第 ${id} 关`;
         chip.onclick = () => {
             document.getElementById('copyTargetId').value = id;
+            resetCopyOverwriteState();
             updateCopyTargetHint();
         };
         container.appendChild(chip);
@@ -1882,7 +2246,7 @@ async function executeCopy() {
     }
     const btn = document.getElementById('copyConfirmBtn');
     btn.disabled = true;
-    btn.textContent = copyMode === 'import' ? '导入中...' : '复制中...';
+    btn.textContent = '导入中...';
     showCopyFeedback('', '');
     try {
         const resp = await fetch('/api/copy-level', {
@@ -1902,22 +2266,22 @@ async function executeCopy() {
             if (result.exists) {
                 showCopyFeedback(`目标 ${getCopyTargetFilename(copyType, targetId)} 已存在！再次点击将覆盖`, 'error');
                 copyOverwriteAllowed = true;
-                btn.textContent = copyMode === 'import' ? '确认覆盖导入' : '确认覆盖';
+                btn.textContent = '确认覆盖导入';
                 btn.disabled = false;
                 return;
             }
-            throw new Error(result.error || '复制失败');
+            throw new Error(result.error || '导入失败');
         }
-        showCopyFeedback(`已成功复制到 ${result.targetPath}`, 'success');
-        if (copyMode === 'import' && copyType === 'online') {
+        showCopyFeedback(`已成功导入到 ${result.targetPath}`, 'success');
+        if (copyType === 'online') {
             defaultNextLevelId = Math.max(defaultNextLevelId || 1, targetId + 1);
-            if (result.officialImport) {
-                const level = levels.find(item => Number(item.levelId) === Number(copySourceId));
-                if (level) level.officialImport = result.officialImport;
-                const entry = levelEntryMap.get(Number(copySourceId));
-                if (entry) entry.officialImport = result.officialImport;
-                renderAll();
-            }
+        }
+        if (result.officialImport) {
+            const level = levels.find(item => Number(item.levelId) === Number(copySourceId));
+            if (level) level.officialImport = result.officialImport;
+            const entry = levelEntryMap.get(Number(copySourceId));
+            if (entry) entry.officialImport = result.officialImport;
+            renderAll();
         }
         copyOverwriteAllowed = false;
         btn.textContent = '完成';
@@ -1928,7 +2292,9 @@ async function executeCopy() {
     } finally {
         setTimeout(() => {
             btn.disabled = false;
-            btn.textContent = getCopyConfirmText();
+            if (!copyOverwriteAllowed) {
+                btn.textContent = getCopyConfirmText();
+            }
         }, 2000);
     }
 }

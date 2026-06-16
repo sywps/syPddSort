@@ -551,6 +551,17 @@ export function installPlayerMetaStateModule(target: any): void {
             return true;
         },
 
+        isTutorialVigorFreeLevel(levelId: unknown, entryMode: string = 'main'): boolean {
+            if (entryMode !== 'main') return false;
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            return normalizedLevelId <= 2;
+        },
+
+        costVigorForLevel(levelId: unknown, entryMode: string = 'main'): boolean {
+            if (this.isTutorialVigorFreeLevel(levelId, entryMode)) return true;
+            return this.costVigor();
+        },
+
         /** 更新体力数据（含离线恢复） */
         updateVigor(): void {
             const ceiling = (this.constructor as any).VIGOR_CEILING, restoreMs = (this.constructor as any).VIGOR_RESTORE_SECONDS * 1000;

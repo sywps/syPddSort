@@ -30,7 +30,6 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
-import { ensureHomeIconSparkleFx } from '../HomeIconSparkleFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
 
 export function installHomeCommerceModule(target: any): void {
@@ -144,7 +143,7 @@ export function installHomeCommerceModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             const enterSelectedLevel = () => {
                 if (this.getRuntimeSceneName('Game') === 'Home') {
-                    void this.requestGameplaySceneTransition(level, 'level_', false);
+                    void this.requestGameplaySceneTransition(level, 'level_', false, 'cover');
                     return;
                 }
                 this.deactivateMainMenuNode();
@@ -152,10 +151,10 @@ export function installHomeCommerceModule(target: any): void {
             };
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
-                if (!this.costVigor()) {
+                if (!this.costVigorForLevel(level, 'main')) {
                     // 体力不足，弹出广告弹窗
                     this.showNoLivesAdModal(() => {
-                        if (this.costVigor()) {
+                        if (this.costVigorForLevel(level, 'main')) {
                             enterSelectedLevel();
                         }
                     });
@@ -243,9 +242,8 @@ export function installHomeCommerceModule(target: any): void {
                 AudioMgr.inst.play('button');
                 this.openDailySignInPanel();
             }, this);
-        
+
             ensureHomeIconIdleWiggle(iconNode);
-            ensureHomeIconSparkleFx(iconNode);
         },
     });
 }

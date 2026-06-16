@@ -40,7 +40,7 @@
   "boardWidth": 8,
   "boardHeight": 14,
   "timeLimit": 300,
-  "slotTotalCount": 0,
+  "slotTotalCount": 88,
   "correctColorArr": [
     [
       0,
@@ -198,80 +198,80 @@
       0,
       10,
       10,
-      10,
-      10,
-      10,
-      10,
+      11,
+      20,
+      17,
+      17,
       0
     ],
     [
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10
-    ],
-    [
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10
-    ],
-    [
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10,
-      10
-    ],
-    [
-      10,
+      11,
+      11,
+      11,
+      20,
+      20,
+      20,
       17,
-      10,
-      17,
-      10,
-      17,
-      10,
       17
     ],
     [
+      11,
+      11,
+      11,
+      11,
+      20,
+      20,
       17,
-      10,
-      17,
-      10,
-      17,
-      10,
-      17,
-      10
-    ],
-    [
-      10,
-      17,
-      10,
-      17,
-      10,
-      17,
-      10,
       17
     ],
     [
+      11,
+      11,
+      11,
       17,
+      17,
+      17,
+      17,
+      17
+    ],
+    [
+      10,
+      11,
+      10,
+      17,
+      17,
+      17,
+      17,
+      10
+    ],
+    [
+      10,
+      10,
+      10,
+      10,
       10,
       17,
       10,
-      17,
+      10
+    ],
+    [
       10,
-      17,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10
+    ],
+    [
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
       10
     ],
     [
@@ -279,27 +279,27 @@
       11,
       11,
       11,
-      11,
-      11,
-      11,
-      11
+      10,
+      10,
+      10,
+      10
     ],
     [
-      11,
-      11,
-      11,
-      11,
-      11,
-      11,
-      11,
-      11
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10
     ],
     [
       0,
       0,
       0,
-      20,
-      20,
+      10,
+      10,
       0,
       0,
       0
@@ -308,8 +308,8 @@
       0,
       0,
       0,
-      20,
-      20,
+      10,
+      10,
       0,
       0,
       0
@@ -318,8 +318,8 @@
       0,
       0,
       0,
-      20,
-      20,
+      10,
+      10,
       0,
       0,
       0
@@ -338,6 +338,25 @@
       "6",
       "0",
       "i"
-    ]
-  }
+    ],
+    "generatedInitFromTarget": true,
+    "initGenerationMode": "official-clustered-growth",
+    "initGenerationSource": "tools/generate_initial_shuffle.py",
+    "initGenerationDifficulty": "normal",
+    "initGenerationTargetDisplacement": 0.72,
+    "initGenerationMinDisplacement": 0.62,
+    "initGenerationMaxDisplacement": 0.82,
+    "initGenerationAttempts": 1
+  },
+  "filledCellCount": 88,
+  "colorCount": 4,
+  "colorStats": {
+    "10": 50,
+    "11": 16,
+    "17": 16,
+    "20": 6
+  },
+  "displacementRatio": 0.7159,
+  "initShuffleSeed": 21147936,
+  "initShuffleMaxGroupsPerColor": 3
 }

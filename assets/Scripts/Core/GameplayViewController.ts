@@ -758,7 +758,14 @@ export class GameplayViewController {
         const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
         const rawInitScale = Math.min(widthScale, heightScale);
         const minScale = Number(runtime.constructor.MIN_SCALE) || 0.7;
-        const maxScale = Math.max(minScale, Number(runtime.constructor.MAX_SCALE) || 2.2);
+        const baseMaxScale = Math.max(minScale, Number(runtime.constructor.MAX_SCALE) || 2.2);
+        const playableCellUiSize = Math.max(1, Number(runtime.constructor.BOARD_PLAYABLE_CELL_UI_SIZE) || 32);
+        const dynamicMaxScaleCap = Math.max(baseMaxScale, Number(runtime.constructor.BOARD_DYNAMIC_MAX_SCALE_CAP) || baseMaxScale);
+        const maxScale = Math.max(
+            baseMaxScale,
+            Math.min(dynamicMaxScaleCap, playableCellUiSize / Math.max(1, runtime.cellSize)),
+        );
+        runtime.boardViewport.setScaleBounds(minScale, maxScale);
         const initScale = Math.max(
             minScale,
             Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),

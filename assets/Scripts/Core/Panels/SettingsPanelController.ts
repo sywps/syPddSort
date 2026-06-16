@@ -171,7 +171,7 @@ export class SettingsPanelController {
                             runtime.resumeTimerForProp();
                             runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
                             endSettingsModalFocus();
-                            void AppRoot.inst.requestHomeSceneTransition('settings', 'none');
+                            void AppRoot.inst.requestHomeSceneTransition('settings', 'cover');
                         });
                     }
 

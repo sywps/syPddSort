@@ -49,6 +49,7 @@
     "44"
   ],
   "colorSource": "skin_2001 native atlas",
+  "colorCanonicalStateStrategy": "nearest-official-per-state",
   "packUrl": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/import/0c/0cfb73628.10087.json",
   "skinPackId": "0cfb73628"
 }

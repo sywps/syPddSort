@@ -427,9 +427,11 @@ export function installSettlementHudModule(target: any): void {
         },
 
         restart() {
-            if (!this.costVigor()) {
+            const entryMode = this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
+            const activeLevel = this.getActiveLogicalLevelId();
+            if (!this.costVigorForLevel(activeLevel, entryMode)) {
                 this.showNoLivesAdModal(() => {
-                    if (this.costVigor()) {
+                    if (this.costVigorForLevel(activeLevel, entryMode)) {
                         this.doRestart();
                     }
                 });
@@ -495,9 +497,9 @@ export function installSettlementHudModule(target: any): void {
             const nextId = this.getActiveLogicalLevelId() + 1;
             this.saveLevelProgress(nextId);
             // 下一关消耗体力
-            if (!this.costVigor()) {
+            if (!this.costVigorForLevel(nextId, 'main')) {
                 this.showNoLivesAdModal(() => {
-                    if (this.costVigor()) {
+                    if (this.costVigorForLevel(nextId, 'main')) {
                         this.loadLevel(nextId);
                     } else {
                         this.endSettlementNextTransition();
@@ -623,10 +625,12 @@ export function installSettlementHudModule(target: any): void {
             }
         
             // 重置到初始适配视图，确保引导视觉准确且不丢失小棋盘放大比例
+            const minScale = Number(this.boardViewport?.minScale) || this.constructor.MIN_SCALE;
+            const maxScale = Number(this.boardViewport?.maxScale) || this.constructor.MAX_SCALE;
             const homeScale = Math.max(
-                this.constructor.MIN_SCALE,
+                minScale,
                 Math.min(
-                    this.constructor.MAX_SCALE,
+                    maxScale,
                     Number(this.boardHomeScale) || Number(this.boardViewScale) || Math.abs(this.boardGroup.scale.x || 1) || 1,
                 ),
             );

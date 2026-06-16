@@ -20,6 +20,7 @@ NL_MODEL = os.environ.get('NL_MODEL', 'gemini-3-flash-preview')
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 COMPETITOR_TOOLS_DIR = os.path.join(PROJECT_ROOT, 'tools', 'competitors')
 IMPORT_MAP_FILENAME = 'official_import_map.json'
+IMPORT_TARGET_TYPES = ('online', 'theme')
 
 GAME_LEVEL_DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'assets', 'LevelData')
@@ -42,6 +43,13 @@ def build_game_level_filename(target_type, target_level_id):
     if target_type == 'theme':
         return f'zt_level_{target_level_id}.json'
     return f'level_{target_level_id}.json'
+
+
+class ApiError(Exception):
+    def __init__(self, status_code, payload):
+        super().__init__(payload.get('error', 'api error'))
+        self.status_code = status_code
+        self.payload = payload
 
 
 def build_level_swap_backup_dir(level_a_id, level_b_id):
@@ -154,19 +162,86 @@ def write_import_map(map_path, data):
         f.write('\n')
 
 
-def repair_official_import_marker(source_path, marker, formal_fingerprint_index):
+def normalize_import_target_type(value):
+    target_type = str(value or 'online').strip().lower()
+    if target_type in ('theme', 'zt', 'zt_level'):
+        return 'theme'
+    return 'online'
+
+
+def normalize_import_marker(source_path, marker):
+    source_rel = path_to_project_rel(source_path)
+    if not isinstance(marker, dict):
+        return {'sourcePath': source_rel, 'targets': {}}, True
+
+    changed = False
+    if isinstance(marker.get('targets'), dict):
+        normalized = dict(marker)
+        targets = {}
+        for raw_type, raw_target in marker.get('targets', {}).items():
+            if not isinstance(raw_target, dict):
+                changed = True
+                continue
+            target_type = normalize_import_target_type(raw_type)
+            target = dict(raw_target)
+            if target.get('targetType') != target_type:
+                target['targetType'] = target_type
+                changed = True
+            targets[target_type] = target
+        normalized['targets'] = targets
+    else:
+        target_type = normalize_import_target_type(marker.get('targetType'))
+        target = dict(marker)
+        target['targetType'] = target_type
+        normalized = {
+            'sourcePath': marker.get('sourcePath') or source_rel,
+            'targets': {target_type: target},
+        }
+        if marker.get('importedAt'):
+            normalized['importedAt'] = marker.get('importedAt')
+        changed = True
+
+    if normalized.get('sourcePath') != source_rel:
+        normalized['sourcePath'] = source_rel
+        changed = True
+    return normalized, changed
+
+
+def build_target_level_fingerprint_index(target_type='online'):
+    target_type = normalize_import_target_type(target_type)
+    filename_prefix = 'zt_level' if target_type == 'theme' else 'level'
+    index = {}
+    for name in os.listdir(GAME_LEVEL_DATA_DIR):
+        match = LEVEL_FILENAME_RE.match(name)
+        if not match or match.group(1) != filename_prefix:
+            continue
+        filepath = os.path.join(GAME_LEVEL_DATA_DIR, name)
+        level_id = int(match.group(2))
+        try:
+            fingerprint = read_level_content_fingerprint(filepath)
+        except Exception:
+            continue
+        index.setdefault(fingerprint, []).append({
+            'targetLevelId': level_id,
+            'targetPath': path_to_project_rel(filepath),
+        })
+    for matches in index.values():
+        matches.sort(key=lambda item: item['targetLevelId'])
+    return index
+
+
+def repair_import_target_marker(source_path, target_type, marker, fingerprint_index):
     if not isinstance(marker, dict):
         return marker, False
 
+    target_type = normalize_import_target_type(target_type)
     source_fingerprint = read_level_content_fingerprint(source_path)
     updated = dict(marker)
     changed = False
 
-    if updated.get('sourcePath') != path_to_project_rel(source_path):
-        updated['sourcePath'] = path_to_project_rel(source_path)
+    if updated.get('targetType') != target_type:
+        updated['targetType'] = target_type
         changed = True
-    if updated.get('targetType') != 'online':
-        return updated, changed
     if updated.get('fingerprintVersion') != LEVEL_FINGERPRINT_VERSION:
         updated['fingerprintVersion'] = LEVEL_FINGERPRINT_VERSION
         changed = True
@@ -174,7 +249,7 @@ def repair_official_import_marker(source_path, marker, formal_fingerprint_index)
         updated['contentFingerprint'] = source_fingerprint
         changed = True
 
-    matches = formal_fingerprint_index.get(source_fingerprint, [])
+    matches = fingerprint_index.get(source_fingerprint, [])
     if not matches:
         return updated, changed
 
@@ -219,7 +294,7 @@ def repair_import_map(import_map):
         return import_map, False
 
     repaired_map = dict(import_map)
-    formal_fingerprint_index = None
+    fingerprint_indexes = {}
     changed = False
     for source_rel, marker in list(import_map.items()):
         source_path = os.path.abspath(os.path.join(PROJECT_ROOT, source_rel.replace('/', os.sep)))
@@ -228,13 +303,29 @@ def repair_import_map(import_map):
             or not os.path.isfile(source_path)
         ):
             continue
-        if formal_fingerprint_index is None:
-            formal_fingerprint_index = build_formal_level_fingerprint_index()
-        repaired_marker, marker_changed = repair_official_import_marker(
-            source_path,
-            marker,
-            formal_fingerprint_index,
-        )
+
+        repaired_marker, marker_changed = normalize_import_marker(source_path, marker)
+        targets = dict(repaired_marker.get('targets') or {})
+        for target_type in list(targets.keys()):
+            if target_type not in IMPORT_TARGET_TYPES:
+                continue
+            if target_type not in fingerprint_indexes:
+                fingerprint_indexes[target_type] = (
+                    build_formal_level_fingerprint_index()
+                    if target_type == 'online'
+                    else build_target_level_fingerprint_index(target_type)
+                )
+            repaired_target, target_changed = repair_import_target_marker(
+                source_path,
+                target_type,
+                targets[target_type],
+                fingerprint_indexes[target_type],
+            )
+            if target_changed:
+                targets[target_type] = repaired_target
+                marker_changed = True
+        repaired_marker['targets'] = targets
+
         if marker_changed:
             repaired_map[source_rel] = repaired_marker
             changed = True
@@ -242,18 +333,104 @@ def repair_import_map(import_map):
     return repaired_map, changed
 
 
-def build_official_import_marker(source_path, target_level_id, target_path, target_type, level_data=None):
+def build_import_target_marker(source_path, target_level_id, target_path, target_type, level_data=None):
     marker = {
-        'sourcePath': path_to_project_rel(source_path),
         'targetLevelId': int(target_level_id),
         'targetPath': path_to_project_rel(target_path),
-        'targetType': target_type,
+        'targetType': normalize_import_target_type(target_type),
         'importedAt': datetime.datetime.now().isoformat(timespec='seconds'),
     }
-    if target_type == 'online' and level_data is not None:
+    if level_data is not None:
         marker['fingerprintVersion'] = LEVEL_FINGERPRINT_VERSION
         marker['contentFingerprint'] = build_level_content_fingerprint(level_data)
     return marker
+
+
+def upsert_import_marker(import_map, source_path, target_type, target_marker):
+    source_rel = path_to_project_rel(source_path)
+    current, _ = normalize_import_marker(source_path, import_map.get(source_rel))
+    targets = dict(current.get('targets') or {})
+    targets[normalize_import_target_type(target_type)] = target_marker
+    current['sourcePath'] = source_rel
+    current['targets'] = targets
+    current['updatedAt'] = datetime.datetime.now().isoformat(timespec='seconds')
+    if 'importedAt' not in current:
+        current['importedAt'] = target_marker.get('importedAt')
+    import_map[source_rel] = current
+    return current
+
+
+def copy_level_to_game_target(source_level_dir, source_level_id, source_kind, target_type, target_level_id, overwrite=False):
+    target_type = normalize_import_target_type(target_type)
+    try:
+        target_level_id = int(target_level_id)
+    except Exception:
+        raise ApiError(400, {'ok': False, 'error': 'targetLevelId must be an integer'})
+    if target_level_id < 1:
+        raise ApiError(400, {'ok': False, 'error': 'targetLevelId must be >= 1'})
+
+    source_path = find_level_path(source_level_dir, source_level_id, source_kind)
+    if not os.path.exists(source_path):
+        raise ApiError(404, {
+            'ok': False,
+            'error': (
+                f'source level {source_level_id} not found '
+                f'in {path_to_project_rel(source_level_dir)}'
+            ),
+        })
+
+    target_filename = build_game_level_filename(target_type, target_level_id)
+    target_path = os.path.join(GAME_LEVEL_DATA_DIR, target_filename)
+    if os.path.exists(target_path) and not overwrite:
+        raise ApiError(409, {
+            'ok': False,
+            'error': 'target file exists',
+            'targetPath': target_path,
+            'targetFilename': target_filename,
+            'targetLevelId': target_level_id,
+            'targetType': target_type,
+            'exists': True,
+        })
+
+    level_data = load_level_json(source_path)
+    try:
+        if target_type == 'online':
+            level_data = normalize_online_level_payload(level_data, target_level_id)
+        else:
+            level_data['levelId'] = target_level_id
+            level_data['isFeatured'] = True
+            level_data['sourceLevelId'] = source_level_id
+    except ValueError as exc:
+        raise ApiError(400, {'ok': False, 'error': str(exc)})
+
+    with open(target_path, 'w', encoding='utf-8') as f:
+        json.dump(level_data, f, ensure_ascii=False, indent=4)
+        f.write('\n')
+
+    import_marker = None
+    import_map_path = get_competitor_import_map_path(source_path)
+    if import_map_path:
+        import_map = read_import_map(import_map_path)
+        target_marker = build_import_target_marker(
+            source_path,
+            target_level_id,
+            target_path,
+            target_type,
+            level_data,
+        )
+        import_marker = upsert_import_marker(import_map, source_path, target_type, target_marker)
+        write_import_map(import_map_path, import_map)
+
+    return {
+        'ok': True,
+        'sourceLevelId': source_level_id,
+        'sourcePath': path_to_project_rel(source_path),
+        'targetPath': target_path,
+        'targetFilename': target_filename,
+        'targetLevelId': target_level_id,
+        'targetType': target_type,
+        'officialImport': import_marker,
+    }
 
 
 def resolve_level_dir(dir_value=None):
@@ -1250,126 +1427,132 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
 
             if source_level_id is None or target_level_id is None:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {'ok': False, 'error': 'sourceLevelId and targetLevelId are required'},
-                    ensure_ascii=False,
-                ).encode())
+                self._send_json(400, {'ok': False, 'error': 'sourceLevelId and targetLevelId are required'})
                 return
 
             try:
-                target_level_id = int(target_level_id)
-            except Exception:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {'ok': False, 'error': 'targetLevelId must be an integer'},
-                    ensure_ascii=False,
-                ).encode())
-                return
-
-            if target_type not in ('online', 'theme'):
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {'ok': False, 'error': 'targetType must be online or theme'},
-                    ensure_ascii=False,
-                ).encode())
-                return
-
-            source_path = find_level_path(source_level_dir, source_level_id, source_kind)
-            if not os.path.exists(source_path):
-                self.send_response(404)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {
-                        'ok': False,
-                        'error': (
-                            f'source level {source_level_id} not found '
-                            f'in {path_to_project_rel(source_level_dir)}'
-                        ),
-                    },
-                    ensure_ascii=False,
-                ).encode())
-                return
-
-            import_map_path = None
-            import_map = None
-            if target_type == 'online':
-                import_map_path = get_competitor_import_map_path(source_path)
-                if import_map_path:
-                    try:
-                        import_map = read_import_map(import_map_path)
-                    except ValueError as exc:
-                        self._send_json(500, {'ok': False, 'error': str(exc)})
-                        return
-
-            target_filename = build_game_level_filename(target_type, target_level_id)
-            target_path = os.path.join(GAME_LEVEL_DATA_DIR, target_filename)
-            if os.path.exists(target_path) and not overwrite:
-                self.send_response(409)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {'ok': False, 'error': 'target file exists', 'targetPath': target_path, 'exists': True},
-                    ensure_ascii=False,
-                ).encode())
-                return
-
-            level_data = load_level_json(source_path)
-
-            try:
-                if target_type == 'online':
-                    level_data = normalize_online_level_payload(level_data, target_level_id)
-                else:
-                    level_data['levelId'] = target_level_id
-                    level_data['isFeatured'] = True
-                    level_data['sourceLevelId'] = source_level_id
-            except ValueError as exc:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(
-                    {'ok': False, 'error': str(exc)},
-                    ensure_ascii=False,
-                ).encode())
-                return
-
-            with open(target_path, 'w', encoding='utf-8') as f:
-                json.dump(level_data, f, ensure_ascii=False, indent=4)
-                f.write('\n')
-
-            official_import = None
-            if import_map_path and import_map is not None:
-                official_import = build_official_import_marker(
-                    source_path,
-                    target_level_id,
-                    target_path,
+                result = copy_level_to_game_target(
+                    source_level_dir,
+                    source_level_id,
+                    source_kind,
                     target_type,
-                    level_data,
+                    target_level_id,
+                    overwrite,
                 )
-                import_map[path_to_project_rel(source_path)] = official_import
-                write_import_map(import_map_path, import_map)
+            except ApiError as exc:
+                self._send_json(exc.status_code, exc.payload)
+                return
+            except ValueError as exc:
+                self._send_json(500, {'ok': False, 'error': str(exc)})
+                return
 
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(
-                {
-                    'ok': True,
-                    'targetPath': target_path,
-                    'targetFilename': target_filename,
+            self._send_json(200, result)
+        elif parsed.path == '/api/batch-copy-levels':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body)
+
+            source_level_ids = data.get('sourceLevelIds')
+            source_kind = normalize_level_kind(data.get('sourceKind') or data.get('kind'))
+            target_type = normalize_import_target_type(data.get('targetType') or 'online')
+            overwrite = bool(data.get('overwrite', False))
+            source_level_dir = self._resolve_level_dir_or_send(data.get('sourceDir') or data.get('dir'))
+            if source_level_dir is None:
+                return
+
+            if not isinstance(source_level_ids, list) or not source_level_ids:
+                self._send_json(400, {'ok': False, 'error': 'sourceLevelIds must be a non-empty list'})
+                return
+            if target_type != 'online':
+                self._send_json(400, {'ok': False, 'error': 'batch import currently supports online targets only'})
+                return
+
+            try:
+                normalized_source_ids = [int(item) for item in source_level_ids]
+                start_target_id = data.get('startTargetLevelId')
+                if start_target_id in (None, '', 0):
+                    start_target_id = get_next_main_level_id(GAME_LEVEL_DATA_DIR)
+                else:
+                    start_target_id = int(start_target_id)
+            except Exception:
+                self._send_json(400, {'ok': False, 'error': 'sourceLevelIds and startTargetLevelId must be integers'})
+                return
+
+            if start_target_id < 1:
+                self._send_json(400, {'ok': False, 'error': 'startTargetLevelId must be >= 1'})
+                return
+
+            plan = []
+            conflicts = []
+            missing_sources = []
+            for index, source_id in enumerate(normalized_source_ids):
+                target_level_id = start_target_id + index
+                source_path = find_level_path(source_level_dir, source_id, source_kind)
+                if not os.path.exists(source_path):
+                    missing_sources.append({
+                        'sourceLevelId': source_id,
+                        'sourcePath': path_to_project_rel(source_path),
+                    })
+                    continue
+                target_filename = build_game_level_filename(target_type, target_level_id)
+                target_path = os.path.join(GAME_LEVEL_DATA_DIR, target_filename)
+                item = {
+                    'sourceLevelId': source_id,
+                    'sourcePath': path_to_project_rel(source_path),
                     'targetLevelId': target_level_id,
+                    'targetPath': path_to_project_rel(target_path),
+                    'targetFilename': target_filename,
                     'targetType': target_type,
-                    'officialImport': official_import,
-                },
-                ensure_ascii=False,
-            ).encode())
+                    'exists': os.path.exists(target_path),
+                }
+                plan.append(item)
+                if item['exists']:
+                    conflicts.append(item)
+
+            if missing_sources:
+                self._send_json(404, {
+                    'ok': False,
+                    'error': 'some source levels were not found',
+                    'missingSources': missing_sources,
+                })
+                return
+
+            if conflicts and not overwrite:
+                self._send_json(409, {
+                    'ok': False,
+                    'error': 'target files exist',
+                    'exists': True,
+                    'batch': True,
+                    'conflicts': conflicts,
+                    'plan': plan,
+                })
+                return
+
+            results = []
+            try:
+                for item in plan:
+                    results.append(copy_level_to_game_target(
+                        source_level_dir,
+                        item['sourceLevelId'],
+                        source_kind,
+                        target_type,
+                        item['targetLevelId'],
+                        overwrite,
+                    ))
+            except ApiError as exc:
+                self._send_json(exc.status_code, exc.payload)
+                return
+            except ValueError as exc:
+                self._send_json(500, {'ok': False, 'error': str(exc)})
+                return
+
+            self._send_json(200, {
+                'ok': True,
+                'targetType': target_type,
+                'startTargetLevelId': start_target_id,
+                'count': len(results),
+                'results': results,
+            })
         elif parsed.path == '/api/swap-formal-levels':
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)

@@ -10,7 +10,7 @@
     "10": 19,
     "15": 1,
     "5": 17,
-    "8": 4
+    "8": 3
   },
   "sourceColorMergeGroupsInLevel": {},
   "sourceHighDistanceColorsInLevel": [
@@ -406,7 +406,7 @@
       17,
       17,
       17,
-      4,
+      3,
       17,
       17,
       17,
@@ -1596,7 +1596,7 @@
       19,
       19,
       19,
-      4,
+      3,
       19,
       19,
       19,
@@ -2424,6 +2424,7 @@
     "skinId": 2001,
     "skinPackId": "0cfb73628",
     "colorSource": "skin_2001 native atlas",
+    "colorCanonicalStateStrategy": "nearest-official-per-state",
     "colorSamplingError": null
   }
 }

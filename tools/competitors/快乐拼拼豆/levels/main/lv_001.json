@@ -8,7 +8,7 @@
   "colorMappingMode": "official20-nearest-rgb-rebuilt",
   "sourceColorIdToLocalColorId": {
     "2": 11,
-    "38": 16
+    "38": 10
   },
   "sourceColorMergeGroupsInLevel": {},
   "sourceHighDistanceColorsInLevel": [
@@ -28,64 +28,64 @@
       11,
       11,
       11,
-      16,
-      16,
-      16
+      10,
+      10,
+      10
     ],
     [
       11,
       11,
       11,
-      16,
-      16,
-      16
+      10,
+      10,
+      10
     ],
     [
       11,
       11,
       11,
-      16,
-      16,
-      16
+      10,
+      10,
+      10
     ],
     [
       11,
       11,
       11,
-      16,
-      16,
-      16
+      10,
+      10,
+      10
     ]
   ],
   "initRandomColorArr": [
     [
-      16,
-      16,
-      16,
+      10,
+      10,
+      10,
       11,
       11,
       11
     ],
     [
-      16,
-      16,
-      16,
+      10,
+      10,
+      10,
       11,
       11,
       11
     ],
     [
-      16,
-      16,
-      16,
+      10,
+      10,
+      10,
       11,
       11,
       11
     ],
     [
-      16,
-      16,
-      16,
+      10,
+      10,
+      10,
       11,
       11,
       11
@@ -107,6 +107,7 @@
     "skinId": 2001,
     "skinPackId": "0cfb73628",
     "colorSource": "skin_2001 native atlas",
+    "colorCanonicalStateStrategy": "nearest-official-per-state",
     "colorSamplingError": null
   }
 }
