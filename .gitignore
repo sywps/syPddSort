@@ -21,10 +21,10 @@ findings.md
 progress.md
 outputs/
 output/
-zhise
 build-preview/
 .playwright-cli/
 tools/__pycache__/
 tmp
 AGENTS.md
 .creator
+docs/toufang-materials

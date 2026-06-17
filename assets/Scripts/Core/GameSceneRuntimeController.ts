@@ -191,7 +191,8 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
-        if (this.getRuntimeSceneName() === 'Game') {
+        const sceneName = this.getRuntimeSceneName();
+        if (sceneName === 'Game') {
             AnalyticsMgr.inst.abandonActiveLevel();
             SySDKMgr.inst.reportLevelExit(this.runtime.getAnalyticsLevelId());
         }
@@ -213,6 +214,7 @@ export class GameSceneRuntimeController {
         this.runtime.deactivateWeChatFriendRank('destroy');
         this.runtime.clearBoardVisualPools?.();
         this.runtime.clearEffectPools();
+        this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
     }
 
     private prepareSceneFrame(sceneName: string = this.getRuntimeSceneName()): void {

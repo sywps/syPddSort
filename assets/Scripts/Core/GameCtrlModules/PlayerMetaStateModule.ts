@@ -382,22 +382,37 @@ export function installPlayerMetaStateModule(target: any): void {
                 return;
             }
             if (popupRoot.getChildByName(overlayName)) return;
+            this._retainPanelTextureOwner('reward-result', REWARD_RESULT_TEXTURE_NAMES);
 
+            const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+            const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+            const cancelStaleOpen = () => {
+                if (!isRuntimeAlive()) return;
+                this._releasePanelTextureOwner('reward-result', 'reward-result-open-stale');
+            };
             const failOpen = (message: string, overlay?: Node | null) => {
                 if (overlay?.isValid) {
                     this._clearSpriteFramesBeforeDestroy(overlay);
-                    overlay.destroy();
+                    this._destroyDetachedNodeNextFrame(overlay);
                 }
-                this._releasePanelTexturesNextFrame(REWARD_RESULT_RELEASE_TEXTURE_NAMES, 'reward-result-open-failed');
+                this._releasePanelTextureOwner('reward-result', 'reward-result-open-failed');
                 throw new Error(message);
             };
 
             this._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!isOpenTargetAlive()) {
+                    cancelStaleOpen();
+                    return;
+                }
                 if (!bundle) {
                     failOpen('[reward-result-prefab] gameAssets bundle unavailable');
                     return;
                 }
                 bundle.load(REWARD_RESULT_POPUP_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                    if (!isOpenTargetAlive()) {
+                        cancelStaleOpen();
+                        return;
+                    }
                     if (err || !prefab) {
                         failOpen(`[reward-result-prefab] load failed: ${err?.message || 'prefab missing'}`);
                         return;
@@ -418,12 +433,12 @@ export function installPlayerMetaStateModule(target: any): void {
                         const closePopup = () => {
                             if (!overlay?.isValid) return;
                             AudioMgr.inst.play('button');
-                            this._destroyPanelAndReleaseTextures(overlay, REWARD_RESULT_RELEASE_TEXTURE_NAMES, 'reward-result');
+                            this._closePanelWithTextureOwner(overlay, 'reward-result', 'reward-result');
                         };
                         const confirmPopup = () => {
                             if (!overlay?.isValid) return;
                             AudioMgr.inst.play('button');
-                            this._destroyPanelAndReleaseTextures(overlay, REWARD_RESULT_RELEASE_TEXTURE_NAMES, 'reward-result-confirm');
+                            this._closePanelWithTextureOwner(overlay, 'reward-result', 'reward-result-confirm');
                             options.onConfirm?.();
                         };
 
@@ -582,23 +597,40 @@ export function installPlayerMetaStateModule(target: any): void {
                 () => {
                     const popupRoot = this.requireCanvasUiRoot('PopupRoot');
                     this._panelOpenInFlight.add(prefabLoadKey);
+                    this._retainPanelTextureOwner('recover-vigor', RECOVER_VIGOR_TEXTURE_NAMES);
+                    const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+                    const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+                    const cancelStaleOpen = () => {
+                        if (!isRuntimeAlive()) return;
+                        this._panelOpenInFlight.delete(prefabLoadKey);
+                        this._noLivesModal = null;
+                        this._releasePanelTextureOwner('recover-vigor', 'recover-vigor-open-stale');
+                    };
                     const failOpen = (message: string, overlay?: Node | null) => {
                         this._panelOpenInFlight.delete(prefabLoadKey);
                         if (overlay?.isValid) {
                             this._clearSpriteFramesBeforeDestroy(overlay);
-                            overlay.destroy();
+                            this._destroyDetachedNodeNextFrame(overlay);
                         }
                         this._noLivesModal = null;
-                        this._releasePanelTexturesNextFrame(RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, 'recover-vigor-open-failed');
+                        this._releasePanelTextureOwner('recover-vigor', 'recover-vigor-open-failed');
                         throw new Error(message);
                     };
 
                     this._withGameAssetsBundle((bundle: Bundle | null) => {
+                        if (!isOpenTargetAlive()) {
+                            cancelStaleOpen();
+                            return;
+                        }
                         if (!bundle) {
                             failOpen('[recover-vigor-prefab] gameAssets bundle unavailable');
                             return;
                         }
                         bundle.load(RECOVER_VIGOR_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                            if (!isOpenTargetAlive()) {
+                                cancelStaleOpen();
+                                return;
+                            }
                             this._panelOpenInFlight.delete(prefabLoadKey);
                             if (err || !prefab) {
                                 failOpen(`[recover-vigor-prefab] load failed: ${err?.message || 'prefab missing'}`);
@@ -648,11 +680,11 @@ export function installPlayerMetaStateModule(target: any): void {
                                     if (closed) return;
                                     closed = true;
                                     if (modal?.isValid) {
-                                        this._clearSpriteFramesBeforeDestroy(modal);
-                                        modal.destroy();
+                                        this._closePanelWithTextureOwner(modal, 'recover-vigor', 'recover-vigor');
+                                    } else {
+                                        this._releasePanelTextureOwner('recover-vigor', 'recover-vigor');
                                     }
                                     this._noLivesModal = null;
-                                    this._releasePanelTexturesNextFrame(RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, 'recover-vigor');
                                     if (shouldNotify && onDone) onDone();
                                 };
 

@@ -1,0 +1,41 @@
+{
+  "name": "grinder",
+  "description": "Repetitive long-run player for memory and counter stability smoke.",
+  "maxSteps": 220,
+  "durationMs": 600000,
+  "seed": 4101,
+  "viewport": {
+    "width": 960,
+    "height": 640
+  },
+  "initialWaitMs": 3000,
+  "screenshotEverySteps": 20,
+  "waitMs": {
+    "min": 220,
+    "max": 900
+  },
+  "dragDistance": {
+    "min": 60,
+    "max": 180
+  },
+  "actionWeights": {
+    "click": 64,
+    "drag": 10,
+    "wait": 20,
+    "escape": 4,
+    "reload": 2
+  },
+  "zones": [
+    { "name": "gameplay-center", "weight": 5, "xMin": 0.18, "xMax": 0.82, "yMin": 0.18, "yMax": 0.78 },
+    { "name": "bottom-actions", "weight": 3, "xMin": 0.12, "xMax": 0.88, "yMin": 0.72, "yMax": 0.96 },
+    { "name": "full", "weight": 1, "xMin": 0.04, "xMax": 0.96, "yMin": 0.06, "yMax": 0.96 }
+  ],
+  "failureThresholds": {
+    "maxConsoleErrors": 0,
+    "maxPageErrors": 0,
+    "maxNetworkFailures": 0,
+    "maxBlackScreens": 0,
+    "maxNoCanvas": 3,
+    "maxNoChangeStreak": 48
+  }
+}

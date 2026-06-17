@@ -2,14 +2,12 @@ import {
     AudioMgr,
     BlockInputEvents,
     Bundle,
-    DAILY_SIGNIN_RELEASE_TEXTURE_NAMES,
     DAILY_SIGNIN_TEXTURE_NAMES,
     ECONOMY_NUMERIC_TABLE,
     EventTouch,
     Label,
     Node,
     Prefab,
-    RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
     RESOURCE_ACQUIRE_TEXTURE_NAMES,
     UITransform,
     Vec3,
@@ -138,6 +136,7 @@ export class CommercePanelController {
         const prefabLoadKey = `${options.panelKey}-prefab`;
         if (runtime._panelOpenInFlight.has(prefabLoadKey)) return false;
         runtime._panelOpenInFlight.add(prefabLoadKey);
+        runtime._retainPanelTextureOwner(options.panelKey, RESOURCE_ACQUIRE_TEXTURE_NAMES);
         let modalFocusActive = false;
 
         const beginAcquireModalFocus = () => {
@@ -152,23 +151,43 @@ export class CommercePanelController {
             runtime.endModalFocus?.('resource-acquire');
         };
 
+        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+        const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+        const cancelStaleOpen = () => {
+            if (!isRuntimeAlive()) return;
+            runtime._panelOpenInFlight.delete(prefabLoadKey);
+            endAcquireModalFocus();
+            if (options.resumeTimerOnClose) {
+                runtime.resumeTimerForProp?.();
+            }
+            runtime._releasePanelTextureOwner(options.panelKey, 'resource-acquire-open-stale');
+        };
+
         const failOpen = (message: string, overlay?: Node | null) => {
             runtime._panelOpenInFlight.delete(prefabLoadKey);
             if (overlay?.isValid) {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
-                overlay.destroy();
+                runtime._destroyDetachedNodeNextFrame(overlay);
             }
             endAcquireModalFocus();
             if (options.resumeTimerOnClose) {
                 runtime.resumeTimerForProp?.();
             }
-            runtime._releasePanelTexturesNextFrame(RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES, 'resource-acquire-open-failed');
+            runtime._releasePanelTextureOwner(options.panelKey, 'resource-acquire-open-failed');
             console.error(message);
         };
 
         runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!isOpenTargetAlive()) {
+                cancelStaleOpen();
+                return;
+            }
             if (!bundle) { failOpen('[resource-acquire-prefab] gameAssets bundle unavailable'); return; }
             bundle.load(ACQUIRE_RESOURCE_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (!isOpenTargetAlive()) {
+                    cancelStaleOpen();
+                    return;
+                }
                 runtime._panelOpenInFlight.delete(prefabLoadKey);
                 if (err || !prefab) { failOpen(`[resource-acquire-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
                 let overlay: Node | null = null;
@@ -178,7 +197,7 @@ export class CommercePanelController {
                     closed = true;
                     if (playSound) AudioMgr.inst.play('button');
                     if (overlay?.isValid) {
-                        runtime._destroyPanelAndReleaseTextures(overlay, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES, 'resource-acquire');
+                        runtime._closePanelWithTextureOwner(overlay, options.panelKey, 'resource-acquire');
                     }
                     endAcquireModalFocus();
                     if (resumeTimer) {
@@ -323,10 +342,17 @@ export class CommercePanelController {
             return;
         }
         if (popupRoot.getChildByName('DailySignInOverlay')) return;
+        runtime._retainPanelTextureOwner('daily-signin', DAILY_SIGNIN_TEXTURE_NAMES);
 
         const prefabPath = 'UI/Prefabs/Panels/DailySignInPanel';
         const status = runtime.getDailySignInStatus();
         const rewards = ECONOMY_NUMERIC_TABLE.dailySignIn.rewards;
+        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+        const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+        const cancelStaleOpen = () => {
+            if (!isRuntimeAlive()) return;
+            runtime._releasePanelTextureOwner('daily-signin', 'daily-signin-open-stale');
+        };
 
         const formatDailyExtraReward = (reward: DailySignInReward): string => {
             const rewardProps = reward as DailySignInReward & { wand?: number; brush?: number; magnet?: number };
@@ -350,15 +376,23 @@ export class CommercePanelController {
         const failOpen = (message: string, overlay?: Node | null) => {
             if (overlay?.isValid) {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
-                overlay.destroy();
+                runtime._destroyDetachedNodeNextFrame(overlay);
             }
-            runtime._releasePanelTexturesNextFrame(DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, 'daily-signin-open-failed');
+            runtime._releasePanelTextureOwner('daily-signin', 'daily-signin-open-failed');
             console.error(message);
         };
 
         runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!isOpenTargetAlive()) {
+                cancelStaleOpen();
+                return;
+            }
             if (!bundle) { failOpen('[daily-signin-prefab] gameAssets bundle unavailable'); return; }
             bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (!isOpenTargetAlive()) {
+                    cancelStaleOpen();
+                    return;
+                }
                 if (err || !prefab) { failOpen(`[daily-signin-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
                 let overlay: Node | null = null;
                 try {
@@ -371,7 +405,7 @@ export class CommercePanelController {
                     const closePanel = () => {
                         if (!overlay?.isValid) return;
                         AudioMgr.inst.play('button');
-                        runtime._destroyPanelAndReleaseTextures(overlay, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, 'daily-signin');
+                        runtime._closePanelWithTextureOwner(overlay, 'daily-signin', 'daily-signin');
                     };
 
                     const box = runtime.requirePanelChild(overlay, 'Box');
@@ -410,7 +444,7 @@ export class CommercePanelController {
                         const rewardSummary = runtime.grantDailySignInReward(reward);
                         runtime.setDailySignInClaimedCount(status.nextClaimIndex + 1);
                         runtime.setDailySignInLastClaimDateKey(runtime.getTodayDateKey());
-                        runtime._destroyPanelAndReleaseTextures(overlay!, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, 'daily-signin-claim');
+                        runtime._closePanelWithTextureOwner(overlay!, 'daily-signin', 'daily-signin-claim');
                         runtime.showMainMenu();
                         runtime.showDailySignInRewardReceipt(reward);
                         runtime.showToast(`签到成功，获得${rewardSummary}`, 2);

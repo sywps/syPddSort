@@ -29,6 +29,7 @@ type CollectionShellOverlayOptions = {
     hidePager?: boolean;
     requireActionNodes?: boolean;
     onClose?: () => void;
+    onError?: () => void;
     onReady: (context: CollectionShellOverlayContext) => void;
 };
 
@@ -62,14 +63,30 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
         return;
     }
 
+    const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+    const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+    const cancelStaleOpen = () => {
+        if (!isRuntimeAlive()) return;
+        options.onError?.();
+    };
     const prefabPath = options.prefabPath ?? 'UI/Prefabs/Panels/CollectionPanel';
     runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+        if (!isOpenTargetAlive()) {
+            cancelStaleOpen();
+            return;
+        }
         if (!bundle) {
+            options.onError?.();
             console.error(`[collection-shell] gameAssets bundle unavailable for ${options.overlayName}`);
             return;
         }
         bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
+            if (!isOpenTargetAlive()) {
+                cancelStaleOpen();
+                return;
+            }
             if (err || !prefab) {
+                options.onError?.();
                 console.error(`[collection-shell] load failed for ${options.overlayName}: ${err?.message || 'prefab missing'}`);
                 return;
             }
@@ -96,7 +113,8 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
                 if (!overlay.isValid) return;
                 AudioMgr.inst.play('uiPanel');
                 options.onClose?.();
-                overlay.destroy();
+                runtime._clearSpriteFramesBeforeDestroy(overlay);
+                runtime._destroyDetachedNodeNextFrame(overlay);
             };
 
             if (options.hidePager !== false) {
@@ -123,16 +141,23 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
 
             runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), close);
 
-            options.onReady({
-                overlay,
-                box,
-                content,
-                pageIndicator,
-                leftArrow,
-                rightArrow,
-                close,
-            });
-            runtime.playPopupOpenAnim?.(overlay, box);
+            try {
+                options.onReady({
+                    overlay,
+                    box,
+                    content,
+                    pageIndicator,
+                    leftArrow,
+                    rightArrow,
+                    close,
+                });
+                runtime.playPopupOpenAnim?.(overlay, box);
+            } catch (error) {
+                options.onError?.();
+                runtime._clearSpriteFramesBeforeDestroy(overlay);
+                runtime._destroyDetachedNodeNextFrame(overlay);
+                throw error;
+            }
         });
     });
 }

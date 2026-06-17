@@ -16,9 +16,14 @@ export class ThemePanelController {
 
     open() {
         const runtime = this.runtime;
+        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+        if (!isRuntimeAlive()) return;
         if (runtime._themeOverlay) return;
         if (!runtime._themeGroupsCache) {
-            runtime.loadThemeConfig(() => this.open());
+            runtime.loadThemeConfig(() => {
+                if (!isRuntimeAlive()) return;
+                this.open();
+            });
             return;
         }
         const themePanelTextureNames = Array.from(new Set([...COLLECTION_TEXTURE_NAMES, ...THEME_PANEL_TEXTURE_NAMES]));
@@ -26,6 +31,7 @@ export class ThemePanelController {
             runtime._openPanelAfterTextures('theme', themePanelTextureNames, () => !!runtime._themeOverlay, () => this.open());
             return;
         }
+        runtime._retainPanelTextureOwner('theme', themePanelTextureNames);
         openCollectionShellOverlay(runtime, {
             overlayName: 'ThemeOverlay',
             prefabPath: 'UI/Prefabs/Panels/ThemePanel',
@@ -33,6 +39,12 @@ export class ThemePanelController {
             siblingIndex: 999,
             requireActionNodes: false,
             onClose: () => {
+                runtime._releasePanelTextureOwner('theme', 'theme');
+                runtime._themeOverlay = null;
+                runtime._themeScrollSuppressClick = false;
+            },
+            onError: () => {
+                runtime._releasePanelTextureOwner('theme', 'theme-open-failed');
                 runtime._themeOverlay = null;
                 runtime._themeScrollSuppressClick = false;
             },

@@ -84,6 +84,7 @@ export function installEndgameHintModule(target: any): void {
         },
 
         ensureEndgameHintPrefab(onDone: () => void): void {
+            const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             if (this._endgameHintPrefab) {
                 onDone();
                 return;
@@ -96,6 +97,7 @@ export function installEndgameHintModule(target: any): void {
             this._endgameHintPrefabLoading = true;
             this._endgameHintPrefabCallbacks = [onDone];
             const finish = (prefab: Prefab | null) => {
+                if (!isRuntimeAlive()) return;
                 this._endgameHintPrefabLoading = false;
                 if (prefab) this._endgameHintPrefab = prefab;
                 const callbacks = this._endgameHintPrefabCallbacks || [];
@@ -125,6 +127,7 @@ export function installEndgameHintModule(target: any): void {
                 return;
             }
             assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                if (!isRuntimeAlive()) return;
                 if (err || !bundle) {
                     this.warnEndgameHintLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     finish(null);
@@ -154,6 +157,7 @@ export function installEndgameHintModule(target: any): void {
         },
 
         ensureEndgameHintStarFrames(onDone: (frames: SpriteFrame[]) => void): void {
+            const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const cached = this.getEndgameHintStarFrames();
             if (cached.length > 0) {
                 onDone(cached);
@@ -164,13 +168,17 @@ export function installEndgameHintModule(target: any): void {
                     onDone([]);
                     return;
                 }
-                this._loadEffectsAtlasFromBundle(bundle, () => onDone(this.getEndgameHintStarFrames()));
+                this._loadEffectsAtlasFromBundle(bundle, () => {
+                    if (!isRuntimeAlive()) return;
+                    onDone(this.getEndgameHintStarFrames());
+                });
             };
             if (this.gameAssetsBundle) {
                 loadFromBundle(this.gameAssetsBundle);
                 return;
             }
             assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                if (!isRuntimeAlive()) return;
                 if (err || !bundle) {
                     this.warnEndgameHintLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     onDone([]);

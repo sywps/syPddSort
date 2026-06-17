@@ -284,9 +284,54 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         showHomeAfterStartupLoading() {
+            if (typeof this.releaseStartupBootstrapPrefetchIfUnused === 'function') {
+                this.releaseStartupBootstrapPrefetchIfUnused('startup-home-route');
+            }
             this.showMainMenu();
             if (this.getRuntimeSceneName('Game') === 'Home') {
                 this.scheduleOnce(() => this.hideLoadingOverlay(), 0);
+            }
+        },
+
+        _startDeferredStartupBackgroundServices(
+            canAutoSaveGameStateOnStartup: boolean,
+            restoreStatus: UserStateRestoreStatus,
+            deferDelaySec: number,
+        ) {
+            if (this._startupBackgroundServicesStarted) return;
+            this._startupBackgroundServicesStarted = true;
+
+            UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup);
+            if (restoreStatus === 'cloud_confirmed_empty') {
+                this.grantStarterPropsForNewUser();
+            }
+            if (canAutoSaveGameStateOnStartup) {
+                this.queueCloudGameStateSync();
+            } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
+                console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
+            }
+
+            const run = () => {
+                if (!this.node?.isValid) return;
+                SySDKMgr.inst.init();
+                void SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
+                AudioMgr.inst.init(this.node);
+                void AnalyticsMgr.inst.bootstrap();
+                this.scheduleOnce(() => {
+                    if (canAutoSaveGameStateOnStartup) {
+                        void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
+                    }
+                    if (this._isWeChat()) {
+                        void UserMgr.inst.loginWeChat();
+                    }
+                    this.setupShareMenu();
+                }, 0.5);
+            };
+
+            if (deferDelaySec > 0) {
+                this.scheduleOnce(run, deferDelaySec);
+            } else {
+                run();
             }
         },
 
@@ -298,7 +343,20 @@ export function installFirstLevelRouteModule(target: any): void {
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
+            const defaultEntryLevel = this.getDefaultEntryLevel();
+            const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
+            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
+            const shouldSpeculativeFirstPlayPrefetch =
+                !urlLevelFile
+                && urlLevel <= 0
+                && !pendingSceneGameplayRequest
+                && defaultEntryLevel <= 1
+                && !hadLocalUserState
+                && this.shouldUseLocalBootstrapBundle(startupLevelId);
             this._firstLevelRouteBucket = 'bucket_a';
+            if (shouldSpeculativeFirstPlayPrefetch) {
+                this.prefetchLocalBootstrapStartupAssets(startupLevelId);
+            }
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
@@ -306,9 +364,6 @@ export function installFirstLevelRouteModule(target: any): void {
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
-            const defaultEntryLevel = this.getDefaultEntryLevel();
-            const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
-            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
             const startupLevelPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : 'level_';
             const shouldEnterHomeOnStartup =
                 !urlLevelFile &&
@@ -368,15 +423,13 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
             };
         
-            // 在启动关卡前初始化 SDK，确保 reportLevelEnter 等上报能正常发送
-            SySDKMgr.inst.init();
-            SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
-        
+            let deferredStartupDelaySec = 0;
             if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
                 const useLocalBootstrapStartup =
                     urlLevel <= 0 &&
                     defaultEntryLevel <= 1 &&
                     this.shouldUseLocalBootstrapBundle(startupLevelId);
+                deferredStartupDelaySec = useLocalBootstrapStartup ? 0.35 : 0;
                 if (useLocalBootstrapStartup) {
                     this.startLocalBootstrapLevelFast(startupLevelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX, startupLevelId);
                 } else {
@@ -428,27 +481,11 @@ export function installFirstLevelRouteModule(target: any): void {
                 restoreStatus === 'local_progress_gt_1' ||
                 restoreStatus === 'cloud_progress_gt_1' ||
                 restoreStatus === 'cloud_confirmed_empty';
-            AudioMgr.inst.init(this.node);
-            UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup);
-            void AnalyticsMgr.inst.bootstrap();
-            if (restoreStatus === 'cloud_confirmed_empty') {
-                this.grantStarterPropsForNewUser();
-            }
-            if (canAutoSaveGameStateOnStartup) {
-                this.queueCloudGameStateSync();
-            } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
-                console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
-            }
-            // 延迟微信相关初始化，避免与 Cocos 场景渲染冲突
-            this.scheduleOnce(() => {
-                if (canAutoSaveGameStateOnStartup) {
-                    void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
-                }
-                if (this._isWeChat()) {
-                    void UserMgr.inst.loginWeChat();
-                }
-                this.setupShareMenu();
-            }, 0.5);
+            this._startDeferredStartupBackgroundServices(
+                canAutoSaveGameStateOnStartup,
+                restoreStatus,
+                deferredStartupDelaySec,
+            );
         },
 
         /** 初始化微信/抖音分享菜单 + 被动分享回调（被动转发：右上角胶囊点"转发"） */
@@ -569,12 +606,15 @@ export function installFirstLevelRouteModule(target: any): void {
                     finish(false);
                     return;
                 }
-                this._loadAtlasTextureFromBundle(bundle, imagePath, label, (imgErr, texture) => {
+                this._loadAtlasTextureFromBundle(bundle, imagePath, label, (imgErr, texture, textureMeta) => {
                     if (imgErr || !texture) {
                         console.error('[图集] bean-atlas 纹理加载失败:', imgErr?.message);
                         finish(false);
                         return;
                     }
+                    this._bootstrapBeanAtlasTexture = texture;
+                    this._bootstrapBeanAtlasImageAsset = textureMeta?.imageAsset ?? null;
+                    this._bootstrapBeanAtlasTextureReleaseMode = textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset';
                     let count = 0;
                     for (const name in frames) {
                         const f = frames[name];
@@ -738,7 +778,11 @@ export function installFirstLevelRouteModule(target: any): void {
             bundle: Bundle,
             imagePath: string,
             label: string,
-            callback: (err: Error | null, texture: Texture2D | null) => void,
+            callback: (
+                err: Error | null,
+                texture: Texture2D | null,
+                meta?: { releaseMode: 'asset' | 'dynamic'; imageAsset?: ImageAsset | null },
+            ) => void,
         ) {
             const spriteFrameCandidates = [`${imagePath}/spriteFrame`, imagePath];
             const trySpriteFrame = (index: number) => {
@@ -749,7 +793,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 bundle.load(spriteFrameCandidates[index], SpriteFrame, (err, spriteFrame) => {
                     const texture = spriteFrame?.texture as Texture2D | null;
                     if (!err && texture) {
-                        callback(null, texture);
+                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
                         return;
                     }
                     trySpriteFrame(index + 1);
@@ -763,7 +807,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
                 bundle.load(textureCandidates[index], Texture2D, (err, texture) => {
                     if (!err && texture) {
-                        callback(null, texture);
+                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
                         return;
                     }
                     tryTexture(index + 1);
@@ -779,7 +823,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     if (!err && imgAsset) {
                         const texture = new Texture2D();
                         texture.image = imgAsset;
-                        callback(null, texture);
+                        callback(null, texture, { releaseMode: 'dynamic', imageAsset: imgAsset });
                         return;
                     }
                     tryImageAsset(index + 1);

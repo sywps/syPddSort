@@ -4,7 +4,6 @@ import {
     Button,
     Node,
     Prefab,
-    SETTINGS_PANEL_RELEASE_TEXTURE_NAMES,
     SETTINGS_PANEL_TEXTURE_NAMES,
     UITransform,
     Vec3,
@@ -59,11 +58,14 @@ export class SettingsPanelController {
         if (runtime._panelOpenInFlight.has(SETTINGS_PREFAB_IN_FLIGHT_KEY)) return;
 
         runtime._panelOpenInFlight.add(SETTINGS_PREFAB_IN_FLIGHT_KEY);
+        runtime._retainPanelTextureOwner('settings', SETTINGS_PANEL_TEXTURE_NAMES);
         runtime.pauseTimerForProp();
 
         let overlay: Node | null = null;
         let settingsClosed = false;
         let modalFocusActive = false;
+        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+        const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
 
         const beginSettingsModalFocus = () => {
             if (modalFocusActive) return;
@@ -77,15 +79,27 @@ export class SettingsPanelController {
             runtime.endModalFocus?.('settings');
         };
 
+        const cancelStaleOpen = () => {
+            if (!isRuntimeAlive()) return;
+            runtime._panelOpenInFlight.delete(SETTINGS_PREFAB_IN_FLIGHT_KEY);
+            if (overlay?.isValid) {
+                runtime._clearSpriteFramesBeforeDestroy(overlay);
+                runtime._destroyDetachedNodeNextFrame(overlay);
+            }
+            endSettingsModalFocus();
+            runtime.resumeTimerForProp();
+            runtime._releasePanelTextureOwner('settings', 'settings-prefab-stale');
+        };
+
         const finishFailure = (message: string) => {
             runtime._panelOpenInFlight.delete(SETTINGS_PREFAB_IN_FLIGHT_KEY);
             if (overlay?.isValid) {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
-                overlay.destroy();
+                runtime._destroyDetachedNodeNextFrame(overlay);
             }
             endSettingsModalFocus();
             runtime.resumeTimerForProp();
-            runtime._releasePanelTexturesNextFrame(SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings-prefab-failed');
+            runtime._releasePanelTextureOwner('settings', 'settings-prefab-failed');
             console.error(message);
         };
 
@@ -114,19 +128,27 @@ export class SettingsPanelController {
             settingsClosed = true;
             if (overlay?.isValid) {
                 AudioMgr.inst.play('button');
-                runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
+                runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings');
             }
             runtime.resumeTimerForProp();
             endSettingsModalFocus();
         };
 
         runtime._withGameAssetsBundle((bundle: any) => {
+            if (!isOpenTargetAlive()) {
+                cancelStaleOpen();
+                return;
+            }
             if (!bundle) {
                 finishFailure('[settings-prefab] gameAssets bundle unavailable');
                 return;
             }
 
             bundle.load(SETTINGS_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (!isOpenTargetAlive()) {
+                    cancelStaleOpen();
+                    return;
+                }
                 if (err || !prefab) {
                     finishFailure(`[settings-prefab] load failed: ${err?.message || 'prefab missing'}`);
                     return;
@@ -161,7 +183,7 @@ export class SettingsPanelController {
                             settingsClosed = true;
                             AudioMgr.inst.play('button');
                             runtime.resumeTimerForProp();
-                            runtime._destroyPanelAndReleaseTextures(overlay, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, 'settings');
+                            runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings-home');
                             endSettingsModalFocus();
                             void AppRoot.inst.requestHomeSceneTransition('settings', 'cover');
                         });
