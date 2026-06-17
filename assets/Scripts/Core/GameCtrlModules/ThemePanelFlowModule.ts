@@ -233,7 +233,7 @@ export function installThemePanelFlowModule(target: any): void {
                 this._collectionScrollInertiaStep = null;
             }
             if (this._collectionOverlay) {
-                this._collectionOverlay.destroy();
+                this._closePanelWithTextureOwner(this._collectionOverlay, 'collection', 'collection');
             }
             this._collectionPage = 0;
             this._collectionOverlay = null;
@@ -245,7 +245,6 @@ export function installThemePanelFlowModule(target: any): void {
             this._collectionScrollDragging = false;
             this._collectionScrollMoved = false;
             this._collectionScrollSuppressClick = false;
-            this._releasePanelTexturesNextFrame(COLLECTION_RELEASE_TEXTURE_NAMES, 'collection');
         },
 
         // ==================== 缩放引导 ====================
@@ -384,7 +383,9 @@ export function installThemePanelFlowModule(target: any): void {
                 return;
             }
             this._themeGroupsLoading = true;
+            const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const onDone = (data: any) => {
+                if (!isRuntimeAlive()) return;
                 this._themeGroupsLoading = false;
                 console.log(`[ThemeConfig] onDone, data=${!!data}, type=${typeof data}`, data ? JSON.stringify(data).slice(0, 200) : 'null');
                 const parsed = this.parseThemeConfig(data);
@@ -394,6 +395,7 @@ export function installThemePanelFlowModule(target: any): void {
             console.log(`[ThemeConfig] gameAssetsBundle=${!!this.gameAssetsBundle}`);
             if (this.gameAssetsBundle) {
                 this.gameAssetsBundle.load('themes', JsonAsset, (err, jsonAsset) => {
+                    if (!isRuntimeAlive()) return;
                     if (err) {
                         console.warn('[ThemeConfig] load themes from gameAssetsBundle FAILED:', err.message);
                         onDone(null);
@@ -405,6 +407,7 @@ export function installThemePanelFlowModule(target: any): void {
             } else {
                 console.log('[ThemeConfig] loading gameAssets bundle first...');
                 assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                    if (!isRuntimeAlive()) return;
                     if (err || !bundle) {
                         console.warn('[ThemeConfig] loadBundle gameAssets FAILED:', err?.message);
                         onDone(null);
@@ -413,6 +416,7 @@ export function installThemePanelFlowModule(target: any): void {
                     console.log('[ThemeConfig] gameAssets bundle loaded OK');
                     this.gameAssetsBundle = bundle;
                     bundle.load('themes', JsonAsset, (err2, jsonAsset) => {
+                        if (!isRuntimeAlive()) return;
                         if (err2) {
                             console.warn('[ThemeConfig] load themes from bundle FAILED:', err2.message);
                             onDone(null);

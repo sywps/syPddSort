@@ -4,7 +4,6 @@ import {
     Bundle,
     EventTouch,
     Label,
-    LEADERBOARD_RELEASE_TEXTURE_NAMES,
     LEADERBOARD_TEXTURE_NAMES,
     LeaderboardMgr,
     Node,
@@ -37,25 +36,41 @@ export class LeaderboardPanelController {
             return;
         }
         if (popupRoot.getChildByName('LeaderboardOverlay')) return;
+        runtime._retainPanelTextureOwner('leaderboard', LEADERBOARD_TEXTURE_NAMES);
 
         LeaderboardMgr.inst.enableCloudInit();
+        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+        const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+        const cancelStaleOpen = () => {
+            if (!isRuntimeAlive()) return;
+            runtime.deactivateWeChatFriendRank('leaderboard-open-stale');
+            runtime._releasePanelTextureOwner('leaderboard', 'leaderboard-open-stale');
+        };
         const prefabPath = 'UI/Prefabs/Panels/LeaderboardPanel';
         const failOpen = (message: string, overlay?: Node | null) => {
             runtime.deactivateWeChatFriendRank('leaderboard-open-failed');
             if (overlay?.isValid) {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
-                overlay.destroy();
+                runtime._destroyDetachedNodeNextFrame(overlay);
             }
-            runtime._releasePanelTexturesNextFrame(LEADERBOARD_RELEASE_TEXTURE_NAMES, 'leaderboard-open-failed');
+            runtime._releasePanelTextureOwner('leaderboard', 'leaderboard-open-failed');
             console.error(message);
         };
 
         runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!isOpenTargetAlive()) {
+                cancelStaleOpen();
+                return;
+            }
             if (!bundle) {
                 failOpen('[leaderboard-prefab] gameAssets bundle unavailable');
                 return;
             }
             bundle.load(prefabPath, Prefab, async (err: Error | null, prefab: Prefab | null) => {
+                if (!isOpenTargetAlive()) {
+                    cancelStaleOpen();
+                    return;
+                }
                 if (err || !prefab) {
                     failOpen(`[leaderboard-prefab] load failed: ${err?.message || 'prefab missing'}`);
                     return;
@@ -72,7 +87,7 @@ export class LeaderboardPanelController {
                         if (!overlay?.isValid) return;
                         AudioMgr.inst.play('uiPanel');
                         runtime.deactivateWeChatFriendRank('overlay-close');
-                        runtime._destroyPanelAndReleaseTextures(overlay, LEADERBOARD_RELEASE_TEXTURE_NAMES, 'leaderboard');
+                        runtime._closePanelWithTextureOwner(overlay, 'leaderboard', 'leaderboard');
                     };
 
                     const box = runtime.requirePanelChild(overlay, 'Box');
@@ -135,8 +150,16 @@ export class LeaderboardPanelController {
                     tabWrap.setSiblingIndex(box.children.length - 1);
                     const initialRequestToken = runtime.beginLeaderboardTabRequest?.('global');
                     await runtime.loadGlobalLeaderboard(box, listNode, selfBox, hintAnchor, initialRequestToken);
+                    if (!isOpenTargetAlive() || !overlay?.isValid) {
+                        cancelStaleOpen();
+                        return;
+                    }
                     runtime.playPopupOpenAnim?.(overlay, box);
                 } catch (error) {
+                    if (!isOpenTargetAlive()) {
+                        cancelStaleOpen();
+                        return;
+                    }
                     failOpen(error instanceof Error ? error.message : '[leaderboard-prefab] build failed', overlay);
                 }
             });

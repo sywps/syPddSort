@@ -1,0 +1,41 @@
+{
+  "name": "smoke",
+  "description": "Short web-preview smoke run for fast local confidence.",
+  "maxSteps": 30,
+  "durationMs": 60000,
+  "seed": 1001,
+  "viewport": {
+    "width": 960,
+    "height": 640
+  },
+  "initialWaitMs": 3000,
+  "screenshotEverySteps": 5,
+  "waitMs": {
+    "min": 120,
+    "max": 650
+  },
+  "dragDistance": {
+    "min": 80,
+    "max": 220
+  },
+  "actionWeights": {
+    "click": 68,
+    "drag": 12,
+    "wait": 14,
+    "escape": 4,
+    "reload": 2
+  },
+  "zones": [
+    { "name": "full", "weight": 6, "xMin": 0.05, "xMax": 0.95, "yMin": 0.08, "yMax": 0.95 },
+    { "name": "center", "weight": 3, "xMin": 0.25, "xMax": 0.75, "yMin": 0.25, "yMax": 0.75 },
+    { "name": "bottom-ui", "weight": 2, "xMin": 0.05, "xMax": 0.95, "yMin": 0.72, "yMax": 0.96 }
+  ],
+  "failureThresholds": {
+    "maxConsoleErrors": 0,
+    "maxPageErrors": 0,
+    "maxNetworkFailures": 0,
+    "maxBlackScreens": 0,
+    "maxNoCanvas": 3,
+    "maxNoChangeStreak": 20
+  }
+}

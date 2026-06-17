@@ -18,7 +18,10 @@
     "analytics:level-record:daily": "node scripts/user-behavior-daily-job.js --collection level_record",
     "analytics:ad-stat:daily": "node scripts/user-behavior-daily-job.js --collection ad_stat",
     "analytics:daily-stat:daily": "node scripts/user-behavior-daily-job.js --collection daily_stat",
-    "analytics:daily:all": "node scripts/user-behavior-daily-job.js --collections user_behavior,level_record,ad_stat,daily_stat"
+    "analytics:daily:all": "node scripts/user-behavior-daily-job.js --collections user_behavior,level_record,ad_stat,daily_stat",
+    "ai:web:dry": "node scripts/ai-runner.js --target web --all-personas --dry-run",
+    "ai:web:smoke": "node scripts/ai-runner.js --target web --persona smoke",
+    "ai:web:personas": "node scripts/ai-runner.js --target web --all-personas"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
