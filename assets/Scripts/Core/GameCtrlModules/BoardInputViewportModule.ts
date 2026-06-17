@@ -122,20 +122,6 @@ export function installBoardInputViewportModule(target: any): void {
             if (topBarBottom !== null) {
                 top = Math.min(top, topBarBottom - gap);
             }
-            const levelId = Math.max(1, Math.floor(Number(this.levelData?.levelId) || 1));
-            if (this.levelData && !this._isThemeLevel && levelId <= 2) {
-                const guidePromptBounds = typeof this.getSceneGuidePromptBounds === 'function'
-                    ? this.getSceneGuidePromptBounds()
-                    : null;
-                const tutorialBubbleCenterY = Number.isFinite(guidePromptBounds?.centerY)
-                    ? guidePromptBounds!.centerY
-                    : (typeof this.getGuidePromptCenterY === 'function'
-                        ? this.getGuidePromptCenterY(450, 52)
-                        : 450);
-                const tutorialBubbleHeight = Number.isFinite(guidePromptBounds?.height) ? guidePromptBounds!.height : 52;
-                const tutorialBubbleGap = 12;
-                top = Math.min(top, tutorialBubbleCenterY - tutorialBubbleHeight / 2 - tutorialBubbleGap);
-            }
             let bottom = -visibleH / 2 + 180;
             if (this.shouldShowSlotArea() && this.slotAreaNode?.isValid) {
                 const slotUT = this.slotAreaNode.getComponent(UITransform);
@@ -256,12 +242,14 @@ export function installBoardInputViewportModule(target: any): void {
                 return;
             }
             PerformanceMgr.inst.markUserActivity();
+            const firstTouchUiPos = event.getUILocation();
+            const firstTouchWorldPos = new Vec3(firstTouchUiPos.x, firstTouchUiPos.y, 0);
+            this.markFirstLevelTouchTiming?.();
+            this.reportFirstLevelAnyTouch?.(firstTouchWorldPos, 'board_input', this._guideStep >= 0 ? 'tutorial' : 'free_play');
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
-                const uiPos = event.getUILocation();
-                const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                 this._firstFunnelTouchSent = true;
                 this.trackFirstLevelFunnel('first_touch', {
-                    touchTarget: this.classifyFirstLevelTouchTarget(worldPos),
+                    touchTarget: this.classifyFirstLevelTouchTarget(firstTouchWorldPos),
                     source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
                 });
             }
@@ -521,7 +509,7 @@ export function installBoardInputViewportModule(target: any): void {
                     extra: { colorId: block.colorId, cellCount: block.cells.length },
                 });
             }
-            AudioMgr.inst.play('select'); AudioMgr.inst.vibrate(20);
+            AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
         
             // 选中效果：豆豆保持在棋盘原位，显示高亮选中环
             this.showSelectionHighlight(block);
@@ -577,7 +565,7 @@ export function installBoardInputViewportModule(target: any): void {
                             extra: { colorId, cellCount: allCells.length },
                         });
                     }
-                    AudioMgr.inst.play('select'); AudioMgr.inst.vibrate(20);
+                    AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
         
                     // 选中效果：豆豆保持在暂存槽原位，显示高亮选中环
                     this.showSlotSelectionHighlight(slotIndices);

@@ -45,7 +45,7 @@ export function isMainlineEarlyExpandedSlotLevel(levelId: unknown, entryMode: Sl
 
 export function shouldShowGameplaySkillArea(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): boolean {
     if (!isMainlineSlotEntry(entryMode)) return true;
-    return normalizeLevelId(levelId) >= 2;
+    return normalizeLevelId(levelId) >= 3;
 }
 
 export function getSlotUnlockMode(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): SlotUnlockMode {

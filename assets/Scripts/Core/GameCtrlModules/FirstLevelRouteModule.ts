@@ -43,13 +43,14 @@ export function installFirstLevelRouteModule(target: any): void {
                     abBucket: this._firstLevelRouteBucket,
                 }
                 : {};
-            const activeLevelId = this.getActivePhysicalLevelId();
+            const activePhysicalLevelId = this.getActivePhysicalLevelId();
+            const activeLogicalLevelId = this.getActiveLogicalLevelId?.() || activePhysicalLevelId;
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
                 page: this.getAnalyticsPage(),
-                levelId: activeLevelId,
-                logicalLevelId: activeLevelId,
-                physicalLevelId: activeLevelId,
+                levelId: activeLogicalLevelId,
+                logicalLevelId: activeLogicalLevelId,
+                physicalLevelId: activePhysicalLevelId,
                 ...experimentPayload,
                 ...opt,
             });
@@ -62,7 +63,7 @@ export function installFirstLevelRouteModule(target: any): void {
             force: boolean = false,
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
-            if (!force && normalizedLevelId !== 1) return;
+            if (!force && normalizedLevelId !== 1 && normalizedLevelId !== 2) return;
             const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
                 ? {
                     abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
@@ -78,6 +79,155 @@ export function installFirstLevelRouteModule(target: any): void {
                 ...experimentPayload,
                 ...opt,
             });
+        },
+
+        getFirstLevelGuideStepKey(step: number = this._guideStep, phase: string = this._guidePhase): string {
+            return `${this._guideMode || 'none'}:${Math.max(-1, Math.floor(Number(step) || 0))}:${phase || ''}`;
+        },
+
+        markFirstLevelTouchTiming(now: number = Date.now()): void {
+            const lastTouchAt = Number(this._firstLevelLastTouchAt) || 0;
+            this._firstLevelLastTouchIntervalMs = lastTouchAt > 0 ? Math.max(0, now - lastTouchAt) : 0;
+            this._firstLevelLastTouchAt = now;
+        },
+
+        buildFirstLevelGuideExtra(inputLayer: string, hitResult: string = '', extra: Record<string, unknown> = {}): Record<string, unknown> {
+            const now = Date.now();
+            const stepKey = this.getFirstLevelGuideStepKey();
+            const stepShowAt = Number(this._firstLevelGuideStepShowAt?.[stepKey]) || 0;
+            const stepReadyAt = Number(this._firstLevelGuideStepReadyAt?.[stepKey]) || 0;
+            return {
+                guideMode: this._guideMode || 'none',
+                guideStep: Math.max(-1, Math.floor(Number(this._guideStep) || 0)),
+                guidePhase: this._guidePhase || '',
+                inputLayer,
+                hitResult,
+                msFromStepShow: stepShowAt > 0 ? Math.max(0, now - stepShowAt) : 0,
+                msFromStepReady: stepReadyAt > 0 ? Math.max(0, now - stepReadyAt) : 0,
+                msSincePrevTouch: Math.max(0, Number(this._firstLevelLastTouchIntervalMs) || 0),
+                ...extra,
+            };
+        },
+
+        reportFirstLevelAnyTouch(worldPos: Vec3, inputLayer: string, source: string = 'tutorial'): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            if (this._firstLevelAnyTouchSent) return;
+            this._firstLevelAnyTouchSent = true;
+            const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
+            this.trackFirstLevelFunnel('first_level_any_touch', {
+                touchTarget,
+                source,
+                success: true,
+                extra: this.buildFirstLevelGuideExtra(inputLayer, 'touch_start'),
+            });
+        },
+
+        markTutorialStepShownForFunnel(step: number): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
+            this._firstLevelGuideStepShowAt = this._firstLevelGuideStepShowAt || {};
+            this._firstLevelGuideStepShowAt[key] = Date.now();
+        },
+
+        markTutorialStepInteractiveReadyForFunnel(step: number): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            if (this._guideStep !== step || this._guideInputSuspended) return;
+            const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
+            this._firstLevelGuideStepReadyAt = this._firstLevelGuideStepReadyAt || {};
+            this._firstLevelGuideStepReadyAt[key] = Date.now();
+            this.trackFirstLevelFunnel('tutorial_step_interactive_ready', {
+                stepId: step,
+                stepName: key,
+                source: 'tutorial',
+                success: true,
+                extra: this.buildFirstLevelGuideExtra('guide_layer', 'ready'),
+            });
+        },
+
+        reportTutorialLayerTouchStart(worldPos: Vec3): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const key = this.getFirstLevelGuideStepKey();
+            this._firstLevelGuideLayerTouchCounts = this._firstLevelGuideLayerTouchCounts || {};
+            const count = Math.max(0, Number(this._firstLevelGuideLayerTouchCounts[key]) || 0);
+            if (count < 3) {
+                this._firstLevelGuideLayerTouchCounts[key] = count + 1;
+                this.trackFirstLevelFunnel('tutorial_layer_touch_start', {
+                    stepId: this._guideStep,
+                    stepName: key,
+                    touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
+                    source: 'tutorial',
+                    success: true,
+                    extra: this.buildFirstLevelGuideExtra('guide_layer', 'touch_start', {
+                        touchIndexInStep: count + 1,
+                    }),
+                });
+            }
+            this.reportTutorialStepFirstTouch(worldPos, 'guide_layer');
+        },
+
+        reportTutorialStepFirstTouch(worldPos: Vec3, inputLayer: string): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const key = this.getFirstLevelGuideStepKey();
+            this._firstLevelGuideStepFirstTouchSent = this._firstLevelGuideStepFirstTouchSent || {};
+            if (this._firstLevelGuideStepFirstTouchSent[key]) return;
+            this._firstLevelGuideStepFirstTouchSent[key] = true;
+            this.trackFirstLevelFunnel('tutorial_step_first_touch', {
+                stepId: this._guideStep,
+                stepName: key,
+                touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
+                source: 'tutorial',
+                success: true,
+                extra: this.buildFirstLevelGuideExtra(inputLayer, 'first_step_touch'),
+            });
+        },
+
+        getTutorialMissHitResult(worldPos?: Vec3): string {
+            if (!worldPos) return 'miss_unknown';
+            const target = this.classifyFirstLevelTouchTarget(worldPos);
+            if (target === 'empty') return 'miss_empty';
+            if (target === 'board') return 'miss_wrong_block';
+            if (target === 'slot') return 'miss_wrong_slot';
+            return 'miss_wrong_target';
+        },
+
+        getTutorialSelectHitResult(worldPos: Vec3, step: number): string {
+            if (this._guideMode === 'level_1' && !this.shouldGuideSelectFromSlot?.(step)) {
+                return this.classifyFirstLevelTouchTarget(worldPos) === 'board' ? 'hit_target' : 'hit_tolerant_area';
+            }
+            return 'hit_target';
+        },
+
+        reportTutorialTapResult(
+            worldPos: Vec3 | undefined,
+            hitResult: string,
+            success: boolean = false,
+            inputLayer: string = 'guide_layer',
+            extra: Record<string, unknown> = {},
+        ): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
+            const payloadExtra = this.buildFirstLevelGuideExtra(inputLayer, hitResult, extra);
+            this.trackFirstLevelFunnel('tutorial_tap_result', {
+                stepId: this._guideStep,
+                stepName: this.getFirstLevelGuideStepKey(),
+                touchTarget,
+                source: 'tutorial',
+                success,
+                errorCode: success ? '' : hitResult,
+                extra: payloadExtra,
+            });
+            const msSincePrevTouch = Number(payloadExtra.msSincePrevTouch) || 0;
+            if (!success && hitResult.indexOf('ignored_') === 0 && msSincePrevTouch > 0 && msSincePrevTouch <= 500) {
+                this.trackFirstLevelFunnel('tutorial_fast_tap_ignored', {
+                    stepId: this._guideStep,
+                    stepName: this.getFirstLevelGuideStepKey(),
+                    touchTarget,
+                    source: 'tutorial',
+                    success: false,
+                    errorCode: hitResult,
+                    extra: payloadExtra,
+                });
+            }
         },
 
         getLevelDataPath(levelId: number, prefix: string = 'level_'): string {

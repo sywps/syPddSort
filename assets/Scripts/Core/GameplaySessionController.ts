@@ -42,9 +42,16 @@ export class GameplaySessionController {
             runtime._activeLogicalLevelId = resolvedLevelId;
             runtime._activeGameplayEntryMode = gameplayEntryMode;
             runtime._firstFunnelTouchSent = false;
+            runtime._firstLevelAnyTouchSent = false;
             runtime._firstFunnelSelectSent = false;
             runtime._firstFunnelPlaceAttemptSent = false;
             runtime._firstFunnelPlaceSuccessSent = false;
+            runtime._firstLevelLastTouchAt = 0;
+            runtime._firstLevelLastTouchIntervalMs = 0;
+            runtime._firstLevelGuideStepShowAt = {};
+            runtime._firstLevelGuideStepReadyAt = {};
+            runtime._firstLevelGuideStepFirstTouchSent = {};
+            runtime._firstLevelGuideLayerTouchCounts = {};
             runtime.boardModel = new BoardModel(data);
             const maxSlotRows = runtime.getMaxSlotRows();
             const slotPolicy = resolveSlotRowPolicy({
@@ -64,13 +71,14 @@ export class GameplaySessionController {
                 entryMode: gameplayEntryMode,
                 configuredTimeLimit: data.timeLimit,
             });
-            const dynamicTimeLimit = typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
+            const resolvedDynamicTimeLimit = typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
                 ? runtime.resolveDynamicCountdownTimeLimit({
                     levelId: resolvedLevelId,
                     entryMode: gameplayEntryMode,
                     baseTimeLimit: resolvedTimeLimit,
                 })
                 : resolvedTimeLimit;
+            const dynamicTimeLimit = gameplayEntryMode === 'main' && resolvedLevelId === 1 ? 0 : resolvedDynamicTimeLimit;
             runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
             runtime.timeRemain = dynamicTimeLimit;
             runtime.isGameEnd = false;

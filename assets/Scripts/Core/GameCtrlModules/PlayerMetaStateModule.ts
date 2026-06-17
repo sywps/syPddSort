@@ -991,7 +991,8 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         isFirstLevelFunnelActive(): boolean {
-            return !this._isThemeLevel && this.getActiveLogicalLevelId() === 1;
+            const logicalLevelId = this.getActiveLogicalLevelId();
+            return !this._isThemeLevel && (logicalLevelId === 1 || logicalLevelId === 2);
         },
     });
 }

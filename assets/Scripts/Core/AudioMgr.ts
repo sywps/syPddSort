@@ -20,6 +20,7 @@ import {
 } from './AudioManifest';
 import { GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from './PackageNames';
 const { ccclass } = _decorator;
+declare const wx: any;
 
 export type { SfxName } from './AudioManifest';
 
@@ -424,7 +425,7 @@ export class AudioMgr {
     }
 
     /** 触发短震动（默认 30ms），用于点击/放置等触觉反馈 */
-    vibrate(ms: number = 30) {
+    legacyVibrate(ms: number = 30) {
         if (this.suspended || !this.vibrateEnabled) return;
         try {
             // 微信小游戏
@@ -443,6 +444,41 @@ export class AudioMgr {
                 navigator.vibrate(ms);
             }
         } catch (_) { /* ignore */ }
+    }
+
+    private triggerVibratePattern(kind: 'select' | 'place') {
+        if (this.suspended || !this.vibrateEnabled) return;
+        try {
+            if (typeof wx !== 'undefined' && typeof wx.vibrateShort === 'function') {
+                const option: any = kind === 'select' ? { type: 'medium' } : { type: 'light' };
+                try {
+                    wx.vibrateShort(option);
+                } catch (_) {
+                    wx.vibrateShort({});
+                }
+                return;
+            }
+            const w: any = typeof window !== 'undefined' ? window : null;
+            if (w && w.tt && typeof w.tt.vibrateShort === 'function') {
+                w.tt.vibrateShort({});
+                return;
+            }
+            if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+                navigator.vibrate(kind === 'select' ? 24 : 12);
+            }
+        } catch (_) { /* ignore */ }
+    }
+
+    vibrateSelect() {
+        this.triggerVibratePattern('select');
+    }
+
+    vibratePlace() {
+        this.triggerVibratePattern('place');
+    }
+
+    vibrate(ms: number = 30) {
+        this.triggerVibratePattern(ms <= 20 ? 'select' : 'place');
     }
 
     isSfxEnabled() { return this.sfxEnabled; }
