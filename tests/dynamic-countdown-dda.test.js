@@ -69,9 +69,24 @@ assert.ok(settlement.includes('this.recordDynamicCountdownWin?.();'), 'gameWin m
 assert.ok(settlement.includes('this.recordDynamicCountdownFinalFailure?.();'), 'showLosePanel must record final fail');
 assert.ok(settlement.includes('this.revokeDynamicCountdownFinalFailure?.();'), 'revive continuation must undo a recorded final fail');
 assert.ok(settlement.includes('this.markDynamicCountdownAssisted?.();'), 'revive continuation must mark assisted run');
+assert.ok(settlement.includes('completePercent: Math.min(98'), 'fail/revive settlement progress must cap displayed completion below 100%');
+assert.ok(settlement.includes('this.boardModel?.isAllLocked?.()'), 'gameLose must prefer win when the board is already complete');
 
 const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful skill use must mark assisted run');
+assert.ok(skillUi.includes('const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;'), 'skill buttons must only pause the timer in the final-second prop window');
+assert.ok(skillUi.includes('handler(timerPausedForFinalSecond);'), 'skill handlers must receive the final-second pause state');
+
+const timerModule = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
+assert.ok(timerModule.includes('shouldPauseTimerForFinalSecondProp'), 'timer module must expose a final-second prop pause guard');
+assert.ok(timerModule.includes('remaining > 0 && remaining <= 1'), 'final-second prop pause guard must be limited to the last-second window');
+assert.ok(timerModule.includes('if (this.boardModel?.isAllLocked?.())'), 'timer tick must check completion before timing out');
+
+const skillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
+assert.ok(skillWand.includes('this.pauseTimerForFinalSecondProp();'), 'wand/brush skill entries must not pause except in final-second prop window');
+
+const skillMagnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillMagnetModule.ts');
+assert.ok(skillMagnet.includes('this.pauseTimerForFinalSecondProp();'), 'magnet skill entry must not pause except in final-second prop window');
 
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful slot-row unlock must mark assisted run');

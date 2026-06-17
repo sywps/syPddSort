@@ -12,7 +12,11 @@
     "totalTime": 500,
     "displayRatio": 1,
     "background": {
-      "image": "project://settings/fm.jpeg"
+      "image": "project://settings/ChatGPT Image 2026年6月16日 10_50_11.png",
+      "type": "default"
+    },
+    "logo": {
+      "type": "default"
     }
   }
 }

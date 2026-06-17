@@ -3,7 +3,7 @@
  */
 
 import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, LabelOutline, ProgressBar,
     EventTouch, EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
     Button, Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, NodePool,
@@ -218,6 +218,7 @@ type ForcedSkillStep = {
     sourceSlotIdx?: number;
     target: { row: number; col: number };
     targetLock?: boolean;
+    pairedFlight?: boolean;
     displacedBoard?: { colorId: number; target: { row: number; col: number }; lock: boolean };
     displacedSlot?: { colorId: number; slotIdx: number };
     lockTargets: { row: number; col: number }[];
@@ -228,6 +229,7 @@ type ForcedSkillStep = {
 type ForcedSkillPlan = {
     immediateLockTargets: { row: number; col: number }[];
     steps: ForcedSkillStep[];
+    maxStartDelay?: number;
 };
 
 type TutorialMode = 'none' | 'level_1' | 'level_2';
@@ -507,7 +509,7 @@ class BoardViewportController {
 }
 
 export {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, LabelOutline, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,

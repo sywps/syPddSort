@@ -7,9 +7,11 @@ import {
     BOARD_SLOT_PLACE_HIT_CELL_RATIO,
     BOARD_SLOT_PLACE_HIT_MIN_UI,
     Button,
+    Color,
     DEFAULT_CELL_SIZE,
     Graphics,
     Label,
+    LabelOutline,
     Layers,
     MAINLINE_SLOT_GROOVE_TEXTURE,
     Node,
@@ -436,6 +438,12 @@ export class GameplayViewController {
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
         this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
+        if (Number(runtime.levelData?.levelId) === 1) {
+            timerWrap.active = false;
+            runtime.timerLabel = null;
+            return;
+        }
+        timerWrap.active = true;
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
@@ -459,6 +467,12 @@ export class GameplayViewController {
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
         this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
+        if (Number(runtime.levelData?.levelId) === 1) {
+            timerWrap.active = false;
+            runtime.timerLabel = null;
+            return;
+        }
+        timerWrap.active = true;
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
@@ -474,6 +488,69 @@ export class GameplayViewController {
         const label = labelNode.getComponent(Label);
         if (!label) throw new Error('[GameplayScene] Game.scene is missing Label component on TopBarGroup/LevelTitle/Label');
         runtime.levelLabel = label;
+        const nodeTransform = node.getComponent(UITransform);
+        const labelTransform = labelNode.getComponent(UITransform);
+        if (!runtime._levelTitleDefaultStyle) {
+            const outline = labelNode.getComponent(LabelOutline);
+            runtime._levelTitleDefaultStyle = {
+                nodeY: node.position.y,
+                nodeScaleX: node.scale.x,
+                nodeScaleY: node.scale.y,
+                nodeWidth: nodeTransform?.contentSize.width || 0,
+                nodeHeight: nodeTransform?.contentSize.height || 0,
+                labelScaleX: labelNode.scale.x,
+                labelScaleY: labelNode.scale.y,
+                labelWidth: labelTransform?.contentSize.width || 0,
+                labelHeight: labelTransform?.contentSize.height || 0,
+                fontSize: label.fontSize,
+                lineHeight: label.lineHeight,
+                overflow: label.overflow,
+                enableWrapText: label.enableWrapText,
+                color: new Color(label.color.r, label.color.g, label.color.b, label.color.a),
+                outlineEnabled: !!outline?.enabled,
+                outlineWidth: Number(outline?.width) || 0,
+                outlineColor: outline ? new Color(outline.color.r, outline.color.g, outline.color.b, outline.color.a) : new Color(0, 0, 0, 255),
+            };
+        }
+        if (runtime.getActiveLogicalLevelId?.() === 1) {
+            const settings = parent.getChildByName('Settings');
+            if (settings) node.setPosition(node.position.x, settings.position.y, node.position.z);
+            node.setScale(1, 1, node.scale.z);
+            labelNode.setScale(1, 1, labelNode.scale.z);
+            nodeTransform?.setContentSize(320, 86);
+            labelTransform?.setContentSize(320, 86);
+            label.fontSize = 58;
+            label.lineHeight = 66;
+            label.color = new Color(255, 255, 255, 255);
+            label.enableWrapText = false;
+            label.overflow = Label.Overflow.NONE;
+            const outline = labelNode.getComponent(LabelOutline) || labelNode.addComponent(LabelOutline);
+            outline.enabled = true;
+            outline.color = new Color(0, 0, 0, 255);
+            outline.width = 5;
+        } else {
+            const style = runtime._levelTitleDefaultStyle;
+            node.setPosition(node.position.x, Number(style.nodeY) || node.position.y, node.position.z);
+            node.setScale(Number(style.nodeScaleX) || node.scale.x, Number(style.nodeScaleY) || node.scale.y, node.scale.z);
+            labelNode.setScale(Number(style.labelScaleX) || labelNode.scale.x, Number(style.labelScaleY) || labelNode.scale.y, labelNode.scale.z);
+            if (nodeTransform && Number(style.nodeWidth) > 0 && Number(style.nodeHeight) > 0) {
+                nodeTransform.setContentSize(Number(style.nodeWidth), Number(style.nodeHeight));
+            }
+            if (labelTransform && Number(style.labelWidth) > 0 && Number(style.labelHeight) > 0) {
+                labelTransform.setContentSize(Number(style.labelWidth), Number(style.labelHeight));
+            }
+            label.fontSize = Number(style.fontSize) || label.fontSize;
+            label.lineHeight = Number(style.lineHeight) || label.lineHeight;
+            if (typeof style.overflow === 'number') label.overflow = style.overflow;
+            if (typeof style.enableWrapText === 'boolean') label.enableWrapText = style.enableWrapText;
+            label.color = style.color;
+            const outline = labelNode.getComponent(LabelOutline);
+            if (outline) {
+                outline.enabled = !!style.outlineEnabled;
+                outline.width = Number(style.outlineWidth) || 0;
+                outline.color = style.outlineColor;
+            }
+        }
         runtime.refreshCompletionProgressLabel();
     }
 
@@ -766,14 +843,18 @@ export class GameplayViewController {
             Math.min(dynamicMaxScaleCap, playableCellUiSize / Math.max(1, runtime.cellSize)),
         );
         runtime.boardViewport.setScaleBounds(minScale, maxScale);
-        const initScale = Math.max(
+        const levelId = Number(runtime.levelData?.levelId) || 0;
+        const baseInitScale = Math.max(
             minScale,
             Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
         );
+        const level2InitialScaleMultiplier = levelId === 2 ? 0.82 : 1;
+        const initScale = Math.max(minScale, Math.min(maxScale, baseInitScale * level2InitialScaleMultiplier));
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - bw / 2) * step;
         const targetCenterY = (bh / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
         const viewportCenterX = (safeRect.left + safeRect.right) / 2;
-        const viewportCenterY = (safeRect.bottom + safeRect.top) / 2;
+        const starterBoardLift = levelId === 1 || levelId === 2 ? 64 : 0;
+        const viewportCenterY = (safeRect.bottom + safeRect.top) / 2 + starterBoardLift;
         runtime.boardViewport.setViewTransformClamped(
             initScale,
             new Vec2(

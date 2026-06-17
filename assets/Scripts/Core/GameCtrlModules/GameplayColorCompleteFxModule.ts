@@ -345,9 +345,8 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             });
         },
 
-        playColorCompleteEffect(colorId: number) {
-            AudioMgr.inst.play('winColor');
-            AudioMgr.inst.vibrate(40);
+        playColorCompleteEffect(colorId: number, playSound: boolean = true) {
+            if (playSound) AudioMgr.inst.play('winColor');
             this.playColorCompleteMatchFxForColor(colorId);
         },
     });
