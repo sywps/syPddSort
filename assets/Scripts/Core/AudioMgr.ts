@@ -4,7 +4,8 @@
  * 资源规约：所有音频放在 GameAssetsBundle/Audio/ 下，文件名与 SfxName 对齐。
  */
 
-import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, Bundle } from 'cc';
+import { _decorator, AudioClip, AudioSource, Node, sys, assetManager } from 'cc';
+import type { AssetManager } from 'cc';
 import {
     AUDIO_BGM_RESOURCE_PATH,
     AUDIO_BGM_VOLUME,
@@ -23,6 +24,8 @@ const { ccclass } = _decorator;
 declare const wx: any;
 
 export type { SfxName } from './AudioManifest';
+
+type Bundle = AssetManager.Bundle;
 
 const LS_SFX = 'pdd.setting.sfx';
 const LS_BGM = 'pdd.setting.bgm';

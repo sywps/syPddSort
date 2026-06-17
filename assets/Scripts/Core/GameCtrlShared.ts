@@ -4,12 +4,13 @@
 
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, LabelOutline, ProgressBar,
-    EventTouch, EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
+    EventTouch, EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager,
     Button, Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, NodePool,
     Prefab, instantiate,
     Game, game,
 } from 'cc';
+import type { AssetManager } from 'cc';
 import { AdConfig } from '../Platform/AdConfig';
 import { COLOR_HEX } from './LevelConfig';
 import type { LevelData, BeanBlockInfo } from './LevelConfig';
@@ -75,6 +76,8 @@ import {
 import SySDKMgr from './SySDKMgr';
 
 const { ccclass, property } = _decorator;
+
+type Bundle = AssetManager.Bundle;
 
 const DEFAULT_CELL_SIZE = 62;
 const DEFAULT_CELL_GAP = 0;
@@ -510,7 +513,7 @@ class BoardViewportController {
 
 export {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, LabelOutline, ProgressBar, EventTouch,
-    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
+    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
@@ -537,7 +540,7 @@ export {
 };
 
 export type {
-    LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
+    Bundle, LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteBucket, FirstLevelRouteVariant, FirstLevelRouteResolution,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
