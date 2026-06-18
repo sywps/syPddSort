@@ -8,8 +8,6 @@ const db = cloud.database();
 const _ = db.command;
 const COLLECTION_NAME = 'leaderboard';
 const USER_PROFILE_COLLECTION = 'user_profile';
-const PAGE_SIZE = 100;
-const MAX_SCAN_SIZE = 5000;
 
 function normalizeProgress(value) {
   return Math.max(1, Math.floor(Number(value) || 1));
@@ -117,31 +115,22 @@ async function submitProgress(event, wxContext) {
   };
 }
 
-async function fetchAllEntriesSorted() {
+async function fetchTopEntriesSorted(limit) {
   const collection = db.collection(COLLECTION_NAME);
-  const all = [];
-
-  for (let skip = 0; skip < MAX_SCAN_SIZE; skip += PAGE_SIZE) {
-    let res;
-    try {
-      res = await collection
-        .orderBy('progressLevel', 'desc')
-        .orderBy('updatedAt', 'asc')
-        .orderBy('createdAt', 'asc')
-        .skip(skip)
-        .limit(PAGE_SIZE)
-        .get();
-    } catch (error) {
-      if (isCollectionMissing(error)) return [];
-      throw error;
+  try {
+    const res = await collection
+      .orderBy('progressLevel', 'desc')
+      .orderBy('updatedAt', 'asc')
+      .orderBy('createdAt', 'asc')
+      .limit(clampLimit(limit))
+      .get();
+    return Array.isArray(res.data) ? res.data : [];
+  } catch (error) {
+    if (isCollectionMissing(error)) {
+      return [];
     }
-
-    const list = Array.isArray(res.data) ? res.data : [];
-    all.push(...list);
-    if (list.length < PAGE_SIZE) break;
+    throw error;
   }
-
-  return all;
 }
 
 async function fetchUserProfilesByOpenids(openids) {
@@ -176,23 +165,23 @@ async function fetchUserProfilesByOpenids(openids) {
 async function getLeaderboard(event, wxContext) {
   const limit = clampLimit(event.limit);
   const openid = wxContext.OPENID;
-  const allEntries = await fetchAllEntriesSorted();
-  const selfIndex = allEntries.findIndex((entry) => entry.openid === openid);
-  const selfEntry = selfIndex >= 0 ? allEntries[selfIndex] : null;
+  const topEntriesRaw = await fetchTopEntriesSorted(limit);
+  const selfIndex = topEntriesRaw.findIndex((entry) => entry.openid === openid);
+  const selfEntry = selfIndex >= 0 ? topEntriesRaw[selfIndex] : await findEntryByOpenId(openid);
   const profileMap = await fetchUserProfilesByOpenids([
-    ...allEntries.slice(0, limit).map((entry) => entry.openid),
+    ...topEntriesRaw.map((entry) => entry.openid),
     selfEntry?.openid || '',
   ]);
-  const topEntries = allEntries
-    .slice(0, limit)
+  const topEntries = topEntriesRaw
     .map((entry, index) => formatEntry(entry, index + 1, profileMap.get(entry.openid)));
 
   return {
     ok: true,
     source: 'wechat-cloud',
     entries: topEntries,
-    self: selfEntry ? formatEntry(selfEntry, selfIndex + 1, profileMap.get(selfEntry.openid)) : null,
-    total: allEntries.length,
+    self: selfEntry ? formatEntry(selfEntry, selfIndex >= 0 ? selfIndex + 1 : 0, profileMap.get(selfEntry.openid)) : null,
+    total: topEntries.length,
+    totalKnown: false,
   };
 }
 

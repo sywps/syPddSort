@@ -541,6 +541,7 @@ export function installHomeAdFlowModule(target: any): void {
             }
             this.scheduleHomeGameplayEntryWarmup?.(this.getSavedLevel(), 'level_');
             this.scheduleRewardedAdPreload('home:visible', 1.2);
+            this.scheduleHomeSharedUiTextureWarmup?.();
             this.logRuntimeTrace(
                 '[SceneSplitTrace] showMainMenu:finish',
                 JSON.stringify({

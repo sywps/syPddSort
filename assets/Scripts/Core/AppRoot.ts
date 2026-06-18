@@ -134,6 +134,7 @@ export class AppRoot extends Component {
         this.router.attachCurrentScene(sceneName);
         this.session.markVisualState('home');
         this.session.clearGameplayContext();
+        this.session.clearStartupCloudHomeRouteRequest();
     }
 
     shouldDisableSceneTransitionForRoute(targetSceneName: AppSceneName): boolean {

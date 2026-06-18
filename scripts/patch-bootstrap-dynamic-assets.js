@@ -11,7 +11,6 @@ const bootstrapBundleName = 'bootstrap';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'GameUI/bg_game_pindd',
-	'GameUI/loading_cover_firstplay',
 	'GameUI/slot_groove_b_ui',
 	'GameUI/slot_panel_shell_b_ui',
 	'GameUI/slot_row_lock_dash_ui',

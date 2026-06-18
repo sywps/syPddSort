@@ -482,8 +482,7 @@ export function installFriendRankModule(target: any): void {
             const loadingLabel = setFriendRankPrefabLabel(listNode, 'GlobalLoading', '加载中...');
         
             const profile = UserMgr.inst.getProfile();
-            await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
-            if (!box.isValid || !isCurrentRequest()) return;
+            void LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
             let result = await LeaderboardMgr.inst.fetchLeaderboard(100, profile, 'global');
             if (!box.isValid || !isCurrentRequest()) return;
         

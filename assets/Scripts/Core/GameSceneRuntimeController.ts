@@ -330,9 +330,15 @@ export class GameSceneRuntimeController {
         try {
             void Promise.resolve(this.runtime.beginStartupCloudRestore(false))
                 .then((status) => {
+                    const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 0;
+                    if (status === 'cloud_progress_gt_1' && savedLevel > 1) {
+                        const appRoot = AppRoot.tryGet();
+                        appRoot?.session.markStartupCloudHomeRouteReady(savedLevel);
+                        appRoot?.session.setPendingHomeToast(`已恢复进度到第${savedLevel}关`, 2.5);
+                    }
                     debugPerfTrace('startup.cloudRestore.bootProbe.done', {
                         status,
-                        savedLevel: typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 0,
+                        savedLevel,
                     });
                 })
                 .catch((error) => {

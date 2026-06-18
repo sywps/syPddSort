@@ -26,6 +26,11 @@ export interface PendingHomeToast {
     duration: number;
 }
 
+export interface StartupCloudHomeRouteRequest {
+    savedLevel: number;
+    requestedAt: number;
+}
+
 export class AppSession {
     private _currentSceneName: AppSceneName = 'Game';
     private _requestedSceneName: AppSceneName = 'Game';
@@ -35,6 +40,7 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
+    private _startupCloudHomeRouteRequest: StartupCloudHomeRouteRequest | null = null;
     private readonly _routedBundles = new Map<string, Bundle>();
 
     get currentSceneName(): AppSceneName {
@@ -55,6 +61,10 @@ export class AppSession {
 
     get activeGameplayContext(): ActiveGameplayContext | null {
         return this._activeGameplayContext;
+    }
+
+    get startupCloudHomeRouteRequest(): StartupCloudHomeRouteRequest | null {
+        return this._startupCloudHomeRouteRequest;
     }
 
     setCurrentSceneName(sceneName: AppSceneName): void {
@@ -111,6 +121,36 @@ export class AppSession {
         const toast = this._pendingHomeToast;
         this._pendingHomeToast = null;
         return toast;
+    }
+
+    markStartupCloudHomeRouteReady(savedLevel: number): void {
+        const normalizedLevel = Math.max(1, Math.floor(Number(savedLevel) || 1));
+        if (normalizedLevel <= 1) return;
+        this._startupCloudHomeRouteRequest = {
+            savedLevel: normalizedLevel,
+            requestedAt: Date.now(),
+        };
+    }
+
+    clearStartupCloudHomeRouteRequest(): void {
+        this._startupCloudHomeRouteRequest = null;
+    }
+
+    consumeStartupCloudHomeRouteForGameRedirect(): StartupCloudHomeRouteRequest | null {
+        const request = this._startupCloudHomeRouteRequest;
+        if (!request) return null;
+        if (Date.now() - request.requestedAt > 15000) {
+            this._startupCloudHomeRouteRequest = null;
+            return null;
+        }
+        if (this._currentSceneName !== 'Boot' || this._requestedSceneName !== 'Game' || this._visualState !== 'boot') {
+            return null;
+        }
+        if (this._pendingGameplayRequest || this._activeGameplayContext) {
+            return null;
+        }
+        this._startupCloudHomeRouteRequest = null;
+        return request;
     }
 
     rememberRoutedBundle(bundleName: string, bundle: Bundle | null): void {

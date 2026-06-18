@@ -375,7 +375,7 @@ export class LeaderboardMgr {
         const displayName = typeof input.displayName === 'string' ? input.displayName.trim() : '';
         if (!displayName) return null;
         return {
-            rank: Math.max(1, Math.floor(Number(input.rank) || 1)),
+            rank: Math.max(0, Math.floor(Number(input.rank) || 0)),
             uuid,
             displayName,
             avatarUrl: typeof input.avatarUrl === 'string' ? input.avatarUrl : '',
