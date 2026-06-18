@@ -10,6 +10,7 @@ const projectDir = path.resolve(__dirname, '..');
 const levelDataSourceDir = path.join(projectDir, 'assets', 'LevelData');
 const levelDataDir = path.join(projectDir, 'build', 'level-data-cdn');
 const packDir = path.join(levelDataDir, 'level_packs');
+const skinAssetDir = path.join(levelDataDir, 'Skins');
 const liveManifestPath = path.join(levelDataDir, 'level_live.json');
 
 const cdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
@@ -237,6 +238,7 @@ const expectedServer = normalizeTrailingSlash(cdnUrl);
 const normalizedOssPath = normalizeOssPath(ossPath);
 const ossTarget = 'oss://' + ossBucket + '/' + normalizedOssPath;
 const packsOssTarget = ossTarget + 'level_packs/';
+const skinsOssTarget = ossTarget + 'Skins/';
 const liveOssTarget = ossTarget + 'level_live.json';
 
 console.log('关卡数据目录: ' + levelDataDir);
@@ -270,6 +272,20 @@ runOssutil([
     liveManifestPath,
     liveOssTarget,
 ], '微信 level_live.json 上传');
+
+if (fs.existsSync(skinAssetDir)) {
+    runOssutil([
+        'cp',
+        '-r',
+        '--acl',
+        'public-read',
+        '--force',
+        '--endpoint',
+        ossEndpoint,
+        skinAssetDir + path.sep,
+        skinsOssTarget,
+    ], '微信 Skins 资源上传');
+}
 
 console.log('');
 console.log(dryRun ? '=== Dry-run 校验完成，未上传 ===' : '=== 同步完成 ===');

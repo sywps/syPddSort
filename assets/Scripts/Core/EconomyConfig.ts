@@ -7,7 +7,7 @@ export const ECONOMY_NUMERIC_TABLE = {
         reviveContinue: 100,
     },
     revive: {
-        continueSeconds: 180,
+        continueSeconds: 300,
     },
     reward: {
         winGoldMin: 10,

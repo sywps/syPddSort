@@ -9,6 +9,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const buildPath = process.argv[2] || process.env.BUILD_PATH || path.join(projectRoot, 'build', 'bytedance-mini-game');
 const buildMode = process.env.DOUYIN_BUILD_MODE || 'release';
 const debugLevelDataBundle = buildMode === 'debug';
+const SKIN_BUNDLE_NAMES = [];
 const levelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
 const douyinCloudEnv = process.env.PDD_DOUYIN_CLOUD_ENV || '';
 const douyinCloudPathPrefix = process.env.PDD_DOUYIN_CLOUD_PATH_PREFIX || '';
@@ -222,8 +223,8 @@ function normalizeSettings(runtimeRoot) {
     const settings = readJson(settingsPath);
     const assets = settings.assets || {};
     const bundleNames = debugLevelDataBundle
-        ? ['bootstrap', 'homeAssets', 'gameAssets', 'levelData']
-        : ['bootstrap', 'homeAssets', 'gameAssets'];
+        ? ['bootstrap', 'homeAssets', 'gameAssets', ...SKIN_BUNDLE_NAMES, 'levelData']
+        : ['bootstrap', 'homeAssets', 'gameAssets', ...SKIN_BUNDLE_NAMES];
     const projectBundles = (Array.isArray(assets.projectBundles) ? assets.projectBundles.slice() : [])
         .filter((name) => debugLevelDataBundle || name !== 'levelData');
     for (const bundleName of bundleNames) {
@@ -237,7 +238,7 @@ function normalizeSettings(runtimeRoot) {
     }
     assets.subpackages = subpackages;
     assets.remoteBundles = (Array.isArray(assets.remoteBundles) ? assets.remoteBundles : [])
-        .filter((name) => name !== 'homeAssets' && name !== 'gameAssets' && name !== 'levelData');
+        .filter((name) => name !== 'homeAssets' && name !== 'gameAssets' && name !== 'levelData' && !SKIN_BUNDLE_NAMES.includes(name));
     ensureStartupPreloadBundles(assets);
     settings.assets = assets;
     writeJson(settingsPath, settings);
@@ -248,6 +249,7 @@ if (!fs.existsSync(runtimeRoot)) fail('抖音构建目录不存在: ' + runtimeR
 
 ensureBundleSubpackage(runtimeRoot, 'homeAssets');
 ensureBundleSubpackage(runtimeRoot, 'gameAssets');
+for (const bundleName of SKIN_BUNDLE_NAMES) ensureBundleSubpackage(runtimeRoot, bundleName);
 if (debugLevelDataBundle) ensureBundleSubpackage(runtimeRoot, 'levelData');
 removeReleaseLevelDataSubpackage(runtimeRoot);
 normalizeSettings(runtimeRoot);

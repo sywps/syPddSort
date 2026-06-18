@@ -33,10 +33,14 @@ import type {
 export function installGameplaySkillMagnetModule(target: any): void {
     Object.assign(target, {
         /** 磁铁：随机选择一种未归位颜色，将该颜色所有豆豆快速全部归位。 */
-        useSkillClearColor(timerAlreadyPaused: boolean = false) {
-            if (this._skillActive) return;
-            this._skillActive = true;
+        useSkillClearColor(timerAlreadyPaused: boolean = false, viewportAlreadyReset: boolean = false) {
+            if (this._skillActive && !viewportAlreadyReset) return;
+            if (!viewportAlreadyReset) this._skillActive = true;
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            if (!viewportAlreadyReset && typeof this.resetBoardViewportToHomeForSkill === 'function') {
+                this.resetBoardViewportToHomeForSkill(() => this.useSkillClearColor(true, true));
+                return;
+            }
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             this.prepareSkillMoveAnimation();
             const groups = this.collectUnmatchedTargetsByColor();
@@ -56,11 +60,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             );
             plan.maxStartDelay = 0.56;
             this.resetIdleHintTimer();
-            const colorName = this._getColorDisplayName(pickGroup.colorId);
-            const planCount = pickGroup.targets.length;
-            this.runForcedSkillPlansSequential([plan], 0, () => {
-                this.showToast(`已将 ${planCount} 个${colorName}豆豆归位`);
-            });
+            this.runForcedSkillPlansSequential([plan]);
         },
 
         buildSkillSourceGroups(
@@ -220,6 +220,99 @@ export function installGameplaySkillMagnetModule(target: any): void {
             return { boardMoves, slotMoves, lockTargets };
         },
 
+        getSkillUsableSlotCount(slotLength: number): number {
+            const rawTotalCount = Math.floor(Number(this.slotModel?.totalCount) || slotLength);
+            const totalCount = Math.max(0, Math.min(rawTotalCount, slotLength));
+            const rawUnlockedCount = Math.floor(Number(this.slotModel?.unlockedCount ?? totalCount) || totalCount);
+            return Math.max(0, Math.min(rawUnlockedCount, totalCount));
+        },
+
+        insertSlotColorByStoreRuleForPlan(colors: number[], colorId: number, pendingSlotSources: number[]): number {
+            const usableCount = this.getSkillUsableSlotCount(colors.length);
+            const pendingSet = new Set(pendingSlotSources);
+            const entries: Array<{ colorId: number; oldIndex: number; pending: boolean }> = [];
+            let firstEmptyEntryIndex = -1;
+            for (let i = 0; i < usableCount; i++) {
+                const entryColor = colors[i];
+                if (entryColor !== 0) {
+                    entries.push({ colorId: entryColor, oldIndex: i, pending: pendingSet.has(i) });
+                } else if (firstEmptyEntryIndex < 0) {
+                    firstEmptyEntryIndex = entries.length;
+                }
+            }
+            if (entries.length >= usableCount) return -1;
+
+            let insertAt = firstEmptyEntryIndex >= 0 ? firstEmptyEntryIndex : entries.length;
+            for (let i = 0; i < entries.length; i++) {
+                if (entries[i].colorId === colorId) insertAt = i + 1;
+            }
+            entries.splice(insertAt, 0, { colorId, oldIndex: -1, pending: false });
+
+            for (let i = 0; i < usableCount; i++) {
+                colors[i] = entries[i]?.colorId ?? 0;
+            }
+            for (let i = usableCount; i < colors.length; i++) {
+                colors[i] = 0;
+            }
+
+            const nextIndexByOldIndex = new Map<number, number>();
+            for (let i = 0; i < entries.length; i++) {
+                if (entries[i].pending) nextIndexByOldIndex.set(entries[i].oldIndex, i);
+            }
+            for (let i = pendingSlotSources.length - 1; i >= 0; i--) {
+                const nextIndex = nextIndexByOldIndex.get(pendingSlotSources[i]);
+                if (typeof nextIndex === 'number') {
+                    pendingSlotSources[i] = nextIndex;
+                } else {
+                    pendingSlotSources.splice(i, 1);
+                }
+            }
+
+            return insertAt;
+        },
+
+        insertSlotBlockByStoreRule(block: BeanBlockInfo, plannedSlotIdx: number): boolean {
+            const slots = this.slotModel.getAll();
+            const usableCount = this.getSkillUsableSlotCount(slots.length);
+            const entries: BeanBlockInfo[] = [];
+            let firstEmptyEntryIndex = -1;
+            for (let i = 0; i < usableCount; i++) {
+                const slotBlock = slots[i];
+                if (slotBlock) {
+                    entries.push(slotBlock);
+                } else if (firstEmptyEntryIndex < 0) {
+                    firstEmptyEntryIndex = entries.length;
+                }
+            }
+            if (entries.length >= usableCount) return false;
+
+            let insertAt = firstEmptyEntryIndex >= 0 ? firstEmptyEntryIndex : entries.length;
+            for (let i = 0; i < entries.length; i++) {
+                if (entries[i].colorId === block.colorId) insertAt = i + 1;
+            }
+            if (insertAt !== plannedSlotIdx) {
+                throw new Error(`[GameplaySkill] displaced slot target mismatch: planned ${plannedSlotIdx}, actual ${insertAt}`);
+            }
+
+            block.source = 'slot';
+            block.slotIndex = insertAt;
+            entries.splice(insertAt, 0, block);
+
+            for (let i = 0; i < usableCount; i++) {
+                const slotBlock = entries[i] || null;
+                slots[i] = slotBlock;
+                if (slotBlock) {
+                    slotBlock.source = 'slot';
+                    slotBlock.slotIndex = i;
+                }
+            }
+            for (let i = usableCount; i < slots.length; i++) {
+                slots[i] = null;
+            }
+
+            return true;
+        },
+
         buildForcedSkillPlan(
             colorId: number,
             boardSourcesInput: { row: number; col: number }[],
@@ -237,15 +330,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
             const removeBoardSourceAt = (row: number, col: number) => {
                 const idx = boardSources.findIndex((source) => source.row === row && source.col === col);
                 if (idx >= 0) boardSources.splice(idx, 1);
-            };
-        
-            const slotModelIsEmpty = (idx: number, colors: number[]): boolean => colors[idx] === 0;
-        
-            const findEmptySlotIdx = (colors: number[]): number => {
-                for (let i = 0; i < colors.length; i++) {
-                    if (colors[i] === 0) return i;
-                }
-                return -1;
             };
         
             const candidateCells: { row: number; col: number }[] = areaTargetsOverride || [];
@@ -293,19 +377,13 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     };
         
                     if (occupiedColor !== 0) {
-                        // 找一个空闲的槽位来接收被置换的豆豆（优先用原槽位）
-                        let displSlotIdx = slotIdx;
-                        if (!slotModelIsEmpty(displSlotIdx, slotColors)) {
-                            // 原槽位已被占用，找其他空槽
-                            displSlotIdx = findEmptySlotIdx(slotColors);
-                        }
+                        const displSlotIdx = this.insertSlotColorByStoreRuleForPlan(slotColors, occupiedColor, slotSources);
                         if (displSlotIdx < 0) {
-                            // 没有空槽可以接收被置换的豆豆，跳过此目标
                             slotColors[slotIdx] = colorId;
                             continue;
                         }
-                        slotColors[displSlotIdx] = occupiedColor;
                         step.displacedSlot = { colorId: occupiedColor, slotIdx: displSlotIdx };
+                        step.displacedSlotInsertMode = 'grouped';
                         step.hiddenSlotIdxs.push(displSlotIdx);
                     }
         
@@ -493,13 +571,16 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     this.boardModel.currentColors[step.displacedBoard.target.row][step.displacedBoard.target.col] = step.displacedBoard.colorId;
                     this.boardModel.setLocked(step.displacedBoard.target.row, step.displacedBoard.target.col, step.displacedBoard.lock);
                 } else if (step.displacedSlot) {
-                    const swapped = this.slotModel.putAt(step.displacedSlot.slotIdx, {
+                    const displacedBlock: BeanBlockInfo = {
                         colorId: step.displacedSlot.colorId,
                         cells: [{ row: step.target.row, col: step.target.col }],
                         isLocked: false,
                         source: 'slot',
                         slotIndex: step.displacedSlot.slotIdx,
-                    });
+                    };
+                    const swapped = step.displacedSlotInsertMode === 'grouped'
+                        ? this.insertSlotBlockByStoreRule(displacedBlock, step.displacedSlot.slotIdx)
+                        : this.slotModel.putAt(step.displacedSlot.slotIdx, displacedBlock);
                     if (!swapped) {
                         this.slotModel.putAt(sourceSlotIdx, sourceBlock);
                         continue;
@@ -754,13 +835,16 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     this.boardModel.currentColors[step.displacedBoard.target.row][step.displacedBoard.target.col] = step.displacedBoard.colorId;
                     this.boardModel.setLocked(step.displacedBoard.target.row, step.displacedBoard.target.col, step.displacedBoard.lock);
                 } else if (step.displacedSlot) {
-                    const swapped = this.slotModel.putAt(step.displacedSlot.slotIdx, {
+                    const displacedBlock: BeanBlockInfo = {
                         colorId: step.displacedSlot.colorId,
                         cells: [{ row: step.target.row, col: step.target.col }],
                         isLocked: false,
                         source: 'slot',
                         slotIndex: step.displacedSlot.slotIdx,
-                    });
+                    };
+                    const swapped = step.displacedSlotInsertMode === 'grouped'
+                        ? this.insertSlotBlockByStoreRule(displacedBlock, step.displacedSlot.slotIdx)
+                        : this.slotModel.putAt(step.displacedSlot.slotIdx, displacedBlock);
                     if (!swapped) {
                         // 回滚：目标位恢复为空、锁定取消，豆豆放回源槽
                         this.boardModel.currentColors[step.target.row][step.target.col] = 0;
@@ -772,7 +856,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     slotMoves.push({
                         colorId: step.displacedSlot.colorId,
                         srcWorld: targetWorld,
-                        slotIdx: sourceSlotIdx,
+                        slotIdx: step.displacedSlot.slotIdx,
                         delay: SKILL_OVERLAP,
                     });
                 }

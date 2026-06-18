@@ -263,6 +263,7 @@ export class PreviewController extends GameRuntimeHost {
                     }
                     runtime.drawWinPatternPreview();
                     runtime.panelWin.active = true;
+                    runtime.playWinSettlementBannerFx?.();
                 };
                 if (typeof runtime._ensureBootstrapBeanAtlasLoaded === 'function') {
                     runtime._ensureBootstrapBeanAtlasLoaded(showWinPanel);

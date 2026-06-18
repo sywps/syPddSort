@@ -577,8 +577,8 @@ export function installGameplaySkillWandModule(target: any): void {
             }
         },
 
-        useSkillClearSlot(timerAlreadyPaused: boolean = false) {
-            if (this._skillActive) return;
+        useSkillClearSlot(timerAlreadyPaused: boolean = false, viewportAlreadyReset: boolean = false) {
+            if (this._skillActive && !viewportAlreadyReset) return;
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             const slotAllInit = this.slotModel.getAll();
@@ -593,6 +593,10 @@ export function installGameplaySkillWandModule(target: any): void {
             }
             this._skillActive = true;
             this.resetIdleHintTimer();
+            if (!viewportAlreadyReset && typeof this.resetBoardViewportToHomeForSkill === 'function') {
+                this.resetBoardViewportToHomeForSkill(() => this.useSkillClearSlot(true, true));
+                return;
+            }
             const plan = this.buildBrushClearSlotPlan(slotMovable);
             this.playForcedSkillPlanNearParallel(plan, () => {
                 this.finishClearSlot();

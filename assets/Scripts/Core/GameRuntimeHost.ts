@@ -20,7 +20,7 @@ export class GameRuntimeHost extends Component {
     protected static readonly BOARD_PAN_SENSITIVITY = 0.8;
     protected static readonly MIN_SCALE = 0.7;
     protected static readonly MAX_SCALE = 2.2;
-    protected static readonly BOARD_PLAYABLE_CELL_UI_SIZE = 32;
+    protected static readonly BOARD_PLAYABLE_CELL_UI_SIZE = 44;
     protected static readonly BOARD_DYNAMIC_MAX_SCALE_CAP = 6.5;
     protected static readonly VIEWPORT_WIDTH = 720;
     protected static readonly VIEWPORT_HEIGHT = 1280;

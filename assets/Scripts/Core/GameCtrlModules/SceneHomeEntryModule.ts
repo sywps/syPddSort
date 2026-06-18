@@ -479,14 +479,16 @@ export function installSceneHomeEntryModule(target: any): void {
 
         openLocalLevelWithAssets(data: LevelData, onInitialized?: () => void, activeLevelId?: number, bootstrapOnlyCriticalUi: boolean = false) {
             const onReady = () => {
-                const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
-                this._bootstrapOnlyGameplayStartup = bootstrapOnlyCriticalUi;
-                try {
-                    this.initGame(data, activeLevelId);
-                } finally {
-                    this._bootstrapOnlyGameplayStartup = previousBootstrapOnlyGameplayStartup;
-                }
-                if (onInitialized) onInitialized();
+                this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
+                    const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
+                    this._bootstrapOnlyGameplayStartup = bootstrapOnlyCriticalUi;
+                    try {
+                        this.initGame(data, activeLevelId);
+                    } finally {
+                        this._bootstrapOnlyGameplayStartup = previousBootstrapOnlyGameplayStartup;
+                    }
+                    if (onInitialized) onInitialized();
+                });
             };
             let beanReady = false;
             let uiReady = false;
@@ -650,8 +652,10 @@ export function installSceneHomeEntryModule(target: any): void {
             const finish = (data: LevelData) => {
                 if (finished) return;
                 finished = true;
-                this.initGame(data, activeLevelId);
-                this.hideLoadingOverlayAfterGameplayReady();
+                this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
+                    this.initGame(data, activeLevelId);
+                    this.hideLoadingOverlayAfterGameplayReady();
+                });
             };
             const failMissingBeans = () => {
                 this.stopLevelDataLoadWithFatalError(
@@ -773,20 +777,22 @@ export function installSceneHomeEntryModule(target: any): void {
                 let uiDone = false;
                 const tryInit = () => {
                     if (!beanDone || !uiDone) return;
-                    const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
-                    this._bootstrapOnlyGameplayStartup = true;
-                    try {
-                        this.initGame(data, activeLevelId);
-                    } finally {
-                        this._bootstrapOnlyGameplayStartup = previousBootstrapOnlyGameplayStartup;
-                    }
-                    this.hideLoadingOverlayAfterGameplayReady();
-                    this.scheduleOnce(() => {
-                        if (!this.shouldPrewarmGameAssetsAfterBootstrap()) return;
-                        if (this._preloadingBundle) return;
-                        if (this.gameAssetsBundle && this._effectsAtlasReady) return;
-                        this.prewarmGameAssetsBundleAfterBootstrap();
-                    }, LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY);
+                    this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
+                        const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
+                        this._bootstrapOnlyGameplayStartup = true;
+                        try {
+                            this.initGame(data, activeLevelId);
+                        } finally {
+                            this._bootstrapOnlyGameplayStartup = previousBootstrapOnlyGameplayStartup;
+                        }
+                        this.hideLoadingOverlayAfterGameplayReady();
+                        this.scheduleOnce(() => {
+                            if (!this.shouldPrewarmGameAssetsAfterBootstrap()) return;
+                            if (this._preloadingBundle) return;
+                            if (this.gameAssetsBundle && this._effectsAtlasReady) return;
+                            this.prewarmGameAssetsBundleAfterBootstrap();
+                        }, LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY);
+                    });
                 };
                 this._prepareBeanFramesForLevelData(data, () => {
                     if (this.needsBeanFramesForLevelData(data)) {
@@ -874,7 +880,7 @@ export function installSceneHomeEntryModule(target: any): void {
             let uiReady = false;
             const tryReady = () => {
                 if (!beanReady || !uiReady) return;
-                this.initGame(data, activeLevelId);
+                this.startGameplayWithBackgroundSkinReady(data, activeLevelId);
             };
             this._prepareBeanFramesForLevelData(data, () => {
                 if (this.needsBeanFramesForLevelData(data)) {

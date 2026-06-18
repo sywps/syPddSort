@@ -200,6 +200,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _friendRankAvatarCache: null,
         _friendRankAvatarCacheAt: 0,
         boardHomePos: new Vec3(0, 140, 0),
+        _boardZoomControlUi: null,
         sfCache: new Map<string, SpriteFrame>(),
         _spriteFrameCacheMeta: new Map<string, any>(),
         _bootstrapAtlasFrameCache: new Map<string, SpriteFrame>(),
@@ -255,6 +256,16 @@ export function initializeGameCtrlState(runtime: any): void {
         _homeGameplayWarmupState: 'idle',
         _themeGroupsCache: null,
         _themeGroupsLoading: false,
+        _backgroundSkinConfigCache: null,
+        _backgroundSkinConfigLoadingCallbacks: null,
+        _skinBundleCache: new Map<string, Bundle>(),
+        _skinBundleLoadingCallbacks: new Map<string, Array<(bundle: Bundle | null, err?: Error | null) => void>>(),
+        _backgroundSkinFrameCache: new Map<number, SpriteFrame>(),
+        _backgroundSkinIconCache: new Map<number, SpriteFrame>(),
+        _skinSpriteFrameLoadingCallbacks: new Map<string, Array<(sf: SpriteFrame | null, err?: Error | null) => void>>(),
+        _equippedBackgroundSkinId: 0,
+        _equippedBackgroundSkinFrame: null as SpriteFrame | null,
+        _backgroundSkinPanelOverlay: null,
     });
 
     runtime.boardViewport = new BoardViewportController({

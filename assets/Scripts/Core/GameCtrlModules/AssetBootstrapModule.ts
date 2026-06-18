@@ -1231,7 +1231,6 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         getMaxSlotRows(): number {
-            if (this._isThemeLevel) return DEFAULT_MAX_SLOT_ROWS;
             return this.shouldUseMainlineSlotUI() ? MAINLINE_MAX_SLOT_ROWS : DEFAULT_MAX_SLOT_ROWS;
         },
 

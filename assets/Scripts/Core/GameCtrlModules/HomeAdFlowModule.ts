@@ -501,6 +501,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.drawDailySignInButton(entryLayer);
             this.drawLeaderboardButton(entryLayer);
             this.drawCollectionButton(entryLayer);
+            this.drawSkinButton?.(entryLayer);
             if (typeof this.drawSidebarEntry === 'function') {
                 this.drawSidebarEntry(entryLayer);
             }
@@ -849,6 +850,10 @@ export function installHomeAdFlowModule(target: any): void {
 
         createWinSettlementPanel(): Node {
             return ensureGameplayResultPanelController(this).createWinSettlementPanel();
+        },
+
+        playWinSettlementBannerFx() {
+            ensureGameplayResultPanelController(this).playWinSettlementBannerFx(this.panelWin);
         },
 
         createReviveSettlementPanel(): Node {
