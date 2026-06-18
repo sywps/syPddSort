@@ -27,6 +27,7 @@ const FIRST_LEVEL_FUNNEL_STEPS = [
   { key: 'alive_3s_after_ui_ready', label: 'UI ready 后 3 秒仍在' },
   { key: 'alive_5s_after_ui_ready', label: 'UI ready 后 5 秒仍在' },
   { key: 'alive_10s_after_ui_ready', label: 'UI ready 后 10 秒仍在' },
+  { key: 'first_level_any_touch', label: '首关任意触摸' },
   { key: 'first_touch', label: '首次触摸' },
   { key: 'first_valid_select', label: '首次有效选中' },
   { key: 'timer_started', label: '倒计时启动' },
@@ -43,6 +44,11 @@ const FIRST_LEVEL_FUNNEL_DIAGNOSTICS = [
   { key: 'bootstrap_level_start', label: 'bootstrap 开始加载' },
   { key: 'first_level_json_failed', label: '首关数据加载失败' },
   { key: 'tutorial_step_show', label: '教程步骤曝光' },
+  { key: 'tutorial_step_interactive_ready', label: '教程步骤可点' },
+  { key: 'tutorial_layer_touch_start', label: '教程层触摸' },
+  { key: 'tutorial_step_first_touch', label: '教程步骤首触' },
+  { key: 'tutorial_tap_result', label: '教程点击结果' },
+  { key: 'tutorial_fast_tap_ignored', label: '教程快点忽略' },
   { key: 'tutorial_step_done', label: '教程步骤完成' },
   { key: 'tutorial_wrong_tap', label: '教程误点' },
   { key: 'level_fail', label: '首关失败' },
@@ -339,6 +345,22 @@ function getFunnelSessionKey(item) {
   return item.sessionId || item.openid || item._id || '';
 }
 
+function getFunnelLogicalLevelId(item) {
+  const candidates = [item?.logicalLevelId, item?.levelId, item?.physicalLevelId];
+  for (const value of candidates) {
+    const num = Math.floor(Number(value));
+    if (Number.isFinite(num) && num > 0) return num;
+  }
+  return 0;
+}
+
+function shouldIncludeFunnelLevelRecord(item, logicalLevelId, includeSessionEvents = false) {
+  if (!logicalLevelId) return true;
+  const itemLevelId = getFunnelLogicalLevelId(item);
+  if (itemLevelId === logicalLevelId) return true;
+  return includeSessionEvents && itemLevelId === 0;
+}
+
 function createFirstLevelBucket(abBucket) {
   const stepMap = new Map(FIRST_LEVEL_FUNNEL_STEPS.map((item) => [item.key, {
     key: item.key,
@@ -400,7 +422,9 @@ function serializeFirstLevelBucket(bucket) {
   };
 }
 
-function buildFirstLevelFunnel(records) {
+function buildFirstLevelFunnel(records, opt = {}) {
+  const logicalLevelId = Math.max(0, Math.floor(Number(opt.logicalLevelId) || 0));
+  const includeSessionEvents = opt.includeSessionEvents === true;
   const sessionBucketMap = new Map();
   for (const item of records) {
     if (item.eventName !== 'ab_assigned') continue;
@@ -421,6 +445,7 @@ function buildFirstLevelFunnel(records) {
   for (const item of records) {
     const sessionKey = getFunnelSessionKey(item);
     if (!sessionKey) continue;
+    if (!shouldIncludeFunnelLevelRecord(item, logicalLevelId, includeSessionEvents)) continue;
     const userKey = item.openid || '';
     const bucket = sessionBucketMap.get(sessionKey) || 'unknown';
     addFunnelRecord(buckets.get('all'), item, sessionKey, userKey);
@@ -428,9 +453,29 @@ function buildFirstLevelFunnel(records) {
   }
 
   return {
+    logicalLevelId,
     stepDefinitions: FIRST_LEVEL_FUNNEL_STEPS,
     diagnosticDefinitions: FIRST_LEVEL_FUNNEL_DIAGNOSTICS,
     groups: ['all', 'bucket_a', 'bucket_b', 'unknown'].map((key) => serializeFirstLevelBucket(buckets.get(key))),
+  };
+}
+
+function buildOnboardingLevelFunnel(records) {
+  return {
+    stepDefinitions: FIRST_LEVEL_FUNNEL_STEPS,
+    diagnosticDefinitions: FIRST_LEVEL_FUNNEL_DIAGNOSTICS,
+    levels: [
+      {
+        logicalLevelId: 1,
+        label: '第1关',
+        groups: buildFirstLevelFunnel(records, { logicalLevelId: 1, includeSessionEvents: true }).groups,
+      },
+      {
+        logicalLevelId: 2,
+        label: '第2关',
+        groups: buildFirstLevelFunnel(records, { logicalLevelId: 2 }).groups,
+      },
+    ],
   };
 }
 
@@ -477,7 +522,8 @@ exports.main = async (event = {}) => {
       levelTopLoss: buildLevelTopLoss(levelRecords, topLimit),
       adConversion: buildAdConversion(behaviorList),
       funnel: buildFunnel(behaviorList),
-      firstLevelFunnel: buildFirstLevelFunnel(firstLevelFunnelEvents),
+      firstLevelFunnel: buildFirstLevelFunnel(firstLevelFunnelEvents, { logicalLevelId: 1, includeSessionEvents: true }),
+      onboardingLevelFunnel: buildOnboardingLevelFunnel(firstLevelFunnelEvents),
     };
   } catch (error) {
     return {

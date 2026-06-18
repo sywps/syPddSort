@@ -1,0 +1,42 @@
+{
+  "name": "beginner",
+  "description": "Low-intent beginner behavior with hesitations, exits, and imprecise taps.",
+  "maxSteps": 120,
+  "durationMs": 180000,
+  "seed": 5101,
+  "viewport": {
+    "width": 960,
+    "height": 640
+  },
+  "initialWaitMs": 3500,
+  "screenshotEverySteps": 8,
+  "waitMs": {
+    "min": 300,
+    "max": 1400
+  },
+  "dragDistance": {
+    "min": 30,
+    "max": 140
+  },
+  "actionWeights": {
+    "click": 42,
+    "drag": 10,
+    "wait": 24,
+    "escape": 18,
+    "reload": 6
+  },
+  "zones": [
+    { "name": "full", "weight": 4, "xMin": 0.02, "xMax": 0.98, "yMin": 0.04, "yMax": 0.98 },
+    { "name": "empty-ish-top", "weight": 2, "xMin": 0.0, "xMax": 1.0, "yMin": 0.0, "yMax": 0.22 },
+    { "name": "edge-misses", "weight": 2, "xMin": 0.0, "xMax": 1.0, "yMin": 0.82, "yMax": 1.0 },
+    { "name": "center", "weight": 1, "xMin": 0.32, "xMax": 0.68, "yMin": 0.32, "yMax": 0.68 }
+  ],
+  "failureThresholds": {
+    "maxConsoleErrors": 0,
+    "maxPageErrors": 0,
+    "maxNetworkFailures": 0,
+    "maxBlackScreens": 0,
+    "maxNoCanvas": 4,
+    "maxNoChangeStreak": 36
+  }
+}

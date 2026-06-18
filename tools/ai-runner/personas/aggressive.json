@@ -1,0 +1,41 @@
+{
+  "name": "aggressive",
+  "description": "High-frequency clicker that stresses UI transitions and accidental rapid input.",
+  "maxSteps": 140,
+  "durationMs": 180000,
+  "seed": 2101,
+  "viewport": {
+    "width": 960,
+    "height": 640
+  },
+  "initialWaitMs": 2500,
+  "screenshotEverySteps": 10,
+  "waitMs": {
+    "min": 30,
+    "max": 180
+  },
+  "dragDistance": {
+    "min": 40,
+    "max": 180
+  },
+  "actionWeights": {
+    "click": 72,
+    "doubleClick": 12,
+    "drag": 8,
+    "escape": 5,
+    "reload": 3
+  },
+  "zones": [
+    { "name": "full", "weight": 8, "xMin": 0.02, "xMax": 0.98, "yMin": 0.04, "yMax": 0.98 },
+    { "name": "top-nav", "weight": 3, "xMin": 0.0, "xMax": 1.0, "yMin": 0.0, "yMax": 0.18 },
+    { "name": "bottom-actions", "weight": 4, "xMin": 0.0, "xMax": 1.0, "yMin": 0.68, "yMax": 1.0 }
+  ],
+  "failureThresholds": {
+    "maxConsoleErrors": 0,
+    "maxPageErrors": 0,
+    "maxNetworkFailures": 0,
+    "maxBlackScreens": 0,
+    "maxNoCanvas": 3,
+    "maxNoChangeStreak": 32
+  }
+}

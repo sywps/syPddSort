@@ -36,7 +36,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
         useSkillClearColor(timerAlreadyPaused: boolean = false) {
             if (this._skillActive) return;
             this._skillActive = true;
-            if (!timerAlreadyPaused) this.pauseTimerForProp();
+            if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             this.prepareSkillMoveAnimation();
             const groups = this.collectUnmatchedTargetsByColor();
@@ -54,6 +54,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 slotSources,
                 pickGroup.targets,
             );
+            plan.maxStartDelay = 0.56;
             this.resetIdleHintTimer();
             const colorName = this._getColorDisplayName(pickGroup.colorId);
             const planCount = pickGroup.targets.length;
@@ -397,10 +398,14 @@ export function installGameplaySkillMagnetModule(target: any): void {
             const SKILL_DONE_DELAY = 0.02;
             const nodeWorldPos = (node: Node): Vec3 => node.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
             const layerUT = this.dragLayer.getComponent(UITransform)!;
-            const boardMoves: (ForcedSkillBoardMove & { delay: number; feedbackIndex: number })[] = [];
-            const slotMoves: (ForcedSkillSlotMove & { delay: number; feedbackIndex: number })[] = [];
-            const hiddenBoardCells: { row: number; col: number }[] = [];
-            const hiddenSlotIdxs: number[] = [];
+            type MoveVisualHide = {
+                hideBoardCells?: { row: number; col: number }[];
+                hideSlotIdxs?: number[];
+            };
+            type TimedBoardMove = ForcedSkillBoardMove & { delay: number; feedbackIndex: number } & MoveVisualHide;
+            type TimedSlotMove = ForcedSkillSlotMove & { delay: number; feedbackIndex: number } & MoveVisualHide;
+            const boardMoves: TimedBoardMove[] = [];
+            const slotMoves: TimedSlotMove[] = [];
             const lockTargets: { row: number; col: number }[] = [];
             const seenLockTargets = new Set<string>();
             let moveIndex = 0;
@@ -434,18 +439,18 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 const targetWorld = nodeWorldPos(targetNode);
                 const primarySrcWorld = nodeWorldPos(sourceNode);
                 const targetLock = step.targetLock ?? true;
-                for (const cell of step.hiddenBoardCells) hiddenBoardCells.push(cell);
-                for (const idx of step.hiddenSlotIdxs) hiddenSlotIdxs.push(idx);
                 for (const target of step.lockTargets) pushLockTarget(target);
 
                 if (step.sourceBoard) {
+                    const pairedTiming = step.pairedFlight && step.displacedBoard ? nextDelay() : null;
                     if (step.displacedBoard) {
                         boardMoves.push({
                             colorId: step.displacedBoard.colorId,
                             srcWorld: targetWorld,
                             target: step.displacedBoard.target,
                             lock: step.displacedBoard.lock,
-                            ...nextDelay(),
+                            hideBoardCells: [{ row: step.target.row, col: step.target.col }],
+                            ...(pairedTiming ?? nextDelay()),
                         });
                         this.boardModel.currentColors[step.displacedBoard.target.row][step.displacedBoard.target.col] = step.displacedBoard.colorId;
                         this.boardModel.setLocked(step.displacedBoard.target.row, step.displacedBoard.target.col, step.displacedBoard.lock);
@@ -455,7 +460,8 @@ export function installGameplaySkillMagnetModule(target: any): void {
                         srcWorld: primarySrcWorld,
                         target: step.target,
                         lock: targetLock,
-                        ...nextDelay(step.displacedBoard ? SKILL_OVERLAP : 0),
+                        hideBoardCells: [{ row: step.sourceBoard.row, col: step.sourceBoard.col }],
+                        ...(pairedTiming ?? nextDelay(step.displacedBoard ? SKILL_OVERLAP : 0)),
                     });
                     this.boardModel.currentColors[step.target.row][step.target.col] = step.colorId;
                     this.boardModel.setLocked(step.target.row, step.target.col, targetLock);
@@ -465,13 +471,15 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 const sourceSlotIdx = step.sourceSlotIdx!;
                 const sourceBlock = this.slotModel.take(sourceSlotIdx);
                 if (!sourceBlock || sourceBlock.colorId !== step.colorId) continue;
+                const pairedTiming = step.pairedFlight && (step.displacedBoard || step.displacedSlot) ? nextDelay() : null;
 
                 boardMoves.push({
                     colorId: step.colorId,
                     srcWorld: primarySrcWorld,
                     target: step.target,
                     lock: targetLock,
-                    ...nextDelay(),
+                    hideSlotIdxs: [sourceSlotIdx],
+                    ...(pairedTiming ?? nextDelay()),
                 });
                 if (step.displacedBoard) {
                     boardMoves.push({
@@ -479,7 +487,8 @@ export function installGameplaySkillMagnetModule(target: any): void {
                         srcWorld: targetWorld,
                         target: step.displacedBoard.target,
                         lock: step.displacedBoard.lock,
-                        ...nextDelay(SKILL_OVERLAP),
+                        hideBoardCells: [{ row: step.target.row, col: step.target.col }],
+                        ...(pairedTiming ?? nextDelay(SKILL_OVERLAP)),
                     });
                     this.boardModel.currentColors[step.displacedBoard.target.row][step.displacedBoard.target.col] = step.displacedBoard.colorId;
                     this.boardModel.setLocked(step.displacedBoard.target.row, step.displacedBoard.target.col, step.displacedBoard.lock);
@@ -499,19 +508,16 @@ export function installGameplaySkillMagnetModule(target: any): void {
                         colorId: step.displacedSlot.colorId,
                         srcWorld: targetWorld,
                         slotIdx: step.displacedSlot.slotIdx,
-                        ...nextDelay(SKILL_OVERLAP),
+                        hideBoardCells: [{ row: step.target.row, col: step.target.col }],
+                        hideSlotIdxs: [step.displacedSlot.slotIdx],
+                        ...(pairedTiming ?? nextDelay(SKILL_OVERLAP)),
                     });
                 }
                 this.boardModel.currentColors[step.target.row][step.target.col] = step.colorId;
                 this.boardModel.setLocked(step.target.row, step.target.col, targetLock);
             }
 
-            this.setForcedSkillHiddenState(hiddenBoardCells, hiddenSlotIdxs);
-            for (const move of boardMoves) {
-                this._flyingTargets.add(`${move.target.row},${move.target.col}`);
-            }
-            this.renderBoard();
-            this.renderSlots();
+            if (plan.immediateLockTargets.length > 0) this.renderBoardCells(plan.immediateLockTargets);
             this._skillAnimOnly = true;
 
             const totalMoves = boardMoves.length + slotMoves.length;
@@ -519,6 +525,17 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 if (lockTargets.length > 0) this.onFlyDone(lockTargets);
                 this.scheduleOnce(onDone, SKILL_DONE_DELAY);
                 return;
+            }
+            const allMoves = [...boardMoves, ...slotMoves];
+            if (plan.maxStartDelay !== undefined && plan.maxStartDelay >= 0 && allMoves.length > 1) {
+                let maxDelay = 0;
+                for (const move of allMoves) {
+                    if (move.delay > maxDelay) maxDelay = move.delay;
+                }
+                if (maxDelay > plan.maxStartDelay) {
+                    const delayScale = plan.maxStartDelay / maxDelay;
+                    for (const move of allMoves) move.delay *= delayScale;
+                }
             }
 
             const getFinishTargets = (): { row: number; col: number }[] => {
@@ -546,11 +563,38 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     this.scheduleOnce(onDone, SKILL_DONE_DELAY);
                 }
             };
+            const playedFeedbackIndices = new Set<number>();
             const playFeedback = (sfx: SfxName, feedbackIndex: number) => {
+                if (playedFeedbackIndices.has(feedbackIndex)) return;
+                playedFeedbackIndices.add(feedbackIndex);
                 if (feedbackIndex < 3 || feedbackIndex % 4 === 0) {
                     AudioMgr.inst.play(sfx);
-                    AudioMgr.inst.vibrate(30);
                 }
+            };
+            const applyMoveVisualHide = (move: MoveVisualHide) => {
+                if (move.hideBoardCells) {
+                    for (const cell of move.hideBoardCells) {
+                        const key = `${cell.row},${cell.col}`;
+                        if (this._hiddenBoardCells.has(key)) continue;
+                        this._hiddenBoardCells.add(key);
+                        this.renderBoardCell(cell.row, cell.col);
+                    }
+                }
+                if (move.hideSlotIdxs) {
+                    for (const idx of move.hideSlotIdxs) {
+                        if (this._hiddenSlotIndices.has(idx)) continue;
+                        this._hiddenSlotIndices.add(idx);
+                        this.renderSlotIndices([idx]);
+                    }
+                }
+            };
+            const revealBoardCell = (cell: { row: number; col: number }) => {
+                this._hiddenBoardCells.delete(`${cell.row},${cell.col}`);
+                this.renderBoardCell(cell.row, cell.col);
+            };
+            const revealSlotIdx = (slotIdx: number) => {
+                this._hiddenSlotIndices.delete(slotIdx);
+                this.renderSlotIndices([slotIdx]);
             };
 
             for (const move of boardMoves) {
@@ -569,12 +613,18 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 );
                 this.dragLayer.addChild(bean);
                 bean.setPosition(sourceLocal.x, sourceLocal.y, 0);
+                bean.setScale(0, 0, 1);
                 tween(bean)
                     .delay(move.delay)
+                    .call(() => {
+                        applyMoveVisualHide(move);
+                        bean.setScale(1, 1, 1);
+                    })
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
                         playFeedback('slot', move.feedbackIndex);
                         this.recycleFlyBeanNode(bean);
+                        revealBoardCell(move.target);
                         finish();
                     })
                     .start();
@@ -596,12 +646,18 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 );
                 this.dragLayer.addChild(bean);
                 bean.setPosition(sourceLocal.x, sourceLocal.y, 0);
+                bean.setScale(0, 0, 1);
                 tween(bean)
                     .delay(move.delay)
+                    .call(() => {
+                        applyMoveVisualHide(move);
+                        bean.setScale(1, 1, 1);
+                    })
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
                         playFeedback('slot', move.feedbackIndex);
                         this.recycleFlyBeanNode(bean);
+                        revealSlotIdx(move.slotIdx);
                         finish();
                     })
                     .start();
@@ -761,7 +817,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');
-                        AudioMgr.inst.vibrate(30);
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })
@@ -791,7 +846,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');
-                        AudioMgr.inst.vibrate(30);
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })
@@ -855,7 +909,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .to(0.1, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1, 1, 1) }, { easing: 'circOut' })
                     .call(() => {
                         AudioMgr.inst.play('place');
-                        AudioMgr.inst.vibrate(30);
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })
@@ -887,7 +940,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .to(0.1, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1, 1, 1) }, { easing: 'circOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');
-                        AudioMgr.inst.vibrate(30);
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })

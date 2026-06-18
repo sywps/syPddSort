@@ -104,6 +104,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         },
 
         ensureColorCompleteMatchFxPrefab(onDone: (prefab: Prefab | null) => void): void {
+            const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             if (this._colorCompleteMatchFxPrefab) {
                 onDone(this._colorCompleteMatchFxPrefab);
                 return;
@@ -116,6 +117,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             this._colorCompleteMatchFxPrefabLoading = true;
             this._colorCompleteMatchFxPrefabCallbacks = [onDone];
             const finish = (prefab: Prefab | null) => {
+                if (!isRuntimeAlive()) return;
                 this._colorCompleteMatchFxPrefabLoading = false;
                 if (prefab) this._colorCompleteMatchFxPrefab = prefab;
                 const callbacks = this._colorCompleteMatchFxPrefabCallbacks || [];
@@ -144,6 +146,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
 
             assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                if (!isRuntimeAlive()) return;
                 if (err || !bundle) {
                     this.warnColorCompleteMatchFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
                     finish(null);
@@ -345,9 +348,8 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             });
         },
 
-        playColorCompleteEffect(colorId: number) {
-            AudioMgr.inst.play('winColor');
-            AudioMgr.inst.vibrate(40);
+        playColorCompleteEffect(colorId: number, playSound: boolean = true) {
+            if (playSound) AudioMgr.inst.play('winColor');
             this.playColorCompleteMatchFxForColor(colorId);
         },
     });

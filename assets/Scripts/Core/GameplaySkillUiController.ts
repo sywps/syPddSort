@@ -15,6 +15,7 @@ import {
     UITransform,
     Vec3,
 } from './GameCtrlShared';
+import { shouldShowGameplaySkillArea } from './SlotOnboardingPolicy';
 
 export class GameplaySkillUiController {
     constructor(private readonly runtime: any) {}
@@ -149,7 +150,9 @@ export class GameplaySkillUiController {
         ];
 
         const currentLevel = runtime.getActiveLogicalLevelId();
-        if (currentLevel < 2) {
+        const entryMode = runtime._activeGameplayEntryMode
+            || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
+        if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) {
             for (const kind of ['wand', 'brush', 'magnet'] as const) {
                 const node = root.getChildByName(this.getSkillShellName(kind));
                 if (!node?.isValid) continue;
@@ -207,20 +210,20 @@ export class GameplaySkillUiController {
                     }
                     return;
                 }
-                runtime.pauseTimerForProp();
+                const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;
                 if (preCheck && !preCheck()) {
                     runtime.showToast('暂存槽没有豆豆');
-                    runtime.resumeTimerForProp();
+                    if (timerPausedForFinalSecond) runtime.resumeTimerForProp();
                     return;
                 }
                 if (!runtime.consumePropCount(skill.kind)) {
-                    runtime.resumeTimerForProp();
+                    if (timerPausedForFinalSecond) runtime.resumeTimerForProp();
                     this.rebuildSkillButtonsUI();
                     return;
                 }
                 runtime.markDynamicCountdownAssisted?.();
                 this.rebuildSkillButtonsUI();
-                handler(true);
+                handler(timerPausedForFinalSecond);
             }, runtime);
         }
     }

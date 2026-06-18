@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, view, ResolutionPolicy, tween, Tween, sys,
+    Graphics, Color, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -32,6 +32,7 @@ import type {
 import { ensureLeaderboardPanelController } from '../Panels/LeaderboardPanelController';
 import { getWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { ToastService } from '../ToastService';
+import { debugPerfTrace } from '../DebugPerfTrace';
 
 function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string): Label {
     const node = parent.getChildByName(name);
@@ -102,10 +103,12 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             const layer = this._guideLayer as Node | null;
             if (!layer?.isValid) return;
-            const transientNames = new Set(['GuideHighlight']);
+            const transientNames = new Set(['GuideHighlight', 'GuideTapRing']);
             for (const child of [...layer.children]) {
                 if (!transientNames.has(child.name)) continue;
                 Tween.stopAllByTarget(child);
+                const opacity = child.getComponent(UIOpacity);
+                if (opacity) Tween.stopAllByTarget(opacity);
                 child.destroy();
             }
         },
@@ -140,7 +143,7 @@ export function installGuideLeaderboardModule(target: any): void {
                 this._guideMask.setSiblingIndex(nextIndex++);
             }
             for (const child of [...layer.children]) {
-                if (child.isValid && child.name === 'GuideHighlight') {
+                if (child.isValid && (child.name === 'GuideHighlight' || child.name === 'GuideTapRing')) {
                     child.setSiblingIndex(nextIndex++);
                 }
             }
@@ -151,7 +154,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         /** 手势引导：手停在豆豆块上方，执行点击动作 */
-        startHandGestureToBoard(block: BeanBlockInfo, hand: Node) {
+        startHandGestureToBoard(block: BeanBlockInfo, hand: Node, targetOffsetY: number = 0) {
             const layerUT = this._guideLayer!.getComponent(UITransform)!;
             const boardUT = this.boardNode.getComponent(UITransform)!;
             const boardWorldCenter = boardUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
@@ -174,7 +177,7 @@ export function installGuideLeaderboardModule(target: any): void {
             const blockY = (halfH - 0.5 - blockCenterRow) * step;
         
             hand.active = true;
-            this.setGuideHandTarget(hand, boardCenter.x + blockX, boardCenter.y + blockY);
+            this.setGuideHandTarget(hand, boardCenter.x + blockX, boardCenter.y + blockY + targetOffsetY);
             this.startGuideHandPulse(hand);
         },
 
@@ -209,15 +212,62 @@ export function installGuideLeaderboardModule(target: any): void {
         startGuideHandPulse(hand: Node) {
             Tween.stopAllByTarget(hand);
             hand.setScale(1, 1, 1);
+            const base = new Vec3(hand.position.x, hand.position.y, hand.position.z);
             tween(hand)
                 .delay(0.3)
                 .repeatForever(
                     tween(hand)
-                        .to(0.2, { scale: new Vec3(0.8, 0.8, 1) })
-                        .delay(0.15)
-                        .to(0.2, { scale: new Vec3(1, 1, 1) })
-                        .delay(0.6)
+                        .to(0.26, { position: new Vec3(base.x, base.y + 18, base.z) }, { easing: 'sineOut' })
+                        .to(0.30, { position: new Vec3(base.x, base.y - 8, base.z) }, { easing: 'quadIn' })
+                        .call(() => {
+                            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') this.playGuideHandTapRipple?.(hand);
+                        })
+                        .delay(0.22)
                 )
+                .start();
+        },
+
+        playGuideHandTapRipple(hand: Node) {
+            const layer = this._guideLayer as Node | null;
+            if (!layer?.isValid || !hand?.isValid || hand.parent !== layer) return;
+
+            const ring = new Node('GuideTapRing');
+            layer.addChild(ring);
+            ring.layer = layer.layer;
+            ring.addComponent(UITransform).setContentSize(112, 112);
+            const visualFingertipOffsetX = -31;
+            const visualFingertipOffsetY = 43;
+            ring.setPosition(
+                hand.position.x + visualFingertipOffsetX,
+                hand.position.y + visualFingertipOffsetY,
+                0,
+            );
+            ring.setScale(0.68, 0.68, 1);
+
+            const opacity = ring.addComponent(UIOpacity);
+            opacity.opacity = 220;
+            const g = ring.addComponent(Graphics);
+            g.fillColor = new Color(94, 148, 255, 42);
+            g.circle(0, 0, 30);
+            g.fill();
+            g.strokeColor = new Color(86, 142, 255, 210);
+            g.lineWidth = 6;
+            g.circle(0, 0, 30);
+            g.stroke();
+            g.strokeColor = new Color(255, 255, 255, 190);
+            g.lineWidth = 3;
+            g.circle(0, 0, 18);
+            g.stroke();
+
+            this.raiseGuideHandAboveHighlights(hand);
+            tween(ring)
+                .to(0.42, { scale: new Vec3(1.7, 1.7, 1) }, { easing: 'sineOut' })
+                .call(() => {
+                    if (ring.isValid) ring.destroy();
+                })
+                .start();
+            tween(opacity)
+                .to(0.42, { opacity: 0 }, { easing: 'quadIn' })
                 .start();
         },
 
@@ -511,6 +561,11 @@ export function installGuideLeaderboardModule(target: any): void {
         deactivateWeChatFriendRank(reason: string = 'unknown') {
             const openDataContext = this.getWeChatOpenDataContext();
             this.stopFriendRankInertia();
+            debugPerfTrace('friendRank.openData.deactivate', {
+                reason,
+                hasOpenDataContext: !!openDataContext,
+                hasPostMessage: !!openDataContext?.postMessage,
+            });
             if (openDataContext?.postMessage) {
                 try {
                     openDataContext.postMessage({ type: 'deactivate', reason });

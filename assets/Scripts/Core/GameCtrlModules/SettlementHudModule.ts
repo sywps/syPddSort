@@ -72,7 +72,8 @@ export function installSettlementHudModule(target: any): void {
 
         refreshCompletionProgressLabel() {
             if (this.levelLabel) {
-                this.levelLabel.string = `第${this.getActiveLogicalLevelId()}关`;
+                const activeLevel = this.getActiveLogicalLevelId();
+                this.levelLabel.string = activeLevel === 1 ? '新手引导' : `第${activeLevel}关`;
             }
             if (!this.completionLabel || !this.boardModel) return;
             const stats = this.getBoardCompletionStats();
@@ -208,8 +209,12 @@ export function installSettlementHudModule(target: any): void {
 
         updateLoseProgressLabel() {
             const stats = this.getBoardCompletionStats();
-            this.syncSettlementProgressWidget(this.panelLose, stats);
-            this.syncSettlementProgressWidget(this.panelTimeoutContinue, stats);
+            const failStats = {
+                ...stats,
+                completePercent: Math.min(98, Math.max(0, Math.floor(Number(stats.completePercent) || 0))),
+            };
+            this.syncSettlementProgressWidget(this.panelLose, failStats);
+            this.syncSettlementProgressWidget(this.panelTimeoutContinue, failStats);
         },
 
         showLosePanel() {
@@ -258,10 +263,9 @@ export function installSettlementHudModule(target: any): void {
         },
 
         continueTutorialToSlotIntro(nextId: number) {
-            this.showToast('很好，接着学会暂存槽', 1.1);
             this.scheduleOnce(() => {
                 this.loadLevel(nextId);
-            }, 1.0);
+            }, 0.08);
         },
 
         getFirstThemeLevelId(): number {
@@ -292,6 +296,7 @@ export function installSettlementHudModule(target: any): void {
         gameWin() {
             if (this.isGameEnd) return;
             this.isGameEnd = true;
+            AudioMgr.inst.play('winAll');
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_pass', {
@@ -339,8 +344,7 @@ export function installSettlementHudModule(target: any): void {
         
             // Phase 3: win sound + panel + pattern preview（归位动画结束后）
             this.scheduleOnce(() => {
-                AudioMgr.inst.play('winAll');
-                AudioMgr.inst.vibrate(50);
+                AudioMgr.inst.play('winSettlement');
                 if (this.boardGroup) {
                     tween(this.boardGroup)
                         .to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
@@ -396,6 +400,10 @@ export function installSettlementHudModule(target: any): void {
 
         gameLose() {
             if (this.isGameEnd) return;
+            if (this.boardModel?.isAllLocked?.()) {
+                this.gameWin();
+                return;
+            }
             this.isGameEnd = true;
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_fail', {
@@ -652,14 +660,29 @@ export function installSettlementHudModule(target: any): void {
             this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
             this._guideLayer.addComponent(BlockInputEvents);
             this._guideLayer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-                if (this._guideInputSuspended) return;
+                const uiPos = event.getUILocation();
+                const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
+                this.markFirstLevelTouchTiming?.();
+                if (this._guideInputSuspended) {
+                    this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
+                    return;
+                }
+                this.reportFirstLevelAnyTouch?.(worldPos, 'guide_layer', 'tutorial');
+                this.reportTutorialLayerTouchStart?.(worldPos);
                 event.propagationStopped = true;
             }, this);
             this._guideLayer.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                if (this._guideInputSuspended) return;
-                if (this.isGameEnd || this._guideStep < 0) return;
                 const uiPos = event.getUILocation();
-                this.handleGuideTap(new Vec3(uiPos.x, uiPos.y, 0));
+                const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
+                if (this._guideInputSuspended) {
+                    this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
+                    return;
+                }
+                if (this.isGameEnd || this._guideStep < 0) {
+                    this.reportTutorialTapResult?.(worldPos, 'ignored_invalid_step', false, 'guide_layer');
+                    return;
+                }
+                this.handleGuideTap(worldPos);
                 event.propagationStopped = true;
             }, this);
         
@@ -705,6 +728,7 @@ export function installSettlementHudModule(target: any): void {
             }
             if (!this._guideLayer) return;
             this._guideLayer.active = true;
+            this.markTutorialStepShownForFunnel?.(step);
             this.trackFirstLevelFunnel('tutorial_step_show', {
                 stepId: step,
                 stepName: `${this._guideMode}:${step}:${this._guidePhase}`,
@@ -755,6 +779,7 @@ export function installSettlementHudModule(target: any): void {
                     this.endTutorial();
                     break;
             }
+            this.markTutorialStepInteractiveReadyForFunnel?.(step);
         
             this.playGuideVoiceForCurrentStep(step);
         },
@@ -787,9 +812,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         formatLevel1GuidePrompt(primaryText: string): string {
-            const step = Math.max(0, Number(this._guideStep) || 0);
-            const restoredCount = Math.max(1, Math.min(2, Math.floor(step / 2) + 1));
-            return `${primaryText}\n还原进度 ${restoredCount}/2`;
+            return primaryText;
         },
 
         getGuideNodeVerticalBoundsInLayer(node: Node | null, targetLayer: Node | null): { bottom: number; top: number } | null {
@@ -886,18 +909,73 @@ export function installSettlementHudModule(target: any): void {
             }
         },
 
-        styleLevel1GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
+        styleStarterGuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
             bubble.active = true;
-            lbl.string = this.formatLevel1GuidePrompt(primaryText);
+            lbl.string = this._guideMode === 'level_2'
+                ? this.formatLevel2GuidePrompt(primaryText)
+                : this.formatLevel1GuidePrompt(primaryText);
+            lbl.color = new Color('#222222');
+            lbl.fontSize = 44;
+            lbl.lineHeight = 52;
+            lbl.enableWrapText = false;
+            lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
+            lbl.verticalAlign = Label.VerticalAlign.CENTER;
+
+            const w = 520;
+            const h = 86;
+            const bubbleUT = bubble.getComponent(UITransform) || bubble.addComponent(UITransform);
+            bubbleUT.setContentSize(w, h);
+            const labelUT = lbl.node.getComponent(UITransform) || lbl.node.addComponent(UITransform);
+            labelUT.setContentSize(w - 56, h - 18);
+            lbl.node.setPosition(0, 0, 0);
+            const bg = bubble.getChildByName('BubbleBg');
+            if (bg?.isValid) bg.active = false;
+
+            const g = bubble.getComponent(Graphics) || bubble.addComponent(Graphics);
+            g.clear();
+            g.fillColor = new Color(110, 170, 176, 92);
+            g.roundRect(-w / 2 + 2, -h / 2 - 8, w, h, 20);
+            g.fill();
+            g.fillColor = new Color(255, 255, 255, 252);
+            g.roundRect(-w / 2, -h / 2, w, h, 20);
+            g.fill();
+            g.strokeColor = new Color(24, 24, 24, 255);
+            g.lineWidth = 4;
+            g.roundRect(-w / 2, -h / 2, w, h, 20);
+            g.stroke();
+
+            const boardCells: { row: number; col: number }[] = [];
+            const correctColors = this.boardModel?.correctColors || [];
+            for (let row = 0; row < correctColors.length; row++) {
+                const line = correctColors[row] || [];
+                for (let col = 0; col < line.length; col++) {
+                    if (Number(line[col]) > 0) boardCells.push({ row, col });
+                }
+            }
+            const boardCellBounds = boardCells.length > 0 && typeof this.getGuideCellsLayerBounds === 'function'
+                ? this.getGuideCellsLayerBounds(boardCells)
+                : null;
+            const boardBounds = this.getGuideNodeVerticalBoundsInLayer(this.boardNode || null, this._guideLayer || null);
+            const slotBounds = this.getGuideNodeVerticalBoundsInLayer(this.slotAreaNode || null, this._guideLayer || null);
+            const boardBottom = Number.isFinite(boardCellBounds?.centerY) && Number.isFinite(boardCellBounds?.height)
+                ? boardCellBounds!.centerY - boardCellBounds!.height / 2 + 28
+                : Number.isFinite(boardBounds?.bottom) ? boardBounds!.bottom : 110;
+            const slotTop = Number.isFinite(slotBounds?.top) ? slotBounds!.top : -430;
+            const preferredY = slotTop + (boardBottom - slotTop) * 0.68;
+            const upperLimit = boardBottom - h / 2 - 22;
+            const lowerLimit = slotTop + h / 2 + 88;
+            const y = upperLimit >= lowerLimit
+                ? Math.max(lowerLimit, Math.min(preferredY, upperLimit))
+                : boardBottom > slotTop ? (boardBottom + slotTop) / 2 : boardBottom - h / 2 - 82;
+            bubble.setPosition(0, y, 0);
+        },
+
+        styleLevel1GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
+            this.styleStarterGuidePrompt(_gb, bubble, lbl, primaryText);
         },
 
         formatLevel2GuidePrompt(primaryText: string): string {
-            const step = Math.max(0, Number(this._guideStep) || 0);
-            const progressStep = this._guideMode === 'level_1'
-                ? Math.floor(step / 2) + 1
-                : step + 1;
-            const completedCount = Math.max(1, Math.min(3, progressStep));
-            return `${primaryText}\n完成进度 ${completedCount}/3`;
+            return primaryText;
         },
     });
 }

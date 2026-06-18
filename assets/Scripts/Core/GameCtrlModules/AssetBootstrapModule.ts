@@ -6,8 +6,9 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
-    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, POPUP_UI_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
+    RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, THEME_PANEL_RELEASE_TEXTURE_NAMES, THEME_PANEL_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
@@ -32,18 +33,178 @@ import type {
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
+import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
+import { AppRoot } from '../AppRoot';
 
-const SHARED_POPUP_SPRITE_FRAME_NAMES = new Set<string>([
-    'popup_guide_highlight_ring',
+const SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP = 'startup-bootstrap';
+const SPRITE_FRAME_SCOPE_SCENE_HOME = 'scene-home';
+const SPRITE_FRAME_SCOPE_SCENE_GAME = 'scene-game';
+const SPRITE_FRAME_SCOPE_SHARED_UI = 'shared-ui';
+const SPRITE_FRAME_SCOPE_DYNAMIC = 'dynamic';
+const MAX_CONCURRENT_SPRITE_FRAME_LOADS = 4;
+
+const SCENE_HOME_SPRITE_FRAME_NAMES = new Set<string>(HOME_MENU_TEXTURE_NAMES);
+const SCENE_GAME_SPRITE_FRAME_NAMES = new Set<string>([
+    ...GAMEPLAY_SLOT_TEXTURE_NAMES,
+    ...SKILL_BUTTON_TEXTURE_NAMES,
+]);
+const SHARED_UI_SPRITE_FRAME_NAMES = new Set<string>([
+    ...POPUP_UI_TEXTURE_NAMES,
+    ...GOLD_SHOP_TEXTURE_NAMES,
+    ...RESOURCE_ACQUIRE_TEXTURE_NAMES,
+    ...DAILY_SIGNIN_TEXTURE_NAMES,
+    ...RECOVER_VIGOR_TEXTURE_NAMES,
+    ...REWARD_RESULT_TEXTURE_NAMES,
+    ...RESULT_PANEL_TEXTURE_NAMES,
+    ...SETTINGS_PANEL_TEXTURE_NAMES,
+    ...LEADERBOARD_TEXTURE_NAMES,
+    ...COLLECTION_TEXTURE_NAMES,
+    ...THEME_PANEL_TEXTURE_NAMES,
 ]);
 
 export function installAssetBootstrapModule(target: any): void {
     Object.assign(target, {
-        _cacheSpriteFrame(sf: SpriteFrame | null, fallbackName?: string) {
+        _cacheSpriteFrame(
+            sf: SpriteFrame | null,
+            fallbackName?: string,
+            options: { releaseMode?: 'asset' | 'dynamic'; imageAsset?: ImageAsset | null; texture?: Texture2D | null; scope?: string } = {},
+        ) {
             if (!sf) return;
             const fileName = sf.name || fallbackName;
             if (!fileName) return;
             this.sfCache.set(fileName, sf);
+            const prevMeta = this._spriteFrameCacheMeta.get(fileName) || null;
+            const taggedMode = (sf as any).__pddReleaseMode;
+            const releaseMode = options.releaseMode || (taggedMode === 'dynamic' ? 'dynamic' : 'asset');
+            const taggedImageAsset = (sf as any).__pddSourceImageAsset;
+            const taggedTexture = (sf as any).__pddOwnedTexture;
+            const owners = prevMeta?.owners instanceof Set ? prevMeta.owners : new Set<string>();
+            const retainCount = Number.isFinite(prevMeta?.retainCount) ? Number(prevMeta.retainCount) : owners.size;
+            this._spriteFrameCacheMeta.set(fileName, {
+                releaseMode,
+                imageAsset: options.imageAsset ?? taggedImageAsset ?? null,
+                texture: options.texture ?? taggedTexture ?? null,
+                scope: this._inferSpriteFrameScope(fileName, options.scope || prevMeta?.scope),
+                owners,
+                retainCount,
+            });
+        },
+
+        _inferSpriteFrameScope(name: string, explicitScope?: string): string {
+            if (explicitScope) return explicitScope;
+            if (LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES.has(name) || LOCAL_BOOTSTRAP_TEXTURE_NAMES.has(name)) {
+                return SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP;
+            }
+            if (SCENE_GAME_SPRITE_FRAME_NAMES.has(name)) {
+                return SPRITE_FRAME_SCOPE_SCENE_GAME;
+            }
+            if (SCENE_HOME_SPRITE_FRAME_NAMES.has(name)) {
+                return SPRITE_FRAME_SCOPE_SCENE_HOME;
+            }
+            if (SHARED_UI_SPRITE_FRAME_NAMES.has(name)) {
+                return SPRITE_FRAME_SCOPE_SHARED_UI;
+            }
+            return SPRITE_FRAME_SCOPE_DYNAMIC;
+        },
+
+        _getSpriteFrameCacheMetaEntry(name: string, createIfMissing: boolean = false, explicitScope?: string) {
+            let meta = this._spriteFrameCacheMeta.get(name) || null;
+            if (!meta && createIfMissing) {
+                meta = {
+                    releaseMode: 'asset',
+                    imageAsset: null,
+                    texture: null,
+                    scope: this._inferSpriteFrameScope(name, explicitScope),
+                    owners: new Set<string>(),
+                    retainCount: 0,
+                };
+                this._spriteFrameCacheMeta.set(name, meta);
+            } else if (meta && explicitScope && meta.scope !== explicitScope) {
+                meta.scope = explicitScope;
+            }
+            if (meta && !(meta.owners instanceof Set)) {
+                meta.owners = new Set<string>();
+            }
+            if (meta && !Number.isFinite(meta.retainCount)) {
+                meta.retainCount = meta.owners.size;
+            }
+            return meta;
+        },
+
+        _getPanelTextureOwnerKey(panelKey: string): string {
+            return `panel:${panelKey}`;
+        },
+
+        _retainPanelTextureOwner(panelKey: string, names: string[], scope: string = SPRITE_FRAME_SCOPE_SHARED_UI) {
+            const owner = this._getPanelTextureOwnerKey(panelKey);
+            const uniqueNames = Array.from(new Set(names));
+            let retainedNames = 0;
+            for (const name of uniqueNames) {
+                if (!this.getSF(name)) continue;
+                retainedNames += 1;
+                const meta = this._getSpriteFrameCacheMetaEntry(name, true, scope);
+                if (!meta.owners.has(owner)) {
+                    meta.owners.add(owner);
+                    meta.retainCount = (Number(meta.retainCount) || 0) + 1;
+                }
+            }
+            debugPerfSnapshot('panel.texture.retain', this, {
+                panelKey,
+                owner,
+                requestedNames: uniqueNames.length,
+                retainedNames,
+                scope,
+            });
+        },
+
+        _releaseSpriteFrameOwner(owner: string, reason: string) {
+            if (!owner) return;
+            let released = 0;
+            for (const [name, meta] of this._spriteFrameCacheMeta.entries()) {
+                if (!(meta?.owners instanceof Set) || !meta.owners.has(owner)) continue;
+                meta.owners.delete(owner);
+                meta.retainCount = Math.max(0, (Number(meta.retainCount) || 0) - 1);
+                if (meta.retainCount === 0 && this._canAutoReleaseSpriteFrameScope(meta.scope, reason)) {
+                    if (this._releaseSpriteFrameCacheEntry(name, reason)) {
+                        released += 1;
+                    }
+                }
+            }
+            if (released > 0) {
+                console.log(`[Memory] released ${released} owner-held SpriteFrames: ${reason}`);
+            }
+        },
+
+        _releasePanelTextureOwner(panelKey: string, reason: string) {
+            const owner = this._getPanelTextureOwnerKey(panelKey);
+            debugPerfSnapshot('panel.texture.release.before', this, {
+                panelKey,
+                owner,
+                reason,
+            });
+            this._releaseSpriteFrameOwner(owner, reason);
+            debugPerfSnapshot('panel.texture.release.after', this, {
+                panelKey,
+                owner,
+                reason,
+            });
+        },
+
+        _isRuntimeAliveForAsyncCallback(): boolean {
+            return !!this?.isValid && !!this.node?.isValid;
+        },
+
+        _canAutoReleaseSpriteFrameScope(scope: string, reason: string): boolean {
+            if (scope === SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP) {
+                return reason.includes('runtime-destroy');
+            }
+            if (scope === SPRITE_FRAME_SCOPE_SHARED_UI) {
+                return reason.includes('runtime-destroy');
+            }
+            if (scope === SPRITE_FRAME_SCOPE_SCENE_HOME || scope === SPRITE_FRAME_SCOPE_SCENE_GAME) {
+                return reason.includes('scene-destroy') || reason.includes('runtime-destroy');
+            }
+            return true;
         },
 
         _getSpriteFrameLoadCandidates(assetPath: string): string[] {
@@ -72,6 +233,14 @@ export function installAssetBootstrapModule(target: any): void {
                 });
             };
             tryLoad(0);
+        },
+
+        _getRoutedBundle(bundleName: string): Bundle | null {
+            try {
+                return AppRoot.tryGet()?.session.getRoutedBundle(bundleName) || null;
+            } catch (_) {
+                return null;
+            }
         },
 
         _preloadGameAssetsTextureSet(bundle: Bundle, onDone?: () => void, paths: string[] = GAME_ASSETS_PRELOAD_TEXTURE_PATHS) {
@@ -141,6 +310,9 @@ export function installAssetBootstrapModule(target: any): void {
             sf.texture = texture;
             sf.rect = new Rect(0, 0, width, height);
             sf.name = imgName;
+            (sf as any).__pddReleaseMode = 'dynamic';
+            (sf as any).__pddOwnedTexture = texture;
+            (sf as any).__pddSourceImageAsset = imgAsset;
             return sf;
         },
 
@@ -198,21 +370,50 @@ export function installAssetBootstrapModule(target: any): void {
 
         _withBootstrapBundle(callback: (bundle: Bundle | null) => void) {
             if (this.bootstrapBundle) {
+                debugPerfSnapshot('bundle.bootstrap.reuse', this, {
+                    bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+                });
                 callback(this.bootstrapBundle);
+                return;
+            }
+            const routedBundle = this._getRoutedBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME);
+            if (routedBundle) {
+                this.bootstrapBundle = routedBundle;
+                debugPerfSnapshot('bundle.bootstrap.seedFromRoute', this, {
+                    bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+                });
+                callback(routedBundle);
                 return;
             }
             if (this._bootstrapBundleLoadingCallbacks) {
                 this._bootstrapBundleLoadingCallbacks.push(callback);
+                debugPerfTrace('bundle.bootstrap.queue', {
+                    bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+                    waitingCallbacks: this._bootstrapBundleLoadingCallbacks.length,
+                });
                 return;
             }
             this._bootstrapBundleLoadingCallbacks = [callback];
             console.log('[bootstrap] loadBundle start');
+            const startedAt = Date.now();
+            debugPerfSnapshot('bundle.bootstrap.load.start', this, {
+                bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+            });
             assetManager.loadBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME, (err, bundle) => {
                 if (err || !bundle) {
                     console.warn('[bootstrap] loadBundle failed:', err?.message || 'no bundle');
+                    debugPerfSnapshot('bundle.bootstrap.load.error', this, {
+                        bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+                        durationMs: Date.now() - startedAt,
+                        error: err || new Error('no bundle'),
+                    });
                 } else {
                     console.log('[bootstrap] loadBundle success');
                     this.bootstrapBundle = bundle;
+                    debugPerfSnapshot('bundle.bootstrap.load.success', this, {
+                        bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+                        durationMs: Date.now() - startedAt,
+                    });
                 }
                 const callbacks = this._bootstrapBundleLoadingCallbacks || [];
                 this._bootstrapBundleLoadingCallbacks = null;
@@ -222,36 +423,215 @@ export function installAssetBootstrapModule(target: any): void {
             });
         },
 
+        prefetchLocalBootstrapStartupAssets(levelId: number, callback?: (ready: boolean) => void) {
+            if (!this.shouldUseLocalBootstrapBundle(levelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX)) {
+                callback?.(false);
+                return;
+            }
+            const bootstrapTextureNames = Array.from(LOCAL_BOOTSTRAP_TEXTURE_NAMES);
+            const hasBootstrapTextures = bootstrapTextureNames.every((name) => this.sfCache.has(name));
+            const alreadyReady =
+                this._startupBootstrapPrefetchState === 'ready'
+                && this._startupBootstrapPrefetchLevelId === levelId
+                && this._bootstrapBeanAtlasReady
+                && hasBootstrapTextures;
+            if (alreadyReady) {
+                callback?.(true);
+                return;
+            }
+            if (
+                this._startupBootstrapPrefetchState === 'loading'
+                && this._startupBootstrapPrefetchLevelId === levelId
+            ) {
+                if (callback) {
+                    const callbacks = this._startupBootstrapPrefetchCallbacks || [];
+                    callbacks.push(callback);
+                    this._startupBootstrapPrefetchCallbacks = callbacks;
+                }
+                return;
+            }
+
+            this._startupBootstrapPrefetchState = 'loading';
+            this._startupBootstrapPrefetchLevelId = levelId;
+            this._startupBootstrapPrefetchCallbacks = callback ? [callback] : [];
+
+            let levelReady = false;
+            let beanReady = false;
+            let uiReady = false;
+            let resolved = false;
+            const finish = (ready: boolean) => {
+                if (resolved) return;
+                resolved = true;
+                this._startupBootstrapPrefetchState = ready ? 'ready' : 'failed';
+                const callbacks = this._startupBootstrapPrefetchCallbacks || [];
+                this._startupBootstrapPrefetchCallbacks = null;
+                for (const done of callbacks) {
+                    done(ready);
+                }
+            };
+            const tryFinish = () => {
+                if (levelReady && beanReady && uiReady) {
+                    finish(true);
+                }
+            };
+
+            this._loadLocalLevelDataImpl(levelId, (data) => {
+                if (!data) {
+                    console.warn(`[bootstrap] startup prefetch level data missing: ${LOCAL_BOOTSTRAP_LEVEL_PREFIX}${levelId}`);
+                    finish(false);
+                    return;
+                }
+                levelReady = true;
+                tryFinish();
+            }, LOCAL_BOOTSTRAP_LEVEL_PREFIX);
+
+            this._ensureBootstrapBeanAtlasLoaded(() => {
+                beanReady = !!this._bootstrapBeanAtlasReady;
+                if (!beanReady) {
+                    console.warn('[bootstrap] startup prefetch bean atlas unavailable');
+                    finish(false);
+                    return;
+                }
+                tryFinish();
+            });
+
+            this._preloadBootstrapTextureSetStrict(bootstrapTextureNames, () => {
+                uiReady = bootstrapTextureNames.every((name) => this.sfCache.has(name));
+                if (!uiReady) {
+                    const missingTextureNames = bootstrapTextureNames.filter((name) => !this.sfCache.has(name));
+                    console.warn('[bootstrap] startup prefetch ui textures missing:', missingTextureNames);
+                    finish(false);
+                    return;
+                }
+                tryFinish();
+            });
+        },
+
+        releaseStartupBootstrapPrefetchIfUnused(reason: string) {
+            const releaseNow = () => {
+                this._startupBootstrapPrefetchState = 'released';
+                this._startupBootstrapPrefetchLevelId = 0;
+                this._startupBootstrapPrefetchReleaseQueued = false;
+            };
+
+            if (this._startupBootstrapPrefetchState === 'loading') {
+                if (!this._startupBootstrapPrefetchReleaseQueued) {
+                    const callbacks = this._startupBootstrapPrefetchCallbacks || [];
+                    callbacks.push((ready) => {
+                        if (!this.node?.isValid) return;
+                        if (ready) {
+                            releaseNow();
+                        } else {
+                            this._startupBootstrapPrefetchState = 'failed';
+                            this._startupBootstrapPrefetchLevelId = 0;
+                            this._startupBootstrapPrefetchReleaseQueued = false;
+                        }
+                    });
+                    this._startupBootstrapPrefetchCallbacks = callbacks;
+                    this._startupBootstrapPrefetchReleaseQueued = true;
+                }
+                return;
+            }
+            if (this._startupBootstrapPrefetchState !== 'ready') {
+                this._startupBootstrapPrefetchLevelId = 0;
+                this._startupBootstrapPrefetchReleaseQueued = false;
+                return;
+            }
+            releaseNow();
+        },
+
+        _flushGameAssetsBundleLoadingCallbacks(bundle: Bundle | null) {
+            const callbacks = this._gameAssetsBundleLoadingCallbacks || [];
+            this._gameAssetsBundleLoadingCallbacks = null;
+            for (const done of callbacks) {
+                done(bundle);
+            }
+        },
+
         _withGameAssetsBundle(callback: (bundle: Bundle | null) => void) {
             if (this.gameAssetsBundle) {
+                if (!this._isRuntimeAliveForAsyncCallback()) return;
+                debugPerfSnapshot('bundle.gameAssets.reuse', this, {
+                    bundleName: GAME_ASSETS_BUNDLE_NAME,
+                });
                 callback(this.gameAssetsBundle);
                 return;
             }
+            if (this._gameAssetsBundleLoadingCallbacks) {
+                this._gameAssetsBundleLoadingCallbacks.push(callback);
+                debugPerfTrace('bundle.gameAssets.queue', {
+                    bundleName: GAME_ASSETS_BUNDLE_NAME,
+                    waitingCallbacks: this._gameAssetsBundleLoadingCallbacks.length,
+                    preloadingGameAssetsBundle: !!this._preloadingBundle,
+                });
+                return;
+            }
             if (this._preloadingBundle) {
+                this._gameAssetsBundleLoadingCallbacks = [callback];
+                debugPerfTrace('bundle.gameAssets.waitExisting', {
+                    bundleName: GAME_ASSETS_BUNDLE_NAME,
+                    waitingCallbacks: this._gameAssetsBundleLoadingCallbacks.length,
+                });
                 const check = () => {
+                    if (!this._isRuntimeAliveForAsyncCallback()) {
+                        this.unschedule(check);
+                        this._gameAssetsBundleLoadingCallbacks = null;
+                        debugPerfTrace('bundle.gameAssets.wait.abort.runtimeDead', {
+                            bundleName: GAME_ASSETS_BUNDLE_NAME,
+                        });
+                        return;
+                    }
                     if (this.gameAssetsBundle) {
                         this.unschedule(check);
-                        callback(this.gameAssetsBundle);
+                        debugPerfSnapshot('bundle.gameAssets.wait.success', this, {
+                            bundleName: GAME_ASSETS_BUNDLE_NAME,
+                        });
+                        this._flushGameAssetsBundleLoadingCallbacks(this.gameAssetsBundle);
                         return;
                     }
                     if (!this._preloadingBundle) {
                         this.unschedule(check);
-                        callback(null);
+                        debugPerfSnapshot('bundle.gameAssets.wait.missing', this, {
+                            bundleName: GAME_ASSETS_BUNDLE_NAME,
+                        });
+                        this._flushGameAssetsBundleLoadingCallbacks(null);
                     }
                 };
                 this.schedule(check, 0.05);
                 return;
             }
             this._preloadingBundle = true;
+            this._gameAssetsBundleLoadingCallbacks = [callback];
+            const startedAt = Date.now();
+            debugPerfSnapshot('bundle.gameAssets.load.start', this, {
+                bundleName: GAME_ASSETS_BUNDLE_NAME,
+            });
             assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 this._preloadingBundle = false;
+                if (!this._isRuntimeAliveForAsyncCallback()) {
+                    this._gameAssetsBundleLoadingCallbacks = null;
+                    debugPerfTrace('bundle.gameAssets.load.abort.runtimeDead', {
+                        bundleName: GAME_ASSETS_BUNDLE_NAME,
+                        durationMs: Date.now() - startedAt,
+                    });
+                    return;
+                }
                 if (err || !bundle) {
                     console.warn('loadBundle gameAssets failed:', err?.message);
-                    callback(null);
+                    debugPerfSnapshot('bundle.gameAssets.load.error', this, {
+                        bundleName: GAME_ASSETS_BUNDLE_NAME,
+                        durationMs: Date.now() - startedAt,
+                        error: err || new Error('no bundle'),
+                    });
+                    this._flushGameAssetsBundleLoadingCallbacks(null);
                     return;
                 }
                 this.gameAssetsBundle = bundle;
-                callback(bundle);
+                debugPerfSnapshot('bundle.gameAssets.load.success', this, {
+                    bundleName: GAME_ASSETS_BUNDLE_NAME,
+                    durationMs: Date.now() - startedAt,
+                });
+                this._flushGameAssetsBundleLoadingCallbacks(bundle);
             });
         },
 
@@ -374,6 +754,72 @@ export function installAssetBootstrapModule(target: any): void {
             tryLoad(0);
         },
 
+        _getSpriteFrameLoadConcurrencyLimit(): number {
+            return MAX_CONCURRENT_SPRITE_FRAME_LOADS;
+        },
+
+        _enqueueSpriteFrameLoadTask(imgName: string, task: (done: () => void) => void) {
+            if (!this._isRuntimeAliveForAsyncCallback()) return;
+            if (!Array.isArray(this._spriteFrameLoadQueue)) {
+                this._spriteFrameLoadQueue = [];
+            }
+            this._spriteFrameLoadQueue.push({ imgName, task });
+            debugPerfSnapshot('spriteFrame.load.queue.push', this, {
+                imgName,
+                queueSize: this._spriteFrameLoadQueue.length,
+                concurrencyLimit: this._getSpriteFrameLoadConcurrencyLimit(),
+            });
+            this._drainSpriteFrameLoadQueue();
+        },
+
+        _drainSpriteFrameLoadQueue() {
+            if (!this._isRuntimeAliveForAsyncCallback()) {
+                this._spriteFrameLoadQueue = [];
+                this._spriteFrameLoadInFlight = 0;
+                return;
+            }
+            if (!Array.isArray(this._spriteFrameLoadQueue)) {
+                this._spriteFrameLoadQueue = [];
+            }
+            const limit = this._getSpriteFrameLoadConcurrencyLimit();
+            while (this._spriteFrameLoadInFlight < limit && this._spriteFrameLoadQueue.length > 0) {
+                const entry = this._spriteFrameLoadQueue.shift();
+                if (!entry || typeof entry.task !== 'function') continue;
+                const taskImgName = String(entry.imgName || '');
+                this._spriteFrameLoadInFlight = Math.max(0, Number(this._spriteFrameLoadInFlight) || 0) + 1;
+                const startedAt = Date.now();
+                debugPerfTrace('spriteFrame.load.start', {
+                    imgName: taskImgName,
+                    inFlight: this._spriteFrameLoadInFlight,
+                    queueSize: this._spriteFrameLoadQueue.length,
+                    concurrencyLimit: limit,
+                });
+                let finished = false;
+                const done = () => {
+                    if (finished) return;
+                    finished = true;
+                    this._spriteFrameLoadInFlight = Math.max(0, (Number(this._spriteFrameLoadInFlight) || 0) - 1);
+                    debugPerfTrace('spriteFrame.load.finish', {
+                        imgName: taskImgName,
+                        durationMs: Date.now() - startedAt,
+                        inFlight: this._spriteFrameLoadInFlight,
+                        queueSize: Array.isArray(this._spriteFrameLoadQueue) ? this._spriteFrameLoadQueue.length : 0,
+                        concurrencyLimit: limit,
+                    });
+                    this._drainSpriteFrameLoadQueue();
+                };
+                try {
+                    entry.task(done);
+                } catch (error) {
+                    debugPerfTrace('spriteFrame.load.error', {
+                        imgName: taskImgName,
+                        error,
+                    });
+                    done();
+                }
+            }
+        },
+
         _loadSpriteFrameByName(imgName: string, callback: (sf: SpriteFrame | null) => void) {
             const cached = this.getSF(imgName);
             if (cached) {
@@ -386,24 +832,45 @@ export function installAssetBootstrapModule(target: any): void {
                 return;
             }
             this._pendingSpriteFrameLoads.set(imgName, [callback]);
+            const startedAt = Date.now();
             const resolve = (sf: SpriteFrame | null) => {
                 if (sf) {
                     this._cacheSpriteFrame(sf, imgName);
                 }
                 const callbacks = this._pendingSpriteFrameLoads.get(imgName) || [];
                 this._pendingSpriteFrameLoads.delete(imgName);
+                debugPerfTrace('spriteFrame.load.resolve', {
+                    imgName,
+                    success: !!sf,
+                    durationMs: Date.now() - startedAt,
+                    waiterCount: callbacks.length,
+                });
                 for (const done of callbacks) {
                     done(sf);
                 }
             };
-            if (this.shouldUseLocalBootstrapTexture(imgName)) {
-                this._loadSpriteFrameFromBootstrapThenRemote(imgName, resolve);
-                return;
-            }
-            this._loadSpriteFrameFromGameAssetsBundle(imgName, resolve);
+            this._enqueueSpriteFrameLoadTask(imgName, (done) => {
+                const finish = (sf: SpriteFrame | null) => {
+                    try {
+                        resolve(sf);
+                    } finally {
+                        done();
+                    }
+                };
+                if (!this._isRuntimeAliveForAsyncCallback()) {
+                    finish(null);
+                    return;
+                }
+                if (this.shouldUseLocalBootstrapTexture(imgName)) {
+                    this._loadSpriteFrameFromBootstrapThenRemote(imgName, finish);
+                    return;
+                }
+                this._loadSpriteFrameFromGameAssetsBundle(imgName, finish);
+            });
         },
 
         _ensureSpriteFramesByName(names: string[], callback: () => void) {
+            if (!this._isRuntimeAliveForAsyncCallback()) return;
             const uniqueNames = Array.from(new Set(names));
             const missingNames = uniqueNames.filter((name) => !this.getSF(name));
             if (missingNames.length === 0) {
@@ -412,6 +879,7 @@ export function installAssetBootstrapModule(target: any): void {
             }
             let remaining = missingNames.length;
             const finishOne = () => {
+                if (!this._isRuntimeAliveForAsyncCallback()) return;
                 remaining -= 1;
                 if (remaining > 0) return;
                 const stillMissing = uniqueNames.filter((name) => !this.getSF(name));
@@ -433,47 +901,290 @@ export function installAssetBootstrapModule(target: any): void {
             isAlreadyOpen: () => boolean,
             open: () => void,
         ) {
+            if (!this._isRuntimeAliveForAsyncCallback()) return;
             if (isAlreadyOpen() || this._panelOpenInFlight.has(panelKey)) return;
             this._panelOpenInFlight.add(panelKey);
+            const uniqueNames = Array.from(new Set(textureNames));
+            const missingNames = uniqueNames.filter((name) => !this.getSF(name));
+            debugPerfSnapshot('panel.texture.ensure.start', this, {
+                panelKey,
+                requestedNames: uniqueNames.length,
+                missingNames: missingNames.length,
+                missingNameSample: missingNames.slice(0, 8),
+            });
             this._ensureSpriteFramesByName(textureNames, () => {
+                if (!this._isRuntimeAliveForAsyncCallback()) return;
                 this._panelOpenInFlight.delete(panelKey);
                 if (isAlreadyOpen()) return;
+                debugPerfSnapshot('panel.texture.ensure.ready', this, {
+                    panelKey,
+                    requestedNames: uniqueNames.length,
+                    missingNames: uniqueNames.filter((name) => !this.getSF(name)).length,
+                });
                 open();
             });
         },
 
-        _releaseCachedSpriteFrames(names: string[], reason: string) {
-            const uniqueNames = Array.from(new Set(names));
-            let evicted = 0;
-            for (const name of uniqueNames) {
-                if (SHARED_POPUP_SPRITE_FRAME_NAMES.has(name)) continue;
-                const sf = this.sfCache.get(name);
-                if (!sf) continue;
-                this.sfCache.delete(name);
-                evicted += 1;
+        _collectSpriteComponentsForRuntimeScan(root: any, context: string): { sprites: Sprite[]; failed: boolean } {
+            const sprites: Sprite[] = [];
+            let failed = false;
+            if (!root?.isValid) return { sprites, failed };
+
+            const children = Array.isArray(root.children)
+                ? root.children
+                : Array.isArray(root._children)
+                    ? root._children
+                    : null;
+            const isSceneRoot = root === this.node?.scene;
+            const scanRoots = isSceneRoot && children ? children : [root];
+
+            for (const scanRoot of scanRoots) {
+                if (!scanRoot?.isValid || typeof scanRoot.getComponentsInChildren !== 'function') continue;
+                try {
+                    sprites.push(...scanRoot.getComponentsInChildren(Sprite));
+                } catch (error) {
+                    failed = true;
+                    console.warn(`[Memory] Sprite component scan failed during ${context}`, error);
+                }
             }
-            if (evicted > 0) {
-                console.log(`[Memory] evicted ${evicted} panel SpriteFrames from local cache: ${reason}`);
+            return { sprites, failed };
+        },
+
+        _isSpriteFrameStillInUse(target: SpriteFrame | null): boolean {
+            if (!target?.isValid) return false;
+            const scene = this.node?.scene;
+            if (!scene?.isValid) return false;
+            const scan = this._collectSpriteComponentsForRuntimeScan(scene, `usage-check:${target.name || 'unknown'}`);
+            if (scan.failed) return true;
+            for (const sprite of scan.sprites) {
+                if (sprite?.isValid && sprite.spriteFrame === target) {
+                    return true;
+                }
+            }
+            return false;
+        },
+
+        _releaseDynamicSpriteFrame(
+            name: string,
+            sf: SpriteFrame,
+            meta: { imageAsset?: ImageAsset | null; texture?: Texture2D | null } | null,
+            reason: string,
+        ) {
+            const ownedTexture = meta?.texture as Texture2D | null;
+            const sourceImageAsset = meta?.imageAsset as ImageAsset | null;
+            try {
+                if (sourceImageAsset?.isValid) {
+                    assetManager.releaseAsset(sourceImageAsset);
+                }
+            } catch (error) {
+                console.warn(`[Memory] release ImageAsset failed: ${name} (${reason})`, error);
+            }
+            try {
+                if (sf.isValid) {
+                    sf.texture = null;
+                    sf.destroy();
+                }
+            } catch (error) {
+                console.warn(`[Memory] destroy dynamic SpriteFrame failed: ${name} (${reason})`, error);
+            }
+            try {
+                if (ownedTexture?.isValid) {
+                    ownedTexture.destroy();
+                }
+            } catch (error) {
+                console.warn(`[Memory] destroy Texture2D failed: ${name} (${reason})`, error);
             }
         },
 
+        _releaseBootstrapBeanAtlas(reason: string, options: { force?: boolean } = {}): boolean {
+            const atlasEntries = Array.from(this._bootstrapAtlasFrameCache.entries()) as Array<[string, SpriteFrame]>;
+            const sharedTexture = this._bootstrapBeanAtlasTexture as Texture2D | null;
+            const sourceImageAsset = this._bootstrapBeanAtlasImageAsset as ImageAsset | null;
+            if (atlasEntries.length === 0 && !sharedTexture && !sourceImageAsset) {
+                this._bootstrapBeanAtlasReady = false;
+                this._bootstrapBeanAtlasTextureReleaseMode = 'asset';
+                return false;
+            }
+            for (const [, sf] of atlasEntries) {
+                if (!options.force && this._isSpriteFrameStillInUse(sf)) {
+                    return false;
+                }
+            }
+            for (const [name, sf] of atlasEntries) {
+                this.sfCache.delete(name);
+                this._spriteFrameCacheMeta.delete(name);
+                try {
+                    if (sf?.isValid) {
+                        sf.texture = null;
+                        sf.destroy();
+                    }
+                } catch (error) {
+                    console.warn(`[Memory] destroy bootstrap bean SpriteFrame failed: ${name} (${reason})`, error);
+                }
+            }
+            this._bootstrapAtlasFrameCache.clear();
+            this._bootstrapBeanAtlasReady = false;
+            this._bootstrapBeanAtlasTexture = null;
+            this._bootstrapBeanAtlasImageAsset = null;
+            const releaseMode = this._bootstrapBeanAtlasTextureReleaseMode === 'dynamic' ? 'dynamic' : 'asset';
+            this._bootstrapBeanAtlasTextureReleaseMode = 'asset';
+            try {
+                if (releaseMode === 'dynamic') {
+                    if (sourceImageAsset?.isValid) {
+                        assetManager.releaseAsset(sourceImageAsset);
+                    }
+                    if (sharedTexture?.isValid) {
+                        sharedTexture.destroy();
+                    }
+                } else if (sharedTexture?.isValid) {
+                    assetManager.releaseAsset(sharedTexture);
+                }
+            } catch (error) {
+                console.warn(`[Memory] release bootstrap bean atlas texture failed (${reason})`, error);
+            }
+            if (atlasEntries.length > 0) {
+                console.log(`[Memory] released bootstrap bean atlas frames: ${atlasEntries.length} (${reason})`);
+            }
+            return atlasEntries.length > 0 || !!sharedTexture || !!sourceImageAsset;
+        },
+
+        _releaseManagedSpriteFrame(name: string, sf: SpriteFrame, reason: string) {
+            try {
+                assetManager.releaseAsset(sf);
+            } catch (error) {
+                console.warn(`[Memory] release SpriteFrame failed: ${name} (${reason})`, error);
+            }
+        },
+
+        _releaseSpriteFrameCacheEntry(name: string, reason: string, options: { force?: boolean; ignoreOwners?: boolean; ignoreUsage?: boolean; ignoreScope?: boolean } = {}): boolean {
+            const sf = this.sfCache.get(name);
+            if (!sf) return false;
+            const meta = this._spriteFrameCacheMeta.get(name) || null;
+            if (!options.force && !options.ignoreOwners && Number(meta?.retainCount) > 0) {
+                return false;
+            }
+            const scope = String(meta?.scope || this._inferSpriteFrameScope(name));
+            if (!options.force && !options.ignoreScope && !this._canAutoReleaseSpriteFrameScope(scope, reason)) {
+                return false;
+            }
+            if (!options.force && !options.ignoreUsage && this._isSpriteFrameStillInUse(sf)) {
+                return false;
+            }
+            this.sfCache.delete(name);
+            this._spriteFrameCacheMeta.delete(name);
+            if (meta?.releaseMode === 'dynamic') {
+                this._releaseDynamicSpriteFrame(name, sf, meta, reason);
+            } else {
+                this._releaseManagedSpriteFrame(name, sf, reason);
+            }
+            return true;
+        },
+
+        _releaseCachedSpriteFrames(names: string[], reason: string, options: { force?: boolean; ignoreOwners?: boolean; ignoreUsage?: boolean; ignoreScope?: boolean } = {}) {
+            const uniqueNames = Array.from(new Set(names));
+            let evicted = 0;
+            for (const name of uniqueNames) {
+                if (this._releaseSpriteFrameCacheEntry(name, reason, options)) {
+                    evicted += 1;
+                }
+            }
+            if (evicted > 0) {
+                console.log(`[Memory] released ${evicted} panel SpriteFrames: ${reason}`);
+            }
+        },
+
+        _scheduleRouteSafeCleanup(callback: () => void, delaySeconds: number = 0, requireRuntimeValid: boolean = false) {
+            const run = () => {
+                if (requireRuntimeValid && !this.node?.isValid) return;
+                callback();
+            };
+            const setTimer = (globalThis as any).setTimeout;
+            if (typeof setTimer === 'function') {
+                setTimer(run, Math.max(0, Math.round(delaySeconds * 1000)));
+                return;
+            }
+            this.scheduleOnce(run, delaySeconds);
+        },
+
         _releasePanelTexturesNextFrame(names: string[], reason: string) {
-            this.scheduleOnce(() => this._releaseCachedSpriteFrames(names, reason), 0);
+            this._scheduleRouteSafeCleanup(() => this._releaseCachedSpriteFrames(names, reason), 0.05, true);
         },
 
         _clearSpriteFramesBeforeDestroy(root: Node) {
             if (!root?.isValid) return;
-            const sprites = root.getComponentsInChildren(Sprite);
-            for (const sp of sprites) {
-                sp.spriteFrame = null;
+            root.active = false;
+            const scan = this._collectSpriteComponentsForRuntimeScan(root, `panel-destroy:${root.name || 'unknown'}`);
+            for (const sp of scan.sprites) {
+                if (!sp?.isValid) continue;
+                sp.enabled = false;
             }
+            if (root.parent?.isValid) {
+                root.removeFromParent();
+            }
+        },
+
+        _destroyDetachedNodeNextFrame(node: Node) {
+            if (!node?.isValid) return;
+            // Let Cocos flush disabled UIRenderers before destroying detached panel nodes.
+            this._scheduleRouteSafeCleanup(() => {
+                if (node?.isValid) {
+                    node.destroy();
+                }
+            }, 0.05);
         },
 
         _destroyPanelAndReleaseTextures(panel: Node, names: string[], reason: string) {
             if (!panel?.isValid) return;
             this._clearSpriteFramesBeforeDestroy(panel);
-            panel.destroy();
-            this.scheduleOnce(() => this._releasePanelTexturesNextFrame(names, reason), 0.05);
+            this._destroyDetachedNodeNextFrame(panel);
+        },
+
+        _closePanelWithTextureOwner(panel: Node | null, panelKey: string, reason: string) {
+            if (panel?.isValid) {
+                this._clearSpriteFramesBeforeDestroy(panel);
+                this._destroyDetachedNodeNextFrame(panel);
+            }
+            this._scheduleRouteSafeCleanup(() => this._releasePanelTextureOwner(panelKey, reason), 0.05, true);
+        },
+
+        releaseSceneScopedSpriteFrames(sceneName: string, reason: string = 'scene-destroy') {
+            const scopes = new Set<string>([SPRITE_FRAME_SCOPE_DYNAMIC]);
+            if (reason.includes('runtime-destroy')) {
+                scopes.add(SPRITE_FRAME_SCOPE_SHARED_UI);
+            }
+            if (sceneName === 'Home') {
+                scopes.add(SPRITE_FRAME_SCOPE_SCENE_HOME);
+            }
+            if (sceneName === 'Game' || sceneName === 'Boot') {
+                scopes.add(SPRITE_FRAME_SCOPE_SCENE_GAME);
+                if (reason.includes('runtime-destroy')) {
+                    scopes.add(SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP);
+                }
+            }
+            const names = Array.from(this._spriteFrameCacheMeta.entries())
+                .filter(([, meta]) => scopes.has(String(meta?.scope || '')))
+                .map(([name]) => name);
+            debugPerfSnapshot('spriteFrame.sceneScope.release.before', this, {
+                sceneName,
+                reason,
+                scopes: Array.from(scopes),
+                candidateNames: names.length,
+            });
+            if (names.length > 0) {
+                this._releaseCachedSpriteFrames(names, `${reason}:${sceneName}`, {
+                    force: true,
+                    ignoreOwners: true,
+                    ignoreUsage: true,
+                    ignoreScope: true,
+                });
+            }
+            if ((sceneName === 'Game' || sceneName === 'Boot') && reason.includes('runtime-destroy')) {
+                this._releaseBootstrapBeanAtlas(`${reason}:${sceneName}`, { force: true });
+            }
+            debugPerfSnapshot('spriteFrame.sceneScope.release.after', this, {
+                sceneName,
+                reason,
+            });
         },
 
         /** 检查豆豆 SpriteFrame 是否已加载 */
@@ -720,17 +1431,21 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         clearEffectPools() {
+            debugPerfSnapshot('effectPools.clear.before', this);
             this._flyBeanPool.clear();
             this._frameFxPool.clear();
             this._brightFlashPool.clear();
             this._effectFrameCache.clear();
             this._activeFrameFxCount = 0;
             this._activeBrightFlashCount = 0;
+            debugPerfSnapshot('effectPools.clear.after', this);
         },
 
         clearBoardVisualPools() {
+            debugPerfSnapshot('boardVisualPools.clear.before', this);
             this._boardCellPool.clear();
             this._boardSlotBgPool.clear();
+            debugPerfSnapshot('boardVisualPools.clear.after', this);
         },
 
         getNodePoolSize(pool: NodePool): number {
@@ -859,33 +1574,75 @@ export function installAssetBootstrapModule(target: any): void {
 
         async loadRestorableUserStateFromCloud(): Promise<CloudUserState | null> { return UserStateSyncMgr.inst.loadState(); },
 
-        async restoreUserStateFromCloud(hadLocalUserState: boolean): Promise<UserStateRestoreStatus> {
+        getStartupCloudRestoreStatus(): UserStateRestoreStatus | '' {
+            return (this._startupCloudRestoreStatus || '') as UserStateRestoreStatus | '';
+        },
+
+        _shouldHoldStartupCloudHomeRouteForBoot(): boolean {
+            const appRoot = AppRoot.tryGet();
+            const sceneName = String(this.node?.scene?.name || '');
+            return sceneName === 'Boot' || appRoot?.session.currentSceneName === 'Boot';
+        },
+
+        beginStartupCloudRestore(hadLocalUserState: boolean): Promise<UserStateRestoreStatus> {
+            const existingStatus = this.getStartupCloudRestoreStatus();
+            if (existingStatus && existingStatus !== 'cloud_restore_pending') {
+                return Promise.resolve(existingStatus);
+            }
+            if (this._startupCloudRestorePromise) {
+                return this._startupCloudRestorePromise;
+            }
             const canUseCloudState = UserStateSyncMgr.inst.canUseCloud();
             if (!canUseCloudState) {
                 if (!hadLocalUserState) this._startupCloudSaveBlockedForSession = true;
-                return hadLocalUserState ? 'local_progress_gt_1' : 'cloud_unavailable_unresolved';
+                const status: UserStateRestoreStatus = hadLocalUserState ? 'local_progress_gt_1' : 'cloud_unavailable_unresolved';
+                this._startupCloudRestoreStatus = status;
+                return Promise.resolve(status);
             }
 
             this._startupCloudRestorePending = true;
             this._startupCloudSaveBlockedForSession = false;
             this._startupCloudRestoreHadLocalUserState = hadLocalUserState;
-            void this.loadRestorableUserStateFromCloud().then((lateState) => {
+            this._startupCloudRestoreStatus = 'cloud_restore_pending';
+            debugPerfTrace('startup.cloudRestore.begin', {
+                hadLocalUserState,
+                sceneName: String(this.node?.scene?.name || ''),
+            });
+            this._startupCloudRestorePromise = this.loadRestorableUserStateFromCloud().then((lateState) => {
                 let status: UserStateRestoreStatus;
                 if (!lateState) {
                     status = UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
+                } else if (this._shouldHoldStartupCloudHomeRouteForBoot()) {
+                    status = this.applyCloudUserState(lateState);
                 } else {
                     status = applyLateCloudUserStateToRuntime(this, lateState, hadLocalUserState) || 'cloud_failed_unresolved';
                 }
+                this._startupCloudRestoreStatus = status;
                 resolveStartupCloudRestorePending(this, status);
+                debugPerfTrace('startup.cloudRestore.done', {
+                    status,
+                    hadLocalUserState,
+                    sceneName: String(this.node?.scene?.name || ''),
+                    savedLevel: typeof this.getSavedLevel === 'function' ? this.getSavedLevel() : 0,
+                });
+                return status;
             }).catch((error) => {
-                resolveStartupCloudRestorePending(this, 'cloud_failed_unresolved');
+                const status: UserStateRestoreStatus = 'cloud_failed_unresolved';
+                this._startupCloudRestoreStatus = status;
+                resolveStartupCloudRestorePending(this, status);
                 console.warn('[GameCtrl] background cloud user state restore failed:', error);
+                return status;
             });
+            return this._startupCloudRestorePromise;
+        },
 
+        async restoreUserStateFromCloud(hadLocalUserState: boolean): Promise<UserStateRestoreStatus> {
+            void this.beginStartupCloudRestore(hadLocalUserState);
             if (hadLocalUserState) {
                 return 'local_progress_gt_1';
             }
-            return 'cloud_restore_pending';
+            const status = this.getStartupCloudRestoreStatus();
+            return status && status !== 'cloud_restore_pending' ? status : 'cloud_restore_pending';
         },
 
         applyLateCloudUserState(state: CloudUserState | null, hadLocalUserState: boolean): void {

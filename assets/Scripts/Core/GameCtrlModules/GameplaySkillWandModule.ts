@@ -37,7 +37,7 @@ export function installGameplaySkillWandModule(target: any): void {
         /** 魔法棒：在棋盘上显示 6×6 框，拖动定位后松手，框内未锁定豆豆强制还原。（复刻 pdd Spine 骨骼动画效果） */
         useSkillClearArea(timerAlreadyPaused: boolean = false) {
             if (this._skillActive) return; // 防止上次动画未结束时重复触发
-            if (!timerAlreadyPaused) this.pauseTimerForProp();
+            if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             AudioMgr.inst.play('propWand');
             this._skillActive = true;
             this.resetIdleHintTimer();
@@ -333,7 +333,6 @@ export function installGameplaySkillWandModule(target: any): void {
             const centerWorld = this._wandRectNode.getComponent(UITransform)?.convertToWorldSpaceAR(new Vec3(0, 0, 0));
             if (!centerWorld) return;
             AudioMgr.inst.play('propWand');
-            AudioMgr.inst.vibrate(40);
             this.playBrightFlashAt(centerWorld, this.cellSize * 3.2, 230);
             this.playFrameEffectAt(centerWorld, 'block_match-animation_', 19, this.cellSize * 3.6, 0.014);
         },
@@ -362,9 +361,7 @@ export function installGameplaySkillWandModule(target: any): void {
             const targetKeys = new Set<string>();
             const usedBoardSources = new Set<string>();
             const usedSlotSources = new Set<number>();
-            const sourceCellPool: { row: number; col: number }[] = [];
-            const usedFallbackCells = new Set<string>();
-            const pendingDisplaced: { step: ForcedSkillStep; colorId: number }[] = [];
+            const processedTargets = new Set<string>();
 
             const targets: { row: number; col: number; colorId: number }[] = [];
             for (const cell of candidateCells) {
@@ -380,17 +377,36 @@ export function installGameplaySkillWandModule(target: any): void {
                 targets.push({ row: cell.row, col: cell.col, colorId: correctColor });
             }
 
-            const findBoardSource = (colorId: number): { row: number; col: number; inTarget: boolean } | null => {
-                for (const outsideOnly of [true, false]) {
+            const canUseInsideTargetSource = (
+                sourceKey: string,
+                row: number,
+                col: number,
+                occupiedColor: number,
+            ): boolean => {
+                return occupiedColor !== 0
+                    && targetKeys.has(sourceKey)
+                    && !processedTargets.has(sourceKey)
+                    && bm.correctColors[row][col] === occupiedColor;
+            };
+
+            const findBoardSource = (
+                colorId: number,
+                targetKey: string,
+                occupiedColor: number,
+            ): { row: number; col: number; inTarget: boolean } | null => {
+                for (const insideTargets of [false, true]) {
                     for (let r = 0; r < bm.height; r++) {
                         for (let c = 0; c < bm.width; c++) {
                             const key = keyOf(r, c);
+                            const inTarget = targetKeys.has(key);
+                            if (key === targetKey) continue;
                             if (usedBoardSources.has(key)) continue;
-                            if (outsideOnly && targetKeys.has(key)) continue;
+                            if (insideTargets !== inTarget) continue;
+                            if (inTarget && !canUseInsideTargetSource(key, r, c, occupiedColor)) continue;
                             if (currentColors[r][c] !== colorId) continue;
                             if (locked[r][c]) continue;
                             if (currentColors[r][c] === bm.correctColors[r][c]) continue;
-                            return { row: r, col: c, inTarget: targetKeys.has(key) };
+                            return { row: r, col: c, inTarget };
                         }
                     }
                 }
@@ -405,33 +421,19 @@ export function installGameplaySkillWandModule(target: any): void {
                 return -1;
             };
 
-            const findRandomEmptyTarget = (excludeKey: string | null = null): { row: number; col: number } | null => {
-                const candidates: { row: number; col: number }[] = [];
-                for (let r = 0; r < bm.height; r++) {
-                    for (let c = 0; c < bm.width; c++) {
-                        const key = keyOf(r, c);
-                        if (key === excludeKey || usedFallbackCells.has(key)) continue;
-                        if (bm.correctColors[r][c] === 0) continue;
-                        if (locked[r][c]) continue;
-                        if (currentColors[r][c] !== 0) continue;
-                        candidates.push({ row: r, col: c });
-                    }
-                }
-                if (candidates.length === 0) return null;
-                return candidates[Math.floor(Math.random() * candidates.length)];
-            };
-
             for (const target of targets) {
                 const targetKey = keyOf(target.row, target.col);
+                if (processedTargets.has(targetKey)) continue;
                 const occupiedColor = currentColors[target.row][target.col];
-                const boardSource = findBoardSource(target.colorId);
+                const boardSource = findBoardSource(target.colorId, targetKey, occupiedColor);
                 const slotSource = boardSource ? -1 : findSlotSource(target.colorId);
                 if (!boardSource && slotSource < 0) continue;
-                if (occupiedColor !== 0 && (!boardSource || boardSource.inTarget)) continue;
 
                 const step: ForcedSkillStep = {
                     colorId: target.colorId,
                     target: { row: target.row, col: target.col },
+                    targetLock: true,
+                    pairedFlight: occupiedColor !== 0,
                     lockTargets: [{ row: target.row, col: target.col }],
                     hiddenBoardCells: [{ row: target.row, col: target.col }],
                     hiddenSlotIdxs: [],
@@ -441,45 +443,41 @@ export function installGameplaySkillWandModule(target: any): void {
                     const sourceKey = keyOf(boardSource.row, boardSource.col);
                     usedBoardSources.add(sourceKey);
                     step.sourceBoard = { row: boardSource.row, col: boardSource.col };
-                    currentColors[boardSource.row][boardSource.col] = 0;
-                    locked[boardSource.row][boardSource.col] = false;
-                    if (!boardSource.inTarget) sourceCellPool.push({ row: boardSource.row, col: boardSource.col });
+                    if (occupiedColor !== 0) {
+                        const sourceLock = bm.correctColors[boardSource.row][boardSource.col] === occupiedColor;
+                        step.displacedBoard = {
+                            colorId: occupiedColor,
+                            target: { row: boardSource.row, col: boardSource.col },
+                            lock: sourceLock,
+                        };
+                        step.hiddenBoardCells.push({ row: boardSource.row, col: boardSource.col });
+                        if (sourceLock) step.lockTargets.push({ row: boardSource.row, col: boardSource.col });
+                        currentColors[boardSource.row][boardSource.col] = occupiedColor;
+                        locked[boardSource.row][boardSource.col] = sourceLock;
+                        if (boardSource.inTarget) processedTargets.add(sourceKey);
+                    } else {
+                        currentColors[boardSource.row][boardSource.col] = 0;
+                        locked[boardSource.row][boardSource.col] = false;
+                    }
                 } else {
                     usedSlotSources.add(slotSource);
-                    slotColors[slotSource] = 0;
                     step.sourceSlotIdx = slotSource;
                     step.hiddenSlotIdxs.push(slotSource);
+                    if (occupiedColor !== 0) {
+                        step.displacedSlot = {
+                            colorId: occupiedColor,
+                            slotIdx: slotSource,
+                        };
+                        slotColors[slotSource] = occupiedColor;
+                    } else {
+                        slotColors[slotSource] = 0;
+                    }
                 }
 
-                if (occupiedColor !== 0) pendingDisplaced.push({ step, colorId: occupiedColor });
                 currentColors[target.row][target.col] = target.colorId;
                 locked[target.row][target.col] = true;
+                processedTargets.add(targetKey);
                 steps.push(step);
-            }
-
-            const takeRandomSourceCell = (): { row: number; col: number } | null => {
-                if (sourceCellPool.length === 0) return null;
-                const index = Math.floor(Math.random() * sourceCellPool.length);
-                const [cell] = sourceCellPool.splice(index, 1);
-                return cell;
-            };
-
-            for (const displaced of pendingDisplaced) {
-                let destination = takeRandomSourceCell();
-                if (!destination) destination = findRandomEmptyTarget(keyOf(displaced.step.target.row, displaced.step.target.col));
-                if (!destination) continue;
-
-                const lock = bm.correctColors[destination.row][destination.col] === displaced.colorId;
-                displaced.step.displacedBoard = {
-                    colorId: displaced.colorId,
-                    target: destination,
-                    lock,
-                };
-                displaced.step.hiddenBoardCells.push(destination);
-                if (lock) displaced.step.lockTargets.push(destination);
-                currentColors[destination.row][destination.col] = displaced.colorId;
-                locked[destination.row][destination.col] = lock;
-                usedFallbackCells.add(keyOf(destination.row, destination.col));
             }
 
             return { immediateLockTargets, steps };
@@ -581,7 +579,7 @@ export function installGameplaySkillWandModule(target: any): void {
 
         useSkillClearSlot(timerAlreadyPaused: boolean = false) {
             if (this._skillActive) return;
-            if (!timerAlreadyPaused) this.pauseTimerForProp();
+            if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             const slotAllInit = this.slotModel.getAll();
             const slotMovable: { slotIdx: number; colorId: number }[] = [];
@@ -908,7 +906,6 @@ export function installGameplaySkillWandModule(target: any): void {
                     }, { easing: 'circOut' })
                     .call(() => {
                         AudioMgr.inst.play('place');
-                        AudioMgr.inst.vibrate(30);
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${move.targetRow},${move.targetCol}`);
                         remaining--;

@@ -263,12 +263,12 @@ export function installGameplayPlacementFxModule(target: any): void {
                 }
                 const flyTween = tween(bean)
                     .delay(i * FLY_DELAY)
-                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'circOut' });
+                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'sineOut' });
 
                 flyTween
                     .call(() => {
                         AudioMgr.inst.play('place');
-                        AudioMgr.inst.vibrate(30);
+                        AudioMgr.inst.vibratePlace();
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${t.row},${t.col}`);
                         this.renderBoardCell(t.row, t.col);
@@ -332,10 +332,10 @@ export function installGameplayPlacementFxModule(target: any): void {
         
                 tween(bean)
                     .delay(i * FLY_DELAY)
-                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'circOut' })
+                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'sineOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');
-                        AudioMgr.inst.vibrate(30);
+                        AudioMgr.inst.vibratePlace();
                         this.recycleFlyBeanNode(bean);
                         hidden.delete(slotIdxs[i]);
                         this.renderSlotIndices([slotIdxs[i]], hidden);
@@ -651,11 +651,12 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         checkColorCompletion() {
             const bm = this.boardModel;
+            const skipColorCompleteAudio = bm.isAllLocked();
             for (const cid of bm.getColorIds()) {
                 if (this._completedColors.has(cid)) continue;
                 if (bm.isColorComplete(cid)) {
                     this._completedColors.add(cid);
-                    this.playColorCompleteEffect(cid);
+                    this.playColorCompleteEffect(cid, !skipColorCompleteAudio);
                 }
             }
         },
@@ -794,7 +795,13 @@ export function installGameplayPlacementFxModule(target: any): void {
                 }
             }
             if (this.timeRemain > 0 && this.timeRemain <= 5) AudioMgr.inst.play('tick');
-            if (this.timeRemain <= 0) this.gameLose();
+            if (this.timeRemain <= 0) {
+                if (this.boardModel?.isAllLocked?.()) {
+                    this.gameWin();
+                    return;
+                }
+                this.gameLose();
+            }
         },
 
         /** 首次选中豆豆时启动倒计时；重选时也检查并恢复暂停的计时器 */
@@ -814,6 +821,18 @@ export function installGameplayPlacementFxModule(target: any): void {
                 this._timerPauseRefs = 0;
                 console.log('[Timer] resumed via bean reselection');
             }
+        },
+
+        shouldPauseTimerForFinalSecondProp() {
+            if (this.isGameEnd || this._currentLevelUnlimitedTime) return false;
+            const remaining = Number(this.timeRemain) || 0;
+            return remaining > 0 && remaining <= 1;
+        },
+
+        pauseTimerForFinalSecondProp() {
+            if (!this.shouldPauseTimerForFinalSecondProp()) return false;
+            this.pauseTimerForProp();
+            return true;
         },
 
         pauseTimerForProp() {

@@ -26,6 +26,7 @@ import {
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
+import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
@@ -43,13 +44,14 @@ export function installFirstLevelRouteModule(target: any): void {
                     abBucket: this._firstLevelRouteBucket,
                 }
                 : {};
-            const activeLevelId = this.getActivePhysicalLevelId();
+            const activePhysicalLevelId = this.getActivePhysicalLevelId();
+            const activeLogicalLevelId = this.getActiveLogicalLevelId?.() || activePhysicalLevelId;
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
                 page: this.getAnalyticsPage(),
-                levelId: activeLevelId,
-                logicalLevelId: activeLevelId,
-                physicalLevelId: activeLevelId,
+                levelId: activeLogicalLevelId,
+                logicalLevelId: activeLogicalLevelId,
+                physicalLevelId: activePhysicalLevelId,
                 ...experimentPayload,
                 ...opt,
             });
@@ -62,7 +64,7 @@ export function installFirstLevelRouteModule(target: any): void {
             force: boolean = false,
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
-            if (!force && normalizedLevelId !== 1) return;
+            if (!force && normalizedLevelId !== 1 && normalizedLevelId !== 2) return;
             const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
                 ? {
                     abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
@@ -78,6 +80,155 @@ export function installFirstLevelRouteModule(target: any): void {
                 ...experimentPayload,
                 ...opt,
             });
+        },
+
+        getFirstLevelGuideStepKey(step: number = this._guideStep, phase: string = this._guidePhase): string {
+            return `${this._guideMode || 'none'}:${Math.max(-1, Math.floor(Number(step) || 0))}:${phase || ''}`;
+        },
+
+        markFirstLevelTouchTiming(now: number = Date.now()): void {
+            const lastTouchAt = Number(this._firstLevelLastTouchAt) || 0;
+            this._firstLevelLastTouchIntervalMs = lastTouchAt > 0 ? Math.max(0, now - lastTouchAt) : 0;
+            this._firstLevelLastTouchAt = now;
+        },
+
+        buildFirstLevelGuideExtra(inputLayer: string, hitResult: string = '', extra: Record<string, unknown> = {}): Record<string, unknown> {
+            const now = Date.now();
+            const stepKey = this.getFirstLevelGuideStepKey();
+            const stepShowAt = Number(this._firstLevelGuideStepShowAt?.[stepKey]) || 0;
+            const stepReadyAt = Number(this._firstLevelGuideStepReadyAt?.[stepKey]) || 0;
+            return {
+                guideMode: this._guideMode || 'none',
+                guideStep: Math.max(-1, Math.floor(Number(this._guideStep) || 0)),
+                guidePhase: this._guidePhase || '',
+                inputLayer,
+                hitResult,
+                msFromStepShow: stepShowAt > 0 ? Math.max(0, now - stepShowAt) : 0,
+                msFromStepReady: stepReadyAt > 0 ? Math.max(0, now - stepReadyAt) : 0,
+                msSincePrevTouch: Math.max(0, Number(this._firstLevelLastTouchIntervalMs) || 0),
+                ...extra,
+            };
+        },
+
+        reportFirstLevelAnyTouch(worldPos: Vec3, inputLayer: string, source: string = 'tutorial'): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            if (this._firstLevelAnyTouchSent) return;
+            this._firstLevelAnyTouchSent = true;
+            const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
+            this.trackFirstLevelFunnel('first_level_any_touch', {
+                touchTarget,
+                source,
+                success: true,
+                extra: this.buildFirstLevelGuideExtra(inputLayer, 'touch_start'),
+            });
+        },
+
+        markTutorialStepShownForFunnel(step: number): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
+            this._firstLevelGuideStepShowAt = this._firstLevelGuideStepShowAt || {};
+            this._firstLevelGuideStepShowAt[key] = Date.now();
+        },
+
+        markTutorialStepInteractiveReadyForFunnel(step: number): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            if (this._guideStep !== step || this._guideInputSuspended) return;
+            const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
+            this._firstLevelGuideStepReadyAt = this._firstLevelGuideStepReadyAt || {};
+            this._firstLevelGuideStepReadyAt[key] = Date.now();
+            this.trackFirstLevelFunnel('tutorial_step_interactive_ready', {
+                stepId: step,
+                stepName: key,
+                source: 'tutorial',
+                success: true,
+                extra: this.buildFirstLevelGuideExtra('guide_layer', 'ready'),
+            });
+        },
+
+        reportTutorialLayerTouchStart(worldPos: Vec3): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const key = this.getFirstLevelGuideStepKey();
+            this._firstLevelGuideLayerTouchCounts = this._firstLevelGuideLayerTouchCounts || {};
+            const count = Math.max(0, Number(this._firstLevelGuideLayerTouchCounts[key]) || 0);
+            if (count < 3) {
+                this._firstLevelGuideLayerTouchCounts[key] = count + 1;
+                this.trackFirstLevelFunnel('tutorial_layer_touch_start', {
+                    stepId: this._guideStep,
+                    stepName: key,
+                    touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
+                    source: 'tutorial',
+                    success: true,
+                    extra: this.buildFirstLevelGuideExtra('guide_layer', 'touch_start', {
+                        touchIndexInStep: count + 1,
+                    }),
+                });
+            }
+            this.reportTutorialStepFirstTouch(worldPos, 'guide_layer');
+        },
+
+        reportTutorialStepFirstTouch(worldPos: Vec3, inputLayer: string): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const key = this.getFirstLevelGuideStepKey();
+            this._firstLevelGuideStepFirstTouchSent = this._firstLevelGuideStepFirstTouchSent || {};
+            if (this._firstLevelGuideStepFirstTouchSent[key]) return;
+            this._firstLevelGuideStepFirstTouchSent[key] = true;
+            this.trackFirstLevelFunnel('tutorial_step_first_touch', {
+                stepId: this._guideStep,
+                stepName: key,
+                touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
+                source: 'tutorial',
+                success: true,
+                extra: this.buildFirstLevelGuideExtra(inputLayer, 'first_step_touch'),
+            });
+        },
+
+        getTutorialMissHitResult(worldPos?: Vec3): string {
+            if (!worldPos) return 'miss_unknown';
+            const target = this.classifyFirstLevelTouchTarget(worldPos);
+            if (target === 'empty') return 'miss_empty';
+            if (target === 'board') return 'miss_wrong_block';
+            if (target === 'slot') return 'miss_wrong_slot';
+            return 'miss_wrong_target';
+        },
+
+        getTutorialSelectHitResult(worldPos: Vec3, step: number): string {
+            if (this._guideMode === 'level_1' && !this.shouldGuideSelectFromSlot?.(step)) {
+                return this.classifyFirstLevelTouchTarget(worldPos) === 'board' ? 'hit_target' : 'hit_tolerant_area';
+            }
+            return 'hit_target';
+        },
+
+        reportTutorialTapResult(
+            worldPos: Vec3 | undefined,
+            hitResult: string,
+            success: boolean = false,
+            inputLayer: string = 'guide_layer',
+            extra: Record<string, unknown> = {},
+        ): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
+            const payloadExtra = this.buildFirstLevelGuideExtra(inputLayer, hitResult, extra);
+            this.trackFirstLevelFunnel('tutorial_tap_result', {
+                stepId: this._guideStep,
+                stepName: this.getFirstLevelGuideStepKey(),
+                touchTarget,
+                source: 'tutorial',
+                success,
+                errorCode: success ? '' : hitResult,
+                extra: payloadExtra,
+            });
+            const msSincePrevTouch = Number(payloadExtra.msSincePrevTouch) || 0;
+            if (!success && hitResult.indexOf('ignored_') === 0 && msSincePrevTouch > 0 && msSincePrevTouch <= 500) {
+                this.trackFirstLevelFunnel('tutorial_fast_tap_ignored', {
+                    stepId: this._guideStep,
+                    stepName: this.getFirstLevelGuideStepKey(),
+                    touchTarget,
+                    source: 'tutorial',
+                    success: false,
+                    errorCode: hitResult,
+                    extra: payloadExtra,
+                });
+            }
         },
 
         getLevelDataPath(levelId: number, prefix: string = 'level_'): string {
@@ -284,9 +435,54 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         showHomeAfterStartupLoading() {
+            if (typeof this.releaseStartupBootstrapPrefetchIfUnused === 'function') {
+                this.releaseStartupBootstrapPrefetchIfUnused('startup-home-route');
+            }
             this.showMainMenu();
             if (this.getRuntimeSceneName('Game') === 'Home') {
                 this.scheduleOnce(() => this.hideLoadingOverlay(), 0);
+            }
+        },
+
+        _startDeferredStartupBackgroundServices(
+            canAutoSaveGameStateOnStartup: boolean,
+            restoreStatus: UserStateRestoreStatus,
+            deferDelaySec: number,
+        ) {
+            if (this._startupBackgroundServicesStarted) return;
+            this._startupBackgroundServicesStarted = true;
+
+            UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup);
+            if (restoreStatus === 'cloud_confirmed_empty') {
+                this.grantStarterPropsForNewUser();
+            }
+            if (canAutoSaveGameStateOnStartup) {
+                this.queueCloudGameStateSync();
+            } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
+                console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
+            }
+
+            const run = () => {
+                if (!this.node?.isValid) return;
+                SySDKMgr.inst.init();
+                void SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
+                AudioMgr.inst.init(this.node);
+                void AnalyticsMgr.inst.bootstrap();
+                this.scheduleOnce(() => {
+                    if (canAutoSaveGameStateOnStartup) {
+                        void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
+                    }
+                    if (this._isWeChat()) {
+                        void UserMgr.inst.loginWeChat();
+                    }
+                    this.setupShareMenu();
+                }, 0.5);
+            };
+
+            if (deferDelaySec > 0) {
+                this.scheduleOnce(run, deferDelaySec);
+            } else {
+                run();
             }
         },
 
@@ -298,7 +494,20 @@ export function installFirstLevelRouteModule(target: any): void {
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
+            const defaultEntryLevel = this.getDefaultEntryLevel();
+            const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
+            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
+            const shouldSpeculativeFirstPlayPrefetch =
+                !urlLevelFile
+                && urlLevel <= 0
+                && !pendingSceneGameplayRequest
+                && defaultEntryLevel <= 1
+                && !hadLocalUserState
+                && this.shouldUseLocalBootstrapBundle(startupLevelId);
             this._firstLevelRouteBucket = 'bucket_a';
+            if (shouldSpeculativeFirstPlayPrefetch) {
+                this.prefetchLocalBootstrapStartupAssets(startupLevelId);
+            }
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
@@ -306,9 +515,6 @@ export function installFirstLevelRouteModule(target: any): void {
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
-            const defaultEntryLevel = this.getDefaultEntryLevel();
-            const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
-            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
             const startupLevelPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : 'level_';
             const shouldEnterHomeOnStartup =
                 !urlLevelFile &&
@@ -368,15 +574,13 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
             };
         
-            // 在启动关卡前初始化 SDK，确保 reportLevelEnter 等上报能正常发送
-            SySDKMgr.inst.init();
-            SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
-        
+            let deferredStartupDelaySec = 0;
             if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
                 const useLocalBootstrapStartup =
                     urlLevel <= 0 &&
                     defaultEntryLevel <= 1 &&
                     this.shouldUseLocalBootstrapBundle(startupLevelId);
+                deferredStartupDelaySec = useLocalBootstrapStartup ? 0.35 : 0;
                 if (useLocalBootstrapStartup) {
                     this.startLocalBootstrapLevelFast(startupLevelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX, startupLevelId);
                 } else {
@@ -428,27 +632,11 @@ export function installFirstLevelRouteModule(target: any): void {
                 restoreStatus === 'local_progress_gt_1' ||
                 restoreStatus === 'cloud_progress_gt_1' ||
                 restoreStatus === 'cloud_confirmed_empty';
-            AudioMgr.inst.init(this.node);
-            UserMgr.inst.touchSession(canAutoSaveGameStateOnStartup);
-            void AnalyticsMgr.inst.bootstrap();
-            if (restoreStatus === 'cloud_confirmed_empty') {
-                this.grantStarterPropsForNewUser();
-            }
-            if (canAutoSaveGameStateOnStartup) {
-                this.queueCloudGameStateSync();
-            } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
-                console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
-            }
-            // 延迟微信相关初始化，避免与 Cocos 场景渲染冲突
-            this.scheduleOnce(() => {
-                if (canAutoSaveGameStateOnStartup) {
-                    void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
-                }
-                if (this._isWeChat()) {
-                    void UserMgr.inst.loginWeChat();
-                }
-                this.setupShareMenu();
-            }, 0.5);
+            this._startDeferredStartupBackgroundServices(
+                canAutoSaveGameStateOnStartup,
+                restoreStatus,
+                deferredStartupDelaySec,
+            );
         },
 
         /** 初始化微信/抖音分享菜单 + 被动分享回调（被动转发：右上角胶囊点"转发"） */
@@ -569,12 +757,15 @@ export function installFirstLevelRouteModule(target: any): void {
                     finish(false);
                     return;
                 }
-                this._loadAtlasTextureFromBundle(bundle, imagePath, label, (imgErr, texture) => {
+                this._loadAtlasTextureFromBundle(bundle, imagePath, label, (imgErr, texture, textureMeta) => {
                     if (imgErr || !texture) {
                         console.error('[图集] bean-atlas 纹理加载失败:', imgErr?.message);
                         finish(false);
                         return;
                     }
+                    this._bootstrapBeanAtlasTexture = texture;
+                    this._bootstrapBeanAtlasImageAsset = textureMeta?.imageAsset ?? null;
+                    this._bootstrapBeanAtlasTextureReleaseMode = textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset';
                     let count = 0;
                     for (const name in frames) {
                         const f = frames[name];
@@ -637,35 +828,57 @@ export function installFirstLevelRouteModule(target: any): void {
         /** 从图集加载特效 SpriteFrame（替代 45 个独立纹理） */
         _loadEffectsAtlasFromBundle(bundle: Bundle, onDone?: () => void) {
             if (this._effectsAtlasReady) {
+                debugPerfSnapshot('effectsAtlas.reuse', this);
                 if (onDone) onDone();
                 return;
             }
             if (this._effectsAtlasLoadingCallbacks) {
                 if (onDone) this._effectsAtlasLoadingCallbacks.push(onDone);
+                debugPerfTrace('effectsAtlas.queue', {
+                    waitingCallbacks: this._effectsAtlasLoadingCallbacks.length,
+                });
                 return;
             }
             this._effectsAtlasLoadingCallbacks = onDone ? [onDone] : [];
+            const startedAt = Date.now();
+            debugPerfSnapshot('effectsAtlas.load.start', this);
             const finish = (ready: boolean) => {
                 this._effectsAtlasReady = this._effectsAtlasReady || ready;
                 const callbacks = this._effectsAtlasLoadingCallbacks || [];
                 this._effectsAtlasLoadingCallbacks = null;
+                debugPerfSnapshot('effectsAtlas.load.finish', this, {
+                    ready,
+                    durationMs: Date.now() - startedAt,
+                    callbacks: callbacks.length,
+                });
                 for (const callback of callbacks) callback();
             };
             this._loadAtlasDataFromBundle(bundle, 'Textures/Pindd/Effects/effects-atlas', 'effects-atlas', (err, atlasData) => {
                 if (err || !atlasData) {
                     console.warn('[图集] 未找到 effects-atlas.json，使用独立纹理:', err?.message);
+                    debugPerfTrace('effectsAtlas.json.error', {
+                        durationMs: Date.now() - startedAt,
+                        error: err || new Error('missing atlasData'),
+                    });
                     finish(false);
                     return;
                 }
                 const frames = atlasData.frames;
                 if (!frames) {
                     console.warn('[图集] 特效图集数据不完整');
+                    debugPerfTrace('effectsAtlas.json.invalid', {
+                        durationMs: Date.now() - startedAt,
+                    });
                     finish(false);
                     return;
                 }
                 bundle.load('Textures/Pindd/Effects/effects-atlas', ImageAsset, (imgErr, imgAsset) => {
                     if (imgErr || !imgAsset) {
                         console.warn('[图集] 特效纹理加载失败:', imgErr?.message);
+                        debugPerfTrace('effectsAtlas.texture.error', {
+                            durationMs: Date.now() - startedAt,
+                            error: imgErr || new Error('missing image asset'),
+                        });
                         finish(false);
                         return;
                     }
@@ -682,6 +895,10 @@ export function installFirstLevelRouteModule(target: any): void {
                         count++;
                     }
                     console.log(`[图集] 特效图集已加载: ${count} 个 SpriteFrame`);
+                    debugPerfSnapshot('effectsAtlas.texture.loaded', this, {
+                        frameCount: count,
+                        durationMs: Date.now() - startedAt,
+                    });
                     finish(count > 0);
                 });
             });
@@ -738,7 +955,11 @@ export function installFirstLevelRouteModule(target: any): void {
             bundle: Bundle,
             imagePath: string,
             label: string,
-            callback: (err: Error | null, texture: Texture2D | null) => void,
+            callback: (
+                err: Error | null,
+                texture: Texture2D | null,
+                meta?: { releaseMode: 'asset' | 'dynamic'; imageAsset?: ImageAsset | null },
+            ) => void,
         ) {
             const spriteFrameCandidates = [`${imagePath}/spriteFrame`, imagePath];
             const trySpriteFrame = (index: number) => {
@@ -749,7 +970,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 bundle.load(spriteFrameCandidates[index], SpriteFrame, (err, spriteFrame) => {
                     const texture = spriteFrame?.texture as Texture2D | null;
                     if (!err && texture) {
-                        callback(null, texture);
+                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
                         return;
                     }
                     trySpriteFrame(index + 1);
@@ -763,7 +984,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
                 bundle.load(textureCandidates[index], Texture2D, (err, texture) => {
                     if (!err && texture) {
-                        callback(null, texture);
+                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
                         return;
                     }
                     tryTexture(index + 1);
@@ -779,7 +1000,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     if (!err && imgAsset) {
                         const texture = new Texture2D();
                         texture.image = imgAsset;
-                        callback(null, texture);
+                        callback(null, texture, { releaseMode: 'dynamic', imageAsset: imgAsset });
                         return;
                     }
                     tryImageAsset(index + 1);

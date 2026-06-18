@@ -655,8 +655,10 @@ export function installHomeAdFlowModule(target: any): void {
                 if (panel?.isValid) {
                     if (releaseResources) {
                         this._clearSpriteFramesBeforeDestroy(panel);
+                        this._destroyDetachedNodeNextFrame(panel);
+                    } else {
+                        panel.destroy();
                     }
-                    panel.destroy();
                 }
             }
             if (releaseResources) {

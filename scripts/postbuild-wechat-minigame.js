@@ -528,6 +528,15 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
+    if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {
+        missingLines.push(
+            '(function pddEarlyPerfTrace(){',
+            'var g=typeof globalThis!=="undefined"?globalThis:{};',
+            'var now=Date.now();g.__PDD_PERF_TRACE_STARTED_AT__=now;',
+            'try{console.warn("[PDD_PERF_TRACE]",JSON.stringify({seq:0,t:0,at:now,event:"runtime.gamejs.start",scene:"",mode:"debug",early:true}));}catch(_){ }',
+            '})();'
+        );
+    }
     if (content.indexOf(releaseLogGateVersionMarker) === -1) {
         missingLines.push(
             '(function installPddReleaseLogGate(){',

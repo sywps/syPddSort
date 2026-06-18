@@ -2,7 +2,6 @@ import {
     AudioMgr,
     BlockInputEvents,
     Bundle,
-    COLLECTION_RELEASE_TEXTURE_NAMES,
     COLLECTION_TEXTURE_NAMES,
     EventTouch,
     Label,
@@ -36,16 +35,30 @@ export class CollectionPanelController {
             return;
         }
         if (runtime._collectionOverlay) return;
+        runtime._retainPanelTextureOwner('collection', COLLECTION_TEXTURE_NAMES);
 
         runtime._collectionLevelIds = runtime.collectAllLevelIds();
         runtime._collectionTotalPages = 1;
         runtime._collectionPage = 0;
 
+        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
+        const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
+        const cancelStaleOpen = () => {
+            if (!isRuntimeAlive()) return;
+            runtime._collectionOverlay = null;
+            runtime._collectionContentNode = null;
+            runtime._collectionScrollContentNode = null;
+            runtime._collectionPageIndicator = null;
+            runtime._collectionScrollDragging = false;
+            runtime._collectionScrollMoved = false;
+            runtime._collectionScrollSuppressClick = false;
+            runtime._releasePanelTextureOwner('collection', 'collection-open-stale');
+        };
         const prefabPath = 'UI/Prefabs/Panels/CollectionPanel';
         const failOpen = (message: string, overlay?: Node | null) => {
             if (overlay?.isValid) {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
-                overlay.destroy();
+                runtime._destroyDetachedNodeNextFrame(overlay);
             }
             runtime._collectionOverlay = null;
             runtime._collectionContentNode = null;
@@ -54,16 +67,24 @@ export class CollectionPanelController {
             runtime._collectionScrollDragging = false;
             runtime._collectionScrollMoved = false;
             runtime._collectionScrollSuppressClick = false;
-            runtime._releasePanelTexturesNextFrame(COLLECTION_RELEASE_TEXTURE_NAMES, 'collection-open-failed');
+            runtime._releasePanelTextureOwner('collection', 'collection-open-failed');
             console.error(message);
         };
 
         runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!isOpenTargetAlive()) {
+                cancelStaleOpen();
+                return;
+            }
             if (!bundle) {
                 failOpen('[collection-prefab] gameAssets bundle unavailable');
                 return;
             }
             bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (!isOpenTargetAlive()) {
+                    cancelStaleOpen();
+                    return;
+                }
                 if (err || !prefab) {
                     failOpen(`[collection-prefab] load failed: ${err?.message || 'prefab missing'}`);
                     return;
