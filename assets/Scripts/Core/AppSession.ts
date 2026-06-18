@@ -1,3 +1,7 @@
+import type { AssetManager } from 'cc';
+
+type Bundle = AssetManager.Bundle;
+
 export type AppSceneName = 'Home' | 'Game' | 'Boot';
 export type AppVisualState = 'boot' | 'home' | 'game';
 export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
@@ -31,6 +35,7 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
+    private readonly _routedBundles = new Map<string, Bundle>();
 
     get currentSceneName(): AppSceneName {
         return this._currentSceneName;
@@ -106,6 +111,18 @@ export class AppSession {
         const toast = this._pendingHomeToast;
         this._pendingHomeToast = null;
         return toast;
+    }
+
+    rememberRoutedBundle(bundleName: string, bundle: Bundle | null): void {
+        const name = String(bundleName || '').trim();
+        if (!name || !bundle) return;
+        this._routedBundles.set(name, bundle);
+    }
+
+    getRoutedBundle(bundleName: string): Bundle | null {
+        const name = String(bundleName || '').trim();
+        if (!name) return null;
+        return this._routedBundles.get(name) || null;
     }
 
     markPendingGameplayRequest(

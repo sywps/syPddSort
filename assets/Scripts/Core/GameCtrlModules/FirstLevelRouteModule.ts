@@ -26,6 +26,7 @@ import {
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
+import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
@@ -827,35 +828,57 @@ export function installFirstLevelRouteModule(target: any): void {
         /** 从图集加载特效 SpriteFrame（替代 45 个独立纹理） */
         _loadEffectsAtlasFromBundle(bundle: Bundle, onDone?: () => void) {
             if (this._effectsAtlasReady) {
+                debugPerfSnapshot('effectsAtlas.reuse', this);
                 if (onDone) onDone();
                 return;
             }
             if (this._effectsAtlasLoadingCallbacks) {
                 if (onDone) this._effectsAtlasLoadingCallbacks.push(onDone);
+                debugPerfTrace('effectsAtlas.queue', {
+                    waitingCallbacks: this._effectsAtlasLoadingCallbacks.length,
+                });
                 return;
             }
             this._effectsAtlasLoadingCallbacks = onDone ? [onDone] : [];
+            const startedAt = Date.now();
+            debugPerfSnapshot('effectsAtlas.load.start', this);
             const finish = (ready: boolean) => {
                 this._effectsAtlasReady = this._effectsAtlasReady || ready;
                 const callbacks = this._effectsAtlasLoadingCallbacks || [];
                 this._effectsAtlasLoadingCallbacks = null;
+                debugPerfSnapshot('effectsAtlas.load.finish', this, {
+                    ready,
+                    durationMs: Date.now() - startedAt,
+                    callbacks: callbacks.length,
+                });
                 for (const callback of callbacks) callback();
             };
             this._loadAtlasDataFromBundle(bundle, 'Textures/Pindd/Effects/effects-atlas', 'effects-atlas', (err, atlasData) => {
                 if (err || !atlasData) {
                     console.warn('[图集] 未找到 effects-atlas.json，使用独立纹理:', err?.message);
+                    debugPerfTrace('effectsAtlas.json.error', {
+                        durationMs: Date.now() - startedAt,
+                        error: err || new Error('missing atlasData'),
+                    });
                     finish(false);
                     return;
                 }
                 const frames = atlasData.frames;
                 if (!frames) {
                     console.warn('[图集] 特效图集数据不完整');
+                    debugPerfTrace('effectsAtlas.json.invalid', {
+                        durationMs: Date.now() - startedAt,
+                    });
                     finish(false);
                     return;
                 }
                 bundle.load('Textures/Pindd/Effects/effects-atlas', ImageAsset, (imgErr, imgAsset) => {
                     if (imgErr || !imgAsset) {
                         console.warn('[图集] 特效纹理加载失败:', imgErr?.message);
+                        debugPerfTrace('effectsAtlas.texture.error', {
+                            durationMs: Date.now() - startedAt,
+                            error: imgErr || new Error('missing image asset'),
+                        });
                         finish(false);
                         return;
                     }
@@ -872,6 +895,10 @@ export function installFirstLevelRouteModule(target: any): void {
                         count++;
                     }
                     console.log(`[图集] 特效图集已加载: ${count} 个 SpriteFrame`);
+                    debugPerfSnapshot('effectsAtlas.texture.loaded', this, {
+                        frameCount: count,
+                        durationMs: Date.now() - startedAt,
+                    });
                     finish(count > 0);
                 });
             });

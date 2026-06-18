@@ -12,6 +12,7 @@ import {
 } from './GameCtrlShared';
 import { ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
+import { debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 
 export class GameSceneRuntimeController {
     constructor(private readonly runtime: any) {}
@@ -67,6 +68,7 @@ export class GameSceneRuntimeController {
 
     startHomeSceneRuntime(): void {
         const appRoot = AppRoot.ensure('Home');
+        debugPerfSnapshot('runtime.home.start', this.runtime);
         appRoot.router.logTransitionTrace(
             '[SceneSplitTrace] GameCtrl:startHomeSceneRuntime',
         );
@@ -83,13 +85,18 @@ export class GameSceneRuntimeController {
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:afterShowMainMenu', {
             hasMainMenuNode: !!this.runtime.mainMenuNode,
         });
+        debugPerfSnapshot('runtime.home.afterShowMainMenu', this.runtime, {
+            hasMainMenuNode: !!this.runtime.mainMenuNode,
+        });
         this.runtime.scheduleOnce(() => {
+            debugPerfSnapshot('runtime.home.backgroundServices.start', this.runtime);
             this.startHomeBackgroundServices();
         }, 0);
     }
 
     startBootSceneRuntime(): void {
         const appRoot = AppRoot.ensure('Boot');
+        debugPerfSnapshot('runtime.boot.start', this.runtime);
         const bootRouteKey = String((this.runtime.node as any)?.uuid || (this.runtime.node as any)?._id || 'Boot');
         appRoot.session.resetBootRouteGuard(bootRouteKey);
         appRoot.markBoot('Boot');
@@ -103,6 +110,7 @@ export class GameSceneRuntimeController {
         this.runtime.bindUserStateLifecycle();
         this.runtime.requireCanvasUiRoot('BootRoot');
         this.runtime.showLoadingOverlay();
+        this.startBootCloudRestoreProbe();
         this.runtime.scheduleOnce(() => {
             if (!this.runtime.node?.isValid) {
                 return;
@@ -111,7 +119,12 @@ export class GameSceneRuntimeController {
                 appRoot.router.logTransitionTrace('[SceneSplitTrace] bootRoute:skipDuplicate');
                 return;
             }
-            const route = this.shouldRouteBootToHome()
+            const shouldRouteHomeByLocal = this.shouldRouteBootToHome();
+            const shouldRouteHomeByCloud = !shouldRouteHomeByLocal && this.shouldRouteBootToHomeFromResolvedCloudRestore();
+            if (shouldRouteHomeByCloud) {
+                this.setStartupCloudRestoreHomeToast(appRoot);
+            }
+            const route = shouldRouteHomeByLocal || shouldRouteHomeByCloud
                 ? appRoot.router.toHome()
                 : appRoot.router.toGame();
             route.catch((error) => {
@@ -124,6 +137,9 @@ export class GameSceneRuntimeController {
     startGameSceneRuntime(): void {
         const previousSceneName = AppRoot.tryGet()?.session.currentSceneName || '';
         const appRoot = AppRoot.ensure('Game');
+        debugPerfSnapshot('runtime.game.start', this.runtime, {
+            previousSceneName,
+        });
         const pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
         const explicitGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'cover';
         const suppressGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'none';
@@ -164,6 +180,13 @@ export class GameSceneRuntimeController {
                 reason: suppressGameplayEntryCover ? 'no-cover-entry' : 'no-explicit-cover',
             });
         }
+        if (this.tryRouteHomeForResolvedStartupCloud(appRoot, 'startup-cloud-restore-before-game')) {
+            return;
+        }
+        debugPerfSnapshot('runtime.game.beforeContinueStartup', this.runtime, {
+            pendingGameplayRequest: !!pendingGameplayRequest,
+            entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
+        });
         void this.runtime.continueStartup();
     }
 
@@ -192,6 +215,9 @@ export class GameSceneRuntimeController {
 
     destroy(): void {
         const sceneName = this.getRuntimeSceneName();
+        debugPerfSnapshot('runtime.destroy.before', this.runtime, {
+            sceneName,
+        });
         if (sceneName === 'Game') {
             AnalyticsMgr.inst.abandonActiveLevel();
             SySDKMgr.inst.reportLevelExit(this.runtime.getAnalyticsLevelId());
@@ -215,6 +241,9 @@ export class GameSceneRuntimeController {
         this.runtime.clearBoardVisualPools?.();
         this.runtime.clearEffectPools();
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
+        debugPerfTrace('runtime.destroy.after', {
+            sceneName,
+        });
     }
 
     private prepareSceneFrame(sceneName: string = this.getRuntimeSceneName()): void {
@@ -262,14 +291,81 @@ export class GameSceneRuntimeController {
         return !!(globalScope?.__PDD_SCREEN_ADAPT_DEBUG__ || windowScope?.__PDD_SCREEN_ADAPT_DEBUG__);
     }
 
-    private shouldRouteBootToHome(): boolean {
+    private canUseDefaultStartupRoute(): boolean {
         const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
         if (pendingSceneGameplayRequest) return false;
         const urlLevel = typeof this.runtime.getUrlLevel === 'function' ? this.runtime.getUrlLevel() : 0;
         const urlLevelFile = typeof this.runtime.getUrlLevelFile === 'function' ? this.runtime.getUrlLevelFile() : '';
         if (urlLevel > 0 || urlLevelFile) return false;
+        return true;
+    }
+
+    private shouldRouteBootToHome(): boolean {
+        if (!this.canUseDefaultStartupRoute()) return false;
         return typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
             && this.runtime.hasReliableLocalUserStateForStartup();
+    }
+
+    private shouldRouteBootToHomeFromResolvedCloudRestore(): boolean {
+        if (!this.canUseDefaultStartupRoute()) return false;
+        const status = typeof this.runtime.getStartupCloudRestoreStatus === 'function'
+            ? this.runtime.getStartupCloudRestoreStatus()
+            : '';
+        if (status !== 'cloud_progress_gt_1') return false;
+        const savedLevel = typeof this.runtime.getSavedLevel === 'function'
+            ? Math.max(1, Math.floor(Number(this.runtime.getSavedLevel()) || 1))
+            : 1;
+        return savedLevel > 1;
+    }
+
+    private startBootCloudRestoreProbe(): void {
+        if (!this.canUseDefaultStartupRoute()) return;
+        if (typeof this.runtime.hasReliableLocalUserStateForStartup === 'function' && this.runtime.hasReliableLocalUserStateForStartup()) {
+            return;
+        }
+        if (typeof this.runtime.beginStartupCloudRestore !== 'function') return;
+        debugPerfTrace('startup.cloudRestore.bootProbe.begin', {
+            sceneName: this.getRuntimeSceneName('Boot'),
+        });
+        try {
+            void Promise.resolve(this.runtime.beginStartupCloudRestore(false))
+                .then((status) => {
+                    debugPerfTrace('startup.cloudRestore.bootProbe.done', {
+                        status,
+                        savedLevel: typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 0,
+                    });
+                })
+                .catch((error) => {
+                    debugPerfTrace('startup.cloudRestore.bootProbe.error', { error });
+                });
+        } catch (error) {
+            debugPerfTrace('startup.cloudRestore.bootProbe.error', { error });
+        }
+    }
+
+    private tryRouteHomeForResolvedStartupCloud(appRoot: AppRoot, source: string): boolean {
+        if (!this.shouldRouteBootToHomeFromResolvedCloudRestore()) return false;
+        this.setStartupCloudRestoreHomeToast(appRoot);
+        if (typeof this.runtime.releaseStartupBootstrapPrefetchIfUnused === 'function') {
+            this.runtime.releaseStartupBootstrapPrefetchIfUnused(source);
+        }
+        debugPerfSnapshot('startup.cloudRestore.routeHomeBeforeGameStartup', this.runtime, {
+            source,
+            savedLevel: typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 0,
+        });
+        void appRoot.requestHomeSceneTransition(source, 'cover').catch((error) => {
+            console.warn('[GameCtrl] startup cloud restore home route failed:', error);
+        });
+        return true;
+    }
+
+    private setStartupCloudRestoreHomeToast(appRoot: AppRoot): void {
+        const savedLevel = typeof this.runtime.getSavedLevel === 'function'
+            ? Math.max(1, Math.floor(Number(this.runtime.getSavedLevel()) || 1))
+            : 1;
+        if (savedLevel > 1) {
+            appRoot.session.setPendingHomeToast(`已恢复进度到第${savedLevel}关`, 2.5);
+        }
     }
 
     private startHomeBackgroundServices(): void {

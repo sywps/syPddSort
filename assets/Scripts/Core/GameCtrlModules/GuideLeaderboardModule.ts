@@ -32,6 +32,7 @@ import type {
 import { ensureLeaderboardPanelController } from '../Panels/LeaderboardPanelController';
 import { getWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { ToastService } from '../ToastService';
+import { debugPerfTrace } from '../DebugPerfTrace';
 
 function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string): Label {
     const node = parent.getChildByName(name);
@@ -560,6 +561,11 @@ export function installGuideLeaderboardModule(target: any): void {
         deactivateWeChatFriendRank(reason: string = 'unknown') {
             const openDataContext = this.getWeChatOpenDataContext();
             this.stopFriendRankInertia();
+            debugPerfTrace('friendRank.openData.deactivate', {
+                reason,
+                hasOpenDataContext: !!openDataContext,
+                hasPostMessage: !!openDataContext?.postMessage,
+            });
             if (openDataContext?.postMessage) {
                 try {
                     openDataContext.postMessage({ type: 'deactivate', reason });

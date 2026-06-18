@@ -6,6 +6,7 @@ import {
     LOGICAL_FIRST_PLAY_BUNDLE_NAME,
     LOGICAL_HOME_BUNDLE_NAME,
 } from './PackageNames';
+import { debugPerfTrace } from './DebugPerfTrace';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -83,6 +84,15 @@ export class SceneRouter {
             throw new Error(`[SceneRouter] scene transition already in flight: ${this.session.requestedSceneName}`);
         }
         this._transitioning = true;
+        const startedAt = Date.now();
+        debugPerfTrace('scene.load.start', {
+            from: this.session.currentSceneName,
+            requestedBefore: this.session.requestedSceneName,
+            to: sceneName,
+            visualState: this.session.visualState,
+            hasPendingGameplay: !!this.session.pendingGameplayRequest,
+            hasActiveGameplay: !!this.session.activeGameplayContext,
+        });
         logSceneTrace(
             '[SceneSplitTrace] loadScene:start',
             JSON.stringify({
@@ -100,6 +110,15 @@ export class SceneRouter {
                 try {
                     director.loadScene(sceneName, () => {
                         this.session.setCurrentSceneName(sceneName);
+                        debugPerfTrace('scene.load.callback', {
+                            current: this.session.currentSceneName,
+                            requested: this.session.requestedSceneName,
+                            to: sceneName,
+                            durationMs: Date.now() - startedAt,
+                            visualState: this.session.visualState,
+                            hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                            hasActiveGameplay: !!this.session.activeGameplayContext,
+                        });
                         logSceneTrace(
                             '[SceneSplitTrace] loadScene:callback',
                             JSON.stringify({
@@ -114,11 +133,25 @@ export class SceneRouter {
                         resolve();
                     });
                 } catch (error) {
+                    debugPerfTrace('scene.load.error', {
+                        to: sceneName,
+                        durationMs: Date.now() - startedAt,
+                        error,
+                    });
                     reject(error);
                 }
             });
         } finally {
             this._transitioning = false;
+            debugPerfTrace('scene.load.finish', {
+                current: this.session.currentSceneName,
+                requested: this.session.requestedSceneName,
+                to: sceneName,
+                durationMs: Date.now() - startedAt,
+                visualState: this.session.visualState,
+                hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                hasActiveGameplay: !!this.session.activeGameplayContext,
+            });
             logSceneTrace(
                 '[SceneSplitTrace] loadScene:finish',
                 JSON.stringify({
@@ -138,6 +171,17 @@ export class SceneRouter {
             throw new Error(`[SceneRouter] scene transition already in flight: ${this.session.requestedSceneName}`);
         }
         this._transitioning = true;
+        const startedAt = Date.now();
+        debugPerfTrace('scene.bundle.load.start', {
+            from: this.session.currentSceneName,
+            requestedBefore: this.session.requestedSceneName,
+            to: sceneName,
+            bundleName,
+            logicalBundle: logicalName,
+            visualState: this.session.visualState,
+            hasPendingGameplay: !!this.session.pendingGameplayRequest,
+            hasActiveGameplay: !!this.session.activeGameplayContext,
+        });
         logSceneTrace(
             '[SceneSplitTrace] loadBundledScene:start',
             JSON.stringify({
@@ -156,16 +200,54 @@ export class SceneRouter {
             await new Promise<void>((resolve, reject) => {
                 assetManager.loadBundle(bundleName, (bundleErr, bundle) => {
                     if (bundleErr || !bundle) {
+                        debugPerfTrace('scene.bundle.load.error', {
+                            to: sceneName,
+                            bundleName,
+                            logicalBundle: logicalName,
+                            durationMs: Date.now() - startedAt,
+                            error: bundleErr || new Error('missing bundle'),
+                        });
                         reject(new Error(`[SceneRouter] load ${logicalName}/${bundleName} failed: ${bundleErr?.message || 'missing bundle'}`));
                         return;
                     }
+                    debugPerfTrace('scene.bundle.loaded', {
+                        to: sceneName,
+                        bundleName,
+                        logicalBundle: logicalName,
+                        durationMs: Date.now() - startedAt,
+                    });
+                    this.session.rememberRoutedBundle(bundleName, bundle);
                     bundle.loadScene(sceneName, (sceneErr: Error | null, sceneAsset: SceneAsset) => {
                         if (sceneErr || !sceneAsset) {
+                            debugPerfTrace('scene.bundle.scene.error', {
+                                to: sceneName,
+                                bundleName,
+                                logicalBundle: logicalName,
+                                durationMs: Date.now() - startedAt,
+                                error: sceneErr || new Error('missing scene asset'),
+                            });
                             reject(new Error(`[SceneRouter] load scene ${sceneName} from ${logicalName}/${bundleName} failed: ${sceneErr?.message || 'missing scene asset'}`));
                             return;
                         }
+                        debugPerfTrace('scene.bundle.scene.loaded', {
+                            to: sceneName,
+                            bundleName,
+                            logicalBundle: logicalName,
+                            durationMs: Date.now() - startedAt,
+                        });
                         director.runScene(sceneAsset, undefined, () => {
                             this.session.setCurrentSceneName(sceneName);
+                            debugPerfTrace('scene.bundle.run.callback', {
+                                current: this.session.currentSceneName,
+                                requested: this.session.requestedSceneName,
+                                to: sceneName,
+                                bundleName,
+                                logicalBundle: logicalName,
+                                durationMs: Date.now() - startedAt,
+                                visualState: this.session.visualState,
+                                hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                                hasActiveGameplay: !!this.session.activeGameplayContext,
+                            });
                             logSceneTrace(
                                 '[SceneSplitTrace] loadBundledScene:callback',
                                 JSON.stringify({
@@ -186,6 +268,17 @@ export class SceneRouter {
             });
         } finally {
             this._transitioning = false;
+            debugPerfTrace('scene.bundle.load.finish', {
+                current: this.session.currentSceneName,
+                requested: this.session.requestedSceneName,
+                to: sceneName,
+                bundleName,
+                logicalBundle: logicalName,
+                durationMs: Date.now() - startedAt,
+                visualState: this.session.visualState,
+                hasPendingGameplay: !!this.session.pendingGameplayRequest,
+                hasActiveGameplay: !!this.session.activeGameplayContext,
+            });
             logSceneTrace(
                 '[SceneSplitTrace] loadBundledScene:finish',
                 JSON.stringify({

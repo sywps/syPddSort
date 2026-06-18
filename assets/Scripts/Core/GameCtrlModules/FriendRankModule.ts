@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
 
 function requireFriendRankNode(parent: Node, name: string): Node {
     const node = parent.getChildByName(name);
@@ -345,20 +346,34 @@ export function installFriendRankModule(target: any): void {
             const openDataContext = this.getWeChatOpenDataContext();
             this.deactivateWeChatFriendRank('show-open-data-reset');
             this.setLeaderboardHintText(hintNode, 'bottom', '仅展示已提交成绩的微信好友');
+            debugPerfSnapshot('friendRank.openData.start', this, {
+                hasWx: !!wx,
+                hasGetOpenDataContext: !!wx?.getOpenDataContext,
+                hasOpenDataContext: !!openDataContext,
+                hasPostMessage: !!openDataContext?.postMessage,
+                hasCanvas: !!openDataContext?.canvas,
+            });
         
-            // 诊断日志
-            console.log('[GameCtrl] OpenData diagnostic:');
-            console.log('  wx available:', !!wx);
-            console.log('  getOpenDataContext available:', !!wx?.getOpenDataContext);
-            console.log('  openDataContext available:', !!openDataContext);
-            console.log('  openDataContext.postMessage available:', !!openDataContext?.postMessage);
-            console.log('  openDataContext.canvas available:', !!openDataContext?.canvas);
+            if (isDebugPerfTraceEnabled()) {
+                console.log('[GameCtrl] OpenData diagnostic:');
+                console.log('  wx available:', !!wx);
+                console.log('  getOpenDataContext available:', !!wx?.getOpenDataContext);
+                console.log('  openDataContext available:', !!openDataContext);
+                console.log('  openDataContext.postMessage available:', !!openDataContext?.postMessage);
+                console.log('  openDataContext.canvas available:', !!openDataContext?.canvas);
+            }
         
             if (!openDataContext?.postMessage || !openDataContext?.canvas) {
                 setFriendRankPrefabLabel(listNode, 'OpenDataNotAvailable', '当前环境不支持好友排行');
                 const dbg = `wx=${!!wx} openDataContext=${!!openDataContext} canvas=${!!openDataContext?.canvas}`;
                 setFriendRankPrefabLabel(listNode, 'OpenDataDebug', dbg);
                 console.warn('[GameCtrl] openDataContext 不可用. wx:', !!wx, 'openDataContext:', !!openDataContext);
+                debugPerfTrace('friendRank.openData.unavailable', {
+                    hasWx: !!wx,
+                    hasOpenDataContext: !!openDataContext,
+                    hasPostMessage: !!openDataContext?.postMessage,
+                    hasCanvas: !!openDataContext?.canvas,
+                });
                 return;
             }
         
@@ -375,6 +390,11 @@ export function installFriendRankModule(target: any): void {
             (subContextView as any)._designResolutionSize = new Size(hostWidth, hostHeight);
             subContextView.fps = FRIEND_RANK_SUBCONTEXT_FPS;
             host.active = true;
+            debugPerfSnapshot('friendRank.openData.host.created', this, {
+                hostWidth,
+                hostHeight,
+                fps: FRIEND_RANK_SUBCONTEXT_FPS,
+            });
         
             // 触摸滚动支持：按像素滚动并补惯性，手感与常见长列表一致。
             this._friendRankScrollOffset = 0;

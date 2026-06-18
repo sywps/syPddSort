@@ -117,6 +117,7 @@ export function deferCloudGameStateSyncDuringStartup(runtime: any): boolean {
 
 export function resolveStartupCloudRestorePending(runtime: any, status: UserStateRestoreStatus): void {
     runtime._startupCloudRestorePending = false;
+    runtime._startupCloudRestoreStatus = status;
     if (status === 'cloud_confirmed_empty') {
         if (!runtime._startupCloudRestoreHadLocalUserState && typeof runtime.grantStarterPropsForNewUser === 'function') {
             runtime.grantStarterPropsForNewUser();
