@@ -174,6 +174,65 @@ export function installBoardInputViewportModule(target: any): void {
         setViewTransformClamped(scale: number, offset: Vec2): void {
             this.boardViewport.setViewTransformClamped(scale, offset);
             this.boardViewScale = this.boardViewport.scale;
+            this.refreshBoardZoomControl?.();
+        },
+
+        getBoardViewportScaleNormalized(): number {
+            return this.boardViewport?.getScaleNormalized?.() ?? 0;
+        },
+
+        setBoardViewportScaleNormalized(value: number): void {
+            if (!this.boardViewport) return;
+            this.boardViewport.setScaleNormalized(value);
+            this.boardViewScale = this.boardViewport.scale;
+            this.refreshBoardZoomControl?.();
+        },
+
+        resetBoardViewportToHome(): void {
+            if (!this.boardViewport) return;
+            if (typeof this.resetTouchState === 'function') {
+                this.resetTouchState();
+            }
+            this.boardViewport.resetToHome();
+            this.boardViewScale = this.boardViewport.scale;
+            this.refreshBoardZoomControl?.();
+        },
+
+        resetBoardViewportToHomeForSkill(onDone: () => void): void {
+            const group = this.boardGroup;
+            const viewport = this.boardViewport;
+            if (!group?.isValid || !viewport) {
+                onDone();
+                return;
+            }
+            if (typeof this.resetTouchState === 'function') {
+                this.resetTouchState();
+            }
+
+            const home = viewport.getHomeTransform();
+            const homeScale = home.scale;
+            const homePos = new Vec3(home.offset.x, home.offset.y, 0);
+            if (viewport.isAtHome()) {
+                viewport.resetToHome();
+                this.boardViewScale = viewport.scale;
+                this.refreshBoardZoomControl?.();
+                onDone();
+                return;
+            }
+
+            Tween.stopAllByTarget(group);
+            tween(group)
+                .to(0.22, {
+                    position: new Vec3(homePos.x, homePos.y, 0),
+                    scale: new Vec3(homeScale, homeScale, 1),
+                }, { easing: 'sineOut' })
+                .call(() => {
+                    viewport.resetToHome();
+                    this.boardViewScale = viewport.scale;
+                    this.refreshBoardZoomControl?.();
+                    onDone();
+                })
+                .start();
         },
 
         setGestureMode(mode: GestureMode): void {
@@ -183,6 +242,7 @@ export function installBoardInputViewportModule(target: any): void {
         zoomBoardViewportAround(uiPos: Vec2, boardLocal: Vec2, nextScale: number) {
             this.boardViewport.zoomAround(uiPos, boardLocal, nextScale);
             this.boardViewScale = this.boardViewport.scale;
+            this.refreshBoardZoomControl?.();
         },
 
         beginPinchFromActiveTouches(): boolean {

@@ -356,13 +356,21 @@ export function installSettlementHudModule(target: any): void {
                         this.ensureGameplayResultPanelsCreated?.();
                         this.updateWinRewardLabel(this._pendingWinGoldReward);
                         this.drawWinPatternPreview();
-                        if (this.panelWin) { this.panelWin.active = true; this.panelWin.setSiblingIndex(999); }
+                        if (this.panelWin) {
+                            this.panelWin.active = true;
+                            this.panelWin.setSiblingIndex(999);
+                            this.playWinSettlementBannerFx?.();
+                        }
                     });
                     return;
                 }
                 this.updateWinRewardLabel(this._pendingWinGoldReward);
                 this.drawWinPatternPreview();
-                if (this.panelWin) { this.panelWin.active = true; this.panelWin.setSiblingIndex(999); }
+                if (this.panelWin) {
+                    this.panelWin.active = true;
+                    this.panelWin.setSiblingIndex(999);
+                    this.playWinSettlementBannerFx?.();
+                }
             }, totalAnimTime + 0.18);
         },
 
@@ -455,7 +463,11 @@ export function installSettlementHudModule(target: any): void {
             this.unscheduleAllCallbacks();
             this.stopPulseTweens();
             this.clearDragNodes();
-            this.initGame(this.levelData);
+            if (this.startGameplayWithBackgroundSkinReady) {
+                this.startGameplayWithBackgroundSkinReady(this.levelData, undefined, () => this.initGame(this.levelData));
+            } else {
+                this.initGame(this.levelData);
+            }
         },
 
         /** 看广告后继续游戏：恢复交互，但计时器需等重新选中豆豆后再开始 */
@@ -633,19 +645,12 @@ export function installSettlementHudModule(target: any): void {
             }
         
             // 重置到初始适配视图，确保引导视觉准确且不丢失小棋盘放大比例
-            const minScale = Number(this.boardViewport?.minScale) || this.constructor.MIN_SCALE;
-            const maxScale = Number(this.boardViewport?.maxScale) || this.constructor.MAX_SCALE;
-            const homeScale = Math.max(
-                minScale,
-                Math.min(
-                    maxScale,
-                    Number(this.boardHomeScale) || Number(this.boardViewScale) || Math.abs(this.boardGroup.scale.x || 1) || 1,
-                ),
-            );
-            this.boardGroup.setPosition(this.boardHomePos);
-            this.boardGroup.setScale(homeScale, homeScale, 1);
-            this.boardViewScale = homeScale;
-            this.boardViewport.setScaleSnapshot(homeScale);
+            if (typeof this.resetBoardViewportToHome === 'function') {
+                this.resetBoardViewportToHome();
+            } else if (this.boardViewport) {
+                this.boardViewport.resetToHome();
+                this.boardViewScale = this.boardViewport.scale;
+            }
         
             const root = typeof this.requireCanvasUiRoot === 'function'
                 ? this.requireCanvasUiRoot('OverlayRoot')

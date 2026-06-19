@@ -526,7 +526,6 @@ export function installGameplayPlacementFxModule(target: any): void {
                 return;
             }
             this.addGold(bonusCfg.largePlacementGoldBonus);
-            this.showToastBelowTimer(`单次归位${beanCount}豆，奖励 +${bonusCfg.largePlacementGoldBonus} 金币`, 1.8);
         },
 
         /** 归位闪光特效：block_finish 帧动画播放（完成效果） */

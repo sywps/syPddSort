@@ -311,7 +311,7 @@ export class CommercePanelController {
             overlayName: `ToolAcquireOverlay_${kind}`,
             buyLabel: `${meta.cost}`,
             adType: meta.adType,
-            successToast: () => `已获得 ${meta.itemLabel} x1`,
+            successToast: '',
             grantFailToast: `${meta.itemLabel}领取失败，请重试`,
             resumeTimerOnClose: options.resumeTimerOnClose,
             onInventoryChanged: options.onInventoryChanged,
@@ -321,7 +321,6 @@ export class CommercePanelController {
                     return false;
                 }
                 this.runtime.addPropCount(kind, 1);
-                this.runtime.showToast(`已获得 ${meta.itemLabel} x1`);
                 return true;
             },
             onAdGrant: () => {

@@ -1,5 +1,7 @@
 import { installAssetBootstrapModule } from './GameCtrlModules/AssetBootstrapModule';
+import { installSkinBackgroundModule } from './GameCtrlModules/SkinBackgroundModule';
 import { installBoardInputViewportModule } from './GameCtrlModules/BoardInputViewportModule';
+import { installBoardZoomControlModule } from './GameCtrlModules/BoardZoomControlModule';
 import { installGameplayLevelFlowModule } from './GameCtrlModules/GameplayLevelFlowModule';
 import { installGameplayPlacementFxModule } from './GameCtrlModules/GameplayPlacementFxModule';
 import { installGameplaySkillMagnetModule } from './GameCtrlModules/GameplaySkillMagnetModule';
@@ -29,6 +31,7 @@ export function installGameCtrlModules(runtime: any): void {
     installPlayerMetaStateModule(runtime);
     installFirstLevelRouteModule(runtime);
     installAssetBootstrapModule(runtime);
+    installSkinBackgroundModule(runtime);
     installDynamicCountdownDdaModule(runtime);
     installHomeAdFlowModule(runtime);
     installHomeCommerceModule(runtime);
@@ -38,6 +41,7 @@ export function installGameCtrlModules(runtime: any): void {
     installGameplaySkillWandModule(runtime);
     installGameplaySkillMagnetModule(runtime);
     installBoardInputViewportModule(runtime);
+    installBoardZoomControlModule(runtime);
     installGameplayPlacementFxModule(runtime);
     installEndgameHintModule(runtime);
     installSettlementHudModule(runtime);

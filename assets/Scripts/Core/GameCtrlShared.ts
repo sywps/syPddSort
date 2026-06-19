@@ -224,6 +224,7 @@ type ForcedSkillStep = {
     pairedFlight?: boolean;
     displacedBoard?: { colorId: number; target: { row: number; col: number }; lock: boolean };
     displacedSlot?: { colorId: number; slotIdx: number };
+    displacedSlotInsertMode?: 'fixed' | 'grouped';
     lockTargets: { row: number; col: number }[];
     hiddenBoardCells: { row: number; col: number }[];
     hiddenSlotIdxs: number[];
@@ -382,6 +383,8 @@ type BoardViewportControllerOptions = {
 
 class BoardViewportController {
     private viewScale = 1;
+    private homeScale = 1;
+    private homeOffset = new Vec2(0, 0);
 
     constructor(private readonly options: BoardViewportControllerOptions) {}
 
@@ -402,11 +405,56 @@ class BoardViewportController {
         const safeMax = Number.isFinite(maxScale) && maxScale >= safeMin ? maxScale : this.options.maxScale;
         this.options.minScale = safeMin;
         this.options.maxScale = Math.max(safeMin, safeMax);
-        this.viewScale = Math.max(this.options.minScale, Math.min(this.options.maxScale, this.viewScale));
+        this.viewScale = this.clampScale(this.viewScale);
+        this.homeScale = this.clampScale(this.homeScale);
+        this.homeOffset = this.clampOffset(this.homeOffset.x, this.homeOffset.y, this.homeScale);
     }
 
     setScaleSnapshot(scale: number): void {
-        this.viewScale = Math.max(this.options.minScale, Math.min(this.options.maxScale, scale));
+        this.viewScale = this.clampScale(scale);
+    }
+
+    getScaleNormalized(): number {
+        const range = this.options.maxScale - this.options.minScale;
+        if (!Number.isFinite(range) || range <= 0) return 0;
+        return Math.max(0, Math.min(1, (this.viewScale - this.options.minScale) / range));
+    }
+
+    getScaleForNormalized(value: number): number {
+        const normalized = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+        return this.options.minScale + (this.options.maxScale - this.options.minScale) * normalized;
+    }
+
+    setHomeTransform(scale: number, offset: Vec2): void {
+        this.homeScale = this.clampScale(scale);
+        this.homeOffset = this.clampOffset(offset.x, offset.y, this.homeScale);
+    }
+
+    setHomeFromCurrent(): void {
+        const group = this.options.getBoardGroup();
+        if (!group || !group.isValid) return;
+        const currentScale = Number.isFinite(this.viewScale) && this.viewScale > 0
+            ? this.viewScale
+            : Math.abs(group.scale.x || 1) || 1;
+        this.setHomeTransform(currentScale, new Vec2(group.position.x, group.position.y));
+    }
+
+    getHomeTransform(): { scale: number; offset: Vec2 } {
+        return {
+            scale: this.homeScale,
+            offset: new Vec2(this.homeOffset.x, this.homeOffset.y),
+        };
+    }
+
+    isAtHome(scaleTolerance: number = 0.01, offsetTolerance: number = 2): boolean {
+        const group = this.options.getBoardGroup();
+        if (!group || !group.isValid) return true;
+        return Math.abs(this.viewScale - this.homeScale) <= scaleTolerance
+            && Math.hypot(group.position.x - this.homeOffset.x, group.position.y - this.homeOffset.y) <= offsetTolerance;
+    }
+
+    resetToHome(): void {
+        this.setViewTransformClamped(this.homeScale, this.homeOffset);
     }
 
     uiToViewportParent(uiPos: Vec2): Vec2 {
@@ -465,12 +513,30 @@ class BoardViewportController {
         if (!group || !group.isValid) return;
         const finiteScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
         const nextScale = clampScale
-            ? Math.max(this.options.minScale, Math.min(this.options.maxScale, finiteScale))
+            ? this.clampScale(finiteScale)
             : finiteScale;
         const clamped = this.clampOffset(offset.x, offset.y, nextScale);
         this.viewScale = nextScale;
         group.setScale(nextScale, nextScale, 1);
         group.setPosition(clamped.x, clamped.y, 0);
+    }
+
+    setScaleNormalized(value: number, anchorParentLocal?: Vec2): void {
+        const nextScale = this.getScaleForNormalized(value);
+        const group = this.options.getBoardGroup();
+        if (!group || !group.isValid) return;
+        const anchor = anchorParentLocal || this.getSafeViewportCenter();
+        const boardLocal = this.parentPointToBoardLocal(anchor);
+        const board = this.options.getBoardNode();
+        if (!boardLocal || !board || !board.isValid) {
+            this.setViewTransformClamped(nextScale, new Vec2(group.position.x, group.position.y));
+            return;
+        }
+        const boardPos = board.position;
+        this.setViewTransformClamped(nextScale, new Vec2(
+            anchor.x - (boardPos.x + boardLocal.x) * nextScale,
+            anchor.y - (boardPos.y + boardLocal.y) * nextScale,
+        ));
     }
 
     zoomAround(uiPos: Vec2, boardLocal: Vec2, nextScale: number): void {
@@ -482,6 +548,28 @@ class BoardViewportController {
             parentLocal.x - (boardPos.x + boardLocal.x) * nextScale,
             parentLocal.y - (boardPos.y + boardLocal.y) * nextScale,
         ));
+    }
+
+    private clampScale(scale: number): number {
+        const finiteScale = Number.isFinite(scale) && scale > 0 ? scale : this.options.minScale;
+        return Math.max(this.options.minScale, Math.min(this.options.maxScale, finiteScale));
+    }
+
+    private getSafeViewportCenter(): Vec2 {
+        const rect = this.options.getSafeViewportRect();
+        return new Vec2((rect.left + rect.right) / 2, (rect.bottom + rect.top) / 2);
+    }
+
+    private parentPointToBoardLocal(parentLocal: Vec2): Vec2 | null {
+        const group = this.options.getBoardGroup();
+        const board = this.options.getBoardNode();
+        if (!group || !group.isValid || !board || !board.isValid) return null;
+        const scale = Math.max(0.001, this.viewScale || Math.abs(group.scale.x || 1) || 1);
+        const boardPos = board.position;
+        return new Vec2(
+            (parentLocal.x - group.position.x) / scale - boardPos.x,
+            (parentLocal.y - group.position.y) / scale - boardPos.y,
+        );
     }
 
     private clampOffset(x: number, y: number, scale: number): Vec2 {

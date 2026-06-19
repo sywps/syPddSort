@@ -3,13 +3,20 @@ import {
     AudioMgr,
     BlockInputEvents,
     Bundle,
+    Color,
+    Graphics,
     Label,
     Node,
     Prefab,
     ProgressBar,
     RESULT_PANEL_TEXTURE_NAMES,
+    Sprite,
+    Tween,
     UIOpacity,
+    UITransform,
+    Vec3,
     instantiate,
+    tween,
 } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 
@@ -21,6 +28,35 @@ const RESULT_PANEL_PREFAB_PATHS = {
 
 type ResultPanelKind = keyof typeof RESULT_PANEL_PREFAB_PATHS;
 const RESULT_PANEL_KINDS: ResultPanelKind[] = ['win', 'revive', 'lose'];
+const WIN_BANNER_LEGACY_PART_PREFIX = 'WinBannerAnimatedPart';
+const WIN_BANNER_FX_PREFIX = 'WinBannerStableFx';
+const WIN_BANNER_ENTRANCE_Y = 34;
+const WIN_BANNER_ENTRANCE_SCALE = 0.86;
+const WIN_BANNER_ENTRANCE_OVERSHOOT = 1.055;
+const WIN_BANNER_IDLE_JELLY_INITIAL_DELAY = 0.5;
+const WIN_BANNER_IDLE_JELLY_REPEAT_DELAY = 1.5;
+
+type WinBannerSparkleSpec = {
+    xRatio: number;
+    yRatio: number;
+    size: number;
+    delay: number;
+};
+
+const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
+    { xRatio: -0.44, yRatio: 0.16, size: 10, delay: 0.12 },
+    { xRatio: -0.36, yRatio: 0.29, size: 14, delay: 0.42 },
+    { xRatio: 0.34, yRatio: 0.28, size: 14, delay: 0.74 },
+    { xRatio: 0.43, yRatio: 0.14, size: 10, delay: 1.02 },
+    { xRatio: -0.08, yRatio: 0.43, size: 11, delay: 1.28 },
+    { xRatio: 0.08, yRatio: 0.41, size: 9, delay: 1.56 },
+    { xRatio: -0.22, yRatio: 0.08, size: 8, delay: 1.86 },
+    { xRatio: 0.22, yRatio: 0.08, size: 8, delay: 2.16 },
+    { xRatio: -0.48, yRatio: -0.02, size: 7, delay: 2.46 },
+    { xRatio: 0.48, yRatio: -0.02, size: 7, delay: 2.76 },
+    { xRatio: -0.02, yRatio: 0.18, size: 7, delay: 3.06 },
+    { xRatio: 0.16, yRatio: 0.2, size: 7, delay: 3.36 },
+];
 
 export class GameplayResultPanelController {
     constructor(private readonly runtime: any) {}
@@ -181,6 +217,242 @@ export class GameplayResultPanelController {
         progressBar.progress = Math.max(0, Math.min(1, Number(ratio) || 0));
     }
 
+    private findActiveWinTitleBanner(box: Node): Node | null {
+        return box.children.find((child) => {
+            if (child.name !== 'TitleBanner' || !child.active) return false;
+            const sprite = child.getComponent(Sprite);
+            const transform = child.getComponent(UITransform);
+            return !!sprite?.spriteFrame && !!transform && transform.width > 0 && transform.height > 0;
+        }) ?? null;
+    }
+
+    private stopWinBannerTweenTree(node: Node): void {
+        Tween.stopAllByTarget(node);
+        const opacity = node.getComponent(UIOpacity);
+        if (opacity) {
+            Tween.stopAllByTarget(opacity);
+        }
+        for (const child of node.children) {
+            this.stopWinBannerTweenTree(child);
+        }
+    }
+
+    private clearWinBannerFx(banner: Node): void {
+        for (const child of banner.children.slice()) {
+            if (!child.name.startsWith(WIN_BANNER_FX_PREFIX) && !child.name.startsWith(WIN_BANNER_LEGACY_PART_PREFIX)) continue;
+            this.stopWinBannerTweenTree(child);
+            child.destroy();
+        }
+        const sprite = banner.getComponent(Sprite);
+        if (sprite) {
+            sprite.enabled = true;
+        }
+    }
+
+    private getWinBannerBaseState(banner: Node): { position: Vec3; scale: Vec3; angle: number } {
+        const state = banner as Node & {
+            __winBannerBasePosition?: Vec3;
+            __winBannerBaseScale?: Vec3;
+            __winBannerBaseAngle?: number;
+        };
+        if (!state.__winBannerBasePosition) {
+            state.__winBannerBasePosition = banner.position.clone();
+            state.__winBannerBaseScale = banner.scale.clone();
+            state.__winBannerBaseAngle = banner.angle;
+        }
+        return {
+            position: state.__winBannerBasePosition.clone(),
+            scale: (state.__winBannerBaseScale ?? banner.scale).clone(),
+            angle: state.__winBannerBaseAngle ?? banner.angle,
+        };
+    }
+
+    private scaleWinBannerVec3(base: Vec3, ratio: number): Vec3 {
+        return new Vec3(base.x * ratio, base.y * ratio, base.z);
+    }
+
+    private scaleWinBannerVec3XY(base: Vec3, scaleX: number, scaleY: number): Vec3 {
+        return new Vec3(base.x * scaleX, base.y * scaleY, base.z);
+    }
+
+    private drawWinBannerSparkle(graphics: Graphics, size: number): void {
+        graphics.clear();
+        graphics.fillColor = new Color(255, 246, 180, 228);
+        graphics.moveTo(0, size);
+        graphics.lineTo(size * 0.26, size * 0.26);
+        graphics.lineTo(size, 0);
+        graphics.lineTo(size * 0.26, -size * 0.26);
+        graphics.lineTo(0, -size);
+        graphics.lineTo(-size * 0.26, -size * 0.26);
+        graphics.lineTo(-size, 0);
+        graphics.lineTo(-size * 0.26, size * 0.26);
+        graphics.close();
+        graphics.fill();
+        graphics.fillColor = new Color(255, 255, 255, 210);
+        graphics.moveTo(0, size * 0.42);
+        graphics.lineTo(size * 0.16, 0);
+        graphics.lineTo(0, -size * 0.42);
+        graphics.lineTo(-size * 0.16, 0);
+        graphics.close();
+        graphics.fill();
+    }
+
+    private createWinBannerFxNode(parent: Node, name: string, width: number, height: number): Node {
+        const node = new Node(name);
+        node.layer = parent.layer;
+        parent.addChild(node);
+        node.addComponent(UITransform).setContentSize(width, height);
+        return node;
+    }
+
+    private prepareWinBannerStableFx(box: Node): Node | null {
+        const banner = this.findActiveWinTitleBanner(box);
+        if (!banner) return null;
+        const transform = banner.getComponent(UITransform);
+        const sprite = banner.getComponent(Sprite);
+        if (!transform || !sprite?.spriteFrame) return null;
+        this.getWinBannerBaseState(banner);
+        this.clearWinBannerFx(banner);
+        const bannerOpacity = banner.getComponent(UIOpacity) ?? banner.addComponent(UIOpacity);
+        bannerOpacity.opacity = 255;
+
+        const root = this.createWinBannerFxNode(banner, `${WIN_BANNER_FX_PREFIX}-Root`, transform.width, transform.height);
+        root.setPosition(0, 0, 0);
+        root.addComponent(UIOpacity).opacity = 255;
+
+        WIN_BANNER_SPARKLES.forEach((spec, index) => {
+            const sparkle = this.createWinBannerFxNode(root, `${WIN_BANNER_FX_PREFIX}-Sparkle-${index}`, spec.size * 2, spec.size * 2);
+            sparkle.setPosition(spec.xRatio * transform.width, spec.yRatio * transform.height, 0);
+            sparkle.setScale(0.25, 0.25, 1);
+            sparkle.addComponent(UIOpacity).opacity = 0;
+            this.drawWinBannerSparkle(sparkle.addComponent(Graphics), spec.size);
+        });
+        return banner;
+    }
+
+    private startWinBannerIdleJelly(banner: Node): void {
+        const state = this.getWinBannerBaseState(banner);
+        const basePosition = state.position.clone();
+        const baseScale = state.scale.clone();
+        const squashPosition = new Vec3(basePosition.x, basePosition.y - 1, basePosition.z);
+        const stretchPosition = new Vec3(basePosition.x, basePosition.y + 2, basePosition.z);
+        const settlePosition = new Vec3(basePosition.x, basePosition.y, basePosition.z);
+        const squashScale = this.scaleWinBannerVec3XY(baseScale, 1.025, 0.975);
+        const stretchScale = this.scaleWinBannerVec3XY(baseScale, 0.986, 1.018);
+        const settleScale = this.scaleWinBannerVec3XY(baseScale, 1.008, 0.994);
+
+        banner.angle = state.angle;
+        banner.setPosition(basePosition.x, basePosition.y, basePosition.z);
+        banner.setScale(baseScale.x, baseScale.y, baseScale.z);
+        tween(banner)
+            .delay(WIN_BANNER_IDLE_JELLY_INITIAL_DELAY)
+            .call(() => {
+                tween(banner)
+                    .to(0.08, {
+                        position: squashPosition,
+                        scale: squashScale,
+                    }, { easing: 'sineOut' })
+                    .to(0.1, {
+                        position: stretchPosition,
+                        scale: stretchScale,
+                    }, { easing: 'sineInOut' })
+                    .to(0.12, {
+                        position: settlePosition,
+                        scale: settleScale,
+                    }, { easing: 'sineInOut' })
+                    .to(0.1, {
+                        position: basePosition,
+                        scale: baseScale,
+                    }, { easing: 'sineOut' })
+                    .to(0.08, {
+                        position: squashPosition,
+                        scale: squashScale,
+                    }, { easing: 'sineOut' })
+                    .to(0.1, {
+                        position: stretchPosition,
+                        scale: stretchScale,
+                    }, { easing: 'sineInOut' })
+                    .to(0.12, {
+                        position: settlePosition,
+                        scale: settleScale,
+                    }, { easing: 'sineInOut' })
+                    .to(0.1, {
+                        position: basePosition,
+                        scale: baseScale,
+                    }, { easing: 'sineOut' })
+                    .delay(WIN_BANNER_IDLE_JELLY_REPEAT_DELAY)
+                    .union()
+                    .repeatForever()
+                    .start();
+            })
+            .start();
+    }
+
+    private startWinBannerIdleFx(banner: Node): void {
+        const root = banner.getChildByName(`${WIN_BANNER_FX_PREFIX}-Root`);
+        this.startWinBannerIdleJelly(banner);
+        WIN_BANNER_SPARKLES.forEach((spec, index) => {
+            const sparkle = root?.getChildByName(`${WIN_BANNER_FX_PREFIX}-Sparkle-${index}`) ?? null;
+            const opacity = sparkle?.getComponent(UIOpacity) ?? null;
+            if (!sparkle || !opacity) return;
+            Tween.stopAllByTarget(sparkle);
+            Tween.stopAllByTarget(opacity);
+            sparkle.angle = 0;
+            sparkle.setScale(0.25, 0.25, 1);
+            opacity.opacity = 0;
+            tween(sparkle)
+                .delay(spec.delay)
+                .to(0.18, { scale: new Vec3(1, 1, 1), angle: 45 }, { easing: 'sineOut' })
+                .to(0.34, { scale: new Vec3(0.35, 0.35, 1), angle: 90 }, { easing: 'sineIn' })
+                .delay(2.2)
+                .union()
+                .repeatForever()
+                .start();
+            tween(opacity)
+                .delay(spec.delay)
+                .to(0.12, { opacity: 230 }, { easing: 'sineOut' })
+                .delay(0.18)
+                .to(0.22, { opacity: 0 }, { easing: 'sineIn' })
+                .delay(2.2)
+                .union()
+                .repeatForever()
+                .start();
+        });
+    }
+
+    playWinSettlementBannerFx(panel?: Node | null): void {
+        const targetPanel = panel ?? this.runtime?.panelWin ?? null;
+        const box = targetPanel?.getChildByName('Box') ?? null;
+        if (!box) return;
+        const banner = this.prepareWinBannerStableFx(box);
+        if (!banner) return;
+        const state = this.getWinBannerBaseState(banner);
+        this.stopWinBannerTweenTree(banner);
+        const opacity = banner.getComponent(UIOpacity) ?? banner.addComponent(UIOpacity);
+        const startScale = this.scaleWinBannerVec3(state.scale, WIN_BANNER_ENTRANCE_SCALE);
+        const overshootScale = this.scaleWinBannerVec3(state.scale, WIN_BANNER_ENTRANCE_OVERSHOOT);
+        const settleScale = this.scaleWinBannerVec3(state.scale, 0.985);
+        const startPosition = new Vec3(state.position.x, state.position.y + WIN_BANNER_ENTRANCE_Y, state.position.z);
+        const overshootPosition = new Vec3(state.position.x, state.position.y - 6, state.position.z);
+        const settlePosition = new Vec3(state.position.x, state.position.y + 2, state.position.z);
+        const finalPosition = state.position.clone();
+        const finalScale = state.scale.clone();
+
+        banner.angle = state.angle;
+        banner.setPosition(startPosition.x, startPosition.y, startPosition.z);
+        banner.setScale(startScale.x, startScale.y, startScale.z);
+        opacity.opacity = 0;
+        tween(opacity)
+            .to(0.16, { opacity: 255 }, { easing: 'sineOut' })
+            .start();
+        tween(banner)
+            .to(0.2, { position: overshootPosition, scale: overshootScale }, { easing: 'sineOut' })
+            .to(0.16, { position: settlePosition, scale: settleScale }, { easing: 'sineInOut' })
+            .to(0.14, { position: finalPosition, scale: finalScale }, { easing: 'sineOut' })
+            .call(() => this.startWinBannerIdleFx(banner))
+            .start();
+    }
+
     createWinSettlementPanel(): Node {
         const runtime = this.runtime;
         const overlay = this.instantiateGameplayOverlay('win', 'WinSettlementOverlay');
@@ -188,6 +460,7 @@ export class GameplayResultPanelController {
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
+        this.prepareWinBannerStableFx(box);
         const previewFrame = runtime.requirePanelChild(box, 'PreviewFrame');
         runtime.requirePanelChild(previewFrame, 'PatternPreview');
         const adBonusBtn = runtime.requirePanelChild(box, 'AdBonusBtn');

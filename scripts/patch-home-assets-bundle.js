@@ -11,11 +11,11 @@ const {
 const projectRoot = path.resolve(__dirname, '..');
 const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatgame', 'minigame');
 const bundleName = process.argv[3] || 'homeAssets';
-const sourceBundleDirName = bundleName === 'homeAssets'
-    ? 'HomeAssetsBundle'
-    : bundleName === 'gameAssets'
-        ? 'GameAssetsBundle'
-        : '';
+const sourceBundleDirByName = {
+    homeAssets: 'HomeAssetsBundle',
+    gameAssets: 'GameAssetsBundle',
+};
+const sourceBundleDirName = sourceBundleDirByName[bundleName] || '';
 const sourceRoot = sourceBundleDirName ? path.join(projectRoot, 'assets', sourceBundleDirName) : '';
 const libraryRoot = path.join(projectRoot, 'library');
 const assetDbRoot = path.join(projectRoot, 'temp', 'asset-db', 'assets');

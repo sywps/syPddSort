@@ -371,6 +371,8 @@ export class GameplayViewController {
         const runtime = this.runtime;
         const fixedRoot = this.getGameplayFixedRoot();
         this.requireGameplayBackgroundShell();
+        const appliedPreparedBackground = runtime.applyPreparedGameplayBackground?.() === true;
+        if (!appliedPreparedBackground) runtime.applyEquippedGameplayBackground?.();
         const runtimeRoot = this.getGameplayRuntimeRoot();
         const backgroundRoot = this.getGameplayRuntimeGroup('BackgroundRuntime');
         const topBarRoot = this.getGameplayFixedGroup('TopBarGroup');
@@ -400,6 +402,7 @@ export class GameplayViewController {
         this.buildTopBar(topBarRoot);
         runtime.buildSlotArea(slotRoot);
         this.buildBoard(boardRoot);
+        runtime.setupBoardZoomControl?.();
         runtime.buildSkillButtons(skillRoot);
         topBarRoot.setSiblingIndex(Math.max(0, fixedRoot.children.length - 1));
 
@@ -863,8 +866,10 @@ export class GameplayViewController {
             ),
         );
         runtime.boardViewScale = runtime.boardViewport.scale;
-        runtime.boardHomeScale = runtime.boardViewport.scale;
-        runtime.boardHomePos = new Vec3(runtime.boardGroup.position.x, runtime.boardGroup.position.y, 0);
+        runtime.boardViewport.setHomeFromCurrent();
+        const homeTransform = runtime.boardViewport.getHomeTransform();
+        runtime.boardHomeScale = homeTransform.scale;
+        runtime.boardHomePos = new Vec3(homeTransform.offset.x, homeTransform.offset.y, 0);
 
         const slotBatchCells: BoardSlotBatchCell[] = [];
         runtime.cellNodes = [];

@@ -5,16 +5,16 @@ import {
 const ENDGAME_HINT_PREFAB_PATH = 'UI/Prefabs/Fx/EndgameHintCell';
 const ENDGAME_HINT_THRESHOLD = 5;
 const ENDGAME_HINT_POOL_LIMIT = 12;
-const ENDGAME_BOARD_HINT_EXTRA_SIZE = 0;
-const ENDGAME_SLOT_HINT_EXTRA_SIZE = 0;
+const ENDGAME_BOARD_HINT_EXTRA_SIZE = 8;
+const ENDGAME_SLOT_HINT_EXTRA_SIZE = 8;
 const ENDGAME_HINT_STAR_FRAME_PREFIX = 'block_match-animation_';
 const ENDGAME_HINT_STAR_FRAME_COUNT = 19;
-const ENDGAME_HINT_STAR_FRAME_SEQUENCE = [19, 18, 17, 16, 17, 18, 19];
-const ENDGAME_HINT_STAR_VISIBLE_DURATION = 1;
-const ENDGAME_HINT_STAR_FRAME_INTERVAL = ENDGAME_HINT_STAR_VISIBLE_DURATION / ENDGAME_HINT_STAR_FRAME_SEQUENCE.length;
+const ENDGAME_HINT_STAR_FRAME_NO = 16;
+const ENDGAME_HINT_STAR_VISIBLE_DURATION = 1.4;
 const ENDGAME_HINT_STAR_MAX_OPACITY = 190;
-const ENDGAME_HINT_STAR_LOOP_PAUSE = 0.5;
+const ENDGAME_HINT_STAR_MAX_SCALE = 1;
 const ENDGAME_HINT_STAR_SPIN_DEGREES = 360;
+const ENDGAME_HINT_STAR_LOOP_PAUSE = 0.3;
 
 type EndgameHintTarget = {
     key: string;
@@ -27,6 +27,27 @@ function setLayerDeep(node: Node, layer: number): void {
     for (const child of node.children) {
         setLayerDeep(child, layer);
     }
+}
+
+function getNodeVisualCenterLocal(node: Node): Vec3 {
+    const transform = node.getComponent(UITransform);
+    if (!transform) return new Vec3(0, 0, 0);
+    const anchor = transform.anchorPoint;
+    return new Vec3(
+        (0.5 - anchor.x) * transform.contentSize.width,
+        (0.5 - anchor.y) * transform.contentSize.height,
+        0,
+    );
+}
+
+function resolveSlotHintParent(slotNode: Node | null): Node | null {
+    if (!slotNode || !slotNode.isValid) return null;
+    const beanNode = slotNode.getChildByName('Bean');
+    const beanSprite = beanNode?.getComponent(Sprite) || null;
+    if (beanNode?.isValid && (!beanSprite || beanSprite.enabled)) {
+        return beanNode;
+    }
+    return slotNode;
 }
 
 export function installEndgameHintModule(target: any): void {
@@ -62,7 +83,6 @@ export function installEndgameHintModule(target: any): void {
                 this.clearEndgameHints(false);
                 return;
             }
-            this.clearEndgameHints(false);
 
             this.ensureEndgameHintPrefab(() => {
                 this.ensureEndgameHintStarFrames((frames: SpriteFrame[]) => {
@@ -146,14 +166,9 @@ export function installEndgameHintModule(target: any): void {
 
         getEndgameHintStarFrames(): SpriteFrame[] {
             const allFrames = this.getEffectFrames(ENDGAME_HINT_STAR_FRAME_PREFIX, ENDGAME_HINT_STAR_FRAME_COUNT);
-            if (!allFrames || allFrames.length < 7) return [];
-            const frames: SpriteFrame[] = [];
-            for (const frameNo of ENDGAME_HINT_STAR_FRAME_SEQUENCE) {
-                const frame = allFrames[frameNo - 1] || null;
-                if (!frame) return [];
-                frames.push(frame);
-            }
-            return frames;
+            if (!allFrames || allFrames.length < ENDGAME_HINT_STAR_FRAME_NO) return [];
+            const frame = allFrames[ENDGAME_HINT_STAR_FRAME_NO - 1] || null;
+            return frame ? [frame] : [];
         },
 
         ensureEndgameHintStarFrames(onDone: (frames: SpriteFrame[]) => void): void {
@@ -192,12 +207,26 @@ export function installEndgameHintModule(target: any): void {
         showEndgameHints(cells: Array<{ row: number; col: number; colorId: number }>, reason: string, frames: SpriteFrame[]): void {
             void reason;
             const targets = this.buildEndgameHintTargets(cells);
-            for (const target of targets) {
-                const node = this.acquireEndgameHintNode();
-                if (!node) continue;
-                this.configureEndgameHintNode(node, target, frames);
-                this._endgameHintNodes.push(node);
+            const existingNodes = Array.isArray(this._endgameHintNodes) ? this._endgameHintNodes : [];
+            const reusableNodes = new Map<string, Node>();
+            for (const node of existingNodes) {
+                if (!node || !node.isValid) continue;
+                const key = String((node as any)._endgameHintKey || '');
+                if (!key || reusableNodes.has(key)) continue;
+                reusableNodes.set(key, node);
             }
+            const nextNodes: Node[] = [];
+            for (const target of targets) {
+                const node = reusableNodes.get(target.key) || this.acquireEndgameHintNode();
+                if (!node) continue;
+                this.configureEndgameHintNode(node, target, frames, reusableNodes.has(target.key));
+                nextNodes.push(node);
+                reusableNodes.delete(target.key);
+            }
+            for (const node of reusableNodes.values()) {
+                this.releaseEndgameHintNode(node, false);
+            }
+            this._endgameHintNodes = nextNodes;
         },
 
         buildEndgameHintTargets(cells: Array<{ row: number; col: number; colorId: number }>): EndgameHintTarget[] {
@@ -221,7 +250,7 @@ export function installEndgameHintModule(target: any): void {
                 const block = slots[i];
                 if (!block || !neededColors.has(block.colorId)) continue;
                 if (this._hiddenSlotIndices?.has(i)) continue;
-                const parent = this.slotNodes[i] || null;
+                const parent = resolveSlotHintParent(this.slotNodes[i] || null);
                 if (!parent || !parent.isValid) continue;
                 const key = `slot:${i}`;
                 if (seen.has(key)) continue;
@@ -238,20 +267,24 @@ export function installEndgameHintModule(target: any): void {
             return prefab ? instantiate(prefab) : null;
         },
 
-        configureEndgameHintNode(node: Node, target: EndgameHintTarget, frames: SpriteFrame[]): void {
-            Tween.stopAllByTarget(node);
+        configureEndgameHintNode(node: Node, target: EndgameHintTarget, frames: SpriteFrame[], keepLoop: boolean = false): void {
+            if (!keepLoop) Tween.stopAllByTarget(node);
             const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
-            Tween.stopAllByTarget(opacity);
-            target.parent.addChild(node);
+            if (!keepLoop) Tween.stopAllByTarget(opacity);
+            if (node.parent !== target.parent) {
+                target.parent.addChild(node);
+            }
             setLayerDeep(node, Layers.Enum.UI_2D);
+            (node as any)._endgameHintKey = target.key;
             node.name = `EndgameHint_${target.key}`;
             node.active = true;
-            node.setPosition(0, 0, 0);
+            node.setPosition(getNodeVisualCenterLocal(target.parent));
             node.setScale(1, 1, 1);
+            if (!keepLoop) node.setRotationFromEuler(0, 0, 0);
             const rootTransform = node.getComponent(UITransform) || node.addComponent(UITransform);
             rootTransform.setContentSize(target.size, target.size);
             const glow = node.getChildByName('HintGlow');
-            if (glow) Tween.stopAllByTarget(glow);
+            if (glow && !keepLoop) Tween.stopAllByTarget(glow);
             const glowTransform = glow?.getComponent(UITransform) || null;
             if (glowTransform) {
                 glowTransform.setContentSize(target.size, target.size);
@@ -268,55 +301,65 @@ export function installEndgameHintModule(target: any): void {
             glowSprite.sizeMode = Sprite.SizeMode.CUSTOM;
             glowSprite.color = new Color(255, 255, 255, 255);
             glowSprite.spriteFrame = frames[0];
-            opacity.opacity = 0;
-            tween(opacity)
+            opacity.opacity = ENDGAME_HINT_STAR_MAX_OPACITY;
+            if (keepLoop) return;
+            tween(node)
                 .repeatForever(
-                    tween(opacity)
-                        .set({ opacity: ENDGAME_HINT_STAR_MAX_OPACITY })
-                        .delay(ENDGAME_HINT_STAR_VISIBLE_DURATION)
-                        .set({ opacity: 0 })
+                    tween(node)
+                        .set({ eulerAngles: new Vec3(0, 0, 0) })
+                        .to(
+                            ENDGAME_HINT_STAR_VISIBLE_DURATION,
+                            { eulerAngles: new Vec3(0, 0, ENDGAME_HINT_STAR_SPIN_DEGREES) },
+                            { easing: 'linear' },
+                        )
                         .delay(ENDGAME_HINT_STAR_LOOP_PAUSE),
                 )
                 .start();
+            glow.setScale(0, 0, 1);
             tween(glow)
                 .repeatForever(
                     tween(glow)
-                        .set({ eulerAngles: new Vec3(0, 0, 0) })
-                        .to(ENDGAME_HINT_STAR_VISIBLE_DURATION, { eulerAngles: new Vec3(0, 0, ENDGAME_HINT_STAR_SPIN_DEGREES) }, { easing: 'sineOut' })
+                        .set({ scale: new Vec3(0, 0, 1) })
+                        .to(
+                            ENDGAME_HINT_STAR_VISIBLE_DURATION * 0.5,
+                            {
+                                scale: new Vec3(ENDGAME_HINT_STAR_MAX_SCALE, ENDGAME_HINT_STAR_MAX_SCALE, 1),
+                            },
+                            { easing: 'sineOut' },
+                        )
+                        .to(
+                            ENDGAME_HINT_STAR_VISIBLE_DURATION * 0.5,
+                            {
+                                scale: new Vec3(0, 0, 1),
+                            },
+                            { easing: 'sineIn' },
+                        )
                         .delay(ENDGAME_HINT_STAR_LOOP_PAUSE),
                 )
                 .start();
+        },
 
-            let frameTween = tween(node);
-            for (const frame of frames) {
-                frameTween = frameTween
-                    .call(() => {
-                        if (glow.isValid) glowSprite.spriteFrame = frame;
-                    })
-                    .delay(ENDGAME_HINT_STAR_FRAME_INTERVAL);
+        releaseEndgameHintNode(node: Node, destroy: boolean = false): void {
+            if (!node || !node.isValid) return;
+            Tween.stopAllByTarget(node);
+            const opacity = node.getComponent(UIOpacity);
+            if (opacity) Tween.stopAllByTarget(opacity);
+            const glow = node.getChildByName('HintGlow');
+            if (glow) Tween.stopAllByTarget(glow);
+            delete (node as any)._endgameHintKey;
+            node.removeFromParent();
+            node.active = false;
+            if (destroy || this._endgameHintPool.length >= ENDGAME_HINT_POOL_LIMIT) {
+                node.destroy();
+            } else {
+                this._endgameHintPool.push(node);
             }
-            frameTween = frameTween
-                .call(() => { opacity.opacity = 0; })
-                .delay(ENDGAME_HINT_STAR_LOOP_PAUSE);
-            tween(node).repeatForever(frameTween).start();
         },
 
         clearEndgameHints(destroy: boolean = false): void {
             const nodes = this._endgameHintNodes || [];
             for (const node of nodes) {
-                if (!node || !node.isValid) continue;
-                Tween.stopAllByTarget(node);
-                const opacity = node.getComponent(UIOpacity);
-                if (opacity) Tween.stopAllByTarget(opacity);
-                const glow = node.getChildByName('HintGlow');
-                if (glow) Tween.stopAllByTarget(glow);
-                node.removeFromParent();
-                node.active = false;
-                if (destroy || this._endgameHintPool.length >= ENDGAME_HINT_POOL_LIMIT) {
-                    node.destroy();
-                } else {
-                    this._endgameHintPool.push(node);
-                }
+                this.releaseEndgameHintNode(node, destroy);
             }
             nodes.length = 0;
             if (destroy) {

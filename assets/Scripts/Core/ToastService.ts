@@ -38,6 +38,15 @@ const TOAST_HOST_NAME = 'ToastHost';
 const TOAST_BUBBLE_NAME = 'ToastBubble';
 const TOAST_LABEL_NAME = 'ToastLbl';
 const LEGACY_TOAST_NAME = 'Toast';
+const TOAST_FRAME_SPRITE_NAME = 'popup_gameplay_tool_slot_plate';
+const TOAST_MIN_WIDTH = 172;
+const TOAST_MAX_WIDTH = 430;
+const TOAST_HEIGHT = 72;
+const TOAST_LABEL_PADDING_X = 34;
+const TOAST_LABEL_FONT_SIZE = 22;
+const TOAST_LABEL_LINE_HEIGHT = 40;
+const TOAST_SLOT_GAP = 18;
+const TOAST_SCREEN_MARGIN = 24;
 const warningKeys = new Set<string>();
 
 function warnOnce(key: string, message: string, error?: unknown): void {
@@ -154,6 +163,73 @@ function getHostSize(host: Node): { width: number; height: number } {
     };
 }
 
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+function isWideToastChar(char: string): boolean {
+    const code = char.charCodeAt(0);
+    return (code >= 0x2e80 && code <= 0x9fff) || (code >= 0xff00 && code <= 0xffef);
+}
+
+function estimateToastTextWidth(text: string): number {
+    let width = 0;
+    for (const char of Array.from(text)) {
+        if (char === ' ') {
+            width += 8;
+        } else if (isWideToastChar(char)) {
+            width += TOAST_LABEL_FONT_SIZE;
+        } else if (/[0-9A-Za-z]/.test(char)) {
+            width += 12;
+        } else {
+            width += 14;
+        }
+    }
+    return width;
+}
+
+function getToastBubbleWidth(text: string): number {
+    return Math.ceil(clamp(
+        estimateToastTextWidth(text) + TOAST_LABEL_PADDING_X,
+        TOAST_MIN_WIDTH,
+        TOAST_MAX_WIDTH,
+    ));
+}
+
+function hasGameplaySlotArea(runtime: any): boolean {
+    return !!runtime?.slotAreaNode?.isValid && runtime.slotAreaNode.activeInHierarchy !== false;
+}
+
+function getToastFrameSpriteFrame(runtime: any, required: boolean): SpriteFrame | null {
+    const frame = typeof runtime?.getSF === 'function'
+        ? runtime.getSF(TOAST_FRAME_SPRITE_NAME)
+        : null;
+    if (frame) return frame;
+    if (required) {
+        throw new Error(`[ToastService] missing sprite frame: ${TOAST_FRAME_SPRITE_NAME}`);
+    }
+    warnOnce(
+        'toast-frame-missing',
+        `[ToastService] sprite frame unavailable; using generated toast background: ${TOAST_FRAME_SPRITE_NAME}`,
+    );
+    return null;
+}
+
+function getSlotAreaToastPosition(runtime: any, overlayHost: Node): Vec3 | null {
+    if (!hasGameplaySlotArea(runtime)) return null;
+    const slotUi = runtime.slotAreaNode.getComponent(UITransform);
+    const hostUi = overlayHost.getComponent(UITransform);
+    if (!slotUi || !hostUi) return null;
+    const topWorld = slotUi.convertToWorldSpaceAR(new Vec3(0, slotUi.contentSize.height / 2, 0));
+    const topLocal = hostUi.convertToNodeSpaceAR(topWorld);
+    const hostSize = getHostSize(overlayHost);
+    const halfHeight = TOAST_HEIGHT / 2;
+    const minY = -hostSize.height / 2 + halfHeight + TOAST_SCREEN_MARGIN;
+    const maxY = hostSize.height / 2 - halfHeight - TOAST_SCREEN_MARGIN;
+    const y = clamp(topLocal.y + halfHeight + TOAST_SLOT_GAP, minY, maxY);
+    return new Vec3(0, y, 0);
+}
+
 function stopToastTweens(state: ToastViewState): void {
     if (state.host?.isValid) Tween.stopAllByTarget(state.host);
     if (state.bubble?.isValid) Tween.stopAllByTarget(state.bubble);
@@ -223,16 +299,17 @@ function syncGeneratedToastView(runtime: any, overlayHost: Node, text: string, x
     bubble.layer = Layers.Enum.UI_2D;
     bubble.active = true;
     bubble.setPosition(x, y, 0);
-    if (bubbleResult.created) {
-        setNodeSize(bubble, 460, 104);
-    } else if (!bubble.getComponent(UITransform)) {
-        setNodeSize(bubble, 460, 104);
-    }
+    const bubbleWidth = getToastBubbleWidth(text);
+    setNodeSize(bubble, bubbleWidth, TOAST_HEIGHT);
 
     const bubbleSprite = bubble.getComponent(Sprite) || bubble.addComponent(Sprite);
-    bubbleSprite.type = Sprite.Type.SIMPLE;
     bubbleSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-    if (!bubbleSprite.spriteFrame) {
+    const toastFrame = getToastFrameSpriteFrame(runtime, hasGameplaySlotArea(runtime));
+    if (toastFrame) {
+        bubbleSprite.type = Sprite.Type.SLICED;
+        bubbleSprite.spriteFrame = toastFrame;
+    } else {
+        bubbleSprite.type = Sprite.Type.SIMPLE;
         if (!state.generatedBackground) {
             state.generatedBackground = createSingleColorSpriteFrame(new Color(255, 250, 236, 238), 16, 16);
         }
@@ -248,17 +325,15 @@ function syncGeneratedToastView(runtime: any, overlayHost: Node, text: string, x
     labelNode.active = true;
     const label = labelNode.getComponent(Label) || labelNode.addComponent(Label);
     label.string = text;
-    if (labelResult.created || !labelNode.getComponent(UITransform)) {
-        labelNode.setPosition(0, 4, 0);
-        setNodeSize(labelNode, 380, 52);
-        label.fontSize = 24;
-        label.lineHeight = 52;
-        label.color = new Color('#5A4A3A');
-        label.horizontalAlign = Label.HorizontalAlign.CENTER;
-        label.verticalAlign = Label.VerticalAlign.CENTER;
-        label.overflow = Label.Overflow.SHRINK;
-        label.enableWrapText = false;
-    }
+    labelNode.setPosition(0, 2, 0);
+    setNodeSize(labelNode, Math.max(1, bubbleWidth - TOAST_LABEL_PADDING_X), TOAST_LABEL_LINE_HEIGHT);
+    label.fontSize = TOAST_LABEL_FONT_SIZE;
+    label.lineHeight = TOAST_LABEL_LINE_HEIGHT;
+    label.color = new Color('#5A4A3A');
+    label.horizontalAlign = Label.HorizontalAlign.CENTER;
+    label.verticalAlign = Label.VerticalAlign.CENTER;
+    label.overflow = Label.Overflow.SHRINK;
+    label.enableWrapText = false;
 
     state.host = host;
     state.bubble = bubble;
@@ -378,14 +453,21 @@ export class ToastService {
     }
 
     static show(runtime: any, text: string, duration: number = 1.5): void {
-        ToastService.showAt(runtime, text, duration, 0, 0);
+        const host = findToastOverlayHost(runtime);
+        const slotPos = getSlotAreaToastPosition(runtime, host);
+        ToastService.showAt(runtime, text, duration, slotPos?.x ?? 0, slotPos?.y ?? 0);
     }
 
     static showBelowTimer(runtime: any, text: string, duration: number = 1.5): void {
+        const host = findToastOverlayHost(runtime);
+        const slotPos = getSlotAreaToastPosition(runtime, host);
+        if (slotPos) {
+            ToastService.showAt(runtime, text, duration, slotPos.x, slotPos.y);
+            return;
+        }
         const timerNode = runtime.timerLabel?.node;
         const timerWrap = timerNode?.parent;
         const timerUT = timerWrap?.getComponent(UITransform);
-        const host = findToastOverlayHost(runtime);
         const hostUT = host?.getComponent(UITransform);
         if (!timerWrap || !timerUT || !hostUT) {
             ToastService.show(runtime, text, duration);
