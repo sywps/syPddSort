@@ -895,6 +895,92 @@ export function installAssetBootstrapModule(target: any): void {
             }
         },
 
+        scheduleHomeSharedUiTextureWarmup() {
+            if (!this._isRuntimeAliveForAsyncCallback()) return;
+            if (typeof this.getRuntimeSceneName === 'function' && this.getRuntimeSceneName('Game') !== 'Home') {
+                return;
+            }
+            if (this._homeSharedUiWarmupState === 'scheduled' || this._homeSharedUiWarmupState === 'loading' || this._homeSharedUiWarmupState === 'ready') {
+                return;
+            }
+            const names = Array.from(new Set([
+                ...SETTINGS_PANEL_TEXTURE_NAMES,
+                ...LEADERBOARD_TEXTURE_NAMES,
+                ...RESOURCE_ACQUIRE_TEXTURE_NAMES,
+                ...REWARD_RESULT_TEXTURE_NAMES,
+            ]));
+            const initialMissingNames = names.filter((name) => !this.getSF(name));
+            if (initialMissingNames.length === 0) {
+                this._homeSharedUiWarmupState = 'ready';
+                return;
+            }
+            const token = Date.now();
+            const batchSize = 4;
+            const batchIntervalSeconds = 0.35;
+            let cursor = 0;
+            this._homeSharedUiWarmupToken = token;
+            this._homeSharedUiWarmupState = 'scheduled';
+            debugPerfSnapshot('home.sharedUiWarmup.scheduled', this, {
+                requestedNames: names.length,
+                missingNames: initialMissingNames.length,
+                batchSize,
+                batchIntervalSeconds,
+            });
+
+            const runNextBatch = () => {
+                if (!this._isRuntimeAliveForAsyncCallback() || this._homeSharedUiWarmupToken !== token) {
+                    return;
+                }
+                if (typeof this.getRuntimeSceneName === 'function' && this.getRuntimeSceneName('Game') !== 'Home') {
+                    this._homeSharedUiWarmupState = 'aborted';
+                    debugPerfTrace('home.sharedUiWarmup.abort.sceneChanged', {
+                        token,
+                    });
+                    return;
+                }
+                const batch: string[] = [];
+                while (cursor < names.length && batch.length < batchSize) {
+                    const name = names[cursor++];
+                    if (!this.getSF(name)) {
+                        batch.push(name);
+                    }
+                }
+                if (batch.length === 0) {
+                    if (cursor >= names.length) {
+                        this._homeSharedUiWarmupState = 'ready';
+                        debugPerfSnapshot('home.sharedUiWarmup.ready', this, {
+                            requestedNames: names.length,
+                        });
+                        return;
+                    }
+                    this.scheduleOnce(runNextBatch, 0.05);
+                    return;
+                }
+
+                let pending = batch.length;
+                this._homeSharedUiWarmupState = 'loading';
+                debugPerfSnapshot('home.sharedUiWarmup.batch.start', this, {
+                    batchNames: batch,
+                    remainingNames: Math.max(0, names.length - cursor),
+                    batchSize,
+                });
+                const oneDone = () => {
+                    pending -= 1;
+                    if (pending > 0) return;
+                    debugPerfSnapshot('home.sharedUiWarmup.batch.done', this, {
+                        batchNames: batch,
+                        remainingNames: Math.max(0, names.length - cursor),
+                    });
+                    this.scheduleOnce(runNextBatch, batchIntervalSeconds);
+                };
+                for (const name of batch) {
+                    this._loadSpriteFrameByName(name, oneDone);
+                }
+            };
+
+            this.scheduleOnce(runNextBatch, 1.2);
+        },
+
         _openPanelAfterTextures(
             panelKey: string,
             textureNames: string[],
@@ -1578,7 +1664,7 @@ export function installAssetBootstrapModule(target: any): void {
             return (this._startupCloudRestoreStatus || '') as UserStateRestoreStatus | '';
         },
 
-        _shouldHoldStartupCloudHomeRouteForBoot(): boolean {
+        _shouldHoldStartupCloudRestoreForBoot(): boolean {
             const appRoot = AppRoot.tryGet();
             const sceneName = String(this.node?.scene?.name || '');
             return sceneName === 'Boot' || appRoot?.session.currentSceneName === 'Boot';
@@ -1612,7 +1698,7 @@ export function installAssetBootstrapModule(target: any): void {
                 let status: UserStateRestoreStatus;
                 if (!lateState) {
                     status = UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
-                } else if (this._shouldHoldStartupCloudHomeRouteForBoot()) {
+                } else if (this._shouldHoldStartupCloudRestoreForBoot()) {
                     status = this.applyCloudUserState(lateState);
                 } else {
                     status = applyLateCloudUserStateToRuntime(this, lateState, hadLocalUserState) || 'cloud_failed_unresolved';

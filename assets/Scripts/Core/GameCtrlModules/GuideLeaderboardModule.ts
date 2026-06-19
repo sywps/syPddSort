@@ -681,8 +681,7 @@ export function installGuideLeaderboardModule(target: any): void {
             this.resetLeaderboardListState?.(listNode);
         
             const profile = UserMgr.inst.getProfile();
-            await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
-            if (!box.isValid || !isCurrentRequest()) return;
+            void LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
             void this.getWeChatFriendAvatarEntries();
         
             if (this.getWeChatOpenDataContext()) {

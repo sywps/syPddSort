@@ -328,7 +328,7 @@ function ensureBootstrapWechatSubpackage() {
     var bootstrapSubpackageDir = path.join(runtimeRoot, bootstrapRoot);
     if (fs.existsSync(localBundleDir)) {
         movePathSync(localBundleDir, bootstrapSubpackageDir);
-        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 firstPlay/bootstrap: ' + bootstrapRoot + ' ✓');
+        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 gameEntry/bootstrap: ' + bootstrapRoot + ' ✓');
     }
     ensureStableBundleFiles(bootstrapSubpackageDir);
     ensureSubpackageGameJs(bootstrapSubpackageDir, BOOTSTRAP_BUNDLE_NAME);
@@ -431,6 +431,27 @@ function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
             console.log('[4.2/6] 已从 settings.assets.subpackages 移除 internal ✓');
         }
     }
+}
+
+function ensureWechatSubpackageStableConfigs(runtimeRoot) {
+    var bundleNames = ['main', BOOTSTRAP_BUNDLE_NAME, HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
+    if (debugLevelDataBundle) bundleNames.push(LEVEL_DATA_BUNDLE_NAME);
+    for (var i = 0; i < bundleNames.length; i++) {
+        var bundleName = bundleNames[i];
+        var subpackageRoot = getBundleSubpackageRoot(runtimeRoot, bundleName);
+        var subpackageDir = path.join(runtimeRoot, subpackageRoot);
+        if (!fs.existsSync(subpackageDir)) {
+            console.error('[8.4/8] 微信分包目录缺失，无法补齐稳定 config: ' + subpackageRoot);
+            process.exit(1);
+        }
+        ensureStableBundleFiles(subpackageDir);
+        var stableConfigPath = path.join(subpackageDir, 'config.json');
+        if (!fs.existsSync(stableConfigPath)) {
+            console.error('[8.4/8] 微信分包缺少稳定 config.json: ' + stableConfigPath);
+            process.exit(1);
+        }
+    }
+    console.log('[8.4/8] 微信分包稳定 config.json 已补齐 ✓');
 }
 
 function removeDuplicateStableBundleIndex(runtimeRoot, settingsFilePath) {
@@ -642,6 +663,27 @@ function ensureStableGameAssetsBundleScriptLoader(runtimeRoot) {
     }
 }
 
+function ensureStableWechatSubpackageConfigLoader(runtimeRoot) {
+    var engineAdapterPath = path.join(runtimeRoot, 'engine-adapter.js');
+    if (!fs.existsSync(engineAdapterPath)) return;
+    var content = fs.readFileSync(engineAdapterPath, 'utf-8');
+    var pattern = /n=\(y\.platform===y\.Platform\.TAOBAO_MINI_GAME\?"":"subpackages\/"\)\.concat\(o,"\/config\."\)\.concat\(a,"json"\)/g;
+    var patched = content.replace(
+        pattern,
+        'n=(y.platform===y.Platform.TAOBAO_MINI_GAME?"":"subpackages/").concat(o,"/config.json")'
+    );
+    if (patched !== content) {
+        fs.writeFileSync(engineAdapterPath, patched);
+        console.log('[3.0b/7] 微信分包 bundle config 已改为稳定 config.json ✓');
+        return;
+    }
+    if (content.indexOf('subpackages/").concat(o,"/config.").concat(a,"json")') !== -1) {
+        console.error('[3.0b/7] 微信分包 bundle config 仍使用版本化路径，patch 未命中');
+        process.exit(1);
+    }
+    console.log('[3.0b/7] 微信分包 bundle config 已是稳定路径 ✓');
+}
+
 function ensureBundleScriptStub(runtimeRoot, bundleName, label) {
     var bundleScriptDir = path.join(runtimeRoot, 'src', 'bundle-scripts', bundleName);
     var bundleScriptFile = path.join(bundleScriptDir, 'index.js');
@@ -687,8 +729,8 @@ if (fs.existsSync(settingsPath)) {
     ensureStartupPreloadBundles(a);
     settings.assets = a;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, null));
-    console.log('[2/6] projectBundles 已配置 firstPlay/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
-    console.log('[2/6] startup preload: cocosCore/main only; firstPlay/bootstrap 按 A/C 路由按需加载 ✓');
+    console.log('[2/6] projectBundles 已配置 gameEntry/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
+    console.log('[2/6] startup preload: cocosCore/main only; gameEntry/bootstrap 由统一游戏入口路由按需加载 ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
 }
@@ -714,6 +756,7 @@ if (fs.existsSync(engineAdapterPath)) {
     }
 }
 ensureStableGameAssetsBundleScriptLoader(resolveRuntimeRoot());
+ensureStableWechatSubpackageConfigLoader(resolveRuntimeRoot());
 
 // 3.2 保存原始 wx 对象到 globalThis.__rawWx，并锁定首屏抗锯齿配置
 var gameJsPath = resolveBuildPath('game.js');
@@ -865,7 +908,7 @@ if (fs.existsSync(projectConfigPath)) {
     }
 }
 
-// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 firstPlay/bootstrap 是微信分包。
+// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 gameEntry/bootstrap 是微信分包。
 var stableBundleNames = debugLevelDataBundle
     ? ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, 'main']
     : ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, 'main'];
@@ -883,7 +926,7 @@ try {
     var bootstrapPathEntries = Object.values(bootstrapConfig.paths || {}).filter((value) => Array.isArray(value) && value.length > 0);
     var importVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.import) ? bootstrapConfig.versions.import.length / 2 : 0;
     var nativeVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.native) ? bootstrapConfig.versions.native.length / 2 : 0;
-    console.log('[3.7/7] 已使用 Creator 生成的 firstPlay/bootstrap bundle ✓');
+    console.log('[3.7/7] 已使用 Creator 生成的 gameEntry/bootstrap bundle ✓');
     console.log('         entries=' + bootstrapPathEntries.length + ', import=' + importVersions + ', native=' + nativeVersions);
 } catch (e) {
     console.error('[3.7/7] 读取 bootstrap bundle 失败:', e.message || e);
@@ -1072,6 +1115,30 @@ function movePathSync(src, dest) {
     fs.renameSync(src, dest);
 }
 
+function ensureWechatSplashBackgroundAsset() {
+    var names = ['background.jpg', 'background.jpeg', 'background.png'];
+    var source = '';
+    for (var i = 0; i < names.length; i++) {
+        var rootCandidate = path.join(buildPath, names[i]);
+        if (fs.existsSync(rootCandidate)) {
+            source = rootCandidate;
+            break;
+        }
+        var minigameCandidate = path.join(minigameRootPath, names[i]);
+        if (fs.existsSync(minigameCandidate)) {
+            source = minigameCandidate;
+            break;
+        }
+    }
+    if (!source) return;
+    fs.mkdirSync(minigameRootPath, { recursive: true });
+    var normalizedPath = path.join(minigameRootPath, 'background.jpg');
+    if (source !== normalizedPath) {
+        fs.copyFileSync(source, normalizedPath);
+    }
+    console.log('[8/8] 已补齐微信启动背景 minigame/background.jpg ✓');
+}
+
 var runtimeEntries = [
     'engine-adapter.js',
     'first-screen.js',
@@ -1110,6 +1177,8 @@ for (var runtimeFileIndex = 0; runtimeFileIndex < rootRuntimeFiles.length; runti
     movedRuntimeCount += 1;
 }
 
+ensureWechatSplashBackgroundAsset();
+
 if (fs.existsSync(projectConfigRootPath)) {
     var rootProjectConfig = JSON.parse(fs.readFileSync(projectConfigRootPath, 'utf-8'));
     normalizeWechatProjectConfig(rootProjectConfig);
@@ -1140,13 +1209,14 @@ if (movedRuntimeCount > 0) {
 }
 
 // 8.5 homeAssets/gameAssets 分包目录由微信 subpackages 承载。
+ensureWechatSubpackageStableConfigs(minigameRootPath);
 var minigameHomeAssetsSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, HOME_ASSETS_BUNDLE_NAME);
 var minigameHomeAssetsSubpackageDir = path.join(minigameRootPath, minigameHomeAssetsSubpackageRoot);
 var minigameBootstrapSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, BOOTSTRAP_BUNDLE_NAME);
 var minigameBootstrapSubpackageDir = path.join(minigameRootPath, minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameBootstrapSubpackageDir)
-    ? '[8.5/8] firstPlay/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
-    : '[8.5/8] firstPlay/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
+    ? '[8.5/8] gameEntry/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
+    : '[8.5/8] gameEntry/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameHomeAssetsSubpackageDir)
     ? '[8.5/8] homeAssets 微信分包目录已保留: ' + minigameHomeAssetsSubpackageRoot + ' ✓'
     : '[8.5/8] homeAssets 微信分包目录缺失，交由验证脚本确认: ' + minigameHomeAssetsSubpackageRoot);
