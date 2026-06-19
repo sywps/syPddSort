@@ -6,6 +6,7 @@ const path = require('path');
 
 const projectDir = path.resolve(__dirname, '..');
 const skinConfigPath = path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins', 'skins.json');
+const bootstrapRoot = path.join(projectDir, 'assets', 'BootstrapBundle');
 const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
 const levelDataRoot = path.join(projectDir, 'assets', 'LevelData');
 const outputDir = path.resolve(process.argv[2] || path.join(projectDir, 'build', 'skin-cdn'));
@@ -113,6 +114,18 @@ function resolveSourceImage(rootDir, assetKey, label) {
     fail(label + ' 源图片不存在: ' + key);
 }
 
+function getBundleRoot(bundleName, label) {
+    const safeName = String(bundleName || '').trim();
+    if (safeName === 'bootstrap') return bootstrapRoot;
+    if (safeName === 'gameAssets') return gameAssetsRoot;
+    if (safeName === 'levelData') return levelDataRoot;
+    fail(label + ' assetBundle 不支持: ' + safeName);
+}
+
+function resolveBundleSourceImage(bundleName, assetKey, label) {
+    return resolveSourceImage(getBundleRoot(bundleName, label), assetKey, label);
+}
+
 function copySkinAsset(sourcePath, targetRelPath, skinId, kind) {
     const meta = readImageMeta(sourcePath);
     const targetPath = path.join(outputDir, targetRelPath);
@@ -178,8 +191,8 @@ function buildOutput() {
     fs.mkdirSync(path.join(outputDir, 'assets'), { recursive: true });
 
     const skins = rows.map((row) => {
-        const backgroundSource = resolveSourceImage(levelDataRoot, row.assetKey, '背景皮肤 ' + row.id);
-        const iconSource = resolveSourceImage(gameAssetsRoot, row.iconKey, '背景皮肤图标 ' + row.id);
+        const backgroundSource = resolveBundleSourceImage(row.assetBundle, row.assetKey, '背景皮肤 ' + row.id);
+        const iconSource = resolveBundleSourceImage(row.iconBundle, row.iconKey, '背景皮肤图标 ' + row.id);
         const background = copySkinAsset(
             backgroundSource,
             path.join('assets', 'background', getTargetImageName(row.code, backgroundSource)),
@@ -222,8 +235,11 @@ function buildOutput() {
         generatedAt: new Date().toISOString(),
         source: {
             config: 'assets/GameAssetsBundle/Skins/skins.json',
-            backgrounds: 'assets/LevelData/Skins/Background',
-            icons: 'assets/GameAssetsBundle/Skins/Icons',
+            bundles: {
+                bootstrap: 'assets/BootstrapBundle',
+                gameAssets: 'assets/GameAssetsBundle',
+                levelData: 'assets/LevelData',
+            },
         },
         defaultEquipped,
         skinCount: skins.length,

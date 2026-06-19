@@ -781,7 +781,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (this.timeRemain <= 30) {
                     this.timerLabel.color = new Color('#D73D2B');
                 } else {
-                    this.timerLabel.color = new Color('#5A4A3A');
+                    this.timerLabel.color = new Color('#2E241A');
                 }
                 if (this.timeRemain <= 10 && this.timeRemain > 0) {
                     const ln = this.timerLabel.node;
