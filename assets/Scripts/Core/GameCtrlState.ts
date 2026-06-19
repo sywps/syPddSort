@@ -1,6 +1,7 @@
 import {
     BoardViewportController,
     Bundle,
+    Color,
     DEFAULT_CELL_GAP,
     DEFAULT_CELL_SIZE,
     Label,
@@ -131,6 +132,8 @@ export function initializeGameCtrlState(runtime: any): void {
         _guideHand: null,
         _guideBubble: null,
         _guideBubbleLbl: null,
+        _guidePromptDefaultLabelColor: null as Color | null,
+        _guidePromptDefaultCenterY: null as number | null,
         _guidePulseTweens: [] as Tween<Node>[],
         _guideHighlightCells: [],
         _guideInputSuspended: false,

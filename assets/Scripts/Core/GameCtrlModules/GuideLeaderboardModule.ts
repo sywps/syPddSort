@@ -369,6 +369,8 @@ export function installGuideLeaderboardModule(target: any): void {
                 this._guideHand = null;
                 this._guideBubble = null;
                 this._guideBubbleLbl = null;
+                this._guidePromptDefaultLabelColor = null;
+                this._guidePromptDefaultCenterY = null;
             }
             this.unschedule(this.tickTimer);
             if (!this._currentLevelUnlimitedTime) {

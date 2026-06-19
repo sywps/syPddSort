@@ -424,6 +424,8 @@ export function installHomeAdFlowModule(target: any): void {
             this._guideHand = null;
             this._guideBubble = null;
             this._guideBubbleLbl = null;
+            this._guidePromptDefaultLabelColor = null;
+            this._guidePromptDefaultCenterY = null;
             for (const t of this._guidePulseTweens) t.stop();
             this._guidePulseTweens.length = 0;
             this._guideHighlightCells = [];

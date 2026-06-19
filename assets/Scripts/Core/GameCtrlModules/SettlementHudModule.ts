@@ -73,7 +73,7 @@ export function installSettlementHudModule(target: any): void {
         refreshCompletionProgressLabel() {
             if (this.levelLabel) {
                 const activeLevel = this.getActiveLogicalLevelId();
-                this.levelLabel.string = activeLevel === 1 ? '新手引导' : `第${activeLevel}关`;
+                this.levelLabel.string = `第${activeLevel}关`;
             }
             if (!this.completionLabel || !this.boardModel) return;
             const stats = this.getBoardCompletionStats();
@@ -479,7 +479,7 @@ export function installSettlementHudModule(target: any): void {
             this.timeRemain += addSeconds;
             if (this.timerLabel) {
                 this.timerLabel.string = this.formatTime(this.timeRemain);
-                this.timerLabel.color = this.timeRemain <= 30 ? new Color('#D73D2B') : new Color('#5A4A3A');
+                this.timerLabel.color = this.timeRemain <= 30 ? new Color('#D73D2B') : new Color('#2E241A');
                 const ln = this.timerLabel.node;
                 Tween.stopAllByTarget(ln);
                 ln.setScale(1, 1, 1);
@@ -613,8 +613,14 @@ export function installSettlementHudModule(target: any): void {
         },
 
         startTutorial(mode: TutorialMode) {
-            if (!this.getSF('guide_hand')) {
-                this._ensureSpriteFramesByName(['guide_hand'], () => this.startTutorial(mode));
+            const requiredGuideFrames = [
+                'guide_hand',
+                'guide_bubble_frame',
+                'guide_area_highlight',
+                'guide_slot_highlight',
+            ];
+            if (requiredGuideFrames.some((name) => !this.getSF(name))) {
+                this._ensureSpriteFramesByName(requiredGuideFrames, () => this.startTutorial(mode));
                 return;
             }
             this._guideMode = mode;
@@ -658,9 +664,12 @@ export function installSettlementHudModule(target: any): void {
             if (root.parent) {
                 root.setSiblingIndex(root.parent.children.length - 1);
             }
+            const rootTransform = root.getComponent(UITransform);
+            const guideLayerWidth = rootTransform?.contentSize.width || 720;
+            const guideLayerHeight = rootTransform?.contentSize.height || 1280;
             this._guideLayer = new Node('GuideLayer');
             root.addChild(this._guideLayer);
-            this._guideLayer.addComponent(UITransform).setContentSize(720, 1280);
+            this._guideLayer.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
             this._guideLayer.layer = Layers.Enum.UI_2D;
             this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
             this._guideLayer.addComponent(BlockInputEvents);
@@ -693,7 +702,7 @@ export function installSettlementHudModule(target: any): void {
         
             this._guideMask = new Node('GuideMask');
             this._guideLayer.addChild(this._guideMask);
-            this._guideMask.addComponent(UITransform).setContentSize(720, 1280);
+            this._guideMask.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
             this._guideMask.layer = Layers.Enum.UI_2D;
         
             const guidePrompt = root.getChildByName('TutorialGuidePrompt');
@@ -707,6 +716,8 @@ export function installSettlementHudModule(target: any): void {
             guidePrompt.active = true;
             this._guideBubble = guidePrompt;
             this._guideBubbleLbl = lbl;
+            this._guidePromptDefaultLabelColor = new Color(lbl.color.r, lbl.color.g, lbl.color.b, lbl.color.a);
+            this._guidePromptDefaultCenterY = guidePrompt.position.y;
         
             this._guideHand = new Node('GuideHand');
             this._guideLayer.addChild(this._guideHand);
@@ -880,16 +891,26 @@ export function installSettlementHudModule(target: any): void {
         getGuidePromptCenterY(defaultCenterY: number, promptHeight: number): number {
             const topGap = 12;
             const boardGap = 12;
+            const rootTransform = (typeof this.requireCanvasUiRoot === 'function'
+                ? this.requireCanvasUiRoot('OverlayRoot')
+                : this.node)?.getComponent(UITransform);
+            const visibleHalfH = rootTransform ? rootTransform.contentSize.height / 2 : 640;
+            const visibleTop = visibleHalfH - promptHeight / 2 - topGap;
+            const visibleBottom = -visibleHalfH + promptHeight / 2 + boardGap;
+            const clampToVisible = (value: number) => Math.max(visibleBottom, Math.min(value, visibleTop));
             let centerY = defaultCenterY;
             const topBarBottom = this.getGuideTopBarAvoidBottomY();
-            const boardTop = this.getGuideBoardAvoidTopY();
+            let boardTop = this.getGuideBoardAvoidTopY();
+            if (topBarBottom !== null && boardTop !== null && boardTop >= topBarBottom) {
+                boardTop = null;
+            }
             if (topBarBottom !== null && boardTop !== null && topBarBottom > boardTop) {
                 const topLimit = topBarBottom - promptHeight / 2 - topGap;
                 const bottomLimit = boardTop + promptHeight / 2 + boardGap;
                 if (topLimit >= bottomLimit) {
-                    return Math.max(bottomLimit, Math.min(centerY, topLimit));
+                    return clampToVisible(Math.max(bottomLimit, Math.min(centerY, topLimit)));
                 }
-                return (topBarBottom + boardTop) / 2;
+                return clampToVisible((topBarBottom + boardTop) / 2);
             }
             if (topBarBottom !== null) {
                 centerY = Math.min(centerY, topBarBottom - promptHeight / 2 - topGap);
@@ -897,21 +918,7 @@ export function installSettlementHudModule(target: any): void {
             if (boardTop !== null) {
                 centerY = Math.max(centerY, boardTop + promptHeight / 2 + boardGap);
             }
-            return centerY;
-        },
-
-        getSceneGuidePromptBounds(): { centerY: number; height: number } | null {
-            try {
-                const root = typeof this.requireCanvasUiRoot === 'function'
-                    ? this.requireCanvasUiRoot('OverlayRoot')
-                    : null;
-                const prompt = root?.getChildByName('TutorialGuidePrompt') ?? null;
-                const transform = prompt?.getComponent(UITransform) ?? null;
-                if (!prompt || !transform) return null;
-                return { centerY: prompt.position.y, height: transform.contentSize.height };
-            } catch {
-                return null;
-            }
+            return clampToVisible(centerY);
         },
 
         styleStarterGuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
@@ -919,59 +926,27 @@ export function installSettlementHudModule(target: any): void {
             lbl.string = this._guideMode === 'level_2'
                 ? this.formatLevel2GuidePrompt(primaryText)
                 : this.formatLevel1GuidePrompt(primaryText);
-            lbl.color = new Color('#222222');
-            lbl.fontSize = 44;
-            lbl.lineHeight = 52;
-            lbl.enableWrapText = false;
-            lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
-            lbl.verticalAlign = Label.VerticalAlign.CENTER;
-
-            const w = 520;
-            const h = 86;
-            const bubbleUT = bubble.getComponent(UITransform) || bubble.addComponent(UITransform);
-            bubbleUT.setContentSize(w, h);
-            const labelUT = lbl.node.getComponent(UITransform) || lbl.node.addComponent(UITransform);
-            labelUT.setContentSize(w - 56, h - 18);
-            lbl.node.setPosition(0, 0, 0);
-            const bg = bubble.getChildByName('BubbleBg');
-            if (bg?.isValid) bg.active = false;
-
-            const g = bubble.getComponent(Graphics) || bubble.addComponent(Graphics);
-            g.clear();
-            g.fillColor = new Color(110, 170, 176, 92);
-            g.roundRect(-w / 2 + 2, -h / 2 - 8, w, h, 20);
-            g.fill();
-            g.fillColor = new Color(255, 255, 255, 252);
-            g.roundRect(-w / 2, -h / 2, w, h, 20);
-            g.fill();
-            g.strokeColor = new Color(24, 24, 24, 255);
-            g.lineWidth = 4;
-            g.roundRect(-w / 2, -h / 2, w, h, 20);
-            g.stroke();
-
-            const boardCells: { row: number; col: number }[] = [];
-            const correctColors = this.boardModel?.correctColors || [];
-            for (let row = 0; row < correctColors.length; row++) {
-                const line = correctColors[row] || [];
-                for (let col = 0; col < line.length; col++) {
-                    if (Number(line[col]) > 0) boardCells.push({ row, col });
-                }
+            const defaultColor = this._guidePromptDefaultLabelColor;
+            if (defaultColor) {
+                lbl.color = new Color(defaultColor.r, defaultColor.g, defaultColor.b, defaultColor.a);
             }
-            const boardCellBounds = boardCells.length > 0 && typeof this.getGuideCellsLayerBounds === 'function'
-                ? this.getGuideCellsLayerBounds(boardCells)
-                : null;
-            const boardBounds = this.getGuideNodeVerticalBoundsInLayer(this.boardNode || null, this._guideLayer || null);
-            const slotBounds = this.getGuideNodeVerticalBoundsInLayer(this.slotAreaNode || null, this._guideLayer || null);
-            const boardBottom = Number.isFinite(boardCellBounds?.centerY) && Number.isFinite(boardCellBounds?.height)
-                ? boardCellBounds!.centerY - boardCellBounds!.height / 2 + 28
-                : Number.isFinite(boardBounds?.bottom) ? boardBounds!.bottom : 110;
-            const slotTop = Number.isFinite(slotBounds?.top) ? slotBounds!.top : -430;
-            const preferredY = slotTop + (boardBottom - slotTop) * 0.68;
-            const upperLimit = boardBottom - h / 2 - 22;
-            const lowerLimit = slotTop + h / 2 + 88;
-            const y = upperLimit >= lowerLimit
-                ? Math.max(lowerLimit, Math.min(preferredY, upperLimit))
-                : boardBottom > slotTop ? (boardBottom + slotTop) / 2 : boardBottom - h / 2 - 82;
+            const bubbleUT = bubble.getComponent(UITransform);
+            if (!bubbleUT) {
+                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
+            }
+            const w = bubbleUT.contentSize.width;
+            const h = bubbleUT.contentSize.height;
+            const bg = bubble.getChildByName('BubbleBg');
+            const bgSprite = bg?.getComponent(Sprite) || null;
+            if (!bg?.isValid || !bgSprite?.spriteFrame) {
+                throw new Error('[guide] Game.scene is missing bubble sprite: OverlayRoot/TutorialGuidePrompt/BubbleBg');
+            }
+            bg.active = true;
+
+            const defaultY = Number.isFinite(this._guidePromptDefaultCenterY)
+                ? this._guidePromptDefaultCenterY
+                : bubble.position.y;
+            const y = this.getGuidePromptCenterY(defaultY, h);
             bubble.setPosition(0, y, 0);
         },
 

@@ -133,6 +133,9 @@ const MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES = [
 const MAINLINE_TUTORIAL_TEXTURE_NAMES = [
     'guide_hand',
     'popup_guide_highlight_ring',
+    'guide_bubble_frame',
+    'guide_area_highlight',
+    'guide_slot_highlight',
 ];
 const SKILL_BUTTON_Y = -615;
 const SKILL_BUTTON_SPACING = 210;

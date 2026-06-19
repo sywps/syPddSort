@@ -601,8 +601,8 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 143,
-      "g": 76,
+      "r": 197,
+      "g": 138,
       "b": 20,
       "a": 255
     },
@@ -626,9 +626,9 @@
     "_enableOutline": false,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 255,
+      "g": 242,
+      "b": 210,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -760,9 +760,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 125,
-      "g": 96,
-      "b": 64,
+      "r": 122,
+      "g": 90,
+      "b": 59,
       "a": 255
     },
     "_string": "金币已到账 · 当前 0",
@@ -785,9 +785,9 @@
     "_enableOutline": false,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 255,
+      "g": 242,
+      "b": 210,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -1153,9 +1153,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 110,
-      "g": 82,
-      "b": 54,
+      "r": 122,
+      "g": 90,
+      "b": 59,
       "a": 255
     },
     "_string": "道具 +1 · 当前 0",
@@ -1178,9 +1178,9 @@
     "_enableOutline": false,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 255,
+      "g": 242,
+      "b": 210,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -1591,9 +1591,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 110,
-      "g": 82,
-      "b": 54,
+      "r": 122,
+      "g": 90,
+      "b": 59,
       "a": 255
     },
     "_string": "道具 +1 · 当前 0",
@@ -1616,9 +1616,9 @@
     "_enableOutline": false,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 255,
+      "g": 242,
+      "b": 210,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -2029,9 +2029,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 110,
-      "g": 82,
-      "b": 54,
+      "r": 122,
+      "g": 90,
+      "b": 59,
       "a": 255
     },
     "_string": "道具 +1 · 当前 0",
@@ -2054,9 +2054,9 @@
     "_enableOutline": false,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 255,
+      "g": 242,
+      "b": 210,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -2336,7 +2336,7 @@
     "_string": "开心收下",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
+    "_actualFontSize": 26,
     "_fontSize": 26,
     "_fontFamily": "Arial",
     "_lineHeight": 36,
@@ -2353,9 +2353,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 74,
+      "g": 99,
+      "b": 182,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -2635,7 +2635,7 @@
     "_string": "签到成功",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 41,
+    "_actualFontSize": 38,
     "_fontSize": 38,
     "_fontFamily": "Arial",
     "_lineHeight": 44,
@@ -2649,12 +2649,12 @@
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
-    "_enableOutline": false,
+    "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 204,
+      "g": 197,
+      "b": 159,
       "a": 255
     },
     "_outlineWidth": 2,

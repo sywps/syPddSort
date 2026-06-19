@@ -612,12 +612,12 @@
     "_string": "确定放弃吗？",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 48,
-    "_fontSize": 48,
+    "_actualFontSize": 40,
+    "_fontSize": 40,
     "_fontFamily": "Arial",
-    "_lineHeight": 40,
-    "_overflow": 0,
-    "_enableWrapText": true,
+    "_lineHeight": 52,
+    "_overflow": 2,
+    "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -629,12 +629,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 115,
-      "g": 50,
-      "b": 175,
+      "r": 105,
+      "g": 78,
+      "b": 189,
       "a": 255
     },
-    "_outlineWidth": 4,
+    "_outlineWidth": 3,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -663,7 +663,7 @@
     "node": {
       "__id__": 18
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": {
       "__id__": 24
     },
@@ -929,12 +929,12 @@
     "_string": "%",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 120,
-    "_fontSize": 120,
+    "_actualFontSize": 104,
+    "_fontSize": 104,
     "_fontFamily": "Arial",
-    "_lineHeight": 100,
-    "_overflow": 0,
-    "_enableWrapText": true,
+    "_lineHeight": 108,
+    "_overflow": 2,
+    "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -946,12 +946,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 115,
-      "g": 50,
-      "b": 175,
+      "r": 105,
+      "g": 78,
+      "b": 189,
       "a": 255
     },
-    "_outlineWidth": 8,
+    "_outlineWidth": 4,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -1038,12 +1038,12 @@
     "_string": "已完成",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 70,
-    "_fontSize": 70,
+    "_actualFontSize": 58,
+    "_fontSize": 58,
     "_fontFamily": "Arial",
-    "_lineHeight": 80,
-    "_overflow": 0,
-    "_enableWrapText": true,
+    "_lineHeight": 68,
+    "_overflow": 2,
+    "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -1055,12 +1055,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 115,
-      "g": 50,
-      "b": 175,
+      "r": 105,
+      "g": 78,
+      "b": 189,
       "a": 255
     },
-    "_outlineWidth": 8,
+    "_outlineWidth": 3,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -1189,9 +1189,9 @@
     "_dstBlendFactor": 4,
     "_color": {
       "__type__": "cc.Color",
-      "r": 115,
-      "g": 50,
-      "b": 175,
+      "r": 89,
+      "g": 68,
+      "b": 179,
       "a": 255
     },
     "_string": "再坚持一下就通关啦！",
@@ -1201,8 +1201,8 @@
     "_fontSize": 35,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
-    "_overflow": 0,
-    "_enableWrapText": true,
+    "_overflow": 2,
+    "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -1214,12 +1214,12 @@
     "_enableOutline": false,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 17,
-      "g": 45,
-      "b": 104,
+      "r": 255,
+      "g": 242,
+      "b": 210,
       "a": 255
     },
-    "_outlineWidth": 4,
+    "_outlineWidth": 2,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -1667,26 +1667,26 @@
     "_string": "已完成%",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 27,
-    "_fontSize": 27,
+    "_actualFontSize": 24,
+    "_fontSize": 24,
     "_fontFamily": "Arial",
-    "_lineHeight": 40,
-    "_overflow": 0,
-    "_enableWrapText": true,
+    "_lineHeight": 34,
+    "_overflow": 2,
+    "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
     "_isItalic": false,
-    "_isBold": false,
+    "_isBold": true,
     "_isUnderline": false,
     "_underlineHeight": 2,
     "_cacheMode": 0,
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 105,
+      "g": 78,
+      "b": 189,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -1969,10 +1969,10 @@
     "_string": "继续挑战",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 45,
-    "_fontSize": 45,
+    "_actualFontSize": 38,
+    "_fontSize": 38,
     "_fontFamily": "Arial",
-    "_lineHeight": 50,
+    "_lineHeight": 48,
     "_overflow": 2,
     "_enableWrapText": false,
     "_font": null,
@@ -1986,12 +1986,12 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 13,
-      "g": 95,
-      "b": 1,
+      "r": 74,
+      "g": 99,
+      "b": 182,
       "a": 255
     },
-    "_outlineWidth": 4,
+    "_outlineWidth": 2,
     "_enableShadow": false,
     "_shadowColor": {
       "__type__": "cc.Color",
@@ -2020,7 +2020,7 @@
     "node": {
       "__id__": 74
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": {
       "__id__": 80
     },
@@ -2340,7 +2340,7 @@
     "node": {
       "__id__": 88
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": {
       "__id__": 94
     },
@@ -2660,7 +2660,7 @@
     "node": {
       "__id__": 102
     },
-    "_enabled": true,
+    "_enabled": false,
     "__prefab": {
       "__id__": 108
     },

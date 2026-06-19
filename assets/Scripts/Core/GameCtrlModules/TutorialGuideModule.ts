@@ -36,6 +36,7 @@ export function installTutorialGuideModule(target: any): void {
             if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
                 && typeof this.styleStarterGuidePrompt === 'function') {
                 this.styleStarterGuidePrompt(_gb, bubble, lbl, primaryText);
+                this.adjustStarterGuidePromptForCurrentStep?.(bubble);
                 return;
             }
             bubble.active = true;
@@ -45,15 +46,148 @@ export function installTutorialGuideModule(target: any): void {
             if (bubbleUT) bubbleUT.setContentSize(360, 68);
             const labelUT = lbl.node.getComponent(UITransform);
             if (labelUT) labelUT.setContentSize(288, 136);
-            lbl.color = new Color('#48445A');
-            lbl.fontSize = 48;
-            lbl.lineHeight = 60;
+            lbl.color = new Color('#5A321E');
+            lbl.fontSize = 42;
+            lbl.lineHeight = 52;
             lbl.enableWrapText = true;
             const centerY = typeof this.getGuidePromptCenterY === 'function'
                 ? this.getGuidePromptCenterY(438, 68)
                 : 438;
             bubble.setPosition(0, centerY, 0);
             lbl.string = this.formatLevel2GuidePrompt(primaryText);
+        },
+
+        clampGuidePromptCenterY(bubble: Node, centerY: number): number {
+            const rootTransform = bubble.parent?.getComponent(UITransform)
+                || (typeof this.requireCanvasUiRoot === 'function' ? this.requireCanvasUiRoot('OverlayRoot') : null)?.getComponent(UITransform);
+            const bubbleHeight = bubble.getComponent(UITransform)?.contentSize.height || 154;
+            const visibleHalfH = rootTransform ? rootTransform.contentSize.height / 2 : 640;
+            const margin = 12;
+            return Math.max(-visibleHalfH + bubbleHeight / 2 + margin, Math.min(centerY, visibleHalfH - bubbleHeight / 2 - margin));
+        },
+
+        getGuidePromptNodeBounds(node: Node | null, bubble: Node): { bottom: number; top: number; centerY: number } | null {
+            const targetUT = node?.getComponent(UITransform);
+            const parentUT = bubble.parent?.getComponent(UITransform)
+                || (typeof this.requireCanvasUiRoot === 'function' ? this.requireCanvasUiRoot('OverlayRoot') : null)?.getComponent(UITransform);
+            if (!node?.isValid || !targetUT || !parentUT) return null;
+            const targetWorldScale = node.getWorldScale(new Vec3());
+            const parentWorldScale = (bubble.parent || this._guideLayer?.parent || node.parent)?.getWorldScale(new Vec3()) || new Vec3(1, 1, 1);
+            const scaleY = Math.max(0.0001, Math.abs(targetWorldScale.y || 1) / Math.abs(parentWorldScale.y || 1));
+            const worldCenter = targetUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+            const center = parentUT.convertToNodeSpaceAR(worldCenter);
+            const halfH = targetUT.contentSize.height * scaleY / 2;
+            return {
+                bottom: center.y - halfH,
+                top: center.y + halfH,
+                centerY: center.y,
+            };
+        },
+
+        getGuidePromptCellsBounds(cells: { row: number; col: number }[], bubble: Node): { bottom: number; top: number; centerY: number } | null {
+            const parentUT = bubble.parent?.getComponent(UITransform)
+                || (typeof this.requireCanvasUiRoot === 'function' ? this.requireCanvasUiRoot('OverlayRoot') : null)?.getComponent(UITransform);
+            if (!parentUT || !Array.isArray(cells) || cells.length === 0) return null;
+            const parentWorldScale = (bubble.parent || this._guideLayer?.parent || this.boardNode?.parent)?.getWorldScale(new Vec3()) || new Vec3(1, 1, 1);
+            const parentScaleY = Math.max(0.0001, Math.abs(parentWorldScale.y || 1));
+            let minY = Infinity;
+            let maxY = -Infinity;
+            for (const cell of cells) {
+                const nodes = [
+                    this.cellNodes[cell.row]?.[cell.col],
+                    this.boardSlotBgNodes[cell.row]?.[cell.col],
+                ];
+                let usedNode = false;
+                for (const cellNode of nodes) {
+                    const cellUT = cellNode?.getComponent(UITransform);
+                    if (!cellNode?.isValid || !cellUT) continue;
+                    const world = cellUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+                    const local = parentUT.convertToNodeSpaceAR(world);
+                    const cellScale = cellNode.getWorldScale(new Vec3());
+                    const halfH = cellUT.contentSize.height * Math.abs(cellScale.y || 1) / parentScaleY / 2;
+                    minY = Math.min(minY, local.y - halfH);
+                    maxY = Math.max(maxY, local.y + halfH);
+                    usedNode = true;
+                }
+                if (!usedNode) {
+                    const world = this.getBoardCellWorldPosition?.(cell.row, cell.col) || null;
+                    if (!world) continue;
+                    const local = parentUT.convertToNodeSpaceAR(world);
+                    const half = Math.max(1, Number(this.getBoardBeanVisualSize?.() || this.cellSize || 1)) / 2;
+                    minY = Math.min(minY, local.y - half);
+                    maxY = Math.max(maxY, local.y + half);
+                }
+            }
+            if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return null;
+            return {
+                bottom: minY,
+                top: maxY,
+                centerY: (minY + maxY) / 2,
+            };
+        },
+
+        getGuideEmptyTargetCellsForPrompt(colorId: number): { row: number; col: number }[] {
+            const cells: { row: number; col: number }[] = [];
+            const bw = this.levelData?.boardWidth || this.boardModel?.width || 0;
+            const bh = this.levelData?.boardHeight || this.boardModel?.height || 0;
+            for (let r = 0; r < bh; r++) {
+                for (let c = 0; c < bw; c++) {
+                    if (this.boardModel.currentColors[r][c] === 0
+                        && !this.boardModel.locked[r][c]
+                        && this.boardModel.correctColors[r][c] === colorId) {
+                        cells.push({ row: r, col: c });
+                    }
+                }
+            }
+            return cells;
+        },
+
+        getGuidePromptTargetBoundsForCurrentStep(bubble: Node): { bottom: number; top: number; centerY: number; kind: 'slot' | 'board' } | null {
+            const step = Math.floor(Number(this._guideStep) || 0);
+            if (this._guideMode === 'level_1') {
+                if (step === 1 || step === 4) {
+                    const bounds = this.getGuidePromptNodeBounds(this.slotAreaNode || null, bubble);
+                    return bounds ? { ...bounds, kind: 'slot' } : null;
+                }
+                if (step === 2) {
+                    const block = this.findBlockOnBoard?.(this._guideSecondColorId);
+                    const bounds = this.getGuidePromptCellsBounds(block?.cells || [], bubble);
+                    return bounds ? { ...bounds, kind: 'board' } : null;
+                }
+                if (step === 3 || step === 5) {
+                    const colorId = step === 3 ? this._guideSecondColorId : this._guideFirstColorId;
+                    const bounds = this.getGuidePromptCellsBounds(this.getGuideEmptyTargetCellsForPrompt(colorId), bubble);
+                    return bounds ? { ...bounds, kind: 'board' } : null;
+                }
+                return null;
+            }
+            if (this._guideMode === 'level_2') {
+                if (step === 0) {
+                    const bounds = this.getGuidePromptNodeBounds(this.getSlotUnlockGuideTarget?.() || this.slotAreaNode || null, bubble);
+                    return bounds ? { ...bounds, kind: 'slot' } : null;
+                }
+                if (step === 2) {
+                    const bounds = this.getGuidePromptNodeBounds(this.slotAreaNode || null, bubble);
+                    return bounds ? { ...bounds, kind: 'slot' } : null;
+                }
+            }
+            return null;
+        },
+
+        adjustStarterGuidePromptForCurrentStep(bubble: Node) {
+            if (this._guideMode !== 'level_1' && this._guideMode !== 'level_2') return;
+            const bubbleUT = bubble.getComponent(UITransform);
+            if (!bubbleUT) return;
+            const target = this.getGuidePromptTargetBoundsForCurrentStep(bubble);
+            if (!target) return;
+            const currentY = bubble.position.y;
+            const bubbleHeight = bubbleUT.contentSize.height || 154;
+            const targetGap = target.kind === 'slot' ? 44 : 16;
+            const desiredY = target.top + targetGap + bubbleHeight / 2;
+            const nextY = target.kind === 'slot'
+                ? desiredY
+                : Math.min(currentY, desiredY);
+            bubble.setPosition(bubble.position.x, this.clampGuidePromptCenterY(bubble, nextY), bubble.position.z);
         },
 
         /** Step 0: 选中 firstColorId 豆豆块 */
@@ -64,7 +198,7 @@ export function installTutorialGuideModule(target: any): void {
                 this.startHandGestureOnBlock(block, hand);
             }
         
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点这块试试');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点任意粉色豆豆');
         },
 
         guideLevel2UnlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
@@ -78,20 +212,20 @@ export function installTutorialGuideModule(target: any): void {
                 this.autoHighlightBlock(block.cells);
                 this.startHandGestureOnBlock(block, hand);
             }
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '选这块');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点高亮豆豆');
         },
 
         guideLevel2PlaceBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放到这里');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放到空槽里');
         },
 
         /** Step 1: 点击暂存槽放入（place 阶段） */
         guideStep1(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放到这里');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放到空槽里');
         },
 
         /** Step 2: 选中 secondColorId 豆豆块 */
@@ -103,14 +237,14 @@ export function installTutorialGuideModule(target: any): void {
                 this.startHandGestureToBoard(block, hand, handTargetOffsetY);
             }
         
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '再点这块');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点任意黄色豆豆');
         },
 
         /** Step 3: 点击棋盘目标放置 secondColorId（place 阶段） */
         guideStep3(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightEmptyTarget(this._guideSecondColorId);
             this.startHandGestureOnBoardTarget(this._guideSecondColorId, hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回这里');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回黄色空位');
         },
 
         /** Step 4: 从暂存槽选中 firstColorId 豆豆 */
@@ -121,14 +255,14 @@ export function installTutorialGuideModule(target: any): void {
                 this.startHandGestureOnSlot(hand);
             }
         
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '取出来');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点槽里的粉色豆豆');
         },
 
         /** Step 5: 点击棋盘目标放置 firstColorId → 通关（place 阶段） */
         guideStep5(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightEmptyTarget(this._guideFirstColorId);
             this.startHandGestureOnBoardTarget(this._guideFirstColorId, hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回这里');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回粉色空位');
         },
 
         /** 引导期间触摸处理 */
@@ -195,10 +329,12 @@ export function installTutorialGuideModule(target: any): void {
                                     colorId: this.currentBlock.colorId,
                                 },
                             );
+                            this.showGuideWrongTargetHint(worldPos, false);
                             this.cancelSelection();
                         }
                     } else {
                         this.reportTutorialTapResult?.(worldPos, this.getTutorialMissHitResult?.(worldPos) || 'miss_empty', false, 'guide_layer');
+                        this.showGuideWrongTargetHint(worldPos, false);
                     }
                 }
             } else if (this._guidePhase === 'place') {
@@ -300,6 +436,7 @@ export function installTutorialGuideModule(target: any): void {
             const h = Math.max(58, targetUT.contentSize.height + 18);
 
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+                this.showGuideSpriteHighlight('guide_slot_highlight', targetLocal.x, targetLocal.y, w, h, 1.035);
                 hand.active = true;
                 this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y - 16);
                 this.startGuideHandPulse(hand);
@@ -356,13 +493,17 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         highlightSlotAreaForGuide() {
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') return;
             const layerUT = this._guideLayer!.getComponent(UITransform)!;
             const slotUT = this.slotAreaNode.getComponent(UITransform)!;
             const slotWorld = slotUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
             const slotLocal = layerUT.convertToNodeSpaceAR(slotWorld);
             const w = slotUT.contentSize.width + 20;
             const h = slotUT.contentSize.height + 16;
+
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+                this.showGuideSpriteHighlight('guide_slot_highlight', slotLocal.x, slotLocal.y, w, Math.max(70, h), 1.035);
+                return;
+            }
         
             const hl = new Node('GuideHighlight');
             this._guideLayer!.addChild(hl);
@@ -388,30 +529,72 @@ export function installTutorialGuideModule(target: any): void {
             this._guidePulseTweens.push(ht);
         },
 
-        showGuideWrongTargetHint(worldPos?: Vec3) {
+        getStarterGuideWrongTargetHint(_hitResult: string): string {
+            if (this._guideMode === 'level_2') {
+                if (this._guideStep === 0) return '点下方解锁空位';
+                if (this._guideStep === 1) return '点高亮豆豆';
+                return '放到空槽里';
+            }
+            switch (this._guideStep) {
+                case 0: return '点任意粉色豆豆';
+                case 1: return '放到空槽里';
+                case 2: return '点任意黄色豆豆';
+                case 3: return '放回黄色空位';
+                case 4: return '点槽里的粉色豆豆';
+                case 5: return '放回粉色空位';
+                default: return '点高亮区域';
+            }
+        },
+
+        showGuideWrongTargetHint(worldPos?: Vec3, shouldReport: boolean = true) {
             const hitResult = this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
-            this.reportTutorialTapResult?.(worldPos, hitResult, false, 'guide_layer');
-            this.trackFirstLevelFunnel('tutorial_wrong_tap', {
-                stepId: this._guideStep,
-                stepName: `${this._guideMode}:${this._guideStep}:${this._guidePhase}`,
-                touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
-                source: 'tutorial',
-                success: false,
-                errorCode: hitResult,
-                extra: {
-                    guideMode: this._guideMode,
-                    guideStep: this._guideStep,
-                    guidePhase: this._guidePhase,
-                    hasCurrentBlock: !!this.currentBlock,
-                    hitResult,
-                },
-            });
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') return;
+            if (shouldReport) {
+                this.reportTutorialTapResult?.(worldPos, hitResult, false, 'guide_layer');
+                this.trackFirstLevelFunnel('tutorial_wrong_tap', {
+                    stepId: this._guideStep,
+                    stepName: `${this._guideMode}:${this._guideStep}:${this._guidePhase}`,
+                    touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
+                    source: 'tutorial',
+                    success: false,
+                    errorCode: hitResult,
+                    extra: {
+                        guideMode: this._guideMode,
+                        guideStep: this._guideStep,
+                        guidePhase: this._guidePhase,
+                        hasCurrentBlock: !!this.currentBlock,
+                        hitResult,
+                    },
+                });
+            }
             if (!this._guideBubbleLbl) return;
             const step = this._guideStep;
+            const phase = this._guidePhase;
             const lbl = this._guideBubbleLbl;
             const origString = lbl.string;
             const origColor = new Color(lbl.color.r, lbl.color.g, lbl.color.b, lbl.color.a);
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+                lbl.string = this.getStarterGuideWrongTargetHint(hitResult);
+                lbl.color = new Color('#D45A38');
+                const token = Date.now();
+                this._guideWrongHintToken = token;
+                if (this._guideBubble?.isValid) {
+                    Tween.stopAllByTarget(this._guideBubble);
+                    this._guideBubble.setScale(1, 1, 1);
+                    tween(this._guideBubble)
+                        .to(0.08, { scale: new Vec3(1.025, 1.025, 1) }, { easing: 'sineOut' })
+                        .to(0.12, { scale: new Vec3(1, 1, 1) }, { easing: 'sineIn' })
+                        .start();
+                }
+                this.scheduleOnce(() => {
+                    if (this._guideWrongHintToken !== token) return;
+                    if (this._guideStep !== step || this._guidePhase !== phase) return;
+                    if (this._guideBubbleLbl) {
+                        this._guideBubbleLbl.string = origString;
+                        this._guideBubbleLbl.color = origColor;
+                    }
+                }, 0.9);
+                return;
+            }
             switch (step) {
                 case 0: lbl.string = this._guideMode === 'level_2' ? '请点击解锁按钮！' : '请点击目标区域！'; break;
                 case 1: lbl.string = this._guideMode === 'level_1' ? '请点击下方暂存槽放入！' : '请点击高亮区域！'; break;
@@ -774,11 +957,79 @@ export function installTutorialGuideModule(target: any): void {
             };
         },
 
+        getGuideSlotIndicesLayerBounds(idxs: number[]) {
+            const layerUT = this._guideLayer!.getComponent(UITransform)!;
+            const layerScale = this._guideLayer!.getWorldScale(new Vec3());
+            const layerScaleX = Math.max(0.0001, Math.abs(layerScale.x || 1));
+            const layerScaleY = Math.max(0.0001, Math.abs(layerScale.y || 1));
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const idx of idxs) {
+                const slotNode = this.slotNodes[idx];
+                const slotUT = slotNode?.getComponent(UITransform);
+                if (!slotNode?.isValid || !slotUT) continue;
+                const world = slotUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+                const local = layerUT.convertToNodeSpaceAR(world);
+                const slotScale = slotNode.getWorldScale(new Vec3());
+                const halfW = slotUT.contentSize.width * Math.abs(slotScale.x || 1) / layerScaleX / 2;
+                const halfH = slotUT.contentSize.height * Math.abs(slotScale.y || 1) / layerScaleY / 2;
+                minX = Math.min(minX, local.x - halfW);
+                maxX = Math.max(maxX, local.x + halfW);
+                minY = Math.min(minY, local.y - halfH);
+                maxY = Math.max(maxY, local.y + halfH);
+            }
+            if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+            const padding = 18;
+            return {
+                centerX: (minX + maxX) / 2,
+                centerY: (minY + maxY) / 2,
+                width: maxX - minX + padding * 2,
+                height: maxY - minY + padding * 2,
+            };
+        },
+
+        showGuideSpriteHighlight(frameName: string, centerX: number, centerY: number, width: number, height: number, pulseScale: number = 1.04) {
+            const frame = this.getSF(frameName);
+            if (!frame) {
+                throw new Error(`[guide] missing guide highlight sprite: ${frameName}`);
+            }
+            const hl = new Node('GuideHighlight');
+            this._guideLayer!.addChild(hl);
+            hl.layer = Layers.Enum.UI_2D;
+            hl.addComponent(UITransform).setContentSize(width, height);
+            hl.setPosition(centerX, centerY, 0);
+            this._applySpriteFrame(hl, frame, width, height, Sprite.Type.SLICED);
+            const sp = hl.getComponent(Sprite);
+            if (sp) sp.color = new Color(255, 255, 255, 255);
+            const opacity = hl.getComponent(UIOpacity) || hl.addComponent(UIOpacity);
+            opacity.opacity = 255;
+
+            const ht = tween(hl)
+                .to(0.46, { scale: new Vec3(pulseScale, pulseScale, 1) }, { easing: 'sineInOut' })
+                .to(0.46, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
+                .union()
+                .repeatForever();
+            ht.start();
+            this._guidePulseTweens.push(ht);
+            this.raiseGuideHandAboveHighlights?.();
+            return hl;
+        },
+
         /** 自动高亮棋盘上的目标豆豆块 — 整个连通块一个统一外轮廓高亮 */
         autoHighlightBlock(cells: { row: number; col: number }[]) {
             this.clearGuideHighlight();
             this._guideHighlightCells = [...cells];
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+                const bounds = this.getGuideCellsLayerBounds(cells);
+                if (bounds) {
+                    this.showGuideSpriteHighlight(
+                        'guide_area_highlight',
+                        bounds.centerX,
+                        bounds.centerY,
+                        Math.max(120, bounds.width + 18),
+                        Math.max(72, bounds.height + 14),
+                        1.035,
+                    );
+                }
                 for (const cell of cells) {
                     const cellNode = this.cellNodes[cell.row]?.[cell.col];
                     if (!cellNode) continue;
@@ -851,6 +1102,17 @@ export function installTutorialGuideModule(target: any): void {
         
             this._guideHighlightCells = []; // 棋盘格子不需要
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+                const bounds = this.getGuideSlotIndicesLayerBounds(idxs);
+                if (bounds) {
+                    this.showGuideSpriteHighlight(
+                        'guide_slot_highlight',
+                        bounds.centerX,
+                        bounds.centerY,
+                        Math.max(96, bounds.width + 20),
+                        Math.max(66, bounds.height + 16),
+                        1.035,
+                    );
+                }
                 for (const idx of idxs) {
                     const slotNode = this.slotNodes[idx];
                     if (!slotNode) continue;
@@ -984,9 +1246,20 @@ export function installTutorialGuideModule(target: any): void {
             if (emptyCells.length === 0) return;
         
             this._guideHighlightCells = [...emptyCells];
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') return;
             const bounds = this.getGuideCellsLayerBounds(emptyCells);
             if (!bounds) return;
+
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+                this.showGuideSpriteHighlight(
+                    'guide_area_highlight',
+                    bounds.centerX,
+                    bounds.centerY,
+                    Math.max(120, bounds.width + 18),
+                    Math.max(72, bounds.height + 14),
+                    1.035,
+                );
+                return;
+            }
         
             const hl = new Node('GuideHighlight');
             this._guideLayer!.addChild(hl);

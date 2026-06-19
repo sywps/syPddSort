@@ -2,7 +2,7 @@
   "ver": "1.0.27",
   "importer": "image",
   "imported": true,
-  "uuid": "a387a28d-bbe8-3f87-af2d-2d8a13cb621c",
+  "uuid": "40bcac38-2aa0-46e1-b8df-0d382a00cc7a",
   "files": [
     ".json",
     ".png"
@@ -10,14 +10,14 @@
   "subMetas": {
     "6c48a": {
       "importer": "texture",
-      "uuid": "a387a28d-bbe8-3f87-af2d-2d8a13cb621c@6c48a",
-      "displayName": "background",
+      "uuid": "40bcac38-2aa0-46e1-b8df-0d382a00cc7a@6c48a",
+      "displayName": "guide_slot_highlight",
       "id": "6c48a",
       "name": "texture",
       "userData": {
         "wrapModeS": "clamp-to-edge",
         "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "a387a28d-bbe8-3f87-af2d-2d8a13cb621c",
+        "imageUuidOrDatabaseUri": "40bcac38-2aa0-46e1-b8df-0d382a00cc7a",
         "isUuid": true,
         "visible": false,
         "minfilter": "linear",
@@ -34,43 +34,47 @@
     },
     "f9941": {
       "importer": "sprite-frame",
-      "uuid": "a387a28d-bbe8-3f87-af2d-2d8a13cb621c@f9941",
-      "displayName": "background",
+      "uuid": "40bcac38-2aa0-46e1-b8df-0d382a00cc7a@f9941",
+      "displayName": "guide_slot_highlight",
       "id": "f9941",
       "name": "spriteFrame",
       "userData": {
         "trimThreshold": 1,
         "rotated": false,
-        "offsetX": 0,
-        "offsetY": 0,
-        "trimX": 0,
-        "trimY": 0,
-        "width": 750,
-        "height": 1800,
-        "rawWidth": 750,
-        "rawHeight": 1800,
-        "borderTop": 0,
-        "borderBottom": 0,
-        "borderLeft": 0,
-        "borderRight": 0,
+        "offsetX": 1.5,
+        "offsetY": 5,
+        "trimX": 85,
+        "trimY": 17,
+        "width": 473,
+        "height": 91,
+        "rawWidth": 640,
+        "rawHeight": 135,
+        "borderTop": 47,
+        "borderBottom": 42,
+        "borderLeft": 94,
+        "borderRight": 94,
         "packable": true,
         "pixelsToUnit": 100,
         "pivotX": 0.5,
         "pivotY": 0.5,
         "meshType": 0,
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "40bcac38-2aa0-46e1-b8df-0d382a00cc7a@6c48a",
+        "atlasUuid": "",
+        "trimType": "auto",
         "vertices": {
           "rawPosition": [
-            -375,
-            -900,
+            -236.5,
+            -45.5,
             0,
-            375,
-            -900,
+            236.5,
+            -45.5,
             0,
-            -375,
-            900,
+            -236.5,
+            45.5,
             0,
-            375,
-            900,
+            236.5,
+            45.5,
             0
           ],
           "indexes": [
@@ -82,40 +86,36 @@
             3
           ],
           "uv": [
-            0,
-            1800,
-            750,
-            1800,
-            0,
-            0,
-            750,
-            0
+            85,
+            118,
+            558,
+            118,
+            85,
+            27,
+            558,
+            27
           ],
           "nuv": [
-            0,
-            0,
-            1,
-            0,
-            0,
-            1,
-            1,
-            1
+            0.1328125,
+            0.2,
+            0.871875,
+            0.2,
+            0.1328125,
+            0.8740740740740741,
+            0.871875,
+            0.8740740740740741
           ],
           "minPos": [
-            -375,
-            -900,
+            -236.5,
+            -45.5,
             0
           ],
           "maxPos": [
-            375,
-            900,
+            236.5,
+            45.5,
             0
           ]
-        },
-        "isUuid": true,
-        "imageUuidOrDatabaseUri": "a387a28d-bbe8-3f87-af2d-2d8a13cb621c@6c48a",
-        "atlasUuid": "",
-        "trimType": "auto"
+        }
       },
       "ver": "1.0.12",
       "imported": true,
@@ -127,8 +127,8 @@
   },
   "userData": {
     "type": "sprite-frame",
-    "hasAlpha": false,
+    "hasAlpha": true,
     "fixAlphaTransparencyArtifacts": false,
-    "redirect": "a387a28d-bbe8-3f87-af2d-2d8a13cb621c@6c48a"
+    "redirect": "40bcac38-2aa0-46e1-b8df-0d382a00cc7a@6c48a"
   }
 }

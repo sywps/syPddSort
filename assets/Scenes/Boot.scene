@@ -932,8 +932,8 @@
     "_color": {
       "__type__": "cc.Color",
       "r": 255,
-      "g": 255,
-      "b": 255,
+      "g": 242,
+      "b": 184,
       "a": 255
     },
     "_string": "加载中...%",
@@ -956,9 +956,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
+      "r": 62,
+      "g": 46,
+      "b": 62,
       "a": 255
     },
     "_outlineWidth": 2,
