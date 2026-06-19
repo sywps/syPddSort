@@ -35,6 +35,14 @@ const SKIN_BUNDLE_NAMES = [];
 const MAIN_PACKAGE_TARGET_KB = 3072;
 const MAIN_PACKAGE_ERROR_KB = 4096;
 const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
+const SKIN_DATA_CDN_URL = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(LEVEL_DATA_CDN_URL);
+
+function deriveSkinDataCdnUrl(levelDataCdnUrl) {
+    var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
+    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/skin/';
+    if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
+    return normalized + 'skin/';
+}
 
 function resolveRuntimeRoot() {
     var nested = path.join(buildPath, 'minigame');
@@ -535,6 +543,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarker = 'globalThis.__PDD_WECHAT_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     var gameAssetsModeMarker = 'globalThis.__PDD_GAME_ASSETS_MODE__=' + JSON.stringify(gameAssetsMode) + ';';
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
+    var skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(SKIN_DATA_CDN_URL) + ';';
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
@@ -543,6 +552,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
+    var skinDataCdnPattern = /globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g;
     var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
     if (platformMarkerPattern.test(content)) {
@@ -557,6 +567,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (levelDataCdnPattern.test(content)) {
         content = content.replace(levelDataCdnPattern, levelDataCdnMarker);
     }
+    if (skinDataCdnPattern.test(content)) {
+        content = content.replace(skinDataCdnPattern, skinDataCdnMarker);
+    }
     if (screenAdaptDebugPattern.test(content)) {
         content = content.replace(screenAdaptDebugPattern, screenAdaptDebugMarker);
     }
@@ -566,6 +579,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
+    if (content.indexOf(skinDataCdnMarker) === -1) missingLines.push(skinDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
     if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {
         missingLines.push(
@@ -754,6 +768,7 @@ if (fs.existsSync(settingsPath)) {
     console.log('[2/6] startup preload: cocosCore/main only; gameEntry/bootstrap 由统一游戏入口路由按需加载 ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
+    console.log('[2/6] 皮肤数据 CDN: ' + SKIN_DATA_CDN_URL);
 }
 
 // 3. 修复 engine-adapter.js 的 URL 拼接
@@ -1076,7 +1091,7 @@ if (mainKB > MAIN_PACKAGE_TARGET_KB) {
 }
 console.log('[5/6] ✓ 主包大小正常');
 
-// 6. CDN 上传已移至 npm run sync:cdn:wechat 独立处理
+// 6. CDN 上传已移至 npm run sync:cdn:wechat 独立处理；分项命令使用 :level_data / :skin_data。
 
 // 7. 豆豆图集以 BootstrapBundle/Beans 为唯一真源，由 Cocos 构建自动包含
     // atlas PNG: assets/BootstrapBundle/Beans/bean-atlas.png

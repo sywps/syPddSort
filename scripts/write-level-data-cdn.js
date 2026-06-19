@@ -12,9 +12,6 @@ const levelFileKinds = [
     { prefix: 'level_', kind: 'mainline', pattern: /^level_(\d+)\.json$/ },
     { prefix: 'zt_level_', kind: 'theme', pattern: /^zt_level_(\d+)\.json$/ },
 ];
-const extraAssetRoots = [
-    { source: 'Skins', target: 'Skins' },
-];
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -32,31 +29,6 @@ function readJson(filePath) {
 function writeJson(filePath, data) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
-}
-
-function copyExtraAssetRoot(entry) {
-    const sourceRoot = path.join(sourceLevelDir, entry.source);
-    const targetRoot = path.join(outputDir, entry.target);
-    if (!fs.existsSync(sourceRoot)) return null;
-    let fileCount = 0;
-    let totalBytes = 0;
-    const copyDir = (fromDir, toDir) => {
-        fs.mkdirSync(toDir, { recursive: true });
-        for (const item of fs.readdirSync(fromDir, { withFileTypes: true })) {
-            const fromPath = path.join(fromDir, item.name);
-            const toPath = path.join(toDir, item.name);
-            if (item.isDirectory()) {
-                copyDir(fromPath, toPath);
-            } else if (!item.name.endsWith('.meta')) {
-                fs.copyFileSync(fromPath, toPath);
-                fileCount += 1;
-                totalBytes += fs.statSync(fromPath).size;
-            }
-        }
-    };
-    fs.rmSync(targetRoot, { recursive: true, force: true });
-    copyDir(sourceRoot, targetRoot);
-    return { root: entry.target, fileCount, bytes: totalBytes };
 }
 
 function hashJson(data) {
@@ -161,9 +133,6 @@ function buildOutput() {
     const levels = collectLevels();
     fs.rmSync(outputDir, { recursive: true, force: true });
     fs.mkdirSync(path.join(outputDir, 'level_packs'), { recursive: true });
-    const assetRoots = extraAssetRoots
-        .map(copyExtraAssetRoot)
-        .filter(Boolean);
 
     const packs = [];
     const levelCounts = {};
@@ -188,10 +157,11 @@ function buildOutput() {
         }
     }
 
-    const dataVersion = hashJson({ packs, assetRoots }).slice(0, 16);
+    const dataVersion = hashJson({ packs }).slice(0, 16);
     const manifest = {
         manifestVersion: 1,
         dataVersion,
+        levelDataVersion: dataVersion,
         schemaVersion: 1,
         minClientBuild: 1,
         generatedAt: new Date().toISOString(),
@@ -199,11 +169,10 @@ function buildOutput() {
         packSize,
         levelCount: levels.length,
         levelCounts,
-        assetRoots,
         packs,
     };
     writeJson(path.join(outputDir, 'level_live.json'), manifest);
-    console.log('wrote ' + path.relative(projectDir, outputDir) + ' packs=' + packs.length + ' levels=' + levels.length + ' assets=' + assetRoots.reduce((sum, item) => sum + item.fileCount, 0) + ' dataVersion=' + dataVersion);
+    console.log('wrote ' + path.relative(projectDir, outputDir) + ' packs=' + packs.length + ' levels=' + levels.length + ' dataVersion=' + dataVersion);
 }
 
 buildOutput();

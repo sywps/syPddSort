@@ -11,8 +11,16 @@ const buildMode = process.env.DOUYIN_BUILD_MODE || 'release';
 const debugLevelDataBundle = buildMode === 'debug';
 const SKIN_BUNDLE_NAMES = [];
 const levelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
+const skinDataCdnUrl = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(levelDataCdnUrl);
 const douyinCloudEnv = process.env.PDD_DOUYIN_CLOUD_ENV || '';
 const douyinCloudPathPrefix = process.env.PDD_DOUYIN_CLOUD_PATH_PREFIX || '';
+
+function deriveSkinDataCdnUrl(levelUrl) {
+    const normalized = String(levelUrl || '').trim().replace(/\/?$/, '/');
+    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/skin/';
+    if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
+    return normalized + 'skin/';
+}
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -197,12 +205,14 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
     const buildMarker = 'globalThis.__PDD_DOUYIN_BUILD__=true;';
     const modeMarker = 'globalThis.__PDD_DOUYIN_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     const levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(levelDataCdnUrl) + ';';
+    const skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(skinDataCdnUrl) + ';';
     const cloudEnvMarker = 'globalThis.__PDD_DOUYIN_CLOUD_ENV__=' + JSON.stringify(douyinCloudEnv) + ';';
     const cloudPathPrefixMarker = 'globalThis.__PDD_DOUYIN_CLOUD_PATH_PREFIX__=' + JSON.stringify(douyinCloudPathPrefix) + ';';
     const replacements = [
         [/globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g, platformMarker],
         [/globalThis\.__PDD_DOUYIN_BUILD_MODE__="[^"]*";/g, modeMarker],
         [/globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g, levelDataCdnMarker],
+        [/globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g, skinDataCdnMarker],
         [/globalThis\.__PDD_DOUYIN_CLOUD_ENV__="[^"]*";/g, cloudEnvMarker],
         [/globalThis\.__PDD_DOUYIN_CLOUD_PATH_PREFIX__="[^"]*";/g, cloudPathPrefixMarker],
     ];
@@ -210,7 +220,7 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
         content = pattern.test(content) ? content.replace(pattern, value) : content;
     }
     const missingLines = [];
-    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
+    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker, skinDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
         if (!content.includes(line)) missingLines.push(line);
     }
     if (missingLines.length) content = missingLines.join('\n') + '\n' + content;

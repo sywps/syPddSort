@@ -38,8 +38,17 @@ type LevelPack = {
     levels: Array<{ levelId: number; prefix?: string; data: LevelData }>;
 };
 
+type StoredLevelPackRecord = {
+    key: string;
+    hash: string;
+    text: string;
+    updatedAt: number;
+};
+
 const MAX_CACHED_LEVEL_PACKS = 1;
+const MAX_PERSISTED_LEVEL_PACKS = 3;
 const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
+const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
 
@@ -123,6 +132,76 @@ function parseJsonText<T>(text: string, label: string): T {
     } catch (err) {
         throw new Error(label + ' JSON parse failed: ' + (err instanceof Error ? err.message : String(err)));
     }
+}
+
+function readStorageObject(key: string): any {
+    const platform = getPlatformObject();
+    try {
+        if (platform && typeof platform.getStorageSync === 'function') {
+            const raw = platform.getStorageSync(key);
+            if (!raw) return null;
+            return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        }
+    } catch (err) {}
+    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    try {
+        const raw = g?.localStorage?.getItem?.(key);
+        return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+        return null;
+    }
+}
+
+function writeStorageObject(key: string, value: unknown): void {
+    const text = JSON.stringify(value);
+    const platform = getPlatformObject();
+    try {
+        if (platform && typeof platform.setStorageSync === 'function') {
+            platform.setStorageSync(key, text);
+            return;
+        }
+    } catch (err) {}
+    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    try {
+        g?.localStorage?.setItem?.(key, text);
+    } catch (err) {}
+}
+
+function readPersistedLevelPack(cacheKey: string, hash: string): string {
+    if (!hash) return '';
+    const store = readStorageObject(LEVEL_PACK_STORAGE_KEY);
+    const record = store?.records?.[cacheKey] as StoredLevelPackRecord | undefined;
+    if (!record || record.hash !== hash || typeof record.text !== 'string') return '';
+    return record.text;
+}
+
+function writePersistedLevelPack(cacheKey: string, hash: string, text: string): void {
+    if (!hash || !text) return;
+    const store = readStorageObject(LEVEL_PACK_STORAGE_KEY) || {};
+    const records: Record<string, StoredLevelPackRecord> = store.records && typeof store.records === 'object'
+        ? store.records
+        : {};
+    records[cacheKey] = {
+        key: cacheKey,
+        hash,
+        text,
+        updatedAt: Date.now(),
+    };
+    const sorted = Object.values(records).sort((a, b) => b.updatedAt - a.updatedAt);
+    for (const stale of sorted.slice(MAX_PERSISTED_LEVEL_PACKS)) {
+        delete records[stale.key];
+    }
+    writeStorageObject(LEVEL_PACK_STORAGE_KEY, { version: 1, records });
+}
+
+function removePersistedLevelPack(cacheKey: string): void {
+    const store = readStorageObject(LEVEL_PACK_STORAGE_KEY);
+    const records: Record<string, StoredLevelPackRecord> | null = store?.records && typeof store.records === 'object'
+        ? store.records
+        : null;
+    if (!records || !records[cacheKey]) return;
+    delete records[cacheKey];
+    writeStorageObject(LEVEL_PACK_STORAGE_KEY, { version: 1, records });
 }
 
 function normalizeLevelPrefix(prefix: string): string {
@@ -307,9 +386,25 @@ export class LevelDataCdnService {
             const url = packEntry.hash
                 ? withQuery(joinUrl(baseUrl, packEntry.url), 'v', packEntry.hash.slice(0, 16))
                 : joinUrl(baseUrl, packEntry.url);
-            promise = requestText(url, 10000)
-                .then((text) => {
-                    const pack = this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
+            const cachedText = readPersistedLevelPack(cacheKey, packEntry.hash || '');
+            const parsePackText = (text: string): LevelPack => this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
+            const loadRemotePack = () => requestText(url, 10000).then((text) => {
+                const pack = parsePackText(text);
+                writePersistedLevelPack(cacheKey, packEntry.hash || '', text);
+                return pack;
+            });
+            promise = (cachedText
+                ? Promise.resolve().then(() => {
+                    try {
+                        return parsePackText(cachedText);
+                    } catch (cacheErr) {
+                        removePersistedLevelPack(cacheKey);
+                        console.warn('[LevelDataCDN] persisted pack invalid, refetching:', packEntry.url, cacheErr instanceof Error ? cacheErr.message : cacheErr);
+                        return loadRemotePack();
+                    }
+                })
+                : loadRemotePack())
+                .then((pack) => {
                     this.trimPackCache(cacheKey);
                     return pack;
                 })

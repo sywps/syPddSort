@@ -1644,6 +1644,12 @@ export function installAssetBootstrapModule(target: any): void {
                 dailySignInLastClaimDateKey: this.getDailySignInLastClaimDateKey(),
                 themeUnlockedIds: Array.from(this.getThemeUnlockedSet() as Set<number>).sort((a, b) => a - b),
                 themeCompletedIds: Array.from(this.getThemeCompletedSet() as Set<number>).sort((a, b) => a - b),
+                ownedBackgroundSkinIds: typeof this.getOwnedBackgroundSkinIds === 'function'
+                    ? this.getOwnedBackgroundSkinIds()
+                    : [],
+                equippedBackgroundSkinId: typeof this.getEquippedBackgroundSkinId === 'function'
+                    ? Math.max(0, Math.floor(Number(this.getEquippedBackgroundSkinId()) || 0))
+                    : 0,
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -1763,6 +1769,9 @@ export function installAssetBootstrapModule(target: any): void {
             if (effectiveLevel > 0 && (cloudSavedLevel > 0 || this.getRawSavedLevelForStartup() !== null)) {
                 sys.localStorage.setItem(LS_LEVEL, String(effectiveLevel));
                 UserMgr.inst.markLevelProgress(effectiveLevel, false, false);
+            }
+            if (typeof this.applyCloudBackgroundSkinState === 'function') {
+                this.applyCloudBackgroundSkinState(gameState.ownedBackgroundSkinIds, gameState.equippedBackgroundSkinId);
             }
             if (shouldSkipVolatileRestore) {
                 this.refreshGoldUI();
