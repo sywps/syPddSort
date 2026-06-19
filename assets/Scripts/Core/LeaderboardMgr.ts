@@ -9,6 +9,7 @@ const LS_LOCAL_LEADERBOARD = 'pdd.leaderboard.local.v1';
 const CLOUD_FUNCTION_NAME = 'leaderboard';
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
+const LEADERBOARD_CLOUD_CALL_TIMEOUT_MS = 6000;
 
 type LeaderboardSource = 'wechat-cloud' | 'douyin-cloud' | 'wechat-friend' | 'local-preview';
 
@@ -92,7 +93,7 @@ export class LeaderboardMgr {
         );
         if (shouldSubmitCloud) {
             try {
-                const result = await PlatformCloudMgr.inst.callFunction<any>(CLOUD_FUNCTION_NAME, {
+                const result = await this.callLeaderboardCloudFunction<any>('submitProgress', {
                     action: 'submitProgress',
                     uuid: profile.uuid,
                     displayName: profile.displayName,
@@ -235,17 +236,20 @@ export class LeaderboardMgr {
             return this.fetchFriendLeaderboard(normalizedLimit, profile);
         }
 
-        // 全服排行（云函数 → 本地兜底）
-        if (await this.init()) {
+        // 全服排行：小游戏平台必须走真实云函数；只有非小游戏本地预览才读 localStorage。
+        const platform = PlatformCloudMgr.inst.getPlatform();
+        if (platform === 'wechat' || platform === 'douyin') {
+            if (!(await this.init())) {
+                throw new Error(`${platform} cloud is unavailable for leaderboard`);
+            }
             try {
-                const result = await PlatformCloudMgr.inst.callFunction<any>(CLOUD_FUNCTION_NAME, {
+                const result = await this.callLeaderboardCloudFunction<any>('getLeaderboard', {
                     action: 'getLeaderboard',
                     limit: normalizedLimit,
                 });
-                if (result.ok === false) {
-                    throw new Error(result.errorMessage || 'fetch leaderboard failed');
+                if (result?.ok !== true) {
+                    throw new Error(result?.errorMessage || 'fetch leaderboard failed');
                 }
-                const platform = PlatformCloudMgr.inst.getPlatform();
                 return {
                     source: platform === 'douyin' ? 'douyin-cloud' : 'wechat-cloud',
                     modeLabel: platform === 'douyin' ? '抖音云' : '微信云开发',
@@ -254,6 +258,7 @@ export class LeaderboardMgr {
                 };
             } catch (error) {
                 console.warn('[LeaderboardMgr] fetch cloud leaderboard failed:', error);
+                throw error;
             }
         }
 
@@ -435,5 +440,37 @@ export class LeaderboardMgr {
         }
         this.friendCloudStorageUnavailableWarned = true;
         console.log(`[LeaderboardMgr] friend cloud storage skipped: ${reason}`);
+    }
+
+    private callLeaderboardCloudFunction<T>(action: string, data: Record<string, unknown>): Promise<T> {
+        return this.withTimeout(
+            PlatformCloudMgr.inst.callFunction<T>(CLOUD_FUNCTION_NAME, data),
+            LEADERBOARD_CLOUD_CALL_TIMEOUT_MS,
+            `[LeaderboardMgr] ${action} timeout after ${LEADERBOARD_CLOUD_CALL_TIMEOUT_MS}ms`,
+        );
+    }
+
+    private withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            let settled = false;
+            let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                timeoutId = null;
+                reject(new Error(message));
+            }, timeoutMs);
+
+            const finish = (ok: boolean, payload: T | unknown) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                ok ? resolve(payload as T) : reject(payload);
+            };
+
+            promise.then((value) => finish(true, value), (error) => finish(false, error));
+        });
     }
 }

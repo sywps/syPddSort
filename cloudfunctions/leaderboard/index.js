@@ -5,9 +5,7 @@ cloud.init({
 });
 
 const db = cloud.database();
-const _ = db.command;
 const COLLECTION_NAME = 'leaderboard';
-const USER_PROFILE_COLLECTION = 'user_profile';
 
 function normalizeProgress(value) {
   return Math.max(1, Math.floor(Number(value) || 1));
@@ -30,13 +28,12 @@ function isCollectionMissing(error) {
   return /collection/i.test(message) && /(not exist|does not exist|不存在)/i.test(message);
 }
 
-function formatEntry(entry, rank, profile) {
-  const profileAvatarUrl = typeof profile?.avatarUrl === 'string' ? profile.avatarUrl : '';
+function formatEntry(entry, rank) {
   return {
     rank,
     uuid: typeof entry.uuid === 'string' ? entry.uuid : '',
     displayName: normalizeDisplayName(entry.displayName, entry.uuid),
-    avatarUrl: profileAvatarUrl || (typeof entry.avatarUrl === 'string' ? entry.avatarUrl : ''),
+    avatarUrl: typeof entry.avatarUrl === 'string' ? entry.avatarUrl : '',
     progressLevel: normalizeProgress(entry.progressLevel),
     updatedAt: Math.floor(Number(entry.updatedAt) || 0),
   };
@@ -120,11 +117,16 @@ async function fetchTopEntriesSorted(limit) {
   try {
     const res = await collection
       .orderBy('progressLevel', 'desc')
-      .orderBy('updatedAt', 'asc')
-      .orderBy('createdAt', 'asc')
       .limit(clampLimit(limit))
       .get();
-    return Array.isArray(res.data) ? res.data : [];
+    const rows = Array.isArray(res.data) ? res.data : [];
+    return rows.sort((a, b) => {
+      const progressDiff = normalizeProgress(b.progressLevel) - normalizeProgress(a.progressLevel);
+      if (progressDiff !== 0) return progressDiff;
+      const updatedDiff = Math.floor(Number(a.updatedAt) || 0) - Math.floor(Number(b.updatedAt) || 0);
+      if (updatedDiff !== 0) return updatedDiff;
+      return Math.floor(Number(a.createdAt) || 0) - Math.floor(Number(b.createdAt) || 0);
+    });
   } catch (error) {
     if (isCollectionMissing(error)) {
       return [];
@@ -133,53 +135,28 @@ async function fetchTopEntriesSorted(limit) {
   }
 }
 
-async function fetchUserProfilesByOpenids(openids) {
-  const uniqueOpenids = Array.from(new Set((openids || []).filter((openid) => typeof openid === 'string' && openid)));
-  const profiles = new Map();
-  if (!uniqueOpenids.length) {
-    return profiles;
-  }
-
-  for (let index = 0; index < uniqueOpenids.length; index += 100) {
-    const batch = uniqueOpenids.slice(index, index + 100);
-    try {
-      const res = await db.collection(USER_PROFILE_COLLECTION).where({
-        openid: _.in(batch),
-      }).get();
-      for (const row of (res.data || [])) {
-        if (row?.openid) {
-          profiles.set(row.openid, row);
-        }
-      }
-    } catch (error) {
-      if (isCollectionMissing(error)) {
-        return profiles;
-      }
-      throw error;
-    }
-  }
-
-  return profiles;
-}
-
 async function getLeaderboard(event, wxContext) {
+  const startedAt = Date.now();
   const limit = clampLimit(event.limit);
   const openid = wxContext.OPENID;
   const topEntriesRaw = await fetchTopEntriesSorted(limit);
   const selfIndex = topEntriesRaw.findIndex((entry) => entry.openid === openid);
-  const selfEntry = selfIndex >= 0 ? topEntriesRaw[selfIndex] : await findEntryByOpenId(openid);
-  const profileMap = await fetchUserProfilesByOpenids([
-    ...topEntriesRaw.map((entry) => entry.openid),
-    selfEntry?.openid || '',
-  ]);
+  const selfEntry = selfIndex >= 0 ? topEntriesRaw[selfIndex] : null;
   const topEntries = topEntriesRaw
-    .map((entry, index) => formatEntry(entry, index + 1, profileMap.get(entry.openid)));
+    .map((entry, index) => formatEntry(entry, index + 1));
+
+  console.log('[getLeaderboard] success:', {
+    limit,
+    topCount: topEntries.length,
+    selfInTop: selfIndex >= 0,
+    elapsedMs: Date.now() - startedAt,
+  });
 
   return {
     ok: true,
     source: 'wechat-cloud',
     entries: topEntries,
-    self: selfEntry ? formatEntry(selfEntry, selfIndex >= 0 ? selfIndex + 1 : 0, profileMap.get(selfEntry.openid)) : null,
+    self: selfEntry ? formatEntry(selfEntry, selfIndex >= 0 ? selfIndex + 1 : 0) : null,
     total: topEntries.length,
     totalKnown: false,
   };

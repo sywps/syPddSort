@@ -434,16 +434,6 @@ export function installFirstLevelRouteModule(target: any): void {
             console.log(...args);
         },
 
-        showHomeAfterStartupLoading() {
-            if (typeof this.releaseStartupBootstrapPrefetchIfUnused === 'function') {
-                this.releaseStartupBootstrapPrefetchIfUnused('startup-home-route');
-            }
-            this.showMainMenu();
-            if (this.getRuntimeSceneName('Game') === 'Home') {
-                this.scheduleOnce(() => this.hideLoadingOverlay(), 0);
-            }
-        },
-
         _startDeferredStartupBackgroundServices(
             canAutoSaveGameStateOnStartup: boolean,
             restoreStatus: UserStateRestoreStatus,
@@ -516,11 +506,6 @@ export function installFirstLevelRouteModule(target: any): void {
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
             const startupLevelPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : 'level_';
-            const shouldEnterHomeOnStartup =
-                !urlLevelFile &&
-                urlLevel <= 0 &&
-                !pendingSceneGameplayRequest &&
-                this.hasReliableLocalUserStateForStartup();
             if (!urlLevelFile && startupLevelId > 0) {
                 this.reportLevelDataLoadDiagnostic(
                     startupLevelId,
@@ -535,7 +520,6 @@ export function installFirstLevelRouteModule(target: any): void {
                             restoreStatus,
                             startupLocalProgressState,
                             savedLevel: this.getSavedLevel(),
-                            shouldEnterHomeOnStartup,
                         },
                     },
                 );
@@ -564,8 +548,6 @@ export function installFirstLevelRouteModule(target: any): void {
                             pendingSceneGameplayRequest.entryMode === 'external',
                         );
                     }
-                } else if (shouldEnterHomeOnStartup) {
-                    this.showHomeAfterStartupLoading();
                 } else if (defaultEntryLevel <= 1) {
                     // 纯新用户默认从第一关进入
                     this.loadLevel(1);
@@ -575,7 +557,7 @@ export function installFirstLevelRouteModule(target: any): void {
             };
         
             let deferredStartupDelaySec = 0;
-            if (!pendingSceneGameplayRequest && !shouldEnterHomeOnStartup && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
+            if (!pendingSceneGameplayRequest && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
                 const useLocalBootstrapStartup =
                     urlLevel <= 0 &&
                     defaultEntryLevel <= 1 &&

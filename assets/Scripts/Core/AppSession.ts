@@ -26,7 +26,7 @@ export interface PendingHomeToast {
     duration: number;
 }
 
-export interface StartupCloudHomeRouteRequest {
+export interface StartupCloudGameRestoreRequest {
     savedLevel: number;
     requestedAt: number;
 }
@@ -40,7 +40,7 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
-    private _startupCloudHomeRouteRequest: StartupCloudHomeRouteRequest | null = null;
+    private _startupCloudGameRestoreRequest: StartupCloudGameRestoreRequest | null = null;
     private readonly _routedBundles = new Map<string, Bundle>();
 
     get currentSceneName(): AppSceneName {
@@ -63,8 +63,8 @@ export class AppSession {
         return this._activeGameplayContext;
     }
 
-    get startupCloudHomeRouteRequest(): StartupCloudHomeRouteRequest | null {
-        return this._startupCloudHomeRouteRequest;
+    get startupCloudGameRestoreRequest(): StartupCloudGameRestoreRequest | null {
+        return this._startupCloudGameRestoreRequest;
     }
 
     setCurrentSceneName(sceneName: AppSceneName): void {
@@ -123,24 +123,24 @@ export class AppSession {
         return toast;
     }
 
-    markStartupCloudHomeRouteReady(savedLevel: number): void {
+    markStartupCloudGameRestoreReady(savedLevel: number): void {
         const normalizedLevel = Math.max(1, Math.floor(Number(savedLevel) || 1));
         if (normalizedLevel <= 1) return;
-        this._startupCloudHomeRouteRequest = {
+        this._startupCloudGameRestoreRequest = {
             savedLevel: normalizedLevel,
             requestedAt: Date.now(),
         };
     }
 
-    clearStartupCloudHomeRouteRequest(): void {
-        this._startupCloudHomeRouteRequest = null;
+    clearStartupCloudGameRestoreRequest(): void {
+        this._startupCloudGameRestoreRequest = null;
     }
 
-    consumeStartupCloudHomeRouteForGameRedirect(): StartupCloudHomeRouteRequest | null {
-        const request = this._startupCloudHomeRouteRequest;
+    consumeStartupCloudGameRestoreForGameEntry(): StartupCloudGameRestoreRequest | null {
+        const request = this._startupCloudGameRestoreRequest;
         if (!request) return null;
         if (Date.now() - request.requestedAt > 15000) {
-            this._startupCloudHomeRouteRequest = null;
+            this._startupCloudGameRestoreRequest = null;
             return null;
         }
         if (this._currentSceneName !== 'Boot' || this._requestedSceneName !== 'Game' || this._visualState !== 'boot') {
@@ -149,7 +149,7 @@ export class AppSession {
         if (this._pendingGameplayRequest || this._activeGameplayContext) {
             return null;
         }
-        this._startupCloudHomeRouteRequest = null;
+        this._startupCloudGameRestoreRequest = null;
         return request;
     }
 

@@ -3,7 +3,7 @@ import { AppSession, type AppSceneName } from './AppSession';
 import {
     HOME_ASSETS_BUNDLE_NAME,
     LOCAL_BOOTSTRAP_BUNDLE_NAME,
-    LOGICAL_FIRST_PLAY_BUNDLE_NAME,
+    LOGICAL_GAME_ENTRY_BUNDLE_NAME,
     LOGICAL_HOME_BUNDLE_NAME,
 } from './PackageNames';
 import { debugPerfTrace } from './DebugPerfTrace';
@@ -76,7 +76,7 @@ export class SceneRouter {
     }
 
     async toGame(): Promise<void> {
-        await this.loadBundledScene(this.gameSceneName, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOGICAL_FIRST_PLAY_BUNDLE_NAME);
+        await this.loadBundledScene(this.gameSceneName, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOGICAL_GAME_ENTRY_BUNDLE_NAME);
     }
 
     private async loadScene(sceneName: AppSceneName): Promise<void> {
@@ -172,9 +172,9 @@ export class SceneRouter {
         }
         this._transitioning = true;
         const startedAt = Date.now();
-        let finalSceneName = sceneName;
-        let finalBundleName = bundleName;
-        let finalLogicalName = logicalName;
+        const finalSceneName = sceneName;
+        const finalBundleName = bundleName;
+        const finalLogicalName = logicalName;
         debugPerfTrace('scene.bundle.load.start', {
             from: this.session.currentSceneName,
             requestedBefore: this.session.requestedSceneName,
@@ -238,77 +238,26 @@ export class SceneRouter {
                             logicalBundle: logicalName,
                             durationMs: Date.now() - startedAt,
                         });
-                        const startupHomeRoute = sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME
-                            ? this.session.consumeStartupCloudHomeRouteForGameRedirect()
+                        const startupGameRestore = sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME
+                            ? this.session.consumeStartupCloudGameRestoreForGameEntry()
                             : null;
-                        if (startupHomeRoute) {
-                            finalSceneName = this.homeSceneName;
-                            finalBundleName = HOME_ASSETS_BUNDLE_NAME;
-                            finalLogicalName = LOGICAL_HOME_BUNDLE_NAME;
-                            debugPerfTrace('scene.bundle.redirect.beforeRun', {
+                        if (startupGameRestore) {
+                            this.session.markPendingGameplayRequest(
+                                startupGameRestore.savedLevel,
+                                'level_',
+                                'main',
+                                'auto',
+                            );
+                            debugPerfTrace('scene.bundle.gameRestore.beforeRun', {
                                 from: this.session.currentSceneName,
                                 requestedBefore: this.session.requestedSceneName,
                                 loadedScene: sceneName,
                                 loadedBundleName: bundleName,
                                 loadedLogicalBundle: logicalName,
-                                to: this.homeSceneName,
-                                bundleName: HOME_ASSETS_BUNDLE_NAME,
-                                logicalBundle: LOGICAL_HOME_BUNDLE_NAME,
-                                savedLevel: startupHomeRoute.savedLevel,
+                                to: sceneName,
+                                savedLevel: startupGameRestore.savedLevel,
                                 durationMs: Date.now() - startedAt,
                             });
-                            this.session.requestScene(this.homeSceneName);
-                            assetManager.loadBundle(HOME_ASSETS_BUNDLE_NAME, (homeBundleErr, homeBundle) => {
-                                if (homeBundleErr || !homeBundle) {
-                                    debugPerfTrace('scene.bundle.redirect.error', {
-                                        to: this.homeSceneName,
-                                        bundleName: HOME_ASSETS_BUNDLE_NAME,
-                                        logicalBundle: LOGICAL_HOME_BUNDLE_NAME,
-                                        durationMs: Date.now() - startedAt,
-                                        error: homeBundleErr || new Error('missing home bundle'),
-                                    });
-                                    reject(new Error(`[SceneRouter] redirect to ${LOGICAL_HOME_BUNDLE_NAME}/${HOME_ASSETS_BUNDLE_NAME} failed: ${homeBundleErr?.message || 'missing bundle'}`));
-                                    return;
-                                }
-                                this.session.rememberRoutedBundle(HOME_ASSETS_BUNDLE_NAME, homeBundle);
-                                homeBundle.loadScene(this.homeSceneName, (homeSceneErr: Error | null, homeSceneAsset: SceneAsset) => {
-                                    if (homeSceneErr || !homeSceneAsset) {
-                                        debugPerfTrace('scene.bundle.redirect.scene.error', {
-                                            to: this.homeSceneName,
-                                            bundleName: HOME_ASSETS_BUNDLE_NAME,
-                                            logicalBundle: LOGICAL_HOME_BUNDLE_NAME,
-                                            durationMs: Date.now() - startedAt,
-                                            error: homeSceneErr || new Error('missing home scene asset'),
-                                        });
-                                        reject(new Error(`[SceneRouter] redirect load scene ${this.homeSceneName} from ${LOGICAL_HOME_BUNDLE_NAME}/${HOME_ASSETS_BUNDLE_NAME} failed: ${homeSceneErr?.message || 'missing scene asset'}`));
-                                        return;
-                                    }
-                                    debugPerfTrace('scene.bundle.redirect.scene.loaded', {
-                                        to: this.homeSceneName,
-                                        bundleName: HOME_ASSETS_BUNDLE_NAME,
-                                        logicalBundle: LOGICAL_HOME_BUNDLE_NAME,
-                                        savedLevel: startupHomeRoute.savedLevel,
-                                        durationMs: Date.now() - startedAt,
-                                    });
-                                    director.runScene(homeSceneAsset, undefined, () => {
-                                        this.session.setCurrentSceneName(this.homeSceneName);
-                                        debugPerfTrace('scene.bundle.redirect.run.callback', {
-                                            current: this.session.currentSceneName,
-                                            requested: this.session.requestedSceneName,
-                                            to: this.homeSceneName,
-                                            bundleName: HOME_ASSETS_BUNDLE_NAME,
-                                            logicalBundle: LOGICAL_HOME_BUNDLE_NAME,
-                                            savedLevel: startupHomeRoute.savedLevel,
-                                            durationMs: Date.now() - startedAt,
-                                            visualState: this.session.visualState,
-                                            hasPendingGameplay: !!this.session.pendingGameplayRequest,
-                                            hasActiveGameplay: !!this.session.activeGameplayContext,
-                                        });
-                                        resolve();
-                                    });
-                                });
-                            });
-                            return;
                         }
                         director.runScene(sceneAsset, undefined, () => {
                             this.session.setCurrentSceneName(sceneName);

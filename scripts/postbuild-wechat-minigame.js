@@ -328,7 +328,7 @@ function ensureBootstrapWechatSubpackage() {
     var bootstrapSubpackageDir = path.join(runtimeRoot, bootstrapRoot);
     if (fs.existsSync(localBundleDir)) {
         movePathSync(localBundleDir, bootstrapSubpackageDir);
-        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 firstPlay/bootstrap: ' + bootstrapRoot + ' ✓');
+        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 gameEntry/bootstrap: ' + bootstrapRoot + ' ✓');
     }
     ensureStableBundleFiles(bootstrapSubpackageDir);
     ensureSubpackageGameJs(bootstrapSubpackageDir, BOOTSTRAP_BUNDLE_NAME);
@@ -729,8 +729,8 @@ if (fs.existsSync(settingsPath)) {
     ensureStartupPreloadBundles(a);
     settings.assets = a;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, null));
-    console.log('[2/6] projectBundles 已配置 firstPlay/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
-    console.log('[2/6] startup preload: cocosCore/main only; firstPlay/bootstrap 按 A/C 路由按需加载 ✓');
+    console.log('[2/6] projectBundles 已配置 gameEntry/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
+    console.log('[2/6] startup preload: cocosCore/main only; gameEntry/bootstrap 由统一游戏入口路由按需加载 ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
 }
@@ -908,7 +908,7 @@ if (fs.existsSync(projectConfigPath)) {
     }
 }
 
-// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 firstPlay/bootstrap 是微信分包。
+// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 gameEntry/bootstrap 是微信分包。
 var stableBundleNames = debugLevelDataBundle
     ? ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, 'main']
     : ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME, 'main'];
@@ -926,7 +926,7 @@ try {
     var bootstrapPathEntries = Object.values(bootstrapConfig.paths || {}).filter((value) => Array.isArray(value) && value.length > 0);
     var importVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.import) ? bootstrapConfig.versions.import.length / 2 : 0;
     var nativeVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.native) ? bootstrapConfig.versions.native.length / 2 : 0;
-    console.log('[3.7/7] 已使用 Creator 生成的 firstPlay/bootstrap bundle ✓');
+    console.log('[3.7/7] 已使用 Creator 生成的 gameEntry/bootstrap bundle ✓');
     console.log('         entries=' + bootstrapPathEntries.length + ', import=' + importVersions + ', native=' + nativeVersions);
 } catch (e) {
     console.error('[3.7/7] 读取 bootstrap bundle 失败:', e.message || e);
@@ -1215,8 +1215,8 @@ var minigameHomeAssetsSubpackageDir = path.join(minigameRootPath, minigameHomeAs
 var minigameBootstrapSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, BOOTSTRAP_BUNDLE_NAME);
 var minigameBootstrapSubpackageDir = path.join(minigameRootPath, minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameBootstrapSubpackageDir)
-    ? '[8.5/8] firstPlay/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
-    : '[8.5/8] firstPlay/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
+    ? '[8.5/8] gameEntry/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
+    : '[8.5/8] gameEntry/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameHomeAssetsSubpackageDir)
     ? '[8.5/8] homeAssets 微信分包目录已保留: ' + minigameHomeAssetsSubpackageRoot + ' ✓'
     : '[8.5/8] homeAssets 微信分包目录缺失，交由验证脚本确认: ' + minigameHomeAssetsSubpackageRoot);

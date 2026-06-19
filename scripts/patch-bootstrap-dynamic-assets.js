@@ -17,6 +17,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/slot_row_lock_mask_ui',
 	'GameUI/倒计时',
 	'GameUI/guide_hand',
+	'GameUI/loading_cover',
 	'GameUI/popup_guide_highlight_ring',
 	'GameUI/popup_ad_play_icon',
 	'GameUI/popup_primary_button',

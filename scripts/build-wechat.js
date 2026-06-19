@@ -152,12 +152,37 @@ function getRecentLogFiles(logDir, startedAtMs) {
         .sort();
 }
 
+function parseCocosLogLineTimeMs(line) {
+    const match = /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/.exec(line);
+    if (!match) return null;
+    const [, year, month, day, hour, minute, second] = match;
+    return new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+    ).getTime();
+}
+
+function readCocosLogTextSince(logPath, startedAtMs) {
+    const cutoffMs = startedAtMs - 2000;
+    return fs.readFileSync(logPath, 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => {
+            const lineTimeMs = parseCocosLogLineTimeMs(line);
+            return lineTimeMs !== null && lineTimeMs >= cutoffMs;
+        })
+        .join('\n');
+}
+
 function assertCocosImporterLogsHealthy(startedAtMs) {
     const assetDbLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'asset-db', 'log'), startedAtMs);
     const builderLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'builder', 'log'), startedAtMs);
     const importerFailures = [];
     for (const logPath of assetDbLogs) {
-        const text = fs.readFileSync(logPath, 'utf8');
+        const text = readCocosLogTextSince(logPath, startedAtMs);
         const matches = text.match(/Can not find the importer [^\r\n]+ in editor/g);
         if (matches && matches.length > 0) {
             importerFailures.push(`${path.relative(projectDir, logPath)}: ${matches.slice(0, 5).join('; ')}`);
@@ -165,7 +190,7 @@ function assertCocosImporterLogsHealthy(startedAtMs) {
     }
     const emptyAssetStats = [];
     for (const logPath of builderLogs) {
-        const text = fs.readFileSync(logPath, 'utf8');
+        const text = readCocosLogTextSince(logPath, startedAtMs);
         if (/Number of all scenes:\s*0\b/.test(text) && /Number of all scripts:\s*0\b/.test(text)) {
             emptyAssetStats.push(path.relative(projectDir, logPath));
         }
@@ -317,7 +342,7 @@ logStep('0.15 生成远程关卡数据包...');
 runNode('scripts/write-level-data-cdn.js', [levelDataCdnDir]);
 logInfo('关卡数据 CDN 产物已生成: ' + levelDataCdnDir);
 
-logStep('0.2 准备 BootstrapBundle 首关快照...');
+logStep('0.2 准备 BootstrapBundle 游戏入口快照...');
 runNode('scripts/prepare-bootstrap.js');
 logInfo('BootstrapBundle 源目录已准备');
 
@@ -365,8 +390,8 @@ const runtimeInfo = {
 };
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'firstPlay/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
-assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'firstPlay/bootstrap', ['homeAssets', 'gameAssets']);
+assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Textures/BG/bg_game'], '');
@@ -383,7 +408,7 @@ const startupDownloadKB = Math.round(startupDownload.total / 1024);
 console.log('   - 本地包项目:        ' + buildDir);
 console.log('   - 运行时根目录:      ' + runtimeDir);
 console.log('   - 关卡数据 CDN:      ' + levelDataCdnDir);
-console.log('   - firstPlay/bootstrap: ' + formatMB(dirSize(runtimeInfo.bootstrapDir)));
+console.log('   - gameEntry/bootstrap: ' + formatMB(dirSize(runtimeInfo.bootstrapDir)));
 console.log('   - homeAssets 分包:       ' + formatMB(dirSize(runtimeInfo.homeAssetsDir)));
 console.log('   - gameAssets 分包:       ' + formatMB(dirSize(runtimeInfo.gameAssetsDir)));
 console.log('   - 关卡数据包:        ' + formatMB(dirSize(levelDataCdnDir)));

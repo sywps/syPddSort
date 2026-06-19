@@ -1664,7 +1664,7 @@ export function installAssetBootstrapModule(target: any): void {
             return (this._startupCloudRestoreStatus || '') as UserStateRestoreStatus | '';
         },
 
-        _shouldHoldStartupCloudHomeRouteForBoot(): boolean {
+        _shouldHoldStartupCloudRestoreForBoot(): boolean {
             const appRoot = AppRoot.tryGet();
             const sceneName = String(this.node?.scene?.name || '');
             return sceneName === 'Boot' || appRoot?.session.currentSceneName === 'Boot';
@@ -1698,7 +1698,7 @@ export function installAssetBootstrapModule(target: any): void {
                 let status: UserStateRestoreStatus;
                 if (!lateState) {
                     status = UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
-                } else if (this._shouldHoldStartupCloudHomeRouteForBoot()) {
+                } else if (this._shouldHoldStartupCloudRestoreForBoot()) {
                     status = this.applyCloudUserState(lateState);
                 } else {
                     status = applyLateCloudUserStateToRuntime(this, lateState, hadLocalUserState) || 'cloud_failed_unresolved';
