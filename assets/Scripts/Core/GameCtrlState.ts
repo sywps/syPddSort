@@ -268,6 +268,9 @@ export function initializeGameCtrlState(runtime: any): void {
         _skinSpriteFrameLoadingCallbacks: new Map<string, Array<(sf: SpriteFrame | null, err?: Error | null) => void>>(),
         _equippedBackgroundSkinId: 0,
         _equippedBackgroundSkinFrame: null as SpriteFrame | null,
+        _appliedGameplayBackgroundSkinId: 0,
+        _appliedGameplayBackgroundRefreshSeq: -1,
+        _gameplayBackgroundSkinRetryToken: 0,
         _backgroundSkinPanelOverlay: null,
     });
 

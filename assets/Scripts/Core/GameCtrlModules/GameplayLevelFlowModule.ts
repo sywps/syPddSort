@@ -33,6 +33,7 @@ import { AppRoot } from '../AppRoot';
 import { ensureGameplaySessionController } from '../GameplaySessionController';
 import { ensureGameplayViewController } from '../GameplayViewController';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { runtimeLog } from '../RuntimeLog';
 
 export function installGameplayLevelFlowModule(target: any): void {
     Object.assign(target, {
@@ -126,7 +127,7 @@ export function installGameplayLevelFlowModule(target: any): void {
             const path = this.getLevelDataPath(levelId, prefix);
             this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
                 if (levelData) {
-                    console.log('[LevelDataLoad] OK level data', this.getLevelDataLoadDiagnostics(levelId, path, {
+                    runtimeLog('[LevelDataLoad] OK level data', this.getLevelDataLoadDiagnostics(levelId, path, {
                         source,
                         dataVersion: source === 'level_data_cdn' ? LevelDataCdnService.inst.getDataVersion() : '',
                         actualLevelId: levelData.levelId,

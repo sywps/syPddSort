@@ -108,16 +108,15 @@ function ensureSubpackageGameJs(bundleDir, bundleName) {
     }
 }
 
-function stripBundleConfigDeps(bundleDir, forbiddenDeps) {
+function assertBundleConfigDepsClean(bundleDir, bundleName, forbiddenDeps) {
     if (!fs.existsSync(bundleDir)) return;
     for (const name of fs.readdirSync(bundleDir).filter((item) => /^config(?:\.[0-9a-f]+)?\.json$/i.test(item))) {
         const configPath = path.join(bundleDir, name);
         const config = readJson(configPath);
         if (!Array.isArray(config.deps)) continue;
-        const deps = config.deps.filter((dep) => !forbiddenDeps.includes(dep));
-        if (deps.length !== config.deps.length) {
-            config.deps = deps;
-            writeJson(configPath, config);
+        const matched = config.deps.filter((dep) => forbiddenDeps.includes(dep));
+        if (matched.length > 0) {
+            fail(bundleName + ' config.json 存在禁止依赖: ' + matched.join(', ') + ' (' + path.relative(buildPath, configPath) + ')');
         }
     }
 }
@@ -133,7 +132,7 @@ function ensureBundleSubpackage(runtimeRoot, bundleName) {
     }
     if (!fs.existsSync(bundleDir)) fail('抖音包缺少分包目录: ' + path.relative(runtimeRoot, bundleDir));
     ensureStableBundleFiles(bundleDir);
-    if (bundleName === 'homeAssets') stripBundleConfigDeps(bundleDir, ['gameAssets']);
+    if (bundleName === 'homeAssets') assertBundleConfigDepsClean(bundleDir, bundleName, ['gameAssets']);
     ensureSubpackageGameJs(bundleDir, bundleName);
     const gameJson = readJson(gameJsonPath);
     const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages.slice() : [];

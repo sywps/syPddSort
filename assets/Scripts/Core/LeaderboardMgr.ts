@@ -1,6 +1,7 @@
 import { _decorator, sys } from 'cc';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { runtimeLog, runtimeWarn } from './RuntimeLog';
 import type { UserProfile } from './UserMgr';
 
 const { ccclass } = _decorator;
@@ -131,7 +132,7 @@ export class LeaderboardMgr {
 
         try {
             if (progressLevel <= 1) {
-                console.log('[LeaderboardMgr] skip wx cloud score reset for starter level');
+                runtimeLog('[LeaderboardMgr] skip wx cloud score reset for starter level');
                 return false;
             }
 
@@ -144,12 +145,12 @@ export class LeaderboardMgr {
                     },
                 }),
             };
-            console.log('[LeaderboardMgr] Calling wx.setUserCloudStorage, level:', progressLevel);
+            runtimeLog('[LeaderboardMgr] Calling wx.setUserCloudStorage, level:', progressLevel);
             await new Promise<void>((resolve, reject) => {
                 wx.setUserCloudStorage({
                     KVDataList: [kvData],
                     success: () => {
-                        console.log('[LeaderboardMgr] setUserCloudStorage SUCCESS, level:', progressLevel);
+                        runtimeLog('[LeaderboardMgr] setUserCloudStorage SUCCESS, level:', progressLevel);
                         resolve();
                     },
                     fail: (err: any) => {
@@ -163,7 +164,7 @@ export class LeaderboardMgr {
             // 如果是隐私协议未签署（errno 1026），跳过提交
             const errMsg = error?.errMsg || error?.errCode || '';
             if (error?.errno === 1026 || (errMsg as string).includes('privacy')) {
-                console.warn('[LeaderboardMgr] Privacy not configured, skipping cloud storage submission');
+                runtimeWarn('[LeaderboardMgr] Privacy not configured, skipping cloud storage submission');
                 return false;
             }
             if (errCode === -80002 || String(errMsg).toLowerCase().includes('setusercloudstorage:fail')) {
@@ -172,11 +173,11 @@ export class LeaderboardMgr {
             }
             // 如果是未登录导致的失败，尝试重新登录后再提交
             if (errMsg.includes('login') || errMsg.includes('session') || errMsg.includes('auth') || errMsg.includes('not exist')) {
-                console.log('[LeaderboardMgr] Retrying after wx.login...');
+                runtimeLog('[LeaderboardMgr] Retrying after wx.login...');
                 try {
                     const loginOk = await this.loginWeChat();
                     if (loginOk) {
-                        console.log('[LeaderboardMgr] wx.login retry success, resubmitting score');
+                        runtimeLog('[LeaderboardMgr] wx.login retry success, resubmitting score');
                         const kvData = {
                             key: 'score',
                             value: JSON.stringify({
@@ -193,7 +194,7 @@ export class LeaderboardMgr {
                                 fail: (e: any) => reject(e),
                             });
                         });
-                        console.log('[LeaderboardMgr] setUserCloudStorage retry SUCCESS');
+                        runtimeLog('[LeaderboardMgr] setUserCloudStorage retry SUCCESS');
                         return true;
                     }
                 } catch (retryError) {
@@ -214,7 +215,7 @@ export class LeaderboardMgr {
                 wx.login({ success: resolve, fail: reject });
             });
             if (res?.code) {
-                console.log('[LeaderboardMgr] wx.login success');
+                runtimeLog('[LeaderboardMgr] wx.login success');
                 return true;
             }
         } catch (e) {
@@ -439,7 +440,7 @@ export class LeaderboardMgr {
             return;
         }
         this.friendCloudStorageUnavailableWarned = true;
-        console.log(`[LeaderboardMgr] friend cloud storage skipped: ${reason}`);
+        runtimeLog(`[LeaderboardMgr] friend cloud storage skipped: ${reason}`);
     }
 
     private callLeaderboardCloudFunction<T>(action: string, data: Record<string, unknown>): Promise<T> {

@@ -27,6 +27,7 @@ import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
+import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
@@ -310,7 +311,7 @@ export function installFirstLevelRouteModule(target: any): void {
         ): void {
             const diagnostics = this.getLevelDataLoadDiagnostics(levelId, levelPath, opt.extra || {});
             const logArgs = [`[LevelDataLoad] ${eventName}`, diagnostics];
-            if (success) console.log(...logArgs);
+            if (success) runtimeLog(...logArgs);
             else console.error(...logArgs);
             this.trackFirstLevelFunnelForLevel(levelId, eventName, {
                 source: 'level_data',
@@ -421,17 +422,11 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         installRuntimeLogGate() {
-            if (!this._isWeChat() || this.getUrlDebug()) return;
-            const c: any = typeof console !== 'undefined' ? console : null;
-            if (!c || c.__pddLogGateInstalled) return;
-            c.__pddLogGateInstalled = true;
-            c.__pddOriginalLog = c.log;
-            c.log = () => {};
         },
 
         logRuntimeTrace(...args: unknown[]) {
             if (!this.getUrlDebug()) return;
-            console.log(...args);
+            runtimeLog(...args);
         },
 
         _startDeferredStartupBackgroundServices(
@@ -449,7 +444,7 @@ export function installFirstLevelRouteModule(target: any): void {
             if (canAutoSaveGameStateOnStartup) {
                 this.queueCloudGameStateSync();
             } else if (this._isWeChat() && restoreStatus !== 'cloud_restore_pending') {
-                console.warn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
+                runtimeWarn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
             }
 
             const run = () => {
@@ -484,24 +479,28 @@ export function installFirstLevelRouteModule(target: any): void {
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
-            const defaultEntryLevel = this.getDefaultEntryLevel();
+            const initialDefaultEntryLevel = this.getDefaultEntryLevel();
             const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
-            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
+            const speculativeStartupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : initialDefaultEntryLevel);
             const shouldSpeculativeFirstPlayPrefetch =
                 !urlLevelFile
                 && urlLevel <= 0
                 && !pendingSceneGameplayRequest
-                && defaultEntryLevel <= 1
+                && initialDefaultEntryLevel <= 1
                 && !hadLocalUserState
-                && this.shouldUseLocalBootstrapBundle(startupLevelId);
+                && this.shouldUseLocalBootstrapBundle(speculativeStartupLevelId);
             this._firstLevelRouteBucket = 'bucket_a';
             if (shouldSpeculativeFirstPlayPrefetch) {
-                this.prefetchLocalBootstrapStartupAssets(startupLevelId);
+                this.prefetchLocalBootstrapStartupAssets(speculativeStartupLevelId);
             }
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
+            const defaultEntryLevel = urlLevel > 0 || urlLevelFile
+                ? initialDefaultEntryLevel
+                : this.getDefaultEntryLevel();
+            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
@@ -514,6 +513,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     this.getLevelDataPath(startupLevelId, startupLevelPrefix),
                     {
                         extra: {
+                            initialDefaultEntryLevel,
                             defaultEntryLevel,
                             urlLevel,
                             urlTheme,
@@ -602,11 +602,11 @@ export function installFirstLevelRouteModule(target: any): void {
                                 savedLevel: this.getSavedLevel(),
                             },
                         });
-                        console.warn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
+                        runtimeWarn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
                     })
                     .catch((err: Error) => {
                         this._firstLevelRouteBucket = 'bucket_a';
-                        console.warn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: background assignment failed, use default bucket_a`, err?.message || err);
+                        runtimeWarn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: background assignment failed, use default bucket_a`, err?.message || err);
                     });
             }
         
@@ -759,7 +759,7 @@ export function installFirstLevelRouteModule(target: any): void {
                         this._bootstrapAtlasFrameCache.set(name, sf);
                         count++;
                     }
-                    console.log(`[图集] 豆豆图集已加载: ${count} 个 SpriteFrame`);
+                    runtimeLog(`[图集] 豆豆图集已加载: ${count} 个 SpriteFrame`);
                     finish(count > 0);
                 });
             });
@@ -837,7 +837,7 @@ export function installFirstLevelRouteModule(target: any): void {
             };
             this._loadAtlasDataFromBundle(bundle, 'Textures/Pindd/Effects/effects-atlas', 'effects-atlas', (err, atlasData) => {
                 if (err || !atlasData) {
-                    console.warn('[图集] 未找到 effects-atlas.json，使用独立纹理:', err?.message);
+                    runtimeWarn('[图集] 未找到 effects-atlas.json，使用独立纹理:', err?.message);
                     debugPerfTrace('effectsAtlas.json.error', {
                         durationMs: Date.now() - startedAt,
                         error: err || new Error('missing atlasData'),
@@ -847,7 +847,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
                 const frames = atlasData.frames;
                 if (!frames) {
-                    console.warn('[图集] 特效图集数据不完整');
+                    runtimeWarn('[图集] 特效图集数据不完整');
                     debugPerfTrace('effectsAtlas.json.invalid', {
                         durationMs: Date.now() - startedAt,
                     });
@@ -856,7 +856,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
                 bundle.load('Textures/Pindd/Effects/effects-atlas', ImageAsset, (imgErr, imgAsset) => {
                     if (imgErr || !imgAsset) {
-                        console.warn('[图集] 特效纹理加载失败:', imgErr?.message);
+                        runtimeWarn('[图集] 特效纹理加载失败:', imgErr?.message);
                         debugPerfTrace('effectsAtlas.texture.error', {
                             durationMs: Date.now() - startedAt,
                             error: imgErr || new Error('missing image asset'),
@@ -876,7 +876,7 @@ export function installFirstLevelRouteModule(target: any): void {
                         this.sfCache.set(name, sf);
                         count++;
                     }
-                    console.log(`[图集] 特效图集已加载: ${count} 个 SpriteFrame`);
+                    runtimeLog(`[图集] 特效图集已加载: ${count} 个 SpriteFrame`);
                     debugPerfSnapshot('effectsAtlas.texture.loaded', this, {
                         frameCount: count,
                         durationMs: Date.now() - startedAt,
@@ -898,7 +898,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     return;
                 }
                 const message = err?.message || 'unknown error';
-                console.warn(`[图集] ${label}.json 路径加载失败: ${message}`);
+                runtimeWarn(`[图集] ${label}.json 路径加载失败: ${message}`);
                 callback(err || new Error(message), null);
             });
         },
@@ -916,7 +916,7 @@ export function installFirstLevelRouteModule(target: any): void {
                         return;
                     } catch (parseErr) {
                         const message = parseErr instanceof Error ? parseErr.message : 'atlas parse failed';
-                        console.warn(`[图集] ${label}.json 文本解析失败: ${message}`);
+                        runtimeWarn(`[图集] ${label}.json 文本解析失败: ${message}`);
                         callback(parseErr instanceof Error ? parseErr : new Error(message), null);
                         return;
                     }
@@ -927,7 +927,7 @@ export function installFirstLevelRouteModule(target: any): void {
                         return;
                     }
                     const message = textErr?.message || err?.message || 'unknown error';
-                    console.warn(`[图集] ${label}.json 加载失败: ${message}`);
+                    runtimeWarn(`[图集] ${label}.json 加载失败: ${message}`);
                     callback(textErr || err || new Error(message), null);
                 });
             });

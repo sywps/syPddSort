@@ -31,6 +31,7 @@ import type {
 } from '../GameCtrlShared';
 import { installGameplayColorCompleteFxMethods } from './GameplayColorCompleteFxModule';
 import { installGameplaySlotCompactionMethods } from './GameplaySlotCompactionModule';
+import { runtimeLog } from '../RuntimeLog';
 
 type FlyPlaceVisualOptions = {
     sourceBeanSize?: number;
@@ -818,7 +819,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
             if (!this._timerLockedForProp && this._timerPauseRefs > 0) {
                 this._timerPauseRefs = 0;
-                console.log('[Timer] resumed via bean reselection');
+                runtimeLog('[Timer] resumed via bean reselection');
             }
         },
 
@@ -837,12 +838,12 @@ export function installGameplayPlacementFxModule(target: any): void {
         pauseTimerForProp() {
             this._timerPauseRefs++;
             this._timerLockedForProp = true;
-            console.log('[Timer] pauseTimerForProp, refs:', this._timerPauseRefs);
+            runtimeLog('[Timer] pauseTimerForProp, refs:', this._timerPauseRefs);
         },
 
         resumeTimerForProp() {
             if (this._timerPauseRefs > 0) this._timerPauseRefs--;
-            console.log('[Timer] resumeTimerForProp, refs:', this._timerPauseRefs);
+            runtimeLog('[Timer] resumeTimerForProp, refs:', this._timerPauseRefs);
         },
     });
 }

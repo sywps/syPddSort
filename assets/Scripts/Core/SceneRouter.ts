@@ -7,6 +7,7 @@ import {
     LOGICAL_HOME_BUNDLE_NAME,
 } from './PackageNames';
 import { debugPerfTrace } from './DebugPerfTrace';
+import { runtimeLog } from './RuntimeLog';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -26,7 +27,7 @@ function isSceneTraceEnabled(): boolean {
 
 function logSceneTrace(...args: unknown[]): void {
     if (!isSceneTraceEnabled()) return;
-    console.log(...args);
+    runtimeLog(...args);
 }
 
 export class SceneRouter {

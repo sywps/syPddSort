@@ -1,5 +1,6 @@
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { runtimeLog } from './RuntimeLog';
 
 const { ccclass } = _decorator;
 
@@ -656,7 +657,7 @@ export class AnalyticsMgr {
             return;
         }
         this.unavailableWarned = true;
-        console.log('[AnalyticsMgr] analytics cloud unavailable, reporting is skipped.');
+        runtimeLog('[AnalyticsMgr] analytics cloud unavailable, reporting is skipped.');
     }
 
     private isExpectedCloudBootstrapFailure(error: unknown): boolean {

@@ -1,11 +1,16 @@
 import { _decorator } from 'cc';
 import { getMiniGameBuildMode } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { runtimeLog, runtimeWarn } from './RuntimeLog';
 
 const { ccclass } = _decorator;
 
 const CLOUD_FUNCTION_NAME = 'syncUserState';
 const SAVE_DEBOUNCE_MS = 600;
+const SAVE_RETRY_MS = 3000;
+const SAVE_RETRY_LIMIT = 3;
+const USER_STATE_SCHEMA_VERSION = 1;
+const SKIN_STATE_SCHEMA_VERSION = 1;
 
 export type CloudUserProfile = {
     version: number;
@@ -34,6 +39,7 @@ export type CloudGameState = {
     themeCompletedIds: number[];
     ownedBackgroundSkinIds: number[];
     equippedBackgroundSkinId: number;
+    equippedBackgroundSkinUpdatedAt: number;
     stateUpdatedAt: number;
 };
 
@@ -45,6 +51,8 @@ export type CloudUserState = {
 type CloudFunctionResult = {
     ok?: boolean;
     errorMessage?: string;
+    userStateSchemaVersion?: number;
+    skinStateSchemaVersion?: number;
     profile?: Partial<CloudUserProfile> | null;
     gameState?: Partial<CloudGameState> | null;
 };
@@ -119,8 +127,44 @@ function emitCloudSyncDiagnostic(phase: string, detail: Record<string, unknown> 
     if (!shouldEmitCloudSyncDiagnosticLog()) {
         return;
     }
-    const logger = isCloudSyncWarnEnabled() ? console.warn : console.log;
+    const logger = isCloudSyncWarnEnabled() ? runtimeWarn : runtimeLog;
     logger('[CloudSync]', phase, payload);
+}
+
+function getDiagnosticEquippedBackgroundSkinId(gameState?: Partial<CloudGameState> | null): number | null {
+    const id = Math.max(0, Math.floor(Number(gameState?.equippedBackgroundSkinId) || 0));
+    return id > 0 ? id : null;
+}
+
+function getDiagnosticEquippedBackgroundSkinUpdatedAt(gameState?: Partial<CloudGameState> | null): number | null {
+    const value = Math.max(0, Math.floor(Number(gameState?.equippedBackgroundSkinUpdatedAt) || 0));
+    return value > 0 ? value : null;
+}
+
+function getEquippedBackgroundSkinPair(gameState?: Partial<CloudGameState> | null): { id: number; updatedAt: number } | null {
+    const id = Math.max(0, Math.floor(Number(gameState?.equippedBackgroundSkinId) || 0));
+    const updatedAt = Math.max(0, Math.floor(Number(gameState?.equippedBackgroundSkinUpdatedAt) || 0));
+    return id > 0 && updatedAt > 0 ? { id, updatedAt } : null;
+}
+
+function normalizePositiveInt(value: unknown): number {
+    const num = Math.floor(Number(value) || 0);
+    return Number.isFinite(num) && num > 0 ? num : 0;
+}
+
+function normalizeIdArray(value: unknown): number[] {
+    if (!Array.isArray(value)) return [];
+    const ids = value
+        .map((item) => normalizePositiveInt(item))
+        .filter((item) => item > 0);
+    return Array.from(new Set(ids)).sort((a, b) => a - b);
+}
+
+function includesAllIds(returnedValue: unknown, expectedValue: unknown): boolean {
+    const expected = normalizeIdArray(expectedValue);
+    if (expected.length === 0) return true;
+    const returned = new Set(normalizeIdArray(returnedValue));
+    return expected.every((id) => returned.has(id));
 }
 
 @ccclass('UserStateSyncMgr')
@@ -137,6 +181,7 @@ export class UserStateSyncMgr {
     private pendingPatch: CloudUserState | null = null;
     private saveTimer: any = null;
     private inflightSave: Promise<boolean> | null = null;
+    private consecutiveSaveFailures = 0;
     private cloudUnavailableWarned = false;
     private cloudDisabledForSession = false;
     private authoritativeStateHandler: ((state: CloudUserState) => void) | null = null;
@@ -171,9 +216,27 @@ export class UserStateSyncMgr {
                 throw new Error(result.errorMessage || 'load user state failed');
             }
             emitCloudSyncDiagnostic('load:success', {
+                userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
+                skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
                 hasProfile: !!result?.profile,
                 savedLevel: result?.gameState?.savedLevel ?? null,
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(result?.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(result?.gameState),
             });
+            if ((result?.skinStateSchemaVersion || 0) < SKIN_STATE_SCHEMA_VERSION && !getEquippedBackgroundSkinPair(result?.gameState)) {
+                emitCloudSyncDiagnostic('load:skin-schema-unknown', {
+                    skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
+                    savedLevel: result?.gameState?.savedLevel ?? null,
+                    diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
+                });
+            }
+            if ((result?.userStateSchemaVersion || 0) < USER_STATE_SCHEMA_VERSION) {
+                emitCloudSyncDiagnostic('load:user-state-schema-unknown', {
+                    userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
+                    savedLevel: result?.gameState?.savedLevel ?? null,
+                    diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
+                });
+            }
             return {
                 profile: result?.profile || null,
                 gameState: result?.gameState || null,
@@ -187,7 +250,7 @@ export class UserStateSyncMgr {
                 this.disableCloudForSession('loadState', error);
                 return null;
             }
-            console.warn('[UserStateSyncMgr] loadState failed:', error);
+            runtimeWarn('[UserStateSyncMgr] loadState failed:', error);
             return null;
         }
     }
@@ -197,6 +260,8 @@ export class UserStateSyncMgr {
             emitCloudSyncDiagnostic('save:queue-skip', {
                 reason: 'cloud_unavailable',
                 savedLevel: patch.gameState?.savedLevel ?? null,
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             return;
@@ -205,6 +270,8 @@ export class UserStateSyncMgr {
         this.pendingPatch = this.mergeState(this.pendingPatch, patch);
         emitCloudSyncDiagnostic('save:queued', {
             savedLevel: patch.gameState?.savedLevel ?? null,
+            equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
+            equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
             hasProfile: !!patch.profile,
             hasGameState: !!patch.gameState,
         });
@@ -239,6 +306,8 @@ export class UserStateSyncMgr {
 
         emitCloudSyncDiagnostic('save:flush', {
             savedLevel: patch.gameState?.savedLevel ?? null,
+            equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
+            equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
             hasProfile: !!patch.profile,
             hasGameState: !!patch.gameState,
         });
@@ -254,6 +323,8 @@ export class UserStateSyncMgr {
         try {
             emitCloudSyncDiagnostic('save:start', {
                 savedLevel: patch.gameState?.savedLevel ?? null,
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             const result = await PlatformCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
@@ -264,8 +335,14 @@ export class UserStateSyncMgr {
             if (result?.ok === false) {
                 throw new Error(result.errorMessage || 'save user state failed');
             }
+            this.assertUserStateAcknowledged(patch, result);
+            this.consecutiveSaveFailures = 0;
             emitCloudSyncDiagnostic('save:success', {
+                userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
+                skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
                 savedLevel: result?.gameState?.savedLevel ?? patch.gameState?.savedLevel ?? null,
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(result?.gameState || patch.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(result?.gameState || patch.gameState),
                 hasProfile: !!result?.profile,
                 hasGameState: !!result?.gameState,
             });
@@ -279,17 +356,106 @@ export class UserStateSyncMgr {
         } catch (error) {
             emitCloudSyncDiagnostic('save:fail', {
                 savedLevel: patch.gameState?.savedLevel ?? null,
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
                 message: String((error as any)?.message || error || 'unknown error'),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
-            if (this.isExpectedCloudFailure(error)) {
+            const expectedFailure = this.isExpectedCloudFailure(error);
+            if (expectedFailure) {
                 this.disableCloudForSession('saveNow', error);
             } else {
-                console.warn('[UserStateSyncMgr] saveNow failed:', error);
+                runtimeWarn('[UserStateSyncMgr] saveNow failed:', error);
             }
             this.pendingPatch = this.mergeState(patch, this.pendingPatch);
+            if (!expectedFailure) {
+                this.schedulePendingSaveRetry();
+            }
             return false;
         }
+    }
+
+    private assertUserStateAcknowledged(patch: CloudUserState, result: CloudFunctionResult | null | undefined): void {
+        const problems: Record<string, unknown> = {};
+        const patchGameState = patch.gameState || null;
+        const returnedGameState = result?.gameState || null;
+        const expectedSavedLevel = normalizePositiveInt(patchGameState?.savedLevel);
+        const returnedSavedLevel = normalizePositiveInt(returnedGameState?.savedLevel);
+        if (expectedSavedLevel > 0 && returnedSavedLevel < expectedSavedLevel) {
+            problems.savedLevel = { expectedAtLeast: expectedSavedLevel, returned: returnedSavedLevel || null };
+        }
+        this.collectArrayAcknowledgementProblem(problems, 'themeUnlockedIds', patchGameState?.themeUnlockedIds, returnedGameState?.themeUnlockedIds);
+        this.collectArrayAcknowledgementProblem(problems, 'themeCompletedIds', patchGameState?.themeCompletedIds, returnedGameState?.themeCompletedIds);
+        this.collectArrayAcknowledgementProblem(problems, 'ownedBackgroundSkinIds', patchGameState?.ownedBackgroundSkinIds, returnedGameState?.ownedBackgroundSkinIds);
+
+        const expected = getEquippedBackgroundSkinPair(patch.gameState);
+        const returned = getEquippedBackgroundSkinPair(result?.gameState);
+        if (expected) {
+            const acknowledged = !!returned
+                && returned.id === expected.id
+                && returned.updatedAt >= expected.updatedAt;
+            if (!acknowledged) {
+                problems.equippedBackgroundSkin = {
+                    expectedId: expected.id,
+                    expectedUpdatedAt: expected.updatedAt,
+                    returnedId: returned?.id ?? null,
+                    returnedUpdatedAt: returned?.updatedAt ?? null,
+                };
+            }
+        }
+
+        if (Object.keys(problems).length === 0) {
+            return;
+        }
+        emitCloudSyncDiagnostic('save:user-state-not-acknowledged', {
+            problems,
+            userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
+            skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
+            hasGameState: !!result?.gameState,
+            diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
+        });
+        throw new Error('syncUserState did not acknowledge critical user state');
+    }
+
+    private collectArrayAcknowledgementProblem(
+        problems: Record<string, unknown>,
+        key: 'themeUnlockedIds' | 'themeCompletedIds' | 'ownedBackgroundSkinIds',
+        expectedValue: unknown,
+        returnedValue: unknown,
+    ): void {
+        if (includesAllIds(returnedValue, expectedValue)) {
+            return;
+        }
+        problems[key] = {
+            expectedIncluded: normalizeIdArray(expectedValue),
+            returned: normalizeIdArray(returnedValue),
+        };
+    }
+
+    private schedulePendingSaveRetry(): void {
+        if (!this.pendingPatch || this.saveTimer || this.cloudDisabledForSession) {
+            return;
+        }
+        this.consecutiveSaveFailures += 1;
+        if (this.consecutiveSaveFailures > SAVE_RETRY_LIMIT) {
+            emitCloudSyncDiagnostic('save:retry-stop', {
+                failures: this.consecutiveSaveFailures,
+                reason: 'retry_limit',
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(this.pendingPatch.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(this.pendingPatch.gameState),
+            });
+            return;
+        }
+        emitCloudSyncDiagnostic('save:retry-scheduled', {
+            delayMs: SAVE_RETRY_MS,
+            failures: this.consecutiveSaveFailures,
+            equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(this.pendingPatch.gameState),
+            equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(this.pendingPatch.gameState),
+        });
+        this.saveTimer = setTimeout(() => {
+            this.saveTimer = null;
+            void this.flushPendingSave();
+        }, SAVE_RETRY_MS);
     }
 
     private emitAuthoritativeState(state: CloudUserState): void {
@@ -299,7 +465,7 @@ export class UserStateSyncMgr {
         try {
             this.authoritativeStateHandler(state);
         } catch (error) {
-            console.warn('[UserStateSyncMgr] authoritative state handler failed:', error);
+            runtimeWarn('[UserStateSyncMgr] authoritative state handler failed:', error);
         }
     }
 
@@ -351,7 +517,7 @@ export class UserStateSyncMgr {
         this.cloudUnavailableWarned = true;
         const message = String((error as any)?.message || error || 'unknown error');
         if (shouldEmitCloudSyncDiagnosticLog()) {
-            console.log(`[UserStateSyncMgr] cloud sync skipped for this session during ${phase}: ${message}`);
+            runtimeLog(`[UserStateSyncMgr] cloud sync skipped for this session during ${phase}: ${message}`);
         }
     }
 }

@@ -31,8 +31,9 @@ import type {
 } from '../GameCtrlShared';
 import { ensureThemePanelController } from '../Panels/ThemePanelController';
 import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
+import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 
-function ensureThemeLabelNode(
+function syncDynamicThemeLabelNode(
     parent: Node,
     name: string,
     text: string,
@@ -67,6 +68,24 @@ function ensureThemeLabelNode(
     return label;
 }
 
+function requireThemeLabelNode(
+    parent: Node,
+    name: string,
+    text: string,
+    x: number,
+    y: number,
+): Label {
+    const node = parent.getChildByName(name);
+    const label = node?.getComponent(Label) || null;
+    if (!node?.isValid || !label) {
+        throw new Error(`[theme-ui] missing prefab Label: ${parent.name}/${name}`);
+    }
+    node.setPosition(x, y, 0);
+    label.string = text;
+    node.active = true;
+    return label;
+}
+
 export function installThemePanelFlowModule(target: any): void {
     Object.assign(target, {
         openCollectionImageModal(levelId: number) {
@@ -84,14 +103,10 @@ export function installThemePanelFlowModule(target: any): void {
                     if (pageIndicator) {
                         pageIndicator.active = true;
                         pageIndicator.setPosition(0, 408, 0);
-                        ensureThemeLabelNode(
+                        requireThemeLabelNode(
                             pageIndicator,
-                            'PixelTitle',
+                            'PageIndicatorLabel',
                             `第${levelId}关`,
-                            24,
-                            new Color('#5A4A3A'),
-                            220,
-                            40,
                             0,
                             0,
                         );
@@ -274,8 +289,8 @@ export function installThemePanelFlowModule(target: any): void {
             bubbleGraphics.stroke();
         
             // 提示文字
-            ensureThemeLabelNode(bubble, 'PinchText', '双指捏合', 22, new Color('#5A4A3A'), 320, 32, 0, 16);
-            ensureThemeLabelNode(bubble, 'PinchSub', '可以放大/缩小棋盘', 18, new Color('#8A7A6A'), 320, 28, 0, -16);
+            syncDynamicThemeLabelNode(bubble, 'PinchText', '双指捏合', 22, new Color('#5A4A3A'), 320, 32, 0, 16);
+            syncDynamicThemeLabelNode(bubble, 'PinchSub', '可以放大/缩小棋盘', 18, new Color('#8A7A6A'), 320, 28, 0, -16);
         
             // 捏合手势动画图标（两个手指圆圈）
             const hand = new Node('PinchHand');
@@ -387,41 +402,41 @@ export function installThemePanelFlowModule(target: any): void {
             const onDone = (data: any) => {
                 if (!isRuntimeAlive()) return;
                 this._themeGroupsLoading = false;
-                console.log(`[ThemeConfig] onDone, data=${!!data}, type=${typeof data}`, data ? JSON.stringify(data).slice(0, 200) : 'null');
+                runtimeLog(`[ThemeConfig] onDone, data=${!!data}, type=${typeof data}`, data ? JSON.stringify(data).slice(0, 200) : 'null');
                 const parsed = this.parseThemeConfig(data);
                 this._themeGroupsCache = parsed.length > 0 ? parsed : this.getDefaultThemeGroups();
                 if (callback) callback();
             };
-            console.log(`[ThemeConfig] gameAssetsBundle=${!!this.gameAssetsBundle}`);
+            runtimeLog(`[ThemeConfig] gameAssetsBundle=${!!this.gameAssetsBundle}`);
             if (this.gameAssetsBundle) {
                 this.gameAssetsBundle.load('themes', JsonAsset, (err, jsonAsset) => {
                     if (!isRuntimeAlive()) return;
                     if (err) {
-                        console.warn('[ThemeConfig] load themes from gameAssetsBundle FAILED:', err.message);
+                        runtimeWarn('[ThemeConfig] load themes from gameAssetsBundle FAILED:', err.message);
                         onDone(null);
                     } else {
-                        console.log('[ThemeConfig] themes loaded OK from gameAssetsBundle');
+                        runtimeLog('[ThemeConfig] themes loaded OK from gameAssetsBundle');
                         onDone(jsonAsset.json);
                     }
                 });
             } else {
-                console.log('[ThemeConfig] loading gameAssets bundle first...');
+                runtimeLog('[ThemeConfig] loading gameAssets bundle first...');
                 assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                     if (!isRuntimeAlive()) return;
                     if (err || !bundle) {
-                        console.warn('[ThemeConfig] loadBundle gameAssets FAILED:', err?.message);
+                        runtimeWarn('[ThemeConfig] loadBundle gameAssets FAILED:', err?.message);
                         onDone(null);
                         return;
                     }
-                    console.log('[ThemeConfig] gameAssets bundle loaded OK');
+                    runtimeLog('[ThemeConfig] gameAssets bundle loaded OK');
                     this.gameAssetsBundle = bundle;
                     bundle.load('themes', JsonAsset, (err2, jsonAsset) => {
                         if (!isRuntimeAlive()) return;
                         if (err2) {
-                            console.warn('[ThemeConfig] load themes from bundle FAILED:', err2.message);
+                            runtimeWarn('[ThemeConfig] load themes from bundle FAILED:', err2.message);
                             onDone(null);
                         } else {
-                            console.log('[ThemeConfig] themes loaded OK');
+                            runtimeLog('[ThemeConfig] themes loaded OK');
                             onDone(jsonAsset.json);
                         }
                     });
