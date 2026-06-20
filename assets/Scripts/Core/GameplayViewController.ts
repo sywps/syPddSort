@@ -206,10 +206,8 @@ export class GameplayViewController {
         }
         bgNode.active = true;
         bgNode.layer = Layers.Enum.UI_2D;
-        const bgUi = bgNode.getComponent(UITransform);
-        if (bgUi) {
-            const visibleSize = this.getGameplayVisibleSize();
-            bgUi.setContentSize(visibleSize.width, visibleSize.height);
+        if (!bgNode.getComponent(UITransform)) {
+            throw new Error('[GameplayScene] Game.scene is missing UITransform on BackgroundLayer/BG');
         }
         return bgNode;
     }
@@ -371,8 +369,7 @@ export class GameplayViewController {
         const runtime = this.runtime;
         const fixedRoot = this.getGameplayFixedRoot();
         this.requireGameplayBackgroundShell();
-        const appliedPreparedBackground = runtime.applyPreparedGameplayBackground?.() === true;
-        if (!appliedPreparedBackground) runtime.applyEquippedGameplayBackground?.();
+        runtime.refreshEquippedGameplayBackground?.(false);
         const runtimeRoot = this.getGameplayRuntimeRoot();
         const backgroundRoot = this.getGameplayRuntimeGroup('BackgroundRuntime');
         const topBarRoot = this.getGameplayFixedGroup('TopBarGroup');
@@ -417,8 +414,7 @@ export class GameplayViewController {
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_CANCEL, runtime.onTouchEnd, runtime);
         runtime._sceneInputRoot.on(Node.EventType.MOUSE_WHEEL, runtime.onMouseWheel, runtime);
 
-        const appliedFinalBackground = runtime.applyPreparedGameplayBackground?.() === true;
-        if (!appliedFinalBackground) runtime.applyEquippedGameplayBackground?.();
+        runtime.refreshEquippedGameplayBackground?.(false);
     }
 
     buildTopBar(root: Node) {

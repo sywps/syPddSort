@@ -1,3 +1,5 @@
+import { runtimeLog } from './RuntimeLog';
+
 // 不在模块顶层捕获，延迟到每次调用时从 globalThis 读取，防止时序问题
 function getSygame() {
     return (globalThis as any).Sygame;
@@ -13,7 +15,7 @@ function isSySdkDebugEnabled(): boolean {
 
 function sySdkDebug(...args: unknown[]): void {
     if (!isSySdkDebugEnabled()) return;
-    console.log(...args);
+    runtimeLog(...args);
 }
 
 sySdkDebug('[SySDK] module eval');

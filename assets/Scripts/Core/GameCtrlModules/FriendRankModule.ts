@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
+import { runtimeLog } from '../RuntimeLog';
 
 function requireFriendRankNode(parent: Node, name: string): Node {
     const node = parent.getChildByName(name);
@@ -388,12 +389,12 @@ export function installFriendRankModule(target: any): void {
             });
         
             if (isDebugPerfTraceEnabled()) {
-                console.log('[GameCtrl] OpenData diagnostic:');
-                console.log('  wx available:', !!wx);
-                console.log('  getOpenDataContext available:', !!wx?.getOpenDataContext);
-                console.log('  openDataContext available:', !!openDataContext);
-                console.log('  openDataContext.postMessage available:', !!openDataContext?.postMessage);
-                console.log('  openDataContext.canvas available:', !!openDataContext?.canvas);
+                runtimeLog('[GameCtrl] OpenData diagnostic:');
+                runtimeLog('  wx available:', !!wx);
+                runtimeLog('  getOpenDataContext available:', !!wx?.getOpenDataContext);
+                runtimeLog('  openDataContext available:', !!openDataContext);
+                runtimeLog('  openDataContext.postMessage available:', !!openDataContext?.postMessage);
+                runtimeLog('  openDataContext.canvas available:', !!openDataContext?.canvas);
             }
         
             if (!openDataContext?.postMessage || !openDataContext?.canvas) {

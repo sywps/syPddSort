@@ -2,6 +2,7 @@ import { LeaderboardMgr, UserMgr } from '../GameCtrlShared';
 import type { CloudUserState } from '../GameCtrlShared';
 import type { UserStateRestoreStatus } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { runtimeWarn } from '../RuntimeLog';
 
 function normalizePositiveLevel(value: unknown): number {
     const level = Math.floor(Number(value) || 0);
@@ -50,7 +51,7 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
     const restoredLevel = runtime.getSavedLevel();
     const activeLevel = Math.max(1, Math.floor(Number(runtime.getActiveLogicalLevelId?.() || 1) || 1));
     if (!runtime.isExternalLevelPreviewActive() && runtime.getUrlLevel() <= 0 && restoredLevel > Math.max(beforeLevel, activeLevel)) {
-        console.warn('[GameCtrl] late cloud progress restored', {
+        runtimeWarn('[GameCtrl] late cloud progress restored', {
             beforeLevel, activeLevel, restoredLevel, hadLocalUserState,
         });
         const toastText = `已恢复进度到第${restoredLevel}关`;
@@ -60,12 +61,12 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
                 if (typeof runtime.showToast === 'function') {
                     runtime.showToast(toastText, 2.5);
                 }
-                console.warn('[GameCtrl] late cloud progress restored, keep current gameplay route', {
+                runtimeWarn('[GameCtrl] late cloud progress restored, keep current gameplay route', {
                     beforeLevel, activeLevel: getRuntimeActiveMainLevel(runtime), restoredLevel, hadLocalUserState,
                 });
                 return;
             }
-            console.warn('[GameCtrl] late cloud progress restored, reloading gameplay level', {
+            runtimeWarn('[GameCtrl] late cloud progress restored, reloading gameplay level', {
                 beforeLevel, activeLevel: getRuntimeActiveMainLevel(runtime), restoredLevel, hadLocalUserState,
             });
             const sceneName = typeof runtime.getRuntimeSceneName === 'function'
@@ -97,11 +98,11 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
 export function deferLeaderboardProgressDuringStartup(runtime: any, nextLevel: number): boolean {
     if (runtime._startupCloudRestorePending) {
         runtime._deferredLeaderboardProgress = Math.max(Math.floor(Number(runtime._deferredLeaderboardProgress) || 0), nextLevel);
-        console.warn('[GameCtrl] defer leaderboard progress submit until startup cloud restore is resolved');
+        runtimeWarn('[GameCtrl] defer leaderboard progress submit until startup cloud restore is resolved');
         return true;
     }
     if (runtime._startupCloudSaveBlockedForSession) {
-        console.warn('[GameCtrl] skip leaderboard progress submit because startup cloud restore is unresolved');
+        runtimeWarn('[GameCtrl] skip leaderboard progress submit because startup cloud restore is unresolved');
         return true;
     }
     return false;
@@ -110,11 +111,11 @@ export function deferLeaderboardProgressDuringStartup(runtime: any, nextLevel: n
 export function deferCloudGameStateSyncDuringStartup(runtime: any): boolean {
     if (runtime._startupCloudRestorePending) {
         runtime._deferredCloudGameStateSync = true;
-        console.warn('[GameCtrl] defer cloud state sync until startup cloud restore is resolved');
+        runtimeWarn('[GameCtrl] defer cloud state sync until startup cloud restore is resolved');
         return true;
     }
     if (runtime._startupCloudSaveBlockedForSession) {
-        console.warn('[GameCtrl] skip cloud state sync because startup cloud restore is unresolved for this session');
+        runtimeWarn('[GameCtrl] skip cloud state sync because startup cloud restore is unresolved for this session');
         return true;
     }
     return false;

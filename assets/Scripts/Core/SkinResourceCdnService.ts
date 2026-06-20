@@ -1,11 +1,18 @@
+import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
-    getDouyinMiniGameRuntime,
-    getMiniGameBuildPlatform,
-    getWeChatMiniGameRuntime,
-    isDouyinMiniGameRuntime,
-    isMiniGameRuntime,
-    isWeChatMiniGameRuntime,
-} from './MiniGamePlatform';
+    canUseCdn,
+    getCdnPlatformRequester,
+    getCdnUnavailableReason,
+    isBrowserBackedRequester,
+    joinCdnUrl,
+    normalizeCdnBaseUrl,
+    parseJsonText,
+    readCdnStorageObject,
+    requestCdnText,
+    withCdnQuery,
+    writeCdnStorageObject,
+} from './RemoteDataCdnClient';
+import { runtimeWarn } from './RuntimeLog';
 
 export type SkinRemoteAsset = {
     skinId: number;
@@ -52,135 +59,22 @@ export type SkinLiveManifest = {
 };
 
 const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
-
-function normalizeBaseUrl(value: unknown): string {
-    const text = typeof value === 'string' ? value.trim() : '';
-    return text ? text.replace(/\/?$/, '/') : '';
-}
+const LIVE_MANIFEST_REFRESH_TTL_MS = 5 * 60 * 1000;
+const SKIN_LIVE_MANIFEST_STORAGE_KEY = 'pdd.cdn.skinLiveManifest.v1';
 
 function deriveSkinDataBaseUrl(levelDataBaseUrl: string): string {
-    const normalized = normalizeBaseUrl(levelDataBaseUrl);
+    const normalized = normalizeCdnBaseUrl(levelDataBaseUrl);
     if (!normalized) return '';
     if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
-    return normalizeBaseUrl(normalized + 'skin/');
+    return normalizeCdnBaseUrl(normalized + 'skin/');
 }
 
 function runtimeSkinDataBaseUrl(): string {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
     const w: any = typeof window !== 'undefined' ? window : null;
-    const explicit = normalizeBaseUrl(g?.__PDD_SKIN_DATA_CDN_URL__ || w?.__PDD_SKIN_DATA_CDN_URL__);
+    const explicit = normalizeCdnBaseUrl(g?.__PDD_SKIN_DATA_CDN_URL__ || w?.__PDD_SKIN_DATA_CDN_URL__);
     if (explicit) return explicit;
-    return deriveSkinDataBaseUrl(normalizeBaseUrl(g?.__PDD_LEVEL_DATA_CDN_URL__ || w?.__PDD_LEVEL_DATA_CDN_URL__));
-}
-
-function isLocalBrowserPreview(): boolean {
-    const candidates: string[] = [];
-    const w: any = typeof window !== 'undefined' ? window : null;
-    const d: any = typeof document !== 'undefined' ? document : null;
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    try { candidates.push(String(w?.location?.hostname || '')); } catch (err) {}
-    try { candidates.push(String(g?.location?.hostname || '')); } catch (err) {}
-    try { candidates.push(String(w?.parent?.location?.hostname || '')); } catch (err) {}
-    try { candidates.push(String(d?.referrer || '')); } catch (err) {}
-    try { if (String(g?.location?.protocol || w?.location?.protocol || '') === 'about:') return true; } catch (err) {}
-    return candidates.some((value) => /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|\[?::1\]?)(?::|\/|$)/i.test(value));
-}
-
-function isPlainBrowserRuntime(): boolean {
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    return typeof g?.fetch === 'function' && !isMiniGameRuntime();
-}
-
-function getPlatformObject(): any {
-    const buildPlatform = getMiniGameBuildPlatform();
-    if (buildPlatform === 'douyin') return getDouyinMiniGameRuntime();
-    if (buildPlatform === 'wechat') return getWeChatMiniGameRuntime();
-    return getWeChatMiniGameRuntime() || getDouyinMiniGameRuntime();
-}
-
-function getPlatformRequester(): unknown {
-    return getPlatformObject()?.request;
-}
-
-function isBrowserBackedRequester(requester: unknown): boolean {
-    if (typeof requester !== 'function') return false;
-    try {
-        const text = Function.prototype.toString.call(requester);
-        return /\bfetch\b|XMLHttpRequest/i.test(text);
-    } catch (err) {
-        return false;
-    }
-}
-
-function getSkinDataCdnUnavailableReason(baseUrl: string): string {
-    if (!baseUrl) return 'cdn_url_missing';
-    const externalHttp = /^https?:\/\//i.test(baseUrl);
-    const requester = getPlatformRequester();
-    const miniGameRuntime = isMiniGameRuntime();
-    if ((isLocalBrowserPreview() || isPlainBrowserRuntime()) && externalHttp && !miniGameRuntime) return 'local_browser_external_cdn_disabled';
-    if (externalHttp && miniGameRuntime && typeof requester !== 'function') return 'platform_request_unavailable';
-    if (externalHttp && isBrowserBackedRequester(requester) && !miniGameRuntime) return 'browser_backed_requester';
-    return '';
-}
-
-function canUseSkinDataCdn(baseUrl: string): boolean {
-    return !getSkinDataCdnUnavailableReason(baseUrl);
-}
-
-function joinUrl(baseUrl: string, filePath: string): string {
-    return normalizeBaseUrl(baseUrl) + String(filePath || '').replace(/^\/+/, '');
-}
-
-function withQuery(url: string, key: string, value: string): string {
-    const joiner = url.indexOf('?') === -1 ? '?' : '&';
-    return url + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value);
-}
-
-function parseJsonText<T>(text: string, label: string): T {
-    try {
-        return JSON.parse(text) as T;
-    } catch (err) {
-        throw new Error(label + ' JSON parse failed: ' + (err instanceof Error ? err.message : String(err)));
-    }
-}
-
-function requestText(url: string, timeoutMs: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-        const requester = getPlatformRequester();
-        if (typeof requester === 'function') {
-            requester({
-                url,
-                method: 'GET',
-                timeout: timeoutMs,
-                success: (res: any) => {
-                    const statusCode = Number(res?.statusCode || 0);
-                    if (statusCode && (statusCode < 200 || statusCode >= 300)) {
-                        reject(new Error('HTTP ' + statusCode));
-                        return;
-                    }
-                    const data = res?.data;
-                    resolve(typeof data === 'string' ? data : JSON.stringify(data));
-                },
-                fail: (error: any) => reject(error instanceof Error ? error : new Error(error?.errMsg || 'request failed')),
-            });
-            return;
-        }
-        const fetcher = g?.fetch;
-        if (typeof fetcher === 'function') {
-            fetcher(url, { cache: 'no-store' })
-                .then((response: any) => {
-                    if (!response || !response.ok) {
-                        throw new Error('HTTP ' + (response ? response.status : 0));
-                    }
-                    return response.text();
-                })
-                .then(resolve)
-                .catch(reject);
-            return;
-        }
-        reject(new Error('No request API'));
-    });
+    return deriveSkinDataBaseUrl(normalizeCdnBaseUrl(g?.__PDD_LEVEL_DATA_CDN_URL__ || w?.__PDD_LEVEL_DATA_CDN_URL__));
 }
 
 export class SkinResourceCdnService {
@@ -188,14 +82,30 @@ export class SkinResourceCdnService {
 
     private liveTextPromise: Promise<string> | null = null;
     private liveManifest: SkinLiveManifest | null = null;
+    private liveManifestBaseUrl = '';
+    private liveManifestUpdatedAt = 0;
     private liveUnavailableUntil = 0;
     private liveUnavailableReason = '';
 
-    prefetchLive(): void {
-        if (!canUseSkinDataCdn(runtimeSkinDataBaseUrl()) || this.liveTextPromise || this.isLiveManifestCoolingDown()) return;
+    prefetchLive(options: { force?: boolean } = {}): void {
+        const baseUrl = runtimeSkinDataBaseUrl();
+        if (!canUseCdn(baseUrl) || this.liveTextPromise || this.isLiveManifestCoolingDown()) return;
+        if (!options.force && this.isLiveManifestFresh(baseUrl)) return;
         const promise = this.requestLiveText();
         this.liveTextPromise = promise;
-        promise.catch((err) => {
+        promise.then((text) => {
+            if (this.liveTextPromise === promise) this.liveTextPromise = null;
+            try {
+                const manifest = this.validateLiveManifest(parseJsonText<SkinLiveManifest>(text, 'skin_live.json'));
+                this.liveManifest = manifest;
+                this.liveManifestBaseUrl = baseUrl;
+                this.liveManifestUpdatedAt = Date.now();
+                this.writePersistedLiveManifest(baseUrl, manifest);
+                this.clearLiveManifestUnavailable();
+            } catch (err) {
+                this.markLiveManifestUnavailable('skin_live.json prefetch parse failed', err);
+            }
+        }).catch((err) => {
             if (this.liveTextPromise === promise) this.liveTextPromise = null;
             this.markLiveManifestUnavailable('skin_live.json prefetch failed', err);
         });
@@ -203,20 +113,37 @@ export class SkinResourceCdnService {
 
     async loadManifest(): Promise<SkinLiveManifest | null> {
         const baseUrl = runtimeSkinDataBaseUrl();
-        if (!canUseSkinDataCdn(baseUrl)) return null;
-        if (this.liveManifest) return this.liveManifest;
+        if (!canUseCdn(baseUrl)) return null;
+        if (this.liveManifest && normalizeCdnBaseUrl(this.liveManifestBaseUrl) === normalizeCdnBaseUrl(baseUrl) && this.isLiveManifestFresh(baseUrl)) return this.liveManifest;
+        const persisted = this.readPersistedLiveManifest(baseUrl);
+        if (persisted && this.isPersistedLiveManifestFresh(persisted.updatedAt)) {
+            this.liveManifest = persisted.manifest;
+            this.liveManifestBaseUrl = baseUrl;
+            this.liveManifestUpdatedAt = persisted.updatedAt;
+            return persisted.manifest;
+        }
         if (this.isLiveManifestCoolingDown()) return null;
         if (!this.liveTextPromise) {
             this.liveTextPromise = this.requestLiveText();
         }
         try {
             const text = await this.liveTextPromise;
+            this.liveTextPromise = null;
             this.liveManifest = this.validateLiveManifest(parseJsonText<SkinLiveManifest>(text, 'skin_live.json'));
+            this.liveManifestBaseUrl = baseUrl;
+            this.liveManifestUpdatedAt = Date.now();
+            this.writePersistedLiveManifest(baseUrl, this.liveManifest);
             this.clearLiveManifestUnavailable();
             return this.liveManifest;
         } catch (err) {
             this.liveTextPromise = null;
             this.markLiveManifestUnavailable('skin_live.json unavailable', err);
+            if (persisted) {
+                this.liveManifest = persisted.manifest;
+                this.liveManifestBaseUrl = baseUrl;
+                this.liveManifestUpdatedAt = persisted.updatedAt;
+                return persisted.manifest;
+            }
             return null;
         }
     }
@@ -224,8 +151,8 @@ export class SkinResourceCdnService {
     getAssetUrl(asset: SkinRemoteAsset | null | undefined): string {
         const baseUrl = runtimeSkinDataBaseUrl();
         if (!baseUrl || !asset?.url) return '';
-        const url = joinUrl(baseUrl, asset.url);
-        return asset.hash ? withQuery(url, 'v', asset.hash.slice(0, 16)) : url;
+        const url = joinCdnUrl(baseUrl, asset.url);
+        return asset.hash ? withCdnQuery(url, 'v', asset.hash.slice(0, 16)) : url;
     }
 
     getDataVersion(): string {
@@ -234,8 +161,8 @@ export class SkinResourceCdnService {
 
     getAvailabilityDiagnostics(): Record<string, unknown> {
         const baseUrl = runtimeSkinDataBaseUrl();
-        const requester = getPlatformRequester();
-        const reason = getSkinDataCdnUnavailableReason(baseUrl);
+        const requester = getCdnPlatformRequester();
+        const reason = getCdnUnavailableReason(baseUrl);
         return {
             baseUrl,
             canUse: !reason,
@@ -252,7 +179,7 @@ export class SkinResourceCdnService {
     }
 
     private requestLiveText(): Promise<string> {
-        return requestText(withQuery(joinUrl(runtimeSkinDataBaseUrl(), 'skin_live.json'), 't', String(Date.now())), 8000);
+        return requestCdnText(withCdnQuery(joinCdnUrl(runtimeSkinDataBaseUrl(), 'skin_live.json'), 't', String(Date.now())), 8000);
     }
 
     private validateLiveManifest(manifest: SkinLiveManifest): SkinLiveManifest {
@@ -268,8 +195,42 @@ export class SkinResourceCdnService {
         return manifest;
     }
 
+    private readPersistedLiveManifest(baseUrl: string): { manifest: SkinLiveManifest; updatedAt: number } | null {
+        const stored = readCdnStorageObject(SKIN_LIVE_MANIFEST_STORAGE_KEY);
+        if (!stored || stored.version !== 1) return null;
+        if (normalizeCdnBaseUrl(stored.baseUrl) !== normalizeCdnBaseUrl(baseUrl)) return null;
+        try {
+            return {
+                manifest: this.validateLiveManifest(stored.manifest as SkinLiveManifest),
+                updatedAt: Math.max(0, Math.floor(Number(stored.updatedAt) || 0)),
+            };
+        } catch (err) {
+            return null;
+        }
+    }
+
+    private writePersistedLiveManifest(baseUrl: string, manifest: SkinLiveManifest): void {
+        writeCdnStorageObject(SKIN_LIVE_MANIFEST_STORAGE_KEY, {
+            version: 1,
+            baseUrl: normalizeCdnBaseUrl(baseUrl),
+            updatedAt: Date.now(),
+            skinDataVersion: manifest.skinDataVersion || '',
+            manifest,
+        });
+    }
+
     private isLiveManifestCoolingDown(): boolean {
         return Date.now() < this.liveUnavailableUntil;
+    }
+
+    private isLiveManifestFresh(baseUrl: string): boolean {
+        if (!this.liveManifest) return false;
+        if (normalizeCdnBaseUrl(this.liveManifestBaseUrl) !== normalizeCdnBaseUrl(baseUrl)) return false;
+        return this.isPersistedLiveManifestFresh(this.liveManifestUpdatedAt);
+    }
+
+    private isPersistedLiveManifestFresh(updatedAt: number): boolean {
+        return updatedAt > 0 && Date.now() - updatedAt < LIVE_MANIFEST_REFRESH_TTL_MS;
     }
 
     private markLiveManifestUnavailable(label: string, err: unknown): void {
@@ -279,7 +240,7 @@ export class SkinResourceCdnService {
         this.liveUnavailableReason = reason;
         this.liveUnavailableUntil = now + LIVE_MANIFEST_FAILURE_COOLDOWN_MS;
         if (shouldWarn) {
-            console.warn(`[SkinCDN] ${label}:`, reason);
+            runtimeWarn(`[SkinCDN] ${label}:`, reason);
         }
     }
 

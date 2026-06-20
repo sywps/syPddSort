@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { isWeChatMiniGameRuntime } from '../MiniGamePlatform';
+import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const REWARD_RESULT_POPUP_PREFAB_PATH = 'UI/Prefabs/Panels/RewardResultPopup';
@@ -55,19 +56,19 @@ type DailySignInPropRewardKey = 'wand' | 'brush' | 'magnet';
 
 function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     if (!node || !node.isValid) {
-        console.warn(`[UI尺寸] ${name}: 节点不存在`);
+        runtimeWarn(`[UI尺寸] ${name}: 节点不存在`);
         return;
     }
 
     const trans = node.getComponent(UITransform);
     if (!trans) {
-        console.warn(`[UI尺寸] ${name}: 没有 UITransform`);
+        runtimeWarn(`[UI尺寸] ${name}: 没有 UITransform`);
         return;
     }
 
     const size = trans.contentSize;
     const pos = node.position;
-    console.log(
+    runtimeLog(
         `[UI尺寸] ${name}: width=${size.width}, height=${size.height}, ` +
         `pos=(${pos.x}, ${pos.y}), active=${node.active}`,
     );
@@ -665,7 +666,7 @@ export function installPlayerMetaStateModule(target: any): void {
                                     const modalForLog = modal;
                                     this.scheduleOnce(() => {
                                         const visibleSize = view.getVisibleSize();
-                                        console.log(`[UI尺寸] VisibleSize: width=${visibleSize.width}, height=${visibleSize.height}`);
+                                        runtimeLog(`[UI尺寸] VisibleSize: width=${visibleSize.width}, height=${visibleSize.height}`);
                                         logRecoverVigorNodeSize('PopupRoot', popupRoot);
                                         logRecoverVigorNodeSize('RecoverVigorOverlay', modalForLog);
                                         logRecoverVigorNodeSize('Box', box);
@@ -813,7 +814,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         logAbExperimentCatalog(reason = ''): void {
             const prefix = reason ? `[PDD_AB] ${reason}\n` : '';
-            console.warn(prefix + [
+            runtimeWarn(prefix + [
                 '[PDD_AB] experiments:',
                 `1. ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}`,
                 '   bucket=a: stats/bucket_a only, gameplay stays on mainline route',
@@ -848,7 +849,7 @@ export function installPlayerMetaStateModule(target: any): void {
                 return false;
             }
             this._firstLevelRouteBucket = resolvedBucket;
-            console.warn(`[PDD_AB] forced ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: bucket=${bucket}, resolvedBucket=${resolvedBucket}`);
+            runtimeWarn(`[PDD_AB] forced ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: bucket=${bucket}, resolvedBucket=${resolvedBucket}`);
             return true;
         },
 
@@ -864,7 +865,7 @@ export function installPlayerMetaStateModule(target: any): void {
             if (!this.shouldUseFirstLevelRouteExperiment()) return null;
             const wx: any = this.getWeChatRuntime();
             if (!wx) {
-                console.warn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: wx runtime unavailable`);
+                runtimeWarn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: wx runtime unavailable`);
                 return null;
             }
             const hasGameExptInfo = typeof wx.getGameExptInfo === 'function';
@@ -915,7 +916,7 @@ export function installPlayerMetaStateModule(target: any): void {
                     }
                 }
             }
-            console.warn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: no valid wx experiment value, ${lastDetail}`);
+            runtimeWarn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: no valid wx experiment value, ${lastDetail}`);
             return null;
         },
 
@@ -945,7 +946,7 @@ export function installPlayerMetaStateModule(target: any): void {
             }
             const result = await (resolveTask || this.startFirstLevelRouteExperimentResolve());
             this._firstLevelRouteBucket = result.bucket;
-            console.warn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
+            runtimeWarn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
         },
 
         getPhysicalMainLevelId(logicalLevelId: number): number {

@@ -139,7 +139,7 @@ function ensureVersionedBundleIndexFile(bundleDir, bundleName, settingsFilePath)
     }
 }
 
-function stripBundleConfigDeps(bundleDir, bundleName, forbiddenDeps) {
+function assertBundleConfigDepsClean(bundleDir, bundleName, forbiddenDeps) {
     if (!fs.existsSync(bundleDir)) return;
     var configFiles = fs.readdirSync(bundleDir)
         .filter(function (name) { return /^config(?:\.[0-9a-f]+)?\.json$/i.test(name); })
@@ -148,11 +148,12 @@ function stripBundleConfigDeps(bundleDir, bundleName, forbiddenDeps) {
         var configPath = configFiles[i];
         var config = readJsonFile(configPath);
         if (!Array.isArray(config.deps)) continue;
-        var before = config.deps.length;
-        config.deps = config.deps.filter(function (dep) { return forbiddenDeps.indexOf(dep) === -1; });
-        if (config.deps.length !== before) {
-            writeJsonFile(configPath, config);
-            console.log('[4/6] 已移除 ' + bundleName + ' 过宽依赖: ' + forbiddenDeps.join(', ') + ' ✓');
+        var matched = config.deps.filter(function (dep) { return forbiddenDeps.indexOf(dep) !== -1; });
+        if (matched.length > 0) {
+            console.error('[4/6] ' + bundleName + ' config.json 存在禁止依赖: ' + matched.join(', '));
+            console.error('       文件: ' + path.relative(resolveRuntimeRoot(), configPath));
+            console.error('       请修正 bundle 归属或资源引用，不要在 postbuild 中删除 deps 掩盖问题。');
+            process.exit(1);
         }
     }
 }
@@ -356,7 +357,7 @@ function ensureHomeAssetsWechatSubpackage() {
         console.log('[4/6] 已将 assets/homeAssets 迁移为微信分包: ' + homeAssetsRoot + ' ✓');
     }
     ensureStableBundleFiles(homeAssetsSubpackageDir);
-    stripBundleConfigDeps(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME, [BUNDLE_NAME]);
+    assertBundleConfigDepsClean(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME, [BUNDLE_NAME]);
     ensureSubpackageGameJs(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME);
     ensureBundleInGameSubpackages(runtimeRoot, HOME_ASSETS_BUNDLE_NAME);
     ensureBundleInSettingsSubpackages(resolveSettingsPath(), HOME_ASSETS_BUNDLE_NAME);

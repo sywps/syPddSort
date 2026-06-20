@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { runtimeWarn } from '../RuntimeLog';
 
 type BoardTapCandidate = {
     row: number;
@@ -532,7 +533,7 @@ export function installBoardInputViewportModule(target: any): void {
         traceBoardTapSelection(worldPos: Vec3, candidates: BoardTapCandidate[], block: BeanBlockInfo | null, source: string): void {
             if (typeof this.getRuntimeQueryParam !== 'function' || this.getRuntimeQueryParam('debugBoardTap') !== '1') return;
             const boardLocal = this.worldToBoardLocal(worldPos);
-            console.warn('[BoardTapTrace]', JSON.stringify({
+            runtimeWarn('[BoardTapTrace]', JSON.stringify({
                 worldPos: { x: Number(worldPos.x.toFixed(2)), y: Number(worldPos.y.toFixed(2)) },
                 boardLocal: boardLocal ? { x: Number(boardLocal.x.toFixed(2)), y: Number(boardLocal.y.toFixed(2)) } : null,
                 candidates: candidates.slice(0, 6).map((candidate) => ({

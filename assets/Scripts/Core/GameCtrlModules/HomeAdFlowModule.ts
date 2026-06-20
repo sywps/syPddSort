@@ -32,6 +32,7 @@ import type {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
+import { runtimeLog } from '../RuntimeLog';
 
 type RewardedGrantToast = string | (() => string);
 type RewardedGrantResult = boolean | void | Promise<boolean | void>;
@@ -106,7 +107,7 @@ export function installHomeAdFlowModule(target: any): void {
             if (!this.isValid) return;
             this.cancelRewardedAdPreload();
             if (!AdConfig.canAutoPreloadRewardedAd()) {
-                console.log(`[AdConfig] skip rewarded ad preload schedule: ${reason}`);
+                runtimeLog(`[AdConfig] skip rewarded ad preload schedule: ${reason}`);
                 return;
             }
             const safeDelay = Math.max(0, Number(delaySeconds) || 0);
@@ -555,52 +556,6 @@ export function installHomeAdFlowModule(target: any): void {
                 }),
             );
         },
-        drawCoinGlyph(parent: Node, x: number, y: number, radius: number = 14): Node {
-            const coin = new Node('CoinGlyph');
-            parent.addChild(coin);
-            coin.addComponent(UITransform).setContentSize(radius * 2 + 4, radius * 2 + 4);
-            coin.layer = Layers.Enum.UI_2D;
-            coin.setPosition(x, y);
-            const cg = coin.addComponent(Graphics);
-            cg.fillColor = new Color('#F2C94C');
-            cg.circle(0, 0, radius);
-            cg.fill();
-            cg.fillColor = new Color('#FFE18A');
-            cg.circle(-radius * 0.16, radius * 0.16, radius * 0.58);
-            cg.fill();
-            cg.strokeColor = new Color('#C28A13');
-            cg.lineWidth = 2;
-            cg.circle(0, 0, radius);
-            cg.stroke();
-            cg.fillColor = new Color('#B8740A');
-            cg.circle(0, 0, Math.max(3.2, radius * 0.25));
-            cg.fill();
-            return coin;
-        },
-
-        drawAdVideoGlyph(parent: Node, x: number, y: number, w: number = 32, h: number = 24): Node {
-            const icon = new Node('AdVideoGlyph');
-            parent.addChild(icon);
-            icon.addComponent(UITransform).setContentSize(w, h);
-            icon.layer = Layers.Enum.UI_2D;
-            icon.setPosition(x, y);
-            const g = icon.addComponent(Graphics);
-            g.fillColor = new Color(255, 255, 255, 235);
-            g.roundRect(-w / 2, -h / 2, w, h, 6);
-            g.fill();
-            g.strokeColor = new Color('#B8740A');
-            g.lineWidth = 2;
-            g.roundRect(-w / 2, -h / 2, w, h, 6);
-            g.stroke();
-            g.fillColor = new Color('#F0A33C');
-            g.moveTo(-4, -7);
-            g.lineTo(-4, 7);
-            g.lineTo(8, 0);
-            g.close();
-            g.fill();
-            return icon;
-        },
-
         applyShellSprite(node: Node, frameName: string, width: number, height: number, color: Color = Color.WHITE) {
             const existingSprite = node.getComponent(Sprite);
             if (this.getRuntimeSceneName('Game') === 'Home' && frameName !== 'collection_card_unlocked' && HOME_MENU_TEXTURE_NAMES.indexOf(frameName) >= 0) {
@@ -671,97 +626,6 @@ export function installHomeAdFlowModule(target: any): void {
             this.panelWin = null!;
             this.panelLose = null!;
             this.panelTimeoutContinue = null!;
-        },
-
-        drawShowcaseBean(parent: Node, cx: number, cy: number) {
-            const node = new Node('Showcase');
-            parent.addChild(node);
-            node.addComponent(UITransform).setContentSize(440, 400);
-            node.layer = Layers.Enum.UI_2D;
-            node.setPosition(cx, cy);
-            const g = node.addComponent(Graphics);
-        
-            const pattern = [
-                [0,0,0,1,1,0,0,0,0,1,1,0,0,0],
-                [0,0,1,1,1,1,0,0,1,1,1,1,0,0],
-                [0,0,1,1,1,1,0,0,1,1,1,1,0,0],
-                [0,1,1,1,1,1,1,1,1,1,1,1,1,0],
-                [0,1,1,2,2,1,1,1,1,2,2,1,1,0],
-                [1,1,2,2,2,2,1,1,2,2,2,2,1,1],
-                [1,1,2,2,1,2,2,2,2,1,2,2,1,1],
-                [1,1,2,2,2,3,2,2,3,2,2,2,1,1],
-                [1,1,2,2,2,2,1,1,2,2,2,2,1,1],
-                [0,1,1,2,2,2,2,2,2,2,2,1,1,0],
-                [0,1,1,1,2,2,2,2,2,2,1,1,1,0],
-                [0,0,1,1,1,1,1,1,1,1,1,1,0,0],
-                [1,1,1,1,2,2,2,2,2,2,1,1,1,1],
-                [1,1,1,1,2,2,2,2,2,2,1,1,1,1],
-            ];
-        
-            const colorMap: Record<number, Color> = {
-                1: new Color('#6B3A2A'),
-                2: new Color('#F0E0CC'),
-                3: new Color('#EF9137'),
-            };
-        
-            const beanR = 13;
-            const gap = beanR * 2 + 2.5;
-            const rows = pattern.length;
-            const cols = pattern[0].length;
-            const ox = -(cols - 1) * gap / 2;
-            const oy = (rows - 1) * gap / 2;
-        
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const v = pattern[r][c];
-                    if (v === 0) continue;
-                    const bx = ox + c * gap;
-                    const by = oy - r * gap;
-                    const base = colorMap[v];
-                    const dark = new Color(
-                        Math.max(0, Math.floor(base.r * 0.6)),
-                        Math.max(0, Math.floor(base.g * 0.6)),
-                        Math.max(0, Math.floor(base.b * 0.6)),
-                        255,
-                    );
-                    const rr = 3;
-                    g.fillColor = dark;
-                    g.roundRect(bx - beanR, by - beanR, beanR * 2, beanR * 2, rr);
-                    g.fill();
-                    g.fillColor = base;
-                    g.roundRect(bx - beanR + 1.5, by - beanR + 1.5, (beanR - 1.5) * 2, (beanR - 1.5) * 2, rr - 1);
-                    g.fill();
-                    const m = beanR - 2.5;
-                    g.fillColor = new Color(255, 255, 255, 50);
-                    g.moveTo(bx - m, by + m); g.lineTo(bx + m, by + m); g.lineTo(bx, by); g.close(); g.fill();
-                    g.fillColor = new Color(255, 255, 255, 30);
-                    g.moveTo(bx - m, by + m); g.lineTo(bx - m, by - m); g.lineTo(bx, by); g.close(); g.fill();
-                    g.fillColor = new Color(0, 0, 0, 25);
-                    g.moveTo(bx + m, by - m); g.lineTo(bx - m, by - m); g.lineTo(bx, by); g.close(); g.fill();
-                }
-            }
-        
-            g.fillColor = new Color('#5A3020');
-            const noseY = oy - 6.5 * gap;
-            g.ellipse(0, noseY + 3, 8, 5);
-            g.fill();
-        
-            const eyeY = oy - 5.5 * gap;
-            g.fillColor = new Color('#2A1810');
-            g.circle(-2.5 * gap, eyeY, 5);
-            g.fill();
-            g.circle(2.5 * gap, eyeY, 5);
-            g.fill();
-            g.fillColor = new Color(255, 255, 255, 200);
-            g.circle(-2.5 * gap + 2, eyeY + 2, 2);
-            g.fill();
-            g.circle(2.5 * gap + 2, eyeY + 2, 2);
-            g.fill();
-        
-            // 豆豆预览阴影
-            g.fillColor = new Color(0, 0, 0, 20);
-            g.ellipse(0, oy - rows * gap + 10, 180, 18);
-            g.fill();
         },
 
         drawHomeLevelPixelPreview(parent: Node, levelId: number, x: number, y: number) {

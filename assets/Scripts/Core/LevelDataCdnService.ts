@@ -1,12 +1,19 @@
 import type { LevelData } from './LevelConfig';
+import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
-    getDouyinMiniGameRuntime,
-    getMiniGameBuildPlatform,
-    getWeChatMiniGameRuntime,
-    isDouyinMiniGameRuntime,
-    isMiniGameRuntime,
-    isWeChatMiniGameRuntime,
-} from './MiniGamePlatform';
+    canUseCdn,
+    getCdnPlatformRequester,
+    getCdnUnavailableReason,
+    isBrowserBackedRequester,
+    joinCdnUrl,
+    normalizeCdnBaseUrl,
+    parseJsonText,
+    readCdnStorageObject,
+    requestCdnText,
+    withCdnQuery,
+    writeCdnStorageObject,
+} from './RemoteDataCdnClient';
+import { runtimeWarn } from './RuntimeLog';
 
 type LevelPackEntry = {
     id: string;
@@ -52,124 +59,15 @@ const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
 
-function normalizeBaseUrl(value: unknown): string {
-    const text = typeof value === 'string' ? value.trim() : '';
-    return text ? text.replace(/\/?$/, '/') : '';
-}
-
 function runtimeLevelDataBaseUrl(): string {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
     const w: any = typeof window !== 'undefined' ? window : null;
-    return normalizeBaseUrl(g?.__PDD_LEVEL_DATA_CDN_URL__ || w?.__PDD_LEVEL_DATA_CDN_URL__);
-}
-
-function isLocalBrowserPreview(): boolean {
-    const candidates: string[] = [];
-    const w: any = typeof window !== 'undefined' ? window : null;
-    const d: any = typeof document !== 'undefined' ? document : null;
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    try { candidates.push(String(w?.location?.hostname || '')); } catch (err) {}
-    try { candidates.push(String(g?.location?.hostname || '')); } catch (err) {}
-    try { candidates.push(String(w?.parent?.location?.hostname || '')); } catch (err) {}
-    try { candidates.push(String(d?.referrer || '')); } catch (err) {}
-    try { if (String(g?.location?.protocol || w?.location?.protocol || '') === 'about:') return true; } catch (err) {}
-    return candidates.some((value) => /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|\[?::1\]?)(?::|\/|$)/i.test(value));
-}
-
-function isPlainBrowserRuntime(): boolean {
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    return typeof g?.fetch === 'function' && !isMiniGameRuntime();
-}
-
-function getPlatformObject(): any {
-    const buildPlatform = getMiniGameBuildPlatform();
-    if (buildPlatform === 'douyin') return getDouyinMiniGameRuntime();
-    if (buildPlatform === 'wechat') return getWeChatMiniGameRuntime();
-    return getWeChatMiniGameRuntime() || getDouyinMiniGameRuntime();
-}
-
-function getPlatformRequester(): unknown {
-    return getPlatformObject()?.request;
-}
-
-function isBrowserBackedRequester(requester: unknown): boolean {
-    if (typeof requester !== 'function') return false;
-    try {
-        const text = Function.prototype.toString.call(requester);
-        return /\bfetch\b|XMLHttpRequest/i.test(text);
-    } catch (err) {
-        return false;
-    }
-}
-
-function getLevelDataCdnUnavailableReason(baseUrl: string): string {
-    if (!baseUrl) return 'cdn_url_missing';
-    const externalHttp = /^https?:\/\//i.test(baseUrl);
-    const requester = getPlatformRequester();
-    const miniGameRuntime = isMiniGameRuntime();
-    if ((isLocalBrowserPreview() || isPlainBrowserRuntime()) && externalHttp && !miniGameRuntime) return 'local_browser_external_cdn_disabled';
-    if (externalHttp && miniGameRuntime && typeof requester !== 'function') return 'platform_request_unavailable';
-    if (externalHttp && isBrowserBackedRequester(requester) && !miniGameRuntime) return 'browser_backed_requester';
-    return '';
-}
-
-function canUseLevelDataCdn(baseUrl: string): boolean {
-    return !getLevelDataCdnUnavailableReason(baseUrl);
-}
-
-function joinUrl(baseUrl: string, filePath: string): string {
-    return normalizeBaseUrl(baseUrl) + String(filePath || '').replace(/^\/+/, '');
-}
-
-function withQuery(url: string, key: string, value: string): string {
-    const joiner = url.indexOf('?') === -1 ? '?' : '&';
-    return url + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value);
-}
-
-function parseJsonText<T>(text: string, label: string): T {
-    try {
-        return JSON.parse(text) as T;
-    } catch (err) {
-        throw new Error(label + ' JSON parse failed: ' + (err instanceof Error ? err.message : String(err)));
-    }
-}
-
-function readStorageObject(key: string): any {
-    const platform = getPlatformObject();
-    try {
-        if (platform && typeof platform.getStorageSync === 'function') {
-            const raw = platform.getStorageSync(key);
-            if (!raw) return null;
-            return typeof raw === 'string' ? JSON.parse(raw) : raw;
-        }
-    } catch (err) {}
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    try {
-        const raw = g?.localStorage?.getItem?.(key);
-        return raw ? JSON.parse(raw) : null;
-    } catch (err) {
-        return null;
-    }
-}
-
-function writeStorageObject(key: string, value: unknown): void {
-    const text = JSON.stringify(value);
-    const platform = getPlatformObject();
-    try {
-        if (platform && typeof platform.setStorageSync === 'function') {
-            platform.setStorageSync(key, text);
-            return;
-        }
-    } catch (err) {}
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    try {
-        g?.localStorage?.setItem?.(key, text);
-    } catch (err) {}
+    return normalizeCdnBaseUrl(g?.__PDD_LEVEL_DATA_CDN_URL__ || w?.__PDD_LEVEL_DATA_CDN_URL__);
 }
 
 function readPersistedLevelPack(cacheKey: string, hash: string): string {
     if (!hash) return '';
-    const store = readStorageObject(LEVEL_PACK_STORAGE_KEY);
+    const store = readCdnStorageObject(LEVEL_PACK_STORAGE_KEY);
     const record = store?.records?.[cacheKey] as StoredLevelPackRecord | undefined;
     if (!record || record.hash !== hash || typeof record.text !== 'string') return '';
     return record.text;
@@ -177,7 +75,7 @@ function readPersistedLevelPack(cacheKey: string, hash: string): string {
 
 function writePersistedLevelPack(cacheKey: string, hash: string, text: string): void {
     if (!hash || !text) return;
-    const store = readStorageObject(LEVEL_PACK_STORAGE_KEY) || {};
+    const store = readCdnStorageObject(LEVEL_PACK_STORAGE_KEY) || {};
     const records: Record<string, StoredLevelPackRecord> = store.records && typeof store.records === 'object'
         ? store.records
         : {};
@@ -191,62 +89,23 @@ function writePersistedLevelPack(cacheKey: string, hash: string, text: string): 
     for (const stale of sorted.slice(MAX_PERSISTED_LEVEL_PACKS)) {
         delete records[stale.key];
     }
-    writeStorageObject(LEVEL_PACK_STORAGE_KEY, { version: 1, records });
+    writeCdnStorageObject(LEVEL_PACK_STORAGE_KEY, { version: 1, records });
 }
 
 function removePersistedLevelPack(cacheKey: string): void {
-    const store = readStorageObject(LEVEL_PACK_STORAGE_KEY);
+    const store = readCdnStorageObject(LEVEL_PACK_STORAGE_KEY);
     const records: Record<string, StoredLevelPackRecord> | null = store?.records && typeof store.records === 'object'
         ? store.records
         : null;
     if (!records || !records[cacheKey]) return;
     delete records[cacheKey];
-    writeStorageObject(LEVEL_PACK_STORAGE_KEY, { version: 1, records });
+    writeCdnStorageObject(LEVEL_PACK_STORAGE_KEY, { version: 1, records });
 }
 
 function normalizeLevelPrefix(prefix: string): string {
     if (!prefix || prefix === DEFAULT_LEVEL_PREFIX) return DEFAULT_LEVEL_PREFIX;
     if (prefix === THEME_LEVEL_PREFIX) return THEME_LEVEL_PREFIX;
     return '';
-}
-
-function requestText(url: string, timeoutMs: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-        const requester = getPlatformRequester();
-        if (typeof requester === 'function') {
-            requester({
-                url,
-                method: 'GET',
-                timeout: timeoutMs,
-                success: (res: any) => {
-                    const statusCode = Number(res?.statusCode || 0);
-                    if (statusCode && (statusCode < 200 || statusCode >= 300)) {
-                        reject(new Error('HTTP ' + statusCode));
-                        return;
-                    }
-                    const data = res?.data;
-                    resolve(typeof data === 'string' ? data : JSON.stringify(data));
-                },
-                fail: (error: any) => reject(error instanceof Error ? error : new Error(error?.errMsg || 'request failed')),
-            });
-            return;
-        }
-        const fetcher = g?.fetch;
-        if (typeof fetcher === 'function') {
-            fetcher(url, { cache: 'no-store' })
-                .then((response: any) => {
-                    if (!response || !response.ok) {
-                        throw new Error('HTTP ' + (response ? response.status : 0));
-                    }
-                    return response.text();
-                })
-                .then(resolve)
-                .catch(reject);
-            return;
-        }
-        reject(new Error('No request API'));
-    });
 }
 
 export class LevelDataCdnService {
@@ -259,10 +118,19 @@ export class LevelDataCdnService {
     private readonly packPromises = new Map<string, Promise<LevelPack | null>>();
 
     prefetchLive(): void {
-        if (!canUseLevelDataCdn(runtimeLevelDataBaseUrl()) || this.liveTextPromise || this.isLiveManifestCoolingDown()) return;
+        if (this.liveManifest) return;
+        if (!canUseCdn(runtimeLevelDataBaseUrl()) || this.liveTextPromise || this.isLiveManifestCoolingDown()) return;
         const promise = this.requestLiveText();
         this.liveTextPromise = promise;
-        promise.catch((err) => {
+        promise.then((text) => {
+            if (this.liveTextPromise === promise) this.liveTextPromise = null;
+            try {
+                this.liveManifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
+                this.clearLiveManifestUnavailable();
+            } catch (err) {
+                this.markLiveManifestUnavailable('level_live.json prefetch parse failed', err);
+            }
+        }).catch((err) => {
             if (this.liveTextPromise === promise) this.liveTextPromise = null;
             this.markLiveManifestUnavailable('level_live.json prefetch failed', err);
         });
@@ -291,8 +159,8 @@ export class LevelDataCdnService {
 
     getAvailabilityDiagnostics(): Record<string, unknown> {
         const baseUrl = runtimeLevelDataBaseUrl();
-        const requester = getPlatformRequester();
-        const reason = getLevelDataCdnUnavailableReason(baseUrl);
+        const requester = getCdnPlatformRequester();
+        const reason = getCdnUnavailableReason(baseUrl);
         return {
             baseUrl,
             canUse: !reason,
@@ -310,7 +178,7 @@ export class LevelDataCdnService {
 
     private async getLiveManifest(): Promise<LevelLiveManifest | null> {
         const baseUrl = runtimeLevelDataBaseUrl();
-        if (!canUseLevelDataCdn(baseUrl)) return null;
+        if (!canUseCdn(baseUrl)) return null;
         if (this.liveManifest) return this.liveManifest;
         if (this.isLiveManifestCoolingDown()) return null;
         if (!this.liveTextPromise) {
@@ -339,7 +207,7 @@ export class LevelDataCdnService {
         this.liveUnavailableReason = reason;
         this.liveUnavailableUntil = now + LIVE_MANIFEST_FAILURE_COOLDOWN_MS;
         if (shouldWarn) {
-            console.warn(`[LevelDataCDN] ${label}:`, reason);
+            runtimeWarn(`[LevelDataCDN] ${label}:`, reason);
         }
     }
 
@@ -349,7 +217,7 @@ export class LevelDataCdnService {
     }
 
     private requestLiveText(): Promise<string> {
-        return requestText(withQuery(joinUrl(runtimeLevelDataBaseUrl(), 'level_live.json'), 't', String(Date.now())), 8000);
+        return requestCdnText(withCdnQuery(joinCdnUrl(runtimeLevelDataBaseUrl(), 'level_live.json'), 't', String(Date.now())), 8000);
     }
 
     private validateLiveManifest(manifest: LevelLiveManifest): LevelLiveManifest {
@@ -379,16 +247,16 @@ export class LevelDataCdnService {
 
     private async loadPack(packEntry: LevelPackEntry): Promise<LevelPack | null> {
         const baseUrl = runtimeLevelDataBaseUrl();
-        if (!canUseLevelDataCdn(baseUrl)) return null;
+        if (!canUseCdn(baseUrl)) return null;
         const cacheKey = packEntry.id + ':' + this.getPackPrefix(packEntry) + ':' + (packEntry.hash || packEntry.url);
         let promise = this.packPromises.get(cacheKey);
         if (!promise) {
             const url = packEntry.hash
-                ? withQuery(joinUrl(baseUrl, packEntry.url), 'v', packEntry.hash.slice(0, 16))
-                : joinUrl(baseUrl, packEntry.url);
+                ? withCdnQuery(joinCdnUrl(baseUrl, packEntry.url), 'v', packEntry.hash.slice(0, 16))
+                : joinCdnUrl(baseUrl, packEntry.url);
             const cachedText = readPersistedLevelPack(cacheKey, packEntry.hash || '');
             const parsePackText = (text: string): LevelPack => this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
-            const loadRemotePack = () => requestText(url, 10000).then((text) => {
+            const loadRemotePack = () => requestCdnText(url, 10000).then((text) => {
                 const pack = parsePackText(text);
                 writePersistedLevelPack(cacheKey, packEntry.hash || '', text);
                 return pack;
@@ -399,7 +267,7 @@ export class LevelDataCdnService {
                         return parsePackText(cachedText);
                     } catch (cacheErr) {
                         removePersistedLevelPack(cacheKey);
-                        console.warn('[LevelDataCDN] persisted pack invalid, refetching:', packEntry.url, cacheErr instanceof Error ? cacheErr.message : cacheErr);
+                        runtimeWarn('[LevelDataCDN] persisted pack invalid, refetching:', packEntry.url, cacheErr instanceof Error ? cacheErr.message : cacheErr);
                         return loadRemotePack();
                     }
                 })
@@ -410,7 +278,7 @@ export class LevelDataCdnService {
                 })
                 .catch((err) => {
                     this.packPromises.delete(cacheKey);
-                    console.warn('[LevelDataCDN] pack unavailable:', packEntry.url, err instanceof Error ? err.message : err);
+                    runtimeWarn('[LevelDataCDN] pack unavailable:', packEntry.url, err instanceof Error ? err.message : err);
                     return null;
                 });
             this.packPromises.set(cacheKey, promise);

@@ -7,6 +7,8 @@ cloud.init({
 const db = cloud.database();
 const USER_PROFILE_COLLECTION = 'user_profile';
 const NEW_USER_STARTER_PROP_COUNT = 3;
+const USER_STATE_SCHEMA_VERSION = 1;
+const SKIN_STATE_SCHEMA_VERSION = 1;
 
 function cleanString(value, maxLength = 96) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
@@ -171,7 +173,12 @@ function extractGameState(doc) {
   if (Array.isArray(doc?.themeUnlockedIds)) state.themeUnlockedIds = normalizeThemeUnlockedIds(doc.themeUnlockedIds);
   if (Array.isArray(doc?.themeCompletedIds)) state.themeCompletedIds = normalizeThemeCompletedIds(doc.themeCompletedIds);
   if (Array.isArray(doc?.ownedBackgroundSkinIds)) state.ownedBackgroundSkinIds = normalizeBackgroundSkinIds(doc.ownedBackgroundSkinIds);
-  if (typeof doc?.equippedBackgroundSkinId === 'number') state.equippedBackgroundSkinId = readPositiveInt(doc.equippedBackgroundSkinId);
+  const equippedBackgroundSkinId = readPositiveInt(doc?.equippedBackgroundSkinId);
+  const equippedBackgroundSkinUpdatedAt = normalizeTimestamp(doc?.equippedBackgroundSkinUpdatedAt, 0);
+  if (equippedBackgroundSkinId > 0 && equippedBackgroundSkinUpdatedAt > 0) {
+    state.equippedBackgroundSkinId = equippedBackgroundSkinId;
+    state.equippedBackgroundSkinUpdatedAt = equippedBackgroundSkinUpdatedAt;
+  }
 
   return Object.keys(state).length > 0 ? state : null;
 }
@@ -242,7 +249,21 @@ function buildGameStatePatch(source = {}, current = {}) {
   const mergedBackgroundSkinIds = mergeBackgroundSkinIds(current.ownedBackgroundSkinIds, source.ownedBackgroundSkinIds);
   const currentEquippedBackgroundSkinId = readPositiveInt(current.equippedBackgroundSkinId);
   const sourceEquippedBackgroundSkinId = hasOwn(source, 'equippedBackgroundSkinId') ? readPositiveInt(source.equippedBackgroundSkinId) : 0;
-  const equippedBackgroundSkinId = sourceEquippedBackgroundSkinId || currentEquippedBackgroundSkinId;
+  const currentEquippedBackgroundSkinUpdatedAt = normalizeTimestamp(current.equippedBackgroundSkinUpdatedAt, 0);
+  const sourceEquippedBackgroundSkinUpdatedAt = normalizeTimestamp(source.equippedBackgroundSkinUpdatedAt, 0);
+  const currentEquippedBackgroundSkinValid = currentEquippedBackgroundSkinId > 0 && currentEquippedBackgroundSkinUpdatedAt > 0;
+  const sourceEquippedBackgroundSkinValid = sourceEquippedBackgroundSkinId > 0 && sourceEquippedBackgroundSkinUpdatedAt > 0;
+  let equippedBackgroundSkinId = currentEquippedBackgroundSkinValid ? currentEquippedBackgroundSkinId : 0;
+  let equippedBackgroundSkinUpdatedAt = currentEquippedBackgroundSkinValid ? currentEquippedBackgroundSkinUpdatedAt : 0;
+  if (sourceEquippedBackgroundSkinValid) {
+    const shouldUseSourceEquipped =
+      !currentEquippedBackgroundSkinValid ||
+      sourceEquippedBackgroundSkinUpdatedAt > currentEquippedBackgroundSkinUpdatedAt;
+    if (shouldUseSourceEquipped) {
+      equippedBackgroundSkinId = sourceEquippedBackgroundSkinId;
+      equippedBackgroundSkinUpdatedAt = sourceEquippedBackgroundSkinUpdatedAt;
+    }
+  }
   if (equippedBackgroundSkinId > 0 && !mergedBackgroundSkinIds.includes(equippedBackgroundSkinId)) {
     mergedBackgroundSkinIds.push(equippedBackgroundSkinId);
     mergedBackgroundSkinIds.sort((a, b) => a - b);
@@ -273,6 +294,7 @@ function buildGameStatePatch(source = {}, current = {}) {
     themeCompletedIds: mergedThemeCompletedIds,
     ownedBackgroundSkinIds: mergedBackgroundSkinIds,
     equippedBackgroundSkinId,
+    equippedBackgroundSkinUpdatedAt,
     stateUpdatedAt: shouldPreserveCurrentVolatileState
       ? currentStateUpdatedAt
       : Math.max(currentStateUpdatedAt, sourceStateUpdatedAt),
@@ -303,6 +325,8 @@ exports.main = async (event = {}) => {
       const gameState = extractGameState(current);
       return {
         ok: true,
+        userStateSchemaVersion: USER_STATE_SCHEMA_VERSION,
+        skinStateSchemaVersion: SKIN_STATE_SCHEMA_VERSION,
         profile: extractProfile(current),
         gameState,
       };
@@ -346,6 +370,8 @@ exports.main = async (event = {}) => {
 
     return {
       ok: true,
+      userStateSchemaVersion: USER_STATE_SCHEMA_VERSION,
+      skinStateSchemaVersion: SKIN_STATE_SCHEMA_VERSION,
       profile: extractProfile(merged),
       gameState: extractGameState(merged),
     };

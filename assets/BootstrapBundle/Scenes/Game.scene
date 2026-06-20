@@ -624,7 +624,7 @@
     "node": {
       "__id__": 11
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
     "_alignFlags": 45,
     "_target": null,
@@ -676,7 +676,7 @@
     "node": {
       "__id__": 10
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
     "_alignFlags": 45,
     "_target": null,

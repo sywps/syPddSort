@@ -1,5 +1,6 @@
 import { _decorator, sys } from 'cc';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { runtimeLog } from './RuntimeLog';
 import { UserStateSyncMgr, type CloudUserProfile } from './UserStateSyncMgr';
 
 const { ccclass } = _decorator;
@@ -112,7 +113,7 @@ export class UserMgr {
         try {
             const wxRuntime = getWeChatMiniGameRuntime();
             if (!wxRuntime?.login) {
-                console.log('[UserMgr] wx.login not available, skipping');
+                runtimeLog('[UserMgr] wx.login not available, skipping');
                 return false;
             }
 
@@ -121,7 +122,7 @@ export class UserMgr {
             });
 
             if (res?.code) {
-                console.log('[UserMgr] wx.login success, code:', res.code.substring(0, 10) + '...');
+                runtimeLog('[UserMgr] wx.login success, code:', res.code.substring(0, 10) + '...');
                 return true;
             }
         } catch (e: any) {
@@ -202,14 +203,14 @@ export class UserMgr {
 
     private _applyWeChatUserInfo(info: any): boolean {
         if (!info) {
-            console.log('[UserMgr] 用户取消授权');
+            runtimeLog('[UserMgr] 用户取消授权');
             return false;
         }
         this.profile.displayName = info.nickName || this.profile.displayName;
         this.profile.avatarUrl = info.avatarUrl || this.profile.avatarUrl;
         this.profile.isGuest = false;
         this.persist();
-        console.log('[UserMgr] 微信授权成功:', this.profile.displayName);
+        runtimeLog('[UserMgr] 微信授权成功:', this.profile.displayName);
         return true;
     }
 

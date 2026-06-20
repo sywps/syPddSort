@@ -13,6 +13,7 @@ import {
 import { ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
 import { debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
+import { runtimeWarn } from './RuntimeLog';
 
 export class GameSceneRuntimeController {
     constructor(private readonly runtime: any) {}
@@ -196,9 +197,6 @@ export class GameSceneRuntimeController {
         if (!layerUT) {
             throw new Error('[GameScene] Game.scene is missing UITransform on BootRoot/StartupLoadingUI');
         }
-        const visibleSize = view.getVisibleSize();
-        layerUT.setContentSize(visibleSize.width, visibleSize.height);
-        layer.setPosition(0, 0, 0);
         layer.active = showOverlay;
         this.runtime._loadingOverlay = showOverlay ? layer : null;
         this.runtime._loadingClosing = false;
@@ -260,7 +258,7 @@ export class GameSceneRuntimeController {
         const overlayRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'OverlayRoot');
         const fxRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'FxRoot');
         const bootRoot = this.findScreenOrCanvasRoot(canvas, screenRoot, 'BootRoot');
-        console.warn('[ScreenAdaptDebug:cocos-view]', {
+        runtimeWarn('[ScreenAdaptDebug:cocos-view]', {
             stage: 'after-set-design-resolution',
             sceneName,
             wx: this.pickWxScreenInfo(this.readWxScreenInfo()),
