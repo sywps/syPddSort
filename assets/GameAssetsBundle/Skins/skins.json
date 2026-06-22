@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "defaultEquipped": 1001,
+  "defaultEquipped": 1000,
   "skins": [
     {
-      "id": 0,
+      "id": 1000,
       "shortId": 0,
       "type": "background",
       "code": "bg_000",
       "name": "默认皮肤",
       "isDefault": true,
-      "assetBundle": "default",
-      "assetKey": "bg_000",
+      "assetBundle": "bootstrap",
+      "assetKey": "GameUI/bg_game_pindd",
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_000",
       "unlockType": "default",
       "unlockValue": 0,
       "price": 0,
       "sort": 0,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": 1001,
@@ -25,7 +25,7 @@
       "type": "background",
       "code": "bg_001",
       "name": "背景 001",
-      "isDefault": true,
+      "isDefault": false,
       "assetBundle": "bootstrap",
       "assetKey": "GameUI/bg_game_pindd",
       "iconBundle": "gameAssets",

@@ -103,6 +103,7 @@ export class GameplaySessionController {
             runtime._winAdRewardClaimed = false;
             runtime._settlementNextTransitioning = false;
             runtime._completedColors = new Set();
+            runtime._pendingColorCompleteEffects = new Map();
             runtime._guidePulseTweens = [];
             runtime._pulseTweens = [];
             runtime.stopPulseTweens();

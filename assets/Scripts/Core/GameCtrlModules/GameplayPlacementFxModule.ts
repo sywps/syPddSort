@@ -39,6 +39,7 @@ type FlyPlaceVisualOptions = {
 };
 
 const BEAN_LAND_GLOW_ENABLED = false;
+const COLOR_COMPLETE_VISUAL_SETTLE_DELAY = 0.22;
 
 export function installGameplayPlacementFxModule(target: any): void {
     installGameplayColorCompleteFxMethods(target);
@@ -371,6 +372,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
             this.tryGrantLargePlacementBonus(targets.length);
             this.checkColorCompletion();
+            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
             this.checkGuideStepComplete();
             if (this.boardModel.isAllLocked()) {
                 this.clearEndgameHints(false);
@@ -511,6 +513,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.renderBoardCells(targets);
             this.tryGrantLargePlacementBonus(targets.length);
             this.checkColorCompletion();
+            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
             this.checkGuideStepComplete();
             this.resetIdleHintTimer();
             if (this.boardModel.isAllLocked()) {
@@ -633,8 +636,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                 }
                 this._lastPlacedCells = null;
             }
-        
+
             this.checkColorCompletion();
+            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
             this.checkGuideStepComplete();
             if (this.boardModel.isAllLocked()) {
                 this.clearEndgameHints(false);
@@ -656,7 +660,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (this._completedColors.has(cid)) continue;
                 if (bm.isColorComplete(cid)) {
                     this._completedColors.add(cid);
-                    this.playColorCompleteEffect(cid, !skipColorCompleteAudio);
+                    this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);
                 }
             }
         },

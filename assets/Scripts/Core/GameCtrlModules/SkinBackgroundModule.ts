@@ -29,6 +29,7 @@ import {
     instantiate,
     sys,
 } from '../GameCtrlShared';
+import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { getMiniGameBuildMode } from '../MiniGamePlatform';
 import { SkinResourceCdnService, type SkinLiveManifest, type SkinRemoteAsset } from '../SkinResourceCdnService';
 
@@ -67,7 +68,7 @@ const LS_OWNED_BACKGROUND_SKINS = 'pdd.skin.background.owned';
 const LS_BACKGROUND_SKIN_AD_PROGRESS = 'pdd.skin.background.adProgress';
 const LS_BACKGROUND_SKIN_REFRESH_SEQ = 'pdd.skin.background.refreshSeq';
 const LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE = 'pdd.skin.background.equippedRow';
-const DEFAULT_BACKGROUND_SKIN_ID = 1001;
+const DEFAULT_BACKGROUND_SKIN_ID = 1000;
 const LOCAL_BACKGROUND_SKIN_SHORT_ID_SET = new Set<number>([2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 16, 21, 22, 99]);
 const SKIN_PANEL_NAME = 'BackgroundSkinPanelOverlay';
 const SKIN_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/BackgroundSkinPanel';
@@ -121,11 +122,16 @@ function toSkinId(value: unknown, fallback: number = 0): number {
     return Number.isFinite(id) && id > 0 ? id : fallback;
 }
 
+function toSkinShortId(value: unknown, fallback: number = 0): number {
+    const id = Math.floor(Number(value));
+    return Number.isFinite(id) && id >= 0 ? id : fallback;
+}
+
 function toBackgroundSkinStorageId(value: unknown, fallback: number = 0): number {
     const id = Math.floor(Number(value));
     if (!Number.isFinite(id)) return fallback;
-    if (id === 0 || id === 1) return DEFAULT_BACKGROUND_SKIN_ID;
-    if (id > 1 && id < 1000) return id + 1000;
+    if (id === 0) return DEFAULT_BACKGROUND_SKIN_ID;
+    if (id > 0 && id < 1000) return id + 1000;
     return id > 0 ? id : fallback;
 }
 
@@ -242,7 +248,7 @@ export function installSkinBackgroundModule(target: any): void {
                 .map((raw: any) => {
                     const row: BackgroundSkinRow = {
                         id: toSkinId(raw.id, -1),
-                        shortId: toSkinId(raw.shortId, toSkinId(raw.id)),
+                        shortId: toSkinShortId(raw.shortId, toSkinId(raw.id)),
                         type: 'background',
                         code: String(raw.code || ''),
                         name: String(raw.name || raw.code || raw.id || ''),
@@ -293,7 +299,7 @@ export function installSkinBackgroundModule(target: any): void {
                     const iconAsset = raw.assets?.icon || null;
                     const row: BackgroundSkinRow = {
                         id: toSkinId(raw.id),
-                        shortId: toSkinId(raw.shortId, toSkinId(raw.id)),
+                        shortId: toSkinShortId(raw.shortId, toSkinId(raw.id)),
                         type: 'background',
                         code: String(raw.code || ''),
                         name: String(raw.name || raw.code || raw.id || ''),
@@ -686,19 +692,19 @@ export function installSkinBackgroundModule(target: any): void {
             if (equippedId === DEFAULT_BACKGROUND_SKIN_ID) {
                 return {
                     id: DEFAULT_BACKGROUND_SKIN_ID,
-                    shortId: 1,
+                    shortId: 0,
                     type: 'background',
-                    code: 'bg_001',
-                    name: '背景 001',
+                    code: 'bg_000',
+                    name: '默认皮肤',
                     isDefault: true,
                     assetBundle: LOCAL_BOOTSTRAP_BUNDLE_NAME,
                     assetKey: 'GameUI/bg_game_pindd',
                     iconBundle: GAME_ASSETS_BUNDLE_NAME,
-                    iconKey: 'Skins/Icons/bg_001',
+                    iconKey: 'Skins/Icons/bg_000',
                     unlockType: 'default',
                     unlockValue: 0,
                     price: 0,
-                    sort: 1,
+                    sort: 0,
                     enabled: true,
                     source: 'local',
                     backgroundAsset: null,
@@ -1141,14 +1147,24 @@ export function installSkinBackgroundModule(target: any): void {
                     callback?.(false, lockedErr);
                     return;
                 }
+                if (isDefaultBackgroundSkinRow(skin)) {
+                    this._persistEquippedBackgroundSkinSelection(skin);
+                    this._clearEquippedBackgroundFrame(skin);
+                    this.refreshEquippedGameplayBackground(true);
+                    this.showToast?.('已使用', 1.2);
+                    callback?.(true, null);
+                    return;
+                }
                 this.loadBackgroundSkinSpriteFrame(skin, (sf, loadErr) => {
                     if (!sf) {
                         this._reportBackgroundSkinError('equip-load', skin, loadErr);
-                        this.showToast?.('已使用，背景加载稍后重试', 1.8);
-                        callback?.(true, null);
+                        this.showToast?.('背景加载失败，请稍后重试', 1.8);
+                        callback?.(false, loadErr || new Error(`[background-skin] equip background missing: ${skin.id}`));
                         return;
                     }
+                    this._persistEquippedBackgroundSkinSelection(skin);
                     this._rememberEquippedBackgroundFrame(skin, sf);
+                    this.refreshEquippedGameplayBackground(true);
                     this.showToast?.('已使用', 1.2);
                     callback?.(true, null);
                 });
@@ -1203,6 +1219,7 @@ export function installSkinBackgroundModule(target: any): void {
                 throw new Error('[HomeScene] Home.scene is missing SkinIcon under EntryLayer/SkinBtn');
             }
             this.requireSceneSpriteFrame?.(icon, 'EntryLayer/SkinBtn/SkinIcon');
+            ensureHomeIconIdleWiggle(icon);
             btn.active = true;
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);

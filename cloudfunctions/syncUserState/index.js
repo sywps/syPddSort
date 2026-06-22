@@ -60,8 +60,8 @@ function normalizeThemeCompletedIds(value) {
 
 function normalizeBackgroundSkinId(value) {
   const id = Math.floor(Number(value) || 0);
-  if (id === 0 || id === 1) return 1001;
-  if (id > 1 && id < 1000) return id + 1000;
+  if (id === 0) return 1000;
+  if (id > 0 && id < 1000) return id + 1000;
   return id > 0 ? id : 0;
 }
 

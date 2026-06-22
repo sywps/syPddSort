@@ -195,6 +195,25 @@ export function installAssetBootstrapModule(target: any): void {
             return !!this?.isValid && !!this.node?.isValid;
         },
 
+        cancelSpriteFrameLoadQueue(reason: string = 'runtime-destroy') {
+            const queueSize = Array.isArray(this._spriteFrameLoadQueue) ? this._spriteFrameLoadQueue.length : 0;
+            const inFlight = Math.max(0, Number(this._spriteFrameLoadInFlight) || 0);
+            const pendingCount = this._pendingSpriteFrameLoads instanceof Map ? this._pendingSpriteFrameLoads.size : 0;
+            if (queueSize === 0 && inFlight === 0 && pendingCount === 0) return;
+            debugPerfTrace('spriteFrame.load.cancel', {
+                reason,
+                queueSize,
+                inFlight,
+                pendingCount,
+            });
+            this._spriteFrameLoadQueueCancelled = true;
+            this._spriteFrameLoadQueue = [];
+            this._spriteFrameLoadInFlight = 0;
+            if (this._pendingSpriteFrameLoads instanceof Map) {
+                this._pendingSpriteFrameLoads.clear();
+            }
+        },
+
         _canAutoReleaseSpriteFrameScope(scope: string, reason: string): boolean {
             if (scope === SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP) {
                 return reason.includes('runtime-destroy');
@@ -760,7 +779,13 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _enqueueSpriteFrameLoadTask(imgName: string, task: (done: () => void) => void) {
-            if (!this._isRuntimeAliveForAsyncCallback()) return;
+            if (
+                this._spriteFrameLoadQueueCancelled ||
+                typeof this._isRuntimeAliveForAsyncCallback !== 'function'
+                || !this._isRuntimeAliveForAsyncCallback()
+            ) {
+                return;
+            }
             if (!Array.isArray(this._spriteFrameLoadQueue)) {
                 this._spriteFrameLoadQueue = [];
             }
@@ -770,11 +795,17 @@ export function installAssetBootstrapModule(target: any): void {
                 queueSize: this._spriteFrameLoadQueue.length,
                 concurrencyLimit: this._getSpriteFrameLoadConcurrencyLimit(),
             });
-            this._drainSpriteFrameLoadQueue();
+            if (typeof this._drainSpriteFrameLoadQueue === 'function') {
+                this._drainSpriteFrameLoadQueue();
+            }
         },
 
         _drainSpriteFrameLoadQueue() {
-            if (!this._isRuntimeAliveForAsyncCallback()) {
+            if (
+                this._spriteFrameLoadQueueCancelled ||
+                typeof this._isRuntimeAliveForAsyncCallback !== 'function'
+                || !this._isRuntimeAliveForAsyncCallback()
+            ) {
                 this._spriteFrameLoadQueue = [];
                 this._spriteFrameLoadInFlight = 0;
                 return;
@@ -807,7 +838,14 @@ export function installAssetBootstrapModule(target: any): void {
                         queueSize: Array.isArray(this._spriteFrameLoadQueue) ? this._spriteFrameLoadQueue.length : 0,
                         concurrencyLimit: limit,
                     });
-                    this._drainSpriteFrameLoadQueue();
+                    if (
+                        !this._spriteFrameLoadQueueCancelled &&
+                        typeof this._isRuntimeAliveForAsyncCallback === 'function'
+                        && this._isRuntimeAliveForAsyncCallback()
+                        && typeof this._drainSpriteFrameLoadQueue === 'function'
+                    ) {
+                        this._drainSpriteFrameLoadQueue();
+                    }
                 };
                 try {
                     entry.task(done);
@@ -822,6 +860,13 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _loadSpriteFrameByName(imgName: string, callback: (sf: SpriteFrame | null) => void) {
+            if (
+                this._spriteFrameLoadQueueCancelled ||
+                typeof this._isRuntimeAliveForAsyncCallback !== 'function'
+                || !this._isRuntimeAliveForAsyncCallback()
+            ) {
+                return;
+            }
             const cached = this.getSF(imgName);
             if (cached) {
                 callback(cached);
@@ -853,6 +898,21 @@ export function installAssetBootstrapModule(target: any): void {
             this._enqueueSpriteFrameLoadTask(imgName, (done) => {
                 const finish = (sf: SpriteFrame | null) => {
                     try {
+                        if (
+                            this._spriteFrameLoadQueueCancelled ||
+                            typeof this._isRuntimeAliveForAsyncCallback !== 'function'
+                            || !this._isRuntimeAliveForAsyncCallback()
+                        ) {
+                            if (this._pendingSpriteFrameLoads instanceof Map) {
+                                this._pendingSpriteFrameLoads.delete(imgName);
+                            }
+                            debugPerfTrace('spriteFrame.load.resolve.skip', {
+                                imgName,
+                                reason: this._spriteFrameLoadQueueCancelled ? 'queue-cancelled' : 'runtime-destroyed',
+                                durationMs: Date.now() - startedAt,
+                            });
+                            return;
+                        }
                         resolve(sf);
                     } finally {
                         done();
@@ -1635,7 +1695,7 @@ export function installAssetBootstrapModule(target: any): void {
             const backgroundSkinState = typeof this.captureBackgroundSkinCloudState === 'function'
                 ? this.captureBackgroundSkinCloudState()
                 : {
-                    ownedBackgroundSkinIds: [1001],
+                    ownedBackgroundSkinIds: [1000],
                     backgroundSkinAdProgress: {},
                     equippedBackgroundSkinId: 0,
                     equippedBackgroundSkinUpdatedAt: 0,

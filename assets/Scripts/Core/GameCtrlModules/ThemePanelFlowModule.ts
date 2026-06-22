@@ -366,6 +366,11 @@ export function installThemePanelFlowModule(target: any): void {
         getDefaultThemeGroups(): { name: string; levelIds: number[]; levelNames?: string[] }[] {
             return [
                 {
+                    name: '主题关卡',
+                    levelIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                    levelNames: ['第1关', '第2关', '第3关', '第4关', '第5关', '第6关', '第7关', '第8关', '第9关', '第10关'],
+                },
+                {
                     name: '给阿嬷的情书',
                     levelIds: [1401, 1402, 1403, 1404, 1405, 1406, 1407, 1408, 1409, 1410, 1411, 1412, 1413, 1414, 1415],
                     levelNames: ['青绿邮筒', '灯下家书', '阿嬷笑颜', '侨批木箱', '望海阿嬷', '归家邮差', '平安侨批', '红印封缄', '雨巷阿嬷', '纸短情长', '煤油灯', '老花镜', '南洋木船', '榕树石磨', '侨批文化馆'],

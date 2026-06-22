@@ -400,7 +400,7 @@ assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['Lev
 assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Skins/skins', 'Skins/Icons/bg_001'], '');
+assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Skins/skins', 'Skins/Icons/bg_000'], '');
 assertRuntimeBundleNoDeps(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', ['bootstrap', 'homeAssets']);
 const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [])
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, ''))

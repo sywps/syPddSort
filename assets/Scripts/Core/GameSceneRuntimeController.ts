@@ -233,6 +233,7 @@ export class GameSceneRuntimeController {
         this.runtime.deactivateWeChatFriendRank('destroy');
         this.runtime.clearBoardVisualPools?.();
         this.runtime.clearEffectPools();
+        this.runtime.cancelSpriteFrameLoadQueue?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
         debugPerfTrace('runtime.destroy.after', {
             sceneName,
@@ -351,8 +352,10 @@ export class GameSceneRuntimeController {
         const savedLevel = this.getResolvedStartupCloudRestoreLevel();
         if (savedLevel <= 1) return false;
         const pending = appRoot.session.pendingGameplayRequest;
+        if (pending && pending.entryMode !== 'main') return false;
         if (pending?.entryMode === 'main' && pending.levelId >= savedLevel) return false;
         const active = appRoot.session.activeGameplayContext;
+        if (active && active.entryMode !== 'main') return false;
         if (active?.entryMode === 'main' && active.activeLevelId >= savedLevel) return false;
         appRoot.markGameRequested(savedLevel, 'level_', 'main', 'auto');
         if (typeof this.runtime.releaseStartupBootstrapPrefetchIfUnused === 'function') {
