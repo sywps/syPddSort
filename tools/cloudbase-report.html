@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>拼豆豆 - 数据日报看板</title>
+<link rel="icon" href="data:,">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -347,6 +348,16 @@ td strong { color: #31486e; }
     color: #5f4b2d;
     line-height: 1.65;
 }
+.model-note {
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #f7f0df;
+    border: 1px solid rgba(220, 187, 122, .36);
+    color: #67583c;
+    font-size: 13px;
+    line-height: 1.6;
+}
 .insight-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -459,7 +470,7 @@ td strong { color: #31486e; }
         <div class="hero-top">
             <div class="hero-title">
                 <h1>拼豆豆数据日报看板</h1>
-                <p>把完整日报 `dailyDiagnosis` 展成会议可读看板，统一查看核心指标、首关/教程漏斗、前20关、主线卡点、高重试关卡、广告表现和数据质量。</p>
+                <p>把完整日报 `dailyDiagnosis` 展成会议可读看板，统一查看核心指标、首关/教程漏斗、前20关、关卡净价值、主线卡点、广告表现和数据质量。</p>
             </div>
             <div class="hero-controls">
                 <select id="dateSelect"></select>
@@ -1172,7 +1183,7 @@ function buildOpsInsights(summary, trendSummaries) {
     if (behavior?.lowPassLevels?.length) {
         const top = behavior.lowPassLevels[0];
         risks.push(`主线最明显卡点仍在 L${top.levelId}，UV 通过率只有 ${pctFromRatio(top.uvPassRate)}。`);
-        actions.push(`今天优先复盘 L${top.levelId} 的难度和引导。`);
+        actions.push(`今天优先复盘 L${top.levelId} 的结构、行为阻力和引导。`);
     }
     if (levelRecord?.topRetryLevels?.length) {
         const retry = levelRecord.topRetryLevels[0];
@@ -1359,6 +1370,49 @@ function renderLevelAdRelationshipTable(rows) {
     );
 }
 
+function renderLevelNetValueTable(model) {
+    const rows = Array.isArray(model?.rows) ? model.rows : [];
+    const note = [
+        `时长基线：${model?.durationBaselineSource || 'level_record.avgDurationSeconds'}`,
+        `净时长估算：基线时长 - 广告完成PV/局数 * ${formatNumber(model?.adSecondsAssumption || 30)}s；这是 proxy，不是真实无广告时长。`,
+        '下关进入率用于评分时按 100% 封顶，原始值保留在 nextLevelEnterRateRaw。',
+        '结构难度来自关卡 JSON；行为阻力来自通过率目标区间，二者不能混读。',
+    ].join('；');
+    const structureText = (row) => {
+        const structure = row.levelStructure || {};
+        if (!structure.available) return '-';
+        return `${formatNumber(structure.filledCellCount)}格/${formatNumber(structure.colorCount)}色`;
+    };
+    return `
+        <div class="model-note">${escapeHtml(note)}</div>
+        ${renderTable(
+            ['关卡', '进入UV', '样本', '结构难度', '结构规模', '行为阻力', '教程', '通过率', '下关进入', '观测时长', '净时长估算', '时长压力', '体验分', '收入代理', '广告摩擦', '净价值', '广告完成/进入', '纯流失', '广告位', '动作'],
+            rows.map((row) => [
+                `<strong>L${escapeHtml(row.levelId)}</strong>`,
+                formatNumber(row.enterUv),
+                escapeHtml(row.sampleQuality || ''),
+                escapeHtml(row.structuralDifficultyTag || ''),
+                escapeHtml(structureText(row)),
+                escapeHtml(row.behaviorFrictionTag || ''),
+                escapeHtml(row.tutorialTag || ''),
+                pctFromRatio(row.uvPassRate),
+                pctFromRatio(row.nextLevelEnterRate),
+                formatSeconds(row.observedDurationSeconds),
+                formatSeconds(row.adAdjustedDurationSeconds),
+                escapeHtml(row.durationTag || ''),
+                formatNumber(row.userExperienceScore),
+                formatNumber(row.revenueScore),
+                formatNumber(row.adFrictionScore),
+                formatNumber(row.levelNetScore),
+                pctFromRatio(row.adFinishUvRate),
+                pctFromRatio(row.pureLossRate),
+                escapeHtml(getAdDisplayLabel({ page: row.topAdPlacement, label: row.topAdPlacement })),
+                escapeHtml(row.actionTag || ''),
+            ]),
+        )}
+    `;
+}
+
 function renderMainlineTable(rows) {
     return renderTable(
         ['关卡', '进入UV', '通过UV', '流失UV', 'UV通过率', '显式失败UV', '无失败未通过UV', '平均尝试', '判断'],
@@ -1451,6 +1505,8 @@ function renderContent(summary, trendSummaries) {
     const tutorialTapByStep = Array.isArray(diagnosis?.tutorialTapByStep) ? diagnosis.tutorialTapByStep : [];
     const first20Levels = Array.isArray(diagnosis?.first20Levels) ? diagnosis.first20Levels : [];
     const firstDayChurnAnalysis = diagnosis?.firstDayChurnAnalysis || null;
+    const levelNetValue = diagnosis?.levelNetValue || null;
+    const levelNetRows = Array.isArray(levelNetValue?.rows) ? levelNetValue.rows : [];
     const levelAdRelationship = Array.isArray(diagnosis?.levelAdRelationship) ? diagnosis.levelAdRelationship : [];
     const mainlineRows = Array.isArray(diagnosis?.mainlineBottlenecks) ? diagnosis.mainlineBottlenecks : (behavior?.lowPassLevels || []);
     const highRetryRows = Array.isArray(diagnosis?.highRetryLevels) ? diagnosis.highRetryLevels : (levelRecord?.topRetryLevels || []);
@@ -1608,6 +1664,16 @@ function renderContent(summary, trendSummaries) {
             </div>
             <div class="card-body">
                 ${renderFirstDayChurnAnalysis(firstDayChurnAnalysis)}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">关卡净价值表</div>
+                <div class="card-subtitle">把结构难度、行为阻力、时长、下关流转、广告完成和广告摩擦合成解释型评分；不要把低通过率直接读成关卡本体很难。</div>
+            </div>
+            <div class="card-body">
+                ${levelNetRows.length ? renderLevelNetValueTable(levelNetValue) : '<div class="empty">这份日报没有关卡净价值模型数据。</div>'}
             </div>
         </section>
 
