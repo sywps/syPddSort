@@ -5,8 +5,16 @@ const path = require("path");
 const CloudBase = require("@cloudbase/manager-node");
 
 const DEFAULT_COLLECTION = "user_behavior";
+const DEFAULT_DAILY_COLLECTIONS = [
+  "user_behavior",
+  "level_record",
+  "ad_stat",
+  "daily_stat",
+  "first_level_funnel",
+];
 const DEFAULT_EXPORT_FUNCTION_NAME = "exportAnalyticsData";
 const DEFAULT_API_PAGE_SIZE = 500;
+const DATABASE_API_PAGE_SIZE = 1000;
 const DEFAULT_POLL_MS = 5000;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -40,7 +48,42 @@ const COLLECTION_CONFIGS = {
     title: "Daily Stat Report",
     analyze: analyzeDailyStatFile,
   },
+  first_level_funnel: {
+    queryField: "timestamp",
+    queryMode: "range",
+    outputSlug: "first-level-funnel",
+    title: "First Level Funnel Daily Report",
+    apiKeyExportMode: "database",
+    analyze: analyzeFirstLevelFunnelFile,
+  },
 };
+
+const FIRST_LEVEL_FUNNEL_STEPS = [
+  "app_launch",
+  "ab_assigned",
+  "bootstrap_level_start",
+  "first_level_json_loaded",
+  "first_level_json_failed",
+  "first_level_ui_ready",
+  "tutorial_step_interactive_ready",
+  "first_level_any_touch",
+  "tutorial_layer_touch_start",
+  "tutorial_step_first_touch",
+  "tutorial_tap_result",
+  "tutorial_fast_tap_ignored",
+  "first_touch",
+  "first_valid_select",
+  "timer_started",
+  "first_place_attempt",
+  "first_place_success",
+  "tutorial_step_show",
+  "tutorial_step_done",
+  "tutorial_wrong_tap",
+  "tutorial_done",
+  "level_pass",
+  "level_fail",
+  "app_hide",
+];
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,7 +95,6 @@ function ensureDir(dirPath) {
 
 function parseArgs(argv) {
   const args = {
-    collection: DEFAULT_COLLECTION,
     pollMs: DEFAULT_POLL_MS,
     timeoutMs: DEFAULT_TIMEOUT_MS,
   };
@@ -97,12 +139,8 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`Usage:
-  npm run analytics:user-behavior:daily -- --date 2026-05-24
-  npm run analytics:level-record:daily -- --date 2026-05-24
-  npm run analytics:ad-stat:daily -- --date 2026-05-24
-  npm run analytics:daily-stat:daily -- --date 2026-05-24
-  npm run analytics:daily:all -- --date 2026-05-24
-  node scripts/user-behavior-daily-job.js --input ./database_export.json
+  npm run analytics:daily -- --date 2026-05-24
+  node scripts/user-behavior-daily-job.js --collection user_behavior --input ./database_export.json --date 2026-05-24
 
 Environment variables:
   TCB_SECRET_ID   Tencent Cloud SecretId
@@ -116,8 +154,8 @@ Optional arguments:
   --date YYYY-MM-DD        Export and analyze one Shanghai calendar day. Defaults to yesterday.
   --input PATH             Skip export and analyze an existing NDJSON file. Single-collection only.
   --out-dir PATH           Override output directory.
-  --collection NAME        One collection name, e.g. user_behavior or level_record.
-  --collections A,B        Multiple collections, e.g. user_behavior,level_record,ad_stat,daily_stat.
+  --collection NAME        Developer/debug only. One collection name, e.g. user_behavior or level_record.
+  --collections A,B        Developer/debug only. Multiple collections.
   --query-field NAME       Override date field for single-collection exports.
   --poll-ms NUMBER         Export status polling interval. Defaults to 5000.
   --timeout-ms NUMBER      Export timeout. Defaults to 600000.
@@ -156,6 +194,21 @@ function getTargetDate(dateArg) {
     return dateArg;
   }
   return addDays(toShanghaiDayLabel(new Date()), -1);
+}
+
+function buildCollectionQueryObject(queryField, queryMode, dateLabel) {
+  if (queryMode === "exact") {
+    return {
+      [queryField]: dateLabel,
+    };
+  }
+  const { startMs, endMs } = shanghaiDayRange(dateLabel);
+  return {
+    [queryField]: {
+      $gte: startMs,
+      $lt: endMs,
+    },
+  };
 }
 
 function requireEnv(name) {
@@ -212,9 +265,16 @@ function createExportClient() {
 }
 
 function normalizeCollectionNames(args) {
-  const names = args.collections
-    ? args.collections.split(",").map((item) => item.trim()).filter(Boolean)
-    : [args.collection];
+  let names = [];
+  if (args.collections) {
+    names = args.collections.split(",").map((item) => item.trim()).filter(Boolean);
+  } else if (args.collection) {
+    names = [args.collection];
+  } else if (args.input) {
+    names = [DEFAULT_COLLECTION];
+  } else {
+    names = [...DEFAULT_DAILY_COLLECTIONS];
+  }
 
   if (!names.length) {
     throw new Error("No collections were specified");
@@ -275,6 +335,36 @@ function unwrapFunctionResult(value) {
   } catch (error) {
     return value;
   }
+}
+
+function parseDatabaseValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(parseDatabaseValue);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "$numberInt")) {
+    return Number(value.$numberInt);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "$numberLong")) {
+    return Number(value.$numberLong);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "$numberDouble")) {
+    return Number(value.$numberDouble);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "$date")) {
+    const raw = value.$date;
+    if (raw && typeof raw === "object" && Object.prototype.hasOwnProperty.call(raw, "$numberLong")) {
+      return Number(raw.$numberLong);
+    }
+    return raw;
+  }
+  const output = {};
+  for (const [key, raw] of Object.entries(value)) {
+    output[key] = parseDatabaseValue(raw);
+  }
+  return output;
 }
 
 function toDebugSnippet(value) {
@@ -395,20 +485,7 @@ async function exportCollectionForDay({
   managerBundle,
 }) {
   const { manager, envId } = managerBundle;
-  const query =
-    queryMode === "exact"
-      ? JSON.stringify({
-          [queryField]: dateLabel,
-        })
-      : JSON.stringify((() => {
-          const { startMs, endMs } = shanghaiDayRange(dateLabel);
-          return {
-            [queryField]: {
-              $gte: startMs,
-              $lt: endMs,
-            },
-          };
-        })());
+  const query = JSON.stringify(buildCollectionQueryObject(queryField, queryMode, dateLabel));
 
   const objectKey = `exports/${collection}/${dateLabel}/${collection}-${dateLabel}.json`;
   const localFileName = `database_export-${envId}-${collection}-${dateLabel}.json`;
@@ -513,6 +590,83 @@ async function exportCollectionViaApiKeyForDay({
   };
 }
 
+async function exportCollectionViaDatabaseApiForDay({
+  collection,
+  queryField,
+  queryMode,
+  dateLabel,
+  outputDir,
+  apiKeyBundle,
+}) {
+  const localFileName = `database_export-${apiKeyBundle.envId}-${collection}-${dateLabel}.json`;
+  const localPath = path.join(outputDir, localFileName);
+  const query = buildCollectionQueryObject(queryField, queryMode, dateLabel);
+  const sort = queryMode === "range" ? { [queryField]: 1 } : {};
+  let offset = 0;
+  let pageCount = 0;
+  let totalRecords = 0;
+
+  fs.writeFileSync(localPath, "");
+
+  while (true) {
+    const params = new URLSearchParams({
+      offset: String(offset),
+      limit: String(DATABASE_API_PAGE_SIZE),
+      query: JSON.stringify(query),
+      sort: JSON.stringify(sort),
+    });
+    const url = `${apiKeyBundle.baseUrl}/v1/database/instances/(default)/databases/(default)/collections/${encodeURIComponent(collection)}/documents?${params}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKeyBundle.apiKey}`,
+        Accept: "application/json",
+      },
+    });
+    const text = await response.text();
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch (error) {
+      body = text;
+    }
+    if (!response.ok) {
+      const message =
+        (body && (body.message || body.code)) ||
+        toDebugSnippet(body) ||
+        `HTTP ${response.status} ${response.statusText}`;
+      throw new Error(`CloudBase database query failed for ${collection}: ${message}`);
+    }
+
+    const items = Array.isArray(body?.list) ? body.list.map(parseDatabaseValue) : [];
+    if (items.length > 0) {
+      const chunk = items.map((item) => JSON.stringify(item)).join("\n");
+      fs.appendFileSync(localPath, `${chunk}\n`);
+    }
+    pageCount += 1;
+    totalRecords += items.length;
+    if (pageCount === 1 || pageCount % 25 === 0) {
+      console.log(`[${collection}] fetched ${totalRecords} records`);
+    }
+    if (items.length < DATABASE_API_PAGE_SIZE) {
+      break;
+    }
+    offset += DATABASE_API_PAGE_SIZE;
+  }
+
+  return {
+    mode: "apiKeyDatabase",
+    envId: apiKeyBundle.envId,
+    collection,
+    dateLabel,
+    queryField,
+    queryMode,
+    localPath,
+    baseUrl: apiKeyBundle.baseUrl,
+    pageCount,
+    totalRecords,
+  };
+}
+
 function writeCsv(filePath, headers, rows) {
   const escapeCell = (value) => {
     const stringValue = value == null ? "" : String(value);
@@ -545,6 +699,99 @@ function loadNdjsonRecords(inputPath) {
 
 function sortObjectByValueDesc(map) {
   return Object.fromEntries([...map.entries()].sort((a, b) => b[1] - a[1]));
+}
+
+function numberValue(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function ratio(numerator, denominator) {
+  const base = numberValue(denominator);
+  if (!base) {
+    return 0;
+  }
+  return Number((numberValue(numerator) / base).toFixed(4));
+}
+
+function fixedNumber(value, digits = 2) {
+  return Number(numberValue(value).toFixed(digits));
+}
+
+function percentText(value) {
+  return `${(numberValue(value) * 100).toFixed(1)}%`;
+}
+
+function integerText(value) {
+  return String(Math.round(numberValue(value)));
+}
+
+function getSessionKey(record) {
+  return record.sessionId || record.openid || record._id || "";
+}
+
+function topMapEntries(map, limit = 20) {
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([key, count]) => ({ key, count }));
+}
+
+function addDetailStat(map, key, sessionKey, userKey) {
+  if (!map.has(key)) {
+    map.set(key, { key, records: 0, sessions: new Set(), users: new Set() });
+  }
+  const stat = map.get(key);
+  stat.records += 1;
+  if (sessionKey) {
+    stat.sessions.add(sessionKey);
+  }
+  if (userKey) {
+    stat.users.add(userKey);
+  }
+}
+
+function topDetailEntries(map, limit = 20) {
+  return [...map.values()]
+    .sort((a, b) => b.records - a.records)
+    .slice(0, limit)
+    .map((stat) => ({
+      key: stat.key,
+      records: stat.records,
+      sessions: stat.sessions.size,
+      users: stat.users.size,
+    }));
+}
+
+function quantileSeconds(values) {
+  const sorted = values
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!sorted.length) {
+    return { count: 0, p50: 0, p75: 0, p90: 0, p95: 0 };
+  }
+  const pick = (q) => sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * q))];
+  return {
+    count: sorted.length,
+    p50: fixedNumber(pick(0.5) / 1000, 2),
+    p75: fixedNumber(pick(0.75) / 1000, 2),
+    p90: fixedNumber(pick(0.9) / 1000, 2),
+    p95: fixedNumber(pick(0.95) / 1000, 2),
+  };
+}
+
+function markdownTable(headers, rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const headerLine = `| ${headers.join(" | ")} |`;
+  const splitLine = `| ${headers.map(() => "---").join(" | ")} |`;
+  if (!safeRows.length) {
+    return [headerLine, splitLine, `| ${["暂无数据", ...headers.slice(1).map(() => "")].join(" | ")} |`].join("\n");
+  }
+  return [
+    headerLine,
+    splitLine,
+    ...safeRows.map((row) => `| ${row.map((cell) => String(cell ?? "").replace(/\|/g, "\\|")).join(" | ")} |`),
+  ].join("\n");
 }
 
 function buildAdEventBreakdown(records) {
@@ -797,6 +1044,7 @@ function analyzeUserBehaviorFile({
     eventCounts: eventCountObject,
     pageCounts: pageCountObject,
     adEventBreakdown,
+    levelRows,
     lowPassLevels,
     topEnteredLevels,
     topFailedLevels,
@@ -1087,6 +1335,7 @@ function analyzeLevelRecordFile({
     levelOnePassRate: Number(levelOne.passRate.toFixed(4)),
     levelOneAvgTryCount: Number(levelOne.avgTryCount.toFixed(4)),
     levelOneAvgDurationSeconds: Number(levelOne.avgDurationSeconds.toFixed(2)),
+    levelRows,
     lowPassLevels,
     topRetryLevels,
     topAdReviveLevels,
@@ -1177,6 +1426,231 @@ function analyzeLevelRecordFile({
       row.avgTryCount.toFixed(4),
       row.avgDurationSeconds.toFixed(2),
     ]),
+  );
+
+  return {
+    summary,
+    files: {
+      jsonPath,
+      markdownPath,
+      csvPath,
+    },
+  };
+}
+
+function analyzeFirstLevelFunnelFile({
+  inputPath,
+  outputDir,
+  dateLabel,
+  collection,
+  envId,
+}) {
+  const records = loadNdjsonRecords(inputPath);
+  const eventStats = new Map();
+  const sourceStats = new Map();
+  const errorStats = new Map();
+  const touchTargetStats = new Map();
+  const layerTouchStepStats = new Map();
+  const tapResultStats = new Map();
+  const tapResultStepStats = new Map();
+  const tapResultDetails = new Map();
+  const tapResultStepDetails = new Map();
+  const eventStepStats = new Map();
+  const sessions = new Map();
+  const users = new Set();
+
+  for (const record of records) {
+    const eventName = record.eventName || "";
+    const sessionKey = getSessionKey(record);
+    const userKey = record.openid || "";
+    const timestamp = Number(record.timestamp) || 0;
+    if (userKey) {
+      users.add(userKey);
+    }
+    if (sessionKey && !sessions.has(sessionKey)) {
+      sessions.set(sessionKey, {
+        userKey,
+        events: new Map(),
+        firstTs: timestamp,
+        lastTs: timestamp,
+      });
+    }
+    if (sessionKey) {
+      const session = sessions.get(sessionKey);
+      session.firstTs = Math.min(session.firstTs || timestamp, timestamp);
+      session.lastTs = Math.max(session.lastTs || 0, timestamp);
+      if (!session.events.has(eventName)) {
+        session.events.set(eventName, timestamp);
+      }
+    }
+
+    if (!eventStats.has(eventName)) {
+      eventStats.set(eventName, { eventName, records: 0, sessions: new Set(), users: new Set() });
+    }
+    const stat = eventStats.get(eventName);
+    stat.records += 1;
+    if (sessionKey) {
+      stat.sessions.add(sessionKey);
+    }
+    if (userKey) {
+      stat.users.add(userKey);
+    }
+
+    if (record.source) {
+      sourceStats.set(record.source, (sourceStats.get(record.source) || 0) + 1);
+    }
+    if (record.errorCode) {
+      errorStats.set(record.errorCode, (errorStats.get(record.errorCode) || 0) + 1);
+    }
+    if (eventName === "first_touch" && record.touchTarget) {
+      touchTargetStats.set(record.touchTarget, (touchTargetStats.get(record.touchTarget) || 0) + 1);
+    }
+    if (eventName === "tutorial_layer_touch_start") {
+      const key = `${record.stepName || String(record.stepId || "unknown")}|${record.touchTarget || "unknown"}`;
+      layerTouchStepStats.set(key, (layerTouchStepStats.get(key) || 0) + 1);
+    }
+    if (eventName === "tutorial_tap_result") {
+      const result = record.errorCode || (record.success ? "success" : "unknown");
+      const resultKey = `${result}|${record.touchTarget || "unknown"}`;
+      const stepKey = `${record.stepName || String(record.stepId || "unknown")}|${result}|${record.touchTarget || "unknown"}`;
+      tapResultStats.set(resultKey, (tapResultStats.get(resultKey) || 0) + 1);
+      tapResultStepStats.set(stepKey, (tapResultStepStats.get(stepKey) || 0) + 1);
+      addDetailStat(tapResultDetails, resultKey, sessionKey, userKey);
+      addDetailStat(tapResultStepDetails, stepKey, sessionKey, userKey);
+    }
+    if (record.stepName) {
+      const key = `${eventName}|${record.stepName}`;
+      eventStepStats.set(key, (eventStepStats.get(key) || 0) + 1);
+    }
+  }
+
+  const steps = FIRST_LEVEL_FUNNEL_STEPS.map((eventName) => {
+    const stat = eventStats.get(eventName);
+    return {
+      eventName,
+      records: stat?.records || 0,
+      sessions: stat?.sessions.size || 0,
+      users: stat?.users.size || 0,
+    };
+  });
+  const eventMap = Object.fromEntries(steps.map((row) => [row.eventName, row]));
+  const durationFromLaunchToJsonLoaded = [];
+  const durationFromLaunchToUiReady = [];
+  const durationFromJsonLoadedToUiReady = [];
+  const durationFromUiReadyToAnyTouch = [];
+  const durationFromUiReadyToFirstTouch = [];
+  const durationFromUiReadyToPass = [];
+  const durationFromUiReadyToHide = [];
+
+  for (const session of sessions.values()) {
+    const launch = session.events.get("app_launch") || 0;
+    const jsonLoaded = session.events.get("first_level_json_loaded") || 0;
+    const uiReady = session.events.get("first_level_ui_ready") || 0;
+    if (launch > 0 && jsonLoaded > launch) {
+      durationFromLaunchToJsonLoaded.push(jsonLoaded - launch);
+    }
+    if (launch > 0 && uiReady > launch) {
+      durationFromLaunchToUiReady.push(uiReady - launch);
+    }
+    if (jsonLoaded > 0 && uiReady > jsonLoaded) {
+      durationFromJsonLoadedToUiReady.push(uiReady - jsonLoaded);
+    }
+    if (!uiReady) {
+      continue;
+    }
+    const anyTouch = session.events.get("first_level_any_touch") || 0;
+    const firstTouch = session.events.get("first_touch") || 0;
+    const pass = session.events.get("level_pass") || 0;
+    const hide = session.events.get("app_hide") || 0;
+    if (anyTouch > uiReady) {
+      durationFromUiReadyToAnyTouch.push(anyTouch - uiReady);
+    }
+    if (firstTouch > uiReady) {
+      durationFromUiReadyToFirstTouch.push(firstTouch - uiReady);
+    }
+    if (pass > uiReady) {
+      durationFromUiReadyToPass.push(pass - uiReady);
+    }
+    if (hide > uiReady) {
+      durationFromUiReadyToHide.push(hide - uiReady);
+    }
+  }
+
+  const summary = {
+    date: dateLabel,
+    envId,
+    collection,
+    inputPath,
+    totalRecords: records.length,
+    totalSessions: sessions.size,
+    totalUsers: users.size,
+    steps,
+    keyRates: {
+      jsonLoadedToUiReady: ratio(eventMap.first_level_ui_ready?.sessions, eventMap.first_level_json_loaded?.sessions),
+      uiReadyToAnyTouch: ratio(eventMap.first_level_any_touch?.sessions, eventMap.first_level_ui_ready?.sessions),
+      uiReadyToGuideLayerTouch: ratio(eventMap.tutorial_layer_touch_start?.sessions, eventMap.first_level_ui_ready?.sessions),
+      uiReadyToTutorialTapResult: ratio(eventMap.tutorial_tap_result?.sessions, eventMap.first_level_ui_ready?.sessions),
+      anyTouchToTutorialTapResult: ratio(eventMap.tutorial_tap_result?.sessions, eventMap.first_level_any_touch?.sessions),
+      anyTouchToFirstValidSelect: ratio(eventMap.first_valid_select?.sessions, eventMap.first_level_any_touch?.sessions),
+      firstValidSelectToFirstPlaceSuccess: ratio(eventMap.first_place_success?.sessions, eventMap.first_valid_select?.sessions),
+      tutorialDoneToPass: ratio(eventMap.level_pass?.sessions, eventMap.tutorial_done?.sessions),
+      uiReadyToPass: ratio(eventMap.level_pass?.sessions, eventMap.first_level_ui_ready?.sessions),
+      uiReadyToHide: ratio(eventMap.app_hide?.sessions, eventMap.first_level_ui_ready?.sessions),
+    },
+    durationSeconds: {
+      launchToJsonLoaded: quantileSeconds(durationFromLaunchToJsonLoaded),
+      launchToUiReady: quantileSeconds(durationFromLaunchToUiReady),
+      jsonLoadedToUiReady: quantileSeconds(durationFromJsonLoadedToUiReady),
+      uiReadyToAnyTouch: quantileSeconds(durationFromUiReadyToAnyTouch),
+      uiReadyToFirstTouch: quantileSeconds(durationFromUiReadyToFirstTouch),
+      uiReadyToPass: quantileSeconds(durationFromUiReadyToPass),
+      uiReadyToHide: quantileSeconds(durationFromUiReadyToHide),
+    },
+    topSources: topMapEntries(sourceStats, 20),
+    touchTargets: topMapEntries(touchTargetStats, 20),
+    layerTouchSteps: topMapEntries(layerTouchStepStats, 30),
+    tapResults: topMapEntries(tapResultStats, 40),
+    tapResultSteps: topMapEntries(tapResultStepStats, 80),
+    tapResultDetails: topDetailEntries(tapResultDetails, 40),
+    tapResultStepDetails: topDetailEntries(tapResultStepDetails, 80),
+    eventSteps: topMapEntries(eventStepStats, 80),
+    errorCodes: topMapEntries(errorStats, 20),
+  };
+
+  const jsonPath = path.join(outputDir, "summary.json");
+  const markdownPath = path.join(outputDir, "report.md");
+  const csvPath = path.join(outputDir, "funnel_steps.csv");
+  fs.writeFileSync(jsonPath, `${JSON.stringify(summary, null, 2)}\n`);
+  fs.writeFileSync(
+    markdownPath,
+    [
+      `# ${COLLECTION_CONFIGS[collection].title}`,
+      ``,
+      `- Date: ${dateLabel}`,
+      `- Environment: ${envId || "unknown"}`,
+      `- Collection: ${collection}`,
+      `- Source file: ${inputPath}`,
+      ``,
+      `## Key Rates`,
+      ``,
+      `- UI ready -> 任意首触达: ${percentText(summary.keyRates.uiReadyToAnyTouch)}`,
+      `- 任意首触达 -> 教程点击有结果: ${percentText(summary.keyRates.anyTouchToTutorialTapResult)}`,
+      `- 任意首触达 -> 首次有效选择: ${percentText(summary.keyRates.anyTouchToFirstValidSelect)}`,
+      `- UI ready -> L1通过: ${percentText(summary.keyRates.uiReadyToPass)}`,
+      ``,
+      `## Steps`,
+      ``,
+      markdownTable(
+        ["事件", "records", "sessions", "users"],
+        summary.steps.map((row) => [row.eventName, row.records, row.sessions, row.users]),
+      ),
+      ``,
+    ].join("\n"),
+  );
+  writeCsv(
+    csvPath,
+    ["eventName", "records", "sessions", "users"],
+    summary.steps.map((row) => [row.eventName, row.records, row.sessions, row.users]),
   );
 
   return {
@@ -1534,6 +2008,352 @@ function buildEffectiveAdStat({
   };
 }
 
+function collectionSummary(combinedSummary, name) {
+  return combinedSummary.collections[name]?.summary || null;
+}
+
+function rowMapByLevel(rows) {
+  const map = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const levelId = Math.max(0, Math.floor(Number(row.levelId) || 0));
+    if (levelId > 0) {
+      map.set(levelId, row);
+    }
+  }
+  return map;
+}
+
+function firstLevelStepMap(funnelSummary) {
+  return Object.fromEntries(
+    (Array.isArray(funnelSummary?.steps) ? funnelSummary.steps : [])
+      .map((row) => [row.eventName, row]),
+  );
+}
+
+function classifyBottleneck(row) {
+  if (!row.enterUv) {
+    return "暂无进入数据";
+  }
+  if (row.uvPassRate < 0.35 && row.failUv <= Math.max(2, row.enterUv * 0.05)) {
+    return "低通过且显式失败少，优先查中途退出、卡住或日志缺口";
+  }
+  if (row.uvPassRate < 0.5 && row.failUv > 0) {
+    return "低通过且有失败，优先查关卡难度";
+  }
+  if (row.avgTryCount >= 1.2) {
+    return "平均尝试偏高，检查局部难点和节奏";
+  }
+  return "观察";
+}
+
+function buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary }) {
+  const stepMap = firstLevelStepMap(funnelSummary);
+  const startSessions =
+    stepMap.app_launch?.sessions ||
+    stepMap.first_level_ui_ready?.sessions ||
+    0;
+  const startUsers =
+    stepMap.app_launch?.users ||
+    stepMap.first_level_ui_ready?.users ||
+    Number(userBehaviorSummary?.levelOneEnterUv) ||
+    0;
+  const steps = [
+    ["App启动", "app_launch"],
+    ["首关JSON加载", "first_level_json_loaded"],
+    ["UI ready", "first_level_ui_ready"],
+    ["教程可交互", "tutorial_step_interactive_ready"],
+    ["任意首触达", "first_level_any_touch"],
+    ["教程点击有结果", "tutorial_tap_result"],
+    ["首次有效选择", "first_valid_select"],
+    ["首次放置成功", "first_place_success"],
+    ["教程完成", "tutorial_done"],
+    ["L1通过", "level_pass"],
+  ];
+
+  let previousSessions = 0;
+  return steps.map(([label, eventName]) => {
+    const stat = stepMap[eventName] || { records: 0, sessions: 0, users: 0 };
+    const row = {
+      label,
+      eventName,
+      records: stat.records || 0,
+      sessions: stat.sessions || 0,
+      users: stat.users || 0,
+      sessionRateFromStart: ratio(stat.sessions, startSessions),
+      userRateFromStart: ratio(stat.users, startUsers),
+      sessionStepRate: previousSessions ? ratio(stat.sessions, previousSessions) : 0,
+    };
+    if (stat.sessions > 0 || previousSessions === 0) {
+      previousSessions = stat.sessions || previousSessions;
+    }
+    return row;
+  });
+}
+
+function buildFirst20Levels({ userBehaviorSummary, levelRecordSummary }) {
+  const behaviorByLevel = rowMapByLevel(userBehaviorSummary?.levelRows);
+  const recordByLevel = rowMapByLevel(levelRecordSummary?.levelRows);
+  const rows = [];
+  for (let levelId = 1; levelId <= 20; levelId += 1) {
+    const behavior = behaviorByLevel.get(levelId) || {};
+    const record = recordByLevel.get(levelId) || {};
+    const enterUv = numberValue(behavior.enterUv);
+    const passUv = numberValue(behavior.passUv);
+    const failUv = numberValue(behavior.failUv);
+    const enterNotPassUv = Math.max(0, enterUv - passUv);
+    const silentDropUv = Math.max(0, enterNotPassUv - failUv);
+    rows.push({
+      levelId,
+      enterUv,
+      enterPv: numberValue(behavior.enterPv),
+      passUv,
+      passPv: numberValue(behavior.passPv),
+      failUv,
+      failPv: numberValue(behavior.failPv),
+      enterNotPassUv,
+      silentDropUv,
+      uvPassRate: ratio(passUv, enterUv),
+      pvPassRate: ratio(behavior.passPv, behavior.enterPv),
+      recordCount: numberValue(record.recordCount),
+      uniqueUsers: numberValue(record.uniqueUsers),
+      passRate: ratio(record.passCount, record.recordCount),
+      avgTryCount: fixedNumber(record.avgTryCount, 2),
+      avgDurationSeconds: fixedNumber(record.avgDurationSeconds, 2),
+      adReviveCount: numberValue(record.adReviveCount),
+      diagnosis: classifyBottleneck({
+        enterUv,
+        failUv,
+        uvPassRate: ratio(passUv, enterUv),
+        avgTryCount: numberValue(record.avgTryCount),
+      }),
+    });
+  }
+  return rows;
+}
+
+function buildMainlineBottlenecks(first20Levels) {
+  return [...first20Levels]
+    .filter((row) => row.enterUv >= 10)
+    .sort((a, b) => {
+      if (b.enterNotPassUv !== a.enterNotPassUv) {
+        return b.enterNotPassUv - a.enterNotPassUv;
+      }
+      return a.uvPassRate - b.uvPassRate;
+    })
+    .slice(0, 12);
+}
+
+function buildHighRetryLevels(levelRecordSummary) {
+  const rows = Array.isArray(levelRecordSummary?.levelRows)
+    ? levelRecordSummary.levelRows
+    : (levelRecordSummary?.topRetryLevels || []);
+  return [...rows]
+    .filter((row) => numberValue(row.recordCount) >= 5 && numberValue(row.avgTryCount) > 1)
+    .sort((a, b) => {
+      if (numberValue(b.avgTryCount) !== numberValue(a.avgTryCount)) {
+        return numberValue(b.avgTryCount) - numberValue(a.avgTryCount);
+      }
+      return numberValue(b.recordCount) - numberValue(a.recordCount);
+    })
+    .slice(0, 12)
+    .map((row) => ({
+      levelId: numberValue(row.levelId),
+      uniqueUsers: numberValue(row.uniqueUsers),
+      recordCount: numberValue(row.recordCount),
+      passRate: ratio(row.passCount, row.recordCount),
+      failCount: numberValue(row.failCount),
+      avgTryCount: fixedNumber(row.avgTryCount, 2),
+      avgDurationSeconds: fixedNumber(row.avgDurationSeconds, 2),
+      adReviveCount: numberValue(row.adReviveCount),
+    }));
+}
+
+function buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels, funnelSummary }) {
+  const warnings = [];
+  const l1 = first20Levels[0] || {};
+  const l1NotPass = numberValue(l1.enterNotPassUv);
+  if (!funnelSummary || numberValue(funnelSummary.totalRecords) === 0) {
+    warnings.push("缺少 first_level_funnel 数据，首关细分漏斗不可用。");
+  }
+  if (!Array.isArray(userBehaviorSummary?.levelRows)) {
+    warnings.push("user_behavior summary 缺少完整 levelRows，前20关只能部分回填。");
+  }
+  if (combinedSummary.effectiveDailyCore?.isFallback) {
+    warnings.push("daily_stat 为空或不可用，DAU/总局数由 user_behavior 回推。");
+  }
+  if (combinedSummary.effectiveAdStat?.isFallback) {
+    warnings.push("ad_stat 为空或不可用，广告指标由 user_behavior 广告事件回推。");
+  }
+  if (l1NotPass > 0 && numberValue(l1.failUv) <= Math.max(2, l1NotPass * 0.05)) {
+    warnings.push("L1 进入未通过用户几乎没有显式 level_fail，需按中途退出/卡住/日志缺口解释。");
+  }
+  return {
+    firstLevelFunnelRecords: numberValue(funnelSummary?.totalRecords),
+    firstLevelFunnelSessions: numberValue(funnelSummary?.totalSessions),
+    adStatSource: combinedSummary.effectiveAdStat?.source || "unknown",
+    dailyCoreSource: combinedSummary.effectiveDailyCore?.source || "unknown",
+    l1FailCoverageRate: ratio(l1.failUv, l1NotPass),
+    warnings,
+  };
+}
+
+function buildRecommendations({ coreMetrics, funnelRows, tutorialTapBreakdown, mainlineBottlenecks, highRetryLevels, adPerformance }) {
+  const recommendations = [];
+  const uiReady = funnelRows.find((row) => row.eventName === "first_level_ui_ready");
+  const anyTouch = funnelRows.find((row) => row.eventName === "first_level_any_touch");
+  const validSelect = funnelRows.find((row) => row.eventName === "first_valid_select");
+  const topTapMiss = tutorialTapBreakdown.find((row) => !String(row.key || "").startsWith("success"));
+
+  if (coreMetrics.l1UvPassRate < 0.3) {
+    recommendations.push({
+      priority: "P0",
+      topic: "首关漏斗通过率",
+      finding: `App启动到L1通过UV率 ${percentText(coreMetrics.l1UvPassRate)}，低于 30%。`,
+      action: "优先评审首关教程、可点击范围、第一步目标表达和第二步放置节奏。",
+    });
+  }
+  if (uiReady && anyTouch && ratio(anyTouch.sessions, uiReady.sessions) < 0.7) {
+    recommendations.push({
+      priority: "P0",
+      topic: "首关首触达",
+      finding: `UI ready 后任意首触达率 ${percentText(ratio(anyTouch.sessions, uiReady.sessions))}。`,
+      action: "继续优化首屏视觉焦点、手势引导和文案位置，并检查是否存在加载后无响应/遮罩误拦截。",
+    });
+  }
+  if (anyTouch && validSelect && ratio(validSelect.sessions, anyTouch.sessions) < 0.6) {
+    recommendations.push({
+      priority: "P0",
+      topic: "教程点击有效性",
+      finding: `任意首触达到首次有效选择转化 ${percentText(ratio(validSelect.sessions, anyTouch.sessions))}。`,
+      action: "放宽教程期合法点击、强化目标区域高亮，并按 tutorial_tap_result 的错误类型做专项修复。",
+    });
+  }
+  if (topTapMiss) {
+    recommendations.push({
+      priority: "P1",
+      topic: "误点类型",
+      finding: `最高频非成功点击为 ${topTapMiss.key}，PV ${topTapMiss.records}。`,
+      action: "优先复查这个点击类型对应的引导步骤、目标判定和视觉暗示。",
+    });
+  }
+  if (mainlineBottlenecks[0]) {
+    recommendations.push({
+      priority: "P1",
+      topic: "主线卡点",
+      finding: `最大流失关卡 L${mainlineBottlenecks[0].levelId}，进入未通过UV ${mainlineBottlenecks[0].enterNotPassUv}。`,
+      action: "按该关的布局、颜色组合、槽位压力和时间配置做关卡复盘。",
+    });
+  }
+  if (highRetryLevels[0] && highRetryLevels[0].avgTryCount >= 1.2) {
+    recommendations.push({
+      priority: "P1",
+      topic: "高重试关卡",
+      finding: `L${highRetryLevels[0].levelId} 平均尝试 ${highRetryLevels[0].avgTryCount}。`,
+      action: "检查是否存在局部形状识别难、颜色混淆或槽位不足导致的重复尝试。",
+    });
+  }
+  if (adPerformance.overall.finishRate > 0 && adPerformance.overall.finishRate < 0.4) {
+    recommendations.push({
+      priority: "P2",
+      topic: "广告完成率",
+      finding: `广告完成率 ${percentText(adPerformance.overall.finishRate)}。`,
+      action: "按广告位检查触发时机、奖励承诺、加载失败和中途退出。",
+    });
+  }
+  return recommendations;
+}
+
+function buildDailyDiagnosis(combinedSummary) {
+  const userBehaviorSummary = collectionSummary(combinedSummary, "user_behavior");
+  const levelRecordSummary = collectionSummary(combinedSummary, "level_record");
+  const funnelSummary = collectionSummary(combinedSummary, "first_level_funnel");
+  const first20Levels = buildFirst20Levels({ userBehaviorSummary, levelRecordSummary });
+  const firstLevelFunnel = buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary });
+  const mainlineBottlenecks = buildMainlineBottlenecks(first20Levels);
+  const highRetryLevels = buildHighRetryLevels(levelRecordSummary);
+  const tutorialTapBreakdown = Array.isArray(funnelSummary?.tapResultDetails)
+    ? funnelSummary.tapResultDetails
+    : [];
+  const tutorialTapByStep = Array.isArray(funnelSummary?.tapResultStepDetails)
+    ? funnelSummary.tapResultStepDetails
+    : [];
+  const ad = combinedSummary.effectiveAdStat || {};
+  const funnelStart = firstLevelFunnel.find((row) => row.eventName === "app_launch")
+    || firstLevelFunnel.find((row) => row.eventName === "first_level_ui_ready")
+    || {};
+  const funnelPass = firstLevelFunnel.find((row) => row.eventName === "level_pass") || {};
+  const l1LevelEnterUv = numberValue(userBehaviorSummary?.levelOneEnterUv);
+  const l1LevelPassUv = numberValue(userBehaviorSummary?.levelOnePassUv);
+  const coreMetrics = {
+    date: combinedSummary.date,
+    dau: numberValue(combinedSummary.effectiveDailyCore?.dau),
+    totalPlay: numberValue(combinedSummary.effectiveDailyCore?.totalPlay),
+    gameStartUsers: numberValue(userBehaviorSummary?.startUsers),
+    enterLevelUsers: numberValue(userBehaviorSummary?.enterUsers),
+    passUsers: numberValue(userBehaviorSummary?.passUsers),
+    l1EnterUv: numberValue(funnelStart.users),
+    l1PassUv: numberValue(funnelPass.users),
+    l1FailUv: numberValue(userBehaviorSummary?.levelOneFailUv),
+    l1EnterNotPassUv: Math.max(0, numberValue(funnelStart.users) - numberValue(funnelPass.users)),
+    l1UvPassRate: ratio(funnelPass.users, funnelStart.users),
+    l1PassRateDenominator: "first_level_funnel.app_launch.users",
+    l1FunnelStartEvent: funnelStart.eventName || "app_launch",
+    l1FunnelStartUv: numberValue(funnelStart.users),
+    l1FunnelPassUv: numberValue(funnelPass.users),
+    l1FunnelUvPassRate: ratio(funnelPass.users, funnelStart.users),
+    l1LevelEnterUv,
+    l1LevelPassUv,
+    l1LevelEnterPassRate: ratio(l1LevelPassUv, l1LevelEnterUv),
+    firstLevelUiReadySessions: numberValue(firstLevelFunnel.find((row) => row.eventName === "first_level_ui_ready")?.sessions),
+    firstLevelAnyTouchSessions: numberValue(firstLevelFunnel.find((row) => row.eventName === "first_level_any_touch")?.sessions),
+    firstLevelAnyTouchRate: ratio(
+      firstLevelFunnel.find((row) => row.eventName === "first_level_any_touch")?.sessions,
+      firstLevelFunnel.find((row) => row.eventName === "first_level_ui_ready")?.sessions,
+    ),
+    adShowPv: numberValue(ad.totalShowNum),
+    adClickPv: numberValue(ad.totalClickNum),
+    adFinishPv: numberValue(ad.totalFinishNum),
+    adFinishRate: numberValue(ad.finishRate),
+  };
+  const adPerformance = {
+    source: ad.source || "unknown",
+    isFallback: Boolean(ad.isFallback),
+    overall: {
+      showNum: numberValue(ad.totalShowNum),
+      clickNum: numberValue(ad.totalClickNum),
+      finishNum: numberValue(ad.totalFinishNum),
+      userNum: numberValue(ad.totalUserNum),
+      clickRate: numberValue(ad.clickRate),
+      finishRate: numberValue(ad.finishRate),
+      finishPerClickRate: numberValue(ad.finishPerClickRate),
+    },
+    topByShow: ad.topByShow || [],
+    weakFinishRate: ad.weakFinishRate || [],
+  };
+
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    coreMetrics,
+    firstLevelFunnel,
+    tutorialTapBreakdown,
+    tutorialTapByStep,
+    first20Levels,
+    mainlineBottlenecks,
+    highRetryLevels,
+    adPerformance,
+    dataQuality: buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels, funnelSummary }),
+    recommendations: buildRecommendations({
+      coreMetrics,
+      funnelRows: firstLevelFunnel,
+      tutorialTapBreakdown,
+      mainlineBottlenecks,
+      highRetryLevels,
+      adPerformance,
+    }),
+  };
+}
+
 function writeCombinedOutputs({
   rootOutputDir,
   dateLabel,
@@ -1563,91 +2383,163 @@ function writeCombinedOutputs({
     userBehaviorSummary: combinedSummary.collections.user_behavior?.summary || null,
     adStatSummary: combinedSummary.collections.ad_stat?.summary || null,
   });
+  combinedSummary.dailyDiagnosis = buildDailyDiagnosis(combinedSummary);
 
   const jsonPath = path.join(rootOutputDir, "combined_summary.json");
   const markdownPath = path.join(rootOutputDir, "combined_report.md");
 
+  const diagnosis = combinedSummary.dailyDiagnosis;
+  const core = diagnosis.coreMetrics;
+  const qualityWarnings = diagnosis.dataQuality.warnings || [];
   fs.writeFileSync(jsonPath, `${JSON.stringify(combinedSummary, null, 2)}\n`);
 
   const lines = [
-    `# CloudBase Daily Combined Report`,
+    `# syGamePdd Daily Diagnosis Report`,
     ``,
     `- Date: ${dateLabel}`,
     `- Environment: ${envId || "unknown"}`,
+    `- Schema: dailyDiagnosis v${diagnosis.schemaVersion}`,
     ``,
+    `## 今日核心结论`,
+    ``,
+    ...diagnosis.recommendations.slice(0, 6).map(
+      (item) => `- **${item.priority} ${item.topic}**：${item.finding} ${item.action}`,
+    ),
+    ...(diagnosis.recommendations.length ? [] : [`- 暂无达到阈值的自动建议。`]),
+    ``,
+    `## 核心指标`,
+    ``,
+    markdownTable(
+      ["指标", "数值", "说明"],
+      [
+        ["DAU", integerText(core.dau), `source=${combinedSummary.effectiveDailyCore.source}`],
+        ["总局数", integerText(core.totalPlay), "daily_stat 或 user_behavior 回推"],
+        ["game_start UV", integerText(core.gameStartUsers), "user_behavior"],
+        ["enter_level UV", integerText(core.enterLevelUsers), "user_behavior"],
+        ["任意通关 UV", integerText(core.passUsers), "user_behavior"],
+        ["首关漏斗起点UV", integerText(core.l1EnterUv), `first_level_funnel ${core.l1FunnelStartEvent || "app_launch"}`],
+        ["L1通过UV", integerText(core.l1PassUv), "first_level_funnel level_pass"],
+        ["首关漏斗UV通过率", percentText(core.l1UvPassRate), "level_pass UV / app_launch UV"],
+        ["L1进入后UV通过率", percentText(core.l1LevelEnterPassRate), "user_behavior level_pass UV / level_enter UV"],
+        ["UI ready 后任意首触达率", percentText(core.firstLevelAnyTouchRate), "first_level_funnel session口径"],
+        ["广告完成率", percentText(core.adFinishRate), `source=${diagnosis.adPerformance.source}`],
+      ],
+    ),
+    ``,
+    `## 首关/教程漏斗`,
+    ``,
+    markdownTable(
+      ["步骤", "事件", "UV", "UV占App启动", "Session", "Session占App启动", "上一步转化", "PV/records"],
+      diagnosis.firstLevelFunnel.map((row) => [
+        row.label,
+        row.eventName,
+        integerText(row.users),
+        percentText(row.userRateFromStart),
+        integerText(row.sessions),
+        percentText(row.sessionRateFromStart),
+        row.sessionStepRate ? percentText(row.sessionStepRate) : "-",
+        integerText(row.records),
+      ]),
+    ),
+    ``,
+    `## 教程点击结果分布`,
+    ``,
+    markdownTable(
+      ["类型", "PV", "Session", "UV", "PV占比"],
+      diagnosis.tutorialTapBreakdown.map((row) => [
+        row.key,
+        integerText(row.records),
+        integerText(row.sessions),
+        integerText(row.users),
+        percentText(ratio(row.records, diagnosis.tutorialTapBreakdown.reduce((sum, item) => sum + numberValue(item.records), 0))),
+      ]),
+    ),
+    ``,
+    `## 前20关全量表现`,
+    ``,
+    markdownTable(
+      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "UV通过率", "记录局数", "平均尝试", "平均时长", "广告续关", "判断"],
+      diagnosis.first20Levels.map((row) => [
+        `L${row.levelId}`,
+        integerText(row.enterUv),
+        integerText(row.passUv),
+        integerText(row.failUv),
+        integerText(row.enterNotPassUv),
+        percentText(row.uvPassRate),
+        integerText(row.recordCount),
+        row.avgTryCount.toFixed(2),
+        `${row.avgDurationSeconds.toFixed(1)}s`,
+        integerText(row.adReviveCount),
+        row.diagnosis,
+      ]),
+    ),
+    ``,
+    `## 主线卡点表`,
+    ``,
+    markdownTable(
+      ["关卡", "进入UV", "通过UV", "流失UV", "UV通过率", "显式失败UV", "无失败未通过UV", "平均尝试", "判断"],
+      diagnosis.mainlineBottlenecks.map((row) => [
+        `L${row.levelId}`,
+        integerText(row.enterUv),
+        integerText(row.passUv),
+        integerText(row.enterNotPassUv),
+        percentText(row.uvPassRate),
+        integerText(row.failUv),
+        integerText(row.silentDropUv),
+        row.avgTryCount.toFixed(2),
+        row.diagnosis,
+      ]),
+    ),
+    ``,
+    `## 高重试关卡表`,
+    ``,
+    markdownTable(
+      ["关卡", "记录数", "唯一用户", "通过率", "平均尝试", "平均时长", "失败局数", "广告续关"],
+      diagnosis.highRetryLevels.map((row) => [
+        `L${row.levelId}`,
+        integerText(row.recordCount),
+        integerText(row.uniqueUsers),
+        percentText(row.passRate),
+        row.avgTryCount.toFixed(2),
+        `${row.avgDurationSeconds.toFixed(1)}s`,
+        integerText(row.failCount),
+        integerText(row.adReviveCount),
+      ]),
+    ),
+    ``,
+    `## 广告表现`,
+    ``,
+    markdownTable(
+      ["广告位", "展示PV", "点击PV", "完成PV", "触达UV", "点击率", "完成率", "点击后完成率"],
+      diagnosis.adPerformance.topByShow.map((row) => [
+        getAdDisplayLabel(row),
+        integerText(row.showNum),
+        integerText(row.clickNum),
+        integerText(row.finishNum),
+        integerText(row.userNum),
+        percentText(row.clickRate),
+        percentText(row.finishRate),
+        percentText(row.finishPerClickRate),
+      ]),
+    ),
+    ``,
+    `## 数据质量与日志覆盖`,
+    ``,
+    markdownTable(
+      ["检查项", "结果"],
+      [
+        ["first_level_funnel records", integerText(diagnosis.dataQuality.firstLevelFunnelRecords)],
+        ["first_level_funnel sessions", integerText(diagnosis.dataQuality.firstLevelFunnelSessions)],
+        ["daily core source", diagnosis.dataQuality.dailyCoreSource],
+        ["ad source", diagnosis.dataQuality.adStatSource],
+        ["L1 fail覆盖率", percentText(diagnosis.dataQuality.l1FailCoverageRate)],
+      ],
+    ),
+    ``,
+    ...(qualityWarnings.length
+      ? [`### 告警`, ``, ...qualityWarnings.map((item) => `- ${item}`), ``]
+      : [`### 告警`, ``, `- 暂无。`, ``]),
   ];
-
-  if (combinedSummary.collections.user_behavior) {
-    const summary = combinedSummary.collections.user_behavior.summary;
-    lines.push(`## user_behavior`);
-    lines.push(``);
-    lines.push(`- Total records: ${summary.totalRecords}`);
-    lines.push(`- Unique users: ${summary.uniqueUsers}`);
-    lines.push(`- Enter users: ${summary.enterUsers}`);
-    lines.push(`- Level 1 UV pass rate: ${(summary.levelOneUvPassRate * 100).toFixed(1)}%`);
-    lines.push(
-      `- Main bottlenecks: ${summary.lowPassLevels
-        .slice(0, 5)
-        .map((row) => `L${row.levelId} ${(row.uvPassRate * 100).toFixed(1)}%`)
-        .join(", ")}`,
-    );
-    lines.push(``);
-  }
-
-  if (combinedSummary.collections.level_record) {
-    const summary = combinedSummary.collections.level_record.summary;
-    lines.push(`## level_record`);
-    lines.push(``);
-    lines.push(`- Total records: ${summary.totalRecords}`);
-    lines.push(`- Unique users: ${summary.uniqueUsers}`);
-    lines.push(`- Pass rate: ${(summary.passRate * 100).toFixed(1)}%`);
-    lines.push(`- Avg try count: ${summary.avgTryCount.toFixed(2)}`);
-    lines.push(`- Avg duration: ${summary.avgDurationSeconds.toFixed(2)}s`);
-    lines.push(
-      `- High retry levels: ${summary.topRetryLevels
-        .slice(0, 5)
-        .map((row) => `L${row.levelId} ${row.avgTryCount.toFixed(2)}次`)
-        .join(", ")}`,
-    );
-    lines.push(``);
-  }
-
-  if (combinedSummary.collections.ad_stat) {
-    const summary = combinedSummary.effectiveAdStat;
-    lines.push(`## ad_stat`);
-    lines.push(``);
-    lines.push(`- Total show: ${summary.totalShowNum}`);
-    lines.push(`- Total click: ${summary.totalClickNum}`);
-    lines.push(`- Total finish: ${summary.totalFinishNum}`);
-    lines.push(`- Click rate: ${(summary.clickRate * 100).toFixed(1)}%`);
-    lines.push(`- Finish rate: ${(summary.finishRate * 100).toFixed(1)}%`);
-    lines.push(
-      `- Top ad types: ${summary.topByShow
-        .slice(0, 5)
-        .map((row) => `${getAdDisplayLabel(row)}:${row.showNum}`)
-        .join(", ")}`,
-    );
-    if (summary.isFallback) {
-      lines.push(`- Note: ad_stat was empty, so ad metrics were derived from user_behavior ad events.`);
-    }
-    lines.push(``);
-  }
-
-  if (combinedSummary.collections.daily_stat) {
-    const latest = combinedSummary.effectiveDailyCore;
-    lines.push(`## daily_stat`);
-    lines.push(``);
-    lines.push(`- DAU: ${latest.dau}`);
-    lines.push(`- New user: ${latest.newUser == null ? "N/A" : latest.newUser}`);
-    lines.push(`- Total play: ${latest.totalPlay}`);
-    lines.push(`- Retain1: ${latest.retain1 == null ? "N/A" : `${latest.retain1}%`}`);
-    lines.push(`- Retain3: ${latest.retain3 == null ? "N/A" : `${latest.retain3}%`}`);
-    lines.push(`- Retain7: ${latest.retain7 == null ? "N/A" : `${latest.retain7}%`}`);
-    if (latest.isFallback) {
-      lines.push(`- Note: daily_stat was empty, so DAU and total play were derived from user_behavior.`);
-    }
-    lines.push(``);
-  }
 
   fs.writeFileSync(markdownPath, `${lines.join("\n")}\n`);
 
@@ -1690,7 +2582,10 @@ async function main() {
 
     if (!inputPath) {
       if (exportClient.mode === "apiKey") {
-        exportInfo = await exportCollectionViaApiKeyForDay({
+        const exportViaApiKey = config.apiKeyExportMode === "database"
+          ? exportCollectionViaDatabaseApiForDay
+          : exportCollectionViaApiKeyForDay;
+        exportInfo = await exportViaApiKey({
           collection,
           queryField: args.queryField || config.queryField,
           queryMode: config.queryMode,
