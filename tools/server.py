@@ -1661,8 +1661,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.send_header('Access-Control-Allow-Private-Network', 'true')
-        # Prevent browser caching for local preview tool files and JSON data.
-        if self.path.endswith('.json') or self.path.endswith('.html'):
+        # Prevent browser caching for local preview tool files and JSON data,
+        # including URLs with query strings such as cloudbase-report.html?date=...
+        request_path = urllib.parse.urlparse(self.path).path
+        if request_path.endswith('.json') or request_path.endswith('.html'):
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
             self.send_header('Pragma', 'no-cache')
         super().end_headers()

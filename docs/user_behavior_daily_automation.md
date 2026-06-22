@@ -90,34 +90,10 @@ export TCB_API_BASE_URL="https://cloud1-d5gzq8ia0c404ee3e.api.tcloudbasegateway.
 
 ## 手动执行
 
-分析昨天的 `user_behavior`：
+生成昨天的完整日报：
 
 ```bash
-npm run analytics:user-behavior:daily
-```
-
-分析昨天的 `level_record`：
-
-```bash
-npm run analytics:level-record:daily
-```
-
-分析昨天的 `ad_stat`：
-
-```bash
-npm run analytics:ad-stat:daily
-```
-
-分析昨天的 `daily_stat`：
-
-```bash
-npm run analytics:daily-stat:daily
-```
-
-四张表一起跑：
-
-```bash
-npm run analytics:daily:all
+npm run analytics:daily
 ```
 
 如果你走的是 `ApiKey` 模式，命令不变，只是认证方式不同。
@@ -125,18 +101,13 @@ npm run analytics:daily:all
 分析指定日期：
 
 ```bash
-npm run analytics:daily:all -- --date 2026-05-24
+npm run analytics:daily -- --date 2026-05-24
 ```
 
-只分析已经导出的文件：
+开发排障时，仍可直接调用底层脚本分析单个 collection：
 
 ```bash
-node scripts/user-behavior-daily-job.js --input ./database_export-cloud1-d5gzq8ia0c404ee3e-user_behavior.json --date 2026-05-17
-```
-
-只分析已经导出的 `level_record` 文件：
-
-```bash
+node scripts/user-behavior-daily-job.js --collection user_behavior --input ./database_export-cloud1-d5gzq8ia0c404ee3e-user_behavior.json --date 2026-05-17
 node scripts/user-behavior-daily-job.js --collection level_record --input ./database_export-cloud1-d5gzq8ia0c404ee3e-level_record.json --date 2026-05-17
 ```
 
@@ -155,13 +126,13 @@ crontab -e
 加入：
 
 ```cron
-0 1 * * * cd /path/to/syGamePdd && /bin/zsh -lc 'export TCB_SECRET_ID="你的 SecretId"; export TCB_SECRET_KEY="你的 SecretKey"; export TCB_ENV_ID="cloud1-d5gzq8ia0c404ee3e"; npm run analytics:daily:all >> artifacts/cloudbase-daily-report/cron.log 2>&1'
+0 1 * * * cd /path/to/syGamePdd && /bin/zsh -lc 'export TCB_SECRET_ID="你的 SecretId"; export TCB_SECRET_KEY="你的 SecretKey"; export TCB_ENV_ID="cloud1-d5gzq8ia0c404ee3e"; npm run analytics:daily >> artifacts/cloudbase-daily-report/cron.log 2>&1'
 ```
 
 如果你走 `ApiKey` 模式，把同一条 cron 里的认证环境变量替换成：
 
 ```cron
-0 1 * * * cd /path/to/syGamePdd && /bin/zsh -lc 'export TCB_API_KEY="你的服务端 ApiKey"; export TCB_ENV_ID="cloud1-d5gzq8ia0c404ee3e"; npm run analytics:daily:all >> artifacts/cloudbase-daily-report/cron.log 2>&1'
+0 1 * * * cd /path/to/syGamePdd && /bin/zsh -lc 'export TCB_API_KEY="你的服务端 ApiKey"; export TCB_ENV_ID="cloud1-d5gzq8ia0c404ee3e"; npm run analytics:daily >> artifacts/cloudbase-daily-report/cron.log 2>&1'
 ```
 
 ### 方案 B：Codex 自动化
