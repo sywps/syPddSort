@@ -26,7 +26,8 @@ assert.ok(colorFx.includes("if (playSound) AudioMgr.inst.play('winColor');"), 'c
 
 const placement = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
 assert.ok(placement.includes('const skipColorCompleteAudio = bm.isAllLocked();'), 'final board completion must suppress ordinary color-complete audio');
-assert.ok(placement.includes('this.playColorCompleteEffect(cid, !skipColorCompleteAudio);'), 'color-complete effect must preserve visuals while suppressing final-block audio');
+assert.ok(placement.includes('this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);'), 'color-complete effect must queue visuals while preserving final-block audio suppression');
+assert.ok(placement.includes('this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);'), 'color-complete effect must flush after visual settle');
 
 assert.ok(fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Audio/winSettlement.mp3')), 'winSettlement.mp3 must exist');
 assert.ok(fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Audio/winSettlement.mp3.meta')), 'winSettlement.mp3.meta must exist');

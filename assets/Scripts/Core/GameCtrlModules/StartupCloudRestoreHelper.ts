@@ -22,10 +22,16 @@ function shouldSkipLateCloudGameRestore(runtime: any, restoredLevel: number): bo
     const appRoot = AppRoot.tryGet();
     const session = appRoot?.session;
     const pending = session?.pendingGameplayRequest;
+    if (pending && pending.entryMode !== 'main') {
+        return true;
+    }
     if (pending?.entryMode === 'main' && pending.levelId >= restoredLevel) {
         return true;
     }
     const active = session?.activeGameplayContext;
+    if (active && active.entryMode !== 'main') {
+        return true;
+    }
     if (active?.entryMode === 'main' && active.activeLevelId >= restoredLevel) {
         return true;
     }

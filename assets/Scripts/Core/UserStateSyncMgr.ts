@@ -37,7 +37,9 @@ export type CloudGameState = {
     dailySignInLastClaimDateKey: number;
     themeUnlockedIds: number[];
     themeCompletedIds: number[];
+    backgroundSkinOwnedIds?: number[];
     ownedBackgroundSkinIds: number[];
+    backgroundSkinAdProgress: Record<string, number>;
     equippedBackgroundSkinId: number;
     equippedBackgroundSkinUpdatedAt: number;
     stateUpdatedAt: number;

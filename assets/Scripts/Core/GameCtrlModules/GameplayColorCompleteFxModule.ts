@@ -19,9 +19,9 @@ import {
 const COLOR_COMPLETE_MATCH_FX_PREFAB_PATH = 'UI/Prefabs/Fx/ColorCompleteBeanMatchFx';
 const COLOR_COMPLETE_MATCH_FRAME_PREFIX = 'block_match-animation_';
 const COLOR_COMPLETE_MATCH_FRAME_COUNT = 19;
-const COLOR_COMPLETE_MATCH_SPRITE_ENABLED = false;
-const COLOR_COMPLETE_MATCH_FRAME_INTERVAL = 0.035;
-const COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX = 15;
+const COLOR_COMPLETE_MATCH_SPRITE_ENABLED = true;
+const COLOR_COMPLETE_MATCH_FRAME_INTERVAL = 0.05;
+const COLOR_COMPLETE_FACE_SPRITE_ENABLED = false;
 const COLOR_COMPLETE_FACE_DEFINITIONS = [
     { nodeName: 'FaceTL' },
     { nodeName: 'FaceTR' },
@@ -36,8 +36,8 @@ const COLOR_COMPLETE_FACE_FADE_STEP_DELAY = 0.09;
 const COLOR_COMPLETE_FACE_FADE_DURATION = 0.14;
 const COLOR_COMPLETE_FACE_PEAK_OPACITY = 220;
 const COLOR_COMPLETE_FACE_SIZE_SCALE = 1;
-const COLOR_COMPLETE_MATCH_START_DELAY = 0.2;
-const COLOR_COMPLETE_MATCH_PEAK_OPACITY = 68;
+const COLOR_COMPLETE_MATCH_START_DELAY = 0;
+const COLOR_COMPLETE_MATCH_PEAK_OPACITY = 190;
 const COLOR_COMPLETE_MATCH_FADE_DURATION = 0.18;
 const COLOR_COMPLETE_MATCH_SIZE_SCALE = 1;
 const COLOR_COMPLETE_MATCH_POOL_LIMIT = 64;
@@ -188,6 +188,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     Tween.stopAllByTarget(matchOpacity);
                     matchOpacity.opacity = 0;
                 }
+                matchSpriteNode.setPosition(0, 0, 0);
                 matchSpriteNode.setScale(1, 1, 1);
             }
             const sprite = matchSpriteNode?.getComponent(Sprite) || node.getComponent(Sprite);
@@ -244,6 +245,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             for (let i = 0; i < COLOR_COMPLETE_FACE_NODE_NAMES.length; i++) {
                 const face = this.prepareColorCompleteFaceNode(fx, COLOR_COMPLETE_FACE_NODE_NAMES[i], size);
                 if (!face) continue;
+                if (!COLOR_COMPLETE_FACE_SPRITE_ENABLED) continue;
                 const lightDelay = i * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY;
                 const allLitAt = (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY
                     + COLOR_COMPLETE_FACE_RISE_DURATION;
@@ -266,8 +268,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
 
             let matchDuration = 0;
             if (COLOR_COMPLETE_MATCH_SPRITE_ENABLED && frames.length > 0) {
-                const sparkleFrames = frames.slice(COLOR_COMPLETE_MATCH_SPARKLE_FRAME_START_INDEX);
-                const matchFrames = sparkleFrames.length > 0 ? sparkleFrames : frames;
+                const matchFrames = frames;
                 matchSpriteNode.active = true;
                 matchSpriteNode.setPosition(0, 0, 0);
                 matchSpriteNode.setScale(1, 1, 1);
@@ -294,6 +295,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     frameTween = frameTween
                         .call(() => {
                             if (fx.isValid && sprite.isValid) {
+                                matchSpriteNode.setPosition(0, 0, 0);
                                 sprite.spriteFrame = frame;
                             }
                         })
@@ -305,11 +307,13 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 matchSpriteNode.active = false;
             }
 
-            const faceDuration = (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY
-                + COLOR_COMPLETE_FACE_RISE_DURATION
-                + COLOR_COMPLETE_FACE_ALL_LIT_HOLD_DURATION
-                + (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_FADE_STEP_DELAY
-                + COLOR_COMPLETE_FACE_FADE_DURATION;
+            const faceDuration = COLOR_COMPLETE_FACE_SPRITE_ENABLED
+                ? ((COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_LIGHT_STEP_DELAY
+                    + COLOR_COMPLETE_FACE_RISE_DURATION
+                    + COLOR_COMPLETE_FACE_ALL_LIT_HOLD_DURATION
+                    + (COLOR_COMPLETE_FACE_NODE_NAMES.length - 1) * COLOR_COMPLETE_FACE_FADE_STEP_DELAY
+                    + COLOR_COMPLETE_FACE_FADE_DURATION)
+                : 0;
             tween(fx)
                 .delay(Math.max(faceDuration, matchDuration) + 0.03)
                 .call(() => {
@@ -346,6 +350,32 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             this.ensureColorCompleteMatchFrames((frames: SpriteFrame[]) => {
                 if (frames.length > 0) playWithFrames(frames);
             });
+        },
+
+        enqueueColorCompleteEffect(colorId: number, playSound: boolean = true): void {
+            if (!this._pendingColorCompleteEffects || !(this._pendingColorCompleteEffects instanceof Map)) {
+                this._pendingColorCompleteEffects = new Map<number, boolean>();
+            }
+            const prev = this._pendingColorCompleteEffects.get(colorId) || false;
+            this._pendingColorCompleteEffects.set(colorId, prev || playSound);
+        },
+
+        flushPendingColorCompleteEffects(delaySeconds: number = 0): void {
+            const pending = this._pendingColorCompleteEffects;
+            if (!pending || !(pending instanceof Map) || pending.size === 0) return;
+            const entries = Array.from(pending.entries());
+            pending.clear();
+            const play = () => {
+                for (const [colorId, playSound] of entries) {
+                    this.playColorCompleteEffect(colorId, playSound);
+                }
+            };
+            const delay = Math.max(0, Number(delaySeconds) || 0);
+            if (delay > 0 && typeof this.scheduleOnce === 'function') {
+                this.scheduleOnce(play, delay);
+            } else {
+                play();
+            }
         },
 
         playColorCompleteEffect(colorId: number, playSound: boolean = true) {

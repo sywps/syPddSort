@@ -33,6 +33,7 @@ export type SkinLiveRow = {
     name?: string;
     isDefault?: boolean;
     unlockType?: string;
+    unlockValue?: number;
     price?: number;
     sort?: number;
     enabled?: boolean;

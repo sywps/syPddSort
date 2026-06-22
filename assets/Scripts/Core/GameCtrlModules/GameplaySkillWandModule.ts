@@ -30,6 +30,8 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 
+const COLOR_COMPLETE_VISUAL_SETTLE_DELAY = 0.22;
+
 export function installGameplaySkillWandModule(target: any): void {
     Object.assign(target, {
         // ==================== 道具技能 ====================
@@ -343,6 +345,7 @@ export function installGameplaySkillWandModule(target: any): void {
             this.compactSlotsAfterPropConsume(() => {
                 this.finishSkillUsage();
                 this.checkColorCompletion();
+                this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
                 this.checkGuideStepComplete();
                 if (this.boardModel.isAllLocked()) {
                     this.gameWin();
@@ -928,6 +931,7 @@ export function installGameplaySkillWandModule(target: any): void {
             this.renderBoard();
             this.renderSlots();
             this.checkColorCompletion();
+            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
             this.checkGuideStepComplete();
             if (this.boardModel.isAllLocked()) {
                 this.gameWin();

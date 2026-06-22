@@ -46,6 +46,11 @@ function toSkinId(value, fallback = 0) {
     return id > 0 ? id : fallback;
 }
 
+function toSkinShortId(value, fallback = 0) {
+    const id = Math.floor(Number(value));
+    return Number.isFinite(id) && id >= 0 ? id : fallback;
+}
+
 function readPngSize(buffer) {
     if (
         buffer.length >= 24
@@ -158,12 +163,13 @@ function normalizeSkinRows(config) {
             if (!id || !code) fail('皮肤配置缺少 id/code: ' + JSON.stringify(raw));
             return {
                 id,
-                shortId: toSkinId(raw.shortId, id),
+                shortId: toSkinShortId(raw.shortId, id),
                 type: 'background',
                 code,
                 name: String(raw.name || raw.code || raw.id || ''),
                 isDefault: !!raw.isDefault,
                 unlockType: String(raw.unlockType || 'draw'),
+                unlockValue: Math.max(0, Math.floor(Number(raw.unlockValue) || 0)),
                 price: Math.max(0, Math.floor(Number(raw.price) || 0)),
                 sort: Math.floor(Number(raw.sort) || 0),
                 enabled: true,
@@ -223,6 +229,7 @@ function buildOutput() {
             id: row.id,
             code: row.code,
             unlockType: row.unlockType,
+            unlockValue: row.unlockValue,
             sort: row.sort,
             assets: row.assets,
         })),
