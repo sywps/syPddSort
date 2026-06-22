@@ -43,16 +43,17 @@ function syncThemeTextNode(
     y: number,
     horizontalAlign: number = Label.HorizontalAlign.CENTER,
 ): Label {
-    let node = parent.getChildByName(name);
-    if (!node) {
-        node = new Node(name);
-        parent.addChild(node);
-        node.layer = parent.layer || Layers.Enum.UI_2D;
+    const node = parent.getChildByName(name);
+    const label = node?.getComponent(Label) || null;
+    if (!node?.isValid || !label) {
+        throw new Error(`[theme-ui] missing prefab Label: ${parent.name}/${name}`);
     }
     node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
+    const ui = node.getComponent(UITransform);
+    if (!ui) {
+        throw new Error(`[theme-ui] missing prefab UITransform: ${parent.name}/${name}`);
+    }
     ui.setContentSize(width, height);
-    const label = node.getComponent(Label) || node.addComponent(Label);
     label.string = text;
     label.fontSize = fontSize;
     label.lineHeight = Math.max(fontSize + 4, height);

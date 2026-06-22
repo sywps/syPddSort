@@ -13,6 +13,7 @@ import {
     LEADERBOARD_SCROLL_MIN_SPEED,
     LEVEL_DATA_BUNDLE_NAME,
     LS_LEVEL,
+    LOCAL_BOOTSTRAP_BUNDLE_NAME,
     Mask,
     Node,
     Prefab,
@@ -22,11 +23,14 @@ import {
     Texture2D,
     UITransform,
     UserMgr,
+    UserStateSyncMgr,
     Vec3,
     assetManager,
     instantiate,
     sys,
 } from '../GameCtrlShared';
+import { getMiniGameBuildMode } from '../MiniGamePlatform';
+import { SkinResourceCdnService, type SkinLiveManifest, type SkinRemoteAsset } from '../SkinResourceCdnService';
 
 type BackgroundSkinRow = {
     id: number;
@@ -44,6 +48,9 @@ type BackgroundSkinRow = {
     price: number;
     sort: number;
     enabled: boolean;
+    source?: 'cdn' | 'local';
+    backgroundAsset?: SkinRemoteAsset | null;
+    iconAsset?: SkinRemoteAsset | null;
 };
 
 type BackgroundSkinConfig = {
@@ -54,101 +61,79 @@ type BackgroundSkinConfig = {
 };
 
 const SKIN_CONFIG_PATH = 'Skins/skins';
-const SKIN_REMOTE_CONFIG_PATH = 'Skins/skins.json';
-const LS_EQUIPPED_BACKGROUND_SKIN = 'pdd.skin.background.equipped';
+const LS_EQUIPPED_BACKGROUND_SKIN_STATE = 'pdd.skin.background.equippedState';
+const LEGACY_LS_EQUIPPED_BACKGROUND_SKIN = 'pdd.skin.background.equipped';
 const LS_OWNED_BACKGROUND_SKINS = 'pdd.skin.background.owned';
 const LS_BACKGROUND_SKIN_AD_PROGRESS = 'pdd.skin.background.adProgress';
-const DEFAULT_BACKGROUND_SKIN_ID = 0;
-const BUILTIN_BACKGROUND_SKIN_BUNDLE = 'default';
+const LS_BACKGROUND_SKIN_REFRESH_SEQ = 'pdd.skin.background.refreshSeq';
+const LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE = 'pdd.skin.background.equippedRow';
+const DEFAULT_BACKGROUND_SKIN_ID = 1001;
+const LOCAL_BACKGROUND_SKIN_SHORT_ID_SET = new Set<number>([2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 16, 21, 22, 99]);
 const SKIN_PANEL_NAME = 'BackgroundSkinPanelOverlay';
 const SKIN_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/BackgroundSkinPanel';
 const SKIN_PANEL_SCROLL_CONTENT_NAME = 'SkinScrollContent';
 const SKIN_PANEL_COLUMN_XS = [-142, 142];
 const SKIN_PANEL_ROW_PITCH = 350;
 const SKIN_PANEL_TOP_ROW_VIEW_Y = 160;
+const GAMEPLAY_BACKGROUND_SKIN_RETRY_DELAYS = [0, 0.25, 0.75, 1.5, 3, 8, 16, 31];
 
-function getLevelDataCdnBaseUrl(): string {
+type BackgroundSkinDiagnosticTarget = {
+    __PDD_BACKGROUND_SKIN_LAST?: unknown;
+};
+
+declare const wx: BackgroundSkinDiagnosticTarget | undefined;
+declare const tt: BackgroundSkinDiagnosticTarget | undefined;
+declare const GameGlobal: BackgroundSkinDiagnosticTarget | undefined;
+
+function emitBackgroundSkinDiagnostic(phase: string, detail: Record<string, unknown> = {}): void {
+    const payload = {
+        phase,
+        ts: Date.now(),
+        ...detail,
+    };
     const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
     const windowScope: any = typeof window !== 'undefined' ? window : null;
-    const value = String(globalScope?.__PDD_LEVEL_DATA_CDN_URL__ || windowScope?.__PDD_LEVEL_DATA_CDN_URL__ || '').trim();
-    return value ? value.replace(/\/?$/, '/') : '';
-}
-
-function getLevelDataRemoteImageUrl(assetKey: string): string {
-    const baseUrl = getLevelDataCdnBaseUrl();
-    const imageKey = String(assetKey || '').replace(/\/spriteFrame$/, '').replace(/^\/+/, '');
-    return baseUrl && imageKey ? baseUrl + imageKey + '.png' : '';
-}
-
-function getLevelDataRemoteJsonUrl(filePath: string): string {
-    const baseUrl = getLevelDataCdnBaseUrl();
-    const key = String(filePath || '').replace(/^\/+/, '');
-    return baseUrl && key ? `${baseUrl}${key}?t=${Date.now()}` : '';
-}
-
-function requestRemoteText(url: string, timeoutMs: number = 8000): Promise<string> {
-    return new Promise((resolve, reject) => {
-        let settled = false;
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        const finishResolve = (text: string) => {
-            if (settled) return;
-            settled = true;
-            if (timer) clearTimeout(timer);
-            resolve(text);
-        };
-        const finishReject = (err: Error) => {
-            if (settled) return;
-            settled = true;
-            if (timer) clearTimeout(timer);
-            reject(err);
-        };
-        timer = setTimeout(() => finishReject(new Error('request timeout')), timeoutMs);
-        const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
-        const platformRequest = globalScope?.wx?.request || globalScope?.tt?.request;
-        if (typeof platformRequest === 'function') {
-            platformRequest({
-                url,
-                method: 'GET',
-                timeout: timeoutMs,
-                success: (res: any) => {
-                    const statusCode = Math.floor(Number(res?.statusCode) || 0);
-                    if (statusCode && (statusCode < 200 || statusCode >= 300)) {
-                        finishReject(new Error(`HTTP ${statusCode}`));
-                        return;
-                    }
-                    const data = res?.data;
-                    finishResolve(typeof data === 'string' ? data : JSON.stringify(data));
-                },
-                fail: (err: any) => finishReject(err instanceof Error ? err : new Error(err?.errMsg || 'request failed')),
-            });
-            return;
+    const targets = [
+        globalScope,
+        windowScope,
+        (() => {
+            try { return typeof wx !== 'undefined' ? wx : null; } catch (_) { return null; }
+        })(),
+        (() => {
+            try { return typeof tt !== 'undefined' ? tt : null; } catch (_) { return null; }
+        })(),
+        (() => {
+            try { return typeof GameGlobal !== 'undefined' ? GameGlobal : null; } catch (_) { return null; }
+        })(),
+    ];
+    for (const target of targets) {
+        if (target) {
+            target.__PDD_BACKGROUND_SKIN_LAST = payload;
         }
-        const fetcher = globalScope?.fetch;
-        if (typeof fetcher === 'function') {
-            fetcher(url, { cache: 'no-store' })
-                .then((response: any) => {
-                    if (!response?.ok) throw new Error(`HTTP ${response ? response.status : 0}`);
-                    return response.text();
-                })
-                .then((text: string) => finishResolve(text))
-                .catch((err: unknown) => finishReject(err instanceof Error ? err : new Error(String(err))));
-            return;
-        }
-        finishReject(new Error('No request API'));
-    });
+    }
+    if (getMiniGameBuildMode() !== 'release') {
+        console.warn('[background-skin]', phase, payload);
+    }
 }
 
-function toSkinId(value: unknown, fallback: number = -1): number {
-    if ((value === null || value === undefined || value === '') && value !== 0) return fallback;
+function toSkinId(value: unknown, fallback: number = 0): number {
     const id = Math.floor(Number(value));
-    return Number.isFinite(id) && id >= 0 ? id : fallback;
+    return Number.isFinite(id) && id > 0 ? id : fallback;
+}
+
+function toBackgroundSkinStorageId(value: unknown, fallback: number = 0): number {
+    const id = Math.floor(Number(value));
+    if (!Number.isFinite(id)) return fallback;
+    if (id === 0 || id === 1) return DEFAULT_BACKGROUND_SKIN_ID;
+    if (id > 1 && id < 1000) return id + 1000;
+    return id > 0 ? id : fallback;
 }
 
 function normalizeBackgroundSkinIdList(value: unknown): number[] {
     if (!Array.isArray(value)) return [];
     return Array.from(new Set(value
-        .map((id) => toSkinId(id, -1))
-        .filter((id) => id >= 0)))
+        .map((id) => toBackgroundSkinStorageId(id))
+        .filter((id) => id > 0)))
         .sort((a, b) => a - b);
 }
 
@@ -156,9 +141,9 @@ function normalizeBackgroundSkinAdProgress(value: unknown): Record<string, numbe
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     const result: Record<string, number> = {};
     for (const [rawId, rawCount] of Object.entries(value as Record<string, unknown>)) {
-        const id = toSkinId(rawId, -1);
+        const id = toBackgroundSkinStorageId(rawId);
         const count = Math.max(0, Math.floor(Number(rawCount) || 0));
-        if (id >= 0 && count > 0) result[String(id)] = count;
+        if (id > 0 && count > 0) result[String(id)] = count;
     }
     return result;
 }
@@ -173,7 +158,33 @@ function mergeBackgroundSkinAdProgress(a: Record<string, number>, b: Record<stri
 }
 
 function isDefaultBackgroundSkinRow(skin: BackgroundSkinRow | null | undefined): boolean {
-    return !!skin && (skin.id === DEFAULT_BACKGROUND_SKIN_ID || (skin.isDefault && skin.assetBundle === BUILTIN_BACKGROUND_SKIN_BUNDLE));
+    return !!skin && (skin.id === DEFAULT_BACKGROUND_SKIN_ID || !!skin.isDefault);
+}
+
+function toSkinTimestamp(value: unknown): number {
+    const timestamp = Math.floor(Number(value));
+    return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0;
+}
+
+function parseEquippedBackgroundSkinState(raw: unknown): { id: number; updatedAt: number } {
+    try {
+        const data = typeof raw === 'string' ? JSON.parse(raw || 'null') : raw;
+        const id = toBackgroundSkinStorageId(data?.id);
+        const updatedAt = toSkinTimestamp(data?.updatedAt);
+        return id > 0 && updatedAt > 0 ? { id, updatedAt } : { id: 0, updatedAt: 0 };
+    } catch (_) {
+        return { id: 0, updatedAt: 0 };
+    }
+}
+
+function formatLocalBackgroundSkinCode(shortId: number): string {
+    const id = Math.max(0, Math.floor(Number(shortId) || 0));
+    const padded = id < 10 ? `00${id}` : (id < 100 ? `0${id}` : String(id));
+    return `bg_${padded}`;
+}
+
+function canUseLocalBackgroundSkinMirror(): boolean {
+    return getMiniGameBuildMode() !== 'release';
 }
 
 function createImageSpriteFrame(name: string, imgAsset: ImageAsset): SpriteFrame | null {
@@ -236,7 +247,7 @@ export function installSkinBackgroundModule(target: any): void {
                         code: String(raw.code || ''),
                         name: String(raw.name || raw.code || raw.id || ''),
                         isDefault: !!raw.isDefault,
-                        assetBundle: String(raw.assetBundle || (raw.isDefault ? BUILTIN_BACKGROUND_SKIN_BUNDLE : LEVEL_DATA_BUNDLE_NAME)),
+                        assetBundle: String(raw.assetBundle || LEVEL_DATA_BUNDLE_NAME),
                         assetKey: String(raw.assetKey || ''),
                         iconBundle: String(raw.iconBundle || GAME_ASSETS_BUNDLE_NAME),
                         iconKey: String(raw.iconKey || ''),
@@ -245,6 +256,9 @@ export function installSkinBackgroundModule(target: any): void {
                         price: Math.max(0, Math.floor(Number(raw.price) || 0)),
                         sort: Math.floor(Number(raw.sort) || 0),
                         enabled: true,
+                        source: 'local',
+                        backgroundAsset: null,
+                        iconAsset: null,
                     };
                     if (row.id < 0 || !row.code || !row.assetBundle || (!isDefaultBackgroundSkinRow(row) && !row.assetKey) || !row.iconBundle || !row.iconKey) {
                         throw new Error(`[background-skin] invalid config row: ${JSON.stringify(raw)}`);
@@ -264,6 +278,54 @@ export function installSkinBackgroundModule(target: any): void {
             const defaultRow = byId.get(configuredDefault) || rows.find((row) => row.isDefault) || rows[0];
             return {
                 version: Math.max(1, Math.floor(Number(json?.version) || 1)),
+                defaultEquipped: defaultRow.id,
+                rows,
+                byId,
+            };
+        },
+
+        _parseBackgroundSkinCdnManifest(manifest: SkinLiveManifest): BackgroundSkinConfig {
+            const sourceRows = Array.isArray(manifest?.skins) ? manifest.skins : [];
+            const rows: BackgroundSkinRow[] = sourceRows
+                .filter((raw: any) => raw?.type === 'background' && raw.enabled !== false)
+                .map((raw: any) => {
+                    const backgroundAsset = raw.assets?.background || null;
+                    const iconAsset = raw.assets?.icon || null;
+                    const row: BackgroundSkinRow = {
+                        id: toSkinId(raw.id),
+                        shortId: toSkinId(raw.shortId, toSkinId(raw.id)),
+                        type: 'background',
+                        code: String(raw.code || ''),
+                        name: String(raw.name || raw.code || raw.id || ''),
+                        isDefault: !!raw.isDefault,
+                        assetBundle: String(raw.assetBundle || LEVEL_DATA_BUNDLE_NAME),
+                        assetKey: String(raw.assetKey || backgroundAsset?.url || ''),
+                        iconBundle: String(raw.iconBundle || GAME_ASSETS_BUNDLE_NAME),
+                        iconKey: String(raw.iconKey || iconAsset?.url || ''),
+                        unlockType: String(raw.unlockType || 'draw'),
+                        unlockValue: Math.max(0, Math.floor(Number(raw.unlockValue) || 0)),
+                        price: Math.max(0, Math.floor(Number(raw.price) || 0)),
+                        sort: Math.floor(Number(raw.sort) || 0),
+                        enabled: true,
+                        source: 'cdn',
+                        backgroundAsset,
+                        iconAsset,
+                    };
+                    if (!row.id || !row.code || !row.backgroundAsset?.url || !row.backgroundAsset?.hash || !row.iconAsset?.url || !row.iconAsset?.hash) {
+                        throw new Error(`[background-skin] invalid cdn config row: ${JSON.stringify(raw)}`);
+                    }
+                    return row;
+                })
+                .sort((a, b) => a.sort - b.sort || a.id - b.id);
+            if (rows.length === 0) {
+                throw new Error('[background-skin] skin_live.json has no enabled background rows');
+            }
+            const byId = new Map<number, BackgroundSkinRow>();
+            for (const row of rows) byId.set(row.id, row);
+            const configuredDefault = toSkinId(manifest?.defaultEquipped);
+            const defaultRow = byId.get(configuredDefault) || rows.find((row) => row.isDefault) || rows[0];
+            return {
+                version: Math.max(1, Math.floor(Number(manifest?.skinDataVersion ? 1 : 0) || 1)),
                 defaultEquipped: defaultRow.id,
                 rows,
                 byId,
@@ -290,42 +352,48 @@ export function installSkinBackgroundModule(target: any): void {
                 this._backgroundSkinConfigLoadingCallbacks = null;
                 for (const done of callbacks) done(config, err || null);
             };
-            const loadBundledConfig = (remoteErr?: Error | null) => {
-                this._withGameAssetsBundle((bundle: Bundle | null) => {
-                    if (!bundle) {
-                        finish(null, remoteErr || new Error('[background-skin] gameAssets bundle unavailable for skins config'));
+            const loadLocalConfig = (cdnErr?: Error | null) => this._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!bundle) {
+                    finish(null, cdnErr || new Error('[background-skin] gameAssets bundle unavailable for skins config'));
+                    return;
+                }
+                bundle.load(SKIN_CONFIG_PATH, JsonAsset, (err: Error | null, jsonAsset: JsonAsset | null) => {
+                    if (err || !jsonAsset) {
+                        finish(null, new Error(`[background-skin] load ${SKIN_CONFIG_PATH} failed: ${err?.message || 'missing json asset'}`));
                         return;
                     }
-                    bundle.load(SKIN_CONFIG_PATH, JsonAsset, (err: Error | null, jsonAsset: JsonAsset | null) => {
-                        if (err || !jsonAsset) {
-                            finish(null, new Error(`[background-skin] load ${SKIN_CONFIG_PATH} failed: ${err?.message || remoteErr?.message || 'missing json asset'}`));
-                            return;
-                        }
-                        try {
-                            finish(this._parseBackgroundSkinConfig(jsonAsset.json), null);
-                        } catch (parseError) {
-                            finish(null, parseError instanceof Error ? parseError : new Error(String(parseError)));
-                        }
-                    });
-                });
-            };
-            const remoteConfigUrl = getLevelDataRemoteJsonUrl(SKIN_REMOTE_CONFIG_PATH);
-            if (!remoteConfigUrl) {
-                loadBundledConfig();
-                return;
-            }
-            requestRemoteText(remoteConfigUrl, 8000)
-                .then((text) => {
                     try {
-                        finish(this._parseBackgroundSkinConfig(JSON.parse(text)), null);
+                        finish(this._parseBackgroundSkinConfig(jsonAsset.json), null);
                     } catch (parseError) {
-                        throw parseError instanceof Error ? parseError : new Error(String(parseError));
+                        finish(null, parseError instanceof Error ? parseError : new Error(String(parseError)));
                     }
-                })
-                .catch((remoteErr: Error) => {
-                    console.warn('[background-skin] remote skins config unavailable, use bundled config:', remoteErr?.message || remoteErr);
-                    loadBundledConfig(remoteErr);
                 });
+            });
+            const shouldRequireSkinCdn = () => {
+                const diagnostics = SkinResourceCdnService.inst.getAvailabilityDiagnostics();
+                return !!diagnostics.canUse && !!diagnostics.miniGameRuntime;
+            };
+            const failOrLoadLocalConfig = (cdnErr: Error | null) => {
+                if (shouldRequireSkinCdn()) {
+                    const message = cdnErr?.message || String(SkinResourceCdnService.inst.getAvailabilityDiagnostics().liveUnavailableReason || 'unknown');
+                    finish(null, new Error(`[background-skin] skin CDN manifest unavailable: ${message}`));
+                    return;
+                }
+                loadLocalConfig(cdnErr);
+            };
+            SkinResourceCdnService.inst.loadManifest().then((manifest) => {
+                if (!manifest) {
+                    failOrLoadLocalConfig(null);
+                    return;
+                }
+                try {
+                    finish(this._parseBackgroundSkinCdnManifest(manifest), null);
+                } catch (parseError) {
+                    failOrLoadLocalConfig(parseError instanceof Error ? parseError : new Error(String(parseError)));
+                }
+            }).catch((cdnErr) => {
+                failOrLoadLocalConfig(cdnErr instanceof Error ? cdnErr : new Error(String(cdnErr)));
+            });
         },
 
         _getSkinBundle(bundleName: string, callback: (bundle: Bundle | null, err?: Error | null) => void): void {
@@ -375,15 +443,27 @@ export function installSkinBackgroundModule(target: any): void {
             });
         },
 
-        _loadLevelDataRemoteSpriteFrame(assetKey: string, pendingKey: string, callback: (sf: SpriteFrame | null, err?: Error | null) => void): void {
-            const remoteUrl = getLevelDataRemoteImageUrl(assetKey);
-            if (!remoteUrl) {
-                callback(null, new Error(`[background-skin] levelData CDN url unavailable: ${assetKey}`));
+        _loadRemoteSkinSpriteFrameAsset(asset: SkinRemoteAsset, pendingKey: string, callback: (sf: SpriteFrame | null, err?: Error | null) => void): void {
+            const pending = this._skinSpriteFrameLoadingCallbacks.get(pendingKey);
+            if (pending) {
+                pending.push(callback);
                 return;
             }
-            (assetManager as any).loadRemote(remoteUrl, { ext: '.png' }, (err: Error | null, imgAsset: ImageAsset | null) => {
+            this._skinSpriteFrameLoadingCallbacks.set(pendingKey, [callback]);
+            const finish = (sf: SpriteFrame | null, err?: Error | null) => {
+                const callbacks = this._skinSpriteFrameLoadingCallbacks.get(pendingKey) || [];
+                this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
+                for (const done of callbacks) done(sf, err || null);
+            };
+            const remoteUrl = SkinResourceCdnService.inst.getAssetUrl(asset);
+            if (!remoteUrl) {
+                finish(null, new Error(`[background-skin] skin CDN url unavailable: ${asset?.url || ''}`));
+                return;
+            }
+            const ext = String(asset.format || '').toLowerCase() === 'jpg' ? '.jpg' : '.png';
+            (assetManager as any).loadRemote(remoteUrl, { ext }, (err: Error | null, imgAsset: ImageAsset | null) => {
                 const frame = !err && imgAsset ? createImageSpriteFrame(pendingKey, imgAsset) : null;
-                callback(frame, frame ? null : (err || new Error(`[background-skin] remote image missing: ${remoteUrl}`)));
+                finish(frame, frame ? null : (err || new Error(`[background-skin] remote skin image missing: ${remoteUrl}`)));
             });
         },
 
@@ -399,18 +479,9 @@ export function installSkinBackgroundModule(target: any): void {
                 this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
                 for (const done of callbacks) done(sf, err || null);
             };
-            const finishFromLevelDataRemote = (sourceErr?: Error | null) => {
-                if (bundleName !== LEVEL_DATA_BUNDLE_NAME) {
-                    finish(null, sourceErr || new Error(`[background-skin] SpriteFrame missing: bundle=${bundleName}, key=${assetKey}`));
-                    return;
-                }
-                this._loadLevelDataRemoteSpriteFrame(assetKey, pendingKey, (remoteFrame: SpriteFrame | null, remoteErr?: Error | null) => {
-                    finish(remoteFrame, remoteFrame ? null : (sourceErr || remoteErr || new Error(`[background-skin] levelData remote image missing: ${assetKey}`)));
-                });
-            };
             this._getSkinBundle(bundleName, (bundle: Bundle | null, bundleErr?: Error | null) => {
                 if (!bundle) {
-                    finishFromLevelDataRemote(bundleErr || new Error(`[background-skin] bundle unavailable: ${bundleName}`));
+                    finish(null, bundleErr || new Error(`[background-skin] bundle unavailable: ${bundleName}`));
                     return;
                 }
                 const candidates = this._getSpriteFrameLoadCandidates
@@ -431,7 +502,7 @@ export function installSkinBackgroundModule(target: any): void {
                                 finish(imageFrame, null);
                                 return;
                             }
-                            finishFromLevelDataRemote(new Error(`[background-skin] SpriteFrame missing: bundle=${bundleName}, key=${assetKey}`));
+                            finish(null, new Error(`[background-skin] SpriteFrame missing: bundle=${bundleName}, key=${assetKey}`));
                         });
                     },
                 );
@@ -448,6 +519,14 @@ export function installSkinBackgroundModule(target: any): void {
                 callback(cached, null);
                 return;
             }
+            if (skin.backgroundAsset) {
+                const pendingKey = `background:${skin.id}:skinCdn:${skin.backgroundAsset.hash || skin.backgroundAsset.url}`;
+                this._loadRemoteSkinSpriteFrameAsset(skin.backgroundAsset, pendingKey, (sf, err) => {
+                    if (sf) this._backgroundSkinFrameCache.set(skin.id, sf);
+                    callback(sf, err || null);
+                });
+                return;
+            }
             const pendingKey = `background:${skin.id}:${skin.assetBundle}:${skin.assetKey}`;
             this._loadSkinSpriteFrameAsset(skin.assetBundle, skin.assetKey, pendingKey, (sf, err) => {
                 if (sf && this.getEquippedBackgroundSkinId() === skin.id) this._backgroundSkinFrameCache.set(skin.id, sf);
@@ -459,6 +538,14 @@ export function installSkinBackgroundModule(target: any): void {
             const cached = this._backgroundSkinIconCache.get(skin.id);
             if (cached) {
                 callback(cached, null);
+                return;
+            }
+            if (skin.iconAsset) {
+                const pendingKey = `icon:${skin.id}:skinCdn:${skin.iconAsset.hash || skin.iconAsset.url}`;
+                this._loadRemoteSkinSpriteFrameAsset(skin.iconAsset, pendingKey, (sf, err) => {
+                    if (sf) this._backgroundSkinIconCache.set(skin.id, sf);
+                    callback(sf, err || null);
+                });
                 return;
             }
             const pendingKey = `icon:${skin.id}:${skin.iconBundle}:${skin.iconKey}`;
@@ -501,15 +588,15 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         getBackgroundSkinAdProgress(id: number): number {
-            const safeId = toSkinId(id, -1);
-            if (safeId < 0) return 0;
+            const safeId = toBackgroundSkinStorageId(id);
+            if (!safeId) return 0;
             const progress = this._readBackgroundSkinAdProgress();
             return Math.max(0, Math.floor(Number(progress[String(safeId)]) || 0));
         },
 
         addBackgroundSkinAdProgress(id: number): number {
-            const safeId = toSkinId(id, -1);
-            if (safeId < 0) return 0;
+            const safeId = toBackgroundSkinStorageId(id);
+            if (!safeId) return 0;
             const progress = this._readBackgroundSkinAdProgress();
             const next = this.getBackgroundSkinAdProgress(safeId) + 1;
             progress[String(safeId)] = next;
@@ -524,6 +611,124 @@ export function installSkinBackgroundModule(target: any): void {
 
         isBackgroundSkinAdUnlocked(skin: BackgroundSkinRow): boolean {
             return skin.unlockType === 'ad' && this.getBackgroundSkinAdProgress(skin.id) >= skin.unlockValue;
+        },
+
+        _writeEquippedBackgroundSkinRowCache(skin: BackgroundSkinRow): void {
+            const cache = {
+                id: skin.id,
+                shortId: skin.shortId,
+                type: 'background',
+                code: skin.code,
+                name: skin.name,
+                isDefault: !!skin.isDefault,
+                assetBundle: skin.assetBundle,
+                assetKey: skin.assetKey,
+                iconBundle: skin.iconBundle,
+                iconKey: skin.iconKey,
+                unlockType: skin.unlockType,
+                unlockValue: skin.unlockValue,
+                price: skin.price,
+                sort: skin.sort,
+                enabled: skin.enabled !== false,
+                source: skin.source || 'local',
+                backgroundAsset: skin.backgroundAsset || null,
+                iconAsset: skin.iconAsset || null,
+            };
+            sys.localStorage.setItem(LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE, JSON.stringify(cache));
+        },
+
+        _clearEquippedBackgroundSkinRowCache(): void {
+            sys.localStorage.removeItem(LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE);
+        },
+
+        _readEquippedBackgroundSkinRowCache(): BackgroundSkinRow | null {
+            try {
+                const raw = JSON.parse(sys.localStorage.getItem(LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE) || 'null');
+                const id = toBackgroundSkinStorageId(raw?.id);
+                if (!id || id !== this.getEquippedBackgroundSkinId()) return null;
+                const backgroundAsset = raw?.backgroundAsset || null;
+                const iconAsset = raw?.iconAsset || null;
+                const assetBundle = String(raw?.assetBundle || LEVEL_DATA_BUNDLE_NAME);
+                const assetKey = String(raw?.assetKey || backgroundAsset?.url || '');
+                const iconBundle = String(raw?.iconBundle || GAME_ASSETS_BUNDLE_NAME);
+                const iconKey = String(raw?.iconKey || iconAsset?.url || '');
+                if (!assetBundle || !assetKey) return null;
+                const row: BackgroundSkinRow = {
+                    id,
+                    shortId: Math.max(0, Math.floor(Number(raw?.shortId) || 0)),
+                    type: 'background',
+                    code: String(raw?.code || `bg_${id}`),
+                    name: String(raw?.name || ''),
+                    isDefault: !!raw?.isDefault,
+                    assetBundle,
+                    assetKey,
+                    iconBundle,
+                    iconKey,
+                    unlockType: String(raw?.unlockType || 'free'),
+                    unlockValue: Math.max(0, Math.floor(Number(raw?.unlockValue) || 0)),
+                    price: Math.max(0, Math.floor(Number(raw?.price) || 0)),
+                    sort: Math.floor(Number(raw?.sort) || 0),
+                    enabled: raw?.enabled !== false,
+                    source: raw?.source === 'cdn' ? 'cdn' : 'local',
+                    backgroundAsset,
+                    iconAsset,
+                };
+                if (!row.isDefault && !row.backgroundAsset && !canUseLocalBackgroundSkinMirror()) return null;
+                return row;
+            } catch (_) {
+                return null;
+            }
+        },
+
+        _createLocalEquippedBackgroundSkinRowFromId(): BackgroundSkinRow | null {
+            const equippedId = this.getEquippedBackgroundSkinId();
+            if (!equippedId) return null;
+            if (equippedId === DEFAULT_BACKGROUND_SKIN_ID) {
+                return {
+                    id: DEFAULT_BACKGROUND_SKIN_ID,
+                    shortId: 1,
+                    type: 'background',
+                    code: 'bg_001',
+                    name: '背景 001',
+                    isDefault: true,
+                    assetBundle: LOCAL_BOOTSTRAP_BUNDLE_NAME,
+                    assetKey: 'GameUI/bg_game_pindd',
+                    iconBundle: GAME_ASSETS_BUNDLE_NAME,
+                    iconKey: 'Skins/Icons/bg_001',
+                    unlockType: 'default',
+                    unlockValue: 0,
+                    price: 0,
+                    sort: 1,
+                    enabled: true,
+                    source: 'local',
+                    backgroundAsset: null,
+                    iconAsset: null,
+                };
+            }
+            const shortId = equippedId >= 1000 ? equippedId - 1000 : equippedId;
+            if (!LOCAL_BACKGROUND_SKIN_SHORT_ID_SET.has(shortId)) return null;
+            if (!canUseLocalBackgroundSkinMirror()) return null;
+            const code = formatLocalBackgroundSkinCode(shortId);
+            return {
+                id: equippedId,
+                shortId,
+                type: 'background',
+                code,
+                name: `背景 ${code.slice(3)}`,
+                isDefault: false,
+                assetBundle: LEVEL_DATA_BUNDLE_NAME,
+                assetKey: `Skins/Background/${code}/background`,
+                iconBundle: GAME_ASSETS_BUNDLE_NAME,
+                iconKey: `Skins/Icons/${code}`,
+                unlockType: 'free',
+                unlockValue: 0,
+                price: 0,
+                sort: shortId,
+                enabled: true,
+                source: 'local',
+                backgroundAsset: null,
+                iconAsset: null,
+            };
         },
 
         _readBackgroundSkinOwnedIds(): Set<number> {
@@ -549,8 +754,8 @@ export function installSkinBackgroundModule(target: any): void {
 
         isBackgroundSkinOwned(id: number): boolean {
             const config = this._backgroundSkinConfigCache as BackgroundSkinConfig | null;
-            const safeId = toSkinId(id, -1);
-            if (safeId < 0) return false;
+            const safeId = toBackgroundSkinStorageId(id);
+            if (!safeId) return false;
             const row = config?.byId.get(safeId);
             if (row?.isDefault || row?.unlockType === 'default' || row?.unlockType === 'free') return true;
             if (row && (this.isBackgroundSkinLevelUnlocked(row) || this.isBackgroundSkinAdUnlocked(row))) return true;
@@ -558,47 +763,102 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         grantBackgroundSkin(id: number): boolean {
-            const safeId = toSkinId(id, -1);
-            if (safeId < 0) return false;
+            const safeId = toBackgroundSkinStorageId(id);
+            if (!safeId) return false;
             const owned = this._readBackgroundSkinOwnedIds();
+            const hadOwned = owned.has(safeId);
             owned.add(safeId);
             this._writeBackgroundSkinOwnedIds(owned);
-            this.syncBackgroundSkinCloudState?.();
+            if (!hadOwned) this.queueCloudGameStateSync?.();
             return true;
         },
 
         captureBackgroundSkinCloudState(): Record<string, unknown> {
             return {
-                backgroundSkinOwnedIds: normalizeBackgroundSkinIdList(Array.from(this._readBackgroundSkinOwnedIds())),
+                ownedBackgroundSkinIds: this.getOwnedBackgroundSkinIds(),
                 backgroundSkinAdProgress: normalizeBackgroundSkinAdProgress(this._readBackgroundSkinAdProgress()),
-                equippedBackgroundSkinId: Math.max(0, this.getEquippedBackgroundSkinId()),
+                equippedBackgroundSkinId: this.getCloudSyncEquippedBackgroundSkinId(),
+                equippedBackgroundSkinUpdatedAt: this.getCloudSyncEquippedBackgroundSkinUpdatedAt(),
             };
         },
 
         applyBackgroundSkinCloudState(gameState: Record<string, unknown> | null | undefined, applyEquipped: boolean = true): void {
             if (!gameState || typeof gameState !== 'object') return;
-            const cloudOwned = normalizeBackgroundSkinIdList(gameState.backgroundSkinOwnedIds);
-            if (cloudOwned.length > 0) {
-                const owned = this._readBackgroundSkinOwnedIds();
-                for (const id of cloudOwned) owned.add(id);
-                this._writeBackgroundSkinOwnedIds(owned);
-            }
+            const owned = this._readBackgroundSkinOwnedIds();
+            for (const id of normalizeBackgroundSkinIdList(gameState.ownedBackgroundSkinIds)) owned.add(id);
+            for (const id of normalizeBackgroundSkinIdList(gameState.backgroundSkinOwnedIds)) owned.add(id);
+            this._writeBackgroundSkinOwnedIds(owned);
             const cloudProgress = normalizeBackgroundSkinAdProgress(gameState.backgroundSkinAdProgress);
             if (Object.keys(cloudProgress).length > 0) {
                 this._writeBackgroundSkinAdProgress(mergeBackgroundSkinAdProgress(this._readBackgroundSkinAdProgress(), cloudProgress));
             }
-            if (applyEquipped && Object.prototype.hasOwnProperty.call(gameState, 'equippedBackgroundSkinId')) {
-                const equippedId = toSkinId(gameState.equippedBackgroundSkinId, -1);
-                if (equippedId >= 0) {
-                    const config = this._backgroundSkinConfigCache as BackgroundSkinConfig | null;
-                    if (!config || config.byId.has(equippedId)) {
-                        sys.localStorage.setItem(LS_EQUIPPED_BACKGROUND_SKIN, String(equippedId));
-                        if (equippedId !== this._equippedBackgroundSkinId) this._clearEquippedBackgroundFrame(null);
-                    }
-                }
+            if (applyEquipped) {
+                this.applyCloudBackgroundSkinState(
+                    Array.from(owned),
+                    gameState.equippedBackgroundSkinId,
+                    gameState.equippedBackgroundSkinUpdatedAt,
+                );
             }
+        },
+
+        _writeEquippedBackgroundSkinState(id: number, updatedAt: number): void {
+            const state = {
+                id: toBackgroundSkinStorageId(id),
+                updatedAt: toSkinTimestamp(updatedAt),
+            };
+            if (!state.id || !state.updatedAt) {
+                sys.localStorage.removeItem(LS_EQUIPPED_BACKGROUND_SKIN_STATE);
+                return;
+            }
+            sys.localStorage.setItem(LS_EQUIPPED_BACKGROUND_SKIN_STATE, JSON.stringify(state));
+        },
+
+        _readEquippedBackgroundSkinState(): { id: number; updatedAt: number } {
+            const state = parseEquippedBackgroundSkinState(sys.localStorage.getItem(LS_EQUIPPED_BACKGROUND_SKIN_STATE));
+            if (state.id) return state;
+            const legacyId = toBackgroundSkinStorageId(sys.localStorage.getItem(LEGACY_LS_EQUIPPED_BACKGROUND_SKIN));
+            return legacyId ? { id: legacyId, updatedAt: 0 } : { id: 0, updatedAt: 0 };
+        },
+
+        _persistEquippedBackgroundSkinSelection(skin: BackgroundSkinRow): void {
+            const previousEquippedId = this.getEquippedBackgroundSkinId();
+            this._writeEquippedBackgroundSkinState(skin.id, Date.now());
+            if (skin.id !== previousEquippedId) this._markBackgroundSkinChanged();
+            this._writeEquippedBackgroundSkinRowCache(skin);
+            this.queueCloudGameStateSync?.();
+            void UserStateSyncMgr.inst.flushPendingSave();
+        },
+
+        getStoredEquippedBackgroundSkinId(): number {
+            return this._readEquippedBackgroundSkinState().id;
+        },
+
+        getEquippedBackgroundSkinUpdatedAt(): number {
+            return this._readEquippedBackgroundSkinState().updatedAt;
+        },
+
+        getCloudSyncEquippedBackgroundSkinId(): number {
+            const storedId = this.getStoredEquippedBackgroundSkinId();
+            const updatedAt = this.getEquippedBackgroundSkinUpdatedAt();
+            return storedId > 0 && updatedAt > 0 ? storedId : 0;
+        },
+
+        getCloudSyncEquippedBackgroundSkinUpdatedAt(): number {
+            return this.getCloudSyncEquippedBackgroundSkinId() > 0
+                ? this.getEquippedBackgroundSkinUpdatedAt()
+                : 0;
+        },
+
+        getOwnedBackgroundSkinIds(): number[] {
+            const owned = this._readBackgroundSkinOwnedIds() as Set<number>;
+            return Array.from(owned).sort((a, b) => a - b);
+        },
+
+        getEquippedBackgroundSkinId(): number {
+            const storedId = this.getStoredEquippedBackgroundSkinId();
             const config = this._backgroundSkinConfigCache as BackgroundSkinConfig | null;
-            if (config) this._syncDefaultOwnedBackgroundSkins(config);
+            if (storedId > 0 && (!config || config.byId.has(storedId))) return storedId;
+            return config?.defaultEquipped || DEFAULT_BACKGROUND_SKIN_ID;
         },
 
         syncBackgroundSkinCloudState(): void {
@@ -607,11 +867,67 @@ export function installSkinBackgroundModule(target: any): void {
             }
         },
 
-        getEquippedBackgroundSkinId(): number {
-            const storedId = toSkinId(sys.localStorage.getItem(LS_EQUIPPED_BACKGROUND_SKIN), -1);
-            const config = this._backgroundSkinConfigCache as BackgroundSkinConfig | null;
-            if (storedId >= 0 && (!config || config.byId.has(storedId))) return storedId;
-            return config?.defaultEquipped || DEFAULT_BACKGROUND_SKIN_ID;
+        _readBackgroundSkinRefreshSeq(): number {
+            const seq = Math.floor(Number(sys.localStorage.getItem(LS_BACKGROUND_SKIN_REFRESH_SEQ)));
+            return Number.isFinite(seq) && seq >= 0 ? seq : 0;
+        },
+
+        _markBackgroundSkinChanged(): number {
+            const nextSeq = this._readBackgroundSkinRefreshSeq() + 1;
+            sys.localStorage.setItem(LS_BACKGROUND_SKIN_REFRESH_SEQ, String(nextSeq));
+            return nextSeq;
+        },
+
+        _isGameplayBackgroundSkinCurrent(): boolean {
+            return this._appliedGameplayBackgroundSkinId === this.getEquippedBackgroundSkinId()
+                && this._appliedGameplayBackgroundRefreshSeq === this._readBackgroundSkinRefreshSeq();
+        },
+
+        applyCloudBackgroundSkinState(ownedIds?: unknown, equippedId?: unknown, equippedUpdatedAt?: unknown): void {
+            const owned = this._readBackgroundSkinOwnedIds();
+            const incomingOwned = Array.isArray(ownedIds)
+                ? ownedIds.map((id) => toBackgroundSkinStorageId(id)).filter(Boolean)
+                : [];
+            for (const id of incomingOwned) owned.add(id);
+            const cloudUpdatedAt = toSkinTimestamp(equippedUpdatedAt);
+            const cloudEquippedId = cloudUpdatedAt > 0 ? toBackgroundSkinStorageId(equippedId) : 0;
+            if (!cloudEquippedId && (toBackgroundSkinStorageId(equippedId) > 0 || cloudUpdatedAt > 0)) {
+                emitBackgroundSkinDiagnostic('cloud-skin-invalid-pair', {
+                    incomingEquippedBackgroundSkinId: toBackgroundSkinStorageId(equippedId),
+                    incomingEquippedBackgroundSkinUpdatedAt: cloudUpdatedAt,
+                    localEquippedBackgroundSkinId: this.getStoredEquippedBackgroundSkinId(),
+                    localEquippedBackgroundSkinUpdatedAt: this.getEquippedBackgroundSkinUpdatedAt(),
+                });
+            }
+            if (cloudEquippedId) {
+                const localStoredId = this.getStoredEquippedBackgroundSkinId();
+                const localUpdatedAt = this.getEquippedBackgroundSkinUpdatedAt();
+                const shouldApplyCloud = !localStoredId
+                    || cloudUpdatedAt > localUpdatedAt;
+                if (!shouldApplyCloud) {
+                    emitBackgroundSkinDiagnostic('cloud-skin-skip-local-newer', {
+                        cloudEquippedBackgroundSkinId: cloudEquippedId,
+                        cloudEquippedBackgroundSkinUpdatedAt: cloudUpdatedAt,
+                        localEquippedBackgroundSkinId: localStoredId,
+                        localEquippedBackgroundSkinUpdatedAt: localUpdatedAt,
+                    });
+                    this._writeBackgroundSkinOwnedIds(owned);
+                    return;
+                }
+                const previousEquippedId = this.getEquippedBackgroundSkinId();
+                owned.add(cloudEquippedId);
+                this._writeEquippedBackgroundSkinState(cloudEquippedId, cloudUpdatedAt);
+                this._equippedBackgroundSkinId = 0;
+                this._equippedBackgroundSkinFrame = null;
+                if (cloudEquippedId !== previousEquippedId) this._clearEquippedBackgroundSkinRowCache();
+                if (cloudEquippedId !== previousEquippedId) this._markBackgroundSkinChanged();
+                emitBackgroundSkinDiagnostic('cloud-skin-applied', {
+                    cloudEquippedBackgroundSkinId: cloudEquippedId,
+                    cloudEquippedBackgroundSkinUpdatedAt: cloudUpdatedAt,
+                    previousEquippedBackgroundSkinId: previousEquippedId,
+                });
+            }
+            this._writeBackgroundSkinOwnedIds(owned);
         },
 
         _resolveEquippedBackgroundSkin(config: BackgroundSkinConfig): BackgroundSkinRow {
@@ -623,8 +939,10 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         _reportBackgroundSkinError(context: string, skin: BackgroundSkinRow | null, err: unknown): void {
-            console.error('[background-skin] asset error', {
+            const payload = {
                 context,
+                equippedBackgroundSkinId: this.getEquippedBackgroundSkinId(),
+                equippedBackgroundSkinUpdatedAt: this.getEquippedBackgroundSkinUpdatedAt(),
                 id: skin?.id || 0,
                 shortId: skin?.shortId || 0,
                 code: skin?.code || '',
@@ -632,11 +950,17 @@ export function installSkinBackgroundModule(target: any): void {
                 assetKey: skin?.assetKey || '',
                 iconBundle: skin?.iconBundle || '',
                 iconKey: skin?.iconKey || '',
+                source: skin?.source || '',
+                backgroundHash: skin?.backgroundAsset?.hash || '',
+                iconHash: skin?.iconAsset?.hash || '',
+                cdn: SkinResourceCdnService.inst.getAvailabilityDiagnostics(),
                 error: err instanceof Error ? err.message : String(err || ''),
-            });
+            };
+            emitBackgroundSkinDiagnostic('asset-error', payload);
+            console.error('[background-skin] asset error', payload);
         },
 
-        ensureEquippedBackgroundReady(callback?: (ok: boolean, err?: Error | null, skin?: BackgroundSkinRow | null, sf?: SpriteFrame | null) => void): void {
+        _ensureEquippedBackgroundFromConfig(callback?: (ok: boolean, err?: Error | null, skin?: BackgroundSkinRow | null, sf?: SpriteFrame | null) => void): void {
             this._loadBackgroundSkinConfig((config: BackgroundSkinConfig | null, configErr?: Error | null) => {
                 if (!config) {
                     this._reportBackgroundSkinError('config', null, configErr);
@@ -649,6 +973,7 @@ export function installSkinBackgroundModule(target: any): void {
                     callback?.(true, null, skin, null);
                     return;
                 }
+                this._persistEquippedBackgroundSkinSelection(skin);
                 this.loadBackgroundSkinSpriteFrame(skin, (sf, loadErr) => {
                     if (!sf) {
                         this._reportBackgroundSkinError('ensure-equipped', skin, loadErr);
@@ -656,12 +981,53 @@ export function installSkinBackgroundModule(target: any): void {
                         return;
                     }
                     this._rememberEquippedBackgroundFrame(skin, sf);
+                    this.refreshEquippedGameplayBackground(true);
+                    this._writeEquippedBackgroundSkinRowCache(skin);
                     callback?.(true, null, skin, sf);
                 });
             });
         },
 
+        ensureEquippedBackgroundReady(callback?: (ok: boolean, err?: Error | null, skin?: BackgroundSkinRow | null, sf?: SpriteFrame | null) => void): void {
+            const cachedSkin = this._readEquippedBackgroundSkinRowCache();
+            const localSkin = this._createLocalEquippedBackgroundSkinRowFromId();
+            const candidates: BackgroundSkinRow[] = [];
+            const seen = new Set<string>();
+            const addCandidate = (skin: BackgroundSkinRow | null) => {
+                if (!skin) return;
+                const key = `${skin.id}:${skin.assetBundle}:${skin.assetKey}:${skin.backgroundAsset?.hash || skin.backgroundAsset?.url || ''}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                candidates.push(skin);
+            };
+            addCandidate(cachedSkin);
+            addCandidate(localSkin);
+            const tryCandidate = (index: number) => {
+                const skin = candidates[index];
+                if (!skin) {
+                    this._ensureEquippedBackgroundFromConfig(callback);
+                    return;
+                }
+                this.loadBackgroundSkinSpriteFrame(skin, (sf) => {
+                    if (sf) {
+                        this._rememberEquippedBackgroundFrame(skin, sf);
+                        this._writeEquippedBackgroundSkinRowCache(skin);
+                        callback?.(true, null, skin, sf);
+                        return;
+                    }
+                    tryCandidate(index + 1);
+                });
+            };
+            tryCandidate(0);
+        },
+
         _applyBackgroundSkinFrameToGameplayNode(sf: SpriteFrame): boolean {
+            const runtimeSceneName = typeof this.getRuntimeSceneName === 'function'
+                ? String(this.getRuntimeSceneName('') || '')
+                : 'Game';
+            if (runtimeSceneName && runtimeSceneName !== 'Game') {
+                return false;
+            }
             let bgNode: Node | null = null;
             try {
                 bgNode = this.requireGameplayBackgroundShell?.() || null;
@@ -675,6 +1041,13 @@ export function installSkinBackgroundModule(target: any): void {
             sprite.sizeMode = Sprite.SizeMode.CUSTOM;
             sprite.spriteFrame = sf;
             sprite.color = Color.WHITE;
+            this._appliedGameplayBackgroundSkinId = this.getEquippedBackgroundSkinId();
+            this._appliedGameplayBackgroundRefreshSeq = this._readBackgroundSkinRefreshSeq();
+            emitBackgroundSkinDiagnostic('gameplay-skin-applied', {
+                equippedBackgroundSkinId: this._appliedGameplayBackgroundSkinId,
+                refreshSeq: this._appliedGameplayBackgroundRefreshSeq,
+                frameName: sf.name || '',
+            });
             return true;
         },
 
@@ -702,20 +1075,59 @@ export function installSkinBackgroundModule(target: any): void {
             });
         },
 
-        startGameplayWithBackgroundSkinReady(data: any, activeLevelId?: number, init?: () => void): void {
-            this.ensureEquippedBackgroundReady((ok, err, skin) => {
-                if (!ok) {
-                    this._reportBackgroundSkinError('gameplay-entry', skin || null, err);
-                    this.showToast?.('背景加载失败，已使用当前背景', 1.8);
+        refreshEquippedGameplayBackground(force: boolean = false, callback?: (ok: boolean) => void): void {
+            const runtimeSceneName = typeof this.getRuntimeSceneName === 'function'
+                ? String(this.getRuntimeSceneName('') || '')
+                : 'Game';
+            if (runtimeSceneName && runtimeSceneName !== 'Game') {
+                callback?.(false);
+                return;
+            }
+            if (!force && this._isGameplayBackgroundSkinCurrent()) {
+                callback?.(true);
+                return;
+            }
+            if (this.applyPreparedGameplayBackground()) {
+                callback?.(true);
+                return;
+            }
+            this.applyEquippedGameplayBackground(callback);
+        },
+
+        _refreshEquippedGameplayBackgroundForStartup(): void {
+            const token = (Math.max(0, Math.floor(Number(this._gameplayBackgroundSkinRetryToken) || 0)) + 1);
+            this._gameplayBackgroundSkinRetryToken = token;
+            const schedule = (fn: () => void, delay: number) => {
+                if (typeof this.scheduleOnce === 'function') {
+                    this.scheduleOnce(fn, delay);
+                    return;
                 }
-                if (init) init();
-                else this.initGame(data, activeLevelId);
-            });
+                fn();
+            };
+            const run = (attempt: number) => {
+                if (this._gameplayBackgroundSkinRetryToken !== token) return;
+                this.refreshEquippedGameplayBackground?.(attempt > 0, (ok: boolean) => {
+                    if (ok || this._gameplayBackgroundSkinRetryToken !== token) return;
+                    const nextAttempt = attempt + 1;
+                    if (nextAttempt >= GAMEPLAY_BACKGROUND_SKIN_RETRY_DELAYS.length) return;
+                    schedule(() => run(nextAttempt), GAMEPLAY_BACKGROUND_SKIN_RETRY_DELAYS[nextAttempt]);
+                });
+            };
+            schedule(() => run(0), GAMEPLAY_BACKGROUND_SKIN_RETRY_DELAYS[0]);
+        },
+
+        startGameplayWithBackgroundSkinReady(data: any, activeLevelId?: number, init?: () => void): void {
+            // 背景皮肤大图在 release 包中来自 skin CDN，不能作为关卡初始化前置条件。
+            this._appliedGameplayBackgroundSkinId = 0;
+            this._appliedGameplayBackgroundRefreshSeq = -1;
+            if (init) init();
+            else this.initGame(data, activeLevelId);
+            this._refreshEquippedGameplayBackgroundForStartup?.();
         },
 
         equipBackgroundSkin(id: number, callback?: (ok: boolean, err?: Error | null) => void): void {
             this._loadBackgroundSkinConfig((config: BackgroundSkinConfig | null, err?: Error | null) => {
-                const skin = config?.byId.get(toSkinId(id, -1)) || null;
+                const skin = config?.byId.get(toBackgroundSkinStorageId(id)) || null;
                 if (!config || !skin) {
                     const finalErr = err || new Error(`[background-skin] skin not found: ${id}`);
                     this._reportBackgroundSkinError('equip-config', skin, finalErr);
@@ -729,24 +1141,14 @@ export function installSkinBackgroundModule(target: any): void {
                     callback?.(false, lockedErr);
                     return;
                 }
-                if (isDefaultBackgroundSkinRow(skin)) {
-                    sys.localStorage.setItem(LS_EQUIPPED_BACKGROUND_SKIN, String(skin.id));
-                    this._clearEquippedBackgroundFrame(skin);
-                    this.syncBackgroundSkinCloudState?.();
-                    this.showToast?.('已使用', 1.2);
-                    callback?.(true, null);
-                    return;
-                }
                 this.loadBackgroundSkinSpriteFrame(skin, (sf, loadErr) => {
                     if (!sf) {
                         this._reportBackgroundSkinError('equip-load', skin, loadErr);
-                        this.showToast?.('背景加载失败，请稍后重试', 1.8);
-                        callback?.(false, loadErr || new Error('[background-skin] background asset missing'));
+                        this.showToast?.('已使用，背景加载稍后重试', 1.8);
+                        callback?.(true, null);
                         return;
                     }
-                    sys.localStorage.setItem(LS_EQUIPPED_BACKGROUND_SKIN, String(skin.id));
                     this._rememberEquippedBackgroundFrame(skin, sf);
-                    this.syncBackgroundSkinCloudState?.();
                     this.showToast?.('已使用', 1.2);
                     callback?.(true, null);
                 });

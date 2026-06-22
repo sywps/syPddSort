@@ -10,7 +10,6 @@ const projectDir = path.resolve(__dirname, '..');
 const levelDataSourceDir = path.join(projectDir, 'assets', 'LevelData');
 const levelDataDir = path.join(projectDir, 'build', 'level-data-cdn');
 const packDir = path.join(levelDataDir, 'level_packs');
-const skinAssetDir = path.join(levelDataDir, 'Skins');
 const liveManifestPath = path.join(levelDataDir, 'level_live.json');
 
 const cdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
@@ -102,6 +101,7 @@ function validateLevelDataPackage() {
     const manifest = readJson(liveManifestPath);
     if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) fail('level_live.json schema 不正确');
     if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') fail('level_live.json 缺少 dataVersion');
+    if (manifest.levelDataVersion && manifest.levelDataVersion !== manifest.dataVersion) fail('level_live.json levelDataVersion 与 dataVersion 不一致');
     if (!Array.isArray(manifest.packs) || manifest.packs.length === 0) fail('level_live.json 缺少 packs');
     const sourceKeys = collectSourceLevelDataKeys();
     const sourcePrefixCounts = collectSourceLevelDataPrefixCounts();
@@ -238,9 +238,7 @@ const expectedServer = normalizeTrailingSlash(cdnUrl);
 const normalizedOssPath = normalizeOssPath(ossPath);
 const ossTarget = 'oss://' + ossBucket + '/' + normalizedOssPath;
 const packsOssTarget = ossTarget + 'level_packs/';
-const skinsOssTarget = ossTarget + 'Skins/';
 const liveOssTarget = ossTarget + 'level_live.json';
-const skinConfigPath = path.join(skinAssetDir, 'skins.json');
 
 console.log('关卡数据目录: ' + levelDataDir);
 console.log('关卡数据大小: ' + Math.round(dirSize(levelDataDir) / 1024 / 1024) + 'MB');
@@ -262,21 +260,6 @@ runOssutil([
     packDir + path.sep,
     packsOssTarget,
 ], '微信关卡数据 packs 上传');
-
-if (fs.existsSync(skinAssetDir)) {
-    assertFile(skinConfigPath, 'Skins/skins.json');
-    runOssutil([
-        'cp',
-        '-r',
-        '--acl',
-        'public-read',
-        '--force',
-        '--endpoint',
-        ossEndpoint,
-        skinAssetDir + path.sep,
-        skinsOssTarget,
-    ], '微信 Skins 资源上传');
-}
 
 runOssutil([
     'cp',

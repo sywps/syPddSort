@@ -29,6 +29,24 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { runtimeWarn } from '../RuntimeLog';
+
+type BoardTapCandidate = {
+    row: number;
+    col: number;
+    distSq: number;
+    centerDistSq: number;
+    visualCoreHit: boolean;
+    order: number;
+    block?: BeanBlockInfo | null;
+};
+
+type BoardTapResolution = {
+    candidates: BoardTapCandidate[];
+    candidate: BoardTapCandidate | null;
+    block: BeanBlockInfo | null;
+    source: 'direct' | 'adjacent' | 'miss';
+};
 
 export function installBoardInputViewportModule(target: any): void {
     Object.assign(target, {
@@ -512,50 +530,85 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         /** Optional board tap diagnostics, enabled with debugBoardTap=1. */
-        traceBoardTapSelection(worldPos: Vec3, candidates: Array<{ row: number; col: number; distSq: number }>, block: BeanBlockInfo | null, source: string): void {
+        traceBoardTapSelection(worldPos: Vec3, candidates: BoardTapCandidate[], block: BeanBlockInfo | null, source: string): void {
             if (typeof this.getRuntimeQueryParam !== 'function' || this.getRuntimeQueryParam('debugBoardTap') !== '1') return;
             const boardLocal = this.worldToBoardLocal(worldPos);
-            console.warn('[BoardTapTrace]', JSON.stringify({
+            runtimeWarn('[BoardTapTrace]', JSON.stringify({
                 worldPos: { x: Number(worldPos.x.toFixed(2)), y: Number(worldPos.y.toFixed(2)) },
                 boardLocal: boardLocal ? { x: Number(boardLocal.x.toFixed(2)), y: Number(boardLocal.y.toFixed(2)) } : null,
                 candidates: candidates.slice(0, 6).map((candidate) => ({
                     row: candidate.row,
                     col: candidate.col,
                     dist: Number(Math.sqrt(candidate.distSq).toFixed(2)),
+                    centerDist: Number(Math.sqrt(candidate.centerDistSq).toFixed(2)),
+                    visualCoreHit: !!candidate.visualCoreHit,
                     currentColor: this.boardModel.currentColors[candidate.row]?.[candidate.col] || 0,
                     correctColor: this.boardModel.correctColors[candidate.row]?.[candidate.col] || 0,
                     locked: !!this.boardModel.locked[candidate.row]?.[candidate.col],
+                    blockColor: candidate.block?.colorId || 0,
                 })),
                 selectedColor: block?.colorId || 0,
                 source,
             }));
         },
 
-        /** 第一次点击棋盘：默认只选中直接命中的连通块。 */
-        trySelectBoard(worldPos: Vec3, allowAdjacentFallback: boolean = false): boolean {
+        getBoardTapVisualHalfSizeLocal(kind: 'select' | 'place' = 'select'): number {
+            if (kind !== 'select') return Math.max(1, this.cellSize / 2);
+            const visualSize = typeof this.getBoardBeanVisualSize === 'function'
+                ? Number(this.getBoardBeanVisualSize())
+                : this.cellSize;
+            const safeVisualSize = Number.isFinite(visualSize) && visualSize > 0 ? visualSize : this.cellSize;
+            return Math.max(1, Math.min(this.cellSize / 2, safeVisualSize / 2));
+        },
+
+        compareBoardTapCandidates(a: BoardTapCandidate, b: BoardTapCandidate): number {
+            const aBucket = a.visualCoreHit ? 0 : 1;
+            const bBucket = b.visualCoreHit ? 0 : 1;
+            if (aBucket !== bBucket) return aBucket - bBucket;
+            if (a.centerDistSq !== b.centerDistSq) return a.centerDistSq - b.centerDistSq;
+            if (a.distSq !== b.distSq) return a.distSq - b.distSq;
+            return a.order - b.order;
+        },
+
+        resolveBoardTapBlock(worldPos: Vec3, allowAdjacentFallback: boolean = false): BoardTapResolution {
             const candidates = this.getBoardTapCandidates(worldPos);
-            if (candidates.length === 0) return false;
-        
-            let block: BeanBlockInfo | null = null;
-            let source = 'direct';
-            for (const candidate of candidates) {
-                const preferredCorrectColor = this.boardModel.correctColors[candidate.row][candidate.col];
-                block = this.boardModel.getConnectedBlock(candidate.row, candidate.col, preferredCorrectColor);
-                if (block) break;
+            if (candidates.length === 0) {
+                return { candidates, candidate: null, block: null, source: 'miss' };
             }
-            if (!block && allowAdjacentFallback) {
-                source = 'adjacent';
-                for (const candidate of candidates) {
-                    const preferredCorrectColor = this.boardModel.correctColors[candidate.row][candidate.col];
-                    block = this.boardModel.getConnectedBlockOrAdjacent(candidate.row, candidate.col, preferredCorrectColor);
-                    if (block) break;
+
+            let selectedCandidate: BoardTapCandidate | null = null;
+            let selectedBlock: BeanBlockInfo | null = null;
+            let source: 'direct' | 'adjacent' | 'miss' = 'miss';
+            for (const candidate of candidates) {
+                const currentColor = this.boardModel.currentColors[candidate.row]?.[candidate.col] || 0;
+                if (currentColor === 0 || this.boardModel.locked[candidate.row]?.[candidate.col]) continue;
+                const preferredCorrectColor = this.boardModel.correctColors[candidate.row][candidate.col];
+                candidate.block = this.boardModel.getConnectedBlock(candidate.row, candidate.col, preferredCorrectColor);
+                if (candidate.block) {
+                    selectedCandidate = candidate;
+                    selectedBlock = candidate.block;
+                    source = 'direct';
+                    break;
                 }
             }
-            this.traceBoardTapSelection(worldPos, candidates, block, block ? source : 'miss');
-            if (!block) {
-                return false;
+
+            if (!selectedBlock && allowAdjacentFallback) {
+                for (const candidate of candidates) {
+                    const preferredCorrectColor = this.boardModel.correctColors[candidate.row][candidate.col];
+                    candidate.block = this.boardModel.getConnectedBlockOrAdjacent(candidate.row, candidate.col, preferredCorrectColor);
+                    if (candidate.block) {
+                        selectedCandidate = candidate;
+                        selectedBlock = candidate.block;
+                        source = 'adjacent';
+                        break;
+                    }
+                }
             }
-        
+
+            return { candidates, candidate: selectedCandidate, block: selectedBlock, source };
+        },
+
+        applyBoardSelection(block: BeanBlockInfo): void {
             this.currentBlock = block;
             this.isSelected = true;
             this.resetIdleHintTimer();
@@ -570,9 +623,17 @@ export function installBoardInputViewportModule(target: any): void {
                 });
             }
             AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
-        
-            // 选中效果：豆豆保持在棋盘原位，显示高亮选中环
             this.showSelectionHighlight(block);
+        },
+
+        /** 第一次点击棋盘：默认只选中直接命中的连通块。 */
+        trySelectBoard(worldPos: Vec3, allowAdjacentFallback: boolean = false): boolean {
+            const resolution = this.resolveBoardTapBlock(worldPos, allowAdjacentFallback);
+            this.traceBoardTapSelection(worldPos, resolution.candidates, resolution.block, resolution.block ? resolution.source : 'miss');
+            if (!resolution.block) {
+                return false;
+            }
+            this.applyBoardSelection(resolution.block);
             return true;
         },
 
@@ -676,15 +737,10 @@ export function installBoardInputViewportModule(target: any): void {
                 return false;
             }
         
-            // 检查棋盘上是否点到了不同颜色的豆豆块
-            let tappedBoardBlock: BeanBlockInfo | null = null;
-            const boardCandidates = this.getBoardTapCandidates(worldPos);
-            for (const candidate of boardCandidates) {
-                const curColor = this.boardModel.currentColors[candidate.row][candidate.col];
-                if (curColor === 0 || this.boardModel.locked[candidate.row][candidate.col]) continue;
-                tappedBoardBlock = this.boardModel.getConnectedBlock(candidate.row, candidate.col);
-                if (tappedBoardBlock) break;
-            }
+            // 检查棋盘上是否点到了不同颜色的豆豆块。
+            const boardResolution = this.resolveBoardTapBlock(worldPos);
+            const tappedBoardBlock = boardResolution.block;
+            this.traceBoardTapSelection(worldPos, boardResolution.candidates, tappedBoardBlock, tappedBoardBlock ? 'reselect' : 'miss');
             if (tappedBoardBlock) {
                 const isSameBlock = !fromSlot && tappedBoardBlock.cells.some((cell) =>
                     block.cells.some((selectedCell) => selectedCell.row === cell.row && selectedCell.col === cell.col)
@@ -695,7 +751,7 @@ export function installBoardInputViewportModule(target: any): void {
                     return true;
                 }
                 this.cancelSelection();
-                this.trySelectBoard(worldPos);
+                this.applyBoardSelection(tappedBoardBlock);
                 return true;
             }
 
@@ -831,7 +887,7 @@ export function installBoardInputViewportModule(target: any): void {
             return new Vec3(local.x, local.y, local.z);
         },
 
-        getBoardTapCandidates(worldPos: Vec3, kind: 'select' | 'place' = 'select'): Array<{ row: number; col: number; distSq: number }> {
+        getBoardTapCandidates(worldPos: Vec3, kind: 'select' | 'place' = 'select'): BoardTapCandidate[] {
             const boardLocal = this.worldToBoardLocal(worldPos);
             if (!boardLocal) return [];
             const tolerance = this.getBoardHitToleranceLocal(kind);
@@ -839,9 +895,11 @@ export function installBoardInputViewportModule(target: any): void {
             if (!centerCell) return [];
             const searchRadius = this.getBoardCandidateRadius(tolerance);
             const maxDistSq = tolerance * tolerance;
-            const candidates: Array<{ row: number; col: number; distSq: number }> = [];
+            const visualHalf = this.getBoardTapVisualHalfSizeLocal(kind);
+            const candidates: BoardTapCandidate[] = [];
             const bw = this.levelData.boardWidth;
             const bh = this.levelData.boardHeight;
+            let order = 0;
         
             for (let dr = -searchRadius; dr <= searchRadius; dr++) {
                 for (let dc = -searchRadius; dc <= searchRadius; dc++) {
@@ -851,12 +909,23 @@ export function installBoardInputViewportModule(target: any): void {
                     const distance = this.getDistanceToBoardCellRect(boardLocal, row, col);
                     const distSq = distance * distance;
                     if (distSq <= maxDistSq) {
-                        candidates.push({ row, col, distSq });
+                        const center = this.getBoardCellCenterLocal(row, col);
+                        const centerDx = boardLocal.x - center.x;
+                        const centerDy = boardLocal.y - center.y;
+                        candidates.push({
+                            row,
+                            col,
+                            distSq,
+                            centerDistSq: centerDx * centerDx + centerDy * centerDy,
+                            visualCoreHit: Math.abs(centerDx) <= visualHalf && Math.abs(centerDy) <= visualHalf,
+                            order,
+                        });
                     }
+                    order += 1;
                 }
             }
         
-            candidates.sort((a, b) => a.distSq - b.distSq);
+            candidates.sort((a, b) => this.compareBoardTapCandidates(a, b));
             return candidates;
         },
 

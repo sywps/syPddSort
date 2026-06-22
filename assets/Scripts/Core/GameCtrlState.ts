@@ -1,6 +1,7 @@
 import {
     BoardViewportController,
     Bundle,
+    Color,
     DEFAULT_CELL_GAP,
     DEFAULT_CELL_SIZE,
     Label,
@@ -131,6 +132,8 @@ export function initializeGameCtrlState(runtime: any): void {
         _guideHand: null,
         _guideBubble: null,
         _guideBubbleLbl: null,
+        _guidePromptDefaultLabelColor: null as Color | null,
+        _guidePromptDefaultCenterY: null as number | null,
         _guidePulseTweens: [] as Tween<Node>[],
         _guideHighlightCells: [],
         _guideInputSuspended: false,
@@ -265,6 +268,9 @@ export function initializeGameCtrlState(runtime: any): void {
         _skinSpriteFrameLoadingCallbacks: new Map<string, Array<(sf: SpriteFrame | null, err?: Error | null) => void>>(),
         _equippedBackgroundSkinId: 0,
         _equippedBackgroundSkinFrame: null as SpriteFrame | null,
+        _appliedGameplayBackgroundSkinId: 0,
+        _appliedGameplayBackgroundRefreshSeq: -1,
+        _gameplayBackgroundSkinRetryToken: 0,
         _backgroundSkinPanelOverlay: null,
         _backgroundSkinAdUnlocking: false,
     });

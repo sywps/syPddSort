@@ -35,6 +35,14 @@ const SKIN_BUNDLE_NAMES = [];
 const MAIN_PACKAGE_TARGET_KB = 3072;
 const MAIN_PACKAGE_ERROR_KB = 4096;
 const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
+const SKIN_DATA_CDN_URL = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(LEVEL_DATA_CDN_URL);
+
+function deriveSkinDataCdnUrl(levelDataCdnUrl) {
+    var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
+    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/skin/';
+    if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
+    return normalized + 'skin/';
+}
 
 function resolveRuntimeRoot() {
     var nested = path.join(buildPath, 'minigame');
@@ -131,7 +139,7 @@ function ensureVersionedBundleIndexFile(bundleDir, bundleName, settingsFilePath)
     }
 }
 
-function stripBundleConfigDeps(bundleDir, bundleName, forbiddenDeps) {
+function assertBundleConfigDepsClean(bundleDir, bundleName, forbiddenDeps) {
     if (!fs.existsSync(bundleDir)) return;
     var configFiles = fs.readdirSync(bundleDir)
         .filter(function (name) { return /^config(?:\.[0-9a-f]+)?\.json$/i.test(name); })
@@ -140,11 +148,12 @@ function stripBundleConfigDeps(bundleDir, bundleName, forbiddenDeps) {
         var configPath = configFiles[i];
         var config = readJsonFile(configPath);
         if (!Array.isArray(config.deps)) continue;
-        var before = config.deps.length;
-        config.deps = config.deps.filter(function (dep) { return forbiddenDeps.indexOf(dep) === -1; });
-        if (config.deps.length !== before) {
-            writeJsonFile(configPath, config);
-            console.log('[4/6] 已移除 ' + bundleName + ' 过宽依赖: ' + forbiddenDeps.join(', ') + ' ✓');
+        var matched = config.deps.filter(function (dep) { return forbiddenDeps.indexOf(dep) !== -1; });
+        if (matched.length > 0) {
+            console.error('[4/6] ' + bundleName + ' config.json 存在禁止依赖: ' + matched.join(', '));
+            console.error('       文件: ' + path.relative(resolveRuntimeRoot(), configPath));
+            console.error('       请修正 bundle 归属或资源引用，不要在 postbuild 中删除 deps 掩盖问题。');
+            process.exit(1);
         }
     }
 }
@@ -329,7 +338,7 @@ function ensureBootstrapWechatSubpackage() {
     var bootstrapSubpackageDir = path.join(runtimeRoot, bootstrapRoot);
     if (fs.existsSync(localBundleDir)) {
         movePathSync(localBundleDir, bootstrapSubpackageDir);
-        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 firstPlay/bootstrap: ' + bootstrapRoot + ' ✓');
+        console.log('[3.7/7] 已将 assets/bootstrap 迁移为微信分包 gameEntry/bootstrap: ' + bootstrapRoot + ' ✓');
     }
     ensureStableBundleFiles(bootstrapSubpackageDir);
     ensureSubpackageGameJs(bootstrapSubpackageDir, BOOTSTRAP_BUNDLE_NAME);
@@ -348,7 +357,7 @@ function ensureHomeAssetsWechatSubpackage() {
         console.log('[4/6] 已将 assets/homeAssets 迁移为微信分包: ' + homeAssetsRoot + ' ✓');
     }
     ensureStableBundleFiles(homeAssetsSubpackageDir);
-    stripBundleConfigDeps(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME, [BUNDLE_NAME]);
+    assertBundleConfigDepsClean(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME, [BUNDLE_NAME]);
     ensureSubpackageGameJs(homeAssetsSubpackageDir, HOME_ASSETS_BUNDLE_NAME);
     ensureBundleInGameSubpackages(runtimeRoot, HOME_ASSETS_BUNDLE_NAME);
     ensureBundleInSettingsSubpackages(resolveSettingsPath(), HOME_ASSETS_BUNDLE_NAME);
@@ -450,6 +459,27 @@ function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
     }
 }
 
+function ensureWechatSubpackageStableConfigs(runtimeRoot) {
+    var bundleNames = ['main', BOOTSTRAP_BUNDLE_NAME, HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
+    if (debugLevelDataBundle) bundleNames.push(LEVEL_DATA_BUNDLE_NAME);
+    for (var i = 0; i < bundleNames.length; i++) {
+        var bundleName = bundleNames[i];
+        var subpackageRoot = getBundleSubpackageRoot(runtimeRoot, bundleName);
+        var subpackageDir = path.join(runtimeRoot, subpackageRoot);
+        if (!fs.existsSync(subpackageDir)) {
+            console.error('[8.4/8] 微信分包目录缺失，无法补齐稳定 config: ' + subpackageRoot);
+            process.exit(1);
+        }
+        ensureStableBundleFiles(subpackageDir);
+        var stableConfigPath = path.join(subpackageDir, 'config.json');
+        if (!fs.existsSync(stableConfigPath)) {
+            console.error('[8.4/8] 微信分包缺少稳定 config.json: ' + stableConfigPath);
+            process.exit(1);
+        }
+    }
+    console.log('[8.4/8] 微信分包稳定 config.json 已补齐 ✓');
+}
+
 function removeDuplicateStableBundleIndex(runtimeRoot, settingsFilePath) {
     if (!fs.existsSync(settingsFilePath)) return 0;
     var settings = JSON.parse(fs.readFileSync(settingsFilePath, 'utf-8'));
@@ -514,6 +544,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarker = 'globalThis.__PDD_WECHAT_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     var gameAssetsModeMarker = 'globalThis.__PDD_GAME_ASSETS_MODE__=' + JSON.stringify(gameAssetsMode) + ';';
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
+    var skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(SKIN_DATA_CDN_URL) + ';';
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
@@ -522,6 +553,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
+    var skinDataCdnPattern = /globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g;
     var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
     if (platformMarkerPattern.test(content)) {
@@ -536,6 +568,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (levelDataCdnPattern.test(content)) {
         content = content.replace(levelDataCdnPattern, levelDataCdnMarker);
     }
+    if (skinDataCdnPattern.test(content)) {
+        content = content.replace(skinDataCdnPattern, skinDataCdnMarker);
+    }
     if (screenAdaptDebugPattern.test(content)) {
         content = content.replace(screenAdaptDebugPattern, screenAdaptDebugMarker);
     }
@@ -545,6 +580,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
+    if (content.indexOf(skinDataCdnMarker) === -1) missingLines.push(skinDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
     if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {
         missingLines.push(
@@ -660,6 +696,27 @@ function ensureStableGameAssetsBundleScriptLoader(runtimeRoot) {
     }
 }
 
+function ensureStableWechatSubpackageConfigLoader(runtimeRoot) {
+    var engineAdapterPath = path.join(runtimeRoot, 'engine-adapter.js');
+    if (!fs.existsSync(engineAdapterPath)) return;
+    var content = fs.readFileSync(engineAdapterPath, 'utf-8');
+    var pattern = /n=\(y\.platform===y\.Platform\.TAOBAO_MINI_GAME\?"":"subpackages\/"\)\.concat\(o,"\/config\."\)\.concat\(a,"json"\)/g;
+    var patched = content.replace(
+        pattern,
+        'n=(y.platform===y.Platform.TAOBAO_MINI_GAME?"":"subpackages/").concat(o,"/config.json")'
+    );
+    if (patched !== content) {
+        fs.writeFileSync(engineAdapterPath, patched);
+        console.log('[3.0b/7] 微信分包 bundle config 已改为稳定 config.json ✓');
+        return;
+    }
+    if (content.indexOf('subpackages/").concat(o,"/config.").concat(a,"json")') !== -1) {
+        console.error('[3.0b/7] 微信分包 bundle config 仍使用版本化路径，patch 未命中');
+        process.exit(1);
+    }
+    console.log('[3.0b/7] 微信分包 bundle config 已是稳定路径 ✓');
+}
+
 function ensureBundleScriptStub(runtimeRoot, bundleName, label) {
     var bundleScriptDir = path.join(runtimeRoot, 'src', 'bundle-scripts', bundleName);
     var bundleScriptFile = path.join(bundleScriptDir, 'index.js');
@@ -708,10 +765,11 @@ if (fs.existsSync(settingsPath)) {
     ensureStartupPreloadBundles(a);
     settings.assets = a;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, null));
-    console.log('[2/6] projectBundles 已配置 firstPlay/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
-    console.log('[2/6] startup preload: cocosCore/main only; firstPlay/bootstrap 按 A/C 路由按需加载 ✓');
+    console.log('[2/6] projectBundles 已配置 gameEntry/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
+    console.log('[2/6] startup preload: cocosCore/main only; gameEntry/bootstrap 由统一游戏入口路由按需加载 ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
+    console.log('[2/6] 皮肤数据 CDN: ' + SKIN_DATA_CDN_URL);
 }
 
 // 3. 修复 engine-adapter.js 的 URL 拼接
@@ -735,6 +793,7 @@ if (fs.existsSync(engineAdapterPath)) {
     }
 }
 ensureStableGameAssetsBundleScriptLoader(resolveRuntimeRoot());
+ensureStableWechatSubpackageConfigLoader(resolveRuntimeRoot());
 
 // 3.2 保存原始 wx 对象到 globalThis.__rawWx，并锁定首屏抗锯齿配置
 var gameJsPath = resolveBuildPath('game.js');
@@ -886,7 +945,7 @@ if (fs.existsSync(projectConfigPath)) {
     }
 }
 
-// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 firstPlay/bootstrap 是微信分包。
+// 3.7 直接使用 Creator 构建出的 bootstrap bundle，并确保 gameEntry/bootstrap 是微信分包。
 var stableBundleNames = debugLevelDataBundle
     ? ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME].concat(SKIN_BUNDLE_NAMES, [LEVEL_DATA_BUNDLE_NAME, 'main'])
     : ['internal', HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME].concat(SKIN_BUNDLE_NAMES, ['main']);
@@ -904,7 +963,7 @@ try {
     var bootstrapPathEntries = Object.values(bootstrapConfig.paths || {}).filter((value) => Array.isArray(value) && value.length > 0);
     var importVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.import) ? bootstrapConfig.versions.import.length / 2 : 0;
     var nativeVersions = bootstrapConfig.versions && Array.isArray(bootstrapConfig.versions.native) ? bootstrapConfig.versions.native.length / 2 : 0;
-    console.log('[3.7/7] 已使用 Creator 生成的 firstPlay/bootstrap bundle ✓');
+    console.log('[3.7/7] 已使用 Creator 生成的 gameEntry/bootstrap bundle ✓');
     console.log('         entries=' + bootstrapPathEntries.length + ', import=' + importVersions + ', native=' + nativeVersions);
 } catch (e) {
     console.error('[3.7/7] 读取 bootstrap bundle 失败:', e.message || e);
@@ -1033,7 +1092,7 @@ if (mainKB > MAIN_PACKAGE_TARGET_KB) {
 }
 console.log('[5/6] ✓ 主包大小正常');
 
-// 6. CDN 上传已移至 npm run sync:cdn:wechat 独立处理
+// 6. CDN 上传已移至 npm run sync:cdn:wechat 独立处理；分项命令使用 :level_data / :skin_data。
 
 // 7. 豆豆图集以 BootstrapBundle/Beans 为唯一真源，由 Cocos 构建自动包含
     // atlas PNG: assets/BootstrapBundle/Beans/bean-atlas.png
@@ -1101,6 +1160,30 @@ function movePathSync(src, dest) {
     fs.renameSync(src, dest);
 }
 
+function ensureWechatSplashBackgroundAsset() {
+    var names = ['background.jpg', 'background.jpeg', 'background.png'];
+    var source = '';
+    for (var i = 0; i < names.length; i++) {
+        var rootCandidate = path.join(buildPath, names[i]);
+        if (fs.existsSync(rootCandidate)) {
+            source = rootCandidate;
+            break;
+        }
+        var minigameCandidate = path.join(minigameRootPath, names[i]);
+        if (fs.existsSync(minigameCandidate)) {
+            source = minigameCandidate;
+            break;
+        }
+    }
+    if (!source) return;
+    fs.mkdirSync(minigameRootPath, { recursive: true });
+    var normalizedPath = path.join(minigameRootPath, 'background.jpg');
+    if (source !== normalizedPath) {
+        fs.copyFileSync(source, normalizedPath);
+    }
+    console.log('[8/8] 已补齐微信启动背景 minigame/background.jpg ✓');
+}
+
 var runtimeEntries = [
     'engine-adapter.js',
     'first-screen.js',
@@ -1139,6 +1222,8 @@ for (var runtimeFileIndex = 0; runtimeFileIndex < rootRuntimeFiles.length; runti
     movedRuntimeCount += 1;
 }
 
+ensureWechatSplashBackgroundAsset();
+
 if (fs.existsSync(projectConfigRootPath)) {
     var rootProjectConfig = JSON.parse(fs.readFileSync(projectConfigRootPath, 'utf-8'));
     normalizeWechatProjectConfig(rootProjectConfig);
@@ -1169,13 +1254,14 @@ if (movedRuntimeCount > 0) {
 }
 
 // 8.5 homeAssets/gameAssets 分包目录由微信 subpackages 承载。
+ensureWechatSubpackageStableConfigs(minigameRootPath);
 var minigameHomeAssetsSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, HOME_ASSETS_BUNDLE_NAME);
 var minigameHomeAssetsSubpackageDir = path.join(minigameRootPath, minigameHomeAssetsSubpackageRoot);
 var minigameBootstrapSubpackageRoot = getBundleSubpackageRoot(minigameRootPath, BOOTSTRAP_BUNDLE_NAME);
 var minigameBootstrapSubpackageDir = path.join(minigameRootPath, minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameBootstrapSubpackageDir)
-    ? '[8.5/8] firstPlay/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
-    : '[8.5/8] firstPlay/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
+    ? '[8.5/8] gameEntry/bootstrap 微信分包目录已保留: ' + minigameBootstrapSubpackageRoot + ' ✓'
+    : '[8.5/8] gameEntry/bootstrap 微信分包目录缺失，交由验证脚本确认: ' + minigameBootstrapSubpackageRoot);
 console.log(fs.existsSync(minigameHomeAssetsSubpackageDir)
     ? '[8.5/8] homeAssets 微信分包目录已保留: ' + minigameHomeAssetsSubpackageRoot + ' ✓'
     : '[8.5/8] homeAssets 微信分包目录缺失，交由验证脚本确认: ' + minigameHomeAssetsSubpackageRoot);

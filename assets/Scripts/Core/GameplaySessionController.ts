@@ -22,6 +22,7 @@ export class GameplaySessionController {
             runtime._gameplayInitSeq = (Number(runtime._gameplayInitSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
+            this.clearTutorialRuntimeState(runtime);
             AudioMgr.inst.init(runtime.node);
             if (!runtime._bootstrapOnlyGameplayStartup) {
                 AudioMgr.inst.preload('place');
@@ -41,6 +42,9 @@ export class GameplaySessionController {
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
             runtime._activeGameplayEntryMode = gameplayEntryMode;
+            const activeLogicalLevelId = gameplayEntryMode === 'main'
+                ? runtime.getActiveLogicalLevelId()
+                : resolvedLevelId;
             runtime._firstFunnelTouchSent = false;
             runtime._firstLevelAnyTouchSent = false;
             runtime._firstFunnelSelectSent = false;
@@ -55,7 +59,7 @@ export class GameplaySessionController {
             runtime.boardModel = new BoardModel(data);
             const maxSlotRows = runtime.getMaxSlotRows();
             const slotPolicy = resolveSlotRowPolicy({
-                levelId: resolvedLevelId,
+                levelId: activeLogicalLevelId,
                 entryMode: gameplayEntryMode,
                 maxRows: maxSlotRows,
                 configuredUnlockedRows: (data as any).initialSlotUnlockedRows,
@@ -67,18 +71,18 @@ export class GameplaySessionController {
             runtime.slotModel = new SlotModel(SLOTS_PER_ROW * runtime.slotRowCount);
             runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
             const resolvedTimeLimit = resolveSlotOnboardingTimeLimit({
-                levelId: resolvedLevelId,
+                levelId: activeLogicalLevelId,
                 entryMode: gameplayEntryMode,
                 configuredTimeLimit: data.timeLimit,
             });
             const resolvedDynamicTimeLimit = typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
                 ? runtime.resolveDynamicCountdownTimeLimit({
-                    levelId: resolvedLevelId,
+                    levelId: activeLogicalLevelId,
                     entryMode: gameplayEntryMode,
                     baseTimeLimit: resolvedTimeLimit,
                 })
                 : resolvedTimeLimit;
-            const dynamicTimeLimit = gameplayEntryMode === 'main' && resolvedLevelId === 1 ? 0 : resolvedDynamicTimeLimit;
+            const dynamicTimeLimit = gameplayEntryMode === 'main' && activeLogicalLevelId === 1 ? 0 : resolvedDynamicTimeLimit;
             runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
             runtime.timeRemain = dynamicTimeLimit;
             runtime.isGameEnd = false;
@@ -118,7 +122,7 @@ export class GameplaySessionController {
             runtime.hideLoadingOverlayAfterGameplayReady?.();
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
             if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
-                runtime.recordMainlineLevelEntry(resolvedLevelId);
+                runtime.recordMainlineLevelEntry(activeLogicalLevelId);
             }
             this.finishGameplayReadyTransition();
             runtime.refreshEndgameHints('init-game');
@@ -154,16 +158,17 @@ export class GameplaySessionController {
                 physicalLevelId: analyticsPhysicalLevelId,
             });
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
-            if (!runtime.isExternalLevelPreviewActive()) {
-                if (resolvedLevelId <= 3) SySDKMgr.inst.reportTutorialStart();
-                if (resolvedLevelId === 1) {
+            const tutorialGateLevelId = gameplayEntryMode === 'main' ? activeLogicalLevelId : 0;
+            if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
+                if (tutorialGateLevelId <= 3) SySDKMgr.inst.reportTutorialStart();
+                if (tutorialGateLevelId === 1) {
                     runtime.startTutorial('level_1');
-                } else if (resolvedLevelId === 2) {
+                } else if (tutorialGateLevelId === 2) {
                     runtime.startTutorial('level_2');
                 } else if (slotPolicy.showSlotUnlockGuide) {
                     runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
                 }
-                if (resolvedLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
+                if (tutorialGateLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
                     runtime.startPinchGuide();
                 }
             }
@@ -199,6 +204,40 @@ export class GameplaySessionController {
             console.warn('[SceneTransition] finish after gameplay ready failed:', error);
             forceHideOnce('gameplay-ready-fallback');
         });
+    }
+
+    private clearTutorialRuntimeState(runtime: any): void {
+        if (runtime._guideLayer?.isValid && typeof runtime.clearGuideHighlight === 'function') {
+            runtime.clearGuideHighlight();
+        }
+        if (runtime._guideBubble?.isValid) {
+            runtime._guideBubble.active = false;
+        }
+        if (runtime._guideLayer?.isValid) {
+            runtime._guideLayer.destroy();
+        }
+        if (Array.isArray(runtime._guidePulseTweens)) {
+            for (const tween of runtime._guidePulseTweens) {
+                tween?.stop?.();
+            }
+            runtime._guidePulseTweens.length = 0;
+        } else {
+            runtime._guidePulseTweens = [];
+        }
+        runtime._guideLayer = null;
+        runtime._guideMask = null;
+        runtime._guideHand = null;
+        runtime._guideBubble = null;
+        runtime._guideBubbleLbl = null;
+        runtime._guidePromptDefaultLabelColor = null;
+        runtime._guidePromptDefaultCenterY = null;
+        runtime._guideHighlightCells = [];
+        runtime._guideInputSuspended = false;
+        runtime._guideStep = -1;
+        runtime._guideMode = 'none';
+        runtime._guideTotalSteps = 0;
+        runtime._guidePhase = 'select';
+        runtime._lastGuideVoiceToken = '';
     }
 
 }

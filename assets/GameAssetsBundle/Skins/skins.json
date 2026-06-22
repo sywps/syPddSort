@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "defaultEquipped": 0,
+  "defaultEquipped": 1001,
   "skins": [
     {
       "id": 0,
@@ -17,27 +17,27 @@
       "unlockValue": 0,
       "price": 0,
       "sort": 0,
-      "enabled": true
+      "enabled": false
     },
     {
-      "id": 1,
+      "id": 1001,
       "shortId": 1,
       "type": "background",
       "code": "bg_001",
       "name": "背景 001",
-      "isDefault": false,
-      "assetBundle": "levelData",
-      "assetKey": "Skins/Background/bg_001/background",
+      "isDefault": true,
+      "assetBundle": "bootstrap",
+      "assetKey": "GameUI/bg_game_pindd",
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_001",
-      "unlockType": "level",
-      "unlockValue": 10,
+      "unlockType": "default",
+      "unlockValue": 0,
       "price": 0,
       "sort": 1,
       "enabled": true
     },
     {
-      "id": 2,
+      "id": 1002,
       "shortId": 2,
       "type": "background",
       "code": "bg_002",
@@ -54,7 +54,7 @@
       "enabled": true
     },
     {
-      "id": 3,
+      "id": 1003,
       "shortId": 3,
       "type": "background",
       "code": "bg_003",
@@ -71,7 +71,7 @@
       "enabled": true
     },
     {
-      "id": 4,
+      "id": 1004,
       "shortId": 4,
       "type": "background",
       "code": "bg_004",
@@ -88,7 +88,7 @@
       "enabled": true
     },
     {
-      "id": 5,
+      "id": 1005,
       "shortId": 5,
       "type": "background",
       "code": "bg_005",
@@ -105,7 +105,7 @@
       "enabled": true
     },
     {
-      "id": 6,
+      "id": 1006,
       "shortId": 6,
       "type": "background",
       "code": "bg_006",
@@ -122,7 +122,7 @@
       "enabled": true
     },
     {
-      "id": 7,
+      "id": 1007,
       "shortId": 7,
       "type": "background",
       "code": "bg_007",
@@ -139,7 +139,7 @@
       "enabled": true
     },
     {
-      "id": 8,
+      "id": 1008,
       "shortId": 8,
       "type": "background",
       "code": "bg_008",
@@ -156,7 +156,7 @@
       "enabled": true
     },
     {
-      "id": 9,
+      "id": 1009,
       "shortId": 9,
       "type": "background",
       "code": "bg_009",
@@ -173,7 +173,7 @@
       "enabled": true
     },
     {
-      "id": 13,
+      "id": 1013,
       "shortId": 13,
       "type": "background",
       "code": "bg_013",
@@ -190,7 +190,7 @@
       "enabled": true
     },
     {
-      "id": 14,
+      "id": 1014,
       "shortId": 14,
       "type": "background",
       "code": "bg_014",
@@ -207,7 +207,7 @@
       "enabled": true
     },
     {
-      "id": 16,
+      "id": 1016,
       "shortId": 16,
       "type": "background",
       "code": "bg_016",
@@ -224,7 +224,7 @@
       "enabled": true
     },
     {
-      "id": 21,
+      "id": 1021,
       "shortId": 21,
       "type": "background",
       "code": "bg_021",
@@ -241,7 +241,7 @@
       "enabled": true
     },
     {
-      "id": 22,
+      "id": 1022,
       "shortId": 22,
       "type": "background",
       "code": "bg_022",
@@ -258,7 +258,7 @@
       "enabled": true
     },
     {
-      "id": 99,
+      "id": 1099,
       "shortId": 99,
       "type": "background",
       "code": "bg_099",

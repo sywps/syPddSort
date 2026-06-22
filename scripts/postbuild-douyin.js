@@ -11,8 +11,16 @@ const buildMode = process.env.DOUYIN_BUILD_MODE || 'release';
 const debugLevelDataBundle = buildMode === 'debug';
 const SKIN_BUNDLE_NAMES = [];
 const levelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
+const skinDataCdnUrl = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(levelDataCdnUrl);
 const douyinCloudEnv = process.env.PDD_DOUYIN_CLOUD_ENV || '';
 const douyinCloudPathPrefix = process.env.PDD_DOUYIN_CLOUD_PATH_PREFIX || '';
+
+function deriveSkinDataCdnUrl(levelUrl) {
+    const normalized = String(levelUrl || '').trim().replace(/\/?$/, '/');
+    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/skin/';
+    if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
+    return normalized + 'skin/';
+}
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -100,16 +108,15 @@ function ensureSubpackageGameJs(bundleDir, bundleName) {
     }
 }
 
-function stripBundleConfigDeps(bundleDir, forbiddenDeps) {
+function assertBundleConfigDepsClean(bundleDir, bundleName, forbiddenDeps) {
     if (!fs.existsSync(bundleDir)) return;
     for (const name of fs.readdirSync(bundleDir).filter((item) => /^config(?:\.[0-9a-f]+)?\.json$/i.test(item))) {
         const configPath = path.join(bundleDir, name);
         const config = readJson(configPath);
         if (!Array.isArray(config.deps)) continue;
-        const deps = config.deps.filter((dep) => !forbiddenDeps.includes(dep));
-        if (deps.length !== config.deps.length) {
-            config.deps = deps;
-            writeJson(configPath, config);
+        const matched = config.deps.filter((dep) => forbiddenDeps.includes(dep));
+        if (matched.length > 0) {
+            fail(bundleName + ' config.json 存在禁止依赖: ' + matched.join(', ') + ' (' + path.relative(buildPath, configPath) + ')');
         }
     }
 }
@@ -125,7 +132,7 @@ function ensureBundleSubpackage(runtimeRoot, bundleName) {
     }
     if (!fs.existsSync(bundleDir)) fail('抖音包缺少分包目录: ' + path.relative(runtimeRoot, bundleDir));
     ensureStableBundleFiles(bundleDir);
-    if (bundleName === 'homeAssets') stripBundleConfigDeps(bundleDir, ['gameAssets']);
+    if (bundleName === 'homeAssets') assertBundleConfigDepsClean(bundleDir, bundleName, ['gameAssets']);
     ensureSubpackageGameJs(bundleDir, bundleName);
     const gameJson = readJson(gameJsonPath);
     const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages.slice() : [];
@@ -197,12 +204,14 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
     const buildMarker = 'globalThis.__PDD_DOUYIN_BUILD__=true;';
     const modeMarker = 'globalThis.__PDD_DOUYIN_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     const levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(levelDataCdnUrl) + ';';
+    const skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(skinDataCdnUrl) + ';';
     const cloudEnvMarker = 'globalThis.__PDD_DOUYIN_CLOUD_ENV__=' + JSON.stringify(douyinCloudEnv) + ';';
     const cloudPathPrefixMarker = 'globalThis.__PDD_DOUYIN_CLOUD_PATH_PREFIX__=' + JSON.stringify(douyinCloudPathPrefix) + ';';
     const replacements = [
         [/globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g, platformMarker],
         [/globalThis\.__PDD_DOUYIN_BUILD_MODE__="[^"]*";/g, modeMarker],
         [/globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g, levelDataCdnMarker],
+        [/globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g, skinDataCdnMarker],
         [/globalThis\.__PDD_DOUYIN_CLOUD_ENV__="[^"]*";/g, cloudEnvMarker],
         [/globalThis\.__PDD_DOUYIN_CLOUD_PATH_PREFIX__="[^"]*";/g, cloudPathPrefixMarker],
     ];
@@ -210,7 +219,7 @@ function ensureDouyinRuntimeMarker(runtimeRoot) {
         content = pattern.test(content) ? content.replace(pattern, value) : content;
     }
     const missingLines = [];
-    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
+    for (const line of [platformMarker, buildMarker, modeMarker, levelDataCdnMarker, skinDataCdnMarker, cloudEnvMarker, cloudPathPrefixMarker]) {
         if (!content.includes(line)) missingLines.push(line);
     }
     if (missingLines.length) content = missingLines.join('\n') + '\n' + content;

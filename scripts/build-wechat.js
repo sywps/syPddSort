@@ -7,6 +7,7 @@ const buildCommon = require('./minigame-build-common.js');
 const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'wechatgame');
 const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn');
+const skinDataCdnDir = path.join(projectDir, 'build', 'skin-cdn');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
 const assetDbPrewarmPath = path.join(projectDir, 'temp', 'pdd-assetdb-prewarm.json');
 const startSceneUrl = 'db://assets/Scenes/Boot.scene';
@@ -152,12 +153,37 @@ function getRecentLogFiles(logDir, startedAtMs) {
         .sort();
 }
 
+function parseCocosLogLineTimeMs(line) {
+    const match = /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/.exec(line);
+    if (!match) return null;
+    const [, year, month, day, hour, minute, second] = match;
+    return new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+    ).getTime();
+}
+
+function readCocosLogTextSince(logPath, startedAtMs) {
+    const cutoffMs = startedAtMs - 2000;
+    return fs.readFileSync(logPath, 'utf8')
+        .split(/\r?\n/)
+        .filter((line) => {
+            const lineTimeMs = parseCocosLogLineTimeMs(line);
+            return lineTimeMs !== null && lineTimeMs >= cutoffMs;
+        })
+        .join('\n');
+}
+
 function assertCocosImporterLogsHealthy(startedAtMs) {
     const assetDbLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'asset-db', 'log'), startedAtMs);
     const builderLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'builder', 'log'), startedAtMs);
     const importerFailures = [];
     for (const logPath of assetDbLogs) {
-        const text = fs.readFileSync(logPath, 'utf8');
+        const text = readCocosLogTextSince(logPath, startedAtMs);
         const matches = text.match(/Can not find the importer [^\r\n]+ in editor/g);
         if (matches && matches.length > 0) {
             importerFailures.push(`${path.relative(projectDir, logPath)}: ${matches.slice(0, 5).join('; ')}`);
@@ -165,7 +191,7 @@ function assertCocosImporterLogsHealthy(startedAtMs) {
     }
     const emptyAssetStats = [];
     for (const logPath of builderLogs) {
-        const text = fs.readFileSync(logPath, 'utf8');
+        const text = readCocosLogTextSince(logPath, startedAtMs);
         if (/Number of all scenes:\s*0\b/.test(text) && /Number of all scripts:\s*0\b/.test(text)) {
             emptyAssetStats.push(path.relative(projectDir, logPath));
         }
@@ -309,7 +335,8 @@ logInfo('GameAssets bundle: wechat subpackage');
 logStep('0. 清理旧产物...');
 rm(buildDir);
 rm(levelDataCdnDir);
-logInfo('build/wechatgame 与 build/level-data-cdn 已清理');
+rm(skinDataCdnDir);
+logInfo('build/wechatgame、build/level-data-cdn 与 build/skin-cdn 已清理');
 cleanCocosGeneratedCaches();
 repairCocosMetaFiles();
 
@@ -317,7 +344,11 @@ logStep('0.15 生成远程关卡数据包...');
 runNode('scripts/write-level-data-cdn.js', [levelDataCdnDir]);
 logInfo('关卡数据 CDN 产物已生成: ' + levelDataCdnDir);
 
-logStep('0.2 准备 BootstrapBundle 首关快照...');
+logStep('0.16 生成远程皮肤数据包...');
+runNode('scripts/write-skin-data-cdn.js', [skinDataCdnDir]);
+logInfo('皮肤数据 CDN 产物已生成: ' + skinDataCdnDir);
+
+logStep('0.2 准备 BootstrapBundle 游戏入口快照...');
 runNode('scripts/prepare-bootstrap.js');
 logInfo('BootstrapBundle 源目录已准备');
 
@@ -365,11 +396,11 @@ const runtimeInfo = {
 };
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'firstPlay/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
-assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'firstPlay/bootstrap', ['homeAssets', 'gameAssets']);
+assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Textures/BG/bg_game'], '');
+assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Skins/skins', 'Skins/Icons/bg_001'], '');
 assertRuntimeBundleNoDeps(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', ['bootstrap', 'homeAssets']);
 const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [])
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, ''))
@@ -383,10 +414,12 @@ const startupDownloadKB = Math.round(startupDownload.total / 1024);
 console.log('   - 本地包项目:        ' + buildDir);
 console.log('   - 运行时根目录:      ' + runtimeDir);
 console.log('   - 关卡数据 CDN:      ' + levelDataCdnDir);
-console.log('   - firstPlay/bootstrap: ' + formatMB(dirSize(runtimeInfo.bootstrapDir)));
+console.log('   - 皮肤数据 CDN:      ' + skinDataCdnDir);
+console.log('   - gameEntry/bootstrap: ' + formatMB(dirSize(runtimeInfo.bootstrapDir)));
 console.log('   - homeAssets 分包:       ' + formatMB(dirSize(runtimeInfo.homeAssetsDir)));
 console.log('   - gameAssets 分包:       ' + formatMB(dirSize(runtimeInfo.gameAssetsDir)));
 console.log('   - 关卡数据包:        ' + formatMB(dirSize(levelDataCdnDir)));
+console.log('   - 皮肤数据包:        ' + formatMB(dirSize(skinDataCdnDir)));
 console.log('');
 console.log('4. 微信上传主包: ' + formatMB(mainBytes) + ' (' + mainKB + 'KB / ' + mainPackageTargetKB + 'KB 目标, 排除 game.json.subpackages)');
 console.log('   启动下载量: ' + formatMB(startupDownload.total) + ' (' + startupDownloadKB + 'KB / ' + startupDownloadTargetKB + 'KB 目标, 硬主包 + preloadBundles)');
@@ -398,5 +431,8 @@ console.log('');
 console.log('=== 打包完成 ===');
 console.log('本地包：' + buildDir);
 console.log('关卡数据包：' + levelDataCdnDir);
-console.log('如需上传关卡数据，再执行：npm run sync:cdn:wechat');
+console.log('皮肤数据包：' + skinDataCdnDir);
+console.log('如需上传全部 CDN 数据，再执行：npm run sync:cdn:wechat');
+console.log('如需只上传关卡数据，再执行：npm run sync:cdn:wechat:level_data');
+console.log('如需只上传皮肤数据，再执行：npm run sync:cdn:wechat:skin_data');
 maybeReloadWechatDevtools();

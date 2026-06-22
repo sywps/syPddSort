@@ -32,6 +32,7 @@ import type {
 } from '../GameCtrlShared';
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { runtimeLog } from '../RuntimeLog';
 import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
@@ -171,7 +172,7 @@ export function installAssetBootstrapModule(target: any): void {
                 }
             }
             if (released > 0) {
-                console.log(`[Memory] released ${released} owner-held SpriteFrames: ${reason}`);
+                runtimeLog(`[Memory] released ${released} owner-held SpriteFrames: ${reason}`);
             }
         },
 
@@ -253,7 +254,7 @@ export function installAssetBootstrapModule(target: any): void {
             const finishOne = () => {
                 remaining -= 1;
                 if (remaining > 0) return;
-                console.log(`[gameAssets] preloaded ${loaded}/${paths.length} startup SpriteFrames`);
+                runtimeLog(`[gameAssets] preloaded ${loaded}/${paths.length} startup SpriteFrames`);
                 if (onDone) onDone();
             };
             for (const path of paths) {
@@ -394,7 +395,7 @@ export function installAssetBootstrapModule(target: any): void {
                 return;
             }
             this._bootstrapBundleLoadingCallbacks = [callback];
-            console.log('[bootstrap] loadBundle start');
+            runtimeLog('[bootstrap] loadBundle start');
             const startedAt = Date.now();
             debugPerfSnapshot('bundle.bootstrap.load.start', this, {
                 bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
@@ -408,7 +409,7 @@ export function installAssetBootstrapModule(target: any): void {
                         error: err || new Error('no bundle'),
                     });
                 } else {
-                    console.log('[bootstrap] loadBundle success');
+                    runtimeLog('[bootstrap] loadBundle success');
                     this.bootstrapBundle = bundle;
                     debugPerfSnapshot('bundle.bootstrap.load.success', this, {
                         bundleName: LOCAL_BOOTSTRAP_BUNDLE_NAME,
@@ -895,6 +896,92 @@ export function installAssetBootstrapModule(target: any): void {
             }
         },
 
+        scheduleHomeSharedUiTextureWarmup() {
+            if (!this._isRuntimeAliveForAsyncCallback()) return;
+            if (typeof this.getRuntimeSceneName === 'function' && this.getRuntimeSceneName('Game') !== 'Home') {
+                return;
+            }
+            if (this._homeSharedUiWarmupState === 'scheduled' || this._homeSharedUiWarmupState === 'loading' || this._homeSharedUiWarmupState === 'ready') {
+                return;
+            }
+            const names = Array.from(new Set([
+                ...SETTINGS_PANEL_TEXTURE_NAMES,
+                ...LEADERBOARD_TEXTURE_NAMES,
+                ...RESOURCE_ACQUIRE_TEXTURE_NAMES,
+                ...REWARD_RESULT_TEXTURE_NAMES,
+            ]));
+            const initialMissingNames = names.filter((name) => !this.getSF(name));
+            if (initialMissingNames.length === 0) {
+                this._homeSharedUiWarmupState = 'ready';
+                return;
+            }
+            const token = Date.now();
+            const batchSize = 4;
+            const batchIntervalSeconds = 0.35;
+            let cursor = 0;
+            this._homeSharedUiWarmupToken = token;
+            this._homeSharedUiWarmupState = 'scheduled';
+            debugPerfSnapshot('home.sharedUiWarmup.scheduled', this, {
+                requestedNames: names.length,
+                missingNames: initialMissingNames.length,
+                batchSize,
+                batchIntervalSeconds,
+            });
+
+            const runNextBatch = () => {
+                if (!this._isRuntimeAliveForAsyncCallback() || this._homeSharedUiWarmupToken !== token) {
+                    return;
+                }
+                if (typeof this.getRuntimeSceneName === 'function' && this.getRuntimeSceneName('Game') !== 'Home') {
+                    this._homeSharedUiWarmupState = 'aborted';
+                    debugPerfTrace('home.sharedUiWarmup.abort.sceneChanged', {
+                        token,
+                    });
+                    return;
+                }
+                const batch: string[] = [];
+                while (cursor < names.length && batch.length < batchSize) {
+                    const name = names[cursor++];
+                    if (!this.getSF(name)) {
+                        batch.push(name);
+                    }
+                }
+                if (batch.length === 0) {
+                    if (cursor >= names.length) {
+                        this._homeSharedUiWarmupState = 'ready';
+                        debugPerfSnapshot('home.sharedUiWarmup.ready', this, {
+                            requestedNames: names.length,
+                        });
+                        return;
+                    }
+                    this.scheduleOnce(runNextBatch, 0.05);
+                    return;
+                }
+
+                let pending = batch.length;
+                this._homeSharedUiWarmupState = 'loading';
+                debugPerfSnapshot('home.sharedUiWarmup.batch.start', this, {
+                    batchNames: batch,
+                    remainingNames: Math.max(0, names.length - cursor),
+                    batchSize,
+                });
+                const oneDone = () => {
+                    pending -= 1;
+                    if (pending > 0) return;
+                    debugPerfSnapshot('home.sharedUiWarmup.batch.done', this, {
+                        batchNames: batch,
+                        remainingNames: Math.max(0, names.length - cursor),
+                    });
+                    this.scheduleOnce(runNextBatch, batchIntervalSeconds);
+                };
+                for (const name of batch) {
+                    this._loadSpriteFrameByName(name, oneDone);
+                }
+            };
+
+            this.scheduleOnce(runNextBatch, 1.2);
+        },
+
         _openPanelAfterTextures(
             panelKey: string,
             textureNames: string[],
@@ -1043,7 +1130,7 @@ export function installAssetBootstrapModule(target: any): void {
                 console.warn(`[Memory] release bootstrap bean atlas texture failed (${reason})`, error);
             }
             if (atlasEntries.length > 0) {
-                console.log(`[Memory] released bootstrap bean atlas frames: ${atlasEntries.length} (${reason})`);
+                runtimeLog(`[Memory] released bootstrap bean atlas frames: ${atlasEntries.length} (${reason})`);
             }
             return atlasEntries.length > 0 || !!sharedTexture || !!sourceImageAsset;
         },
@@ -1089,7 +1176,7 @@ export function installAssetBootstrapModule(target: any): void {
                 }
             }
             if (evicted > 0) {
-                console.log(`[Memory] released ${evicted} panel SpriteFrames: ${reason}`);
+                runtimeLog(`[Memory] released ${evicted} panel SpriteFrames: ${reason}`);
             }
         },
 
@@ -1548,9 +1635,10 @@ export function installAssetBootstrapModule(target: any): void {
             const backgroundSkinState = typeof this.captureBackgroundSkinCloudState === 'function'
                 ? this.captureBackgroundSkinCloudState()
                 : {
-                    backgroundSkinOwnedIds: [0],
+                    ownedBackgroundSkinIds: [1001],
                     backgroundSkinAdProgress: {},
                     equippedBackgroundSkinId: 0,
+                    equippedBackgroundSkinUpdatedAt: 0,
                 };
             return {
                 savedLevel: this.getSavedLevel(),
@@ -1565,9 +1653,12 @@ export function installAssetBootstrapModule(target: any): void {
                 dailySignInLastClaimDateKey: this.getDailySignInLastClaimDateKey(),
                 themeUnlockedIds: Array.from(this.getThemeUnlockedSet() as Set<number>).sort((a, b) => a - b),
                 themeCompletedIds: Array.from(this.getThemeCompletedSet() as Set<number>).sort((a, b) => a - b),
-                backgroundSkinOwnedIds: Array.isArray(backgroundSkinState.backgroundSkinOwnedIds) ? backgroundSkinState.backgroundSkinOwnedIds as number[] : [0],
+                ownedBackgroundSkinIds: Array.isArray(backgroundSkinState.ownedBackgroundSkinIds)
+                    ? backgroundSkinState.ownedBackgroundSkinIds as number[]
+                    : (typeof this.getOwnedBackgroundSkinIds === 'function' ? this.getOwnedBackgroundSkinIds() : []),
                 backgroundSkinAdProgress: backgroundSkinState.backgroundSkinAdProgress && typeof backgroundSkinState.backgroundSkinAdProgress === 'object' ? backgroundSkinState.backgroundSkinAdProgress as Record<string, number> : {},
                 equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
+                equippedBackgroundSkinUpdatedAt: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinUpdatedAt) || 0)),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -1587,7 +1678,7 @@ export function installAssetBootstrapModule(target: any): void {
             return (this._startupCloudRestoreStatus || '') as UserStateRestoreStatus | '';
         },
 
-        _shouldHoldStartupCloudHomeRouteForBoot(): boolean {
+        _shouldHoldStartupCloudRestoreForBoot(): boolean {
             const appRoot = AppRoot.tryGet();
             const sceneName = String(this.node?.scene?.name || '');
             return sceneName === 'Boot' || appRoot?.session.currentSceneName === 'Boot';
@@ -1621,7 +1712,7 @@ export function installAssetBootstrapModule(target: any): void {
                 let status: UserStateRestoreStatus;
                 if (!lateState) {
                     status = UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
-                } else if (this._shouldHoldStartupCloudHomeRouteForBoot()) {
+                } else if (this._shouldHoldStartupCloudRestoreForBoot()) {
                     status = this.applyCloudUserState(lateState);
                 } else {
                     status = applyLateCloudUserStateToRuntime(this, lateState, hadLocalUserState) || 'cloud_failed_unresolved';
@@ -1658,6 +1749,37 @@ export function installAssetBootstrapModule(target: any): void {
             applyLateCloudUserStateToRuntime(this, state, hadLocalUserState);
         },
 
+        mergeAuthoritativeCloudThemeState(gameState: Partial<CloudGameState> | null): void {
+            if (!gameState) return;
+            const normalizeIds = (value: unknown): number[] => Array.from(new Set(
+                (Array.isArray(value) ? value : [])
+                    .map((item) => Math.floor(Number(item) || 0))
+                    .filter((item) => item > 0),
+            )).sort((a, b) => a - b);
+            const mergeIntoStorage = (storageKey: string, currentIds: Set<number>, incomingValue: unknown): boolean => {
+                const incomingIds = normalizeIds(incomingValue);
+                if (incomingIds.length === 0) return false;
+                let changed = false;
+                for (const id of incomingIds) {
+                    if (!currentIds.has(id)) {
+                        currentIds.add(id);
+                        changed = true;
+                    }
+                }
+                if (!changed) return false;
+                sys.localStorage.setItem(storageKey, JSON.stringify(Array.from(currentIds).sort((a, b) => a - b)));
+                return true;
+            };
+            const completed = this.getThemeCompletedSet() as Set<number>;
+            const completedChanged = mergeIntoStorage(LS_THEME_COMPLETED, completed, gameState.themeCompletedIds);
+            const unlocked = this.getThemeUnlockedSet() as Set<number>;
+            for (const id of completed) unlocked.add(id);
+            const unlockedChanged = mergeIntoStorage(this.getThemeUnlockKey(), unlocked, gameState.themeUnlockedIds);
+            if (completedChanged && !unlockedChanged) {
+                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(Array.from(unlocked).sort((a, b) => a - b)));
+            }
+        },
+
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
             const { profile, gameState } = restoreResult;
             if (!profile && !gameState) {
@@ -1690,6 +1812,18 @@ export function installAssetBootstrapModule(target: any): void {
             if (effectiveLevel > 0 && (cloudSavedLevel > 0 || this.getRawSavedLevelForStartup() !== null)) {
                 sys.localStorage.setItem(LS_LEVEL, String(effectiveLevel));
                 UserMgr.inst.markLevelProgress(effectiveLevel, false, false);
+            }
+            if (typeof this.applyCloudBackgroundSkinState === 'function') {
+                const cloudEquippedBackgroundSkinId = gameState.equippedBackgroundSkinId;
+                const cloudEquippedBackgroundSkinUpdatedAt = gameState.equippedBackgroundSkinUpdatedAt;
+                this.applyCloudBackgroundSkinState(
+                    gameState.ownedBackgroundSkinIds,
+                    cloudEquippedBackgroundSkinId,
+                    cloudEquippedBackgroundSkinUpdatedAt,
+                );
+                if (cloudEquippedBackgroundSkinId && cloudEquippedBackgroundSkinUpdatedAt && typeof this.refreshEquippedGameplayBackground === 'function') {
+                    this.refreshEquippedGameplayBackground(true);
+                }
             }
             if (shouldSkipVolatileRestore) {
                 this.refreshGoldUI();
@@ -1745,6 +1879,18 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
+            const gameState = state?.gameState || null;
+            if (gameState && typeof this.applyCloudBackgroundSkinState === 'function') {
+                this.applyCloudBackgroundSkinState(
+                    gameState.ownedBackgroundSkinIds,
+                    gameState.equippedBackgroundSkinId,
+                    gameState.equippedBackgroundSkinUpdatedAt,
+                );
+                if (gameState.equippedBackgroundSkinId && gameState.equippedBackgroundSkinUpdatedAt && typeof this.refreshEquippedGameplayBackground === 'function') {
+                    this.refreshEquippedGameplayBackground(true);
+                }
+            }
+            this.mergeAuthoritativeCloudThemeState(gameState);
             const cloudSavedLevel = Math.floor(Number(state?.gameState?.savedLevel) || 0);
             if (cloudSavedLevel <= this.getSavedLevel()) {
                 return;

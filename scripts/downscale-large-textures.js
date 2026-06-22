@@ -11,11 +11,15 @@ const apply = process.argv.includes('--apply');
 const TARGETS = [
     { file: 'assets/GameAssetsBundle/Textures/BG/bg_game.png', max: 1080 },
     { file: 'assets/BootstrapBundle/GameUI/bg_game_pindd.png', max: 1280 },
-    { file: 'assets/BootstrapBundle/GameUI/loading_cover_firstplay.jpeg', max: 960 },
-    { file: 'assets/HomeAssetsBundle/GameUI/loading_cover_home.jpeg', max: 960 },
     { file: 'assets/GameAssetsBundle/Textures/UI/fm.jpeg', max: 960 },
     { file: 'assets/Textures/UI/loading_cover.jpeg', max: 960 },
     { file: 'assets/HomeAssetsBundle/GameUI/home_bg.jpeg', max: 960 },
+    { file: 'assets/BootstrapBundle/GameUI/popup_tool_add_badge.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/popup_ad_play_icon.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/popup_tool_count_badge.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/popup_primary_button.png', max: 160, preserveSpriteFrameTrim: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_primary_button.png', max: 160, preserveSpriteFrameTrim: true },
+    { file: 'assets/HomeAssetsBundle/GameUI/home_primary_button.png', max: 160, preserveSpriteFrameTrim: true },
 ];
 
 function readPngSize(imagePath) {
@@ -53,22 +57,31 @@ function estimateRgbaMb(size) {
     return (size.width * size.height * 4 / 1024 / 1024);
 }
 
-function updateSpriteFrameMeta(imagePath, size) {
-    const metaPath = `${imagePath}.meta`;
-    if (!fs.existsSync(metaPath)) {
-        return false;
-    }
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-    let changed = false;
-    for (const item of Object.values(meta.subMetas || {})) {
-        if (!item || item.importer !== 'sprite-frame') continue;
-        const userData = item.userData || {};
-        const halfW = size.width / 2;
-        const halfH = size.height / 2;
-        userData.width = size.width;
-        userData.height = size.height;
-        userData.rawWidth = size.width;
-        userData.rawHeight = size.height;
+function roundMetaNumber(value) {
+    return Math.round(value * 1000) / 1000;
+}
+
+function scalePairArray(values, scaleX, scaleY) {
+    if (!Array.isArray(values)) return values;
+    return values.map((value, index) => {
+        if (index % 3 === 2) return value;
+        return roundMetaNumber(value * (index % 3 === 0 ? scaleX : scaleY));
+    });
+}
+
+function scaleUvArray(values, scaleX, scaleY) {
+    if (!Array.isArray(values)) return values;
+    return values.map((value, index) => roundMetaNumber(value * (index % 2 === 0 ? scaleX : scaleY)));
+}
+
+function scaleSpriteFrameUserData(userData, before, after, preserveTrim) {
+    if (!preserveTrim) {
+        const halfW = after.width / 2;
+        const halfH = after.height / 2;
+        userData.width = after.width;
+        userData.height = after.height;
+        userData.rawWidth = after.width;
+        userData.rawHeight = after.height;
         userData.offsetX = 0;
         userData.offsetY = 0;
         userData.trimX = 0;
@@ -82,14 +95,55 @@ function updateSpriteFrameMeta(imagePath, size) {
         ];
         userData.vertices.indexes = [0, 1, 2, 2, 1, 3];
         userData.vertices.uv = [
-            0, size.height,
-            size.width, size.height,
+            0, after.height,
+            after.width, after.height,
             0, 0,
-            size.width, 0,
+            after.width, 0,
         ];
         userData.vertices.nuv = [0, 0, 1, 0, 0, 1, 1, 1];
         userData.vertices.minPos = [-halfW, -halfH, 0];
         userData.vertices.maxPos = [halfW, halfH, 0];
+        return;
+    }
+
+    const scaleX = after.width / before.width;
+    const scaleY = after.height / before.height;
+    userData.width = Math.max(1, Math.round((userData.width || before.width) * scaleX));
+    userData.height = Math.max(1, Math.round((userData.height || before.height) * scaleY));
+    userData.rawWidth = after.width;
+    userData.rawHeight = after.height;
+    userData.offsetX = roundMetaNumber((userData.offsetX || 0) * scaleX);
+    userData.offsetY = roundMetaNumber((userData.offsetY || 0) * scaleY);
+    userData.trimX = Math.max(0, Math.round((userData.trimX || 0) * scaleX));
+    userData.trimY = Math.max(0, Math.round((userData.trimY || 0) * scaleY));
+    if (userData.trimX + userData.width > after.width) {
+        userData.width = Math.max(1, after.width - userData.trimX);
+    }
+    if (userData.trimY + userData.height > after.height) {
+        userData.height = Math.max(1, after.height - userData.trimY);
+    }
+
+    if (!userData.vertices) userData.vertices = {};
+    userData.vertices.rawPosition = scalePairArray(userData.vertices.rawPosition, scaleX, scaleY);
+    userData.vertices.uv = scaleUvArray(userData.vertices.uv, scaleX, scaleY);
+    userData.vertices.minPos = scalePairArray(userData.vertices.minPos, scaleX, scaleY);
+    userData.vertices.maxPos = scalePairArray(userData.vertices.maxPos, scaleX, scaleY);
+    if (!Array.isArray(userData.vertices.indexes)) {
+        userData.vertices.indexes = [0, 1, 2, 2, 1, 3];
+    }
+}
+
+function updateSpriteFrameMeta(imagePath, before, after, target) {
+    const metaPath = `${imagePath}.meta`;
+    if (!fs.existsSync(metaPath)) {
+        return false;
+    }
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+    let changed = false;
+    for (const item of Object.values(meta.subMetas || {})) {
+        if (!item || item.importer !== 'sprite-frame') continue;
+        const userData = item.userData || {};
+        scaleSpriteFrameUserData(userData, before, after, Boolean(target.preserveSpriteFrameTrim));
         item.userData = userData;
         changed = true;
     }
@@ -128,7 +182,7 @@ function downscaleOne(target) {
     const afterMb = estimateRgbaMb(after);
     if (apply) {
         fs.renameSync(tempPath, imagePath);
-        updateSpriteFrameMeta(imagePath, after);
+        updateSpriteFrameMeta(imagePath, before, after, target);
     } else {
         fs.unlinkSync(tempPath);
     }

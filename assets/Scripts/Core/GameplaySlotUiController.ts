@@ -251,9 +251,8 @@ export class GameplaySlotUiController {
         const current = runtime.slotAreaNode.position;
         const x = typeof runtime._slotAreaSceneBaseX === 'number' ? runtime._slotAreaSceneBaseX : current.x;
         const z = typeof runtime._slotAreaSceneBaseZ === 'number' ? runtime._slotAreaSceneBaseZ : current.z;
-        const firstLevelScaleMultiplier = this.getFirstLevelSlotScaleMultiplier();
-        const scaleX = this.getFiniteNumber(runtime._slotAreaSceneScaleX, runtime.getSlotAreaScale()) * firstLevelScaleMultiplier;
-        const scaleY = this.getFiniteNumber(runtime._slotAreaSceneScaleY, runtime.getSlotAreaScale()) * firstLevelScaleMultiplier;
+        const scaleX = this.getFiniteNumber(runtime._slotAreaSceneScaleX, runtime.getSlotAreaScale());
+        const scaleY = this.getFiniteNumber(runtime._slotAreaSceneScaleY, runtime.getSlotAreaScale());
         const scaleZ = this.getFiniteNumber(runtime._slotAreaSceneScaleZ, 1);
         runtime.slotAreaNode.setScale(scaleX, scaleY, scaleZ);
         runtime.slotAreaNode.setPosition(x, this.getSlotAreaLocalCenterY(), z);
@@ -362,15 +361,6 @@ export class GameplaySlotUiController {
         const policyMode = this.runtime._activeSlotRowPolicy?.unlockMode;
         if (policyMode === 'free' || policyMode === 'ad') return policyMode;
         return getSlotUnlockMode(this.runtime.getActiveLogicalLevelId(), this.getActiveGameplayEntryMode());
-    }
-
-    private getFirstLevelSlotScaleMultiplier(): number {
-        const runtime = this.runtime;
-        return runtime.shouldUseMainlineSlotUI()
-            && this.getActiveGameplayEntryMode() === 'main'
-            && runtime.getActiveLogicalLevelId() === 1
-            ? 1.14
-            : 1;
     }
 
     private shouldAppendLockedSlotRowAfterCurrentUnlock(): boolean {

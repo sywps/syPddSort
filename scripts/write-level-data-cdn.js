@@ -6,15 +6,11 @@ const path = require('path');
 
 const projectDir = path.resolve(__dirname, '..');
 const sourceLevelDir = path.join(projectDir, 'assets', 'LevelData');
-const sourceSkinConfigPath = path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins', 'skins.json');
 const outputDir = path.resolve(process.argv[2] || path.join(projectDir, 'build', 'level-data-cdn'));
 const packSize = Math.max(1, Math.floor(Number(process.env.PDD_LEVEL_PACK_SIZE || 100) || 100));
 const levelFileKinds = [
     { prefix: 'level_', kind: 'mainline', pattern: /^level_(\d+)\.json$/ },
     { prefix: 'zt_level_', kind: 'theme', pattern: /^zt_level_(\d+)\.json$/ },
-];
-const extraAssetRoots = [
-    { source: 'Skins', target: 'Skins' },
 ];
 
 function fail(message) {
@@ -33,44 +29,6 @@ function readJson(filePath) {
 function writeJson(filePath, data) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
-}
-
-function copyExtraAssetRoot(entry) {
-    const sourceRoot = path.join(sourceLevelDir, entry.source);
-    const targetRoot = path.join(outputDir, entry.target);
-    if (!fs.existsSync(sourceRoot)) return null;
-    let fileCount = 0;
-    let totalBytes = 0;
-    const copyDir = (fromDir, toDir) => {
-        fs.mkdirSync(toDir, { recursive: true });
-        for (const item of fs.readdirSync(fromDir, { withFileTypes: true })) {
-            const fromPath = path.join(fromDir, item.name);
-            const toPath = path.join(toDir, item.name);
-            if (item.isDirectory()) {
-                copyDir(fromPath, toPath);
-            } else if (!item.name.endsWith('.meta')) {
-                fs.copyFileSync(fromPath, toPath);
-                fileCount += 1;
-                totalBytes += fs.statSync(fromPath).size;
-            }
-        }
-    };
-    fs.rmSync(targetRoot, { recursive: true, force: true });
-    copyDir(sourceRoot, targetRoot);
-    return { root: entry.target, fileCount, bytes: totalBytes };
-}
-
-function copySkinConfig() {
-    if (!fs.existsSync(sourceSkinConfigPath)) return null;
-    const targetPath = path.join(outputDir, 'Skins', 'skins.json');
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(sourceSkinConfigPath, targetPath);
-    return {
-        root: 'Skins/skins.json',
-        fileCount: 1,
-        bytes: fs.statSync(targetPath).size,
-        file: 'Skins/skins.json',
-    };
 }
 
 function hashJson(data) {
@@ -175,11 +133,6 @@ function buildOutput() {
     const levels = collectLevels();
     fs.rmSync(outputDir, { recursive: true, force: true });
     fs.mkdirSync(path.join(outputDir, 'level_packs'), { recursive: true });
-    const assetRoots = extraAssetRoots
-        .map(copyExtraAssetRoot)
-        .filter(Boolean);
-    const skinConfigAsset = copySkinConfig();
-    if (skinConfigAsset) assetRoots.push(skinConfigAsset);
 
     const packs = [];
     const levelCounts = {};
@@ -204,10 +157,11 @@ function buildOutput() {
         }
     }
 
-    const dataVersion = hashJson({ packs, assetRoots }).slice(0, 16);
+    const dataVersion = hashJson({ packs }).slice(0, 16);
     const manifest = {
         manifestVersion: 1,
         dataVersion,
+        levelDataVersion: dataVersion,
         schemaVersion: 1,
         minClientBuild: 1,
         generatedAt: new Date().toISOString(),
@@ -215,11 +169,10 @@ function buildOutput() {
         packSize,
         levelCount: levels.length,
         levelCounts,
-        assetRoots,
         packs,
     };
     writeJson(path.join(outputDir, 'level_live.json'), manifest);
-    console.log('wrote ' + path.relative(projectDir, outputDir) + ' packs=' + packs.length + ' levels=' + levels.length + ' assets=' + assetRoots.reduce((sum, item) => sum + item.fileCount, 0) + ' dataVersion=' + dataVersion);
+    console.log('wrote ' + path.relative(projectDir, outputDir) + ' packs=' + packs.length + ' levels=' + levels.length + ' dataVersion=' + dataVersion);
 }
 
 buildOutput();

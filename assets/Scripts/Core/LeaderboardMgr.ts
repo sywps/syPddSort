@@ -1,6 +1,7 @@
 import { _decorator, sys } from 'cc';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { runtimeLog, runtimeWarn } from './RuntimeLog';
 import type { UserProfile } from './UserMgr';
 
 const { ccclass } = _decorator;
@@ -9,6 +10,7 @@ const LS_LOCAL_LEADERBOARD = 'pdd.leaderboard.local.v1';
 const CLOUD_FUNCTION_NAME = 'leaderboard';
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
+const LEADERBOARD_CLOUD_CALL_TIMEOUT_MS = 6000;
 
 type LeaderboardSource = 'wechat-cloud' | 'douyin-cloud' | 'wechat-friend' | 'local-preview';
 
@@ -92,7 +94,7 @@ export class LeaderboardMgr {
         );
         if (shouldSubmitCloud) {
             try {
-                const result = await PlatformCloudMgr.inst.callFunction<any>(CLOUD_FUNCTION_NAME, {
+                const result = await this.callLeaderboardCloudFunction<any>('submitProgress', {
                     action: 'submitProgress',
                     uuid: profile.uuid,
                     displayName: profile.displayName,
@@ -130,7 +132,7 @@ export class LeaderboardMgr {
 
         try {
             if (progressLevel <= 1) {
-                console.log('[LeaderboardMgr] skip wx cloud score reset for starter level');
+                runtimeLog('[LeaderboardMgr] skip wx cloud score reset for starter level');
                 return false;
             }
 
@@ -143,12 +145,12 @@ export class LeaderboardMgr {
                     },
                 }),
             };
-            console.log('[LeaderboardMgr] Calling wx.setUserCloudStorage, level:', progressLevel);
+            runtimeLog('[LeaderboardMgr] Calling wx.setUserCloudStorage, level:', progressLevel);
             await new Promise<void>((resolve, reject) => {
                 wx.setUserCloudStorage({
                     KVDataList: [kvData],
                     success: () => {
-                        console.log('[LeaderboardMgr] setUserCloudStorage SUCCESS, level:', progressLevel);
+                        runtimeLog('[LeaderboardMgr] setUserCloudStorage SUCCESS, level:', progressLevel);
                         resolve();
                     },
                     fail: (err: any) => {
@@ -162,7 +164,7 @@ export class LeaderboardMgr {
             // 如果是隐私协议未签署（errno 1026），跳过提交
             const errMsg = error?.errMsg || error?.errCode || '';
             if (error?.errno === 1026 || (errMsg as string).includes('privacy')) {
-                console.warn('[LeaderboardMgr] Privacy not configured, skipping cloud storage submission');
+                runtimeWarn('[LeaderboardMgr] Privacy not configured, skipping cloud storage submission');
                 return false;
             }
             if (errCode === -80002 || String(errMsg).toLowerCase().includes('setusercloudstorage:fail')) {
@@ -171,11 +173,11 @@ export class LeaderboardMgr {
             }
             // 如果是未登录导致的失败，尝试重新登录后再提交
             if (errMsg.includes('login') || errMsg.includes('session') || errMsg.includes('auth') || errMsg.includes('not exist')) {
-                console.log('[LeaderboardMgr] Retrying after wx.login...');
+                runtimeLog('[LeaderboardMgr] Retrying after wx.login...');
                 try {
                     const loginOk = await this.loginWeChat();
                     if (loginOk) {
-                        console.log('[LeaderboardMgr] wx.login retry success, resubmitting score');
+                        runtimeLog('[LeaderboardMgr] wx.login retry success, resubmitting score');
                         const kvData = {
                             key: 'score',
                             value: JSON.stringify({
@@ -192,7 +194,7 @@ export class LeaderboardMgr {
                                 fail: (e: any) => reject(e),
                             });
                         });
-                        console.log('[LeaderboardMgr] setUserCloudStorage retry SUCCESS');
+                        runtimeLog('[LeaderboardMgr] setUserCloudStorage retry SUCCESS');
                         return true;
                     }
                 } catch (retryError) {
@@ -213,7 +215,7 @@ export class LeaderboardMgr {
                 wx.login({ success: resolve, fail: reject });
             });
             if (res?.code) {
-                console.log('[LeaderboardMgr] wx.login success');
+                runtimeLog('[LeaderboardMgr] wx.login success');
                 return true;
             }
         } catch (e) {
@@ -235,17 +237,20 @@ export class LeaderboardMgr {
             return this.fetchFriendLeaderboard(normalizedLimit, profile);
         }
 
-        // 全服排行（云函数 → 本地兜底）
-        if (await this.init()) {
+        // 全服排行：小游戏平台必须走真实云函数；只有非小游戏本地预览才读 localStorage。
+        const platform = PlatformCloudMgr.inst.getPlatform();
+        if (platform === 'wechat' || platform === 'douyin') {
+            if (!(await this.init())) {
+                throw new Error(`${platform} cloud is unavailable for leaderboard`);
+            }
             try {
-                const result = await PlatformCloudMgr.inst.callFunction<any>(CLOUD_FUNCTION_NAME, {
+                const result = await this.callLeaderboardCloudFunction<any>('getLeaderboard', {
                     action: 'getLeaderboard',
                     limit: normalizedLimit,
                 });
-                if (result.ok === false) {
-                    throw new Error(result.errorMessage || 'fetch leaderboard failed');
+                if (result?.ok !== true) {
+                    throw new Error(result?.errorMessage || 'fetch leaderboard failed');
                 }
-                const platform = PlatformCloudMgr.inst.getPlatform();
                 return {
                     source: platform === 'douyin' ? 'douyin-cloud' : 'wechat-cloud',
                     modeLabel: platform === 'douyin' ? '抖音云' : '微信云开发',
@@ -254,6 +259,7 @@ export class LeaderboardMgr {
                 };
             } catch (error) {
                 console.warn('[LeaderboardMgr] fetch cloud leaderboard failed:', error);
+                throw error;
             }
         }
 
@@ -375,7 +381,7 @@ export class LeaderboardMgr {
         const displayName = typeof input.displayName === 'string' ? input.displayName.trim() : '';
         if (!displayName) return null;
         return {
-            rank: Math.max(1, Math.floor(Number(input.rank) || 1)),
+            rank: Math.max(0, Math.floor(Number(input.rank) || 0)),
             uuid,
             displayName,
             avatarUrl: typeof input.avatarUrl === 'string' ? input.avatarUrl : '',
@@ -434,6 +440,38 @@ export class LeaderboardMgr {
             return;
         }
         this.friendCloudStorageUnavailableWarned = true;
-        console.log(`[LeaderboardMgr] friend cloud storage skipped: ${reason}`);
+        runtimeLog(`[LeaderboardMgr] friend cloud storage skipped: ${reason}`);
+    }
+
+    private callLeaderboardCloudFunction<T>(action: string, data: Record<string, unknown>): Promise<T> {
+        return this.withTimeout(
+            PlatformCloudMgr.inst.callFunction<T>(CLOUD_FUNCTION_NAME, data),
+            LEADERBOARD_CLOUD_CALL_TIMEOUT_MS,
+            `[LeaderboardMgr] ${action} timeout after ${LEADERBOARD_CLOUD_CALL_TIMEOUT_MS}ms`,
+        );
+    }
+
+    private withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            let settled = false;
+            let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                timeoutId = null;
+                reject(new Error(message));
+            }, timeoutMs);
+
+            const finish = (ok: boolean, payload: T | unknown) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                ok ? resolve(payload as T) : reject(payload);
+            };
+
+            promise.then((value) => finish(true, value), (error) => finish(false, error));
+        });
     }
 }

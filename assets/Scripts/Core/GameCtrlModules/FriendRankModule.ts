@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
+import { runtimeLog } from '../RuntimeLog';
 
 function requireFriendRankNode(parent: Node, name: string): Node {
     const node = parent.getChildByName(name);
@@ -56,6 +57,32 @@ function hideLeaderboardRowTemplate(listNode: Node): void {
         ?.getChildByName('LeaderboardContent')
         ?.getChildByName('LeaderboardRowTemplate');
     if (template) template.active = false;
+}
+
+const GLOBAL_RANK_FRIEND_AVATAR_TIMEOUT_MS = 1800;
+
+function withFriendRankTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            timeoutId = null;
+            reject(new Error(message));
+        }, timeoutMs);
+
+        const finish = (ok: boolean, payload: T | unknown) => {
+            if (settled) return;
+            settled = true;
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            ok ? resolve(payload as T) : reject(payload);
+        };
+
+        promise.then((value) => finish(true, value), (error) => finish(false, error));
+    });
 }
 
 export function installFriendRankModule(target: any): void {
@@ -201,15 +228,22 @@ export function installFriendRankModule(target: any): void {
             if (!wx?.getFriendCloudStorage) {
                 return this._friendRankAvatarCache || [];
             }
+            if (this.isWeChatDevtoolsRuntime?.()) {
+                return this._friendRankAvatarCache || [];
+            }
         
             try {
-                const friendData: any[] = await new Promise((resolve, reject) => {
-                    wx.getFriendCloudStorage({
-                        keyList: ['score'],
-                        success: (res: any) => resolve(res.data || []),
-                        fail: (err: any) => reject(err),
-                    });
-                });
+                const friendData: any[] = await withFriendRankTimeout(
+                    new Promise((resolve, reject) => {
+                        wx.getFriendCloudStorage({
+                            keyList: ['score'],
+                            success: (res: any) => resolve(res.data || []),
+                            fail: (err: any) => reject(err),
+                        });
+                    }),
+                    GLOBAL_RANK_FRIEND_AVATAR_TIMEOUT_MS,
+                    `getFriendCloudStorage timeout after ${GLOBAL_RANK_FRIEND_AVATAR_TIMEOUT_MS}ms`,
+                );
                 const entries = this.normalizeFriendRankEntries(friendData)
                     .filter((entry) => !!(entry.avatarUrl || '').trim());
                 this._friendRankAvatarCache = entries;
@@ -355,12 +389,12 @@ export function installFriendRankModule(target: any): void {
             });
         
             if (isDebugPerfTraceEnabled()) {
-                console.log('[GameCtrl] OpenData diagnostic:');
-                console.log('  wx available:', !!wx);
-                console.log('  getOpenDataContext available:', !!wx?.getOpenDataContext);
-                console.log('  openDataContext available:', !!openDataContext);
-                console.log('  openDataContext.postMessage available:', !!openDataContext?.postMessage);
-                console.log('  openDataContext.canvas available:', !!openDataContext?.canvas);
+                runtimeLog('[GameCtrl] OpenData diagnostic:');
+                runtimeLog('  wx available:', !!wx);
+                runtimeLog('  getOpenDataContext available:', !!wx?.getOpenDataContext);
+                runtimeLog('  openDataContext available:', !!openDataContext);
+                runtimeLog('  openDataContext.postMessage available:', !!openDataContext?.postMessage);
+                runtimeLog('  openDataContext.canvas available:', !!openDataContext?.canvas);
             }
         
             if (!openDataContext?.postMessage || !openDataContext?.canvas) {
@@ -473,7 +507,7 @@ export function installFriendRankModule(target: any): void {
             }, this);
         },
 
-        /** 加载全服排行（云函数 → 本地兜底） */
+        /** 加载全服排行（小游戏平台必须走云函数；本地预览不代表微信全国榜） */
         async loadGlobalLeaderboard(box: Node, listNode: Node, selfBox: Node, hintNode: Node, requestToken?: number) {
             const isCurrentRequest = () => !requestToken || this.isLeaderboardTabRequestCurrent?.(requestToken) !== false;
             this.clearLeaderboardAuthButtons(box);
@@ -482,31 +516,52 @@ export function installFriendRankModule(target: any): void {
             const loadingLabel = setFriendRankPrefabLabel(listNode, 'GlobalLoading', '加载中...');
         
             const profile = UserMgr.inst.getProfile();
-            await LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
-            if (!box.isValid || !isCurrentRequest()) return;
-            let result = await LeaderboardMgr.inst.fetchLeaderboard(100, profile, 'global');
+            void LeaderboardMgr.inst.submitProgress(profile.lastLevelId || 1, profile);
+            let loadErrorText = '';
+            let result: LeaderboardResult = {
+                source: 'local-preview',
+                modeLabel: '本地预览数据',
+                entries: [],
+                self: null,
+            };
+            try {
+                result = await LeaderboardMgr.inst.fetchLeaderboard(100, profile, 'global');
+            } catch (err) {
+                console.warn('[GameCtrl] loadGlobalLeaderboard failed:', err);
+                loadErrorText = '全国排行加载失败，请稍后重试';
+            }
             if (!box.isValid || !isCurrentRequest()) return;
         
-            if (!profile.isGuest) {
-                const friendAvatarEntries = await this.getWeChatFriendAvatarEntries();
-                if (!box.isValid || !isCurrentRequest()) return;
-                result = {
-                    ...result,
-                    entries: this.mergeFriendAvatarsIntoRankEntries(result.entries, friendAvatarEntries),
-                    self: result.self
-                        ? this.mergeFriendAvatarsIntoRankEntries([result.self], friendAvatarEntries)[0]
-                        : result.self,
-                };
+            if (!profile.isGuest && !loadErrorText) {
+                try {
+                    const friendAvatarEntries = await this.getWeChatFriendAvatarEntries();
+                    if (!box.isValid || !isCurrentRequest()) return;
+                    result = {
+                        ...result,
+                        entries: this.mergeFriendAvatarsIntoRankEntries(result.entries, friendAvatarEntries),
+                        self: result.self
+                            ? this.mergeFriendAvatarsIntoRankEntries([result.self], friendAvatarEntries)[0]
+                            : result.self,
+                    };
+                } catch (err) {
+                    console.warn('[GameCtrl] friend avatar merge skipped for global leaderboard:', err);
+                }
             }
         
             loadingLabel.node.active = false;
         
-            this.setLeaderboardHintText(hintNode, 'top', result.source === 'wechat-cloud' && result.entries.length === 0
-                ? '云端排行榜暂时为空'
-                : '');
+            this.setLeaderboardHintText(hintNode, 'top', loadErrorText ? '' : (result.source === 'local-preview'
+                ? '本地预览不支持微信全国榜'
+                : (result.source === 'wechat-cloud' && result.entries.length === 0
+                    ? '云端排行榜暂时为空'
+                    : '')));
         
             this.resetLeaderboardListState(listNode);
-            this.renderLeaderboardRows(listNode, result.entries);
+            if (loadErrorText) {
+                setFriendRankPrefabLabel(listNode, 'FriendRankError', loadErrorText);
+            } else {
+                this.renderLeaderboardRows(listNode, result.entries);
+            }
             this.renderLeaderboardSelfBox(selfBox, result);
         },
 

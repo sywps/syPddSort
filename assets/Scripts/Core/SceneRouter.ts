@@ -3,10 +3,11 @@ import { AppSession, type AppSceneName } from './AppSession';
 import {
     HOME_ASSETS_BUNDLE_NAME,
     LOCAL_BOOTSTRAP_BUNDLE_NAME,
-    LOGICAL_FIRST_PLAY_BUNDLE_NAME,
+    LOGICAL_GAME_ENTRY_BUNDLE_NAME,
     LOGICAL_HOME_BUNDLE_NAME,
 } from './PackageNames';
 import { debugPerfTrace } from './DebugPerfTrace';
+import { runtimeLog } from './RuntimeLog';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -26,7 +27,7 @@ function isSceneTraceEnabled(): boolean {
 
 function logSceneTrace(...args: unknown[]): void {
     if (!isSceneTraceEnabled()) return;
-    console.log(...args);
+    runtimeLog(...args);
 }
 
 export class SceneRouter {
@@ -76,7 +77,7 @@ export class SceneRouter {
     }
 
     async toGame(): Promise<void> {
-        await this.loadBundledScene(this.gameSceneName, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOGICAL_FIRST_PLAY_BUNDLE_NAME);
+        await this.loadBundledScene(this.gameSceneName, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOGICAL_GAME_ENTRY_BUNDLE_NAME);
     }
 
     private async loadScene(sceneName: AppSceneName): Promise<void> {
@@ -172,6 +173,9 @@ export class SceneRouter {
         }
         this._transitioning = true;
         const startedAt = Date.now();
+        const finalSceneName = sceneName;
+        const finalBundleName = bundleName;
+        const finalLogicalName = logicalName;
         debugPerfTrace('scene.bundle.load.start', {
             from: this.session.currentSceneName,
             requestedBefore: this.session.requestedSceneName,
@@ -235,6 +239,27 @@ export class SceneRouter {
                             logicalBundle: logicalName,
                             durationMs: Date.now() - startedAt,
                         });
+                        const startupGameRestore = sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME
+                            ? this.session.consumeStartupCloudGameRestoreForGameEntry()
+                            : null;
+                        if (startupGameRestore) {
+                            this.session.markPendingGameplayRequest(
+                                startupGameRestore.savedLevel,
+                                'level_',
+                                'main',
+                                'auto',
+                            );
+                            debugPerfTrace('scene.bundle.gameRestore.beforeRun', {
+                                from: this.session.currentSceneName,
+                                requestedBefore: this.session.requestedSceneName,
+                                loadedScene: sceneName,
+                                loadedBundleName: bundleName,
+                                loadedLogicalBundle: logicalName,
+                                to: sceneName,
+                                savedLevel: startupGameRestore.savedLevel,
+                                durationMs: Date.now() - startedAt,
+                            });
+                        }
                         director.runScene(sceneAsset, undefined, () => {
                             this.session.setCurrentSceneName(sceneName);
                             debugPerfTrace('scene.bundle.run.callback', {
@@ -271,9 +296,9 @@ export class SceneRouter {
             debugPerfTrace('scene.bundle.load.finish', {
                 current: this.session.currentSceneName,
                 requested: this.session.requestedSceneName,
-                to: sceneName,
-                bundleName,
-                logicalBundle: logicalName,
+                to: finalSceneName,
+                bundleName: finalBundleName,
+                logicalBundle: finalLogicalName,
                 durationMs: Date.now() - startedAt,
                 visualState: this.session.visualState,
                 hasPendingGameplay: !!this.session.pendingGameplayRequest,
@@ -284,9 +309,9 @@ export class SceneRouter {
                 JSON.stringify({
                     current: this.session.currentSceneName,
                     requested: this.session.requestedSceneName,
-                    to: sceneName,
-                    bundleName,
-                    logicalBundle: logicalName,
+                    to: finalSceneName,
+                    bundleName: finalBundleName,
+                    logicalBundle: finalLogicalName,
                     visualState: this.session.visualState,
                     hasPendingGameplay: !!this.session.pendingGameplayRequest,
                     hasActiveGameplay: !!this.session.activeGameplayContext,
