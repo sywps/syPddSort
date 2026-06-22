@@ -376,6 +376,8 @@ debug / release 的差异只影响资源来源和诊断强度，不应改变玩�
 | `remoteSkinData` | 同一 CDN 根地址下的 `skin/`；debug 下可对应本地 skin 镜像 | 皮肤资源清单 `skin/skin_live.json`、皮肤图标、背景大图、棋盘 / 槽位 / 豆子换肤资源；版本和 hash 独立于 `remoteLevelData`。 |
 | `remoteOpsData` | CDN / 云函数 / 平台配置 | 少量运营配置、实验策略、活动开关。 |
 
+启动直进 `Game.scene` 时，玩法 BGM 属于首个可玩会话的必需体验资源，但不应阻塞棋盘首屏。默认策略是：BGM 文件仍可放在 `gameplay/gameAssets`，`initGame` 必须在棋盘与槽位渲染完成后登记播放意图并异步加载；如果产品要求首帧即有音乐，才允许把单独压缩后的 BGM 作为 `gameEntry/bootstrap` 的 route-owned 资源。普通 SFX、结算音效、功能音效仍归 `gameplay/gameAssets`，不得整体挪入启动路径。
+
 当前期望的发布包图：
 
 ```text

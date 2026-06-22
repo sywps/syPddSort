@@ -2,6 +2,7 @@ import {
     AudioMgr,
     BlockInputEvents,
     Button,
+    Bundle,
     Node,
     Prefab,
     SETTINGS_PANEL_TEXTURE_NAMES,
@@ -40,20 +41,119 @@ function buildSettingsToggle(runtime: any, parent: Node, initialOn: boolean, onT
 }
 
 export class SettingsPanelController {
+    private prefab: Prefab | null = null;
+    private prefabLoading = false;
+    private prefabCallbacks: Array<(prefab: Prefab | null, error: Error | null) => void> = [];
+
     constructor(private readonly runtime: any) {}
+
+    preload() {
+        if (this.prefab?.isValid || this.prefabLoading) return;
+        this.ensurePrefabReady(
+            () => {},
+            () => {},
+        );
+    }
+
+    private isRuntimeAlive(): boolean {
+        const runtime = this.runtime;
+        return !!(runtime?._isRuntimeAliveForAsyncCallback?.() ?? runtime?.isValid);
+    }
+
+    private ensureSpriteFramesReady(onDone: () => void, onError: (error: Error) => void): void {
+        const runtime = this.runtime;
+        const uniqueNames = Array.from(new Set(SETTINGS_PANEL_TEXTURE_NAMES));
+        const missingNames = uniqueNames.filter((name) => !runtime.getSF(name));
+        if (missingNames.length === 0) {
+            onDone();
+            return;
+        }
+        let remaining = missingNames.length;
+        const finishOne = () => {
+            if (!this.isRuntimeAlive()) return;
+            remaining -= 1;
+            if (remaining > 0) return;
+            const stillMissing = uniqueNames.filter((name) => !runtime.getSF(name));
+            if (stillMissing.length > 0) {
+                onError(new Error(`[settings-prefab] missing panel SpriteFrames: ${stillMissing.join(', ')}`));
+                return;
+            }
+            onDone();
+        };
+        for (const name of missingNames) {
+            runtime._loadSpriteFrameByName(name, () => {
+                finishOne();
+            });
+        }
+    }
+
+    private flushPrefabCallbacks(prefab: Prefab | null, error: Error | null): void {
+        const callbacks = this.prefabCallbacks;
+        this.prefabCallbacks = [];
+        for (const callback of callbacks) {
+            callback(prefab, error);
+        }
+    }
+
+    private ensurePrefabReady(
+        onDone: (prefab: Prefab) => void,
+        onError: (error: Error) => void,
+    ): void {
+        if (this.prefab?.isValid) {
+            onDone(this.prefab);
+            return;
+        }
+        this.prefabCallbacks.push((prefab, error) => {
+            if (prefab) {
+                onDone(prefab);
+            } else {
+                onError(error || new Error('[settings-prefab] prefab unavailable'));
+            }
+        });
+        if (this.prefabLoading) return;
+        this.prefabLoading = true;
+
+        const fail = (error: Error) => {
+            this.prefabLoading = false;
+            this.flushPrefabCallbacks(null, error);
+        };
+
+        const loadPrefab = () => {
+            if (!this.isRuntimeAlive()) {
+                fail(new Error('[settings-prefab] runtime invalid before prefab load'));
+                return;
+            }
+            this.runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!this.isRuntimeAlive()) {
+                    fail(new Error('[settings-prefab] runtime invalid during prefab load'));
+                    return;
+                }
+                if (!bundle) {
+                    fail(new Error('[settings-prefab] gameAssets bundle unavailable'));
+                    return;
+                }
+                bundle.load(SETTINGS_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                    if (!this.isRuntimeAlive()) {
+                        fail(new Error('[settings-prefab] runtime invalid after prefab load'));
+                        return;
+                    }
+                    if (err || !prefab) {
+                        fail(new Error(`[settings-prefab] load failed: ${err?.message || 'prefab missing'}`));
+                        return;
+                    }
+                    this.prefab = prefab;
+                    this.prefabLoading = false;
+                    this.flushPrefabCallbacks(prefab, null);
+                });
+            });
+        };
+
+        this.ensureSpriteFramesReady(loadPrefab, fail);
+    }
 
     open() {
         const runtime = this.runtime;
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
-        if (SETTINGS_PANEL_TEXTURE_NAMES.some((name: string) => !runtime.getSF(name))) {
-            runtime._openPanelAfterTextures(
-                'settings',
-                SETTINGS_PANEL_TEXTURE_NAMES,
-                () => !!popupRoot.getChildByName('SettingsOverlay'),
-                () => this.open(),
-            );
-            return;
-        }
         if (popupRoot.getChildByName('SettingsOverlay')) return;
         if (runtime._panelOpenInFlight.has(SETTINGS_PREFAB_IN_FLIGHT_KEY)) return;
 
@@ -134,91 +234,78 @@ export class SettingsPanelController {
             endSettingsModalFocus();
         };
 
-        runtime._withGameAssetsBundle((bundle: any) => {
+        this.ensurePrefabReady((prefab: Prefab) => {
             if (!isOpenTargetAlive()) {
                 cancelStaleOpen();
                 return;
             }
-            if (!bundle) {
-                finishFailure('[settings-prefab] gameAssets bundle unavailable');
-                return;
+
+            try {
+                overlay = instantiate(prefab);
+                overlay.name = 'SettingsOverlay';
+                popupRoot.addChild(overlay);
+                overlay.setSiblingIndex(999);
+                if (!overlay.getComponent(BlockInputEvents)) {
+                    overlay.addComponent(BlockInputEvents);
+                }
+                beginSettingsModalFocus();
+
+                const box = requireChild(overlay, 'Box');
+                if (!box.getComponent(BlockInputEvents)) {
+                    box.addComponent(BlockInputEvents);
+                }
+                const xBtn = requireChild(box, 'XBtn');
+                const homeBtn = requireChild(box, 'Home');
+                const closeBtn = requireChild(box, 'Close');
+                const showGameplayActions = runtime.getRuntimeSceneName('Game') === 'Game';
+                homeBtn.active = showGameplayActions;
+                closeBtn.active = showGameplayActions;
+
+                bindClick(xBtn, closeSettings);
+                if (showGameplayActions) {
+                    bindClick(closeBtn, closeSettings);
+                    bindClick(homeBtn, () => {
+                        if (settingsClosed || !overlay?.isValid) return;
+                        settingsClosed = true;
+                        AudioMgr.inst.play('button');
+                        runtime.resumeTimerForProp();
+                        runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings-home');
+                        endSettingsModalFocus();
+                        void AppRoot.inst.requestHomeSceneTransition('settings', 'cover');
+                    });
+                }
+
+                overlay.on(Node.EventType.TOUCH_END, (event: any) => {
+                    const boxTransform = box.getComponent(UITransform);
+                    if (!boxTransform) return;
+                    const uiPos = event.getUILocation();
+                    const local = boxTransform.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
+                    const size = boxTransform.contentSize;
+                    if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) {
+                        return;
+                    }
+                    closeSettings();
+                }, runtime);
+
+                const items = [
+                    { row: 'SettingsRow0', get: () => AudioMgr.inst.isSfxEnabled(), set: (value: boolean) => AudioMgr.inst.setSfxEnabled(value) },
+                    { row: 'SettingsRow1', get: () => AudioMgr.inst.isVibrateEnabled(), set: (value: boolean) => AudioMgr.inst.setVibrateEnabled(value) },
+                    { row: 'SettingsRow2', get: () => AudioMgr.inst.isBgmEnabled(), set: (value: boolean) => AudioMgr.inst.setBgmEnabled(value) },
+                ];
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const row = requireChild(box, item.row);
+                    const toggleWrap = requireChild(row, 'ToggleWrap');
+                    buildSettingsToggle(runtime, toggleWrap, item.get(), (value: boolean) => item.set(value));
+                }
+
+                runtime.playPopupOpenAnim?.(overlay, box);
+                runtime._panelOpenInFlight.delete(SETTINGS_PREFAB_IN_FLIGHT_KEY);
+            } catch (error: any) {
+                finishFailure(error?.message || '[settings-prefab] build failed');
             }
-
-            bundle.load(SETTINGS_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
-                if (!isOpenTargetAlive()) {
-                    cancelStaleOpen();
-                    return;
-                }
-                if (err || !prefab) {
-                    finishFailure(`[settings-prefab] load failed: ${err?.message || 'prefab missing'}`);
-                    return;
-                }
-
-                try {
-                    overlay = instantiate(prefab);
-                    overlay.name = 'SettingsOverlay';
-                    popupRoot.addChild(overlay);
-                    overlay.setSiblingIndex(999);
-                    if (!overlay.getComponent(BlockInputEvents)) {
-                        overlay.addComponent(BlockInputEvents);
-                    }
-                    beginSettingsModalFocus();
-
-                    const box = requireChild(overlay, 'Box');
-                    if (!box.getComponent(BlockInputEvents)) {
-                        box.addComponent(BlockInputEvents);
-                    }
-                    const xBtn = requireChild(box, 'XBtn');
-                    const homeBtn = requireChild(box, 'Home');
-                    const closeBtn = requireChild(box, 'Close');
-                    const showGameplayActions = runtime.getRuntimeSceneName('Game') === 'Game';
-                    homeBtn.active = showGameplayActions;
-                    closeBtn.active = showGameplayActions;
-
-                    bindClick(xBtn, closeSettings);
-                    if (showGameplayActions) {
-                        bindClick(closeBtn, closeSettings);
-                        bindClick(homeBtn, () => {
-                            if (settingsClosed || !overlay?.isValid) return;
-                            settingsClosed = true;
-                            AudioMgr.inst.play('button');
-                            runtime.resumeTimerForProp();
-                            runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings-home');
-                            endSettingsModalFocus();
-                            void AppRoot.inst.requestHomeSceneTransition('settings', 'cover');
-                        });
-                    }
-
-                    overlay.on(Node.EventType.TOUCH_END, (event: any) => {
-                        const boxTransform = box.getComponent(UITransform);
-                        if (!boxTransform) return;
-                        const uiPos = event.getUILocation();
-                        const local = boxTransform.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
-                        const size = boxTransform.contentSize;
-                        if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) {
-                            return;
-                        }
-                        closeSettings();
-                    }, runtime);
-
-                    const items = [
-                        { row: 'SettingsRow0', get: () => AudioMgr.inst.isSfxEnabled(), set: (value: boolean) => AudioMgr.inst.setSfxEnabled(value) },
-                        { row: 'SettingsRow1', get: () => AudioMgr.inst.isVibrateEnabled(), set: (value: boolean) => AudioMgr.inst.setVibrateEnabled(value) },
-                        { row: 'SettingsRow2', get: () => AudioMgr.inst.isBgmEnabled(), set: (value: boolean) => AudioMgr.inst.setBgmEnabled(value) },
-                    ];
-                    for (let i = 0; i < items.length; i++) {
-                        const item = items[i];
-                        const row = requireChild(box, item.row);
-                        const toggleWrap = requireChild(row, 'ToggleWrap');
-                        buildSettingsToggle(runtime, toggleWrap, item.get(), (value: boolean) => item.set(value));
-                    }
-
-                    runtime.playPopupOpenAnim?.(overlay, box);
-                    runtime._panelOpenInFlight.delete(SETTINGS_PREFAB_IN_FLIGHT_KEY);
-                } catch (error: any) {
-                    finishFailure(error?.message || '[settings-prefab] build failed');
-                }
-            });
+        }, (error: Error) => {
+            finishFailure(error.message || '[settings-prefab] load failed');
         });
     }
 }

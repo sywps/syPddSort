@@ -1,6 +1,7 @@
 import {
     AnalyticsMgr,
     AudioMgr,
+    Button,
     LeaderboardMgr,
     Node,
     PerformanceMgr,
@@ -162,6 +163,7 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('PopupRoot');
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
+        this.bindEarlyGameSettingsButton();
         this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
         if (appRoot.isSceneTransitionHeld()) {
             appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:useHeldGameTransition', {
@@ -184,6 +186,22 @@ export class GameSceneRuntimeController {
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
         });
         void this.runtime.continueStartup();
+    }
+
+    private bindEarlyGameSettingsButton(): void {
+        const screenRoot = this.runtime.requireCanvasUiRoot('ScreenRoot');
+        const settingsButton = screenRoot
+            .getChildByName('GameplayRoot')
+            ?.getChildByName('GameplayFixedRoot')
+            ?.getChildByName('TopBarGroup')
+            ?.getChildByName('Settings') || null;
+        if (!settingsButton?.isValid) return;
+        settingsButton.getComponent(Button) || settingsButton.addComponent(Button);
+        settingsButton.targetOff(this.runtime);
+        settingsButton.on(Button.EventType.CLICK, () => {
+            AudioMgr.inst.play('button');
+            this.runtime.openSettingsPanel();
+        }, this.runtime);
     }
 
     private bindExistingGameLoadingOverlay(showOverlay: boolean = true): void {

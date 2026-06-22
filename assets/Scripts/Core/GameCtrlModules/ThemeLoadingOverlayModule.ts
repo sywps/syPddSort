@@ -514,9 +514,8 @@ export function installThemeLoadingOverlayModule(target: any): void {
             layer.setPosition(0, 0, 0);
             layer.layer = Layers.Enum.UI_2D;
             layer.active = true;
-            if (!layer.getComponent(BlockInputEvents)) {
-                layer.addComponent(BlockInputEvents);
-            }
+            const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
+            blocker.enabled = true;
             this._loadingOverlay = layer;
             this._loadingClosing = false;
             this._buildLoadingCover(layer, visibleSize);
@@ -681,6 +680,8 @@ export function installThemeLoadingOverlayModule(target: any): void {
 
         hideLoadingOverlayAfterGameplayReady() {
             if (!this._loadingOverlay) return;
+            const blocker = this._loadingOverlay.getComponent(BlockInputEvents);
+            if (blocker) blocker.enabled = false;
             this.scheduleOnce(() => this.hideLoadingOverlay(), 0);
         },
 

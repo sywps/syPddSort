@@ -17,6 +17,8 @@ const DEFAULT_API_PAGE_SIZE = 500;
 const DATABASE_API_PAGE_SIZE = 1000;
 const DEFAULT_POLL_MS = 5000;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const FETCH_RETRY_ATTEMPTS = 4;
+const FETCH_RETRY_BASE_MS = 1000;
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 const COLLECTION_CONFIGS = {
@@ -67,8 +69,6 @@ const FIRST_LEVEL_FUNNEL_STEPS = [
   "first_level_ui_ready",
   "tutorial_step_interactive_ready",
   "first_level_any_touch",
-  "tutorial_layer_touch_start",
-  "tutorial_step_first_touch",
   "tutorial_tap_result",
   "tutorial_fast_tap_ignored",
   "first_touch",
@@ -78,15 +78,58 @@ const FIRST_LEVEL_FUNNEL_STEPS = [
   "first_place_success",
   "tutorial_step_show",
   "tutorial_step_done",
-  "tutorial_wrong_tap",
   "tutorial_done",
   "level_pass",
   "level_fail",
   "app_hide",
 ];
 
+const FIRST_LEVEL_REPORT_STEPS = [
+  ["App启动", "app_launch"],
+  ["首关JSON加载", "first_level_json_loaded"],
+  ["UI ready", "first_level_ui_ready"],
+  ["教程可交互", "tutorial_step_interactive_ready"],
+  ["任意首触达", "first_level_any_touch"],
+  ["教程点击有结果", "tutorial_tap_result"],
+  ["首次有效选择", "first_valid_select"],
+  ["首次放置成功", "first_place_success"],
+  ["教程完成", "tutorial_done"],
+  ["L1通过", "level_pass"],
+];
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetriableStatus(status) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+function errorMessage(error) {
+  return error && error.message ? error.message : String(error);
+}
+
+async function fetchWithRetry(url, options = {}, context = "request") {
+  for (let attempt = 1; attempt <= FETCH_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      if (!isRetriableStatus(response.status) || attempt === FETCH_RETRY_ATTEMPTS) {
+        return response;
+      }
+      await response.arrayBuffer().catch(() => null);
+      const delayMs = FETCH_RETRY_BASE_MS * attempt;
+      console.warn(`[retry] ${context} HTTP ${response.status}, attempt ${attempt}/${FETCH_RETRY_ATTEMPTS}, waiting ${delayMs}ms`);
+      await wait(delayMs);
+    } catch (error) {
+      if (attempt === FETCH_RETRY_ATTEMPTS) {
+        throw error;
+      }
+      const delayMs = FETCH_RETRY_BASE_MS * attempt;
+      console.warn(`[retry] ${context} failed: ${errorMessage(error)}, attempt ${attempt}/${FETCH_RETRY_ATTEMPTS}, waiting ${delayMs}ms`);
+      await wait(delayMs);
+    }
+  }
+  throw new Error(`${context} failed after ${FETCH_RETRY_ATTEMPTS} attempts`);
 }
 
 function ensureDir(dirPath) {
@@ -317,7 +360,7 @@ async function waitForExport(database, jobId, pollMs, timeoutMs) {
 }
 
 async function downloadToFile(url, outputPath) {
-  const response = await fetch(url);
+  const response = await fetchWithRetry(url, {}, "download export file");
   if (!response.ok) {
     throw new Error(`Download failed with status ${response.status}`);
   }
@@ -425,7 +468,8 @@ function extractFunctionResultPayload(body) {
 }
 
 async function callCloudFunction(apiKeyBundle, payload) {
-  const response = await fetch(
+  const context = `cloud function ${payload.collection || "unknown"} ${payload.date || ""}`.trim();
+  const response = await fetchWithRetry(
     `${apiKeyBundle.baseUrl}/v1/functions/${encodeURIComponent(
       apiKeyBundle.functionName,
     )}`,
@@ -438,6 +482,7 @@ async function callCloudFunction(apiKeyBundle, payload) {
       },
       body: JSON.stringify(payload),
     },
+    context,
   );
 
   const rawText = await response.text();
@@ -616,12 +661,12 @@ async function exportCollectionViaDatabaseApiForDay({
       sort: JSON.stringify(sort),
     });
     const url = `${apiKeyBundle.baseUrl}/v1/database/instances/(default)/databases/(default)/collections/${encodeURIComponent(collection)}/documents?${params}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       headers: {
         Authorization: `Bearer ${apiKeyBundle.apiKey}`,
         Accept: "application/json",
       },
-    });
+    }, `database query ${collection} ${dateLabel} offset ${offset}`);
     const text = await response.text();
     let body = null;
     try {
@@ -778,6 +823,64 @@ function quantileSeconds(values) {
     p90: fixedNumber(pick(0.9) / 1000, 2),
     p95: fixedNumber(pick(0.95) / 1000, 2),
   };
+}
+
+function quantileMilliseconds(values) {
+  const sorted = values
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!sorted.length) {
+    return { p1: null, p5: null, p50: null, p95: null, p99: null };
+  }
+  const pick = (q) => {
+    const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * q) - 1));
+    return Math.round(sorted[index]);
+  };
+  return {
+    p1: pick(0.01),
+    p5: pick(0.05),
+    p50: pick(0.5),
+    p95: pick(0.95),
+    p99: pick(0.99),
+  };
+}
+
+function buildAdjacentStepDurationsMs(sessions, reportSteps) {
+  const rows = [];
+  for (let index = 0; index < reportSteps.length - 1; index += 1) {
+    const [fromLabel, fromEventName] = reportSteps[index];
+    const [toLabel, toEventName] = reportSteps[index + 1];
+    const durations = [];
+    let pairedSessions = 0;
+    let reversedSessions = 0;
+    for (const session of sessions.values()) {
+      const fromTs = session.events.get(fromEventName) || 0;
+      const toTs = session.events.get(toEventName) || 0;
+      if (!fromTs || !toTs) continue;
+      pairedSessions += 1;
+      if (toTs >= fromTs) {
+        durations.push(toTs - fromTs);
+      } else {
+        reversedSessions += 1;
+      }
+    }
+    const validSessions = durations.length;
+    const isReliable = pairedSessions > 0 && validSessions / pairedSessions >= 0.8;
+    rows.push({
+      fromLabel,
+      fromEventName,
+      toLabel,
+      toEventName,
+      sampleSessions: isReliable ? validSessions : 0,
+      validSessions,
+      pairedSessions,
+      reversedSessions,
+      isReliable,
+      note: pairedSessions === 0 ? "no_sample" : (isReliable ? "" : "unstable_event_order"),
+      ...(isReliable ? quantileMilliseconds(durations) : { p1: null, p5: null, p50: null, p95: null, p99: null }),
+    });
+  }
+  return rows;
 }
 
 function markdownTable(headers, rows) {
@@ -1450,7 +1553,6 @@ function analyzeFirstLevelFunnelFile({
   const sourceStats = new Map();
   const errorStats = new Map();
   const touchTargetStats = new Map();
-  const layerTouchStepStats = new Map();
   const tapResultStats = new Map();
   const tapResultStepStats = new Map();
   const tapResultDetails = new Map();
@@ -1504,10 +1606,6 @@ function analyzeFirstLevelFunnelFile({
     }
     if (eventName === "first_touch" && record.touchTarget) {
       touchTargetStats.set(record.touchTarget, (touchTargetStats.get(record.touchTarget) || 0) + 1);
-    }
-    if (eventName === "tutorial_layer_touch_start") {
-      const key = `${record.stepName || String(record.stepId || "unknown")}|${record.touchTarget || "unknown"}`;
-      layerTouchStepStats.set(key, (layerTouchStepStats.get(key) || 0) + 1);
     }
     if (eventName === "tutorial_tap_result") {
       const result = record.errorCode || (record.success ? "success" : "unknown");
@@ -1588,7 +1686,6 @@ function analyzeFirstLevelFunnelFile({
     keyRates: {
       jsonLoadedToUiReady: ratio(eventMap.first_level_ui_ready?.sessions, eventMap.first_level_json_loaded?.sessions),
       uiReadyToAnyTouch: ratio(eventMap.first_level_any_touch?.sessions, eventMap.first_level_ui_ready?.sessions),
-      uiReadyToGuideLayerTouch: ratio(eventMap.tutorial_layer_touch_start?.sessions, eventMap.first_level_ui_ready?.sessions),
       uiReadyToTutorialTapResult: ratio(eventMap.tutorial_tap_result?.sessions, eventMap.first_level_ui_ready?.sessions),
       anyTouchToTutorialTapResult: ratio(eventMap.tutorial_tap_result?.sessions, eventMap.first_level_any_touch?.sessions),
       anyTouchToFirstValidSelect: ratio(eventMap.first_valid_select?.sessions, eventMap.first_level_any_touch?.sessions),
@@ -1608,11 +1705,11 @@ function analyzeFirstLevelFunnelFile({
     },
     topSources: topMapEntries(sourceStats, 20),
     touchTargets: topMapEntries(touchTargetStats, 20),
-    layerTouchSteps: topMapEntries(layerTouchStepStats, 30),
     tapResults: topMapEntries(tapResultStats, 40),
     tapResultSteps: topMapEntries(tapResultStepStats, 80),
     tapResultDetails: topDetailEntries(tapResultDetails, 40),
     tapResultStepDetails: topDetailEntries(tapResultStepDetails, 80),
+    adjacentStepDurationsMs: buildAdjacentStepDurationsMs(sessions, FIRST_LEVEL_REPORT_STEPS),
     eventSteps: topMapEntries(eventStepStats, 80),
     errorCodes: topMapEntries(errorStats, 20),
   };
@@ -2048,6 +2145,10 @@ function classifyBottleneck(row) {
 
 function buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary }) {
   const stepMap = firstLevelStepMap(funnelSummary);
+  const latencyByFromEvent = new Map(
+    (Array.isArray(funnelSummary?.adjacentStepDurationsMs) ? funnelSummary.adjacentStepDurationsMs : [])
+      .map((row) => [row.fromEventName, row]),
+  );
   const startSessions =
     stepMap.app_launch?.sessions ||
     stepMap.first_level_ui_ready?.sessions ||
@@ -2057,21 +2158,8 @@ function buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary }) {
     stepMap.first_level_ui_ready?.users ||
     Number(userBehaviorSummary?.levelOneEnterUv) ||
     0;
-  const steps = [
-    ["App启动", "app_launch"],
-    ["首关JSON加载", "first_level_json_loaded"],
-    ["UI ready", "first_level_ui_ready"],
-    ["教程可交互", "tutorial_step_interactive_ready"],
-    ["任意首触达", "first_level_any_touch"],
-    ["教程点击有结果", "tutorial_tap_result"],
-    ["首次有效选择", "first_valid_select"],
-    ["首次放置成功", "first_place_success"],
-    ["教程完成", "tutorial_done"],
-    ["L1通过", "level_pass"],
-  ];
-
   let previousSessions = 0;
-  return steps.map(([label, eventName]) => {
+  return FIRST_LEVEL_REPORT_STEPS.map(([label, eventName]) => {
     const stat = stepMap[eventName] || { records: 0, sessions: 0, users: 0 };
     const row = {
       label,
@@ -2082,6 +2170,7 @@ function buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary }) {
       sessionRateFromStart: ratio(stat.sessions, startSessions),
       userRateFromStart: ratio(stat.users, startUsers),
       sessionStepRate: previousSessions ? ratio(stat.sessions, previousSessions) : 0,
+      latencyToNextMs: latencyByFromEvent.get(eventName) || null,
     };
     if (stat.sessions > 0 || previousSessions === 0) {
       previousSessions = stat.sessions || previousSessions;
@@ -2197,7 +2286,381 @@ function buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels,
   };
 }
 
-function buildRecommendations({ coreMetrics, funnelRows, tutorialTapBreakdown, mainlineBottlenecks, highRetryLevels, adPerformance }) {
+function getCollectionExportPath(combinedSummary, collection) {
+  return combinedSummary.collections?.[collection]?.exportInfo?.localPath || "";
+}
+
+function loadCollectionRecords(combinedSummary, collection) {
+  const filePath = getCollectionExportPath(combinedSummary, collection);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return [];
+  }
+  return loadNdjsonRecords(filePath);
+}
+
+function getDailyReportRoot(combinedSummary) {
+  const filePath = getCollectionExportPath(combinedSummary, "user_behavior")
+    || getCollectionExportPath(combinedSummary, "first_level_funnel");
+  if (!filePath) return "";
+  return path.dirname(path.dirname(path.dirname(filePath)));
+}
+
+function loadNextDayActiveUsers(combinedSummary) {
+  const reportRoot = getDailyReportRoot(combinedSummary);
+  if (!reportRoot || !combinedSummary.date) return null;
+  const nextDate = addDays(combinedSummary.date, 1);
+  const summaryPath = path.join(reportRoot, nextDate, "combined_summary.json");
+  if (!fs.existsSync(summaryPath)) return null;
+  const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+  const behaviorPath = summary.collections?.user_behavior?.exportInfo?.localPath || "";
+  if (!behaviorPath || !fs.existsSync(behaviorPath)) return null;
+  const users = new Set();
+  for (const record of loadNdjsonRecords(behaviorPath)) {
+    if (record.openid) users.add(record.openid);
+  }
+  return users;
+}
+
+function guidePhase(record) {
+  if (record.extra && record.extra.guidePhase) return String(record.extra.guidePhase);
+  if (record.stepName) {
+    const parts = String(record.stepName).split(":").filter(Boolean);
+    return parts[parts.length - 1] || String(record.stepName);
+  }
+  if (record.stepId != null) return `step_${record.stepId}`;
+  return "unknown";
+}
+
+function describeTapResult(result, target) {
+  const resultText = {
+    success: "教程判定成功",
+    miss_wrong_block: "点了非目标豆子",
+    miss_empty: "点空白",
+    miss_wrong_slot: "点了非目标槽位",
+    ignored_not_ready: "步骤未 ready，被忽略",
+    modal_consumed: "弹窗/遮罩消费点击",
+    ignored_invalid_step: "步骤无效，被忽略",
+    unknown: "未知结果",
+  }[result] || `结果 ${result}`;
+  const targetText = {
+    board: "棋盘区域",
+    slot: "下方槽位",
+    empty: "空白区域",
+    modal: "弹窗/遮罩",
+    unknown: "未知位置",
+  }[target] || target;
+  return `${resultText}（${targetText}）`;
+}
+
+function normalizeChurnAction(record, source) {
+  const eventName = record.eventName || "";
+  const levelId = Number(record.levelId);
+  const passiveEvents = new Set([
+    "ab_assigned",
+    "bootstrap_level_start",
+    "first_level_json_loaded",
+    "first_level_json_failed",
+    "first_level_ui_ready",
+    "tutorial_step_interactive_ready",
+    "tutorial_step_show",
+    "timer_started",
+    "game_start",
+  ]);
+  if (!eventName || passiveEvents.has(eventName)) return null;
+
+  if (eventName === "tutorial_tap_result") {
+    const result = record.errorCode || (record.success ? "success" : "unknown");
+    const target = record.touchTarget || "unknown";
+    const phase = guidePhase(record);
+    return {
+      key: `tutorial_tap_result|${phase}|${result}|${target}`,
+      meaning: `教程 ${phase}：${describeTapResult(result, target)}`,
+    };
+  }
+
+  if (eventName === "first_level_any_touch") {
+    return { key: "first_level_any_touch", meaning: "首关 UI ready 后首次触达" };
+  }
+  if (eventName === "first_touch") {
+    return { key: `first_touch|${record.touchTarget || "unknown"}`, meaning: `旧首触达：${record.touchTarget || "unknown"}` };
+  }
+  if (eventName === "first_valid_select") {
+    return { key: `first_valid_select|${record.touchTarget || "board"}`, meaning: "首次有效选中豆子" };
+  }
+  if (eventName === "first_place_attempt") {
+    return { key: `first_place_attempt|${record.touchTarget || "slot"}`, meaning: "首次尝试放入槽位" };
+  }
+  if (eventName === "first_place_success") {
+    return { key: "first_place_success", meaning: "首次成功放入槽位" };
+  }
+  if (eventName === "tutorial_fast_tap_ignored") {
+    return { key: "tutorial_fast_tap_ignored", meaning: "点击过快被教程忽略" };
+  }
+  if (eventName === "tutorial_done") {
+    return { key: "tutorial_done", meaning: "教程完成" };
+  }
+  if (eventName === "app_hide") {
+    return { key: "app_hide", meaning: "切后台或离开游戏" };
+  }
+
+  if (["enter_level", "level_pass", "level_fail"].includes(eventName) && Number.isFinite(levelId) && levelId > 0) {
+    const label = { enter_level: "进入关卡", level_pass: "通过关卡", level_fail: "关卡失败" }[eventName];
+    return { key: `${eventName}|L${levelId}`, meaning: `${label} L${levelId}` };
+  }
+
+  if (["ad_show", "ad_click", "ad_finish"].includes(eventName)) {
+    const label = { ad_show: "广告透出", ad_click: "广告点击", ad_finish: "广告完成" }[eventName];
+    const placement = record.page || record.adType || "unknown";
+    return {
+      key: `${eventName}|${placement}|L${Number.isFinite(levelId) && levelId > 0 ? levelId : "unknown"}`,
+      meaning: `${label}：${placement}`,
+    };
+  }
+
+  if (source === "first_level_funnel") {
+    return { key: eventName, meaning: `首关事件：${eventName}` };
+  }
+  return { key: eventName, meaning: `行为事件：${eventName}` };
+}
+
+function addAction(actionsByUser, openid, record, source) {
+  if (!openid) return;
+  const action = normalizeChurnAction(record, source);
+  if (!action) return;
+  if (!actionsByUser.has(openid)) actionsByUser.set(openid, []);
+  actionsByUser.get(openid).push({
+    ...action,
+    timestamp: Number(record.timestamp) || Number(record.receivedAt) || 0,
+    receivedAt: Number(record.receivedAt) || 0,
+    eventSeq: Number(record.eventSeq) || 0,
+  });
+}
+
+function incrementActionMap(map, key, meaning) {
+  if (!map.has(key)) map.set(key, { key, meaning, users: 0 });
+  map.get(key).users += 1;
+}
+
+function actionRows(map, denominator, limit) {
+  return [...map.values()]
+    .sort((a, b) => {
+      if (b.users !== a.users) return b.users - a.users;
+      return a.key.localeCompare(b.key);
+    })
+    .slice(0, limit)
+    .map((row) => ({
+      ...row,
+      userRate: ratio(row.users, denominator),
+    }));
+}
+
+function buildChurnCohort({ key, label, description, users, actionsByUser }) {
+  const lastActions = new Map();
+  const previousActions = new Map();
+  const thirdActions = new Map();
+  const paths = new Map();
+  let usersWithActions = 0;
+
+  for (const openid of users) {
+    const actions = [...(actionsByUser.get(openid) || [])].sort((a, b) => {
+      if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+      if (a.receivedAt !== b.receivedAt) return a.receivedAt - b.receivedAt;
+      return a.eventSeq - b.eventSeq;
+    });
+    if (actions.length) usersWithActions += 1;
+    const tail = actions.slice(-3);
+    const last = tail[tail.length - 1] || { key: "no_meaningful_action", meaning: "没有可归因的行为事件" };
+    const previous = tail[tail.length - 2] || { key: "no_previous_action", meaning: "没有倒数第二次行为" };
+    const third = tail[tail.length - 3] || { key: "no_third_action", meaning: "没有倒数第三次行为" };
+    incrementActionMap(lastActions, last.key, last.meaning);
+    incrementActionMap(previousActions, previous.key, previous.meaning);
+    incrementActionMap(thirdActions, third.key, third.meaning);
+    const pathActions = [third, previous, last];
+    const pathKey = pathActions.map((item) => item.key).join(" -> ");
+    const pathMeaning = pathActions.map((item) => item.meaning).join(" -> ");
+    incrementActionMap(paths, pathKey, pathMeaning);
+  }
+
+  return {
+    key,
+    label,
+    description,
+    users: users.size,
+    usersWithActions,
+    actionCoverageRate: ratio(usersWithActions, users.size),
+    lastActions: actionRows(lastActions, users.size, 12),
+    previousActions: actionRows(previousActions, users.size, 12),
+    thirdActions: actionRows(thirdActions, users.size, 12),
+    lastActionPaths: actionRows(paths, users.size, 12),
+  };
+}
+
+function buildFirstDayChurnAnalysis(combinedSummary) {
+  const funnelRecords = loadCollectionRecords(combinedSummary, "first_level_funnel");
+  const behaviorRecords = loadCollectionRecords(combinedSummary, "user_behavior");
+  const actionsByUser = new Map();
+  const startUsers = new Set();
+  const l1PassUsers = new Set();
+  const l1EnterUsers = new Set();
+
+  for (const record of funnelRecords) {
+    const openid = record.openid || "";
+    if (!openid) continue;
+    if (record.eventName === "app_launch") startUsers.add(openid);
+    if (record.eventName === "level_pass") l1PassUsers.add(openid);
+    addAction(actionsByUser, openid, record, "first_level_funnel");
+  }
+
+  for (const record of behaviorRecords) {
+    const openid = record.openid || "";
+    if (!openid) continue;
+    const levelId = Number(record.levelId);
+    if (record.eventName === "enter_level" && levelId === 1) {
+      l1EnterUsers.add(openid);
+      if (!startUsers.size) startUsers.add(openid);
+    }
+    if (record.eventName === "level_pass" && levelId === 1) l1PassUsers.add(openid);
+    addAction(actionsByUser, openid, record, "user_behavior");
+  }
+
+  const baseUsers = startUsers.size ? startUsers : l1EnterUsers;
+  const l1NotPassUsers = new Set([...baseUsers].filter((openid) => !l1PassUsers.has(openid)));
+  const cohorts = [
+    buildChurnCohort({
+      key: "l1_not_pass",
+      label: "L1未通过用户",
+      description: "首关漏斗起点用户中，当天没有 L1 level_pass 的用户；用于看首日/首关流失前最后行为。",
+      users: l1NotPassUsers,
+      actionsByUser,
+    }),
+  ];
+
+  const nextDayActiveUsers = loadNextDayActiveUsers(combinedSummary);
+  if (nextDayActiveUsers) {
+    const nextDayInactiveUsers = new Set([...baseUsers].filter((openid) => !nextDayActiveUsers.has(openid)));
+    cohorts.push(buildChurnCohort({
+      key: "next_day_inactive",
+      label: "T+1未回访用户",
+      description: "首关漏斗起点用户中，下一天 user_behavior 未再出现的用户；不是严格新用户口径，但可作为留存流失动作参考。",
+      users: nextDayInactiveUsers,
+      actionsByUser,
+    }));
+  }
+
+  return {
+    source: "first_level_funnel + user_behavior",
+    baseUsers: baseUsers.size,
+    l1PassUsers: l1PassUsers.size,
+    nextDayAvailable: Boolean(nextDayActiveUsers),
+    cohorts,
+  };
+}
+
+function ensureLevelAdStat(map, levelId) {
+  if (!map.has(levelId)) {
+    map.set(levelId, {
+      levelId,
+      enterUsers: new Set(),
+      passUsers: new Set(),
+      failUsers: new Set(),
+      adShowUsers: new Set(),
+      adClickUsers: new Set(),
+      adFinishUsers: new Set(),
+      adShowPv: 0,
+      adClickPv: 0,
+      adFinishPv: 0,
+      placements: new Map(),
+    });
+  }
+  return map.get(levelId);
+}
+
+function incrementPlacement(stat, record) {
+  const placement = record.page || record.adType || "unknown";
+  if (!stat.placements.has(placement)) {
+    stat.placements.set(placement, { placement, showPv: 0, clickPv: 0, finishPv: 0 });
+  }
+  const row = stat.placements.get(placement);
+  if (record.eventName === "ad_show") row.showPv += 1;
+  if (record.eventName === "ad_click") row.clickPv += 1;
+  if (record.eventName === "ad_finish") row.finishPv += 1;
+}
+
+function setDifference(left, right) {
+  return new Set([...left].filter((item) => !right.has(item)));
+}
+
+function setIntersection(left, right) {
+  return new Set([...left].filter((item) => right.has(item)));
+}
+
+function buildLevelAdRelationship(combinedSummary, userBehaviorSummary) {
+  const records = loadCollectionRecords(combinedSummary, "user_behavior");
+  const stats = new Map();
+  for (const row of userBehaviorSummary?.levelRows || []) {
+    if (Number(row.levelId) > 0) ensureLevelAdStat(stats, Number(row.levelId));
+  }
+
+  for (const record of records) {
+    const levelId = Number(record.levelId);
+    if (!Number.isFinite(levelId) || levelId < 1) continue;
+    const stat = ensureLevelAdStat(stats, levelId);
+    const openid = record.openid || "";
+    if (record.eventName === "enter_level" && openid) stat.enterUsers.add(openid);
+    if (record.eventName === "level_pass" && openid) stat.passUsers.add(openid);
+    if (record.eventName === "level_fail" && openid) stat.failUsers.add(openid);
+    if (record.eventName === "ad_show") {
+      stat.adShowPv += 1;
+      if (openid) stat.adShowUsers.add(openid);
+      incrementPlacement(stat, record);
+    } else if (record.eventName === "ad_click") {
+      stat.adClickPv += 1;
+      if (openid) stat.adClickUsers.add(openid);
+      incrementPlacement(stat, record);
+    } else if (record.eventName === "ad_finish") {
+      stat.adFinishPv += 1;
+      if (openid) stat.adFinishUsers.add(openid);
+      incrementPlacement(stat, record);
+    }
+  }
+
+  return [...stats.values()]
+    .map((stat) => {
+      const notPassUsers = setDifference(stat.enterUsers, stat.passUsers);
+      const notPassWithAdFinish = setIntersection(notPassUsers, stat.adFinishUsers);
+      const notPassWithoutAdFinish = setDifference(notPassUsers, stat.adFinishUsers);
+      const topPlacement = [...stat.placements.values()]
+        .sort((a, b) => {
+          if (b.showPv !== a.showPv) return b.showPv - a.showPv;
+          return a.placement.localeCompare(b.placement);
+        })[0];
+      return {
+        levelId: stat.levelId,
+        focus: [4, 12, 13].includes(stat.levelId),
+        enterUv: stat.enterUsers.size,
+        passUv: stat.passUsers.size,
+        failUv: stat.failUsers.size,
+        enterNotPassUv: notPassUsers.size,
+        uvPassRate: ratio(stat.passUsers.size, stat.enterUsers.size),
+        adShowPv: stat.adShowPv,
+        adClickPv: stat.adClickPv,
+        adFinishPv: stat.adFinishPv,
+        adShowUv: stat.adShowUsers.size,
+        adFinishUv: stat.adFinishUsers.size,
+        adFinishRate: ratio(stat.adFinishPv, stat.adShowPv),
+        adFinishPerEnterRate: ratio(stat.adFinishUsers.size, stat.enterUsers.size),
+        notPassWithAdFinishUv: notPassWithAdFinish.size,
+        notPassWithoutAdFinishUv: notPassWithoutAdFinish.size,
+        pureLossRate: ratio(notPassWithoutAdFinish.size, stat.enterUsers.size),
+        compensationRate: ratio(notPassWithAdFinish.size, notPassUsers.size),
+        topAdPlacement: topPlacement ? topPlacement.placement : "",
+      };
+    })
+    .filter((row) => row.enterUv > 0 || row.adShowPv > 0 || row.adFinishPv > 0)
+    .sort((a, b) => a.levelId - b.levelId);
+}
+
+function buildRecommendations({ coreMetrics, funnelRows, tutorialTapBreakdown, mainlineBottlenecks, highRetryLevels, adPerformance, levelAdRelationship }) {
   const recommendations = [];
   const uiReady = funnelRows.find((row) => row.eventName === "first_level_ui_ready");
   const anyTouch = funnelRows.find((row) => row.eventName === "first_level_any_touch");
@@ -2258,6 +2721,17 @@ function buildRecommendations({ coreMetrics, funnelRows, tutorialTapBreakdown, m
       topic: "广告完成率",
       finding: `广告完成率 ${percentText(adPerformance.overall.finishRate)}。`,
       action: "按广告位检查触发时机、奖励承诺、加载失败和中途退出。",
+    });
+  }
+  const focusPureLoss = (levelAdRelationship || [])
+    .filter((row) => row.focus && row.enterUv >= 10)
+    .sort((a, b) => b.notPassWithoutAdFinishUv - a.notPassWithoutAdFinishUv)[0];
+  if (focusPureLoss && focusPureLoss.notPassWithoutAdFinishUv > 0) {
+    recommendations.push({
+      priority: "P1",
+      topic: "重点关卡纯流失",
+      finding: `L${focusPureLoss.levelId} 未通过且无广告完成 UV ${focusPureLoss.notPassWithoutAdFinishUv}。`,
+      action: "优先区分“难但有广告补偿”和“难且无收益流失”，对纯流失关卡降低阻力或提前给出道具/广告入口。",
     });
   }
   return recommendations;
@@ -2330,6 +2804,8 @@ function buildDailyDiagnosis(combinedSummary) {
     topByShow: ad.topByShow || [],
     weakFinishRate: ad.weakFinishRate || [],
   };
+  const firstDayChurnAnalysis = buildFirstDayChurnAnalysis(combinedSummary);
+  const levelAdRelationship = buildLevelAdRelationship(combinedSummary, userBehaviorSummary);
 
   return {
     schemaVersion: 1,
@@ -2342,6 +2818,8 @@ function buildDailyDiagnosis(combinedSummary) {
     mainlineBottlenecks,
     highRetryLevels,
     adPerformance,
+    firstDayChurnAnalysis,
+    levelAdRelationship,
     dataQuality: buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels, funnelSummary }),
     recommendations: buildRecommendations({
       coreMetrics,
@@ -2350,6 +2828,7 @@ function buildDailyDiagnosis(combinedSummary) {
       mainlineBottlenecks,
       highRetryLevels,
       adPerformance,
+      levelAdRelationship,
     }),
   };
 }
@@ -2391,6 +2870,24 @@ function writeCombinedOutputs({
   const diagnosis = combinedSummary.dailyDiagnosis;
   const core = diagnosis.coreMetrics;
   const qualityWarnings = diagnosis.dataQuality.warnings || [];
+  const churnRows = (diagnosis.firstDayChurnAnalysis?.cohorts || []).flatMap((cohort) => {
+    const groupLabel = `${cohort.label} (${integerText(cohort.users)} UV)`;
+    const actionRowsFor = (position, rows) => rows.slice(0, 8).map((row) => [
+      groupLabel,
+      position,
+      row.key,
+      row.meaning,
+      integerText(row.users),
+      percentText(row.userRate),
+    ]);
+    return [
+      ...actionRowsFor("末次动作", cohort.lastActions || []),
+      ...actionRowsFor("倒数第二次", cohort.previousActions || []),
+      ...actionRowsFor("倒数第三次", cohort.thirdActions || []),
+      ...actionRowsFor("末三步路径", cohort.lastActionPaths || []),
+    ];
+  });
+  const levelAdRows = diagnosis.levelAdRelationship || [];
   fs.writeFileSync(jsonPath, `${JSON.stringify(combinedSummary, null, 2)}\n`);
 
   const lines = [
@@ -2455,6 +2952,13 @@ function writeCombinedOutputs({
       ]),
     ),
     ``,
+    `## 首日流失前行为`,
+    ``,
+    markdownTable(
+      ["人群", "位置", "动作/路径", "含义", "UV", "占比"],
+      churnRows,
+    ),
+    ``,
     `## 前20关全量表现`,
     ``,
     markdownTable(
@@ -2471,6 +2975,24 @@ function writeCombinedOutputs({
         `${row.avgDurationSeconds.toFixed(1)}s`,
         integerText(row.adReviveCount),
         row.diagnosis,
+      ]),
+    ),
+    ``,
+    `## 关卡广告透出/收益关系`,
+    ``,
+    markdownTable(
+      ["关卡", "进入UV", "通过率", "未通过UV", "广告透出UV/PV", "广告完成UV/PV", "未过且看完广告", "未过且无广告", "纯流失率", "重点"],
+      levelAdRows.map((row) => [
+        `L${row.levelId}`,
+        integerText(row.enterUv),
+        percentText(row.uvPassRate),
+        integerText(row.enterNotPassUv),
+        `${integerText(row.adShowUv)} / ${integerText(row.adShowPv)}`,
+        `${integerText(row.adFinishUv)} / ${integerText(row.adFinishPv)}`,
+        integerText(row.notPassWithAdFinishUv),
+        integerText(row.notPassWithoutAdFinishUv),
+        percentText(row.pureLossRate),
+        row.focus ? "重点" : "",
       ]),
     ),
     ``,

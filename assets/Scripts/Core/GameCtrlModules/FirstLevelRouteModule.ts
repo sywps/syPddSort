@@ -146,41 +146,10 @@ export function installFirstLevelRouteModule(target: any): void {
             });
         },
 
-        reportTutorialLayerTouchStart(worldPos: Vec3): void {
-            if (!this.isFirstLevelFunnelActive?.()) return;
-            const key = this.getFirstLevelGuideStepKey();
-            this._firstLevelGuideLayerTouchCounts = this._firstLevelGuideLayerTouchCounts || {};
-            const count = Math.max(0, Number(this._firstLevelGuideLayerTouchCounts[key]) || 0);
-            if (count < 3) {
-                this._firstLevelGuideLayerTouchCounts[key] = count + 1;
-                this.trackFirstLevelFunnel('tutorial_layer_touch_start', {
-                    stepId: this._guideStep,
-                    stepName: key,
-                    touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
-                    source: 'tutorial',
-                    success: true,
-                    extra: this.buildFirstLevelGuideExtra('guide_layer', 'touch_start', {
-                        touchIndexInStep: count + 1,
-                    }),
-                });
-            }
-            this.reportTutorialStepFirstTouch(worldPos, 'guide_layer');
+        reportTutorialLayerTouchStart(_worldPos: Vec3): void {
         },
 
-        reportTutorialStepFirstTouch(worldPos: Vec3, inputLayer: string): void {
-            if (!this.isFirstLevelFunnelActive?.()) return;
-            const key = this.getFirstLevelGuideStepKey();
-            this._firstLevelGuideStepFirstTouchSent = this._firstLevelGuideStepFirstTouchSent || {};
-            if (this._firstLevelGuideStepFirstTouchSent[key]) return;
-            this._firstLevelGuideStepFirstTouchSent[key] = true;
-            this.trackFirstLevelFunnel('tutorial_step_first_touch', {
-                stepId: this._guideStep,
-                stepName: key,
-                touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
-                source: 'tutorial',
-                success: true,
-                extra: this.buildFirstLevelGuideExtra(inputLayer, 'first_step_touch'),
-            });
+        reportTutorialStepFirstTouch(_worldPos: Vec3, _inputLayer: string): void {
         },
 
         getTutorialMissHitResult(worldPos?: Vec3): string {

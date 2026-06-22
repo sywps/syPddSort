@@ -22,6 +22,8 @@
     "sync:cdn:wechat:skin_data": "node scripts/sync-skin-data-cdn-wechat.js",
     "sync:cdn:wechat:skin_data:dry": "node scripts/sync-skin-data-cdn-wechat.js --dry-run",
     "analytics:daily": "node scripts/user-behavior-daily-job.js",
+    "analytics:retention": "node scripts/retention-report-job.js",
+    "analytics:level-duration": "node scripts/level-duration-matrix-job.js",
     "textures:audit": "node scripts/audit-texture-memory.js",
     "images:duplicates": "node scripts/audit-image-duplicates.js",
     "ai:web:dry": "node scripts/ai-runner.js --target web --all-personas --dry-run",

@@ -550,21 +550,6 @@ export function installTutorialGuideModule(target: any): void {
             const hitResult = this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
             if (shouldReport) {
                 this.reportTutorialTapResult?.(worldPos, hitResult, false, 'guide_layer');
-                this.trackFirstLevelFunnel('tutorial_wrong_tap', {
-                    stepId: this._guideStep,
-                    stepName: `${this._guideMode}:${this._guideStep}:${this._guidePhase}`,
-                    touchTarget: worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '',
-                    source: 'tutorial',
-                    success: false,
-                    errorCode: hitResult,
-                    extra: {
-                        guideMode: this._guideMode,
-                        guideStep: this._guideStep,
-                        guidePhase: this._guidePhase,
-                        hasCurrentBlock: !!this.currentBlock,
-                        hitResult,
-                    },
-                });
             }
             if (!this._guideBubbleLbl) return;
             const step = this._guideStep;

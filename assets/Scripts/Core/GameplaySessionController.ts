@@ -24,7 +24,8 @@ export class GameplaySessionController {
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
             this.clearTutorialRuntimeState(runtime);
             AudioMgr.inst.init(runtime.node);
-            if (!runtime._bootstrapOnlyGameplayStartup) {
+            const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
+            if (!bootstrapOnlyGameplayStartup) {
                 AudioMgr.inst.preload('place');
                 AudioMgr.inst.playGameBgm();
             }
@@ -120,6 +121,10 @@ export class GameplaySessionController {
             runtime.renderSlots();
             runtime.assertGameplayVisualReadiness();
             runtime.hideLoadingOverlayAfterGameplayReady?.();
+            runtime.preloadSettingsPanel?.();
+            if (bootstrapOnlyGameplayStartup) {
+                AudioMgr.inst.playGameBgm();
+            }
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
             if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
                 runtime.recordMainlineLevelEntry(activeLogicalLevelId);
