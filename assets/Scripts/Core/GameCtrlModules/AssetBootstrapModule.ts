@@ -1545,6 +1545,13 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         captureCloudGameState(): CloudGameState {
+            const backgroundSkinState = typeof this.captureBackgroundSkinCloudState === 'function'
+                ? this.captureBackgroundSkinCloudState()
+                : {
+                    backgroundSkinOwnedIds: [0],
+                    backgroundSkinAdProgress: {},
+                    equippedBackgroundSkinId: 0,
+                };
             return {
                 savedLevel: this.getSavedLevel(),
                 vigor: this.getVigor(),
@@ -1558,6 +1565,9 @@ export function installAssetBootstrapModule(target: any): void {
                 dailySignInLastClaimDateKey: this.getDailySignInLastClaimDateKey(),
                 themeUnlockedIds: Array.from(this.getThemeUnlockedSet() as Set<number>).sort((a, b) => a - b),
                 themeCompletedIds: Array.from(this.getThemeCompletedSet() as Set<number>).sort((a, b) => a - b),
+                backgroundSkinOwnedIds: Array.isArray(backgroundSkinState.backgroundSkinOwnedIds) ? backgroundSkinState.backgroundSkinOwnedIds as number[] : [0],
+                backgroundSkinAdProgress: backgroundSkinState.backgroundSkinAdProgress && typeof backgroundSkinState.backgroundSkinAdProgress === 'object' ? backgroundSkinState.backgroundSkinAdProgress as Record<string, number> : {},
+                equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -1671,6 +1681,9 @@ export function installAssetBootstrapModule(target: any): void {
             const shouldSkipVolatileRestore = cloudUpdatedAt > 0 && localUpdatedAt > cloudUpdatedAt && cloudSavedLevel <= localSavedLevel;
             if (shouldSkipVolatileRestore) {
                 console.warn('[GameCtrl] local user state is newer than cloud, skip restore', { localUpdatedAt, cloudUpdatedAt, localSavedLevel, cloudSavedLevel });
+            }
+            if (typeof this.applyBackgroundSkinCloudState === 'function') {
+                this.applyBackgroundSkinCloudState(gameState as any, !shouldSkipVolatileRestore);
             }
         
             const effectiveLevel = Math.max(localSavedLevel, cloudSavedLevel);

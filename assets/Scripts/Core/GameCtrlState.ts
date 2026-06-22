@@ -266,6 +266,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _equippedBackgroundSkinId: 0,
         _equippedBackgroundSkinFrame: null as SpriteFrame | null,
         _backgroundSkinPanelOverlay: null,
+        _backgroundSkinAdUnlocking: false,
     });
 
     runtime.boardViewport = new BoardViewportController({

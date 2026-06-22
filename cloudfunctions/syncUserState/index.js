@@ -56,6 +56,25 @@ function normalizeThemeCompletedIds(value) {
   return Array.from(new Set(ids)).sort((a, b) => a - b);
 }
 
+function normalizeBackgroundSkinIds(value) {
+  if (!Array.isArray(value)) return [];
+  const ids = value
+    .map((item) => Math.floor(Number(item) || 0))
+    .filter((item) => item >= 0);
+  return Array.from(new Set(ids)).sort((a, b) => a - b);
+}
+
+function normalizeBackgroundSkinAdProgress(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const result = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const id = Math.floor(Number(key) || 0);
+    const count = Math.floor(Number(raw) || 0);
+    if (id >= 0 && count > 0) result[String(id)] = count;
+  }
+  return result;
+}
+
 function mergeSortedThemeIds(currentValue, sourceValue, normalizer) {
   return Array.from(new Set([
     ...normalizer(currentValue),
@@ -69,6 +88,23 @@ function mergeThemeUnlockedIds(currentValue, sourceValue) {
 
 function mergeThemeCompletedIds(currentValue, sourceValue) {
   return mergeSortedThemeIds(currentValue, sourceValue, normalizeThemeCompletedIds);
+}
+
+function mergeBackgroundSkinIds(currentValue, sourceValue) {
+  return Array.from(new Set([
+    ...normalizeBackgroundSkinIds(currentValue),
+    ...normalizeBackgroundSkinIds(sourceValue),
+  ])).sort((a, b) => a - b);
+}
+
+function mergeBackgroundSkinAdProgress(currentValue, sourceValue) {
+  const current = normalizeBackgroundSkinAdProgress(currentValue);
+  const source = normalizeBackgroundSkinAdProgress(sourceValue);
+  const result = { ...current };
+  for (const [id, count] of Object.entries(source)) {
+    result[id] = Math.max(Math.floor(Number(result[id]) || 0), count);
+  }
+  return result;
 }
 
 function isCollectionMissing(error) {
@@ -158,6 +194,9 @@ function extractGameState(doc) {
   if (typeof doc?.dailySignInLastClaimDateKey === 'number') state.dailySignInLastClaimDateKey = normalizeNonNegativeInt(doc.dailySignInLastClaimDateKey, 0);
   if (Array.isArray(doc?.themeUnlockedIds)) state.themeUnlockedIds = normalizeThemeUnlockedIds(doc.themeUnlockedIds);
   if (Array.isArray(doc?.themeCompletedIds)) state.themeCompletedIds = normalizeThemeCompletedIds(doc.themeCompletedIds);
+  if (Array.isArray(doc?.backgroundSkinOwnedIds)) state.backgroundSkinOwnedIds = normalizeBackgroundSkinIds(doc.backgroundSkinOwnedIds);
+  if (doc?.backgroundSkinAdProgress && typeof doc.backgroundSkinAdProgress === 'object') state.backgroundSkinAdProgress = normalizeBackgroundSkinAdProgress(doc.backgroundSkinAdProgress);
+  if (typeof doc?.equippedBackgroundSkinId === 'number') state.equippedBackgroundSkinId = normalizeNonNegativeInt(doc.equippedBackgroundSkinId, 0);
 
   return Object.keys(state).length > 0 ? state : null;
 }
@@ -225,12 +264,23 @@ function buildGameStatePatch(source = {}, current = {}) {
   const sourceDailySignInLastClaimDateKey = normalizeNonNegativeInt(source.dailySignInLastClaimDateKey, currentDailySignInLastClaimDateKey);
   const mergedThemeUnlockedIds = mergeThemeUnlockedIds(current.themeUnlockedIds, source.themeUnlockedIds);
   const mergedThemeCompletedIds = mergeThemeCompletedIds(current.themeCompletedIds, source.themeCompletedIds);
+  const mergedBackgroundSkinOwnedIds = mergeBackgroundSkinIds(current.backgroundSkinOwnedIds, source.backgroundSkinOwnedIds);
+  const mergedBackgroundSkinAdProgress = mergeBackgroundSkinAdProgress(current.backgroundSkinAdProgress, source.backgroundSkinAdProgress);
+  const currentEquippedBackgroundSkinId = normalizeNonNegativeInt(current.equippedBackgroundSkinId, 0);
+  const sourceEquippedBackgroundSkinId = hasOwn(source, 'equippedBackgroundSkinId')
+    ? normalizeNonNegativeInt(source.equippedBackgroundSkinId, currentEquippedBackgroundSkinId)
+    : currentEquippedBackgroundSkinId;
   const shouldPreserveCurrentVolatileState =
     currentStateUpdatedAt > 0 &&
     (
       (hasOwn(source, 'savedLevel') && sourceSavedLevel < currentSavedLevel) ||
       mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
-      mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length
+      mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length ||
+      mergedBackgroundSkinOwnedIds.length > normalizeBackgroundSkinIds(source.backgroundSkinOwnedIds).length ||
+      Object.keys(mergedBackgroundSkinAdProgress).some((id) => {
+        const sourceProgress = normalizeBackgroundSkinAdProgress(source.backgroundSkinAdProgress);
+        return mergedBackgroundSkinAdProgress[id] > (sourceProgress[id] || 0);
+      })
     );
 
   const patch = {
@@ -249,6 +299,9 @@ function buildGameStatePatch(source = {}, current = {}) {
     dailySignInLastClaimDateKey: shouldPreserveCurrentVolatileState ? currentDailySignInLastClaimDateKey : sourceDailySignInLastClaimDateKey,
     themeUnlockedIds: mergedThemeUnlockedIds,
     themeCompletedIds: mergedThemeCompletedIds,
+    backgroundSkinOwnedIds: mergedBackgroundSkinOwnedIds,
+    backgroundSkinAdProgress: mergedBackgroundSkinAdProgress,
+    equippedBackgroundSkinId: shouldPreserveCurrentVolatileState ? currentEquippedBackgroundSkinId : sourceEquippedBackgroundSkinId,
     stateUpdatedAt: shouldPreserveCurrentVolatileState
       ? currentStateUpdatedAt
       : Math.max(currentStateUpdatedAt, sourceStateUpdatedAt),

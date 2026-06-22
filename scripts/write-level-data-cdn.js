@@ -6,6 +6,7 @@ const path = require('path');
 
 const projectDir = path.resolve(__dirname, '..');
 const sourceLevelDir = path.join(projectDir, 'assets', 'LevelData');
+const sourceSkinConfigPath = path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins', 'skins.json');
 const outputDir = path.resolve(process.argv[2] || path.join(projectDir, 'build', 'level-data-cdn'));
 const packSize = Math.max(1, Math.floor(Number(process.env.PDD_LEVEL_PACK_SIZE || 100) || 100));
 const levelFileKinds = [
@@ -57,6 +58,19 @@ function copyExtraAssetRoot(entry) {
     fs.rmSync(targetRoot, { recursive: true, force: true });
     copyDir(sourceRoot, targetRoot);
     return { root: entry.target, fileCount, bytes: totalBytes };
+}
+
+function copySkinConfig() {
+    if (!fs.existsSync(sourceSkinConfigPath)) return null;
+    const targetPath = path.join(outputDir, 'Skins', 'skins.json');
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourceSkinConfigPath, targetPath);
+    return {
+        root: 'Skins/skins.json',
+        fileCount: 1,
+        bytes: fs.statSync(targetPath).size,
+        file: 'Skins/skins.json',
+    };
 }
 
 function hashJson(data) {
@@ -164,6 +178,8 @@ function buildOutput() {
     const assetRoots = extraAssetRoots
         .map(copyExtraAssetRoot)
         .filter(Boolean);
+    const skinConfigAsset = copySkinConfig();
+    if (skinConfigAsset) assetRoots.push(skinConfigAsset);
 
     const packs = [];
     const levelCounts = {};

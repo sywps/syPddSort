@@ -240,6 +240,7 @@ const ossTarget = 'oss://' + ossBucket + '/' + normalizedOssPath;
 const packsOssTarget = ossTarget + 'level_packs/';
 const skinsOssTarget = ossTarget + 'Skins/';
 const liveOssTarget = ossTarget + 'level_live.json';
+const skinConfigPath = path.join(skinAssetDir, 'skins.json');
 
 console.log('关卡数据目录: ' + levelDataDir);
 console.log('关卡数据大小: ' + Math.round(dirSize(levelDataDir) / 1024 / 1024) + 'MB');
@@ -262,18 +263,8 @@ runOssutil([
     packsOssTarget,
 ], '微信关卡数据 packs 上传');
 
-runOssutil([
-    'cp',
-    '--acl',
-    'public-read',
-    '--force',
-    '--endpoint',
-    ossEndpoint,
-    liveManifestPath,
-    liveOssTarget,
-], '微信 level_live.json 上传');
-
 if (fs.existsSync(skinAssetDir)) {
+    assertFile(skinConfigPath, 'Skins/skins.json');
     runOssutil([
         'cp',
         '-r',
@@ -286,6 +277,17 @@ if (fs.existsSync(skinAssetDir)) {
         skinsOssTarget,
     ], '微信 Skins 资源上传');
 }
+
+runOssutil([
+    'cp',
+    '--acl',
+    'public-read',
+    '--force',
+    '--endpoint',
+    ossEndpoint,
+    liveManifestPath,
+    liveOssTarget,
+], '微信 level_live.json 上传');
 
 console.log('');
 console.log(dryRun ? '=== Dry-run 校验完成，未上传 ===' : '=== 同步完成 ===');
