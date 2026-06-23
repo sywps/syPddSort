@@ -21,6 +21,8 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 COMPETITOR_TOOLS_DIR = os.path.join(PROJECT_ROOT, 'tools', 'competitors')
 IMPORT_MAP_FILENAME = 'official_import_map.json'
 IMPORT_TARGET_TYPES = ('online', 'theme')
+OFFICIAL_MAIN_ABNORMAL_ID_FLOOR = int(os.environ.get('OFFICIAL_MAIN_ABNORMAL_ID_FLOOR', '10000'))
+OFFICIAL_MAIN_ABNORMAL_ID_GAP = int(os.environ.get('OFFICIAL_MAIN_ABNORMAL_ID_GAP', '1000'))
 
 GAME_LEVEL_DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', 'assets', 'LevelData')
@@ -654,8 +656,30 @@ def discover_level_dirs():
     return dirs
 
 
-def get_next_main_level_id(level_dir, kind='main'):
+def is_default_official_main_dir(level_dir, kind='main'):
+    return (
+        normalize_level_kind(kind) == 'main'
+        and os.path.abspath(level_dir) == GAME_LEVEL_DATA_DIR
+    )
+
+
+def trim_abnormal_official_tail(level_ids):
+    safe_ids = []
+    for level_id in sorted(level_ids):
+        if (
+            safe_ids
+            and level_id >= OFFICIAL_MAIN_ABNORMAL_ID_FLOOR
+            and level_id - safe_ids[-1] >= OFFICIAL_MAIN_ABNORMAL_ID_GAP
+        ):
+            break
+        safe_ids.append(level_id)
+    return safe_ids
+
+
+def get_next_main_level_id(level_dir, kind='main', safe_append=False):
     existing = list_main_level_ids(level_dir, kind)
+    if safe_append and is_default_official_main_dir(level_dir, kind):
+        existing = trim_abnormal_official_tail(existing)
     if not existing:
         return 1
     return existing[-1] + 1
@@ -942,7 +966,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 level_ids = list_main_level_ids(level_dir, kind)
                 levels = list_level_entries(level_dir, kind)
-                next_level_id = get_next_main_level_id(level_dir, kind)
+                next_level_id = get_next_main_level_id(level_dir, kind, safe_append=True)
             except ValueError as exc:
                 self._send_json(500, {'ok': False, 'error': str(exc)})
                 return
@@ -1131,7 +1155,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
             target_level_id = payload.get('targetLevelId')
             if target_level_id in (None, '', 0):
-                target_level_id = get_next_main_level_id(level_dir)
+                target_level_id = get_next_main_level_id(level_dir, safe_append=True)
             else:
                 try:
                     target_level_id = int(target_level_id)
@@ -1496,7 +1520,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 normalized_source_ids = [int(item) for item in source_level_ids]
                 start_target_id = data.get('startTargetLevelId')
                 if start_target_id in (None, '', 0):
-                    start_target_id = get_next_main_level_id(GAME_LEVEL_DATA_DIR)
+                    start_target_id = get_next_main_level_id(GAME_LEVEL_DATA_DIR, safe_append=True)
                 else:
                     start_target_id = int(start_target_id)
             except Exception:

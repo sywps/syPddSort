@@ -88,5 +88,425 @@
       }
     },
     "importedAt": "2026-06-15T20:51:40"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_092.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_092.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 379,
+        "targetPath": "assets/LevelData/level_379.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:26",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "033c314fa150a83c79e8ced4d46694d086dea040a240ded316650d0cfc51d96e"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:26",
+    "importedAt": "2026-06-23T20:53:26"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_093.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_093.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 380,
+        "targetPath": "assets/LevelData/level_380.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:26",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "e495605c863118930d822d74154128db6fd6308a7bc863be048f4d80af2d870c"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:26",
+    "importedAt": "2026-06-23T20:53:26"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_094.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_094.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 381,
+        "targetPath": "assets/LevelData/level_381.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:26",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "6d61ea42f23b2074f7441e1fca5bf3476f9551c70580d3c0e97feb9fbfe06ea8"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:26",
+    "importedAt": "2026-06-23T20:53:26"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_096.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_096.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 382,
+        "targetPath": "assets/LevelData/level_382.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "54f7776f73fb821feb9327c947e80158a27b6a846bcabb16e27f6b3b75518891"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_100.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_100.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 383,
+        "targetPath": "assets/LevelData/level_383.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "175cfd4c4c9a21abe0c6d613f230da4e336ee535b48475bbb063fafe60748e24"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_105.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_105.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 384,
+        "targetPath": "assets/LevelData/level_384.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "89e0890ae7cf85416306cc75dfde67d13de438591620713131c48467a0a619d9"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_106.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_106.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 385,
+        "targetPath": "assets/LevelData/level_385.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "492e7643a055f75f2f1d20c35c783905f36ce8daf0fc26f6e3f44d807abe650e"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_109.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_109.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 386,
+        "targetPath": "assets/LevelData/level_386.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "c258b8b319fe6d115eccce197a770f607b5d0afc9c8f5d40506b013e05a17d27"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_116.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_116.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 387,
+        "targetPath": "assets/LevelData/level_387.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "51b839f3acaba802d283504f2b9dd8a119508c8997986d1a303b69e7944b142b"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_119.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_119.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 388,
+        "targetPath": "assets/LevelData/level_388.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "8b4e8e8deadb802996e1fe6e63193fcc418f037956befec12d9bc2e27b5b2734"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_121.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_121.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 389,
+        "targetPath": "assets/LevelData/level_389.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "7140fb9bdea51f5be46d9e5e8d0d166b2f9a9c8d924fdbbd939793a913b8993b"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_123.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_123.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 390,
+        "targetPath": "assets/LevelData/level_390.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "bb9b3ab539bac346d47b25f7562028bf8395aa9eaf650b9bbdcde073a721e69e"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_126.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_126.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 391,
+        "targetPath": "assets/LevelData/level_391.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "b8b516e8c6240e5b72ee19310acd0706e46376806ab7e34bebc929e69b47ac10"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_133.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_133.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 392,
+        "targetPath": "assets/LevelData/level_392.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "ea59f9c15d27c8e0b0b889f87272e2822f0eb20ff582cf879c8df6248bd2570e"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_134.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_134.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 393,
+        "targetPath": "assets/LevelData/level_393.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "e9e55b6c8df4bdf421c4986168e371bfe19af1a402229491759ccddef1566456"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_145.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_145.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 394,
+        "targetPath": "assets/LevelData/level_394.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "313e3492cacf2e713959956468fc417a6ddd8370953ef1d70828d14b8590d4bc"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_146.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_146.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 395,
+        "targetPath": "assets/LevelData/level_395.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "98b36e6ce69d83fa76c35d9497d9c7fd759a18ec15080c4257767f3898ccf845"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_147.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_147.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 396,
+        "targetPath": "assets/LevelData/level_396.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "7cbf26d07b82cbc5dac06310500c90ad492f414d462e631ebcc358d8b8155407"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_150.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_150.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 397,
+        "targetPath": "assets/LevelData/level_397.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "a393367a2181f61f100613ae6ce67a473c052e3a898a26acfdc819a284ec9684"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_154.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_154.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 398,
+        "targetPath": "assets/LevelData/level_398.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "1f3a4ac463c224815a53bf5172f306d8a046c2adaf4076da194801b7049a7f17"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_160.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_160.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 399,
+        "targetPath": "assets/LevelData/level_399.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "c06f88957f6dcfc3371879f6f9bfbda9966e3071bd7824627169293cc9016cf4"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_170.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_170.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 400,
+        "targetPath": "assets/LevelData/level_400.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "5b9077fec83a85c15c41c90c39ca6ff4313d0a38db9c31b18fc371b940703c8b"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_171.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_171.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 401,
+        "targetPath": "assets/LevelData/level_401.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "b41990312b6a9120f1a7e1da3a58dfa414f90d32e72eba3a12c7eafaabdcdf2e"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_174.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_174.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 402,
+        "targetPath": "assets/LevelData/level_402.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "2b39820e48084e31eebebde75dc4356040844379d067c23755e1738f307d0f91"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_177.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_177.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 403,
+        "targetPath": "assets/LevelData/level_403.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "1ea7c62df15fae661815a88699ee9a230dfeede375eb5b1824ca17c093dd696a"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_178.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_178.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 404,
+        "targetPath": "assets/LevelData/level_404.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "395ae34d9938b9a8ed39ee69ecef309852aefec92533186f511151c82c8172f0"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_179.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_179.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 405,
+        "targetPath": "assets/LevelData/level_405.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "5dc1ba458c02b436a30194ac12246fea9e87ebdaab05d55ff79dc06c7e42452f"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
+  },
+  "tools/competitors/快乐拼拼豆/levels/main/lv_180.json": {
+    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_180.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 406,
+        "targetPath": "assets/LevelData/level_406.json",
+        "targetType": "online",
+        "importedAt": "2026-06-23T20:53:27",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "64fe548797fb82b394b1fa20ef35af46eee0dd44c1c055f0381d13a20dc5ae9e"
+      }
+    },
+    "updatedAt": "2026-06-23T20:53:27",
+    "importedAt": "2026-06-23T20:53:27"
   }
 }

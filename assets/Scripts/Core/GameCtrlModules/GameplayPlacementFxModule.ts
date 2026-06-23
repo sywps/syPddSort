@@ -39,7 +39,6 @@ type FlyPlaceVisualOptions = {
 };
 
 const BEAN_LAND_GLOW_ENABLED = false;
-const COLOR_COMPLETE_VISUAL_SETTLE_DELAY = 0.22;
 
 export function installGameplayPlacementFxModule(target: any): void {
     installGameplayColorCompleteFxMethods(target);
@@ -274,11 +273,12 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${t.row},${t.col}`);
                         this.renderBoardCell(t.row, t.col);
-                        this.playLandEffect(t.row, t.col, landFrameBudget);
-                        remaining--;
-                        if (remaining <= 0) {
-                            finishAfterAllLanded();
-                        }
+                        this.playLandEffect(t.row, t.col, landFrameBudget, () => {
+                            remaining--;
+                            if (remaining <= 0) {
+                                finishAfterAllLanded();
+                            }
+                        });
                     })
                     .start();
             }
@@ -348,7 +348,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                             this.resetIdleHintTimer();
                             if (this.boardModel.isAllLocked()) {
                                 this.clearEndgameHints(false);
-                                this.gameWin();
+                                this.playPatternCompleteThenWin();
                             } else {
                                 this.refreshEndgameHints('slot-landed');
                             }
@@ -358,7 +358,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
         },
 
-        onFlyDone(targets: { row: number; col: number }[]) {
+        onFlyDone(targets: { row: number; col: number }[], afterLanding?: () => void) {
             const dirtySlotIndices = Array.from(this._hiddenSlotIndices);
             this._flyingTargets.clear();
             this.clearForcedSkillHiddenState();
@@ -367,19 +367,10 @@ export function installGameplayPlacementFxModule(target: any): void {
             if (dirtySlotIndices.length > 0) this.renderSlotIndices(dirtySlotIndices);
             else this.renderSlots();
             const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
-            for (const t of targets) {
-                this.playLandEffect(t.row, t.col, landFrameBudget);
-            }
-            this.tryGrantLargePlacementBonus(targets.length);
-            this.checkColorCompletion();
-            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
-            this.checkGuideStepComplete();
-            if (this.boardModel.isAllLocked()) {
-                this.clearEndgameHints(false);
-                this.gameWin();
-            } else {
-                this.refreshEndgameHints('fly-done');
-            }
+            this.playLandingEffectsThen(targets, landFrameBudget, () => {
+                this.runPostLockLandingFlow(targets, 'fly-done', { grantLargePlacementBonus: true });
+                afterLanding?.();
+            });
         },
 
         getPlaceGlowFrameBudget(affectedCells: number): number {
@@ -492,17 +483,76 @@ export function installGameplayPlacementFxModule(target: any): void {
                 .start();
         },
 
-        playLandEffect(row: number, col: number, frameBudget: number = this.getPlaceGlowFrameBudget(1)) {
+        playLandEffect(row: number, col: number, frameBudget: number = this.getPlaceGlowFrameBudget(1), onComplete?: () => void) {
             const cn = this.cellNodes[row]?.[col];
-            if (!cn) return;
+            if (!cn) {
+                onComplete?.();
+                return;
+            }
             Tween.stopAllByTarget(cn);
             cn.setScale(1.15, 1.15, 1);
             tween(cn)
                 .to(0.1, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineIn' })
                 .to(0.08, { scale: new Vec3(1.0, 1.0, 1) })
+                .call(() => {
+                    this.playBeanSettleMatchFxOnCell?.(row, col);
+                    onComplete?.();
+                })
                 .start();
             if (BEAN_LAND_GLOW_ENABLED) {
                 this.playPlaceGlow(cn, 0.035, 210, frameBudget);
+            }
+        },
+
+        playLandingEffectsThen(
+            targets: { row: number; col: number }[],
+            frameBudget: number = this.getPlaceGlowFrameBudget(targets?.length || 1),
+            onComplete?: () => void,
+        ) {
+            const uniqueTargets: { row: number; col: number }[] = [];
+            const seen = new Set<string>();
+            for (const t of targets || []) {
+                const key = `${t.row},${t.col}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                uniqueTargets.push(t);
+            }
+            let remaining = uniqueTargets.length;
+            if (remaining === 0) {
+                onComplete?.();
+                return;
+            }
+            const finishOne = () => {
+                remaining--;
+                if (remaining <= 0) onComplete?.();
+            };
+            for (const t of uniqueTargets) {
+                this.playLandEffect(t.row, t.col, frameBudget, finishOne);
+            }
+        },
+
+        runPostLockLandingFlow(
+            targets: { row: number; col: number }[],
+            hintReason: string,
+            options: { grantLargePlacementBonus?: boolean; resetIdleHint?: boolean } = {},
+        ) {
+            if (options.grantLargePlacementBonus) {
+                this.tryGrantLargePlacementBonus(targets.length);
+            }
+            this.checkColorCompletion();
+            const boardComplete = this.boardModel.isAllLocked();
+            if (!boardComplete) {
+                this.flushPendingColorCompleteEffects();
+            }
+            this.checkGuideStepComplete();
+            if (options.resetIdleHint) {
+                this.resetIdleHintTimer();
+            }
+            if (boardComplete) {
+                this.clearEndgameHints(false);
+                this.playPatternCompleteThenWin();
+            } else {
+                this.refreshEndgameHints(hintReason);
             }
         },
 
@@ -511,17 +561,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.clearForcedSkillHiddenState();
             this._lastPlacedCells = null;
             this.renderBoardCells(targets);
-            this.tryGrantLargePlacementBonus(targets.length);
-            this.checkColorCompletion();
-            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
-            this.checkGuideStepComplete();
-            this.resetIdleHintTimer();
-            if (this.boardModel.isAllLocked()) {
-                this.clearEndgameHints(false);
-                this.gameWin();
-            } else {
-                this.refreshEndgameHints('fly-all-landed');
-            }
+            this.runPostLockLandingFlow(targets, 'fly-all-landed', { grantLargePlacementBonus: true, resetIdleHint: true });
         },
 
         tryGrantLargePlacementBonus(beanCount: number) {
@@ -545,64 +585,6 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, frameInterval, 0, frameBudget);
         },
 
-        getWinGlowFrameInterval(cellCount: number): number {
-            if (cellCount >= 60) return WIN_GLOW_FAST_INTERVAL_LARGE;
-            if (cellCount >= 28) return WIN_GLOW_FAST_INTERVAL_MEDIUM;
-            return WIN_GLOW_FAST_INTERVAL_SMALL;
-        },
-
-        getWinGlowWaveIndex(row: number, col: number, bw: number, bh: number, waveCount: number): number {
-            const maxDiagonal = Math.max(1, bw + bh - 2);
-            const diagonalProgress = (row + col) / maxDiagonal;
-            return Math.min(waveCount - 1, Math.max(0, Math.round(diagonalProgress * (waveCount - 1))));
-        },
-
-        /**
-         * 通关扫光改为分波次并发，保留从左上到右下的视觉方向感，
-         * 同时避免豆豆很多时因为逐颗排队而把节奏拖慢。
-         */
-        playWinBoardGlowSweep(
-            lockedCells: { row: number; col: number }[],
-            bw: number,
-            bh: number,
-        ): number {
-            if (lockedCells.length === 0) return 0;
-        
-            const frameInterval = this.getWinGlowFrameInterval(lockedCells.length);
-            const frameBudget = this.getPlaceGlowFrameBudget(lockedCells.length);
-            const flashOpacity = lockedCells.length >= 60 ? 170 : 190;
-            const desiredWaveCount = Math.ceil(Math.sqrt(lockedCells.length / 2));
-            const waveCount = Math.max(
-                1,
-                Math.min(
-                    lockedCells.length,
-                    Math.max(WIN_GLOW_MIN_WAVES, Math.min(WIN_GLOW_MAX_WAVES, desiredWaveCount)),
-                ),
-            );
-            const waves: Array<Array<{ row: number; col: number }>> = Array.from({ length: waveCount }, () => []);
-            for (const cell of lockedCells) {
-                const waveIndex = this.getWinGlowWaveIndex(cell.row, cell.col, bw, bh, waveCount);
-                waves[waveIndex].push(cell);
-            }
-        
-            let lastWaveDelay = 0;
-            for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
-                const wave = waves[waveIndex];
-                if (wave.length === 0) continue;
-                const delay = waveIndex * WIN_GLOW_WAVE_STEP;
-                lastWaveDelay = delay;
-                this.scheduleOnce(() => {
-                    for (const { row, col } of wave) {
-                        const cellNode = this.cellNodes[row]?.[col];
-                        if (!cellNode) continue;
-                        this.playPlaceGlow(cellNode, frameInterval, flashOpacity, frameBudget);
-                    }
-                }, delay);
-            }
-        
-            return lastWaveDelay + frameInterval * frameBudget + WIN_GLOW_POST_DELAY;
-        },
-
         /** 放置完成后的清理 + 渲染 + 动画 */
         finishPlace() {
             this.isSelected = false;
@@ -619,33 +601,56 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.renderBoard();
             this.renderSlots();
             this.resetIdleHintTimer();
+
+            const finishAfterLanding = () => {
+                this.checkColorCompletion();
+                const boardComplete = this.boardModel.isAllLocked();
+                if (!boardComplete) {
+                    this.flushPendingColorCompleteEffects();
+                }
+                this.checkGuideStepComplete();
+                if (boardComplete) {
+                    this.clearEndgameHints(false);
+                    this.playPatternCompleteThenWin();
+                } else {
+                    this.refreshEndgameHints('finish-place');
+                }
+            };
         
             // 沉下去动画
             if (this._lastPlacedCells && this._lastPlacedCells.length > 0) {
-                const frameBudget = this.getPlaceGlowFrameBudget(this._lastPlacedCells.length);
-                for (const cell of this._lastPlacedCells) {
+                const placedCells = this._lastPlacedCells.slice();
+                const frameBudget = this.getPlaceGlowFrameBudget(placedCells.length);
+                let remainingLandEffects = placedCells.length;
+                const finishOneLandEffect = () => {
+                    remainingLandEffects--;
+                    if (remainingLandEffects <= 0) finishAfterLanding();
+                };
+                for (const cell of placedCells) {
                     const cellNode = this.cellNodes[cell.row]?.[cell.col];
-                    if (!cellNode) continue;
+                    if (!cellNode) {
+                        finishOneLandEffect();
+                        continue;
+                    }
                     cellNode.setScale(1.2, 1.2, 1);
                     tween(cellNode)
                         .to(0.08, { scale: new Vec3(0.92, 0.92, 1) }, { easing: 'sineIn' })
                         .to(0.06, { scale: new Vec3(1.05, 1.05, 1) })
                         .to(0.06, { scale: new Vec3(1, 1, 1) })
+                        .call(() => {
+                            this.playBeanSettleMatchFxOnCell?.(cell.row, cell.col);
+                            finishOneLandEffect();
+                        })
                         .start();
-                    this.playPlaceGlow(cellNode, 0.035, 210, frameBudget);
+                    if (BEAN_LAND_GLOW_ENABLED) {
+                        this.playPlaceGlow(cellNode, 0.035, 210, frameBudget);
+                    }
                 }
                 this._lastPlacedCells = null;
+                return;
             }
 
-            this.checkColorCompletion();
-            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
-            this.checkGuideStepComplete();
-            if (this.boardModel.isAllLocked()) {
-                this.clearEndgameHints(false);
-                this.gameWin();
-            } else {
-                this.refreshEndgameHints('finish-place');
-            }
+            finishAfterLanding();
         },
 
         stopPulseTweens() {
@@ -660,7 +665,8 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (this._completedColors.has(cid)) continue;
                 if (bm.isColorComplete(cid)) {
                     this._completedColors.add(cid);
-                    this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);
+                    if (skipColorCompleteAudio) continue;
+                    this.enqueueColorCompleteEffect(cid, true);
                 }
             }
         },
@@ -801,7 +807,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             if (this.timeRemain > 0 && this.timeRemain <= 5) AudioMgr.inst.play('tick');
             if (this.timeRemain <= 0) {
                 if (this.boardModel?.isAllLocked?.()) {
-                    this.gameWin();
+                    this.playPatternCompleteThenWin();
                     return;
                 }
                 this.gameLose();

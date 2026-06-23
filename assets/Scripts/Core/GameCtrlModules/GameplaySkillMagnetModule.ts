@@ -462,8 +462,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             }
             if (plan.steps.length === 0) {
                 if (plan.immediateLockTargets.length > 0) {
-                    this.onFlyDone(plan.immediateLockTargets);
-                    this.scheduleOnce(onDone, 0.08);
+                    this.onFlyDone(plan.immediateLockTargets, onDone);
                 } else {
                     onDone();
                 }
@@ -603,8 +602,8 @@ export function installGameplaySkillMagnetModule(target: any): void {
 
             const totalMoves = boardMoves.length + slotMoves.length;
             if (totalMoves === 0) {
-                if (lockTargets.length > 0) this.onFlyDone(lockTargets);
-                this.scheduleOnce(onDone, SKILL_DONE_DELAY);
+                if (lockTargets.length > 0) this.onFlyDone(lockTargets, onDone);
+                else onDone();
                 return;
             }
             const allMoves = [...boardMoves, ...slotMoves];
@@ -637,11 +636,13 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 remaining--;
                 if (remaining <= 0) {
                     const finishTargets = getFinishTargets();
-                    this.onFlyDone(lockTargets);
                     const lockTargetKeys = new Set(lockTargets.map((target) => `${target.row},${target.col}`));
                     const extraRenderTargets = finishTargets.filter((target) => !lockTargetKeys.has(`${target.row},${target.col}`));
-                    if (extraRenderTargets.length > 0) this.renderBoardCells(extraRenderTargets);
-                    this.scheduleOnce(onDone, SKILL_DONE_DELAY);
+                    const finishAfterLocks = () => {
+                        if (extraRenderTargets.length > 0) this.renderBoardCells(extraRenderTargets);
+                        this.scheduleOnce(onDone, SKILL_DONE_DELAY);
+                    };
+                    this.onFlyDone(lockTargets, finishAfterLocks);
                 }
             };
             const playedFeedbackIndices = new Set<number>();
@@ -760,8 +761,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                         onDone();
                         return;
                     }
-                    this.onFlyDone(plan.immediateLockTargets);
-                    this.scheduleOnce(onDone, 0.2);
+                    this.onFlyDone(plan.immediateLockTargets, onDone);
                     return;
                 }
             }
@@ -878,8 +878,9 @@ export function installGameplaySkillMagnetModule(target: any): void {
             const finish = () => {
                 remaining--;
                 if (remaining <= 0) {
-                    this.onFlyDone(step.lockTargets);
-                    this.scheduleOnce(() => this.playForcedSkillPlan(plan, onDone, stepIndex + 1), SKILL_STEP_GAP);
+                    this.onFlyDone(step.lockTargets, () => {
+                        this.scheduleOnce(() => this.playForcedSkillPlan(plan, onDone, stepIndex + 1), SKILL_STEP_GAP);
+                    });
                 }
             };
         
@@ -947,8 +948,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     onDone();
                     return;
                 }
-                this.onFlyDone(lockTargets);
-                this.scheduleOnce(onDone, 0.38);
+                this.onFlyDone(lockTargets, onDone);
                 return;
             }
         
@@ -968,8 +968,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             const finish = () => {
                 remaining--;
                 if (remaining <= 0) {
-                    this.onFlyDone(lockTargets);
-                    this.scheduleOnce(onDone, 0.38);
+                    this.onFlyDone(lockTargets, onDone);
                 }
             };
         

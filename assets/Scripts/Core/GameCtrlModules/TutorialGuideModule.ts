@@ -884,7 +884,7 @@ export function installTutorialGuideModule(target: any): void {
                     if (step === this._guideTotalSteps - 1) {
                         // 最后一步完成，结束引导并通关
                         this.endTutorial();
-                        this.scheduleOnce(() => this.gameWin(), 0.3);
+                        this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.3);
                     } else {
                         this.advanceTutorial();
                     }

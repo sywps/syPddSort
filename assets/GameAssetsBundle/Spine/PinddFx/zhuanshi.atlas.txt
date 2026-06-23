@@ -1,0 +1,68 @@
+zhuanshi.png
+size: 93, 78
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+2
+  rotate: false
+  xy: 0, 0
+  size: 32, 31
+  orig: 32, 31
+  offset: 0, 0
+  index: -1
+dian
+  rotate: false
+  xy: 33, 33
+  size: 11, 11
+  orig: 11, 11
+  offset: 0, 0
+  index: -1
+gaoguang
+  rotate: false
+  xy: 34, 0
+  size: 29, 31
+  orig: 29, 31
+  offset: 0, 0
+  index: -1
+saoguang
+  rotate: false
+  xy: 0, 33
+  size: 31, 45
+  orig: 34, 45
+  offset: 2, 0
+  index: -1
+shang
+  rotate: false
+  xy: 67, 45
+  size: 26, 15
+  orig: 27, 15
+  offset: 1, 0
+  index: -1
+xia
+  rotate: false
+  xy: 65, 27
+  size: 24, 16
+  orig: 24, 16
+  offset: 0, 0
+  index: -1
+xingxingshanshan
+  rotate: false
+  xy: 33, 46
+  size: 32, 32
+  orig: 33, 32
+  offset: 0, 0
+  index: -1
+you
+  rotate: false
+  xy: 65, 1
+  size: 15, 24
+  orig: 16, 24
+  offset: 1, 0
+  index: -1
+zuo
+  rotate: true
+  xy: 67, 62
+  size: 16, 26
+  orig: 16, 27
+  offset: 0, 0
+  index: -1

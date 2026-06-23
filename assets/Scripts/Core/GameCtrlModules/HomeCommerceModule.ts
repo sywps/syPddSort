@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
+import { ensureHomeStartButtonFx } from '../HomeStartButtonFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
 
 export function installHomeCommerceModule(target: any): void {
@@ -172,8 +173,8 @@ export function installHomeCommerceModule(target: any): void {
                 enterSelectedLevel();
             }, this);
         
-            // 呼吸动画
-            this.startHomeSceneScalePulse(btn, 1.03, 0.9);
+            // 结算横幅风格动效
+            ensureHomeStartButtonFx(btn);
         },
 
         /** 主题挑战按钮（黄色胶囊，开始游戏按钮下方） */

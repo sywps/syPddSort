@@ -505,6 +505,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.drawLeaderboardButton(entryLayer);
             this.drawCollectionButton(entryLayer);
             this.drawSkinButton?.(entryLayer);
+            this.drawGameCircleButton?.(entryLayer);
             if (typeof this.drawSidebarEntry === 'function') {
                 this.drawSidebarEntry(entryLayer);
             }

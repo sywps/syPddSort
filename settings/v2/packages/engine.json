@@ -149,11 +149,11 @@
             "_value": false
           },
           "spine": {
-            "_value": false,
+            "_value": true,
             "_option": "spine-3.8"
           },
           "spine-3.8": {
-            "_value": false,
+            "_value": true,
             "_flags": {
               "LOAD_SPINE_MANUALLY": false
             }
@@ -202,6 +202,7 @@
           "legacy-pipeline",
           "mask",
           "rich-text",
+          "spine-3.8",
           "tween",
           "ui"
         ],

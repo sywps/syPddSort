@@ -255,6 +255,8 @@ const IMPORT_MAX_SIDE = 32;
 const IMPORT_SAMPLE_SCALE = 8;
 const IMPORT_MIN_FOREGROUND_ALPHA = 36;
 const IMPORT_EMPTY_CELL_COVERAGE = 0.08;
+const OFFICIAL_MAIN_ABNORMAL_ID_FLOOR = 10000;
+const OFFICIAL_MAIN_ABNORMAL_ID_GAP = 1000;
 
 let levels = [];
 let levelIds = [];
@@ -571,7 +573,7 @@ async function loadDefaultNextLevelId() {
             return defaultNextLevelId;
         }
         const ids = (result.levelIds || []).map(Number).filter(Number.isFinite);
-        defaultNextLevelId = ids.length ? Math.max(...ids) + 1 : 1;
+        defaultNextLevelId = getSafeNextOfficialMainLevelId(ids);
         return defaultNextLevelId;
     } catch (_) {
         return null;
@@ -755,7 +757,44 @@ function findClosestColor(r, g, b) {
 
 function getNextGuankaLevelId() {
     if (!levelIds.length) return 1;
+    if (IS_FORMAL_MAIN_DIR) return getSafeNextOfficialMainLevelId(levelIds);
     return levelIds[levelIds.length - 1] + 1;
+}
+
+function getSafeNextOfficialMainLevelId(ids) {
+    let safeTail = 0;
+    const sortedIds = [...ids].map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+    for (const id of sortedIds) {
+        if (
+            safeTail > 0
+            && id >= OFFICIAL_MAIN_ABNORMAL_ID_FLOOR
+            && id - safeTail >= OFFICIAL_MAIN_ABNORMAL_ID_GAP
+        ) {
+            break;
+        }
+        safeTail = id;
+    }
+    return safeTail + 1;
+}
+
+function getDefaultAppendLevelId() {
+    if (IS_FORMAL_MAIN_DIR && Number.isInteger(defaultNextLevelId)) {
+        return defaultNextLevelId;
+    }
+    return getNextGuankaLevelId();
+}
+
+function rememberOnlineImportNextLevelId(targetLevelId, count = 1) {
+    const currentNext = getDefaultAppendLevelId();
+    const numericTargetId = Number(targetLevelId);
+    const numericCount = Math.max(1, Number(count) || 1);
+    if (
+        numericTargetId >= OFFICIAL_MAIN_ABNORMAL_ID_FLOOR
+        && numericTargetId - currentNext >= OFFICIAL_MAIN_ABNORMAL_ID_GAP
+    ) {
+        return;
+    }
+    defaultNextLevelId = Math.max(defaultNextLevelId || 1, numericTargetId + numericCount);
 }
 
 function setImportStatus(message, type = '', title = '') {
@@ -766,7 +805,7 @@ function setImportStatus(message, type = '', title = '') {
 }
 
 function refreshImportStatus() {
-    setImportStatus(`${getLevelDirDisplayName()} | 默认追加为第 ${getNextGuankaLevelId()} 关`, '', LEVEL_DIR_LABEL);
+    setImportStatus(`${getLevelDirDisplayName()} | 默认追加为第 ${getDefaultAppendLevelId()} 关`, '', LEVEL_DIR_LABEL);
 }
 
 function stripExtension(filename) {
@@ -1100,7 +1139,7 @@ function buildImportedGrid(img) {
 }
 
 function buildImportedLevelPayload(fileName, img) {
-    const nextLevelId = getNextGuankaLevelId();
+    const nextLevelId = getDefaultAppendLevelId();
     const { boardWidth, boardHeight, correctColorArr } = buildImportedGrid(img);
     return {
         levelId: nextLevelId,
@@ -1800,7 +1839,7 @@ function updateBatchTargetHint() {
     if (!hint || !input) return;
     let startId = null;
     if (batchStartMode === 'append') {
-        startId = defaultNextLevelId || getNextGuankaLevelId();
+        startId = getDefaultAppendLevelId();
         hint.textContent = `将追加到正式关卡末尾：level_${startId}.json 起，共 ${count} 关`;
         return;
     }
@@ -1874,7 +1913,7 @@ async function executeBatchImport() {
             const mapEntry = levelEntryMap.get(Number(item.sourceLevelId));
             if (mapEntry) mapEntry.officialImport = item.officialImport;
         }
-        defaultNextLevelId = Math.max(defaultNextLevelId || 1, (result.startTargetLevelId || 1) + (result.count || 0));
+        rememberOnlineImportNextLevelId(result.startTargetLevelId || 1, result.count || 1);
         showBatchFeedback(`已成功导入 ${result.count || ids.length} 关`, 'success');
         selectedLevelIds.clear();
         batchOverwriteAllowed = false;
@@ -2231,7 +2270,7 @@ function updateCopyQuickRow() {
     container.innerHTML = '';
     let ids = [];
     if (copyType === 'online') {
-        const base = Math.max(1, defaultNextLevelId || getNextGuankaLevelId());
+        const base = Math.max(1, getDefaultAppendLevelId());
         ids = [base, base + 1, base + 2, 100, 200, 300];
     } else {
         ids = [1001, 1002, 1003, 1004, 1101, 1201, 1301];
@@ -2287,7 +2326,7 @@ async function executeCopy() {
         }
         showCopyFeedback(`已成功导入到 ${result.targetPath}`, 'success');
         if (copyType === 'online') {
-            defaultNextLevelId = Math.max(defaultNextLevelId || 1, targetId + 1);
+            rememberOnlineImportNextLevelId(targetId, 1);
         }
         if (result.officialImport) {
             const level = levels.find(item => Number(item.levelId) === Number(copySourceId));

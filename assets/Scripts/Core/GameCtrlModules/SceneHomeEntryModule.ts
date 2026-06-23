@@ -33,6 +33,12 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { openWeChatGameCircle } from '../MiniGamePlatform';
+import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
+
+const GAME_CIRCLE_BUTTON_NAME = 'GameCircleBtn';
+const GAME_CIRCLE_ICON_NAME = 'GameCircleIcon';
+const GAME_CIRCLE_OPENLINK = '-SSEykJvFV3pORt5kTNpS0JQmbIQhSkGiSclqmLczVVlFyMEmMYAJUHS2w-TX5HsoPlj1za2H3ZAO40AwyYxjxGGKkKWoVXOnMQPkt8cCamkdknW6G-fj6z0R717I6nJ0YNryfOToQvg1EnFJx_qPSCxEJpNZwhbfTAdIVsUwGX_uWYSlxjAiO6cTee-cvh-gPdielRoc4RqloS1ZLKo7F5QVbpchmnnTWulRkQN9Yjy7pEufusQeamiHP2wPUC-btBkvSILcLsjHKtxyuSFUG-8CPX9fyiK75sVZ9kfpl0vQa6gBh7BdslTcE0ZSSRlXnUsqAH07LRJztwWhz6y0g';
 
 export function installSceneHomeEntryModule(target: any): void {
     Object.assign(target, {
@@ -214,6 +220,45 @@ export function installSceneHomeEntryModule(target: any): void {
             this.requireSceneSpriteFrame(iconNode, 'CollectionBtn/CollectionIcon');
 
             ensureHomeIconIdleWiggle(iconNode);
+        },
+
+        drawGameCircleButton(parent: Node) {
+            const btn = this.requireUiChild(parent, GAME_CIRCLE_BUTTON_NAME, 'EntryLayer/GameCircleBtn');
+            btn.active = true;
+            const iconNode = this.requireUiChild(btn, GAME_CIRCLE_ICON_NAME, 'GameCircleBtn/GameCircleIcon');
+            this.requireSceneSpriteFrame(iconNode, 'GameCircleBtn/GameCircleIcon');
+            ensureHomeIconIdleWiggle(iconNode);
+
+            btn.targetOff(this);
+            btn.getComponent(Button) || btn.addComponent(Button);
+            btn.on(Button.EventType.CLICK, () => {
+                AudioMgr.inst.play('uiPanel');
+                void this.openGameCircle();
+            }, this);
+        },
+
+        openGameCircle(): void {
+            ensureGameCirclePanelController(this).open();
+        },
+
+        async enterGameCircle(): Promise<void> {
+            if (this._gameCircleOpening) {
+                this.showToast?.('游戏圈打开中', 1.2);
+                return;
+            }
+            this._gameCircleOpening = true;
+            try {
+                const result = await openWeChatGameCircle(GAME_CIRCLE_OPENLINK);
+                if (!result.ok) {
+                    console.warn('[GameCircle] open failed:', result.rawError || result.message || result.errorCode);
+                    this.showToast?.(result.message || '游戏圈打开失败，请稍后重试', 1.8);
+                }
+            } catch (error) {
+                console.error('[GameCircle] open failed:', error);
+                this.showToast?.('游戏圈打开失败，请稍后重试', 1.8);
+            } finally {
+                this._gameCircleOpening = false;
+            }
         },
 
         loadLevel(levelId: number, prefix: string = 'level_', _mapMainLevel: boolean = true) {

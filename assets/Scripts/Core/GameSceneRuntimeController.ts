@@ -219,6 +219,8 @@ export class GameSceneRuntimeController {
         void UserStateSyncMgr.inst.flushPendingSave();
         this.runtime.unscheduleAllCallbacks();
         this.runtime.stopPulseTweens();
+        this.runtime.clearBeanSettleMatchFx?.();
+        this.runtime.clearPatternCompleteMatchFx?.();
         this.runtime.clearIdleHint();
         this.runtime.clearSelectionOverlay();
         this.runtime.clearDragNodes();
