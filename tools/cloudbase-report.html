@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>拼豆豆 - 数据日报看板</title>
+<link rel="icon" href="data:,">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -57,7 +58,8 @@ body {
 }
 .hero-controls input,
 .hero-controls select,
-.hero-controls button {
+.hero-controls button,
+.hero-controls a {
     height: 38px;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,.25);
@@ -66,8 +68,14 @@ body {
     color: #fff;
     font-size: 14px;
 }
+.hero-controls a {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
 .hero-controls select option { color: #2a251f; }
-.hero-controls button {
+.hero-controls button,
+.hero-controls a {
     cursor: pointer;
     background: linear-gradient(135deg, #f5be62, #eb9e36);
     border: none;
@@ -75,7 +83,8 @@ body {
     font-weight: 700;
     box-shadow: inset 0 -1px 0 rgba(0,0,0,.15);
 }
-.hero-controls button.secondary {
+.hero-controls button.secondary,
+.hero-controls a.secondary {
     background: rgba(255,255,255,.18);
     color: #fff;
     border: 1px solid rgba(255,255,255,.24);
@@ -211,6 +220,19 @@ body {
     border: 1px solid rgba(217, 205, 191, .52);
     background: #fffdfa;
 }
+.funnel-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #5f5147;
+    font-size: 13px;
+    font-weight: 600;
+}
+.funnel-controls input {
+    width: 16px;
+    height: 16px;
+}
 table {
     width: 100%;
     border-collapse: collapse;
@@ -261,6 +283,33 @@ th[aria-sort="descending"] .sort-indicator::before {
     content: "↓";
 }
 td strong { color: #31486e; }
+.latency-row {
+    display: none;
+}
+.latency-row td {
+    background: #fbf3e3;
+    color: #67584a;
+    font-size: 12px;
+}
+.funnel-table.show-latency .latency-row {
+    display: table-row;
+}
+.latency-note {
+    color: #a15c3d;
+    font-weight: 700;
+}
+.tap-type-cell {
+    display: grid;
+    gap: 4px;
+    min-width: 220px;
+    max-width: 360px;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.tap-type-cell span {
+    color: #5f5147;
+}
 .empty, .loading, .error {
     padding: 34px 20px;
     text-align: center;
@@ -298,6 +347,16 @@ td strong { color: #31486e; }
     font-size: 13px;
     color: #5f4b2d;
     line-height: 1.65;
+}
+.model-note {
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #f7f0df;
+    border: 1px solid rgba(220, 187, 122, .36);
+    color: #67583c;
+    font-size: 13px;
+    line-height: 1.6;
 }
 .insight-grid {
     display: grid;
@@ -411,13 +470,14 @@ td strong { color: #31486e; }
         <div class="hero-top">
             <div class="hero-title">
                 <h1>拼豆豆数据日报看板</h1>
-                <p>把完整日报 `dailyDiagnosis` 展成会议可读看板，统一查看核心指标、首关/教程漏斗、前20关、主线卡点、高重试关卡、广告表现和数据质量。</p>
+                <p>把完整日报 `dailyDiagnosis` 展成会议可读看板，统一查看核心指标、首关/教程漏斗、前20关、关卡净价值、主线卡点、广告表现和数据质量。</p>
             </div>
             <div class="hero-controls">
                 <select id="dateSelect"></select>
                 <input id="dateInput" type="date">
                 <button id="loadBtn" type="button">加载日报</button>
                 <button id="latestBtn" class="secondary" type="button">最新一天</button>
+                <a id="retentionLink" class="secondary" href="cloudbase-retention-report.html">查看留存</a>
             </div>
         </div>
         <div class="hero-meta">
@@ -474,6 +534,12 @@ function formatSeconds(value) {
     const seconds = Number(value) || 0;
     if (seconds < 60) return `${seconds.toFixed(0)}s`;
     return `${(seconds / 60).toFixed(1)}m`;
+}
+
+function formatMilliseconds(value) {
+    const ms = Number(value);
+    if (!Number.isFinite(ms) || ms < 0) return '-';
+    return `${Math.round(ms)}ms`;
 }
 
 function getCollectionSummary(summary, name) {
@@ -760,6 +826,15 @@ function setParamDate(date) {
     }
     const next = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', next);
+    updateRetentionLink(date);
+}
+
+function updateRetentionLink(date) {
+    const link = qs('retentionLink');
+    if (!link) return;
+    link.href = date
+        ? `cloudbase-retention-report.html?date=${encodeURIComponent(date)}`
+        : 'cloudbase-retention-report.html';
 }
 
 function renderLoading(message) {
@@ -976,21 +1051,34 @@ function compareSortValues(left, right, direction) {
 function sortTableByColumn(table, columnIndex, direction) {
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
-    const sorted = rows.map((row) => {
+    const groups = [];
+    for (const row of rows) {
+        if (row.dataset.latencyRow === 'true') {
+            continue;
+        }
+        const groupedRows = [row];
+        const latencyRow = row.nextElementSibling;
+        if (latencyRow?.dataset?.latencyRow === 'true') {
+            groupedRows.push(latencyRow);
+        }
         const cell = row.children[columnIndex];
-        return {
+        groups.push({
             row,
+            groupedRows,
             value: parseSortValue(cell?.innerText || cell?.textContent || ''),
             originalIndex: Number(row.dataset.sortOriginalIndex) || 0,
-        };
-    }).sort((left, right) => {
+        });
+    }
+    const sorted = groups.sort((left, right) => {
         const result = compareSortValues(left.value, right.value, direction);
         if (result !== 0) return result;
         return left.originalIndex - right.originalIndex;
     });
 
     for (const item of sorted) {
-        tbody.appendChild(item.row);
+        for (const row of item.groupedRows) {
+            tbody.appendChild(row);
+        }
     }
 
     for (const header of table.querySelectorAll('th')) {
@@ -1010,6 +1098,14 @@ function handleSortableTableClick(event) {
     const currentSort = header.getAttribute('aria-sort');
     const nextSort = currentSort === 'ascending' ? 'descending' : 'ascending';
     sortTableByColumn(table, columnIndex, nextSort);
+}
+
+function handleFunnelLatencyToggle(event) {
+    const input = event.target.closest('.funnel-latency-checkbox');
+    if (!input) return;
+    const table = input.closest('.card-body')?.querySelector('.funnel-table');
+    if (!table) return;
+    table.classList.toggle('show-latency', input.checked);
 }
 
 function buildTrendSeries(summaries) {
@@ -1087,7 +1183,7 @@ function buildOpsInsights(summary, trendSummaries) {
     if (behavior?.lowPassLevels?.length) {
         const top = behavior.lowPassLevels[0];
         risks.push(`主线最明显卡点仍在 L${top.levelId}，UV 通过率只有 ${pctFromRatio(top.uvPassRate)}。`);
-        actions.push(`今天优先复盘 L${top.levelId} 的难度和引导。`);
+        actions.push(`今天优先复盘 L${top.levelId} 的结构、行为阻力和引导。`);
     }
     if (levelRecord?.topRetryLevels?.length) {
         const retry = levelRecord.topRetryLevels[0];
@@ -1103,19 +1199,57 @@ function buildOpsInsights(summary, trendSummaries) {
 }
 
 function renderDiagnosisFunnelTable(rows) {
-    return renderTable(
-        ['步骤', '事件', 'UV', 'UV占App启动', 'Session', 'Session占App启动', '上一步转化', 'PV/records'],
-        rows.map((row) => [
-            `<strong>${escapeHtml(row.label)}</strong>`,
-            escapeHtml(row.eventName),
-            formatNumber(row.users),
-            pctFromRatio(row.userRateFromStart),
-            formatNumber(row.sessions),
-            pctFromRatio(row.sessionRateFromStart),
-            row.sessionStepRate ? pctFromRatio(row.sessionStepRate) : '-',
-            formatNumber(row.records),
-        ]),
-    );
+    const headers = ['步骤', '事件', 'UV', 'UV占App启动', 'Session', 'Session占App启动', '上一步转化', 'PV/records'];
+    const bodyRows = rows.map((row, rowIndex) => {
+        const latency = row.latencyToNextMs;
+        const mainRow = `
+            <tr data-sort-original-index="${rowIndex}">
+                <td><strong>${escapeHtml(row.label)}</strong></td>
+                <td>${escapeHtml(row.eventName)}</td>
+                <td>${formatNumber(row.users)}</td>
+                <td>${pctFromRatio(row.userRateFromStart)}</td>
+                <td>${formatNumber(row.sessions)}</td>
+                <td>${pctFromRatio(row.sessionRateFromStart)}</td>
+                <td>${row.sessionStepRate ? pctFromRatio(row.sessionStepRate) : '-'}</td>
+                <td>${formatNumber(row.records)}</td>
+            </tr>
+        `;
+        if (!latency) {
+            return mainRow;
+        }
+        const latencyText = latency.isReliable
+            ? `样本Session ${formatNumber(latency.sampleSessions)}，P1 ${formatMilliseconds(latency.p1)}，P5 ${formatMilliseconds(latency.p5)}，P50 ${formatMilliseconds(latency.p50)}，P95 ${formatMilliseconds(latency.p95)}，P99 ${formatMilliseconds(latency.p99)}`
+            : `<span class="latency-note">事件顺序不稳定</span>，有效顺序 ${formatNumber(latency.validSessions)} / 配对 ${formatNumber(latency.pairedSessions)}，反向 ${formatNumber(latency.reversedSessions)}，本段不展示分位数`;
+        return `${mainRow}
+            <tr class="latency-row" data-latency-row="true">
+                <td colspan="${headers.length}">
+                    <strong>${escapeHtml(latency.fromLabel)} → ${escapeHtml(latency.toLabel)}</strong>
+                    ${latencyText}
+                </td>
+            </tr>
+        `;
+    }).join('');
+    return `
+        <label class="funnel-controls">
+            <input type="checkbox" class="funnel-latency-checkbox">
+            <span>显示耗时</span>
+        </label>
+        <div class="table-wrap">
+            <table class="sortable-table funnel-table">
+                <thead>
+                    <tr>${headers.map((header, index) => `
+                        <th aria-sort="none">
+                            <button class="sort-header" type="button" data-sort-index="${index}">
+                                <span>${escapeHtml(header)}</span>
+                                <span class="sort-indicator" aria-hidden="true"></span>
+                            </button>
+                        </th>
+                    `).join('')}</tr>
+                </thead>
+                <tbody>${bodyRows}</tbody>
+            </table>
+        </div>
+    `;
 }
 
 function describeTutorialTapKey(key) {
@@ -1147,16 +1281,55 @@ function describeTutorialTapKey(key) {
 function renderTutorialTapTable(rows) {
     const total = rows.reduce((sum, row) => sum + finiteNumber(row.records), 0);
     return renderTable(
-        ['类型', '含义', '点击PV', 'Session', 'UV', 'PV占比'],
+        ['类型/含义', '点击PV', 'Session', 'UV', 'PV占比'],
         rows.map((row) => [
-            `<strong>${escapeHtml(row.key)}</strong>`,
-            escapeHtml(describeTutorialTapKey(row.key)),
+            `<div class="tap-type-cell"><strong>${escapeHtml(row.key)}</strong><span>【${escapeHtml(describeTutorialTapKey(row.key))}】</span></div>`,
             formatNumber(row.records),
             formatNumber(row.sessions),
             formatNumber(row.users),
             total ? pctFromRatio(finiteNumber(row.records) / total) : '-',
         ]),
     );
+}
+
+function renderActionCell(row) {
+    return `<div class="tap-type-cell"><strong>${escapeHtml(row.key || '-')}</strong><span>【${escapeHtml(row.meaning || '-')}】</span></div>`;
+}
+
+function renderChurnCohortTable(cohort) {
+    const rows = [];
+    const pushRows = (position, items) => {
+        for (const row of (items || []).slice(0, 8)) {
+            rows.push([
+                escapeHtml(position),
+                renderActionCell(row),
+                formatNumber(row.users),
+                pctFromRatio(row.userRate),
+            ]);
+        }
+    };
+    pushRows('末次动作', cohort.lastActions);
+    pushRows('倒数第二次', cohort.previousActions);
+    pushRows('倒数第三次', cohort.thirdActions);
+    pushRows('末三步路径', cohort.lastActionPaths);
+    return renderTable(['位置', '动作/含义', 'UV', '占比'], rows);
+}
+
+function renderFirstDayChurnAnalysis(churn) {
+    const cohorts = Array.isArray(churn?.cohorts) ? churn.cohorts : [];
+    if (!cohorts.length) {
+        return '<div class="empty">暂无首日流失前行为数据。</div>';
+    }
+    return cohorts.map((cohort) => `
+        <div style="margin-bottom:18px;">
+            <div class="card-subtitle" style="margin-bottom:10px;">
+                <strong>${escapeHtml(cohort.label || cohort.key || '-')}</strong>
+                ：${escapeHtml(cohort.description || '')}
+                样本 ${formatNumber(cohort.users)} UV，行为覆盖 ${pctFromRatio(cohort.actionCoverageRate)}
+            </div>
+            ${renderChurnCohortTable(cohort)}
+        </div>
+    `).join('');
 }
 
 function renderFirst20Table(rows) {
@@ -1176,6 +1349,68 @@ function renderFirst20Table(rows) {
             escapeHtml(row.diagnosis || ''),
         ]),
     );
+}
+
+function renderLevelAdRelationshipTable(rows) {
+    return renderTable(
+        ['关卡', '进入UV', 'UV通过率', '未通过UV', '广告透出UV/PV', '广告完成UV/PV', '未过且看完广告', '未过且无广告', '纯流失率', '完成/进入', '重点'],
+        rows.map((row) => [
+            `<strong>L${escapeHtml(row.levelId)}</strong>`,
+            formatNumber(row.enterUv),
+            pctFromRatio(row.uvPassRate),
+            formatNumber(row.enterNotPassUv),
+            `${formatNumber(row.adShowUv)} / ${formatNumber(row.adShowPv)}`,
+            `${formatNumber(row.adFinishUv)} / ${formatNumber(row.adFinishPv)}`,
+            formatNumber(row.notPassWithAdFinishUv),
+            formatNumber(row.notPassWithoutAdFinishUv),
+            pctFromRatio(row.pureLossRate),
+            pctFromRatio(row.adFinishPerEnterRate),
+            row.focus ? '<strong>重点</strong>' : '',
+        ]),
+    );
+}
+
+function renderLevelNetValueTable(model) {
+    const rows = Array.isArray(model?.rows) ? model.rows : [];
+    const note = [
+        `时长基线：${model?.durationBaselineSource || 'level_record.avgDurationSeconds'}`,
+        `净时长估算：基线时长 - 广告完成PV/局数 * ${formatNumber(model?.adSecondsAssumption || 30)}s；这是 proxy，不是真实无广告时长。`,
+        '下关进入率用于评分时按 100% 封顶，原始值保留在 nextLevelEnterRateRaw。',
+        '结构难度来自关卡 JSON；行为阻力来自通过率目标区间，二者不能混读。',
+    ].join('；');
+    const structureText = (row) => {
+        const structure = row.levelStructure || {};
+        if (!structure.available) return '-';
+        return `${formatNumber(structure.filledCellCount)}格/${formatNumber(structure.colorCount)}色`;
+    };
+    return `
+        <div class="model-note">${escapeHtml(note)}</div>
+        ${renderTable(
+            ['关卡', '进入UV', '样本', '结构难度', '结构规模', '行为阻力', '教程', '通过率', '下关进入', '观测时长', '净时长估算', '时长压力', '体验分', '收入代理', '广告摩擦', '净价值', '广告完成/进入', '纯流失', '广告位', '动作'],
+            rows.map((row) => [
+                `<strong>L${escapeHtml(row.levelId)}</strong>`,
+                formatNumber(row.enterUv),
+                escapeHtml(row.sampleQuality || ''),
+                escapeHtml(row.structuralDifficultyTag || ''),
+                escapeHtml(structureText(row)),
+                escapeHtml(row.behaviorFrictionTag || ''),
+                escapeHtml(row.tutorialTag || ''),
+                pctFromRatio(row.uvPassRate),
+                pctFromRatio(row.nextLevelEnterRate),
+                formatSeconds(row.observedDurationSeconds),
+                formatSeconds(row.adAdjustedDurationSeconds),
+                escapeHtml(row.durationTag || ''),
+                formatNumber(row.userExperienceScore),
+                formatNumber(row.revenueScore),
+                formatNumber(row.adFrictionScore),
+                formatNumber(row.levelNetScore),
+                pctFromRatio(row.adFinishUvRate),
+                pctFromRatio(row.pureLossRate),
+                escapeHtml(getAdDisplayLabel({ page: row.topAdPlacement, label: row.topAdPlacement })),
+                escapeHtml(row.actionTag || ''),
+            ]),
+        )}
+    `;
 }
 
 function renderMainlineTable(rows) {
@@ -1269,6 +1504,10 @@ function renderContent(summary, trendSummaries) {
     const tutorialTapBreakdown = Array.isArray(diagnosis?.tutorialTapBreakdown) ? diagnosis.tutorialTapBreakdown : [];
     const tutorialTapByStep = Array.isArray(diagnosis?.tutorialTapByStep) ? diagnosis.tutorialTapByStep : [];
     const first20Levels = Array.isArray(diagnosis?.first20Levels) ? diagnosis.first20Levels : [];
+    const firstDayChurnAnalysis = diagnosis?.firstDayChurnAnalysis || null;
+    const levelNetValue = diagnosis?.levelNetValue || null;
+    const levelNetRows = Array.isArray(levelNetValue?.rows) ? levelNetValue.rows : [];
+    const levelAdRelationship = Array.isArray(diagnosis?.levelAdRelationship) ? diagnosis.levelAdRelationship : [];
     const mainlineRows = Array.isArray(diagnosis?.mainlineBottlenecks) ? diagnosis.mainlineBottlenecks : (behavior?.lowPassLevels || []);
     const highRetryRows = Array.isArray(diagnosis?.highRetryLevels) ? diagnosis.highRetryLevels : (levelRecord?.topRetryLevels || []);
     const uiReady = funnelRows.find((row) => row.eventName === 'first_level_ui_ready');
@@ -1418,6 +1657,36 @@ function renderContent(summary, trendSummaries) {
             </div>
         </section>
 
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">首日流失前行为</div>
+                <div class="card-subtitle">看流失用户的末次、倒数第二次、倒数第三次动作，以及末三步路径；默认先看 L1 未通过用户，若已有下一天日报，也展示 T+1 未回访用户。</div>
+            </div>
+            <div class="card-body">
+                ${renderFirstDayChurnAnalysis(firstDayChurnAnalysis)}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">关卡净价值表</div>
+                <div class="card-subtitle">把结构难度、行为阻力、时长、下关流转、广告完成和广告摩擦合成解释型评分；不要把低通过率直接读成关卡本体很难。</div>
+            </div>
+            <div class="card-body">
+                ${levelNetRows.length ? renderLevelNetValueTable(levelNetValue) : '<div class="empty">这份日报没有关卡净价值模型数据。</div>'}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">关卡广告透出/收益关系</div>
+                <div class="card-subtitle">所有关卡按 user_behavior.levelId 归因；重点看 L4/L12/L13 的“未过且无广告完成”是否是纯流失。</div>
+            </div>
+            <div class="card-body">
+                ${levelAdRelationship.length ? renderLevelAdRelationshipTable(levelAdRelationship) : '<div class="empty">这份日报没有关卡广告关系数据。</div>'}
+            </div>
+        </section>
+
         <section class="card span-6">
             <div class="card-header">
                 <div class="card-title">主线卡点表</div>
@@ -1559,6 +1828,7 @@ async function loadReport(date) {
 
 function bindEvents() {
     qs('content').addEventListener('click', handleSortableTableClick);
+    qs('content').addEventListener('change', handleFunnelLatencyToggle);
 
     qs('loadBtn').addEventListener('click', () => {
         const selectValue = qs('dateSelect').value;
@@ -1577,6 +1847,11 @@ function bindEvents() {
         if (value) {
             qs('dateInput').value = value;
         }
+        updateRetentionLink(value);
+    });
+
+    qs('dateInput').addEventListener('change', (event) => {
+        updateRetentionLink(event.target.value || qs('dateSelect').value);
     });
 }
 

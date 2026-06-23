@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拼豆豆 - 留存报表</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #2a251f;
+    background: linear-gradient(180deg, #fbf5ea 0%, #f3ecdf 100%);
+}
+.page { width: min(1380px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 44px; }
+.hero {
+    background: linear-gradient(135deg, #385b88, #254365);
+    color: #fff;
+    border-radius: 22px;
+    padding: 24px 28px;
+    box-shadow: 0 18px 42px rgba(39, 58, 88, .22);
+}
+.hero-top { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+h1 { font-size: 28px; margin-bottom: 8px; }
+.hero p { max-width: 780px; font-size: 14px; line-height: 1.7; opacity: .9; }
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+select, button, .nav-link {
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 0 12px;
+    font-size: 14px;
+}
+button { cursor: pointer; background: #f3bd64; color: #34230c; font-weight: 700; border: 0; }
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255,255,255,.16);
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+}
+.meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.pill { border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.14); border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+.grid { margin-top: 20px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.card {
+    grid-column: span 12;
+    background: rgba(255,255,255,.9);
+    border: 1px solid rgba(191, 174, 152, .24);
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(93, 74, 48, .08);
+    overflow: hidden;
+}
+.card-header { padding: 18px 20px 12px; border-bottom: 1px solid rgba(218, 206, 191, .5); }
+.card-title { font-size: 18px; font-weight: 800; }
+.card-subtitle { margin-top: 6px; color: #7f7367; font-size: 12px; line-height: 1.6; }
+.card-body { padding: 18px 20px 20px; }
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.metric {
+    border: 1px solid rgba(214, 196, 176, .45);
+    border-radius: 14px;
+    padding: 14px;
+    background: #fbf7ef;
+}
+.metric-label { color: #7d746b; font-size: 12px; margin-bottom: 8px; }
+.metric-value { color: #2e3f66; font-size: 28px; font-weight: 850; line-height: 1; }
+.metric-note { color: #8e857a; font-size: 12px; margin-top: 8px; }
+.table-wrap { overflow-x: auto; border: 1px solid rgba(217, 205, 191, .55); border-radius: 14px; background: #fffdfa; }
+table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+th, td { padding: 12px 14px; border-bottom: 1px solid rgba(226, 216, 204, .75); text-align: left; font-size: 13px; vertical-align: top; }
+th { background: #f5efe6; color: #695b4f; }
+td strong { color: #31486e; }
+.ret-cell { display: grid; gap: 3px; line-height: 1.35; }
+.ret-cell span { color: #766a5f; font-size: 12px; }
+.empty, .error, .loading { padding: 34px 20px; text-align: center; color: #8e8377; line-height: 1.8; }
+.error { color: #b14f47; }
+.warn { color: #9c5d22; }
+@media (max-width: 860px) {
+    .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+<div class="page">
+    <section class="hero">
+        <div class="hero-top">
+            <div>
+                <h1>拼豆豆留存报表</h1>
+                <p>按 T 日活跃用户建 cohort，拆分新用户、老用户和有效用户，展示 T+1 到 T+7 的人数、T+N/T、T+N/T+1。</p>
+            </div>
+            <div class="controls">
+                <select id="dateSelect"></select>
+                <button id="loadBtn">加载</button>
+                <a id="dailyLink" class="nav-link" href="cloudbase-report.html">查看日报</a>
+            </div>
+        </div>
+        <div class="meta">
+            <div class="pill" id="dateRange">日期：-</div>
+            <div class="pill" id="historyFrom">历史起点：-</div>
+            <div class="pill" id="maxOffset">窗口：T+7</div>
+        </div>
+    </section>
+    <main id="content" class="grid">
+        <section class="card"><div class="loading">正在加载留存报表...</div></section>
+    </main>
+</div>
+<script>
+const REPORT_ROOT = '../artifacts/cloudbase-retention-report';
+const state = { index: null, currentDate: '' };
+
+function qs(id) { return document.getElementById(id); }
+function escapeHtml(value) {
+    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function formatNumber(value) { return value == null ? '-' : new Intl.NumberFormat('zh-CN').format(Number(value) || 0); }
+function pct(value) { return value == null ? '-' : `${(Number(value) * 100).toFixed(1)}%`; }
+function getParamDate() { return new URLSearchParams(location.search).get('date') || ''; }
+function setParamDate(date) {
+    const params = new URLSearchParams(location.search);
+    if (date) params.set('date', date);
+    history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+    updateDailyLink(date);
+}
+function updateDailyLink(date) {
+    const link = qs('dailyLink');
+    if (!link) return;
+    link.href = date ? `cloudbase-report.html?date=${encodeURIComponent(date)}` : 'cloudbase-report.html';
+}
+async function fetchJson(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`${url} HTTP ${res.status}`);
+    return res.json();
+}
+function renderError(message) {
+    qs('content').innerHTML = `<section class="card"><div class="error">${escapeHtml(message)}</div></section>`;
+}
+function renderMetric(label, value, note) {
+    return `<div class="metric"><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div><div class="metric-note">${escapeHtml(note || '')}</div></div>`;
+}
+function retentionCell(row, offset) {
+    const item = row.retainedByOffset.find((entry) => entry.offset === offset);
+    if (!item || item.retainedUsers == null) return '<div class="ret-cell">-<span>数据未生成</span></div>';
+    const t1Text = item.retainedFromT1Users == null
+        ? `T+1 cohort: ${pct(item.rateFromT1)}`
+        : `T+1 cohort: ${formatNumber(item.retainedFromT1Users)} / ${pct(item.rateFromT1)}`;
+    return `<div class="ret-cell"><strong>${formatNumber(item.retainedUsers)}</strong><span>T: ${pct(item.rateFromT)}</span><span>${t1Text}</span></div>`;
+}
+function renderCohortTable(title, subtitle, cohorts) {
+    const order = [
+        ['all', '全部'],
+        ['new', '新用户'],
+        ['old', '老用户'],
+        ['unknown', '未知'],
+    ];
+    const headers = ['分组', 'T用户', ...Array.from({ length: 7 }, (_, index) => `T+${index + 1}`)];
+    const rows = order.map(([key, label]) => {
+        const row = cohorts[key];
+        return `<tr><td><strong>${label}</strong></td><td>${formatNumber(row?.baseUsers)}</td>${Array.from({ length: 7 }, (_, index) => `<td>${row ? retentionCell(row, index + 1) : '-'}</td>`).join('')}</tr>`;
+    }).join('');
+    return `
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title">${escapeHtml(title)}</div>
+                <div class="card-subtitle">${escapeHtml(subtitle)}</div>
+            </div>
+            <div class="card-body">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    `;
+}
+function renderQuality(report) {
+    const q = report.dataQuality || {};
+    const missingHistory = Array.isArray(q.missingHistoryDates) ? q.missingHistoryDates : [];
+    const missingRetention = Array.isArray(q.missingRetentionDates) ? q.missingRetentionDates : [];
+    const missing = Array.isArray(q.missingDailyReportDates) ? q.missingDailyReportDates : [];
+    const missingText = (items) => items.length ? items.map(escapeHtml).join('、') : '无';
+    return `
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title">数据质量</div>
+                <div class="card-subtitle">新老用户来自 user_profile.firstLoginTime；有效用户来自历史 user_behavior level_pass L1。</div>
+            </div>
+            <div class="card-body">
+                <p>活跃用户 ${formatNumber(q.baseActiveUsers)}，已知历史有效用户 ${formatNumber(q.effectivePassUsersKnownUntilDate)}，已加载 profile ${formatNumber(q.profileUsersLoaded)}，未知 profile 用户 ${formatNumber(q.unknownProfileUsers)}。</p>
+                ${missing.length ? `<p class="warn">历史缺失：${missingText(missingHistory)}；留存窗口缺失：${missingText(missingRetention)}。</p>` : '<p>本日期所需日报完整。</p>'}
+            </div>
+        </section>
+    `;
+}
+function renderReport(report) {
+    qs('dateRange').textContent = `日期：${report.date}`;
+    qs('historyFrom').textContent = `历史起点：${report.historyFrom}`;
+    qs('maxOffset').textContent = `窗口：T+${report.maxOffset}`;
+    const all = report.allUsers || {};
+    const effective = report.effectiveUsers || {};
+    qs('content').innerHTML = `
+        <section class="card">
+            <div class="card-body metric-grid">
+                ${renderMetric('T日全部活跃', formatNumber(all.all?.baseUsers), 'user_behavior openid')}
+                ${renderMetric('T日新用户', formatNumber(all.new?.baseUsers), 'firstLoginTime = T')}
+                ${renderMetric('T日老用户', formatNumber(all.old?.baseUsers), 'firstLoginTime < T')}
+                ${renderMetric('T日有效用户', formatNumber(effective.all?.baseUsers), '历史已通过L1')}
+            </div>
+        </section>
+        ${renderCohortTable('所有用户留存', '每格第一行是 T cohort 在该日回访人数；T 是该人数/T；T+1 cohort 是 T+1 回访用户中该日仍回访的人数/比例。', all)}
+        ${renderCohortTable('有效用户留存', '有效用户：T 日活跃，且 T 日或过往通过过 L1；T+1 cohort 仍按 T+1 回访用户继续留存计算。', effective)}
+        ${renderQuality(report)}
+    `;
+}
+async function loadDate(date) {
+    if (!date) return;
+    state.currentDate = date;
+    qs('dateSelect').value = date;
+    setParamDate(date);
+    qs('content').innerHTML = '<section class="card"><div class="loading">正在加载...</div></section>';
+    const report = await fetchJson(`${REPORT_ROOT}/${date}/retention_summary.json`);
+    renderReport(report);
+}
+async function init() {
+    try {
+        state.index = await fetchJson(`${REPORT_ROOT}/index.json`);
+        const dates = state.index.dates || [];
+        qs('dateSelect').innerHTML = dates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(date)}</option>`).join('');
+        qs('loadBtn').addEventListener('click', () => loadDate(qs('dateSelect').value).catch((error) => renderError(error.message)));
+        qs('dateSelect').addEventListener('change', (event) => updateDailyLink(event.target.value));
+        const initialDate = getParamDate() || dates[dates.length - 1] || '';
+        await loadDate(initialDate);
+    } catch (error) {
+        renderError(`没找到留存报表。请先执行 npm run analytics:retention -- --date-from 2026-06-15 --date-to 2026-06-22。${error.message}`);
+    }
+}
+init();
+</script>
+</body>
+</html>

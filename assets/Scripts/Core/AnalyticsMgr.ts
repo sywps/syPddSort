@@ -102,7 +102,6 @@ export class AnalyticsMgr {
     private funnelInFlight = false;
     private funnelUploadDisabled = false;
     private funnelUploadDisableWarned = false;
-    private firstLevelAliveTimers: any[] = [];
 
     private constructor() {
         this.openid = this.readCachedOpenid();
@@ -249,7 +248,6 @@ export class AnalyticsMgr {
     }
 
     markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'page' | 'source'>>): void {
-        this.clearFirstLevelAliveTimers();
         this.firstLevelReadyTime = Date.now();
         this.trackFunnelEvent({
             eventName: 'first_level_ui_ready',
@@ -259,19 +257,6 @@ export class AnalyticsMgr {
             physicalLevelId: context?.physicalLevelId,
             source: context?.source || 'initGame',
         });
-        for (const ms of [1000, 2000, 3000, 5000, 10000, 20000, 30000, 60000]) {
-            const timer = setTimeout(() => {
-                this.trackFunnelEvent({
-                    eventName: `alive_${Math.floor(ms / 1000)}s_after_ui_ready`,
-                    page: context?.page || 'game',
-                    levelId: context?.levelId,
-                    logicalLevelId: context?.logicalLevelId,
-                    physicalLevelId: context?.physicalLevelId,
-                    source: 'level_ready_alive',
-                });
-            }, ms);
-            this.firstLevelAliveTimers.push(timer);
-        }
     }
 
     flushFunnelEvents(): void {
@@ -572,7 +557,6 @@ export class AnalyticsMgr {
             return;
         }
         this.exitReported = true;
-        this.clearFirstLevelAliveTimers();
         this.abandonActiveLevel();
         this.trackFunnelEvent({
             eventName: 'app_hide',
@@ -607,13 +591,6 @@ export class AnalyticsMgr {
             this.funnelFlushTimer = null;
             this.flushFunnelEvents();
         }, 1200);
-    }
-
-    private clearFirstLevelAliveTimers(): void {
-        for (const timer of this.firstLevelAliveTimers) {
-            clearTimeout(timer);
-        }
-        this.firstLevelAliveTimers = [];
     }
 
     private createSessionId(): string {
