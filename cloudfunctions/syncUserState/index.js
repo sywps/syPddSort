@@ -154,7 +154,8 @@ function buildBaseProfile(openid, timestamp) {
     createTime: timestamp,
     gold: 0,
     expandSlotCount: 0,
-    magicWandCount: NEW_USER_STARTER_PROP_COUNT,
+    magicWandCount: 0,
+    freezeCount: NEW_USER_STARTER_PROP_COUNT,
     brushCount: NEW_USER_STARTER_PROP_COUNT,
     magnetCount: NEW_USER_STARTER_PROP_COUNT,
     addTimeCount: 0,
@@ -195,7 +196,12 @@ function extractGameState(doc) {
   if (typeof doc?.vigorTime === 'number') state.vigorTime = normalizeNonNegativeInt(doc.vigorTime, 0);
   if (typeof doc?.gold === 'number') state.gold = normalizeNonNegativeInt(doc.gold, 0);
   if (typeof doc?.expandSlotCount === 'number') state.expandSlotCount = normalizeNonNegativeInt(doc.expandSlotCount, 0);
-  if (typeof doc?.magicWandCount === 'number') state.magicWandCount = normalizeNonNegativeInt(doc.magicWandCount, 0);
+  if (typeof doc?.magicWandCount === 'number') {
+    const legacyMagicWandCount = normalizeNonNegativeInt(doc.magicWandCount, 0);
+    state.magicWandCount = legacyMagicWandCount;
+    if (typeof doc?.freezeCount !== 'number') state.freezeCount = legacyMagicWandCount;
+  }
+  if (typeof doc?.freezeCount === 'number') state.freezeCount = normalizeNonNegativeInt(doc.freezeCount, 0);
   if (typeof doc?.brushCount === 'number') state.brushCount = normalizeNonNegativeInt(doc.brushCount, 0);
   if (typeof doc?.magnetCount === 'number') state.magnetCount = normalizeNonNegativeInt(doc.magnetCount, 0);
   if (typeof doc?.dailySignInClaimedCount === 'number') state.dailySignInClaimedCount = normalizeNonNegativeInt(doc.dailySignInClaimedCount, 0);
@@ -271,6 +277,12 @@ function buildGameStatePatch(source = {}, current = {}) {
   const sourceExpandSlotCount = normalizeNonNegativeInt(source.expandSlotCount, currentExpandSlotCount);
   const currentMagicWandCount = normalizeNonNegativeInt(current.magicWandCount, 0);
   const sourceMagicWandCount = normalizeNonNegativeInt(source.magicWandCount, currentMagicWandCount);
+  const currentFreezeCount = hasOwn(current, 'freezeCount')
+    ? normalizeNonNegativeInt(current.freezeCount, 0)
+    : currentMagicWandCount;
+  const sourceFreezeCount = hasOwn(source, 'freezeCount')
+    ? normalizeNonNegativeInt(source.freezeCount, currentFreezeCount)
+    : sourceMagicWandCount;
   const currentBrushCount = normalizeNonNegativeInt(current.brushCount, 0);
   const sourceBrushCount = normalizeNonNegativeInt(source.brushCount, currentBrushCount);
   const currentMagnetCount = normalizeNonNegativeInt(current.magnetCount, 0);
@@ -329,6 +341,7 @@ function buildGameStatePatch(source = {}, current = {}) {
     gold: shouldPreserveCurrentVolatileState ? currentGold : sourceGold,
     expandSlotCount: shouldPreserveCurrentVolatileState ? currentExpandSlotCount : sourceExpandSlotCount,
     magicWandCount: shouldPreserveCurrentVolatileState ? currentMagicWandCount : sourceMagicWandCount,
+    freezeCount: shouldPreserveCurrentVolatileState ? currentFreezeCount : sourceFreezeCount,
     brushCount: shouldPreserveCurrentVolatileState ? currentBrushCount : sourceBrushCount,
     magnetCount: shouldPreserveCurrentVolatileState ? currentMagnetCount : sourceMagnetCount,
     dailySignInClaimedCount: shouldPreserveCurrentVolatileState ? currentDailySignInClaimedCount : sourceDailySignInClaimedCount,

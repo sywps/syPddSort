@@ -771,7 +771,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 return;
             }
         
-            const SKILL_FLY_DUR = 0.04;
+            const SKILL_FLY_DUR = 0.12;
             const SKILL_STEP_GAP = 0.005;
             const SKILL_OVERLAP = 0.01;
         

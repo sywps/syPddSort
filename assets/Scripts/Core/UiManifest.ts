@@ -37,6 +37,7 @@ export const GOLD_SHOP_TEXTURE_NAMES = [
     '金币',
     'popup_vigor_icon',
     'popup_tool_wand_icon',
+    'popup_tool_freeze_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
 ];
@@ -45,6 +46,7 @@ export const RESOURCE_ACQUIRE_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     '金币',
     'popup_tool_wand_icon',
+    'popup_tool_freeze_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
     'popup_ad_play_icon',
@@ -60,6 +62,7 @@ export const REWARD_RESULT_TEXTURE_NAMES = [
     '金币',
     'popup_vigor_icon',
     'popup_tool_wand_icon',
+    'popup_tool_freeze_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
 ];
@@ -77,6 +80,7 @@ export const DAILY_SIGNIN_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     '金币',
     'popup_tool_wand_icon',
+    'popup_tool_freeze_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
 ];
@@ -117,6 +121,7 @@ export const GAMEPLAY_SLOT_TEXTURE_NAMES = [
 export const SKILL_BUTTON_TEXTURE_NAMES = [
     'popup_gameplay_tool_slot_plate',
     'popup_tool_wand_icon',
+    'popup_tool_freeze_icon',
     'popup_tool_brush_icon',
     'popup_tool_magnet_icon',
     'popup_ad_play_icon',
@@ -137,5 +142,4 @@ export const GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = [];
 export const GAME_ASSETS_TEXTURE_SEARCH_DIRS = [
     'Textures/UI',
     'Textures/BG',
-    'Textures/Pindd/UI',
 ];

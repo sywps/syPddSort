@@ -3514,5 +3514,260 @@
       }
     },
     "importedAt": "2026-06-15T20:37:21"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_019.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_019.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 407,
+        "targetPath": "assets/LevelData/level_407.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "5dda8865e28de7e5cdaf32f8d846f449f2f0ba97e1efb60d4c6f514528653d23"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_025.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_025.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 408,
+        "targetPath": "assets/LevelData/level_408.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "f95bebcc5d506ca0c4aff95ff7e114b9884bb58d33890cdcd00f9bb22debf3fa"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_026.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_026.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 409,
+        "targetPath": "assets/LevelData/level_409.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "59a793f1ae543a1b6230ceff2a7358ab21e82ee764fddffac94781b740f320b6"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_027.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_027.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 410,
+        "targetPath": "assets/LevelData/level_410.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "74c42a129a2cc1f013cea9498c1552f0ce09a30c97737df7570ca887d45d1cfd"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_028.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_028.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 411,
+        "targetPath": "assets/LevelData/level_411.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "e9aa4868b052bdfaea047465ca33fd9f4187281bde1fdf25665b52ba78775c26"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_029.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_029.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 412,
+        "targetPath": "assets/LevelData/level_412.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "7e06c0ccd8b5246a18ff1bea9ed6035d4335004fb9575c10050a6d47db0f151d"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_030.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_030.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 413,
+        "targetPath": "assets/LevelData/level_413.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "e7edf2e2d521cfbf24727d3261ca4e70daa8bc0c856ef02442b1f42fcdfbe40f"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_032.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_032.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 414,
+        "targetPath": "assets/LevelData/level_414.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "fdc23f28f229fb438934e63e57464035e57949097c8daa483f8db1773962114f"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_033.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_033.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 415,
+        "targetPath": "assets/LevelData/level_415.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "92cb331a6a733c57fd08c9238354c7133e15adcd4de2605df5ec74dbe7a99e10"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_034.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_034.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 416,
+        "targetPath": "assets/LevelData/level_416.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "8790b844405e586c063cfeca569bc05396ed32de16c630436b7129f976227a9a"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_035.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_035.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 417,
+        "targetPath": "assets/LevelData/level_417.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "cb5d2e8cbdd1b822d452efebebd2e34747a9c8f5fa7ccba727b2a9f4249337f3"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_040.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_040.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 418,
+        "targetPath": "assets/LevelData/level_418.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "bd0adb4b30e6b1428f9c5ae5d41b3ad750a91893a5efbd47d9100feb60059c0c"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_041.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_041.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 419,
+        "targetPath": "assets/LevelData/level_419.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "cf631e05b6fb55f3ca550e24845555e04f6c19588c05f0820f913dde95cea845"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_049.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_049.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 420,
+        "targetPath": "assets/LevelData/level_420.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "668da5724680a7cdb2015c6c96b34cebf8c650551a0af3b1a544f8a3b3608540"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_050.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_050.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 421,
+        "targetPath": "assets/LevelData/level_421.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "590d59a04b25e0f6e190d80ad9be344c60a10eb17f31226a2e4e0fdb9f9cf300"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_052.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_052.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 422,
+        "targetPath": "assets/LevelData/level_422.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "76d712b6934879966336fe43fab823b3316a49f252c3c79e5d8a097e59e0e75b"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
+  },
+  "tools/competitors/拼豆天才/levels/main/lv_175.json": {
+    "sourcePath": "tools/competitors/拼豆天才/levels/main/lv_175.json",
+    "targets": {
+      "online": {
+        "targetLevelId": 423,
+        "targetPath": "assets/LevelData/level_423.json",
+        "targetType": "online",
+        "importedAt": "2026-06-24T13:38:53",
+        "fingerprintVersion": 1,
+        "contentFingerprint": "f7c487d9e5552f1de676df4714ec1c37d4a901fe76e4830d3b819e9fd56358f4"
+      }
+    },
+    "updatedAt": "2026-06-24T13:38:53",
+    "importedAt": "2026-06-24T13:38:53"
   }
 }

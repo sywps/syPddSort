@@ -12,6 +12,7 @@ const ASSET_FIELDS = [
   'gold',
   'expandSlotCount',
   'magicWandCount',
+  'freezeCount',
   'brushCount',
   'magnetCount',
   'addTimeCount',
@@ -31,10 +32,15 @@ function normalizeInt(value) {
 }
 
 function buildInventoryFields(source = {}) {
+  const magicWandCount = normalizeNonNegativeInt(source.magicWandCount);
+  const freezeCount = Object.prototype.hasOwnProperty.call(source, 'freezeCount')
+    ? normalizeNonNegativeInt(source.freezeCount)
+    : magicWandCount;
   return {
     gold: normalizeNonNegativeInt(source.gold),
     expandSlotCount: normalizeNonNegativeInt(source.expandSlotCount),
-    magicWandCount: normalizeNonNegativeInt(source.magicWandCount),
+    magicWandCount,
+    freezeCount,
     brushCount: normalizeNonNegativeInt(source.brushCount),
     magnetCount: normalizeNonNegativeInt(source.magnetCount),
     addTimeCount: normalizeNonNegativeInt(source.addTimeCount),
@@ -71,7 +77,8 @@ function buildBaseProfile(openid, timestamp) {
     createTime: timestamp,
     gold: 0,
     expandSlotCount: 0,
-    magicWandCount: NEW_USER_STARTER_PROP_COUNT,
+    magicWandCount: 0,
+    freezeCount: NEW_USER_STARTER_PROP_COUNT,
     brushCount: NEW_USER_STARTER_PROP_COUNT,
     magnetCount: NEW_USER_STARTER_PROP_COUNT,
     addTimeCount: 0,

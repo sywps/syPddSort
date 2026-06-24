@@ -37,28 +37,6 @@ import { runtimeLog } from '../RuntimeLog';
 
 export function installGameplayLevelFlowModule(target: any): void {
     Object.assign(target, {
-        scheduleGameAssetsEffectsWarmup(bundle: Bundle, delaySec: number = 1.5) {
-            if (!GAME_ASSETS_EFFECTS_IDLE_WARMUP) return;
-            if (this._effectsAtlasReady || this._effectsAtlasLoadingCallbacks) return;
-            this.scheduleOnce(() => {
-                if (this._effectsAtlasReady || this._effectsAtlasLoadingCallbacks) return;
-                this._loadEffectsAtlasFromBundle(bundle);
-            }, delaySec);
-        },
-
-        ensureEffectsAtlasLoadedForNextUse() {
-            if (this._effectsAtlasReady || this._effectsAtlasLoadingCallbacks) return;
-            const load = (bundle: Bundle | null) => {
-                if (!bundle) return;
-                this._loadEffectsAtlasFromBundle(bundle);
-            };
-            if (this.gameAssetsBundle) {
-                load(this.gameAssetsBundle);
-                return;
-            }
-            this._withGameAssetsBundle(load);
-        },
-
         /** 等待 preloadAllAssets 完成后再加载关卡 */
         waitForGameAssetsBundleReady(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             const levelPath = this.getLevelDataPath(levelId, prefix);

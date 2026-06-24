@@ -98,6 +98,8 @@ export class GameplaySessionController {
             runtime._timerStarted = false;
             runtime._timerPauseRefs = 0;
             runtime._timerLockedForProp = false;
+            runtime._freezeTimeLeft = 0;
+            runtime._freezeTimeTotal = 0;
             runtime._adTimerSuspended = false;
             runtime._pendingWinGoldReward = 0;
             runtime._pendingWinAdBonusReward = 0;
@@ -107,6 +109,7 @@ export class GameplaySessionController {
             runtime._pendingColorCompleteEffects = new Map();
             runtime._patternCompleteWinPending = false;
             runtime.clearPatternCompleteMatchFx?.();
+            runtime.clearFreezeSpineFx?.();
             runtime._guidePulseTweens = [];
             runtime._pulseTweens = [];
             runtime.stopPulseTweens();

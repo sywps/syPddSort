@@ -31,6 +31,7 @@ export type CloudGameState = {
     gold: number;
     expandSlotCount: number;
     magicWandCount: number;
+    freezeCount: number;
     brushCount: number;
     magnetCount: number;
     dailySignInClaimedCount: number;

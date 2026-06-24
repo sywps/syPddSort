@@ -128,7 +128,7 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '图鉴面板', onClick: () => this.openPanelPreview(() => { (this as any).openCollection(); }) },
             ],
             [
-                { label: '道具-框选归位', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('wand'); }) },
+                { label: '\u9053\u5177-\u51bb\u7ed3', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('freeze'); }) },
                 { label: '道具-清空槽位', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('brush'); }) },
                 { label: '道具-消色', onClick: () => this.openPanelPreview(() => { (this as any).openToolAcquirePanel('magnet'); }) },
                 { label: '获取金币', onClick: () => this.openPanelPreview(() => { (this as any).openGoldAcquirePanel(); }) },

@@ -168,7 +168,6 @@ export function installSceneHomeEntryModule(target: any): void {
                     let ok = true;
                     const finish = () => {
                         if (!beanDone || !uiDone) return;
-                        this.scheduleGameAssetsEffectsWarmup?.(bundle);
                         onDone?.(ok);
                     };
                     this._prepareBeanFramesForLevelData(levelData, () => {
@@ -566,18 +565,6 @@ export function installSceneHomeEntryModule(target: any): void {
                 uiReady = true;
                 tryReady();
             }, { bootstrapOnly: bootstrapOnlyCriticalUi });
-            if (!bootstrapOnlyCriticalUi) {
-                this._preloadEffectsFrames();
-            }
-        },
-
-        _preloadEffectsFrames(callback?: () => void) {
-            if (this._effectsAtlasReady) {
-                if (callback) callback();
-                return;
-            }
-            this.ensureEffectsAtlasLoadedForNextUse();
-            if (callback) callback();
         },
 
         loadBootstrapOnlyMainlineLevel(
@@ -790,8 +777,6 @@ export function installSceneHomeEntryModule(target: any): void {
                     tryFinish();
                 };
                 this._loadLevelDataFromCdnOrLocal(levelId, prefix, handleLevelData);
-        
-                this.scheduleGameAssetsEffectsWarmup(bundle);
             });
         },
 
@@ -834,7 +819,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         this.scheduleOnce(() => {
                             if (!this.shouldPrewarmGameAssetsAfterBootstrap()) return;
                             if (this._preloadingBundle) return;
-                            if (this.gameAssetsBundle && this._effectsAtlasReady) return;
+                            if (this.gameAssetsBundle) return;
                             this.prewarmGameAssetsBundleAfterBootstrap();
                         }, LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY);
                     });
@@ -961,7 +946,6 @@ export function installSceneHomeEntryModule(target: any): void {
                 uiReady = true;
                 tryReady();
             });
-            this.scheduleGameAssetsEffectsWarmup(bundle);
         },
 
         _stopGameplayEntryWithFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
