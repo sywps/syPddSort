@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -30,7 +30,7 @@ import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
@@ -39,12 +39,7 @@ export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
         trackFirstLevelFunnel(eventName: string, opt: Record<string, unknown> = {}, force: boolean = false): void {
             if (!force && !this.isFirstLevelFunnelActive()) return;
-            const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
-                ? {
-                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                    abBucket: this._firstLevelRouteBucket,
-                }
-                : {};
+            const experimentPayload = AnalyticsMgr.inst.getTutorialExperimentEventContext();
             const activePhysicalLevelId = this.getActivePhysicalLevelId();
             const activeLogicalLevelId = this.getActiveLogicalLevelId?.() || activePhysicalLevelId;
             AnalyticsMgr.inst.trackFunnelEvent({
@@ -66,12 +61,7 @@ export function installFirstLevelRouteModule(target: any): void {
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             if (!force && normalizedLevelId !== 1 && normalizedLevelId !== 2) return;
-            const experimentPayload = this.shouldUseFirstLevelRouteExperiment?.()
-                ? {
-                    abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                    abBucket: this._firstLevelRouteBucket,
-                }
-                : {};
+            const experimentPayload = AnalyticsMgr.inst.getTutorialExperimentEventContext();
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
                 page: 'level_game',
@@ -111,6 +101,82 @@ export function installFirstLevelRouteModule(target: any): void {
             };
         },
 
+        buildFirstLevelTouchPositionExtra(worldPos?: Vec3): Record<string, unknown> {
+            if (!worldPos) return {};
+            const round = (value: number, digits: number = 1): number => {
+                const factor = Math.pow(10, digits);
+                return Math.round((Number(value) || 0) * factor) / factor;
+            };
+            const visible = view.getVisibleSize();
+            const uiW = Math.max(1, Number(visible.width) || 0);
+            const uiH = Math.max(1, Number(visible.height) || 0);
+            const payload: Record<string, unknown> = {
+                uiX: round(worldPos.x),
+                uiY: round(worldPos.y),
+                uiW: round(uiW),
+                uiH: round(uiH),
+                normX: round(worldPos.x / uiW, 4),
+                normY: round(worldPos.y / uiH, 4),
+            };
+
+            const boardLocal = typeof this.worldToBoardLocal === 'function'
+                ? this.worldToBoardLocal(worldPos)
+                : null;
+            if (boardLocal) {
+                payload.boardLocalX = round(boardLocal.x);
+                payload.boardLocalY = round(boardLocal.y);
+                const cell = typeof this.getBoardCellFromWorldPos === 'function'
+                    ? this.getBoardCellFromWorldPos(worldPos)
+                    : null;
+                if (cell) {
+                    payload.boardRow = cell.row;
+                    payload.boardCol = cell.col;
+                }
+                const candidates = typeof this.getBoardTapCandidates === 'function'
+                    ? this.getBoardTapCandidates(worldPos)
+                    : [];
+                const candidate = candidates?.[0];
+                if (candidate) {
+                    payload.boardHitRow = candidate.row;
+                    payload.boardHitCol = candidate.col;
+                    payload.boardHitDist = round(Math.sqrt(Math.max(0, Number(candidate.distSq) || 0)));
+                    payload.boardCenterDist = round(Math.sqrt(Math.max(0, Number(candidate.centerDistSq) || 0)));
+                    payload.boardVisualCoreHit = candidate.visualCoreHit === true;
+                }
+            }
+
+            const slotUT = this.slotAreaNode?.getComponent(UITransform) || null;
+            if (slotUT) {
+                const slotLocal = slotUT.convertToNodeSpaceAR(worldPos);
+                payload.slotLocalX = round(slotLocal.x);
+                payload.slotLocalY = round(slotLocal.y);
+                const inSlotArea = Math.abs(slotLocal.x) <= slotUT.contentSize.width / 2
+                    && Math.abs(slotLocal.y) <= slotUT.contentSize.height / 2;
+                payload.inSlotArea = inSlotArea;
+                if (Array.isArray(this.slotNodes) && this.slotNodes.length > 0) {
+                    let bestIndex = -1;
+                    let bestDistSq = Number.POSITIVE_INFINITY;
+                    for (let i = 0; i < this.slotNodes.length; i++) {
+                        const slotNode = this.slotNodes[i];
+                        if (!slotNode?.isValid) continue;
+                        const dx = slotLocal.x - slotNode.position.x;
+                        const dy = slotLocal.y - slotNode.position.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < bestDistSq) {
+                            bestDistSq = distSq;
+                            bestIndex = i;
+                        }
+                    }
+                    if (bestIndex >= 0) {
+                        payload.slotIndex = bestIndex;
+                        payload.slotDistance = round(Math.sqrt(bestDistSq));
+                    }
+                }
+            }
+
+            return payload;
+        },
+
         reportFirstLevelAnyTouch(worldPos: Vec3, inputLayer: string, source: string = 'tutorial'): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
             if (this._firstLevelAnyTouchSent) return;
@@ -120,7 +186,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 touchTarget,
                 source,
                 success: true,
-                extra: this.buildFirstLevelGuideExtra(inputLayer, 'touch_start'),
+                extra: this.buildFirstLevelGuideExtra(inputLayer, 'touch_start', this.buildFirstLevelTouchPositionExtra(worldPos)),
             });
         },
 
@@ -177,7 +243,10 @@ export function installFirstLevelRouteModule(target: any): void {
         ): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
             const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
-            const payloadExtra = this.buildFirstLevelGuideExtra(inputLayer, hitResult, extra);
+            const payloadExtra = this.buildFirstLevelGuideExtra(inputLayer, hitResult, {
+                ...this.buildFirstLevelTouchPositionExtra(worldPos),
+                ...extra,
+            });
             this.trackFirstLevelFunnel('tutorial_tap_result', {
                 stepId: this._guideStep,
                 stepName: this.getFirstLevelGuideStepKey(),
@@ -260,9 +329,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 levelPath,
                 ...extra,
             };
-            if (this.shouldUseFirstLevelRouteExperiment?.()) {
-                diagnostics.abBucket = this._firstLevelRouteBucket;
-            }
             return diagnostics;
         },
 
@@ -444,10 +510,8 @@ export function installFirstLevelRouteModule(target: any): void {
             const urlLevel = this.getUrlLevel();
             const urlLevelFile = this.getUrlLevelFile();
             const urlTheme = this.getUrlTheme();
-            const hadAnyLocalUserState = this.hasLocalUserState();
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
-            const shouldUseFirstLevelExperiment = this.shouldUseFirstLevelRouteExperiment?.() === true;
             const initialDefaultEntryLevel = this.getDefaultEntryLevel();
             const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
             const speculativeStartupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : initialDefaultEntryLevel);
@@ -458,7 +522,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 && initialDefaultEntryLevel <= 1
                 && !hadLocalUserState
                 && this.shouldUseLocalBootstrapBundle(speculativeStartupLevelId);
-            this._firstLevelRouteBucket = 'bucket_a';
             if (shouldSpeculativeFirstPlayPrefetch) {
                 this.prefetchLocalBootstrapStartupAssets(speculativeStartupLevelId);
             }
@@ -548,37 +611,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 this.scheduleOnce(onReady, 15);
             }
 
-            if (shouldUseFirstLevelExperiment) {
-                void this.startFirstLevelRouteExperimentResolve()
-                    .then((result: FirstLevelRouteResolution) => {
-                        this._firstLevelRouteBucket = result.bucket;
-                        AnalyticsMgr.inst.setExperimentContext({
-                            abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                            abBucket: this._firstLevelRouteBucket,
-                        });
-                        AnalyticsMgr.inst.trackFunnelEvent({
-                            eventName: 'ab_assigned',
-                            page: 'app',
-                            source: 'first_level_route',
-                            abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                            abBucket: this._firstLevelRouteBucket,
-                            extra: {
-                                abSource: result.source,
-                                hadLocalUserState,
-                                hadAnyLocalUserState,
-                                restoreStatus,
-                                startupLocalProgressState,
-                                savedLevel: this.getSavedLevel(),
-                            },
-                        });
-                        runtimeWarn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
-                    })
-                    .catch((err: Error) => {
-                        this._firstLevelRouteBucket = 'bucket_a';
-                        runtimeWarn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: background assignment failed, use default bucket_a`, err?.message || err);
-                    });
-            }
-        
             const canAutoSaveGameStateOnStartup =
                 restoreStatus === 'local_progress_gt_1' ||
                 restoreStatus === 'cloud_progress_gt_1' ||

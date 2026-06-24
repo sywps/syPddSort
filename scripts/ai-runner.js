@@ -7,7 +7,8 @@ const { spawnSync } = require('child_process');
 const projectDir = path.resolve(__dirname, '..');
 const personaDir = path.join(projectDir, 'tools', 'ai-runner', 'personas');
 const workerPath = path.join(projectDir, 'tools', 'ai-runner', 'browser-session.js');
-const defaultUrl = 'http://localhost:7456/';
+const defaultPreviewScene = 'db://assets/Scenes/Boot.scene';
+const defaultUrl = 'http://localhost:7456/?scene=' + encodeURIComponent(defaultPreviewScene) + '&level=1';
 
 function fail(message) {
     console.error('ERROR: ' + message);

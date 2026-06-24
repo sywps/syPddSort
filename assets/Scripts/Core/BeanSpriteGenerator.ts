@@ -2,7 +2,7 @@
  * 豆豆/凹槽精灵图生成器 — 用 Canvas2D 生成等效 pindd brick/ 精灵图
  */
 
-import { ImageAsset, Texture2D, SpriteFrame, Rect } from 'cc';
+import { ImageAsset, Texture2D, SpriteFrame, Rect, Size } from 'cc';
 import { COLOR_HEX } from './LevelConfig';
 
 const BEAN_SIZE = 84;
@@ -269,7 +269,7 @@ export function createSlotSpriteFrame(colorId: number): SpriteFrame {
     const sf = new SpriteFrame();
     sf.texture = tex;
     sf.rect = new Rect(0, 0, SLOT_SIZE, SLOT_SIZE);
-    sf.originalSize = { width: SLOT_SIZE, height: SLOT_SIZE };
+    sf.originalSize = new Size(SLOT_SIZE, SLOT_SIZE);
     return sf;
 }
 

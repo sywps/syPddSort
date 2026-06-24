@@ -23,6 +23,21 @@ export function isLocalBrowserPreview(): boolean {
     return candidates.some((value) => /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|\[?::1\]?)(?::|\/|$)/i.test(value));
 }
 
+export function isLocalBrowserCdnOptIn(): boolean {
+    if (!isLocalBrowserPreview()) return false;
+    const w: any = typeof window !== 'undefined' ? window : null;
+    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    const search = String(w?.location?.search || g?.location?.search || '');
+    if (!search) return false;
+    try {
+        const params = new URLSearchParams(search);
+        const value = String(params.get('use_cdn') || params.get('useCdn') || '').trim().toLowerCase();
+        return value === 'true' || value === '1' || value === 'yes';
+    } catch (_) {
+        return false;
+    }
+}
+
 export function isPlainBrowserRuntime(): boolean {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
     return typeof g?.fetch === 'function' && !isMiniGameRuntime();
@@ -54,9 +69,9 @@ export function getCdnUnavailableReason(baseUrl: string): string {
     const externalHttp = /^https?:\/\//i.test(baseUrl);
     const requester = getCdnPlatformRequester();
     const miniGameRuntime = isMiniGameRuntime();
-    if ((isLocalBrowserPreview() || isPlainBrowserRuntime()) && externalHttp && !miniGameRuntime) return 'local_browser_external_cdn_disabled';
+    if ((isLocalBrowserPreview() || isPlainBrowserRuntime()) && externalHttp && !miniGameRuntime && !isLocalBrowserCdnOptIn()) return 'local_browser_external_cdn_disabled';
     if (externalHttp && miniGameRuntime && typeof requester !== 'function') return 'platform_request_unavailable';
-    if (externalHttp && isBrowserBackedRequester(requester) && !miniGameRuntime) return 'browser_backed_requester';
+    if (externalHttp && isBrowserBackedRequester(requester) && !miniGameRuntime && !isLocalBrowserCdnOptIn()) return 'browser_backed_requester';
     return '';
 }
 

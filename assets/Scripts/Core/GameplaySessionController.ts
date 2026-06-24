@@ -2,7 +2,6 @@ import {
     AnalyticsMgr,
     AudioMgr,
     BoardModel,
-    FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
     LS_PINCH_GUIDE,
     SLOTS_PER_ROW,
     SlotModel,
@@ -11,6 +10,7 @@ import {
 } from './GameCtrlShared';
 import type { LevelData } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
+import { LevelDataCdnService } from './LevelDataCdnService';
 import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
 
 export class GameplaySessionController {
@@ -157,9 +157,12 @@ export class GameplaySessionController {
             runtime.resetIdleHintTimer();
             const analyticsLevelId = runtime.getAnalyticsLevelId();
             const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
+            const levelExperimentContext = LevelDataCdnService.inst.getLevelExperimentEventContext(
+                activeLogicalLevelId,
+                gameplayPrefix,
+            );
             AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
-                abId: FIRST_LEVEL_ROUTE_EXPERIMENT_ID,
-                abBucket: runtime._firstLevelRouteBucket,
+                ...(levelExperimentContext || AnalyticsMgr.inst.getTutorialExperimentEventContext()),
                 logicalLevelId: analyticsLevelId,
                 physicalLevelId: analyticsPhysicalLevelId,
             });

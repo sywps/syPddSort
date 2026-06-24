@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
@@ -265,6 +265,133 @@ export function installTutorialGuideModule(target: any): void {
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回粉色空位');
         },
 
+        shouldUseTutorialRelaxedGuide(): boolean {
+            return (this._guideMode === 'level_1' || this._guideMode === 'level_2')
+                && AnalyticsMgr.inst.isTutorialExperimentTreatment();
+        },
+
+        trySelectGuideBoardColor(colorId: number): boolean {
+            const block = this.findBlockOnBoard(colorId);
+            const targetCell = block?.cells?.[0];
+            if (!block || !targetCell) return false;
+            const targetWorld = this.getBoardCellWorldPosition(targetCell.row, targetCell.col);
+            return targetWorld ? this.trySelectBoard(targetWorld) : false;
+        },
+
+        trySelectGuideSlotColor(colorId: number): boolean {
+            const all = this.slotModel.getAll();
+            for (let i = 0; i < all.length; i++) {
+                const block = all[i];
+                if (!block || block.colorId !== colorId) continue;
+                const slotNode = this.slotNodes[i];
+                const slotUT = slotNode?.getComponent(UITransform) || null;
+                if (!slotNode?.isValid || !slotUT) continue;
+                const targetWorld = slotUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+                return this.trySelectSlot(targetWorld);
+            }
+            return false;
+        },
+
+        getGuideFirstEmptyTargetForColor(colorId: number): { row: number; col: number } | null {
+            const cells = this.getGuideEmptyTargetCellsForPrompt?.(colorId) || [];
+            return cells[0] || null;
+        },
+
+        handleTutorialRelaxedTap(worldPos: Vec3): boolean {
+            if (!this.shouldUseTutorialRelaxedGuide?.()) return false;
+            const step = this._guideStep;
+            const rawHitResult = this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
+            const rawTouchTarget = this.classifyFirstLevelTouchTarget?.(worldPos) || '';
+            let handled = false;
+
+            if (this._guideMode === 'level_2') {
+                if (step === 0) {
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                        autoCorrected: true,
+                        rawHitResult,
+                        rawTouchTarget,
+                    });
+                    this.executeGuideSlotUnlock();
+                    return true;
+                }
+                if (step === 1 && this._guidePhase === 'select') {
+                    handled = this.trySelectGuideBoardColor(this._guideFirstColorId);
+                    if (handled && this.currentBlock) {
+                        this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                            autoCorrected: true,
+                            rawHitResult,
+                            rawTouchTarget,
+                            selectedSource: this.currentBlock.source,
+                            colorId: this.currentBlock.colorId,
+                        });
+                        this._guidePhase = 'place';
+                        this.advanceTutorial();
+                    }
+                    return handled;
+                }
+                if (step === 2 && this._guidePhase === 'place') {
+                    if (!this.currentBlock) this.trySelectGuideBoardColor(this._guideFirstColorId);
+                    if (!this.currentBlock) return false;
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                        autoCorrected: true,
+                        rawHitResult,
+                        rawTouchTarget,
+                        selectedSource: this.currentBlock.source,
+                        colorId: this.currentBlock.colorId,
+                    });
+                    this.executeGuidePlacement();
+                    return true;
+                }
+                return false;
+            }
+
+            if (this._guideMode !== 'level_1') return false;
+            if (this._guidePhase === 'select') {
+                if (step === 0 || step === 2) {
+                    const colorId = step === 2 ? this._guideSecondColorId : this._guideFirstColorId;
+                    handled = this.trySelectGuideBoardColor(colorId);
+                } else if (step === 4) {
+                    handled = this.trySelectGuideSlotColor(this._guideFirstColorId);
+                }
+                if (handled && this.currentBlock) {
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                        autoCorrected: true,
+                        rawHitResult,
+                        rawTouchTarget,
+                        selectedSource: this.currentBlock.source,
+                        colorId: this.currentBlock.colorId,
+                    });
+                    this._guidePhase = 'place';
+                    this.advanceTutorial();
+                }
+                return handled;
+            }
+
+            if (this._guidePhase === 'place') {
+                if (!this.currentBlock) return false;
+                let target: { row: number; col: number } | null = null;
+                if (!this.isGuideSlotPlaceStep(step)) {
+                    target = this.getGuideFirstEmptyTargetForColor(this.getGuidePlaceTargetColor(step));
+                    if (!target) return false;
+                }
+                this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                    autoCorrected: true,
+                    rawHitResult,
+                    rawTouchTarget,
+                    selectedSource: this.currentBlock.source,
+                    colorId: this.currentBlock.colorId,
+                });
+                if (this.isGuideSlotPlaceStep(step)) {
+                    this.executeGuidePlacement();
+                    return true;
+                }
+                this.executeGuidePlacement(target.row, target.col);
+                return true;
+            }
+
+            return false;
+        },
+
         /** 引导期间触摸处理 */
         handleGuideTap(worldPos: Vec3) {
             if (this._guideInputSuspended) {
@@ -282,6 +409,10 @@ export function installTutorialGuideModule(target: any): void {
             }
         
             const step = this._guideStep;
+
+            if (this.handleTutorialRelaxedTap?.(worldPos)) {
+                return;
+            }
 
             if (this._guideMode === 'level_2' && step === 0) {
                 if (this.isSlotUnlockTargetHit(worldPos)) {
@@ -1015,6 +1146,7 @@ export function installTutorialGuideModule(target: any): void {
                         1.035,
                     );
                 }
+                if (this.shouldUseTutorialRelaxedGuide?.()) return;
                 for (const cell of cells) {
                     const cellNode = this.cellNodes[cell.row]?.[cell.col];
                     if (!cellNode) continue;
@@ -1098,6 +1230,7 @@ export function installTutorialGuideModule(target: any): void {
                         1.035,
                     );
                 }
+                if (this.shouldUseTutorialRelaxedGuide?.()) return;
                 for (const idx of idxs) {
                     const slotNode = this.slotNodes[idx];
                     if (!slotNode) continue;

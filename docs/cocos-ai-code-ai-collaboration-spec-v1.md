@@ -352,7 +352,8 @@ content：带 hash 的不可变内容文件，只在目标资源缺失或 hash �
 9. 如果实现应用级持久缓存，关卡缓存 key 必须包含 `prefix`、`pack.id` 和 `pack.hash`；皮肤缓存 key 必须包含 `skinId`、`kind` 和资源 `hash`。manifest 变化后只失效受影响资源，不能清空后全量重拉。
 10. 关卡可以在目标关卡 pack 加载成功后，按 idle / 网络条件预取下一 pack；皮肤可以在皮肤面板稳定后预取下一页缩略图。任何预取都必须是低优先级、可取消、可限流的优化，不得成为首屏或 `initGame` 前置条件。
 11. CDN 上传必须先上传 pack / skin asset 等内容文件，再最后发布对应 manifest。发布关卡后回读 `levels/level_live.json` 校验 `dataVersion` / `levelDataVersion`、`levelCount`、`levelCounts` 和 pack 索引；发布皮肤后回读 `skin/skin_live.json` 校验 `skinDataVersion`、资源数量、资源 hash 和必要尺寸元数据。
-12. manifest 失败、schema 不兼容、`minClientBuild` 不满足或内容 hash / 元数据校验失败时，目标关卡加载失败应显式报错或重试；目标皮肤资源加载失败应回到当前可用背景或默认皮肤，但不得阻塞 `initGame`。
+12. 关卡 CDN 实验只能作为 `levels/` 的同构目录发布，例如 `level_experiments/level_exp/levels/level_live.json` 和 `level_experiments/level_exp/levels/level_packs/*.json`。实验目录必须有独立 manifest / pack hash / cache namespace；默认 `sync:cdn:wechat` 不得自动上传实验目录，实验上传必须显式执行并强校验目标路径不是线上稳定 `remote_wechat/levels/`。
+13. manifest 失败、schema 不兼容、`minClientBuild` 不满足或内容 hash / 元数据校验失败时，目标关卡加载失败应显式报错或重试；目标皮肤资源加载失败应回到当前可用背景或默认皮肤，但不得阻塞 `initGame`。
 
 debug / release 的差异只影响资源来源和诊断强度，不应改变玩法语义：
 
@@ -481,6 +482,7 @@ priority 决定共享资源落点。
 10. `levels/` 和 `skin/` 的上传、dry-run、回读校验必须分开执行或分步骤输出：关卡校验 `dataVersion` / `levelDataVersion` / pack hash；皮肤校验 `skinDataVersion` / asset hash。
 11. manifest 是小索引文件，内容文件是带 hash 的不可变资源。客户端可以按需刷新 manifest 判断变化，但只有目标内容缺失或 hash 变化时才下载目标内容。
 12. 关卡 manifest 和皮肤 manifest 可以分别设置 TTL / `ETag` / `Last-Modified` / cache-control；任何脚本或客户端逻辑都不得把关卡 manifest 刷新解释成皮肤资源失效，反之亦然。
+13. 关卡数据实验目录必须挂在同一 CDN 根地址下，但不能复用稳定 `levels/` 目录。例如 `level_exp` 的 C/D 桶可以共用 `remote_wechat/level_experiments/level_exp/levels/`，A/B 桶继续使用 `remote_wechat/levels/`。客户端按实验 bucket 和主线关卡前缀选择 manifest，不在客户端写死具体关卡范围；目标关卡是否存在由实验 manifest / pack 索引决定，缓存 key 必须包含稳定 / 实验 namespace。
 
 一句话：
 
@@ -592,7 +594,9 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 4. 如果 `~/.codex/skills/playwright/scripts/playwright_cli.sh` 没有执行权限，可以用 `sh ~/.codex/skills/playwright/scripts/playwright_cli.sh ...` 调用；不要因为 `require.resolve('playwright')` 失败就判定 Playwright 不可用。
 5. `playwright run-code` 传入异步函数表达式，例如 `async (page) => { ... }`；不要传裸 `await page...`，也不要在该入口里依赖动态 `import(...)`。
 6. Cocos canvas 页面必须验证实际画面或运行时状态。对 bundle / scene 问题，优先在页面内用 `cc.assetManager.loadBundle`、`bundle.loadScene`、`cc.director.loadScene` 等运行时 API 验证目标 bundle 和场景，而不是只看页面是否能打开。
-7. 构建后的 web 产物用本地静态服务验证；验证结束后关闭临时服务。`favicon.ico` 这类无关 404 可以记录但不阻断，业务资源、bundle、scene、脚本、贴图缺失必须阻断。
+7. Cocos Creator 编辑器 preview 验证游戏入口时必须显式指定启动场景，例如 `http://localhost:7456/?scene=db%3A%2F%2Fassets%2FScenes%2FBoot.scene&level=1`。裸 `?level=1` 会使用编辑器内存中的 `current_scene`，如果当前打开的是空场景会出现黑屏，不能作为有效入口验证。
+8. 普通 browser preview 默认不访问外部关卡 CDN；只有显式追加 `use_cdn=true` 时才允许本地 `localhost` 浏览器读取默认微信关卡 CDN，例如 `http://localhost:7456/?scene=db%3A%2F%2Fassets%2FScenes%2FBoot.scene&level=98&ab=level_exp&bucket=C&use_cdn=true`。这个开关只用于本地验证关卡 CDN / 实验 bucket 差异，不能替代微信 release CDN 验证；同时 OSS / CDN 必须对 `http://localhost:7456` 或等价本地 origin 放行 CORS，否则浏览器会在进入游戏逻辑前拦截 manifest / pack 请求。
+9. 构建后的 web 产物用本地静态服务验证；验证结束后关闭临时服务。`favicon.ico` 这类无关 404 可以记录但不阻断，业务资源、bundle、scene、脚本、贴图缺失必须阻断。
 
 ### 13.1.2 Chrome 插件使用边界
 1. Chrome 不是普通本地预览的默认工具；除非 Human 明确要求 Chrome，或问题依赖用户当前 Chrome 的真实 profile 状态，否则不要用 Chrome 替代 Browser / Playwright。
@@ -641,7 +645,8 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 3. 再构建微信 release，并复查 release 包内分包、资源、console 和启动画面。
 4. 再跑 `npm run sync:cdn:wechat:level_data:dry`，校验 `levels/level_live.json` / pack / hash。
 5. 再跑 `npm run sync:cdn:wechat:skin_data:dry`，校验 `skin/skin_live.json` / asset / hash。
-6. 最后用 `npm run sync:cdn:wechat` 同步全部远程 CDN 数据并看真机 / CDN；该命令必须等价于 `npm run sync:cdn:wechat:all`，`npm run sync:cdn:wechat:dry` 必须等价于 `npm run sync:cdn:wechat:all:dry`。只允许用 `:level_data` / `:skin_data` 做明确的分项同步，不再使用 `sync:skin:wechat` 这类把皮肤脱离 CDN 语义的命名。
+6. 若发布关卡实验，再单独跑 `npm run sync:cdn:wechat:level_exp:dry -- --source <dir>`，校验实验目录 `level_experiments/level_exp/levels/level_live.json` / pack / hash；脚本默认使用目录内连续的全部 `level_*.json`，只有需要发布子集时才追加 `--range <start-end>`；该命令不得被默认全量 CDN 同步隐式执行。
+7. 最后用 `npm run sync:cdn:wechat` 同步全部稳定远程 CDN 数据并看真机 / CDN；该命令必须等价于 `npm run sync:cdn:wechat:all`，`npm run sync:cdn:wechat:dry` 必须等价于 `npm run sync:cdn:wechat:all:dry`。只允许用 `:level_data` / `:skin_data` 做明确的分项同步，不再使用 `sync:skin:wechat` 这类把皮肤脱离 CDN 语义的命名；实验目录只允许通过 `:level_exp` 这类显式实验命令发布。
 
 ## 14. 一票否决规则
 出现以下情况，改动视为不合格：

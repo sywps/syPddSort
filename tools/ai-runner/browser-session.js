@@ -362,7 +362,9 @@ async function run(config) {
     const durationMs = Math.max(1, Number(persona.durationMs || 120000));
     const screenshotEvery = Math.max(1, Number(persona.screenshotEverySteps || 10));
 
-    const browser = await chromium.launch({ headless: !persona.headed });
+    const launchOptions = { headless: !persona.headed };
+    if (persona.browserChannel) launchOptions.channel = persona.browserChannel;
+    const browser = await chromium.launch(launchOptions);
     let page;
     let steps = 0;
     let noChangeStreak = 0;

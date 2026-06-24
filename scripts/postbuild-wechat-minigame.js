@@ -35,7 +35,17 @@ const SKIN_BUNDLE_NAMES = [];
 const MAIN_PACKAGE_TARGET_KB = 3072;
 const MAIN_PACKAGE_ERROR_KB = 4096;
 const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
+const LEVEL_EXP_CDN_URL = process.env.PDD_LEVEL_EXP_CDN_URL || deriveLevelExpCdnUrl(LEVEL_DATA_CDN_URL);
 const SKIN_DATA_CDN_URL = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(LEVEL_DATA_CDN_URL);
+
+function deriveLevelExpCdnUrl(levelDataCdnUrl) {
+    var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
+    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/level_experiments/level_exp/levels/';
+    if (/\/remote_wechat\/levels\/$/i.test(normalized)) {
+        return normalized.replace(/\/remote_wechat\/levels\/$/i, '/remote_wechat/level_experiments/level_exp/levels/');
+    }
+    return '';
+}
 
 function deriveSkinDataCdnUrl(levelDataCdnUrl) {
     var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
@@ -544,6 +554,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarker = 'globalThis.__PDD_WECHAT_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     var gameAssetsModeMarker = 'globalThis.__PDD_GAME_ASSETS_MODE__=' + JSON.stringify(gameAssetsMode) + ';';
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
+    var levelExpCdnMarker = 'globalThis.__PDD_LEVEL_EXP_CDN_URL__=' + JSON.stringify(LEVEL_EXP_CDN_URL) + ';';
     var skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(SKIN_DATA_CDN_URL) + ';';
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
@@ -553,6 +564,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
+    var levelExpCdnPattern = /globalThis\.__PDD_LEVEL_EXP_CDN_URL__="[^"]*";/g;
     var skinDataCdnPattern = /globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g;
     var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
@@ -568,6 +580,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (levelDataCdnPattern.test(content)) {
         content = content.replace(levelDataCdnPattern, levelDataCdnMarker);
     }
+    if (levelExpCdnPattern.test(content)) {
+        content = content.replace(levelExpCdnPattern, levelExpCdnMarker);
+    }
     if (skinDataCdnPattern.test(content)) {
         content = content.replace(skinDataCdnPattern, skinDataCdnMarker);
     }
@@ -580,6 +595,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
+    if (content.indexOf(levelExpCdnMarker) === -1) missingLines.push(levelExpCdnMarker);
     if (content.indexOf(skinDataCdnMarker) === -1) missingLines.push(skinDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
     if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {

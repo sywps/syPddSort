@@ -64,7 +64,6 @@ const COLLECTION_CONFIGS = {
 
 const FIRST_LEVEL_FUNNEL_STEPS = [
   "app_launch",
-  "ab_assigned",
   "bootstrap_level_start",
   "first_level_json_loaded",
   "first_level_json_failed",
@@ -2587,6 +2586,13 @@ function guidePhase(record) {
   return "unknown";
 }
 
+function guideStepKey(record) {
+  if (record.stepName) return String(record.stepName);
+  const levelId = record.logicalLevelId || record.levelId || "unknown";
+  const stepId = record.stepId != null ? record.stepId : "unknown";
+  return `level_${levelId}:${stepId}:${guidePhase(record)}`;
+}
+
 function describeTapResult(result, target) {
   const resultText = {
     success: "教程判定成功",
@@ -2611,7 +2617,9 @@ function describeTapResult(result, target) {
 function normalizeChurnAction(record, source) {
   const eventName = record.eventName || "";
   const levelId = Number(record.levelId);
+  if (!eventName || eventName.startsWith("alive_")) return null;
   const passiveEvents = new Set([
+    "app_launch",
     "ab_assigned",
     "bootstrap_level_start",
     "first_level_json_loaded",
@@ -2621,30 +2629,33 @@ function normalizeChurnAction(record, source) {
     "tutorial_step_show",
     "timer_started",
     "game_start",
+    "enter_level",
+    "app_hide",
+    "game_exit",
+    "ad_show",
   ]);
   if (!eventName || passiveEvents.has(eventName)) return null;
 
   if (eventName === "tutorial_tap_result") {
     const result = record.errorCode || (record.success ? "success" : "unknown");
     const target = record.touchTarget || "unknown";
-    const phase = guidePhase(record);
+    const step = guideStepKey(record);
     return {
-      key: `tutorial_tap_result|${phase}|${result}|${target}`,
-      meaning: `教程 ${phase}：${describeTapResult(result, target)}`,
+      key: `${step}|${result}|${target}`,
+      meaning: `步骤 ${step}：${describeTapResult(result, target)}`,
     };
   }
 
-  if (eventName === "first_level_any_touch") {
-    return { key: "first_level_any_touch", meaning: "首关 UI ready 后首次触达" };
-  }
   if (eventName === "first_touch") {
     return { key: `first_touch|${record.touchTarget || "unknown"}`, meaning: `旧首触达：${record.touchTarget || "unknown"}` };
   }
   if (eventName === "first_valid_select") {
-    return { key: `first_valid_select|${record.touchTarget || "board"}`, meaning: "首次有效选中豆子" };
+    const target = record.touchTarget || "board";
+    return { key: `first_valid_select|${target}`, meaning: `首次有效选中豆子（${target}）` };
   }
   if (eventName === "first_place_attempt") {
-    return { key: `first_place_attempt|${record.touchTarget || "slot"}`, meaning: "首次尝试放入槽位" };
+    const target = record.touchTarget || "slot";
+    return { key: `first_place_attempt|${target}`, meaning: `首次尝试放入槽位（${target}）` };
   }
   if (eventName === "first_place_success") {
     return { key: "first_place_success", meaning: "首次成功放入槽位" };
@@ -2655,17 +2666,14 @@ function normalizeChurnAction(record, source) {
   if (eventName === "tutorial_done") {
     return { key: "tutorial_done", meaning: "教程完成" };
   }
-  if (eventName === "app_hide") {
-    return { key: "app_hide", meaning: "切后台或离开游戏" };
-  }
 
-  if (["enter_level", "level_pass", "level_fail"].includes(eventName) && Number.isFinite(levelId) && levelId > 0) {
-    const label = { enter_level: "进入关卡", level_pass: "通过关卡", level_fail: "关卡失败" }[eventName];
+  if (["level_pass", "level_fail"].includes(eventName) && Number.isFinite(levelId) && levelId > 0) {
+    const label = { level_pass: "通过关卡", level_fail: "关卡失败" }[eventName];
     return { key: `${eventName}|L${levelId}`, meaning: `${label} L${levelId}` };
   }
 
-  if (["ad_show", "ad_click", "ad_finish"].includes(eventName)) {
-    const label = { ad_show: "广告透出", ad_click: "广告点击", ad_finish: "广告完成" }[eventName];
+  if (["ad_click", "ad_finish"].includes(eventName)) {
+    const label = { ad_click: "广告点击", ad_finish: "广告完成" }[eventName];
     const placement = record.page || record.adType || "unknown";
     return {
       key: `${eventName}|${placement}|L${Number.isFinite(levelId) && levelId > 0 ? levelId : "unknown"}`,
@@ -2673,10 +2681,7 @@ function normalizeChurnAction(record, source) {
     };
   }
 
-  if (source === "first_level_funnel") {
-    return { key: eventName, meaning: `首关事件：${eventName}` };
-  }
-  return { key: eventName, meaning: `行为事件：${eventName}` };
+  return null;
 }
 
 function addAction(actionsByUser, openid, record, source) {

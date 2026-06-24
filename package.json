@@ -19,6 +19,8 @@
     "sync:cdn:wechat:all:dry": "npm run sync:cdn:wechat:level_data:dry && npm run sync:cdn:wechat:skin_data:dry",
     "sync:cdn:wechat:level_data": "node scripts/sync-level-data-cdn-wechat.js",
     "sync:cdn:wechat:level_data:dry": "node scripts/sync-level-data-cdn-wechat.js --dry-run",
+    "sync:cdn:wechat:level_exp": "node scripts/sync-level-exp-cdn-wechat.js",
+    "sync:cdn:wechat:level_exp:dry": "node scripts/sync-level-exp-cdn-wechat.js --dry-run",
     "sync:cdn:wechat:skin_data": "node scripts/sync-skin-data-cdn-wechat.js",
     "sync:cdn:wechat:skin_data:dry": "node scripts/sync-skin-data-cdn-wechat.js --dry-run",
     "analytics:daily": "node scripts/user-behavior-daily-job.js",
