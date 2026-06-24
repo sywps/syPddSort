@@ -149,49 +149,65 @@ export function installHomeAdFlowModule(target: any): void {
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
             let adClosed = false;
             let pendingAfterCloseFinalize: (() => void) | null = null;
+            let audioInterruptionEnded = false;
+            const adAudioReason = `rewarded:${page}`;
+            const endAdAudioInterruption = (reason: string) => {
+                if (audioInterruptionEnded) return;
+                audioInterruptionEnded = true;
+                AudioMgr.inst.endExternalInterruption(`${adAudioReason}:${reason}`);
+            };
             AnalyticsMgr.inst.trackAdClick(adType, page, levelId);
             SySDKMgr.inst.reportAdClick(page);
             this.suspendTimerForAd();
-            AdConfig.showRewardedAd((success: boolean) => {
-                const finalize = () => {
-                    this.resumeTimerAfterAd();
-                    if (success) {
-                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
-                        SySDKMgr.inst.reportAdFinish(page);
-                        if (options.markLevelRevive) {
-                            AnalyticsMgr.inst.markAdRevive();
+            AudioMgr.inst.beginExternalInterruption(adAudioReason);
+            try {
+                AdConfig.showRewardedAd((success: boolean) => {
+                    const finalize = () => {
+                        endAdAudioInterruption(success ? 'complete-success' : 'complete-fail');
+                        this.resumeTimerAfterAd();
+                        if (success) {
+                            AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
+                            SySDKMgr.inst.reportAdFinish(page);
+                            if (options.markLevelRevive) {
+                                AnalyticsMgr.inst.markAdRevive();
+                            }
                         }
+                        onComplete(success);
+                        this.scheduleRewardedAdPreload(success ? 'after-ad-success' : 'after-ad-fail', 1.5);
+                    };
+                    if (options.waitForCloseBeforeComplete && adClosed) {
+                        this.runAfterAdWindowClosed(finalize);
+                        return;
                     }
-                    onComplete(success);
-                    this.scheduleRewardedAdPreload(success ? 'after-ad-success' : 'after-ad-fail', 1.5);
-                };
-                if (options.waitForCloseBeforeComplete && adClosed) {
-                    this.runAfterAdWindowClosed(finalize);
-                    return;
-                }
-                if (options.waitForCloseBeforeComplete && success) {
-                    if (AdConfig.hasRewardedAdWindow()) {
-                        pendingAfterCloseFinalize = finalize;
-                    } else {
-                        finalize();
+                    if (options.waitForCloseBeforeComplete && success) {
+                        if (AdConfig.hasRewardedAdWindow()) {
+                            pendingAfterCloseFinalize = finalize;
+                        } else {
+                            finalize();
+                        }
+                        return;
                     }
-                    return;
-                }
-                finalize();
-            }, {
-                onShow: () => {
-                    AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
-                    SySDKMgr.inst.reportAdShow(page);
-                },
-                onClose: () => {
-                    adClosed = true;
-                    if (!pendingAfterCloseFinalize) return;
-                    const finalize = pendingAfterCloseFinalize;
-                    pendingAfterCloseFinalize = null;
-                    this.runAfterAdWindowClosed(finalize);
-                },
-                minFallbackWatchMs: this.getRewardedAdMinFallbackWatchMs(page),
-            });
+                    finalize();
+                }, {
+                    onShow: () => {
+                        AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
+                        SySDKMgr.inst.reportAdShow(page);
+                    },
+                    onClose: () => {
+                        adClosed = true;
+                        endAdAudioInterruption('close');
+                        if (!pendingAfterCloseFinalize) return;
+                        const finalize = pendingAfterCloseFinalize;
+                        pendingAfterCloseFinalize = null;
+                        this.runAfterAdWindowClosed(finalize);
+                    },
+                    minFallbackWatchMs: this.getRewardedAdMinFallbackWatchMs(page),
+                });
+            } catch (error) {
+                endAdAudioInterruption('throw');
+                this.resumeTimerAfterAd();
+                throw error;
+            }
         },
 
         runRewardedGrant(

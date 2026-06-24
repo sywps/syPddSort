@@ -114,6 +114,21 @@ function findSettingsPath(runtimeDir) {
     return matches.length === 1 ? path.join(srcDir, matches[0]) : '';
 }
 
+function sleepMs(ms) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function waitForSettingsPath(timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    let lastPath = '';
+    while (Date.now() < deadline) {
+        lastPath = findSettingsPath(buildDir) || findSettingsPath(path.join(buildDir, 'minigame'));
+        if (lastPath) return lastPath;
+        sleepMs(500);
+    }
+    return lastPath;
+}
+
 function normalizeSubpackageRoot(root) {
     return String(root || '').replace(/^\/+|\/+$/g, '');
 }
@@ -426,7 +441,10 @@ repairCocosMetaFiles();
 assertCocosAssetDbPrewarmRan(cocosBuildStartedAt);
 assertCocosImporterLogsHealthy(cocosBuildStartedAt);
 if (!findSettingsPath(buildDir) && !findSettingsPath(path.join(buildDir, 'minigame'))) {
-    fail('Cocos 构建失败，未生成 settings.json/settings.<hash>.json');
+    logInfo('Cocos 构建进程已返回，等待 settings.json/settings.<hash>.json 落盘...');
+    if (!waitForSettingsPath(45000)) {
+        fail('Cocos 构建失败，未生成 settings.json/settings.<hash>.json');
+    }
 }
 if (buildResult.status !== 0 || buildResult.signal) {
     logInfo('Cocos 构建进程返回非零状态，但产物已生成，继续后处理: status=' + buildResult.status + ' signal=' + (buildResult.signal || ''));

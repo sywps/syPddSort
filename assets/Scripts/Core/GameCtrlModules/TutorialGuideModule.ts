@@ -43,15 +43,16 @@ export function installTutorialGuideModule(target: any): void {
             const bg = bubble.getChildByName('BubbleBg');
             if (bg?.isValid) bg.active = true;
             const bubbleUT = bubble.getComponent(UITransform);
-            if (bubbleUT) bubbleUT.setContentSize(360, 68);
+            if (!bubbleUT) {
+                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
+            }
             const labelUT = lbl.node.getComponent(UITransform);
-            if (labelUT) labelUT.setContentSize(288, 136);
-            lbl.color = new Color('#5A321E');
-            lbl.fontSize = 42;
-            lbl.lineHeight = 52;
-            lbl.enableWrapText = true;
+            if (!labelUT) {
+                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt/PromptLabel');
+            }
+            const promptHeight = bubbleUT.contentSize.height || 154;
             const centerY = typeof this.getGuidePromptCenterY === 'function'
-                ? this.getGuidePromptCenterY(438, 68)
+                ? this.getGuidePromptCenterY(438, promptHeight)
                 : 438;
             bubble.setPosition(0, centerY, 0);
             lbl.string = this.formatLevel2GuidePrompt(primaryText);

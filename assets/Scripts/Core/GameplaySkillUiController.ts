@@ -128,25 +128,6 @@ export class GameplaySkillUiController {
         return adPlayIcon;
     }
 
-    private requireSkillSpriteFrame(frameName: string, fallbackFrame: any = null) {
-        const frame = this.runtime.getSF(frameName) || fallbackFrame;
-        if (!frame) {
-            throw new Error(`[GameplayScene] missing skill SpriteFrame: ${frameName}`);
-        }
-        return frame;
-    }
-
-    private applySkillBadgeSprite(node: Node, frameName: string, width: number, height: number): void {
-        const transform = node.getComponent(UITransform);
-        if (!transform) {
-            throw new Error(`[GameplayScene] ${node.name} is missing UITransform`);
-        }
-        const sprite = node.getComponent(Sprite) || node.addComponent(Sprite);
-        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-        sprite.spriteFrame = this.requireSkillSpriteFrame(frameName, sprite.spriteFrame);
-        transform.setContentSize(width, height);
-    }
-
     buildSkillButtons(root: Node) {
         const runtime = this.runtime;
         const skills = [
@@ -264,7 +245,6 @@ export class GameplaySkillUiController {
                 existing.active = false;
             }
             const adPlayIcon = this.requireSkillAdPlayIcon(parent);
-            this.applySkillBadgeSprite(adPlayIcon, 'popup_tool_add_badge', 42, 42);
             adPlayIcon.active = showWhenZero;
             return;
         }
@@ -287,7 +267,10 @@ export class GameplaySkillUiController {
         if (badgeW <= 0 || badgeH <= 0) {
             throw new Error(`[GameplayScene] Game.scene has invalid CountBadge size on ${parent.name}`);
         }
-        this.applySkillBadgeSprite(badge, 'popup_tool_count_badge', Math.max(40, badgeW), Math.max(40, badgeH));
+        const badgeSprite = badge.getComponent(Sprite);
+        if (!badgeSprite?.spriteFrame) {
+            throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on ${parent.name}/CountBadge`);
+        }
 
         let lblNode = badge.getChildByName('CountBadgeLbl');
         if (!lblNode) {
@@ -303,10 +286,7 @@ export class GameplaySkillUiController {
         if (!lbl) {
             throw new Error(`[GameplayScene] Game.scene is missing Label component on ${parent.name}/CountBadge/CountBadgeLbl`);
         }
-        lbl.overflow = Label.Overflow.SHRINK;
-        lbl.enableWrapText = false;
         const displayText = count > 99 ? '99+' : `${count}`;
-        lblTransform.setContentSize(Math.max(18, badgeW - 8), Math.max(1, badgeH));
         lbl.string = displayText;
     }
 

@@ -4,7 +4,7 @@
  * 资源规约：所有音频放在 GameAssetsBundle/Audio/ 下，文件名与 SfxName 对齐。
  */
 
-import { _decorator, AudioClip, AudioSource, Node, sys, assetManager } from 'cc';
+import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, director } from 'cc';
 import type { AssetManager } from 'cc';
 import {
     AUDIO_BGM_RESOURCE_PATH,
@@ -20,6 +20,7 @@ import {
     type SfxName,
 } from './AudioManifest';
 import { GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from './PackageNames';
+import { runtimeLog } from './RuntimeLog';
 const { ccclass } = _decorator;
 declare const wx: any;
 
@@ -44,6 +45,7 @@ export class AudioMgr {
     private sfxClips: Map<SfxName, AudioClip> = new Map();
     private bgmClip: AudioClip | null = null;
     private host: Node | null = null;
+    private audioRoot: Node | null = null;
     private sfxSrc: AudioSource | null = null;
     private bgmSrc: AudioSource | null = null;
     private gameAssetsBundle: Bundle | null = null;
@@ -53,6 +55,8 @@ export class AudioMgr {
     private vibrateEnabled = true;
     private suspended = false;
     private bgmWasPlayingBeforeSuspend = false;
+    private externalInterruptionRefs = 0;
+    private bgmWasPlayingBeforeExternalInterruption = false;
     private pendingSfxLoads: Set<SfxName> = new Set();
     private pendingAutoplaySfx: Set<SfxName> = new Set();
     private deferredBootstrapSfxLoads: Set<SfxName> = new Set();
@@ -75,24 +79,44 @@ export class AudioMgr {
         this.vibrateEnabled = sys.localStorage.getItem(LS_VIB) !== '0';
     }
 
-    /** 在游戏启动时调用一次，host 推荐为永久场景节点 */
+    /** 在游戏启动时调用；内部会把 AudioSource 迁到持久 AudioRoot，避免场景切换销毁 BGM。 */
     init(host: Node) {
-        if (this.host === host && this.host?.isValid && this.sfxSrc?.isValid && this.bgmSrc?.isValid) return;
-        if (this.host !== host) {
+        if (!host?.isValid) return;
+        const audioHost = this.getOrCreateAudioRoot(host);
+        if (this.host === audioHost && this.host?.isValid && this.sfxSrc?.isValid && this.bgmSrc?.isValid) return;
+        if (this.host !== audioHost) {
             try {
                 this.sfxSrc?.stop();
                 this.bgmSrc?.stop();
             } catch (_) { /* ignore */ }
         }
-        this.host = host;
-        this.sfxSrc = host.addComponent(AudioSource);
-        this.bgmSrc = host.addComponent(AudioSource);
+        this.host = audioHost;
+        this.sfxSrc = audioHost.addComponent(AudioSource);
+        this.bgmSrc = audioHost.addComponent(AudioSource);
         this.bgmSrc.loop = true;
         this.bgmSrc.volume = this.bgmVolume;
         this.preferRemoteAudio = this._isMinigameEnv();
         if (this.bgmAutoplayRequested) {
-            this._ensureBgmLoaded(true);
+            this.ensureBgmPlaying('audio-init');
         }
+    }
+
+    private getOrCreateAudioRoot(fallbackHost: Node): Node {
+        if (this.audioRoot?.isValid) return this.audioRoot;
+        const scene = director.getScene() || fallbackHost.scene;
+        const root = new Node('PddAudioRoot');
+        if (scene?.isValid) {
+            scene.addChild(root);
+        } else {
+            fallbackHost.addChild(root);
+        }
+        try {
+            director.addPersistRootNode(root);
+        } catch (_) {
+            // Cocos may throw if the node is already persistent in hot-reload like flows.
+        }
+        this.audioRoot = root;
+        return root;
     }
 
     private _clearBgmWarmupTimer() {
@@ -278,7 +302,7 @@ export class AudioMgr {
     }
 
     private _playBgmClip() {
-        if (!this.bgmEnabled || !this.bgmSrc || !this.bgmClip) {
+        if (!this.bgmEnabled || this.suspended || this.externalInterruptionRefs > 0 || !this.bgmSrc || !this.bgmClip) {
             return;
         }
         try {
@@ -315,7 +339,7 @@ export class AudioMgr {
     }
 
     private _retryRequestedBgmPlayback() {
-        if (!this.bgmAutoplayRequested || !this.bgmEnabled || !this.bgmSrc) {
+        if (!this.bgmAutoplayRequested || !this.bgmEnabled || this.suspended || this.externalInterruptionRefs > 0 || !this.bgmSrc) {
             return;
         }
         if (this.bgmClip) {
@@ -399,7 +423,7 @@ export class AudioMgr {
         this._setBgmVolume(volume);
         this._setBgmResourcePath(resourcePath);
         this.bgmAutoplayRequested = true;
-        this._ensureBgmLoaded(true);
+        this.ensureBgmPlaying('play-bgm');
     }
 
     playHomeBgm() {
@@ -408,6 +432,51 @@ export class AudioMgr {
 
     playGameBgm() {
         this.playBgm(AUDIO_GAME_BGM_RESOURCE_PATH, AUDIO_GAME_BGM_VOLUME);
+    }
+
+    ensureBgmPlaying(reason: string = 'ensure'): void {
+        if (!this.bgmAutoplayRequested || !this.bgmEnabled || !this.bgmSrc) return;
+        if (this.suspended || this.externalInterruptionRefs > 0) {
+            this.logAudioLifecycle('defer-ensure-bgm', reason);
+            return;
+        }
+        this.logAudioLifecycle('ensure-bgm', reason);
+        if (this.bgmClip) {
+            this._playBgmClip();
+            return;
+        }
+        if (this.bgmLoadState === 'failed') {
+            this.bgmLoadState = 'idle';
+        }
+        this._ensureBgmLoaded(true);
+    }
+
+    beginExternalInterruption(reason: string = 'external'): void {
+        this.externalInterruptionRefs += 1;
+        if (this.externalInterruptionRefs > 1) {
+            this.logAudioLifecycle('begin-external-nested', reason);
+            return;
+        }
+        this.bgmWasPlayingBeforeExternalInterruption = !!this.bgmSrc?.playing || this.bgmAutoplayRequested;
+        this.sfxSrc?.stop();
+        this.bgmSrc?.pause();
+        this.logAudioLifecycle('begin-external', reason);
+    }
+
+    endExternalInterruption(reason: string = 'external'): void {
+        if (this.externalInterruptionRefs > 0) {
+            this.externalInterruptionRefs -= 1;
+        }
+        if (this.externalInterruptionRefs > 0) {
+            this.logAudioLifecycle('end-external-nested', reason);
+            return;
+        }
+        const shouldResume = this.bgmWasPlayingBeforeExternalInterruption || this.bgmAutoplayRequested;
+        this.bgmWasPlayingBeforeExternalInterruption = false;
+        this.logAudioLifecycle('end-external', reason);
+        if (shouldResume) {
+            this.ensureBgmPlaying(`external:${reason}`);
+        }
     }
 
     preload(name: SfxName) {
@@ -498,7 +567,7 @@ export class AudioMgr {
         if (!this.bgmSrc) return;
         if (on) {
             this.bgmAutoplayRequested = true;
-            this._ensureBgmLoaded(true);
+            this.ensureBgmPlaying('setting-on');
         } else {
             this.bgmSrc.stop();
         }
@@ -511,17 +580,50 @@ export class AudioMgr {
     suspendForBackground() {
         if (this.suspended) return;
         this.suspended = true;
-        this.bgmWasPlayingBeforeSuspend = !!this.bgmSrc?.playing;
+        this.bgmWasPlayingBeforeSuspend = !!this.bgmSrc?.playing || this.bgmAutoplayRequested;
         this.sfxSrc?.stop();
         this.bgmSrc?.pause();
+        this.logAudioLifecycle('suspend-background', 'game-hide');
     }
 
     resumeFromBackground() {
         if (!this.suspended) return;
         this.suspended = false;
-        if (this.bgmEnabled && this.bgmClip && this.bgmSrc && this.bgmWasPlayingBeforeSuspend && !this.bgmSrc.playing) {
-            this._playBgmClip();
+        const shouldResume = this.bgmWasPlayingBeforeSuspend || this.bgmAutoplayRequested;
+        if (shouldResume) {
+            this.ensureBgmPlaying('game-show');
         }
         this.bgmWasPlayingBeforeSuspend = false;
+    }
+
+    getBgmDebugState(): Record<string, unknown> {
+        return {
+            enabled: this.bgmEnabled,
+            autoplayRequested: this.bgmAutoplayRequested,
+            suspended: this.suspended,
+            externalInterruptionRefs: this.externalInterruptionRefs,
+            loadState: this.bgmLoadState,
+            resourcePath: this.bgmResourcePath,
+            hasClip: !!this.bgmClip,
+            hasSource: !!this.bgmSrc?.isValid,
+            playing: !!this.bgmSrc?.playing,
+            hostValid: !!this.host?.isValid,
+            audioRootValid: !!this.audioRoot?.isValid,
+        };
+    }
+
+    private logAudioLifecycle(event: string, reason: string): void {
+        runtimeLog('[AudioLifecycle]', event, {
+            reason,
+            bgmEnabled: this.bgmEnabled,
+            autoplayRequested: this.bgmAutoplayRequested,
+            suspended: this.suspended,
+            externalInterruptionRefs: this.externalInterruptionRefs,
+            loadState: this.bgmLoadState,
+            hasClip: !!this.bgmClip,
+            playing: !!this.bgmSrc?.playing,
+            resourcePath: this.bgmResourcePath,
+            hostValid: !!this.host?.isValid,
+        });
     }
 }

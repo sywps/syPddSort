@@ -3,6 +3,7 @@ import {
     Button,
     GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE,
+    Label,
     Layers,
     LS_EXPAND_USED,
     MAINLINE_SLOT_GROOVE_TEXTURE,
@@ -397,27 +398,36 @@ export class GameplaySlotUiController {
         return icon;
     }
 
-    private syncSlotUnlockButtonLabelPosition(buttonNode: Node, unlockMode: SlotUnlockMode) {
-        const label = buttonNode.getChildByName('SlotUnlockLabel');
+    private requireSlotUnlockLabel(buttonNode: Node, childName: string): Node {
+        const label = buttonNode.getChildByName(childName);
         if (!label?.isValid) {
-            throw new Error('[GameplayScene] Game.scene is missing SlotArea/SlotRowLockedBtn/SlotUnlockLabel');
+            throw new Error(`[GameplayScene] Game.scene is missing SlotArea/SlotRowLockedBtn/${childName}`);
         }
-        const runtime = this.runtime;
-        if (typeof runtime._slotUnlockLabelSceneX !== 'number') {
-            runtime._slotUnlockLabelSceneX = label.position.x;
-            runtime._slotUnlockLabelSceneY = label.position.y;
-            runtime._slotUnlockLabelSceneZ = label.position.z;
+        const transform = label.getComponent(UITransform);
+        if (!transform) {
+            throw new Error(`[GameplayScene] Game.scene is missing UITransform component on SlotArea/SlotRowLockedBtn/${childName}`);
+        }
+        const labelComponent = label.getComponent(Label);
+        if (!labelComponent) {
+            throw new Error(`[GameplayScene] Game.scene is missing Label component on SlotArea/SlotRowLockedBtn/${childName}`);
         }
         label.layer = Layers.Enum.UI_2D;
-        const x = unlockMode === 'free' ? 0 : runtime._slotUnlockLabelSceneX;
-        label.setPosition(x, runtime._slotUnlockLabelSceneY, runtime._slotUnlockLabelSceneZ);
+        return label;
+    }
+
+    private syncSlotUnlockButtonLabels(buttonNode: Node, unlockMode: SlotUnlockMode) {
+        const adLabel = this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabel');
+        const freeLabel = this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabelFree');
+        const active = buttonNode.active;
+        adLabel.active = active && unlockMode === 'ad';
+        freeLabel.active = active && unlockMode === 'free';
     }
 
     private syncSlotUnlockButtonModeIcon(buttonNode: Node) {
         this.destroyLegacySlotUnlockButtonText(buttonNode);
         if (!this.runtime.shouldUseMainlineSlotUI()) return;
         const unlockMode = this.getCurrentSlotUnlockMode();
-        this.syncSlotUnlockButtonLabelPosition(buttonNode, unlockMode);
+        this.syncSlotUnlockButtonLabels(buttonNode, unlockMode);
         const freeIcon = buttonNode.getChildByName('SlotUnlockIconFree');
         if (freeIcon?.isValid) {
             freeIcon.active = false;
@@ -428,13 +438,9 @@ export class GameplaySlotUiController {
         if (!adSprite || !adTransform) {
             throw new Error('[GameplayScene] SlotRowLockedBtn/SlotUnlockIconAd is missing Sprite or UITransform');
         }
-        const adFrame = this.runtime.getSF('popup_ad_play_icon') || adSprite.spriteFrame;
-        if (!adFrame) {
-            throw new Error('[GameplayScene] missing sprite frame: popup_ad_play_icon');
+        if (!adSprite.spriteFrame) {
+            throw new Error('[GameplayScene] Game.scene must provide SpriteFrame on SlotArea/SlotRowLockedBtn/SlotUnlockIconAd');
         }
-        adSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-        adSprite.spriteFrame = adFrame;
-        adTransform.setContentSize(38, 30);
         adIcon.active = buttonNode.active && unlockMode === 'ad';
     }
 

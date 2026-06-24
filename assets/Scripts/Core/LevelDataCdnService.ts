@@ -88,6 +88,8 @@ const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
 const LEVEL_EXPERIMENT_ID = 'level_exp';
 const LEVEL_EXPERIMENT_SALT = 'level_exp_0623';
+const LEVEL_EXPERIMENT_BUCKET_C_RANGE: [number, number] = [2, 10];
+const LEVEL_EXPERIMENT_BUCKET_D_RANGE: [number, number] = [2, 20];
 const DEFAULT_WECHAT_LEVEL_DATA_CDN_URL = 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
 
 function runtimeLevelDataBaseUrl(): string {
@@ -209,8 +211,8 @@ export class LevelDataCdnService {
     }
 
     getLevelExperimentEventContext(levelId: number, prefix: string = DEFAULT_LEVEL_PREFIX): { abId: string; abBucket: string } | null {
-        if (!this.shouldUseLevelExperiment(levelId, prefix)) return null;
         const assignment = this.resolveLevelExperimentAssignment();
+        if (!this.shouldUseLevelExperiment(levelId, prefix, assignment)) return null;
         return {
             abId: assignment.experimentId,
             abBucket: assignment.bucket,
@@ -235,6 +237,7 @@ export class LevelDataCdnService {
                 scope: 'mainline',
                 baseUrl: experimentBaseUrl,
                 activeForBucket: assignment.group === 'treatment',
+                activeRange: this.getLevelExperimentActiveRange(assignment.bucket),
                 liveUnavailableCooldownMs: Math.max(0, experimentState.unavailableUntil - Date.now()),
                 liveUnavailableReason: experimentState.unavailableReason,
             },
@@ -380,7 +383,7 @@ export class LevelDataCdnService {
     private resolveCdnContext(levelId: number, prefix: string): LevelDataCdnContext {
         const stableBaseUrl = runtimeLevelDataBaseUrl();
         const assignment = this.resolveLevelExperimentAssignment();
-        const experimentActive = assignment.group === 'treatment' && this.shouldUseLevelExperiment(levelId, prefix);
+        const experimentActive = this.shouldUseLevelExperiment(levelId, prefix, assignment);
         if (!experimentActive) {
             return {
                 baseUrl: stableBaseUrl,
@@ -398,9 +401,19 @@ export class LevelDataCdnService {
         };
     }
 
-    private shouldUseLevelExperiment(levelId: number, prefix: string): boolean {
+    private shouldUseLevelExperiment(levelId: number, prefix: string, assignment: LevelExperimentAssignment): boolean {
         const normalizedPrefix = normalizeLevelPrefix(prefix);
-        return normalizedPrefix === DEFAULT_LEVEL_PREFIX;
+        if (normalizedPrefix !== DEFAULT_LEVEL_PREFIX) return false;
+        const range = this.getLevelExperimentActiveRange(assignment.bucket);
+        if (!range) return false;
+        const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+        return normalizedLevelId >= range[0] && normalizedLevelId <= range[1];
+    }
+
+    private getLevelExperimentActiveRange(bucket: LevelExperimentBucket): [number, number] | null {
+        if (bucket === 'C') return LEVEL_EXPERIMENT_BUCKET_C_RANGE;
+        if (bucket === 'D') return LEVEL_EXPERIMENT_BUCKET_D_RANGE;
+        return null;
     }
 
     private resolveLevelExperimentAssignment(): LevelExperimentAssignment {
