@@ -770,6 +770,9 @@ export function installTutorialGuideModule(target: any): void {
                     if (idx === -1) break;
                     storedIdxs.push(idx);
                 }
+                const remainingSelection = storedIdxs.length < block.cells.length
+                    ? this.createBoardRemainingSelection(block, block.cells.length - storedIdxs.length)
+                    : null;
                 if (storedIdxs.length < block.cells.length) {
                     this.boardModel.restoreBlock({
                         colorId: block.colorId,
@@ -795,7 +798,7 @@ export function installTutorialGuideModule(target: any): void {
                             },
                         });
                     }
-                    this.startFlyToSlots(block.colorId, sources.slice(0, storedIdxs.length), storedIdxs, block.cells);
+                    this.startFlyToSlots(block.colorId, sources.slice(0, storedIdxs.length), storedIdxs, block.cells, remainingSelection);
                 } else {
                     this.finishPlace();
                 }
@@ -847,6 +850,11 @@ export function installTutorialGuideModule(target: any): void {
                             },
                         });
                     }
+                    const remainingSelection = result.remaining > 0
+                        ? (block.source === 'board'
+                            ? this.createBoardRemainingSelection(block, result.remaining)
+                            : this.createSlotRemainingSelection(block, result.remaining))
+                        : null;
                     if (result.remaining > 0) {
                         if (block.source === 'board') {
                             this.boardModel.restoreRemaining(block, result.remaining);
@@ -861,7 +869,7 @@ export function installTutorialGuideModule(target: any): void {
                             guideDirtySlotIndices.push(i);
                         }
                     }
-                    this.startFlyPlace(block.colorId, sources, result.placed, guideDirtyBoardCells, guideDirtySlotIndices);
+                    this.startFlyPlace(block.colorId, sources, result.placed, guideDirtyBoardCells, guideDirtySlotIndices, undefined, undefined, remainingSelection);
                 } else {
                     if (block.source === 'board') {
                         this.boardModel.restoreBlock(block);

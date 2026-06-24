@@ -41,9 +41,11 @@ function getComponent(nodeName, typeName) {
 assert.ok(childNames('PopupTitleBadge').includes('TitleFreeze'), 'title variant group must include TitleFreeze');
 assert.ok(childNames('Box').includes('IconFreeze'), 'icon variant group must include IconFreeze');
 assert.ok(childNames('Box').includes('TextFreeze'), 'text variant group must include TextFreeze');
+assert.ok(childNames('Box').includes('AcquireInsufficientGoldTip'), 'acquire panel must include prefab-owned insufficient gold tip');
 
 assert.strictEqual(getComponent('TitleFreeze', 'cc.Label')._string, '冻结', 'freeze title must be prefab-owned');
 assert.strictEqual(getComponent('TextFreeze', 'cc.Label')._string, '冻结当前时间180秒', 'freeze description must be prefab-owned');
+assert.strictEqual(getComponent('AcquireInsufficientGoldTip', 'cc.Label')._string, '金币不足，可观看视频领取', 'insufficient gold tip text must be prefab-owned');
 assert.strictEqual(
     getComponent('IconFreeze', 'cc.Sprite')._spriteFrame.__uuid__,
     '7d9b48cd-c975-4ce9-96fe-8a0c1e523cb4@f9941',
@@ -52,6 +54,7 @@ assert.strictEqual(
 assert.strictEqual(findNode('TitleFreeze')._active, false, 'TitleFreeze must default inactive');
 assert.strictEqual(findNode('IconFreeze')._active, false, 'IconFreeze must default inactive');
 assert.strictEqual(findNode('TextFreeze')._active, false, 'TextFreeze must default inactive');
+assert.strictEqual(findNode('AcquireInsufficientGoldTip')._active, false, 'insufficient gold tip must default inactive');
 
 const controller = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 assert.ok(controller.includes("freeze: 'TitleFreeze'"), 'freeze title variant must map to TitleFreeze');
@@ -63,5 +66,8 @@ assert.ok(controller.includes("['GoldAmountLabel', 'TextWand', 'TextFreeze', 'Te
 assert.ok(!controller.includes("options.variant === 'freeze'"), 'freeze variant must not mutate static prefab labels at runtime');
 assert.ok(!controller.includes('popup_tool_freeze_icon'), 'freeze icon must not be assigned by runtime code');
 assert.ok(!controller.includes('暂停倒计时'), 'old freeze copy must not remain in runtime code');
+assert.ok(controller.includes("this.setAcquireInsufficientGoldTipActive(box, false);"), 'acquire panel must hide insufficient gold tip on open');
+assert.ok(controller.includes("this.setAcquireInsufficientGoldTipActive(box, true);"), 'failed coin buy must show insufficient gold tip');
+assert.ok(!controller.includes('金币不足'), 'insufficient gold copy must not be hardcoded in controller');
 
 console.log('freeze-acquire-prefab.test.js passed');

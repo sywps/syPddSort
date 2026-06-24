@@ -613,6 +613,7 @@ export class GameplaySlotUiController {
     tryUnlockSlotRow() {
         const runtime = this.runtime;
         if (runtime.slotUnlockedRows >= runtime.slotRowCount) return;
+        if (runtime.isPlacementInputLocked?.()) return;
         if (runtime._skillActive) return;
         AudioMgr.inst.play('button');
         runtime.pauseTimerForProp();

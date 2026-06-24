@@ -178,6 +178,7 @@ export class GameplaySkillUiController {
             button.enabled = true;
             shell.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
+                if (runtime.isPlacementInputLocked?.()) return;
                 if (runtime.isGameEnd || runtime._skillActive) return;
                 if (runtime.isSelected || runtime.currentBlock) {
                     runtime.cancelSelection();

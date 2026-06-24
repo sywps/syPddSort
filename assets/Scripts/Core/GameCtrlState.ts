@@ -109,6 +109,8 @@ export function initializeGameCtrlState(runtime: any): void {
         initialSlotRowCount: 1,
         _lastPlacedCells: null,
         _flyingTargets: new Set<string>(),
+        _placementInputLocked: false,
+        _placementInputLockRefs: 0,
         _hiddenBoardCells: new Set<string>(),
         _hiddenSlotIndices: new Set<number>(),
         _skillActive: false,

@@ -415,6 +415,8 @@ export function installHomeAdFlowModule(target: any): void {
             this.clearIdleHint();
             this.clearForcedSkillHiddenState();
             this._flyingTargets.clear();
+            this._placementInputLocked = false;
+            this._placementInputLockRefs = 0;
             this._skillActive = false;
             this._skillAnimOnly = false;
             this._timerStarted = false;
