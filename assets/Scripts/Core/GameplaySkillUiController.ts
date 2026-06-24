@@ -4,12 +4,12 @@ import {
     Label,
     Layers,
     LS_SKILL_BROOM_USED,
+    LS_SKILL_FREEZE_USED,
     LS_SKILL_MAGNET_USED,
-    LS_SKILL_WAND_USED,
     Node,
     SKILL_UNLOCK_BROOM,
+    SKILL_UNLOCK_FREEZE,
     SKILL_UNLOCK_MAGNET,
-    SKILL_UNLOCK_WAND,
     Sprite,
     UIOpacity,
     UITransform,
@@ -20,10 +20,10 @@ import { shouldShowGameplaySkillArea } from './SlotOnboardingPolicy';
 export class GameplaySkillUiController {
     constructor(private readonly runtime: any) {}
 
-    private readonly skillShellKinds = ['wand', 'brush', 'magnet'] as const;
+    private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const;
 
-    private getSkillShellName(kind: 'wand' | 'brush' | 'magnet'): string {
-        if (kind === 'wand') return 'SkillWand';
+    private getSkillShellName(kind: 'freeze' | 'brush' | 'magnet'): string {
+        if (kind === 'freeze') return 'SkillFreeze';
         if (kind === 'brush') return 'SkillBrush';
         return 'SkillMagnet';
     }
@@ -97,6 +97,12 @@ export class GameplaySkillUiController {
         if (!iconSprite.spriteFrame) {
             throw new Error(`[GameplayScene] Game.scene must provide SpriteFrame on SkillArea/${node.name}/ToolIcon`);
         }
+        const captionNode = node.getChildByName('Label');
+        const captionLabel = captionNode?.getComponent(Label);
+        if (!captionNode?.isValid || !captionLabel) {
+            throw new Error(`[GameplayScene] Game.scene is missing Label component on SkillArea/${node.name}/Label`);
+        }
+        captionNode.layer = Layers.Enum.UI_2D;
         const adPlayIcon = this.requireSkillAdPlayIcon(node);
         adPlayIcon.active = false;
         return sprite;
@@ -144,16 +150,16 @@ export class GameplaySkillUiController {
     buildSkillButtons(root: Node) {
         const runtime = this.runtime;
         const skills = [
-            { kind: 'wand' as const, label: '魔法棒', unlockLevel: SKILL_UNLOCK_WAND, lsKey: LS_SKILL_WAND_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearArea(timerAlreadyPaused) },
-            { kind: 'brush' as const, label: '刷子', unlockLevel: SKILL_UNLOCK_BROOM, lsKey: LS_SKILL_BROOM_USED, preCheck: () => runtime.slotHasBeans(), handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearSlot(timerAlreadyPaused) },
-            { kind: 'magnet' as const, label: '磁铁', unlockLevel: SKILL_UNLOCK_MAGNET, lsKey: LS_SKILL_MAGNET_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearColor(timerAlreadyPaused) },
+            { kind: 'magnet' as const, label: '\u6d88\u8272', unlockLevel: SKILL_UNLOCK_MAGNET, lsKey: LS_SKILL_MAGNET_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearColor(timerAlreadyPaused) },
+            { kind: 'brush' as const, label: '\u6e05\u7a7a\u69fd\u4f4d', unlockLevel: SKILL_UNLOCK_BROOM, lsKey: LS_SKILL_BROOM_USED, preCheck: () => runtime.slotHasBeans(), handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearSlot(timerAlreadyPaused) },
+            { kind: 'freeze' as const, label: '\u51bb\u7ed3\u65f6\u95f4', unlockLevel: SKILL_UNLOCK_FREEZE, lsKey: LS_SKILL_FREEZE_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillFreeze(timerAlreadyPaused) },
         ];
 
         const currentLevel = runtime.getActiveLogicalLevelId();
         const entryMode = runtime._activeGameplayEntryMode
             || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
         if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) {
-            for (const kind of ['wand', 'brush', 'magnet'] as const) {
+            for (const kind of this.skillShellKinds) {
                 const node = root.getChildByName(this.getSkillShellName(kind));
                 if (!node?.isValid) continue;
                 node.active = false;
@@ -230,7 +236,7 @@ export class GameplaySkillUiController {
 
     rebuildSkillButtonsUI() {
         const runtime = this.runtime;
-        const skillNodeNames = ['SkillWand', 'SkillBrush', 'SkillMagnet'];
+        const skillNodeNames = ['SkillMagnet', 'SkillBrush', 'SkillFreeze'];
         const skillRoot = runtime.getGameplayBottomHudChild('SkillArea');
         for (const name of skillNodeNames) {
             const node = skillRoot.getChildByName(name);

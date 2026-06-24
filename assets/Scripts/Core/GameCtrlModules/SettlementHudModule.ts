@@ -31,6 +31,11 @@ import type {
 } from '../GameCtrlShared';
 import { WeChatRecommendService } from '../WeChatRecommendService';
 
+const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0.5;
+const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
+const PATTERN_COMPLETE_FX_START_DELAY = PATTERN_COMPLETE_BOARD_SHRINK_DELAY + PATTERN_COMPLETE_BOARD_SHRINK_DURATION;
+const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.12;
+
 export function installSettlementHudModule(target: any): void {
     Object.assign(target, {
         finishSkillUsage() {
@@ -359,13 +364,20 @@ export function installSettlementHudModule(target: any): void {
             this.ensureGameplayResultPanelsCreated?.();
             this.updateWinRewardLabel(this._pendingWinGoldReward);
 
-            if (this.boardGroup) {
+            const playBoardCompleteShrink = () => {
+                if (!this.isValid || !this.isGameEnd || !this.boardGroup) return;
                 tween(this.boardGroup)
-                    .to(0.3, { scale: new Vec3(0.85, 0.85, 1), position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0) }, { easing: 'sineOut' })
+                    .to(PATTERN_COMPLETE_BOARD_SHRINK_DURATION, { scale: new Vec3(0.85, 0.85, 1), position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0) }, { easing: 'sineOut' })
                     .start();
+            };
+
+            if (this.boardGroup && PATTERN_COMPLETE_BOARD_SHRINK_DELAY > 0 && typeof this.scheduleOnce === 'function') {
+                this.scheduleOnce(playBoardCompleteShrink, PATTERN_COMPLETE_BOARD_SHRINK_DELAY);
+            } else {
+                playBoardCompleteShrink();
             }
 
-            const showSettlement = () => {
+            const revealSettlement = () => {
                 if (!this.isValid || !this.isGameEnd) return;
                 AudioMgr.inst.play('winSettlement');
                 if (this.boardGroup) {
@@ -398,7 +410,25 @@ export function installSettlementHudModule(target: any): void {
                 }
             };
 
-            this.playPatternCompleteMatchFx(showSettlement);
+            const showSettlement = () => {
+                if (!this.isValid || !this.isGameEnd) return;
+                if (PATTERN_COMPLETE_SETTLEMENT_HOLD > 0 && typeof this.scheduleOnce === 'function') {
+                    this.scheduleOnce(revealSettlement, PATTERN_COMPLETE_SETTLEMENT_HOLD);
+                } else {
+                    revealSettlement();
+                }
+            };
+
+            const playPatternCompleteFx = () => {
+                if (!this.isValid || !this.isGameEnd) return;
+                this.playPatternCompleteMatchFx(showSettlement);
+            };
+            const fxStartDelay = this.boardGroup ? PATTERN_COMPLETE_FX_START_DELAY : 0;
+            if (fxStartDelay > 0 && typeof this.scheduleOnce === 'function') {
+                this.scheduleOnce(playPatternCompleteFx, fxStartDelay);
+            } else {
+                playPatternCompleteFx();
+            }
         },
 
         drawWinPatternPreview() {
@@ -524,6 +554,9 @@ export function installSettlementHudModule(target: any): void {
             this._timerStarted = false;
             this._timerPauseRefs = 0;
             this._timerLockedForProp = false;
+            this._freezeTimeLeft = 0;
+            this._freezeTimeTotal = 0;
+            this.clearFreezeSpineFx?.();
             this._adTimerSuspended = false;
             this.isGameEnd = false;
             this.unschedule(this.tickTimer);

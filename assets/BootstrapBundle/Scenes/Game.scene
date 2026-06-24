@@ -52,7 +52,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 612
+      "__id__": 615
     },
     "_id": "b8b3a5d2-8bd4-409b-bd8e-1d326ffa42e2"
   },
@@ -78,13 +78,13 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 609
+        "__id__": 612
       },
       {
-        "__id__": 610
+        "__id__": 613
       },
       {
-        "__id__": 611
+        "__id__": 614
       }
     ],
     "_prefab": null,
@@ -291,16 +291,16 @@
         "__id__": 579
       },
       {
-        "__id__": 582
+        "__id__": 585
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 607
+        "__id__": 610
       },
       {
-        "__id__": 608
+        "__id__": 611
       }
     ],
     "_prefab": null,
@@ -1087,8 +1087,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 61.376868817446045,
-      "height": 30.24
+      "width": 61.3828125,
+      "height": 30.240000000000002
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1120,7 +1120,7 @@
     "_string": "05:00",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 26.0625,
+    "_actualFontSize": 24,
     "_fontSize": 24,
     "_fontFamily": "Arial",
     "_lineHeight": 24,
@@ -1395,7 +1395,7 @@
     "_string": "第1关",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 24,
+    "_actualFontSize": 22,
     "_fontSize": 23,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -16797,7 +16797,7 @@
     "_string": "解锁",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
+    "_actualFontSize": 25,
     "_fontSize": 26,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -17128,7 +17128,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "SkillWand",
+    "_name": "SkillMagnet",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -17188,7 +17188,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillWand_1"
+    "_id": "SkillMagnet_7"
   },
   {
     "__type__": "cc.Node",
@@ -17236,7 +17236,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillWand_ToolIcon_scene_20260607"
+    "_id": "SkillMagnet_ToolIcon_scene_20260607"
   },
   {
     "__type__": "cc.UITransform",
@@ -17250,15 +17250,15 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 46,
-      "height": 66
+      "width": 56,
+      "height": 65
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillWand_ToolIcon_ui_20260607"
+    "_id": "SkillMagnet_ToolIcon_ui_20260607"
   },
   {
     "__type__": "cc.Sprite",
@@ -17281,7 +17281,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "fe3b21fb-5bb1-4134-86c7-f04c12f51e4e@f9941",
+      "__uuid__": "500dcf3a-feba-4274-91dc-ff3f696bab43@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -17297,7 +17297,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "SkillWand_ToolIcon_sprite_20260607"
+    "_id": "SkillMagnet_ToolIcon_sprite_20260607"
   },
   {
     "__type__": "cc.Node",
@@ -17345,7 +17345,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillWand_AdPlayIcon_scene_20260611"
+    "_id": "SkillMagnet_AdPlayIcon_scene_20260611"
   },
   {
     "__type__": "cc.UITransform",
@@ -17367,7 +17367,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillWand_AdPlayIcon_ui_20260611"
+    "_id": "SkillMagnet_AdPlayIcon_ui_20260611"
   },
   {
     "__type__": "cc.Sprite",
@@ -17406,7 +17406,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "SkillWand_AdPlayIcon_sprite_20260611"
+    "_id": "SkillMagnet_AdPlayIcon_sprite_20260611"
   },
   {
     "__type__": "cc.Node",
@@ -17433,8 +17433,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 61.32365382374698,
-      "y": 41.34705978647685,
+      "x": 66.121,
+      "y": 41.346,
       "z": 0
     },
     "_lrot": {
@@ -17458,7 +17458,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillWand_CountBadge_scene_20260602"
+    "_id": "SkillMagnet_CountBadge_scene_20260602"
   },
   {
     "__type__": "cc.Node",
@@ -17506,7 +17506,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillWand_CountBadgeLbl_scene_20260602"
+    "_id": "SkillMagnet_CountBadgeLbl_scene_20260602"
   },
   {
     "__type__": "cc.UITransform",
@@ -17520,7 +17520,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 13.899477293165468,
+      "width": 13.90380859375,
       "height": 37.8
     },
     "_anchorPoint": {
@@ -17528,7 +17528,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillWand_CountBadgeLbl_ui_20260602"
+    "_id": "SkillMagnet_CountBadgeLbl_ui_20260602"
   },
   {
     "__type__": "cc.Label",
@@ -17553,7 +17553,7 @@
     "_string": "0",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 27.1484375,
+    "_actualFontSize": 25,
     "_fontSize": 25,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -17590,7 +17590,7 @@
       "y": 2
     },
     "_shadowBlur": 2,
-    "_id": "SkillWand_CountBadgeLbl_label_20260602"
+    "_id": "SkillMagnet_CountBadgeLbl_label_20260602"
   },
   {
     "__type__": "cc.UITransform",
@@ -17604,7 +17604,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 41.41839855658491,
+      "width": 41.418398556584904,
       "height": 40.91288042704627
     },
     "_anchorPoint": {
@@ -17612,7 +17612,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillWand_CountBadge_ui_20260602"
+    "_id": "SkillMagnet_CountBadge_ui_20260602"
   },
   {
     "__type__": "cc.Sprite",
@@ -17651,7 +17651,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "SkillWand_CountBadge_sprite_20260615"
+    "_id": "SkillMagnet_CountBadge_sprite_20260615"
   },
   {
     "__type__": "cc.Node",
@@ -17699,7 +17699,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "d7HC7Sa+pL+Lz2zUa7F9N2"
+    "_id": "0aeozoojRNLqsRjLwpMe91"
   },
   {
     "__type__": "cc.UITransform",
@@ -17713,7 +17713,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 123.97004271582733,
+      "width": 63.985021357913666,
       "height": 54.400000000000006
     },
     "_anchorPoint": {
@@ -17721,7 +17721,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "d5MaYc0PJMrqVtlbxVEb64"
+    "_id": "deUe60eHVPY51IIum0zd31"
   },
   {
     "__type__": "cc.Label",
@@ -17743,10 +17743,10 @@
       "b": 146,
       "a": 255
     },
-    "_string": "框选归位",
+    "_string": "消色",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 32,
+    "_actualFontSize": 29,
     "_fontSize": 30,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -17783,7 +17783,7 @@
       "y": 2
     },
     "_shadowBlur": 2,
-    "_id": "68Ao+sLltK7bfExksHr7GK"
+    "_id": "e30eMH7TFIRre9en4Qw/hi"
   },
   {
     "__type__": "cc.UITransform",
@@ -17805,7 +17805,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "cc_UITransform_2"
+    "_id": "cc_UITransform_8"
   },
   {
     "__type__": "cc.Sprite",
@@ -17844,7 +17844,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "cc_Sprite_3"
+    "_id": "cc_Sprite_9"
   },
   {
     "__type__": "cc.Widget",
@@ -17874,7 +17874,7 @@
     "_originalHeight": 0,
     "_alignMode": 2,
     "_lockFlags": 0,
-    "_id": "5bGOy8c7NNe7LYWGWKKIY3"
+    "_id": "1aNZbWlJ9OoLM+FwGWcArC"
   },
   {
     "__type__": "cc.Node",
@@ -18270,7 +18270,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 13.899477293165468,
+      "width": 13.90380859375,
       "height": 37.8
     },
     "_anchorPoint": {
@@ -18303,7 +18303,7 @@
     "_string": "0",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 27.1484375,
+    "_actualFontSize": 25,
     "_fontSize": 25,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -18496,7 +18496,7 @@
     "_string": "清空槽位",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 32,
+    "_actualFontSize": 29,
     "_fontSize": 30,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -18628,7 +18628,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "SkillMagnet",
+    "_name": "SkillFreeze",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -18688,7 +18688,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillMagnet_7"
+    "_id": "SkillWand_1"
   },
   {
     "__type__": "cc.Node",
@@ -18736,7 +18736,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillMagnet_ToolIcon_scene_20260607"
+    "_id": "SkillWand_ToolIcon_scene_20260607"
   },
   {
     "__type__": "cc.UITransform",
@@ -18750,15 +18750,15 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 56,
-      "height": 65
+      "width": 48,
+      "height": 66
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillMagnet_ToolIcon_ui_20260607"
+    "_id": "SkillWand_ToolIcon_ui_20260607"
   },
   {
     "__type__": "cc.Sprite",
@@ -18781,7 +18781,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "500dcf3a-feba-4274-91dc-ff3f696bab43@f9941",
+      "__uuid__": "7d9b48cd-c975-4ce9-96fe-8a0c1e523cb4@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -18797,7 +18797,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "SkillMagnet_ToolIcon_sprite_20260607"
+    "_id": "SkillWand_ToolIcon_sprite_20260607"
   },
   {
     "__type__": "cc.Node",
@@ -18845,7 +18845,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillMagnet_AdPlayIcon_scene_20260611"
+    "_id": "SkillWand_AdPlayIcon_scene_20260611"
   },
   {
     "__type__": "cc.UITransform",
@@ -18867,7 +18867,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillMagnet_AdPlayIcon_ui_20260611"
+    "_id": "SkillWand_AdPlayIcon_ui_20260611"
   },
   {
     "__type__": "cc.Sprite",
@@ -18906,7 +18906,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "SkillMagnet_AdPlayIcon_sprite_20260611"
+    "_id": "SkillWand_AdPlayIcon_sprite_20260611"
   },
   {
     "__type__": "cc.Node",
@@ -18933,8 +18933,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 66.121,
-      "y": 41.346,
+      "x": 61.32365382374698,
+      "y": 41.34705978647685,
       "z": 0
     },
     "_lrot": {
@@ -18958,7 +18958,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillMagnet_CountBadge_scene_20260602"
+    "_id": "SkillWand_CountBadge_scene_20260602"
   },
   {
     "__type__": "cc.Node",
@@ -19006,7 +19006,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "SkillMagnet_CountBadgeLbl_scene_20260602"
+    "_id": "SkillWand_CountBadgeLbl_scene_20260602"
   },
   {
     "__type__": "cc.UITransform",
@@ -19020,7 +19020,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 13.899477293165468,
+      "width": 13.90380859375,
       "height": 37.8
     },
     "_anchorPoint": {
@@ -19028,7 +19028,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillMagnet_CountBadgeLbl_ui_20260602"
+    "_id": "SkillWand_CountBadgeLbl_ui_20260602"
   },
   {
     "__type__": "cc.Label",
@@ -19053,7 +19053,7 @@
     "_string": "0",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 27.1484375,
+    "_actualFontSize": 25,
     "_fontSize": 25,
     "_fontFamily": "Arial",
     "_lineHeight": 30,
@@ -19090,7 +19090,7 @@
       "y": 2
     },
     "_shadowBlur": 2,
-    "_id": "SkillMagnet_CountBadgeLbl_label_20260602"
+    "_id": "SkillWand_CountBadgeLbl_label_20260602"
   },
   {
     "__type__": "cc.UITransform",
@@ -19104,7 +19104,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 41.418398556584904,
+      "width": 41.41839855658491,
       "height": 40.91288042704627
     },
     "_anchorPoint": {
@@ -19112,7 +19112,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "SkillMagnet_CountBadge_ui_20260602"
+    "_id": "SkillWand_CountBadge_ui_20260602"
   },
   {
     "__type__": "cc.Sprite",
@@ -19151,7 +19151,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "SkillMagnet_CountBadge_sprite_20260615"
+    "_id": "SkillWand_CountBadge_sprite_20260615"
   },
   {
     "__type__": "cc.Node",
@@ -19199,7 +19199,7 @@
       "y": 0,
       "z": 0
     },
-    "_id": "0aeozoojRNLqsRjLwpMe91"
+    "_id": "d7HC7Sa+pL+Lz2zUa7F9N2"
   },
   {
     "__type__": "cc.UITransform",
@@ -19213,7 +19213,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 63.985021357913666,
+      "width": 123.97004271582733,
       "height": 54.400000000000006
     },
     "_anchorPoint": {
@@ -19221,7 +19221,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "deUe60eHVPY51IIum0zd31"
+    "_id": "d5MaYc0PJMrqVtlbxVEb64"
   },
   {
     "__type__": "cc.Label",
@@ -19243,10 +19243,10 @@
       "b": 146,
       "a": 255
     },
-    "_string": "消色",
+    "_string": "冻结时间",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 32,
+    "_actualFontSize": 29,
     "_fontSize": 30,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -19283,7 +19283,7 @@
       "y": 2
     },
     "_shadowBlur": 2,
-    "_id": "e30eMH7TFIRre9en4Qw/hi"
+    "_id": "68Ao+sLltK7bfExksHr7GK"
   },
   {
     "__type__": "cc.UITransform",
@@ -19305,7 +19305,7 @@
       "x": 0.5,
       "y": 0.5
     },
-    "_id": "cc_UITransform_8"
+    "_id": "cc_UITransform_2"
   },
   {
     "__type__": "cc.Sprite",
@@ -19344,7 +19344,7 @@
     "_isTrimmedMode": true,
     "_useGrayscale": false,
     "_atlas": null,
-    "_id": "cc_Sprite_9"
+    "_id": "cc_Sprite_3"
   },
   {
     "__type__": "cc.Widget",
@@ -19374,7 +19374,7 @@
     "_originalHeight": 0,
     "_alignMode": 2,
     "_lockFlags": 0,
-    "_id": "1aNZbWlJ9OoLM+FwGWcArC"
+    "_id": "5bGOy8c7NNe7LYWGWKKIY3"
   },
   {
     "__type__": "cc.UITransform",
@@ -21642,14 +21642,18 @@
     "_parent": {
       "__id__": 7
     },
-    "_children": [],
+    "_children": [
+      {
+        "__id__": 580
+      }
+    ],
     "_active": true,
     "_components": [
       {
-        "__id__": 580
+        "__id__": 583
       },
       {
-        "__id__": 581
+        "__id__": 584
       }
     ],
     "_prefab": null,
@@ -21681,6 +21685,106 @@
       "z": 0
     },
     "_id": "FxRoot_roz4nth2"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "FreezeFxLayer",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 579
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 581
+      },
+      {
+        "__id__": 582
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 1073741824,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "FreezeFxLayer_game_v1"
+  },
+  {
+    "__type__": "cc.UITransform",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 580
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 720,
+      "height": 1280
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_id": "FreezeFxLayer_ui_game_v1"
+  },
+  {
+    "__type__": "cc.Widget",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 580
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_alignFlags": 45,
+    "_target": null,
+    "_left": 0,
+    "_right": 0,
+    "_top": 0,
+    "_bottom": 0,
+    "_horizontalCenter": 0,
+    "_verticalCenter": 0,
+    "_isAbsLeft": true,
+    "_isAbsRight": true,
+    "_isAbsTop": true,
+    "_isAbsBottom": true,
+    "_isAbsHorizontalCenter": true,
+    "_isAbsVerticalCenter": true,
+    "_originalWidth": 720,
+    "_originalHeight": 1280,
+    "_alignMode": 2,
+    "_lockFlags": 0,
+    "_id": "FreezeFxLayer_widget_game_v1"
   },
   {
     "__type__": "cc.UITransform",
@@ -21744,16 +21848,16 @@
     },
     "_children": [
       {
-        "__id__": 583
+        "__id__": 586
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 605
+        "__id__": 608
       },
       {
-        "__id__": 606
+        "__id__": 609
       }
     ],
     "_prefab": null,
@@ -21792,20 +21896,20 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 582
+      "__id__": 585
     },
     "_children": [
       {
-        "__id__": 584
+        "__id__": 587
       },
       {
-        "__id__": 586
+        "__id__": 589
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 604
+        "__id__": 607
       }
     ],
     "_prefab": null,
@@ -21844,13 +21948,13 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 583
+      "__id__": 586
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 585
+        "__id__": 588
       }
     ],
     "_prefab": null,
@@ -21889,14 +21993,14 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 584
+      "__id__": 587
     },
     "_enabled": true,
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 768,
-      "height": 1328
+      "width": 720,
+      "height": 1280
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -21911,12 +22015,9 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 583
+      "__id__": 586
     },
     "_children": [
-      {
-        "__id__": 587
-      },
       {
         "__id__": 590
       },
@@ -21924,16 +22025,19 @@
         "__id__": 593
       },
       {
-        "__id__": 595
+        "__id__": 596
       },
       {
-        "__id__": 597
+        "__id__": 598
+      },
+      {
+        "__id__": 600
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 603
+        "__id__": 606
       }
     ],
     "_prefab": null,
@@ -21972,16 +22076,16 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 586
+      "__id__": 589
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 588
+        "__id__": 591
       },
       {
-        "__id__": 589
+        "__id__": 592
       }
     ],
     "_prefab": null,
@@ -22020,14 +22124,14 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 587
+      "__id__": 590
     },
     "_enabled": true,
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 154.67263376798562,
-      "height": 30.24
+      "width": 154.6875,
+      "height": 30.240000000000002
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -22042,7 +22146,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 587
+      "__id__": 590
     },
     "_enabled": true,
     "__prefab": null,
@@ -22059,7 +22163,7 @@
     "_string": "正在加载：0%",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 26.0625,
+    "_actualFontSize": 24,
     "_fontSize": 24,
     "_fontFamily": "Arial",
     "_lineHeight": 24,
@@ -22104,16 +22208,16 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 586
+      "__id__": 589
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 591
+        "__id__": 594
       },
       {
-        "__id__": 592
+        "__id__": 595
       }
     ],
     "_prefab": null,
@@ -22152,14 +22256,14 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 590
+      "__id__": 593
     },
     "_enabled": true,
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 158.67263376798562,
-      "height": 34.239999999999995
+      "width": 158.6875,
+      "height": 34.24
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -22174,7 +22278,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 590
+      "__id__": 593
     },
     "_enabled": true,
     "__prefab": null,
@@ -22191,7 +22295,7 @@
     "_string": "正在加载：0%",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 26.0625,
+    "_actualFontSize": 24,
     "_fontSize": 24,
     "_fontFamily": "Arial",
     "_lineHeight": 24,
@@ -22236,13 +22340,13 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 586
+      "__id__": 589
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 594
+        "__id__": 597
       }
     ],
     "_prefab": null,
@@ -22281,7 +22385,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 593
+      "__id__": 596
     },
     "_enabled": true,
     "__prefab": null,
@@ -22303,13 +22407,13 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 586
+      "__id__": 589
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 596
+        "__id__": 599
       }
     ],
     "_prefab": null,
@@ -22348,7 +22452,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 595
+      "__id__": 598
     },
     "_enabled": true,
     "__prefab": null,
@@ -22370,20 +22474,20 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 586
+      "__id__": 589
     },
     "_children": [
       {
-        "__id__": 598
+        "__id__": 601
       },
       {
-        "__id__": 600
+        "__id__": 603
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 602
+        "__id__": 605
       }
     ],
     "_prefab": null,
@@ -22422,13 +22526,13 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 597
+      "__id__": 600
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 599
+        "__id__": 602
       }
     ],
     "_prefab": null,
@@ -22467,7 +22571,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 598
+      "__id__": 601
     },
     "_enabled": true,
     "__prefab": null,
@@ -22489,13 +22593,13 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
-      "__id__": 597
+      "__id__": 600
     },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 601
+        "__id__": 604
       }
     ],
     "_prefab": null,
@@ -22534,7 +22638,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 600
+      "__id__": 603
     },
     "_enabled": true,
     "__prefab": null,
@@ -22556,7 +22660,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 597
+      "__id__": 600
     },
     "_enabled": true,
     "__prefab": null,
@@ -22578,7 +22682,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 586
+      "__id__": 589
     },
     "_enabled": true,
     "__prefab": null,
@@ -22600,7 +22704,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 583
+      "__id__": 586
     },
     "_enabled": true,
     "__prefab": null,
@@ -22622,7 +22726,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 582
+      "__id__": 585
     },
     "_enabled": true,
     "__prefab": null,
@@ -22644,7 +22748,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 582
+      "__id__": 585
     },
     "_enabled": true,
     "__prefab": null,
@@ -22791,28 +22895,28 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 613
-    },
-    "shadows": {
-      "__id__": 614
-    },
-    "_skybox": {
-      "__id__": 615
-    },
-    "fog": {
       "__id__": 616
     },
-    "octree": {
+    "shadows": {
       "__id__": 617
     },
-    "skin": {
+    "_skybox": {
       "__id__": 618
     },
-    "lightProbeInfo": {
+    "fog": {
       "__id__": 619
     },
-    "postSettings": {
+    "octree": {
       "__id__": 620
+    },
+    "skin": {
+      "__id__": 621
+    },
+    "lightProbeInfo": {
+      "__id__": 622
+    },
+    "postSettings": {
+      "__id__": 623
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false

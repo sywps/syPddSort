@@ -38,8 +38,6 @@ type FlyPlaceVisualOptions = {
     targetBeanSize?: number;
 };
 
-const BEAN_LAND_GLOW_ENABLED = false;
-
 export function installGameplayPlacementFxModule(target: any): void {
     installGameplayColorCompleteFxMethods(target);
     installGameplaySlotCompactionMethods(target);
@@ -219,7 +217,6 @@ export function installGameplayPlacementFxModule(target: any): void {
             const sourceBeanSize = Math.max(1, visualOptions?.sourceBeanSize ?? targetBeanSize);
             const sourceScale = sourceBeanSize / targetBeanSize;
             const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
-            const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
             let remaining = targets.length;
             const finishAfterAllLanded = () => {
                 const finish = () => this.onFlyAllLanded(targets);
@@ -273,7 +270,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${t.row},${t.col}`);
                         this.renderBoardCell(t.row, t.col);
-                        this.playLandEffect(t.row, t.col, landFrameBudget, () => {
+                        this.playLandEffect(t.row, t.col, () => {
                             remaining--;
                             if (remaining <= 0) {
                                 finishAfterAllLanded();
@@ -366,89 +363,10 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.renderBoardCells(targets);
             if (dirtySlotIndices.length > 0) this.renderSlotIndices(dirtySlotIndices);
             else this.renderSlots();
-            const landFrameBudget = this.getPlaceGlowFrameBudget(targets.length);
-            this.playLandingEffectsThen(targets, landFrameBudget, () => {
+            this.playLandingEffectsThen(targets, () => {
                 this.runPostLockLandingFlow(targets, 'fly-done', { grantLargePlacementBonus: true });
                 afterLanding?.();
             });
-        },
-
-        getPlaceGlowFrameBudget(affectedCells: number): number {
-            const count = Math.max(1, Math.floor(Number(affectedCells) || 1));
-            return count <= 1 ? 24 : count <= 4 ? 18 : count <= 12 ? 14 : count <= 24 ? 12 : 10;
-        },
-
-        sampleEffectFrames(frames: SpriteFrame[], frameBudget: number): SpriteFrame[] {
-            const budget = Math.max(1, Math.floor(Number(frameBudget) || frames.length));
-            if (budget >= frames.length) return frames;
-            if (budget === 1) return [frames[frames.length - 1] || frames[0]];
-            const sampled: SpriteFrame[] = [];
-            const maxIndex = frames.length - 1;
-            let lastIndex = -1;
-            for (let i = 0; i < budget; i++) {
-                const index = Math.min(maxIndex, Math.max(0, Math.round(i * maxIndex / (budget - 1))));
-                if (index === lastIndex) continue;
-                sampled.push(frames[index]);
-                lastIndex = index;
-            }
-            return sampled;
-        },
-
-        playFrameEffectAt(worldPos: Vec3, prefix: string, frameCount: number, size: number, frameInterval: number, angle: number = 0, frameBudget: number = frameCount) {
-            const sourceFrames = this.getEffectFrames(prefix, frameCount);
-            const frames = this.sampleEffectFrames(sourceFrames, frameBudget);
-            if (frames.length === 0 || this._activeFrameFxCount >= MAX_CONCURRENT_FRAME_EFFECTS) {
-                return;
-            }
-            PerformanceMgr.inst.markUserActivity();
-            const layerUT = this.dragLayer.getComponent(UITransform)!;
-            const localPos = layerUT.convertToNodeSpaceAR(worldPos);
-            const { node: fx, sprite: sp, opacity: uo } = this.acquireEffectNode(this._frameFxPool, prefix, size);
-            this._activeFrameFxCount += 1;
-            this.dragLayer.addChild(fx);
-            fx.setPosition(localPos.x, localPos.y, 0);
-            fx.angle = angle;
-            fx.setScale(0.5, 0.5, 1);
-        
-            // 使用 tween 链逐帧播放，比 scheduleOnce 更稳定
-            const totalFrames = frames.length;
-            let chain = tween(fx);
-        
-            // 第一帧立即显示
-            chain = chain.call(() => {
-                if (fx.isValid) {
-                    sp.spriteFrame = frames[0];
-                    fx.setScale(0.5, 0.5, 1);
-                }
-            });
-        
-            for (let i = 1; i < totalFrames; i++) {
-                const frame = frames[i];
-                const s = 0.5 + (i / totalFrames) * 1.0;
-                chain = chain
-                    .delay(frameInterval)
-                    .call(() => {
-                        if (fx.isValid) {
-                            sp.spriteFrame = frame;
-                            fx.setScale(s, s, 1);
-                        }
-                    });
-            }
-        
-            // 动画结束：放大 + 淡出后销毁
-            chain = chain
-                .delay(frameInterval)
-                .parallel(
-                    tween(fx).to(0.15, { scale: new Vec3(1.8, 1.8, 1) }),
-                    tween(uo).to(0.15, { opacity: 0 }),
-                )
-                .call(() => {
-                    sp.spriteFrame = null;
-                    this._activeFrameFxCount = Math.max(0, this._activeFrameFxCount - 1);
-                    this.recycleEffectNode(this._frameFxPool, fx);
-                });
-        
-            chain.start();
         },
 
         playBrightFlashAt(worldPos: Vec3, size: number, peakOpacity: number = 210) {
@@ -483,7 +401,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 .start();
         },
 
-        playLandEffect(row: number, col: number, frameBudget: number = this.getPlaceGlowFrameBudget(1), onComplete?: () => void) {
+        playLandEffect(row: number, col: number, onComplete?: () => void) {
             const cn = this.cellNodes[row]?.[col];
             if (!cn) {
                 onComplete?.();
@@ -499,14 +417,10 @@ export function installGameplayPlacementFxModule(target: any): void {
                     onComplete?.();
                 })
                 .start();
-            if (BEAN_LAND_GLOW_ENABLED) {
-                this.playPlaceGlow(cn, 0.035, 210, frameBudget);
-            }
         },
 
         playLandingEffectsThen(
             targets: { row: number; col: number }[],
-            frameBudget: number = this.getPlaceGlowFrameBudget(targets?.length || 1),
             onComplete?: () => void,
         ) {
             const uniqueTargets: { row: number; col: number }[] = [];
@@ -527,7 +441,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (remaining <= 0) onComplete?.();
             };
             for (const t of uniqueTargets) {
-                this.playLandEffect(t.row, t.col, frameBudget, finishOne);
+                this.playLandEffect(t.row, t.col, finishOne);
             }
         },
 
@@ -572,19 +486,6 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.addGold(bonusCfg.largePlacementGoldBonus);
         },
 
-        /** 归位闪光特效：block_finish 帧动画播放（完成效果） */
-        playPlaceGlow(
-            cellNode: Node,
-            frameInterval: number = 0.035,
-            flashOpacity: number = 210,
-            frameBudget: number = this.getPlaceGlowFrameBudget(1),
-        ) {
-            const ut = cellNode.getComponent(UITransform)!;
-            const worldPos = ut.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-            this.playBrightFlashAt(worldPos, this.cellSize + 18, flashOpacity);
-            this.playFrameEffectAt(worldPos, 'block_finish-animation_', 26, this.cellSize + 42, frameInterval, 0, frameBudget);
-        },
-
         /** 放置完成后的清理 + 渲染 + 动画 */
         finishPlace() {
             this.isSelected = false;
@@ -620,7 +521,6 @@ export function installGameplayPlacementFxModule(target: any): void {
             // 沉下去动画
             if (this._lastPlacedCells && this._lastPlacedCells.length > 0) {
                 const placedCells = this._lastPlacedCells.slice();
-                const frameBudget = this.getPlaceGlowFrameBudget(placedCells.length);
                 let remainingLandEffects = placedCells.length;
                 const finishOneLandEffect = () => {
                     remainingLandEffects--;
@@ -642,9 +542,6 @@ export function installGameplayPlacementFxModule(target: any): void {
                             finishOneLandEffect();
                         })
                         .start();
-                    if (BEAN_LAND_GLOW_ENABLED) {
-                        this.playPlaceGlow(cellNode, 0.035, 210, frameBudget);
-                    }
                 }
                 this._lastPlacedCells = null;
                 return;
@@ -781,11 +678,34 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         // ==================== 倒计时 / 胜负 ====================
+
+        refreshFreezeTimerLabel() {
+            if (!this.timerLabel || this._currentLevelUnlimitedTime) return;
+            this.timerLabel.string = this.formatTime(this.timeRemain);
+            this.timerLabel.color = new Color('#2E8EEA');
+            const ln = this.timerLabel.node;
+            Tween.stopAllByTarget(ln);
+            ln.setScale(1, 1, 1);
+        },
+
+        tickFreezeTimer(): boolean {
+            const freezeLeft = Math.max(0, Math.floor(Number(this._freezeTimeLeft) || 0));
+            if (freezeLeft <= 0) return false;
+            this._freezeTimeLeft = Math.max(0, freezeLeft - 1);
+            if (this._freezeTimeLeft <= 0) {
+                this._freezeTimeTotal = 0;
+                this.stopFreezeSpineFx?.(true);
+            } else {
+                this.refreshFreezeTimerLabel();
+            }
+            return true;
+        },
         
         tickTimer() {
             if (this.isGameEnd) return;
             if (this._currentLevelUnlimitedTime) return;
             if (this._timerPauseRefs > 0) return;
+            if (this.tickFreezeTimer()) return;
             this.timeRemain--;
             if (this.timerLabel) {
                 this.timerLabel.string = this.formatTime(this.timeRemain);

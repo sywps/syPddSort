@@ -30,6 +30,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/popup_tool_add_badge',
 	'GameUI/popup_tool_count_badge',
 	'GameUI/popup_tool_wand_icon',
+	'GameUI/popup_tool_freeze_icon',
 	'GameUI/popup_tool_brush_icon',
 	'GameUI/popup_tool_magnet_icon',
 	'GameUI/progress_fill',

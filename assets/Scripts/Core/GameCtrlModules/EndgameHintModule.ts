@@ -7,9 +7,8 @@ const ENDGAME_HINT_THRESHOLD = 5;
 const ENDGAME_HINT_POOL_LIMIT = 12;
 const ENDGAME_BOARD_HINT_EXTRA_SIZE = 8;
 const ENDGAME_SLOT_HINT_EXTRA_SIZE = 8;
-const ENDGAME_HINT_STAR_FRAME_PREFIX = 'block_match-animation_';
-const ENDGAME_HINT_STAR_FRAME_COUNT = 19;
-const ENDGAME_HINT_STAR_FRAME_NO = 16;
+const ENDGAME_HINT_STAR_FRAME_NAME = 'block_match-animation_16';
+const ENDGAME_HINT_STAR_FRAME_PATH = `Textures/UI/${ENDGAME_HINT_STAR_FRAME_NAME}`;
 const ENDGAME_HINT_STAR_VISIBLE_DURATION = 1.4;
 const ENDGAME_HINT_STAR_MAX_OPACITY = 190;
 const ENDGAME_HINT_STAR_MAX_SCALE = 1;
@@ -165,9 +164,7 @@ export function installEndgameHintModule(target: any): void {
         },
 
         getEndgameHintStarFrames(): SpriteFrame[] {
-            const allFrames = this.getEffectFrames(ENDGAME_HINT_STAR_FRAME_PREFIX, ENDGAME_HINT_STAR_FRAME_COUNT);
-            if (!allFrames || allFrames.length < ENDGAME_HINT_STAR_FRAME_NO) return [];
-            const frame = allFrames[ENDGAME_HINT_STAR_FRAME_NO - 1] || null;
+            const frame = this.getSF(ENDGAME_HINT_STAR_FRAME_NAME);
             return frame ? [frame] : [];
         },
 
@@ -179,14 +176,30 @@ export function installEndgameHintModule(target: any): void {
                 return;
             }
             const loadFromBundle = (bundle: any) => {
-                if (!bundle || typeof this._loadEffectsAtlasFromBundle !== 'function') {
+                if (!bundle) {
+                    this.warnEndgameHintLoadFailure('gameAssets bundle unavailable');
                     onDone([]);
                     return;
                 }
-                this._loadEffectsAtlasFromBundle(bundle, () => {
-                    if (!isRuntimeAlive()) return;
-                    onDone(this.getEndgameHintStarFrames());
-                });
+                const candidates = [`${ENDGAME_HINT_STAR_FRAME_PATH}/spriteFrame`, ENDGAME_HINT_STAR_FRAME_PATH];
+                const tryLoad = (index: number) => {
+                    if (index >= candidates.length) {
+                        this.warnEndgameHintLoadFailure(`${ENDGAME_HINT_STAR_FRAME_NAME} missing`);
+                        onDone([]);
+                        return;
+                    }
+                    bundle.load(candidates[index], SpriteFrame, (err: Error | null, frame: SpriteFrame | null) => {
+                        if (!isRuntimeAlive()) return;
+                        if (!err && frame) {
+                            frame.name = ENDGAME_HINT_STAR_FRAME_NAME;
+                            this.sfCache.set(ENDGAME_HINT_STAR_FRAME_NAME, frame);
+                            onDone([frame]);
+                            return;
+                        }
+                        tryLoad(index + 1);
+                    });
+                };
+                tryLoad(0);
             };
             if (this.gameAssetsBundle) {
                 loadFromBundle(this.gameAssetsBundle);

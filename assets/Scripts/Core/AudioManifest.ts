@@ -20,7 +20,7 @@ export const AUDIO_SFX_RESOURCE_PATH = {
     winSettlement: 'Audio/winSettlement',
     propWand: 'Audio/pindd/select',
     propBrush: 'Audio/pindd/shelf',
-    propFreeze: 'Audio/pindd/error',
+    propFreeze: 'Audio/pindd/prop_freeze',
     revivePop: 'Audio/ui',
     guideLevel1Pick1: 'Audio/guide_level1_pick_1',
     guideLevel1Place1: 'Audio/guide_level1_place_1',

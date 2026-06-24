@@ -20,10 +20,15 @@ function cleanString(value, maxLength = 64) {
 }
 
 function buildInventoryFields(source = {}) {
+  const magicWandCount = normalizeNonNegativeInt(source.magicWandCount);
+  const freezeCount = Object.prototype.hasOwnProperty.call(source, 'freezeCount')
+    ? normalizeNonNegativeInt(source.freezeCount)
+    : magicWandCount;
   return {
     gold: normalizeNonNegativeInt(source.gold),
     expandSlotCount: normalizeNonNegativeInt(source.expandSlotCount),
-    magicWandCount: normalizeNonNegativeInt(source.magicWandCount),
+    magicWandCount,
+    freezeCount,
     brushCount: normalizeNonNegativeInt(source.brushCount),
     magnetCount: normalizeNonNegativeInt(source.magnetCount),
     addTimeCount: normalizeNonNegativeInt(source.addTimeCount),

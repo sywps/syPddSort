@@ -812,46 +812,6 @@ export function installBoardInputViewportModule(target: any): void {
             }
         },
 
-        /** 选中特效：原位切到选中豆豆，并播放一次匹配帧 */
-        playSelectionLoopOn(parent: Node, effectSize: number, beanSize: number, beanFrame: SpriteFrame | null) {
-            const frames = this.getEffectFrames('block_match-animation_', 19);
-            if (frames.length === 0) return;
-        
-            const fx = new Node('selMatchLoop');
-            parent.addChild(fx);
-            fx.addComponent(UITransform).setContentSize(effectSize, effectSize);
-            fx.layer = Layers.Enum.UI_2D;
-            fx.setPosition(0, 0, 0);
-        
-            const selectedBean = new Node('selBean');
-            fx.addChild(selectedBean);
-            selectedBean.addComponent(UITransform).setContentSize(beanSize, beanSize);
-            selectedBean.layer = Layers.Enum.UI_2D;
-            const selectedSp = selectedBean.addComponent(Sprite);
-            selectedSp.sizeMode = Sprite.SizeMode.CUSTOM;
-            selectedSp.spriteFrame = beanFrame;
-        
-            const matchNode = new Node('selMatchSprite');
-            fx.addChild(matchNode);
-            matchNode.addComponent(UITransform).setContentSize(
-                effectSize + Math.max(8, Math.round(effectSize * 0.14)),
-                effectSize + Math.max(8, Math.round(effectSize * 0.14)),
-            );
-            matchNode.layer = Layers.Enum.UI_2D;
-            const sp = matchNode.addComponent(Sprite);
-            sp.spriteFrame = frames[0];
-            let chain = tween(fx);
-            for (let i = 1; i < frames.length; i++) {
-                const frame = frames[i];
-                chain = chain.delay(0.03).call(() => {
-                    if (fx.isValid) sp.spriteFrame = frame;
-                });
-            }
-            chain.start();
-        
-            this._selectionOverlayNodes.push(fx);
-        },
-
         isWorldPosInSlotArea(worldPos: Vec3): boolean {
             if (!this.isSlotAreaInteractive()) return false;
             const slotUT = this.slotAreaNode.getComponent(UITransform)!;

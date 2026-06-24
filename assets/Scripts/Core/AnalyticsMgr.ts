@@ -54,6 +54,8 @@ export type UpdateUserProfileAssetsOptions = {
     expandSlotCountDelta?: number;
     magicWandCount?: number;
     magicWandCountDelta?: number;
+    freezeCount?: number;
+    freezeCountDelta?: number;
     brushCount?: number;
     brushCountDelta?: number;
     magnetCount?: number;

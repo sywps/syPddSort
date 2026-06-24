@@ -16,7 +16,7 @@ import {
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
-    LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
+    LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
@@ -1584,11 +1584,9 @@ export function installAssetBootstrapModule(target: any): void {
         clearEffectPools() {
             debugPerfSnapshot('effectPools.clear.before', this);
             this.clearBeanSettleMatchFx?.();
+            this.clearFreezeSpineFx?.();
             this._flyBeanPool.clear();
-            this._frameFxPool.clear();
             this._brightFlashPool.clear();
-            this._effectFrameCache.clear();
-            this._activeFrameFxCount = 0;
             this._activeBrightFlashCount = 0;
             debugPerfSnapshot('effectPools.clear.after', this);
         },
@@ -1606,27 +1604,8 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         getEffectPoolLimit(pool: NodePool): number {
-            if (pool === this._frameFxPool) return MAX_FRAME_FX_POOL_SIZE;
             if (pool === this._brightFlashPool) return MAX_BRIGHT_FLASH_POOL_SIZE;
-            return MAX_FRAME_FX_POOL_SIZE;
-        },
-
-        getEffectFrames(prefix: string, frameCount: number): SpriteFrame[] {
-            const key = `${prefix}${frameCount}`;
-            const cached = this._effectFrameCache.get(key);
-            if (cached) return cached;
-            const frames: SpriteFrame[] = [];
-            for (let i = 1; i <= frameCount; i++) {
-                const frameNo = i < 10 ? `0${i}` : `${i}`;
-                const sf = this.getSF(`${prefix}${frameNo}`);
-                if (sf) frames.push(sf);
-            }
-            if (frames.length > 0) {
-                this._effectFrameCache.set(key, frames);
-            } else {
-                this.ensureEffectsAtlasLoadedForNextUse();
-            }
-            return frames;
+            return MAX_BRIGHT_FLASH_POOL_SIZE;
         },
 
         getSavedLevel(): number {
@@ -1713,6 +1692,7 @@ export function installAssetBootstrapModule(target: any): void {
                 gold: this.getGold(),
                 expandSlotCount: this.getPropCount('expand'),
                 magicWandCount: this.getPropCount('wand'),
+                freezeCount: this.getPropCount('freeze'),
                 brushCount: this.getPropCount('brush'),
                 magnetCount: this.getPropCount('magnet'),
                 dailySignInClaimedCount: this.getDailySignInClaimedCount(),
@@ -1910,6 +1890,9 @@ export function installAssetBootstrapModule(target: any): void {
             }
             if (typeof gameState.magicWandCount === 'number') {
                 sys.localStorage.setItem(LS_PROP_WAND, String(Math.max(0, Math.floor(gameState.magicWandCount))));
+            }
+            if (typeof gameState.freezeCount === 'number') {
+                sys.localStorage.setItem(LS_PROP_FREEZE, String(Math.max(0, Math.floor(gameState.freezeCount))));
             }
             if (typeof gameState.brushCount === 'number') {
                 sys.localStorage.setItem(LS_PROP_BRUSH, String(Math.max(0, Math.floor(gameState.brushCount))));

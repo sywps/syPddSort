@@ -4,6 +4,7 @@ import { installBoardInputViewportModule } from './GameCtrlModules/BoardInputVie
 import { installBoardZoomControlModule } from './GameCtrlModules/BoardZoomControlModule';
 import { installGameplayLevelFlowModule } from './GameCtrlModules/GameplayLevelFlowModule';
 import { installGameplayPlacementFxModule } from './GameCtrlModules/GameplayPlacementFxModule';
+import { installGameplayFreezeEffectModule } from './GameCtrlModules/GameplayFreezeEffectModule';
 import { installGameplaySkillMagnetModule } from './GameCtrlModules/GameplaySkillMagnetModule';
 import { installFirstLevelRouteModule } from './GameCtrlModules/FirstLevelRouteModule';
 import { installHomeCommerceModule } from './GameCtrlModules/HomeCommerceModule';
@@ -38,6 +39,7 @@ export function installGameCtrlModules(runtime: any): void {
     installSceneHomeEntryModule(runtime);
     installGameplayLevelFlowModule(runtime);
     installGameplaySlotSkillModule(runtime);
+    installGameplayFreezeEffectModule(runtime);
     installGameplaySkillWandModule(runtime);
     installGameplaySkillMagnetModule(runtime);
     installBoardInputViewportModule(runtime);

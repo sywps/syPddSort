@@ -5,10 +5,12 @@ import {
     DAILY_SIGNIN_TEXTURE_NAMES,
     ECONOMY_NUMERIC_TABLE,
     EventTouch,
+    FREEZE_PROP_SECONDS,
     Label,
     Node,
     Prefab,
     RESOURCE_ACQUIRE_TEXTURE_NAMES,
+    Sprite,
     UITransform,
     Vec3,
     instantiate,
@@ -75,24 +77,37 @@ export class CommercePanelController {
         return label;
     }
 
+    private setAcquireIconSprite(parent: Node, childName: string, frameName: string): void {
+        const iconNode = this.runtime.requirePanelChild(parent, childName);
+        const iconSprite = iconNode.getComponent(Sprite);
+        const spriteFrame = this.runtime.getSF(frameName);
+        if (!iconSprite || !spriteFrame) {
+            throw new Error(`[resource-acquire-prefab] missing acquire icon SpriteFrame: ${frameName}`);
+        }
+        iconSprite.spriteFrame = spriteFrame;
+    }
+
     private syncAcquireVariant(box: Node, options: ResourceAcquireOptions): void {
         const runtime = this.runtime;
         const titleBadge = runtime.requirePanelChild(box, 'PopupTitleBadge');
         const titleByVariant: Record<ResourceAcquireVariant, string> = {
             gold: 'TitleGold',
             wand: 'TitleWand',
+            freeze: 'TitleWand',
             brush: 'TitleBrush',
             magnet: 'TitleMagnet',
         };
         const iconByVariant: Record<ResourceAcquireVariant, string> = {
             gold: 'IconGold',
             wand: 'IconWand',
+            freeze: 'IconWand',
             brush: 'IconBrush',
             magnet: 'IconMagnet',
         };
         const textByVariant: Record<ResourceAcquireVariant, string> = {
             gold: 'GoldAmountLabel',
             wand: 'TextWand',
+            freeze: 'TextWand',
             brush: 'TextBrush',
             magnet: 'TextMagnet',
         };
@@ -115,6 +130,20 @@ export class CommercePanelController {
         if (isGold) {
             this.setAcquireLabelText(box, 'GoldAmountLabel', options.goldAmountText || '');
             return;
+        }
+        const iconFrameByVariant: Partial<Record<ResourceAcquireVariant, string>> = {
+            wand: 'popup_tool_wand_icon',
+            freeze: 'popup_tool_freeze_icon',
+            brush: 'popup_tool_brush_icon',
+            magnet: 'popup_tool_magnet_icon',
+        };
+        const iconFrameName = iconFrameByVariant[options.variant];
+        if (iconFrameName) {
+            this.setAcquireIconSprite(box, iconByVariant[options.variant], iconFrameName);
+        }
+        if (options.variant === 'freeze') {
+            this.setAcquireLabelText(titleBadge, 'TitleWand', '\u51bb\u7ed3');
+            this.setAcquireLabelText(box, 'TextWand', `\u6682\u505c\u5012\u8ba1\u65f6${FREEZE_PROP_SECONDS}\u79d2`);
         }
         if (!options.buyLabel) {
             throw new Error('[resource-acquire-prefab] tool acquire panel requires buyLabel');
@@ -297,6 +326,9 @@ export class CommercePanelController {
         if (kind === 'wand') {
             return { itemLabel: '魔法棒', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.magicWand, adType: 'skill_wand_acquire' };
         }
+        if (kind === 'freeze') {
+            return { itemLabel: '\u51bb\u7ed3', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.freeze, adType: 'skill_freeze_acquire' };
+        }
         if (kind === 'brush') {
             return { itemLabel: '刷子', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.brush, adType: 'skill_brush_acquire' };
         }
@@ -354,7 +386,8 @@ export class CommercePanelController {
         };
 
         const formatDailyExtraReward = (reward: DailySignInReward): string => {
-            const rewardProps = reward as DailySignInReward & { wand?: number; brush?: number; magnet?: number };
+            const rewardProps = reward as DailySignInReward & { wand?: number; freeze?: number; brush?: number; magnet?: number };
+            if (rewardProps.freeze && rewardProps.freeze > 0) return `\u51bb\u7ed3x${rewardProps.freeze}`;
             if (rewardProps.wand && rewardProps.wand > 0) return `魔法棒x${rewardProps.wand}`;
             if (rewardProps.brush && rewardProps.brush > 0) return `刷子x${rewardProps.brush}`;
             if (rewardProps.magnet && rewardProps.magnet > 0) return `磁铁x${rewardProps.magnet}`;

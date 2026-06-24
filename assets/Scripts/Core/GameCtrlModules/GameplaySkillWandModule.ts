@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT, FREEZE_PROP_SECONDS,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -32,6 +32,21 @@ import type {
 export function installGameplaySkillWandModule(target: any): void {
     Object.assign(target, {
         // ==================== 道具技能 ====================
+
+        useSkillFreeze(timerAlreadyPaused: boolean = false) {
+            if (this._skillActive) return;
+            if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 180));
+            this._freezeTimeLeft = freezeSeconds;
+            this._freezeTimeTotal = freezeSeconds;
+            AudioMgr.inst.play('propFreeze');
+            this._skillActive = true;
+            this._skillAnimOnly = true;
+            this.resetIdleHintTimer();
+            this.refreshFreezeTimerLabel?.();
+            this.playFreezeSpineFx?.();
+            this.scheduleOnce(() => this.finishSkillUsage(), 0.05);
+        },
         
         /** 魔法棒：在棋盘上显示 6×6 框，拖动定位后松手，框内未锁定豆豆强制还原。（复刻 pdd Spine 骨骼动画效果） */
         useSkillClearArea(timerAlreadyPaused: boolean = false) {
@@ -333,7 +348,6 @@ export function installGameplaySkillWandModule(target: any): void {
             if (!centerWorld) return;
             AudioMgr.inst.play('propWand');
             this.playBrightFlashAt(centerWorld, this.cellSize * 3.2, 230);
-            this.playFrameEffectAt(centerWorld, 'block_match-animation_', 19, this.cellSize * 3.6, 0.014);
         },
 
         finishWandSequence() {
@@ -923,7 +937,7 @@ export function installGameplaySkillWandModule(target: any): void {
                             }
                         };
                         if (move.doLock) {
-                            this.playLandEffect(move.targetRow, move.targetCol, this.getPlaceGlowFrameBudget(moves.length), finishMove);
+                            this.playLandEffect(move.targetRow, move.targetCol, finishMove);
                         } else {
                             finishMove();
                         }

@@ -1,0 +1,33 @@
+bingdonglizi.png
+size: 1076, 80
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+dian
+  rotate: false
+  xy: 1047, 51
+  size: 29, 29
+  orig: 31, 31
+  offset: 1, 1
+  index: -1
+shaoguang
+  rotate: true
+  xy: 751, 1
+  size: 79, 231
+  orig: 82, 233
+  offset: 2, 1
+  index: -1
+xue
+  rotate: true
+  xy: 0, 0
+  size: 80, 749
+  orig: 108, 749
+  offset: 28, 0
+  index: -1
+xuehua
+  rotate: false
+  xy: 984, 16
+  size: 61, 64
+  orig: 61, 64
+  offset: 0, 0
+  index: -1

@@ -31,7 +31,7 @@ const PINDD_SPINE_FX_DURATION: Record<PinddSpineFxAnimationName, number> = {
 type PinddSpineFxAnimationName = typeof PINDD_SPINE_FX_ANIMATION[keyof typeof PINDD_SPINE_FX_ANIMATION];
 
 const PINDD_SPINE_FX_SCALE_BY_ANIMATION: Record<PinddSpineFxAnimationName, number> = {
-    a1_1: 0.82,
+    a1_1: 1,
     b1_1: 1,
     c1_1: 0.92,
 };
@@ -222,8 +222,10 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 Number(beanTransform?.contentSize.width || fallbackBeanSize),
                 Number(beanTransform?.contentSize.height || fallbackBeanSize),
             ));
+            const slotSize = Math.max(1, Number(this.getBoardSlotVisualSize?.() || this.cellSize || 0));
+            const targetSize = slotSize > 1 ? slotSize : beanSize;
             const animationScale = animationName ? (PINDD_SPINE_FX_SCALE_BY_ANIMATION[animationName] || 1) : 1;
-            return Math.max(0.01, (beanSize * PINDD_SPINE_FX_SCALE * animationScale) / PINDD_SPINE_FX_SOURCE_HEIGHT);
+            return Math.max(0.01, (targetSize * PINDD_SPINE_FX_SCALE * animationScale) / PINDD_SPINE_FX_SOURCE_HEIGHT);
         },
 
         playPinddSpineFxOnBean(

@@ -33,6 +33,8 @@ assert.ok(colorFx.includes("colorComplete: 'b1_1'"), 'single-color completion FX
 assert.ok(colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion FX must map to the Pindd c1_1 Spine animation');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_SCALE_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation scale tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_OPACITY_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation opacity tuning');
+assert.ok(colorFx.includes('a1_1: 1,'), 'bean settle FX must not be reduced below the target-cell size baseline');
+assert.ok(colorFx.includes('getBoardSlotVisualSize'), 'Pindd Spine FX scale must prefer target slot/cell size over bean face size');
 assert.ok(colorFx.includes('warnPinddSpineFxPlayFailure'), 'Pindd Spine FX playback failures must not crash gameplay');
 assert.ok(!colorFx.includes('ColorCompleteBeanMatchFx'), 'old color-complete prefab runtime path must stay removed');
 assert.ok(!colorFx.includes('ensureColorCompleteMatchFrames'), 'old block_match-animation runtime loader must stay removed from completion FX');
@@ -46,12 +48,15 @@ const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRout
 assert.ok(placement.includes('const skipColorCompleteAudio = bm.isAllLocked();'), 'final board completion must suppress ordinary color-complete audio');
 assert.ok(placement.includes('if (skipColorCompleteAudio) continue;'), 'final board completion must suppress the last ordinary color-complete visual');
 assert.ok(placement.includes('this.enqueueColorCompleteEffect(cid, true);'), 'non-final color-complete effect must queue ordinary local visuals');
-assert.ok(placement.includes('playLandEffect(row: number, col: number, frameBudget: number = this.getPlaceGlowFrameBudget(1), onComplete?: () => void)'), 'bean landing effect must expose a completion callback');
-assert.ok(placement.includes('this.playLandingEffectsThen(targets, landFrameBudget'), 'color-complete effect must wait for landing effects to finish');
+assert.ok(placement.includes('playLandEffect(row: number, col: number, onComplete?: () => void)'), 'bean landing effect must expose a completion callback');
+assert.ok(placement.includes('this.playLandingEffectsThen(targets, () =>'), 'color-complete effect must wait for landing effects to finish');
 assert.ok(!placement.includes('COLOR_COMPLETE_VISUAL_SETTLE_DELAY'), 'color-complete timing must not rely on a fixed visual settle delay');
 
 assert.ok(settlement.includes('playPatternCompleteThenWin(delaySeconds: number = 0)'), 'final completion must route through a pattern-complete win wrapper');
 assert.ok(settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'settlement must wait for pattern-complete FX callback');
+assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0.5'), 'pattern-complete shrink must wait before c1 like Happy Pindou');
+assert.ok(settlement.includes('PATTERN_COMPLETE_FX_START_DELAY'), 'pattern-complete c1 must start after the shrink lead-in');
+assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD'), 'settlement must not appear immediately after c1 completes');
 
 assert.ok(firstLevelRoute.includes('ensureLevelDataLoadFatalLayer'), 'level-data fatal overlay must have a runtime fallback layer');
 assert.ok(firstLevelRoute.includes('createLevelDataLoadFatalSpriteNode'), 'missing fatal overlay visuals must be generated instead of crashing');

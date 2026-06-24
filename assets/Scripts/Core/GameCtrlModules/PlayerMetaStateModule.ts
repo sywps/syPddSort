@@ -15,7 +15,7 @@ import {
     MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
-    LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
+    LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
@@ -52,7 +52,7 @@ type RewardResultPopupOptions = {
     onConfirm?: () => void;
 };
 
-type DailySignInPropRewardKey = 'wand' | 'brush' | 'magnet';
+type DailySignInPropRewardKey = 'wand' | 'freeze' | 'brush' | 'magnet';
 
 function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     if (!node || !node.isValid) {
@@ -99,16 +99,8 @@ function syncExistingPopupLabel(parent: Node, childName: string, text: string, e
 }
 
 function getDailySignInPropRewardCount(reward: DailySignInReward, key: DailySignInPropRewardKey): number {
-    switch (key) {
-        case 'wand':
-            return 'wand' in reward ? reward.wand : 0;
-        case 'brush':
-            return 'brush' in reward ? reward.brush : 0;
-        case 'magnet':
-            return 'magnet' in reward ? reward.magnet : 0;
-        default:
-            return 0;
-    }
+    if (!(key in reward)) return 0;
+    return Math.max(0, Math.floor(Number((reward as any)[key]) || 0));
 }
 
 function normalizeFirstLevelRouteBucketPayloadValue(value: unknown): FirstLevelRouteVariant | null {
@@ -202,6 +194,7 @@ export function installPlayerMetaStateModule(target: any): void {
             switch (kind) {
                 case 'expand': return LS_PROP_EXPAND;
                 case 'wand': return LS_PROP_WAND;
+                case 'freeze': return LS_PROP_FREEZE;
                 case 'brush': return LS_PROP_BRUSH;
                 case 'magnet': return LS_PROP_MAGNET;
             }
@@ -234,8 +227,17 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         grantStarterPropsForNewUser(): void {
-            const starterKinds: InventoryPropKind[] = ['wand', 'brush', 'magnet'];
+            const starterKinds: InventoryPropKind[] = ['freeze', 'brush', 'magnet'];
             let changed = false;
+            const freezeStorageKey = this.getPropStorageKey('freeze');
+            if (sys.localStorage.getItem(freezeStorageKey) === null) {
+                const legacyWandRaw = sys.localStorage.getItem(this.getPropStorageKey('wand'));
+                if (legacyWandRaw !== null) {
+                    const legacyWandCount = Math.max(0, Math.floor(Number(legacyWandRaw) || 0));
+                    sys.localStorage.setItem(freezeStorageKey, String(legacyWandCount));
+                    changed = true;
+                }
+            }
             for (const kind of starterKinds) {
                 const storageKey = this.getPropStorageKey(kind);
                 if (sys.localStorage.getItem(storageKey) !== null) {
@@ -339,9 +341,11 @@ export function installPlayerMetaStateModule(target: any): void {
         buildDailySignInRewardText(reward: DailySignInReward): string[] {
             const lines: string[] = [];
             const wandReward = getDailySignInPropRewardCount(reward, 'wand');
+            const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
             const brushReward = getDailySignInPropRewardCount(reward, 'brush');
             const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
             if (reward.gold && reward.gold > 0) lines.push(`+${reward.gold}金币`);
+            if (freezeReward > 0) lines.push(`\u51bb\u7ed3x${freezeReward}`);
             if (wandReward > 0) lines.push(`魔法棒x${wandReward}`);
             if (brushReward > 0) lines.push(`刷子x${brushReward}`);
             if (magnetReward > 0) lines.push(`磁铁x${magnetReward}`);
@@ -350,9 +354,11 @@ export function installPlayerMetaStateModule(target: any): void {
 
         grantDailySignInReward(reward: DailySignInReward): string {
             const wandReward = getDailySignInPropRewardCount(reward, 'wand');
+            const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
             const brushReward = getDailySignInPropRewardCount(reward, 'brush');
             const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
             if (reward.gold && reward.gold > 0) this.addGold(reward.gold);
+            if (freezeReward > 0) this.addPropCount('freeze', freezeReward);
             if (wandReward > 0) this.addPropCount('wand', wandReward);
             if (brushReward > 0) this.addPropCount('brush', brushReward);
             if (magnetReward > 0) this.addPropCount('magnet', magnetReward);
@@ -362,9 +368,11 @@ export function installPlayerMetaStateModule(target: any): void {
         buildDailySignInRewardResultItems(reward: DailySignInReward): RewardResultPopupItem[] {
             const items: RewardResultPopupItem[] = [];
             const wandReward = getDailySignInPropRewardCount(reward, 'wand');
+            const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
             const brushReward = getDailySignInPropRewardCount(reward, 'brush');
             const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
             if (reward.gold && reward.gold > 0) items.push({ iconName: '金币', amountText: `+${reward.gold}`, labelText: '金币' });
+            if (freezeReward > 0) items.push({ iconName: 'popup_tool_freeze_icon', amountText: `x${freezeReward}`, labelText: '\u51bb\u7ed3' });
             if (wandReward > 0) items.push({ iconName: 'popup_tool_wand_icon', amountText: `x${wandReward}`, labelText: '魔法棒' });
             if (brushReward > 0) items.push({ iconName: 'popup_tool_brush_icon', amountText: `x${brushReward}`, labelText: '刷子' });
             if (magnetReward > 0) items.push({ iconName: 'popup_tool_magnet_icon', amountText: `x${magnetReward}`, labelText: '磁铁' });
