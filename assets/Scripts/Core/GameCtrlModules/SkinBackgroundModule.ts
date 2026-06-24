@@ -146,7 +146,9 @@ function normalizeBackgroundSkinIdList(value: unknown): number[] {
 function normalizeBackgroundSkinAdProgress(value: unknown): Record<string, number> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     const result: Record<string, number> = {};
-    for (const [rawId, rawCount] of Object.entries(value as Record<string, unknown>)) {
+    const source = value as Record<string, unknown>;
+    for (const rawId of Object.keys(source)) {
+        const rawCount = source[rawId];
         const id = toBackgroundSkinStorageId(rawId);
         const count = Math.max(0, Math.floor(Number(rawCount) || 0));
         if (id > 0 && count > 0) result[String(id)] = count;
@@ -157,7 +159,8 @@ function normalizeBackgroundSkinAdProgress(value: unknown): Record<string, numbe
 function mergeBackgroundSkinAdProgress(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
     const result: Record<string, number> = { ...normalizeBackgroundSkinAdProgress(a) };
     const next = normalizeBackgroundSkinAdProgress(b);
-    for (const [id, count] of Object.entries(next)) {
+    for (const id of Object.keys(next)) {
+        const count = next[id];
         result[id] = Math.max(Math.floor(Number(result[id]) || 0), count);
     }
     return result;

@@ -293,21 +293,25 @@ export class AnalyticsMgr {
 
         const batch = this.funnelQueue.splice(0, 20);
         this.funnelInFlight = true;
-        void PlatformCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
-            sessionId: this.funnelSessionId,
-            events: batch,
-        }).catch((error) => {
-            if (this.isPermanentFunnelUploadFailure(error)) {
-                this.disableFunnelUpload('addFunnelEvents unavailable');
-                return;
-            }
-            console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
-            this.funnelQueue = batch.concat(this.funnelQueue).slice(0, 200);
-        }).finally(() => {
+        const finishFlush = () => {
             this.funnelInFlight = false;
             if (!this.funnelUploadDisabled && this.funnelQueue.length > 0) {
                 this.scheduleFunnelFlush();
             }
+        };
+        void PlatformCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
+            sessionId: this.funnelSessionId,
+            events: batch,
+        }).then(() => {
+            finishFlush();
+        }, (error) => {
+            if (this.isPermanentFunnelUploadFailure(error)) {
+                this.disableFunnelUpload('addFunnelEvents unavailable');
+            } else {
+                console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
+                this.funnelQueue = batch.concat(this.funnelQueue).slice(0, 200);
+            }
+            finishFlush();
         });
     }
 

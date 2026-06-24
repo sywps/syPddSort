@@ -129,7 +129,7 @@ function writePersistedLevelPack(cacheKey: string, hash: string, text: string): 
         text,
         updatedAt: Date.now(),
     };
-    const sorted = Object.values(records).sort((a, b) => b.updatedAt - a.updatedAt);
+    const sorted = Object.keys(records).map((key) => records[key]).sort((a, b) => b.updatedAt - a.updatedAt);
     for (const stale of sorted.slice(MAX_PERSISTED_LEVEL_PACKS)) {
         delete records[stale.key];
     }
