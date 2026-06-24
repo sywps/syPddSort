@@ -48,9 +48,18 @@ export function installGameplayPlacementFxModule(target: any): void {
         
             // 暂存槽优先：尝试放到暂存槽
             if (this.isSlotAreaInteractive()) {
-                const slotUT = this.slotAreaNode.getComponent(UITransform)!;
-                const slotLocal = slotUT.convertToNodeSpaceAR(worldPos);
-                if (Math.abs(slotLocal.x) < slotUT.contentSize.width / 2 && Math.abs(slotLocal.y) < slotUT.contentSize.height / 2) {
+                const slotIntent = typeof this.resolveSlotTapIntent === 'function'
+                    ? this.resolveSlotTapIntent(worldPos, block.source === 'slot' ? 'slotSelected' : 'boardSelected')
+                    : null;
+                if (slotIntent && slotIntent.kind !== 'miss') {
+                    if (slotIntent.kind === 'unlockButton') {
+                        if (typeof this.triggerSlotUnlockFromInput === 'function') {
+                            this.triggerSlotUnlockFromInput();
+                        } else {
+                            this.tryUnlockSlotRow?.();
+                        }
+                        return;
+                    }
                     // 如果豆豆来自暂存槽且放回暂存区，直接取消
                     if (block.source === 'slot') {
                         this.playReturnFeedback();

@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -85,43 +85,6 @@ export function installHomeCommerceModule(target: any): void {
                 .to(0.24, { scale: new Vec3(baseScale.x * 1.045, baseScale.y * 1.045, baseScale.z) }, { easing: 'sineOut' })
                 .to(0.16, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) }, { easing: 'sineOut' })
                 .start();
-        },
-
-        fillPanelAnchorLabel(
-            anchor: Node,
-            name: string,
-            text: string,
-            size: number,
-            color: Color,
-            width: number,
-            height: number,
-            align: number = Label.HorizontalAlign.CENTER,
-            overflow: number = Label.Overflow.SHRINK,
-        ): Label {
-            const existingLabel = anchor.getComponent(Label) || anchor.getChildByName(name)?.getComponent(Label);
-            if (existingLabel) {
-                existingLabel.string = text;
-                existingLabel.enableWrapText = false;
-                return existingLabel;
-            }
-
-            anchor.removeAllChildren();
-            const node = new Node(name);
-            anchor.addChild(node);
-            node.layer = anchor.layer;
-            node.setPosition(0, 0, 0);
-            const ui = node.addComponent(UITransform);
-            ui.setContentSize(width, height);
-            const label = node.addComponent(Label);
-            label.string = text;
-            label.fontSize = size;
-            label.lineHeight = Math.max(size + 4, height);
-            label.color = color;
-            label.horizontalAlign = align;
-            label.verticalAlign = Label.VerticalAlign.CENTER;
-            label.overflow = overflow;
-            label.enableWrapText = false;
-            return label;
         },
 
         openGoldShop() {
@@ -215,36 +178,14 @@ export function installHomeCommerceModule(target: any): void {
             const iconNode = this.requireUiChild(btn, 'DailySignInIcon', 'DailySignInBtn/DailySignInIcon');
             this.requireSceneSpriteFrame(iconNode, 'DailySignInBtn/DailySignInIcon');
         
-            btn.getChildByName('DailySignInDot')?.destroy();
             const badgeAnchor = this.requireUiChild(btn, 'BadgeAnchor', 'DailySignInBtn/BadgeAnchor');
-            badgeAnchor.removeAllChildren();
             badgeAnchor.active = true;
-            if (signInStatus.canClaim) {
-                const dot = new Node('DailySignInDot');
-                badgeAnchor.addChild(dot);
-                dot.layer = btn.layer;
-                dot.setPosition(0, 0, 0);
-                dot.addComponent(UITransform).setContentSize(22, 22);
-                const dg = dot.getComponent(Graphics) || dot.addComponent(Graphics);
-                dg.clear();
-                dg.fillColor = new Color('#F05A5A');
-                dg.circle(0, 0, 11);
-                dg.fill();
-                const dotLabelNode = new Node('DailySignInDotLbl');
-                dot.addChild(dotLabelNode);
-                dotLabelNode.layer = dot.layer;
-                dotLabelNode.setPosition(0, 0, 0);
-                dotLabelNode.addComponent(UITransform).setContentSize(18, 18);
-                const dotLabel = dotLabelNode.addComponent(Label);
-                dotLabel.string = '领';
-                dotLabel.fontSize = 12;
-                dotLabel.lineHeight = 14;
-                dotLabel.color = Color.WHITE;
-                dotLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                dotLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                dotLabel.overflow = Label.Overflow.SHRINK;
-                dotLabel.enableWrapText = false;
-            }
+            const dot = this.requireUiChild(badgeAnchor, 'DailySignInDot', 'DailySignInBtn/BadgeAnchor/DailySignInDot');
+            const dotLabelNode = this.requireUiChild(dot, 'DailySignInDotLbl', 'DailySignInBtn/BadgeAnchor/DailySignInDot/DailySignInDotLbl');
+            const dotLabel = dotLabelNode.getComponent(Label);
+            if (!dotLabel) throw new Error('[HomeScene] Home.scene is missing Label component on DailySignInDot/DailySignInDotLbl');
+            dotLabel.string = '领';
+            dot.active = !!signInStatus.canClaim;
         
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);

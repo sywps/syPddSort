@@ -184,14 +184,54 @@ export class SkinResourceCdnService {
     }
 
     private validateLiveManifest(manifest: SkinLiveManifest): SkinLiveManifest {
-        if (!manifest || !Array.isArray(manifest.skins)) {
-            throw new Error('skin_live.json skins missing');
-        }
         if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) {
             throw new Error('skin_live.json schema unsupported');
         }
-        if (!manifest.skinDataVersion) {
+        if (!manifest.skinDataVersion || typeof manifest.skinDataVersion !== 'string') {
             throw new Error('skin_live.json skinDataVersion missing');
+        }
+        if (!Number.isFinite(Number(manifest.minClientBuild)) || Number(manifest.minClientBuild) < 1) {
+            throw new Error('skin_live.json minClientBuild invalid');
+        }
+        if (!Array.isArray(manifest.skins) || manifest.skins.length === 0) {
+            throw new Error('skin_live.json skins missing');
+        }
+        if (manifest.skinCount !== manifest.skins.length) {
+            throw new Error('skin_live.json skinCount mismatch');
+        }
+        const seenIds = new Set<number>();
+        const seenUrls = new Set<string>();
+        let assetCount = 0;
+        const validateAsset = (skinId: number, expectedKind: 'background' | 'icon', asset: SkinRemoteAsset | undefined): void => {
+            if (!asset) throw new Error(`skin_live.json missing ${expectedKind} asset: ${skinId}`);
+            if (Number(asset.skinId) !== skinId) throw new Error(`skin_live.json asset skinId mismatch: ${skinId}/${expectedKind}`);
+            if (asset.kind !== expectedKind) throw new Error(`skin_live.json asset kind mismatch: ${skinId}/${expectedKind}`);
+            if (typeof asset.url !== 'string' || !asset.url.startsWith('assets/')) throw new Error(`skin_live.json asset url invalid: ${skinId}/${expectedKind}`);
+            if (seenUrls.has(asset.url)) throw new Error(`skin_live.json asset url duplicated: ${asset.url}`);
+            seenUrls.add(asset.url);
+            if (!asset.hash || typeof asset.hash !== 'string') throw new Error(`skin_live.json asset hash missing: ${asset.url}`);
+            if (!Number.isFinite(Number(asset.bytes)) || Number(asset.bytes) <= 0) throw new Error(`skin_live.json asset bytes invalid: ${asset.url}`);
+            if (!Number.isFinite(Number(asset.width)) || Number(asset.width) <= 0) throw new Error(`skin_live.json asset width invalid: ${asset.url}`);
+            if (!Number.isFinite(Number(asset.height)) || Number(asset.height) <= 0) throw new Error(`skin_live.json asset height invalid: ${asset.url}`);
+            if (asset.format && !/^(png|jpe?g)$/i.test(String(asset.format))) throw new Error(`skin_live.json asset format unsupported: ${asset.url}`);
+            assetCount += 1;
+        };
+        for (const skin of manifest.skins) {
+            const id = Math.floor(Number(skin?.id) || 0);
+            if (id <= 0) throw new Error('skin_live.json skin.id invalid');
+            if (seenIds.has(id)) throw new Error(`skin_live.json skin.id duplicated: ${id}`);
+            seenIds.add(id);
+            if (skin.type !== 'background') throw new Error(`skin_live.json skin.type unsupported: ${id}`);
+            if (!skin.code || typeof skin.code !== 'string') throw new Error(`skin_live.json skin.code missing: ${id}`);
+            if (skin.enabled === false) throw new Error(`skin_live.json disabled skin row is not publishable: ${id}`);
+            validateAsset(id, 'background', skin.assets?.background);
+            validateAsset(id, 'icon', skin.assets?.icon);
+        }
+        if (manifest.assetCount !== assetCount) {
+            throw new Error(`skin_live.json assetCount mismatch: ${manifest.assetCount} != ${assetCount}`);
+        }
+        if (manifest.defaultEquipped !== undefined && !seenIds.has(Math.floor(Number(manifest.defaultEquipped) || 0))) {
+            throw new Error('skin_live.json defaultEquipped missing from skins');
         }
         return manifest;
     }

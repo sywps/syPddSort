@@ -267,6 +267,60 @@ function bundleConfigHasPath(config, expectedPath) {
     return Object.values(config.paths || {}).some((entry) => Array.isArray(entry) && entry[0] === expectedPath);
 }
 
+function bundleConfigPathsWithPrefix(config, prefix) {
+    return Object.values(config.paths || {})
+        .filter((entry) => Array.isArray(entry) && String(entry[0] || '').startsWith(prefix))
+        .map((entry) => entry[0]);
+}
+
+function collectMetaUuids(sourceDir) {
+    if (!fs.existsSync(sourceDir)) return [];
+    const uuids = new Set();
+    for (const filePath of walkFiles(sourceDir)) {
+        if (!filePath.endsWith('.meta')) continue;
+        const meta = readJson(filePath);
+        if (meta && typeof meta.uuid === 'string' && meta.uuid) uuids.add(meta.uuid);
+        for (const subMeta of Object.values(meta.subMetas || {})) {
+            if (subMeta && typeof subMeta.uuid === 'string' && subMeta.uuid) uuids.add(subMeta.uuid);
+        }
+    }
+    return Array.from(uuids).sort();
+}
+
+function findUuidArtifactFiles(bundleDir, uuid) {
+    const result = [];
+    const importDir = path.join(bundleDir, 'import', uuid.slice(0, 2));
+    if (fs.existsSync(importDir)) {
+        for (const name of fs.readdirSync(importDir)) {
+            if (name === uuid + '.json' || name.startsWith(uuid + '.')) {
+                result.push(path.join(importDir, name));
+            }
+        }
+    }
+    const nativeUuid = uuid.split('@')[0];
+    const nativeDir = path.join(bundleDir, 'native', nativeUuid.slice(0, 2));
+    if (fs.existsSync(nativeDir)) {
+        for (const name of fs.readdirSync(nativeDir)) {
+            if (name.startsWith(nativeUuid + '.') && !/\.json$/i.test(name)) {
+                result.push(path.join(nativeDir, name));
+            }
+        }
+    }
+    return result;
+}
+
+function assertRuntimeBundleNoSourceArtifacts(bundleDir, bundleName, sourceDir, label) {
+    const hits = [];
+    for (const uuid of collectMetaUuids(sourceDir)) {
+        for (const filePath of findUuidArtifactFiles(bundleDir, uuid)) {
+            hits.push(path.relative(bundleDir, filePath));
+        }
+    }
+    if (hits.length > 0) {
+        fail(bundleName + ' release 不应包含 ' + label + ' 产物: ' + hits.slice(0, 8).join(', '));
+    }
+}
+
 function assertRuntimeBundleConfig(bundleDir, bundleName, expectedPaths, expectedSceneUrl) {
     const config = readBundleConfig(bundleDir, bundleName);
     if (expectedSceneUrl && (!config.scenes || config.scenes[expectedSceneUrl] === undefined)) {
@@ -276,6 +330,14 @@ function assertRuntimeBundleConfig(bundleDir, bundleName, expectedPaths, expecte
         if (!bundleConfigHasPath(config, expectedPath)) {
             fail(bundleName + ' config 缺少资源路径: ' + expectedPath);
         }
+    }
+}
+
+function assertRuntimeBundleNoPathPrefix(bundleDir, bundleName, forbiddenPrefix) {
+    const config = readBundleConfig(bundleDir, bundleName);
+    const matches = bundleConfigPathsWithPrefix(config, forbiddenPrefix);
+    if (matches.length > 0) {
+        fail(bundleName + ' config 不应包含资源路径前缀 ' + forbiddenPrefix + ': ' + matches.slice(0, 8).join(', '));
     }
 }
 
@@ -400,7 +462,11 @@ assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['Lev
 assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', ['Skins/skins', 'Skins/Icons/bg_000'], '');
+assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', buildMode === 'debug' ? ['Skins/skins', 'Skins/Icons/bg_000'] : [], '');
+if (buildMode === 'release') {
+    assertRuntimeBundleNoPathPrefix(runtimeInfo.gameAssetsDir, 'gameAssets', 'Skins/');
+    assertRuntimeBundleNoSourceArtifacts(runtimeInfo.gameAssetsDir, 'gameAssets', path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins'), 'GameAssetsBundle/Skins 本地镜像');
+}
 assertRuntimeBundleNoDeps(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', ['bootstrap', 'homeAssets']);
 const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [])
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, ''))

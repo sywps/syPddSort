@@ -8,7 +8,8 @@ import {
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
-    DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
+    DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, SLOT_HIT_PADDING_X_UI, SLOT_HIT_PADDING_Y_UI,
+    SLOT_UNLOCK_HIT_PADDING_UI, SLOT_AREA_HIT_PADDING_UI, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
     MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
@@ -46,6 +47,26 @@ type BoardTapResolution = {
     candidate: BoardTapCandidate | null;
     block: BeanBlockInfo | null;
     source: 'direct' | 'adjacent' | 'miss';
+};
+
+type SlotTapFlow = 'none' | 'boardSelected' | 'slotSelected';
+
+type SlotTapCandidate = {
+    kind: 'slot' | 'unlockButton' | 'slotArea';
+    slotIndex?: number;
+    row?: number;
+    colorId?: number;
+    occupied?: boolean;
+    directHit: boolean;
+    distSq: number;
+    centerDistSq: number;
+};
+
+type SlotTapIntent = {
+    kind: 'occupiedSlot' | 'emptyUnlockedSlot' | 'unlockButton' | 'slotArea' | 'miss';
+    candidate: SlotTapCandidate | null;
+    candidates: SlotTapCandidate[];
+    source: 'direct' | 'tolerant' | 'area' | 'miss';
 };
 
 export function installBoardInputViewportModule(target: any): void {
@@ -276,7 +297,7 @@ export function installBoardInputViewportModule(target: any): void {
             const center = new Vec2((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
             const anchorLocal = this.uiToBoardLocal(center);
             if (!anchorLocal) return false;
-        
+
             this.setGestureMode('pinching');
             this.suppressTap = true;
             this.pinchTouchIds = nextIds;
@@ -295,7 +316,7 @@ export function installBoardInputViewportModule(target: any): void {
             const p1 = this.activeBoardTouches.get(this.pinchTouchIds[0]);
             const p2 = this.activeBoardTouches.get(this.pinchTouchIds[1]);
             if (!p1 || !p2) return false;
-        
+
             const dist = Math.max(1, Vec2.distance(p1, p2));
             const center = new Vec2((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
             const minScale = Number(this.boardViewport?.minScale) || (this.constructor as any).MIN_SCALE;
@@ -475,7 +496,7 @@ export function installBoardInputViewportModule(target: any): void {
                     }
                 } else {
                     // 重叠区域优先：先检测暂存槽区域，再检测棋盘区域
-                    if (!this.trySelectSlot(worldPos) && !this.isWorldPosInSlotArea(worldPos)) {
+                    if (!this.trySelectSlot(worldPos) && !this.isWorldPosInSlotIntentArea(worldPos)) {
                         this.trySelectBoard(worldPos);
                     }
                 }
@@ -499,10 +520,10 @@ export function installBoardInputViewportModule(target: any): void {
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
             if (this._skillActive && !this._wandMode) return;
             PerformanceMgr.inst.markUserActivity();
-        
+
             const scrollY = event.getScrollY();
             if (scrollY === 0) return;
-        
+
             const currentScale = this.boardViewScale || this.boardGroup.scale.x;
             // 滚轮向上（scrollY > 0）放大，向下缩小
             const delta = scrollY > 0 ? 0.08 : -0.08;
@@ -551,6 +572,188 @@ export function installBoardInputViewportModule(target: any): void {
                 selectedColor: block?.colorId || 0,
                 source,
             }));
+        },
+
+        getSlotHitWorldScale(node?: Node | null): number {
+            const sourceNode = node?.isValid ? node : this.slotAreaNode;
+            const worldScale = sourceNode?.isValid
+                ? sourceNode.getWorldScale(new Vec3())
+                : null;
+            const fallbackScale = this.slotAreaNode?.scale || null;
+            const measuredScale = Math.max(
+                Math.abs(worldScale?.x || 0),
+                Math.abs(worldScale?.y || 0),
+                Math.abs(fallbackScale?.x || 0),
+                Math.abs(fallbackScale?.y || 0),
+            );
+            return Math.max(0.1, measuredScale || 1);
+        },
+
+        getSlotPaddingLocal(uiPadding: number, node?: Node | null): number {
+            return Math.max(0, uiPadding / this.getSlotHitWorldScale(node || null));
+        },
+
+        getSlotHitExtentsLocal(): { directHalf: number; halfX: number; halfY: number } {
+            const directHalf = Math.max(1, SLOT_SIZE / 2);
+            const centerSpacing = Math.max(1, Number(this.getSlotCenterSpacing?.()) || (SLOT_SIZE + SLOT_GAP));
+            const rowSpacing = Math.max(1, Number(this.getSlotRowSpacing?.()) || SLOT_ROW_SPACING);
+            const padX = this.getSlotPaddingLocal(SLOT_HIT_PADDING_X_UI);
+            const padY = this.getSlotPaddingLocal(SLOT_HIT_PADDING_Y_UI);
+            const maxHalfX = Math.max(directHalf, centerSpacing * 0.56);
+            const multiUnlockedRows = Math.max(1, Math.floor(Number(this.slotUnlockedRows) || 1)) > 1;
+            const maxHalfY = multiUnlockedRows
+                ? Math.max(directHalf, rowSpacing * 0.56)
+                : directHalf + padY;
+            return {
+                directHalf,
+                halfX: Math.min(directHalf + padX, maxHalfX),
+                halfY: Math.min(directHalf + padY, maxHalfY),
+            };
+        },
+
+        getRectDistanceSq(localPos: Vec2 | Vec3, centerX: number, centerY: number, halfW: number, halfH: number): number {
+            const dx = Math.max(Math.abs(localPos.x - centerX) - halfW, 0);
+            const dy = Math.max(Math.abs(localPos.y - centerY) - halfH, 0);
+            return dx * dx + dy * dy;
+        },
+
+        getSlotUnlockButtonNode(): Node | null {
+            if (!this.slotAreaNode?.isValid) return null;
+            return this.slotAreaNode.getChildByName('SlotRowLockedBtn')
+                || this.slotAreaNode.children.find((child: Node) => child.name.startsWith('SlotRowLockedBtn_'))
+                || this.slotAreaNode.getChildByName('AddBtnWrap')
+                || null;
+        },
+
+        getSlotTapCandidates(worldPos: Vec3): SlotTapCandidate[] {
+            if (!this.isSlotAreaInteractive()) return [];
+            const slotUT = this.slotAreaNode.getComponent(UITransform);
+            if (!slotUT) return [];
+            const localPos = slotUT.convertToNodeSpaceAR(worldPos);
+            const candidates: SlotTapCandidate[] = [];
+            const extents = this.getSlotHitExtentsLocal();
+            const unlockedRows = Math.max(0, Math.floor(Number(this.slotUnlockedRows) || 0));
+
+            for (let i = 0; i < this.slotNodes.length; i++) {
+                const row = Math.floor(i / SLOTS_PER_ROW);
+                if (row >= unlockedRows) continue;
+                const slotNode = this.slotNodes[i];
+                if (!slotNode?.isValid) continue;
+                const sp = slotNode.position;
+                const dx = localPos.x - sp.x;
+                const dy = localPos.y - sp.y;
+                const directHit = Math.abs(dx) <= extents.directHalf && Math.abs(dy) <= extents.directHalf;
+                if (!directHit && (Math.abs(dx) > extents.halfX || Math.abs(dy) > extents.halfY)) continue;
+                const target = this.slotModel.getBlock(i);
+                candidates.push({
+                    kind: 'slot',
+                    slotIndex: i,
+                    row,
+                    colorId: target?.colorId || 0,
+                    occupied: !!target,
+                    directHit,
+                    distSq: this.getRectDistanceSq(localPos, sp.x, sp.y, extents.directHalf, extents.directHalf),
+                    centerDistSq: dx * dx + dy * dy,
+                });
+            }
+
+            const unlockNode = this.getSlotUnlockButtonNode();
+            if (unlockNode?.isValid && unlockNode.activeInHierarchy !== false && unlockedRows < Math.floor(Number(this.slotRowCount) || 0)) {
+                const unlockUT = unlockNode.getComponent(UITransform);
+                if (unlockUT) {
+                    const unlockLocal = unlockUT.convertToNodeSpaceAR(worldPos);
+                    const halfW = unlockUT.contentSize.width / 2;
+                    const halfH = unlockUT.contentSize.height / 2;
+                    const pad = this.getSlotPaddingLocal(SLOT_UNLOCK_HIT_PADDING_UI, unlockNode);
+                    const directHit = Math.abs(unlockLocal.x) <= halfW && Math.abs(unlockLocal.y) <= halfH;
+                    if (directHit || (Math.abs(unlockLocal.x) <= halfW + pad && Math.abs(unlockLocal.y) <= halfH + pad)) {
+                        candidates.push({
+                            kind: 'unlockButton',
+                            directHit,
+                            distSq: this.getRectDistanceSq(unlockLocal, 0, 0, halfW, halfH),
+                            centerDistSq: unlockLocal.x * unlockLocal.x + unlockLocal.y * unlockLocal.y,
+                        });
+                    }
+                }
+            }
+
+            const areaPad = this.getSlotPaddingLocal(SLOT_AREA_HIT_PADDING_UI);
+            const areaHalfW = slotUT.contentSize.width / 2;
+            const areaHalfH = slotUT.contentSize.height / 2;
+            const areaDirectHit = Math.abs(localPos.x) <= areaHalfW && Math.abs(localPos.y) <= areaHalfH;
+            if (areaDirectHit || (Math.abs(localPos.x) <= areaHalfW + areaPad && Math.abs(localPos.y) <= areaHalfH + areaPad)) {
+                candidates.push({
+                    kind: 'slotArea',
+                    directHit: areaDirectHit,
+                    distSq: this.getRectDistanceSq(localPos, 0, 0, areaHalfW, areaHalfH),
+                    centerDistSq: localPos.x * localPos.x + localPos.y * localPos.y,
+                });
+            }
+
+            return candidates;
+        },
+
+        getSlotTapCandidatePriority(candidate: SlotTapCandidate, flow: SlotTapFlow): number {
+            if (candidate.kind === 'slot') {
+                if (candidate.occupied) return candidate.directHit ? 0 : 3;
+                return candidate.directHit ? 2 : 5;
+            }
+            if (candidate.kind === 'unlockButton') return candidate.directHit ? 1 : 4;
+            return flow === 'boardSelected' ? 6 : 7;
+        },
+
+        compareSlotTapCandidates(a: SlotTapCandidate, b: SlotTapCandidate, flow: SlotTapFlow): number {
+            const priorityDiff = this.getSlotTapCandidatePriority(a, flow) - this.getSlotTapCandidatePriority(b, flow);
+            if (priorityDiff !== 0) return priorityDiff;
+            if (a.distSq !== b.distSq) return a.distSq - b.distSq;
+            if (a.directHit !== b.directHit) return a.directHit ? -1 : 1;
+            if (a.centerDistSq !== b.centerDistSq) return a.centerDistSq - b.centerDistSq;
+            return (a.slotIndex ?? Number.MAX_SAFE_INTEGER) - (b.slotIndex ?? Number.MAX_SAFE_INTEGER);
+        },
+
+        resolveSlotTapIntent(worldPos: Vec3, flow: SlotTapFlow = 'none'): SlotTapIntent {
+            const candidates = this.getSlotTapCandidates(worldPos);
+            candidates.sort((a, b) => this.compareSlotTapCandidates(a, b, flow));
+            const candidate = candidates[0] || null;
+            if (!candidate) {
+                return { kind: 'miss', candidate: null, candidates, source: 'miss' };
+            }
+            if (candidate.kind === 'slot') {
+                return {
+                    kind: candidate.occupied ? 'occupiedSlot' : 'emptyUnlockedSlot',
+                    candidate,
+                    candidates,
+                    source: candidate.directHit ? 'direct' : 'tolerant',
+                };
+            }
+            if (candidate.kind === 'unlockButton') {
+                return {
+                    kind: 'unlockButton',
+                    candidate,
+                    candidates,
+                    source: candidate.directHit ? 'direct' : 'tolerant',
+                };
+            }
+            return { kind: 'slotArea', candidate, candidates, source: candidate.directHit ? 'area' : 'tolerant' };
+        },
+
+        isSlotTapIntentActive(intent: SlotTapIntent | null | undefined): boolean {
+            return !!intent && intent.kind !== 'miss';
+        },
+
+        isWorldPosInSlotIntentArea(worldPos: Vec3): boolean {
+            return this.isSlotTapIntentActive(this.resolveSlotTapIntent(worldPos, 'none'));
+        },
+
+        triggerSlotUnlockFromInput(): boolean {
+            const now = Date.now();
+            const lastAt = Number(this._lastSlotUnlockInputAt) || 0;
+            if (now - lastAt < 500) return true;
+            this._lastSlotUnlockInputAt = now;
+            if (typeof this.tryUnlockSlotRow === 'function') {
+                this.tryUnlockSlotRow();
+            }
+            return true;
         },
 
         getBoardTapVisualHalfSizeLocal(kind: 'select' | 'place' = 'select'): number {
@@ -638,101 +841,94 @@ export function installBoardInputViewportModule(target: any): void {
             return true;
         },
 
-        /** 第一次点击暂存槽：选中同色所有豆豆 */
-        trySelectSlot(worldPos: Vec3): boolean {
-            if (!this.isSlotAreaInteractive()) return false;
-            const slotUT = this.slotAreaNode.getComponent(UITransform)!;
-            const localPos = slotUT.convertToNodeSpaceAR(worldPos);
-            if (Math.abs(localPos.x) > slotUT.contentSize.width / 2 || Math.abs(localPos.y) > slotUT.contentSize.height / 2) return false;
+        selectSlotBlockByIndex(slotIndex: number): boolean {
+            const row = Math.floor(slotIndex / SLOTS_PER_ROW);
+            if (row >= this.slotUnlockedRows) return false;
+            const target = this.slotModel.getBlock(slotIndex);
+            if (!target) return false;
+            const colorId = target.colorId;
         
-            for (let i = 0; i < this.slotNodes.length; i++) {
-                const sp = this.slotNodes[i].position;
-                if (Math.abs(localPos.x - sp.x) < (SLOT_SIZE + SLOT_HIT_PADDING) / 2 && Math.abs(localPos.y - sp.y) < (SLOT_SIZE + SLOT_HIT_PADDING) / 2) {
-                    const row = Math.floor(i / SLOTS_PER_ROW);
-                    // 锁定行只能通过 SlotRowLockedBtn 按钮解锁。
-                    if (row >= this.slotUnlockedRows) {
-                        return false;
-                    }
-                    const target = this.slotModel.getBlock(i);
-                    if (!target) continue;
-                    const colorId = target.colorId;
-        
-                    // 收集所有同色槽位索引（不真正取出）
-                    const slotIndices: number[] = [];
-                    const allCells: { row: number; col: number }[] = [];
-                    const allBlocks = this.slotModel.getAll();
-                    for (let j = 0; j < allBlocks.length; j++) {
-                        if (allBlocks[j] && allBlocks[j]!.colorId === colorId) {
-                            slotIndices.push(j);
-                            allCells.push(...allBlocks[j]!.cells);
-                        }
-                    }
-        
-                    this.currentBlock = {
-                        colorId,
-                        cells: allCells,
-                        isLocked: false,
-                        source: 'slot',
-                    };
-                    this._selectedSlotIndices = slotIndices;
-                    this.isSelected = true;
-                    this.resetIdleHintTimer();
-                    this.ensureTimerStarted();
-                    if (this.isFirstLevelFunnelActive() && !this._firstFunnelSelectSent) {
-                        this._firstFunnelSelectSent = true;
-                        this.trackFirstLevelFunnel('first_valid_select', {
-                            touchTarget: 'slot',
-                            source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                            success: true,
-                            extra: { colorId, cellCount: allCells.length },
-                        });
-                    }
-                    AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
-        
-                    // 选中效果：豆豆保持在暂存槽原位，显示高亮选中环
-                    this.showSlotSelectionHighlight(slotIndices);
-                    return true;
+            // 收集所有同色槽位索引（不真正取出）
+            const slotIndices: number[] = [];
+            const allCells: { row: number; col: number }[] = [];
+            const allBlocks = this.slotModel.getAll();
+            for (let j = 0; j < allBlocks.length; j++) {
+                if (allBlocks[j] && allBlocks[j]!.colorId === colorId) {
+                    slotIndices.push(j);
+                    allCells.push(...allBlocks[j]!.cells);
                 }
             }
-            return false;
+        
+            this.currentBlock = {
+                colorId,
+                cells: allCells,
+                isLocked: false,
+                source: 'slot',
+            };
+            this._selectedSlotIndices = slotIndices;
+            this.isSelected = true;
+            this.resetIdleHintTimer();
+            this.ensureTimerStarted();
+            if (this.isFirstLevelFunnelActive() && !this._firstFunnelSelectSent) {
+                this._firstFunnelSelectSent = true;
+                this.trackFirstLevelFunnel('first_valid_select', {
+                    touchTarget: 'slot',
+                    source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
+                    success: true,
+                    extra: { colorId, cellCount: allCells.length },
+                });
+            }
+            AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
+        
+            // 选中效果：豆豆保持在暂存槽原位，显示高亮选中环
+            this.showSlotSelectionHighlight(slotIndices);
+            return true;
+        },
+
+        /** 第一次点击暂存槽：选中同色所有豆豆 */
+        trySelectSlot(worldPos: Vec3): boolean {
+            const intent = this.resolveSlotTapIntent(worldPos, 'none');
+            if (intent.kind === 'unlockButton') {
+                return this.triggerSlotUnlockFromInput();
+            }
+            if (intent.kind !== 'occupiedSlot' || intent.candidate?.slotIndex == null) {
+                return false;
+            }
+            return this.selectSlotBlockByIndex(intent.candidate.slotIndex);
         },
 
         /** 已选中豆豆块时，检测点击位置是否为不同颜色的豆豆块；若是则归还当前块并选中新块 */
         tryReselectOrPlace(worldPos: Vec3): boolean {
             const block = this.currentBlock!;
             const fromSlot = block.source === 'slot';
-            const slotAreaHit = this.isWorldPosInSlotArea(worldPos);
+            const slotIntent = this.resolveSlotTapIntent(worldPos, fromSlot ? 'slotSelected' : 'boardSelected');
+            const slotIntentHit = this.isSlotTapIntentActive(slotIntent);
         
             const boardTarget = this.getBoardPlaceTargetFromWorldPos(worldPos, block.colorId, fromSlot);
-            if (boardTarget && !slotAreaHit) {
+            if (boardTarget && !slotIntentHit) {
                 return this.placeCurrentBlockOnBoard(boardTarget);
             }
         
             // 暂存槽优先：重叠区域优先检查暂存槽
-            if (slotAreaHit) {
+            if (slotIntentHit) {
+                if (slotIntent.kind === 'unlockButton') {
+                    return this.triggerSlotUnlockFromInput();
+                }
                 if (!fromSlot) {
                     return false;
                 }
-                const slotUT = this.slotAreaNode.getComponent(UITransform)!;
-                const slotLocal = slotUT.convertToNodeSpaceAR(worldPos);
-                for (let i = 0; i < this.slotNodes.length; i++) {
-                    const sp = this.slotNodes[i].position;
-                    if (Math.abs(slotLocal.x - sp.x) < SLOT_SIZE / 2 && Math.abs(slotLocal.y - sp.y) < SLOT_SIZE / 2) {
-                        const row = Math.floor(i / SLOTS_PER_ROW);
-                        // 锁定行不可交互
-                        if (row >= this.slotUnlockedRows) return false;
-                        const target = this.slotModel.getBlock(i);
-                        if (target) {
-                            if (target.colorId !== block.colorId) {
-                                this.cancelSelection();
-                                this.trySelectSlot(worldPos);
-                                return true;
-                            }
-                            // 同色且来自暂存槽 → 取消选中
-                            this.playReturnFeedback();
+                if (slotIntent.kind === 'occupiedSlot' && slotIntent.candidate?.slotIndex != null) {
+                    const target = this.slotModel.getBlock(slotIntent.candidate.slotIndex);
+                    if (target) {
+                        if (target.colorId !== block.colorId) {
                             this.cancelSelection();
+                            this.selectSlotBlockByIndex(slotIntent.candidate.slotIndex);
                             return true;
                         }
+                        // 同色且来自暂存槽 → 取消选中
+                        this.playReturnFeedback();
+                        this.cancelSelection();
+                        return true;
                     }
                 }
                 return false;
@@ -756,7 +952,7 @@ export function installBoardInputViewportModule(target: any): void {
                 return true;
             }
 
-            if (fromSlot && !this.isWorldPosInSlotArea(worldPos) && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
+            if (fromSlot && !this.isWorldPosInSlotIntentArea(worldPos) && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
                 this.playReturnFeedback();
                 return true;
             }

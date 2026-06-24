@@ -31,6 +31,7 @@ import {
 import { ensureGameplaySkillUiController } from './GameplaySkillUiController';
 import {
     getSlotUnlockMode,
+    getSlotUnlockModeForPolicy,
     shouldAppendLockedSlotRowAfterUnlock,
     shouldShowGameplaySkillArea,
 } from './SlotOnboardingPolicy';
@@ -358,7 +359,7 @@ export class GameplaySlotUiController {
     }
 
     private getCurrentSlotUnlockMode(): SlotUnlockMode {
-        const policyMode = this.runtime._activeSlotRowPolicy?.unlockMode;
+        const policyMode = getSlotUnlockModeForPolicy(this.runtime._activeSlotRowPolicy, this.runtime.slotUnlockedRows);
         if (policyMode === 'free' || policyMode === 'ad') return policyMode;
         return getSlotUnlockMode(this.runtime.getActiveLogicalLevelId(), this.getActiveGameplayEntryMode());
     }
@@ -572,7 +573,13 @@ export class GameplaySlotUiController {
         const lockButton = lockBtn.getComponent(Button) || lockBtn.addComponent(Button);
         lockButton.enabled = lockBtn.active;
         lockBtn.targetOff(runtime);
-        lockBtn.on(Button.EventType.CLICK, () => this.tryUnlockSlotRow(), runtime);
+        lockBtn.on(Button.EventType.CLICK, () => {
+            if (typeof runtime.triggerSlotUnlockFromInput === 'function') {
+                runtime.triggerSlotUnlockFromInput();
+                return;
+            }
+            this.tryUnlockSlotRow();
+        }, runtime);
         this.syncSlotUnlockButtonModeIcon(lockBtn);
         this.hideCountBadge(lockBtn);
         lockMask.setSiblingIndex(1);

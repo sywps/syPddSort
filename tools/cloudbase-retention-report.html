@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>拼豆豆 - 留存报表</title>
+<link rel="icon" href="data:,">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -40,6 +41,20 @@ button { cursor: pointer; background: #f3bd64; color: #34230c; font-weight: 700;
     font-weight: 700;
     text-decoration: none;
 }
+.scope-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+}
+.scope-toggle input { width: 16px; height: 16px; }
 .meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .pill { border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.14); border-radius: 999px; padding: 6px 12px; font-size: 12px; }
 .grid { margin-top: 20px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
@@ -91,6 +106,7 @@ td strong { color: #31486e; }
             <div class="controls">
                 <select id="dateSelect"></select>
                 <button id="loadBtn">加载</button>
+                <label class="scope-toggle"><input id="allUserToggle" type="checkbox">显示全部活跃用户</label>
                 <a id="dailyLink" class="nav-link" href="cloudbase-report.html">查看日报</a>
             </div>
         </div>
@@ -106,7 +122,7 @@ td strong { color: #31486e; }
 </div>
 <script>
 const REPORT_ROOT = '../artifacts/cloudbase-retention-report';
-const state = { index: null, currentDate: '' };
+const state = { index: null, currentDate: '', currentReport: null, showAllUsers: false };
 
 function qs(id) { return document.getElementById(id); }
 function escapeHtml(value) {
@@ -197,19 +213,25 @@ function renderReport(report) {
     qs('dateRange').textContent = `日期：${report.date}`;
     qs('historyFrom').textContent = `历史起点：${report.historyFrom}`;
     qs('maxOffset').textContent = `窗口：T+${report.maxOffset}`;
+    qs('allUserToggle').checked = state.showAllUsers;
     const all = report.allUsers || {};
     const effective = report.effectiveUsers || {};
+    const cohorts = state.showAllUsers ? all : effective;
+    const scopeName = state.showAllUsers ? '全部活跃' : 'L1有效';
+    const tableTitle = state.showAllUsers ? '所有用户留存' : 'L1有效用户留存';
+    const tableSubtitle = state.showAllUsers
+        ? 'T 日所有活跃 openid 建 cohort，不要求历史通过 L1。'
+        : '默认口径：T 日活跃，且 T 日或过往通过过 L1；勾选“显示全部活跃用户”可切换全量 cohort。';
     qs('content').innerHTML = `
         <section class="card">
             <div class="card-body metric-grid">
-                ${renderMetric('T日全部活跃', formatNumber(all.all?.baseUsers), 'user_behavior openid')}
-                ${renderMetric('T日新用户', formatNumber(all.new?.baseUsers), 'firstLoginTime = T')}
-                ${renderMetric('T日老用户', formatNumber(all.old?.baseUsers), 'firstLoginTime < T')}
-                ${renderMetric('T日有效用户', formatNumber(effective.all?.baseUsers), '历史已通过L1')}
+                ${renderMetric(`T日${scopeName}`, formatNumber(cohorts.all?.baseUsers), state.showAllUsers ? 'user_behavior openid' : '历史已通过L1')}
+                ${renderMetric(`${scopeName}新用户`, formatNumber(cohorts.new?.baseUsers), 'firstLoginTime = T')}
+                ${renderMetric(`${scopeName}老用户`, formatNumber(cohorts.old?.baseUsers), 'firstLoginTime < T')}
+                ${renderMetric('全部活跃 / L1有效', `${formatNumber(all.all?.baseUsers)} / ${formatNumber(effective.all?.baseUsers)}`, '用于核对口径差异')}
             </div>
         </section>
-        ${renderCohortTable('所有用户留存', '每格第一行是 T cohort 在该日回访人数；T 是该人数/T；T+1 cohort 是 T+1 回访用户中该日仍回访的人数/比例。', all)}
-        ${renderCohortTable('有效用户留存', '有效用户：T 日活跃，且 T 日或过往通过过 L1；T+1 cohort 仍按 T+1 回访用户继续留存计算。', effective)}
+        ${renderCohortTable(tableTitle, tableSubtitle, cohorts)}
         ${renderQuality(report)}
     `;
 }
@@ -220,6 +242,7 @@ async function loadDate(date) {
     setParamDate(date);
     qs('content').innerHTML = '<section class="card"><div class="loading">正在加载...</div></section>';
     const report = await fetchJson(`${REPORT_ROOT}/${date}/retention_summary.json`);
+    state.currentReport = report;
     renderReport(report);
 }
 async function init() {
@@ -229,6 +252,10 @@ async function init() {
         qs('dateSelect').innerHTML = dates.map((date) => `<option value="${escapeHtml(date)}">${escapeHtml(date)}</option>`).join('');
         qs('loadBtn').addEventListener('click', () => loadDate(qs('dateSelect').value).catch((error) => renderError(error.message)));
         qs('dateSelect').addEventListener('change', (event) => updateDailyLink(event.target.value));
+        qs('allUserToggle').addEventListener('change', (event) => {
+            state.showAllUsers = event.target.checked;
+            if (state.currentReport) renderReport(state.currentReport);
+        });
         const initialDate = getParamDate() || dates[dates.length - 1] || '';
         await loadDate(initialDate);
     } catch (error) {

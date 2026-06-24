@@ -169,6 +169,194 @@ function assertBundleConfigDepsClean(bundleDir, bundleName, forbiddenDeps) {
     }
 }
 
+function decodeUuid(base64) {
+    var separator = '@';
+    var base = String(base64 || '').split(separator)[0];
+    if (base.length !== 22) {
+        return String(base64 || '');
+    }
+
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    var values = new Array(123).fill(0);
+    for (var i = 0; i < chars.length; i++) {
+        values[chars.charCodeAt(i)] = i;
+    }
+
+    var hexChars = '0123456789abcdef'.split('');
+    var template = ['', '', '', '', '', '', '', '', '-', '', '', '', '', '-', '', '', '', '', '-', '', '', '', '', '-', '', '', '', '', '', '', '', '', '', '', '', ''];
+    var indices = [];
+    for (var j = 0; j < template.length; j++) {
+        if (template[j] !== '-') indices.push(j);
+    }
+
+    template[0] = base[0];
+    template[1] = base[1];
+    for (var k = 2, outIndex = 2; k < 22; k += 2) {
+        var lhs = values[String(base64 || '').charCodeAt(k)];
+        var rhs = values[String(base64 || '').charCodeAt(k + 1)];
+        template[indices[outIndex++]] = hexChars[lhs >> 2];
+        template[indices[outIndex++]] = hexChars[((lhs & 3) << 2) | (rhs >> 4)];
+        template[indices[outIndex++]] = hexChars[rhs & 0xF];
+    }
+
+    return String(base64 || '').replace(base, template.join(''));
+}
+
+function listBundleConfigFiles(bundleDir) {
+    if (!fs.existsSync(bundleDir)) return [];
+    return fs.readdirSync(bundleDir)
+        .filter(function (name) { return /^config(?:\.[0-9a-f]+)?\.json$/i.test(name); })
+        .sort(function (a, b) {
+            if (a === 'config.json') return -1;
+            if (b === 'config.json') return 1;
+            return a.localeCompare(b);
+        })
+        .map(function (name) { return path.join(bundleDir, name); });
+}
+
+function removeVersionEntries(versionList, removedIndexSet) {
+    if (!Array.isArray(versionList) || removedIndexSet.size === 0) return versionList;
+    var next = [];
+    for (var i = 0; i < versionList.length; i += 2) {
+        if (removedIndexSet.has(Number(versionList[i]))) continue;
+        next.push(versionList[i], versionList[i + 1]);
+    }
+    return next;
+}
+
+function removeImportFilesForUuid(bundleDir, compressedUuid, importBase) {
+    var decoded = decodeUuid(compressedUuid);
+    if (!decoded) return 0;
+    var importDir = path.join(bundleDir, importBase || 'import', decoded.slice(0, 2));
+    if (!fs.existsSync(importDir)) return 0;
+    var removed = 0;
+    fs.readdirSync(importDir).forEach(function (fileName) {
+        if (fileName === decoded + '.json' || fileName.indexOf(decoded + '.') === 0) {
+            fs.rmSync(path.join(importDir, fileName), { force: true });
+            removed += 1;
+        }
+    });
+    return removed;
+}
+
+function removeNativeFilesForUuid(bundleDir, compressedUuid, nativeBase) {
+    var decoded = decodeUuid(compressedUuid);
+    if (!decoded) return 0;
+    var nativeUuid = decoded.split('@')[0];
+    var nativeDir = path.join(bundleDir, nativeBase || 'native', nativeUuid.slice(0, 2));
+    if (!fs.existsSync(nativeDir)) return 0;
+    var removed = 0;
+    fs.readdirSync(nativeDir).forEach(function (fileName) {
+        if (fileName.indexOf(nativeUuid + '.') === 0 && !/\.json$/i.test(fileName)) {
+            fs.rmSync(path.join(nativeDir, fileName), { force: true });
+            removed += 1;
+        }
+    });
+    return removed;
+}
+
+function findImportArtifactFiles(bundleDir, compressedUuid, importBase) {
+    var decoded = decodeUuid(compressedUuid);
+    if (!decoded) return [];
+    var importDir = path.join(bundleDir, importBase || 'import', decoded.slice(0, 2));
+    if (!fs.existsSync(importDir)) return [];
+    return fs.readdirSync(importDir)
+        .filter(function (fileName) { return fileName === decoded + '.json' || fileName.indexOf(decoded + '.') === 0; })
+        .sort()
+        .map(function (fileName) { return path.join(importDir, fileName); });
+}
+
+function pruneReleaseSkinMirrorFromBundle(bundleDir) {
+    if (buildMode !== 'release' || !fs.existsSync(bundleDir)) return;
+    var configFiles = listBundleConfigFiles(bundleDir);
+    if (configFiles.length === 0) return;
+    var sourceConfig = readJsonFile(configFiles[0]);
+    var removedIndexSet = new Set();
+    var removedCompressedUuids = new Set();
+    Object.keys(sourceConfig.paths || {}).forEach(function (indexKey) {
+        var entry = sourceConfig.paths[indexKey];
+        if (!Array.isArray(entry) || !String(entry[0] || '').startsWith('Skins/')) return;
+        var index = Number(indexKey);
+        if (!Number.isFinite(index)) return;
+        removedIndexSet.add(index);
+        if (Array.isArray(sourceConfig.uuids) && sourceConfig.uuids[index]) {
+            removedCompressedUuids.add(sourceConfig.uuids[index]);
+        }
+    });
+    if (removedIndexSet.size === 0) {
+        assertReleaseSkinMirrorAbsent(bundleDir);
+        return;
+    }
+
+    var importBase = sourceConfig.importBase || 'import';
+    var nativeBase = sourceConfig.nativeBase || 'native';
+    var removedImportFiles = 0;
+    var removedNativeFiles = 0;
+
+    Object.keys(sourceConfig.packs || {}).forEach(function (packUuid) {
+        var packIndices = Array.isArray(sourceConfig.packs[packUuid]) ? sourceConfig.packs[packUuid] : [];
+        var keepMask = packIndices.map(function (index) { return !removedIndexSet.has(Number(index)); });
+        if (keepMask.every(Boolean)) return;
+        var packFiles = findImportArtifactFiles(bundleDir, packUuid, importBase);
+        packFiles.forEach(function (packFile) {
+            var packData = readJsonFile(packFile);
+            if (!packData || !Array.isArray(packData.data)) return;
+            var nextData = [];
+            for (var i = 0; i < packData.data.length; i++) {
+                if (keepMask[i]) nextData.push(packData.data[i]);
+            }
+            packData.data = nextData;
+            writeJsonFile(packFile, packData);
+        });
+    });
+
+    removedCompressedUuids.forEach(function (compressedUuid) {
+        removedImportFiles += removeImportFilesForUuid(bundleDir, compressedUuid, importBase);
+        removedNativeFiles += removeNativeFilesForUuid(bundleDir, compressedUuid, nativeBase);
+    });
+
+    configFiles.forEach(function (configPath) {
+        var config = readJsonFile(configPath);
+        Object.keys(config.paths || {}).forEach(function (indexKey) {
+            var entry = config.paths[indexKey];
+            if (Array.isArray(entry) && String(entry[0] || '').startsWith('Skins/')) {
+                delete config.paths[indexKey];
+            }
+        });
+        if (config.versions) {
+            config.versions.import = removeVersionEntries(config.versions.import, removedIndexSet);
+            config.versions.native = removeVersionEntries(config.versions.native, removedIndexSet);
+        }
+        Object.keys(config.packs || {}).forEach(function (packUuid) {
+            var packIndices = Array.isArray(config.packs[packUuid]) ? config.packs[packUuid] : [];
+            var filtered = packIndices.filter(function (index) { return !removedIndexSet.has(Number(index)); });
+            if (filtered.length === 0) delete config.packs[packUuid];
+            else config.packs[packUuid] = filtered;
+        });
+        writeJsonFile(configPath, config);
+    });
+
+    console.log('[4.3/6] release gameAssets 已移除本地皮肤镜像: paths=' + removedIndexSet.size + ', importFiles=' + removedImportFiles + ', nativeFiles=' + removedNativeFiles + ' ✓');
+    assertReleaseSkinMirrorAbsent(bundleDir);
+}
+
+function assertReleaseSkinMirrorAbsent(bundleDir) {
+    if (buildMode !== 'release' || !fs.existsSync(bundleDir)) return;
+    var configFiles = listBundleConfigFiles(bundleDir);
+    for (var i = 0; i < configFiles.length; i++) {
+        var configPath = configFiles[i];
+        var config = readJsonFile(configPath);
+        var skinPaths = Object.values(config.paths || {})
+            .filter(function (entry) { return Array.isArray(entry) && String(entry[0] || '').startsWith('Skins/'); })
+            .map(function (entry) { return entry[0]; });
+        if (skinPaths.length > 0) {
+            console.error('[4.3/6] release gameAssets config 仍包含本地皮肤路径: ' + skinPaths.slice(0, 8).join(', '));
+            console.error('       文件: ' + path.relative(resolveRuntimeRoot(), configPath));
+            process.exit(1);
+        }
+    }
+}
+
 function ensureSubpackageGameJs(bundleDir, bundleName) {
     if (!fs.existsSync(bundleDir)) return;
     var indexPath = findBundleFile(bundleDir, 'index', 'js');
@@ -1025,6 +1213,7 @@ if (!fs.existsSync(gameAssetsSubpackageDir)) {
     console.error('[4/6] 未找到 gameAssets 微信分包目录:', gameAssetsSubpackageDir);
     process.exit(1);
 }
+pruneReleaseSkinMirrorFromBundle(gameAssetsSubpackageDir);
 console.log('[4/6] gameAssets 微信分包已就绪 ✓');
 SKIN_BUNDLE_NAMES.forEach(function (bundleName) {
     var skinSubpackageDir = ensureNamedWechatSubpackage(bundleName);

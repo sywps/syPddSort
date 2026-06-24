@@ -39,6 +39,10 @@ export class GameplaySessionController {
             const gameplayEntryMode = runtime._currentExternalLevelFilePath
                 ? 'external'
                 : (runtime._isThemeLevel ? 'theme' : 'main');
+            const levelExperimentAssignment = LevelDataCdnService.inst.getLevelExperimentAssignment();
+            const isLevelExperimentTreatment = gameplayEntryMode === 'main'
+                && gameplayPrefix === 'level_'
+                && levelExperimentAssignment.group === 'treatment';
             AppRoot.tryGet()?.markGameActive(resolvedLevelId, gameplayPrefix, gameplayEntryMode, 'Game');
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
@@ -64,6 +68,7 @@ export class GameplaySessionController {
                 entryMode: gameplayEntryMode,
                 maxRows: maxSlotRows,
                 configuredUnlockedRows: (data as any).initialSlotUnlockedRows,
+                configuredSlotPolicy: data.slotPolicy,
             });
             runtime._activeSlotRowPolicy = slotPolicy;
             runtime.slotUnlockedRows = slotPolicy.unlockedRows;
@@ -174,15 +179,20 @@ export class GameplaySessionController {
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
             const tutorialGateLevelId = gameplayEntryMode === 'main' ? activeLogicalLevelId : 0;
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
-                if (tutorialGateLevelId <= 3) SySDKMgr.inst.reportTutorialStart();
-                if (tutorialGateLevelId === 1) {
-                    runtime.startTutorial('level_1');
-                } else if (tutorialGateLevelId === 2) {
-                    runtime.startTutorial('level_2');
+                const tutorialMode = tutorialGateLevelId === 1
+                    ? 'level_1'
+                    : (tutorialGateLevelId === 2 && !isLevelExperimentTreatment
+                        ? 'level_2'
+                        : (tutorialGateLevelId === 3 && isLevelExperimentTreatment
+                            ? 'level_exp_slot_intro'
+                            : 'none'));
+                if (tutorialMode !== 'none') {
+                    SySDKMgr.inst.reportTutorialStart();
+                    runtime.startTutorial(tutorialMode);
                 } else if (slotPolicy.showSlotUnlockGuide) {
                     runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
                 }
-                if (tutorialGateLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
+                if (tutorialGateLevelId === 3 && !isLevelExperimentTreatment && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
                     runtime.startPinchGuide();
                 }
             }

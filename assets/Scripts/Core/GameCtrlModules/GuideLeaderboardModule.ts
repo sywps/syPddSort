@@ -338,6 +338,9 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         getTutorialPhaseForStep(step: number): string {
+            if (this._guideMode === 'level_exp_slot_intro') {
+                return 'unlock';
+            }
             if (this._guideMode === 'level_2') {
                 if (step === 0) return 'unlock';
                 if (step === 1) return 'select';

@@ -1,6 +1,7 @@
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog } from './RuntimeLog';
+import { readExperimentBucketOverrideFromSearch } from './ExperimentUrlParam';
 
 const { ccclass } = _decorator;
 
@@ -695,14 +696,11 @@ export class AnalyticsMgr {
         try {
             const search = typeof window !== 'undefined' ? window.location.search : '';
             if (!search) return null;
-            const params = new URLSearchParams(search);
-            const ab = (params.get('ab') || params.get('experiment') || '').trim().toLowerCase();
-            const rawBucket = params.get('bucket')
-                || params.get('tutorialExpBucket')
-                || params.get('tutorial_exp_bucket')
-                || '';
+            const rawBucket = readExperimentBucketOverrideFromSearch({
+                search,
+                experimentId: TUTORIAL_EXPERIMENT_ID,
+            });
             if (!rawBucket) return null;
-            if (ab && ab !== TUTORIAL_EXPERIMENT_ID) return null;
             return this.normalizeTutorialExperimentBucket(rawBucket);
         } catch (_) {
             return null;

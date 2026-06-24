@@ -7,11 +7,9 @@ import {
     BOARD_SLOT_PLACE_HIT_CELL_RATIO,
     BOARD_SLOT_PLACE_HIT_MIN_UI,
     Button,
-    Color,
     DEFAULT_CELL_SIZE,
     Graphics,
     Label,
-    LabelOutline,
     Layers,
     MAINLINE_SLOT_GROOVE_TEXTURE,
     Node,
@@ -485,74 +483,16 @@ export class GameplayViewController {
 
     drawLevelTitleLabel(parent: Node) {
         const runtime = this.runtime;
-        const node = runtime.requireUiChild(parent, 'LevelTitle', 'TopBarGroup/LevelTitle');
+        const normalNode = runtime.requireUiChild(parent, 'LevelTitle', 'TopBarGroup/LevelTitle');
+        const level1Node = runtime.requireUiChild(parent, 'LevelTitleLevel1', 'TopBarGroup/LevelTitleLevel1');
+        const useLevel1Variant = runtime.getActiveLogicalLevelId?.() === 1;
+        normalNode.active = !useLevel1Variant;
+        level1Node.active = useLevel1Variant;
+        const node = useLevel1Variant ? level1Node : normalNode;
         const labelNode = node.getChildByName('Label') || node;
         const label = labelNode.getComponent(Label);
-        if (!label) throw new Error('[GameplayScene] Game.scene is missing Label component on TopBarGroup/LevelTitle/Label');
+        if (!label) throw new Error(`[GameplayScene] Game.scene is missing Label component on ${useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1/Label' : 'TopBarGroup/LevelTitle/Label'}`);
         runtime.levelLabel = label;
-        const nodeTransform = node.getComponent(UITransform);
-        const labelTransform = labelNode.getComponent(UITransform);
-        if (!runtime._levelTitleDefaultStyle) {
-            const outline = labelNode.getComponent(LabelOutline);
-            runtime._levelTitleDefaultStyle = {
-                nodeY: node.position.y,
-                nodeScaleX: node.scale.x,
-                nodeScaleY: node.scale.y,
-                nodeWidth: nodeTransform?.contentSize.width || 0,
-                nodeHeight: nodeTransform?.contentSize.height || 0,
-                labelScaleX: labelNode.scale.x,
-                labelScaleY: labelNode.scale.y,
-                labelWidth: labelTransform?.contentSize.width || 0,
-                labelHeight: labelTransform?.contentSize.height || 0,
-                fontSize: label.fontSize,
-                lineHeight: label.lineHeight,
-                overflow: label.overflow,
-                enableWrapText: label.enableWrapText,
-                color: new Color(label.color.r, label.color.g, label.color.b, label.color.a),
-                outlineEnabled: !!outline?.enabled,
-                outlineWidth: Number(outline?.width) || 0,
-                outlineColor: outline ? new Color(outline.color.r, outline.color.g, outline.color.b, outline.color.a) : new Color(0, 0, 0, 255),
-            };
-        }
-        if (runtime.getActiveLogicalLevelId?.() === 1) {
-            const settings = parent.getChildByName('Settings');
-            if (settings) node.setPosition(node.position.x, settings.position.y, node.position.z);
-            node.setScale(1, 1, node.scale.z);
-            labelNode.setScale(1, 1, labelNode.scale.z);
-            nodeTransform?.setContentSize(320, 86);
-            labelTransform?.setContentSize(320, 86);
-            label.fontSize = 52;
-            label.lineHeight = 62;
-            label.color = new Color('#6B4A2A');
-            label.enableWrapText = false;
-            label.overflow = Label.Overflow.SHRINK;
-            const outline = labelNode.getComponent(LabelOutline) || labelNode.addComponent(LabelOutline);
-            outline.enabled = true;
-            outline.color = new Color('#FFF2D2');
-            outline.width = 3;
-        } else {
-            const style = runtime._levelTitleDefaultStyle;
-            node.setPosition(node.position.x, Number(style.nodeY) || node.position.y, node.position.z);
-            node.setScale(Number(style.nodeScaleX) || node.scale.x, Number(style.nodeScaleY) || node.scale.y, node.scale.z);
-            labelNode.setScale(Number(style.labelScaleX) || labelNode.scale.x, Number(style.labelScaleY) || labelNode.scale.y, labelNode.scale.z);
-            if (nodeTransform && Number(style.nodeWidth) > 0 && Number(style.nodeHeight) > 0) {
-                nodeTransform.setContentSize(Number(style.nodeWidth), Number(style.nodeHeight));
-            }
-            if (labelTransform && Number(style.labelWidth) > 0 && Number(style.labelHeight) > 0) {
-                labelTransform.setContentSize(Number(style.labelWidth), Number(style.labelHeight));
-            }
-            label.fontSize = Number(style.fontSize) || label.fontSize;
-            label.lineHeight = Number(style.lineHeight) || label.lineHeight;
-            if (typeof style.overflow === 'number') label.overflow = style.overflow;
-            if (typeof style.enableWrapText === 'boolean') label.enableWrapText = style.enableWrapText;
-            label.color = style.color;
-            const outline = labelNode.getComponent(LabelOutline);
-            if (outline) {
-                outline.enabled = !!style.outlineEnabled;
-                outline.width = Number(style.outlineWidth) || 0;
-                outline.color = style.outlineColor;
-            }
-        }
         runtime.refreshCompletionProgressLabel();
     }
 

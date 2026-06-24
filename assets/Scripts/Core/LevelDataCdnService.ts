@@ -15,6 +15,7 @@ import {
     writeCdnStorageObject,
 } from './RemoteDataCdnClient';
 import { runtimeWarn } from './RuntimeLog';
+import { readExperimentBucketOverrideFromSearch } from './ExperimentUrlParam';
 
 type LevelPackEntry = {
     id: string;
@@ -443,13 +444,10 @@ export class LevelDataCdnService {
         try {
             const search = typeof window !== 'undefined' ? window.location.search : '';
             if (!search) return null;
-            const params = new URLSearchParams(search);
-            const ab = (params.get('ab') || params.get('experiment') || '').trim().toLowerCase();
-            if (ab && ab !== LEVEL_EXPERIMENT_ID) return null;
-            const rawBucket = params.get('bucket')
-                || params.get('levelExpBucket')
-                || params.get('level_exp_bucket')
-                || '';
+            const rawBucket = readExperimentBucketOverrideFromSearch({
+                search,
+                experimentId: LEVEL_EXPERIMENT_ID,
+            });
             if (!rawBucket) return null;
             return this.normalizeLevelExperimentBucket(rawBucket);
         } catch (_) {

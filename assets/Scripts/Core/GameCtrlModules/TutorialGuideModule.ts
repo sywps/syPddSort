@@ -33,7 +33,7 @@ import type {
 export function installTutorialGuideModule(target: any): void {
     Object.assign(target, {
         styleLevel2GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
-            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
+            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro')
                 && typeof this.styleStarterGuidePrompt === 'function') {
                 this.styleStarterGuidePrompt(_gb, bubble, lbl, primaryText);
                 this.adjustStarterGuidePromptForCurrentStep?.(bubble);
@@ -161,7 +161,7 @@ export function installTutorialGuideModule(target: any): void {
                 }
                 return null;
             }
-            if (this._guideMode === 'level_2') {
+            if (this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 if (step === 0) {
                     const bounds = this.getGuidePromptNodeBounds(this.getSlotUnlockGuideTarget?.() || this.slotAreaNode || null, bubble);
                     return bounds ? { ...bounds, kind: 'slot' } : null;
@@ -175,7 +175,7 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         adjustStarterGuidePromptForCurrentStep(bubble: Node) {
-            if (this._guideMode !== 'level_1' && this._guideMode !== 'level_2') return;
+            if (this._guideMode !== 'level_1' && this._guideMode !== 'level_2' && this._guideMode !== 'level_exp_slot_intro') return;
             const bubbleUT = bubble.getComponent(UITransform);
             if (!bubbleUT) return;
             const target = this.getGuidePromptTargetBoundsForCurrentStep(bubble);
@@ -204,6 +204,11 @@ export function installTutorialGuideModule(target: any): void {
         guideLevel2UnlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotUnlockButtonForGuide(hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '解锁下方空位');
+        },
+
+        guideLevelExpSlotIntroStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
+            this.highlightSlotUnlockButtonForGuide(hand);
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '免费送一个空位');
         },
 
         guideLevel2PickBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
@@ -414,7 +419,7 @@ export function installTutorialGuideModule(target: any): void {
                 return;
             }
 
-            if (this._guideMode === 'level_2' && step === 0) {
+            if ((this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') && step === 0) {
                 if (this.isSlotUnlockTargetHit(worldPos)) {
                     this.reportTutorialTapResult?.(worldPos, 'hit_target', true, 'guide_layer');
                     this.executeGuideSlotUnlock();
@@ -520,6 +525,7 @@ export function installTutorialGuideModule(target: any): void {
 
         isGuideSelectStep(step: number): boolean {
             if (this._guideMode === 'level_2') return step === 1;
+            if (this._guideMode === 'level_exp_slot_intro') return false;
             return step % 2 === 0;
         },
 
@@ -566,7 +572,7 @@ export function installTutorialGuideModule(target: any): void {
             const w = Math.max(150, targetUT.contentSize.width + 26);
             const h = Math.max(58, targetUT.contentSize.height + 18);
 
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 this.showGuideSpriteHighlight('guide_slot_highlight', targetLocal.x, targetLocal.y, w, h, 1.035);
                 hand.active = true;
                 this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y - 16);
@@ -661,6 +667,9 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         getStarterGuideWrongTargetHint(_hitResult: string): string {
+            if (this._guideMode === 'level_exp_slot_intro') {
+                return '点下方免费空位';
+            }
             if (this._guideMode === 'level_2') {
                 if (this._guideStep === 0) return '点下方解锁空位';
                 if (this._guideStep === 1) return '点高亮豆豆';
@@ -688,7 +697,7 @@ export function installTutorialGuideModule(target: any): void {
             const lbl = this._guideBubbleLbl;
             const origString = lbl.string;
             const origColor = new Color(lbl.color.r, lbl.color.g, lbl.color.b, lbl.color.a);
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 lbl.string = this.getStarterGuideWrongTargetHint(hitResult);
                 lbl.color = new Color('#D45A38');
                 const token = Date.now();

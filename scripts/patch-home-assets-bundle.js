@@ -19,6 +19,7 @@ const sourceBundleDirName = sourceBundleDirByName[bundleName] || '';
 const sourceRoot = sourceBundleDirName ? path.join(projectRoot, 'assets', sourceBundleDirName) : '';
 const libraryRoot = path.join(projectRoot, 'library');
 const assetDbRoot = path.join(projectRoot, 'temp', 'asset-db', 'assets');
+const buildMode = process.env.WECHAT_BUILD_MODE || '';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -128,11 +129,54 @@ function copyNative(bundleDir, uuid) {
     return copyFileIfChanged(src, dest);
 }
 
+function isReleaseSkinMirrorArtifact(artifact) {
+    if (bundleName !== 'gameAssets' || buildMode !== 'release') return false;
+    const source = String(artifact && artifact.source || '');
+    return source.startsWith(path.join(sourceRoot, 'Skins') + path.sep);
+}
+
+function removeImportArtifacts(bundleDir, uuid, removed) {
+    const importDir = path.join(bundleDir, 'import', uuid.slice(0, 2));
+    if (!fs.existsSync(importDir)) return;
+    for (const name of fs.readdirSync(importDir)) {
+        if (name === `${uuid}.json` || name.startsWith(`${uuid}.`)) {
+            const filePath = path.join(importDir, name);
+            fs.rmSync(filePath, { force: true });
+            removed.add(filePath);
+        }
+    }
+}
+
+function removeNativeArtifacts(bundleDir, uuid, removed) {
+    const nativeUuid = uuid.split('@')[0];
+    const nativeDir = path.join(bundleDir, 'native', nativeUuid.slice(0, 2));
+    if (!fs.existsSync(nativeDir)) return;
+    for (const name of fs.readdirSync(nativeDir)) {
+        if (name.startsWith(`${nativeUuid}.`) && !/\.json$/i.test(name)) {
+            const filePath = path.join(nativeDir, name);
+            fs.rmSync(filePath, { force: true });
+            removed.add(filePath);
+        }
+    }
+}
+
+function removeReleaseSkinMirrorArtifacts(bundleDir, artifacts) {
+    const removed = new Set();
+    for (const artifact of artifacts) {
+        removeImportArtifacts(bundleDir, artifact.uuid, removed);
+        if (artifact.native) removeNativeArtifacts(bundleDir, artifact.uuid, removed);
+    }
+    return removed.size;
+}
+
 const bundleDir = resolveBundleDir();
 if (!sourceRoot) fail('不支持的 bundle: ' + bundleName);
 if (!fs.existsSync(bundleDir)) fail('未找到 ' + bundleName + ' 分包目录: ' + bundleDir);
 
-const artifacts = collectSourceBundleArtifacts(sourceRoot, sourceBundleDirName, fail);
+const sourceArtifacts = collectSourceBundleArtifacts(sourceRoot, sourceBundleDirName, fail);
+const skippedArtifacts = sourceArtifacts.filter(isReleaseSkinMirrorArtifact);
+const removedReleaseSkinMirror = removeReleaseSkinMirrorArtifacts(bundleDir, skippedArtifacts);
+const artifacts = sourceArtifacts.filter((artifact) => !isReleaseSkinMirrorArtifact(artifact));
 const copiedImports = new Set();
 const copiedNative = new Set();
 for (const artifact of artifacts) {
@@ -142,4 +186,5 @@ for (const artifact of artifacts) {
     if (artifact.native && copyNative(bundleDir, artifact.uuid)) copiedNative.add(artifact.uuid);
 }
 
-console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}`);
+const skipped = sourceArtifacts.length - artifacts.length;
+console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}${skipped ? `, skippedReleaseSkinMirror=${skipped}, removedReleaseSkinMirror=${removedReleaseSkinMirror}` : ''}`);

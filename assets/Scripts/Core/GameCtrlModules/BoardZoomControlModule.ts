@@ -3,6 +3,7 @@ import {
     Color,
     EventTouch,
     Graphics,
+    Label,
     Node,
     Sprite,
     Tween,
@@ -20,15 +21,11 @@ type BoardZoomControlUi = {
     locate: Node;
     trackUi: UITransform;
     fillUi: UITransform;
-    trackGraphics: Graphics;
     fillGraphics: Graphics;
-    plusGraphics: Graphics | null;
-    minusGraphics: Graphics | null;
     opacity: UIOpacity;
     dragging: boolean;
 };
 
-const TRACK_VISUAL_WIDTH = 18;
 const TRACK_INNER_WIDTH = 10;
 const TRACK_TRAVEL_PADDING = 20;
 const CONTROL_IDLE_OPACITY = 82;
@@ -92,18 +89,12 @@ function drawRoundedRect(graphics: Graphics, x: number, y: number, width: number
     }
 }
 
-function drawGlyph(graphics: Graphics | null, isPlus: boolean): void {
-    if (!graphics) return;
-    graphics.clear();
-    graphics.lineWidth = 3;
-    graphics.strokeColor = new Color(255, 255, 255, 205);
-    graphics.moveTo(-6, 0);
-    graphics.lineTo(6, 0);
-    if (isPlus) {
-        graphics.moveTo(0, -6);
-        graphics.lineTo(0, 6);
+function requireLabel(node: Node, path: string): Label {
+    const label = node.getComponent(Label);
+    if (!label) {
+        throw new Error(`[board-zoom-control] Game.scene is missing Label on ${path}`);
     }
-    graphics.stroke();
+    return label;
 }
 
 export function installBoardZoomControlModule(target: any): void {
@@ -126,16 +117,21 @@ export function installBoardZoomControlModule(target: any): void {
             const track = requireChild(root, 'ZoomTrack', 'GameplayFixedRoot/BoardZoomControl/ZoomTrack');
             const fill = requireChild(track, 'ZoomFill', 'BoardZoomControl/ZoomTrack/ZoomFill');
             const thumb = requireChild(track, 'Thumb', 'BoardZoomControl/ZoomTrack/Thumb');
-            const plus = track.getChildByName('PlusGlyph') || null;
-            const minus = track.getChildByName('MinusGlyph') || null;
+            const trackBg = requireChild(track, 'TrackBg', 'BoardZoomControl/ZoomTrack/TrackBg');
+            const plus = requireChild(track, 'PlusGlyph', 'BoardZoomControl/ZoomTrack/PlusGlyph');
+            const minus = requireChild(track, 'MinusGlyph', 'BoardZoomControl/ZoomTrack/MinusGlyph');
 
             requireUi(root, 'GameplayFixedRoot/BoardZoomControl');
             requireUi(locate, 'BoardZoomControl/LocateBtn');
             const trackUi = requireUi(track, 'BoardZoomControl/ZoomTrack');
             const fillUi = requireUi(fill, 'BoardZoomControl/ZoomTrack/ZoomFill');
             requireUi(thumb, 'BoardZoomControl/ZoomTrack/Thumb');
+            requireUi(trackBg, 'BoardZoomControl/ZoomTrack/TrackBg');
             requireSpriteFrame(locate, 'BoardZoomControl/LocateBtn');
             requireSpriteFrame(thumb, 'BoardZoomControl/ZoomTrack/Thumb');
+            requireSpriteFrame(trackBg, 'BoardZoomControl/ZoomTrack/TrackBg');
+            requireLabel(plus, 'BoardZoomControl/ZoomTrack/PlusGlyph');
+            requireLabel(minus, 'BoardZoomControl/ZoomTrack/MinusGlyph');
 
             const ui: BoardZoomControlUi = {
                 root,
@@ -145,10 +141,7 @@ export function installBoardZoomControlModule(target: any): void {
                 locate,
                 trackUi,
                 fillUi,
-                trackGraphics: requireGraphics(track, 'BoardZoomControl/ZoomTrack'),
                 fillGraphics: requireGraphics(fill, 'BoardZoomControl/ZoomTrack/ZoomFill'),
-                plusGraphics: plus?.isValid ? plus.getComponent(Graphics) : null,
-                minusGraphics: minus?.isValid ? minus.getComponent(Graphics) : null,
                 opacity: ensureOpacity(root),
                 dragging: false,
             };
@@ -161,7 +154,6 @@ export function installBoardZoomControlModule(target: any): void {
             locate.active = true;
             thumb.setSiblingIndex(track.children.length - 1);
 
-            this.drawBoardZoomControlStatic();
             this.setBoardZoomControlActive(false, true);
             this.bindBoardZoomControlEvents();
             this.refreshBoardZoomControl();
@@ -188,27 +180,6 @@ export function installBoardZoomControlModule(target: any): void {
             ui.locate.on(Node.EventType.TOUCH_START, this.onBoardZoomLocateTouchStart, this);
             ui.locate.on(Node.EventType.TOUCH_END, this.onBoardZoomLocateTouchEnd, this);
             ui.locate.on(Node.EventType.TOUCH_CANCEL, this.onBoardZoomLocateTouchCancel, this);
-        },
-
-        drawBoardZoomControlStatic(): void {
-            const ui = this._boardZoomControlUi as BoardZoomControlUi | null;
-            if (!ui?.root?.isValid) return;
-
-            const trackH = Math.max(1, ui.trackUi.contentSize.height);
-            ui.trackGraphics.clear();
-            ui.trackGraphics.fillColor = new Color(139, 131, 118, 175);
-            drawRoundedRect(
-                ui.trackGraphics,
-                -TRACK_VISUAL_WIDTH / 2,
-                -trackH / 2,
-                TRACK_VISUAL_WIDTH,
-                trackH,
-                TRACK_VISUAL_WIDTH / 2,
-            );
-            ui.trackGraphics.fill();
-
-            drawGlyph(ui.plusGraphics, true);
-            drawGlyph(ui.minusGraphics, false);
         },
 
         drawBoardZoomControlFill(): void {

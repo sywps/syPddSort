@@ -685,7 +685,7 @@ export function installSettlementHudModule(target: any): void {
             }
             this._guideMode = mode;
             this._guideStep = 0;
-            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : 0);
+            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : (mode === 'level_exp_slot_intro' ? 1 : 0));
             this._guideInputSuspended = false;
             this._guidePhase = typeof this.getTutorialPhaseForStep === 'function'
                 ? this.getTutorialPhaseForStep(0)
@@ -697,17 +697,22 @@ export function installSettlementHudModule(target: any): void {
             }
         
             // 从当前棋盘动态确定两种可操作颜色（跳过已锁定格）
-            const tutorialColors = mode === 'level_2'
-                ? this.collectLevel2TutorialColorIds(2)
-                : this.collectTutorialColorIds(2);
-            this._guideFirstColorId = tutorialColors[0] || 0;
-            this._guideSecondColorId = tutorialColors[1] || this._guideFirstColorId;
-            if (this._guideFirstColorId === 0) {
-                this._guideMode = 'none';
-                this._guideTotalSteps = 0;
-                this._guideStep = -1;
-                this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.1);
-                return;
+            if (mode === 'level_exp_slot_intro') {
+                this._guideFirstColorId = 0;
+                this._guideSecondColorId = 0;
+            } else {
+                const tutorialColors = mode === 'level_2'
+                    ? this.collectLevel2TutorialColorIds(2)
+                    : this.collectTutorialColorIds(2);
+                this._guideFirstColorId = tutorialColors[0] || 0;
+                this._guideSecondColorId = tutorialColors[1] || this._guideFirstColorId;
+                if (this._guideFirstColorId === 0) {
+                    this._guideMode = 'none';
+                    this._guideTotalSteps = 0;
+                    this._guideStep = -1;
+                    this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.1);
+                    return;
+                }
             }
         
             // 重置到初始适配视图，确保引导视觉准确且不丢失小棋盘放大比例
@@ -851,6 +856,12 @@ export function installSettlementHudModule(target: any): void {
                         default: this.endTutorial(); break;
                     }
                     break;
+                case 'level_exp_slot_intro':
+                    switch (step) {
+                        case 0: this.guideLevelExpSlotIntroStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        default: this.endTutorial(); break;
+                    }
+                    break;
                 default:
                     this.endTutorial();
                     break;
@@ -884,7 +895,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         isMinimalTutorialGuide(): boolean {
-            return this._guideMode === 'level_1' || this._guideMode === 'level_2';
+            return this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro';
         },
 
         formatLevel1GuidePrompt(primaryText: string): string {

@@ -332,6 +332,26 @@ preview 资产可以存在于源码、编辑器工作流和 plain web preview �
 | 皮肤资源数据 | 皮肤资源清单、皮肤图标、背景大图、棋盘 / 槽位 / 豆子换肤资源 | 只允许保留首屏默认兜底资源、入口占位图或 debug 本地镜像；这不是皮肤系统的正式资源真源 | 同一个 CDN 根地址下的 `skin/skin_live.json`、`skin/assets/**`；正式皮肤资源真源不在 gameplay 分包，也不挂在 `levels/Skins` 下 | 打开皮肤面板、装备皮肤、进入 Game 后异步应用时先读小型 `skin/skin_live.json`，再按当前皮肤 ID / 面板可见项下载目标资源 | 非首屏皮肤大图失败不能阻塞 `initGame`；皮肤资源必须有独立 `skinDataVersion` 和资源 hash；不能复用关卡 `dataVersion` 判断皮肤是否变化。 |
 | 运行时策略 / 运营配置 | 实验 bucket、广告策略、活动开关、轻量运营配置 | 本地默认值或上次缓存 | 云函数、平台实验 API 或 CDN 小配置 | 首屏后后台获取；必要时按 TTL / version 刷新 | 不能阻塞 A/B/C 首屏路由；失败使用本地默认策略并记录诊断；不能把实验 bucket 当成 A/B/C 用户分类。 |
 
+关卡 JSON 可以携带影响玩法结构的确定性字段；这些字段属于关卡数据真源，不能在客户端再按关卡号写一套平行规则。底部暂存槽行数必须使用 `slotPolicy`：
+
+```json
+{
+  "slotPolicy": {
+    "defaultRows": 2,
+    "freeUnlockRows": 1,
+    "adUnlockRows": 0
+  }
+}
+```
+
+1. `defaultRows` 表示进关后默认开启的暂存槽行数，必须大于等于 1。
+2. `freeUnlockRows` 表示可通过免费教学 / 免费按钮解锁的额外行数，不能为负数。
+3. `adUnlockRows` 表示可通过广告解锁的额外行数，不能为负数。
+4. `defaultRows + freeUnlockRows + adUnlockRows` 不能超过客户端支持的最大暂存槽行数；不合法的远程关卡数据必须 fail fast，不能静默回退到旧代码规则。
+5. A/B 稳定桶的本地真源是 `assets/LevelData`，生成 `remote_wechat/levels/`；当前兼容策略为第 1 关 `1/0/0`，第 2 关 `1/1/0`，第 3-10 关 `2/0/1`，第 11 关起 `1/0/1`。
+6. `level_exp` C/D 实验桶的本地真源是 `temp/levels_exp`，生成 `remote_wechat/level_experiments/level_exp/levels/`；第 1 关保持 `1/0/0` 和首关引导，第 2 关读取实验远程数据但不触发第 2 关引导，第 3 关使用 `2/1/0` 并触发一次免费插槽教学，第 6 关可使用 `2/0/1`，其它实验关卡按 JSON 自身字段决定。
+7. 插槽教学的气泡、手指、高亮框、槽位按钮和相关 prefab 属于 `gameEntry/bootstrap` / Cocos 本地资源；CDN 只发布关卡 JSON / manifest / pack，不能为了实验把教学视觉资源放进远程关卡目录。
+
 皮肤状态中的“当前装备皮肤”必须以 `equippedBackgroundSkinId + equippedBackgroundSkinUpdatedAt` 作为一组有效状态写入本地和云端；只有 ID 或只有时间戳都视为没有明确装备皮肤。皮肤功能首次上线时不兼容无时间戳的旧皮肤字段；如果测试环境已有这类旧字段，应清理或重新选择皮肤。非皮肤用户状态仍按已有线上兼容规则合并。
 
 CDN 资源数据必须采用“同一个 CDN 根地址 + 独立资源目录 + 独立索引小文件 + 内容 hash + 按需资源”的模型。关卡和皮肤不是两个 CDN，也不需要两个 CDN 地址；它们是同一个 CDN 根地址下的两个目录和两个 manifest，不能共用一个版本判断。默认不新增顶层 `remote_live.json`，除非未来运营配置、活动素材等资源类型继续变多并经过专项评审。这个模型分两层：
@@ -595,7 +615,7 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 5. `playwright run-code` 传入异步函数表达式，例如 `async (page) => { ... }`；不要传裸 `await page...`，也不要在该入口里依赖动态 `import(...)`。
 6. Cocos canvas 页面必须验证实际画面或运行时状态。对 bundle / scene 问题，优先在页面内用 `cc.assetManager.loadBundle`、`bundle.loadScene`、`cc.director.loadScene` 等运行时 API 验证目标 bundle 和场景，而不是只看页面是否能打开。
 7. Cocos Creator 编辑器 preview 验证游戏入口时必须显式指定启动场景，例如 `http://localhost:7456/?scene=db%3A%2F%2Fassets%2FScenes%2FBoot.scene&level=1`。裸 `?level=1` 会使用编辑器内存中的 `current_scene`，如果当前打开的是空场景会出现黑屏，不能作为有效入口验证。
-8. 普通 browser preview 默认不访问外部关卡 CDN；只有显式追加 `use_cdn=true` 时才允许本地 `localhost` 浏览器读取默认微信关卡 CDN，例如 `http://localhost:7456/?scene=db%3A%2F%2Fassets%2FScenes%2FBoot.scene&level=98&ab=level_exp&bucket=C&use_cdn=true`。这个开关只用于本地验证关卡 CDN / 实验 bucket 差异，不能替代微信 release CDN 验证；同时 OSS / CDN 必须对 `http://localhost:7456` 或等价本地 origin 放行 CORS，否则浏览器会在进入游戏逻辑前拦截 manifest / pack 请求。
+8. 普通 browser preview 默认不访问外部关卡 CDN；只有显式追加 `use_cdn=true` 时才允许本地 `localhost` 浏览器读取默认微信关卡 CDN。实验覆盖统一使用单个 `ab` 参数，格式为 `experimentId,bucket`，多个实验用分号分隔；例如 `http://localhost:7456/?scene=db%3A%2F%2Fassets%2FScenes%2FBoot.scene&level=98&ab=level_exp,C;tutorial_exp,A&use_cdn=true`。这个开关只用于本地验证关卡 CDN / 实验 bucket 差异，不能替代微信 release CDN 验证；同时 OSS / CDN 必须对 `http://localhost:7456` 或等价本地 origin 放行 CORS，否则浏览器会在进入游戏逻辑前拦截 manifest / pack 请求。
 9. 构建后的 web 产物用本地静态服务验证；验证结束后关闭临时服务。`favicon.ico` 这类无关 404 可以记录但不阻断，业务资源、bundle、scene、脚本、贴图缺失必须阻断。
 
 ### 13.1.2 Chrome 插件使用边界

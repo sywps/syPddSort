@@ -225,10 +225,20 @@ body {
     color: #5f5147;
     font-size: 13px;
     font-weight: 600;
+    flex-wrap: wrap;
+}
+.funnel-controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .funnel-controls input {
     width: 16px;
     height: 16px;
+}
+.funnel-scope-label {
+    color: #8a7b6e;
+    font-weight: 500;
 }
 table {
     width: 100%;
@@ -550,6 +560,7 @@ const state = {
     currentDate: '',
     summary: null,
     trendSummaries: [],
+    showAllFunnelLevels: false,
 };
 
 function qs(id) {
@@ -1155,6 +1166,15 @@ function handleFunnelLatencyToggle(event) {
     table.classList.toggle('show-latency', input.checked);
 }
 
+function handleFunnelScopeToggle(event) {
+    const input = event.target.closest('.funnel-scope-checkbox');
+    if (!input) return;
+    state.showAllFunnelLevels = input.checked;
+    if (state.summary) {
+        renderContent(state.summary, state.trendSummaries);
+    }
+}
+
 function buildTrendSeries(summaries) {
     return summaries.map((summary) => {
         const diagnosis = getDiagnosis(summary);
@@ -1245,7 +1265,7 @@ function buildOpsInsights(summary, trendSummaries) {
     return { highlights, risks, actions };
 }
 
-function renderDiagnosisFunnelTable(rows) {
+function renderDiagnosisFunnelTable(rows, options = {}) {
     const headers = ['步骤', '事件', 'UV', 'UV占App启动', 'Session', 'Session占App启动', '上一步转化', 'PV/records'];
     const bodyRows = rows.map((row, rowIndex) => {
         const latency = row.latencyToNextMs;
@@ -1277,10 +1297,17 @@ function renderDiagnosisFunnelTable(rows) {
         `;
     }).join('');
     return `
-        <label class="funnel-controls">
-            <input type="checkbox" class="funnel-latency-checkbox">
-            <span>显示耗时</span>
-        </label>
+        <div class="funnel-controls">
+            <label>
+                <input type="checkbox" class="funnel-latency-checkbox">
+                <span>显示耗时</span>
+            </label>
+            <label>
+                <input type="checkbox" class="funnel-scope-checkbox" ${options.showAllLevels ? 'checked' : ''} ${options.allLevelsAvailable ? '' : 'disabled'}>
+                <span>显示全部 level</span>
+            </label>
+            <span class="funnel-scope-label">当前：${escapeHtml(options.scopeLabel || 'level=1')}</span>
+        </div>
         <div class="table-wrap">
             <table class="sortable-table funnel-table">
                 <thead>
@@ -1554,8 +1581,11 @@ function renderAdPerformanceTable(adPerformance) {
 
 function renderDataQuality(dataQuality) {
     const rows = [
+        ['first_level_funnel scope', escapeHtml(dataQuality?.firstLevelFunnelScope || 'legacy')],
         ['first_level_funnel records', formatNumber(dataQuality?.firstLevelFunnelRecords)],
         ['first_level_funnel sessions', formatNumber(dataQuality?.firstLevelFunnelSessions)],
+        ['first_level_funnel all-level records', formatNumber(dataQuality?.firstLevelFunnelAllLevelRecords)],
+        ['first_level_funnel all-level sessions', formatNumber(dataQuality?.firstLevelFunnelAllLevelSessions)],
         ['daily core source', escapeHtml(dataQuality?.dailyCoreSource || 'unknown')],
         ['ad source', escapeHtml(dataQuality?.adStatSource || 'unknown')],
         ['L1 fail 覆盖率', pctFromRatio(dataQuality?.l1FailCoverageRate)],
@@ -1590,9 +1620,19 @@ function renderContent(summary, trendSummaries) {
         weakFinishRate: adFallback?.weakFinishRate || [],
     };
     const adOverall = adPerformance.overall || {};
-    const funnelRows = Array.isArray(diagnosis?.firstLevelFunnel) ? diagnosis.firstLevelFunnel : [];
-    const tutorialTapBreakdown = Array.isArray(diagnosis?.tutorialTapBreakdown) ? diagnosis.tutorialTapBreakdown : [];
-    const tutorialTapByStep = Array.isArray(diagnosis?.tutorialTapByStep) ? diagnosis.tutorialTapByStep : [];
+    const defaultFunnelRows = Array.isArray(diagnosis?.firstLevelFunnel) ? diagnosis.firstLevelFunnel : [];
+    const allLevelsFunnelRows = Array.isArray(diagnosis?.firstLevelFunnelAllLevels) ? diagnosis.firstLevelFunnelAllLevels : [];
+    const showAllFunnelLevels = state.showAllFunnelLevels && allLevelsFunnelRows.length > 0;
+    const funnelRows = showAllFunnelLevels ? allLevelsFunnelRows : defaultFunnelRows;
+    const tutorialTapBreakdown = showAllFunnelLevels && Array.isArray(diagnosis?.tutorialTapBreakdownAllLevels)
+        ? diagnosis.tutorialTapBreakdownAllLevels
+        : (Array.isArray(diagnosis?.tutorialTapBreakdown) ? diagnosis.tutorialTapBreakdown : []);
+    const tutorialTapByStep = showAllFunnelLevels && Array.isArray(diagnosis?.tutorialTapByStepAllLevels)
+        ? diagnosis.tutorialTapByStepAllLevels
+        : (Array.isArray(diagnosis?.tutorialTapByStep) ? diagnosis.tutorialTapByStep : []);
+    const funnelScopeLabel = showAllFunnelLevels
+        ? (diagnosis?.firstLevelFunnelAllLevelsScope?.label || '全部 level')
+        : (diagnosis?.firstLevelFunnelScope?.label || 'level=1');
     const first20Levels = Array.isArray(diagnosis?.first20Levels) ? diagnosis.first20Levels : [];
     const firstDayChurnAnalysis = diagnosis?.firstDayChurnAnalysis || null;
     const levelNetValue = diagnosis?.levelNetValue || null;
@@ -1713,10 +1753,14 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">首关/教程漏斗</div>
-                <div class="card-subtitle">同时展示 UV 和 Session，占比统一以 App启动为起点；顶层首关漏斗通过率与本表 L1通过 行使用同一口径。</div>
+                <div class="card-subtitle">默认展示 level=1；勾选后可切到全部 level。顶层核心指标始终使用 level=1。</div>
             </div>
             <div class="card-body">
-                ${funnelRows.length ? renderDiagnosisFunnelTable(funnelRows) : '<div class="empty">这份日报没有 first_level_funnel 漏斗数据。</div>'}
+                ${funnelRows.length ? renderDiagnosisFunnelTable(funnelRows, {
+                    showAllLevels: showAllFunnelLevels,
+                    allLevelsAvailable: allLevelsFunnelRows.length > 0,
+                    scopeLabel: funnelScopeLabel,
+                }) : '<div class="empty">这份日报没有 first_level_funnel 漏斗数据。</div>'}
             </div>
         </section>
 
@@ -1919,6 +1963,7 @@ async function loadReport(date) {
 function bindEvents() {
     qs('content').addEventListener('click', handleSortableTableClick);
     qs('content').addEventListener('change', handleFunnelLatencyToggle);
+    qs('content').addEventListener('change', handleFunnelScopeToggle);
 
     qs('loadBtn').addEventListener('click', () => {
         const selectValue = qs('dateSelect').value;
