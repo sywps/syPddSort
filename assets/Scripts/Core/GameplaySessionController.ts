@@ -105,6 +105,8 @@ export class GameplaySessionController {
             runtime._settlementNextTransitioning = false;
             runtime._completedColors = new Set();
             runtime._pendingColorCompleteEffects = new Map();
+            runtime._patternCompleteWinPending = false;
+            runtime.clearPatternCompleteMatchFx?.();
             runtime._guidePulseTweens = [];
             runtime._pulseTweens = [];
             runtime.stopPulseTweens();

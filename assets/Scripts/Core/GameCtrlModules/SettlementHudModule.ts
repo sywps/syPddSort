@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { WeChatRecommendService } from '../WeChatRecommendService';
 
 export function installSettlementHudModule(target: any): void {
     Object.assign(target, {
@@ -293,9 +294,45 @@ export function installSettlementHudModule(target: any): void {
             }, 0.95);
         },
 
+        scheduleAutoShowWeChatRecommendAfterWin(logicalLevelId: number) {
+            this.scheduleOnce(() => {
+                if (this._isThemeLevel || !this.panelWin?.isValid || this.panelWin.activeInHierarchy === false) return;
+                WeChatRecommendService.inst.attemptAutoShowAfterWin({
+                    logicalLevelId,
+                    physicalLevelId: this.levelData?.levelId || logicalLevelId,
+                    page: typeof this.getAnalyticsPage === 'function' ? this.getAnalyticsPage() : 'game',
+                    source: 'win_panel_auto',
+                    isThemeLevel: this._isThemeLevel === true,
+                });
+            }, 0.25);
+        },
+
+        playPatternCompleteThenWin(delaySeconds: number = 0) {
+            if (this.isGameEnd || this._patternCompleteWinPending) return;
+            this._patternCompleteWinPending = true;
+            if (this._pendingColorCompleteEffects instanceof Map) {
+                this._pendingColorCompleteEffects.clear();
+            }
+            this.clearEndgameHints(false);
+            this.unschedule(this.tickTimer);
+            const runWin = () => {
+                if (!this.isValid) return;
+                this._patternCompleteWinPending = false;
+                if (this.isGameEnd) return;
+                this.gameWin();
+            };
+            const delay = Math.max(0, Number(delaySeconds) || 0);
+            if (delay > 0 && typeof this.scheduleOnce === 'function') {
+                this.scheduleOnce(runWin, delay);
+            } else {
+                runWin();
+            }
+        },
+
         gameWin() {
             if (this.isGameEnd) return;
             this.isGameEnd = true;
+            this._patternCompleteWinPending = false;
             AudioMgr.inst.play('winAll');
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
@@ -321,29 +358,15 @@ export function installSettlementHudModule(target: any): void {
             this.addGold(this._pendingWinGoldReward);
             this.ensureGameplayResultPanelsCreated?.();
             this.updateWinRewardLabel(this._pendingWinGoldReward);
-        
-            const bm = this.boardModel;
-            const bw = this.levelData.boardWidth;
-            const bh = this.levelData.boardHeight;
-        
-            // Phase 1: 棋盘缩小并移到正中间
+
             if (this.boardGroup) {
                 tween(this.boardGroup)
                     .to(0.3, { scale: new Vec3(0.85, 0.85, 1), position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0) }, { easing: 'sineOut' })
                     .start();
             }
-        
-            // Phase 2: 按斜向波次并发扫光，既有方向感，又不会因豆豆过多而线性变慢
-            const lockedCells: {row: number; col: number}[] = [];
-            for (let r = 0; r < bh; r++)
-                for (let c = 0; c < bw; c++)
-                    if (bm.locked[r][c] && bm.correctColors[r][c] > 0)
-                        lockedCells.push({row: r, col: c});
-        
-            const totalAnimTime = this.playWinBoardGlowSweep(lockedCells, bw, bh);
-        
-            // Phase 3: win sound + panel + pattern preview（归位动画结束后）
-            this.scheduleOnce(() => {
+
+            const showSettlement = () => {
+                if (!this.isValid || !this.isGameEnd) return;
                 AudioMgr.inst.play('winSettlement');
                 if (this.boardGroup) {
                     tween(this.boardGroup)
@@ -360,6 +383,7 @@ export function installSettlementHudModule(target: any): void {
                             this.panelWin.active = true;
                             this.panelWin.setSiblingIndex(999);
                             this.playWinSettlementBannerFx?.();
+                            this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
                         }
                     });
                     return;
@@ -370,8 +394,11 @@ export function installSettlementHudModule(target: any): void {
                     this.panelWin.active = true;
                     this.panelWin.setSiblingIndex(999);
                     this.playWinSettlementBannerFx?.();
+                    this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
                 }
-            }, totalAnimTime + 0.18);
+            };
+
+            this.playPatternCompleteMatchFx(showSettlement);
         },
 
         drawWinPatternPreview() {
@@ -409,7 +436,7 @@ export function installSettlementHudModule(target: any): void {
         gameLose() {
             if (this.isGameEnd) return;
             if (this.boardModel?.isAllLocked?.()) {
-                this.gameWin();
+                this.playPatternCompleteThenWin();
                 return;
             }
             this.isGameEnd = true;
@@ -646,7 +673,7 @@ export function installSettlementHudModule(target: any): void {
                 this._guideMode = 'none';
                 this._guideTotalSteps = 0;
                 this._guideStep = -1;
-                this.scheduleOnce(() => this.gameWin(), 0.1);
+                this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.1);
                 return;
             }
         

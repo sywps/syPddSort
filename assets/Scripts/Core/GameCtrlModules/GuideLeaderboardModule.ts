@@ -329,7 +329,7 @@ export function installGuideLeaderboardModule(target: any): void {
             if (nextStep >= this._guideTotalSteps) {
                 this.endTutorial();
                 if (this.boardModel.isAllLocked()) {
-                    this.scheduleOnce(() => this.gameWin(), 0.3);
+                    this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.3);
                 }
             } else {
                 this._guidePhase = this.getTutorialPhaseForStep(nextStep);

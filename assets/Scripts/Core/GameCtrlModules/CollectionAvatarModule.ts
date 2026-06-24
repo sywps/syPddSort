@@ -3,7 +3,7 @@ import {
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
-    NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel,
+    NodePool, Prefab, instantiate, Game, game, AdConfig, BoardModel, SlotModel,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureCollectionPanelController } from '../Panels/CollectionPanelController';
+import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 
 function getRankTextColor(rank: number): Color {
     if (rank === 1) return new Color('#D99A16');
@@ -70,14 +71,6 @@ function syncCollectionAvatarLabelNode(
     label.enableWrapText = false;
     node.active = true;
     return label;
-}
-
-function getCollectionPreviewColor(colorId: number, grayscale: boolean): Color {
-    const base = new Color(COLOR_HEX[colorId] || '#CCCCCC');
-    if (!grayscale) return base;
-    const luma = Math.round(base.r * 0.299 + base.g * 0.587 + base.b * 0.114);
-    const softened = Math.max(118, Math.min(218, Math.round(luma * 0.58 + 92)));
-    return new Color(softened, softened, softened, 190);
 }
 
 export function installCollectionAvatarModule(target: any): void {
@@ -257,8 +250,9 @@ export function installCollectionAvatarModule(target: any): void {
             const makeSpriteFrame = (source: ImageAsset | any): SpriteFrame | null => {
                 try {
                     if (source instanceof ImageAsset) {
-                        const width = source.width || 0;
-                        const height = source.height || 0;
+                        const rawImage = (source as any)?.image;
+                        const width = source.width || rawImage?.width || 0;
+                        const height = source.height || rawImage?.height || 0;
                         if (!width || !height) {
                             return null;
                         }
@@ -790,87 +784,19 @@ export function installCollectionAvatarModule(target: any): void {
             },
         ) {
             if (!parent.isValid || !correctArr || bw <= 0 || bh <= 0) return;
-        
-            let minRow = 0;
-            let maxRow = bh - 1;
-            let minCol = 0;
-            let maxCol = bw - 1;
-            if (options?.cropToContent) {
-                minRow = bh;
-                maxRow = -1;
-                minCol = bw;
-                maxCol = -1;
-                for (let r = 0; r < bh; r++) {
-                    for (let c = 0; c < bw; c++) {
-                        if (correctArr[r]?.[c] === 0) continue;
-                        minRow = Math.min(minRow, r);
-                        maxRow = Math.max(maxRow, r);
-                        minCol = Math.min(minCol, c);
-                        maxCol = Math.max(maxCol, c);
-                    }
-                }
-                if (maxRow < minRow || maxCol < minCol) return;
-            }
-            const renderW = Math.max(1, maxCol - minCol + 1);
-            const renderH = Math.max(1, maxRow - minRow + 1);
-            const maxCellW = Math.max(1, Math.floor(maxW / renderW));
-            const maxCellH = Math.max(1, Math.floor(maxH / renderH));
-            const maxCellSize = Math.max(6, Math.floor(options?.maxCellSize ?? 28));
-            const cellSize = Math.min(maxCellW, maxCellH, maxCellSize);
-            const cellGap = Math.max(0, Math.floor(options?.cellGap ?? (cellSize > 18 ? 2 : 1)));
-            const drawTargetBackground = !!options?.drawTargetBackground;
-            const beanScale = Math.max(0.35, Math.min(1, options?.beanScale ?? 1));
-            const lockedBeans = !!options?.lockedBeans;
-        
-            const preview = new Node('Preview');
-            parent.addChild(preview);
-            preview.addComponent(UITransform).setContentSize(maxW, maxH);
-            preview.layer = Layers.Enum.UI_2D;
-            preview.setPosition(offsetX, offsetY);
-            const pg = drawTargetBackground ? null : preview.addComponent(Graphics);
-        
-            for (let r = minRow; r <= maxRow; r++) {
-                for (let c = minCol; c <= maxCol; c++) {
-                    if (correctArr[r][c] === 0) continue;
-                    const x = (c - minCol - (renderW - 1) / 2) * (cellSize + cellGap);
-                    const y = ((renderH - 1) / 2 - (r - minRow)) * (cellSize + cellGap);
-                    const s = cellSize / 2;
-                    if (drawTargetBackground) {
-                        const targetNode = new Node(`target_${r}_${c}`);
-                        targetNode.layer = Layers.Enum.UI_2D;
-                        targetNode.addComponent(UITransform).setContentSize(cellSize, cellSize);
-                        const targetSp = targetNode.addComponent(Sprite);
-                        targetSp.sizeMode = Sprite.SizeMode.CUSTOM;
-                        targetSp.spriteFrame = this.getSlotSpriteFrame(correctArr[r][c]);
-                        targetNode.setPosition(x, y);
-                        preview.addChild(targetNode);
-                        continue;
-                    }
-                    if (!pg) continue;
-                    pg.fillColor = new Color(200, 185, 160, 180);
-                    pg.circle(x, y, s);
-                    pg.fill();
-                }
-            }
-        
-            for (let r = minRow; r <= maxRow; r++) {
-                for (let c = minCol; c <= maxCol; c++) {
-                    const cid = correctArr[r][c];
-                    if (cid === 0) continue;
-                    const x = (c - minCol - (renderW - 1) / 2) * (cellSize + cellGap);
-                    const y = ((renderH - 1) / 2 - (r - minRow)) * (cellSize + cellGap);
-                    const beanNode = new Node(`bean_${r}_${c}`);
-                    beanNode.layer = Layers.Enum.UI_2D;
-                    const ut = beanNode.addComponent(UITransform);
-                    const beanSize = Math.max(6, Math.floor(cellSize * beanScale));
-                    ut.setContentSize(beanSize, beanSize);
-                    const sp = beanNode.addComponent(Sprite);
-                    sp.sizeMode = Sprite.SizeMode.CUSTOM;
-                    sp.spriteFrame = this.getBeanSpriteFrame(cid, lockedBeans);
-                    beanNode.setPosition(x, y);
-                    preview.addChild(beanNode);
-                }
-            }
+
+            renderPixelPosterPreview(parent, correctArr, {
+                name: 'Preview',
+                offsetX,
+                offsetY,
+                maxW,
+                maxH,
+                mode: options?.drawTargetBackground ? 'win' : 'poster',
+                cropToContent: options?.cropToContent ?? true,
+                maxCellSize: options?.maxCellSize,
+                cellGap: options?.cellGap ?? 0,
+                padding: options?.drawTargetBackground ? 6 : 8,
+            });
         },
 
         /** 在图鉴卡片上绘制像素图预览 */
@@ -887,44 +813,20 @@ export function installCollectionAvatarModule(target: any): void {
             this.loadLevelData(levelId, (data) => {
                 if (!data || !parent.isValid) return;
                 const correctArr = data.correctColorArr || [];
-                const bounds = this.getCollectionPreviewBounds(correctArr);
-                if (!bounds) return;
-        
-                const rowCount = bounds.maxRow - bounds.minRow + 1;
-                const colCount = bounds.maxCol - bounds.minCol + 1;
-                const gap = 0;
-                const usableW = maxW - 20;
-                const usableH = maxH - 20;
-                const cellSize = Math.max(
-                    5,
-                    Math.min(
-                        24,
-                        Math.floor((usableW - gap * Math.max(0, colCount - 1)) / Math.max(1, colCount)),
-                        Math.floor((usableH - gap * Math.max(0, rowCount - 1)) / Math.max(1, rowCount)),
-                    ),
-                );
-                const contentW = colCount * cellSize + Math.max(0, colCount - 1) * gap;
-                const contentH = rowCount * cellSize + Math.max(0, rowCount - 1) * gap;
-        
-                parent.getChildByName('PixelPreview')?.destroy();
-                const preview = new Node('PixelPreview');
-                parent.addChild(preview);
-                preview.layer = Layers.Enum.UI_2D;
-                preview.setPosition(offsetX, offsetY);
-        
-                const pg = preview.addComponent(Graphics);
-                // 逐像素绘制方块
-                for (let r = 0; r < rowCount; r++) {
-                    for (let c = 0; c < colCount; c++) {
-                        const colorId = correctArr[bounds.minRow + r][bounds.minCol + c];
-                        if (!colorId) continue;
-                        const x = -contentW / 2 + c * (cellSize + gap);
-                        const y = contentH / 2 - (r + 1) * cellSize - r * gap;
-                        pg.fillColor = getCollectionPreviewColor(colorId, !!options?.grayscale);
-                        pg.rect(x, y, cellSize, cellSize);
-                        pg.fill();
-                    }
-                }
+                const previewMode = Math.min(maxW, maxH) >= 220 ? 'poster' : 'list';
+                renderPixelPosterPreview(parent, correctArr, {
+                    name: 'PixelPreview',
+                    offsetX,
+                    offsetY,
+                    maxW,
+                    maxH,
+                    mode: previewMode,
+                    cropToContent: true,
+                    grayscale: !!options?.grayscale,
+                    maxCellSize: previewMode === 'poster' ? 32 : 24,
+                    cellGap: 0,
+                    padding: previewMode === 'poster' ? 8 : 10,
+                });
             }, prefix);
         },
 

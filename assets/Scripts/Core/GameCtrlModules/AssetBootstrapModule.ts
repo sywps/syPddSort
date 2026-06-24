@@ -295,7 +295,10 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _getGameAssetsTextureCandidatePaths(imgName: string): string[] {
-            return GAME_ASSETS_TEXTURE_SEARCH_DIRS.flatMap((dir) => this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
+            return GAME_ASSETS_TEXTURE_SEARCH_DIRS.reduce<string[]>((paths, dir) => {
+                paths.push(...this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
+                return paths;
+            }, []);
         },
 
         _getGameAssetsImageAssetCandidatePaths(imgName: string): string[] {
@@ -310,8 +313,10 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _getBootstrapTextureCandidatePaths(imgName: string): string[] {
-            return this._getBootstrapTextureBaseCandidates(imgName)
-                .flatMap((basePath) => this._getSpriteFrameLoadCandidates(basePath));
+            return this._getBootstrapTextureBaseCandidates(imgName).reduce((paths: string[], basePath: string) => {
+                paths.push(...this._getSpriteFrameLoadCandidates(basePath));
+                return paths;
+            }, [] as string[]);
         },
 
         _getBootstrapImageAssetCandidatePaths(imgName: string): string[] {
@@ -1578,6 +1583,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         clearEffectPools() {
             debugPerfSnapshot('effectPools.clear.before', this);
+            this.clearBeanSettleMatchFx?.();
             this._flyBeanPool.clear();
             this._frameFxPool.clear();
             this._brightFlashPool.clear();

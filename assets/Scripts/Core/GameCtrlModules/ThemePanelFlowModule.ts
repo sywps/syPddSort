@@ -225,19 +225,7 @@ export function installThemePanelFlowModule(target: any): void {
         ) {
             this.loadLevelData(levelId, (data) => {
                 if (!data || !card.isValid) return;
-                const drawPreview = () => {
-                    if (!card.isValid) return;
-                    if (typeof this.needsBeanFramesForLevelData === 'function' && this.needsBeanFramesForLevelData(data)) {
-                        console.error('[collection-preview] bean SpriteFrames unavailable for level:', data.levelId || levelId);
-                        return;
-                    }
-                    this.drawBeanPreviewGrid(card, data.correctColorArr, data.boardWidth, data.boardHeight, offsetX, offsetY, maxW, maxH, options);
-                };
-                if (typeof this._prepareBeanFramesForLevelData === 'function') {
-                    this._prepareBeanFramesForLevelData(data, drawPreview);
-                    return;
-                }
-                drawPreview();
+                this.drawBeanPreviewGrid(card, data.correctColorArr, data.boardWidth, data.boardHeight, offsetX, offsetY, maxW, maxH, options);
             }, prefix);
         },
 

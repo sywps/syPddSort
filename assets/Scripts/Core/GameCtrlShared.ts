@@ -6,7 +6,7 @@ import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, LabelOutline, ProgressBar,
     EventTouch, EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager,
     Button, Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
-    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, NodePool,
+    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, NodePool, sp,
     Prefab, instantiate,
     Game, game,
 } from 'cc';
@@ -598,7 +598,7 @@ export {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, LabelOutline, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
-    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
+    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, sp,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     Prefab, instantiate,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,

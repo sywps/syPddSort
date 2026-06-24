@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    view, ResolutionPolicy, tween, Tween, sys, UIOpacity, Color,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -381,12 +381,99 @@ export function installFirstLevelRouteModule(target: any): void {
             this.showLevelDataLoadFatalError(levelPath, errorCode, errorMessage);
         },
 
+        createLevelDataLoadFatalSpriteNode(parent: Node, name: string, width: number, height: number, color: Color): Node {
+            const node = new Node(name);
+            node.layer = parent.layer;
+            parent.addChild(node);
+            const transform = node.addComponent(UITransform);
+            transform.setContentSize(width, height);
+            const sprite = node.addComponent(Sprite);
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            sprite.spriteFrame = createSingleColorSpriteFrame(color, 8, 8);
+            return node;
+        },
+
+        ensureLevelDataLoadFatalLabel(parent: Node, name: string, y: number, fontSize: number, width: number, height: number): Label {
+            let node = parent.getChildByName(name);
+            if (!node) {
+                node = new Node(name);
+                node.layer = parent.layer;
+                parent.addChild(node);
+            }
+            node.active = true;
+            node.setPosition(0, y, 0);
+            const transform = node.getComponent(UITransform) || node.addComponent(UITransform);
+            transform.setContentSize(width, height);
+            const label = node.getComponent(Label) || node.addComponent(Label);
+            label.fontSize = fontSize;
+            label.lineHeight = Math.max(fontSize + 4, Math.round(fontSize * 1.25));
+            label.horizontalAlign = Label.HorizontalAlign.CENTER;
+            label.verticalAlign = Label.VerticalAlign.CENTER;
+            label.color = new Color(255, 255, 255, 255);
+            return label;
+        },
+
+        ensureLevelDataLoadFatalLayer(overlayRoot: Node, visibleSize: Size): Node {
+            let overlayTemplates = overlayRoot.getChildByName('OverlayTemplates');
+            if (!overlayTemplates) {
+                overlayTemplates = new Node('OverlayTemplates');
+                overlayTemplates.layer = overlayRoot.layer;
+                overlayRoot.addChild(overlayTemplates);
+                overlayTemplates.addComponent(UITransform);
+            }
+
+            let layer = overlayTemplates.getChildByName('LevelDataLoadFatalError');
+            if (!layer) {
+                layer = new Node('LevelDataLoadFatalError');
+                layer.layer = overlayTemplates.layer;
+                overlayTemplates.addChild(layer);
+                layer.addComponent(UITransform);
+            }
+
+            let mask = layer.getChildByName('LevelDataLoadFatalErrorMask');
+            if (!mask) {
+                mask = this.createLevelDataLoadFatalSpriteNode(
+                    layer,
+                    'LevelDataLoadFatalErrorMask',
+                    visibleSize.width,
+                    visibleSize.height,
+                    new Color(0, 0, 0, 176),
+                );
+            }
+            mask.layer = layer.layer;
+            mask.setPosition(0, 0, 0);
+            const maskTransform = mask.getComponent(UITransform) || mask.addComponent(UITransform);
+            maskTransform.setContentSize(visibleSize.width, visibleSize.height);
+
+            let card = layer.getChildByName('LevelDataLoadFatalErrorCard');
+            if (!card) {
+                card = this.createLevelDataLoadFatalSpriteNode(
+                    layer,
+                    'LevelDataLoadFatalErrorCard',
+                    560,
+                    320,
+                    new Color(24, 28, 42, 244),
+                );
+            }
+            card.layer = layer.layer;
+            card.setPosition(0, 0, 0);
+            const cardTransform = card.getComponent(UITransform) || card.addComponent(UITransform);
+            cardTransform.setContentSize(560, 320);
+
+            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorTitle', 108, 34, 500, 48);
+            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorHint', 50, 22, 500, 56);
+            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorPath', -18, 18, 500, 42);
+            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorDetail', -74, 18, 500, 56);
+            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorRetry', -132, 18, 500, 36);
+            return layer;
+        },
+
         showLevelDataLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
             const visibleSize = this._getLoadingVisibleSize();
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
-            const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates', 'OverlayRoot/OverlayTemplates');
-            const layer = this.requireUiChild(overlayTemplates, 'LevelDataLoadFatalError', 'OverlayTemplates/LevelDataLoadFatalError');
+            const overlayTemplates = overlayRoot.getChildByName('OverlayTemplates') || null;
+            const layer = this.ensureLevelDataLoadFatalLayer(overlayRoot, visibleSize);
             this._remoteLoadErrorOverlay = layer;
 
             const layerTransform = layer.getComponent(UITransform);
@@ -395,8 +482,11 @@ export function installFirstLevelRouteModule(target: any): void {
             const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
             blocker.enabled = true;
             layer.active = true;
-            overlayTemplates.setSiblingIndex(overlayRoot.children.length - 1);
-            layer.setSiblingIndex(overlayTemplates.children.length - 1);
+            const activeOverlayTemplates = overlayTemplates?.isValid ? overlayTemplates : overlayRoot.getChildByName('OverlayTemplates');
+            activeOverlayTemplates?.setSiblingIndex(overlayRoot.children.length - 1);
+            if (activeOverlayTemplates?.isValid) {
+                layer.setSiblingIndex(activeOverlayTemplates.children.length - 1);
+            }
 
             const mask = this.requireUiChild(layer, 'LevelDataLoadFatalErrorMask', 'LevelDataLoadFatalError/LevelDataLoadFatalErrorMask');
             const maskTransform = mask.getComponent(UITransform);

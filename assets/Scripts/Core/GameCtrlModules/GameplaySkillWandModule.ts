@@ -29,9 +29,6 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-
-const COLOR_COMPLETE_VISUAL_SETTLE_DELAY = 0.22;
-
 export function installGameplaySkillWandModule(target: any): void {
     Object.assign(target, {
         // ==================== 道具技能 ====================
@@ -345,10 +342,13 @@ export function installGameplaySkillWandModule(target: any): void {
             this.compactSlotsAfterPropConsume(() => {
                 this.finishSkillUsage();
                 this.checkColorCompletion();
-                this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
+                const boardComplete = this.boardModel.isAllLocked();
+                if (!boardComplete) {
+                    this.flushPendingColorCompleteEffects();
+                }
                 this.checkGuideStepComplete();
-                if (this.boardModel.isAllLocked()) {
-                    this.gameWin();
+                if (boardComplete) {
+                    this.playPatternCompleteThenWin();
                 }
             });
         },
@@ -915,9 +915,17 @@ export function installGameplaySkillWandModule(target: any): void {
                         AudioMgr.inst.play('place');
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${move.targetRow},${move.targetCol}`);
-                        remaining--;
-                        if (remaining <= 0) {
-                            this.finishClearSlot();
+                        this.renderBoardCell(move.targetRow, move.targetCol);
+                        const finishMove = () => {
+                            remaining--;
+                            if (remaining <= 0) {
+                                this.finishClearSlot();
+                            }
+                        };
+                        if (move.doLock) {
+                            this.playLandEffect(move.targetRow, move.targetCol, this.getPlaceGlowFrameBudget(moves.length), finishMove);
+                        } else {
+                            finishMove();
                         }
                     })
                     .start();
@@ -931,10 +939,13 @@ export function installGameplaySkillWandModule(target: any): void {
             this.renderBoard();
             this.renderSlots();
             this.checkColorCompletion();
-            this.flushPendingColorCompleteEffects(COLOR_COMPLETE_VISUAL_SETTLE_DELAY);
+            const boardComplete = this.boardModel.isAllLocked();
+            if (!boardComplete) {
+                this.flushPendingColorCompleteEffects();
+            }
             this.checkGuideStepComplete();
-            if (this.boardModel.isAllLocked()) {
-                this.gameWin();
+            if (boardComplete) {
+                this.playPatternCompleteThenWin();
             } else {
                 this.finishSkillUsage();
             }
