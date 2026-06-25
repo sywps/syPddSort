@@ -4,6 +4,8 @@
 
 import { _decorator, Component } from 'cc';
 import { getRewardedAdProvider, type RewardedAdHooks } from './RewardedAdProvider';
+import { DOUYIN_PLATFORM_CONFIG } from './Douyin/DouyinPlatformConfig';
+import { WECHAT_PLATFORM_CONFIG } from './WeChat/WeChatPlatformConfig';
 import { getMiniGameBuildMode, getMiniGameBuildPlatform, getWeChatMiniGameRuntime } from '../Core/MiniGamePlatform';
 const { ccclass } = _decorator;
 
@@ -11,11 +13,11 @@ type RewardedAdMode = 'native' | 'mock-success' | 'mock-fail';
 
 @ccclass('AdConfig')
 export class AdConfig extends Component {
-    public static readonly DOUYIN_AD_ID: string = 'so89260s57143ahcbc';
-    private static readonly WECHAT_AD_ID: string = 'adunit-6a581caa226250fd';
+    public static readonly DOUYIN_AD_ID: string = DOUYIN_PLATFORM_CONFIG.ads.rewardedVideo;
+    private static readonly WECHAT_AD_ID: string = WECHAT_PLATFORM_CONFIG.ads.rewardedVideo;
 
     public static notifyGameResumed() {
-        // 已移除兜底成功逻辑 — 不再按游戏恢复事件判定广告成功。
+        // 已移除兜底成功逻辑，不再按游戏恢复事件判定广告成功。
         // 保留此方法以免外部调用报错。
     }
 

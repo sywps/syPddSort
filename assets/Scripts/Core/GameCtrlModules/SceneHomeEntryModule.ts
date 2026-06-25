@@ -33,7 +33,7 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
-import { openWeChatGameCircle } from '../MiniGamePlatform';
+import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, openWeChatGameCircle } from '../MiniGamePlatform';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
 
 const GAME_CIRCLE_BUTTON_NAME = 'GameCircleBtn';
@@ -198,6 +198,10 @@ export function installSceneHomeEntryModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('uiPanel');
+                if (getMiniGameBuildPlatform() === 'douyin' || isDouyinMiniGameRuntime()) {
+                    this.showToast?.('\u6392\u884c\u699c\u6682\u672a\u5f00\u653e', 1.6);
+                    return;
+                }
                 void this.openLeaderboard();
             }, this);
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');

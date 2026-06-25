@@ -3,7 +3,9 @@ import { installDouyinSidebarModule, shouldInstallDouyinSidebarModule } from './
 
 export function installDouyinGameCtrlModules(runtime: any): void {
     installGameCtrlModules(runtime);
-    if (shouldInstallDouyinSidebarModule()) {
+    const shouldInstallSidebar = shouldInstallDouyinSidebarModule();
+    console.log('[douyin-sidebar] douyin-module-install-check', { shouldInstallSidebar });
+    if (shouldInstallSidebar) {
         installDouyinSidebarModule(runtime);
     }
 }
