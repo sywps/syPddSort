@@ -70,9 +70,31 @@ export function hasWeChatBuildMarker(): boolean {
     );
 }
 
+function normalizeMiniGamePlatform(value: unknown): MiniGameBuildPlatform | '' {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'wechat' || normalized === 'weixin' || normalized === 'wx') return 'wechat';
+    if (normalized === 'douyin' || normalized === 'tt' || normalized === 'bytedance') return 'douyin';
+    if (normalized === 'web' || normalized === 'browser') return 'web';
+    return '';
+}
+
+function getBrowserPreviewPlatformParam(): MiniGameBuildPlatform | '' {
+    try {
+        const windowScope = getWindowScope();
+        const search = String(windowScope?.location?.search || '');
+        if (!search) return '';
+        const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+        return normalizeMiniGamePlatform(params.get('platform'));
+    } catch (_) {
+        return '';
+    }
+}
+
 export function getMiniGameBuildPlatform(): MiniGameBuildPlatform {
     if (hasDouyinBuildMarker()) return 'douyin';
     if (hasWeChatBuildMarker()) return 'wechat';
+    const previewPlatform = getBrowserPreviewPlatformParam();
+    if (previewPlatform) return previewPlatform;
     return 'web';
 }
 

@@ -1,18 +1,12 @@
 import { installGameCtrlModules } from '../Core/installGameCtrlModules';
 import { installDouyinGameCtrlModules } from './Douyin/installDouyinGameCtrlModules';
-import {
-    getMiniGameApi,
-    getMiniGameBuildPlatform,
-    hasDouyinBuildMarker,
-    isDouyinMiniGameRuntime,
-} from '../Core/MiniGamePlatform';
+import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime } from '../Core/MiniGamePlatform';
+import { runtimeLog } from '../Core/RuntimeLog';
 
 export function installPlatformGameCtrlModules(runtime: any): void {
     const isDouyin = isDouyinMiniGameRuntime();
-    console.log('[douyin-sidebar] platform-install-check', {
+    runtimeLog('[platform] install-check', {
         buildPlatform: getMiniGameBuildPlatform(),
-        hasDouyinMarker: hasDouyinBuildMarker(),
-        hasTt: !!getMiniGameApi('tt'),
         isDouyin,
     });
     if (isDouyin) {

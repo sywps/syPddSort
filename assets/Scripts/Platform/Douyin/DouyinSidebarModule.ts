@@ -11,7 +11,9 @@ import {
     UITransform,
 } from '../../Core/GameCtrlShared';
 import type { Bundle } from '../../Core/GameCtrlShared';
+import { getDouyinMiniGameRuntime } from '../../Core/MiniGamePlatform';
 import { openCollectionShellOverlay } from '../../Core/Panels/CollectionShellOverlay';
+import { runtimeLog, runtimeWarn } from '../../Core/RuntimeLog';
 
 const DOUYIN_SIDEBAR_BUTTON_NAME = 'DouyinSidebarTaskButton';
 const DOUYIN_SIDEBAR_BUTTON_PREFAB_PATH = 'UI/Prefabs/Buttons/DouyinSidebarTaskButton';
@@ -25,32 +27,8 @@ const DOUYIN_SIDEBAR_BUTTON_CLAIM_LABEL = '\u9886\u53d6\n\u5956\u52b1';
 const DOUYIN_SIDEBAR_BUTTON_CLAIMED_LABEL = '\u5df2\n\u9886\u53d6';
 const DOUYIN_SIDEBAR_GUIDE_COPY = `\u6bcf\u65e5\u4ece\u6296\u97f3\u9996\u9875\u4fa7\u8fb9\u680f\u56de\u5230\u6e38\u620f\uff0c\u5373\u53ef\u9886\u53d6 ${DOUYIN_SIDEBAR_REWARD_GOLD} \u91d1\u5e01\u3002\n\n1. \u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\uff0c\u524d\u5f80\u6296\u97f3\u9996\u9875\u4fa7\u8fb9\u680f\u3002\n2. \u5728\u4fa7\u8fb9\u680f\u70b9\u51fb\u300a\u8f7b\u677e\u62fc\u8c46\u300b\u8fd4\u56de\u6e38\u620f\u3002\n3. \u56de\u5230\u4e3b\u9875\u540e\uff0c\u518d\u70b9\u672c\u5165\u53e3\u9886\u5956\u3002`;
 
-declare const tt: any;
-
 function logSidebar(step: string, data: Record<string, unknown> = {}): void {
-    console.log(`[douyin-sidebar] ${step}`, data);
-}
-
-function getGlobalScope(): any {
-    return typeof globalThis !== 'undefined' ? globalThis as any : null;
-}
-
-function getWindowScope(): any {
-    return typeof window !== 'undefined' ? window as any : null;
-}
-
-function getDirectDouyinApi(): any {
-    try {
-        return typeof tt !== 'undefined' ? tt : null;
-    } catch (_) {
-        return null;
-    }
-}
-
-function getDouyinApi(): any {
-    const globalScope = getGlobalScope();
-    const windowScope = getWindowScope();
-    return globalScope?.tt || windowScope?.tt || getDirectDouyinApi() || null;
+    runtimeLog(`[douyin-sidebar] ${step}`, data);
 }
 
 function getLocalDateKey(date: Date = new Date()): string {
@@ -113,7 +91,7 @@ function configureDouyinSidebarGuideContent(box: Node): void {
 }
 
 export function shouldInstallDouyinSidebarModule(): boolean {
-    const tt = getDouyinApi();
+    const tt = getDouyinMiniGameRuntime();
     const shouldInstall = true;
     logSidebar('should-install', {
         hasTt: !!tt,
@@ -142,7 +120,7 @@ export function installDouyinSidebarModule(target: any): void {
                 existing.active = false;
             }
 
-            const tt = getDouyinApi();
+            const tt = getDouyinMiniGameRuntime();
             if (!parent.isValid || !this.mainMenuNode?.isValid) {
                 logSidebar('draw-entry-skip-invalid-parent', {
                     parentValid: parent.isValid,
@@ -303,9 +281,9 @@ export function installDouyinSidebarModule(target: any): void {
             });
         },
         openDouyinSidebarScene() {
-            const tt = getDouyinApi();
+            const tt = getDouyinMiniGameRuntime();
             if (!tt || typeof tt.navigateToScene !== 'function') {
-                console.warn('[douyin-sidebar] tt.navigateToScene unavailable');
+                runtimeWarn('[douyin-sidebar] tt.navigateToScene unavailable');
                 this.showToast?.('\u8bf7\u5728\u6296\u97f3\u4e2d\u6253\u5f00\u4fa7\u680f\u4efb\u52a1', 1.8);
                 return;
             }
@@ -321,7 +299,7 @@ export function installDouyinSidebarModule(target: any): void {
                 },
                 fail: (err: any) => {
                     this.clearDouyinSidebarRewardPending();
-                    console.warn('[douyin-sidebar] navigateToScene failed:', err);
+                    runtimeWarn('[douyin-sidebar] navigateToScene failed:', err);
                     this.showToast?.('\u4fa7\u680f\u6253\u5f00\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5', 1.8);
                 },
             });

@@ -206,7 +206,7 @@ function getPreloadBundleName(item) {
 
 function ensureStartupPreloadBundles(assets) {
     const preloadBundles = Array.isArray(assets.preloadBundles) ? assets.preloadBundles.slice() : [];
-    const requiredOrder = ['bootstrap', 'main'];
+    const requiredOrder = ['main'];
     const byName = new Map();
     for (const item of preloadBundles) {
         const name = getPreloadBundleName(item);
@@ -217,6 +217,7 @@ function ensureStartupPreloadBundles(assets) {
         const name = getPreloadBundleName(item);
         if (
             requiredOrder.includes(name)
+            || name === 'bootstrap'
             || name === 'homeAssets'
             || name === 'gameAssets'
             || name === 'levelData'

@@ -93,7 +93,7 @@ const config = {
     polyfills: {
         asyncFunctions: false,
     },
-    experimentalEraseModules: false,
+    experimentalEraseModules: true,
     startSceneAssetBundle: false,
     bundleConfigs: [
         {
