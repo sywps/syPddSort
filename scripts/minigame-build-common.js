@@ -75,10 +75,11 @@ function cleanCocosGeneratedCaches(projectDir, envName, logInfo) {
         'library',
         'temp/asset-db',
         'temp/builder',
+        'temp/programming',
     ]) {
         rm(path.join(projectDir, relPath));
     }
-    logInfo('已清理 Cocos 构建缓存并保留 Preview 临时脚本，避免 stale asset-db/importer 状态污染构建');
+    logInfo('已清理 Cocos 项目级生成缓存，避免 stale asset-db/importer/script 状态污染构建');
 }
 
 function repairCocosMetaFiles(projectDir) {

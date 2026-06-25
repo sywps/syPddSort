@@ -15,6 +15,7 @@ import { ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
 import { debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
+import { markStartupTrace } from './StartupTrace';
 
 export class GameSceneRuntimeController {
     constructor(private readonly runtime: any) {}
@@ -182,6 +183,10 @@ export class GameSceneRuntimeController {
             });
         }
         debugPerfSnapshot('runtime.game.beforeContinueStartup', this.runtime, {
+            pendingGameplayRequest: !!pendingGameplayRequest,
+            entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
+        });
+        markStartupTrace('startup_continue_start', {
             pendingGameplayRequest: !!pendingGameplayRequest,
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
         });

@@ -12,6 +12,7 @@ import type { LevelData } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { LevelDataCdnService } from './LevelDataCdnService';
 import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
+import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
 export class GameplaySessionController {
     constructor(private readonly runtime: any) {}
@@ -143,17 +144,29 @@ export class GameplaySessionController {
             this.finishGameplayReadyTransition();
             runtime.refreshEndgameHints('init-game');
             runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0.8);
+            const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
+            const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
             if (runtime.isFirstLevelFunnelActive()) {
-                const activePhysicalLevel = runtime.getActivePhysicalLevelId();
-                const activeLogicalLevel = runtime.getActiveLogicalLevelId();
                 AnalyticsMgr.inst.markFirstLevelReady({
                     page: runtime.getAnalyticsPage(),
-                    levelId: activeLogicalLevel,
-                    logicalLevelId: activeLogicalLevel,
-                    physicalLevelId: activePhysicalLevel,
-                    source: runtime.shouldUseLocalBootstrapBundle(activePhysicalLevel) ? 'bootstrap' : 'remote',
+                    levelId: startupTraceLogicalLevel,
+                    logicalLevelId: startupTraceLogicalLevel,
+                    physicalLevelId: startupTracePhysicalLevel,
+                    source: runtime.shouldUseLocalBootstrapBundle(startupTracePhysicalLevel) ? 'bootstrap' : 'remote',
                 });
             }
+            markStartupTrace('startup_first_playable_ready', {
+                levelId: startupTraceLogicalLevel,
+                physicalLevelId: startupTracePhysicalLevel,
+                entryMode: gameplayEntryMode,
+            });
+            flushStartupTrace((event) => AnalyticsMgr.inst.trackFunnelEvent(event), {
+                levelId: startupTraceLogicalLevel,
+                logicalLevelId: startupTraceLogicalLevel,
+                physicalLevelId: startupTracePhysicalLevel,
+            });
+            AnalyticsMgr.inst.flushFunnelEvents();
+            runtime.onGameplayUiReadyForStartupServices?.();
 
             if (runtime.needsBeanReRender()) {
                 runtime.scheduleOnce(() => {
