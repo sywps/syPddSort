@@ -94,6 +94,16 @@ function collectSourceLevelDataPrefixCounts() {
         }, {});
 }
 
+function runNode(script, args, label) {
+    const result = spawnSync(process.execPath, [script].concat(args), {
+        cwd: projectDir,
+        stdio: 'inherit',
+        shell: false,
+    });
+    if (result.error) fail('无法执行 node: ' + result.error.message);
+    if (result.status !== 0) fail(label + '失败');
+}
+
 function validateLevelDataPackage() {
     assertDir(levelDataDir, '关卡数据 CDN 目录');
     assertDir(packDir, '关卡数据 pack 目录');
@@ -233,6 +243,11 @@ console.log('=== 同步微信关卡数据 CDN ===');
 console.log('');
 
 assertWechatLevelDataTarget(cdnUrl, ossPath);
+runNode('scripts/write-level-data-cdn.js', [
+    levelDataDir,
+    '--source',
+    levelDataSourceDir,
+], '生成微信关卡 CDN 数据');
 const { manifest, levelCount } = validateLevelDataPackage();
 const expectedServer = normalizeTrailingSlash(cdnUrl);
 const normalizedOssPath = normalizeOssPath(ossPath);

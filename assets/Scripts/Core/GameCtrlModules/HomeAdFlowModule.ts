@@ -17,7 +17,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -26,7 +26,7 @@ import {
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
@@ -149,49 +149,65 @@ export function installHomeAdFlowModule(target: any): void {
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
             let adClosed = false;
             let pendingAfterCloseFinalize: (() => void) | null = null;
+            let audioInterruptionEnded = false;
+            const adAudioReason = `rewarded:${page}`;
+            const endAdAudioInterruption = (reason: string) => {
+                if (audioInterruptionEnded) return;
+                audioInterruptionEnded = true;
+                AudioMgr.inst.endExternalInterruption(`${adAudioReason}:${reason}`);
+            };
             AnalyticsMgr.inst.trackAdClick(adType, page, levelId);
             SySDKMgr.inst.reportAdClick(page);
             this.suspendTimerForAd();
-            AdConfig.showRewardedAd((success: boolean) => {
-                const finalize = () => {
-                    this.resumeTimerAfterAd();
-                    if (success) {
-                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
-                        SySDKMgr.inst.reportAdFinish(page);
-                        if (options.markLevelRevive) {
-                            AnalyticsMgr.inst.markAdRevive();
+            AudioMgr.inst.beginExternalInterruption(adAudioReason);
+            try {
+                AdConfig.showRewardedAd((success: boolean) => {
+                    const finalize = () => {
+                        endAdAudioInterruption(success ? 'complete-success' : 'complete-fail');
+                        this.resumeTimerAfterAd();
+                        if (success) {
+                            AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
+                            SySDKMgr.inst.reportAdFinish(page);
+                            if (options.markLevelRevive) {
+                                AnalyticsMgr.inst.markAdRevive();
+                            }
                         }
+                        onComplete(success);
+                        this.scheduleRewardedAdPreload(success ? 'after-ad-success' : 'after-ad-fail', 1.5);
+                    };
+                    if (options.waitForCloseBeforeComplete && adClosed) {
+                        this.runAfterAdWindowClosed(finalize);
+                        return;
                     }
-                    onComplete(success);
-                    this.scheduleRewardedAdPreload(success ? 'after-ad-success' : 'after-ad-fail', 1.5);
-                };
-                if (options.waitForCloseBeforeComplete && adClosed) {
-                    this.runAfterAdWindowClosed(finalize);
-                    return;
-                }
-                if (options.waitForCloseBeforeComplete && success) {
-                    if (AdConfig.hasRewardedAdWindow()) {
-                        pendingAfterCloseFinalize = finalize;
-                    } else {
-                        finalize();
+                    if (options.waitForCloseBeforeComplete && success) {
+                        if (AdConfig.hasRewardedAdWindow()) {
+                            pendingAfterCloseFinalize = finalize;
+                        } else {
+                            finalize();
+                        }
+                        return;
                     }
-                    return;
-                }
-                finalize();
-            }, {
-                onShow: () => {
-                    AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
-                    SySDKMgr.inst.reportAdShow(page);
-                },
-                onClose: () => {
-                    adClosed = true;
-                    if (!pendingAfterCloseFinalize) return;
-                    const finalize = pendingAfterCloseFinalize;
-                    pendingAfterCloseFinalize = null;
-                    this.runAfterAdWindowClosed(finalize);
-                },
-                minFallbackWatchMs: this.getRewardedAdMinFallbackWatchMs(page),
-            });
+                    finalize();
+                }, {
+                    onShow: () => {
+                        AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
+                        SySDKMgr.inst.reportAdShow(page);
+                    },
+                    onClose: () => {
+                        adClosed = true;
+                        endAdAudioInterruption('close');
+                        if (!pendingAfterCloseFinalize) return;
+                        const finalize = pendingAfterCloseFinalize;
+                        pendingAfterCloseFinalize = null;
+                        this.runAfterAdWindowClosed(finalize);
+                    },
+                    minFallbackWatchMs: this.getRewardedAdMinFallbackWatchMs(page),
+                });
+            } catch (error) {
+                endAdAudioInterruption('throw');
+                this.resumeTimerAfterAd();
+                throw error;
+            }
         },
 
         runRewardedGrant(

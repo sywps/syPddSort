@@ -103,6 +103,13 @@ export const COLOR_HEX_LOCKED: Record<number, string> = {
     20: '#AFA99F',
 };
 
+/** 底部暂存槽行数策略 */
+export interface LevelSlotPolicy {
+    defaultRows: number;
+    freeUnlockRows: number;
+    adUnlockRows: number;
+}
+
 /** 关卡数据 */
 export interface LevelData {
     levelId: number;
@@ -111,6 +118,7 @@ export interface LevelData {
     timeLimit: number;
     slotTotalCount: number;
     initialSlotUnlockedRows?: number;
+    slotPolicy?: LevelSlotPolicy;
     /** 每格正确颜色 [row][col] */
     correctColorArr: number[][];
     /** 初始乱序颜色 [row][col] */

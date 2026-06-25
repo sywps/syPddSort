@@ -27,9 +27,6 @@ body {
     border-radius: 24px;
     padding: 26px 28px 24px;
     box-shadow: 0 18px 48px rgba(34, 50, 82, .25);
-    position: sticky;
-    top: 12px;
-    z-index: 30;
 }
 .hero-top {
     display: flex;
@@ -228,10 +225,20 @@ body {
     color: #5f5147;
     font-size: 13px;
     font-weight: 600;
+    flex-wrap: wrap;
+}
+.funnel-controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .funnel-controls input {
     width: 16px;
     height: 16px;
+}
+.funnel-scope-label {
+    color: #8a7b6e;
+    font-weight: 500;
 }
 table {
     width: 100%;
@@ -348,15 +355,64 @@ td strong { color: #31486e; }
     color: #5f4b2d;
     line-height: 1.65;
 }
-.model-note {
-    margin-bottom: 12px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    background: #f7f0df;
-    border: 1px solid rgba(220, 187, 122, .36);
-    color: #67583c;
+.analysis-details {
+    margin-bottom: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(220, 187, 122, .42);
+    background: linear-gradient(180deg, #fff9ec, #fbf1dd);
+    color: #5c4b34;
+    overflow: hidden;
+}
+.analysis-details summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #4f3e25;
+}
+.analysis-details summary::-webkit-details-marker { display: none; }
+.analysis-details summary::after {
+    content: "展开";
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: rgba(217, 156, 63, .16);
+    color: #8b5a1e;
+    font-size: 12px;
+    font-weight: 700;
+}
+.analysis-details[open] summary::after { content: "收起"; }
+.analysis-details-body {
+    border-top: 1px solid rgba(220, 187, 122, .32);
+    padding: 14px 16px 16px;
+    display: grid;
+    gap: 14px;
+}
+.analysis-details-body h4 {
     font-size: 13px;
-    line-height: 1.6;
+    color: #374d73;
+    margin-bottom: 6px;
+}
+.analysis-details-body p,
+.analysis-details-body li {
+    font-size: 13px;
+    line-height: 1.75;
+    color: #5f5242;
+}
+.analysis-details-body ul {
+    padding-left: 18px;
+    display: grid;
+    gap: 4px;
+}
+.analysis-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
 }
 .insight-grid {
     display: grid;
@@ -452,6 +508,7 @@ td strong { color: #31486e; }
     .span-3, .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
     .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .two-col { grid-template-columns: 1fr; }
+    .analysis-columns { grid-template-columns: 1fr; }
     .trend-grid, .insight-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
@@ -503,6 +560,7 @@ const state = {
     currentDate: '',
     summary: null,
     trendSummaries: [],
+    showAllFunnelLevels: false,
 };
 
 function qs(id) {
@@ -1108,6 +1166,15 @@ function handleFunnelLatencyToggle(event) {
     table.classList.toggle('show-latency', input.checked);
 }
 
+function handleFunnelScopeToggle(event) {
+    const input = event.target.closest('.funnel-scope-checkbox');
+    if (!input) return;
+    state.showAllFunnelLevels = input.checked;
+    if (state.summary) {
+        renderContent(state.summary, state.trendSummaries);
+    }
+}
+
 function buildTrendSeries(summaries) {
     return summaries.map((summary) => {
         const diagnosis = getDiagnosis(summary);
@@ -1198,7 +1265,7 @@ function buildOpsInsights(summary, trendSummaries) {
     return { highlights, risks, actions };
 }
 
-function renderDiagnosisFunnelTable(rows) {
+function renderDiagnosisFunnelTable(rows, options = {}) {
     const headers = ['步骤', '事件', 'UV', 'UV占App启动', 'Session', 'Session占App启动', '上一步转化', 'PV/records'];
     const bodyRows = rows.map((row, rowIndex) => {
         const latency = row.latencyToNextMs;
@@ -1230,10 +1297,17 @@ function renderDiagnosisFunnelTable(rows) {
         `;
     }).join('');
     return `
-        <label class="funnel-controls">
-            <input type="checkbox" class="funnel-latency-checkbox">
-            <span>显示耗时</span>
-        </label>
+        <div class="funnel-controls">
+            <label>
+                <input type="checkbox" class="funnel-latency-checkbox">
+                <span>显示耗时</span>
+            </label>
+            <label>
+                <input type="checkbox" class="funnel-scope-checkbox" ${options.showAllLevels ? 'checked' : ''} ${options.allLevelsAvailable ? '' : 'disabled'}>
+                <span>显示全部 level</span>
+            </label>
+            <span class="funnel-scope-label">当前：${escapeHtml(options.scopeLabel || 'level=1')}</span>
+        </div>
         <div class="table-wrap">
             <table class="sortable-table funnel-table">
                 <thead>
@@ -1370,21 +1444,64 @@ function renderLevelAdRelationshipTable(rows) {
     );
 }
 
+function renderLevelNetValueExplanation(model) {
+    const durationSource = escapeHtml(model?.durationBaselineSource || 'level_record.avgDurationSeconds');
+    const adSeconds = formatNumber(model?.adSecondsAssumption || 30);
+    return `
+        <details class="analysis-details">
+            <summary>展开看：关卡净价值表到底怎么算、怎么用</summary>
+            <div class="analysis-details-body">
+                <section>
+                    <h4>先说结论</h4>
+                    <p>这张表不是为了给关卡贴一个简单的“好”或“不好”标签，而是把玩家体验和广告收益放在同一张表里看。我们真正想找的是三类关卡：玩家卡得难受但广告收益也不高的关卡，要优先降阻力；玩家愿意继续玩、广告也比较健康的关卡，可以保留；广告完成很多但玩家体验明显变差的关卡，要谨慎，不能用流失换广告。</p>
+                </section>
+                <div class="analysis-columns">
+                    <section>
+                        <h4>为什么拆成这些列</h4>
+                        <ul>
+                            <li><strong>结构难度</strong>看关卡文件本身。比如有多少格、多少种颜色、棋盘有多密、时间是否紧。L1/L2 这种 24 格、30 格的小关，就应该显示为简单。</li>
+                            <li><strong>行为阻力</strong>看玩家实际表现。通过率低不一定说明关卡本身难，也可能是教程没讲清楚、点击识别不舒服、首屏没准备好，或者玩家还没理解玩法。</li>
+                            <li><strong>教程</strong>单独列出来，是为了避免把引导关误判成普通关。教程关如果通过率低，优先查引导和交互，不要先改关卡结构。</li>
+                            <li><strong>时长压力</strong>看这一关是否明显太短或太长。太短可能没形成挑战，太长可能消耗耐心。</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h4>几个分数怎么读</h4>
+                        <ul>
+                            <li><strong>体验分</strong>综合通过率、下关进入、时长、纯流失和重试。分越低，越像玩家在这里不舒服。</li>
+                            <li><strong>收入代理</strong>只看广告完成情况。它不是实际收入，因为这里还没有接入 eCPM 和真实广告收益，只能先当作收入强弱的近似信号。</li>
+                            <li><strong>广告摩擦</strong>看广告给玩家带来的成本。曝光多、重复曝光多、看完广告还是没过关，都会让这个分变高。</li>
+                            <li><strong>净价值</strong>把体验、广告完成和广告摩擦放到一起看。一个关卡广告完成高，但广告摩擦也高，净价值就不会盲目变好。</li>
+                        </ul>
+                    </section>
+                </div>
+                <section>
+                    <h4>“净时长估算”是什么意思</h4>
+                    <p>现在日志里的关卡时长会混进看广告的时间，所以不能直接把平均时长当成关卡本身耗时。这里先用多日时长基线：${durationSource}，再按广告完播次数扣掉一部分广告时间。当前按每次完播约 ${adSeconds} 秒估算。比如某关平均每局看完 0.5 次广告，就从基线里扣大约 15 秒。这个数不是精确的真实无广告时长，它的用途是避免把“玩家在看广告”误判成“关卡本身很长”。</p>
+                </section>
+                <section>
+                    <h4>怎么验证这套表有没有跑偏</h4>
+                    <ul>
+                        <li>第一，看 L1/L2。它们结构上很简单，如果表里显示结构难度很高，就说明模型错了；现在它们应该是“结构简单”，问题只可能落到教程、点击或首关流程。</li>
+                        <li>第二，看 L12、L13、L14 这类大关。它们格子多、颜色多，结构难度应该明显高于 L1/L2。如果广告也集中在这里，就要区分是合理挑战带来的广告，还是过重阻力带来的广告。</li>
+                        <li>第三，看样本量。样本低的关卡只能当方向，不能直接下最终结论。表里的“样本”列就是提醒这一点。</li>
+                        <li>第四，看动作建议。如果显示“教程阻力”，优先查引导和交互；如果显示“行为阻力”，优先查局部设计和节奏；如果只是“观察”，不要因为单日波动马上改关。</li>
+                    </ul>
+                </section>
+            </div>
+        </details>
+    `;
+}
+
 function renderLevelNetValueTable(model) {
     const rows = Array.isArray(model?.rows) ? model.rows : [];
-    const note = [
-        `时长基线：${model?.durationBaselineSource || 'level_record.avgDurationSeconds'}`,
-        `净时长估算：基线时长 - 广告完成PV/局数 * ${formatNumber(model?.adSecondsAssumption || 30)}s；这是 proxy，不是真实无广告时长。`,
-        '下关进入率用于评分时按 100% 封顶，原始值保留在 nextLevelEnterRateRaw。',
-        '结构难度来自关卡 JSON；行为阻力来自通过率目标区间，二者不能混读。',
-    ].join('；');
     const structureText = (row) => {
         const structure = row.levelStructure || {};
         if (!structure.available) return '-';
         return `${formatNumber(structure.filledCellCount)}格/${formatNumber(structure.colorCount)}色`;
     };
     return `
-        <div class="model-note">${escapeHtml(note)}</div>
+        ${renderLevelNetValueExplanation(model)}
         ${renderTable(
             ['关卡', '进入UV', '样本', '结构难度', '结构规模', '行为阻力', '教程', '通过率', '下关进入', '观测时长', '净时长估算', '时长压力', '体验分', '收入代理', '广告摩擦', '净价值', '广告完成/进入', '纯流失', '广告位', '动作'],
             rows.map((row) => [
@@ -1464,8 +1581,11 @@ function renderAdPerformanceTable(adPerformance) {
 
 function renderDataQuality(dataQuality) {
     const rows = [
+        ['first_level_funnel scope', escapeHtml(dataQuality?.firstLevelFunnelScope || 'legacy')],
         ['first_level_funnel records', formatNumber(dataQuality?.firstLevelFunnelRecords)],
         ['first_level_funnel sessions', formatNumber(dataQuality?.firstLevelFunnelSessions)],
+        ['first_level_funnel all-level records', formatNumber(dataQuality?.firstLevelFunnelAllLevelRecords)],
+        ['first_level_funnel all-level sessions', formatNumber(dataQuality?.firstLevelFunnelAllLevelSessions)],
         ['daily core source', escapeHtml(dataQuality?.dailyCoreSource || 'unknown')],
         ['ad source', escapeHtml(dataQuality?.adStatSource || 'unknown')],
         ['L1 fail 覆盖率', pctFromRatio(dataQuality?.l1FailCoverageRate)],
@@ -1500,9 +1620,19 @@ function renderContent(summary, trendSummaries) {
         weakFinishRate: adFallback?.weakFinishRate || [],
     };
     const adOverall = adPerformance.overall || {};
-    const funnelRows = Array.isArray(diagnosis?.firstLevelFunnel) ? diagnosis.firstLevelFunnel : [];
-    const tutorialTapBreakdown = Array.isArray(diagnosis?.tutorialTapBreakdown) ? diagnosis.tutorialTapBreakdown : [];
-    const tutorialTapByStep = Array.isArray(diagnosis?.tutorialTapByStep) ? diagnosis.tutorialTapByStep : [];
+    const defaultFunnelRows = Array.isArray(diagnosis?.firstLevelFunnel) ? diagnosis.firstLevelFunnel : [];
+    const allLevelsFunnelRows = Array.isArray(diagnosis?.firstLevelFunnelAllLevels) ? diagnosis.firstLevelFunnelAllLevels : [];
+    const showAllFunnelLevels = state.showAllFunnelLevels && allLevelsFunnelRows.length > 0;
+    const funnelRows = showAllFunnelLevels ? allLevelsFunnelRows : defaultFunnelRows;
+    const tutorialTapBreakdown = showAllFunnelLevels && Array.isArray(diagnosis?.tutorialTapBreakdownAllLevels)
+        ? diagnosis.tutorialTapBreakdownAllLevels
+        : (Array.isArray(diagnosis?.tutorialTapBreakdown) ? diagnosis.tutorialTapBreakdown : []);
+    const tutorialTapByStep = showAllFunnelLevels && Array.isArray(diagnosis?.tutorialTapByStepAllLevels)
+        ? diagnosis.tutorialTapByStepAllLevels
+        : (Array.isArray(diagnosis?.tutorialTapByStep) ? diagnosis.tutorialTapByStep : []);
+    const funnelScopeLabel = showAllFunnelLevels
+        ? (diagnosis?.firstLevelFunnelAllLevelsScope?.label || '全部 level')
+        : (diagnosis?.firstLevelFunnelScope?.label || 'level=1');
     const first20Levels = Array.isArray(diagnosis?.first20Levels) ? diagnosis.first20Levels : [];
     const firstDayChurnAnalysis = diagnosis?.firstDayChurnAnalysis || null;
     const levelNetValue = diagnosis?.levelNetValue || null;
@@ -1623,10 +1753,14 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">首关/教程漏斗</div>
-                <div class="card-subtitle">同时展示 UV 和 Session，占比统一以 App启动为起点；顶层首关漏斗通过率与本表 L1通过 行使用同一口径。</div>
+                <div class="card-subtitle">默认展示 level=1；勾选后可切到全部 level。顶层核心指标始终使用 level=1。</div>
             </div>
             <div class="card-body">
-                ${funnelRows.length ? renderDiagnosisFunnelTable(funnelRows) : '<div class="empty">这份日报没有 first_level_funnel 漏斗数据。</div>'}
+                ${funnelRows.length ? renderDiagnosisFunnelTable(funnelRows, {
+                    showAllLevels: showAllFunnelLevels,
+                    allLevelsAvailable: allLevelsFunnelRows.length > 0,
+                    scopeLabel: funnelScopeLabel,
+                }) : '<div class="empty">这份日报没有 first_level_funnel 漏斗数据。</div>'}
             </div>
         </section>
 
@@ -1829,6 +1963,7 @@ async function loadReport(date) {
 function bindEvents() {
     qs('content').addEventListener('click', handleSortableTableClick);
     qs('content').addEventListener('change', handleFunnelLatencyToggle);
+    qs('content').addEventListener('change', handleFunnelScopeToggle);
 
     qs('loadBtn').addEventListener('click', () => {
         const selectValue = qs('dateSelect').value;

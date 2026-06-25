@@ -41,12 +41,12 @@
       "userData": {
         "trimThreshold": 1,
         "rotated": false,
-        "offsetX": 0,
-        "offsetY": 0,
-        "trimX": 0,
-        "trimY": 0,
-        "width": 122,
-        "height": 122,
+        "offsetX": 29.5,
+        "offsetY": 5,
+        "trimX": 59,
+        "trimY": 13,
+        "width": 63,
+        "height": 86,
         "rawWidth": 122,
         "rawHeight": 122,
         "borderTop": 0,
@@ -60,17 +60,17 @@
         "meshType": 0,
         "vertices": {
           "rawPosition": [
-            -61,
-            -61,
+            -31.5,
+            -43,
             0,
-            61,
-            -61,
+            31.5,
+            -43,
             0,
-            -61,
-            61,
+            -31.5,
+            43,
             0,
-            61,
-            61,
+            31.5,
+            43,
             0
           ],
           "indexes": [
@@ -82,40 +82,40 @@
             3
           ],
           "uv": [
-            0,
+            59,
+            109,
             122,
+            109,
+            59,
+            23,
             122,
-            122,
-            0,
-            0,
-            122,
-            0
+            23
           ],
           "nuv": [
-            0,
-            0,
+            0.48360655737704916,
+            0.1885245901639344,
             1,
-            0,
-            0,
+            0.1885245901639344,
+            0.48360655737704916,
+            0.8934426229508197,
             1,
-            1,
-            1
+            0.8934426229508197
           ],
           "minPos": [
-            -61,
-            -61,
+            -31.5,
+            -43,
             0
           ],
           "maxPos": [
-            61,
-            61,
+            31.5,
+            43,
             0
           ]
         },
         "isUuid": true,
         "imageUuidOrDatabaseUri": "3c61ada8-d5d4-4819-9605-9bf2b1886a09@6c48a",
         "atlasUuid": "",
-        "trimType": "custom"
+        "trimType": "auto"
       },
       "ver": "1.0.12",
       "imported": true,

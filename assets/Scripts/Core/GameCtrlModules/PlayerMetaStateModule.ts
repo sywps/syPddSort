@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -25,11 +25,10 @@ import {
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-import { isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
@@ -101,44 +100,6 @@ function syncExistingPopupLabel(parent: Node, childName: string, text: string, e
 function getDailySignInPropRewardCount(reward: DailySignInReward, key: DailySignInPropRewardKey): number {
     if (!(key in reward)) return 0;
     return Math.max(0, Math.floor(Number((reward as any)[key]) || 0));
-}
-
-function normalizeFirstLevelRouteBucketPayloadValue(value: unknown): FirstLevelRouteVariant | null {
-    const text = String(value ?? '').trim().toLowerCase();
-    if (text === 'bucket_a' || text === '0' || text === 'a') return 'bucket_a';
-    if (text === 'bucket_b' || text === '1' || text === 'b') return 'bucket_b';
-    return null;
-}
-
-function extractFirstLevelRouteBucketFromPayload(payload: any): FirstLevelRouteVariant | null {
-    const seen = new Set<any>();
-    const visit = (value: any, depth: number): FirstLevelRouteVariant | null => {
-        const direct = normalizeFirstLevelRouteBucketPayloadValue(value);
-        if (direct) return direct;
-        if (!value || typeof value !== 'object' || depth > 5 || seen.has(value)) return null;
-        seen.add(value);
-        for (const key of [FIRST_LEVEL_ROUTE_EXPERIMENT_ID, 'variant', 'value', 'group', 'groupId', 'group_id']) {
-            if (Object.prototype.hasOwnProperty.call(value, key)) {
-                const found = visit(value[key], depth + 1);
-                if (found) return found;
-            }
-        }
-        for (const child of Array.isArray(value) ? value : Object.values(value)) {
-            const found = visit(child, depth + 1);
-            if (found) return found;
-        }
-        return null;
-    };
-    return visit(payload, 0);
-}
-
-function stringifyAbPayloadForLog(payload: unknown): string {
-    try {
-        const text = JSON.stringify(payload);
-        return text.length > 360 ? `${text.slice(0, 360)}...` : text;
-    } catch (_) {
-        return String(payload);
-    }
 }
 
 export function installPlayerMetaStateModule(target: any): void {
@@ -798,163 +759,6 @@ export function installPlayerMetaStateModule(target: any): void {
                     || this.getRuntimeQueryParam('log') === '1'
                     || this.getRuntimeQueryParam('ab').trim().length > 0;
             } catch (_) { return false; }
-        },
-
-        normalizeFirstLevelRouteBucketValue(value: unknown): FirstLevelRouteVariant | null {
-            return normalizeFirstLevelRouteBucketPayloadValue(value);
-        },
-
-        normalizeFirstLevelRouteUrlBucket(value: unknown): FirstLevelRouteVariant | null {
-            const text = String(value ?? '').trim().toLowerCase();
-            if (text === 'a') return 'bucket_a';
-            if (text === 'b') return 'bucket_b';
-            return null;
-        },
-
-        shouldUseFirstLevelRouteExperiment(): boolean {
-            return isWeChatMiniGameRuntime();
-        },
-
-        isFirstLevelRouteExperimentQuery(value: string): boolean {
-            const text = value.trim().toLowerCase();
-            return text === FIRST_LEVEL_ROUTE_EXPERIMENT_ID;
-        },
-
-        logAbExperimentCatalog(reason = ''): void {
-            const prefix = reason ? `[PDD_AB] ${reason}\n` : '';
-            runtimeWarn(prefix + [
-                '[PDD_AB] experiments:',
-                `1. ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}`,
-                '   bucket=a: stats/bucket_a only, gameplay stays on mainline route',
-                '   bucket=b: stats/bucket_b only, gameplay stays on mainline route',
-                '   mainline: level_1 -> level_1',
-                '   mainline: level_2 -> level_2',
-                '   mainline: level_3 -> level_3',
-                '   mainline: level_4 -> level_4',
-                '   mainline: level_5 -> level_5',
-                `   example: ?ab=${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}&bucket=a`,
-                `   example: ?ab=${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}&bucket=b`,
-            ].join('\n'));
-        },
-
-        applyFirstLevelRouteUrlOverride(): boolean {
-            if (!this.shouldUseFirstLevelRouteExperiment()) return false;
-            const ab = this.getRuntimeQueryParam('ab').trim();
-            if (!ab) return false;
-            const normalizedAb = ab.toLowerCase();
-            if (normalizedAb === 'all' || normalizedAb === 'list') {
-                this.logAbExperimentCatalog();
-                return false;
-            }
-            if (!this.isFirstLevelRouteExperimentQuery(ab)) {
-                this.logAbExperimentCatalog(`unknown experiment: ${ab}`);
-                return false;
-            }
-            const bucket = this.getRuntimeQueryParam('bucket').trim();
-            const resolvedBucket = this.normalizeFirstLevelRouteUrlBucket(bucket);
-            if (!resolvedBucket) {
-                this.logAbExperimentCatalog(`unknown bucket for ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: ${bucket || '(empty)'}`);
-                return false;
-            }
-            this._firstLevelRouteBucket = resolvedBucket;
-            runtimeWarn(`[PDD_AB] forced ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: bucket=${bucket}, resolvedBucket=${resolvedBucket}`);
-            return true;
-        },
-
-        extractFirstLevelRouteBucket(payload: any): FirstLevelRouteVariant | null {
-            return extractFirstLevelRouteBucketFromPayload(payload);
-        },
-
-        stringifyAbPayload(payload: unknown): string {
-            return stringifyAbPayloadForLog(payload);
-        },
-
-        async fetchFirstLevelRouteBucketFromWx(): Promise<FirstLevelRouteVariant | null> {
-            if (!this.shouldUseFirstLevelRouteExperiment()) return null;
-            const wx: any = this.getWeChatRuntime();
-            if (!wx) {
-                runtimeWarn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: wx runtime unavailable`);
-                return null;
-            }
-            const hasGameExptInfo = typeof wx.getGameExptInfo === 'function';
-            const hasExptInfoSync = typeof wx.getExptInfoSync === 'function';
-            let lastDetail = `apis getGameExptInfo=${hasGameExptInfo ? 'yes' : 'no'}, getExptInfoSync=${hasExptInfoSync ? 'yes' : 'no'}`;
-            if (typeof wx.getGameExptInfo === 'function') {
-                const bucket = await new Promise<FirstLevelRouteVariant | null>((resolve) => {
-                    let done = false;
-                    const finish = (value: FirstLevelRouteVariant | null, detail?: string) => {
-                        if (done) return;
-                        done = true;
-                        if (detail) lastDetail = detail;
-                        resolve(value);
-                    };
-                    const timer = setTimeout(
-                        () => finish(null, `getGameExptInfo timeout ${FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS}ms`),
-                        FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS,
-                    );
-                    try {
-                        wx.getGameExptInfo({
-                            success: (res: any) => {
-                                clearTimeout(timer);
-                                const found = extractFirstLevelRouteBucketFromPayload(res);
-                                finish(found, `getGameExptInfo success bucket=${found || 'none'} raw=${stringifyAbPayloadForLog(res)}`);
-                            },
-                            fail: (err: any) => {
-                                clearTimeout(timer);
-                                finish(null, `getGameExptInfo fail ${stringifyAbPayloadForLog(err)}`);
-                            },
-                            complete: () => {},
-                        });
-                    } catch (err) {
-                        clearTimeout(timer);
-                        finish(null, `getGameExptInfo throw ${stringifyAbPayloadForLog(err)}`);
-                    }
-                });
-                if (bucket) return bucket;
-            }
-            if (typeof wx.getExptInfoSync === 'function') {
-                for (const arg of [[FIRST_LEVEL_ROUTE_EXPERIMENT_ID], FIRST_LEVEL_ROUTE_EXPERIMENT_ID, undefined]) {
-                    try {
-                        const res = typeof arg === 'undefined' ? wx.getExptInfoSync() : wx.getExptInfoSync(arg);
-                        const bucket = extractFirstLevelRouteBucketFromPayload(res);
-                        lastDetail = `getExptInfoSync success bucket=${bucket || 'none'} raw=${stringifyAbPayloadForLog(res)}`;
-                        if (bucket) return bucket;
-                    } catch (err) {
-                        lastDetail = `getExptInfoSync throw ${stringifyAbPayloadForLog(err)}`;
-                    }
-                }
-            }
-            runtimeWarn(`[PDD_AB] ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: no valid wx experiment value, ${lastDetail}`);
-            return null;
-        },
-
-        startFirstLevelRouteExperimentResolve(): Promise<FirstLevelRouteResolution> {
-            if (!this.shouldUseFirstLevelRouteExperiment()) {
-                return Promise.resolve({
-                    bucket: 'bucket_a',
-                    source: 'default',
-                });
-            }
-            if (this.applyFirstLevelRouteUrlOverride()) {
-                return Promise.resolve({
-                    bucket: this._firstLevelRouteBucket,
-                    source: 'url',
-                });
-            }
-            return this.fetchFirstLevelRouteBucketFromWx().then((bucket) => ({
-                bucket: bucket || 'bucket_a',
-                source: bucket ? 'wechat_experiment' : 'default',
-            }));
-        },
-
-        async initFirstLevelRouteExperiment(resolveTask?: Promise<FirstLevelRouteResolution>): Promise<void> {
-            if (!this.shouldUseFirstLevelRouteExperiment()) {
-                this._firstLevelRouteBucket = 'bucket_a';
-                return;
-            }
-            const result = await (resolveTask || this.startFirstLevelRouteExperimentResolve());
-            this._firstLevelRouteBucket = result.bucket;
-            runtimeWarn(`[PDD_AB] assigned ${FIRST_LEVEL_ROUTE_EXPERIMENT_ID}: source=${result.source}, abBucket=${this._firstLevelRouteBucket}, gameplayRoute=mainline`);
         },
 
         getPhysicalMainLevelId(logicalLevelId: number): number {

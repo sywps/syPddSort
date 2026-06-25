@@ -3,6 +3,11 @@
     "boardHeight": 30,
   "timeLimit": 270,
     "slotTotalCount": 643,
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 1
+    },
     "correctColorArr": [
         [
             0,

@@ -9,6 +9,7 @@ import {
     UIOpacity,
     UITransform,
 } from '../GameCtrlShared';
+import { runtimeWarn } from '../RuntimeLog';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
 const PINDD_SPINE_FX_UUID = 'ebc7075d-a1ec-459b-a209-1b510525f23c';
@@ -53,13 +54,13 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         warnPinddSpineFxLoadFailure(message: string): void {
             if (this._pinddSpineFxLoadWarned) return;
             this._pinddSpineFxLoadWarned = true;
-            console.error(`[pindd-spine-fx] load skipped: ${message}`);
+            runtimeWarn(`[pindd-spine-fx] load skipped: ${message}`);
         },
 
         warnPinddSpineFxPlayFailure(message: string): void {
             if (this._pinddSpineFxPlayWarned) return;
             this._pinddSpineFxPlayWarned = true;
-            console.error(`[pindd-spine-fx] play skipped: ${message}`);
+            runtimeWarn(`[pindd-spine-fx] play skipped: ${message}`);
         },
 
         ensurePinddSpineFxSkeletonData(onDone: (data: sp.SkeletonData | null) => void): void {

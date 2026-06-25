@@ -10,7 +10,6 @@ import {
     Node,
     Prefab,
     RESOURCE_ACQUIRE_TEXTURE_NAMES,
-    Sprite,
     UITransform,
     Vec3,
     instantiate,
@@ -77,43 +76,33 @@ export class CommercePanelController {
         return label;
     }
 
-    private setAcquireIconSprite(parent: Node, childName: string, frameName: string): void {
-        const iconNode = this.runtime.requirePanelChild(parent, childName);
-        const iconSprite = iconNode.getComponent(Sprite);
-        const spriteFrame = this.runtime.getSF(frameName);
-        if (!iconSprite || !spriteFrame) {
-            throw new Error(`[resource-acquire-prefab] missing acquire icon SpriteFrame: ${frameName}`);
-        }
-        iconSprite.spriteFrame = spriteFrame;
-    }
-
     private syncAcquireVariant(box: Node, options: ResourceAcquireOptions): void {
         const runtime = this.runtime;
         const titleBadge = runtime.requirePanelChild(box, 'PopupTitleBadge');
         const titleByVariant: Record<ResourceAcquireVariant, string> = {
             gold: 'TitleGold',
             wand: 'TitleWand',
-            freeze: 'TitleWand',
+            freeze: 'TitleFreeze',
             brush: 'TitleBrush',
             magnet: 'TitleMagnet',
         };
         const iconByVariant: Record<ResourceAcquireVariant, string> = {
             gold: 'IconGold',
             wand: 'IconWand',
-            freeze: 'IconWand',
+            freeze: 'IconFreeze',
             brush: 'IconBrush',
             magnet: 'IconMagnet',
         };
         const textByVariant: Record<ResourceAcquireVariant, string> = {
             gold: 'GoldAmountLabel',
             wand: 'TextWand',
-            freeze: 'TextWand',
+            freeze: 'TextFreeze',
             brush: 'TextBrush',
             magnet: 'TextMagnet',
         };
-        this.setAcquireVariantActive(titleBadge, titleByVariant[options.variant], ['TitleGold', 'TitleWand', 'TitleBrush', 'TitleMagnet']);
-        this.setAcquireVariantActive(box, iconByVariant[options.variant], ['IconGold', 'IconWand', 'IconBrush', 'IconMagnet']);
-        this.setAcquireVariantActive(box, textByVariant[options.variant], ['GoldAmountLabel', 'TextWand', 'TextBrush', 'TextMagnet']);
+        this.setAcquireVariantActive(titleBadge, titleByVariant[options.variant], ['TitleGold', 'TitleWand', 'TitleFreeze', 'TitleBrush', 'TitleMagnet']);
+        this.setAcquireVariantActive(box, iconByVariant[options.variant], ['IconGold', 'IconWand', 'IconFreeze', 'IconBrush', 'IconMagnet']);
+        this.setAcquireVariantActive(box, textByVariant[options.variant], ['GoldAmountLabel', 'TextWand', 'TextFreeze', 'TextBrush', 'TextMagnet']);
 
         const goldDesc = runtime.requirePanelChild(box, 'GoldDesc');
         const toolBuyBtn = runtime.requirePanelChild(box, 'AcquireBuyBtn');
@@ -130,20 +119,6 @@ export class CommercePanelController {
         if (isGold) {
             this.setAcquireLabelText(box, 'GoldAmountLabel', options.goldAmountText || '');
             return;
-        }
-        const iconFrameByVariant: Partial<Record<ResourceAcquireVariant, string>> = {
-            wand: 'popup_tool_wand_icon',
-            freeze: 'popup_tool_freeze_icon',
-            brush: 'popup_tool_brush_icon',
-            magnet: 'popup_tool_magnet_icon',
-        };
-        const iconFrameName = iconFrameByVariant[options.variant];
-        if (iconFrameName) {
-            this.setAcquireIconSprite(box, iconByVariant[options.variant], iconFrameName);
-        }
-        if (options.variant === 'freeze') {
-            this.setAcquireLabelText(titleBadge, 'TitleWand', '\u51bb\u7ed3');
-            this.setAcquireLabelText(box, 'TextWand', `\u6682\u505c\u5012\u8ba1\u65f6${FREEZE_PROP_SECONDS}\u79d2`);
         }
         if (!options.buyLabel) {
             throw new Error('[resource-acquire-prefab] tool acquire panel requires buyLabel');

@@ -245,7 +245,6 @@ export function initializeGameCtrlState(runtime: any): void {
         _currentExternalLevelFilePath: '',
         _currentExternalLevelId: 0,
         _currentExternalLevelPrefix: 'level_',
-        _firstLevelRouteBucket: 'bucket_a',
         _activeLogicalLevelId: 1,
         _activePhysicalLevelId: 1,
         _activeGameplayEntryMode: 'main',

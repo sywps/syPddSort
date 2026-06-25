@@ -1,10 +1,21 @@
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog } from './RuntimeLog';
+import { readExperimentBucketOverrideFromSearch } from './ExperimentUrlParam';
 
 const { ccclass } = _decorator;
 
 const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
+const TUTORIAL_EXPERIMENT_ID = 'tutorial_exp';
+const TUTORIAL_EXPERIMENT_SALT = 'tutorial_exp_0623';
+
+type TutorialExperimentBucket = 'A' | 'B' | 'C' | 'D' | 'NULL';
+
+export type TutorialExperimentAssignment = {
+    experimentId: string;
+    experimentSalt: string;
+    bucket: TutorialExperimentBucket;
+};
 
 type CloudResult = {
     ok?: boolean;
@@ -88,6 +99,7 @@ export class AnalyticsMgr {
 
     private readyPromise: Promise<boolean> | null = null;
     private openid = '';
+    private tutorialExperiment: TutorialExperimentAssignment;
     private bootstrapped = false;
     private lifecycleBound = false;
     private exitReported = false;
@@ -107,6 +119,7 @@ export class AnalyticsMgr {
 
     private constructor() {
         this.openid = this.readCachedOpenid();
+        this.tutorialExperiment = this.resolveTutorialExperimentAssignment();
     }
 
     async bootstrap(): Promise<boolean> {
@@ -158,6 +171,7 @@ export class AnalyticsMgr {
             if (typeof result?.openid === 'string' && result.openid) {
                 this.openid = result.openid;
                 this.cacheOpenid(result.openid);
+                this.tutorialExperiment = this.resolveTutorialExperimentAssignment();
             }
 
             return !!this.openid;
@@ -189,8 +203,8 @@ export class AnalyticsMgr {
                 shareType: opt.shareType || '',
                 adType: opt.adType || '',
                 duration: opt.duration ?? 0,
-                abId: opt.abId || this.experimentContext.abId || '',
-                abBucket: opt.abBucket || this.experimentContext.abBucket || '',
+                abId: opt.abId || this.experimentContext.abId || this.tutorialExperiment.experimentId,
+                abBucket: opt.abBucket || this.experimentContext.abBucket || this.tutorialExperiment.bucket,
                 logicalLevelId: opt.logicalLevelId ?? this.experimentContext.logicalLevelId ?? opt.levelId ?? 0,
                 physicalLevelId: opt.physicalLevelId ?? this.experimentContext.physicalLevelId ?? opt.levelId ?? 0,
             });
@@ -226,17 +240,20 @@ export class AnalyticsMgr {
             errorCode: opt.errorCode || '',
             errorMessage: opt.errorMessage || '',
             duration: opt.duration ?? 0,
-            abId: opt.abId || this.experimentContext.abId || '',
-            abBucket: opt.abBucket || this.experimentContext.abBucket || '',
+            abId: opt.abId || this.experimentContext.abId || this.tutorialExperiment.experimentId,
+            abBucket: opt.abBucket || this.experimentContext.abBucket || this.tutorialExperiment.bucket,
             logicalLevelId,
             physicalLevelId,
             elapsedMsFromLaunch: Math.max(0, now - this.appLaunchTime),
             elapsedMsFromLevelReady: this.firstLevelReadyTime > 0 ? Math.max(0, now - this.firstLevelReadyTime) : 0,
             timestamp: now,
         };
-        if (opt.extra && typeof opt.extra === 'object') {
-            event.extra = opt.extra;
-        }
+        event.extra = {
+            experimentId: this.tutorialExperiment.experimentId,
+            experimentSalt: this.tutorialExperiment.experimentSalt,
+            experimentBucket: this.tutorialExperiment.bucket,
+            ...(opt.extra && typeof opt.extra === 'object' ? opt.extra : {}),
+        };
 
         this.funnelQueue.push(event);
         if (this.funnelQueue.length > 200) {
@@ -279,21 +296,25 @@ export class AnalyticsMgr {
 
         const batch = this.funnelQueue.splice(0, 20);
         this.funnelInFlight = true;
-        void PlatformCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
-            sessionId: this.funnelSessionId,
-            events: batch,
-        }).catch((error) => {
-            if (this.isPermanentFunnelUploadFailure(error)) {
-                this.disableFunnelUpload('addFunnelEvents unavailable');
-                return;
-            }
-            console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
-            this.funnelQueue = batch.concat(this.funnelQueue).slice(0, 200);
-        }).finally(() => {
+        const finishFlush = () => {
             this.funnelInFlight = false;
             if (!this.funnelUploadDisabled && this.funnelQueue.length > 0) {
                 this.scheduleFunnelFlush();
             }
+        };
+        void PlatformCloudMgr.inst.callFunction<CloudResult>('addFunnelEvents', {
+            sessionId: this.funnelSessionId,
+            events: batch,
+        }).then(() => {
+            finishFlush();
+        }, (error) => {
+            if (this.isPermanentFunnelUploadFailure(error)) {
+                this.disableFunnelUpload('addFunnelEvents unavailable');
+            } else {
+                console.warn('[AnalyticsMgr] addFunnelEvents failed:', error);
+                this.funnelQueue = batch.concat(this.funnelQueue).slice(0, 200);
+            }
+            finishFlush();
         });
     }
 
@@ -322,6 +343,21 @@ export class AnalyticsMgr {
             ...this.experimentContext,
             ...context,
         };
+    }
+
+    getTutorialExperimentAssignment(): TutorialExperimentAssignment {
+        return { ...this.tutorialExperiment };
+    }
+
+    getTutorialExperimentEventContext(): Pick<ReportDataOptions, 'abId' | 'abBucket'> {
+        return {
+            abId: this.tutorialExperiment.experimentId,
+            abBucket: this.tutorialExperiment.bucket,
+        };
+    }
+
+    isTutorialExperimentTreatment(): boolean {
+        return this.tutorialExperiment.bucket === 'C' || this.tutorialExperiment.bucket === 'D';
     }
 
     beginLevel(levelId: number, page: string, context?: Partial<Pick<ReportDataOptions, 'abId' | 'abBucket' | 'logicalLevelId' | 'physicalLevelId'>>): void {
@@ -629,6 +665,65 @@ export class AnalyticsMgr {
         } catch (_) {
             // ignore storage failures
         }
+    }
+
+    private resolveTutorialExperimentAssignment(): TutorialExperimentAssignment {
+        const forced = this.readTutorialExperimentBucketOverride();
+        if (forced) {
+            return this.buildTutorialExperimentAssignment(forced);
+        }
+        if (!this.openid) {
+            return this.buildTutorialExperimentAssignment('NULL');
+        }
+        const hashBucket = this.hashStringToBucket(`${TUTORIAL_EXPERIMENT_ID}:${TUTORIAL_EXPERIMENT_SALT}:${this.openid}`);
+        const bucket: TutorialExperimentBucket =
+            hashBucket < 25 ? 'A' :
+            hashBucket < 50 ? 'B' :
+            hashBucket < 75 ? 'C' :
+            'D';
+        return this.buildTutorialExperimentAssignment(bucket);
+    }
+
+    private buildTutorialExperimentAssignment(bucket: TutorialExperimentBucket): TutorialExperimentAssignment {
+        return {
+            experimentId: TUTORIAL_EXPERIMENT_ID,
+            experimentSalt: TUTORIAL_EXPERIMENT_SALT,
+            bucket,
+        };
+    }
+
+    private readTutorialExperimentBucketOverride(): TutorialExperimentBucket | null {
+        try {
+            const search = typeof window !== 'undefined' ? window.location.search : '';
+            if (!search) return null;
+            const rawBucket = readExperimentBucketOverrideFromSearch({
+                search,
+                experimentId: TUTORIAL_EXPERIMENT_ID,
+            });
+            if (!rawBucket) return null;
+            return this.normalizeTutorialExperimentBucket(rawBucket);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    private normalizeTutorialExperimentBucket(value: unknown): TutorialExperimentBucket | null {
+        const text = String(value ?? '').trim().toUpperCase();
+        if (text === 'A' || text === 'BUCKET_A') return 'A';
+        if (text === 'B' || text === 'BUCKET_B') return 'B';
+        if (text === 'C' || text === 'BUCKET_C') return 'C';
+        if (text === 'D' || text === 'BUCKET_D') return 'D';
+        if (text === 'NULL' || text === 'BUCKET_NULL') return 'NULL';
+        return null;
+    }
+
+    private hashStringToBucket(text: string): number {
+        let hash = 2166136261;
+        for (let i = 0; i < text.length; i++) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0) % 100;
     }
 
     private warnUnavailableOnce(): void {

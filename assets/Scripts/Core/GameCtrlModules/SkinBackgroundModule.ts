@@ -146,7 +146,9 @@ function normalizeBackgroundSkinIdList(value: unknown): number[] {
 function normalizeBackgroundSkinAdProgress(value: unknown): Record<string, number> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     const result: Record<string, number> = {};
-    for (const [rawId, rawCount] of Object.entries(value as Record<string, unknown>)) {
+    const source = value as Record<string, unknown>;
+    for (const rawId of Object.keys(source)) {
+        const rawCount = source[rawId];
         const id = toBackgroundSkinStorageId(rawId);
         const count = Math.max(0, Math.floor(Number(rawCount) || 0));
         if (id > 0 && count > 0) result[String(id)] = count;
@@ -157,7 +159,8 @@ function normalizeBackgroundSkinAdProgress(value: unknown): Record<string, numbe
 function mergeBackgroundSkinAdProgress(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
     const result: Record<string, number> = { ...normalizeBackgroundSkinAdProgress(a) };
     const next = normalizeBackgroundSkinAdProgress(b);
-    for (const [id, count] of Object.entries(next)) {
+    for (const id of Object.keys(next)) {
+        const count = next[id];
         result[id] = Math.max(Math.floor(Number(result[id]) || 0), count);
     }
     return result;
@@ -358,31 +361,43 @@ export function installSkinBackgroundModule(target: any): void {
                 this._backgroundSkinConfigLoadingCallbacks = null;
                 for (const done of callbacks) done(config, err || null);
             };
-            const loadLocalConfig = (cdnErr?: Error | null) => this._withGameAssetsBundle((bundle: Bundle | null) => {
-                if (!bundle) {
-                    finish(null, cdnErr || new Error('[background-skin] gameAssets bundle unavailable for skins config'));
+            const describeCdnConfigError = (cdnErr?: Error | null): Error => {
+                const diagnostics = SkinResourceCdnService.inst.getAvailabilityDiagnostics();
+                const reason = cdnErr?.message
+                    || String(diagnostics.liveUnavailableReason || diagnostics.reason || 'unknown');
+                return new Error(`[background-skin] skin CDN manifest unavailable: ${reason}`);
+            };
+            const loadLocalConfig = (cdnErr?: Error | null) => {
+                if (!canUseLocalBackgroundSkinMirror()) {
+                    finish(null, describeCdnConfigError(cdnErr));
                     return;
                 }
-                bundle.load(SKIN_CONFIG_PATH, JsonAsset, (err: Error | null, jsonAsset: JsonAsset | null) => {
-                    if (err || !jsonAsset) {
-                        finish(null, new Error(`[background-skin] load ${SKIN_CONFIG_PATH} failed: ${err?.message || 'missing json asset'}`));
+                this._withGameAssetsBundle((bundle: Bundle | null) => {
+                    if (!bundle) {
+                        finish(null, cdnErr || new Error('[background-skin] gameAssets bundle unavailable for skins config'));
                         return;
                     }
-                    try {
-                        finish(this._parseBackgroundSkinConfig(jsonAsset.json), null);
-                    } catch (parseError) {
-                        finish(null, parseError instanceof Error ? parseError : new Error(String(parseError)));
-                    }
+                    bundle.load(SKIN_CONFIG_PATH, JsonAsset, (err: Error | null, jsonAsset: JsonAsset | null) => {
+                        if (err || !jsonAsset) {
+                            finish(null, new Error(`[background-skin] load ${SKIN_CONFIG_PATH} failed: ${err?.message || 'missing json asset'}`));
+                            return;
+                        }
+                        try {
+                            finish(this._parseBackgroundSkinConfig(jsonAsset.json), null);
+                        } catch (parseError) {
+                            finish(null, parseError instanceof Error ? parseError : new Error(String(parseError)));
+                        }
+                    });
                 });
-            });
+            };
             const shouldRequireSkinCdn = () => {
+                if (!canUseLocalBackgroundSkinMirror()) return true;
                 const diagnostics = SkinResourceCdnService.inst.getAvailabilityDiagnostics();
                 return !!diagnostics.canUse && !!diagnostics.miniGameRuntime;
             };
             const failOrLoadLocalConfig = (cdnErr: Error | null) => {
                 if (shouldRequireSkinCdn()) {
-                    const message = cdnErr?.message || String(SkinResourceCdnService.inst.getAvailabilityDiagnostics().liveUnavailableReason || 'unknown');
-                    finish(null, new Error(`[background-skin] skin CDN manifest unavailable: ${message}`));
+                    finish(null, describeCdnConfigError(cdnErr));
                     return;
                 }
                 loadLocalConfig(cdnErr);
@@ -679,7 +694,7 @@ export function installSkinBackgroundModule(target: any): void {
                     backgroundAsset,
                     iconAsset,
                 };
-                if (!row.isDefault && !row.backgroundAsset && !canUseLocalBackgroundSkinMirror()) return null;
+                if (!row.backgroundAsset && !canUseLocalBackgroundSkinMirror()) return null;
                 return row;
             } catch (_) {
                 return null;
@@ -687,6 +702,7 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         _createLocalEquippedBackgroundSkinRowFromId(): BackgroundSkinRow | null {
+            if (!canUseLocalBackgroundSkinMirror()) return null;
             const equippedId = this.getEquippedBackgroundSkinId();
             if (!equippedId) return null;
             if (equippedId === DEFAULT_BACKGROUND_SKIN_ID) {
@@ -995,6 +1011,10 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         ensureEquippedBackgroundReady(callback?: (ok: boolean, err?: Error | null, skin?: BackgroundSkinRow | null, sf?: SpriteFrame | null) => void): void {
+            if (!canUseLocalBackgroundSkinMirror()) {
+                this._ensureEquippedBackgroundFromConfig(callback);
+                return;
+            }
             const cachedSkin = this._readEquippedBackgroundSkinRowCache();
             const localSkin = this._createLocalEquippedBackgroundSkinRowFromId();
             const candidates: BackgroundSkinRow[] = [];

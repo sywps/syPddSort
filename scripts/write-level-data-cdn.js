@@ -5,17 +5,65 @@ const fs = require('fs');
 const path = require('path');
 
 const projectDir = path.resolve(__dirname, '..');
-const sourceLevelDir = path.join(projectDir, 'assets', 'LevelData');
-const outputDir = path.resolve(process.argv[2] || path.join(projectDir, 'build', 'level-data-cdn'));
+const options = parseArgs(process.argv.slice(2));
+const sourceLevelDir = path.resolve(options.source || path.join(projectDir, 'assets', 'LevelData'));
+const outputDir = path.resolve(options.output || path.join(projectDir, 'build', 'level-data-cdn'));
 const packSize = Math.max(1, Math.floor(Number(process.env.PDD_LEVEL_PACK_SIZE || 100) || 100));
 const levelFileKinds = [
     { prefix: 'level_', kind: 'mainline', pattern: /^level_(\d+)\.json$/ },
     { prefix: 'zt_level_', kind: 'theme', pattern: /^zt_level_(\d+)\.json$/ },
 ];
 
+function parseArgs(args) {
+    const parsed = {
+        output: '',
+        source: '',
+        range: '',
+        prefix: '',
+        experimentId: '',
+    };
+    const positionals = [];
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (arg === '--source') {
+            parsed.source = args[++i] || '';
+        } else if (arg.startsWith('--source=')) {
+            parsed.source = arg.slice('--source='.length);
+        } else if (arg === '--range') {
+            parsed.range = args[++i] || '';
+        } else if (arg.startsWith('--range=')) {
+            parsed.range = arg.slice('--range='.length);
+        } else if (arg === '--prefix') {
+            parsed.prefix = args[++i] || '';
+        } else if (arg.startsWith('--prefix=')) {
+            parsed.prefix = arg.slice('--prefix='.length);
+        } else if (arg === '--experiment-id') {
+            parsed.experimentId = args[++i] || '';
+        } else if (arg.startsWith('--experiment-id=')) {
+            parsed.experimentId = arg.slice('--experiment-id='.length);
+        } else if (!arg.startsWith('-')) {
+            positionals.push(arg);
+        } else {
+            fail('未知参数: ' + arg);
+        }
+    }
+    parsed.output = positionals[0] || '';
+    return parsed;
+}
+
 function fail(message) {
     console.error('ERROR: ' + message);
     process.exit(1);
+}
+
+function parseRange(value) {
+    if (!value) return null;
+    const match = /^(\d+)\s*[-:]\s*(\d+)$/.exec(String(value).trim());
+    if (!match) fail('range 格式应为 start-end，例如 1-351: ' + value);
+    const min = Math.max(1, Math.floor(Number(match[1]) || 1));
+    const max = Math.max(1, Math.floor(Number(match[2]) || 1));
+    if (min > max) fail('range 起点不能大于终点: ' + value);
+    return { min, max };
 }
 
 function readJson(filePath) {
@@ -53,9 +101,13 @@ function collectLevels() {
     if (!fs.existsSync(sourceLevelDir)) {
         fail('关卡源码目录不存在: ' + path.relative(projectDir, sourceLevelDir));
     }
+    const range = parseRange(options.range);
+    const requiredPrefix = String(options.prefix || '').trim();
     const levels = fs.readdirSync(sourceLevelDir)
         .map((name) => ({ name, info: parseLevelFileName(name) }))
         .filter((entry) => entry.info)
+        .filter((entry) => !requiredPrefix || entry.info.prefix === requiredPrefix)
+        .filter((entry) => !range || (entry.info.levelId >= range.min && entry.info.levelId <= range.max))
         .map((entry) => {
             const name = entry.name;
             const info = entry.info;
@@ -82,6 +134,16 @@ function collectLevels() {
         const key = level.prefix + level.levelId;
         if (seenKeys.has(key)) fail('关卡真源存在重复 key: ' + key);
         seenKeys.add(key);
+    }
+    if (range) {
+        const prefix = requiredPrefix || 'level_';
+        const levelIds = new Set(levels.filter((level) => level.prefix === prefix).map((level) => level.levelId));
+        for (let levelId = range.min; levelId <= range.max; levelId++) {
+            if (!levelIds.has(levelId)) fail('关卡范围缺少文件: ' + prefix + levelId + '.json');
+        }
+        for (const level of levels) {
+            if (level.prefix !== prefix) fail('range 模式不允许混合 prefix: ' + level.file);
+        }
     }
     return levels;
 }
@@ -165,12 +227,16 @@ function buildOutput() {
         schemaVersion: 1,
         minClientBuild: 1,
         generatedAt: new Date().toISOString(),
-        source: 'assets/LevelData',
+        source: path.relative(projectDir, sourceLevelDir).split(path.sep).join('/') || sourceLevelDir,
         packSize,
         levelCount: levels.length,
         levelCounts,
         packs,
     };
+    if (options.experimentId) {
+        manifest.experimentId = options.experimentId;
+        if (options.range) manifest.experimentRange = options.range;
+    }
     writeJson(path.join(outputDir, 'level_live.json'), manifest);
     console.log('wrote ' + path.relative(projectDir, outputDir) + ' packs=' + packs.length + ' levels=' + levels.length + ' dataVersion=' + dataVersion);
 }

@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Prefab, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
@@ -85,43 +85,6 @@ export function installHomeCommerceModule(target: any): void {
                 .to(0.24, { scale: new Vec3(baseScale.x * 1.045, baseScale.y * 1.045, baseScale.z) }, { easing: 'sineOut' })
                 .to(0.16, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) }, { easing: 'sineOut' })
                 .start();
-        },
-
-        fillPanelAnchorLabel(
-            anchor: Node,
-            name: string,
-            text: string,
-            size: number,
-            color: Color,
-            width: number,
-            height: number,
-            align: number = Label.HorizontalAlign.CENTER,
-            overflow: number = Label.Overflow.SHRINK,
-        ): Label {
-            const existingLabel = anchor.getComponent(Label) || anchor.getChildByName(name)?.getComponent(Label);
-            if (existingLabel) {
-                existingLabel.string = text;
-                existingLabel.enableWrapText = false;
-                return existingLabel;
-            }
-
-            anchor.removeAllChildren();
-            const node = new Node(name);
-            anchor.addChild(node);
-            node.layer = anchor.layer;
-            node.setPosition(0, 0, 0);
-            const ui = node.addComponent(UITransform);
-            ui.setContentSize(width, height);
-            const label = node.addComponent(Label);
-            label.string = text;
-            label.fontSize = size;
-            label.lineHeight = Math.max(size + 4, height);
-            label.color = color;
-            label.horizontalAlign = align;
-            label.verticalAlign = Label.VerticalAlign.CENTER;
-            label.overflow = overflow;
-            label.enableWrapText = false;
-            return label;
         },
 
         openGoldShop() {
@@ -215,36 +178,14 @@ export function installHomeCommerceModule(target: any): void {
             const iconNode = this.requireUiChild(btn, 'DailySignInIcon', 'DailySignInBtn/DailySignInIcon');
             this.requireSceneSpriteFrame(iconNode, 'DailySignInBtn/DailySignInIcon');
         
-            btn.getChildByName('DailySignInDot')?.destroy();
             const badgeAnchor = this.requireUiChild(btn, 'BadgeAnchor', 'DailySignInBtn/BadgeAnchor');
-            badgeAnchor.removeAllChildren();
             badgeAnchor.active = true;
-            if (signInStatus.canClaim) {
-                const dot = new Node('DailySignInDot');
-                badgeAnchor.addChild(dot);
-                dot.layer = btn.layer;
-                dot.setPosition(0, 0, 0);
-                dot.addComponent(UITransform).setContentSize(22, 22);
-                const dg = dot.getComponent(Graphics) || dot.addComponent(Graphics);
-                dg.clear();
-                dg.fillColor = new Color('#F05A5A');
-                dg.circle(0, 0, 11);
-                dg.fill();
-                const dotLabelNode = new Node('DailySignInDotLbl');
-                dot.addChild(dotLabelNode);
-                dotLabelNode.layer = dot.layer;
-                dotLabelNode.setPosition(0, 0, 0);
-                dotLabelNode.addComponent(UITransform).setContentSize(18, 18);
-                const dotLabel = dotLabelNode.addComponent(Label);
-                dotLabel.string = '领';
-                dotLabel.fontSize = 12;
-                dotLabel.lineHeight = 14;
-                dotLabel.color = Color.WHITE;
-                dotLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-                dotLabel.verticalAlign = Label.VerticalAlign.CENTER;
-                dotLabel.overflow = Label.Overflow.SHRINK;
-                dotLabel.enableWrapText = false;
-            }
+            const dot = this.requireUiChild(badgeAnchor, 'DailySignInDot', 'DailySignInBtn/BadgeAnchor/DailySignInDot');
+            const dotLabelNode = this.requireUiChild(dot, 'DailySignInDotLbl', 'DailySignInBtn/BadgeAnchor/DailySignInDot/DailySignInDotLbl');
+            const dotLabel = dotLabelNode.getComponent(Label);
+            if (!dotLabel) throw new Error('[HomeScene] Home.scene is missing Label component on DailySignInDot/DailySignInDotLbl');
+            dotLabel.string = '领';
+            dot.active = !!signInStatus.canClaim;
         
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);

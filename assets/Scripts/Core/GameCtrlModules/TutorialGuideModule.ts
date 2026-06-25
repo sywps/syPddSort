@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
@@ -33,7 +33,7 @@ import type {
 export function installTutorialGuideModule(target: any): void {
     Object.assign(target, {
         styleLevel2GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
-            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
+            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro')
                 && typeof this.styleStarterGuidePrompt === 'function') {
                 this.styleStarterGuidePrompt(_gb, bubble, lbl, primaryText);
                 this.adjustStarterGuidePromptForCurrentStep?.(bubble);
@@ -43,15 +43,16 @@ export function installTutorialGuideModule(target: any): void {
             const bg = bubble.getChildByName('BubbleBg');
             if (bg?.isValid) bg.active = true;
             const bubbleUT = bubble.getComponent(UITransform);
-            if (bubbleUT) bubbleUT.setContentSize(360, 68);
+            if (!bubbleUT) {
+                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
+            }
             const labelUT = lbl.node.getComponent(UITransform);
-            if (labelUT) labelUT.setContentSize(288, 136);
-            lbl.color = new Color('#5A321E');
-            lbl.fontSize = 42;
-            lbl.lineHeight = 52;
-            lbl.enableWrapText = true;
+            if (!labelUT) {
+                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt/PromptLabel');
+            }
+            const promptHeight = bubbleUT.contentSize.height || 154;
             const centerY = typeof this.getGuidePromptCenterY === 'function'
-                ? this.getGuidePromptCenterY(438, 68)
+                ? this.getGuidePromptCenterY(438, promptHeight)
                 : 438;
             bubble.setPosition(0, centerY, 0);
             lbl.string = this.formatLevel2GuidePrompt(primaryText);
@@ -161,7 +162,7 @@ export function installTutorialGuideModule(target: any): void {
                 }
                 return null;
             }
-            if (this._guideMode === 'level_2') {
+            if (this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 if (step === 0) {
                     const bounds = this.getGuidePromptNodeBounds(this.getSlotUnlockGuideTarget?.() || this.slotAreaNode || null, bubble);
                     return bounds ? { ...bounds, kind: 'slot' } : null;
@@ -175,7 +176,7 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         adjustStarterGuidePromptForCurrentStep(bubble: Node) {
-            if (this._guideMode !== 'level_1' && this._guideMode !== 'level_2') return;
+            if (this._guideMode !== 'level_1' && this._guideMode !== 'level_2' && this._guideMode !== 'level_exp_slot_intro') return;
             const bubbleUT = bubble.getComponent(UITransform);
             if (!bubbleUT) return;
             const target = this.getGuidePromptTargetBoundsForCurrentStep(bubble);
@@ -204,6 +205,11 @@ export function installTutorialGuideModule(target: any): void {
         guideLevel2UnlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotUnlockButtonForGuide(hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '解锁下方空位');
+        },
+
+        guideLevelExpSlotIntroStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
+            this.highlightSlotUnlockButtonForGuide(hand);
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, '免费送一个空位');
         },
 
         guideLevel2PickBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
@@ -265,6 +271,133 @@ export function installTutorialGuideModule(target: any): void {
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回粉色空位');
         },
 
+        shouldUseTutorialRelaxedGuide(): boolean {
+            return (this._guideMode === 'level_1' || this._guideMode === 'level_2')
+                && AnalyticsMgr.inst.isTutorialExperimentTreatment();
+        },
+
+        trySelectGuideBoardColor(colorId: number): boolean {
+            const block = this.findBlockOnBoard(colorId);
+            const targetCell = block?.cells?.[0];
+            if (!block || !targetCell) return false;
+            const targetWorld = this.getBoardCellWorldPosition(targetCell.row, targetCell.col);
+            return targetWorld ? this.trySelectBoard(targetWorld) : false;
+        },
+
+        trySelectGuideSlotColor(colorId: number): boolean {
+            const all = this.slotModel.getAll();
+            for (let i = 0; i < all.length; i++) {
+                const block = all[i];
+                if (!block || block.colorId !== colorId) continue;
+                const slotNode = this.slotNodes[i];
+                const slotUT = slotNode?.getComponent(UITransform) || null;
+                if (!slotNode?.isValid || !slotUT) continue;
+                const targetWorld = slotUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+                return this.trySelectSlot(targetWorld);
+            }
+            return false;
+        },
+
+        getGuideFirstEmptyTargetForColor(colorId: number): { row: number; col: number } | null {
+            const cells = this.getGuideEmptyTargetCellsForPrompt?.(colorId) || [];
+            return cells[0] || null;
+        },
+
+        handleTutorialRelaxedTap(worldPos: Vec3): boolean {
+            if (!this.shouldUseTutorialRelaxedGuide?.()) return false;
+            const step = this._guideStep;
+            const rawHitResult = this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
+            const rawTouchTarget = this.classifyFirstLevelTouchTarget?.(worldPos) || '';
+            let handled = false;
+
+            if (this._guideMode === 'level_2') {
+                if (step === 0) {
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                        autoCorrected: true,
+                        rawHitResult,
+                        rawTouchTarget,
+                    });
+                    this.executeGuideSlotUnlock();
+                    return true;
+                }
+                if (step === 1 && this._guidePhase === 'select') {
+                    handled = this.trySelectGuideBoardColor(this._guideFirstColorId);
+                    if (handled && this.currentBlock) {
+                        this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                            autoCorrected: true,
+                            rawHitResult,
+                            rawTouchTarget,
+                            selectedSource: this.currentBlock.source,
+                            colorId: this.currentBlock.colorId,
+                        });
+                        this._guidePhase = 'place';
+                        this.advanceTutorial();
+                    }
+                    return handled;
+                }
+                if (step === 2 && this._guidePhase === 'place') {
+                    if (!this.currentBlock) this.trySelectGuideBoardColor(this._guideFirstColorId);
+                    if (!this.currentBlock) return false;
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                        autoCorrected: true,
+                        rawHitResult,
+                        rawTouchTarget,
+                        selectedSource: this.currentBlock.source,
+                        colorId: this.currentBlock.colorId,
+                    });
+                    this.executeGuidePlacement();
+                    return true;
+                }
+                return false;
+            }
+
+            if (this._guideMode !== 'level_1') return false;
+            if (this._guidePhase === 'select') {
+                if (step === 0 || step === 2) {
+                    const colorId = step === 2 ? this._guideSecondColorId : this._guideFirstColorId;
+                    handled = this.trySelectGuideBoardColor(colorId);
+                } else if (step === 4) {
+                    handled = this.trySelectGuideSlotColor(this._guideFirstColorId);
+                }
+                if (handled && this.currentBlock) {
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                        autoCorrected: true,
+                        rawHitResult,
+                        rawTouchTarget,
+                        selectedSource: this.currentBlock.source,
+                        colorId: this.currentBlock.colorId,
+                    });
+                    this._guidePhase = 'place';
+                    this.advanceTutorial();
+                }
+                return handled;
+            }
+
+            if (this._guidePhase === 'place') {
+                if (!this.currentBlock) return false;
+                let target: { row: number; col: number } | null = null;
+                if (!this.isGuideSlotPlaceStep(step)) {
+                    target = this.getGuideFirstEmptyTargetForColor(this.getGuidePlaceTargetColor(step));
+                    if (!target) return false;
+                }
+                this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
+                    autoCorrected: true,
+                    rawHitResult,
+                    rawTouchTarget,
+                    selectedSource: this.currentBlock.source,
+                    colorId: this.currentBlock.colorId,
+                });
+                if (this.isGuideSlotPlaceStep(step)) {
+                    this.executeGuidePlacement();
+                    return true;
+                }
+                this.executeGuidePlacement(target.row, target.col);
+                return true;
+            }
+
+            return false;
+        },
+
         /** 引导期间触摸处理 */
         handleGuideTap(worldPos: Vec3) {
             if (this._guideInputSuspended) {
@@ -283,7 +416,11 @@ export function installTutorialGuideModule(target: any): void {
         
             const step = this._guideStep;
 
-            if (this._guideMode === 'level_2' && step === 0) {
+            if (this.handleTutorialRelaxedTap?.(worldPos)) {
+                return;
+            }
+
+            if ((this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') && step === 0) {
                 if (this.isSlotUnlockTargetHit(worldPos)) {
                     this.reportTutorialTapResult?.(worldPos, 'hit_target', true, 'guide_layer');
                     this.executeGuideSlotUnlock();
@@ -389,6 +526,7 @@ export function installTutorialGuideModule(target: any): void {
 
         isGuideSelectStep(step: number): boolean {
             if (this._guideMode === 'level_2') return step === 1;
+            if (this._guideMode === 'level_exp_slot_intro') return false;
             return step % 2 === 0;
         },
 
@@ -435,7 +573,7 @@ export function installTutorialGuideModule(target: any): void {
             const w = Math.max(150, targetUT.contentSize.width + 26);
             const h = Math.max(58, targetUT.contentSize.height + 18);
 
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 this.showGuideSpriteHighlight('guide_slot_highlight', targetLocal.x, targetLocal.y, w, h, 1.035);
                 hand.active = true;
                 this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y - 16);
@@ -530,6 +668,9 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         getStarterGuideWrongTargetHint(_hitResult: string): string {
+            if (this._guideMode === 'level_exp_slot_intro') {
+                return '点下方免费空位';
+            }
             if (this._guideMode === 'level_2') {
                 if (this._guideStep === 0) return '点下方解锁空位';
                 if (this._guideStep === 1) return '点高亮豆豆';
@@ -557,7 +698,7 @@ export function installTutorialGuideModule(target: any): void {
             const lbl = this._guideBubbleLbl;
             const origString = lbl.string;
             const origColor = new Color(lbl.color.r, lbl.color.g, lbl.color.b, lbl.color.a);
-            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
+            if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 lbl.string = this.getStarterGuideWrongTargetHint(hitResult);
                 lbl.color = new Color('#D45A38');
                 const token = Date.now();
@@ -1015,6 +1156,7 @@ export function installTutorialGuideModule(target: any): void {
                         1.035,
                     );
                 }
+                if (this.shouldUseTutorialRelaxedGuide?.()) return;
                 for (const cell of cells) {
                     const cellNode = this.cellNodes[cell.row]?.[cell.col];
                     if (!cellNode) continue;
@@ -1098,6 +1240,7 @@ export function installTutorialGuideModule(target: any): void {
                         1.035,
                     );
                 }
+                if (this.shouldUseTutorialRelaxedGuide?.()) return;
                 for (const idx of idxs) {
                     const slotNode = this.slotNodes[idx];
                     if (!slotNode) continue;

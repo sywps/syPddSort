@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, FIRST_LEVEL_ROUTE_EXPERIMENT_ID, FIRST_LEVEL_ROUTE_WX_TIMEOUT_MS, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
-    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode, FirstLevelRouteVariant, FirstLevelRouteResolution,
+    ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
@@ -685,7 +685,7 @@ export function installSettlementHudModule(target: any): void {
             }
             this._guideMode = mode;
             this._guideStep = 0;
-            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : 0);
+            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : (mode === 'level_exp_slot_intro' ? 1 : 0));
             this._guideInputSuspended = false;
             this._guidePhase = typeof this.getTutorialPhaseForStep === 'function'
                 ? this.getTutorialPhaseForStep(0)
@@ -697,17 +697,22 @@ export function installSettlementHudModule(target: any): void {
             }
         
             // 从当前棋盘动态确定两种可操作颜色（跳过已锁定格）
-            const tutorialColors = mode === 'level_2'
-                ? this.collectLevel2TutorialColorIds(2)
-                : this.collectTutorialColorIds(2);
-            this._guideFirstColorId = tutorialColors[0] || 0;
-            this._guideSecondColorId = tutorialColors[1] || this._guideFirstColorId;
-            if (this._guideFirstColorId === 0) {
-                this._guideMode = 'none';
-                this._guideTotalSteps = 0;
-                this._guideStep = -1;
-                this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.1);
-                return;
+            if (mode === 'level_exp_slot_intro') {
+                this._guideFirstColorId = 0;
+                this._guideSecondColorId = 0;
+            } else {
+                const tutorialColors = mode === 'level_2'
+                    ? this.collectLevel2TutorialColorIds(2)
+                    : this.collectTutorialColorIds(2);
+                this._guideFirstColorId = tutorialColors[0] || 0;
+                this._guideSecondColorId = tutorialColors[1] || this._guideFirstColorId;
+                if (this._guideFirstColorId === 0) {
+                    this._guideMode = 'none';
+                    this._guideTotalSteps = 0;
+                    this._guideStep = -1;
+                    this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.1);
+                    return;
+                }
             }
         
             // 重置到初始适配视图，确保引导视觉准确且不丢失小棋盘放大比例
@@ -851,6 +856,12 @@ export function installSettlementHudModule(target: any): void {
                         default: this.endTutorial(); break;
                     }
                     break;
+                case 'level_exp_slot_intro':
+                    switch (step) {
+                        case 0: this.guideLevelExpSlotIntroStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        default: this.endTutorial(); break;
+                    }
+                    break;
                 default:
                     this.endTutorial();
                     break;
@@ -884,7 +895,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         isMinimalTutorialGuide(): boolean {
-            return this._guideMode === 'level_1' || this._guideMode === 'level_2';
+            return this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro';
         },
 
         formatLevel1GuidePrompt(primaryText: string): string {
