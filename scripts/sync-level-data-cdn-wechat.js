@@ -7,16 +7,19 @@ const { spawnSync } = require('child_process');
 
 const dryRun = process.argv.includes('--dry-run');
 const projectDir = path.resolve(__dirname, '..');
+const cdnPlatform = process.env.PDD_CDN_PLATFORM === 'douyin' ? 'douyin' : 'wechat';
+const platformLabel = cdnPlatform === 'douyin' ? '抖音' : '微信';
+const platformRemoteDir = cdnPlatform === 'douyin' ? 'remote_douyin' : 'remote_wechat';
 const levelDataSourceDir = path.join(projectDir, 'assets', 'LevelData');
-const levelDataDir = path.join(projectDir, 'build', 'level-data-cdn');
+const levelDataDir = path.resolve(projectDir, process.env.PDD_LEVEL_DATA_CDN_DIR || (cdnPlatform === 'douyin' ? 'build/level-data-cdn-douyin' : 'build/level-data-cdn'));
 const packDir = path.join(levelDataDir, 'level_packs');
 const liveManifestPath = path.join(levelDataDir, 'level_live.json');
 
-const cdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
+const cdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/levels/';
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
 const ossBucket = process.env.PDD_OSS_BUCKET || 'game-pdd-v2';
-const ossPath = process.env.PDD_LEVEL_DATA_OSS_PATH || 'syGame/pdd_v2/remote_wechat/levels/';
+const ossPath = process.env.PDD_LEVEL_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/levels/';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -53,14 +56,16 @@ function dirSize(dir) {
     return size;
 }
 
-function assertWechatLevelDataTarget(cdn, oss) {
+function assertLevelDataTarget(cdn, oss) {
     const normalizedCdn = normalizeTrailingSlash(cdn);
     const normalizedOss = normalizeOssPath(oss);
-    if (normalizedCdn.includes('remote_dy') || normalizedOss.includes('remote_dy')) {
-        fail('微信关卡数据 CDN 不能指向 remote_dy: ' + normalizedCdn + ' / ' + normalizedOss);
+    const otherRemoteDir = cdnPlatform === 'douyin' ? 'remote_wechat' : 'remote_douyin';
+    if (normalizedCdn.includes(otherRemoteDir) || normalizedOss.includes(otherRemoteDir)) {
+        fail(platformLabel + '关卡数据 CDN 不能指向 ' + otherRemoteDir + ': ' + normalizedCdn + ' / ' + normalizedOss);
     }
-    if (!normalizedCdn.includes('remote_wechat/levels/') || !normalizedOss.includes('remote_wechat/levels/')) {
-        fail('微信关卡数据 CDN 目标必须包含 remote_wechat/levels/: ' + normalizedCdn + ' / ' + normalizedOss);
+    const required = platformRemoteDir + '/levels/';
+    if (!normalizedCdn.includes(required) || !normalizedOss.includes(required)) {
+        fail(platformLabel + '关卡数据 CDN 目标必须包含 ' + required + ': ' + normalizedCdn + ' / ' + normalizedOss);
     }
 }
 
@@ -239,15 +244,15 @@ function runOssutil(args, label) {
     }
 }
 
-console.log('=== 同步微信关卡数据 CDN ===');
+console.log('=== 同步' + platformLabel + '关卡数据 CDN ===');
 console.log('');
 
-assertWechatLevelDataTarget(cdnUrl, ossPath);
+assertLevelDataTarget(cdnUrl, ossPath);
 runNode('scripts/write-level-data-cdn.js', [
     levelDataDir,
     '--source',
     levelDataSourceDir,
-], '生成微信关卡 CDN 数据');
+], '生成' + platformLabel + '关卡 CDN 数据');
 const { manifest, levelCount } = validateLevelDataPackage();
 const expectedServer = normalizeTrailingSlash(cdnUrl);
 const normalizedOssPath = normalizeOssPath(ossPath);
@@ -274,7 +279,7 @@ runOssutil([
     ossEndpoint,
     packDir + path.sep,
     packsOssTarget,
-], '微信关卡数据 packs 上传');
+], platformLabel + '关卡数据 packs 上传');
 
 runOssutil([
     'cp',
@@ -285,7 +290,7 @@ runOssutil([
     ossEndpoint,
     liveManifestPath,
     liveOssTarget,
-], '微信 level_live.json 上传');
+], platformLabel + ' level_live.json 上传');
 
 console.log('');
 console.log(dryRun ? '=== Dry-run 校验完成，未上传 ===' : '=== 同步完成 ===');

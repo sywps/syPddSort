@@ -8,15 +8,18 @@ const { spawnSync } = require('child_process');
 
 const dryRun = process.argv.includes('--dry-run');
 const projectDir = path.resolve(__dirname, '..');
-const skinDataDir = path.join(projectDir, 'build', 'skin-cdn');
+const cdnPlatform = process.env.PDD_CDN_PLATFORM === 'douyin' ? 'douyin' : 'wechat';
+const platformLabel = cdnPlatform === 'douyin' ? '抖音' : '微信';
+const platformRemoteDir = cdnPlatform === 'douyin' ? 'remote_douyin' : 'remote_wechat';
+const skinDataDir = path.resolve(projectDir, process.env.PDD_SKIN_DATA_CDN_DIR || (cdnPlatform === 'douyin' ? 'build/skin-cdn-douyin' : 'build/skin-cdn'));
 const assetDir = path.join(skinDataDir, 'assets');
 const liveManifestPath = path.join(skinDataDir, 'skin_live.json');
 
-const cdnUrl = process.env.PDD_SKIN_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/skin/';
+const cdnUrl = process.env.PDD_SKIN_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/skin/';
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
 const ossBucket = process.env.PDD_OSS_BUCKET || 'game-pdd-v2';
-const ossPath = process.env.PDD_SKIN_DATA_OSS_PATH || 'syGame/pdd_v2/remote_wechat/skin/';
+const ossPath = process.env.PDD_SKIN_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/skin/';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -57,14 +60,16 @@ function dirSize(dir) {
     return size;
 }
 
-function assertWechatSkinDataTarget(cdn, oss) {
+function assertSkinDataTarget(cdn, oss) {
     const normalizedCdn = normalizeTrailingSlash(cdn);
     const normalizedOss = normalizeOssPath(oss);
-    if (normalizedCdn.includes('remote_dy') || normalizedOss.includes('remote_dy')) {
-        fail('微信皮肤数据 CDN 不能指向 remote_dy: ' + normalizedCdn + ' / ' + normalizedOss);
+    const otherRemoteDir = cdnPlatform === 'douyin' ? 'remote_wechat' : 'remote_douyin';
+    if (normalizedCdn.includes(otherRemoteDir) || normalizedOss.includes(otherRemoteDir)) {
+        fail(platformLabel + '皮肤数据 CDN 不能指向 ' + otherRemoteDir + ': ' + normalizedCdn + ' / ' + normalizedOss);
     }
-    if (!normalizedCdn.includes('remote_wechat/skin/') || !normalizedOss.includes('remote_wechat/skin/')) {
-        fail('微信皮肤数据 CDN 目标必须包含 remote_wechat/skin/: ' + normalizedCdn + ' / ' + normalizedOss);
+    const required = platformRemoteDir + '/skin/';
+    if (!normalizedCdn.includes(required) || !normalizedOss.includes(required)) {
+        fail(platformLabel + '皮肤数据 CDN 目标必须包含 ' + required + ': ' + normalizedCdn + ' / ' + normalizedOss);
     }
 }
 
@@ -172,10 +177,10 @@ function runOssutil(args, label) {
     }
 }
 
-console.log('=== 同步微信皮肤数据 CDN ===');
+console.log('=== 同步' + platformLabel + '皮肤数据 CDN ===');
 console.log('');
 
-assertWechatSkinDataTarget(cdnUrl, ossPath);
+assertSkinDataTarget(cdnUrl, ossPath);
 const { manifest, assetCount } = validateSkinDataPackage();
 const expectedServer = normalizeTrailingSlash(cdnUrl);
 const normalizedOssPath = normalizeOssPath(ossPath);
@@ -202,7 +207,7 @@ runOssutil([
     ossEndpoint,
     assetDir + path.sep,
     assetsOssTarget,
-], '微信皮肤资源 assets 上传');
+], platformLabel + '皮肤资源 assets 上传');
 
 runOssutil([
     'cp',
@@ -213,7 +218,7 @@ runOssutil([
     ossEndpoint,
     liveManifestPath,
     liveOssTarget,
-], '微信 skin_live.json 上传');
+], platformLabel + ' skin_live.json 上传');
 
 console.log('');
 console.log(dryRun ? '=== Dry-run 校验完成，未上传 ===' : '=== 同步完成 ===');
