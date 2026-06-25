@@ -146,35 +146,36 @@ export function installThemePanelFlowModule(target: any): void {
             card.name = 'Card';
             card.active = true;
             card.layer = parent.layer || Layers.Enum.UI_2D;
-            const frameNode = card.getChildByName('CardFrame');
-            if (!frameNode) {
-                throw new Error('[collection-card] missing CardFrame template node');
+            const frameSprite = card.getComponent(Sprite);
+            if (!frameSprite?.spriteFrame) {
+                throw new Error('[collection-card] missing Card prefab spriteFrame');
             }
-            frameNode.active = true;
-            frameNode.layer = card.layer;
-            const frameSprite = frameNode.getComponent(Sprite);
-            const frame = this.getSF(unlocked ? 'popup_card_unlocked' : 'popup_card_locked');
-            if (!frameSprite || !frame) {
-                throw new Error(`[collection-card] missing prefab sprite state: ${unlocked ? 'popup_card_unlocked' : 'popup_card_locked'}`);
-            }
-            frameSprite.spriteFrame = frame;
             frameSprite.color = Color.WHITE;
-            const frameUi = frameNode.getComponent(UITransform);
+            const frameUi = card.getComponent(UITransform);
             const frameW = frameUi?.width || 248;
             const frameH = frameUi?.height || 193;
-            card.getChildByName('PixelPreview')?.destroy();
+            const previewNode = card.getChildByName('PixelPreview');
+            if (!previewNode) {
+                throw new Error('[collection-card] missing PixelPreview container node');
+            }
+            previewNode.active = true;
+            previewNode.layer = card.layer;
+            const previewUi = previewNode.getComponent(UITransform);
+            if (!previewUi) {
+                throw new Error('[collection-card] missing PixelPreview UITransform');
+            }
             const labelNode = card.getChildByName('Lbl');
             const hintNode = card.getChildByName('TapHint');
             const previewX = 0;
-            const previewY = 18;
-            const previewW = frameW - 56;
-            const previewH = frameH - 82;
+            const previewY = 0;
+            const previewW = previewUi.width || Math.max(1, frameW - 24);
+            const previewH = previewUi.height || Math.max(1, frameH - 74);
             const label = labelNode?.getComponent(Label);
             if (!labelNode || !label) {
                 throw new Error('[collection-card] missing Lbl template node');
             }
-            labelNode.active = true;
-            label.string = `第${levelId}关`;
+            labelNode.active = false;
+            label.string = '';
             if (hintNode) hintNode.active = false;
 
             if (!options?.deferPreview) {
@@ -611,15 +612,25 @@ export function installThemePanelFlowModule(target: any): void {
             const cardH = cardUi.height;
             const headerH = headerUi.height;
             const horizontalGap = Math.max(20, contentW - cardW * 2);
-            const leftX = -cardW / 2 - horizontalGap / 4;
-            const rightX = cardW / 2 + horizontalGap / 4;
+            const fallbackLeftX = -cardW / 2 - horizontalGap / 4;
+            const leftX = Number.isFinite(cardTemplate.position.x) && Math.abs(cardTemplate.position.x) > 0
+                ? cardTemplate.position.x
+                : fallbackLeftX;
+            const rightX = Number.isFinite(cardTemplate.position.x) && Math.abs(cardTemplate.position.x) > 0
+                ? -cardTemplate.position.x
+                : cardW / 2 + horizontalGap / 4;
+            const templateContentH = content.getComponent(UITransform)?.height || scrollH;
+            const templateTopPad = templateContentH / 2 - (headerTemplate.position.y + headerH / 2);
+            const templateHeaderCardGap = (headerTemplate.position.y - headerH / 2) - (cardTemplate.position.y + cardH / 2);
             const gapY = 18;
             const sectionGap = 28;
-            const topPad = 18;
+            const topPad = Math.max(0, Number.isFinite(templateTopPad) ? templateTopPad : 18);
+            const headerCardGap = Math.max(0, Number.isFinite(templateHeaderCardGap) ? templateHeaderCardGap : 0);
 
             let total = topPad;
             for (const grp of groups) {
                 total += headerH;
+                total += headerCardGap;
                 const rows = Math.ceil(grp.levelIds.length / 2);
                 total += rows * cardH + (rows - 1) * gapY;
                 total += sectionGap;
@@ -641,7 +652,7 @@ export function installThemePanelFlowModule(target: any): void {
                     throw new Error('[theme-panel] ThemeHeaderTemplate is missing ThemeName label');
                 }
                 themeNameLabel.string = grp.name;
-                cursorY -= headerH;
+                cursorY -= headerH + headerCardGap;
         
                 const rows = Math.ceil(grp.levelIds.length / 2);
                 for (let r = 0; r < rows; r++) {

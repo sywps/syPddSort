@@ -50,6 +50,21 @@ type RewardedGrantOptions = {
     afterGrant?: () => RewardedGrantResult;
     onFinally?: () => void;
 };
+type ShareGrantOptions = {
+    levelId?: number;
+    shareType?: string;
+    busyFlag?: string;
+    title?: RewardedGrantToast;
+    query?: RewardedGrantToast;
+    imageUrl?: RewardedGrantToast;
+    shareFailToast?: RewardedGrantToast;
+    grantFailToast?: RewardedGrantToast;
+    afterGrantFailToast?: RewardedGrantToast;
+    successToast?: RewardedGrantToast;
+    onShareComplete?: (success: boolean) => void;
+    afterGrant?: () => RewardedGrantResult;
+    onFinally?: () => void;
+};
 
 function resolveRewardedGrantToast(toast?: RewardedGrantToast): string {
     if (!toast) return '';
@@ -208,6 +223,127 @@ export function installHomeAdFlowModule(target: any): void {
                 this.resumeTimerAfterAd();
                 throw error;
             }
+        },
+
+        runShareGrant(
+            page: string,
+            grant: () => RewardedGrantResult,
+            options: ShareGrantOptions = {},
+        ): boolean {
+            const busyFlag = options.busyFlag || '';
+            if (busyFlag && this[busyFlag]) {
+                return false;
+            }
+            if (busyFlag) {
+                this[busyFlag] = true;
+            }
+
+            const clearBusy = () => {
+                if (busyFlag) {
+                    this[busyFlag] = false;
+                }
+            };
+            let finalized = false;
+            const runFinally = () => {
+                if (finalized) return;
+                finalized = true;
+                clearBusy();
+                try {
+                    options.onFinally?.();
+                } catch (error) {
+                    console.warn(`[ShareGrant] ${page} finally failed:`, error);
+                }
+            };
+            const runShareFail = () => {
+                showRewardedGrantToast(this, options.shareFailToast);
+                try {
+                    options.onShareComplete?.(false);
+                } catch (error) {
+                    console.warn(`[ShareGrant] ${page} share-fail handler failed:`, error);
+                }
+                runFinally();
+            };
+
+            const wx: any = typeof this.getWeChatRuntime === 'function' ? this.getWeChatRuntime() : null;
+            if (!wx || typeof wx.shareAppMessage !== 'function') {
+                console.warn(`[ShareGrant] ${page} wx.shareAppMessage unavailable`);
+                runShareFail();
+                return false;
+            }
+
+            const levelId = options.levelId ?? this.getAnalyticsLevelId();
+            const shareType = options.shareType || `rewardShare:${page}`;
+            const title = resolveRewardedGrantToast(options.title) || `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
+            const query = resolveRewardedGrantToast(options.query) || `level=${levelId}`;
+            const imageUrl = resolveRewardedGrantToast(options.imageUrl);
+            let shareCompleteHandled = false;
+
+            const runGrant = () => {
+                Promise.resolve()
+                    .then(() => grant())
+                    .then(async (grantResult) => {
+                        if (grantResult === false) {
+                            console.warn(`[ShareGrant] ${page} grant returned false`);
+                            showRewardedGrantToast(this, options.grantFailToast);
+                            return;
+                        }
+                        showRewardedGrantToast(this, options.successToast);
+                        if (!options.afterGrant) {
+                            return;
+                        }
+                        try {
+                            const afterResult = await options.afterGrant();
+                            if (afterResult === false) {
+                                console.warn(`[ShareGrant] ${page} afterGrant returned false`);
+                                showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
+                            }
+                        } catch (error) {
+                            console.error(`[ShareGrant] ${page} afterGrant failed:`, error);
+                            showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error(`[ShareGrant] ${page} grant failed:`, error);
+                        showRewardedGrantToast(this, options.grantFailToast);
+                    })
+                    .then(runFinally, runFinally);
+            };
+
+            AnalyticsMgr.inst.trackShareClick(shareType, page, levelId);
+            try {
+                wx.shareAppMessage({
+                    title,
+                    query,
+                    imageUrl,
+                    success: () => {
+                        if (shareCompleteHandled) {
+                            console.warn(`[ShareGrant] ${page} duplicate share success ignored`);
+                            return;
+                        }
+                        shareCompleteHandled = true;
+                        try {
+                            options.onShareComplete?.(true);
+                        } catch (error) {
+                            console.warn(`[ShareGrant] ${page} share-success handler failed:`, error);
+                        }
+                        AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
+                        runGrant();
+                    },
+                    fail: () => {
+                        if (shareCompleteHandled) {
+                            console.warn(`[ShareGrant] ${page} duplicate share fail ignored`);
+                            return;
+                        }
+                        shareCompleteHandled = true;
+                        runShareFail();
+                    },
+                });
+            } catch (error) {
+                console.error(`[ShareGrant] ${page} share request failed:`, error);
+                runShareFail();
+                return false;
+            }
+            return true;
         },
 
         runRewardedGrant(

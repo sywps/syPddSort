@@ -1,0 +1,827 @@
+{
+  "generatedAt": "2026-06-25T06:08:00.173Z",
+  "competitor": "快乐拼拼豆",
+  "purpose": "Board-embedded timeRegs countdown box assets, not the global countdown HUD.",
+  "sourcePackage": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT",
+  "cdnBase": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game",
+  "targetAssetIndexes": [
+    88,
+    112,
+    264,
+    290,
+    469,
+    669,
+    673,
+    680,
+    829,
+    835,
+    864
+  ],
+  "packs": [
+    {
+      "packName": "01753ff86",
+      "packIndex": 886,
+      "importVersion": "9e673",
+      "assetIndexes": [
+        {
+          "index": 88,
+          "assetPath": "prefabPanels/UITimeUp",
+          "typeIndex": 2,
+          "type": "cc.Prefab"
+        },
+        {
+          "index": 673,
+          "assetPath": "font/timeUp",
+          "typeIndex": 1,
+          "type": "cc.LabelAtlas"
+        }
+      ],
+      "packResult": {
+        "source": "remote",
+        "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/import/01/01753ff86.9e673.json",
+        "statusCode": 200,
+        "error": null,
+        "bytes": 12244,
+        "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/raw_packs/pack_01753ff86.9e673.json"
+      }
+    },
+    {
+      "packName": "06c5ab3cb",
+      "packIndex": 896,
+      "importVersion": "e6134",
+      "assetIndexes": [
+        {
+          "index": 112,
+          "assetPath": "textures/UITimeUp/复活/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 290,
+          "assetPath": "textures/UITimeUp/组 52/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 469,
+          "assetPath": "textures/UITimeUp/就差一点/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 669,
+          "assetPath": "textures/UITimeUp/img/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 680,
+          "assetPath": "textures/UITimeUp/number/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 835,
+          "assetPath": "textures/UITimeUp/形状 3/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        }
+      ],
+      "packResult": {
+        "source": "remote",
+        "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/import/06/06c5ab3cb.e6134.json",
+        "statusCode": 200,
+        "error": null,
+        "bytes": 1644,
+        "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/raw_packs/pack_06c5ab3cb.e6134.json"
+      }
+    },
+    {
+      "packName": "096ba3036",
+      "packIndex": 899,
+      "importVersion": "95382",
+      "assetIndexes": [
+        {
+          "index": 264,
+          "assetPath": "textures/UIGame/闹钟底/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 829,
+          "assetPath": "textures/UIGame/框 拷贝/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        },
+        {
+          "index": 864,
+          "assetPath": "textures/UIGame/闹钟/spriteFrame",
+          "typeIndex": 7,
+          "type": "cc.SpriteFrame"
+        }
+      ],
+      "packResult": {
+        "source": "local",
+        "localSource": "temp/competitor_klppd_slider/pack_096ba3036.95382.json",
+        "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/raw_packs/pack_096ba3036.95382.json",
+        "bytes": 13112
+      }
+    }
+  ],
+  "textures": [
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "f02c0wMURPrqhkWhsLbPEa@f9941",
+      "rawId": "f02c0wMURPrqhkWhsLbPEa",
+      "decodedId": "f0d9cd30-3144-4fae-a864-5a1b0b6cf11a",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/f0/f0d9cd30-3144-4fae-a864-5a1b0b6cf11a.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "cbSusKh9tBPKJoRQsDtRqO@f9941",
+      "rawId": "cbSusKh9tBPKJoRQsDtRqO",
+      "decodedId": "cb4aeb0a-87db-413c-a268-450b03b51a8e",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/cb/cb4aeb0a-87db-413c-a268-450b03b51a8e.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "680rUHYNFPMLDTSxPkO62i@f9941",
+      "rawId": "680rUHYNFPMLDTSxPkO62i",
+      "decodedId": "68d2b507-60d1-4f30-b0d3-4b13e43bada2",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/68/68d2b507-60d1-4f30-b0d3-4b13e43bada2.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "4dHd4OL7dBrarmB5pciy1x@f9941",
+      "rawId": "4dHd4OL7dBrarmB5pciy1x",
+      "decodedId": "4d1dde0e-2fb7-41ad-aae6-079a5c8b2d71",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/4d/4d1dde0e-2fb7-41ad-aae6-079a5c8b2d71.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "42TwVZRJZDDqJ+Ho783LRS@f9941",
+      "rawId": "42TwVZRJZDDqJ+Ho783LRS",
+      "decodedId": "424f0559-4496-430e-a27e-1e8efcdcb452",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/42/424f0559-4496-430e-a27e-1e8efcdcb452.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "9ee4O4FQtKsK+0/c/oalBb@f9941",
+      "rawId": "9ee4O4FQtKsK+0/c/oalBb",
+      "decodedId": "9e7b83b8-150b-4ab0-afb4-fdcfe86a505b",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/9e/9e7b83b8-150b-4ab0-afb4-fdcfe86a505b.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "cdinFp5zxL5oGYyMflIh8v@f9941",
+      "rawId": "cdinFp5zxL5oGYyMflIh8v",
+      "decodedId": "cd8a7169-e73c-4be6-8198-c8c7e5221f2f",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/cd/cd8a7169-e73c-4be6-8198-c8c7e5221f2f.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "c5FUIaWL9NIoCz4Ja7TXTe@f9941",
+      "rawId": "c5FUIaWL9NIoCz4Ja7TXTe",
+      "decodedId": "c515421a-58bf-4d22-80b3-e096bb4d74de",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/c5/c515421a-58bf-4d22-80b3-e096bb4d74de.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "14p0hZclpPNKWYjDyFvyOY@f9941",
+      "rawId": "14p0hZclpPNKWYjDyFvyOY",
+      "decodedId": "14a74859-725a-4f34-a598-8c3c85bf2398",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/14/14a74859-725a-4f34-a598-8c3c85bf2398.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "b3a7uXKrdBCbAXyyCLwgkL@6c48a",
+      "rawId": "b3a7uXKrdBCbAXyyCLwgkL",
+      "decodedId": "b36bbb97-2ab7-4109-b017-cb208bc2090b",
+      "version": "71cf9",
+      "configIndex": 68,
+      "versionSource": "config.versions.native",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/b3/b36bbb97-2ab7-4109-b017-cb208bc2090b.71cf9.png",
+      "statusCode": 200,
+      "error": null,
+      "bytes": 137180,
+      "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/b3/b36bbb97-2ab7-4109-b017-cb208bc2090b.71cf9.png"
+    },
+    {
+      "packName": "01753ff86",
+      "sharedUuid": "acQ0vBnSNLgaP/Xq9NvMNn@f9941",
+      "rawId": "acQ0vBnSNLgaP/Xq9NvMNn",
+      "decodedId": "ac434bc1-9d23-4b81-a3ff-5eaf4dbcc367",
+      "version": "f9941",
+      "configIndex": -1,
+      "versionSource": "packSuffix",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/ac/ac434bc1-9d23-4b81-a3ff-5eaf4dbcc367.f9941.png",
+      "statusCode": 404,
+      "error": null,
+      "bytes": 0,
+      "localPath": null
+    },
+    {
+      "packName": "06c5ab3cb",
+      "sharedUuid": "16c5ab3cb@6c48a",
+      "rawId": "16c5ab3cb",
+      "decodedId": "16c5ab3cb",
+      "version": "cd8fc",
+      "configIndex": 249,
+      "versionSource": "config.versions.native",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/16/16c5ab3cb.cd8fc.png",
+      "statusCode": 200,
+      "error": null,
+      "bytes": 15242,
+      "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png"
+    },
+    {
+      "packName": "096ba3036",
+      "sharedUuid": "196ba3036@6c48a",
+      "rawId": "196ba3036",
+      "decodedId": "196ba3036",
+      "version": "17819",
+      "configIndex": 255,
+      "versionSource": "config.versions.native",
+      "url": "https://res.wqop2018.com/zhise/klppd/v1.0.39/remote/game/native/19/196ba3036.17819.png",
+      "statusCode": 200,
+      "error": null,
+      "bytes": 38728,
+      "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/19/196ba3036.17819.png"
+    }
+  ],
+  "spriteFrames": [
+    {
+      "packName": "06c5ab3cb",
+      "name": "复活",
+      "rect": {
+        "x": 3,
+        "y": 3,
+        "width": 329,
+        "height": 124
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 329,
+        "height": 124
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_复活_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_复活.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 329,
+        "height": 124
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_复活_raw.png",
+          "width": 329,
+          "height": 124
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_复活_rot90.png",
+          "width": 124,
+          "height": 329
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_复活_rot270.png",
+          "width": 124,
+          "height": 329
+        }
+      ]
+    },
+    {
+      "packName": "06c5ab3cb",
+      "name": "组 52",
+      "rect": {
+        "x": 73,
+        "y": 338,
+        "width": 385,
+        "height": 88
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 385,
+        "height": 88
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_组_52_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_组_52.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 385,
+        "height": 88
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_组_52_raw.png",
+          "width": 385,
+          "height": 88
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_组_52_rot90.png",
+          "width": 88,
+          "height": 385
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_组_52_rot270.png",
+          "width": 88,
+          "height": 385
+        }
+      ]
+    },
+    {
+      "packName": "06c5ab3cb",
+      "name": "就差一点",
+      "rect": {
+        "x": 73,
+        "y": 729,
+        "width": 224,
+        "height": 60
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 224,
+        "height": 60
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_就差一点_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_就差一点.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 224,
+        "height": 60
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_就差一点_raw.png",
+          "width": 224,
+          "height": 60
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_就差一点_rot90.png",
+          "width": 60,
+          "height": 224
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_就差一点_rot270.png",
+          "width": 60,
+          "height": 224
+        }
+      ]
+    },
+    {
+      "packName": "06c5ab3cb",
+      "name": "img",
+      "rect": {
+        "x": 133,
+        "y": 3,
+        "width": 242,
+        "height": 30
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 242,
+        "height": 30
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_img_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_img.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 242,
+        "height": 30
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_img_raw.png",
+          "width": 242,
+          "height": 30
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_img_rot90.png",
+          "width": 30,
+          "height": 242
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_img_rot270.png",
+          "width": 30,
+          "height": 242
+        }
+      ]
+    },
+    {
+      "packName": "06c5ab3cb",
+      "name": "number",
+      "rect": {
+        "x": 3,
+        "y": 338,
+        "width": 610,
+        "height": 64
+      },
+      "offset": {
+        "x": -1,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 612,
+        "height": 64
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_number_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_number.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 610,
+        "height": 64
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_number_raw.png",
+          "width": 610,
+          "height": 64
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_number_rot90.png",
+          "width": 64,
+          "height": 610
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_number_rot270.png",
+          "width": 64,
+          "height": 610
+        }
+      ]
+    },
+    {
+      "packName": "06c5ab3cb",
+      "name": "形状 3",
+      "rect": {
+        "x": 3,
+        "y": 954,
+        "width": 52,
+        "height": 39
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 52,
+        "height": 39
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/16/16c5ab3cb.cd8fc.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_形状_3_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_形状_3.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 52,
+        "height": 39
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_形状_3_raw.png",
+          "width": 52,
+          "height": 39
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_形状_3_rot90.png",
+          "width": 39,
+          "height": 52
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/06c5ab3cb_形状_3_rot270.png",
+          "width": 39,
+          "height": 52
+        }
+      ]
+    },
+    {
+      "packName": "096ba3036",
+      "name": "闹钟底",
+      "rect": {
+        "x": 3,
+        "y": 1059,
+        "width": 142,
+        "height": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 142,
+        "height": 48
+      },
+      "rotated": false,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/19/196ba3036.17819.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟底_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟底.png",
+      "rotationApplied": null,
+      "cropSize": {
+        "width": 142,
+        "height": 48
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟底_raw.png",
+          "width": 142,
+          "height": 48
+        }
+      ]
+    },
+    {
+      "packName": "096ba3036",
+      "name": "number",
+      "rect": {
+        "x": 214,
+        "y": 3,
+        "width": 199,
+        "height": 25
+      },
+      "offset": {
+        "x": -0.5,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 200,
+        "height": 25
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/19/196ba3036.17819.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_number_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_number.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 199,
+        "height": 25
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_number_raw.png",
+          "width": 199,
+          "height": 25
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_number_rot90.png",
+          "width": 25,
+          "height": 199
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_number_rot270.png",
+          "width": 25,
+          "height": 199
+        }
+      ]
+    },
+    {
+      "packName": "096ba3036",
+      "name": "框 拷贝",
+      "rect": {
+        "x": 163,
+        "y": 700,
+        "width": 88,
+        "height": 76
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 88,
+        "height": 76
+      },
+      "rotated": false,
+      "capInsets": [
+        30,
+        30,
+        30,
+        30
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/19/196ba3036.17819.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_框_拷贝_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_框_拷贝.png",
+      "rotationApplied": null,
+      "cropSize": {
+        "width": 88,
+        "height": 76
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_框_拷贝_raw.png",
+          "width": 88,
+          "height": 76
+        }
+      ]
+    },
+    {
+      "packName": "096ba3036",
+      "name": "闹钟",
+      "rect": {
+        "x": 149,
+        "y": 187,
+        "width": 162,
+        "height": 58
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "originalSize": {
+        "width": 162,
+        "height": 58
+      },
+      "rotated": true,
+      "capInsets": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "textureLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/native/19/196ba3036.17819.png",
+      "rawCropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟_raw.png",
+      "cropLocalPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟.png",
+      "rotationApplied": "raw-default-with-rotation-candidates",
+      "cropSize": {
+        "width": 162,
+        "height": 58
+      },
+      "rotationCandidates": [
+        {
+          "mode": "raw",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟_raw.png",
+          "width": 162,
+          "height": 58
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_90",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟_rot90.png",
+          "width": 58,
+          "height": 162
+        },
+        {
+          "mode": "PIL.Image.Transpose.ROTATE_270",
+          "localPath": "tools/competitor_special_modes/快乐拼拼豆/timeRegs_box_assets/sprites/096ba3036_闹钟_rot270.png",
+          "width": 58,
+          "height": 162
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Converted level JSON currently does not preserve explicit timeRegs fields for this package.",
+    "These resources are inferred from Cocos asset names and pack membership: prefabPanels/UITimeUp, font/timeUp, 闹钟底, 框 拷贝, 闹钟, and textures/UITimeUp sprite frames."
+  ]
+}

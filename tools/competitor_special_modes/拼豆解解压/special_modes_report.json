@@ -1,0 +1,3852 @@
+{
+  "competitor": "拼豆解解压",
+  "levelsDir": "tools/competitors/拼豆解解压/levels",
+  "summaryByKind": {
+    "main": {
+      "total": 370,
+      "regionMapNonEmpty": 38,
+      "timeRegsNonEmpty": 38,
+      "bothNonEmpty": 0
+    },
+    "daily": {
+      "total": 49,
+      "regionMapNonEmpty": 23,
+      "timeRegsNonEmpty": 0,
+      "bothNonEmpty": 0
+    }
+  },
+  "bucketComparison": {
+    "<500": {
+      "all": 133,
+      "withRegionMap": 2,
+      "withTimeRegs": 10
+    },
+    "500-999": {
+      "all": 178,
+      "withRegionMap": 11,
+      "withTimeRegs": 25
+    },
+    "1000-1499": {
+      "all": 52,
+      "withRegionMap": 7,
+      "withTimeRegs": 3
+    },
+    "1500-1999": {
+      "all": 22,
+      "withRegionMap": 19,
+      "withTimeRegs": 0
+    },
+    ">=2000": {
+      "all": 34,
+      "withRegionMap": 22,
+      "withTimeRegs": 0
+    }
+  },
+  "regionLevelCount": 61,
+  "timeRegLevelCount": 38,
+  "regionLevels": [
+    {
+      "kind": "main",
+      "level": 10,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_010.json",
+      "boardWidth": 6,
+      "boardHeight": 4,
+      "filledCells": 24,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 24,
+        "expectedLength": 24,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 12,
+          "1": 12
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 2,
+            "colMin": 0,
+            "rowMax": 3,
+            "colMax": 5,
+            "height": 2,
+            "width": 6
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 11,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_011.json",
+      "boardWidth": 21,
+      "boardHeight": 21,
+      "filledCells": 245,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 441,
+        "expectedLength": 441,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 5,
+        "cellCountsByRegion": {
+          "-1": 196,
+          "0": 51,
+          "1": 61,
+          "2": 61,
+          "3": 72
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 10,
+            "rowMax": 9,
+            "colMax": 19,
+            "height": 10,
+            "width": 10
+          },
+          "2": {
+            "rowMin": 10,
+            "colMin": 0,
+            "rowMax": 19,
+            "colMax": 9,
+            "height": 10,
+            "width": 10
+          },
+          "3": {
+            "rowMin": 10,
+            "colMin": 10,
+            "rowMax": 20,
+            "colMax": 20,
+            "height": 11,
+            "width": 11
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 24,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_024.json",
+      "boardWidth": 30,
+      "boardHeight": 30,
+      "filledCells": 900,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 900,
+        "expectedLength": 900,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 450,
+          "1": 450
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 15,
+            "colMin": 0,
+            "rowMax": 29,
+            "colMax": 29,
+            "height": 15,
+            "width": 30
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 38,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_038.json",
+      "boardWidth": 40,
+      "boardHeight": 46,
+      "filledCells": 1840,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1840,
+        "expectedLength": 1840,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 460,
+          "1": 460,
+          "2": 460,
+          "3": 460
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 22,
+            "colMax": 39,
+            "height": 23,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 23,
+            "colMin": 0,
+            "rowMax": 45,
+            "colMax": 19,
+            "height": 23,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 23,
+            "colMin": 20,
+            "rowMax": 45,
+            "colMax": 39,
+            "height": 23,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 49,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_049.json",
+      "boardWidth": 37,
+      "boardHeight": 42,
+      "filledCells": 1216,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1554,
+        "expectedLength": 1554,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 5,
+        "cellCountsByRegion": {
+          "-1": 338,
+          "0": 294,
+          "1": 273,
+          "2": 319,
+          "3": 330
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 18,
+            "rowMax": 20,
+            "colMax": 34,
+            "height": 21,
+            "width": 17
+          },
+          "2": {
+            "rowMin": 21,
+            "colMin": 0,
+            "rowMax": 41,
+            "colMax": 17,
+            "height": 21,
+            "width": 18
+          },
+          "3": {
+            "rowMin": 21,
+            "colMin": 18,
+            "rowMax": 41,
+            "colMax": 36,
+            "height": 21,
+            "width": 19
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 58,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_058.json",
+      "boardWidth": 41,
+      "boardHeight": 48,
+      "filledCells": 1334,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1968,
+        "expectedLength": 1968,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 5,
+        "cellCountsByRegion": {
+          "-1": 634,
+          "0": 255,
+          "1": 338,
+          "2": 376,
+          "3": 365
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 24,
+            "colMax": 38,
+            "height": 25,
+            "width": 19
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 47,
+            "colMax": 19,
+            "height": 23,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 20,
+            "rowMax": 47,
+            "colMax": 40,
+            "height": 23,
+            "width": 21
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 69,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_069.json",
+      "boardWidth": 22,
+      "boardHeight": 39,
+      "filledCells": 536,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 858,
+        "expectedLength": 858,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 3,
+        "cellCountsByRegion": {
+          "-1": 322,
+          "0": 298,
+          "1": 238
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 19,
+            "colMin": 1,
+            "rowMax": 38,
+            "colMax": 18,
+            "height": 20,
+            "width": 18
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 80,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_080.json",
+      "boardWidth": 31,
+      "boardHeight": 43,
+      "filledCells": 819,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1333,
+        "expectedLength": 1333,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 3,
+        "cellCountsByRegion": {
+          "-1": 514,
+          "0": 384,
+          "1": 435
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 24,
+            "colMin": 0,
+            "rowMax": 42,
+            "colMax": 30,
+            "height": 19,
+            "width": 31
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 84,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_084.json",
+      "boardWidth": 43,
+      "boardHeight": 41,
+      "filledCells": 1763,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1763,
+        "expectedLength": 1763,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 420,
+          "1": 440,
+          "2": 441,
+          "3": 462
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 21,
+            "rowMax": 19,
+            "colMax": 42,
+            "height": 20,
+            "width": 22
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 40,
+            "colMax": 20,
+            "height": 21,
+            "width": 21
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 21,
+            "rowMax": 40,
+            "colMax": 42,
+            "height": 21,
+            "width": 22
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 90,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_090.json",
+      "boardWidth": 43,
+      "boardHeight": 37,
+      "filledCells": 709,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1591,
+        "expectedLength": 1591,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 3,
+        "cellCountsByRegion": {
+          "-1": 882,
+          "0": 355,
+          "1": 354
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 4,
+            "colMin": 21,
+            "rowMax": 36,
+            "colMax": 42,
+            "height": 33,
+            "width": 22
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 96,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_096.json",
+      "boardWidth": 36,
+      "boardHeight": 38,
+      "filledCells": 1368,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1368,
+        "expectedLength": 1368,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 342,
+          "1": 342,
+          "2": 342,
+          "3": 342
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 18,
+            "rowMax": 18,
+            "colMax": 35,
+            "height": 19,
+            "width": 18
+          },
+          "2": {
+            "rowMin": 19,
+            "colMin": 0,
+            "rowMax": 37,
+            "colMax": 17,
+            "height": 19,
+            "width": 18
+          },
+          "3": {
+            "rowMin": 19,
+            "colMin": 18,
+            "rowMax": 37,
+            "colMax": 35,
+            "height": 19,
+            "width": 18
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 120,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_120.json",
+      "boardWidth": 42,
+      "boardHeight": 47,
+      "filledCells": 1974,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1974,
+        "expectedLength": 1974,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 483,
+          "1": 483,
+          "2": 504,
+          "3": 504
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 21,
+            "rowMax": 22,
+            "colMax": 41,
+            "height": 23,
+            "width": 21
+          },
+          "2": {
+            "rowMin": 23,
+            "colMin": 0,
+            "rowMax": 46,
+            "colMax": 20,
+            "height": 24,
+            "width": 21
+          },
+          "3": {
+            "rowMin": 23,
+            "colMin": 21,
+            "rowMax": 46,
+            "colMax": 41,
+            "height": 24,
+            "width": 21
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 124,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_124.json",
+      "boardWidth": 45,
+      "boardHeight": 45,
+      "filledCells": 2025,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2025,
+        "expectedLength": 2025,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 484,
+          "1": 506,
+          "2": 506,
+          "3": 529
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 22,
+            "rowMax": 21,
+            "colMax": 44,
+            "height": 22,
+            "width": 23
+          },
+          "2": {
+            "rowMin": 22,
+            "colMin": 0,
+            "rowMax": 44,
+            "colMax": 21,
+            "height": 23,
+            "width": 22
+          },
+          "3": {
+            "rowMin": 22,
+            "colMin": 22,
+            "rowMax": 44,
+            "colMax": 44,
+            "height": 23,
+            "width": 23
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 135,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_135.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 800,
+          "1": 800
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 40,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 144,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_144.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 400,
+          "2": 400,
+          "3": 400
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 19,
+            "height": 20,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 151,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_151.json",
+      "boardWidth": 41,
+      "boardHeight": 28,
+      "filledCells": 1148,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1148,
+        "expectedLength": 1148,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 588,
+          "1": 560
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 21,
+            "rowMax": 27,
+            "colMax": 40,
+            "height": 28,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 152,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_152.json",
+      "boardWidth": 41,
+      "boardHeight": 41,
+      "filledCells": 1681,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1681,
+        "expectedLength": 1681,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 420,
+          "2": 420,
+          "3": 441
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 40,
+            "height": 20,
+            "width": 21
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 40,
+            "colMax": 19,
+            "height": 21,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 40,
+            "colMax": 40,
+            "height": 21,
+            "width": 21
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 159,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_159.json",
+      "boardWidth": 45,
+      "boardHeight": 45,
+      "filledCells": 2025,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2025,
+        "expectedLength": 2025,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 484,
+          "1": 506,
+          "2": 506,
+          "3": 529
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 22,
+            "rowMax": 21,
+            "colMax": 44,
+            "height": 22,
+            "width": 23
+          },
+          "2": {
+            "rowMin": 22,
+            "colMin": 0,
+            "rowMax": 44,
+            "colMax": 21,
+            "height": 23,
+            "width": 22
+          },
+          "3": {
+            "rowMin": 22,
+            "colMin": 22,
+            "rowMax": 44,
+            "colMax": 44,
+            "height": 23,
+            "width": 23
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 171,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_171.json",
+      "boardWidth": 45,
+      "boardHeight": 45,
+      "filledCells": 2025,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2025,
+        "expectedLength": 2025,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 484,
+          "1": 506,
+          "2": 506,
+          "3": 529
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 22,
+            "rowMax": 21,
+            "colMax": 44,
+            "height": 22,
+            "width": 23
+          },
+          "2": {
+            "rowMin": 22,
+            "colMin": 0,
+            "rowMax": 44,
+            "colMax": 21,
+            "height": 23,
+            "width": 22
+          },
+          "3": {
+            "rowMin": 22,
+            "colMin": 22,
+            "rowMax": 44,
+            "colMax": 44,
+            "height": 23,
+            "width": 23
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 198,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_198.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 400,
+          "2": 400,
+          "3": 400
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 19,
+            "height": 20,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 202,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_202.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 400,
+          "2": 400,
+          "3": 400
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 19,
+            "height": 20,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 212,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_212.json",
+      "boardWidth": 27,
+      "boardHeight": 48,
+      "filledCells": 1181,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1296,
+        "expectedLength": 1296,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 3,
+        "cellCountsByRegion": {
+          "-1": 115,
+          "0": 560,
+          "1": 621
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 24,
+            "colMin": 0,
+            "rowMax": 47,
+            "colMax": 26,
+            "height": 24,
+            "width": 27
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 225,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_225.json",
+      "boardWidth": 30,
+      "boardHeight": 30,
+      "filledCells": 900,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 900,
+        "expectedLength": 900,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 450,
+          "1": 450
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 15,
+            "rowMax": 29,
+            "colMax": 29,
+            "height": 30,
+            "width": 15
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 233,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_233.json",
+      "boardWidth": 30,
+      "boardHeight": 30,
+      "filledCells": 900,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 900,
+        "expectedLength": 900,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 225,
+          "1": 225,
+          "2": 225,
+          "3": 225
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 15,
+            "rowMax": 14,
+            "colMax": 29,
+            "height": 15,
+            "width": 15
+          },
+          "2": {
+            "rowMin": 15,
+            "colMin": 0,
+            "rowMax": 29,
+            "colMax": 14,
+            "height": 15,
+            "width": 15
+          },
+          "3": {
+            "rowMin": 15,
+            "colMin": 15,
+            "rowMax": 29,
+            "colMax": 29,
+            "height": 15,
+            "width": 15
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 241,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_241.json",
+      "boardWidth": 30,
+      "boardHeight": 30,
+      "filledCells": 900,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 900,
+        "expectedLength": 900,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 450,
+          "1": 450
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 15,
+            "rowMax": 29,
+            "colMax": 29,
+            "height": 30,
+            "width": 15
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 256,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_256.json",
+      "boardWidth": 36,
+      "boardHeight": 43,
+      "filledCells": 1548,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1548,
+        "expectedLength": 1548,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 756,
+          "1": 792
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 21,
+            "colMin": 0,
+            "rowMax": 42,
+            "colMax": 35,
+            "height": 22,
+            "width": 36
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 268,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_268.json",
+      "boardWidth": 20,
+      "boardHeight": 36,
+      "filledCells": 720,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 720,
+        "expectedLength": 720,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 360,
+          "1": 360
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 18,
+            "colMin": 0,
+            "rowMax": 35,
+            "colMax": 19,
+            "height": 18,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 272,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_272.json",
+      "boardWidth": 45,
+      "boardHeight": 45,
+      "filledCells": 2025,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2025,
+        "expectedLength": 2025,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 484,
+          "1": 506,
+          "2": 506,
+          "3": 529
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 22,
+            "rowMax": 21,
+            "colMax": 44,
+            "height": 22,
+            "width": 23
+          },
+          "2": {
+            "rowMin": 22,
+            "colMin": 0,
+            "rowMax": 44,
+            "colMax": 21,
+            "height": 23,
+            "width": 22
+          },
+          "3": {
+            "rowMin": 22,
+            "colMin": 22,
+            "rowMax": 44,
+            "colMax": 44,
+            "height": 23,
+            "width": 23
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 283,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_283.json",
+      "boardWidth": 37,
+      "boardHeight": 40,
+      "filledCells": 1480,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1480,
+        "expectedLength": 1480,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 360,
+          "1": 380,
+          "2": 360,
+          "3": 380
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 18,
+            "rowMax": 19,
+            "colMax": 36,
+            "height": 20,
+            "width": 19
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 17,
+            "height": 20,
+            "width": 18
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 18,
+            "rowMax": 39,
+            "colMax": 36,
+            "height": 20,
+            "width": 19
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 290,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_290.json",
+      "boardWidth": 45,
+      "boardHeight": 40,
+      "filledCells": 1800,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1800,
+        "expectedLength": 1800,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 440,
+          "1": 460,
+          "2": 440,
+          "3": 460
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 22,
+            "rowMax": 19,
+            "colMax": 44,
+            "height": 20,
+            "width": 23
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 21,
+            "height": 20,
+            "width": 22
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 22,
+            "rowMax": 39,
+            "colMax": 44,
+            "height": 20,
+            "width": 23
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 293,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_293.json",
+      "boardWidth": 41,
+      "boardHeight": 44,
+      "filledCells": 1804,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1804,
+        "expectedLength": 1804,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 440,
+          "1": 462,
+          "2": 440,
+          "3": 462
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 21,
+            "colMax": 40,
+            "height": 22,
+            "width": 21
+          },
+          "2": {
+            "rowMin": 22,
+            "colMin": 0,
+            "rowMax": 43,
+            "colMax": 19,
+            "height": 22,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 22,
+            "colMin": 20,
+            "rowMax": 43,
+            "colMax": 40,
+            "height": 22,
+            "width": 21
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 303,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_303.json",
+      "boardWidth": 40,
+      "boardHeight": 24,
+      "filledCells": 780,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 960,
+        "expectedLength": 960,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 3,
+        "cellCountsByRegion": {
+          "-1": 180,
+          "0": 389,
+          "1": 391
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 23,
+            "colMax": 39,
+            "height": 24,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 319,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_319.json",
+      "boardWidth": 33,
+      "boardHeight": 50,
+      "filledCells": 1650,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1650,
+        "expectedLength": 1650,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 825,
+          "1": 825
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 32,
+            "height": 25,
+            "width": 33
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 326,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_326.json",
+      "boardWidth": 27,
+      "boardHeight": 27,
+      "filledCells": 729,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 729,
+        "expectedLength": 729,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 169,
+          "1": 182,
+          "2": 182,
+          "3": 196
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 13,
+            "rowMax": 12,
+            "colMax": 26,
+            "height": 13,
+            "width": 14
+          },
+          "2": {
+            "rowMin": 13,
+            "colMin": 0,
+            "rowMax": 26,
+            "colMax": 12,
+            "height": 14,
+            "width": 13
+          },
+          "3": {
+            "rowMin": 13,
+            "colMin": 13,
+            "rowMax": 26,
+            "colMax": 26,
+            "height": 14,
+            "width": 14
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 334,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_334.json",
+      "boardWidth": 35,
+      "boardHeight": 48,
+      "filledCells": 1680,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1680,
+        "expectedLength": 1680,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 840,
+          "1": 840
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 24,
+            "colMin": 0,
+            "rowMax": 47,
+            "colMax": 34,
+            "height": 24,
+            "width": 35
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 346,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_346.json",
+      "boardWidth": 40,
+      "boardHeight": 21,
+      "filledCells": 840,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 840,
+        "expectedLength": 840,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 420,
+          "1": 420
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 20,
+            "colMax": 39,
+            "height": 21,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 357,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_357.json",
+      "boardWidth": 34,
+      "boardHeight": 35,
+      "filledCells": 1190,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1190,
+        "expectedLength": 1190,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 289,
+          "1": 289,
+          "2": 306,
+          "3": 306
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 17,
+            "rowMax": 16,
+            "colMax": 33,
+            "height": 17,
+            "width": 17
+          },
+          "2": {
+            "rowMin": 17,
+            "colMin": 0,
+            "rowMax": 34,
+            "colMax": 16,
+            "height": 18,
+            "width": 17
+          },
+          "3": {
+            "rowMin": 17,
+            "colMin": 17,
+            "rowMax": 34,
+            "colMax": 33,
+            "height": 18,
+            "width": 17
+          }
+        }
+      }
+    },
+    {
+      "kind": "main",
+      "level": 364,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_364.json",
+      "boardWidth": 42,
+      "boardHeight": 42,
+      "filledCells": 1529,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1764,
+        "expectedLength": 1764,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 5,
+        "cellCountsByRegion": {
+          "-1": 235,
+          "0": 317,
+          "1": 369,
+          "2": 432,
+          "3": 411
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 21,
+            "rowMax": 20,
+            "colMax": 41,
+            "height": 21,
+            "width": 21
+          },
+          "2": {
+            "rowMin": 21,
+            "colMin": 0,
+            "rowMax": 41,
+            "colMax": 20,
+            "height": 21,
+            "width": 21
+          },
+          "3": {
+            "rowMin": 21,
+            "colMin": 21,
+            "rowMax": 41,
+            "colMax": 40,
+            "height": 21,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 2,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_002.json",
+      "boardWidth": 48,
+      "boardHeight": 48,
+      "filledCells": 2304,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2304,
+        "expectedLength": 2304,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 1152,
+          "1": 1152
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 24,
+            "rowMax": 47,
+            "colMax": 47,
+            "height": 48,
+            "width": 24
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 7,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_007.json",
+      "boardWidth": 48,
+      "boardHeight": 48,
+      "filledCells": 2304,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2304,
+        "expectedLength": 2304,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 576,
+          "1": 576,
+          "2": 576,
+          "3": 576
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 24,
+            "rowMax": 23,
+            "colMax": 47,
+            "height": 24,
+            "width": 24
+          },
+          "2": {
+            "rowMin": 24,
+            "colMin": 0,
+            "rowMax": 47,
+            "colMax": 23,
+            "height": 24,
+            "width": 24
+          },
+          "3": {
+            "rowMin": 24,
+            "colMin": 24,
+            "rowMax": 47,
+            "colMax": 47,
+            "height": 24,
+            "width": 24
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 9,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_009.json",
+      "boardWidth": 46,
+      "boardHeight": 52,
+      "filledCells": 2392,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2392,
+        "expectedLength": 2392,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 598,
+          "1": 598,
+          "2": 598,
+          "3": 598
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 23,
+            "rowMax": 25,
+            "colMax": 45,
+            "height": 26,
+            "width": 23
+          },
+          "2": {
+            "rowMin": 26,
+            "colMin": 0,
+            "rowMax": 51,
+            "colMax": 22,
+            "height": 26,
+            "width": 23
+          },
+          "3": {
+            "rowMin": 26,
+            "colMin": 23,
+            "rowMax": 51,
+            "colMax": 45,
+            "height": 26,
+            "width": 23
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 15,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_015.json",
+      "boardWidth": 50,
+      "boardHeight": 50,
+      "filledCells": 2500,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2500,
+        "expectedLength": 2500,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 625,
+          "1": 625,
+          "2": 625,
+          "3": 625
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 25,
+            "rowMax": 24,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 24,
+            "height": 25,
+            "width": 25
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 25,
+            "rowMax": 49,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 16,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_016.json",
+      "boardWidth": 52,
+      "boardHeight": 52,
+      "filledCells": 2704,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2704,
+        "expectedLength": 2704,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 676,
+          "1": 676,
+          "2": 676,
+          "3": 676
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 26,
+            "rowMax": 25,
+            "colMax": 51,
+            "height": 26,
+            "width": 26
+          },
+          "2": {
+            "rowMin": 26,
+            "colMin": 0,
+            "rowMax": 51,
+            "colMax": 25,
+            "height": 26,
+            "width": 26
+          },
+          "3": {
+            "rowMin": 26,
+            "colMin": 26,
+            "rowMax": 51,
+            "colMax": 51,
+            "height": 26,
+            "width": 26
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 17,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_017.json",
+      "boardWidth": 50,
+      "boardHeight": 50,
+      "filledCells": 2500,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2500,
+        "expectedLength": 2500,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 625,
+          "1": 625,
+          "2": 625,
+          "3": 625
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 25,
+            "rowMax": 24,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 24,
+            "height": 25,
+            "width": 25
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 25,
+            "rowMax": 49,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 19,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_019.json",
+      "boardWidth": 50,
+      "boardHeight": 50,
+      "filledCells": 2500,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2500,
+        "expectedLength": 2500,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 625,
+          "1": 625,
+          "2": 625,
+          "3": 625
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 25,
+            "rowMax": 24,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 24,
+            "height": 25,
+            "width": 25
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 25,
+            "rowMax": 49,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 21,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_021.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 400,
+          "2": 400,
+          "3": 400
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 19,
+            "height": 20,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 25,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_025.json",
+      "boardWidth": 45,
+      "boardHeight": 45,
+      "filledCells": 2025,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2025,
+        "expectedLength": 2025,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 990,
+          "1": 1035
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 22,
+            "colMin": 0,
+            "rowMax": 44,
+            "colMax": 44,
+            "height": 23,
+            "width": 45
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 26,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_026.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 400,
+          "2": 400,
+          "3": 400
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 19,
+            "height": 20,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 27,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_027.json",
+      "boardWidth": 39,
+      "boardHeight": 41,
+      "filledCells": 1599,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1599,
+        "expectedLength": 1599,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 380,
+          "1": 400,
+          "2": 399,
+          "3": 420
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 19,
+            "rowMax": 19,
+            "colMax": 38,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 40,
+            "colMax": 18,
+            "height": 21,
+            "width": 19
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 19,
+            "rowMax": 40,
+            "colMax": 38,
+            "height": 21,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 28,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_028.json",
+      "boardWidth": 40,
+      "boardHeight": 40,
+      "filledCells": 1600,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1600,
+        "expectedLength": 1600,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 400,
+          "1": 400,
+          "2": 400,
+          "3": 400
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 19,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          },
+          "2": {
+            "rowMin": 20,
+            "colMin": 0,
+            "rowMax": 39,
+            "colMax": 19,
+            "height": 20,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 20,
+            "colMin": 20,
+            "rowMax": 39,
+            "colMax": 39,
+            "height": 20,
+            "width": 20
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 30,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_030.json",
+      "boardWidth": 48,
+      "boardHeight": 48,
+      "filledCells": 2304,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2304,
+        "expectedLength": 2304,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 1152,
+          "1": 1152
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 24,
+            "rowMax": 47,
+            "colMax": 47,
+            "height": 48,
+            "width": 24
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 35,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_035.json",
+      "boardWidth": 48,
+      "boardHeight": 48,
+      "filledCells": 2304,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2304,
+        "expectedLength": 2304,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 576,
+          "1": 576,
+          "2": 576,
+          "3": 576
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 24,
+            "rowMax": 23,
+            "colMax": 47,
+            "height": 24,
+            "width": 24
+          },
+          "2": {
+            "rowMin": 24,
+            "colMin": 0,
+            "rowMax": 47,
+            "colMax": 23,
+            "height": 24,
+            "width": 24
+          },
+          "3": {
+            "rowMin": 24,
+            "colMin": 24,
+            "rowMax": 47,
+            "colMax": 47,
+            "height": 24,
+            "width": 24
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 36,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_036.json",
+      "boardWidth": 50,
+      "boardHeight": 50,
+      "filledCells": 2500,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2500,
+        "expectedLength": 2500,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 625,
+          "1": 625,
+          "2": 625,
+          "3": 625
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 25,
+            "rowMax": 24,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 24,
+            "height": 25,
+            "width": 25
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 25,
+            "rowMax": 49,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 40,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_040.json",
+      "boardWidth": 41,
+      "boardHeight": 49,
+      "filledCells": 2009,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2009,
+        "expectedLength": 2009,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 480,
+          "1": 504,
+          "2": 500,
+          "3": 525
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 20,
+            "rowMax": 23,
+            "colMax": 40,
+            "height": 24,
+            "width": 21
+          },
+          "2": {
+            "rowMin": 24,
+            "colMin": 0,
+            "rowMax": 48,
+            "colMax": 19,
+            "height": 25,
+            "width": 20
+          },
+          "3": {
+            "rowMin": 24,
+            "colMin": 20,
+            "rowMax": 48,
+            "colMax": 40,
+            "height": 25,
+            "width": 21
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 41,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_041.json",
+      "boardWidth": 32,
+      "boardHeight": 57,
+      "filledCells": 1824,
+      "filledBucket": "1500-1999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 1824,
+        "expectedLength": 1824,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 896,
+          "1": 928
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 28,
+            "colMin": 0,
+            "rowMax": 56,
+            "colMax": 31,
+            "height": 29,
+            "width": 32
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 43,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_043.json",
+      "boardWidth": 44,
+      "boardHeight": 56,
+      "filledCells": 2464,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2464,
+        "expectedLength": 2464,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 1232,
+          "1": 1232
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 28,
+            "colMin": 0,
+            "rowMax": 55,
+            "colMax": 43,
+            "height": 28,
+            "width": 44
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 44,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_044.json",
+      "boardWidth": 42,
+      "boardHeight": 50,
+      "filledCells": 2100,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2100,
+        "expectedLength": 2100,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 1050,
+          "1": 1050
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 41,
+            "height": 25,
+            "width": 42
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 45,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_045.json",
+      "boardWidth": 50,
+      "boardHeight": 50,
+      "filledCells": 2500,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2500,
+        "expectedLength": 2500,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 625,
+          "1": 625,
+          "2": 625,
+          "3": 625
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 25,
+            "rowMax": 24,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 24,
+            "height": 25,
+            "width": 25
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 25,
+            "rowMax": 49,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 47,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_047.json",
+      "boardWidth": 49,
+      "boardHeight": 47,
+      "filledCells": 2303,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2303,
+        "expectedLength": 2303,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 552,
+          "1": 575,
+          "2": 576,
+          "3": 600
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 24,
+            "rowMax": 22,
+            "colMax": 48,
+            "height": 23,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 23,
+            "colMin": 0,
+            "rowMax": 46,
+            "colMax": 23,
+            "height": 24,
+            "width": 24
+          },
+          "3": {
+            "rowMin": 23,
+            "colMin": 24,
+            "rowMax": 46,
+            "colMax": 48,
+            "height": 24,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 48,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_048.json",
+      "boardWidth": 50,
+      "boardHeight": 50,
+      "filledCells": 2500,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2500,
+        "expectedLength": 2500,
+        "regionIds": [
+          1,
+          2,
+          3
+        ],
+        "positiveRegionCount": 3,
+        "totalRegionCountIncludingZero": 4,
+        "cellCountsByRegion": {
+          "0": 625,
+          "1": 625,
+          "2": 625,
+          "3": 625
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 25,
+            "rowMax": 24,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          },
+          "2": {
+            "rowMin": 25,
+            "colMin": 0,
+            "rowMax": 49,
+            "colMax": 24,
+            "height": 25,
+            "width": 25
+          },
+          "3": {
+            "rowMin": 25,
+            "colMin": 25,
+            "rowMax": 49,
+            "colMax": 49,
+            "height": 25,
+            "width": 25
+          }
+        }
+      }
+    },
+    {
+      "kind": "daily",
+      "level": 49,
+      "file": "tools/competitors/拼豆解解压/levels/daily/daily_049.json",
+      "boardWidth": 52,
+      "boardHeight": 50,
+      "filledCells": 2600,
+      "filledBucket": ">=2000",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": true,
+      "hasTimeRegs": false,
+      "regionMap": {
+        "length": 2600,
+        "expectedLength": 2600,
+        "regionIds": [
+          1
+        ],
+        "positiveRegionCount": 1,
+        "totalRegionCountIncludingZero": 2,
+        "cellCountsByRegion": {
+          "0": 1300,
+          "1": 1300
+        },
+        "boxesByPositiveRegion": {
+          "1": {
+            "rowMin": 0,
+            "colMin": 26,
+            "rowMax": 49,
+            "colMax": 51,
+            "height": 50,
+            "width": 26
+          }
+        }
+      }
+    }
+  ],
+  "timeRegLevels": [
+    {
+      "kind": "main",
+      "level": 7,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_007.json",
+      "boardWidth": 12,
+      "boardHeight": 16,
+      "filledCells": 113,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 4,
+          "colIndex": 2,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 17,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_017.json",
+      "boardWidth": 25,
+      "boardHeight": 25,
+      "filledCells": 625,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 3,
+          "colIndex": 15,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 28,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_028.json",
+      "boardWidth": 27,
+      "boardHeight": 27,
+      "filledCells": 562,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 5,
+          "colIndex": 16,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 33,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_033.json",
+      "boardWidth": 36,
+      "boardHeight": 36,
+      "filledCells": 1296,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 28,
+          "colIndex": 25,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 47,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_047.json",
+      "boardWidth": 25,
+      "boardHeight": 24,
+      "filledCells": 482,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 10,
+          "colIndex": 15,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 54,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_054.json",
+      "boardWidth": 24,
+      "boardHeight": 24,
+      "filledCells": 576,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 5,
+          "colIndex": 3,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 62,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_062.json",
+      "boardWidth": 32,
+      "boardHeight": 32,
+      "filledCells": 1024,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 19,
+          "colIndex": 23,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 75,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_075.json",
+      "boardWidth": 24,
+      "boardHeight": 24,
+      "filledCells": 576,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 6,
+          "colIndex": 2,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 87,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_087.json",
+      "boardWidth": 36,
+      "boardHeight": 34,
+      "filledCells": 834,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 3,
+          "colIndex": 21,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 97,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_097.json",
+      "boardWidth": 24,
+      "boardHeight": 24,
+      "filledCells": 576,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 6,
+          "colIndex": 12,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 106,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_106.json",
+      "boardWidth": 30,
+      "boardHeight": 30,
+      "filledCells": 900,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 13,
+          "colIndex": 13,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 116,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_116.json",
+      "boardWidth": 24,
+      "boardHeight": 24,
+      "filledCells": 576,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 10,
+          "colIndex": 16,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 126,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_126.json",
+      "boardWidth": 35,
+      "boardHeight": 30,
+      "filledCells": 1050,
+      "filledBucket": "1000-1499",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 20,
+          "colIndex": 16,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 134,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_134.json",
+      "boardWidth": 22,
+      "boardHeight": 33,
+      "filledCells": 726,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 23,
+          "colIndex": 6,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 150,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_150.json",
+      "boardWidth": 25,
+      "boardHeight": 25,
+      "filledCells": 625,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 16,
+          "colIndex": 5,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 155,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_155.json",
+      "boardWidth": 18,
+      "boardHeight": 18,
+      "filledCells": 306,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 150,
+          "rowIndex": 3,
+          "colIndex": 3,
+          "width": 12,
+          "height": 7
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 166,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_166.json",
+      "boardWidth": 15,
+      "boardHeight": 20,
+      "filledCells": 266,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 10,
+          "colIndex": 6,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 173,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_173.json",
+      "boardWidth": 25,
+      "boardHeight": 25,
+      "filledCells": 625,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 12,
+          "colIndex": 5,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 181,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_181.json",
+      "boardWidth": 25,
+      "boardHeight": 25,
+      "filledCells": 489,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 8,
+          "colIndex": 13,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 190,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_190.json",
+      "boardWidth": 24,
+      "boardHeight": 24,
+      "filledCells": 576,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 12,
+          "colIndex": 11,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 193,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_193.json",
+      "boardWidth": 24,
+      "boardHeight": 24,
+      "filledCells": 576,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 14,
+          "colIndex": 13,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 205,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_205.json",
+      "boardWidth": 32,
+      "boardHeight": 37,
+      "filledCells": 934,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 21,
+          "colIndex": 18,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 218,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_218.json",
+      "boardWidth": 26,
+      "boardHeight": 30,
+      "filledCells": 780,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 21,
+          "colIndex": 6,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 229,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_229.json",
+      "boardWidth": 20,
+      "boardHeight": 20,
+      "filledCells": 400,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 11,
+          "colIndex": 13,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 232,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_232.json",
+      "boardWidth": 30,
+      "boardHeight": 30,
+      "filledCells": 900,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 6,
+          "colIndex": 14,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 247,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_247.json",
+      "boardWidth": 19,
+      "boardHeight": 21,
+      "filledCells": 399,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 5,
+          "colIndex": 7,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 251,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_251.json",
+      "boardWidth": 21,
+      "boardHeight": 23,
+      "filledCells": 483,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 11,
+          "colIndex": 12,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 265,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_265.json",
+      "boardWidth": 26,
+      "boardHeight": 26,
+      "filledCells": 676,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 10,
+          "colIndex": 18,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 274,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_274.json",
+      "boardWidth": 26,
+      "boardHeight": 29,
+      "filledCells": 754,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 11,
+          "colIndex": 2,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 287,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_287.json",
+      "boardWidth": 30,
+      "boardHeight": 28,
+      "filledCells": 840,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 15,
+          "colIndex": 8,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 298,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_298.json",
+      "boardWidth": 26,
+      "boardHeight": 26,
+      "filledCells": 676,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 19,
+          "colIndex": 18,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 302,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_302.json",
+      "boardWidth": 29,
+      "boardHeight": 28,
+      "filledCells": 812,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 12,
+          "colIndex": 20,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 316,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_316.json",
+      "boardWidth": 23,
+      "boardHeight": 22,
+      "filledCells": 506,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 11,
+          "colIndex": 2,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 324,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_324.json",
+      "boardWidth": 29,
+      "boardHeight": 29,
+      "filledCells": 799,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 19,
+          "colIndex": 19,
+          "width": 6,
+          "height": 6
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 336,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_336.json",
+      "boardWidth": 22,
+      "boardHeight": 24,
+      "filledCells": 528,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 15,
+          "colIndex": 12,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 348,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_348.json",
+      "boardWidth": 19,
+      "boardHeight": 25,
+      "filledCells": 305,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 13,
+          "colIndex": 3,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 353,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_353.json",
+      "boardWidth": 22,
+      "boardHeight": 21,
+      "filledCells": 308,
+      "filledBucket": "<500",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 13,
+          "colIndex": 4,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    },
+    {
+      "kind": "main",
+      "level": 363,
+      "file": "tools/competitors/拼豆解解压/levels/main/lv_363.json",
+      "boardWidth": 27,
+      "boardHeight": 27,
+      "filledCells": 729,
+      "filledBucket": "500-999",
+      "topLevelTimeLimit": 0,
+      "topLevelSlotTotalCount": 0,
+      "hasRegionMap": false,
+      "hasTimeRegs": true,
+      "timeRegs": [
+        {
+          "time": 120,
+          "rowIndex": 11,
+          "colIndex": 5,
+          "width": 5,
+          "height": 5
+        }
+      ]
+    }
+  ]
+}

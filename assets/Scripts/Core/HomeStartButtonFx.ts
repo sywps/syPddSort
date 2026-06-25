@@ -16,8 +16,8 @@ const { ccclass } = _decorator;
 const FX_ROOT_NAME = 'HomeStartButtonFx-Root';
 const FX_SPARKLE_PREFIX = 'HomeStartButtonFx-Sparkle';
 
-const IDLE_JELLY_INITIAL_DELAY = 0.5;
-const IDLE_JELLY_REPEAT_DELAY = 1.45;
+const IDLE_BOUNCE_INITIAL_DELAY = 0.5;
+const IDLE_BOUNCE_REPEAT_DELAY = 1.45;
 
 type HomeStartButtonSparkleSpec = {
     xRatio: number;
@@ -139,36 +139,32 @@ export class HomeStartButtonFx extends Component {
     }
 
     private startIdleFx(): void {
-        this.startIdleJelly();
+        this.startIdleScaleBounce();
         this.startSparkles();
     }
 
-    private startIdleJelly(): void {
+    private startIdleScaleBounce(): void {
         const basePosition = this._basePosition.clone();
         const baseScale = this._baseScale.clone();
-        const squashPosition = new Vec3(basePosition.x, basePosition.y - 2, basePosition.z);
-        const stretchPosition = new Vec3(basePosition.x, basePosition.y + 4, basePosition.z);
-        const settlePosition = new Vec3(basePosition.x, basePosition.y, basePosition.z);
-        const squashScale = this.scaleVec3XY(baseScale, 1.045, 0.955);
-        const stretchScale = this.scaleVec3XY(baseScale, 0.972, 1.036);
-        const settleScale = this.scaleVec3XY(baseScale, 1.014, 0.988);
+        const firstPopScale = this.scaleVec3(baseScale, 1.07);
+        const firstReboundScale = this.scaleVec3(baseScale, 0.985);
+        const secondPopScale = this.scaleVec3(baseScale, 1.04);
+        const secondReboundScale = this.scaleVec3(baseScale, 0.995);
 
         this.node.angle = this._baseAngle;
         this.node.setPosition(basePosition);
         this.node.setScale(baseScale);
         tween(this.node)
-            .delay(IDLE_JELLY_INITIAL_DELAY)
+            .delay(IDLE_BOUNCE_INITIAL_DELAY)
             .call(() => {
                 tween(this.node)
-                    .to(0.08, { position: squashPosition, scale: squashScale }, { easing: 'sineOut' })
-                    .to(0.1, { position: stretchPosition, scale: stretchScale }, { easing: 'sineInOut' })
-                    .to(0.12, { position: settlePosition, scale: settleScale }, { easing: 'sineInOut' })
-                    .to(0.1, { position: basePosition, scale: baseScale }, { easing: 'sineOut' })
-                    .to(0.08, { position: squashPosition, scale: squashScale }, { easing: 'sineOut' })
-                    .to(0.1, { position: stretchPosition, scale: stretchScale }, { easing: 'sineInOut' })
-                    .to(0.12, { position: settlePosition, scale: settleScale }, { easing: 'sineInOut' })
-                    .to(0.1, { position: basePosition, scale: baseScale }, { easing: 'sineOut' })
-                    .delay(IDLE_JELLY_REPEAT_DELAY)
+                    .to(0.1, { scale: firstPopScale }, { easing: 'sineOut' })
+                    .to(0.11, { scale: firstReboundScale }, { easing: 'sineInOut' })
+                    .to(0.1, { scale: baseScale }, { easing: 'sineOut' })
+                    .to(0.09, { scale: secondPopScale }, { easing: 'sineOut' })
+                    .to(0.1, { scale: secondReboundScale }, { easing: 'sineInOut' })
+                    .to(0.12, { scale: baseScale }, { easing: 'sineOut' })
+                    .delay(IDLE_BOUNCE_REPEAT_DELAY)
                     .union()
                     .repeatForever()
                     .start();
@@ -261,8 +257,8 @@ export class HomeStartButtonFx extends Component {
         if (this._buttonOpacity?.isValid) this._buttonOpacity.opacity = 255;
     }
 
-    private scaleVec3XY(base: Vec3, scaleX: number, scaleY: number): Vec3 {
-        return new Vec3(base.x * scaleX, base.y * scaleY, base.z);
+    private scaleVec3(base: Vec3, scale: number): Vec3 {
+        return new Vec3(base.x * scale, base.y * scale, base.z);
     }
 }
 

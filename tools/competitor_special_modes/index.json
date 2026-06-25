@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-06-25T06:24:21.909Z",
+  "root": "tools/competitor_special_modes",
+  "games": [
+    {
+      "name": "拼豆解解压",
+      "report": "拼豆解解压/special_modes_report.json",
+      "note": "Reference report for confirmed timeRegs/regionMap level fields."
+    },
+    {
+      "name": "快乐拼拼豆",
+      "report": "快乐拼拼豆/special_modes_report.json",
+      "resourceManifest": "快乐拼拼豆/resource_manifest.json",
+      "timeRegsBoxManifest": "快乐拼拼豆/timeRegs_box_assets/manifest.json",
+      "note": "Embedded countdown-box resources inferred from Cocos packs; converted levels still need raw timeRegs fields if gameplay logic is required."
+    }
+  ]
+}

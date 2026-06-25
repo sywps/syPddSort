@@ -66,9 +66,6 @@ export class ThemePanelController {
                     ruleLabel.string = `主线第${runtime.getThemePanelOpenRequirementLevel()}关解锁第1关，每过${runtime.getThemeUnlockStepLevel()}关可解锁1个主题关`;
                 }
 
-                for (const child of content.children) {
-                    child.active = child.name === 'ThemeScrollContent';
-                }
                 const scrollContent = runtime.requirePanelChild(content, 'ThemeScrollContent');
                 scrollContent.active = true;
                 scrollContent.layer = content.layer;
@@ -76,8 +73,8 @@ export class ThemePanelController {
                 if (!scrollContentUi) {
                     throw new Error('[theme-panel] ThemePanel.prefab is missing UITransform on ThemeScrollContent');
                 }
-                for (const child of scrollContent.children) {
-                    if (child.name !== 'ThemeCardTemplate' && child.name !== 'ThemeHeaderTemplate') {
+                for (const child of scrollContent.children.slice()) {
+                    if (child.name.startsWith('ThemeCard_') || child.name.startsWith('ThemeHeader_')) {
                         child.destroy();
                     }
                 }

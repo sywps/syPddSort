@@ -1,0 +1,782 @@
+{
+  "generatedAt": "2026-06-25T03:02:17.563Z",
+  "gameName": "快乐拼拼豆",
+  "converted": {
+    "main": {
+      "dir": "tools/competitors/快乐拼拼豆/levels/main",
+      "fileCount": 1374,
+      "topLevelKeys": [
+        "boardHeight",
+        "boardWidth",
+        "colorMappingMode",
+        "correctColorArr",
+        "initRandomColorArr",
+        "slotTotalCount",
+        "sourceColorIdToLocalColorId",
+        "sourceColorMergeGroupsInLevel",
+        "sourceColorUsed",
+        "sourceFile",
+        "sourceGame",
+        "sourceHighDistanceColorsInLevel",
+        "sourceLevel",
+        "sourceLevelName",
+        "sourceMeta",
+        "sourcePackage",
+        "sourceSet",
+        "timeLimit"
+      ],
+      "sourceFieldKeys": [],
+      "levelsWithTimeRegs": [],
+      "levelsWithRegionMap": [],
+      "levelsWithBoth": [],
+      "interestingKeys": [
+        [
+          "sourceMeta.configLevel.limitProp",
+          1374
+        ],
+        [
+          "sourceMeta.configLevel.limitTime",
+          1374
+        ]
+      ],
+      "limitTimeStats": [
+        [
+          "60",
+          1
+        ],
+        [
+          "80",
+          2
+        ],
+        [
+          "90",
+          1
+        ],
+        [
+          "120",
+          1
+        ],
+        [
+          "150",
+          7
+        ],
+        [
+          "180",
+          22
+        ],
+        [
+          "200",
+          35
+        ],
+        [
+          "220",
+          37
+        ],
+        [
+          "240",
+          151
+        ],
+        [
+          "270",
+          184
+        ],
+        [
+          "300",
+          136
+        ],
+        [
+          "320",
+          99
+        ],
+        [
+          "360",
+          162
+        ],
+        [
+          "390",
+          222
+        ],
+        [
+          "400",
+          1
+        ],
+        [
+          "420",
+          220
+        ],
+        [
+          "480",
+          93
+        ]
+      ]
+    },
+    "daily": {
+      "dir": "tools/competitors/快乐拼拼豆/levels/daily",
+      "fileCount": 0,
+      "topLevelKeys": [],
+      "sourceFieldKeys": [],
+      "levelsWithTimeRegs": [],
+      "levelsWithRegionMap": [],
+      "levelsWithBoth": [],
+      "interestingKeys": [],
+      "limitTimeStats": []
+    }
+  },
+  "package": {
+    "outputRoot": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT",
+    "keywordHits": [
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/scripts/game.js",
+        "size": 313214,
+        "hitCount": 218,
+        "terms": [
+          "AddTime",
+          "Countdown",
+          "LimitTime",
+          "Lock",
+          "Region",
+          "SpeGuide",
+          "Special",
+          "Timer",
+          "Unlock",
+          "addTime",
+          "freezeTime",
+          "isPauseTime",
+          "layer",
+          "limitProp",
+          "limitTime",
+          "lock",
+          "region",
+          "speGuide",
+          "special",
+          "timer",
+          "unlock"
+        ],
+        "snippets": [
+          " this._refreshCellIcon(e, n, o); var a = e.getChildByName(\"node_lock\"); a && (a.active = !o); var r = null == (i = e.getChildByName(\"lab_lock\")) ? void 0 : i.ge",
+          " a && (a.active = !o); var r = null == (i = e.getChildByName(\"lab_lock\")) ? void 0 : i.getComponent(s); if (r) if (r.node.active = !o, o) r.string = \"\"; ",
+          " this._getDisplayLevel(n); r.string = l > 0 ? c.getStr(\"collect_lock_level\", { 1: l }) : \"\" } } }, o._getCurrentMapIds",
+          "oid 0, t.lab_frame_time = void 0, t._gameMode = \"level\", t._challengeId = 0, t._specialRegion = null, t._frameTimeTotal = 0, t._frameTimeLeft = 0, t._frameTimerRunning = !1, t._frameCompleted = !1, t.",
+          "t.lab_frame_time = void 0, t._gameMode = \"level\", t._challengeId = 0, t._specialRegion = null, t._frameTimeTotal = 0, t._frameTimeLeft = 0, t._frameTimerRunning = !1, t._frameCompleted = !1, t._frameL",
+          ", t._specialRegion = null, t._frameTimeTotal = 0, t._frameTimeLeft = 0, t._frameTimerRunning = !1, t._frameCompleted = !1, t._frameLastDisplayedSec = -1, t._grids = [], t._rows = 0, t._cols = 0, t._se"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/cocos-js/index-BYUzE5el.js",
+        "size": 297017,
+        "hitCount": 114,
+        "terms": [
+          "LAYER",
+          "Layer",
+          "layer",
+          "lock",
+          "special"
+        ],
+        "snippets": [
+          "{ function e() { this.descriptors = new Map, this.uniformBlocks = new Map, this.capacity = 0, this.count = 0 } return e.prototype.reset = function() { ",
+          "ototype.reset = function() { this.descriptors.clear(), this.uniformBlocks.clear(), this.capacity = 0, this.count = 0 }, e }(), kt = function() { functio",
+          " { function e() { this.descriptorNames = [], this.uniformBlockNames = [], this.descriptors = [], this.uniformBlocks = [], this.capacity = 0, this.count = 0 } ",
+          "torNames = [], this.uniformBlockNames = [], this.descriptors = [], this.uniformBlocks = [], this.capacity = 0, this.count = 0 } return e.prototype.reset = function() { ",
+          ".reset = function() { this.descriptorNames.length = 0, this.uniformBlockNames.length = 0, this.descriptors.length = 0, this.uniformBlocks.length = 0, this.capacity = 0, this.count = 0 ",
+          "0, this.uniformBlockNames.length = 0, this.descriptors.length = 0, this.uniformBlocks.length = 0, this.capacity = 0, this.count = 0 }, e }(), Ht = function(e, t, r, i) { "
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/cocos-js/animation.js",
+        "size": 279430,
+        "hitCount": 87,
+        "terms": [
+          "Layer",
+          "Lock",
+          "Unlock",
+          "layer",
+          "lock"
+        ],
+        "snippets": [
+          ", execute: function() { var Qt, Yt, qt, Xt, Zt; N(K + \"EmbeddedPlayer\")((Qt = function(t) { function e() { for (var e, n = arguments.length, i = new Array(n), r = 0; ",
+          " if (!n) return o(\"Particle system is required for embedded particle system player.\"), null; var i = e.getComponent(n); return i ? new se(i) : (o(this.path + \" does not includes",
+          " ce)) || le; function be(t, e) { for (var n, i = l(t.shaderInfo.blocks); !(n = i()).done;) for (var r, o = n.value, a = l(o.members); !(r = a()).done;) { var s = r",
+          " return new Kr })), Dr = Br)) || Dr, po = N(\"cc.animation.Layer\")((Vr = function() { var t = e.prototype; function e() { this[Ne] = void 0, this.",
+          "unction e() { var e; return (e = t.call(this) || this)._layers = Xr && Xr(), e._variables = Zr && Zr(), e } n(e, t); var r = e.prototype; ",
+          "type; return r.onLoaded = function() { for (var t = this._layers, e = t.length, n = 0; n < e; ++n) t[n].__callOnAfterDeserializeRecursive() }, r.addLayer = function() {"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/internal/import/06/06585a170.850b5.json",
+        "size": 116635,
+        "hitCount": 74,
+        "terms": [
+          "Layer",
+          "lock"
+        ],
+        "snippets": [
+          "aphics\",[{\"hash\":586721616,\"name\":\"internal/builtin-graphics|vs:vert|fs:frag\",\"blocks\":[],\"samplerTextures\":[],\"samplers\":[],\"textures\":[],\"buffers\":[],\"images\":[],\"subpassInputs\":[],\"attributes\":[{\"n",
+          "count\":1,\"stageFlags\":16,\"location\":0,\"defines\":[]}],\"descriptors\":[{\"rate\":0,\"blocks\":[{\"name\":\"CCLocal\",\"stageFlags\":1,\"tags\":{\"builtin\":\"local\"},\"members\":[{\"name\":\"cc_matWorld\",\"typename\":\"mat4\",\"",
+          "lers\":[],\"textures\":[],\"buffers\":[],\"images\":[],\"subpassInputs\":[]},{\"rate\":1,\"blocks\":[],\"samplerTextures\":[],\"samplers\":[],\"textures\":[],\"buffers\":[],\"images\":[],\"subpassInputs\":[]},{\"rate\":2,\"block",
+          "lers\":[],\"textures\":[],\"buffers\":[],\"images\":[],\"subpassInputs\":[]},{\"rate\":2,\"blocks\":[],\"samplerTextures\":[],\"samplers\":[],\"textures\":[],\"buffers\":[],\"images\":[],\"subpassInputs\":[]},{\"rate\":3,\"block",
+          "lers\":[],\"textures\":[],\"buffers\":[],\"images\":[],\"subpassInputs\":[]},{\"rate\":3,\"blocks\":[{\"name\":\"CCGlobal\",\"stageFlags\":1,\"tags\":{\"builtin\":\"global\"},\"members\":[{\"name\":\"cc_time\",\"typename\":\"vec4\",\"ty",
+          "return o;\\n}\\nvoid main() { gl_FragColor = frag(); }\"},\"builtins\":{\"globals\":{\"blocks\":[{\"name\":\"CCGlobal\",\"defines\":[]},{\"name\":\"CCCamera\",\"defines\":[]}],\"samplerTextures\":[],\"buffers\":[],\"images\":[]"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/cocos-js/animation-component-DdvCbq7K.js",
+        "size": 114618,
+        "hitCount": 58,
+        "terms": [
+          "layer",
+          "special"
+        ],
+        "snippets": [
+          "i._weight = 1, i._clipEval = void 0, i._clipEventEval = void 0, i._clipEmbeddedPlayerEval = void 0, i._doNotCreateEval = !1, i._clip = e, i._name = n || e && e.name, i._playbackRange = { m",
+          "d 0), this._clipEventEval && (this._clipEventEval = void 0), this._clipEmbeddedPlayerEval && (this._clipEmbeddedPlayerEval.destroy(), this._clipEmbeddedPlayerEval = void 0), this._targetNode = t; ",
+          "s._clipEventEval = void 0), this._clipEmbeddedPlayerEval && (this._clipEmbeddedPlayerEval.destroy(), this._clipEmbeddedPlayerEval = void 0), this._targetNode = t; var i = this._clip; ",
+          "beddedPlayerEval && (this._clipEmbeddedPlayerEval.destroy(), this._clipEmbeddedPlayerEval = void 0), this._targetNode = t; var i = this._clip; if (this.duration = i.duration, t",
+          "lipEventEval = i.createEventEvaluator(this._targetNode)), i.containsAnyEmbeddedPlayer() && (this._clipEmbeddedPlayerEval = i.createEmbeddedPlayerEvaluator(this._targetNode), this._clipEmbeddedPlayerEv",
+          "luator(this._targetNode)), i.containsAnyEmbeddedPlayer() && (this._clipEmbeddedPlayerEval = i.createEmbeddedPlayerEvaluator(this._targetNode), this._clipEmbeddedPlayerEval.notifyHostSpeedChanged(this."
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/libs/game.js",
+        "size": 123712,
+        "hitCount": 28,
+        "terms": [
+          "Layer",
+          "layer",
+          "lock"
+        ],
+        "snippets": [
+          " this.__setData(e, t), i) { var n = a.__module.zsPort.getEventKey(\"player_\" + e); n && _.emit(n, t) } }, o.setTempData = function(e, t) { this.__set",
+          "Type\", C, o(t)), r(t, \"shadeColor\", R, o(t)), r(t, \"animType\", I, o(t)), r(t, \"blockInput\", k, o(t)), t.__data = void 0, t } i(t, e); var u = t.prototype; return u.__vi",
+          ": function() { return A.NONE } }), k = t(b.prototype, \"blockInput\", [y], { configurable: !0, enumerable: !0, writable: !0, initializer: function",
+          "rite, l = e.color, h = e.Texture2D, d = e.ImageAsset, f = e.SpriteFrame, p = e.BlockInputEvents }, function(e) { g = e.zsFrame }, function(e) { m = e.__ZSClass }, function(e) {",
+          "eMode = c.SizeMode.CUSTOM, t.color = l(0, 0, 0, 178), e.active = !1, this.__addBlockInputEvents(t), this.__viewTierNodes[r].addChild(e), this.__viewTierShadeSprites[r] = t); var o = new Imag",
+          " function(e, t) { t && e != C && this.closeView(C) }, m.__addBlockInputEvents = function(e) { var t = e.getComponent(p) || e.addComponent(p); e.__blockInput = t "
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/sdk/ge.js",
+        "size": 200123,
+        "hitCount": 25,
+        "terms": [
+          "Layer",
+          "Timer",
+          "special",
+          "timer"
+        ],
+        "snippets": [
+          " for (var n in t) void 0 !== t[n] && (e[n] = t[n]) })), e }, T.extend2Layers = function(e) { return T.each(I.call(arguments, 1), (function(t) { for (var n in t) void 0 !== t[n] && ",
+          " }), 1e3 * this.reportDelay), this.inspectDelay = ae.inspectDelay, this.inspectTimer = void 0, this.isNeedContinueSend = !1, this.getBaseInfo = t.getBaseInfo, this.reportLog = t.reportLog, this.queue",
+          "omplete, this.onReportFail = t.onReportFail, this.flushSend(), this.startInspectTimer() } return z(e, [{ key: \"batchSend\", value: function() { var e, t, n = this.queueManag",
+          " }))) ? this.executeSend() : this.triggerExecuteSend(), this.startInspectTimer() } }, { key: \"flushSend\", value: function() { this.executeSend() } }, { ",
+          " } }) })) } }, { key: \"startInspectTimer\", value: function() { var t = this; clearTimeout(this.inspectTimer), this.inspectTimer = set",
+          " value: function() { var t = this; clearTimeout(this.inspectTimer), this.inspectTimer = setTimeout((function() { e.requestConcurrency <= e.currentRequestCount && (e.curre"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/engine-adapter.js",
+        "size": 29031,
+        "hitCount": 17,
+        "terms": [
+          "layer"
+        ],
+        "snippets": [
+          "/../\".concat(t)), i && i(null)) } function g(e, t, n) { cc.AudioPlayer.load(e).then((function(t) { t = { player: t, url: e, duration: t.duration, ",
+          " n) { cc.AudioPlayer.load(e).then((function(t) { t = { player: t, url: e, duration: t.duration, type: t.type }, n(null, t) })).catch",
+          "otypeOf(e) })(e) } var l, u, d, h, f, p, m; cc.internal.VideoPlayer && (l = cc.internal.VideoPlayer.EventType, u = cc.Vec3, d = cc.mat4(), h = new u, f = new u, p = wx.getSystemInfoS",
+          " var l, u, d, h, f, p, m; cc.internal.VideoPlayer && (l = cc.internal.VideoPlayer.EventType, u = cc.Vec3, d = cc.mat4(), h = new u, f = new u, p = wx.getSystemInfoSync().pixelRatio, cc.internal.Vi",
+          " h = new u, f = new u, p = wx.getSystemInfoSync().pixelRatio, cc.internal.VideoPlayerImplManager.getImpl = function(e) { return new m(e) }, m = function(e) { var t = i; if (\"func",
+          " key: \"syncClip\", value: function(e) { this.removeVideoPlayer(), e && this.createVideoPlayer(e._nativeAsset) } }, { key: \"syncURL\", value: functio"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/directGame/import/47/47e1de7a-9e66-4e70-b4c4-9a503906f7f5.bc5a7.json",
+        "size": 8933,
+        "hitCount": 9,
+        "terms": [
+          "TimeR",
+          "addTime",
+          "freezeTime",
+          "isPauseTime",
+          "limitProp",
+          "limitTime",
+          "speGuide"
+        ],
+        "snippets": [
+          "d\":[67,212,213]}],\"configCommon\":[{\"key\":\"levelLoop\",\"value\":[200,800]},{\"key\":\"addTime\",\"value\":180},{\"key\":\"vigorCeiling\",\"value\":10},{\"key\":\"vigorRestore\",\"value\":240},{\"key\":\"vigorCost\",\"value\":1}",
+          "lue\":240},{\"key\":\"vigorCost\",\"value\":1},{\"key\":\"rowInfo\",\"value\":[1,4]},{\"key\":\"freezeTime\",\"value\":180},{\"key\":\"daaLv\",\"value\":5},{\"key\":\"failDdaType\",\"value\":1},{\"key\":\"ddaTimeStep\",\"value\":[1.15,1.",
+          "daAutoFill\",\"value\":[0.05,0.08]},{\"key\":\"ddaHardTrigger\",\"value\":3},{\"key\":\"loopTimeRule\",\"value\":[0.2,0.4]},{\"key\":\"ddaHardProgress\",\"value\":0.15},{\"key\":\"nonporousUnlookCost\",\"value\":500},{\"key\":\"fi",
+          ":20},{\"key\":\"finalTipsTime\",\"value\":6},{\"key\":\"resourceType\",\"value\":2},{\"key\":\"speGuideLevel\",\"value\":3},{\"key\":\"sevenDayLevel\",\"value\":5},{\"key\":\"costPerDraw\",\"value\":1400},{\"key\":\"skinLevel\",\"value",
+          "10},{\"key\":\"leaderboardLevel\",\"value\":6},{\"key\":\"drawLevel\",\"value\":10},{\"key\":\"isPauseTime\",\"value\":1},{\"key\":\"openGameCircleLV\",\"value\":5},{\"key\":\"openDesktopLV\",\"value\":5},{\"key\":\"openInviteLV\",\"va",
+          "alue\":1},{\"key\":\"showGapSize\",\"value\":3}],\"configLevel\":[{\"id\":1,\"invokeId\":24,\"limitTime\":60,\"difficulty\":0,\"CoinAward\":66,\"ingnoreDda\":0,\"limitProp\":[]},{\"id\":2,\"invokeId\":108,\"limitTime\":180,\"diffi"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/game.js",
+        "size": 55654,
+        "hitCount": 9,
+        "terms": [
+          "LimitTime",
+          "TimeR",
+          "Unlock",
+          "layer"
+        ],
+        "snippets": [
+          ") { return this.getCommonConfigByKey(\"vigorCost\") }, a.getLoopTimeRule = function() { var e = this._getCommonNumberArray(\"loopTimeRule\"); if (e.length < 2) return",
+          "etLoopTimeRule = function() { var e = this._getCommonNumberArray(\"loopTimeRule\"); if (e.length < 2) return null; var t = e[0], i = e[1]; return !Num",
+          "o = Math.floor((e - n) / r); return o > 0 ? o : 0 }, a.getLoopLimitTime = function(e, t) { if (!Number.isFinite(t) || t <= 0) return 0; var i = this.getLoopRound(",
+          ".getLoopRound(e); if (i <= 0) return t; var n = this.getLoopTimeRule(); if (!n) return t; var a = n[0], r = n[1], o = Math.max(r, 1 - i ",
+          " level: 1, levelId: 1, coin: 0, sclausuraUnlock: !1, vigor: 0, vigorTime: 0, ddaFailLevel: 0, ddaFailCount: 0, ",
+          " return !(e <= 0) && u.isSameDay(e, u.getTime()) }, l.isSignUnlocked = function() { var e = s.getCommonConfigByKey(\"sevenDayLevel\"); return !(!Number.isFini"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/engine.js",
+        "size": 91534,
+        "hitCount": 4,
+        "terms": [
+          "Timer"
+        ],
+        "snippets": [
+          "eImageLoadDone = Object(a.throttle)(e.childImageLoadDoneCbk, 32, f(e)), e.renderTimers = [], e.requestID = null, e } return e = l, (n = [{ key: \"repaint\", value: function()",
+          "is.touch = null, this.isDestroyed = !0, this.throttleRepaint = null, this.renderTimers.forEach((function(t) { clearTimeout(t) })), this.root.off(\"repaint__done\"), this.renderTime",
+          " clearTimeout(t) })), this.root.off(\"repaint__done\"), this.renderTimers = [], this.canvasMap = {}, this.ctx = null, this.children = null, this.requestID && cancelAnimationFrame(this.req",
+          " e.insertElements(++t) }), 250); this.renderTimers.push(o) } } }, { key: \"childImageLoadDoneCbk\", value: function(t) { "
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/seeg.js",
+        "size": 222307,
+        "hitCount": 4,
+        "terms": [
+          "lock",
+          "unlock"
+        ],
+        "snippets": [
+          " key: \"nl\", get: function() { return !!this.bl.ins_unlock || (this.Dl || (this.Dl = r.F.G(\"seeg_ins_unlock\", \"lock\")), \"unlock\" === this.Dl) } }, { ",
+          " return !!this.bl.ins_unlock || (this.Dl || (this.Dl = r.F.G(\"seeg_ins_unlock\", \"lock\")), \"unlock\" === this.Dl) } }, { key: \"Rl\", get: function()",
+          "return !!this.bl.ins_unlock || (this.Dl || (this.Dl = r.F.G(\"seeg_ins_unlock\", \"lock\")), \"unlock\" === this.Dl) } }, { key: \"Rl\", get: function() { ",
+          "his.bl.ins_unlock || (this.Dl || (this.Dl = r.F.G(\"seeg_ins_unlock\", \"lock\")), \"unlock\" === this.Dl) } }, { key: \"Rl\", get: function() { ret"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/src/settings.430a5.json",
+        "size": 2419,
+        "hitCount": 2,
+        "terms": [
+          "Layer"
+        ],
+        "snippets": [
+          "{\"CocosEngine\":\"3.8.5\",\"engine\":{\"debug\":false,\"platform\":\"wechatgame\",\"customLayers\":[],\"sortingLayers\":[],\"macros\":{\"CUSTOM_PIPELINE_NAME\":\"\",\"BATCHER2D_MEM_INCREMENT\":1440,\"CLEANUP_IMAGE_CACHE\":t",
+          ".8.5\",\"engine\":{\"debug\":false,\"platform\":\"wechatgame\",\"customLayers\":[],\"sortingLayers\":[],\"macros\":{\"CUSTOM_PIPELINE_NAME\":\"\",\"BATCHER2D_MEM_INCREMENT\":1440,\"CLEANUP_IMAGE_CACHE\":true},\"builtinAssets"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/import/05/0595076fb.9d4ab.json",
+        "size": 5357,
+        "hitCount": 2,
+        "terms": [
+          "layer"
+        ],
+        "snippets": [
+          "ge\",\"node\",\"__prefab\",\"_spriteFrame\",\"_color\"],1,1,4,6,5],[\"cc.Node\",[\"_name\",\"_layer\",\"_components\",\"_prefab\",\"_children\",\"_parent\",\"_lpos\"],1,9,4,2,1,5],[\"cc.UITransform\",[\"node\",\"__prefab\",\"_conten",
+          "ight\",\"node\",\"__prefab\"],0,1,4],[\"cc.Prefab\",[\"_name\"],2],[\"cc.Node\",[\"_name\",\"_layer\",\"_parent\",\"_components\",\"_prefab\",\"_lpos\"],1,1,12,4,5],[\"cc.CompPrefabInfo\",[\"fileId\"],2],[\"c15b9tMko5CcICJUKDVqE"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/internal/index.036c1.js",
+        "size": 56935,
+        "hitCount": 1,
+        "terms": [
+          "Layer"
+        ],
+        "snippets": [
+          ", l = e.rendering, d = e.assert, h = e.clamp, p = e.Vec3, c = e.Material, u = e.Layers, g = e.PipelineEventType, m = e.sys, f = e.pipeline }, function(e) { S = e.DEBUG }, function(e) { "
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/start-scene/import/0b/0bba9e8e1.ff61a.json",
+        "size": 4180,
+        "hitCount": 1,
+        "terms": [
+          "layer"
+        ],
+        "snippets": [
+          "\",\"_textureSource\",\"_cameraComponent\",\"scene\",\"_parent\"],[[\"cc.Node\",[\"_name\",\"_layer\",\"_id\",\"_components\",\"_lpos\",\"_parent\",\"_children\"],0,9,5,1,2],\"cc.ImageAsset\",\"cc.Texture2D\",\"cc.SpriteFrame\",[\"c"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/dataDemo.js",
+        "size": 303,
+        "hitCount": 1,
+        "terms": [
+          "layer"
+        ],
+        "snippets": [
+          "th.random()), t.avatarUrl = \"openDataContext/render/avatar.png\", t.nickname = \"Player_\" + r, a.data.push(t) } a.data.sort((function(a, r) { return r.rankScore - a.rankScore })), module.exports = a;"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/import/08/08d4ff198.5c224.json",
+        "size": 4361,
+        "hitCount": 1,
+        "terms": [
+          "layer"
+        ],
+        "snippets": [
+          "etonData\",\"_textureSource\",\"root\",\"data\",\"_spriteFrame\"],[[\"cc.Node\",[\"_name\",\"_layer\",\"_components\",\"_prefab\",\"_lpos\",\"_children\",\"_parent\"],1,9,4,5,2,1],[\"cc.UITransform\",[\"node\",\"__prefab\",\"_conten"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/import/7a/7adc1a09-149a-42b2-aa39-f3173e5c49d2.fe65a.json",
+        "size": 1723,
+        "hitCount": 1,
+        "terms": [
+          "layer"
+        ],
+        "snippets": [
+          "\"],[\"node\",\"_spriteFrame\",\"_skeletonData\",\"root\",\"data\"],[[\"cc.Node\",[\"_name\",\"_layer\",\"_components\",\"_prefab\",\"_children\",\"_parent\",\"_lpos\"],1,9,4,2,1,5],[\"cc.UITransform\",[\"node\",\"__prefab\",\"_conten"
+        ]
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/import/83/83fa9825-7100-40bc-880b-ddb725ea3377.35fb3.json",
+        "size": 1718,
+        "hitCount": 1,
+        "terms": [
+          "lock"
+        ],
+        "snippets": [
+          "inalHeight\",\"node\",\"__prefab\"],0,1,4],[\"2919bX5T3tFgLCv8oZOSme1\",[\"cacheType\",\"blockInput\",\"node\",\"__prefab\",\"shadeColor\"],1,1,4,5]],[[3,0,2],[2,0,1,2,1],[5,0,1,2,3,4,5,5],[1,0,2],[0,0,4,2,3,2],[0,0,1"
+        ]
+      }
+    ],
+    "assets": [
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/start-scene/native/30/308d8778-1c84-43e3-91c3-a2e871cd78e0.5ad35.astc",
+        "relative": "assets/start-scene/native/30/308d8778-1c84-43e3-91c3-a2e871cd78e0.5ad35.astc",
+        "ext": ".astc",
+        "bytes": 864016
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/start-scene/native/30/308d8778-1c84-43e3-91c3-a2e871cd78e0.5ad35.png",
+        "relative": "assets/start-scene/native/30/308d8778-1c84-43e3-91c3-a2e871cd78e0.5ad35.png",
+        "ext": ".png",
+        "bytes": 174599
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/start-scene/native/35/35f7d45f-012a-46ae-9404-2a6b43eb1a65.560d7.astc",
+        "relative": "assets/start-scene/native/35/35f7d45f-012a-46ae-9404-2a6b43eb1a65.560d7.astc",
+        "ext": ".astc",
+        "bytes": 202288
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/start-scene/native/35/35f7d45f-012a-46ae-9404-2a6b43eb1a65.560d7.png",
+        "relative": "assets/start-scene/native/35/35f7d45f-012a-46ae-9404-2a6b43eb1a65.560d7.png",
+        "ext": ".png",
+        "bytes": 88806
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/icon.png",
+        "relative": "openDataContext/render/icon.png",
+        "ext": ".png",
+        "bytes": 4194
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/panel_1.png",
+        "relative": "openDataContext/render/panel_1.png",
+        "ext": ".png",
+        "bytes": 16237
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/panel_2.png",
+        "relative": "openDataContext/render/panel_2.png",
+        "ext": ".png",
+        "bytes": 11386
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/panel_3.png",
+        "relative": "openDataContext/render/panel_3.png",
+        "ext": ".png",
+        "bytes": 10330
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/rank_1.png",
+        "relative": "openDataContext/render/rank_1.png",
+        "ext": ".png",
+        "bytes": 8081
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/rank_2.png",
+        "relative": "openDataContext/render/rank_2.png",
+        "ext": ".png",
+        "bytes": 9207
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/rank_3.png",
+        "relative": "openDataContext/render/rank_3.png",
+        "ext": ".png",
+        "bytes": 8824
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/openDataContext/render/title_bg.png",
+        "relative": "openDataContext/render/title_bg.png",
+        "ext": ".png",
+        "bytes": 555
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/11/11cd5ad03.b0327.astc",
+        "relative": "subpackages/bridge/native/11/11cd5ad03.b0327.astc",
+        "ext": ".astc",
+        "bytes": 230624
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/11/11cd5ad03.b0327.png",
+        "relative": "subpackages/bridge/native/11/11cd5ad03.b0327.png",
+        "ext": ".png",
+        "bytes": 28598
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/17/17a8a227-d29a-4687-b112-3c4f2da07b49.50740.mp3",
+        "relative": "subpackages/bridge/native/17/17a8a227-d29a-4687-b112-3c4f2da07b49.50740.mp3",
+        "ext": ".mp3",
+        "bytes": 4178
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/25/25c24a7b-0e67-4334-8be7-e6eee15e4ac4.930a0.png",
+        "relative": "subpackages/bridge/native/25/25c24a7b-0e67-4334-8be7-e6eee15e4ac4.930a0.png",
+        "ext": ".png",
+        "bytes": 1929
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/3b/3b7add5c-f260-474b-a111-b6d280d66bee.cea68.png",
+        "relative": "subpackages/bridge/native/3b/3b7add5c-f260-474b-a111-b6d280d66bee.cea68.png",
+        "ext": ".png",
+        "bytes": 82
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/52/5293b737-6f56-4c1e-a37f-0627f3e5d340.68b4f.png",
+        "relative": "subpackages/bridge/native/52/5293b737-6f56-4c1e-a37f-0627f3e5d340.68b4f.png",
+        "ext": ".png",
+        "bytes": 9082
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/62/62872363-c8a8-4fb9-8021-0796888fe358.ab89c.atlas",
+        "relative": "subpackages/bridge/native/62/62872363-c8a8-4fb9-8021-0796888fe358.ab89c.atlas",
+        "ext": ".atlas",
+        "bytes": 516
+      },
+      {
+        "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/subpackages/bridge/native/69/691bff35-6de8-47e7-b2a9-c230e34c509c.70546.atlas",
+        "relative": "subpackages/bridge/native/69/691bff35-6de8-47e7-b2a9-c230e34c509c.70546.atlas",
+        "ext": ".atlas",
+        "bytes": 281
+      }
+    ],
+    "allConfig": {
+      "file": "C:/Users/EDY/workspaces/快乐拼拼豆/OUTPUT/assets/directGame/import/47/47e1de7a-9e66-4e70-b4c4-9a503906f7f5.bc5a7.json",
+      "configCommon": [
+        {
+          "key": "levelLoop",
+          "value": [
+            200,
+            800
+          ]
+        },
+        {
+          "key": "addTime",
+          "value": 180
+        },
+        {
+          "key": "vigorCeiling",
+          "value": 10
+        },
+        {
+          "key": "vigorRestore",
+          "value": 240
+        },
+        {
+          "key": "vigorCost",
+          "value": 1
+        },
+        {
+          "key": "rowInfo",
+          "value": [
+            1,
+            4
+          ]
+        },
+        {
+          "key": "freezeTime",
+          "value": 180
+        },
+        {
+          "key": "daaLv",
+          "value": 5
+        },
+        {
+          "key": "failDdaType",
+          "value": 1
+        },
+        {
+          "key": "ddaTimeStep",
+          "value": [
+            1.15,
+            1.3
+          ]
+        },
+        {
+          "key": "ddaAutoFill",
+          "value": [
+            0.05,
+            0.08
+          ]
+        },
+        {
+          "key": "ddaHardTrigger",
+          "value": 3
+        },
+        {
+          "key": "loopTimeRule",
+          "value": [
+            0.2,
+            0.4
+          ]
+        },
+        {
+          "key": "ddaHardProgress",
+          "value": 0.15
+        },
+        {
+          "key": "nonporousUnlookCost",
+          "value": 500
+        },
+        {
+          "key": "finalTipsNum",
+          "value": 20
+        },
+        {
+          "key": "finalTipsTime",
+          "value": 6
+        },
+        {
+          "key": "resourceType",
+          "value": 2
+        },
+        {
+          "key": "speGuideLevel",
+          "value": 3
+        },
+        {
+          "key": "sevenDayLevel",
+          "value": 5
+        },
+        {
+          "key": "costPerDraw",
+          "value": 1400
+        },
+        {
+          "key": "skinLevel",
+          "value": 10
+        },
+        {
+          "key": "leaderboardLevel",
+          "value": 6
+        },
+        {
+          "key": "drawLevel",
+          "value": 10
+        },
+        {
+          "key": "isPauseTime",
+          "value": 1
+        },
+        {
+          "key": "openGameCircleLV",
+          "value": 5
+        },
+        {
+          "key": "openDesktopLV",
+          "value": 5
+        },
+        {
+          "key": "openInviteLV",
+          "value": 5
+        },
+        {
+          "key": "inviteAward",
+          "value": [
+            [
+              1,
+              401
+            ],
+            [
+              2,
+              201
+            ],
+            [
+              5,
+              502
+            ],
+            [
+              8,
+              402
+            ]
+          ]
+        },
+        {
+          "key": "gameCircleAward",
+          "value": [
+            201,
+            301
+          ]
+        },
+        {
+          "key": "guideColor",
+          "value": [
+            38,
+            2
+          ]
+        },
+        {
+          "key": "guidewWord",
+          "value": [
+            "点击选中红色钻石",
+            "点击下方区域暂放",
+            "点击选中绿色钻石",
+            "放置到相同颜色孔上",
+            "选择暂放的钻石",
+            "放置正确后，图案就拼好啦"
+          ]
+        },
+        {
+          "key": "scaleGuideType",
+          "value": 1
+        },
+        {
+          "key": "showGapSize",
+          "value": 3
+        }
+      ],
+      "configLevel": [
+        {
+          "id": 1,
+          "invokeId": 24,
+          "limitTime": 60,
+          "difficulty": 0,
+          "CoinAward": 66,
+          "ingnoreDda": 0,
+          "limitProp": []
+        },
+        {
+          "id": 2,
+          "invokeId": 108,
+          "limitTime": 180,
+          "difficulty": 0,
+          "CoinAward": 66,
+          "ingnoreDda": 0,
+          "limitProp": []
+        }
+      ],
+      "configLevelMapCdnCount": 229
+    }
+  }
+}

@@ -417,10 +417,11 @@ export function installGameplayPlacementFxModule(target: any): void {
                 return;
             }
             Tween.stopAllByTarget(cn);
-            cn.setScale(1.15, 1.15, 1);
+            cn.setScale(1.1, 1.1, 1);
             tween(cn)
-                .to(0.1, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineIn' })
-                .to(0.08, { scale: new Vec3(1.0, 1.0, 1) })
+                .to(0.12, { scale: new Vec3(0.97, 0.97, 1) }, { easing: 'sineInOut' })
+                .to(0.08, { scale: new Vec3(1.035, 1.035, 1) }, { easing: 'sineOut' })
+                .to(0.08, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
                 .call(() => {
                     this.playBeanSettleMatchFxOnCell?.(row, col);
                     onComplete?.();
