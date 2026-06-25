@@ -24,7 +24,6 @@ import {
     UITransform,
     UserMgr,
     UserStateSyncMgr,
-    Vec3,
     assetManager,
     instantiate,
     sys,
@@ -73,9 +72,7 @@ const LOCAL_BACKGROUND_SKIN_SHORT_ID_SET = new Set<number>([2, 3, 4, 5, 6, 7, 8,
 const SKIN_PANEL_NAME = 'BackgroundSkinPanelOverlay';
 const SKIN_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/BackgroundSkinPanel';
 const SKIN_PANEL_SCROLL_CONTENT_NAME = 'SkinScrollContent';
-const SKIN_PANEL_COLUMN_XS = [-142, 142];
-const SKIN_PANEL_ROW_PITCH = 350;
-const SKIN_PANEL_TOP_ROW_VIEW_Y = 160;
+const SKIN_PANEL_CARD_SLOT_PATTERN = /^SkinCardSlot\d+$/;
 const GAMEPLAY_BACKGROUND_SKIN_RETRY_DELAYS = [0, 0.25, 0.75, 1.5, 3, 8, 16, 31];
 
 type BackgroundSkinDiagnosticTarget = {
@@ -235,11 +232,19 @@ function requireSkinPanelSprite(parent: Node, name: string, context: string): Sp
     return sprite;
 }
 
-function tintSkinPanelSprite(parent: Node, name: string, context: string, color: Color): Sprite {
-    const sprite = requireSkinPanelSprite(parent, name, context);
-    sprite.color = color;
-    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-    return sprite;
+function requireSkinPanelButton(node: Node, context: string): Button {
+    const button = node.getComponent(Button);
+    if (!button) {
+        throw new Error(`[background-skin-prefab] missing Button: ${context}`);
+    }
+    return button;
+}
+
+function bindSkinPanelButton(runtime: any, node: Node, context: string, handler: () => void): Button {
+    const button = requireSkinPanelButton(node, context);
+    node.targetOff(runtime);
+    node.on(Button.EventType.CLICK, handler, runtime);
+    return button;
 }
 
 export function installSkinBackgroundModule(target: any): void {
@@ -1298,10 +1303,10 @@ export function installSkinBackgroundModule(target: any): void {
                             if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
                             const close = requireSkinPanelChild(box, 'XBtn', 'BackgroundSkinPanel/Box');
                             const content = requireSkinPanelChild(box, 'Content', 'BackgroundSkinPanel/Box');
-                            requireSkinPanelChild(content, 'SkinCardTemplate', 'BackgroundSkinPanel/Box/Content');
-                            this.bindPanelButton(close, () => this.closeBackgroundSkinPanel());
+                            requireSkinPanelChild(content, SKIN_PANEL_SCROLL_CONTENT_NAME, 'BackgroundSkinPanel/Box/Content');
+                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => this.closeBackgroundSkinPanel());
                             this._backgroundSkinPanelOverlay = overlay;
-                            this.renderBackgroundSkinPanelCards(box, content, config.rows);
+                            this.renderBackgroundSkinPanelCards(content, config.rows);
                             this.playPopupOpenAnim?.(overlay, box);
                         } catch (buildErr) {
                             failOpen('open-panel-build', buildErr, overlay);
@@ -1323,8 +1328,13 @@ export function installSkinBackgroundModule(target: any): void {
             this._destroyDetachedNodeNextFrame?.(overlay);
         },
 
-        setupBackgroundSkinPanelScroll(touchSurface: Node, viewport: Node, content: Node, viewportW: number, viewportH: number, totalH: number): void {
-            touchSurface.targetOff(this);
+        setupBackgroundSkinPanelScroll(
+            viewport: Node,
+            viewportH: number,
+            content: Node,
+            totalH: number,
+        ): void {
+            viewport.targetOff(this);
             if (this._backgroundSkinPanelScrollInertiaStep) {
                 this.unschedule(this._backgroundSkinPanelScrollInertiaStep);
                 this._backgroundSkinPanelScrollInertiaStep = null;
@@ -1347,13 +1357,6 @@ export function installSkinBackgroundModule(target: any): void {
             let velocity = 0;
             let dragging = false;
             let inertiaStep: ((dt: number) => void) | null = null;
-            const viewportUi = viewport.getComponent(UITransform);
-            const anchorX = viewportUi?.anchorX ?? 0.5;
-            const anchorY = viewportUi?.anchorY ?? 0.5;
-            const minLocalX = -viewportW * anchorX;
-            const maxLocalX = viewportW * (1 - anchorX);
-            const minLocalY = -viewportH * anchorY;
-            const maxLocalY = viewportH * (1 - anchorY);
 
             content.setPosition(content.position.x, minY, 0);
 
@@ -1368,12 +1371,6 @@ export function installSkinBackgroundModule(target: any): void {
                 }
                 velocity = 0;
             };
-            const isTouchInsideViewport = (e: EventTouch): boolean => {
-                if (!viewportUi || !viewport.isValid) return false;
-                const uiPos = e.getUILocation();
-                const local = viewportUi.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
-                return local.x >= minLocalX && local.x <= maxLocalX && local.y >= minLocalY && local.y <= maxLocalY;
-            };
             const setScrollY = (nextY: number) => {
                 const clampedY = Math.max(minY, Math.min(maxY, nextY));
                 content.setPosition(content.position.x, clampedY, 0);
@@ -1384,9 +1381,11 @@ export function installSkinBackgroundModule(target: any): void {
                 if (this._backgroundSkinScrollSuppressClick) {
                     this._backgroundSkinScrollSuppressClickUntil = Date.now() + 250;
                 }
-                if (Math.abs(velocity) < LEADERBOARD_SCROLL_MIN_SPEED) return;
+                if (Math.abs(velocity) < LEADERBOARD_SCROLL_MIN_SPEED) {
+                    return;
+                }
                 inertiaStep = (dt: number = 1 / 60) => {
-                    if (!touchSurface.isValid || !viewport.isValid || !content.isValid) {
+                    if (!viewport.isValid || !content.isValid) {
                         stopInertia();
                         return;
                     }
@@ -1402,8 +1401,7 @@ export function installSkinBackgroundModule(target: any): void {
                 this.schedule(inertiaStep, 0);
             };
 
-            touchSurface.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
-                if (!isTouchInsideViewport(e)) return;
+            viewport.on(Node.EventType.TOUCH_START, (e: EventTouch) => {
                 stopInertia();
                 startY = e.getUILocation().y;
                 lastY = startY;
@@ -1412,7 +1410,7 @@ export function installSkinBackgroundModule(target: any): void {
                 dragging = true;
                 this._backgroundSkinScrollSuppressClick = false;
             }, this, true);
-            touchSurface.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
+            viewport.on(Node.EventType.TOUCH_MOVE, (e: EventTouch) => {
                 if (!dragging) return;
                 const currentY = e.getUILocation().y;
                 const delta = currentY - lastY;
@@ -1427,35 +1425,74 @@ export function installSkinBackgroundModule(target: any): void {
                 }
                 setScrollY(content.position.y + delta);
             }, this, true);
-            touchSurface.on(Node.EventType.TOUCH_END, endDrag, this, true);
-            touchSurface.on(Node.EventType.TOUCH_CANCEL, endDrag, this, true);
+            viewport.on(Node.EventType.TOUCH_END, endDrag, this, true);
+            viewport.on(Node.EventType.TOUCH_CANCEL, endDrag, this, true);
         },
 
-        renderBackgroundSkinPanelCards(touchSurface: Node, content: Node, rows: BackgroundSkinRow[]): void {
+        renderBackgroundSkinPanelCards(content: Node, rows: BackgroundSkinRow[]): void {
             if (!content?.isValid) return;
             const viewportUi = content.getComponent(UITransform);
             if (!viewportUi) throw new Error('[background-skin-prefab] missing UITransform: BackgroundSkinPanel/Box/Content');
             const viewportW = Math.max(1, viewportUi.width || viewportUi.contentSize.width || 1);
             const viewportH = Math.max(1, viewportUi.height || viewportUi.contentSize.height || 1);
-            const mask = content.getComponent(Mask) || content.addComponent(Mask);
-            mask.type = Mask.Type.GRAPHICS_RECT;
-            const template = requireSkinPanelChild(content, 'SkinCardTemplate', 'BackgroundSkinPanel/Box/Content');
-            template.active = false;
-            for (const child of content.children.slice()) {
-                if (child === template) continue;
+            const mask = content.getComponent(Mask);
+            if (!mask) throw new Error('[background-skin-prefab] missing Mask: BackgroundSkinPanel/Box/Content');
+            if (mask.type !== Mask.Type.GRAPHICS_RECT) {
+                throw new Error('[background-skin-prefab] Content Mask must be GRAPHICS_RECT');
+            }
+            const scrollContent = requireSkinPanelChild(content, SKIN_PANEL_SCROLL_CONTENT_NAME, 'BackgroundSkinPanel/Box/Content');
+            const scrollContentUi = scrollContent.getComponent(UITransform);
+            if (!scrollContentUi) {
+                throw new Error('[background-skin-prefab] missing UITransform: BackgroundSkinPanel/Box/Content/' + SKIN_PANEL_SCROLL_CONTENT_NAME);
+            }
+            scrollContent.active = true;
+            scrollContent.layer = content.layer;
+
+            const guideSlots = scrollContent.children
+                .filter((child: Node) => SKIN_PANEL_CARD_SLOT_PATTERN.test(child.name))
+                .sort((a: Node, b: Node) => {
+                    const aIdx = Number(a.name.match(/\d+$/)?.[0] || 0);
+                    const bIdx = Number(b.name.match(/\d+$/)?.[0] || 0);
+                    return aIdx - bIdx;
+                });
+            const template = guideSlots[0];
+            const templateUi = template?.getComponent(UITransform);
+            if (!template || !templateUi) {
+                throw new Error('[background-skin-prefab] missing SkinCardSlot0 template');
+            }
+
+            for (const child of scrollContent.children.slice()) {
+                if (!child.name.startsWith('SkinCard_')) continue;
                 this._clearSpriteFramesBeforeDestroy?.(child);
                 child.destroy();
             }
-            const rowCount = Math.max(1, Math.ceil(rows.length / SKIN_PANEL_COLUMN_XS.length));
-            const topPadding = Math.max(0, viewportH / 2 - SKIN_PANEL_TOP_ROW_VIEW_Y);
-            const bottomPadding = topPadding;
-            const totalH = Math.max(viewportH, topPadding + Math.max(0, rowCount - 1) * SKIN_PANEL_ROW_PITCH + bottomPadding);
+
+            const rowYs: number[] = Array.from(new Set<number>(guideSlots.map((slot: Node) => Math.round(slot.position.y * 10) / 10)))
+                .sort((a: number, b: number) => b - a);
+            const topY = rowYs[0] ?? template.position.y;
+            const topRowSlots = guideSlots
+                .filter((slot: Node) => Math.abs(slot.position.y - topY) < 1)
+                .sort((a: Node, b: Node) => a.position.x - b.position.x);
+            const columnXs = topRowSlots.length
+                ? topRowSlots.map((slot: Node) => slot.position.x)
+                : [template.position.x];
+            const rowPitch = rowYs.length > 1
+                ? Math.max(1, Math.abs(rowYs[0] - rowYs[1]))
+                : Math.max(1, templateUi.height + 16);
+            const bottomY = rowYs.length > 1 ? rowYs[rowYs.length - 1] : topY;
+            const topPadding = Math.max(0, viewportH / 2 - topY);
+            const bottomPadding = rowYs.length > 1 ? Math.max(0, viewportH / 2 + bottomY) : topPadding;
+            const columnCount = Math.max(1, columnXs.length);
+            const rowCount = Math.max(1, Math.ceil(rows.length / columnCount));
+            const totalH = Math.max(viewportH, topPadding + Math.max(0, rowCount - 1) * rowPitch + bottomPadding);
             const startY = totalH / 2 - topPadding;
-            const scrollContent = new Node(SKIN_PANEL_SCROLL_CONTENT_NAME);
-            scrollContent.layer = content.layer;
-            content.addChild(scrollContent);
-            scrollContent.addComponent(UITransform).setContentSize(viewportW, totalH);
-            const equippedId = this.getEquippedBackgroundSkinId();
+            scrollContentUi.setContentSize(viewportW, totalH);
+            for (const guideSlot of guideSlots) {
+                guideSlot.active = false;
+            }
+
+            const entries: Array<{ card: Node; skin: BackgroundSkinRow }> = [];
+            let refreshActions = () => {};
             const consumeSuppressedClick = () => {
                 const suppressUntil = Number(this._backgroundSkinScrollSuppressClickUntil) || 0;
                 if (this._backgroundSkinScrollSuppressClick && Date.now() <= suppressUntil) {
@@ -1467,63 +1504,39 @@ export function installSkinBackgroundModule(target: any): void {
                 this._backgroundSkinScrollSuppressClickUntil = 0;
                 return false;
             };
-            rows.forEach((skin, index) => {
-                const col = index % SKIN_PANEL_COLUMN_XS.length;
-                const row = Math.floor(index / SKIN_PANEL_COLUMN_XS.length);
-                const card = instantiate(template);
-                card.name = `SkinCard_${skin.id}`;
-                card.active = true;
-                card.layer = scrollContent.layer;
-                scrollContent.addChild(card);
-                card.setPosition(SKIN_PANEL_COLUMN_XS[col], startY - row * SKIN_PANEL_ROW_PITCH, 0);
-                tintSkinPanelSprite(card, 'CardBg', card.name, Color.WHITE);
-                tintSkinPanelSprite(card, 'PreviewBg', card.name, Color.WHITE);
-                const preview = requireSkinPanelChild(card, 'Preview', card.name);
-                const previewSprite = requireSkinPanelSprite(card, 'Preview', card.name);
-                previewSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-                previewSprite.type = Sprite.Type.SIMPLE;
-                previewSprite.color = Color.WHITE;
-                previewSprite.spriteFrame = null;
-                this.loadBackgroundSkinIconSpriteFrame(skin, (sf, err) => {
-                    if (!preview.isValid) return;
-                    if (!sf) {
-                        this._reportBackgroundSkinError('panel-icon', skin, err);
-                        return;
-                    }
-                    previewSprite.spriteFrame = sf;
-                });
-                const nameNode = card.getChildByName('Name');
-                if (nameNode?.isValid) nameNode.active = false;
+
+            const bindCardAction = (card: Node, skin: BackgroundSkinRow) => {
+                if (!card.isValid) return;
                 const owned = this.isBackgroundSkinOwned(skin.id);
+                const equippedId = this.getEquippedBackgroundSkinId();
                 const action = requireSkinPanelChild(card, 'ActionBtn', card.name);
-                const actionSpriteColor = !owned && skin.unlockType !== 'ad' ? new Color('#BDBDBD') : Color.WHITE;
-                tintSkinPanelSprite(card, 'ActionBtn', card.name, actionSpriteColor);
-                const label = requireSkinPanelLabel(action, 'ActionLbl', `${card.name}/ActionBtn`);
+                const label = requireSkinPanelLabel(action, 'ActionLbl', card.name + '/ActionBtn');
                 let actionLabel = '';
                 let canWatchAd = false;
                 if (owned) {
                     actionLabel = skin.id === equippedId ? '已使用' : '使用';
                 } else if (skin.unlockType === 'level') {
-                    actionLabel = `通关${skin.unlockValue}关`;
+                    actionLabel = '通关' + skin.unlockValue + '关';
                 } else if (skin.unlockType === 'ad') {
                     const adProgress = Math.min(this.getBackgroundSkinAdProgress(skin.id), Math.max(1, skin.unlockValue));
-                    actionLabel = `看广告 ${adProgress}/${Math.max(1, skin.unlockValue)}`;
+                    actionLabel = '看广告 ' + adProgress + '/' + Math.max(1, skin.unlockValue);
                     canWatchAd = true;
                 } else {
                     actionLabel = '未获得';
                 }
                 label.string = actionLabel;
                 action.targetOff(this);
-                const actionButton = action.getComponent(Button) || action.addComponent(Button);
-                actionButton.interactable = (owned && skin.id !== equippedId) || canWatchAd;
+                const actionButton = requireSkinPanelButton(action, card.name + '/ActionBtn');
+                const isEquipped = owned && skin.id === equippedId;
+                actionButton.interactable = isEquipped || (owned && skin.id !== equippedId) || canWatchAd;
                 if (owned && skin.id !== equippedId) {
-                    this.bindPanelButton(action, () => {
+                    bindSkinPanelButton(this, action, card.name + '/ActionBtn', () => {
                         if (consumeSuppressedClick()) return;
                         const button = action.getComponent(Button);
                         if (button) button.interactable = false;
                         label.string = '加载中';
                         this.equipBackgroundSkin(skin.id, (ok) => {
-                            if (ok) this.renderBackgroundSkinPanelCards(touchSurface, content, rows);
+                            if (ok) refreshActions();
                             else {
                                 label.string = '使用';
                                 const activeButton = action.getComponent(Button);
@@ -1532,18 +1545,55 @@ export function installSkinBackgroundModule(target: any): void {
                         });
                     });
                 } else if (canWatchAd) {
-                    this.bindPanelButton(action, () => {
+                    bindSkinPanelButton(this, action, card.name + '/ActionBtn', () => {
                         if (consumeSuppressedClick()) return;
                         const button = action.getComponent(Button);
                         if (button) button.interactable = false;
                         label.string = '广告中';
                         this.watchBackgroundSkinUnlockAd(skin, () => {
-                            this.renderBackgroundSkinPanelCards(touchSurface, content, rows);
+                            refreshActions();
                         });
                     });
                 }
+            };
+
+            const renderCard = (card: Node, skin: BackgroundSkinRow) => {
+                card.active = true;
+                card.layer = scrollContent.layer;
+                (card as any).__backgroundSkinSlotId = skin.id;
+                const preview = requireSkinPanelChild(card, 'Preview', card.name);
+                const previewSprite = requireSkinPanelSprite(card, 'Preview', card.name);
+                previewSprite.spriteFrame = null;
+                this.loadBackgroundSkinIconSpriteFrame(skin, (sf, err) => {
+                    if (!preview.isValid) return;
+                    if ((card as any).__backgroundSkinSlotId !== skin.id) return;
+                    if (!sf) {
+                        this._reportBackgroundSkinError('panel-icon', skin, err);
+                        return;
+                    }
+                    previewSprite.spriteFrame = sf;
+                });
+                bindCardAction(card, skin);
+            };
+
+            refreshActions = () => {
+                for (const entry of entries) {
+                    bindCardAction(entry.card, entry.skin);
+                }
+            };
+
+            rows.forEach((skin, index) => {
+                const row = Math.floor(index / columnCount);
+                const col = index % columnCount;
+                const card = instantiate(template);
+                card.name = 'SkinCard_' + skin.id;
+                scrollContent.addChild(card);
+                card.setPosition(columnXs[col], startY - row * rowPitch, 0);
+                entries.push({ card, skin });
+                renderCard(card, skin);
             });
-            this.setupBackgroundSkinPanelScroll(touchSurface, content, scrollContent, viewportW, viewportH, totalH);
+            this.setupBackgroundSkinPanelScroll(content, viewportH, scrollContent, totalH);
         },
+
     });
 }

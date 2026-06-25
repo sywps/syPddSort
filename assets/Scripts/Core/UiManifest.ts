@@ -72,6 +72,7 @@ export const RESULT_PANEL_TEXTURE_NAMES = [
     'popup_result_time_icon',
     '金币',
     'popup_ad_play_icon',
+    'popup_share_icon',
     '进度条',
     'progress_fill',
 ];

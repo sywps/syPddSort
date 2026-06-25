@@ -727,5 +727,16 @@
             13
         ]
     ],
-    "levelId": 111
+    "levelId": 111,
+    "sourceFields": {
+        "timeRegs": [
+            {
+                "time": 150,
+                "rowIndex": 3,
+                "colIndex": 3,
+                "width": 12,
+                "height": 7
+            }
+        ]
+    }
 }

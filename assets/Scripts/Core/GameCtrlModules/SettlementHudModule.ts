@@ -29,12 +29,28 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import { WeChatRecommendService } from '../WeChatRecommendService';
 
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0.5;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
 const PATTERN_COMPLETE_FX_START_DELAY = PATTERN_COMPLETE_BOARD_SHRINK_DELAY + PATTERN_COMPLETE_BOARD_SHRINK_DURATION;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.12;
+const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
+const WIN_BONUS_SHARE_ICON_TEXTURE = 'popup_share_icon';
+const WIN_BONUS_SHARE_RATE = 0.2;
+const WIN_BONUS_SHARE_DAILY_LIMIT = 2;
+const WIN_BONUS_SHARE_MIN_LEVEL_GAP = 5;
+const WIN_BONUS_SHARE_MIN_INTERVAL_MS = 10 * 60 * 1000;
+const WIN_BONUS_SHARE_GATE_STATE_KEY = 'pdd.winBonusShareGate.v1';
+
+type WinBonusRewardGateMode = 'ad' | 'share';
+type WinBonusShareGateState = {
+    dateKey: string;
+    appearCount: number;
+    lastLevelId: number;
+    lastAtMs: number;
+};
 
 export function installSettlementHudModule(target: any): void {
     Object.assign(target, {
@@ -156,6 +172,115 @@ export function installSettlementHudModule(target: any): void {
             this.refreshWinAdBonusUI();
         },
 
+        getWinBonusShareGateDateKey(nowMs: number = Date.now()): string {
+            const date = new Date(nowMs);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const monthText = month < 10 ? `0${month}` : `${month}`;
+            const dayText = day < 10 ? `0${day}` : `${day}`;
+            return `${year}-${monthText}-${dayText}`;
+        },
+
+        readWinBonusShareGateState(nowMs: number = Date.now()): WinBonusShareGateState {
+            const dateKey = this.getWinBonusShareGateDateKey(nowMs);
+            const fallback: WinBonusShareGateState = {
+                dateKey,
+                appearCount: 0,
+                lastLevelId: 0,
+                lastAtMs: 0,
+            };
+            try {
+                const raw = sys.localStorage?.getItem(WIN_BONUS_SHARE_GATE_STATE_KEY);
+                if (!raw) return fallback;
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.dateKey !== dateKey) return fallback;
+                return {
+                    dateKey,
+                    appearCount: Math.max(0, Math.floor(Number(parsed.appearCount) || 0)),
+                    lastLevelId: Math.max(0, Math.floor(Number(parsed.lastLevelId) || 0)),
+                    lastAtMs: Math.max(0, Number(parsed.lastAtMs) || 0),
+                };
+            } catch (error) {
+                console.warn('[winBonusShareGate] read state failed:', error);
+                return fallback;
+            }
+        },
+
+        writeWinBonusShareGateState(state: WinBonusShareGateState): void {
+            try {
+                sys.localStorage?.setItem(WIN_BONUS_SHARE_GATE_STATE_KEY, JSON.stringify(state));
+            } catch (error) {
+                console.warn('[winBonusShareGate] write state failed:', error);
+            }
+        },
+
+        canUseWinBonusShareGate(levelId: number, nowMs: number = Date.now()): boolean {
+            const wx: any = typeof this.getWeChatRuntime === 'function' ? this.getWeChatRuntime() : null;
+            if (!wx || typeof wx.shareAppMessage !== 'function') return false;
+            const state = this.readWinBonusShareGateState(nowMs);
+            if (state.appearCount >= WIN_BONUS_SHARE_DAILY_LIMIT) return false;
+            if (state.lastAtMs > 0 && nowMs - state.lastAtMs < WIN_BONUS_SHARE_MIN_INTERVAL_MS) return false;
+            if (state.lastLevelId > 0 && levelId > 0 && Math.abs(levelId - state.lastLevelId) < WIN_BONUS_SHARE_MIN_LEVEL_GAP) return false;
+            return true;
+        },
+
+        recordWinBonusShareGateAppearance(levelId: number, nowMs: number = Date.now()): void {
+            const state = this.readWinBonusShareGateState(nowMs);
+            this.writeWinBonusShareGateState({
+                dateKey: state.dateKey,
+                appearCount: state.appearCount + 1,
+                lastLevelId: Math.max(0, Math.floor(Number(levelId) || 0)),
+                lastAtMs: nowMs,
+            });
+        },
+
+        resolveWinBonusRewardGateMode(): WinBonusRewardGateMode {
+            if (this._winBonusRewardGateMode === 'ad' || this._winBonusRewardGateMode === 'share') {
+                return this._winBonusRewardGateMode;
+            }
+            const levelId = this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0;
+            let mode: WinBonusRewardGateMode = 'ad';
+            if (this.canUseWinBonusShareGate(levelId) && Math.random() < WIN_BONUS_SHARE_RATE) {
+                mode = 'share';
+                this.recordWinBonusShareGateAppearance(levelId);
+            }
+            this._winBonusRewardGateMode = mode;
+            return mode;
+        },
+
+        ensureWinBonusShareIcon(adBtn: Node): Node {
+            let icon = adBtn.getChildByName('AdBonusShareIcon');
+            const anchor = adBtn.getChildByName('AdBonusAdIcon') || adBtn.getChildByName('AdBonusCoinIcon');
+            if (!icon) {
+                icon = new Node('AdBonusShareIcon');
+                icon.layer = adBtn.layer;
+                adBtn.addChild(icon);
+                icon.setSiblingIndex(0);
+                icon.addComponent(UITransform).setContentSize(42, 42);
+                icon.addComponent(Sprite);
+            }
+            const transform = icon.getComponent(UITransform) ?? icon.addComponent(UITransform);
+            transform.setContentSize(42, 42);
+            if (anchor) {
+                icon.setPosition(anchor.position.x, anchor.position.y, anchor.position.z);
+            } else {
+                icon.setPosition(-66, 5, 0);
+            }
+            const sprite = icon.getComponent(Sprite) ?? icon.addComponent(Sprite);
+            const cached = this.getSF?.(WIN_BONUS_SHARE_ICON_TEXTURE) || null;
+            if (cached) {
+                sprite.spriteFrame = cached;
+            } else if (typeof this._loadSpriteFrameByName === 'function') {
+                this._loadSpriteFrameByName(WIN_BONUS_SHARE_ICON_TEXTURE, (sf: SpriteFrame | null) => {
+                    if (!icon?.isValid || !sf) return;
+                    const currentSprite = icon.getComponent(Sprite);
+                    if (currentSprite) currentSprite.spriteFrame = sf;
+                });
+            }
+            return icon;
+        },
+
         refreshWinAdBonusUI() {
             const box = this.panelWin?.getChildByName('Box');
             const adBtn = box?.getChildByName('AdBonusBtn');
@@ -170,6 +295,7 @@ export function installSettlementHudModule(target: any): void {
             const eligible = !this._isThemeLevel && this._pendingWinAdBonusReward > 0 && !this._settlementNextTransitioning;
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
             const adIcon = adBtn.getChildByName('AdBonusAdIcon') || coinIcon;
+            const existingShareIcon = adBtn.getChildByName('AdBonusShareIcon');
             const claimedLbl = adBtn.getChildByName('AdBonusClaimedLbl');
         
             adBtn.active = eligible;
@@ -180,18 +306,26 @@ export function installSettlementHudModule(target: any): void {
                 if (subLbl) subLbl.string = '';
                 if (coinIcon) coinIcon.active = false;
                 if (adIcon) adIcon.active = false;
+                if (existingShareIcon) existingShareIcon.active = false;
                 if (claimedLbl) claimedLbl.active = true;
                 if (btn) btn.interactable = false;
                 opacity.opacity = 178;
                 return;
             }
         
+            const gateMode = this.resolveWinBonusRewardGateMode();
+            const shareIcon = gateMode === 'share'
+                ? this.ensureWinBonusShareIcon(adBtn)
+                : existingShareIcon;
             if (titleLbl) titleLbl.node.active = true;
             if (subLbl) subLbl.string = '';
             if (claimedLbl) claimedLbl.active = false;
             if (coinIcon) coinIcon.active = false;
             if (adIcon) {
-                adIcon.active = true;
+                adIcon.active = gateMode !== 'share';
+            }
+            if (shareIcon) {
+                shareIcon.active = gateMode === 'share';
             }
             if (btn) btn.interactable = true;
             opacity.opacity = 255;
@@ -201,11 +335,24 @@ export function installSettlementHudModule(target: any): void {
             if (this._isThemeLevel || this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
                 return;
             }
-            this.runRewardedGrant('win_bonus_reward', () => {
+            const grantWinBonusReward = () => {
                 this.addGold(this._pendingWinAdBonusReward);
                 this._winAdRewardClaimed = true;
                 this.refreshWinAdBonusUI();
-            }, {
+            };
+            if (this.resolveWinBonusRewardGateMode() === 'share') {
+                this.runShareGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
+                    busyFlag: '_adShowing',
+                    shareType: WIN_BONUS_REWARD_GATE_PAGE,
+                    title: () => `我在拼豆豆通关了第${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}关，快来一起挑战！`,
+                    query: () => `level=${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}`,
+                    shareFailToast: '分享未完成，未获得加领奖励',
+                    successToast: () => `额外获取${this._pendingWinAdBonusReward}金币`,
+                    grantFailToast: '加领奖励发放失败，请重试',
+                });
+                return;
+            }
+            this.runRewardedGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
                 busyFlag: '_adShowing',
                 adFailToast: '广告未完成，未获得加领奖励',
                 successToast: () => `额外获取${this._pendingWinAdBonusReward}金币`,
@@ -359,6 +506,7 @@ export function installSettlementHudModule(target: any): void {
                 ? 0
                 : Math.max(0, ECONOMY_NUMERIC_TABLE.adReward.winBonusGold);
             this._winAdRewardClaimed = false;
+            this._winBonusRewardGateMode = null;
             this._settlementNextTransitioning = false;
             this.addGold(this._pendingWinGoldReward);
             this.ensureGameplayResultPanelsCreated?.();
@@ -437,28 +585,26 @@ export function installSettlementHudModule(target: any): void {
             const previewNode = box?.getChildByName('PreviewFrame')?.getChildByName('PatternPreview')
                 || box?.getChildByName('PatternPreview');
             if (!previewNode) return;
-        
-            previewNode.removeAllChildren();
+
+            previewNode.getChildByName('Preview')?.destroy();
             const bm = this.boardModel;
             const previewTransform = previewNode.getComponent(UITransform);
-            const maxW = Math.max(120, (previewTransform?.width || 392) - 16);
-            const maxH = Math.max(120, (previewTransform?.height || 228) - 16);
-            this.drawBeanPreviewGrid(
+            const maxW = Math.max(120, previewTransform?.width || 392);
+            const maxH = Math.max(120, previewTransform?.height || 228);
+            renderPixelPosterPreview(
                 previewNode,
                 bm.correctColors,
-                bm.width,
-                bm.height,
-                0,
-                0,
-                maxW,
-                maxH,
                 {
-                    drawTargetBackground: true,
-                    beanScale: PINDD_BEAN_TO_SLOT_RATIO,
+                    name: 'PixelPosterPreview',
+                    offsetX: 0,
+                    offsetY: 0,
+                    maxW,
+                    maxH,
+                    mode: 'win',
                     cropToContent: true,
                     maxCellSize: Math.max(maxW, maxH),
-                    lockedBeans: true,
                     cellGap: 0,
+                    padding: 6,
                 },
             );
         },

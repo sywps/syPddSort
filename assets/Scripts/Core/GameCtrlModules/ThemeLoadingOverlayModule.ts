@@ -85,19 +85,30 @@ function applyThemeSpriteFrame(
     }
 }
 
-function setExistingThemeSprite(
-    runtime: any,
-    node: Node,
-    frameName: string,
-    color: Color = Color.WHITE,
-): void {
-    const frame = runtime.getSF(frameName);
-    const sprite = node.getComponent(Sprite);
-    if (!frame || !sprite) {
-        throw new Error(`[theme-ui] missing prefab sprite state: ${frameName}`);
+type ThemeCardState = 'completed' | 'unlocked' | 'canUnlock' | 'locked';
+
+const THEME_CARD_STATE_NODE_NAMES: Record<ThemeCardState, string[]> = {
+    completed: ['CompletedState', 'ThemeCompletedState', 'ThemeCardCompletedState', 'ThemeBtnCompletedState'],
+    unlocked: ['UnlockedState', 'ThemeUnlockedState', 'ThemeCardUnlockedState', 'ThemeBtnUnlockedState'],
+    canUnlock: ['CanUnlockState', 'UnlockableState', 'ThemeCanUnlockState', 'ThemeCardCanUnlockState', 'ThemeBtnCanUnlockState'],
+    locked: ['LockedState', 'ThemeLockedState', 'ThemeCardLockedState', 'ThemeBtnLockedState'],
+};
+
+const ALL_THEME_CARD_STATE_NODE_NAMES = [
+    ...THEME_CARD_STATE_NODE_NAMES.completed,
+    ...THEME_CARD_STATE_NODE_NAMES.unlocked,
+    ...THEME_CARD_STATE_NODE_NAMES.canUnlock,
+    ...THEME_CARD_STATE_NODE_NAMES.locked,
+];
+
+function setOptionalThemeStateNodes(root: Node, state: ThemeCardState): void {
+    const allStateNames = new Set<string>(ALL_THEME_CARD_STATE_NODE_NAMES);
+    const activeNames = new Set<string>(THEME_CARD_STATE_NODE_NAMES[state]);
+    for (const child of root.children) {
+        if (allStateNames.has(child.name)) {
+            child.active = activeNames.has(child.name);
+        }
     }
-    sprite.spriteFrame = frame;
-    sprite.color = color;
 }
 
 export function installThemeLoadingOverlayModule(target: any): void {
@@ -132,13 +143,13 @@ export function installThemeLoadingOverlayModule(target: any): void {
             if (!cardUi) {
                 throw new Error('[theme-card] ThemeCardTemplate must provide UITransform');
             }
-            setExistingThemeSprite(this, card, isUnlocked ? 'popup_card_unlocked' : 'popup_card_locked');
+            const cardState: ThemeCardState = isUnlocked ? (isCompleted ? 'completed' : 'unlocked') : (canUnlock ? 'canUnlock' : 'locked');
+            setOptionalThemeStateNodes(card, cardState);
 
             const clipNode = card.getChildByName('CardClip');
             if (!clipNode) {
                 throw new Error('[theme-card] missing CardClip template node');
             }
-            clipNode.active = true;
             clipNode.layer = card.layer;
             if (!clipNode.getComponent(Mask)) {
                 throw new Error('[theme-card] CardClip template must provide Mask');
@@ -150,17 +161,15 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 if (!nameNode || !nameLabel) {
                     throw new Error('[theme-card] ThemeCardTemplate is missing ThemeLvName label');
                 }
-                nameNode.active = true;
                 nameLabel.string = levelName;
-            } else if (nameNode) {
-                nameNode.active = false;
+            } else if (nameLabel) {
+                nameLabel.string = '';
             }
 
             const previewContainer = clipNode.getChildByName('PreviewContainer');
             if (!previewContainer) {
                 throw new Error('[theme-card] missing PreviewContainer template node');
             }
-            previewContainer.active = true;
             previewContainer.layer = clipNode.layer;
             const previewUi = previewContainer.getComponent(UITransform);
             if (!previewUi) {
@@ -174,17 +183,14 @@ export function installThemeLoadingOverlayModule(target: any): void {
             if (!btn) {
                 throw new Error('[theme-card] missing ThemeCardBtn template node');
             }
-            btn.active = true;
             btn.layer = card.layer;
+            setOptionalThemeStateNodes(btn, cardState);
             let buttonText = '';
             if (isUnlocked) {
-                setExistingThemeSprite(this, btn, isCompleted ? 'popup_secondary_button' : 'popup_primary_button');
                 buttonText = isCompleted ? '已通关' : '开始';
             } else if (canUnlock) {
-                setExistingThemeSprite(this, btn, 'popup_secondary_button');
                 buttonText = '看广告解锁';
             } else {
-                setExistingThemeSprite(this, btn, 'popup_secondary_button', new Color('#C9B8A2'));
                 buttonText = `${unlockRequirementLevel}关开放`;
             }
             const btnLabelNode = btn.getChildByName('ThemeBtnLbl');
@@ -192,7 +198,6 @@ export function installThemeLoadingOverlayModule(target: any): void {
             if (!btnLabelNode || !btnLabel) {
                 throw new Error('[theme-card] ThemeCardBtn is missing ThemeBtnLbl label');
             }
-            btnLabelNode.active = true;
             btnLabel.string = buttonText;
 
             if (!btn.getComponent(Button)) {
@@ -223,7 +228,10 @@ export function installThemeLoadingOverlayModule(target: any): void {
 
         /** 在主题卡片上绘制像素图预览（基于 zt_level_xxx.json 的 correctColorArr） */
         drawThemePixelPreview(parent: Node, levelId: number, offsetX: number, offsetY: number, maxW: number, maxH: number) {
-            this.drawCollectionPixelPreviewOnCard(parent, levelId, offsetX, offsetY, maxW, maxH, 'zt_level_');
+            this.drawCollectionPixelPreviewOnCard(parent, levelId, offsetX, offsetY, maxW, maxH, 'zt_level_', {
+                maxCellSize: Math.max(maxW, maxH),
+                padding: 0,
+            });
         },
 
         startThemeLevel(levelId: number, options: { suppressFailureToast?: boolean } = {}): boolean | Promise<boolean> {

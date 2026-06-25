@@ -329,7 +329,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 471.989,
+      "y": 501.138,
       "z": 0
     },
     "_lrot": {
@@ -528,8 +528,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 180.462,
-      "height": 82
+      "width": 200,
+      "height": 100
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -624,7 +624,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 290.492,
-      "y": 472,
+      "y": 501.149,
       "z": 0
     },
     "_lrot": {
@@ -664,8 +664,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 65,
-      "height": 65
+      "width": 80,
+      "height": 80
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -767,7 +767,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -51.091,
+      "y": 13.122,
       "z": 0
     },
     "_lrot": {
@@ -872,7 +872,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 374.047,
+      "y": 394.747,
       "z": 0
     },
     "_lrot": {
@@ -1011,7 +1011,7 @@
     "_string": "给阿嬷的情书",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 30.40625,
+    "_actualFontSize": 28,
     "_fontSize": 28,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -1159,7 +1159,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": -142,
-      "y": 183.732,
+      "y": 204.432,
       "z": 0
     },
     "_lrot": {
@@ -1219,7 +1219,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 0,
+      "y": 27.656,
       "z": 0
     },
     "_lrot": {
@@ -1254,7 +1254,7 @@
       "__id__": 42
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 44
@@ -1348,7 +1348,7 @@
     "_string": "主题关",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 19.546875,
+    "_actualFontSize": 18,
     "_fontSize": 18,
     "_fontFamily": "Arial",
     "_lineHeight": 26,
@@ -1425,7 +1425,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 16,
+      "y": -4.156,
       "z": 0
     },
     "_lrot": {
@@ -1465,8 +1465,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 200,
-      "height": 200
+      "width": 230,
+      "height": 230
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1642,7 +1642,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -110.358,
+      "y": -115.514,
       "z": 0
     },
     "_lrot": {
@@ -2032,7 +2032,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "2f87f7ec-4502-4327-b167-3d54f3ef88d3@f9941",
+      "__uuid__": "ff32ca0c-9115-469a-8c9a-e73033dff480@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 1,
@@ -2081,8 +2081,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 560,
-      "height": 704
+      "width": 598,
+      "height": 850
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2123,7 +2123,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 598,
-      "height": 780
+      "height": 850
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2278,7 +2278,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "dcaa6230-e913-4b04-88bf-b66910298aa8@f9941",
+      "__uuid__": "2f87f7ec-4502-4327-b167-3d54f3ef88d3@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,

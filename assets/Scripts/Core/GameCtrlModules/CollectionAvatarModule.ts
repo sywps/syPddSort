@@ -574,9 +574,9 @@ export function installCollectionAvatarModule(target: any): void {
                     rendered: false,
                     card: previewInfo?.card || slot.getChildByName('Card'),
                     previewX: previewInfo?.previewX ?? 0,
-                    previewY: previewInfo?.previewY ?? 18,
-                    previewW: previewInfo?.previewW ?? Math.max(1, templateUi.width - 56),
-                    previewH: previewInfo?.previewH ?? Math.max(1, templateUi.height - 82),
+                    previewY: previewInfo?.previewY ?? 0,
+                    previewW: previewInfo?.previewW ?? Math.max(1, templateUi.width - 24),
+                    previewH: previewInfo?.previewH ?? Math.max(1, templateUi.height - 74),
                     grayscale: !unlocked,
                 });
             }
@@ -808,24 +808,30 @@ export function installCollectionAvatarModule(target: any): void {
             maxW: number,
             maxH: number,
             prefix: string = 'level_',
-            options?: { grayscale?: boolean },
+            options?: { grayscale?: boolean; maxCellSize?: number; padding?: number },
         ) {
             this.loadLevelData(levelId, (data) => {
                 if (!data || !parent.isValid) return;
                 const correctArr = data.correctColorArr || [];
-                const previewMode = Math.min(maxW, maxH) >= 220 ? 'poster' : 'list';
-                renderPixelPosterPreview(parent, correctArr, {
-                    name: 'PixelPreview',
-                    offsetX,
-                    offsetY,
-                    maxW,
-                    maxH,
+                const previewContainer = parent.getChildByName('PixelPreview');
+                const usePrefabContainer = !!previewContainer?.isValid && !previewContainer.getComponent(Graphics);
+                const renderParent = usePrefabContainer ? previewContainer : parent;
+                const renderUi = usePrefabContainer ? renderParent.getComponent(UITransform) : null;
+                const renderW = Math.max(1, renderUi?.width || maxW);
+                const renderH = Math.max(1, renderUi?.height || maxH);
+                const previewMode = Math.min(renderW, renderH) >= 220 ? 'poster' : 'list';
+                renderPixelPosterPreview(renderParent, correctArr, {
+                    name: usePrefabContainer ? 'PixelPosterPreview' : 'PixelPreview',
+                    offsetX: usePrefabContainer ? 0 : offsetX,
+                    offsetY: usePrefabContainer ? 0 : offsetY,
+                    maxW: renderW,
+                    maxH: renderH,
                     mode: previewMode,
                     cropToContent: true,
                     grayscale: !!options?.grayscale,
-                    maxCellSize: previewMode === 'poster' ? 32 : 24,
+                    maxCellSize: options?.maxCellSize ?? (previewMode === 'poster' ? 32 : 24),
                     cellGap: 0,
-                    padding: previewMode === 'poster' ? 8 : 10,
+                    padding: options?.padding ?? (previewMode === 'poster' ? 8 : 10),
                 });
             }, prefix);
         },

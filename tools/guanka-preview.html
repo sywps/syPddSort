@@ -30,12 +30,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .import-status.success { color: #d7ffd8; }
 #imageImportInput { display: none; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; padding: 20px; max-width: 1400px; margin: 0 auto; }
-.card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .15s, box-shadow .15s; cursor: pointer; }
+.card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .15s, box-shadow .15s; cursor: pointer; position: relative; }
 .card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
-.card .preview { display: flex; justify-content: center; align-items: center; padding: 12px; background: #faf8f4; min-height: 120px; }
+.card .preview { display: flex; justify-content: center; align-items: center; padding: 12px; background: #faf8f4; min-height: 120px; position: relative; }
 .card .preview .col { text-align: center; }
 .card .preview .col .label { font-size: 10px; color: #999; margin-bottom: 2px; }
 .card canvas { border-radius: 6px; }
+.special-badges { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; pointer-events: none; z-index: 3; }
+.special-badge { width: 24px; height: 24px; border-radius: 6px; background: #e9f9d9; border: 1px solid rgba(63,146,196,.35); box-shadow: 0 1px 4px rgba(0,0,0,.12); display: flex; align-items: center; justify-content: center; }
+.special-clock-icon { width: 15px; height: 15px; border: 2px solid #55a8dc; border-radius: 50%; position: relative; background: rgba(255,255,255,.72); }
+.special-clock-icon::before { content: ''; position: absolute; left: 6px; top: 3px; width: 2px; height: 5px; border-radius: 2px; background: #55a8dc; }
+.special-clock-icon::after { content: ''; position: absolute; left: 6px; top: 7px; width: 5px; height: 2px; border-radius: 2px; background: #55a8dc; transform: rotate(28deg); transform-origin: left center; }
+.special-region-icon { width: 15px; height: 15px; border-radius: 4px; position: relative; background: #6dbde9; box-shadow: inset 0 0 0 2px rgba(255,255,255,.9); }
+.special-region-icon::before { content: ''; position: absolute; left: 6px; top: 2px; bottom: 2px; width: 2px; background: rgba(255,255,255,.9); border-radius: 2px; }
+.special-region-icon::after { content: ''; position: absolute; top: 6px; left: 2px; right: 2px; height: 2px; background: rgba(255,255,255,.9); border-radius: 2px; }
 .card .info { padding: 10px 14px; border-top: 1px solid #f0ebe0; }
 .card .info .title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 .card .info .meta { font-size: 12px; color: #888; line-height: 1.6; }
@@ -1237,7 +1245,136 @@ async function importImageLevel(file) {
     }
 }
 
-function drawGrid(canvas, grid, cellSize) {
+function firstNonEmptyArray(...values) {
+    for (const value of values) {
+        if (Array.isArray(value) && value.length > 0) return value;
+    }
+    return [];
+}
+
+function normalizeRegionMap(rawRegionMap) {
+    if (!Array.isArray(rawRegionMap) || rawRegionMap.length === 0) return [];
+    const flattened = Array.isArray(rawRegionMap[0]) ? rawRegionMap.flat() : rawRegionMap;
+    return flattened.map(value => Number(value));
+}
+
+function normalizeTimeRegs(rawTimeRegs) {
+    if (!Array.isArray(rawTimeRegs) || rawTimeRegs.length === 0) return [];
+    return rawTimeRegs
+        .map(reg => ({
+            rowIndex: Math.floor(Number(reg?.rowIndex ?? reg?.row ?? reg?.r)),
+            colIndex: Math.floor(Number(reg?.colIndex ?? reg?.col ?? reg?.c)),
+            width: Math.floor(Number(reg?.width ?? reg?.w)),
+            height: Math.floor(Number(reg?.height ?? reg?.h)),
+            time: Math.floor(Number(reg?.time ?? reg?.timeLimit ?? 0)),
+        }))
+        .filter(reg => Number.isFinite(reg.rowIndex)
+            && Number.isFinite(reg.colIndex)
+            && Number.isFinite(reg.width)
+            && Number.isFinite(reg.height)
+            && reg.width > 0
+            && reg.height > 0);
+}
+
+function getSpecialMeta(data) {
+    const sourceFields = data?.sourceFields || {};
+    const regionMap = normalizeRegionMap(firstNonEmptyArray(data?.regionMap, sourceFields.regionMap));
+    const timeRegs = normalizeTimeRegs(firstNonEmptyArray(data?.timeRegs, sourceFields.timeRegs));
+    const hasRegionMap = regionMap.some(value => Number.isFinite(value) && value >= 0);
+    const hasTimeRegs = timeRegs.length > 0;
+    const specialMode = hasTimeRegs ? 'timeRegs' : (hasRegionMap ? 'regionMap' : null);
+    return {
+        regionMap,
+        timeRegs,
+        hasRegionMap,
+        hasTimeRegs,
+        hasSpecial: Boolean(specialMode),
+        hasMultipleSpecialModes: hasRegionMap && hasTimeRegs,
+        specialMode,
+    };
+}
+
+function createSpecialBadges(meta) {
+    if (!meta?.hasSpecial) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'special-badges';
+    const badge = document.createElement('div');
+    badge.className = 'special-badge';
+    badge.title = meta.specialMode === 'timeRegs' ? '小框倒计时' : '分区/分层';
+    badge.innerHTML = meta.specialMode === 'timeRegs'
+        ? '<span class="special-clock-icon"></span>'
+        : '<span class="special-region-icon"></span>';
+    wrap.appendChild(badge);
+    return wrap;
+}
+
+function drawRegionMapOverlay(ctx, regionMap, boardWidth, boardHeight, cellSize, mode) {
+    if (!Array.isArray(regionMap) || regionMap.length < boardWidth * boardHeight) return;
+    const isValidRegion = value => Number.isFinite(value) && value >= 0;
+    const regionAt = (row, col) => regionMap[row * boardWidth + col];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(54,148,213,.92)';
+    ctx.lineWidth = mode === 'detail' ? Math.max(1.5, cellSize * 0.16) : Math.max(1, cellSize * 0.18);
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    for (let r = 0; r < boardHeight; r++) {
+        for (let c = 0; c < boardWidth; c++) {
+            const current = regionAt(r, c);
+            if (!isValidRegion(current)) continue;
+            const x = c * cellSize;
+            const y = r * cellSize;
+            const addEdge = (r2, c2, x1, y1, x2, y2) => {
+                const neighbor = r2 < 0 || r2 >= boardHeight || c2 < 0 || c2 >= boardWidth ? NaN : regionAt(r2, c2);
+                if (!isValidRegion(neighbor) || neighbor !== current) {
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                }
+            };
+            addEdge(r - 1, c, x, y, x + cellSize, y);
+            addEdge(r + 1, c, x, y + cellSize, x + cellSize, y + cellSize);
+            addEdge(r, c - 1, x, y, x, y + cellSize);
+            addEdge(r, c + 1, x + cellSize, y, x + cellSize, y + cellSize);
+        }
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawTimeRegsOverlay(ctx, timeRegs, boardWidth, boardHeight, cellSize, mode) {
+    if (!Array.isArray(timeRegs) || timeRegs.length === 0) return;
+    ctx.save();
+    for (const reg of timeRegs) {
+        const row = Math.max(0, Math.min(boardHeight - 1, reg.rowIndex));
+        const col = Math.max(0, Math.min(boardWidth - 1, reg.colIndex));
+        const width = Math.max(1, Math.min(boardWidth - col, reg.width));
+        const height = Math.max(1, Math.min(boardHeight - row, reg.height));
+        const x = col * cellSize;
+        const y = row * cellSize;
+        const w = width * cellSize;
+        const h = height * cellSize;
+        const line = mode === 'detail' ? Math.max(2, cellSize * 0.22) : Math.max(1.5, cellSize * 0.2);
+        ctx.fillStyle = 'rgba(166,225,255,.18)';
+        ctx.strokeStyle = 'rgba(74,157,212,.96)';
+        ctx.lineWidth = line;
+        ctx.beginPath();
+        ctx.roundRect(x + line / 2, y + line / 2, Math.max(1, w - line), Math.max(1, h - line), Math.max(2, cellSize * 0.25));
+        ctx.fill();
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawSpecialOverlays(ctx, specialMeta, boardWidth, boardHeight, cellSize, mode = 'card') {
+    if (!specialMeta) return;
+    if (specialMeta.specialMode === 'regionMap') {
+        drawRegionMapOverlay(ctx, specialMeta.regionMap, boardWidth, boardHeight, cellSize, mode);
+    }
+    if (specialMeta.specialMode === 'timeRegs') {
+        drawTimeRegsOverlay(ctx, specialMeta.timeRegs, boardWidth, boardHeight, cellSize, mode);
+    }
+}
+
+function drawGrid(canvas, grid, cellSize, options = {}) {
     const h = grid.length, w = grid[0].length;
     canvas.width = w * cellSize;
     canvas.height = h * cellSize;
@@ -1267,6 +1404,10 @@ function drawGrid(canvas, grid, cellSize) {
                 ctx.fill();
             }
         }
+    }
+
+    if (options.specialMeta) {
+        drawSpecialOverlays(ctx, options.specialMeta, w, h, cellSize, options.specialMode || 'card');
     }
 }
 
@@ -1402,6 +1543,7 @@ function renderCard(data) {
     const colorCount = Object.keys(colors).length;
     const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
     const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+    const specialMeta = getSpecialMeta(data);
 
     // Preview: show target only
     const previewDiv = document.createElement('div');
@@ -1416,6 +1558,8 @@ function renderCard(data) {
     const canvasTarget = document.createElement('canvas');
     targetCol.appendChild(canvasTarget);
     previewDiv.appendChild(targetCol);
+    const specialBadges = createSpecialBadges(specialMeta);
+    if (specialBadges) card.appendChild(specialBadges);
 
     card.appendChild(previewDiv);
 
@@ -1485,6 +1629,7 @@ function showDetail(data) {
     const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
     const maxDim = Math.max(data.boardWidth, data.boardHeight);
     const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
+    const specialMeta = getSpecialMeta(data);
 
     const colorHexMap = Object.keys(colors).every(c => PNG_HEX[c]) ? PNG_HEX : COLOR_HEX;
     const colorDetails = Object.entries(colors)
@@ -1522,8 +1667,8 @@ function showDetail(data) {
         </div>
     `;
 
-    drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize);
-    drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize);
+    drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
+    drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
 
     document.getElementById('modalOverlay').classList.add('active');
 }
@@ -1535,16 +1680,17 @@ function toggleDetailView(btn, levelId) {
     const shuffleLabel = document.querySelector('#detailShuffle').parentElement.querySelector('h3');
     const maxDim = Math.max(data.boardWidth, data.boardHeight);
     const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
+    const specialMeta = getSpecialMeta(data);
     const isShowingTarget = targetLabel.textContent.includes('目标');
     if (isShowingTarget) {
-        drawGrid(document.getElementById('detailTarget'), data.initRandomColorArr, cellSize);
+        drawGrid(document.getElementById('detailTarget'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
         targetLabel.textContent = '初始';
-        drawGrid(document.getElementById('detailShuffle'), data.correctColorArr, cellSize);
+        drawGrid(document.getElementById('detailShuffle'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
         shuffleLabel.textContent = '🎯 目标图案';
     } else {
-        drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize);
+        drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
         targetLabel.textContent = '目标';
-        drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize);
+        drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
         shuffleLabel.textContent = '🔀 初始乱序';
     }
 }

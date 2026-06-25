@@ -799,7 +799,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -114.253,
+      "x": -83.656,
       "y": 198.084,
       "z": 0
     },
@@ -849,8 +849,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 275.55199999999996,
-      "y": 4.4809999999999945,
+      "x": 162.866,
+      "y": 4.481,
       "z": 0
     },
     "_lrot": {
@@ -1496,6 +1496,8 @@
       "__id__": 0
     },
     "fileId": "LoseProgressFill-node",
+    "instance": null,
+    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
