@@ -986,7 +986,7 @@
     "_string": "消色",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 42,
+    "_actualFontSize": 36,
     "_fontSize": 42,
     "_fontFamily": "Arial",
     "_lineHeight": 48,
@@ -1287,8 +1287,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 52,
+      "x": -2.497,
+      "y": 53.82,
       "z": 0
     },
     "_lrot": {
@@ -1328,8 +1328,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 201.654,
-      "height": 190
+      "width": 226.827,
+      "height": 220.686
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2206,7 +2206,7 @@
     "_string": "消除一种颜色的所有豆子！",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 32.578125,
+    "_actualFontSize": 30,
     "_fontSize": 30,
     "_fontFamily": "Arial",
     "_lineHeight": 44,
