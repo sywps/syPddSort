@@ -322,10 +322,15 @@ export function installFirstLevelRouteModule(target: any): void {
             levelPath: string,
             extra: Record<string, unknown> = {},
         ): Record<string, unknown> {
+            const levelDataCdn = LevelDataCdnService.inst.getAvailabilityDiagnostics();
             const diagnostics: Record<string, unknown> = {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
-                levelDataCdn: LevelDataCdnService.inst.getAvailabilityDiagnostics(),
+                levelDataCdn,
+                levelDataCdnBaseUrl: levelDataCdn.baseUrl,
+                levelDataCdnCanUse: levelDataCdn.canUse,
+                levelDataCdnReason: levelDataCdn.reason,
+                levelDataCdnLiveUnavailableReason: levelDataCdn.liveUnavailableReason,
                 levelId,
                 levelPath,
                 ...extra,

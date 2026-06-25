@@ -660,14 +660,27 @@ export function installAssetBootstrapModule(target: any): void {
             });
         },
 
-        _getWechatBuildMode(): string {
+        _getMiniGameBuildMode(): string {
             const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
             const w: any = typeof window !== 'undefined' ? window : null;
-            return String(g?.__PDD_WECHAT_BUILD_MODE__ || w?.__PDD_WECHAT_BUILD_MODE__ || '');
+            return String(
+                g?.__PDD_WECHAT_BUILD_MODE__
+                || w?.__PDD_WECHAT_BUILD_MODE__
+                || g?.__PDD_DOUYIN_BUILD_MODE__
+                || w?.__PDD_DOUYIN_BUILD_MODE__
+                || '',
+            );
         },
 
         _isReleaseLevelDataCdnOnly(): boolean {
-            return this._getWechatBuildMode() === 'release';
+            return this._getMiniGameBuildMode() === 'release';
+        },
+
+        _getLevelDataCdnUnavailableError(): Error {
+            const diagnostics = LevelDataCdnService.inst.getAvailabilityDiagnostics();
+            const baseUrl = String(diagnostics.baseUrl || '');
+            const reason = String(diagnostics.reason || diagnostics.liveUnavailableReason || 'unknown');
+            return new Error(`release level data CDN unavailable: ${reason}; baseUrl=${baseUrl}`);
         },
 
         _withLevelDataBundle(callback: (bundle: Bundle | null) => void) {
@@ -719,7 +732,7 @@ export function installAssetBootstrapModule(target: any): void {
                     return;
                 }
                 if (this._isReleaseLevelDataCdnOnly()) {
-                    callback(null, 'level_data_cdn', new Error('release level data CDN unavailable'));
+                    callback(null, 'level_data_cdn', this._getLevelDataCdnUnavailableError());
                     return;
                 }
                 this._loadLevelDataFromLocalBundle(levelId, prefix, callback);

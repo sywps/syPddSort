@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { readAssetUuid } = require('./minigame-build-common.js');
+const platformConfig = require('./minigame-platform-config.js');
 
 const [outputPath, startSceneUrl, startSceneUuid, modeArg] = process.argv.slice(2);
 
@@ -14,7 +15,22 @@ if (!outputPath || !startSceneUrl || !startSceneUuid || !modeArg) {
 const debugMode = modeArg === '--debug' || modeArg === 'debug';
 const releaseMode = modeArg === '--release' || modeArg === 'release';
 const projectRoot = path.resolve(__dirname, '..');
-const douyinAppId = process.env.DOUYIN_APPID || 'ttf45082ed6a36c15802';
+const douyinAppId = process.env.DOUYIN_APPID || platformConfig.douyin.appId;
+const MINIGAME_ENGINE_MODULES = [
+    '2d',
+    'affine-transform',
+    'animation',
+    'audio',
+    'base',
+    'gfx-webgl',
+    'graphics',
+    'intersection-2d',
+    'legacy-pipeline',
+    'mask',
+    'rich-text',
+    'tween',
+    'ui',
+];
 
 if (!debugMode && !releaseMode) {
     console.error('未知抖音构建模式: ' + modeArg);
@@ -50,13 +66,14 @@ const config = {
     packages: {
         'bytedance-mini-game': {
             appid: douyinAppId,
-            orientation: 'portrait',
+            orientation: platformConfig.common.orientation,
             separateEngine: false,
         },
     },
     name: 'NewProject',
     server: '',
     engineModulesConfigKey: 'defaultConfig',
+    includeModules: MINIGAME_ENGINE_MODULES,
     buildPath: 'project://build',
     debug: false,
     md5Cache: true,

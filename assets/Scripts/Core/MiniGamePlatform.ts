@@ -8,6 +8,7 @@ export type WeChatGameCircleOpenResult = {
 };
 
 declare const wx: any;
+declare const tt: any;
 
 function getScopeValue(scope: any, name: string): any {
     return scope && Object.prototype.hasOwnProperty.call(scope, name) ? scope[name] : null;
@@ -29,10 +30,22 @@ function getDirectWxRuntime(): any {
     }
 }
 
+function getDirectDouyinRuntime(): any {
+    try {
+        return typeof tt !== 'undefined' ? tt : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 export function getMiniGameApi(name: MiniGameApiName): any {
     const globalScope = getGlobalScope();
     const windowScope = getWindowScope();
-    return getScopeValue(globalScope, name) || getScopeValue(windowScope, name) || null;
+    const scoped = getScopeValue(globalScope, name) || getScopeValue(windowScope, name);
+    if (scoped) return scoped;
+    if (name === 'tt') return getDirectDouyinRuntime();
+    if (name === 'wx') return getDirectWxRuntime();
+    return null;
 }
 
 export function hasDouyinBuildMarker(): boolean {

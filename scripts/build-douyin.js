@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const buildCommon = require('./minigame-build-common.js');
+const platformConfig = require('./minigame-platform-config.js');
 
 const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'bytedance-mini-game');
@@ -11,8 +12,9 @@ const skinDataCdnDir = path.join(projectDir, 'build', 'skin-cdn-douyin');
 const buildConfigPath = path.join(projectDir, 'temp', 'douyin-build-config.json');
 const startSceneUrl = 'db://assets/Scenes/Boot.scene';
 const buildMode = buildCommon.parseBuildMode(process.argv.slice(2), 'node scripts/build-douyin.js <--release|--debug>');
-const douyinAppId = process.env.DOUYIN_APPID || 'ttf45082ed6a36c15802';
+const douyinAppId = process.env.DOUYIN_APPID || platformConfig.douyin.appId;
 const douyinLevelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_douyin/levels/';
+const mainPackageLimitBytes = 4 * 1024 * 1024;
 
 process.env.DOUYIN_BUILD_MODE = buildMode;
 process.env.DOUYIN_APPID = douyinAppId;
@@ -106,6 +108,9 @@ console.log('   - 关卡数据 CDN:      ' + levelDataCdnDir);
 console.log('   - 皮肤数据 CDN:      ' + skinDataCdnDir);
 console.log('   - 抖音主包:          ' + buildCommon.formatMB(mainBytes) + ' (' + mainKB + 'KB)');
 console.log('   - 抖音总包:          ' + buildCommon.formatMB(totalBytes) + ' (' + totalKB + 'KB)');
+if (mainBytes > mainPackageLimitBytes) {
+    fail('抖音主包超过 4MB: ' + buildCommon.formatMB(mainBytes));
+}
 console.log('');
 console.log('=== 抖音打包完成 ===');
 console.log('本地包：' + buildDir);
