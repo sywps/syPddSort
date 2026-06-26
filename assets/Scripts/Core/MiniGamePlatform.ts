@@ -1,9 +1,24 @@
 type MiniGameApiName = 'wx' | 'tt';
 export type MiniGameBuildPlatform = 'wechat' | 'douyin' | 'web';
-export type WeChatGameCircleOpenResult = {
+export type WeChatGameClubButtonStyle = {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+};
+
+export type WeChatGameClubButtonHandle = {
+    destroy?: () => void;
+    hide?: () => void;
+    show?: () => void;
+    onTap?: (callback: (res?: any) => void) => void;
+    offTap?: (callback?: (res?: any) => void) => void;
+};
+
+export type WeChatGameCircleButtonResult = {
     ok: boolean;
     message?: string;
-    errorCode?: number;
+    button?: WeChatGameClubButtonHandle;
     rawError?: unknown;
 };
 
@@ -112,29 +127,39 @@ export function getDouyinMiniGameRuntime(): any {
     return getMiniGameApi('tt');
 }
 
-function getWeChatOpenPageErrorCode(error: any): number | undefined {
-    const direct = Number(error?.errCode ?? error?.code ?? error?.errno);
-    if (Number.isFinite(direct)) return direct;
-    const message = String(error?.errMsg || error?.message || error?.errInfo || error || '');
-    const match = /(?:^|[^\d-])(-\d+)(?:[^\d]|$)/.exec(message);
-    if (!match) return undefined;
-    const parsed = Number(match[1]);
-    return Number.isFinite(parsed) ? parsed : undefined;
+function normalizeNativeButtonStyle(style: WeChatGameClubButtonStyle): WeChatGameClubButtonStyle | null {
+    const left = Number(style?.left);
+    const top = Number(style?.top);
+    const width = Number(style?.width);
+    const height = Number(style?.height);
+    if (![left, top, width, height].every(Number.isFinite)) return null;
+    if (width <= 0 || height <= 0) return null;
+    return { left, top, width, height };
 }
 
-function getWeChatGameCircleErrorMessage(errorCode?: number): string {
-    switch (errorCode) {
-        case -1: return '游戏圈链接无效，请检查配置';
-        case -2: return '当前微信版本暂不支持游戏圈跳转';
-        case -3: return '当前设备暂不支持游戏圈';
-        case -6: return '网络异常，请稍后重试';
-        case -7: return '操作过于频繁，请稍后再试';
-        case -8: return '游戏圈链接与当前小游戏版本不匹配';
-        default: return '游戏圈打开失败，请稍后重试';
+export function getWeChatMiniGameWindowSize(): { width: number; height: number } | null {
+    const wxRuntime = getWeChatMiniGameRuntime();
+    if (!wxRuntime) return null;
+    try {
+        const info = typeof wxRuntime.getWindowInfo === 'function'
+            ? wxRuntime.getWindowInfo()
+            : wxRuntime.getSystemInfoSync?.();
+        const width = Number(info?.windowWidth || info?.screenWidth);
+        const height = Number(info?.windowHeight || info?.screenHeight);
+        if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+            return { width, height };
+        }
+    } catch (error) {
+        console.warn('[GameCircle] get window size failed:', error);
     }
+    return null;
 }
 
-export async function openWeChatGameCircle(openlink: string): Promise<WeChatGameCircleOpenResult> {
+export function createWeChatGameCircleButton(
+    openlink: string,
+    style: WeChatGameClubButtonStyle,
+    onTap?: (res?: any) => void,
+): WeChatGameCircleButtonResult {
     const target = String(openlink || '').trim();
     if (!target) {
         return { ok: false, message: '游戏圈链接为空' };
@@ -143,24 +168,60 @@ export async function openWeChatGameCircle(openlink: string): Promise<WeChatGame
     if (!wxRuntime) {
         return { ok: false, message: '请在微信内打开游戏圈' };
     }
-    if (typeof wxRuntime.createPageManager !== 'function') {
-        return { ok: false, message: '当前微信版本暂不支持游戏圈跳转' };
+    if (typeof wxRuntime.createGameClubButton !== 'function') {
+        return { ok: false, message: '当前微信版本暂不支持游戏圈按钮' };
+    }
+    const nativeStyle = normalizeNativeButtonStyle(style);
+    if (!nativeStyle) {
+        return { ok: false, message: '游戏圈按钮位置无效' };
     }
     try {
-        const pageManager = wxRuntime.createPageManager();
-        if (!pageManager || typeof pageManager.load !== 'function' || typeof pageManager.show !== 'function') {
-            return { ok: false, message: '当前微信版本暂不支持游戏圈跳转' };
+        const button = wxRuntime.createGameClubButton({
+            type: 'text',
+            text: '',
+            icon: 'green',
+            style: {
+                left: nativeStyle.left,
+                top: nativeStyle.top,
+                width: nativeStyle.width,
+                height: nativeStyle.height,
+                backgroundColor: 'rgba(0,0,0,0)',
+                borderColor: 'rgba(0,0,0,0)',
+                borderWidth: 0,
+                borderRadius: Math.round(nativeStyle.height / 2),
+                color: 'rgba(0,0,0,0)',
+                textAlign: 'center',
+                fontSize: 1,
+                lineHeight: Math.round(nativeStyle.height),
+            },
+            openlink: target,
+            hasRedDot: false,
+        });
+        if (!button) {
+            return { ok: false, message: '游戏圈按钮创建失败' };
         }
-        await Promise.resolve(pageManager.load({ openlink: target }));
-        pageManager.show();
-        return { ok: true };
+        if (typeof onTap === 'function' && typeof button.onTap === 'function') {
+            button.onTap(onTap);
+        }
+        button.show?.();
+        return { ok: true, button };
     } catch (error) {
-        const errorCode = getWeChatOpenPageErrorCode(error);
         return {
             ok: false,
-            errorCode,
-            message: getWeChatGameCircleErrorMessage(errorCode),
+            message: '游戏圈按钮创建失败，请稍后重试',
             rawError: error,
         };
+    }
+}
+
+export function destroyWeChatGameCircleButton(button: WeChatGameClubButtonHandle | null | undefined): void {
+    if (!button) return;
+    try {
+        button.hide?.();
+    } catch (_) {}
+    try {
+        button.destroy?.();
+    } catch (error) {
+        console.warn('[GameCircle] destroy native button failed:', error);
     }
 }

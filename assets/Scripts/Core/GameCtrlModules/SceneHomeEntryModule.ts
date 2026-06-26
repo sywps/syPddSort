@@ -33,7 +33,6 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
-import { openWeChatGameCircle } from '../MiniGamePlatform';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
 
 const GAME_CIRCLE_BUTTON_NAME = 'GameCircleBtn';
@@ -237,27 +236,7 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         openGameCircle(): void {
-            ensureGameCirclePanelController(this).open();
-        },
-
-        async enterGameCircle(): Promise<void> {
-            if (this._gameCircleOpening) {
-                this.showToast?.('游戏圈打开中', 1.2);
-                return;
-            }
-            this._gameCircleOpening = true;
-            try {
-                const result = await openWeChatGameCircle(GAME_CIRCLE_OPENLINK);
-                if (!result.ok) {
-                    console.warn('[GameCircle] open failed:', result.rawError || result.message || result.errorCode);
-                    this.showToast?.(result.message || '游戏圈打开失败，请稍后重试', 1.8);
-                }
-            } catch (error) {
-                console.error('[GameCircle] open failed:', error);
-                this.showToast?.('游戏圈打开失败，请稍后重试', 1.8);
-            } finally {
-                this._gameCircleOpening = false;
-            }
+            ensureGameCirclePanelController(this).open(GAME_CIRCLE_OPENLINK);
         },
 
         loadLevel(levelId: number, prefix: string = 'level_', _mapMainLevel: boolean = true) {
