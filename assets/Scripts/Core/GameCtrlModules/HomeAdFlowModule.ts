@@ -169,7 +169,7 @@ export function installHomeAdFlowModule(target: any): void {
             const endAdAudioInterruption = (reason: string) => {
                 if (audioInterruptionEnded) return;
                 audioInterruptionEnded = true;
-                AudioMgr.inst.endExternalInterruption(`${adAudioReason}:${reason}`);
+                AudioMgr.inst.endExternalInterruptionWithBgmRestart(`${adAudioReason}:${reason}`);
             };
             AnalyticsMgr.inst.trackAdClick(adType, page, levelId);
             SySDKMgr.inst.reportAdClick(page);
@@ -210,7 +210,6 @@ export function installHomeAdFlowModule(target: any): void {
                     },
                     onClose: () => {
                         adClosed = true;
-                        endAdAudioInterruption('close');
                         if (!pendingAfterCloseFinalize) return;
                         const finalize = pendingAfterCloseFinalize;
                         pendingAfterCloseFinalize = null;

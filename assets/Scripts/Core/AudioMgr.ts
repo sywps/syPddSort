@@ -71,6 +71,7 @@ export class AudioMgr {
     private bgmResourcePath = AUDIO_BGM_RESOURCE_PATH;
     private bgmVolume = AUDIO_BGM_VOLUME;
     private bgmLoadToken = 0;
+    private pendingBgmRestartAfterExternalInterruption = false;
 
     private constructor() {
         // 从本地存储加载设置（默认开启）
@@ -313,6 +314,21 @@ export class AudioMgr {
         }
     }
 
+    private _restartBgmClip() {
+        if (!this.bgmEnabled || this.suspended || this.externalInterruptionRefs > 0 || !this.bgmSrc || !this.bgmClip) {
+            return;
+        }
+        try {
+            this.bgmSrc.stop();
+            this.bgmSrc.clip = this.bgmClip;
+            this.bgmSrc.volume = this.bgmVolume;
+            this.bgmSrc.loop = true;
+            this.bgmSrc.play();
+        } catch (e) {
+            // WeChat innerAudioContext may throw if audio not ready
+        }
+    }
+
     private _setBgmVolume(volume: number) {
         this.bgmVolume = Math.max(0, Math.min(1, volume));
         if (this.bgmSrc?.isValid) {
@@ -326,6 +342,7 @@ export class AudioMgr {
             return;
         }
         this._clearBgmWarmupTimer();
+        this.pendingBgmRestartAfterExternalInterruption = false;
         this.bgmResourcePath = nextPath;
         this.bgmClip = null;
         this.bgmLoadState = 'idle';
@@ -440,6 +457,10 @@ export class AudioMgr {
             this.logAudioLifecycle('defer-ensure-bgm', reason);
             return;
         }
+        if (this.pendingBgmRestartAfterExternalInterruption) {
+            this.restartBgmFromBeginning(reason);
+            return;
+        }
         this.logAudioLifecycle('ensure-bgm', reason);
         if (this.bgmClip) {
             this._playBgmClip();
@@ -457,6 +478,7 @@ export class AudioMgr {
             this.logAudioLifecycle('begin-external-nested', reason);
             return;
         }
+        this.pendingBgmRestartAfterExternalInterruption = false;
         this.bgmWasPlayingBeforeExternalInterruption = !!this.bgmSrc?.playing || this.bgmAutoplayRequested;
         this.sfxSrc?.stop();
         this.bgmSrc?.pause();
@@ -464,6 +486,14 @@ export class AudioMgr {
     }
 
     endExternalInterruption(reason: string = 'external'): void {
+        this.finishExternalInterruption(reason, false);
+    }
+
+    endExternalInterruptionWithBgmRestart(reason: string = 'external'): void {
+        this.finishExternalInterruption(reason, true);
+    }
+
+    private finishExternalInterruption(reason: string, restartBgm: boolean): void {
         if (this.externalInterruptionRefs > 0) {
             this.externalInterruptionRefs -= 1;
         }
@@ -473,10 +503,38 @@ export class AudioMgr {
         }
         const shouldResume = this.bgmWasPlayingBeforeExternalInterruption || this.bgmAutoplayRequested;
         this.bgmWasPlayingBeforeExternalInterruption = false;
-        this.logAudioLifecycle('end-external', reason);
+        this.logAudioLifecycle(restartBgm ? 'end-external-restart' : 'end-external', reason);
         if (shouldResume) {
-            this.ensureBgmPlaying(`external:${reason}`);
+            if (restartBgm) {
+                this.restartBgmFromBeginning(`external:${reason}`);
+            } else {
+                this.ensureBgmPlaying(`external:${reason}`);
+            }
+        } else if (restartBgm) {
+            this.pendingBgmRestartAfterExternalInterruption = false;
         }
+    }
+
+    private restartBgmFromBeginning(reason: string = 'restart'): void {
+        if (!this.bgmAutoplayRequested || !this.bgmEnabled || !this.bgmSrc) {
+            this.pendingBgmRestartAfterExternalInterruption = false;
+            return;
+        }
+        if (this.suspended || this.externalInterruptionRefs > 0) {
+            this.pendingBgmRestartAfterExternalInterruption = true;
+            this.logAudioLifecycle('defer-restart-bgm', reason);
+            return;
+        }
+        this.pendingBgmRestartAfterExternalInterruption = false;
+        this.logAudioLifecycle('restart-bgm', reason);
+        if (this.bgmClip) {
+            this._restartBgmClip();
+            return;
+        }
+        if (this.bgmLoadState === 'failed') {
+            this.bgmLoadState = 'idle';
+        }
+        this._ensureBgmLoaded(true);
     }
 
     preload(name: SfxName) {
@@ -569,6 +627,7 @@ export class AudioMgr {
             this.bgmAutoplayRequested = true;
             this.ensureBgmPlaying('setting-on');
         } else {
+            this.pendingBgmRestartAfterExternalInterruption = false;
             this.bgmSrc.stop();
         }
     }
@@ -591,7 +650,11 @@ export class AudioMgr {
         this.suspended = false;
         const shouldResume = this.bgmWasPlayingBeforeSuspend || this.bgmAutoplayRequested;
         if (shouldResume) {
-            this.ensureBgmPlaying('game-show');
+            if (this.pendingBgmRestartAfterExternalInterruption) {
+                this.restartBgmFromBeginning('game-show');
+            } else {
+                this.ensureBgmPlaying('game-show');
+            }
         }
         this.bgmWasPlayingBeforeSuspend = false;
     }
