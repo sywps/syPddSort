@@ -42,12 +42,30 @@ type PendingRemainingSelection =
     | { source: 'board'; colorId: number; cells: { row: number; col: number }[] }
     | { source: 'slot'; colorId: number };
 
+type FlyBeanFollowOptions = {
+    bean: Node;
+    sourceLocal: Vec3;
+    initialTargetLocal: Vec3;
+    sourceScale: number;
+    initialTargetBeanSize: number;
+    targetRow: number;
+    targetCol: number;
+    delay?: number;
+    duration: number;
+    easing?: string;
+    onComplete?: () => void;
+};
+
 export function installGameplayPlacementFxModule(target: any): void {
     installGameplayColorCompleteFxMethods(target);
     installGameplaySlotCompactionMethods(target);
     Object.assign(target, {
         isPlacementInputLocked(): boolean {
             return (Number(this._placementInputLockRefs) || 0) > 0 || this._placementInputLocked === true;
+        },
+
+        isPlacementVisualBusy(): boolean {
+            return (Number(this._placementVisualRefs) || 0) > 0 || this.isPlacementInputLocked();
         },
 
         beginPlacementInputLock(): void {
@@ -58,6 +76,58 @@ export function installGameplayPlacementFxModule(target: any): void {
         endPlacementInputLock(): void {
             this._placementInputLockRefs = Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0) - 1);
             this._placementInputLocked = this._placementInputLockRefs > 0;
+        },
+
+        beginPlacementVisual(): void {
+            this._placementVisualRefs = Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0)) + 1;
+        },
+
+        endPlacementVisual(): void {
+            this._placementVisualRefs = Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0) - 1);
+        },
+
+        retainFlyingTarget(row: number, col: number): string {
+            const key = `${row},${col}`;
+            const refs: Map<string, number> = this._flyingTargetRefs || (this._flyingTargetRefs = new Map<string, number>());
+            refs.set(key, (refs.get(key) || 0) + 1);
+            this._flyingTargets.add(key);
+            return key;
+        },
+
+        releaseFlyingTargetKey(key: string): void {
+            const refs: Map<string, number> = this._flyingTargetRefs || (this._flyingTargetRefs = new Map<string, number>());
+            const next = Math.max(0, (refs.get(key) || 0) - 1);
+            if (next > 0) {
+                refs.set(key, next);
+                return;
+            }
+            refs.delete(key);
+            this._flyingTargets.delete(key);
+        },
+
+        retainHiddenSlotIndex(index: number): void {
+            const refs: Map<number, number> = this._hiddenSlotIndexRefs || (this._hiddenSlotIndexRefs = new Map<number, number>());
+            refs.set(index, (refs.get(index) || 0) + 1);
+            this._hiddenSlotIndices.add(index);
+        },
+
+        releaseHiddenSlotIndex(index: number): void {
+            const refs: Map<number, number> = this._hiddenSlotIndexRefs || (this._hiddenSlotIndexRefs = new Map<number, number>());
+            const next = Math.max(0, (refs.get(index) || 0) - 1);
+            if (next > 0) {
+                refs.set(index, next);
+                return;
+            }
+            refs.delete(index);
+            this._hiddenSlotIndices.delete(index);
+        },
+
+        clearPlacementVisualState(): void {
+            this._placementVisualRefs = 0;
+            this._flyingTargetRefs?.clear?.();
+            this._hiddenSlotIndexRefs?.clear?.();
+            this._flyingTargets.clear();
+            this._hiddenSlotIndices.clear();
         },
 
         createBoardRemainingSelection(block: BeanBlockInfo, remainingCount: number): PendingRemainingSelection | null {
@@ -104,7 +174,6 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         /** 第二次点击：放置选中的豆豆块（暂存槽优先） */
         handlePlace(worldPos: Vec3) {
-            if (this.isPlacementInputLocked()) return;
             const block = this.currentBlock!;
         
             // 暂存槽优先：尝试放到暂存槽
@@ -255,6 +324,42 @@ export function installGameplayPlacementFxModule(target: any): void {
             return { sourceBeanSize, targetBeanSize };
         },
 
+        startBoardTargetFollowTween(options: FlyBeanFollowOptions): void {
+            const state = { t: 0 };
+            const initialTargetBeanSize = Math.max(1, Number(options.initialTargetBeanSize) || 1);
+            const updateBean = () => {
+                if (!options.bean?.isValid || !this.dragLayer?.isValid) return;
+                const layerUT = this.dragLayer.getComponent(UITransform);
+                const targetWorld = this.getBoardCellWorldPosition?.(options.targetRow, options.targetCol) || null;
+                const targetLocal = targetWorld && layerUT
+                    ? layerUT.convertToNodeSpaceAR(targetWorld)
+                    : options.initialTargetLocal;
+                const t = Math.max(0, Math.min(1, Number(state.t) || 0));
+                options.bean.setPosition(
+                    options.sourceLocal.x + (targetLocal.x - options.sourceLocal.x) * t,
+                    options.sourceLocal.y + (targetLocal.y - options.sourceLocal.y) * t,
+                    options.sourceLocal.z + (targetLocal.z - options.sourceLocal.z) * t,
+                );
+                const currentTargetBeanSize = Math.max(1, this.getBoardFlyBeanSizeInLayer?.(this.dragLayer) || initialTargetBeanSize);
+                const targetScale = currentTargetBeanSize / initialTargetBeanSize;
+                const currentScale = options.sourceScale + (targetScale - options.sourceScale) * t;
+                options.bean.setScale(currentScale, currentScale, 1);
+            };
+            updateBean();
+            tween(state)
+                .delay(Math.max(0, Number(options.delay) || 0))
+                .to(options.duration, { t: 1 }, {
+                    easing: (options.easing || 'sineOut') as any,
+                    onUpdate: updateBean,
+                })
+                .call(() => {
+                    state.t = 1;
+                    updateBean();
+                    options.onComplete?.();
+                })
+                .start();
+        },
+
         startFlyPlace(
             colorId: number,
             sourcesWorld: Vec3[],
@@ -265,7 +370,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             visualOptions?: FlyPlaceVisualOptions,
             remainingSelection: PendingRemainingSelection | null = null,
         ) {
-            this.beginPlacementInputLock();
+            this.beginPlacementVisual();
             // 清除浮起节点 + 恢复格子位置
             this.clearDragNodes();
             this.stopPulseTweens();
@@ -279,9 +384,12 @@ export function installGameplayPlacementFxModule(target: any): void {
             this._selectedSlotIndices = [];
         
             // 标记目标格为飞行中（渲染时不画豆）
-            for (const t of targets) this._flyingTargets.add(`${t.row},${t.col}`);
+            for (const t of targets) this.retainFlyingTarget(t.row, t.col);
             this.renderBoardCells([...dirtyBoardCells, ...targets]);
             this.renderSlotIndices(dirtySlotIndices);
+            if (remainingSelection) {
+                this.applyRemainingSelectionAfterPlacement(remainingSelection);
+            }
         
             const layerUT = this.dragLayer.getComponent(UITransform)!;
             const FLY_DELAY = 0.028;
@@ -292,21 +400,13 @@ export function installGameplayPlacementFxModule(target: any): void {
             const targetBeanSize = Math.max(1, visualOptions?.targetBeanSize ?? defaultTargetBeanSize);
             const sourceBeanSize = Math.max(1, visualOptions?.sourceBeanSize ?? targetBeanSize);
             const sourceScale = sourceBeanSize / targetBeanSize;
-            const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
             let remaining = targets.length;
             const finishAfterAllLanded = () => {
-                const finish = () => {
-                    try {
-                        this.onFlyAllLanded(targets);
-                        if (remainingSelection) {
-                            this.applyRemainingSelectionAfterPlacement(remainingSelection);
-                        }
-                    } finally {
-                        this.endPlacementInputLock();
-                    }
-                };
-                if (afterAllLanded) afterAllLanded(finish);
-                else finish();
+                try {
+                    this.onFlyAllLanded(targets);
+                } finally {
+                    this.endPlacementVisual();
+                }
             };
             if (remaining === 0) {
                 finishAfterAllLanded();
@@ -315,11 +415,12 @@ export function installGameplayPlacementFxModule(target: any): void {
         
             for (let i = 0; i < targets.length; i++) {
                 const t = targets[i];
+                const targetKey = `${t.row},${t.col}`;
                 const targetWorld = this.getBoardCellWorldPosition?.(t.row, t.col)
                     || this.cellNodes[t.row]?.[t.col]?.getComponent(UITransform)?.convertToWorldSpaceAR(new Vec3(0, 0, 0))
                     || null;
                 if (!targetWorld) {
-                    this._flyingTargets.delete(`${t.row},${t.col}`);
+                    this.releaseFlyingTargetKey(targetKey);
                     this.renderBoardCell(t.row, t.col);
                     remaining--;
                     if (remaining <= 0) finishAfterAllLanded();
@@ -338,22 +439,22 @@ export function installGameplayPlacementFxModule(target: any): void {
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
                 bean.setScale(sourceScale, sourceScale, 1);
 
-                const flyProps: { position: Vec3; scale?: Vec3 } = {
-                    position: new Vec3(targetLocal.x, targetLocal.y, 0),
-                };
-                if (shouldTweenScale) {
-                    flyProps.scale = new Vec3(1, 1, 1);
-                }
-                const flyTween = tween(bean)
-                    .delay(i * FLY_DELAY)
-                    .to(FLY_TOTAL_DUR, flyProps, { easing: 'sineOut' });
-
-                flyTween
-                    .call(() => {
+                this.startBoardTargetFollowTween({
+                    bean,
+                    sourceLocal: new Vec3(srcLocal.x, srcLocal.y, srcLocal.z),
+                    initialTargetLocal: new Vec3(targetLocal.x, targetLocal.y, targetLocal.z),
+                    sourceScale,
+                    initialTargetBeanSize: targetBeanSize,
+                    targetRow: t.row,
+                    targetCol: t.col,
+                    delay: i * FLY_DELAY,
+                    duration: FLY_TOTAL_DUR,
+                    easing: 'sineOut',
+                    onComplete: () => {
                         AudioMgr.inst.play('place');
                         AudioMgr.inst.vibratePlace();
                         this.recycleFlyBeanNode(bean);
-                        this._flyingTargets.delete(`${t.row},${t.col}`);
+                        this.releaseFlyingTargetKey(targetKey);
                         this.renderBoardCell(t.row, t.col);
                         this.playLandEffect(t.row, t.col, () => {
                             remaining--;
@@ -361,8 +462,8 @@ export function installGameplayPlacementFxModule(target: any): void {
                                 finishAfterAllLanded();
                             }
                         });
-                    })
-                    .start();
+                    },
+                });
             }
         },
 
@@ -374,6 +475,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             dirtyBoardCells: { row: number; col: number }[] = [],
             remainingSelection: PendingRemainingSelection | null = null,
         ) {
+            this.beginPlacementVisual();
             const preserveBoardCells = remainingSelection?.source === 'board' ? remainingSelection.cells : [];
             this.clearDragNodes();
             this.stopPulseTweens();
@@ -384,15 +486,17 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.isSelected = false;
             this.currentBlock = null;
             this._selectedSlotIndices = [];
-            this._flyingTargets.clear();
             this.clearForcedSkillHiddenState();
             this._lastPlacedCells = null;
         
-            const hidden = new Set<number>(slotIdxs);
+            for (const idx of slotIdxs) this.retainHiddenSlotIndex(idx);
             this.renderBoardCells(dirtyBoardCells);
             // 同色插入会把后续已占用槽整体右移；这里必须先全量重绘一遍槽区，
             // 否则被挪动的豆子要等到下一次交互触发刷新才会重新出现。
-            this.renderSlotsWithHidden(hidden);
+            this.renderSlots();
+            if (remainingSelection) {
+                this.applyRemainingSelectionAfterPlacement(remainingSelection);
+            }
         
             const layerUT = this.dragLayer.getComponent(UITransform)!;
             const FLY_DELAY = 0.028;
@@ -401,8 +505,11 @@ export function installGameplayPlacementFxModule(target: any): void {
             const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
             const sourceBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             let remaining = slotIdxs.length;
-            if (remaining === 0) { this.finishPlace(); return; }
-            this.beginPlacementInputLock();
+            if (remaining === 0) {
+                this.finishPlace();
+                this.endPlacementVisual();
+                return;
+            }
             const finishSlotLanding = () => {
                 try {
                     this.renderBoardCells(dirtyBoardCells);
@@ -414,11 +521,8 @@ export function installGameplayPlacementFxModule(target: any): void {
                     } else {
                         this.refreshEndgameHints('slot-landed');
                     }
-                    if (remainingSelection) {
-                        this.applyRemainingSelectionAfterPlacement(remainingSelection);
-                    }
                 } finally {
-                    this.endPlacementInputLock();
+                    this.endPlacementVisual();
                 }
             };
             const completeOne = () => {
@@ -429,8 +533,13 @@ export function installGameplayPlacementFxModule(target: any): void {
             };
         
             for (let i = 0; i < slotIdxs.length; i++) {
-                const slotNode = this.slotNodes[slotIdxs[i]];
-                if (!slotNode) { completeOne(); continue; }
+                const slotIdx = slotIdxs[i];
+                const slotNode = this.slotNodes[slotIdx];
+                if (!slotNode) {
+                    this.releaseHiddenSlotIndex(slotIdx);
+                    completeOne();
+                    continue;
+                }
                 const targetWorld = slotNode.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
                 const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
                 const srcWorld = sourcesWorld[i] || sourcesWorld[sourcesWorld.length - 1] || targetWorld;
@@ -462,8 +571,8 @@ export function installGameplayPlacementFxModule(target: any): void {
                         AudioMgr.inst.play('slot');
                         AudioMgr.inst.vibratePlace();
                         this.recycleFlyBeanNode(bean);
-                        hidden.delete(slotIdxs[i]);
-                        this.renderSlotIndices([slotIdxs[i]], hidden);
+                        this.releaseHiddenSlotIndex(slotIdx);
+                        this.renderSlotIndices([slotIdx]);
                         completeOne();
                     })
                     .start();
@@ -472,7 +581,9 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         onFlyDone(targets: { row: number; col: number }[], afterLanding?: () => void) {
             const dirtySlotIndices = Array.from(this._hiddenSlotIndices);
-            this._flyingTargets.clear();
+            for (const t of targets || []) {
+                this.releaseFlyingTargetKey(`${t.row},${t.col}`);
+            }
             this.clearForcedSkillHiddenState();
             this._lastPlacedCells = null;
             this.renderBoardCells(targets);
@@ -587,7 +698,9 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         onFlyAllLanded(targets: { row: number; col: number }[]) {
-            this._flyingTargets.clear();
+            for (const t of targets || []) {
+                this.releaseFlyingTargetKey(`${t.row},${t.col}`);
+            }
             this.clearForcedSkillHiddenState();
             this._lastPlacedCells = null;
             this.renderBoardCells(targets);

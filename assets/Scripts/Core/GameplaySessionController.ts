@@ -125,7 +125,7 @@ export class GameplaySessionController {
             runtime.clearIdleHint();
             runtime.clearEndgameHints(true);
             runtime.unscheduleAllCallbacks();
-            runtime._flyingTargets.clear();
+            runtime.clearPlacementVisualState?.();
             runtime.detachGameplayInputHandlers();
 
             runtime.buildUI();
