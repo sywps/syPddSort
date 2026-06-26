@@ -23,6 +23,7 @@ export type WeChatGameCircleButtonResult = {
 };
 
 declare const wx: any;
+declare const tt: any;
 
 function getScopeValue(scope: any, name: string): any {
     return scope && Object.prototype.hasOwnProperty.call(scope, name) ? scope[name] : null;
@@ -44,10 +45,22 @@ function getDirectWxRuntime(): any {
     }
 }
 
+function getDirectDouyinRuntime(): any {
+    try {
+        return typeof tt !== 'undefined' ? tt : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 export function getMiniGameApi(name: MiniGameApiName): any {
     const globalScope = getGlobalScope();
     const windowScope = getWindowScope();
-    return getScopeValue(globalScope, name) || getScopeValue(windowScope, name) || null;
+    const scoped = getScopeValue(globalScope, name) || getScopeValue(windowScope, name);
+    if (scoped) return scoped;
+    if (name === 'tt') return getDirectDouyinRuntime();
+    if (name === 'wx') return getDirectWxRuntime();
+    return null;
 }
 
 export function hasDouyinBuildMarker(): boolean {
@@ -72,9 +85,31 @@ export function hasWeChatBuildMarker(): boolean {
     );
 }
 
+function normalizeMiniGamePlatform(value: unknown): MiniGameBuildPlatform | '' {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'wechat' || normalized === 'weixin' || normalized === 'wx') return 'wechat';
+    if (normalized === 'douyin' || normalized === 'tt' || normalized === 'bytedance') return 'douyin';
+    if (normalized === 'web' || normalized === 'browser') return 'web';
+    return '';
+}
+
+function getBrowserPreviewPlatformParam(): MiniGameBuildPlatform | '' {
+    try {
+        const windowScope = getWindowScope();
+        const search = String(windowScope?.location?.search || '');
+        if (!search) return '';
+        const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+        return normalizeMiniGamePlatform(params.get('platform'));
+    } catch (_) {
+        return '';
+    }
+}
+
 export function getMiniGameBuildPlatform(): MiniGameBuildPlatform {
     if (hasDouyinBuildMarker()) return 'douyin';
     if (hasWeChatBuildMarker()) return 'wechat';
+    const previewPlatform = getBrowserPreviewPlatformParam();
+    if (previewPlatform) return previewPlatform;
     return 'web';
 }
 

@@ -33,7 +33,9 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime } from '../MiniGamePlatform';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
+import { markStartupTrace } from '../StartupTrace';
 
 const GAME_CIRCLE_BUTTON_NAME = 'GameCircleBtn';
 const GAME_CIRCLE_ICON_NAME = 'GameCircleIcon';
@@ -197,6 +199,10 @@ export function installSceneHomeEntryModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('uiPanel');
+                if (getMiniGameBuildPlatform() === 'douyin' || isDouyinMiniGameRuntime()) {
+                    this.showToast?.('\u6392\u884c\u699c\u6682\u672a\u5f00\u653e', 1.6);
+                    return;
+                }
                 void this.openLeaderboard();
             }, this);
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
@@ -481,6 +487,12 @@ export function installSceneHomeEntryModule(target: any): void {
 
         /** 从 bootstrap/remote 加载关卡 */
         loadLocalLevel(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
+            const levelPath = this.getLevelDataPath(levelId, prefix);
+            markStartupTrace('startup_level_data_start', {
+                levelId: activeLevelId,
+                levelPath,
+                sourceEvent: 'local_level_json_start',
+            });
             this._loadLocalLevelDataImpl(levelId, (data) => {
                 if (!data) {
                     console.warn(`[loadLocalLevel] ${prefix}${levelId} not found`);
@@ -496,6 +508,11 @@ export function installSceneHomeEntryModule(target: any): void {
                     );
                     return;
                 }
+                markStartupTrace('startup_level_data_ready', {
+                    levelId: activeLevelId,
+                    levelPath,
+                    sourceEvent: 'local_level_json_loaded',
+                });
                 this.openLocalLevelWithAssets(data, undefined, activeLevelId, this.shouldUseLocalBootstrapBundle(levelId, prefix));
             }, prefix);
         },
@@ -761,6 +778,11 @@ export function installSceneHomeEntryModule(target: any): void {
 
         startLocalBootstrapLevelFast(levelId: number, prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX, activeLevelId: number = levelId) {
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
+            markStartupTrace('startup_level_data_start', {
+                levelId: activeLevelId,
+                levelPath: `${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`,
+                sourceEvent: 'bootstrap_level_start',
+            });
             this.trackFirstLevelFunnelForLevel(activeLevelId, 'bootstrap_level_start', {
                 source: 'bootstrap',
             });
@@ -781,6 +803,11 @@ export function installSceneHomeEntryModule(target: any): void {
                 this.trackFirstLevelFunnelForLevel(activeLevelId, 'first_level_json_loaded', {
                     source: 'bootstrap',
                     success: true,
+                });
+                markStartupTrace('startup_level_data_ready', {
+                    levelId: activeLevelId,
+                    levelPath: `${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`,
+                    sourceEvent: 'first_level_json_loaded',
                 });
                 let beanDone = false;
                 let uiDone = false;

@@ -749,7 +749,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
-    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=2;';
+    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=3;';
     var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
@@ -807,10 +807,11 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
             '(function installPddReleaseLogGate(){',
             'if(' + JSON.stringify(buildMode) + '!=="release")return;',
             'var g=typeof globalThis!=="undefined"?globalThis:{};',
-            'if(g.__PDD_RELEASE_LOG_GATE_INSTALLED__)return;',
-            'var c=typeof console!=="undefined"?console:null;if(!c||c.__pddLogGateInstalled)return;',
-            'c.__pddLogGateInstalled=true;c.__pddOriginalLog=c.log;c.__pddOriginalInfo=c.info;c.__pddOriginalDebug=c.debug;c.__pddOriginalWarn=c.warn;',
-            'var noop=function(){};c.log=noop;c.info=noop;c.debug=noop;c.warn=noop;',
+            'if(Number(g.__PDD_RELEASE_LOG_GATE_VERSION__||0)>=3)return;',
+            'var c=typeof console!=="undefined"?console:null;if(!c)return;',
+            'if(!c.__pddLogGateInstalled){c.__pddOriginalLog=c.log;c.__pddOriginalInfo=c.info;c.__pddOriginalDebug=c.debug;c.__pddOriginalWarn=c.warn;}',
+            'if(!c.__pddOriginalTime)c.__pddOriginalTime=c.time;if(!c.__pddOriginalTimeEnd)c.__pddOriginalTimeEnd=c.timeEnd;',
+            'var noop=function(){};c.log=noop;c.info=noop;c.debug=noop;c.warn=noop;c.time=noop;c.timeEnd=noop;c.__pddLogGateInstalled=true;',
             releaseLogGateMarker,
             releaseLogGateVersionMarker,
             '})();'

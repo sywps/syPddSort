@@ -76,6 +76,11 @@ export class CommercePanelController {
         return label;
     }
 
+    private setAcquireInsufficientGoldTipActive(box: Node, active: boolean): void {
+        const tip = this.runtime.requirePanelChild(box, 'AcquireInsufficientGoldTip');
+        tip.active = active;
+    }
+
     private syncAcquireVariant(box: Node, options: ResourceAcquireOptions): void {
         const runtime = this.runtime;
         const titleBadge = runtime.requirePanelChild(box, 'PopupTitleBadge');
@@ -115,6 +120,7 @@ export class CommercePanelController {
         toolAdBtn.active = !isGold;
         goldAdBtn.active = isGold;
         cancelBtn.active = false;
+        this.setAcquireInsufficientGoldTipActive(box, false);
 
         if (isGold) {
             this.setAcquireLabelText(box, 'GoldAmountLabel', options.goldAmountText || '');
@@ -243,7 +249,11 @@ export class CommercePanelController {
                     if (options.onBuy && options.buyLabel) {
                         runtime.bindPanelButton(buyBtn, () => {
                             AudioMgr.inst.play('button');
-                            if (!options.onBuy?.()) return;
+                            this.setAcquireInsufficientGoldTipActive(box, false);
+                            if (!options.onBuy?.()) {
+                                this.setAcquireInsufficientGoldTipActive(box, true);
+                                return;
+                            }
                             options.onInventoryChanged?.();
                             closePanel(!!options.resumeTimerOnClose, false);
                         });
@@ -324,7 +334,6 @@ export class CommercePanelController {
             onInventoryChanged: options.onInventoryChanged,
             onBuy: () => {
                 if (!this.runtime.spendGold(meta.cost)) {
-                    this.runtime.showToast(`金币不足，还差 ${meta.cost - this.runtime.getGold()} 金币`);
                     return false;
                 }
                 this.runtime.addPropCount(kind, 1);

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const platformConfig = require('./minigame-platform-config.js');
 
 const [outputPath, startSceneUrl, startSceneUuid, modeArg] = process.argv.slice(2);
 
@@ -84,8 +85,8 @@ const config = {
     mainBundleCompressionType: 'subpackage',
     packages: {
         wechatgame: {
-            orientation: 'portrait',
-            appid: 'wxbb6160c828f380ca',
+            orientation: platformConfig.common.orientation,
+            appid: process.env.WECHAT_APPID || platformConfig.wechat.appId,
             buildOpenDataContextTemplate: '',
             separateEngine: resolveSeparateEngine(),
             highPerformanceMode: false,
@@ -114,7 +115,7 @@ const config = {
     polyfills: {
         asyncFunctions: false,
     },
-    experimentalEraseModules: false,
+    experimentalEraseModules: true,
     startSceneAssetBundle: false,
     bundleConfigs: [
         {

@@ -38,12 +38,73 @@ type FlyPlaceVisualOptions = {
     targetBeanSize?: number;
 };
 
+type PendingRemainingSelection =
+    | { source: 'board'; colorId: number; cells: { row: number; col: number }[] }
+    | { source: 'slot'; colorId: number };
+
 export function installGameplayPlacementFxModule(target: any): void {
     installGameplayColorCompleteFxMethods(target);
     installGameplaySlotCompactionMethods(target);
     Object.assign(target, {
+        isPlacementInputLocked(): boolean {
+            return (Number(this._placementInputLockRefs) || 0) > 0 || this._placementInputLocked === true;
+        },
+
+        beginPlacementInputLock(): void {
+            this._placementInputLockRefs = Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0)) + 1;
+            this._placementInputLocked = true;
+        },
+
+        endPlacementInputLock(): void {
+            this._placementInputLockRefs = Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0) - 1);
+            this._placementInputLocked = this._placementInputLockRefs > 0;
+        },
+
+        createBoardRemainingSelection(block: BeanBlockInfo, remainingCount: number): PendingRemainingSelection | null {
+            const count = Math.max(0, Math.min(block.cells.length, Math.floor(Number(remainingCount) || 0)));
+            if (count <= 0) return null;
+            const cells = block.cells
+                .slice(block.cells.length - count)
+                .map((cell) => ({ row: cell.row, col: cell.col }));
+            if (cells.length === 0) return null;
+            return { source: 'board', colorId: block.colorId, cells };
+        },
+
+        createSlotRemainingSelection(block: BeanBlockInfo, remainingCount: number): PendingRemainingSelection | null {
+            const count = Math.max(0, Math.min(block.cells.length, Math.floor(Number(remainingCount) || 0)));
+            if (count <= 0) return null;
+            return { source: 'slot', colorId: block.colorId };
+        },
+
+        applyRemainingSelectionAfterPlacement(selection: PendingRemainingSelection | null): boolean {
+            if (!selection || this.isGameEnd) return false;
+            if (selection.source === 'board') {
+                const cells = selection.cells.filter((cell) =>
+                    this.boardModel.currentColors[cell.row]?.[cell.col] === selection.colorId
+                    && !this.boardModel.locked[cell.row]?.[cell.col]
+                );
+                if (cells.length === 0) return false;
+                this.applyBoardSelection({
+                    colorId: selection.colorId,
+                    cells,
+                    isLocked: false,
+                    source: 'board',
+                }, { playFeedback: false, preserveVisual: true });
+                return true;
+            }
+
+            const slots = this.slotModel.getAll();
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i]?.colorId === selection.colorId) {
+                    return this.selectSlotBlockByIndex(i, { playFeedback: false });
+                }
+            }
+            return false;
+        },
+
         /** 第二次点击：放置选中的豆豆块（暂存槽优先） */
         handlePlace(worldPos: Vec3) {
+            if (this.isPlacementInputLocked()) return;
             const block = this.currentBlock!;
         
             // 暂存槽优先：尝试放到暂存槽
@@ -90,6 +151,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                         if (idx === -1) break;
                         storedSlotIdxs.push(idx);
                     }
+                    const remainingSelection = storedSlotIdxs.length < block.cells.length
+                        ? this.createBoardRemainingSelection(block, block.cells.length - storedSlotIdxs.length)
+                        : null;
                     if (storedSlotIdxs.length < block.cells.length) {
                         const remaining: BeanBlockInfo = {
                             colorId: block.colorId,
@@ -108,10 +172,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                                 extra: { colorId: block.colorId, placedCount: storedSlotIdxs.length, sourceBlock: block.source },
                             });
                         }
-                        this.startFlyToSlots(block.colorId, sources.slice(0, storedSlotIdxs.length), storedSlotIdxs, block.cells);
+                        this.startFlyToSlots(block.colorId, sources.slice(0, storedSlotIdxs.length), storedSlotIdxs, block.cells, remainingSelection);
                     } else {
                         this.playReturnFeedback();
-                        this.finishPlace();
                     }
                     return;
                 }
@@ -200,16 +263,20 @@ export function installGameplayPlacementFxModule(target: any): void {
             dirtySlotIndices: number[] = [],
             afterAllLanded?: (onComplete: () => void) => void,
             visualOptions?: FlyPlaceVisualOptions,
+            remainingSelection: PendingRemainingSelection | null = null,
         ) {
+            this.beginPlacementInputLock();
             // 清除浮起节点 + 恢复格子位置
             this.clearDragNodes();
             this.stopPulseTweens();
             this.clearSelectionOverlay();
             this.clearIdleHint();
-            this.resetCellPositions();
+            const preserveBoardCells = remainingSelection?.source === 'board' ? remainingSelection.cells : [];
+            this.resetCellPositionsExcept(preserveBoardCells);
             this.resetSlotPositions();
             this.isSelected = false;
             this.currentBlock = null;
+            this._selectedSlotIndices = [];
         
             // 标记目标格为飞行中（渲染时不画豆）
             for (const t of targets) this._flyingTargets.add(`${t.row},${t.col}`);
@@ -228,7 +295,16 @@ export function installGameplayPlacementFxModule(target: any): void {
             const shouldTweenScale = Math.abs(sourceScale - 1) > 0.01;
             let remaining = targets.length;
             const finishAfterAllLanded = () => {
-                const finish = () => this.onFlyAllLanded(targets);
+                const finish = () => {
+                    try {
+                        this.onFlyAllLanded(targets);
+                        if (remainingSelection) {
+                            this.applyRemainingSelectionAfterPlacement(remainingSelection);
+                        }
+                    } finally {
+                        this.endPlacementInputLock();
+                    }
+                };
                 if (afterAllLanded) afterAllLanded(finish);
                 else finish();
             };
@@ -291,9 +367,25 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         /** 飞向暂存槽：源→slot 位置；动画期间对应 slot 隐藏占位 */
-        startFlyToSlots(colorId: number, sourcesWorld: Vec3[], slotIdxs: number[], dirtyBoardCells: { row: number; col: number }[] = []) {
-            this.prepareSkillMoveAnimation();
+        startFlyToSlots(
+            colorId: number,
+            sourcesWorld: Vec3[],
+            slotIdxs: number[],
+            dirtyBoardCells: { row: number; col: number }[] = [],
+            remainingSelection: PendingRemainingSelection | null = null,
+        ) {
+            const preserveBoardCells = remainingSelection?.source === 'board' ? remainingSelection.cells : [];
+            this.clearDragNodes();
+            this.stopPulseTweens();
             this.clearSelectionOverlay();
+            this.clearIdleHint();
+            this.resetCellPositionsExcept(preserveBoardCells);
+            this.resetSlotPositions();
+            this.isSelected = false;
+            this.currentBlock = null;
+            this._selectedSlotIndices = [];
+            this._flyingTargets.clear();
+            this.clearForcedSkillHiddenState();
             this._lastPlacedCells = null;
         
             const hidden = new Set<number>(slotIdxs);
@@ -310,10 +402,35 @@ export function installGameplayPlacementFxModule(target: any): void {
             const sourceBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             let remaining = slotIdxs.length;
             if (remaining === 0) { this.finishPlace(); return; }
+            this.beginPlacementInputLock();
+            const finishSlotLanding = () => {
+                try {
+                    this.renderBoardCells(dirtyBoardCells);
+                    this.checkGuideStepComplete();
+                    this.resetIdleHintTimer();
+                    if (this.boardModel.isAllLocked()) {
+                        this.clearEndgameHints(false);
+                        this.playPatternCompleteThenWin();
+                    } else {
+                        this.refreshEndgameHints('slot-landed');
+                    }
+                    if (remainingSelection) {
+                        this.applyRemainingSelectionAfterPlacement(remainingSelection);
+                    }
+                } finally {
+                    this.endPlacementInputLock();
+                }
+            };
+            const completeOne = () => {
+                remaining--;
+                if (remaining <= 0) {
+                    finishSlotLanding();
+                }
+            };
         
             for (let i = 0; i < slotIdxs.length; i++) {
                 const slotNode = this.slotNodes[slotIdxs[i]];
-                if (!slotNode) { remaining--; continue; }
+                if (!slotNode) { completeOne(); continue; }
                 const targetWorld = slotNode.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
                 const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
                 const srcWorld = sourcesWorld[i] || sourcesWorld[sourcesWorld.length - 1] || targetWorld;
@@ -347,18 +464,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.recycleFlyBeanNode(bean);
                         hidden.delete(slotIdxs[i]);
                         this.renderSlotIndices([slotIdxs[i]], hidden);
-                        remaining--;
-                        if (remaining <= 0) {
-                            this.renderBoardCells(dirtyBoardCells);
-                            this.checkGuideStepComplete();
-                            this.resetIdleHintTimer();
-                            if (this.boardModel.isAllLocked()) {
-                                this.clearEndgameHints(false);
-                                this.playPatternCompleteThenWin();
-                            } else {
-                                this.refreshEndgameHints('slot-landed');
-                            }
-                        }
+                        completeOne();
                     })
                     .start();
             }
@@ -500,6 +606,7 @@ export function installGameplayPlacementFxModule(target: any): void {
         finishPlace() {
             this.isSelected = false;
             this.currentBlock = null;
+            this._selectedSlotIndices = [];
             this.clearDragNodes();
             this.stopPulseTweens();
             this.clearSelectionOverlay();
@@ -574,6 +681,24 @@ export function installGameplayPlacementFxModule(target: any): void {
                     this._completedColors.add(cid);
                     if (skipColorCompleteAudio) continue;
                     this.enqueueColorCompleteEffect(cid, true);
+                }
+            }
+        },
+
+        resetCellPositionsExcept(excludedCells: { row: number; col: number }[] = []) {
+            const excluded = new Set((excludedCells || []).map((cell) => `${cell.row},${cell.col}`));
+            const bw = this.levelData.boardWidth;
+            const bh = this.levelData.boardHeight;
+            for (let r = 0; r < bh; r++) {
+                for (let c = 0; c < bw; c++) {
+                    if (excluded.has(`${r},${c}`)) continue;
+                    const cellNode = this.cellNodes[r]?.[c];
+                    if (!cellNode) continue;
+                    Tween.stopAllByTarget(cellNode);
+                    const origX = (c - bw / 2 + 0.5) * (this.cellSize + this.cellGap);
+                    const origY = ((bh / 2 - 0.5) - r) * (this.cellSize + this.cellGap);
+                    cellNode.setPosition(origX, origY);
+                    cellNode.setScale(1, 1, 1);
                 }
             }
         },

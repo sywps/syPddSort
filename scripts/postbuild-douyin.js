@@ -14,6 +14,7 @@ const levelDataCdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-
 const skinDataCdnUrl = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(levelDataCdnUrl);
 const douyinCloudEnv = process.env.PDD_DOUYIN_CLOUD_ENV || '';
 const douyinCloudPathPrefix = process.env.PDD_DOUYIN_CLOUD_PATH_PREFIX || '';
+const MAIN_PACKAGE_LIMIT_BYTES = 4 * 1024 * 1024;
 
 function deriveSkinDataCdnUrl(levelUrl) {
     const normalized = String(levelUrl || '').trim().replace(/\/?$/, '/');
@@ -69,6 +70,30 @@ function findSettingsPath(runtimeRoot) {
 
 function normalizeSubpackageRoot(root) {
     return String(root || '').replace(/^\/+|\/+$/g, '');
+}
+
+function formatPreciseMB(bytes) {
+    return (bytes / 1024 / 1024).toFixed(4) + 'MB';
+}
+
+function findDeclaredSubpackageRoots(runtimeRoot) {
+    const gameJsonPath = path.join(runtimeRoot, 'game.json');
+    if (!fs.existsSync(gameJsonPath)) return [];
+    const gameJson = readJson(gameJsonPath);
+    const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [];
+    return subpackages
+        .map((item) => normalizeSubpackageRoot(item && item.root))
+        .filter(Boolean)
+        .map((root) => path.join(runtimeRoot, root));
+}
+
+function assertMainPackageSize(runtimeRoot) {
+    const subpackageRoots = findDeclaredSubpackageRoots(runtimeRoot);
+    const mainBytes = buildCommon.dirSize(runtimeRoot, subpackageRoots);
+    console.log('[douyin-postbuild] main package size: ' + formatPreciseMB(mainBytes) + ' / 4MB');
+    if (mainBytes > MAIN_PACKAGE_LIMIT_BYTES) {
+        fail('Douyin main package exceeds 4MB: ' + formatPreciseMB(mainBytes) + '. Move large assets into subpackages/CDN or trim engine modules.');
+    }
 }
 
 function findBundleFile(bundleDir, baseName, extName) {
@@ -168,6 +193,11 @@ function removeReleaseLevelDataSubpackage(runtimeRoot) {
         writeJson(gameJsonPath, gameJson);
     }
     fs.rmSync(path.join(runtimeRoot, 'subpackages', 'levelData'), { recursive: true, force: true });
+    const localLevelDataDir = path.join(runtimeRoot, 'assets', 'levelData');
+    if (fs.existsSync(localLevelDataDir)) {
+        fs.rmSync(localLevelDataDir, { recursive: true, force: true });
+        console.log('[douyin-postbuild] removed release assets/levelData; level data must load from CDN');
+    }
 }
 
 function getPreloadBundleName(item) {
@@ -176,7 +206,7 @@ function getPreloadBundleName(item) {
 
 function ensureStartupPreloadBundles(assets) {
     const preloadBundles = Array.isArray(assets.preloadBundles) ? assets.preloadBundles.slice() : [];
-    const requiredOrder = ['bootstrap', 'main'];
+    const requiredOrder = ['main'];
     const byName = new Map();
     for (const item of preloadBundles) {
         const name = getPreloadBundleName(item);
@@ -187,6 +217,7 @@ function ensureStartupPreloadBundles(assets) {
         const name = getPreloadBundleName(item);
         if (
             requiredOrder.includes(name)
+            || name === 'bootstrap'
             || name === 'homeAssets'
             || name === 'gameAssets'
             || name === 'levelData'
@@ -264,5 +295,6 @@ removeReleaseLevelDataSubpackage(runtimeRoot);
 normalizeSettings(runtimeRoot);
 ensureDouyinRuntimeMarker(runtimeRoot);
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeRoot]);
+assertMainPackageSize(runtimeRoot);
 
 console.log('抖音后处理完成: ' + runtimeRoot);

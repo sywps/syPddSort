@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync, spawn } = require('child_process');
 const buildCommon = require('./minigame-build-common.js');
+const platformConfig = require('./minigame-platform-config.js');
 
 const projectDir = path.resolve(__dirname, '..');
 const buildDir = path.join(projectDir, 'build', 'wechatgame');
@@ -14,7 +15,7 @@ const startSceneUrl = 'db://assets/Scenes/Boot.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
 const mainPackageTargetKB = 3072;
 const startupDownloadTargetKB = 3072;
-const wechatAppId = process.env.WECHAT_APPID || 'wxbb6160c828f380ca';
+const wechatAppId = process.env.WECHAT_APPID || platformConfig.wechat.appId;
 const openDevtools = process.env.WECHAT_OPEN_DEVTOOLS || '1';
 process.env.WECHAT_BUILD_MODE = buildMode;
 process.env.WECHAT_GAME_ASSETS_MODE = 'subpackage';

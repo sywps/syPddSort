@@ -332,6 +332,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
+            if (this.isPlacementInputLocked?.()) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
                 this.resetTouchState();
                 return;
@@ -383,6 +384,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchMove(event: EventTouch) {
             if (this.isGameEnd) return;
+            if (this.isPlacementInputLocked?.()) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
                 this.resetTouchState();
                 return;
@@ -442,6 +444,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchEnd(event: EventTouch) {
             if (this.isGameEnd) { this.resetTouchState(); return; }
+            if (this.isPlacementInputLocked?.()) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) { this.resetTouchState(); return; }
             if (this._skillActive && !this._wandMode) { this.resetTouchState(); return; }
             if (this._wandMode && this._wandRectNode) {
@@ -517,6 +520,7 @@ export function installBoardInputViewportModule(target: any): void {
         /** PC 端滚轮缩放棋盘 */
         onMouseWheel(event: EventMouse) {
             if (this.isGameEnd || this._guideStep >= 0) return;
+            if (this.isPlacementInputLocked?.()) return;
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
             if (this._skillActive && !this._wandMode) return;
             PerformanceMgr.inst.markUserActivity();
@@ -746,6 +750,7 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         triggerSlotUnlockFromInput(): boolean {
+            if (this.isPlacementInputLocked?.()) return true;
             const now = Date.now();
             const lastAt = Number(this._lastSlotUnlockInputAt) || 0;
             if (now - lastAt < 500) return true;
@@ -812,7 +817,7 @@ export function installBoardInputViewportModule(target: any): void {
             return { candidates, candidate: selectedCandidate, block: selectedBlock, source };
         },
 
-        applyBoardSelection(block: BeanBlockInfo): void {
+        applyBoardSelection(block: BeanBlockInfo, options: { playFeedback?: boolean; preserveVisual?: boolean } = {}): void {
             this.currentBlock = block;
             this.isSelected = true;
             this.resetIdleHintTimer();
@@ -826,8 +831,17 @@ export function installBoardInputViewportModule(target: any): void {
                     extra: { colorId: block.colorId, cellCount: block.cells.length },
                 });
             }
-            AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
-            this.showSelectionHighlight(block);
+            if (options.playFeedback !== false) {
+                AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
+            }
+            if (options.preserveVisual === true) {
+                this.clearDragNodes();
+                this.stopPulseTweens();
+                this.clearSelectionOverlay();
+                this._floatingCells = block.cells.map(c => ({ row: c.row, col: c.col }));
+            } else {
+                this.showSelectionHighlight(block);
+            }
         },
 
         /** 第一次点击棋盘：默认只选中直接命中的连通块。 */
@@ -841,7 +855,7 @@ export function installBoardInputViewportModule(target: any): void {
             return true;
         },
 
-        selectSlotBlockByIndex(slotIndex: number): boolean {
+        selectSlotBlockByIndex(slotIndex: number, options: { playFeedback?: boolean } = {}): boolean {
             const row = Math.floor(slotIndex / SLOTS_PER_ROW);
             if (row >= this.slotUnlockedRows) return false;
             const target = this.slotModel.getBlock(slotIndex);
@@ -878,7 +892,9 @@ export function installBoardInputViewportModule(target: any): void {
                     extra: { colorId, cellCount: allCells.length },
                 });
             }
-            AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
+            if (options.playFeedback !== false) {
+                AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
+            }
         
             // 选中效果：豆豆保持在暂存槽原位，显示高亮选中环
             this.showSlotSelectionHighlight(slotIndices);
@@ -915,6 +931,14 @@ export function installBoardInputViewportModule(target: any): void {
                     return this.triggerSlotUnlockFromInput();
                 }
                 if (!fromSlot) {
+                    if (slotIntent.kind === 'occupiedSlot' && slotIntent.candidate?.slotIndex != null) {
+                        const target = this.slotModel.getBlock(slotIntent.candidate.slotIndex);
+                        if (target) {
+                            this.cancelSelection();
+                            this.selectSlotBlockByIndex(slotIntent.candidate.slotIndex);
+                            return true;
+                        }
+                    }
                     return false;
                 }
                 if (slotIntent.kind === 'occupiedSlot' && slotIntent.candidate?.slotIndex != null) {
@@ -1183,6 +1207,11 @@ export function installBoardInputViewportModule(target: any): void {
                     extra: { colorId: block.colorId, placedCount: result.placed.length, sourceBlock: block.source },
                 });
             }
+            const remainingSelection = result.remaining > 0
+                ? (block.source === 'board'
+                    ? this.createBoardRemainingSelection(block, result.remaining)
+                    : this.createSlotRemainingSelection(block, result.remaining))
+                : null;
             if (result.remaining > 0) {
                 if (block.source === 'board') {
                     this.boardModel.restoreRemaining(block, result.remaining);
@@ -1199,7 +1228,7 @@ export function installBoardInputViewportModule(target: any): void {
                 ? (done: () => void) => this.compactSlotsAfterSelectionConsume(done)
                 : undefined;
             const flyVisualOptions = this.createFlyPlaceVisualOptions(block);
-            this.startFlyPlace(block.colorId, sources, result.placed, dirtyBoardCells, dirtySlotIndices, afterFlyLanded, flyVisualOptions);
+            this.startFlyPlace(block.colorId, sources, result.placed, dirtyBoardCells, dirtySlotIndices, afterFlyLanded, flyVisualOptions, remainingSelection);
             return true;
         },
     });

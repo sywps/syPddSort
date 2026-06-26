@@ -8,6 +8,7 @@ import {
 } from './PackageNames';
 import { debugPerfTrace } from './DebugPerfTrace';
 import { runtimeLog } from './RuntimeLog';
+import { markStartupTrace } from './StartupTrace';
 
 function isSceneTraceEnabled(): boolean {
     try {
@@ -202,6 +203,9 @@ export class SceneRouter {
         this.session.requestScene(sceneName);
         try {
             await new Promise<void>((resolve, reject) => {
+                if (sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME) {
+                    markStartupTrace('startup_bootstrap_load_start', { bundleName, sceneName });
+                }
                 assetManager.loadBundle(bundleName, (bundleErr, bundle) => {
                     if (bundleErr || !bundle) {
                         debugPerfTrace('scene.bundle.load.error', {
@@ -220,6 +224,13 @@ export class SceneRouter {
                         logicalBundle: logicalName,
                         durationMs: Date.now() - startedAt,
                     });
+                    if (sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME) {
+                        markStartupTrace('startup_bootstrap_load_done', {
+                            bundleName,
+                            sceneName,
+                            durationMs: Date.now() - startedAt,
+                        });
+                    }
                     this.session.rememberRoutedBundle(bundleName, bundle);
                     bundle.loadScene(sceneName, (sceneErr: Error | null, sceneAsset: SceneAsset) => {
                         if (sceneErr || !sceneAsset) {
@@ -239,6 +250,13 @@ export class SceneRouter {
                             logicalBundle: logicalName,
                             durationMs: Date.now() - startedAt,
                         });
+                        if (sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME) {
+                            markStartupTrace('startup_game_scene_load_done', {
+                                bundleName,
+                                sceneName,
+                                durationMs: Date.now() - startedAt,
+                            });
+                        }
                         const startupGameRestore = sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME
                             ? this.session.consumeStartupCloudGameRestoreForGameEntry()
                             : null;
@@ -262,6 +280,13 @@ export class SceneRouter {
                         }
                         director.runScene(sceneAsset, undefined, () => {
                             this.session.setCurrentSceneName(sceneName);
+                            if (sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME) {
+                                markStartupTrace('startup_game_scene_run', {
+                                    bundleName,
+                                    sceneName,
+                                    durationMs: Date.now() - startedAt,
+                                });
+                            }
                             debugPerfTrace('scene.bundle.run.callback', {
                                 current: this.session.currentSceneName,
                                 requested: this.session.requestedSceneName,

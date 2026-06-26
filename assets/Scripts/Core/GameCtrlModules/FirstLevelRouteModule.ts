@@ -28,6 +28,7 @@ import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
+import { markStartupTrace } from '../StartupTrace';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -321,10 +322,15 @@ export function installFirstLevelRouteModule(target: any): void {
             levelPath: string,
             extra: Record<string, unknown> = {},
         ): Record<string, unknown> {
+            const levelDataCdn = LevelDataCdnService.inst.getAvailabilityDiagnostics();
             const diagnostics: Record<string, unknown> = {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
-                levelDataCdn: LevelDataCdnService.inst.getAvailabilityDiagnostics(),
+                levelDataCdn,
+                levelDataCdnBaseUrl: levelDataCdn.baseUrl,
+                levelDataCdnCanUse: levelDataCdn.canUse,
+                levelDataCdnReason: levelDataCdn.reason,
+                levelDataCdnLiveUnavailableReason: levelDataCdn.liveUnavailableReason,
                 levelId,
                 levelPath,
                 ...extra,
@@ -345,6 +351,19 @@ export function installFirstLevelRouteModule(target: any): void {
             } = {},
         ): void {
             const diagnostics = this.getLevelDataLoadDiagnostics(levelId, levelPath, opt.extra || {});
+            if (eventName === 'level_data_load_start') {
+                markStartupTrace('startup_level_data_start', {
+                    levelId,
+                    levelPath,
+                    sourceEvent: eventName,
+                });
+            } else if (eventName === 'first_level_json_loaded') {
+                markStartupTrace('startup_level_data_ready', {
+                    levelId,
+                    levelPath,
+                    sourceEvent: eventName,
+                });
+            }
             const logArgs = [`[LevelDataLoad] ${eventName}`, diagnostics];
             if (success) runtimeLog(...logArgs);
             else console.error(...logArgs);
@@ -572,6 +591,25 @@ export function installFirstLevelRouteModule(target: any): void {
                 runtimeWarn('[GameCtrl] skip startup cloud state sync because fresh-install restore is unresolved:', restoreStatus);
             }
 
+            this._pendingStartupBackgroundServices = {
+                canAutoSaveGameStateOnStartup,
+                deferDelaySec: Math.max(0, Number(deferDelaySec) || 0),
+            };
+            this.runPendingStartupBackgroundServicesIfReady();
+        },
+
+        onGameplayUiReadyForStartupServices() {
+            this._startupBackgroundServicesUiReady = true;
+            this.runPendingStartupBackgroundServicesIfReady();
+        },
+
+        runPendingStartupBackgroundServicesIfReady() {
+            const pending = this._pendingStartupBackgroundServices;
+            if (!pending || this._startupBackgroundServicesRunStarted || !this._startupBackgroundServicesUiReady) {
+                return;
+            }
+            this._startupBackgroundServicesRunStarted = true;
+            this._pendingStartupBackgroundServices = null;
             const run = () => {
                 if (!this.node?.isValid) return;
                 SySDKMgr.inst.init();
@@ -579,7 +617,7 @@ export function installFirstLevelRouteModule(target: any): void {
                 AudioMgr.inst.init(this.node);
                 void AnalyticsMgr.inst.bootstrap();
                 this.scheduleOnce(() => {
-                    if (canAutoSaveGameStateOnStartup) {
+                    if (pending.canAutoSaveGameStateOnStartup) {
                         void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
                     }
                     if (this._isWeChat()) {
@@ -589,14 +627,15 @@ export function installFirstLevelRouteModule(target: any): void {
                 }, 0.5);
             };
 
-            if (deferDelaySec > 0) {
-                this.scheduleOnce(run, deferDelaySec);
+            if (pending.deferDelaySec > 0) {
+                this.scheduleOnce(run, pending.deferDelaySec);
             } else {
-                run();
+                this.scheduleOnce(run, 0);
             }
         },
 
         async continueStartup() {
+            markStartupTrace('startup_continue_decision_start');
             const urlLevel = this.getUrlLevel();
             const urlLevelFile = this.getUrlLevelFile();
             const urlTheme = this.getUrlTheme();

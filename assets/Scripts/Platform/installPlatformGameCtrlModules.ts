@@ -1,9 +1,15 @@
 import { installGameCtrlModules } from '../Core/installGameCtrlModules';
 import { installDouyinGameCtrlModules } from './Douyin/installDouyinGameCtrlModules';
-import { isDouyinMiniGameRuntime } from '../Core/MiniGamePlatform';
+import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime } from '../Core/MiniGamePlatform';
+import { runtimeLog } from '../Core/RuntimeLog';
 
 export function installPlatformGameCtrlModules(runtime: any): void {
-    if (isDouyinMiniGameRuntime()) {
+    const isDouyin = isDouyinMiniGameRuntime();
+    runtimeLog('[platform] install-check', {
+        buildPlatform: getMiniGameBuildPlatform(),
+        isDouyin,
+    });
+    if (isDouyin) {
         installDouyinGameCtrlModules(runtime);
         return;
     }

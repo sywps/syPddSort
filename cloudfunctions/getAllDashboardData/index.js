@@ -38,6 +38,19 @@ const FIRST_LEVEL_FUNNEL_STEPS = [
 ];
 
 const FIRST_LEVEL_FUNNEL_DIAGNOSTICS = [
+  { key: 'startup_main_loaded', label: '启动 main 脚本加载' },
+  { key: 'startup_boot_start', label: 'Boot 场景启动' },
+  { key: 'startup_boot_route_decided', label: 'Boot 路由决策完成' },
+  { key: 'startup_route_game_start', label: '开始路由 Game' },
+  { key: 'startup_bootstrap_load_start', label: 'bootstrap 分包开始加载' },
+  { key: 'startup_bootstrap_load_done', label: 'bootstrap 分包加载完成' },
+  { key: 'startup_game_scene_load_done', label: 'Game 场景加载完成' },
+  { key: 'startup_game_scene_run', label: 'Game 场景运行' },
+  { key: 'startup_continue_start', label: 'Game 启动流程开始' },
+  { key: 'startup_continue_decision_start', label: '启动关卡决策开始' },
+  { key: 'startup_level_data_start', label: '启动关卡数据开始加载' },
+  { key: 'startup_level_data_ready', label: '启动关卡数据加载完成' },
+  { key: 'startup_first_playable_ready', label: '首屏可玩 ready' },
   { key: 'remote_config_start', label: 'remote 开始加载' },
   { key: 'remote_config_loaded', label: 'remote 加载成功' },
   { key: 'remote_config_failed', label: 'remote 加载失败' },
