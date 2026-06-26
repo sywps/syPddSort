@@ -98,6 +98,18 @@ const FIRST_LEVEL_REPORT_STEPS = [
   ["L1通过", "level_pass"],
 ];
 
+const EXPERIMENT_GROUP_SPECS = [
+  { group: "control", bucket: "A+B", groupLabel: "对照组(A+B)", buckets: ["A", "B"] },
+  { group: "treatment", bucket: "C+D", groupLabel: "实验组(C+D)", buckets: ["C", "D"] },
+  { group: "null", bucket: "NULL", groupLabel: "NULL", buckets: ["NULL"] },
+  { group: "unattributed", bucket: "未归因", groupLabel: "未归因", buckets: [] },
+];
+const RETIRED_EXPERIMENT_IDS = new Set(["first_level_route"]);
+const SALT_COMPUTED_EXPERIMENTS = [
+  { experimentId: "level_exp_salt", sourceExperimentId: "level_exp", salt: "level_exp_0623" },
+  { experimentId: "tutorial_exp_salt", sourceExperimentId: "tutorial_exp", salt: "tutorial_exp_0623" },
+];
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -792,6 +804,15 @@ function ratio(numerator, denominator) {
 
 function fixedNumber(value, digits = 2) {
   return Number(numberValue(value).toFixed(digits));
+}
+
+function quantileValue(values, q) {
+  const sorted = values
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * q) - 1));
+  return sorted[index];
 }
 
 function clampNumber(value, min, max) {
@@ -1627,6 +1648,7 @@ function analyzeLevelRecordFile({
         tryCountSum: 0,
         durationSecondsSum: 0,
         durationCount: 0,
+        durationSecondsList: [],
       });
     }
 
@@ -1650,6 +1672,7 @@ function analyzeLevelRecordFile({
     if (durationSeconds != null) {
       row.durationSecondsSum += durationSeconds;
       row.durationCount += 1;
+      row.durationSecondsList.push(durationSeconds);
     }
   }
 
@@ -1666,6 +1689,9 @@ function analyzeLevelRecordFile({
       avgTryCount: row.recordCount ? row.tryCountSum / row.recordCount : 0,
       avgDurationSeconds: row.durationCount
         ? row.durationSecondsSum / row.durationCount
+        : 0,
+      medianDurationSeconds: row.durationCount
+        ? fixedNumber(quantileValue(row.durationSecondsList, 0.5), 2)
         : 0,
     }))
     .sort((a, b) => a.levelId - b.levelId);
@@ -2577,6 +2603,7 @@ function buildFirst20Levels({ userBehaviorSummary, levelRecordSummary }) {
       passRate: ratio(record.passCount, record.recordCount),
       avgTryCount: fixedNumber(record.avgTryCount, 2),
       avgDurationSeconds: fixedNumber(record.avgDurationSeconds, 2),
+      medianDurationSeconds: fixedNumber(record.medianDurationSeconds, 2),
       adReviveCount: numberValue(record.adReviveCount),
       diagnosis: classifyBottleneck({
         enterUv,
@@ -2587,6 +2614,408 @@ function buildFirst20Levels({ userBehaviorSummary, levelRecordSummary }) {
     });
   }
   return rows;
+}
+
+function buildAllLevelsSummaryFromRecords({ behaviorRecords, levelRecordRecords }) {
+  const enterUsers = new Set();
+  const passUsers = new Set();
+  const failUsers = new Set();
+  const durations = [];
+  let enterPv = 0;
+  let passPv = 0;
+  let failPv = 0;
+  let recordCount = 0;
+  let tryCountSum = 0;
+  let adReviveCount = 0;
+  let adShowPv = 0;
+  let adFinishPv = 0;
+
+  for (const record of Array.isArray(behaviorRecords) ? behaviorRecords : []) {
+    const levelId = Number(record.levelId);
+    if (!Number.isFinite(levelId) || levelId < 1) continue;
+    const openid = record.openid || "";
+    if (record.eventName === "enter_level") {
+      enterPv += 1;
+      if (openid) enterUsers.add(openid);
+    } else if (record.eventName === "level_pass") {
+      passPv += 1;
+      if (openid) passUsers.add(openid);
+    } else if (record.eventName === "level_fail") {
+      failPv += 1;
+      if (openid) failUsers.add(openid);
+    } else if (record.eventName === "ad_show") {
+      adShowPv += 1;
+    } else if (record.eventName === "ad_finish") {
+      adFinishPv += 1;
+    }
+  }
+
+  for (const record of Array.isArray(levelRecordRecords) ? levelRecordRecords : []) {
+    const levelId = Number(record.levelId);
+    if (!Number.isFinite(levelId) || levelId < 1) continue;
+    recordCount += 1;
+    tryCountSum += Number(record.tryCount) || 0;
+    if (record.useAdRevive) adReviveCount += 1;
+    const startTime = Number(record.startTime) || 0;
+    const endTime = Number(record.endTime) || 0;
+    if (startTime > 0 && endTime > startTime) {
+      durations.push((endTime - startTime) / 1000);
+    }
+  }
+
+  const enterNotPassUsers = setDifference(enterUsers, passUsers);
+  const failUv = failUsers.size;
+  return {
+    levelId: "All",
+    isTotal: true,
+    enterUv: enterUsers.size,
+    enterPv,
+    passUv: passUsers.size,
+    passPv,
+    failUv,
+    failPv,
+    enterNotPassUv: enterNotPassUsers.size,
+    silentDropUv: Math.max(0, enterNotPassUsers.size - failUv),
+    uvPassRate: ratio(passUsers.size, enterUsers.size),
+    pvPassRate: ratio(passPv, enterPv),
+    recordCount,
+    uniqueUsers: enterUsers.size,
+    passRate: ratio(passPv, recordCount),
+    avgTryCount: fixedNumber(recordCount ? tryCountSum / recordCount : 0, 2),
+    avgDurationSeconds: fixedNumber(durations.length
+      ? durations.reduce((sum, value) => sum + value, 0) / durations.length
+      : 0, 2),
+    medianDurationSeconds: fixedNumber(quantileValue(durations, 0.5), 2),
+    adReviveCount,
+    adShowPv,
+    adFinishPv,
+    diagnosis: "全部关卡汇总",
+  };
+}
+
+function attachAdMetricsToLevelRows(rows, levelAdRows) {
+  const adByLevel = rowMapByLevel((levelAdRows || []).filter((row) => !row.isTotal));
+  return rows.map((row) => {
+    const ad = adByLevel.get(Number(row.levelId)) || {};
+    return {
+      ...row,
+      adShowPv: numberValue(ad.adShowPv),
+      adFinishPv: numberValue(ad.adFinishPv),
+    };
+  });
+}
+
+function alignFirstLevelEnterWithFunnelStart(rows, firstLevelStartUsers) {
+  const l1EnterUv = firstLevelStartUsers instanceof Set ? firstLevelStartUsers.size : 0;
+  if (!l1EnterUv) return rows;
+  return rows.map((row) => {
+    if (Number(row.levelId) !== 1) return row;
+    const passUv = numberValue(row.passUv);
+    const failUv = numberValue(row.failUv);
+    const enterNotPassUv = Math.max(0, l1EnterUv - passUv);
+    const uvPassRate = ratio(passUv, l1EnterUv);
+    return {
+      ...row,
+      enterUv: l1EnterUv,
+      enterNotPassUv,
+      silentDropUv: Math.max(0, enterNotPassUv - failUv),
+      uvPassRate,
+      diagnosis: classifyBottleneck({
+        enterUv: l1EnterUv,
+        failUv,
+        uvPassRate,
+        avgTryCount: numberValue(row.avgTryCount),
+      }),
+    };
+  });
+}
+
+function filterRecordsByUsers(records, users) {
+  if (!(users instanceof Set)) return [];
+  return (Array.isArray(records) ? records : []).filter((record) => users.has(record.openid || ""));
+}
+
+function filterFunnelRecordsByUsers(records, users) {
+  if (!(users instanceof Set)) return [];
+  const sessionKeys = new Set();
+  for (const record of Array.isArray(records) ? records : []) {
+    if (users.has(record.openid || "")) {
+      const sessionKey = getSessionKey(record);
+      if (sessionKey) sessionKeys.add(sessionKey);
+    }
+  }
+  return (Array.isArray(records) ? records : []).filter((record) => {
+    if (users.has(record.openid || "")) return true;
+    const sessionKey = getSessionKey(record);
+    return !!sessionKey && sessionKeys.has(sessionKey);
+  });
+}
+
+function intersectSets(left, right) {
+  return new Set([...left].filter((item) => right.has(item)));
+}
+
+function collectUsersFromRecords(records) {
+  const users = new Set();
+  for (const record of Array.isArray(records) ? records : []) {
+    if (record.openid) users.add(record.openid);
+  }
+  return users;
+}
+
+function unionSets(...sets) {
+  const users = new Set();
+  for (const set of sets) {
+    for (const value of set || []) users.add(value);
+  }
+  return users;
+}
+
+function collectFirstLevelStartUsers(funnelRecords) {
+  const scopedRecords = scopedFunnelRecords(funnelRecords || [], FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID);
+  const startUsers = new Set();
+  for (const record of scopedRecords) {
+    if (record.eventName === "app_launch" && record.openid) {
+      startUsers.add(record.openid);
+    }
+  }
+  if (startUsers.size) return startUsers;
+  for (const record of scopedRecords) {
+    if (record.eventName === "first_level_ui_ready" && record.openid) {
+      startUsers.add(record.openid);
+    }
+  }
+  return startUsers;
+}
+
+function buildUserBehaviorSummaryFromRecords(records) {
+  const enterPv = new Map();
+  const passPv = new Map();
+  const failPv = new Map();
+  const enterUv = new Map();
+  const passUv = new Map();
+  const failUv = new Map();
+  for (const record of Array.isArray(records) ? records : []) {
+    const levelId = Number(record.levelId);
+    if (!Number.isFinite(levelId) || levelId < 1) continue;
+    const eventName = record.eventName || "";
+    const openid = record.openid || "";
+    const addUv = (map) => {
+      if (!openid) return;
+      if (!map.has(levelId)) map.set(levelId, new Set());
+      map.get(levelId).add(openid);
+    };
+    if (eventName === "enter_level") {
+      enterPv.set(levelId, (enterPv.get(levelId) || 0) + 1);
+      addUv(enterUv);
+    } else if (eventName === "level_pass") {
+      passPv.set(levelId, (passPv.get(levelId) || 0) + 1);
+      addUv(passUv);
+    } else if (eventName === "level_fail") {
+      failPv.set(levelId, (failPv.get(levelId) || 0) + 1);
+      addUv(failUv);
+    }
+  }
+  const levelIds = new Set([...enterPv.keys(), ...passPv.keys(), ...failPv.keys()]);
+  const levelRows = [...levelIds].sort((a, b) => a - b).map((levelId) => {
+    const enterUvCount = enterUv.get(levelId)?.size || 0;
+    const passUvCount = passUv.get(levelId)?.size || 0;
+    const failUvCount = failUv.get(levelId)?.size || 0;
+    const enterPvCount = enterPv.get(levelId) || 0;
+    const passPvCount = passPv.get(levelId) || 0;
+    const failPvCount = failPv.get(levelId) || 0;
+    return {
+      levelId,
+      enterUv: enterUvCount,
+      passUv: passUvCount,
+      failUv: failUvCount,
+      enterPv: enterPvCount,
+      passPv: passPvCount,
+      failPv: failPvCount,
+      uvPassRate: ratio(passUvCount, enterUvCount),
+      pvPassRate: ratio(passPvCount, enterPvCount),
+    };
+  });
+  const l1 = levelRows.find((row) => row.levelId === 1) || {};
+  return {
+    levelRows,
+    levelOneEnterUv: numberValue(l1.enterUv),
+    levelOnePassUv: numberValue(l1.passUv),
+    levelOneFailUv: numberValue(l1.failUv),
+    levelOneUvPassRate: ratio(l1.passUv, l1.enterUv),
+  };
+}
+
+function buildLevelRecordSummaryFromRecords(records) {
+  const stats = new Map();
+  for (const record of Array.isArray(records) ? records : []) {
+    const levelId = Number(record.levelId);
+    if (!Number.isFinite(levelId) || levelId < 1) continue;
+    if (!stats.has(levelId)) {
+      stats.set(levelId, {
+        levelId,
+        users: new Set(),
+        recordCount: 0,
+        passCount: 0,
+        failCount: 0,
+        adReviveCount: 0,
+        tryCountSum: 0,
+        durationSecondsSum: 0,
+        durationCount: 0,
+        durationSecondsList: [],
+      });
+    }
+    const row = stats.get(levelId);
+    const openid = record.openid || "";
+    const tryCount = Number(record.tryCount) || 0;
+    const passStatus = Number(record.passStatus) || 0;
+    const startTime = Number(record.startTime) || 0;
+    const endTime = Number(record.endTime) || 0;
+    row.recordCount += 1;
+    row.tryCountSum += tryCount;
+    if (openid) row.users.add(openid);
+    if (passStatus) row.passCount += 1;
+    else row.failCount += 1;
+    if (record.useAdRevive) row.adReviveCount += 1;
+    if (startTime > 0 && endTime > startTime) {
+      const durationSeconds = (endTime - startTime) / 1000;
+      row.durationSecondsSum += durationSeconds;
+      row.durationCount += 1;
+      row.durationSecondsList.push(durationSeconds);
+    }
+  }
+  return {
+    levelRows: [...stats.values()].sort((a, b) => a.levelId - b.levelId).map((row) => ({
+      levelId: row.levelId,
+      uniqueUsers: row.users.size,
+      recordCount: row.recordCount,
+      passCount: row.passCount,
+      failCount: row.failCount,
+      passRate: ratio(row.passCount, row.recordCount),
+      adReviveCount: row.adReviveCount,
+      avgTryCount: row.recordCount ? row.tryCountSum / row.recordCount : 0,
+      avgDurationSeconds: row.durationCount ? row.durationSecondsSum / row.durationCount : 0,
+      medianDurationSeconds: row.durationCount ? fixedNumber(quantileValue(row.durationSecondsList, 0.5), 2) : 0,
+    })),
+  };
+}
+
+function normalizeExperimentId(value) {
+  const text = String(value || "").trim();
+  if (!text || RETIRED_EXPERIMENT_IDS.has(text)) return "";
+  return text;
+}
+
+function normalizeExperimentBucket(value) {
+  const text = String(value || "").trim().toUpperCase();
+  if (["A", "B", "C", "D"].includes(text)) return text;
+  if (text === "NULL") return "NULL";
+  return "";
+}
+
+function readExperimentAssignments(record) {
+  const candidates = [
+    [record.abId, record.abBucket],
+    [record.experimentId, record.experimentBucket],
+    [record.extra?.abId, record.extra?.abBucket],
+    [record.extra?.experimentId, record.extra?.experimentBucket],
+  ];
+  const assignments = [];
+  for (const [idValue, bucketValue] of candidates) {
+    const experimentId = normalizeExperimentId(idValue);
+    if (!experimentId) continue;
+    assignments.push({
+      experimentId,
+      bucket: normalizeExperimentBucket(bucketValue) || "NULL",
+    });
+  }
+  return assignments;
+}
+
+function fnv1aHash(text) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function bucketFromSalt(openid, experimentId, salt) {
+  if (!openid) return "NULL";
+  const slot = fnv1aHash(`${experimentId}:${salt}:${openid}`) % 100;
+  if (slot < 25) return "A";
+  if (slot < 50) return "B";
+  if (slot < 75) return "C";
+  return "D";
+}
+
+function buildExperimentAssignments(recordsByCollection, allUsers) {
+  const experiments = new Map();
+  const ensureExperiment = (experimentId) => {
+    if (!experiments.has(experimentId)) {
+      experiments.set(experimentId, {
+        experimentId,
+        assignmentByUser: new Map(),
+      });
+    }
+    return experiments.get(experimentId);
+  };
+  for (const records of Object.values(recordsByCollection)) {
+    for (const record of Array.isArray(records) ? records : []) {
+      const openid = record.openid || "";
+      if (!openid) continue;
+      for (const assignment of readExperimentAssignments(record)) {
+        const experiment = ensureExperiment(assignment.experimentId);
+        if (!experiment.assignmentByUser.has(openid)) {
+          experiment.assignmentByUser.set(openid, assignment.bucket);
+        }
+      }
+    }
+  }
+  for (const config of SALT_COMPUTED_EXPERIMENTS) {
+    const experiment = ensureExperiment(config.experimentId);
+    experiment.sourceExperimentId = config.sourceExperimentId;
+    experiment.salt = config.salt;
+    for (const openid of allUsers) {
+      experiment.assignmentByUser.set(openid, bucketFromSalt(openid, config.sourceExperimentId, config.salt));
+    }
+  }
+  return experiments;
+}
+
+function buildExperimentBreakdownRows(experiments, buildRows, options = {}) {
+  const scopeUsers = options.scopeUsers instanceof Set ? options.scopeUsers : new Set();
+  const buildScopeExtra = typeof options.buildScopeExtra === "function" ? options.buildScopeExtra : () => ({});
+  const result = {};
+  for (const experiment of experiments.values()) {
+    const groupRows = EXPERIMENT_GROUP_SPECS.map((spec) => {
+      let users;
+      if (spec.group === "unattributed") {
+        users = new Set([...scopeUsers].filter((openid) => !experiment.assignmentByUser.has(openid)));
+      } else {
+        users = new Set([...scopeUsers].filter((openid) => spec.buckets.includes(experiment.assignmentByUser.get(openid))));
+      }
+      return {
+        rowType: "group",
+        experimentId: experiment.experimentId,
+        bucket: spec.bucket,
+        group: spec.group,
+        groupLabel: spec.groupLabel,
+        cohortUsers: users.size,
+        ...buildScopeExtra(users),
+        rows: buildRows(users),
+      };
+    }).filter((row) => options.includeEmptyGroups || row.cohortUsers > 0 || ["control", "treatment", "null", "unattributed"].includes(row.group));
+    result[experiment.experimentId] = {
+      experimentId: experiment.experimentId,
+      scopeUsers: scopeUsers.size,
+      attributedScopeUsers: [...scopeUsers].filter((openid) => experiment.assignmentByUser.has(openid)).length,
+      unattributedScopeUsers: [...scopeUsers].filter((openid) => !experiment.assignmentByUser.has(openid)).length,
+      groupRows,
+    };
+  }
+  return result;
 }
 
 function buildMainlineBottlenecks(first20Levels) {
@@ -2976,8 +3405,10 @@ function setIntersection(left, right) {
   return new Set([...left].filter((item) => right.has(item)));
 }
 
-function buildLevelAdRelationship(combinedSummary, userBehaviorSummary) {
-  const records = loadCollectionRecords(combinedSummary, "user_behavior");
+function buildLevelAdRelationship(combinedSummary, userBehaviorSummary, options = {}) {
+  const records = Array.isArray(options.records)
+    ? options.records
+    : loadCollectionRecords(combinedSummary, "user_behavior");
   const stats = new Map();
   for (const row of userBehaviorSummary?.levelRows || []) {
     if (Number(row.levelId) > 0) ensureLevelAdStat(stats, Number(row.levelId));
@@ -3040,6 +3471,166 @@ function buildLevelAdRelationship(combinedSummary, userBehaviorSummary) {
     })
     .filter((row) => row.enterUv > 0 || row.adShowPv > 0 || row.adFinishPv > 0)
     .sort((a, b) => a.levelId - b.levelId);
+}
+
+function buildExperimentLevelAdRelationship(combinedSummary, behaviorRecords) {
+  const userBehaviorSummary = buildUserBehaviorSummaryFromRecords(behaviorRecords);
+  const rows = buildLevelAdRelationship(combinedSummary, userBehaviorSummary, { records: behaviorRecords });
+  const enterUsers = new Set();
+  const adShowUsers = new Set();
+  const adFinishUsers = new Set();
+  let adShowPv = 0;
+  let adFinishPv = 0;
+  for (const record of Array.isArray(behaviorRecords) ? behaviorRecords : []) {
+    const openid = record.openid || "";
+    if (record.eventName === "enter_level" && openid) enterUsers.add(openid);
+    if (record.eventName === "ad_show") {
+      adShowPv += 1;
+      if (openid) adShowUsers.add(openid);
+    } else if (record.eventName === "ad_finish") {
+      adFinishPv += 1;
+      if (openid) adFinishUsers.add(openid);
+    }
+  }
+  return [
+    {
+      levelId: "全部",
+      isTotal: true,
+      focus: false,
+      enterUv: enterUsers.size,
+      adShowPv,
+      adShowUv: adShowUsers.size,
+      adFinishPv,
+      adFinishUv: adFinishUsers.size,
+      adFinishRate: ratio(adFinishPv, adShowPv),
+      adFinishPerEnterRate: ratio(adFinishUsers.size, enterUsers.size),
+      notPassWithoutAdFinishUv: 0,
+    },
+    ...rows,
+  ];
+}
+
+function buildExperimentAdPerformance(behaviorRecords) {
+  const rows = buildAdEventBreakdown(behaviorRecords);
+  const adUsers = new Set();
+  let showNum = 0;
+  let clickNum = 0;
+  let finishNum = 0;
+  for (const record of Array.isArray(behaviorRecords) ? behaviorRecords : []) {
+    if (!["ad_show", "ad_click", "ad_finish"].includes(record.eventName || "")) continue;
+    if (record.openid) adUsers.add(record.openid);
+    if (record.eventName === "ad_show") showNum += 1;
+    if (record.eventName === "ad_click") clickNum += 1;
+    if (record.eventName === "ad_finish") finishNum += 1;
+  }
+  if (!showNum && !clickNum && !finishNum && !rows.length) return [];
+  return [
+    {
+      adType: "all",
+      page: "all",
+      label: "全部广告位",
+      isTotal: true,
+      showNum,
+      clickNum,
+      finishNum,
+      userNum: adUsers.size,
+      clickRate: ratio(clickNum, showNum),
+      finishRate: ratio(finishNum, showNum),
+      finishPerClickRate: ratio(finishNum, clickNum),
+    },
+    ...rows,
+  ];
+}
+
+function buildDailyExperimentBreakdowns(combinedSummary, preloaded = {}) {
+  const behaviorRecords = Array.isArray(preloaded.behaviorRecords)
+    ? preloaded.behaviorRecords
+    : loadCollectionRecords(combinedSummary, "user_behavior");
+  const levelRecordRecords = Array.isArray(preloaded.levelRecordRecords)
+    ? preloaded.levelRecordRecords
+    : loadCollectionRecords(combinedSummary, "level_record");
+  const funnelRecords = Array.isArray(preloaded.funnelRecords)
+    ? preloaded.funnelRecords
+    : loadCollectionRecords(combinedSummary, "first_level_funnel");
+  const firstLevelStartUsers = preloaded.firstLevelStartUsers instanceof Set
+    ? preloaded.firstLevelStartUsers
+    : collectFirstLevelStartUsers(funnelRecords);
+  const allDailyUsers = unionSets(
+    collectUsersFromRecords(behaviorRecords),
+    collectUsersFromRecords(levelRecordRecords),
+    collectUsersFromRecords(funnelRecords),
+  );
+  const experiments = buildExperimentAssignments({
+    user_behavior: behaviorRecords,
+    level_record: levelRecordRecords,
+    first_level_funnel: funnelRecords,
+  }, allDailyUsers);
+  const rawTotals = summarizeFunnelRawTotals(funnelRecords);
+  const buildFirstLevelRowsForUsers = (users) => {
+    const scopedFunnelRecords = filterFunnelRecordsByUsers(funnelRecords, users);
+    const scopedBehaviorRecords = filterRecordsByUsers(behaviorRecords, users);
+    const funnelSummary = buildFirstLevelFunnelSummary({
+      records: scopedFunnelRecords,
+      rawTotals,
+      dateLabel: combinedSummary.date,
+      collection: "first_level_funnel",
+      envId: combinedSummary.envId,
+      inputPath: getCollectionExportPath(combinedSummary, "first_level_funnel"),
+      levelId: FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID,
+    });
+    return buildFirstLevelFunnelRows({
+      funnelSummary,
+      userBehaviorSummary: buildUserBehaviorSummaryFromRecords(scopedBehaviorRecords),
+    });
+  };
+  const buildFirst20RowsForUsers = (users) => {
+    const scopedBehaviorRecords = filterRecordsByUsers(behaviorRecords, users);
+    const scopedLevelRecordRecords = filterRecordsByUsers(levelRecordRecords, users);
+    const scopedBehaviorSummary = buildUserBehaviorSummaryFromRecords(scopedBehaviorRecords);
+    const scopedLevelRecordSummary = buildLevelRecordSummaryFromRecords(scopedLevelRecordRecords);
+    const first20Rows = buildFirst20Levels({
+      userBehaviorSummary: scopedBehaviorSummary,
+      levelRecordSummary: scopedLevelRecordSummary,
+    });
+    const alignedRows = alignFirstLevelEnterWithFunnelStart(first20Rows, intersectSets(users, firstLevelStartUsers));
+    const adRows = buildLevelAdRelationship(combinedSummary, scopedBehaviorSummary, { records: scopedBehaviorRecords });
+    return [
+      buildAllLevelsSummaryFromRecords({
+        behaviorRecords: scopedBehaviorRecords,
+        levelRecordRecords: scopedLevelRecordRecords,
+      }),
+      ...attachAdMetricsToLevelRows(alignedRows, adRows),
+    ];
+  };
+  const buildAdRowsForUsers = (users) => buildExperimentLevelAdRelationship(
+    combinedSummary,
+    filterRecordsByUsers(behaviorRecords, users),
+  );
+  const buildAdPerformanceRowsForUsers = (users) => buildExperimentAdPerformance(
+    filterRecordsByUsers(behaviorRecords, users),
+  );
+  return {
+    dataQuality: {
+      allDailyUsers: allDailyUsers.size,
+      firstLevelStartUsers: firstLevelStartUsers.size,
+    },
+    firstLevelFunnel: buildExperimentBreakdownRows(experiments, buildFirstLevelRowsForUsers, {
+      scopeUsers: firstLevelStartUsers,
+      buildScopeExtra: (users) => ({ l1StartUsers: users.size }),
+    }),
+    first20Levels: buildExperimentBreakdownRows(experiments, buildFirst20RowsForUsers, {
+      scopeUsers: allDailyUsers,
+      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelStartUsers).size }),
+    }),
+    levelAdRelationship: buildExperimentBreakdownRows(experiments, buildAdRowsForUsers, {
+      scopeUsers: allDailyUsers,
+      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelStartUsers).size }),
+    }),
+    adPerformance: buildExperimentBreakdownRows(experiments, buildAdPerformanceRowsForUsers, {
+      scopeUsers: allDailyUsers,
+      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelStartUsers).size }),
+    }),
+  };
 }
 
 function classifyLevelValueAction(row) {
@@ -3376,6 +3967,7 @@ function buildDailyDiagnosis(combinedSummary) {
   };
   const firstDayChurnAnalysis = buildFirstDayChurnAnalysis(combinedSummary);
   const levelAdRelationship = buildLevelAdRelationship(combinedSummary, userBehaviorSummary);
+  const experimentBreakdowns = buildDailyExperimentBreakdowns(combinedSummary);
   const levelNetValue = buildLevelNetValue({
     combinedSummary,
     userBehaviorSummary,
@@ -3384,7 +3976,7 @@ function buildDailyDiagnosis(combinedSummary) {
   });
 
   return {
-    schemaVersion: 4,
+    schemaVersion: 9,
     generatedAt: new Date().toISOString(),
     coreMetrics,
     firstLevelFunnel,
@@ -3401,6 +3993,7 @@ function buildDailyDiagnosis(combinedSummary) {
     adPerformance,
     firstDayChurnAnalysis,
     levelAdRelationship,
+    experimentBreakdowns,
     levelNetValue,
     dataQuality: buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels, funnelSummary }),
     recommendations: buildRecommendations({
@@ -3546,7 +4139,7 @@ function writeCombinedOutputs({
     `## 前20关全量表现`,
     ``,
     markdownTable(
-      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "UV通过率", "记录局数", "平均尝试", "平均时长", "广告续关", "判断"],
+      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "通过/进入UV", "记录局数", "平均尝试", "平均时长", "广告续关", "判断"],
       diagnosis.first20Levels.map((row) => [
         `L${row.levelId}`,
         integerText(row.enterUv),
@@ -3618,7 +4211,7 @@ function writeCombinedOutputs({
     `## 主线卡点表`,
     ``,
     markdownTable(
-      ["关卡", "进入UV", "通过UV", "流失UV", "UV通过率", "显式失败UV", "无失败未通过UV", "平均尝试", "判断"],
+      ["关卡", "进入UV", "通过UV", "流失UV", "通过/进入UV", "显式失败UV", "无失败未通过UV", "平均尝试", "判断"],
       diagnosis.mainlineBottlenecks.map((row) => [
         `L${row.levelId}`,
         integerText(row.enterUv),
