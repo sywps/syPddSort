@@ -31,9 +31,13 @@ function logSidebar(step: string, data: Record<string, unknown> = {}): void {
     runtimeLog(`[douyin-sidebar] ${step}`, data);
 }
 
+function pad2(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`;
+}
+
 function getLocalDateKey(date: Date = new Date()): string {
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
+    const month = pad2(date.getMonth() + 1);
+    const day = pad2(date.getDate());
     return `${date.getFullYear()}${month}${day}`;
 }
 

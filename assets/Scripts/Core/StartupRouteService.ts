@@ -99,4 +99,3 @@ export function resolveStartupRouteDecision(): StartupRouteDecision {
         reason: 'default_level_1',
     };
 }
-
