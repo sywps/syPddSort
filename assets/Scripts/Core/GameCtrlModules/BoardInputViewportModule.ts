@@ -332,7 +332,6 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
-            if (this.isPlacementInputLocked?.()) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
                 this.resetTouchState();
                 return;
@@ -384,7 +383,6 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchMove(event: EventTouch) {
             if (this.isGameEnd) return;
-            if (this.isPlacementInputLocked?.()) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
                 this.resetTouchState();
                 return;
@@ -444,7 +442,6 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchEnd(event: EventTouch) {
             if (this.isGameEnd) { this.resetTouchState(); return; }
-            if (this.isPlacementInputLocked?.()) { this.resetTouchState(); return; }
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) { this.resetTouchState(); return; }
             if (this._skillActive && !this._wandMode) { this.resetTouchState(); return; }
             if (this._wandMode && this._wandRectNode) {
@@ -520,7 +517,6 @@ export function installBoardInputViewportModule(target: any): void {
         /** PC 端滚轮缩放棋盘 */
         onMouseWheel(event: EventMouse) {
             if (this.isGameEnd || this._guideStep >= 0) return;
-            if (this.isPlacementInputLocked?.()) return;
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
             if (this._skillActive && !this._wandMode) return;
             PerformanceMgr.inst.markUserActivity();
@@ -648,7 +644,7 @@ export function installBoardInputViewportModule(target: any): void {
                 const dy = localPos.y - sp.y;
                 const directHit = Math.abs(dx) <= extents.directHalf && Math.abs(dy) <= extents.directHalf;
                 if (!directHit && (Math.abs(dx) > extents.halfX || Math.abs(dy) > extents.halfY)) continue;
-                const target = this.slotModel.getBlock(i);
+                const target = this._hiddenSlotIndices?.has(i) ? null : this.slotModel.getBlock(i);
                 candidates.push({
                     kind: 'slot',
                     slotIndex: i,
@@ -750,7 +746,7 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         triggerSlotUnlockFromInput(): boolean {
-            if (this.isPlacementInputLocked?.()) return true;
+            if (this.isPlacementVisualBusy?.()) return true;
             const now = Date.now();
             const lastAt = Number(this._lastSlotUnlockInputAt) || 0;
             if (now - lastAt < 500) return true;
@@ -858,6 +854,7 @@ export function installBoardInputViewportModule(target: any): void {
         selectSlotBlockByIndex(slotIndex: number, options: { playFeedback?: boolean } = {}): boolean {
             const row = Math.floor(slotIndex / SLOTS_PER_ROW);
             if (row >= this.slotUnlockedRows) return false;
+            if (this._hiddenSlotIndices?.has(slotIndex)) return false;
             const target = this.slotModel.getBlock(slotIndex);
             if (!target) return false;
             const colorId = target.colorId;
@@ -867,7 +864,7 @@ export function installBoardInputViewportModule(target: any): void {
             const allCells: { row: number; col: number }[] = [];
             const allBlocks = this.slotModel.getAll();
             for (let j = 0; j < allBlocks.length; j++) {
-                if (allBlocks[j] && allBlocks[j]!.colorId === colorId) {
+                if (!this._hiddenSlotIndices?.has(j) && allBlocks[j] && allBlocks[j]!.colorId === colorId) {
                     slotIndices.push(j);
                     allCells.push(...allBlocks[j]!.cells);
                 }
@@ -1223,12 +1220,10 @@ export function installBoardInputViewportModule(target: any): void {
                 if (result.remaining > 0) {
                     this.renderSlotIndices(dirtySlotIndices);
                 }
+                this.compactSlotsAfterSelectionConsume();
             }
-            const afterFlyLanded = block.source === 'slot'
-                ? (done: () => void) => this.compactSlotsAfterSelectionConsume(done)
-                : undefined;
             const flyVisualOptions = this.createFlyPlaceVisualOptions(block);
-            this.startFlyPlace(block.colorId, sources, result.placed, dirtyBoardCells, dirtySlotIndices, afterFlyLanded, flyVisualOptions, remainingSelection);
+            this.startFlyPlace(block.colorId, sources, result.placed, dirtyBoardCells, dirtySlotIndices, undefined, flyVisualOptions, remainingSelection);
             return true;
         },
     });
