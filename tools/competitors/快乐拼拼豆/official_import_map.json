@@ -113,7 +113,8 @@
         "targetType": "online",
         "importedAt": "2026-06-24T13:41:49",
         "fingerprintVersion": 1,
-        "contentFingerprint": "e495605c863118930d822d74154128db6fd6308a7bc863be048f4d80af2d870c"
+        "contentFingerprint": "e495605c863118930d822d74154128db6fd6308a7bc863be048f4d80af2d870c",
+        "targetDuplicateCount": 2
       }
     },
     "updatedAt": "2026-06-24T13:41:49",

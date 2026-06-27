@@ -167,7 +167,7 @@
       "r": 0,
       "g": 0,
       "b": 0,
-      "a": 200
+      "a": 190
     },
     "_spriteFrame": {
       "__uuid__": "fc394afd-b848-4a98-bd18-d1e3a948a190@f9941",
@@ -613,7 +613,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 3.763,
-      "y": 369.314,
+      "y": 378.353,
       "z": 0
     },
     "_lrot": {
@@ -742,8 +742,8 @@
     "_string": "时间不够啦",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 44,
-    "_fontSize": 44,
+    "_actualFontSize": 50,
+    "_fontSize": 50,
     "_fontFamily": "Arial",
     "_lineHeight": 52,
     "_overflow": 2,
@@ -849,7 +849,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "18edc296-4ecc-48de-8336-73784263a3db@f9941",
+      "__uuid__": "fd979dad-3410-4d76-b57e-dcc98779aabb@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,

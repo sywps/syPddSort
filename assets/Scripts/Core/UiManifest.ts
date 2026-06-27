@@ -55,6 +55,8 @@ export const RESOURCE_ACQUIRE_TEXTURE_NAMES = [
 export const RECOVER_VIGOR_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     'popup_vigor_icon',
+    'popup_ad_play_icon',
+    'popup_share_icon',
 ];
 
 export const REWARD_RESULT_TEXTURE_NAMES = [

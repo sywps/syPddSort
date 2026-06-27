@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button, Prefab, instantiate,
-    Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
@@ -34,6 +34,10 @@ import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const REWARD_RESULT_POPUP_PREFAB_PATH = 'UI/Prefabs/Panels/RewardResultPopup';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
+const RECOVER_VIGOR_AD_REWARD = 4;
+const RECOVER_VIGOR_SHARE_REWARD = 2;
+const RECOVER_VIGOR_SHARE_DAILY_LIMIT = 3;
+const RECOVER_VIGOR_SHARE_STATE_KEY = 'pdd.recoverVigor.shareState.v1';
 
 type RewardResultPopupItem = {
     iconName: string;
@@ -52,6 +56,10 @@ type RewardResultPopupOptions = {
 };
 
 type DailySignInPropRewardKey = 'wand' | 'freeze' | 'brush' | 'magnet';
+type RecoverVigorShareState = {
+    dateKey: string;
+    count: number;
+};
 
 function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     if (!node || !node.isValid) {
@@ -552,6 +560,218 @@ export function installPlayerMetaStateModule(target: any): void {
         /** 体力 Tick（每帧 0.2s 刷新） */
         vigorTick(dt: number): void { this._vigorTickDt += dt; if (this._vigorTickDt < 0.2) return; this._vigorTickDt = 0; this.refreshVigorUI(); },
 
+        getRecoverVigorShareDateKey(nowMs: number = Date.now()): string {
+            const date = new Date(nowMs);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return `${year}-${month < 10 ? '0' : ''}${month}-${day < 10 ? '0' : ''}${day}`;
+        },
+
+        readRecoverVigorShareState(nowMs: number = Date.now()): RecoverVigorShareState {
+            const dateKey = this.getRecoverVigorShareDateKey(nowMs);
+            const fallback: RecoverVigorShareState = { dateKey, count: 0 };
+            try {
+                const raw = sys.localStorage?.getItem(RECOVER_VIGOR_SHARE_STATE_KEY);
+                if (!raw) return fallback;
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.dateKey !== dateKey) return fallback;
+                return {
+                    dateKey,
+                    count: Math.max(0, Math.floor(Number(parsed.count) || 0)),
+                };
+            } catch (error) {
+                console.warn('[recover-vigor-share] read state failed:', error);
+                return fallback;
+            }
+        },
+
+        writeRecoverVigorShareState(state: RecoverVigorShareState): void {
+            try {
+                sys.localStorage?.setItem(RECOVER_VIGOR_SHARE_STATE_KEY, JSON.stringify(state));
+            } catch (error) {
+                console.warn('[recover-vigor-share] write state failed:', error);
+            }
+        },
+
+        getRecoverVigorShareRemaining(): number {
+            const state = this.readRecoverVigorShareState();
+            return Math.max(0, RECOVER_VIGOR_SHARE_DAILY_LIMIT - state.count);
+        },
+
+        canRecoverVigorByShare(): boolean {
+            return this.getRecoverVigorShareRemaining() > 0;
+        },
+
+        recordRecoverVigorShareGrant(): void {
+            const state = this.readRecoverVigorShareState();
+            this.writeRecoverVigorShareState({
+                dateKey: state.dateKey,
+                count: Math.min(RECOVER_VIGOR_SHARE_DAILY_LIMIT, state.count + 1),
+            });
+        },
+
+        grantVigorByAmount(amount: number): number {
+            const ceiling = (this.constructor as any).VIGOR_CEILING;
+            const current = this.getVigor();
+            const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+            if (safeAmount <= 0 || current >= ceiling) return 0;
+            const next = Math.min(ceiling, current + safeAmount);
+            const granted = Math.max(0, next - current);
+            this.setVigor(next);
+            if (next >= ceiling) {
+                this.setVigorTime(0);
+            } else if (this.getVigorTime() <= 0) {
+                this.setVigorTime(Date.now() + (this.constructor as any).VIGOR_RESTORE_SECONDS * 1000);
+            }
+            this.refreshVigorUI();
+            return granted;
+        },
+
+        ensureRecoverVigorUiNode(parent: Node, name: string, _width: number, _height: number, _x: number, _y: number): Node {
+            const node = parent.getChildByName(name);
+            if (!node) {
+                throw new Error(`[recover-vigor-prefab] missing node: ${parent.name}/${name}`);
+            }
+            if (!node.getComponent(UITransform)) {
+                throw new Error(`[recover-vigor-prefab] missing UITransform: ${parent.name}/${name}`);
+            }
+            node.active = true;
+            return node;
+        },
+
+        syncRecoverVigorRoundedBg(node: Node, _width: number, _height: number, _radius: number, _fill: Color, _stroke: Color, _lineWidth: number = 4): void {
+            if (!node.getComponent(UITransform)) {
+                throw new Error(`[recover-vigor-prefab] missing UITransform: ${node.name}`);
+            }
+            if (!node.getComponent(Sprite)) {
+                throw new Error(`[recover-vigor-prefab] missing Sprite: ${node.name}`);
+            }
+        },
+
+        syncRecoverVigorSprite(node: Node, textureName: string, _width: number, _height: number): void {
+            const sprite = node.getComponent(Sprite);
+            if (!sprite) {
+                throw new Error(`[recover-vigor-prefab] missing Sprite: ${node.name}`);
+            }
+            if (!node.getComponent(UITransform)) {
+                throw new Error(`[recover-vigor-prefab] missing UITransform: ${node.name}`);
+            }
+            const cached = this.getSF?.(textureName) || null;
+            if (cached) {
+                sprite.spriteFrame = cached;
+                return;
+            }
+            if (typeof this._loadSpriteFrameByName !== 'function') return;
+            this._loadSpriteFrameByName(textureName, (sf: SpriteFrame | null) => {
+                if (!node?.isValid || !sf) return;
+                const currentSprite = node.getComponent(Sprite);
+                if (currentSprite) currentSprite.spriteFrame = sf;
+            });
+        },
+
+        syncRecoverVigorLabel(node: Node, text: string, _fontSize: number, color: Color, _bold: boolean = false, _outline?: Color): Label {
+            const label = node.getComponent(Label);
+            if (!label) {
+                throw new Error(`[recover-vigor-prefab] missing Label: ${node.name}`);
+            }
+            label.string = text;
+            label.color = color;
+            return label;
+        },
+
+        syncRecoverVigorButton(button: Node, labelText: string, iconTexture: string, fill: Color, stroke: Color, interactable: boolean): void {
+            this.syncRecoverVigorRoundedBg(button, 168, 64, 18, fill, stroke, 4);
+            const sprite = button.getComponent(Sprite);
+            if (sprite) {
+                sprite.color = interactable ? new Color(255, 255, 255, 255) : new Color(170, 170, 170, 255);
+            }
+            const buttonComp = button.getComponent(Button) ?? button.addComponent(Button);
+            buttonComp.interactable = interactable;
+            const opacity = button.getComponent(UIOpacity) ?? button.addComponent(UIOpacity);
+            opacity.opacity = interactable ? 255 : 140;
+
+            const icon = this.ensureRecoverVigorUiNode(button, 'ActionIcon', 34, 34, -54, 0);
+            this.syncRecoverVigorSprite(icon, iconTexture, 34, 34);
+            const labelNode = this.ensureRecoverVigorUiNode(button, 'ActionLabel', 110, 38, 25, 1);
+            this.syncRecoverVigorLabel(labelNode, labelText, 30, new Color(255, 255, 255, 255), true, new Color(46, 114, 120, 255));
+        },
+
+        syncRecoverVigorRewardCard(
+            box: Node,
+            cardName: string,
+            x: number,
+            amount: number,
+            buttonText: string,
+            buttonIcon: string,
+            buttonFill: Color,
+            buttonStroke: Color,
+            interactable: boolean,
+            limitText: string = '',
+        ): { card: Node; button: Node; limitLabel: Label | null } {
+            const card = this.ensureRecoverVigorUiNode(box, cardName, 218, 288, x, 0);
+            this.syncRecoverVigorRoundedBg(card, 218, 288, 36, new Color(255, 255, 255, 245), new Color(96, 164, 216, 255), 4);
+
+            const icon = this.ensureRecoverVigorUiNode(card, 'VigorIcon', 94, 94, 0, 64);
+            this.syncRecoverVigorSprite(icon, 'popup_vigor_icon', 94, 94);
+
+            const amountLabel = this.ensureRecoverVigorUiNode(card, 'AmountLabel', 120, 46, 0, -10);
+            this.syncRecoverVigorLabel(amountLabel, `${amount}`, 36, new Color(61, 73, 116, 255), true);
+
+            const button = this.ensureRecoverVigorUiNode(card, 'ActionButton', 168, 64, 0, -94);
+            this.syncRecoverVigorButton(button, buttonText, buttonIcon, buttonFill, buttonStroke, interactable);
+
+            const limitNode = this.ensureRecoverVigorUiNode(card, 'LimitLabel', 190, 28, 0, -142);
+            const limitLabel = this.syncRecoverVigorLabel(
+                limitNode,
+                limitText,
+                22,
+                interactable ? new Color(71, 93, 132, 255) : new Color(168, 72, 72, 255),
+                false,
+            );
+            limitNode.active = !!limitText;
+            return { card, button, limitLabel: limitNode.active ? limitLabel : null };
+        },
+
+        syncRecoverVigorDualRewardPanel(box: Node): { videoButton: Node; shareButton: Node; shareRemainingLabel: Label | null } {
+            const iconPlate = box.getChildByName('RecoverVigorIconPlate');
+            const oldRecoverBtn = box.getChildByName('RecoverBtn');
+            if (iconPlate) iconPlate.active = false;
+            if (oldRecoverBtn) oldRecoverBtn.active = false;
+
+            const remaining = this.getRecoverVigorShareRemaining();
+            const shareAvailable = remaining > 0;
+
+            const videoCard = this.syncRecoverVigorRewardCard(
+                box,
+                'RecoverVigorVideoCard',
+                -118,
+                RECOVER_VIGOR_AD_REWARD,
+                '\u770b\u89c6\u9891',
+                'popup_ad_play_icon',
+                new Color(68, 179, 238, 255),
+                new Color(38, 121, 203, 255),
+                true,
+            );
+            const shareCard = this.syncRecoverVigorRewardCard(
+                box,
+                'RecoverVigorShareCard',
+                118,
+                RECOVER_VIGOR_SHARE_REWARD,
+                '\u5206\u4eab',
+                'popup_share_icon',
+                shareAvailable ? new Color(58, 214, 116, 255) : new Color(170, 170, 170, 255),
+                shareAvailable ? new Color(25, 156, 79, 255) : new Color(120, 120, 120, 255),
+                shareAvailable,
+                shareAvailable ? `\u4eca\u65e5\u5269\u4f59 ${remaining}/${RECOVER_VIGOR_SHARE_DAILY_LIMIT}` : '\u4eca\u65e5\u5df2\u7528\u5b8c',
+            );
+            return {
+                videoButton: videoCard.button,
+                shareButton: shareCard.button,
+                shareRemainingLabel: shareCard.limitLabel,
+            };
+        },
+
         /** 无体力弹窗 */
         showNoLivesAdModal(onDone: () => void): void {
             this.openRecoverVigorPrefabModal(onDone);
@@ -623,7 +843,6 @@ export function installPlayerMetaStateModule(target: any): void {
                                 if (!box.getComponent(BlockInputEvents)) {
                                     box.addComponent(BlockInputEvents);
                                 }
-                                const recoverBtn = this.requirePanelChild(box, 'RecoverBtn');
                                 const currentVigor = this.getVigor();
                                 const ceiling = (this.constructor as any).VIGOR_CEILING;
                                 const statusLabel = this.requirePanelChild(box, 'RecoverVigorStatus').getComponent(Label);
@@ -631,6 +850,7 @@ export function installPlayerMetaStateModule(target: any): void {
                                     throw new Error('[recover-vigor-prefab] missing RecoverVigorStatus label');
                                 }
                                 statusLabel.string = `当前体力 ${currentVigor}/${ceiling}`;
+                                const rewardPanel = this.syncRecoverVigorDualRewardPanel(box);
                                 if (DEBUG_RECOVER_VIGOR_LAYOUT) {
                                     const modalForLog = modal;
                                     this.scheduleOnce(() => {
@@ -659,11 +879,11 @@ export function installPlayerMetaStateModule(target: any): void {
                                 };
 
                                 this.bindPanelButton(this.requirePanelChild(box, 'XBtn'), () => {
-                                    AudioMgr.inst.play('button');
+                                    AudioMgr.inst.play('uiPanel');
                                     finalizeModal(true);
                                 });
 
-                                this.bindPanelButton(recoverBtn, () => {
+                                this.bindPanelButton(rewardPanel.videoButton, () => {
                                     if (this._adShowing) return;
                                     AudioMgr.inst.play('button');
                                     if (this.getVigor() >= (this.constructor as any).VIGOR_CEILING) {
@@ -672,13 +892,44 @@ export function installPlayerMetaStateModule(target: any): void {
                                     }
                                     finalizeModal(false);
                                     this.runRewardedGrant('vigor_recover', () => {
-                                        this.setVigor((this.constructor as any).VIGOR_CEILING);
-                                        this.setVigorTime(0);
-                                        this.refreshVigorUI();
+                                        const granted = this.grantVigorByAmount(RECOVER_VIGOR_AD_REWARD);
+                                        if (granted <= 0) return false;
                                     }, {
                                         busyFlag: '_adShowing',
-                                        adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u6062\u590d\u4f53\u529b',
-                                        grantFailToast: '\u4f53\u529b\u6062\u590d\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
+                                        adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
+                                        successToast: () => `\u83b7\u5f97${RECOVER_VIGOR_AD_REWARD}\u70b9\u4f53\u529b`,
+                                        grantFailToast: '\u4f53\u529b\u53d1\u653e\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
+                                        onFinally: () => {
+                                            if (onDone) onDone();
+                                        },
+                                    });
+                                });
+
+                                this.bindPanelButton(rewardPanel.shareButton, () => {
+                                    if (this._adShowing) return;
+                                    AudioMgr.inst.play('button');
+                                    if (this.getVigor() >= (this.constructor as any).VIGOR_CEILING) {
+                                        this.showToast('\u4f53\u529b\u5df2\u7ecf\u6ee1\u4e86');
+                                        return;
+                                    }
+                                    if (!this.canRecoverVigorByShare()) {
+                                        this.showToast('\u4eca\u65e5\u5206\u4eab\u6b21\u6570\u5df2\u7528\u5b8c');
+                                        this.syncRecoverVigorDualRewardPanel(box);
+                                        return;
+                                    }
+                                    finalizeModal(false);
+                                    this.runShareGrant('vigor_recover', () => {
+                                        const granted = this.grantVigorByAmount(RECOVER_VIGOR_SHARE_REWARD);
+                                        if (granted <= 0) return false;
+                                        this.recordRecoverVigorShareGrant();
+                                    }, {
+                                        busyFlag: '_adShowing',
+                                        shareType: 'vigor_recover_share',
+                                        title: () => `\u6211\u5728\u62fc\u8c46\u8c46\u8865\u5145\u4e86\u4f53\u529b\uff0c\u5feb\u6765\u4e00\u8d77\u6311\u6218\uff01`,
+                                        query: () => `level=${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}`,
+                                        shareFailToast: '\u5206\u4eab\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
+                                        successToast: () => `\u83b7\u5f97${RECOVER_VIGOR_SHARE_REWARD}\u70b9\u4f53\u529b`,
+                                        grantFailToast: '\u4f53\u529b\u53d1\u653e\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
                                         onFinally: () => {
                                             if (onDone) onDone();
                                         },

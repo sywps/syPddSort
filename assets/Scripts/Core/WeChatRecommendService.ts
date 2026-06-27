@@ -1,6 +1,8 @@
 import { Game, game, sys } from 'cc';
 import { AnalyticsMgr } from './AnalyticsMgr';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { UserStateSyncMgr } from './UserStateSyncMgr';
+import type { CloudGameState } from './UserStateSyncMgr';
 
 export type WeChatRecommendAutoContext = {
     logicalLevelId: number;
@@ -32,6 +34,12 @@ type OpenCallbacks = {
     onReady?: () => void;
     onPageShow?: () => void;
     onShowCalled?: () => void;
+};
+
+type RecommendationSuccessState = {
+    recommended: boolean;
+    recommendedAt: number;
+    firstSuccessAt: number;
 };
 
 const FIRST_AUTO_LEVEL = 15;
@@ -95,6 +103,14 @@ function writeStoredFlag(key: string, value: boolean): void {
     } catch (_) {}
 }
 
+function earliestPositiveTimestamp(...values: number[]): number {
+    const normalized = values
+        .map((value) => Math.max(0, Math.floor(Number(value) || 0)))
+        .filter((value) => value > 0);
+    if (normalized.length === 0) return 0;
+    return Math.min(...normalized);
+}
+
 function getLocalDateKey(now: number): string {
     const date = new Date(now);
     const year = date.getFullYear();
@@ -131,9 +147,42 @@ export class WeChatRecommendService {
     private opening = false;
     private lifecycleBound = false;
     private suppressedKeysThisSession = new Set<string>();
+    private recommendedInMemory = false;
+    private recommendedAtInMemory = 0;
+    private firstSuccessAtInMemory = 0;
 
     private constructor() {
+        this.refreshRecommendationStateFromLocal();
         this.bindLifecycle();
+    }
+
+    getCloudGameStatePatch(): Partial<CloudGameState> {
+        const state = this.getRecommendationSuccessState();
+        if (!state.recommended) return {};
+        const timestamp = state.recommendedAt || state.firstSuccessAt || Date.now();
+        return {
+            wechatRecommendRecommended: true,
+            wechatRecommendRecommendedAt: timestamp,
+            wechatRecommendFirstSuccessAt: state.firstSuccessAt || timestamp,
+        };
+    }
+
+    applyCloudGameState(gameState?: Partial<CloudGameState> | null): void {
+        const cloudRecommended = gameState?.wechatRecommendRecommended === true;
+        if (cloudRecommended) {
+            const recommendedAt = Math.max(0, Math.floor(Number(gameState?.wechatRecommendRecommendedAt) || 0));
+            const firstSuccessAt = Math.max(0, Math.floor(Number(gameState?.wechatRecommendFirstSuccessAt) || 0));
+            this.applyRecommendationSuccessState({
+                recommended: true,
+                recommendedAt: Math.max(recommendedAt, firstSuccessAt),
+                firstSuccessAt: firstSuccessAt || recommendedAt,
+            }, false);
+            return;
+        }
+
+        if (this.hasRecommendedState()) {
+            this.queueRecommendationCloudSave();
+        }
     }
 
     attemptAutoShowAfterWin(context: WeChatRecommendAutoContext): boolean {
@@ -156,6 +205,7 @@ export class WeChatRecommendService {
     }
 
     private handleGameShow(): void {
+        this.refreshRecommendationStateFromLocal();
         this.shownThisSession = false;
         this.suppressedKeysThisSession.clear();
     }
@@ -174,7 +224,7 @@ export class WeChatRecommendService {
     private getAutoEligibility(context: Required<WeChatRecommendAutoContext>): EligibilityResult {
         if (context.isThemeLevel) return { ok: false, reason: 'theme_level' };
         if (context.logicalLevelId < FIRST_AUTO_LEVEL) return { ok: false, reason: 'before_first_level' };
-        if (readStoredFlag(LS_RECOMMENDED)) return { ok: false, reason: 'already_recommended' };
+        if (this.hasRecommendedState()) return { ok: false, reason: 'already_recommended' };
         if (this.opening) return { ok: false, reason: 'opening' };
         if (this.shownThisSession) return { ok: false, reason: 'session_cap' };
 
@@ -246,11 +296,8 @@ export class WeChatRecommendService {
 
         if (result.status === 'recommended') {
             const now = Date.now();
-            const firstSuccessAt = parseStoredNumber(LS_FIRST_SUCCESS_AT);
-            writeStoredFlag(LS_RECOMMENDED, true);
-            writeStoredNumber(LS_RECOMMENDED_AT, now);
-            if (firstSuccessAt <= 0) {
-                writeStoredNumber(LS_FIRST_SUCCESS_AT, now);
+            const firstSuccess = this.markRecommended(now);
+            if (firstSuccess) {
                 this.track(context, 'wechat_recommend_first_success', true, {
                     callbackSupported: result.callbackSupported,
                 });
@@ -270,6 +317,76 @@ export class WeChatRecommendService {
             callbackSupported: result.callbackSupported,
             shown: result.shown,
         });
+    }
+
+    private hasRecommendedState(): boolean {
+        return this.getRecommendationSuccessState().recommended;
+    }
+
+    private readLocalRecommendationSuccessState(): RecommendationSuccessState {
+        const storedRecommended = readStoredFlag(LS_RECOMMENDED);
+        const recommendedAt = parseStoredNumber(LS_RECOMMENDED_AT);
+        const firstSuccessAt = parseStoredNumber(LS_FIRST_SUCCESS_AT);
+        const recommended = storedRecommended || recommendedAt > 0 || firstSuccessAt > 0;
+        const latestRecommendedAt = Math.max(recommendedAt, firstSuccessAt);
+        return {
+            recommended,
+            recommendedAt: latestRecommendedAt,
+            firstSuccessAt: earliestPositiveTimestamp(firstSuccessAt, recommendedAt),
+        };
+    }
+
+    private refreshRecommendationStateFromLocal(): void {
+        const localState = this.readLocalRecommendationSuccessState();
+        if (!localState.recommended && !this.recommendedInMemory) return;
+        this.recommendedInMemory = this.recommendedInMemory || localState.recommended;
+        this.recommendedAtInMemory = Math.max(this.recommendedAtInMemory, localState.recommendedAt);
+        this.firstSuccessAtInMemory = earliestPositiveTimestamp(this.firstSuccessAtInMemory, localState.firstSuccessAt);
+    }
+
+    private getRecommendationSuccessState(): RecommendationSuccessState {
+        this.refreshRecommendationStateFromLocal();
+        const recommendedAt = Math.max(this.recommendedAtInMemory, this.firstSuccessAtInMemory);
+        return {
+            recommended: this.recommendedInMemory || recommendedAt > 0,
+            recommendedAt,
+            firstSuccessAt: earliestPositiveTimestamp(this.firstSuccessAtInMemory, recommendedAt),
+        };
+    }
+
+    private applyRecommendationSuccessState(state: RecommendationSuccessState, syncCloud: boolean): boolean {
+        const before = this.getRecommendationSuccessState();
+        if (!state.recommended) return false;
+
+        const knownTimestamp = Math.max(state.recommendedAt, state.firstSuccessAt, before.recommendedAt, before.firstSuccessAt);
+        const fallbackTimestamp = knownTimestamp > 0 ? 0 : Date.now();
+        const recommendedAt = Math.max(state.recommendedAt, state.firstSuccessAt, before.recommendedAt, fallbackTimestamp);
+        const firstSuccessAt = earliestPositiveTimestamp(before.firstSuccessAt, state.firstSuccessAt, state.recommendedAt, recommendedAt) || recommendedAt;
+        this.recommendedInMemory = true;
+        this.recommendedAtInMemory = recommendedAt;
+        this.firstSuccessAtInMemory = firstSuccessAt;
+        writeStoredFlag(LS_RECOMMENDED, true);
+        writeStoredNumber(LS_RECOMMENDED_AT, recommendedAt);
+        writeStoredNumber(LS_FIRST_SUCCESS_AT, firstSuccessAt);
+
+        if (syncCloud) {
+            this.queueRecommendationCloudSave();
+        }
+        return !before.recommended;
+    }
+
+    private markRecommended(now: number): boolean {
+        return this.applyRecommendationSuccessState({
+            recommended: true,
+            recommendedAt: now,
+            firstSuccessAt: now,
+        }, true);
+    }
+
+    private queueRecommendationCloudSave(): void {
+        const gameState = this.getCloudGameStatePatch();
+        if (gameState.wechatRecommendRecommended !== true) return;
+        UserStateSyncMgr.inst.queueSave({ gameState });
     }
 
     private async openOfficialRecommendComponent(openlink: string, callbacks: OpenCallbacks): Promise<RecommendOpenResult> {
