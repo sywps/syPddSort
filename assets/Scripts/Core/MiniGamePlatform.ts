@@ -7,6 +7,22 @@ export type WeChatGameClubButtonStyle = {
     height: number;
 };
 
+export type WeChatMiniGameWindowInfo = {
+    width: number;
+    height: number;
+    pixelRatio?: number;
+    sdkVersion?: string;
+    platform?: string;
+    safeArea?: {
+        left?: number;
+        right?: number;
+        top?: number;
+        bottom?: number;
+        width?: number;
+        height?: number;
+    };
+};
+
 export type WeChatGameClubButtonHandle = {
     destroy?: () => void;
     hide?: () => void;
@@ -16,10 +32,11 @@ export type WeChatGameClubButtonHandle = {
 };
 
 export type WeChatGameCircleButtonResult = {
-    ok: boolean;
-    message?: string;
-    button?: WeChatGameClubButtonHandle;
-    rawError?: unknown;
+    button: WeChatGameClubButtonHandle;
+    style: WeChatGameClubButtonStyle;
+    sdkVersion?: string;
+    platform?: string;
+    openlink?: string;
 };
 
 declare const wx: any;
@@ -162,32 +179,64 @@ export function getDouyinMiniGameRuntime(): any {
     return getMiniGameApi('tt');
 }
 
-function normalizeNativeButtonStyle(style: WeChatGameClubButtonStyle): WeChatGameClubButtonStyle | null {
+function normalizeNativeButtonStyle(
+    style: WeChatGameClubButtonStyle,
+    windowInfo?: WeChatMiniGameWindowInfo | null,
+): WeChatGameClubButtonStyle | null {
     const left = Number(style?.left);
     const top = Number(style?.top);
     const width = Number(style?.width);
     const height = Number(style?.height);
     if (![left, top, width, height].every(Number.isFinite)) return null;
     if (width <= 0 || height <= 0) return null;
-    return { left, top, width, height };
+    const minSize = 44;
+    const normalizedWidth = Math.max(minSize, width);
+    const normalizedHeight = Math.max(minSize, height);
+    const maxWidth = Number(windowInfo?.width) || 0;
+    const maxHeight = Number(windowInfo?.height) || 0;
+    if (maxWidth > 0 && maxHeight > 0) {
+        const clampedWidth = Math.min(normalizedWidth, maxWidth);
+        const clampedHeight = Math.min(normalizedHeight, maxHeight);
+        return {
+            left: Math.max(0, Math.min(Math.round(left), Math.max(0, Math.round(maxWidth - clampedWidth)))),
+            top: Math.max(0, Math.min(Math.round(top), Math.max(0, Math.round(maxHeight - clampedHeight)))),
+            width: Math.max(1, Math.round(clampedWidth)),
+            height: Math.max(1, Math.round(clampedHeight)),
+        };
+    }
+    return {
+        left: Math.max(0, Math.round(left)),
+        top: Math.max(0, Math.round(top)),
+        width: Math.round(normalizedWidth),
+        height: Math.round(normalizedHeight),
+    };
 }
 
-export function getWeChatMiniGameWindowSize(): { width: number; height: number } | null {
+export function getWeChatMiniGameWindowInfo(): WeChatMiniGameWindowInfo {
     const wxRuntime = getWeChatMiniGameRuntime();
-    if (!wxRuntime) return null;
-    try {
-        const info = typeof wxRuntime.getWindowInfo === 'function'
-            ? wxRuntime.getWindowInfo()
-            : wxRuntime.getSystemInfoSync?.();
-        const width = Number(info?.windowWidth || info?.screenWidth);
-        const height = Number(info?.windowHeight || info?.screenHeight);
-        if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
-            return { width, height };
-        }
-    } catch (error) {
-        console.warn('[GameCircle] get window size failed:', error);
+    if (!wxRuntime) throw new Error('[GameCircle] wx runtime is unavailable');
+    if (typeof wxRuntime.getWindowInfo !== 'function') {
+        throw new Error('[GameCircle] wx.getWindowInfo is unavailable');
     }
-    return null;
+    const info = wxRuntime.getWindowInfo();
+    const width = Number(info?.windowWidth);
+    const height = Number(info?.windowHeight);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        throw new Error(`[GameCircle] invalid wx.getWindowInfo result: windowWidth=${String(info?.windowWidth)}, windowHeight=${String(info?.windowHeight)}`);
+    }
+    return {
+        width,
+        height,
+        pixelRatio: Number(info?.pixelRatio) || undefined,
+        sdkVersion: typeof info?.SDKVersion === 'string' ? info.SDKVersion : undefined,
+        platform: typeof info?.platform === 'string' ? info.platform : undefined,
+        safeArea: info?.safeArea,
+    };
+}
+
+export function getWeChatMiniGameWindowSize(): { width: number; height: number } {
+    const info = getWeChatMiniGameWindowInfo();
+    return { width: info.width, height: info.height };
 }
 
 export function createWeChatGameCircleButton(
@@ -196,67 +245,63 @@ export function createWeChatGameCircleButton(
     onTap?: (res?: any) => void,
 ): WeChatGameCircleButtonResult {
     const target = String(openlink || '').trim();
-    if (!target) {
-        return { ok: false, message: '游戏圈链接为空' };
-    }
     const wxRuntime = getWeChatMiniGameRuntime();
     if (!wxRuntime) {
-        return { ok: false, message: '请在微信内打开游戏圈' };
+        throw new Error('[GameCircle] wx runtime is unavailable');
     }
     if (typeof wxRuntime.createGameClubButton !== 'function') {
-        return { ok: false, message: '当前微信版本暂不支持游戏圈按钮' };
+        throw new Error('[GameCircle] wx.createGameClubButton is unavailable');
     }
-    const nativeStyle = normalizeNativeButtonStyle(style);
+    const windowInfo = getWeChatMiniGameWindowInfo();
+    const nativeStyle = normalizeNativeButtonStyle(style, windowInfo);
     if (!nativeStyle) {
-        return { ok: false, message: '游戏圈按钮位置无效' };
+        throw new Error(`[GameCircle] invalid native button style: left=${String(style?.left)}, top=${String(style?.top)}, width=${String(style?.width)}, height=${String(style?.height)}`);
     }
-    try {
-        const button = wxRuntime.createGameClubButton({
-            type: 'text',
-            text: '',
-            icon: 'green',
-            style: {
-                left: nativeStyle.left,
-                top: nativeStyle.top,
-                width: nativeStyle.width,
-                height: nativeStyle.height,
-                backgroundColor: 'rgba(0,0,0,0)',
-                borderColor: 'rgba(0,0,0,0)',
-                borderWidth: 0,
-                borderRadius: Math.round(nativeStyle.height / 2),
-                color: 'rgba(0,0,0,0)',
-                textAlign: 'center',
-                fontSize: 1,
-                lineHeight: Math.round(nativeStyle.height),
-            },
-            openlink: target,
-            hasRedDot: false,
-        });
-        if (!button) {
-            return { ok: false, message: '游戏圈按钮创建失败' };
-        }
-        if (typeof onTap === 'function' && typeof button.onTap === 'function') {
-            button.onTap(onTap);
-        }
-        button.show?.();
-        return { ok: true, button };
-    } catch (error) {
-        return {
-            ok: false,
-            message: '游戏圈按钮创建失败，请稍后重试',
-            rawError: error,
-        };
+    const options: any = {
+        type: 'text',
+        text: '进入游戏圈',
+        style: {
+            left: nativeStyle.left,
+            top: nativeStyle.top,
+            width: nativeStyle.width,
+            height: nativeStyle.height,
+            backgroundColor: 'rgba(0, 0, 0, 0)',
+            borderColor: 'rgba(0, 0, 0, 0)',
+            borderWidth: 0,
+            borderRadius: 0,
+            color: 'rgba(0, 0, 0, 0)',
+            textAlign: 'center',
+            fontSize: 1,
+            lineHeight: Math.round(nativeStyle.height),
+        },
+        hasRedDot: false,
+    };
+    if (target) options.openlink = target;
+    const button = wxRuntime.createGameClubButton(options);
+    if (!button || typeof button.show !== 'function') {
+        throw new Error('[GameCircle] wx.createGameClubButton did not return a valid button');
     }
+    if (typeof onTap === 'function') {
+        if (typeof button.onTap !== 'function') {
+            throw new Error('[GameCircle] GameClubButton.onTap is unavailable');
+        }
+        button.onTap(onTap);
+    }
+    button.show();
+    return {
+        button,
+        style: nativeStyle,
+        sdkVersion: windowInfo.sdkVersion,
+        platform: windowInfo.platform,
+        openlink: target,
+    };
 }
 
 export function destroyWeChatGameCircleButton(button: WeChatGameClubButtonHandle | null | undefined): void {
     if (!button) return;
-    try {
-        button.hide?.();
-    } catch (_) {}
-    try {
-        button.destroy?.();
-    } catch (error) {
-        console.warn('[GameCircle] destroy native button failed:', error);
+    button.hide?.();
+    if (typeof button.destroy !== 'function') {
+        throw new Error('[GameCircle] GameClubButton.destroy is unavailable');
     }
+    button.destroy();
 }

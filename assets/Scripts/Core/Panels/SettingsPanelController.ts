@@ -271,7 +271,7 @@ export class SettingsPanelController {
                         runtime.resumeTimerForProp();
                         runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings-home');
                         endSettingsModalFocus();
-                        void AppRoot.inst.requestHomeSceneTransition('settings', 'cover');
+                        void AppRoot.inst.requestHomeRoute('settings', 'none');
                     });
                 }
 

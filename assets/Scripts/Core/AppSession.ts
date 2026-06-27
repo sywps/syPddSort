@@ -5,8 +5,8 @@ type Bundle = AssetManager.Bundle;
 export type AppSceneName = 'Home' | 'Game' | 'Boot';
 export type AppVisualState = 'boot' | 'home' | 'game';
 export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
-export type AppSceneTransitionCoverMode = 'auto' | 'cover' | 'none';
-export type AppGameplayEntryCoverMode = AppSceneTransitionCoverMode;
+export type AppRouteCoverMode = 'auto' | 'cover' | 'none';
+export type AppGameplayEntryCoverMode = AppRouteCoverMode;
 
 export interface PendingGameplayRequest {
     levelId: number;

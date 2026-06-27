@@ -26,6 +26,7 @@ const MINIGAME_ENGINE_MODULES = [
     'legacy-pipeline',
     'mask',
     'rich-text',
+    'spine-3.8',
     'tween',
     'ui',
 ];

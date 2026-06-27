@@ -141,7 +141,7 @@ export class GameplaySessionController {
             if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
                 runtime.recordMainlineLevelEntry(activeLogicalLevelId);
             }
-            this.finishGameplayReadyTransition();
+            this.clearGameplayReadyRouteCover();
             runtime.refreshEndgameHints('init-game');
             runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0.8);
             const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
@@ -167,6 +167,9 @@ export class GameplaySessionController {
             });
             AnalyticsMgr.inst.flushFunnelEvents();
             runtime.onGameplayUiReadyForStartupServices?.();
+            AppRoot.tryGet()?.router.preloadHomeScene('gameplay-ready').catch((error: unknown) => {
+                console.error('[SceneRouter] preload Home.scene failed:', error);
+            });
 
             if (runtime.needsBeanReRender()) {
                 runtime.scheduleOnce(() => {
@@ -210,37 +213,15 @@ export class GameplaySessionController {
                 }
             }
         } catch (error) {
-            AppRoot.tryGet()?.forceHideSceneTransition('gameplay-init-error');
+            AppRoot.tryGet()?.clearRouteCover('gameplay-init-error');
             throw error;
         }
     }
 
-    private finishGameplayReadyTransition(): void {
+    private clearGameplayReadyRouteCover(): void {
         const appRoot = AppRoot.tryGet();
         if (!appRoot) return;
-        let settled = false;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const clearFallback = () => {
-            if (timeoutId !== null) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
-        };
-        const forceHideOnce = (source: string) => {
-            if (settled) return;
-            settled = true;
-            clearFallback();
-            appRoot.forceHideSceneTransition(source);
-        };
-        timeoutId = setTimeout(() => {
-            forceHideOnce('gameplay-ready-timeout');
-        }, 1800);
-        void appRoot.finishSceneTransition('gameplay-ready').then(() => {
-            forceHideOnce('gameplay-ready-complete');
-        }).catch((error: unknown) => {
-            console.warn('[SceneTransition] finish after gameplay ready failed:', error);
-            forceHideOnce('gameplay-ready-fallback');
-        });
+        appRoot.clearRouteCover('gameplay-ready');
     }
 
     private clearTutorialRuntimeState(runtime: any): void {

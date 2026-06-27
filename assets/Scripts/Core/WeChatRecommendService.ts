@@ -10,17 +10,14 @@ export type WeChatRecommendAutoContext = {
     isThemeLevel?: boolean;
 };
 
-type RecommendResultStatus = 'recommended' | 'not_recommended' | 'unknown' | 'error';
+type RecommendResultStatus = 'recommended' | 'not_recommended';
 
 type RecommendOpenResult = {
-    ok: boolean;
+    ok: true;
     status: RecommendResultStatus;
-    isRecommended?: boolean;
-    callbackSupported: boolean;
+    isRecommended: boolean;
+    callbackSupported: true;
     shown: boolean;
-    errorCode?: string;
-    errorMessage?: string;
-    rawError?: unknown;
 };
 
 type EligibilityResult = {
@@ -36,7 +33,6 @@ type OpenCallbacks = {
 
 const FIRST_AUTO_LEVEL = 15;
 const AUTO_LEVEL_INTERVAL = 5;
-const UNKNOWN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const COMPONENT_RESULT_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_SOURCE = 'win_panel_auto';
 const OFFICIAL_RECOMMEND_OPENLINK = 'TWFRCqV5WeM2AkMXhKwJ03MhfPOieJfAsvXKUbWvQFQtLyyA5etMPabBehga950uzfZcH3Vi3QeEh41xRGEVFw';
@@ -47,7 +43,6 @@ const LS_FIRST_SUCCESS_AT = 'pdd.wechat_recommend.firstSuccessAt';
 const LS_LAST_SHOWN_AT = 'pdd.wechat_recommend.lastShownAt';
 const LS_LAST_SHOWN_LEVEL = 'pdd.wechat_recommend.lastShownLevel';
 const LS_LAST_SHOWN_DATE = 'pdd.wechat_recommend.lastShownDate';
-const LS_LAST_UNKNOWN_AT = 'pdd.wechat_recommend.lastUnknownAt';
 
 function readGlobalString(name: string): string {
     const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
@@ -106,7 +101,9 @@ function getLocalDateKey(now: number): string {
 }
 
 function getOpenPageErrorCode(error: any): string {
-    const direct = Number(error?.errCode ?? error?.code ?? error?.errno);
+    const directRaw = error?.errCode ?? error?.code ?? error?.errno;
+    if (typeof directRaw === 'string' && directRaw.trim()) return directRaw.trim().slice(0, 80);
+    const direct = Number(directRaw);
     if (Number.isFinite(direct)) return String(direct);
     const message = String(error?.errMsg || error?.message || error?.errInfo || error || '');
     const match = /(?:^|[^\d-])(-?\d+)(?:[^\d]|$)/.exec(message);
@@ -115,6 +112,15 @@ function getOpenPageErrorCode(error: any): string {
 
 function getOpenPageErrorMessage(error: any): string {
     return String(error?.errMsg || error?.message || error?.errInfo || error || '').slice(0, 240);
+}
+
+function createRecommendOpenError(errorCode: string, errorMessage: string, rawError?: unknown): Error {
+    const code = String(errorCode || 'open_failed').trim() || 'open_failed';
+    const message = String(errorMessage || 'WeChat recommendation page failed.').trim() || 'WeChat recommendation page failed.';
+    const error: any = new Error(`[wechat-recommend] ${code}: ${message}`);
+    error.code = code;
+    error.rawError = rawError;
+    return error;
 }
 
 export class WeChatRecommendService {
@@ -182,11 +188,6 @@ export class WeChatRecommendService {
         if (!openlink) return { ok: false, reason: 'missing_openlink' };
 
         const now = Date.now();
-        const lastUnknownAt = parseStoredNumber(LS_LAST_UNKNOWN_AT);
-        if (lastUnknownAt > 0 && now - lastUnknownAt < UNKNOWN_COOLDOWN_MS) {
-            return { ok: false, reason: 'unknown_cooldown' };
-        }
-
         const today = getLocalDateKey(now);
         try {
             if (sys.localStorage.getItem(LS_LAST_SHOWN_DATE) === today) {
@@ -208,14 +209,19 @@ export class WeChatRecommendService {
         const openlink = getConfiguredRecommendOpenlink();
         this.track(context, 'wechat_recommend_auto_attempt');
 
-        const result = await this.openOfficialRecommendComponent(openlink, {
-            onReady: () => this.track(context, 'wechat_recommend_ready'),
-            onPageShow: () => this.track(context, 'wechat_recommend_component_show'),
-            onShowCalled: () => this.markShown(context),
-        });
-
-        this.opening = false;
-        this.applyOpenResult(context, result);
+        try {
+            const result = await this.openOfficialRecommendComponent(openlink, {
+                onReady: () => this.track(context, 'wechat_recommend_ready'),
+                onPageShow: () => this.track(context, 'wechat_recommend_component_show'),
+                onShowCalled: () => this.markShown(context),
+            });
+            this.applyOpenResult(context, result);
+        } catch (error) {
+            this.track(context, 'wechat_recommend_error', false, {}, getOpenPageErrorCode(error), getOpenPageErrorMessage(error));
+            throw error;
+        } finally {
+            this.opening = false;
+        }
     }
 
     private markShown(context: Required<WeChatRecommendAutoContext>): void {
@@ -229,15 +235,6 @@ export class WeChatRecommendService {
     }
 
     private applyOpenResult(context: Required<WeChatRecommendAutoContext>, result: RecommendOpenResult): void {
-        if (!result.ok || result.status === 'error') {
-            writeStoredNumber(LS_LAST_UNKNOWN_AT, Date.now());
-            this.track(context, 'wechat_recommend_error', false, {
-                callbackSupported: result.callbackSupported,
-                shown: result.shown,
-            }, result.errorCode, result.errorMessage);
-            return;
-        }
-
         this.track(context, 'wechat_recommend_component_destroy', result.status === 'recommended', {
             callbackSupported: result.callbackSupported,
             isRecommended: result.isRecommended,
@@ -265,94 +262,85 @@ export class WeChatRecommendService {
             return;
         }
 
-        writeStoredNumber(LS_LAST_UNKNOWN_AT, Date.now());
-        this.track(context, 'wechat_recommend_unknown', false, {
-            callbackSupported: result.callbackSupported,
-            shown: result.shown,
-        });
     }
 
     private async openOfficialRecommendComponent(openlink: string, callbacks: OpenCallbacks): Promise<RecommendOpenResult> {
         const target = String(openlink || '').trim();
         if (!target) {
-            return this.makeErrorResult('missing_openlink', 'WeChat recommendation openlink is empty.', false, false);
+            throw createRecommendOpenError('missing_openlink', 'WeChat recommendation openlink is empty.');
         }
 
         const wxRuntime = getWeChatMiniGameRuntime();
         if (!wxRuntime) {
-            return this.makeErrorResult('not_wechat_runtime', 'WeChat runtime is unavailable.', false, false);
+            throw createRecommendOpenError('not_wechat_runtime', 'WeChat runtime is unavailable.');
         }
         if (typeof wxRuntime.createPageManager !== 'function') {
-            return this.makeErrorResult('page_manager_unavailable', 'wx.createPageManager is unavailable.', false, false);
+            throw createRecommendOpenError('page_manager_unavailable', 'wx.createPageManager is unavailable.');
         }
 
         let pageManager: any = null;
         try {
             pageManager = wxRuntime.createPageManager();
         } catch (error) {
-            return this.makeErrorResult(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), false, false, error);
+            throw createRecommendOpenError(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), error);
         }
-        if (!pageManager || typeof pageManager.load !== 'function' || typeof pageManager.show !== 'function') {
-            return this.makeErrorResult('page_manager_invalid', 'PageManager load/show is unavailable.', false, false);
+        if (!pageManager || typeof pageManager.load !== 'function' || typeof pageManager.show !== 'function' || typeof pageManager.on !== 'function') {
+            throw createRecommendOpenError('page_manager_invalid', 'PageManager load/show/on is unavailable.');
         }
 
-        let callbackSupported = typeof pageManager.on === 'function';
-        let settleResult: ((result: RecommendOpenResult) => void) | null = null;
-        let resultPromise: Promise<RecommendOpenResult> | null = null;
+        let resolveResult: ((result: RecommendOpenResult) => void) | null = null;
+        let rejectResult: ((error: unknown) => void) | null = null;
+        let resultPromise: Promise<RecommendOpenResult>;
         let timeoutId: any = null;
         let shown = false;
 
-        if (callbackSupported) {
-            resultPromise = new Promise<RecommendOpenResult>((resolve) => {
-                let settled = false;
-                const settle = (result: RecommendOpenResult) => {
-                    if (settled) return;
-                    settled = true;
-                    if (timeoutId !== null) clearTimeout(timeoutId);
-                    resolve(result);
-                };
-                settleResult = settle;
-                timeoutId = setTimeout(() => {
+        resultPromise = new Promise<RecommendOpenResult>((resolve, reject) => {
+            let settled = false;
+            const settle = (result: RecommendOpenResult) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutId !== null) clearTimeout(timeoutId);
+                resolve(result);
+            };
+            const rejectOpen = (error: unknown) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutId !== null) clearTimeout(timeoutId);
+                reject(error);
+            };
+            resolveResult = settle;
+            rejectResult = rejectOpen;
+            timeoutId = setTimeout(() => {
+                rejectOpen(createRecommendOpenError('destroy_timeout', 'PageManager destroy callback timeout.'));
+            }, COMPONENT_RESULT_TIMEOUT_MS);
+
+            try {
+                pageManager.on('ready', () => callbacks.onReady?.());
+                pageManager.on('show', () => callbacks.onPageShow?.());
+                pageManager.on('destroy', (res: any) => {
+                    if (typeof res?.isRecommended !== 'boolean') {
+                        rejectOpen(createRecommendOpenError('missing_recommend_status', 'PageManager destroy result missing isRecommended.', res));
+                        return;
+                    }
                     settle({
                         ok: true,
-                        status: 'unknown',
+                        status: res.isRecommended ? 'recommended' : 'not_recommended',
+                        isRecommended: res.isRecommended,
                         callbackSupported: true,
                         shown,
-                        errorCode: 'destroy_timeout',
-                        errorMessage: 'PageManager destroy callback timeout.',
                     });
-                }, COMPONENT_RESULT_TIMEOUT_MS);
+                });
+                pageManager.on('error', (error: any) => {
+                    rejectOpen(createRecommendOpenError(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), error));
+                });
+            } catch (error) {
+                rejectOpen(createRecommendOpenError(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), error));
+            }
+        });
+        resultPromise.catch(() => undefined);
 
-                try {
-                    pageManager.on('ready', () => callbacks.onReady?.());
-                    pageManager.on('show', () => callbacks.onPageShow?.());
-                    pageManager.on('destroy', (res: any) => {
-                        const isRecommended = typeof res?.isRecommended === 'boolean' ? res.isRecommended : undefined;
-                        settle({
-                            ok: true,
-                            status: isRecommended === true ? 'recommended' : (isRecommended === false ? 'not_recommended' : 'unknown'),
-                            isRecommended,
-                            callbackSupported: true,
-                            shown,
-                        });
-                    });
-                    pageManager.on('error', (error: any) => {
-                        settle(this.makeErrorResult(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), true, shown, error));
-                    });
-                } catch (error) {
-                    callbackSupported = false;
-                    if (timeoutId !== null) clearTimeout(timeoutId);
-                    resolve({
-                        ok: true,
-                        status: 'unknown',
-                        callbackSupported: false,
-                        shown,
-                        errorCode: getOpenPageErrorCode(error),
-                        errorMessage: getOpenPageErrorMessage(error),
-                        rawError: error,
-                    });
-                }
-            });
+        if (!resolveResult || !rejectResult) {
+            throw createRecommendOpenError('page_manager_listener_failed', 'PageManager listener setup failed.');
         }
 
         try {
@@ -361,33 +349,12 @@ export class WeChatRecommendService {
             shown = true;
             callbacks.onShowCalled?.();
         } catch (error) {
-            const errorResult = this.makeErrorResult(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), callbackSupported, shown, error);
-            settleResult?.(errorResult);
-            return errorResult;
-        }
-
-        if (!callbackSupported || !resultPromise) {
-            return {
-                ok: true,
-                status: 'unknown',
-                callbackSupported: false,
-                shown: true,
-            };
+            const openError = createRecommendOpenError(getOpenPageErrorCode(error), getOpenPageErrorMessage(error), error);
+            rejectResult(openError);
+            throw openError;
         }
 
         return resultPromise;
-    }
-
-    private makeErrorResult(errorCode: string, errorMessage: string, callbackSupported: boolean, shown: boolean, rawError?: unknown): RecommendOpenResult {
-        return {
-            ok: false,
-            status: 'error',
-            callbackSupported,
-            shown,
-            errorCode,
-            errorMessage,
-            rawError,
-        };
     }
 
     private trackSuppressed(context: Required<WeChatRecommendAutoContext>, reason: string): void {

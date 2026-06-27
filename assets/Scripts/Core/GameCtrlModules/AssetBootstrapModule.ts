@@ -5,7 +5,7 @@ import {
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
-    mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
+    mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, POPUP_UI_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
     RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, THEME_PANEL_RELEASE_TEXTURE_NAMES, THEME_PANEL_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
@@ -48,6 +48,7 @@ const SCENE_HOME_SPRITE_FRAME_NAMES = new Set<string>(HOME_MENU_TEXTURE_NAMES);
 const SCENE_GAME_SPRITE_FRAME_NAMES = new Set<string>([
     ...GAMEPLAY_SLOT_TEXTURE_NAMES,
     ...SKILL_BUTTON_TEXTURE_NAMES,
+    ...BOARD_EFFECT_TEXTURE_NAMES,
 ]);
 const SHARED_UI_SPRITE_FRAME_NAMES = new Set<string>([
     ...POPUP_UI_TEXTURE_NAMES,
@@ -292,6 +293,57 @@ export function installAssetBootstrapModule(target: any): void {
                     },
                 );
             }
+        },
+
+        getRequiredBoardEffectTextureNames(): string[] {
+            return GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS
+                .map((path) => path.slice(path.lastIndexOf('/') + 1))
+                .filter((name) => !!name);
+        },
+
+        getMissingRequiredBoardEffectTextureNames(): string[] {
+            return this.getRequiredBoardEffectTextureNames().filter((name) => !this.sfCache.has(name));
+        },
+
+        prepareRequiredBoardEffectTextures(
+            callback: (result: { ok: boolean; errorCode?: string; errorMessage?: string; missingTextureNames?: string[] }) => void,
+            bundle?: Bundle | null,
+        ) {
+            const requiredTextureNames = this.getRequiredBoardEffectTextureNames();
+            if (requiredTextureNames.length === 0) {
+                callback({ ok: true });
+                return;
+            }
+            const verifyLoaded = () => {
+                const missingTextureNames = this.getMissingRequiredBoardEffectTextureNames();
+                if (missingTextureNames.length > 0) {
+                    callback({
+                        ok: false,
+                        errorCode: 'board_effect_textures_missing',
+                        errorMessage: `missing board effect textures: ${missingTextureNames.join(', ')}`,
+                        missingTextureNames,
+                    });
+                    return;
+                }
+                callback({ ok: true });
+            };
+            const loadFromBundle = (targetBundle: Bundle | null) => {
+                if (!targetBundle) {
+                    callback({
+                        ok: false,
+                        errorCode: 'board_effect_bundle_missing',
+                        errorMessage: 'missing gameAssets bundle for board effect textures',
+                        missingTextureNames: requiredTextureNames,
+                    });
+                    return;
+                }
+                this._preloadGameAssetsTextureSet(targetBundle, verifyLoaded, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS);
+            };
+            if (bundle) {
+                loadFromBundle(bundle);
+                return;
+            }
+            this._withGameAssetsBundle(loadFromBundle);
         },
 
         _getGameAssetsTextureCandidatePaths(imgName: string): string[] {
@@ -1471,6 +1523,12 @@ export function installAssetBootstrapModule(target: any): void {
             return this.getSF('block_bright_pindd');
         },
 
+        requireBrightSpriteFrame(): SpriteFrame {
+            const bright = this.getBrightSpriteFrame();
+            if (!bright) throw new Error('[assets] missing required SpriteFrame: block_bright_pindd');
+            return bright;
+        },
+
         shouldUseLocalBootstrapBundle(levelId: number, prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX): boolean {
             return LOCAL_BOOTSTRAP_LEVEL_IDS.has(levelId) && prefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX;
         },
@@ -1482,9 +1540,8 @@ export function installAssetBootstrapModule(target: any): void {
             return this.shouldUseLocalBootstrapBundle(levelId) && LOCAL_BOOTSTRAP_TEXTURE_NAMES.has(imgName);
         },
 
-        attachBrightOverlay(parent: Node, size: number, opacity: number, scale: number = 1.08): Node | null {
-            const bright = this.getBrightSpriteFrame();
-            if (!bright) return null;
+        attachBrightOverlay(parent: Node, size: number, opacity: number, scale: number = 1.08): Node {
+            const bright = this.requireBrightSpriteFrame();
         
             const glow = new Node('BrightOverlay');
             parent.addChild(glow);
@@ -1518,6 +1575,7 @@ export function installAssetBootstrapModule(target: any): void {
             sprite.enabled = true;
         
             const glowSize = size + Math.max(10, Math.round(size * 0.18));
+            const bright = this.requireBrightSpriteFrame();
             let glow = bean.getChildByName('BrightOverlay');
             if (!glow) {
                 glow = this.attachBrightOverlay(bean, glowSize, 150, 1.04);
@@ -1531,11 +1589,13 @@ export function installAssetBootstrapModule(target: any): void {
                 const glowSprite = glow.getComponent(Sprite);
                 if (glowSprite) {
                     glowSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-                    glowSprite.spriteFrame = this.getBrightSpriteFrame();
+                    glowSprite.spriteFrame = bright;
+                } else {
+                    throw new Error('[assets] BrightOverlay is missing Sprite');
                 }
             }
             if (glow) {
-                glow.active = !!this.getBrightSpriteFrame();
+                glow.active = true;
                 glow.setSiblingIndex(0);
             }
         
