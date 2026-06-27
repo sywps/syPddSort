@@ -37,9 +37,6 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/solid_white',
 	'GameUI/设置',
 	'GameUI/进度条',
-	'UI/Textures/scene_transition_circle_crisp',
-	'UI/Textures/scene_transition_logo',
-	'UI/Textures/scene_transition_solid',
 ]);
 
 function fail(message) {

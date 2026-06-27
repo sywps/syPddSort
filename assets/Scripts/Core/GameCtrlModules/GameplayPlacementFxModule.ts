@@ -597,7 +597,7 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         playBrightFlashAt(worldPos: Vec3, size: number, peakOpacity: number = 210) {
             const bright = this.getBrightSpriteFrame();
-            if (!bright) return;
+            if (!bright) throw new Error('[placement-fx] missing required SpriteFrame: block_bright_pindd');
             if (this._activeBrightFlashCount >= MAX_CONCURRENT_FRAME_EFFECTS) return;
             PerformanceMgr.inst.markUserActivity();
             this._activeBrightFlashCount += 1;
@@ -627,6 +627,17 @@ export function installGameplayPlacementFxModule(target: any): void {
                 .start();
         },
 
+        playLandingLightAtCell(row: number, col: number): void {
+            const cellNode = this.cellNodes[row]?.[col];
+            if (!cellNode?.isValid) return;
+            const worldPos = this.getBoardCellWorldPosition?.(row, col)
+                || cellNode.getComponent(UITransform)?.convertToWorldSpaceAR(new Vec3(0, 0, 0))
+                || null;
+            if (!worldPos) return;
+            const slotSize = Math.max(1, Number(this.getBoardSlotVisualSize?.() || this.cellSize || 1));
+            this.playBrightFlashAt(worldPos, slotSize * 1.55, 135);
+        },
+
         playLandEffect(row: number, col: number, onComplete?: () => void) {
             const cn = this.cellNodes[row]?.[col];
             if (!cn) {
@@ -634,6 +645,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 return;
             }
             Tween.stopAllByTarget(cn);
+            this.playLandingLightAtCell(row, col);
             cn.setScale(1.1, 1.1, 1);
             tween(cn)
                 .to(0.12, { scale: new Vec3(0.97, 0.97, 1) }, { easing: 'sineInOut' })
@@ -757,21 +769,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     if (remainingLandEffects <= 0) finishAfterLanding();
                 };
                 for (const cell of placedCells) {
-                    const cellNode = this.cellNodes[cell.row]?.[cell.col];
-                    if (!cellNode) {
-                        finishOneLandEffect();
-                        continue;
-                    }
-                    cellNode.setScale(1.2, 1.2, 1);
-                    tween(cellNode)
-                        .to(0.08, { scale: new Vec3(0.92, 0.92, 1) }, { easing: 'sineIn' })
-                        .to(0.06, { scale: new Vec3(1.05, 1.05, 1) })
-                        .to(0.06, { scale: new Vec3(1, 1, 1) })
-                        .call(() => {
-                            this.playBeanSettleMatchFxOnCell?.(cell.row, cell.col);
-                            finishOneLandEffect();
-                        })
-                        .start();
+                    this.playLandEffect(cell.row, cell.col, finishOneLandEffect);
                 }
                 this._lastPlacedCells = null;
                 return;
@@ -792,8 +790,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (this._completedColors.has(cid)) continue;
                 if (bm.isColorComplete(cid)) {
                     this._completedColors.add(cid);
-                    if (skipColorCompleteAudio) continue;
-                    this.enqueueColorCompleteEffect(cid, true);
+                    this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);
                 }
             }
         },

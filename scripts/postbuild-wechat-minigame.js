@@ -38,6 +38,12 @@ const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-p
 const LEVEL_EXP_CDN_URL = process.env.PDD_LEVEL_EXP_CDN_URL || deriveLevelExpCdnUrl(LEVEL_DATA_CDN_URL);
 const SKIN_DATA_CDN_URL = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(LEVEL_DATA_CDN_URL);
 const WECHAT_RECOMMEND_OPENLINK = process.env.WECHAT_RECOMMEND_OPENLINK || process.env.PDD_WECHAT_RECOMMEND_OPENLINK || '';
+const WECHAT_GAME_CIRCLE_MIN_LIB_VERSION = '2.30.3';
+const WECHAT_GAME_CIRCLE_PLUGIN_NAME = 'MiniGameCommon';
+const WECHAT_GAME_CIRCLE_PLUGIN_PROVIDER = 'wxaed5ace05d92b218';
+const WECHAT_GAME_CIRCLE_PLUGIN_ENABLED = /^(1|true|yes)$/i.test(String(
+    process.env.WECHAT_GAME_CIRCLE_PLUGIN || process.env.PDD_WECHAT_GAME_CIRCLE_PLUGIN || '',
+).trim());
 
 function deriveLevelExpCdnUrl(levelDataCdnUrl) {
     var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
@@ -381,15 +387,76 @@ function writeJsonFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+function compareVersion(a, b) {
+    var left = String(a || '').split('.').map(function (part) { return parseInt(part, 10) || 0; });
+    var right = String(b || '').split('.').map(function (part) { return parseInt(part, 10) || 0; });
+    var len = Math.max(left.length, right.length);
+    for (var i = 0; i < len; i++) {
+        var diff = (left[i] || 0) - (right[i] || 0);
+        if (diff !== 0) return diff;
+    }
+    return 0;
+}
+
 function normalizeWechatProjectConfig(config) {
     if (!config || typeof config !== 'object') return config;
-    if (config.libVersion !== undefined) {
-        var libVersion = typeof config.libVersion === 'string' ? config.libVersion.trim() : '';
-        var isValidLibVersion = libVersion === 'latest' || /^[0-9]+\.[0-9]+(?:\.[0-9]+)?$/.test(libVersion);
-        if (isValidLibVersion) config.libVersion = libVersion;
-        else delete config.libVersion;
+    var libVersion = typeof config.libVersion === 'string' ? config.libVersion.trim() : '';
+    var isValidLibVersion = libVersion === 'latest' || /^[0-9]+\.[0-9]+(?:\.[0-9]+)?$/.test(libVersion);
+    if (!isValidLibVersion || !libVersion) {
+        config.libVersion = WECHAT_GAME_CIRCLE_MIN_LIB_VERSION;
+        return config;
     }
+    if (libVersion !== 'latest' && compareVersion(libVersion, WECHAT_GAME_CIRCLE_MIN_LIB_VERSION) < 0) {
+        config.libVersion = WECHAT_GAME_CIRCLE_MIN_LIB_VERSION;
+        return config;
+    }
+    config.libVersion = libVersion;
     return config;
+}
+
+function ensureWechatGameCirclePluginConfig(gameJson) {
+    if (!gameJson || typeof gameJson !== 'object') return gameJson;
+    var plugins = gameJson.plugins && typeof gameJson.plugins === 'object' && !Array.isArray(gameJson.plugins)
+        ? gameJson.plugins
+        : {};
+    plugins[WECHAT_GAME_CIRCLE_PLUGIN_NAME] = {
+        version: 'latest',
+        provider: WECHAT_GAME_CIRCLE_PLUGIN_PROVIDER,
+        contexts: [
+            { type: 'isolatedContext' },
+        ],
+    };
+    gameJson.plugins = plugins;
+    return gameJson;
+}
+
+function removeWechatGameCirclePluginConfig(gameJson) {
+    if (!gameJson || typeof gameJson !== 'object') return gameJson;
+    var plugins = gameJson.plugins && typeof gameJson.plugins === 'object' && !Array.isArray(gameJson.plugins)
+        ? gameJson.plugins
+        : null;
+    if (!plugins) return gameJson;
+    delete plugins[WECHAT_GAME_CIRCLE_PLUGIN_NAME];
+    if (Object.keys(plugins).length > 0) {
+        gameJson.plugins = plugins;
+    } else {
+        delete gameJson.plugins;
+    }
+    return gameJson;
+}
+
+function syncWechatGameCirclePluginConfig(gameJson) {
+    return WECHAT_GAME_CIRCLE_PLUGIN_ENABLED
+        ? ensureWechatGameCirclePluginConfig(gameJson)
+        : removeWechatGameCirclePluginConfig(gameJson);
+}
+
+function ensureWechatGameCirclePluginInGameJson(gameJsonPath) {
+    if (!gameJsonPath || !fs.existsSync(gameJsonPath)) return false;
+    var gameJson = readJsonFile(gameJsonPath);
+    syncWechatGameCirclePluginConfig(gameJson);
+    writeJsonFile(gameJsonPath, gameJson);
+    return WECHAT_GAME_CIRCLE_PLUGIN_ENABLED;
 }
 
 function walkFiles(dir) {
@@ -1490,6 +1557,10 @@ if (debugLevelDataBundle) {
         ? '[8.5/8] levelData debug 分包目录已保留: ' + minigameLevelDataSubpackageRoot + ' ✓'
         : '[8.5/8] levelData debug 分包目录缺失，交由验证脚本确认: ' + minigameLevelDataSubpackageRoot);
 }
+var gameCirclePluginEnabled = ensureWechatGameCirclePluginInGameJson(path.join(minigameRootPath, 'game.json'));
+console.log(gameCirclePluginEnabled
+    ? '[8.6/8] 游戏圈 MiniGameCommon 插件声明已配置 ✓'
+    : '[8.6/8] 游戏圈 MiniGameCommon 插件声明已跳过，避免未授权插件阻塞启动 ✓');
 
 // 9. 复制 SDK 外部脚本到 minigame/sdk/
 var sdkSrc = path.join(projectRoot, 'sdk');

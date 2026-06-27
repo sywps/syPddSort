@@ -674,7 +674,7 @@ export function installHomeAdFlowModule(target: any): void {
                         hasMainMenuNode: !!this.mainMenuNode,
                     }),
                 );
-                void this.requestHomeSceneTransition('runtime', 'cover');
+                void this.requestHomeRoute('runtime', 'none');
                 return;
             }
             const sceneName = 'Home';

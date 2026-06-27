@@ -170,7 +170,10 @@ assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'success
 
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 assert.ok(freezeFx.includes("FREEZE_SPINE_FX_PATH = 'Spine/PinddFreeze/bingdonglizi'"), 'freeze effect must load the PinddFreeze Spine resource');
-assert.ok(freezeFx.includes("FREEZE_SPINE_FX_UUID = '147069ac-5bbd-4232-ae8c-a61ef72543fb'"), 'freeze effect must keep a UUID load fallback');
+assert.ok(!freezeFx.includes('FREEZE_SPINE_FX_UUID'), 'freeze effect must not use a UUID fallback');
+assert.ok(!freezeFx.includes('assetManager.loadAny'), 'freeze effect must not use a loadAny fallback when the bundle path is wrong');
+assert.ok(!freezeFx.includes('warnFreezeSpineFx'), 'freeze effect failures must not be downgraded to warnings');
+assert.ok(freezeFx.includes('throw createFreezeSpineFxError'), 'freeze effect critical failures must throw');
 assert.ok(freezeFx.includes("start: 'a1'"), 'freeze effect must play the reference a1 start animation');
 assert.ok(freezeFx.includes("loop: 'b1'"), 'freeze effect must loop the reference b1 freeze animation');
 assert.ok(freezeFx.includes("end: 'c1'"), 'freeze effect must play the reference c1 ending animation');
@@ -193,7 +196,7 @@ assert.ok(fs.existsSync(path.join(root, freezeSpineDir, 'bingdonglizi.atlas.txt'
 assert.ok(fs.existsSync(path.join(root, freezeSpineDir, 'bingdonglizi.png')), 'freeze Spine texture must exist');
 const freezeSpineMeta = readJson(`${freezeSpineDir}/bingdonglizi.json.meta`);
 assert.strictEqual(freezeSpineMeta.importer, 'spine-data', 'freeze Spine JSON must import as spine-data');
-assert.strictEqual(freezeSpineMeta.uuid, '147069ac-5bbd-4232-ae8c-a61ef72543fb', 'freeze Spine JSON uuid must match fallback uuid');
+assert.strictEqual(freezeSpineMeta.uuid, '147069ac-5bbd-4232-ae8c-a61ef72543fb', 'freeze Spine JSON uuid must keep the authored asset identity');
 assert.ok(freezeSpineMeta.userData?.atlasUuid, 'freeze Spine JSON meta must reference an atlas uuid');
 
 console.log('dynamic-countdown-dda.test.js passed');

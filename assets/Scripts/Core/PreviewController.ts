@@ -34,7 +34,7 @@ export class PreviewController extends GameRuntimeHost {
         this.renderCurrentPreviewMode(screenRoot);
     }
 
-    async requestHomeSceneTransition() {
+    async requestHomeRoute() {
         await director.loadScene('UIPreview');
     }
 
@@ -44,7 +44,7 @@ export class PreviewController extends GameRuntimeHost {
 
     private installPreviewNavigationOverrides() {
         const runtime = this as any;
-        runtime.requestHomeSceneTransition = async () => {
+        runtime.requestHomeRoute = async () => {
             this.switchPreviewMode('ui');
         };
         runtime.showMainMenu = () => {
@@ -65,7 +65,7 @@ export class PreviewController extends GameRuntimeHost {
         const overlayTemplates = overlayRoot.getChildByName('OverlayTemplates');
         startupLoadingUi.active = false;
         if (overlayTemplates) {
-            this.hidePreviewOverlayTemplate(overlayTemplates, 'LevelDataLoadFatalError');
+            this.hidePreviewOverlayTemplate(overlayTemplates, 'RemoteLoadFatalError');
         }
         runtime._loadingOverlay = null;
         runtime._loadingClosing = false;

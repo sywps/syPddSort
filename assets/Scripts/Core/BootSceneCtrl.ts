@@ -48,7 +48,7 @@ export class BootSceneCtrl extends Component {
         const bootRouteKey = String((this.node as any)?.uuid || (this.node as any)?._id || 'Boot');
         appRoot.session.resetBootRouteGuard(bootRouteKey);
         appRoot.markBoot('Boot');
-        appRoot.resetSceneTransitionForBoot();
+        appRoot.clearRouteCoverForBoot();
 
         this.prepareBootFrame();
         this.showBootLoadingUi();
@@ -74,7 +74,7 @@ export class BootSceneCtrl extends Component {
             });
             void appRoot.router.toGame().catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
-                appRoot.forceHideSceneTransition('boot-route-error');
+                appRoot.clearRouteCover('boot-route-error');
             });
         }, 0);
     }
@@ -93,6 +93,7 @@ export class BootSceneCtrl extends Component {
 
     private showBootLoadingUi(): void {
         const bootRoot = this.requireCanvasChild('BootRoot');
+        bootRoot.active = true;
         const loading = this.requireChild(bootRoot, 'StartupLoadingUI', 'BootRoot/StartupLoadingUI');
         const loadingTransform = loading.getComponent(UITransform);
         if (!loadingTransform) {
@@ -105,8 +106,9 @@ export class BootSceneCtrl extends Component {
         const blocker = loading.getComponent(BlockInputEvents) || loading.addComponent(BlockInputEvents);
         blocker.enabled = true;
 
-        const cover = loading.getChildByName('LoadingCover');
-        const coverSprite = cover?.getComponent(Sprite) || null;
+        const cover = this.requireChild(loading, 'LoadingCover', 'StartupLoadingUI/LoadingCover');
+        cover.active = true;
+        const coverSprite = cover.getComponent(Sprite);
         if (coverSprite && !coverSprite.spriteFrame && this.loadingCover) {
             coverSprite.spriteFrame = this.loadingCover;
         }

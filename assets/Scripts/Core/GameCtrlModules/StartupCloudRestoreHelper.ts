@@ -85,8 +85,8 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
                 }
                 return;
             }
-            if (typeof runtime.requestGameplaySceneTransition === 'function') {
-                const result = runtime.requestGameplaySceneTransition(restoredLevel, 'level_', false, 'cover');
+            if (typeof runtime.requestGameplayRoute === 'function') {
+                const result = runtime.requestGameplayRoute(restoredLevel, 'level_', false, 'none');
                 void Promise.resolve(result).catch(warnCloudRestoreGameRouteFailed);
                 return;
             }

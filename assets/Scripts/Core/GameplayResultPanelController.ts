@@ -127,7 +127,7 @@ export class GameplayResultPanelController {
                 return;
             }
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-            AppRoot.tryGet()?.forceHideSceneTransition('result-panel-preload-error');
+            AppRoot.tryGet()?.clearRouteCover('result-panel-preload-error');
             throw error;
         };
         const flushCallbacks = () => {

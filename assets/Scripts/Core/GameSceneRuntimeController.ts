@@ -1,10 +1,13 @@
 import {
     AnalyticsMgr,
     AudioMgr,
+    BlockInputEvents,
     Button,
+    Label,
     LeaderboardMgr,
     Node,
     PerformanceMgr,
+    Sprite,
     SySDKMgr,
     UITransform,
     UserMgr,
@@ -16,6 +19,7 @@ import { AppRoot } from './AppRoot';
 import { debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
 import { markStartupTrace } from './StartupTrace';
+import type { PendingGameplayRequest } from './AppSession';
 
 export class GameSceneRuntimeController {
     constructor(private readonly runtime: any) {}
@@ -103,7 +107,7 @@ export class GameSceneRuntimeController {
         const bootRouteKey = String((this.runtime.node as any)?.uuid || (this.runtime.node as any)?._id || 'Boot');
         appRoot.session.resetBootRouteGuard(bootRouteKey);
         appRoot.markBoot('Boot');
-        appRoot.resetSceneTransitionForBoot();
+        appRoot.clearRouteCoverForBoot();
         AnalyticsMgr.inst.trackFunnelEvent({
             eventName: 'app_launch',
             page: 'app',
@@ -111,8 +115,11 @@ export class GameSceneRuntimeController {
         });
         this.prepareSceneFrame('Boot');
         this.runtime.bindUserStateLifecycle();
-        this.runtime.requireCanvasUiRoot('BootRoot');
-        this.runtime.showLoadingOverlay();
+        const bootRoot = this.runtime.requireCanvasUiRoot('BootRoot');
+        const bootLoadingUi = bootRoot.getChildByName('StartupLoadingUI') || null;
+        if (bootLoadingUi) {
+            bootLoadingUi.active = false;
+        }
         this.startBootCloudRestoreProbe();
         this.runtime.scheduleOnce(() => {
             if (!this.runtime.node?.isValid) {
@@ -129,7 +136,7 @@ export class GameSceneRuntimeController {
             const route = appRoot.router.toGame();
             route.catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
-                appRoot.forceHideSceneTransition('boot-route-error');
+                appRoot.clearRouteCover('boot-route-error');
             });
         }, 0);
     }
@@ -165,23 +172,15 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
         this.bindEarlyGameSettingsButton();
-        this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
-        if (appRoot.isSceneTransitionHeld()) {
-            appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:useHeldGameTransition', {
-                entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
-            });
-        } else if (explicitGameplayEntryCover) {
-            void appRoot.beginSceneTransition('game-direct-start').catch((error: unknown) => {
-                console.warn('[SceneTransition] direct game startup cover failed:', error);
-            });
-            appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:beginDirectGameTransition');
-        } else {
-            appRoot.forceHideSceneTransition(suppressGameplayEntryCover ? 'gameplay-entry-no-cover' : 'game-direct-start-skip');
-            appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:skipDirectGameTransition', {
-                entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
-                reason: suppressGameplayEntryCover ? 'no-cover-entry' : 'no-explicit-cover',
-            });
+        if (pendingGameplayRequest) {
+            this.primePendingGameplayShell(pendingGameplayRequest);
         }
+        this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
+        appRoot.clearRouteCover(suppressGameplayEntryCover ? 'gameplay-entry-no-cover' : 'game-direct-start');
+        appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:skipRouteCover', {
+            entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
+            reason: explicitGameplayEntryCover ? 'route-cover-retired' : (suppressGameplayEntryCover ? 'no-cover-entry' : 'no-explicit-cover'),
+        });
         debugPerfSnapshot('runtime.game.beforeContinueStartup', this.runtime, {
             pendingGameplayRequest: !!pendingGameplayRequest,
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
@@ -221,8 +220,178 @@ export class GameSceneRuntimeController {
             throw new Error('[GameScene] Game.scene is missing UITransform on BootRoot/StartupLoadingUI');
         }
         layer.active = showOverlay;
+        const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
+        blocker.enabled = showOverlay;
         this.runtime._loadingOverlay = showOverlay ? layer : null;
         this.runtime._loadingClosing = false;
+        if (showOverlay) {
+            const overlayVersion = (this.runtime._loadingOverlayVersion || 0) + 1;
+            this.runtime._loadingOverlayVersion = overlayVersion;
+            this.configureExistingGameLoadingOverlay(layer);
+            this.bindExistingGameLoadingProgress(layer, overlayVersion);
+            this.runtime.setGameplayStartupRootVisible?.(false);
+            this.promoteLoadingOverlayToFront(layer);
+        } else {
+            this.runtime.setGameplayStartupRootVisible?.(true);
+        }
+    }
+
+    private configureExistingGameLoadingOverlay(layer: Node): void {
+        const visibleSize = typeof this.runtime._getLoadingVisibleSize === 'function'
+            ? this.runtime._getLoadingVisibleSize()
+            : view.getVisibleSize();
+        const bleed = Math.max(0, Math.floor(Number(this.runtime.constructor.LOADING_COVER_BLEED) || 0));
+        const layerUT = layer.getComponent(UITransform);
+        if (!layerUT) {
+            throw new Error('[GameScene] Game.scene is missing UITransform on BootRoot/StartupLoadingUI');
+        }
+        layerUT.setContentSize(visibleSize.width, visibleSize.height);
+        layer.setPosition(0, 0, 0);
+
+        const cover = this.runtime.requireUiChild(layer, 'LoadingCover', 'StartupLoadingUI/LoadingCover');
+        const coverUT = cover.getComponent(UITransform);
+        if (!coverUT) {
+            throw new Error('[GameScene] Game.scene is missing UITransform on StartupLoadingUI/LoadingCover');
+        }
+        const coverSprite = cover.getComponent(Sprite);
+        if (!coverSprite) {
+            throw new Error('[GameScene] Game.scene is missing Sprite on StartupLoadingUI/LoadingCover');
+        }
+        if (!coverSprite.spriteFrame) {
+            const loadingCover = this.runtime.loadingCover || null;
+            if (!loadingCover) {
+                throw new Error('[GameScene] Game.scene LoadingCover SpriteFrame is missing and GameRuntimeHost.loadingCover is not assigned');
+            }
+            coverSprite.spriteFrame = loadingCover;
+        }
+        coverUT.setContentSize(
+            Math.ceil(visibleSize.width + bleed * 2),
+            Math.ceil(visibleSize.height + bleed * 2),
+        );
+        cover.setPosition(0, 0, 0);
+    }
+
+    private bindExistingGameLoadingProgress(layer: Node, overlayVersion: number): void {
+        const group = this.runtime.requireUiChild(
+            layer,
+            'LoadingProgressGroup',
+            'StartupLoadingUI/LoadingProgressGroup',
+        );
+        const labelNode = this.runtime.requireUiChild(
+            group,
+            'LoadingPercentLabel',
+            'LoadingProgressGroup/LoadingPercentLabel',
+        );
+        const label = labelNode.getComponent(Label);
+        if (!label) {
+            throw new Error('[GameScene] Game.scene is missing Label on LoadingProgressGroup/LoadingPercentLabel');
+        }
+        const shadowNode = group.getChildByName('LoadingPercentLabelShadow') || null;
+        const shadowLabel = shadowNode?.getComponent(Label) || null;
+        this.runtime._loadingProgressLabel = label;
+        this.runtime._loadingProgressLabelShadow = shadowLabel;
+        this.runtime._loadingProgressFill = this.createGameLoadingProgressAdapter(group);
+        this.runtime._loadingProgress = 0;
+        this.runtime._loadingProgressPercent = 0;
+        if (typeof this.runtime._setLoadingProgressPercentText === 'function') {
+            this.runtime._setLoadingProgressPercentText(0);
+        } else {
+            label.string = '加载中...0%';
+            if (shadowLabel) shadowLabel.string = label.string;
+        }
+        if (typeof this.runtime._startLoadingProgressIntro === 'function') {
+            this.runtime._startLoadingProgressIntro(overlayVersion);
+        }
+    }
+
+    private createGameLoadingProgressAdapter(group: Node): { progress: number } | null {
+        const fill = group.getChildByName('LoadingBarFill') || null;
+        const fillUT = fill?.getComponent(UITransform) || null;
+        if (!fill?.isValid || !fillUT) return null;
+        const fullWidth = Math.max(1, Math.floor(Number(fillUT.width) || 1));
+        const fullHeight = Math.max(1, Math.floor(Number(fillUT.height) || 1));
+        const highlight = fill.getChildByName('LoadingBarFillHighlight') || null;
+        const highlightUT = highlight?.getComponent(UITransform) || null;
+        const shine = fill.getChildByName('LoadingBarShine') || null;
+        const leftEdge = -fullWidth / 2;
+        let current = 0;
+        const apply = (value: number) => {
+            current = Math.max(0, Math.min(1, Number(value) || 0));
+            const width = Math.max(0, fullWidth * current);
+            fillUT.setContentSize(width, fullHeight);
+            fill.setPosition(leftEdge + width / 2, fill.position.y, fill.position.z);
+            if (highlightUT) {
+                highlightUT.setContentSize(width, highlightUT.height);
+            }
+            if (highlight?.isValid) {
+                highlight.setPosition(width / 2, highlight.position.y, highlight.position.z);
+            }
+            if (shine?.isValid) {
+                shine.active = current > 0.02 && current < 0.995;
+                shine.setPosition(width / 2, shine.position.y, shine.position.z);
+            }
+        };
+        const adapter: { progress: number } = {} as { progress: number };
+        Object.defineProperty(adapter, 'progress', {
+            get: () => current,
+            set: apply,
+            enumerable: true,
+            configurable: true,
+        });
+        apply(0);
+        return adapter;
+    }
+
+    private primePendingGameplayShell(pending: PendingGameplayRequest): void {
+        const levelId = Math.max(1, Math.floor(Number(pending.levelId) || 1));
+        if (pending.entryMode === 'main') {
+            this.runtime._activePhysicalLevelId = levelId;
+            this.runtime._activeLogicalLevelId = levelId;
+            this.runtime._activeGameplayEntryMode = 'main';
+        } else if (pending.entryMode === 'theme') {
+            this.runtime._isThemeLevel = true;
+            this.runtime._currentThemeLevelId = levelId;
+            this.runtime._activePhysicalLevelId = levelId;
+            this.runtime._activeLogicalLevelId = levelId;
+            this.runtime._activeGameplayEntryMode = 'theme';
+        }
+        const screenRoot = this.runtime.requireCanvasUiRoot('ScreenRoot');
+        const gameplayRoot = this.runtime.requireUiChild(screenRoot, 'GameplayRoot', 'ScreenRoot/GameplayRoot');
+        const fixedRoot = this.runtime.requireUiChild(gameplayRoot, 'GameplayFixedRoot', 'GameplayRoot/GameplayFixedRoot');
+        const topBar = this.runtime.requireUiChild(fixedRoot, 'TopBarGroup', 'GameplayFixedRoot/TopBarGroup');
+        const normalNode = this.runtime.requireUiChild(topBar, 'LevelTitle', 'TopBarGroup/LevelTitle');
+        const level1Node = this.runtime.requireUiChild(topBar, 'LevelTitleLevel1', 'TopBarGroup/LevelTitleLevel1');
+        const useLevel1Variant = pending.entryMode === 'main' && levelId === 1;
+        normalNode.active = !useLevel1Variant;
+        level1Node.active = useLevel1Variant;
+        const titleNode = useLevel1Variant ? level1Node : normalNode;
+        const labelNode = titleNode.getChildByName('Label') || titleNode;
+        const label = labelNode.getComponent(Label);
+        if (!label) {
+            throw new Error(`[GameScene] pending startup title is missing Label component on ${useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1/Label' : 'TopBarGroup/LevelTitle/Label'}`);
+        }
+        label.string = `第${levelId}关`;
+        this.runtime.levelLabel = label;
+        const timerWrap = topBar.getChildByName('TimerWrap');
+        if (timerWrap?.isValid) {
+            timerWrap.active = false;
+        }
+        markStartupTrace('startup_game_shell_primed', {
+            levelId,
+            entryMode: pending.entryMode,
+        });
+    }
+
+    private promoteLoadingOverlayToFront(layer: Node | null): void {
+        const overlay = layer?.isValid ? layer : null;
+        const bootRoot = overlay?.parent?.isValid ? overlay.parent : null;
+        const canvas = bootRoot?.parent?.isValid ? bootRoot.parent : null;
+        if (bootRoot && canvas) {
+            bootRoot.setSiblingIndex(Math.max(0, canvas.children.length - 1));
+        }
+        if (overlay?.parent?.isValid) {
+            overlay.setSiblingIndex(Math.max(0, overlay.parent.children.length - 1));
+        }
     }
 
     update(dt: number): void {

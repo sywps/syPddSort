@@ -10,7 +10,6 @@ import {
 } from '../GameCtrlShared';
 
 const FREEZE_SPINE_FX_PATH = 'Spine/PinddFreeze/bingdonglizi';
-const FREEZE_SPINE_FX_UUID = '147069ac-5bbd-4232-ae8c-a61ef72543fb';
 const FREEZE_SPINE_FX_LAYER_NAME = 'FreezeFxLayer';
 const FREEZE_SPINE_FX_NODE_NAME = 'FreezeSpineFx';
 const FREEZE_SPINE_FX_SOURCE_WIDTH = 1061.5;
@@ -34,27 +33,17 @@ function setFreezeFxLayerDeep(node: Node, layer: number): void {
     }
 }
 
+function createFreezeSpineFxError(message: string): Error {
+    return new Error(`[freeze-spine-fx] ${message}`);
+}
+
 export function installGameplayFreezeEffectModule(target: any): void {
     Object.assign(target, {
-        warnFreezeSpineFxLoadFailure(message: string): void {
-            if (this._freezeSpineFxLoadWarned) return;
-            this._freezeSpineFxLoadWarned = true;
-            console.error(`[freeze-spine-fx] load skipped: ${message}`);
-        },
-
-        warnFreezeSpineFxPlayFailure(message: string): void {
-            if (this._freezeSpineFxPlayWarned) return;
-            this._freezeSpineFxPlayWarned = true;
-            console.error(`[freeze-spine-fx] play skipped: ${message}`);
-        },
-
-        ensureFreezeSpineFxSkeletonData(onDone: (data: sp.SkeletonData | null) => void): void {
+        ensureFreezeSpineFxSkeletonData(onDone: (data: sp.SkeletonData) => void): void {
             const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const skeletonDataCtor = (sp as any)?.SkeletonData;
             if (!skeletonDataCtor) {
-                this.warnFreezeSpineFxLoadFailure('Spine module is disabled or unavailable');
-                onDone(null);
-                return;
+                throw createFreezeSpineFxError('Spine module is disabled or unavailable');
             }
             if (this._freezeSpineFxSkeletonData) {
                 onDone(this._freezeSpineFxSkeletonData);
@@ -67,38 +56,26 @@ export function installGameplayFreezeEffectModule(target: any): void {
 
             this._freezeSpineFxSkeletonDataLoading = true;
             this._freezeSpineFxSkeletonDataCallbacks = [onDone];
-            const finish = (data: sp.SkeletonData | null) => {
+            const finish = (data: sp.SkeletonData) => {
                 if (!isRuntimeAlive()) return;
                 this._freezeSpineFxSkeletonDataLoading = false;
-                if (data) this._freezeSpineFxSkeletonData = data;
+                this._freezeSpineFxSkeletonData = data;
                 const callbacks = this._freezeSpineFxSkeletonDataCallbacks || [];
                 this._freezeSpineFxSkeletonDataCallbacks = [];
                 for (const cb of callbacks) cb(data);
             };
             const loadFromBundle = (bundle: Bundle | null) => {
-                const loadByUuid = () => {
-                    const loadAny = (assetManager as any)?.loadAny;
-                    if (typeof loadAny !== 'function') {
-                        this.warnFreezeSpineFxLoadFailure('assetManager.loadAny unavailable');
-                        finish(null);
-                        return;
-                    }
-                    loadAny.call(assetManager, { uuid: FREEZE_SPINE_FX_UUID, type: skeletonDataCtor }, (err: Error | null, data: sp.SkeletonData | null) => {
-                        if (err || !data) {
-                            this.warnFreezeSpineFxLoadFailure(err?.message || 'SkeletonData missing');
-                            finish(null);
-                            return;
-                        }
-                        finish(data);
-                    });
-                };
                 if (!bundle) {
-                    loadByUuid();
+                    this._freezeSpineFxSkeletonDataLoading = false;
+                    this._freezeSpineFxSkeletonDataCallbacks = [];
+                    throw createFreezeSpineFxError('gameAssets bundle unavailable');
                     return;
                 }
                 bundle.load(FREEZE_SPINE_FX_PATH, skeletonDataCtor, (err: Error | null, data: sp.SkeletonData | null) => {
                     if (err || !data) {
-                        loadByUuid();
+                        this._freezeSpineFxSkeletonDataLoading = false;
+                        this._freezeSpineFxSkeletonDataCallbacks = [];
+                        throw createFreezeSpineFxError(`missing required SkeletonData ${FREEZE_SPINE_FX_PATH}: ${err?.message || 'asset missing'}`);
                         return;
                     }
                     finish(data);
@@ -113,8 +90,9 @@ export function installGameplayFreezeEffectModule(target: any): void {
             assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
                 if (!isRuntimeAlive()) return;
                 if (err || !bundle) {
-                    this.warnFreezeSpineFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
-                    finish(null);
+                    this._freezeSpineFxSkeletonDataLoading = false;
+                    this._freezeSpineFxSkeletonDataCallbacks = [];
+                    throw createFreezeSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`);
                     return;
                 }
                 this.gameAssetsBundle = bundle;
@@ -124,8 +102,14 @@ export function installGameplayFreezeEffectModule(target: any): void {
 
         getFreezeSpineFxLayout(parent: Node): { x: number; y: number; scale: number } {
             const transform = parent.getComponent(UITransform);
-            const width = Math.max(1, Number(transform?.contentSize.width) || Number(this.constructor?.VIEWPORT_WIDTH) || 720);
-            const height = Math.max(1, Number(transform?.contentSize.height) || Number(this.constructor?.VIEWPORT_HEIGHT) || 1280);
+            if (!transform) {
+                throw createFreezeSpineFxError(`${FREEZE_SPINE_FX_LAYER_NAME} is missing UITransform`);
+            }
+            const width = Number(transform.contentSize.width);
+            const height = Number(transform.contentSize.height);
+            if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+                throw createFreezeSpineFxError(`${FREEZE_SPINE_FX_LAYER_NAME} has invalid size: width=${String(transform.contentSize.width)}, height=${String(transform.contentSize.height)}`);
+            }
             return {
                 x: 0,
                 y: FREEZE_SPINE_FX_REFERENCE_Y * (height / FREEZE_SPINE_FX_REFERENCE_HEIGHT),
@@ -168,7 +152,7 @@ export function installGameplayFreezeEffectModule(target: any): void {
             const skeleton = skeletonCtor ? node.getComponent(skeletonCtor) as sp.Skeleton | null : null;
             if (!skeleton || !skeleton.skeletonData) {
                 this.destroyFreezeSpineFxNode(node);
-                return;
+                throw createFreezeSpineFxError('active freeze Spine node is missing SkeletonData');
             }
             const seq = (Number(this._freezeSpineFxSeq) || 0) + 1;
             this._freezeSpineFxSeq = seq;
@@ -188,30 +172,27 @@ export function installGameplayFreezeEffectModule(target: any): void {
                 skeleton.setAnimation(0, FREEZE_SPINE_FX_ANIMATION.end, false);
                 this.scheduleOnce(completeOnce, FREEZE_SPINE_FX_END_DURATION);
             } catch (err) {
-                this.warnFreezeSpineFxPlayFailure(err instanceof Error ? err.message : String(err));
                 completeOnce();
+                throw createFreezeSpineFxError(`end animation failed: ${err instanceof Error ? err.message : String(err)}`);
             }
         },
 
         playFreezeSpineFx(): void {
-            this.ensureFreezeSpineFxSkeletonData((skeletonData: sp.SkeletonData | null) => {
-                if (!skeletonData || this.isGameEnd || Math.max(0, Number(this._freezeTimeLeft) || 0) <= 0) return;
+            this.ensureFreezeSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
+                if (this.isGameEnd || Math.max(0, Number(this._freezeTimeLeft) || 0) <= 0) return;
                 const skeletonCtor = (sp as any)?.Skeleton;
                 if (!skeletonCtor) {
-                    this.warnFreezeSpineFxLoadFailure('Spine component is disabled or unavailable');
-                    return;
+                    throw createFreezeSpineFxError('Spine component is disabled or unavailable');
                 }
                 const fxRoot = typeof this.requireCanvasUiRoot === 'function'
                     ? this.requireCanvasUiRoot('FxRoot')
                     : null;
                 if (!fxRoot?.isValid) {
-                    this.warnFreezeSpineFxPlayFailure('FxRoot unavailable');
-                    return;
+                    throw createFreezeSpineFxError('FxRoot unavailable');
                 }
                 const fxLayer = fxRoot.getChildByName(FREEZE_SPINE_FX_LAYER_NAME);
                 if (!fxLayer?.isValid) {
-                    this.warnFreezeSpineFxPlayFailure(`${FREEZE_SPINE_FX_LAYER_NAME} unavailable`);
-                    return;
+                    throw createFreezeSpineFxError(`${FREEZE_SPINE_FX_LAYER_NAME} unavailable`);
                 }
                 this.clearFreezeSpineFx();
                 const node = new Node(FREEZE_SPINE_FX_NODE_NAME);
@@ -244,11 +225,11 @@ export function installGameplayFreezeEffectModule(target: any): void {
                     skeleton.setAnimation(0, FREEZE_SPINE_FX_ANIMATION.start, false);
                     skeleton.addAnimation(0, FREEZE_SPINE_FX_ANIMATION.loop, true, 0);
                 } catch (err) {
-                    this.warnFreezeSpineFxPlayFailure(err instanceof Error ? err.message : String(err));
                     if ((node as any).__freezeSpineFxSeq === seq) {
                         this._freezeSpineFxNode = null;
                     }
                     this.destroyFreezeSpineFxNode(node);
+                    throw createFreezeSpineFxError(`play failed: ${err instanceof Error ? err.message : String(err)}`);
                 }
             });
         },
