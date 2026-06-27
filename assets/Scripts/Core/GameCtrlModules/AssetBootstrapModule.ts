@@ -36,6 +36,7 @@ import { runtimeLog } from '../RuntimeLog';
 import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
+import { WeChatRecommendService } from '../WeChatRecommendService';
 
 const SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP = 'startup-bootstrap';
 const SPRITE_FRAME_SCOPE_SCENE_HOME = 'scene-home';
@@ -1718,6 +1719,7 @@ export function installAssetBootstrapModule(target: any): void {
                 backgroundSkinAdProgress: backgroundSkinState.backgroundSkinAdProgress && typeof backgroundSkinState.backgroundSkinAdProgress === 'object' ? backgroundSkinState.backgroundSkinAdProgress as Record<string, number> : {},
                 equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
                 equippedBackgroundSkinUpdatedAt: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinUpdatedAt) || 0)),
+                ...WeChatRecommendService.inst.getCloudGameStatePatch(),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -1841,6 +1843,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
             const { profile, gameState } = restoreResult;
+            WeChatRecommendService.inst.applyCloudGameState(gameState || null);
             if (!profile && !gameState) {
                 return 'cloud_confirmed_empty';
             }
@@ -1942,6 +1945,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
             const gameState = state?.gameState || null;
+            WeChatRecommendService.inst.applyCloudGameState(gameState);
             if (gameState && typeof this.applyCloudBackgroundSkinState === 'function') {
                 this.applyCloudBackgroundSkinState(
                     gameState.ownedBackgroundSkinIds,

@@ -167,7 +167,7 @@
       "r": 0,
       "g": 0,
       "b": 0,
-      "a": 200
+      "a": 190
     },
     "_spriteFrame": {
       "__uuid__": "fc394afd-b848-4a98-bd18-d1e3a948a190@f9941",
@@ -529,7 +529,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 200,
-      "height": 100
+      "height": 90
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",

@@ -9,7 +9,7 @@ const CLOUD_FUNCTION_NAME = 'syncUserState';
 const SAVE_DEBOUNCE_MS = 600;
 const SAVE_RETRY_MS = 3000;
 const SAVE_RETRY_LIMIT = 3;
-const USER_STATE_SCHEMA_VERSION = 1;
+const USER_STATE_SCHEMA_VERSION = 2;
 const SKIN_STATE_SCHEMA_VERSION = 1;
 
 export type CloudUserProfile = {
@@ -43,6 +43,9 @@ export type CloudGameState = {
     backgroundSkinAdProgress: Record<string, number>;
     equippedBackgroundSkinId: number;
     equippedBackgroundSkinUpdatedAt: number;
+    wechatRecommendRecommended?: boolean;
+    wechatRecommendRecommendedAt?: number;
+    wechatRecommendFirstSuccessAt?: number;
     stateUpdatedAt: number;
 };
 
@@ -153,6 +156,21 @@ function getEquippedBackgroundSkinPair(gameState?: Partial<CloudGameState> | nul
 function normalizePositiveInt(value: unknown): number {
     const num = Math.floor(Number(value) || 0);
     return Number.isFinite(num) && num > 0 ? num : 0;
+}
+
+function latestPositiveInt(...values: unknown[]): number {
+    let latest = 0;
+    for (const value of values) {
+        latest = Math.max(latest, normalizePositiveInt(value));
+    }
+    return latest;
+}
+
+function earliestPositiveInt(...values: unknown[]): number {
+    const normalized = values
+        .map((value) => normalizePositiveInt(value))
+        .filter((value) => value > 0);
+    return normalized.length > 0 ? Math.min(...normalized) : 0;
 }
 
 function normalizeIdArray(value: unknown): number[] {
@@ -407,6 +425,26 @@ export class UserStateSyncMgr {
             }
         }
 
+        if (patchGameState?.wechatRecommendRecommended === true) {
+            const returnedRecommended = returnedGameState?.wechatRecommendRecommended === true;
+            const expectedRecommendedAt = normalizePositiveInt(patchGameState.wechatRecommendRecommendedAt);
+            const returnedRecommendedAt = normalizePositiveInt(returnedGameState?.wechatRecommendRecommendedAt);
+            const expectedFirstSuccessAt = normalizePositiveInt(patchGameState.wechatRecommendFirstSuccessAt);
+            const returnedFirstSuccessAt = normalizePositiveInt(returnedGameState?.wechatRecommendFirstSuccessAt);
+            const recommendedAtAcknowledged = expectedRecommendedAt <= 0 || returnedRecommendedAt >= expectedRecommendedAt;
+            const firstSuccessAcknowledged = expectedFirstSuccessAt <= 0 || (returnedFirstSuccessAt > 0 && returnedFirstSuccessAt <= expectedFirstSuccessAt);
+            if (!returnedRecommended || !recommendedAtAcknowledged || !firstSuccessAcknowledged) {
+                problems.wechatRecommendRecommended = {
+                    expected: true,
+                    returned: returnedRecommended,
+                    expectedRecommendedAt: expectedRecommendedAt || null,
+                    returnedRecommendedAt: returnedRecommendedAt || null,
+                    expectedFirstSuccessAt: expectedFirstSuccessAt || null,
+                    returnedFirstSuccessAt: returnedFirstSuccessAt || null,
+                };
+            }
+        }
+
         if (Object.keys(problems).length === 0) {
             return;
         }
@@ -485,10 +523,31 @@ export class UserStateSyncMgr {
             };
         }
         if (base.gameState || next.gameState) {
-            merged.gameState = {
-                ...(base.gameState || {}),
-                ...(next.gameState || {}),
+            const baseGameState = base.gameState || {};
+            const nextGameState = next.gameState || {};
+            const mergedGameState: Partial<CloudGameState> = {
+                ...baseGameState,
+                ...nextGameState,
             };
+            if (baseGameState.wechatRecommendRecommended === true || nextGameState.wechatRecommendRecommended === true) {
+                const recommendedAt = latestPositiveInt(
+                    baseGameState.wechatRecommendRecommendedAt,
+                    baseGameState.wechatRecommendFirstSuccessAt,
+                    nextGameState.wechatRecommendRecommendedAt,
+                    nextGameState.wechatRecommendFirstSuccessAt,
+                ) || Date.now();
+                const firstSuccessAt = earliestPositiveInt(
+                    baseGameState.wechatRecommendFirstSuccessAt,
+                    baseGameState.wechatRecommendRecommendedAt,
+                    nextGameState.wechatRecommendFirstSuccessAt,
+                    nextGameState.wechatRecommendRecommendedAt,
+                    recommendedAt,
+                ) || recommendedAt;
+                mergedGameState.wechatRecommendRecommended = true;
+                mergedGameState.wechatRecommendRecommendedAt = recommendedAt;
+                mergedGameState.wechatRecommendFirstSuccessAt = firstSuccessAt;
+            }
+            merged.gameState = mergedGameState;
         }
         return merged;
     }
