@@ -36,7 +36,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .card .preview .col { text-align: center; }
 .card .preview .col .label { font-size: 10px; color: #999; margin-bottom: 2px; }
 .card canvas { border-radius: 6px; }
-.special-badges { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; pointer-events: none; z-index: 3; }
+.special-badges { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; pointer-events: none; z-index: 5; }
 .special-badge { width: 24px; height: 24px; border-radius: 6px; background: #e9f9d9; border: 1px solid rgba(63,146,196,.35); box-shadow: 0 1px 4px rgba(0,0,0,.12); display: flex; align-items: center; justify-content: center; }
 .special-clock-icon { width: 15px; height: 15px; border: 2px solid #55a8dc; border-radius: 50%; position: relative; background: rgba(255,255,255,.72); }
 .special-clock-icon::before { content: ''; position: absolute; left: 6px; top: 3px; width: 2px; height: 5px; border-radius: 2px; background: #55a8dc; }
@@ -120,9 +120,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .card.online { box-shadow: 0 0 0 2px #59b66d, 0 2px 8px rgba(0,0,0,.08); }
 .card.featured.online { box-shadow: 0 0 0 2px #59b66d, 0 0 0 4px #f0c040, 0 2px 8px rgba(0,0,0,.08); }
 .card.imported { position: relative; }
-.badge-featured { position: absolute; top: 6px; right: 6px; background: #f0c040; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
-.badge-online { position: absolute; top: 6px; left: 6px; background: #59b66d; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
-.badge-imported { position: absolute; top: 6px; left: 6px; background: #4f6fa6; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; }
+.badge-featured { position: absolute; top: 6px; right: 6px; background: #f0c040; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; z-index: 6; }
+.card.has-special .badge-featured { top: 34px; }
+.badge-online { position: absolute; top: 6px; left: 6px; background: #59b66d; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; z-index: 7; }
+.badge-imported { position: absolute; top: 6px; left: 6px; background: #4f6fa6; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; pointer-events: none; z-index: 8; }
 
 /* Detail modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; justify-content: center; align-items: center; }
@@ -786,10 +787,13 @@ function getSafeNextOfficialMainLevelId(ids) {
 }
 
 function getDefaultAppendLevelId() {
-    if (IS_FORMAL_MAIN_DIR && Number.isInteger(defaultNextLevelId)) {
+    if (Number.isInteger(defaultNextLevelId)) {
         return defaultNextLevelId;
     }
-    return getNextGuankaLevelId();
+    if (IS_FORMAL_MAIN_DIR) {
+        return getSafeNextOfficialMainLevelId(levelIds);
+    }
+    return null;
 }
 
 function rememberOnlineImportNextLevelId(targetLevelId, count = 1) {
@@ -797,6 +801,8 @@ function rememberOnlineImportNextLevelId(targetLevelId, count = 1) {
     const numericTargetId = Number(targetLevelId);
     const numericCount = Math.max(1, Number(count) || 1);
     if (
+        Number.isInteger(currentNext)
+        &&
         numericTargetId >= OFFICIAL_MAIN_ABNORMAL_ID_FLOOR
         && numericTargetId - currentNext >= OFFICIAL_MAIN_ABNORMAL_ID_GAP
     ) {
@@ -813,7 +819,11 @@ function setImportStatus(message, type = '', title = '') {
 }
 
 function refreshImportStatus() {
-    setImportStatus(`${getLevelDirDisplayName()} | 默认追加为第 ${getDefaultAppendLevelId()} 关`, '', LEVEL_DIR_LABEL);
+    const appendId = getDefaultAppendLevelId();
+    const appendText = Number.isInteger(appendId)
+        ? `默认追加为第 ${appendId} 关`
+        : '正在获取正式关卡末尾';
+    setImportStatus(`${getLevelDirDisplayName()} | ${appendText}`, '', LEVEL_DIR_LABEL);
 }
 
 function stripExtension(filename) {
@@ -1148,6 +1158,9 @@ function buildImportedGrid(img) {
 
 function buildImportedLevelPayload(fileName, img) {
     const nextLevelId = getDefaultAppendLevelId();
+    if (!Number.isInteger(nextLevelId)) {
+        throw new Error('无法获取正式关卡追加 ID，请刷新后重试');
+    }
     const { boardWidth, boardHeight, correctColorArr } = buildImportedGrid(img);
     return {
         levelId: nextLevelId,
@@ -1486,13 +1499,15 @@ function renderCard(data) {
     const hasOfficialImport = isImportedLevel(data);
     const importBadgeText = getImportBadgeText(data.levelId);
     const importBadgeTitle = getImportBadgeTitle(data.levelId);
+    const specialMeta = getSpecialMeta(data);
     const onlineActionText = isOnline ? '🟢 上线' : '⚪ 上线';
     const onlineActionTitle = isOnline ? '取消上线' : '标记上线';
     const card = document.createElement('div');
     card.className = 'card'
         + (isFeatured ? ' featured' : '')
         + (SHOW_ONLINE_ACTION && isOnline ? ' online' : '')
-        + (hasOfficialImport ? ' imported' : '');
+        + (hasOfficialImport ? ' imported' : '')
+        + (specialMeta?.hasSpecial ? ' has-special' : '');
     card.dataset.level = data.levelId;
     card.dataset.colors = Object.keys(getColorInfo(data.correctColorArr)).length;
     card.dataset.featured = isFeatured ? '1' : '0';
@@ -1543,8 +1558,6 @@ function renderCard(data) {
     const colorCount = Object.keys(colors).length;
     const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
     const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
-    const specialMeta = getSpecialMeta(data);
-
     // Preview: show target only
     const previewDiv = document.createElement('div');
     previewDiv.className = 'preview';
@@ -1911,6 +1924,18 @@ function setBatchSelectMode(enabled) {
     renderAll();
 }
 
+function syncBatchSelectionCard(levelId) {
+    const id = Number(levelId);
+    const card = document.querySelector(`.card[data-level="${id}"]`);
+    if (!card) return;
+    const isSelected = selectedLevelIds.has(id);
+    card.classList.toggle('selected', isSelected);
+    const check = card.querySelector('.select-check');
+    if (check) {
+        check.textContent = isSelected ? '✓' : '';
+    }
+}
+
 function toggleLevelSelection(levelId) {
     const id = Number(levelId);
     if (selectedLevelIds.has(id)) {
@@ -1919,7 +1944,7 @@ function toggleLevelSelection(levelId) {
         selectedLevelIds.add(id);
     }
     updateBatchStatus();
-    renderAll();
+    syncBatchSelectionCard(id);
 }
 
 function getSelectedLevelIdsInViewOrder() {
@@ -1986,6 +2011,10 @@ function updateBatchTargetHint() {
     let startId = null;
     if (batchStartMode === 'append') {
         startId = getDefaultAppendLevelId();
+        if (!Number.isInteger(startId)) {
+            hint.textContent = '无法获取正式关卡末尾，请刷新或检查预览服务';
+            return;
+        }
         hint.textContent = `将追加到正式关卡末尾：level_${startId}.json 起，共 ${count} 关`;
         return;
     }
@@ -2017,6 +2046,9 @@ async function executeBatchImport() {
             showBatchFeedback('请填写有效的起始正式关卡 ID', 'error');
             return;
         }
+    } else if (!Number.isInteger(getDefaultAppendLevelId())) {
+        showBatchFeedback('无法获取正式关卡末尾，请刷新或检查预览服务', 'error');
+        return;
     }
 
     const btn = document.getElementById('batchConfirmBtn');
@@ -2416,8 +2448,8 @@ function updateCopyQuickRow() {
     container.innerHTML = '';
     let ids = [];
     if (copyType === 'online') {
-        const base = Math.max(1, getDefaultAppendLevelId());
-        ids = [base, base + 1, base + 2, 100, 200, 300];
+        const base = getDefaultAppendLevelId();
+        ids = Number.isInteger(base) ? [base, base + 1, base + 2, 100, 200, 300] : [100, 200, 300];
     } else {
         ids = [1001, 1002, 1003, 1004, 1101, 1201, 1301];
     }

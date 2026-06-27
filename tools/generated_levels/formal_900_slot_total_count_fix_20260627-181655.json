@@ -1,0 +1,1506 @@
+{
+  "generatedAt": "2026-06-27T10:16:57.222Z",
+  "scope": {
+    "included": "assets/LevelData/level_*.json",
+    "fixedRanges": [
+      "351-378",
+      "442-631"
+    ],
+    "notChanged": [
+      "level_900.json missing state",
+      "duplicate/recolor groups",
+      "correctColorArr",
+      "initRandomColorArr"
+    ]
+  },
+  "scannedFormalCount": 899,
+  "missingExpected": [
+    900
+  ],
+  "expectedAffectedCount": 218,
+  "alreadyConsistentWithinExpected": [
+    373,
+    537,
+    555,
+    570,
+    572,
+    581,
+    585,
+    592,
+    598,
+    623,
+    625
+  ],
+  "beforeSlotMismatchCount": 207,
+  "afterSlotMismatchCount": 0,
+  "fixedCount": 207,
+  "backupDir": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655",
+  "changed": [
+    {
+      "levelId": 351,
+      "file": "assets/LevelData/level_351.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_351.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 324
+    },
+    {
+      "levelId": 352,
+      "file": "assets/LevelData/level_352.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_352.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 99
+    },
+    {
+      "levelId": 353,
+      "file": "assets/LevelData/level_353.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_353.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 350
+    },
+    {
+      "levelId": 354,
+      "file": "assets/LevelData/level_354.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_354.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 324
+    },
+    {
+      "levelId": 355,
+      "file": "assets/LevelData/level_355.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_355.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 482
+    },
+    {
+      "levelId": 356,
+      "file": "assets/LevelData/level_356.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_356.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 324
+    },
+    {
+      "levelId": 357,
+      "file": "assets/LevelData/level_357.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_357.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 252
+    },
+    {
+      "levelId": 358,
+      "file": "assets/LevelData/level_358.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_358.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1024
+    },
+    {
+      "levelId": 359,
+      "file": "assets/LevelData/level_359.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_359.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1024
+    },
+    {
+      "levelId": 360,
+      "file": "assets/LevelData/level_360.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_360.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 536
+    },
+    {
+      "levelId": 361,
+      "file": "assets/LevelData/level_361.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_361.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 324
+    },
+    {
+      "levelId": 362,
+      "file": "assets/LevelData/level_362.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_362.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 626
+    },
+    {
+      "levelId": 363,
+      "file": "assets/LevelData/level_363.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_363.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 324
+    },
+    {
+      "levelId": 364,
+      "file": "assets/LevelData/level_364.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_364.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 400
+    },
+    {
+      "levelId": 365,
+      "file": "assets/LevelData/level_365.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_365.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 576
+    },
+    {
+      "levelId": 366,
+      "file": "assets/LevelData/level_366.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_366.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 216
+    },
+    {
+      "levelId": 367,
+      "file": "assets/LevelData/level_367.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_367.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 474
+    },
+    {
+      "levelId": 368,
+      "file": "assets/LevelData/level_368.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_368.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 834
+    },
+    {
+      "levelId": 369,
+      "file": "assets/LevelData/level_369.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_369.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 722
+    },
+    {
+      "levelId": 370,
+      "file": "assets/LevelData/level_370.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_370.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 335
+    },
+    {
+      "levelId": 371,
+      "file": "assets/LevelData/level_371.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_371.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 576
+    },
+    {
+      "levelId": 372,
+      "file": "assets/LevelData/level_372.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_372.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 374,
+      "file": "assets/LevelData/level_374.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_374.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 108
+    },
+    {
+      "levelId": 375,
+      "file": "assets/LevelData/level_375.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_375.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 2025
+    },
+    {
+      "levelId": 376,
+      "file": "assets/LevelData/level_376.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_376.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1050
+    },
+    {
+      "levelId": 377,
+      "file": "assets/LevelData/level_377.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_377.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 350
+    },
+    {
+      "levelId": 378,
+      "file": "assets/LevelData/level_378.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_378.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 442,
+      "file": "assets/LevelData/level_442.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_442.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 529
+    },
+    {
+      "levelId": 443,
+      "file": "assets/LevelData/level_443.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_443.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1296
+    },
+    {
+      "levelId": 444,
+      "file": "assets/LevelData/level_444.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_444.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 280
+    },
+    {
+      "levelId": 445,
+      "file": "assets/LevelData/level_445.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_445.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 361
+    },
+    {
+      "levelId": 446,
+      "file": "assets/LevelData/level_446.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_446.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 576
+    },
+    {
+      "levelId": 447,
+      "file": "assets/LevelData/level_447.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_447.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1024
+    },
+    {
+      "levelId": 448,
+      "file": "assets/LevelData/level_448.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_448.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 131
+    },
+    {
+      "levelId": 449,
+      "file": "assets/LevelData/level_449.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_449.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 272
+    },
+    {
+      "levelId": 450,
+      "file": "assets/LevelData/level_450.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_450.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 261
+    },
+    {
+      "levelId": 451,
+      "file": "assets/LevelData/level_451.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_451.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1122
+    },
+    {
+      "levelId": 452,
+      "file": "assets/LevelData/level_452.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_452.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 924
+    },
+    {
+      "levelId": 453,
+      "file": "assets/LevelData/level_453.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_453.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 340
+    },
+    {
+      "levelId": 454,
+      "file": "assets/LevelData/level_454.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_454.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 208
+    },
+    {
+      "levelId": 455,
+      "file": "assets/LevelData/level_455.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_455.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 606
+    },
+    {
+      "levelId": 456,
+      "file": "assets/LevelData/level_456.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_456.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 457,
+      "file": "assets/LevelData/level_457.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_457.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 166
+    },
+    {
+      "levelId": 458,
+      "file": "assets/LevelData/level_458.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_458.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 202
+    },
+    {
+      "levelId": 459,
+      "file": "assets/LevelData/level_459.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_459.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 253
+    },
+    {
+      "levelId": 460,
+      "file": "assets/LevelData/level_460.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_460.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 270
+    },
+    {
+      "levelId": 461,
+      "file": "assets/LevelData/level_461.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_461.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 550
+    },
+    {
+      "levelId": 462,
+      "file": "assets/LevelData/level_462.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_462.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 576
+    },
+    {
+      "levelId": 463,
+      "file": "assets/LevelData/level_463.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_463.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1156
+    },
+    {
+      "levelId": 464,
+      "file": "assets/LevelData/level_464.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_464.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1140
+    },
+    {
+      "levelId": 465,
+      "file": "assets/LevelData/level_465.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_465.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 675
+    },
+    {
+      "levelId": 466,
+      "file": "assets/LevelData/level_466.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_466.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 328
+    },
+    {
+      "levelId": 467,
+      "file": "assets/LevelData/level_467.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_467.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 468,
+      "file": "assets/LevelData/level_468.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_468.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 387
+    },
+    {
+      "levelId": 469,
+      "file": "assets/LevelData/level_469.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_469.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1600
+    },
+    {
+      "levelId": 470,
+      "file": "assets/LevelData/level_470.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_470.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 182
+    },
+    {
+      "levelId": 471,
+      "file": "assets/LevelData/level_471.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_471.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 910
+    },
+    {
+      "levelId": 472,
+      "file": "assets/LevelData/level_472.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_472.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1225
+    },
+    {
+      "levelId": 473,
+      "file": "assets/LevelData/level_473.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_473.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 544
+    },
+    {
+      "levelId": 474,
+      "file": "assets/LevelData/level_474.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_474.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 528
+    },
+    {
+      "levelId": 475,
+      "file": "assets/LevelData/level_475.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_475.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 476,
+      "file": "assets/LevelData/level_476.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_476.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1225
+    },
+    {
+      "levelId": 477,
+      "file": "assets/LevelData/level_477.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_477.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1600
+    },
+    {
+      "levelId": 478,
+      "file": "assets/LevelData/level_478.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_478.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 297
+    },
+    {
+      "levelId": 479,
+      "file": "assets/LevelData/level_479.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_479.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 480,
+      "file": "assets/LevelData/level_480.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_480.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 280
+    },
+    {
+      "levelId": 481,
+      "file": "assets/LevelData/level_481.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_481.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 307
+    },
+    {
+      "levelId": 482,
+      "file": "assets/LevelData/level_482.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_482.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 483,
+      "file": "assets/LevelData/level_483.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_483.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1148
+    },
+    {
+      "levelId": 484,
+      "file": "assets/LevelData/level_484.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_484.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 485,
+      "file": "assets/LevelData/level_485.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_485.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 486,
+      "file": "assets/LevelData/level_486.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_486.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 312
+    },
+    {
+      "levelId": 487,
+      "file": "assets/LevelData/level_487.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_487.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 273
+    },
+    {
+      "levelId": 488,
+      "file": "assets/LevelData/level_488.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_488.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 598
+    },
+    {
+      "levelId": 489,
+      "file": "assets/LevelData/level_489.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_489.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 411
+    },
+    {
+      "levelId": 490,
+      "file": "assets/LevelData/level_490.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_490.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 266
+    },
+    {
+      "levelId": 491,
+      "file": "assets/LevelData/level_491.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_491.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 492,
+      "file": "assets/LevelData/level_492.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_492.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 543
+    },
+    {
+      "levelId": 493,
+      "file": "assets/LevelData/level_493.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_493.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 2025
+    },
+    {
+      "levelId": 494,
+      "file": "assets/LevelData/level_494.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_494.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 355
+    },
+    {
+      "levelId": 495,
+      "file": "assets/LevelData/level_495.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_495.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 496,
+      "file": "assets/LevelData/level_496.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_496.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 489
+    },
+    {
+      "levelId": 497,
+      "file": "assets/LevelData/level_497.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_497.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 300
+    },
+    {
+      "levelId": 498,
+      "file": "assets/LevelData/level_498.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_498.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 625
+    },
+    {
+      "levelId": 499,
+      "file": "assets/LevelData/level_499.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_499.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 367
+    },
+    {
+      "levelId": 500,
+      "file": "assets/LevelData/level_500.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_500.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 321
+    },
+    {
+      "levelId": 501,
+      "file": "assets/LevelData/level_501.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_501.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 347
+    },
+    {
+      "levelId": 502,
+      "file": "assets/LevelData/level_502.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_502.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 576
+    },
+    {
+      "levelId": 503,
+      "file": "assets/LevelData/level_503.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_503.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 529
+    },
+    {
+      "levelId": 504,
+      "file": "assets/LevelData/level_504.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_504.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 239
+    },
+    {
+      "levelId": 505,
+      "file": "assets/LevelData/level_505.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_505.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 676
+    },
+    {
+      "levelId": 506,
+      "file": "assets/LevelData/level_506.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_506.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1081
+    },
+    {
+      "levelId": 507,
+      "file": "assets/LevelData/level_507.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_507.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1600
+    },
+    {
+      "levelId": 508,
+      "file": "assets/LevelData/level_508.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_508.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1225
+    },
+    {
+      "levelId": 509,
+      "file": "assets/LevelData/level_509.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_509.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 986
+    },
+    {
+      "levelId": 510,
+      "file": "assets/LevelData/level_510.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_510.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1036
+    },
+    {
+      "levelId": 511,
+      "file": "assets/LevelData/level_511.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_511.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 899
+    },
+    {
+      "levelId": 512,
+      "file": "assets/LevelData/level_512.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_512.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 513,
+      "file": "assets/LevelData/level_513.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_513.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 154
+    },
+    {
+      "levelId": 514,
+      "file": "assets/LevelData/level_514.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_514.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 515,
+      "file": "assets/LevelData/level_515.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_515.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 430
+    },
+    {
+      "levelId": 516,
+      "file": "assets/LevelData/level_516.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_516.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 400
+    },
+    {
+      "levelId": 517,
+      "file": "assets/LevelData/level_517.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_517.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 518,
+      "file": "assets/LevelData/level_518.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_518.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 358
+    },
+    {
+      "levelId": 519,
+      "file": "assets/LevelData/level_519.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_519.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 520,
+      "file": "assets/LevelData/level_520.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_520.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 521,
+      "file": "assets/LevelData/level_521.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_521.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 263
+    },
+    {
+      "levelId": 522,
+      "file": "assets/LevelData/level_522.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_522.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 368
+    },
+    {
+      "levelId": 523,
+      "file": "assets/LevelData/level_523.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_523.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 483
+    },
+    {
+      "levelId": 524,
+      "file": "assets/LevelData/level_524.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_524.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1020
+    },
+    {
+      "levelId": 525,
+      "file": "assets/LevelData/level_525.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_525.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 701
+    },
+    {
+      "levelId": 526,
+      "file": "assets/LevelData/level_526.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_526.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 550
+    },
+    {
+      "levelId": 527,
+      "file": "assets/LevelData/level_527.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_527.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1548
+    },
+    {
+      "levelId": 528,
+      "file": "assets/LevelData/level_528.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_528.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1596
+    },
+    {
+      "levelId": 529,
+      "file": "assets/LevelData/level_529.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_529.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 484
+    },
+    {
+      "levelId": 530,
+      "file": "assets/LevelData/level_530.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_530.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 576
+    },
+    {
+      "levelId": 531,
+      "file": "assets/LevelData/level_531.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_531.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 850
+    },
+    {
+      "levelId": 532,
+      "file": "assets/LevelData/level_532.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_532.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 841
+    },
+    {
+      "levelId": 533,
+      "file": "assets/LevelData/level_533.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_533.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 719
+    },
+    {
+      "levelId": 534,
+      "file": "assets/LevelData/level_534.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_534.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 563
+    },
+    {
+      "levelId": 535,
+      "file": "assets/LevelData/level_535.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_535.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 841
+    },
+    {
+      "levelId": 536,
+      "file": "assets/LevelData/level_536.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_536.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 896
+    },
+    {
+      "levelId": 538,
+      "file": "assets/LevelData/level_538.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_538.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1024
+    },
+    {
+      "levelId": 539,
+      "file": "assets/LevelData/level_539.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_539.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 754
+    },
+    {
+      "levelId": 540,
+      "file": "assets/LevelData/level_540.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_540.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1800
+    },
+    {
+      "levelId": 541,
+      "file": "assets/LevelData/level_541.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_541.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 548
+    },
+    {
+      "levelId": 542,
+      "file": "assets/LevelData/level_542.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_542.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 665
+    },
+    {
+      "levelId": 543,
+      "file": "assets/LevelData/level_543.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_543.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1804
+    },
+    {
+      "levelId": 544,
+      "file": "assets/LevelData/level_544.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_544.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 784
+    },
+    {
+      "levelId": 545,
+      "file": "assets/LevelData/level_545.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_545.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 726
+    },
+    {
+      "levelId": 546,
+      "file": "assets/LevelData/level_546.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_546.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 357
+    },
+    {
+      "levelId": 547,
+      "file": "assets/LevelData/level_547.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_547.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 810
+    },
+    {
+      "levelId": 548,
+      "file": "assets/LevelData/level_548.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_548.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 676
+    },
+    {
+      "levelId": 549,
+      "file": "assets/LevelData/level_549.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_549.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 590
+    },
+    {
+      "levelId": 550,
+      "file": "assets/LevelData/level_550.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_550.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1296
+    },
+    {
+      "levelId": 551,
+      "file": "assets/LevelData/level_551.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_551.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 552,
+      "file": "assets/LevelData/level_552.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_552.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 553,
+      "file": "assets/LevelData/level_553.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_553.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 550
+    },
+    {
+      "levelId": 554,
+      "file": "assets/LevelData/level_554.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_554.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 556,
+      "file": "assets/LevelData/level_556.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_556.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 396
+    },
+    {
+      "levelId": 557,
+      "file": "assets/LevelData/level_557.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_557.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 558,
+      "file": "assets/LevelData/level_558.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_558.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 357
+    },
+    {
+      "levelId": 559,
+      "file": "assets/LevelData/level_559.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_559.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 560,
+      "file": "assets/LevelData/level_560.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_560.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1050
+    },
+    {
+      "levelId": 561,
+      "file": "assets/LevelData/level_561.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_561.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 900
+    },
+    {
+      "levelId": 562,
+      "file": "assets/LevelData/level_562.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_562.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 600
+    },
+    {
+      "levelId": 563,
+      "file": "assets/LevelData/level_563.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_563.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 399
+    },
+    {
+      "levelId": 564,
+      "file": "assets/LevelData/level_564.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_564.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 420
+    },
+    {
+      "levelId": 565,
+      "file": "assets/LevelData/level_565.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_565.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 841
+    },
+    {
+      "levelId": 566,
+      "file": "assets/LevelData/level_566.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_566.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 676
+    },
+    {
+      "levelId": 567,
+      "file": "assets/LevelData/level_567.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_567.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 810
+    },
+    {
+      "levelId": 568,
+      "file": "assets/LevelData/level_568.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_568.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 720
+    },
+    {
+      "levelId": 569,
+      "file": "assets/LevelData/level_569.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_569.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1225
+    },
+    {
+      "levelId": 571,
+      "file": "assets/LevelData/level_571.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_571.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 754
+    },
+    {
+      "levelId": 573,
+      "file": "assets/LevelData/level_573.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_573.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 800
+    },
+    {
+      "levelId": 574,
+      "file": "assets/LevelData/level_574.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_574.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 535
+    },
+    {
+      "levelId": 575,
+      "file": "assets/LevelData/level_575.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_575.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 812
+    },
+    {
+      "levelId": 576,
+      "file": "assets/LevelData/level_576.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_576.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1296
+    },
+    {
+      "levelId": 577,
+      "file": "assets/LevelData/level_577.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_577.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 812
+    },
+    {
+      "levelId": 578,
+      "file": "assets/LevelData/level_578.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_578.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1036
+    },
+    {
+      "levelId": 579,
+      "file": "assets/LevelData/level_579.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_579.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 812
+    },
+    {
+      "levelId": 580,
+      "file": "assets/LevelData/level_580.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_580.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 406
+    },
+    {
+      "levelId": 582,
+      "file": "assets/LevelData/level_582.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_582.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 714
+    },
+    {
+      "levelId": 583,
+      "file": "assets/LevelData/level_583.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_583.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1292
+    },
+    {
+      "levelId": 584,
+      "file": "assets/LevelData/level_584.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_584.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 577
+    },
+    {
+      "levelId": 586,
+      "file": "assets/LevelData/level_586.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_586.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 506
+    },
+    {
+      "levelId": 587,
+      "file": "assets/LevelData/level_587.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_587.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 278
+    },
+    {
+      "levelId": 588,
+      "file": "assets/LevelData/level_588.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_588.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 525
+    },
+    {
+      "levelId": 589,
+      "file": "assets/LevelData/level_589.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_589.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1650
+    },
+    {
+      "levelId": 590,
+      "file": "assets/LevelData/level_590.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_590.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 529
+    },
+    {
+      "levelId": 591,
+      "file": "assets/LevelData/level_591.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_591.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 799
+    },
+    {
+      "levelId": 593,
+      "file": "assets/LevelData/level_593.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_593.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 527
+    },
+    {
+      "levelId": 594,
+      "file": "assets/LevelData/level_594.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_594.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 799
+    },
+    {
+      "levelId": 595,
+      "file": "assets/LevelData/level_595.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_595.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 729
+    },
+    {
+      "levelId": 596,
+      "file": "assets/LevelData/level_596.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_596.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 785
+    },
+    {
+      "levelId": 597,
+      "file": "assets/LevelData/level_597.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_597.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 510
+    },
+    {
+      "levelId": 599,
+      "file": "assets/LevelData/level_599.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_599.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 304
+    },
+    {
+      "levelId": 600,
+      "file": "assets/LevelData/level_600.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_600.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 615
+    },
+    {
+      "levelId": 601,
+      "file": "assets/LevelData/level_601.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_601.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 491
+    },
+    {
+      "levelId": 602,
+      "file": "assets/LevelData/level_602.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_602.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1680
+    },
+    {
+      "levelId": 603,
+      "file": "assets/LevelData/level_603.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_603.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 506
+    },
+    {
+      "levelId": 604,
+      "file": "assets/LevelData/level_604.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_604.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 528
+    },
+    {
+      "levelId": 605,
+      "file": "assets/LevelData/level_605.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_605.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 595
+    },
+    {
+      "levelId": 606,
+      "file": "assets/LevelData/level_606.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_606.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 490
+    },
+    {
+      "levelId": 607,
+      "file": "assets/LevelData/level_607.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_607.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 499
+    },
+    {
+      "levelId": 608,
+      "file": "assets/LevelData/level_608.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_608.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 672
+    },
+    {
+      "levelId": 609,
+      "file": "assets/LevelData/level_609.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_609.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 280
+    },
+    {
+      "levelId": 610,
+      "file": "assets/LevelData/level_610.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_610.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 488
+    },
+    {
+      "levelId": 611,
+      "file": "assets/LevelData/level_611.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_611.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1142
+    },
+    {
+      "levelId": 612,
+      "file": "assets/LevelData/level_612.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_612.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 840
+    },
+    {
+      "levelId": 613,
+      "file": "assets/LevelData/level_613.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_613.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 720
+    },
+    {
+      "levelId": 614,
+      "file": "assets/LevelData/level_614.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_614.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 305
+    },
+    {
+      "levelId": 615,
+      "file": "assets/LevelData/level_615.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_615.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 790
+    },
+    {
+      "levelId": 616,
+      "file": "assets/LevelData/level_616.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_616.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 688
+    },
+    {
+      "levelId": 617,
+      "file": "assets/LevelData/level_617.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_617.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1088
+    },
+    {
+      "levelId": 618,
+      "file": "assets/LevelData/level_618.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_618.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 529
+    },
+    {
+      "levelId": 619,
+      "file": "assets/LevelData/level_619.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_619.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 308
+    },
+    {
+      "levelId": 620,
+      "file": "assets/LevelData/level_620.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_620.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 516
+    },
+    {
+      "levelId": 621,
+      "file": "assets/LevelData/level_621.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_621.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 606
+    },
+    {
+      "levelId": 622,
+      "file": "assets/LevelData/level_622.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_622.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 478
+    },
+    {
+      "levelId": 624,
+      "file": "assets/LevelData/level_624.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_624.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 720
+    },
+    {
+      "levelId": 626,
+      "file": "assets/LevelData/level_626.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_626.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 729
+    },
+    {
+      "levelId": 627,
+      "file": "assets/LevelData/level_627.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_627.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 1529
+    },
+    {
+      "levelId": 628,
+      "file": "assets/LevelData/level_628.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_628.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 870
+    },
+    {
+      "levelId": 629,
+      "file": "assets/LevelData/level_629.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_629.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 598
+    },
+    {
+      "levelId": 630,
+      "file": "assets/LevelData/level_630.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_630.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 256
+    },
+    {
+      "levelId": 631,
+      "file": "assets/LevelData/level_631.json",
+      "backupFile": "temp/backup_formal_900_slot_total_count_before_fix_20260627-181655/level_631.json",
+      "beforeSlotTotalCount": 0,
+      "afterSlotTotalCount": 539
+    }
+  ],
+  "semanticViolations": [],
+  "validation": {
+    "before": {
+      "parseErrors": 0,
+      "levelIdMismatches": 0,
+      "dimensionMismatches": 0,
+      "initCountMismatches": 0,
+      "initMaskMismatches": 0
+    },
+    "after": {
+      "parseErrors": 0,
+      "levelIdMismatches": 0,
+      "dimensionMismatches": 0,
+      "initCountMismatches": 0,
+      "initMaskMismatches": 0
+    }
+  }
+}

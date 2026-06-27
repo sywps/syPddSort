@@ -1304,7 +1304,10 @@ export function installSkinBackgroundModule(target: any): void {
                             const close = requireSkinPanelChild(box, 'XBtn', 'BackgroundSkinPanel/Box');
                             const content = requireSkinPanelChild(box, 'Content', 'BackgroundSkinPanel/Box');
                             requireSkinPanelChild(content, SKIN_PANEL_SCROLL_CONTENT_NAME, 'BackgroundSkinPanel/Box/Content');
-                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => this.closeBackgroundSkinPanel());
+                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => {
+                                AudioMgr.inst.play('uiPanel');
+                                this.closeBackgroundSkinPanel();
+                            });
                             this._backgroundSkinPanelOverlay = overlay;
                             this.renderBackgroundSkinPanelCards(content, config.rows);
                             this.playPopupOpenAnim?.(overlay, box);
