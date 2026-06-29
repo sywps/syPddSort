@@ -10,6 +10,7 @@ import {
 } from '../GameCtrlShared';
 
 const FREEZE_SPINE_FX_PATH = 'Spine/PinddFreeze/bingdonglizi';
+const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
 const FREEZE_SPINE_FX_LAYER_NAME = 'FreezeFxLayer';
 const FREEZE_SPINE_FX_NODE_NAME = 'FreezeSpineFx';
 const FREEZE_SPINE_FX_SOURCE_WIDTH = 1061.5;
@@ -35,6 +36,50 @@ function setFreezeFxLayerDeep(node: Node, layer: number): void {
 
 function createFreezeSpineFxError(message: string): Error {
     return new Error(`[freeze-spine-fx] ${message}`);
+}
+
+function createFreezeSpineWasmError(err: unknown): Error {
+    const message = err instanceof Error ? err.message : String(err || 'unknown error');
+    return createFreezeSpineFxError(`Spine wasm load failed: ${message}`);
+}
+
+function ensureFreezeSpineWasmSubpackageReady(): Promise<void> {
+    const globalScope = globalThis as any;
+    if (!globalScope.__PDD_WECHAT_BUILD__) {
+        return Promise.resolve();
+    }
+    const existing = globalScope.__PDD_SPINE_WASM_SUBPACKAGE_PROMISE__;
+    if (existing && typeof existing.then === 'function') {
+        return existing;
+    }
+    const wxApi = globalScope.__rawWx || globalScope.wx;
+    if (!wxApi || typeof wxApi.loadSubpackage !== 'function') {
+        return Promise.reject(createFreezeSpineFxError(`${SPINE_WASM_SUBPACKAGE_NAME} subpackage loader unavailable`));
+    }
+    globalScope.__PDD_SPINE_WASM_SUBPACKAGE_PROMISE__ = new Promise<void>((resolve, reject) => {
+        wxApi.loadSubpackage({
+            name: SPINE_WASM_SUBPACKAGE_NAME,
+            success: () => resolve(),
+            fail: (err: unknown) => reject(createFreezeSpineFxError(`${SPINE_WASM_SUBPACKAGE_NAME} subpackage load failed: ${err instanceof Error ? err.message : String(err || 'unknown error')}`)),
+        });
+    });
+    return globalScope.__PDD_SPINE_WASM_SUBPACKAGE_PROMISE__;
+}
+
+function ensureFreezeSpineWasmReady(): Promise<void> {
+    return ensureFreezeSpineWasmSubpackageReady().then(() => {
+        const loadWasm = (sp as any)?.loadWasmModuleSpine;
+        if (typeof loadWasm !== 'function') {
+            return Promise.resolve();
+        }
+        try {
+            return Promise.resolve(loadWasm.call(sp)).then(() => undefined, (err: unknown) => {
+                throw createFreezeSpineWasmError(err);
+            });
+        } catch (err) {
+            return Promise.reject(createFreezeSpineWasmError(err));
+        }
+    });
 }
 
 export function installGameplayFreezeEffectModule(target: any): void {
@@ -82,21 +127,33 @@ export function installGameplayFreezeEffectModule(target: any): void {
                 });
             };
 
-            if (typeof this._withGameAssetsBundle === 'function') {
-                this._withGameAssetsBundle(loadFromBundle);
-                return;
-            }
-
-            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
-                if (!isRuntimeAlive()) return;
-                if (err || !bundle) {
-                    this._freezeSpineFxSkeletonDataLoading = false;
-                    this._freezeSpineFxSkeletonDataCallbacks = [];
-                    throw createFreezeSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`);
+            const loadSkeletonData = () => {
+                if (typeof this._withGameAssetsBundle === 'function') {
+                    this._withGameAssetsBundle(loadFromBundle);
                     return;
                 }
-                this.gameAssetsBundle = bundle;
-                loadFromBundle(bundle);
+
+                assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                    if (!isRuntimeAlive()) return;
+                    if (err || !bundle) {
+                        this._freezeSpineFxSkeletonDataLoading = false;
+                        this._freezeSpineFxSkeletonDataCallbacks = [];
+                        throw createFreezeSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`);
+                        return;
+                    }
+                    this.gameAssetsBundle = bundle;
+                    loadFromBundle(bundle);
+                });
+            };
+
+            ensureFreezeSpineWasmReady().then(() => {
+                if (!isRuntimeAlive()) return;
+                loadSkeletonData();
+            }).catch((err: Error) => {
+                if (!isRuntimeAlive()) return;
+                this._freezeSpineFxSkeletonDataLoading = false;
+                this._freezeSpineFxSkeletonDataCallbacks = [];
+                throw err;
             });
         },
 

@@ -831,7 +831,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     .map((path) => path.slice(path.lastIndexOf('/') + 1));
                 let beanDone = false;
                 let uiDone = false;
-                let gameAssetsDone = GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS.length === 0;
+                let gameAssetsDone = true;
                 const tryInit = () => {
                     if (!beanDone || !uiDone || !gameAssetsDone) return;
                     this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
@@ -949,7 +949,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         );
                     }
                 });
-                preloadRequiredGameAssetsTextures();
+                // Bootstrap levels must not block first playable UI on gameAssets.
             }, prefix);
         },
 

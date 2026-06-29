@@ -5,7 +5,7 @@ import {
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
-    mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
+    mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, POPUP_UI_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
     RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, THEME_PANEL_RELEASE_TEXTURE_NAMES, THEME_PANEL_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
@@ -37,6 +37,7 @@ import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup,
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
 import { WeChatRecommendService } from '../WeChatRecommendService';
+import { normalizeStartupLocalLevel, readStartupLocalProgress } from '../StartupLocalProgress';
 
 const SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP = 'startup-bootstrap';
 const SPRITE_FRAME_SCOPE_SCENE_HOME = 'scene-home';
@@ -297,7 +298,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         getRequiredBoardEffectTextureNames(): string[] {
-            return GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS
+            return BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS
                 .map((path) => path.slice(path.lastIndexOf('/') + 1))
                 .filter((name) => !!name);
         },
@@ -333,18 +334,18 @@ export function installAssetBootstrapModule(target: any): void {
                     callback({
                         ok: false,
                         errorCode: 'board_effect_bundle_missing',
-                        errorMessage: 'missing gameAssets bundle for board effect textures',
+                        errorMessage: 'missing bootstrap bundle for board effect textures',
                         missingTextureNames: requiredTextureNames,
                     });
                     return;
                 }
-                this._preloadGameAssetsTextureSet(targetBundle, verifyLoaded, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS);
+                this._preloadBootstrapTextureSetStrict(requiredTextureNames, verifyLoaded);
             };
             if (bundle) {
                 loadFromBundle(bundle);
                 return;
             }
-            this._withGameAssetsBundle(loadFromBundle);
+            this._withBootstrapBundle(loadFromBundle);
         },
 
         _getGameAssetsTextureCandidatePaths(imgName: string): string[] {
@@ -1684,7 +1685,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         getSavedLevel(): number {
             const s = sys.localStorage.getItem(LS_LEVEL);
-            return s ? Math.max(1, parseInt(s) || 1) : 1;
+            return normalizeStartupLocalLevel(s) || 1;
         },
 
         getRawSavedLevelForStartup(): string | null {
@@ -1692,20 +1693,11 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         getParsedSavedLevelForStartup(): number | null {
-            const raw = this.getRawSavedLevelForStartup();
-            if (raw === null) return null;
-            const parsed = parseInt(raw, 10);
-            if (!Number.isFinite(parsed)) return null;
-            const normalized = Math.floor(parsed);
-            return normalized >= 1 ? normalized : null;
+            return normalizeStartupLocalLevel(this.getRawSavedLevelForStartup());
         },
 
         getStartupLocalProgressState(): 'rawLevelMissing' | 'rawLevelInvalid' | 'local_progress_1' | 'local_progress_gt_1' {
-            const raw = this.getRawSavedLevelForStartup();
-            if (raw === null) return 'rawLevelMissing';
-            const parsed = this.getParsedSavedLevelForStartup();
-            if (parsed === null) return 'rawLevelInvalid';
-            return parsed > 1 ? 'local_progress_gt_1' : 'local_progress_1';
+            return readStartupLocalProgress().state;
         },
 
         getLocalUserStateUpdatedAt(): number {
@@ -1719,7 +1711,7 @@ export function installAssetBootstrapModule(target: any): void {
             sys.localStorage.setItem(LS_USER_STATE_UPDATED_AT, normalized.toString());
         },
 
-        hasPlayedBefore(): boolean { return sys.localStorage.getItem(LS_LEVEL) !== null; },
+        hasPlayedBefore(): boolean { return readStartupLocalProgress().hasStoredProgress; },
 
         hasLocalUserState(): boolean { return this.hasPlayedBefore() || this.getLocalUserStateUpdatedAt() > 0; },
 
@@ -1744,7 +1736,7 @@ export function installAssetBootstrapModule(target: any): void {
                 console.warn('[GameCtrl] keep higher cloud savedLevel, skip lower local progress save', { currentLevel, requestedLevel: normalizedLevel, nextLevel });
             }
             sys.localStorage.setItem(LS_LEVEL, '' + nextLevel);
-            UserMgr.inst.markLevelProgress(nextLevel, false, !this._startupCloudRestorePending && !this._startupCloudSaveBlockedForSession);
+            UserMgr.inst.markLevelProgress(nextLevel, false, false);
             this.queueCloudGameStateSync();
             if (deferLeaderboardProgressDuringStartup(this, nextLevel)) return;
             void LeaderboardMgr.inst.submitProgress(nextLevel, UserMgr.inst.getProfile());
@@ -1931,7 +1923,7 @@ export function installAssetBootstrapModule(target: any): void {
             }
         
             const effectiveLevel = Math.max(localSavedLevel, cloudSavedLevel);
-            if (effectiveLevel > 0 && (cloudSavedLevel > 0 || this.getRawSavedLevelForStartup() !== null)) {
+            if (effectiveLevel > 0 && (cloudSavedLevel > 0 || readStartupLocalProgress().hasStoredProgress)) {
                 sys.localStorage.setItem(LS_LEVEL, String(effectiveLevel));
                 UserMgr.inst.markLevelProgress(effectiveLevel, false, false);
             }

@@ -237,6 +237,12 @@ export class WeChatRecommendService {
         const openlink = getConfiguredRecommendOpenlink();
         if (!openlink) return { ok: false, reason: 'missing_openlink' };
 
+        const wxRuntime = getWeChatMiniGameRuntime();
+        if (!wxRuntime) return { ok: false, reason: 'not_wechat_runtime' };
+        if (typeof wxRuntime.createPageManager !== 'function') {
+            return { ok: false, reason: 'page_manager_unavailable' };
+        }
+
         const now = Date.now();
         const today = getLocalDateKey(now);
         try {

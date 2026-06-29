@@ -7,6 +7,8 @@
   "scripts": {
     "build:wechat:release": "node scripts/build-wechat.js --release",
     "build:wechat:debug": "node scripts/build-wechat.js --debug",
+    "wechat:devtools:open": "node scripts/open-wechat-devtools.js --mode open",
+    "wechat:devtools:auto": "node scripts/open-wechat-devtools.js --mode auto",
     "build:douyin:release": "node scripts/build-douyin.js --release",
     "build:douyin:debug": "node scripts/build-douyin.js --debug",
     "postbuild:douyin": "node scripts/postbuild-douyin.js",

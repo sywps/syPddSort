@@ -100,6 +100,10 @@ export function installHomeCommerceModule(target: any): void {
             return ensureCommercePanelController(this).openToolAcquirePanel(kind, options);
         },
 
+        preloadAcquireResourcePanel() {
+            return ensureCommercePanelController(this).preloadAcquireResourcePanel();
+        },
+
         openDailySignInPanel() {
             return ensureCommercePanelController(this).openDailySignInPanel();
         },

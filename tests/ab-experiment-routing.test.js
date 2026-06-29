@@ -17,6 +17,7 @@ function slotPolicy(relPath) {
 }
 
 const experimentUrlParam = read('assets/Scripts/Core/ExperimentUrlParam.ts');
+const cocosSpec = read('docs/cocos-ai-code-ai-collaboration-spec-v1.md');
 assert.ok(experimentUrlParam.includes("params.get('ab')"), 'experiment overrides must use the combined ab parameter');
 assert.ok(experimentUrlParam.includes("split(';')"), 'combined ab parameter must support multiple experiments');
 assert.ok(experimentUrlParam.includes("entry.split(',')"), 'combined ab parameter entries must use experimentId,bucket');
@@ -35,11 +36,13 @@ assert.ok(tutorialGuide.includes('handleTutorialRelaxedTap'), 'tutorial treatmen
 
 const levelCdn = read('assets/Scripts/Core/LevelDataCdnService.ts');
 assert.ok(levelCdn.includes("export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D'"), 'level experiment must expose A/B/C/D buckets');
-assert.ok(levelCdn.includes("LEVEL_EXPERIMENT_BUCKET_C_RANGE: [number, number] = [2, 10]"), 'level experiment bucket C must cover levels 2-10');
-assert.ok(levelCdn.includes("LEVEL_EXPERIMENT_BUCKET_D_RANGE: [number, number] = [2, 20]"), 'level experiment bucket D must cover levels 2-20');
+assert.ok(!levelCdn.includes('LEVEL_EXPERIMENT_BUCKET_C_RANGE'), 'level experiment bucket C must not hard-code a client-side level range');
+assert.ok(!levelCdn.includes('LEVEL_EXPERIMENT_BUCKET_D_RANGE'), 'level experiment bucket D must not hard-code a client-side level range');
+assert.ok(!levelCdn.includes('getLevelExperimentActiveRange'), 'level experiment range must be owned by the manifest/pack index, not client code');
 assert.ok(levelCdn.includes("bucket === 'A' || bucket === 'B' ? 'baseline' : 'treatment'"), 'level experiment A/B must remain baseline and C/D treatment');
-assert.ok(levelCdn.includes('this.shouldUseLevelExperiment(levelId, prefix, assignment)'), 'level experiment event context must use the resolved bucket range');
-assert.ok(levelCdn.includes('normalizedLevelId >= range[0] && normalizedLevelId <= range[1]'), 'level experiment must gate CDN use by active bucket range');
+assert.ok(levelCdn.includes("activeRange: assignment.group === 'treatment' ? 'manifest' : null"), 'level experiment diagnostics must show that C/D range is manifest-owned');
+assert.ok(levelCdn.includes("return assignment.group === 'treatment';"), 'level experiment C/D buckets must use experiment CDN for mainline levels');
+assert.ok(cocosSpec.includes('客户端按实验 bucket 和主线关卡前缀选择 manifest，不在客户端写死具体关卡范围'), 'V1 spec must keep experiment range ownership in manifest/pack index');
 
 const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 assert.ok(session.includes('LevelDataCdnService.inst.getLevelExperimentAssignment()'), 'gameplay must read level experiment assignment');
@@ -91,6 +94,9 @@ for (let level = 2; level <= 20; level++) {
     assert.ok(fs.existsSync(path.join(root, `temp/levels_exp/level_${level}.json`)), `experiment level ${level} data must exist`);
     const policy = slotPolicy(`temp/levels_exp/level_${level}.json`);
     assert.ok(policy && typeof policy === 'object', `experiment level ${level} must declare slotPolicy`);
+}
+for (const level of [441, 442, 550]) {
+    assert.ok(fs.existsSync(path.join(root, `temp/levels_exp/level_${level}.json`)), `experiment level ${level} data must exist for manifest-owned routing`);
 }
 
 console.log('ab-experiment-routing.test.js passed');

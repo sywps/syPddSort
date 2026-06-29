@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const { spawnSync, spawn } = require('child_process');
+const { spawnSync } = require('child_process');
 const buildCommon = require('./minigame-build-common.js');
 const platformConfig = require('./minigame-platform-config.js');
 
 const projectDir = path.resolve(__dirname, '..');
-const buildDir = path.join(projectDir, 'build', 'wechatgame');
+const finalBuildDir = path.join(projectDir, 'build', 'wechatgame');
+const stagingBuildName = 'wechatgame-staging';
+const buildDir = path.join(projectDir, 'build', stagingBuildName);
 const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn');
 const skinDataCdnDir = path.join(projectDir, 'build', 'skin-cdn');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
@@ -52,6 +54,20 @@ function writeJson(filePath, data) {
 
 function rm(target) {
     fs.rmSync(target, { recursive: true, force: true });
+}
+
+function promoteStagingBuild() {
+    if (!fs.existsSync(buildDir)) {
+        fail('微信 staging 构建目录不存在，不能发布到 build/wechatgame: ' + buildDir);
+    }
+    rm(finalBuildDir);
+    fs.renameSync(buildDir, finalBuildDir);
+}
+
+function toFinalBuildPath(filePath) {
+    const relPath = path.relative(buildDir, filePath);
+    if (!relPath || relPath.startsWith('..') || path.isAbsolute(relPath)) return filePath;
+    return path.join(finalBuildDir, relPath);
 }
 
 function cleanCocosGeneratedCaches() {
@@ -146,10 +162,10 @@ function findSubpackageRoot(gameJson, bundleName) {
 }
 
 function resolveBundleDir(runtimeDir, bundleName, gameJson) {
-    const localDir = path.join(runtimeDir, 'assets', bundleName);
-    if (fs.existsSync(localDir)) return localDir;
     const subpackageRoot = findSubpackageRoot(gameJson || {}, bundleName);
     if (subpackageRoot) return path.join(runtimeDir, subpackageRoot);
+    const localDir = path.join(runtimeDir, 'assets', bundleName);
+    if (fs.existsSync(localDir)) return localDir;
     return path.join(runtimeDir, 'subpackages', bundleName);
 }
 
@@ -289,6 +305,13 @@ function bundleConfigPathsWithPrefix(config, prefix) {
         .map((entry) => entry[0]);
 }
 
+function assertRuntimeBundleNoPath(bundleDir, bundleName, forbiddenPath) {
+    const config = readBundleConfig(bundleDir, bundleName);
+    if (bundleConfigHasPath(config, forbiddenPath)) {
+        fail(bundleName + ' config 不应包含资源路径: ' + forbiddenPath);
+    }
+}
+
 function collectMetaUuids(sourceDir) {
     if (!fs.existsSync(sourceDir)) return [];
     const uuids = new Set();
@@ -379,6 +402,69 @@ function assertRuntimeCoreConfig(runtimeDir, gameJson, settings) {
     }
 }
 
+function assertOpenDataContextConfig(runtimeDir, gameJson) {
+    const openDataContext = String(gameJson.openDataContext || '').replace(/^\/+|\/+$/g, '');
+    if (openDataContext !== 'openDataContext') {
+        fail('game.json openDataContext 配置不正确: ' + (openDataContext || '<empty>'));
+    }
+
+    const openDataContextDir = path.join(runtimeDir, openDataContext);
+    const requiredFiles = ['game.js', 'index.js'];
+    for (const fileName of requiredFiles) {
+        const filePath = path.join(openDataContextDir, fileName);
+        if (!fs.existsSync(filePath)) {
+            fail('开放数据域缺少入口文件: ' + path.relative(buildDir, filePath));
+        }
+    }
+    const nestedProjectConfigPath = path.join(openDataContextDir, 'project.config.json');
+    if (fs.existsSync(nestedProjectConfigPath)) {
+        fail('开放数据域不应包含嵌套 project.config.json: ' + path.relative(buildDir, nestedProjectConfigPath));
+    }
+
+    const gameEntry = fs.readFileSync(path.join(openDataContextDir, 'game.js'), 'utf8');
+    if (gameEntry.includes('cocos-js') || gameEntry.includes('src/settings') || gameEntry.includes('application.')) {
+        fail('开放数据域 game.js 不应加载主域 Cocos 入口');
+    }
+    const forbiddenOpenDataMarkers = [
+        'cocos-js',
+        'src/settings',
+        'application.',
+        'System.register',
+        '__ccSettings',
+        '_virtual_cc',
+        'assetManager',
+        '"packs"',
+        "'packs'",
+    ];
+    for (const filePath of walkFiles(openDataContextDir)) {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext !== '.js' && ext !== '.json') continue;
+        const content = fs.readFileSync(filePath, 'utf8');
+        const marker = forbiddenOpenDataMarkers.find((item) => content.includes(item));
+        if (marker) {
+            fail('开放数据域文件疑似混入 Cocos 运行时代码: ' + path.relative(buildDir, filePath) + ' marker=' + marker);
+        }
+    }
+
+    const projectConfigPath = path.join(buildDir, 'project.config.json');
+    if (!fs.existsSync(projectConfigPath)) return;
+    const projectConfig = readJson(projectConfigPath);
+    if (String(projectConfig.miniprogramRoot || '') !== 'minigame/') {
+        fail('project.config.json miniprogramRoot 不正确: ' + (projectConfig.miniprogramRoot || '<empty>'));
+    }
+    const expectedSubContext = path.posix.join(
+        String(projectConfig.miniprogramRoot || '').replace(/^\/+|\/+$/g, ''),
+        openDataContext,
+    );
+    if (projectConfig.subContext !== expectedSubContext) {
+        fail('project.config.json subContext 不正确: ' + (projectConfig.subContext || '<empty>') + '，期望 ' + expectedSubContext);
+    }
+    const projectSubContextDir = path.join(buildDir, expectedSubContext);
+    if (!fs.existsSync(projectSubContextDir)) {
+        fail('project.config.json subContext 指向不存在目录: ' + expectedSubContext);
+    }
+}
+
 function assertWechatProjectConfig() {
     const projectConfigPath = path.join(buildDir, 'project.config.json');
     if (!fs.existsSync(projectConfigPath)) return;
@@ -391,19 +477,27 @@ function assertWechatProjectConfig() {
     }
 }
 
-function maybeReloadWechatDevtools() {
+function maybeReloadWechatDevtools(projectPath) {
     if (openDevtools !== '1' || process.platform !== 'darwin') {
         logInfo('已跳过微信开发者工具自动重载');
         return;
     }
-    const cli = '/Applications/wechatwebdevtools.app/Contents/MacOS/wechatwebdevtools';
-    if (!fs.existsSync(cli)) {
-        logInfo('未找到微信开发者工具，跳过自动重载');
+    const scriptPath = path.join(projectDir, 'scripts', 'open-wechat-devtools.js');
+    if (!fs.existsSync(scriptPath)) {
+        logInfo('未找到微信开发者工具打开脚本，跳过自动重载');
         return;
     }
-    const child = spawn(cli, [buildDir], { detached: true, stdio: 'ignore' });
-    child.unref();
-    logInfo('已通知微信开发者工具重新加载项目');
+    const result = spawnSync(process.execPath, [scriptPath, '--project', projectPath, '--mode', 'open'], {
+        cwd: projectDir,
+        env: process.env,
+        stdio: 'inherit',
+        shell: false,
+    });
+    if (result.error || result.status !== 0) {
+        logInfo('微信开发者工具 CLI 打开失败，请手动执行 npm run wechat:devtools:open');
+        return;
+    }
+    logInfo('已通过微信开发者工具 CLI 打开项目');
 }
 
 console.log('=== 微信小游戏打包 ===');
@@ -412,9 +506,10 @@ logInfo('GameAssets bundle: wechat subpackage');
 
 logStep('0. 清理旧产物...');
 rm(buildDir);
+rm(finalBuildDir);
 rm(levelDataCdnDir);
 rm(skinDataCdnDir);
-logInfo('build/wechatgame、build/level-data-cdn 与 build/skin-cdn 已清理');
+logInfo('build/wechatgame、build/wechatgame-staging、build/level-data-cdn 与 build/skin-cdn 已清理');
 cleanCocosGeneratedCaches();
 repairCocosMetaFiles();
 
@@ -431,7 +526,7 @@ runNode('scripts/prepare-bootstrap.js');
 logInfo('BootstrapBundle 源目录已准备');
 
 const startSceneUuid = getStartSceneUuid();
-runNode('scripts/write-wechat-build-config.js', [buildConfigPath, startSceneUrl, startSceneUuid, '--' + buildMode]);
+runNode('scripts/write-wechat-build-config.js', [buildConfigPath, startSceneUrl, startSceneUuid, '--' + buildMode, stagingBuildName]);
 logInfo('微信构建配置已生成: ' + buildConfigPath);
 
 logStep('1. Cocos Creator 构建 wechatgame...');
@@ -461,12 +556,15 @@ if (fs.existsSync(path.join(projectDir, 'cloudfunctions'))) {
 }
 
 const runtimeDir = resolveRuntimeDir();
-const gameJson = readJson(path.join(runtimeDir, 'game.json'));
-const settings = readJson(findSettingsPath(runtimeDir));
+let gameJson = readJson(path.join(runtimeDir, 'game.json'));
+let settings = readJson(findSettingsPath(runtimeDir));
 assertWechatProjectConfig();
 assertRuntimeCoreConfig(runtimeDir, gameJson, settings);
+assertOpenDataContextConfig(runtimeDir, gameJson);
 logStep('2.1 补齐本地小游戏公共 bundle 产物...');
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeDir]);
+gameJson = readJson(path.join(runtimeDir, 'game.json'));
+settings = readJson(findSettingsPath(runtimeDir));
 
 logStep('3. 输出体积...');
 const runtimeInfo = {
@@ -477,11 +575,12 @@ const runtimeInfo = {
 };
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas', 'GameUI/block_bright_pindd'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', buildMode === 'debug' ? ['Skins/skins', 'Skins/Icons/bg_000'] : [], '');
+assertRuntimeBundleNoPath(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', 'Textures/UI/block_bright_pindd');
 if (buildMode === 'release') {
     assertRuntimeBundleNoPathPrefix(runtimeInfo.gameAssetsDir, 'gameAssets', 'Skins/');
     assertRuntimeBundleNoSourceArtifacts(runtimeInfo.gameAssetsDir, 'gameAssets', path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins'), 'GameAssetsBundle/Skins 本地镜像');
@@ -496,13 +595,20 @@ const runtimeBytes = dirSize(runtimeDir);
 const mainKB = Math.round(mainBytes / 1024);
 const startupDownload = computeStartupDownloadBytes(runtimeDir, gameJson, settings.assets || {}, mainBytes);
 const startupDownloadKB = Math.round(startupDownload.total / 1024);
-console.log('   - 本地包项目:        ' + buildDir);
-console.log('   - 运行时根目录:      ' + runtimeDir);
+const finalRuntimeDir = toFinalBuildPath(runtimeDir);
+const finalRuntimeInfo = {
+    bootstrapDir: toFinalBuildPath(runtimeInfo.bootstrapDir),
+    homeAssetsDir: toFinalBuildPath(runtimeInfo.homeAssetsDir),
+    gameAssetsDir: toFinalBuildPath(runtimeInfo.gameAssetsDir),
+};
+promoteStagingBuild();
+console.log('   - 本地包项目:        ' + finalBuildDir);
+console.log('   - 运行时根目录:      ' + finalRuntimeDir);
 console.log('   - 关卡数据 CDN:      ' + levelDataCdnDir);
 console.log('   - 皮肤数据 CDN:      ' + skinDataCdnDir);
-console.log('   - gameEntry/bootstrap: ' + formatMB(dirSize(runtimeInfo.bootstrapDir)));
-console.log('   - homeAssets 分包:       ' + formatMB(dirSize(runtimeInfo.homeAssetsDir)));
-console.log('   - gameAssets 分包:       ' + formatMB(dirSize(runtimeInfo.gameAssetsDir)));
+console.log('   - gameEntry/bootstrap: ' + formatMB(dirSize(finalRuntimeInfo.bootstrapDir)));
+console.log('   - homeAssets 分包:       ' + formatMB(dirSize(finalRuntimeInfo.homeAssetsDir)));
+console.log('   - gameAssets 分包:       ' + formatMB(dirSize(finalRuntimeInfo.gameAssetsDir)));
 console.log('   - 关卡数据包:        ' + formatMB(dirSize(levelDataCdnDir)));
 console.log('   - 皮肤数据包:        ' + formatMB(dirSize(skinDataCdnDir)));
 console.log('');
@@ -514,10 +620,10 @@ for (const item of startupDownload.included) {
 console.log('   minigame 实际目录: ' + formatMB(runtimeBytes));
 console.log('');
 console.log('=== 打包完成 ===');
-console.log('本地包：' + buildDir);
+console.log('本地包：' + finalBuildDir);
 console.log('关卡数据包：' + levelDataCdnDir);
 console.log('皮肤数据包：' + skinDataCdnDir);
 console.log('如需上传全部 CDN 数据，再执行：npm run sync:cdn:wechat');
 console.log('如需只上传关卡数据，再执行：npm run sync:cdn:wechat:level_data');
 console.log('如需只上传皮肤数据，再执行：npm run sync:cdn:wechat:skin_data');
-maybeReloadWechatDevtools();
+maybeReloadWechatDevtools(finalBuildDir);

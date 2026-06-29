@@ -8,11 +8,13 @@ const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatga
 const bootstrapSourceRoot = path.join(projectRoot, 'assets', 'BootstrapBundle');
 const libraryRoot = path.join(projectRoot, 'library');
 const bootstrapBundleName = 'bootstrap';
+const gameAssetsBundleName = 'gameAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'GameUI/bg_game_pindd',
 	'GameUI/board_zoom_locate',
 	'GameUI/board_zoom_thumb',
+	'GameUI/block_bright_pindd',
 	'GameUI/slot_groove_b_ui',
 	'GameUI/slot_panel_shell_b_ui',
 	'GameUI/slot_row_lock_dash_ui',
@@ -37,6 +39,27 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/solid_white',
 	'GameUI/设置',
 	'GameUI/进度条',
+]);
+const criticalGameAssetsPathMap = new Map([
+    ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
+    ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
+    ['UI/Prefabs/Panels/LosePanel', 'UI/Prefabs/Panels/LosePanel'],
+    ['Audio/bgm', 'Audio/bgm'],
+    ['Audio/pindd/select', 'Audio/pindd/select'],
+    ['Audio/pindd/right_place_short', 'Audio/pindd/right_place_short'],
+    ['Audio/pindd/shelf', 'Audio/pindd/shelf'],
+    ['Audio/pindd/error', 'Audio/pindd/error'],
+    ['Audio/pindd/prop_freeze', 'Audio/pindd/prop_freeze'],
+    ['Audio/ui', 'Audio/ui'],
+    ['Audio/tick', 'Audio/tick'],
+    ['Audio/win', 'Audio/win'],
+    ['Audio/winColor', 'Audio/winColor'],
+    ['Audio/winSettlement', 'Audio/winSettlement'],
+    ['Audio/lose', 'Audio/lose'],
+    ['Audio/guide_level1_pick_1', 'Audio/guide_level1_pick_1'],
+    ['Audio/guide_level1_place_1', 'Audio/guide_level1_place_1'],
+    ['Audio/guide_level1_pick_2', 'Audio/guide_level1_pick_2'],
+    ['Audio/guide_level1_place_2', 'Audio/guide_level1_place_2'],
 ]);
 
 function fail(message) {
@@ -80,7 +103,56 @@ function resolveBootstrapOutputRoot() {
     return path.join(runtimeRoot, 'subpackages', bootstrapBundleName);
 }
 
+function resolveBundleOutputRoot(bundleName) {
+    const localRoot = path.join(runtimeRoot, 'assets', bundleName);
+    if (fs.existsSync(localRoot)) return localRoot;
+    const gameJson = readGameJson();
+    const subpackages = Array.isArray(gameJson?.subpackages) ? gameJson.subpackages : [];
+    for (const item of subpackages) {
+        const root = String(item?.root || '').replace(/^\/+|\/+$/g, '');
+        if (item?.name === bundleName || root === bundleName || root === `subpackages/${bundleName}`) {
+            return path.join(runtimeRoot, root || `subpackages/${bundleName}`);
+        }
+    }
+    return path.join(runtimeRoot, 'subpackages', bundleName);
+}
+
 const bootstrapOutputRoot = resolveBootstrapOutputRoot();
+
+function decodeUuid(base64) {
+    const separator = '@';
+    const base = base64.split(separator)[0];
+    if (base.length !== 22) {
+        return base64;
+    }
+
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const values = new Array(123).fill(0);
+    for (let i = 0; i < chars.length; i += 1) {
+        values[chars.charCodeAt(i)] = i;
+    }
+
+    const hexChars = '0123456789abcdef'.split('');
+    const template = ['', '', '', '', '', '', '', '', '-', '', '', '', '', '-', '', '', '', '', '-', '', '', '', '', '-', '', '', '', '', '', '', '', '', '', '', '', ''];
+    const indices = [];
+    for (let i = 0; i < template.length; i += 1) {
+        if (template[i] !== '-') {
+            indices.push(i);
+        }
+    }
+
+    template[0] = base[0];
+    template[1] = base[1];
+    for (let i = 2, j = 2; i < 22; i += 2) {
+        const lhs = values[base64.charCodeAt(i)];
+        const rhs = values[base64.charCodeAt(i + 1)];
+        template[indices[j++]] = hexChars[lhs >> 2];
+        template[indices[j++]] = hexChars[((lhs & 3) << 2) | (rhs >> 4)];
+        template[indices[j++]] = hexChars[rhs & 0xF];
+    }
+
+    return base64.replace(base, template.join(''));
+}
 
 function walkImages(dir) {
     if (!fs.existsSync(dir)) return [];
@@ -163,6 +235,221 @@ function appendAssetEntry(config, uuid, assetPath, typeName) {
     return true;
 }
 
+function appendCriticalGameAssetEntry(config, entry) {
+    if (!Array.isArray(config.uuids)) config.uuids = [];
+    if (!config.paths || typeof config.paths !== 'object') config.paths = {};
+    let index = config.uuids.indexOf(entry.uuid);
+    if (index < 0) {
+        index = config.uuids.length;
+        config.uuids.push(entry.uuid);
+    }
+    if (!entry.newPath) return false;
+    const existingPaths = findPathEntries(config);
+    if (existingPaths.has(entry.newPath)) return false;
+    const typeIndex = ensureType(config, entry.typeName);
+    config.paths[index] = [entry.newPath, typeIndex, 1];
+    return true;
+}
+
+function getEntryTypeName(config, entry) {
+    if (!entry || !entry.value) return '';
+    const typeIndex = entry.value[1];
+    return Array.isArray(config.types) ? (config.types[typeIndex] || '') : '';
+}
+
+function requiresNativeArtifact(entry) {
+    return entry.typeName === 'cc.AudioClip' || entry.typeName === 'cc.ImageAsset';
+}
+
+function buildVersionHashByIndex(config, kind) {
+    const versions = config.versions && Array.isArray(config.versions[kind]) ? config.versions[kind] : [];
+    const hashes = new Map();
+    for (let i = 0; i < versions.length; i += 2) {
+        if (typeof versions[i] === 'number' && typeof versions[i + 1] === 'string') {
+            hashes.set(versions[i], versions[i + 1]);
+        }
+    }
+    return hashes;
+}
+
+function appendVersionHash(config, kind, uuid, hash) {
+    if (!hash) return false;
+    if (!Array.isArray(config.uuids)) config.uuids = [];
+    let index = config.uuids.indexOf(uuid);
+    if (index < 0) {
+        index = config.uuids.length;
+        config.uuids.push(uuid);
+    }
+    if (!config.versions || typeof config.versions !== 'object') config.versions = {};
+    if (!Array.isArray(config.versions[kind])) config.versions[kind] = [];
+    const versions = config.versions[kind];
+    for (let i = 0; i < versions.length; i += 2) {
+        if (versions[i] === index) {
+            if (versions[i + 1] === hash) return false;
+            versions[i + 1] = hash;
+            return true;
+        }
+    }
+    versions.push(index, hash);
+    return true;
+}
+
+function findArtifactByDecodedUuid(bundleRoot, kind, decodedUuid) {
+    const artifacts = findArtifactsByDecodedUuid(bundleRoot, kind, decodedUuid);
+    if (kind === 'import') {
+        const plain = artifacts.find((filePath) => path.basename(filePath) === `${decodedUuid}.json`);
+        return plain || artifacts[0] || '';
+    }
+    return artifacts[0] || '';
+}
+
+function findArtifactsByDecodedUuid(bundleRoot, kind, decodedUuid) {
+    const dir = path.join(bundleRoot, kind, decodedUuid.slice(0, 2));
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir)
+        .filter((fileName) => fileName.startsWith(decodedUuid) && (kind !== 'import' || fileName.endsWith('.json')))
+        .sort((a, b) => a.length - b.length || a.localeCompare(b))
+        .map((fileName) => path.join(dir, fileName));
+}
+
+function copyGameAssetImportArtifacts(gameAssetsRoot, uuid) {
+    const decoded = decodeUuid(uuid).split('@')[0];
+    const sources = findArtifactsByDecodedUuid(gameAssetsRoot, 'import', decoded);
+    if (sources.length === 0) return false;
+    const destDir = path.join(bootstrapOutputRoot, 'import', decoded.slice(0, 2));
+    ensureDir(destDir);
+    for (const src of sources) {
+        const dest = path.join(destDir, path.basename(src));
+        if (!fs.existsSync(dest)) fs.copyFileSync(src, dest);
+    }
+    const plainDest = path.join(destDir, `${decoded}.json`);
+    if (!fs.existsSync(plainDest)) {
+        fs.copyFileSync(sources[0], plainDest);
+    }
+    return true;
+}
+
+function copyGameAssetNativeArtifacts(gameAssetsRoot, uuid) {
+    const decoded = decodeUuid(uuid).split('@')[0];
+    const sources = findArtifactsByDecodedUuid(gameAssetsRoot, 'native', decoded);
+    if (sources.length === 0) return false;
+    const destDir = path.join(bootstrapOutputRoot, 'native', decoded.slice(0, 2));
+    ensureDir(destDir);
+    for (const src of sources) {
+        const dest = path.join(destDir, path.basename(src));
+        if (!fs.existsSync(dest)) fs.copyFileSync(src, dest);
+    }
+    return true;
+}
+
+function findNativeArtifactForVersion(bundleRoot, uuid, versionHash) {
+    const decoded = decodeUuid(uuid).split('@')[0];
+    const dir = path.join(bundleRoot, 'native', decoded.slice(0, 2));
+    if (!fs.existsSync(dir)) return '';
+    return fs.readdirSync(dir)
+        .find((fileName) => fileName.startsWith(`${decoded}.${versionHash}.`) && !fileName.endsWith('.json')) || '';
+}
+
+function readImportArtifactData(gameAssetsRoot, uuid) {
+    const decoded = decodeUuid(uuid);
+    const src = findArtifactByDecodedUuid(gameAssetsRoot, 'import', decoded);
+    if (!src) return null;
+    return readJson(src);
+}
+
+function collectReferencedUuids(value, knownUuids, out) {
+    if (!value) return;
+    if (typeof value === 'string') {
+        if (knownUuids.has(value)) out.add(value);
+        const plainValue = value.split('@')[0];
+        if (knownUuids.has(plainValue)) out.add(plainValue);
+        return;
+    }
+    if (Array.isArray(value)) {
+        for (const item of value) collectReferencedUuids(item, knownUuids, out);
+        return;
+    }
+    if (typeof value !== 'object') return;
+    if (typeof value.__uuid__ === 'string' && knownUuids.has(value.__uuid__)) {
+        out.add(value.__uuid__);
+    }
+    for (const child of Object.values(value)) {
+        collectReferencedUuids(child, knownUuids, out);
+    }
+}
+
+function buildGameAssetsEntryIndex(config) {
+    const entriesByUuid = new Map();
+    const uuids = config.uuids || [];
+    const importVersions = buildVersionHashByIndex(config, 'import');
+    const nativeVersions = buildVersionHashByIndex(config, 'native');
+    for (const [key, value] of Object.entries(config.paths || {})) {
+        const oldIndex = Number(key);
+        const uuid = uuids[oldIndex];
+        if (!uuid || !Array.isArray(value) || !value[0]) continue;
+        const entry = {
+            oldIndex,
+            oldPath: value[0],
+            newPath: null,
+            value,
+            uuid,
+            typeName: getEntryTypeName(config, { value }),
+            importVersionHash: importVersions.get(oldIndex) || '',
+            nativeVersionHash: nativeVersions.get(oldIndex) || '',
+        };
+        entriesByUuid.set(uuid, entry);
+    }
+    return entriesByUuid;
+}
+
+function collectCriticalGameAssets() {
+    const gameAssetsRoot = resolveBundleOutputRoot(gameAssetsBundleName);
+    const configPath = path.join(gameAssetsRoot, 'config.json');
+    if (!fs.existsSync(configPath)) fail('未找到 gameAssets config: ' + configPath);
+    const gameAssetsConfig = readJson(configPath);
+    const entriesByUuid = buildGameAssetsEntryIndex(gameAssetsConfig);
+    const selectedByUuid = new Map();
+    const foundPaths = new Set();
+    for (const entry of entriesByUuid.values()) {
+        const targetPath = criticalGameAssetsPathMap.get(entry.oldPath);
+        if (!targetPath) continue;
+        selectedByUuid.set(entry.uuid, { ...entry, newPath: targetPath });
+        foundPaths.add(entry.oldPath);
+    }
+    const missing = [...criticalGameAssetsPathMap.keys()].filter((sourcePath) => !foundPaths.has(sourcePath));
+    if (missing.length > 0) {
+        fail('bootstrap critical gameAssets 缺失: ' + missing.join(', '));
+    }
+
+    const knownUuids = new Set(gameAssetsConfig.uuids || []);
+    const queue = [...selectedByUuid.keys()];
+    const visited = new Set();
+    while (queue.length > 0) {
+        const uuid = queue.shift();
+        if (visited.has(uuid)) continue;
+        visited.add(uuid);
+        const importData = readImportArtifactData(gameAssetsRoot, uuid);
+        if (!importData) continue;
+        const deps = new Set();
+        collectReferencedUuids(importData, knownUuids, deps);
+        for (const depUuid of deps) {
+            if (!selectedByUuid.has(depUuid)) {
+                const depEntry = entriesByUuid.get(depUuid);
+                if (depEntry) selectedByUuid.set(depUuid, { ...depEntry, newPath: null });
+            }
+            const depEntry = entriesByUuid.get(depUuid);
+            if (depEntry && !visited.has(depUuid)) {
+                queue.push(depUuid);
+            }
+        }
+    }
+
+    return {
+        gameAssetsRoot,
+        entries: [...selectedByUuid.values()].sort((a, b) => a.oldIndex - b.oldIndex),
+    };
+}
+
 function findMissingAssets(configs, assets) {
     return assets.filter((asset) => configs.some((config) => !findPathEntries(config).has(asset.assetPath)));
 }
@@ -197,6 +484,7 @@ const configPaths = fs.readdirSync(bootstrapOutputRoot)
 if (configPaths.length === 0) fail('bootstrap config 不存在: ' + bootstrapOutputRoot);
 
 const assets = collectAssets();
+const criticalGameAssets = collectCriticalGameAssets();
 const configRecords = configPaths.map((configPath) => ({
     configPath,
     config: readJson(configPath),
@@ -204,6 +492,10 @@ const configRecords = configPaths.map((configPath) => ({
 const missingAssets = findMissingAssets(configRecords.map((record) => record.config), assets);
 const copiedImports = new Set();
 const copiedNative = new Set();
+const copiedCriticalImports = new Set();
+const copiedCriticalNative = new Set();
+let addedCriticalImportVersions = 0;
+let addedCriticalNativeVersions = 0;
 for (const asset of missingAssets) {
     if (!copiedImports.has(asset.uuid)) {
         if (copyImport(asset.uuid)) copiedImports.add(asset.uuid);
@@ -214,13 +506,45 @@ for (const asset of missingAssets) {
         copiedNative.add(asset.uuid);
     }
 }
+for (const entry of criticalGameAssets.entries) {
+    if (!copiedCriticalImports.has(entry.uuid)) {
+        if (!copyGameAssetImportArtifacts(criticalGameAssets.gameAssetsRoot, entry.uuid)) {
+            fail('bootstrap critical import 缺失: ' + entry.oldPath + ' uuid=' + decodeUuid(entry.uuid));
+        }
+        copiedCriticalImports.add(entry.uuid);
+    }
+    if (requiresNativeArtifact(entry) && !copiedCriticalNative.has(entry.uuid)) {
+        if (!copyGameAssetNativeArtifacts(criticalGameAssets.gameAssetsRoot, entry.uuid)) {
+            fail('bootstrap critical native 缺失: ' + entry.oldPath + ' uuid=' + decodeUuid(entry.uuid));
+        }
+        copiedCriticalNative.add(entry.uuid);
+    }
+}
 
 let addedEntries = 0;
+let addedCriticalEntries = 0;
 for (const { configPath, config } of configRecords) {
     for (const asset of assets) {
         if (appendAssetEntry(config, asset.uuid, asset.assetPath, asset.typeName)) addedEntries += 1;
     }
+    for (const entry of criticalGameAssets.entries) {
+        if (appendCriticalGameAssetEntry(config, entry)) addedCriticalEntries += 1;
+        if (appendVersionHash(config, 'import', entry.uuid, entry.importVersionHash)) {
+            addedCriticalImportVersions += 1;
+        }
+        if (requiresNativeArtifact(entry)) {
+            if (!entry.nativeVersionHash) {
+                fail('bootstrap critical native version 缺失: ' + entry.oldPath + ' uuid=' + decodeUuid(entry.uuid));
+            }
+            if (!findNativeArtifactForVersion(bootstrapOutputRoot, entry.uuid, entry.nativeVersionHash)) {
+                fail('bootstrap critical native 版本文件缺失: ' + entry.oldPath + ' uuid=' + decodeUuid(entry.uuid) + ' version=' + entry.nativeVersionHash);
+            }
+            if (appendVersionHash(config, 'native', entry.uuid, entry.nativeVersionHash)) {
+                addedCriticalNativeVersions += 1;
+            }
+        }
+    }
     writeJson(configPath, config);
 }
 
-console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, configs=${configPaths.length}`);
+console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, configs=${configPaths.length}`);

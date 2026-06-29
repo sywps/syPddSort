@@ -147,6 +147,15 @@ function resolveRestorableProgress(doc) {
   return typeof doc?.savedLevel === 'number' ? readPositiveInt(doc.savedLevel) : 0;
 }
 
+function resolveEffectiveProgress(...sources) {
+  let level = 0;
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    level = Math.max(level, readPositiveInt(source.savedLevel), readPositiveInt(source.lastLevelId));
+  }
+  return level;
+}
+
 function resolveStateUpdatedAt(doc, savedLevel) {
   const fromProfile = normalizeTimestamp(doc?.stateUpdatedAt, 0);
   return fromProfile > 0 ? fromProfile : (savedLevel > 1 ? Date.now() : 0);
@@ -173,10 +182,11 @@ function buildBaseProfile(openid, timestamp) {
   };
 }
 
-function extractProfile(doc) {
+function extractProfile(doc, effectiveProgress = 0) {
   if (!doc) return null;
   const uuid = cleanString(doc.clientUuid, 64);
-  if (!uuid && !doc.displayName && !doc.avatarUrl && typeof doc.lastLevelId !== 'number') {
+  const progress = readPositiveInt(effectiveProgress) || readPositiveInt(doc.lastLevelId);
+  if (!uuid && !doc.displayName && !doc.avatarUrl && progress <= 0) {
     return null;
   }
   return {
@@ -188,12 +198,12 @@ function extractProfile(doc) {
     createdAt: normalizeTimestamp(doc.createdAt, Date.now()),
     lastActiveAt: normalizeTimestamp(doc.lastActiveAt, Date.now()),
     loginCount: normalizeNonNegativeInt(doc.loginCount, 0),
-    lastLevelId: normalizePositiveInt(doc.lastLevelId, 1),
+    lastLevelId: progress > 0 ? progress : normalizePositiveInt(doc.lastLevelId, 1),
   };
 }
 
-function extractGameState(doc) {
-  const savedLevel = resolveRestorableProgress(doc);
+function extractGameState(doc, effectiveProgress = 0) {
+  const savedLevel = readPositiveInt(effectiveProgress) || resolveRestorableProgress(doc);
   const state = {};
 
   if (savedLevel !== 0) {
@@ -295,7 +305,7 @@ function buildGameStatePatch(source = {}, current = {}) {
     source.stateUpdatedAt,
     currentStateUpdatedAt || Date.now()
   );
-  const currentSavedLevel = readPositiveInt(current.savedLevel);
+  const currentSavedLevel = resolveEffectiveProgress(current);
   const sourceSavedLevel = hasOwn(source, 'savedLevel') ? readPositiveInt(source.savedLevel) : 0;
   const mergedSavedLevel = Math.max(currentSavedLevel, sourceSavedLevel);
   const currentGold = normalizeNonNegativeInt(current.gold, 0);
@@ -429,12 +439,13 @@ exports.main = async (event = {}) => {
     let current = await findUserProfile(openid);
 
     if (action === 'get') {
-      const gameState = extractGameState(current);
+      const effectiveProgress = resolveEffectiveProgress(current);
+      const gameState = extractGameState(current, effectiveProgress);
       return {
         ok: true,
         userStateSchemaVersion: USER_STATE_SCHEMA_VERSION,
         skinStateSchemaVersion: SKIN_STATE_SCHEMA_VERSION,
-        profile: extractProfile(current),
+        profile: extractProfile(current, effectiveProgress),
         gameState,
       };
     }
@@ -466,6 +477,11 @@ exports.main = async (event = {}) => {
     if (event.gameState && typeof event.gameState === 'object') {
       Object.assign(patch, buildGameStatePatch(event.gameState, current));
     }
+    const effectiveProgress = resolveEffectiveProgress(current, event.profile, event.gameState, patch);
+    if (effectiveProgress > 0) {
+      patch.savedLevel = effectiveProgress;
+      patch.lastLevelId = effectiveProgress;
+    }
     if (current._id) {
       await collection.doc(current._id).update({ data: patch });
     }
@@ -479,8 +495,8 @@ exports.main = async (event = {}) => {
       ok: true,
       userStateSchemaVersion: USER_STATE_SCHEMA_VERSION,
       skinStateSchemaVersion: SKIN_STATE_SCHEMA_VERSION,
-      profile: extractProfile(merged),
-      gameState: extractGameState(merged),
+      profile: extractProfile(merged, effectiveProgress),
+      gameState: extractGameState(merged, effectiveProgress),
     };
   } catch (error) {
     return {

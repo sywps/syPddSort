@@ -12,7 +12,6 @@ const BOOTSTRAP_PATH_MAP = (() => {
     map.set('LevelData/level_1', 'LevelData/level_1');
 
     const commonUiNames = [
-        'block_bright_pindd',
         'slot_panel_shell_b_ui',
         'slot_groove_b_ui',
     ];
@@ -22,6 +21,35 @@ const BOOTSTRAP_PATH_MAP = (() => {
         map.set(`${gameAssetsBase}/texture`, `${bootstrapBase}/texture`);
         map.set(gameAssetsBase, bootstrapBase);
         map.set(`${gameAssetsBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
+    }
+
+    for (const prefabPath of [
+        'UI/Prefabs/Panels/WinPanel',
+        'UI/Prefabs/Panels/RevivePanel',
+        'UI/Prefabs/Panels/LosePanel',
+    ]) {
+        map.set(prefabPath, prefabPath);
+    }
+
+    for (const audioPath of [
+        'Audio/bgm',
+        'Audio/pindd/select',
+        'Audio/pindd/right_place_short',
+        'Audio/pindd/shelf',
+        'Audio/pindd/error',
+        'Audio/pindd/prop_freeze',
+        'Audio/ui',
+        'Audio/tick',
+        'Audio/win',
+        'Audio/winColor',
+        'Audio/winSettlement',
+        'Audio/lose',
+        'Audio/guide_level1_pick_1',
+        'Audio/guide_level1_place_1',
+        'Audio/guide_level1_pick_2',
+        'Audio/guide_level1_place_2',
+    ]) {
+        map.set(audioPath, audioPath);
     }
 
     return map;

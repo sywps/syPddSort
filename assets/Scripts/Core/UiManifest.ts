@@ -2,6 +2,9 @@ export const BOARD_EFFECT_TEXTURE_NAMES = [
     'block_bright_pindd',
 ];
 
+export const BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS = BOARD_EFFECT_TEXTURE_NAMES
+    .map((name) => `GameUI/${name}`);
+
 export const GAME_ASSETS_PRELOAD_TEXTURE_PATHS: string[] = [];
 
 export const POPUP_UI_TEXTURE_NAMES = [
@@ -138,8 +141,7 @@ export const SETTINGS_PANEL_RELEASE_TEXTURE_NAMES = [...SETTINGS_PANEL_TEXTURE_N
 export const LEADERBOARD_RELEASE_TEXTURE_NAMES = [...LEADERBOARD_TEXTURE_NAMES];
 export const COLLECTION_RELEASE_TEXTURE_NAMES = [...COLLECTION_TEXTURE_NAMES];
 
-export const GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS = BOARD_EFFECT_TEXTURE_NAMES
-    .map((name) => `Textures/UI/${name}`);
+export const GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = [];
 
 export const GAME_ASSETS_TEXTURE_SEARCH_DIRS = [
     'Textures/UI',

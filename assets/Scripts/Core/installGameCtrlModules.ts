@@ -23,6 +23,7 @@ import { installSettingsPanelModule } from './GameCtrlModules/SettingsPanelModul
 import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModule';
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
 import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
+import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -54,4 +55,5 @@ export function installGameCtrlModules(runtime: any): void {
     installThemePanelFlowModule(runtime);
     installThemeLoadingOverlayModule(runtime);
     installSettingsPanelModule(runtime);
+    installPostPlayableWarmupModule(runtime);
 }

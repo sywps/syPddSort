@@ -31,6 +31,8 @@ function logSceneTrace(...args: unknown[]): void {
     runtimeLog(...args);
 }
 
+const HOME_PRELOAD_FOREGROUND_WAIT_TIMEOUT_MS = 800;
+
 export class SceneRouter {
     readonly bootSceneName: AppSceneName = 'Boot';
     readonly homeSceneName: AppSceneName = 'Home';
@@ -41,6 +43,7 @@ export class SceneRouter {
     private _homeScenePreloadPromise: Promise<void> | null = null;
     private _homeScenePreloaded = false;
     private _homeScenePreloadedAsset: SceneAsset | null = null;
+    private _homeScenePreloadToken = 0;
 
     constructor(private readonly session: AppSession) {}
 
@@ -79,7 +82,7 @@ export class SceneRouter {
     }
 
     async toHome(): Promise<void> {
-        await this.waitForHomeScenePreloadIfNeeded();
+        await this.waitForHomeScenePreloadIfNeeded(HOME_PRELOAD_FOREGROUND_WAIT_TIMEOUT_MS);
         await this.loadBundledScene(this.homeSceneName, HOME_ASSETS_BUNDLE_NAME, LOGICAL_HOME_BUNDLE_NAME);
     }
 
@@ -102,6 +105,7 @@ export class SceneRouter {
             return;
         }
         const startedAt = Date.now();
+        const preloadToken = ++this._homeScenePreloadToken;
         debugPerfTrace('scene.home.preload.start', {
             source,
             current: this.session.currentSceneName,
@@ -112,6 +116,10 @@ export class SceneRouter {
                 bundle.loadScene(this.homeSceneName, (sceneErr: Error | null, sceneAsset: SceneAsset) => {
                     if (sceneErr || !sceneAsset) {
                         reject(new Error(`[SceneRouter] preload ${LOGICAL_HOME_BUNDLE_NAME}/${HOME_ASSETS_BUNDLE_NAME}/${this.homeSceneName} failed: ${sceneErr?.message || 'missing scene asset'}`));
+                        return;
+                    }
+                    if (this._homeScenePreloadToken !== preloadToken) {
+                        resolve();
                         return;
                     }
                     this._homeScenePreloadedAsset = sceneAsset;
@@ -133,19 +141,22 @@ export class SceneRouter {
                 loadSceneFromBundle(bundle);
             });
         }).then(() => {
+            if (this._homeScenePreloadToken !== preloadToken) return;
             this._homeScenePreloaded = true;
             debugPerfTrace('scene.home.preload.done', {
                 source,
                 durationMs: Date.now() - startedAt,
             });
         }).catch((error) => {
-            this._homeScenePreloaded = false;
-            this._homeScenePreloadedAsset = null;
-            debugPerfTrace('scene.home.preload.error', {
-                source,
-                durationMs: Date.now() - startedAt,
-                error,
-            });
+            if (this._homeScenePreloadToken === preloadToken) {
+                this._homeScenePreloaded = false;
+                this._homeScenePreloadedAsset = null;
+                debugPerfTrace('scene.home.preload.error', {
+                    source,
+                    durationMs: Date.now() - startedAt,
+                    error,
+                });
+            }
             throw error;
         });
         this._homeScenePreloadPromise = preloadPromise;
@@ -158,18 +169,74 @@ export class SceneRouter {
         }
     }
 
-    private async waitForHomeScenePreloadIfNeeded(): Promise<void> {
+    private async waitForHomeScenePreloadIfNeeded(timeoutMs: number = HOME_PRELOAD_FOREGROUND_WAIT_TIMEOUT_MS): Promise<void> {
         const preloadPromise = this._homeScenePreloadPromise;
         if (!preloadPromise) return;
+        const timeout = Math.max(0, Math.floor(Number(timeoutMs) || 0));
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let timedOut = false;
         try {
-            await preloadPromise;
+            if (timeout > 0) {
+                await Promise.race([
+                    preloadPromise,
+                    new Promise<void>((resolve) => {
+                        timeoutId = setTimeout(() => {
+                            timedOut = true;
+                            resolve();
+                        }, timeout);
+                    }),
+                ]);
+            } else {
+                await preloadPromise;
+            }
         } catch (error) {
             debugPerfTrace('scene.home.preload.join.error', { error });
+        } finally {
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
         }
+        if (!timedOut) return;
+        if (this._homeScenePreloadPromise === preloadPromise) {
+            this._homeScenePreloadToken += 1;
+            this._homeScenePreloadPromise = null;
+            this._homeScenePreloaded = false;
+            this._homeScenePreloadedAsset = null;
+        }
+        debugPerfTrace('scene.home.preload.join.timeout', { timeoutMs: timeout });
     }
 
     private isSceneAssetUsable(sceneAsset: SceneAsset | null): sceneAsset is SceneAsset {
         return !!sceneAsset && (sceneAsset as any).isValid !== false;
+    }
+
+    private clearArrivedTransitionIfNeeded(source: string): void {
+        if (!this._transitioning || !this._transitionTargetSceneName) return;
+        const activeSceneName = director.getScene()?.name || '';
+        if (activeSceneName !== this._transitionTargetSceneName) return;
+        debugPerfTrace('scene.load.clearArrivedTransition', {
+            source,
+            activeSceneName,
+            target: this._transitionTargetSceneName,
+            current: this.session.currentSceneName,
+            requested: this.session.requestedSceneName,
+            visualState: this.session.visualState,
+        });
+        logSceneTrace(
+            '[SceneSplitTrace] loadScene:clearArrivedTransition',
+            JSON.stringify({
+                source,
+                activeSceneName,
+                target: this._transitionTargetSceneName,
+                current: this.session.currentSceneName,
+                requested: this.session.requestedSceneName,
+                visualState: this.session.visualState,
+            }),
+        );
+        this.session.setCurrentSceneName(this._transitionTargetSceneName);
+        this._transitioning = false;
+        this._transitionTargetSceneName = '';
+        this._transitionPromise = null;
     }
 
     private consumePreloadedBundledScene(sceneName: AppSceneName, bundleName: string): SceneAsset | null {
@@ -186,6 +253,7 @@ export class SceneRouter {
     }
 
     private getInFlightSceneLoad(sceneName: AppSceneName): Promise<void> | null {
+        this.clearArrivedTransitionIfNeeded(`before-${sceneName}`);
         if (!this._transitioning) return null;
         if (this._transitionTargetSceneName === sceneName) {
             debugPerfTrace('scene.load.joinInFlight', {
@@ -276,9 +344,11 @@ export class SceneRouter {
         try {
             await loadPromise;
         } finally {
-            this._transitioning = false;
-            this._transitionTargetSceneName = '';
-            this._transitionPromise = null;
+            if (this._transitionPromise === loadPromise) {
+                this._transitioning = false;
+                this._transitionTargetSceneName = '';
+                this._transitionPromise = null;
+            }
             debugPerfTrace('scene.load.finish', {
                 current: this.session.currentSceneName,
                 requested: this.session.requestedSceneName,
@@ -383,27 +453,6 @@ export class SceneRouter {
                             durationMs: Date.now() - startedAt,
                         });
                     }
-                    const startupGameRestore = sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME
-                        ? this.session.consumeStartupCloudGameRestoreForGameEntry()
-                        : null;
-                    if (startupGameRestore) {
-                        this.session.markPendingGameplayRequest(
-                            startupGameRestore.savedLevel,
-                            'level_',
-                            'main',
-                            'auto',
-                        );
-                        debugPerfTrace('scene.bundle.gameRestore.beforeRun', {
-                            from: this.session.currentSceneName,
-                            requestedBefore: this.session.requestedSceneName,
-                            loadedScene: sceneName,
-                            loadedBundleName: bundleName,
-                            loadedLogicalBundle: logicalName,
-                            to: sceneName,
-                            savedLevel: startupGameRestore.savedLevel,
-                            durationMs: Date.now() - startedAt,
-                        });
-                    }
                     director.runScene(sceneAsset, undefined, () => {
                         this.session.setCurrentSceneName(sceneName);
                         if (sceneName === this.gameSceneName && bundleName === LOCAL_BOOTSTRAP_BUNDLE_NAME) {
@@ -471,9 +520,11 @@ export class SceneRouter {
         try {
             await loadPromise;
         } finally {
-            this._transitioning = false;
-            this._transitionTargetSceneName = '';
-            this._transitionPromise = null;
+            if (this._transitionPromise === loadPromise) {
+                this._transitioning = false;
+                this._transitionTargetSceneName = '';
+                this._transitionPromise = null;
+            }
             debugPerfTrace('scene.bundle.load.finish', {
                 current: this.session.currentSceneName,
                 requested: this.session.requestedSceneName,

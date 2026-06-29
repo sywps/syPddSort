@@ -29,6 +29,7 @@ import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } f
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { markStartupTrace } from '../StartupTrace';
+import { flushPendingStartupCloudGameplayRestore } from './StartupCloudRestoreHelper';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -518,6 +519,7 @@ export function installFirstLevelRouteModule(target: any): void {
 
         onGameplayUiReadyForStartupServices() {
             this._startupBackgroundServicesUiReady = true;
+            flushPendingStartupCloudGameplayRestore(this, 'gameplay-ui-ready');
             this.runPendingStartupBackgroundServicesIfReady();
         },
 
@@ -572,6 +574,51 @@ export function installFirstLevelRouteModule(target: any): void {
             const pendingStartupPrefix = pendingMainGameplayRequest
                 ? String(pendingMainGameplayRequest.prefix || 'level_')
                 : '';
+            const pendingStartupRouteReason = pendingMainGameplayRequest
+                ? String(pendingMainGameplayRequest.routeReason || '')
+                : '';
+            const pendingLocalDirectStartup = pendingStartupLevelId >= 2
+                && (pendingStartupRouteReason === 'local_progress_gt_1' || hadLocalUserState);
+            if (pendingLocalDirectStartup) {
+                const startupLevelPrefix = pendingStartupPrefix || LOCAL_BOOTSTRAP_LEVEL_PREFIX;
+                markStartupTrace('startup_pending_local_direct', {
+                    levelId: pendingStartupLevelId,
+                    prefix: startupLevelPrefix,
+                    startupLocalProgressState,
+                    pendingStartupRouteReason,
+                });
+                this.reportLevelDataLoadDiagnostic(
+                    pendingStartupLevelId,
+                    'level_data_startup_diagnostics',
+                    true,
+                    this.getLevelDataPath(pendingStartupLevelId, startupLevelPrefix),
+                    {
+                        extra: {
+                            routeMode: 'pending_local_direct',
+                            initialDefaultEntryLevel,
+                            pendingStartupLevelId,
+                            pendingStartupPrefix,
+                            pendingStartupRouteReason,
+                            savedLevel: this.getSavedLevel(),
+                        },
+                    },
+                );
+                void this.beginStartupCloudRestore(true);
+                const useLocalBootstrapStartup =
+                    startupLevelPrefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX
+                    && this.shouldUseLocalBootstrapBundle(pendingStartupLevelId, startupLevelPrefix);
+                if (useLocalBootstrapStartup) {
+                    this.startLocalBootstrapLevelFast(pendingStartupLevelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX, pendingStartupLevelId);
+                } else {
+                    this.startGameAssetsLevelFast(pendingStartupLevelId, startupLevelPrefix, pendingStartupLevelId);
+                }
+                this._startDeferredStartupBackgroundServices(
+                    true,
+                    'local_progress_gt_1',
+                    useLocalBootstrapStartup ? 0.35 : 0,
+                );
+                return;
+            }
             const speculativeStartupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : (pendingStartupLevelId || initialDefaultEntryLevel));
             const shouldSpeculativeFirstPlayPrefetch =
                 !urlLevelFile

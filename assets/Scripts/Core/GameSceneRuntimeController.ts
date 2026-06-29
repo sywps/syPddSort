@@ -19,6 +19,7 @@ import { AppRoot } from './AppRoot';
 import { debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
 import { markStartupTrace } from './StartupTrace';
+import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 
 export class GameSceneRuntimeController {
@@ -115,12 +116,17 @@ export class GameSceneRuntimeController {
         });
         this.prepareSceneFrame('Boot');
         this.runtime.bindUserStateLifecycle();
-        const bootRoot = this.runtime.requireCanvasUiRoot('BootRoot');
-        const bootLoadingUi = bootRoot.getChildByName('StartupLoadingUI') || null;
-        if (bootLoadingUi) {
-            bootLoadingUi.active = false;
+        this.runtime.requireCanvasUiRoot('BootRoot');
+        const routeDecision = resolveStartupRouteDecision();
+        if (routeDecision.shouldMarkPendingGameplay) {
+            appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, 'main', 'auto', routeDecision.reason);
         }
-        this.startBootCloudRestoreProbe();
+        markStartupTrace('startup_boot_route_decided', {
+            source: 'GameSceneRuntimeController.startBoot',
+            reason: routeDecision.reason,
+            levelId: routeDecision.levelId,
+            pendingGameplay: routeDecision.shouldMarkPendingGameplay,
+        });
         this.runtime.scheduleOnce(() => {
             if (!this.runtime.node?.isValid) {
                 return;
@@ -129,10 +135,11 @@ export class GameSceneRuntimeController {
                 appRoot.router.logTransitionTrace('[SceneSplitTrace] bootRoute:skipDuplicate');
                 return;
             }
-            const startupGameplayLevel = this.getBootStartupGameplayLevel();
-            if (startupGameplayLevel > 1) {
-                appRoot.markGameRequested(startupGameplayLevel, 'level_', 'main', 'auto');
-            }
+            markStartupTrace('startup_route_game_start', {
+                source: 'GameSceneRuntimeController.startBoot',
+                requestedLevelId: routeDecision.shouldMarkPendingGameplay ? routeDecision.levelId : 0,
+                reason: routeDecision.reason,
+            });
             const route = appRoot.router.toGame();
             route.catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
@@ -147,7 +154,6 @@ export class GameSceneRuntimeController {
         debugPerfSnapshot('runtime.game.start', this.runtime, {
             previousSceneName,
         });
-        this.applyResolvedStartupCloudGameplayRequest(appRoot, 'startup-cloud-restore-before-game');
         const pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
         const explicitGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'cover';
         const suppressGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'none';
@@ -477,89 +483,6 @@ export class GameSceneRuntimeController {
         const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
         const windowScope: any = typeof window !== 'undefined' ? window : null;
         return !!(globalScope?.__PDD_SCREEN_ADAPT_DEBUG__ || windowScope?.__PDD_SCREEN_ADAPT_DEBUG__);
-    }
-
-    private canUseDefaultStartupRoute(): boolean {
-        const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
-        if (pendingSceneGameplayRequest) return false;
-        const urlLevel = typeof this.runtime.getUrlLevel === 'function' ? this.runtime.getUrlLevel() : 0;
-        const urlLevelFile = typeof this.runtime.getUrlLevelFile === 'function' ? this.runtime.getUrlLevelFile() : '';
-        if (urlLevel > 0 || urlLevelFile) return false;
-        return true;
-    }
-
-    private getBootStartupGameplayLevel(): number {
-        if (!this.canUseDefaultStartupRoute()) return 0;
-        if (
-            typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
-            && this.runtime.hasReliableLocalUserStateForStartup()
-        ) {
-            return typeof this.runtime.getSavedLevel === 'function'
-                ? Math.max(1, Math.floor(Number(this.runtime.getSavedLevel()) || 1))
-                : 1;
-        }
-        return this.getResolvedStartupCloudRestoreLevel();
-    }
-
-    private getResolvedStartupCloudRestoreLevel(): number {
-        const status = typeof this.runtime.getStartupCloudRestoreStatus === 'function'
-            ? this.runtime.getStartupCloudRestoreStatus()
-            : '';
-        if (status !== 'cloud_progress_gt_1') return 0;
-        const savedLevel = typeof this.runtime.getSavedLevel === 'function'
-            ? Math.max(1, Math.floor(Number(this.runtime.getSavedLevel()) || 1))
-            : 1;
-        return savedLevel > 1 ? savedLevel : 0;
-    }
-
-    private startBootCloudRestoreProbe(): void {
-        if (!this.canUseDefaultStartupRoute()) return;
-        if (typeof this.runtime.hasReliableLocalUserStateForStartup === 'function' && this.runtime.hasReliableLocalUserStateForStartup()) {
-            return;
-        }
-        if (typeof this.runtime.beginStartupCloudRestore !== 'function') return;
-        debugPerfTrace('startup.cloudRestore.bootProbe.begin', {
-            sceneName: this.getRuntimeSceneName('Boot'),
-        });
-        try {
-            void Promise.resolve(this.runtime.beginStartupCloudRestore(false))
-                .then((status) => {
-                    const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 0;
-                    if (status === 'cloud_progress_gt_1' && savedLevel > 1) {
-                        const appRoot = AppRoot.tryGet();
-                        appRoot?.session.markStartupCloudGameRestoreReady(savedLevel);
-                    }
-                    debugPerfTrace('startup.cloudRestore.bootProbe.done', {
-                        status,
-                        savedLevel,
-                    });
-                })
-                .catch((error) => {
-                    debugPerfTrace('startup.cloudRestore.bootProbe.error', { error });
-                });
-        } catch (error) {
-            debugPerfTrace('startup.cloudRestore.bootProbe.error', { error });
-        }
-    }
-
-    private applyResolvedStartupCloudGameplayRequest(appRoot: AppRoot, source: string): boolean {
-        const savedLevel = this.getResolvedStartupCloudRestoreLevel();
-        if (savedLevel <= 1) return false;
-        const pending = appRoot.session.pendingGameplayRequest;
-        if (pending && pending.entryMode !== 'main') return false;
-        if (pending?.entryMode === 'main' && pending.levelId >= savedLevel) return false;
-        const active = appRoot.session.activeGameplayContext;
-        if (active && active.entryMode !== 'main') return false;
-        if (active?.entryMode === 'main' && active.activeLevelId >= savedLevel) return false;
-        appRoot.markGameRequested(savedLevel, 'level_', 'main', 'auto');
-        if (typeof this.runtime.releaseStartupBootstrapPrefetchIfUnused === 'function') {
-            this.runtime.releaseStartupBootstrapPrefetchIfUnused(source);
-        }
-        debugPerfSnapshot('startup.cloudRestore.routeGameBeforeGameStartup', this.runtime, {
-            source,
-            savedLevel,
-        });
-        return true;
     }
 
     private startHomeBackgroundServices(): void {

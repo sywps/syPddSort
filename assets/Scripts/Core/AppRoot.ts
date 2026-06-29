@@ -88,7 +88,6 @@ export class AppRoot extends Component {
         this.router.attachCurrentScene(sceneName);
         this.session.markVisualState('home');
         this.session.clearGameplayContext();
-        this.session.clearStartupCloudGameRestoreRequest();
     }
 
     async requestHomeRoute(source: string = 'unknown', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
@@ -104,9 +103,10 @@ export class AppRoot extends Component {
         prefix: string,
         entryMode: AppGameplayEntryMode,
         entryCoverMode: AppGameplayEntryCoverMode = 'auto',
+        routeReason: string = '',
     ): void {
         this.router.requestGameScene();
-        this.session.markPendingGameplayRequest(levelId, prefix, entryMode, entryCoverMode);
+        this.session.markPendingGameplayRequest(levelId, prefix, entryMode, entryCoverMode, routeReason);
     }
 
     markGameActive(

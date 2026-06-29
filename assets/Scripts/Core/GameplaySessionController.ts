@@ -133,17 +133,13 @@ export class GameplaySessionController {
             runtime.renderSlots();
             runtime.assertGameplayVisualReadiness();
             runtime.hideLoadingOverlayAfterGameplayReady?.();
-            runtime.preloadSettingsPanel?.();
-            if (bootstrapOnlyGameplayStartup) {
-                AudioMgr.inst.playGameBgm();
-            }
+            AudioMgr.inst.playGameBgm();
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
             if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
                 runtime.recordMainlineLevelEntry(activeLogicalLevelId);
             }
             this.clearGameplayReadyRouteCover();
             runtime.refreshEndgameHints('init-game');
-            runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0.8);
             const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
             const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
             if (runtime.isFirstLevelFunnelActive()) {
@@ -167,9 +163,7 @@ export class GameplaySessionController {
             });
             AnalyticsMgr.inst.flushFunnelEvents();
             runtime.onGameplayUiReadyForStartupServices?.();
-            AppRoot.tryGet()?.router.preloadHomeScene('gameplay-ready').catch((error: unknown) => {
-                console.error('[SceneRouter] preload Home.scene failed:', error);
-            });
+            runtime.startPostPlayableWarmup?.('gameplay-ready');
 
             if (runtime.needsBeanReRender()) {
                 runtime.scheduleOnce(() => {

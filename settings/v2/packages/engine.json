@@ -155,7 +155,7 @@
           "spine-3.8": {
             "_value": true,
             "_flags": {
-              "LOAD_SPINE_MANUALLY": false
+              "LOAD_SPINE_MANUALLY": true
             }
           },
           "spine-4.2": {
@@ -210,7 +210,10 @@
           "value": false,
           "version": ""
         },
-        "flags": {}
+        "flags": {
+          "WASM_SUBPACKAGE": true,
+          "LOAD_SPINE_MANUALLY": true
+        }
       }
     },
     "globalConfigKey": "defaultConfig"
