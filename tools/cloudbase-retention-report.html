@@ -190,6 +190,53 @@ function renderCohortTable(title, subtitle, cohorts) {
         </section>
     `;
 }
+function renderExperimentRetention(report) {
+    const scopeKey = state.showAllUsers ? 'allUsers' : 'effectiveUsers';
+    const scopeLabel = state.showAllUsers ? '全部活跃用户' : 'L1有效用户';
+    const experiments = report.experimentRetention?.[scopeKey] || {};
+    const sections = Object.values(experiments).filter((section) => Array.isArray(section.groupRows) && section.groupRows.length);
+    if (!sections.length) return '';
+    const cohortOrder = [
+        ['all', '全部'],
+        ['new', '新用户'],
+        ['old', '老用户'],
+        ['unknown', '未知'],
+    ];
+    const headers = ['实验', '桶/分组', '用户类型', 'T用户', ...Array.from({ length: 7 }, (_, index) => `T+${index + 1}`)];
+    const rows = [];
+    for (const section of sections) {
+        for (const groupRow of section.groupRows) {
+            for (const [cohortKey, cohortLabel] of cohortOrder) {
+                const row = groupRow.cohorts?.[cohortKey];
+                rows.push(`
+                    <tr>
+                        <td><strong>${escapeHtml(section.experimentId)}</strong></td>
+                        <td>${escapeHtml(groupRow.groupLabel || groupRow.bucket || '')}</td>
+                        <td>${escapeHtml(cohortLabel)}</td>
+                        <td>${formatNumber(row?.baseUsers)}</td>
+                        ${Array.from({ length: 7 }, (_, index) => `<td>${row ? retentionCell(row, index + 1) : '-'}</td>`).join('')}
+                    </tr>
+                `);
+            }
+        }
+    }
+    return `
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title">实验分桶留存（hash）</div>
+                <div class="card-subtitle">${escapeHtml(scopeLabel)}口径；只使用 openid + salt 计算的 hash 分桶，展示 A+B、C+D、NULL，不读取埋点实验字段。</div>
+            </div>
+            <div class="card-body">
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
+                        <tbody>${rows.join('')}</tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    `;
+}
 function renderQuality(report) {
     const q = report.dataQuality || {};
     const missingHistory = Array.isArray(q.missingHistoryDates) ? q.missingHistoryDates : [];
@@ -232,6 +279,7 @@ function renderReport(report) {
             </div>
         </section>
         ${renderCohortTable(tableTitle, tableSubtitle, cohorts)}
+        ${renderExperimentRetention(report)}
         ${renderQuality(report)}
     `;
 }

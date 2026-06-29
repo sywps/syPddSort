@@ -2788,6 +2788,16 @@ function collectFirstLevelStartUsers(funnelRecords) {
   return startUsers;
 }
 
+function collectFirstLevelEnterUsers(behaviorRecords) {
+  const users = new Set();
+  for (const record of Array.isArray(behaviorRecords) ? behaviorRecords : []) {
+    if (record.eventName === "enter_level" && Number(record.levelId) === 1 && record.openid) {
+      users.add(record.openid);
+    }
+  }
+  return users;
+}
+
 function buildUserBehaviorSummaryFromRecords(records) {
   const enterPv = new Map();
   const passPv = new Map();
@@ -3555,6 +3565,9 @@ function buildDailyExperimentBreakdowns(combinedSummary, preloaded = {}) {
   const firstLevelStartUsers = preloaded.firstLevelStartUsers instanceof Set
     ? preloaded.firstLevelStartUsers
     : collectFirstLevelStartUsers(funnelRecords);
+  const firstLevelEnterUsers = preloaded.firstLevelEnterUsers instanceof Set
+    ? preloaded.firstLevelEnterUsers
+    : collectFirstLevelEnterUsers(behaviorRecords);
   const allDailyUsers = unionSets(
     collectUsersFromRecords(behaviorRecords),
     collectUsersFromRecords(levelRecordRecords),
@@ -3592,14 +3605,13 @@ function buildDailyExperimentBreakdowns(combinedSummary, preloaded = {}) {
       userBehaviorSummary: scopedBehaviorSummary,
       levelRecordSummary: scopedLevelRecordSummary,
     });
-    const alignedRows = alignFirstLevelEnterWithFunnelStart(first20Rows, intersectSets(users, firstLevelStartUsers));
     const adRows = buildLevelAdRelationship(combinedSummary, scopedBehaviorSummary, { records: scopedBehaviorRecords });
     return [
       buildAllLevelsSummaryFromRecords({
         behaviorRecords: scopedBehaviorRecords,
         levelRecordRecords: scopedLevelRecordRecords,
       }),
-      ...attachAdMetricsToLevelRows(alignedRows, adRows),
+      ...attachAdMetricsToLevelRows(first20Rows, adRows),
     ];
   };
   const buildAdRowsForUsers = (users) => buildExperimentLevelAdRelationship(
@@ -3613,6 +3625,7 @@ function buildDailyExperimentBreakdowns(combinedSummary, preloaded = {}) {
     dataQuality: {
       allDailyUsers: allDailyUsers.size,
       firstLevelStartUsers: firstLevelStartUsers.size,
+      firstLevelEnterUsers: firstLevelEnterUsers.size,
     },
     firstLevelFunnel: buildExperimentBreakdownRows(experiments, buildFirstLevelRowsForUsers, {
       scopeUsers: firstLevelStartUsers,
@@ -3620,15 +3633,15 @@ function buildDailyExperimentBreakdowns(combinedSummary, preloaded = {}) {
     }),
     first20Levels: buildExperimentBreakdownRows(experiments, buildFirst20RowsForUsers, {
       scopeUsers: allDailyUsers,
-      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelStartUsers).size }),
+      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelEnterUsers).size }),
     }),
     levelAdRelationship: buildExperimentBreakdownRows(experiments, buildAdRowsForUsers, {
       scopeUsers: allDailyUsers,
-      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelStartUsers).size }),
+      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelEnterUsers).size }),
     }),
     adPerformance: buildExperimentBreakdownRows(experiments, buildAdPerformanceRowsForUsers, {
       scopeUsers: allDailyUsers,
-      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelStartUsers).size }),
+      buildScopeExtra: (users) => ({ l1StartUsers: intersectSets(users, firstLevelEnterUsers).size }),
     }),
   };
 }
