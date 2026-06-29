@@ -17,6 +17,8 @@ const startSceneUrl = 'db://assets/Scenes/Boot.scene';
 const buildMode = parseBuildMode(process.argv.slice(2));
 const mainPackageTargetKB = 3072;
 const startupDownloadTargetKB = 3072;
+const wechatFirstScreenBgColor = [0.9607843137254902, 0.9215686274509803, 0.8627450980392157, 1];
+const wechatFirstScreenBgLiteral = '[' + wechatFirstScreenBgColor.join(',') + ']';
 const wechatAppId = process.env.WECHAT_APPID || platformConfig.wechat.appId;
 const openDevtools = process.env.WECHAT_OPEN_DEVTOOLS || '1';
 process.env.WECHAT_BUILD_MODE = buildMode;
@@ -372,6 +374,26 @@ function assertRuntimeBundleConfig(bundleDir, bundleName, expectedPaths, expecte
     }
 }
 
+function assertWechatFirstScreenBackground(runtimeDir, settings) {
+    const firstScreenPath = path.join(runtimeDir, 'first-screen.js');
+    if (!fs.existsSync(firstScreenPath)) {
+        fail('微信 runtime 缺少 first-screen.js，无法确认启动首帧背景');
+    }
+    const firstScreen = fs.readFileSync(firstScreenPath, 'utf8');
+    if (!firstScreen.includes('let bgColor = ' + wechatFirstScreenBgLiteral + ';')) {
+        fail('微信 first-screen.js 未使用项目浅色首帧背景，可能产生黑屏截图');
+    }
+    const color = settings && settings.splashScreen && settings.splashScreen.background
+        ? settings.splashScreen.background.color
+        : null;
+    const luma = color
+        ? Number(color.x || 0) * 0.2126 + Number(color.y || 0) * 0.7152 + Number(color.z || 0) * 0.0722
+        : 0;
+    if (luma < 0.75) {
+        fail('微信 settings.splashScreen.background.color 过暗，可能产生黑屏截图');
+    }
+}
+
 function assertRuntimeBundleNoPathPrefix(bundleDir, bundleName, forbiddenPrefix) {
     const config = readBundleConfig(bundleDir, bundleName);
     const matches = bundleConfigPathsWithPrefix(config, forbiddenPrefix);
@@ -560,6 +582,7 @@ let gameJson = readJson(path.join(runtimeDir, 'game.json'));
 let settings = readJson(findSettingsPath(runtimeDir));
 assertWechatProjectConfig();
 assertRuntimeCoreConfig(runtimeDir, gameJson, settings);
+assertWechatFirstScreenBackground(runtimeDir, settings);
 assertOpenDataContextConfig(runtimeDir, gameJson);
 logStep('2.1 补齐本地小游戏公共 bundle 产物...');
 runNode('scripts/postbuild-minigame-bundles.js', [runtimeDir]);

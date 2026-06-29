@@ -831,9 +831,10 @@ export function installSceneHomeEntryModule(target: any): void {
                     .map((path) => path.slice(path.lastIndexOf('/') + 1));
                 let beanDone = false;
                 let uiDone = false;
+                let boardEffectDone = false;
                 let gameAssetsDone = true;
                 const tryInit = () => {
-                    if (!beanDone || !uiDone || !gameAssetsDone) return;
+                    if (!beanDone || !uiDone || !boardEffectDone || !gameAssetsDone) return;
                     this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
                         const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
                         this._bootstrapOnlyGameplayStartup = true;
@@ -926,6 +927,24 @@ export function installSceneHomeEntryModule(target: any): void {
                         return;
                     }
                     beanDone = true;
+                    tryInit();
+                });
+                this.prepareRequiredBoardEffectTextures((result) => {
+                    if (!result.ok) {
+                        this.trackFirstLevelFunnelForLevel(activeLevelId, 'bootstrap_board_effect_textures_failed', {
+                            source: 'bootstrap',
+                            errorCode: result.errorCode || 'board_effect_textures_missing',
+                            success: false,
+                            extra: { missingTextureNames: result.missingTextureNames || [] },
+                        });
+                        this._stopGameplayEntryWithFatalError(
+                            `${prefix}${levelId}`,
+                            result.errorCode || 'board_effect_textures_missing',
+                            result.errorMessage || 'missing board effect textures',
+                        );
+                        return;
+                    }
+                    boardEffectDone = true;
                     tryInit();
                 });
                 const bootstrapTextureNames = Array.from(LOCAL_BOOTSTRAP_TEXTURE_NAMES);

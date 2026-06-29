@@ -12,7 +12,13 @@
     "totalTime": 500,
     "displayRatio": 1,
     "background": {
-      "type": "color"
+      "type": "color",
+      "color": {
+        "x": 0.9607843137254902,
+        "y": 0.9215686274509803,
+        "z": 0.8627450980392157,
+        "w": 1
+      }
     },
     "logo": {
       "type": "none"

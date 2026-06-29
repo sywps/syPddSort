@@ -507,7 +507,10 @@ export function installAssetBootstrapModule(target: any): void {
                 callback?.(false);
                 return;
             }
-            const bootstrapTextureNames = Array.from(LOCAL_BOOTSTRAP_TEXTURE_NAMES);
+            const bootstrapTextureNames = Array.from(new Set([
+                ...LOCAL_BOOTSTRAP_TEXTURE_NAMES,
+                ...this.getRequiredBoardEffectTextureNames(),
+            ]));
             const hasBootstrapTextures = bootstrapTextureNames.every((name) => this.sfCache.has(name));
             const alreadyReady =
                 this._startupBootstrapPrefetchState === 'ready'

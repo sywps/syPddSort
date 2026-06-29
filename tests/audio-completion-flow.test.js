@@ -98,8 +98,12 @@ assert.ok(shared.includes('BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS'), 'bootstrap bo
 assert.ok(!levelFlow.includes("...GAMEPLAY_SLOT_TEXTURE_NAMES, ...BOARD_EFFECT_TEXTURE_NAMES"), 'board effect textures must not be classified as generic critical gameplay UI textures');
 assert.ok(assetBootstrap.includes('prepareRequiredBoardEffectTextures'), 'board effect textures must have a dedicated readiness check');
 assert.ok(assetBootstrap.includes('this._preloadBootstrapTextureSetStrict(requiredTextureNames, verifyLoaded);'), 'board effect textures must load strictly from bootstrap');
+assert.ok(assetBootstrap.includes('...this.getRequiredBoardEffectTextureNames(),'), 'startup bootstrap prefetch must include board effect textures');
 assert.ok(!assetBootstrap.includes('this._withGameAssetsBundle(loadFromBundle);'), 'board effect textures must not load the full gameAssets bundle');
 assert.ok(sceneHome.includes('let gameAssetsDone = true;'), 'bootstrap gameplay must not block first playable UI on gameAssets effect textures');
+assert.ok(sceneHome.includes('let boardEffectDone = false;'), 'bootstrap fast path must wait for board effect textures before initGame');
+assert.ok(sceneHome.includes('!boardEffectDone'), 'bootstrap fast path init gate must include board effect readiness');
+assert.ok(sceneHome.includes("this.trackFirstLevelFunnelForLevel(activeLevelId, 'bootstrap_board_effect_textures_failed'"), 'bootstrap fast path must report missing board effect textures before gameplay starts');
 assert.ok(sceneHome.includes('Bootstrap levels must not block first playable UI on gameAssets.'), 'bootstrap gameAssets prewarm must stay non-blocking');
 assert.ok(!sceneHome.includes('let gameAssetsDone = GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS.length === 0;'), 'bootstrap gameplay must not restore the old blocking gameAssets gate');
 assert.ok(assetBootstrap.includes('requireBrightSpriteFrame(): SpriteFrame'), 'landing light texture must have a fail-fast accessor');

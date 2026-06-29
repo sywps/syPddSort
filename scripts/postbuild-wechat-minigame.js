@@ -45,6 +45,18 @@ const WECHAT_GAME_CIRCLE_PLUGIN_PROVIDER = 'wxaed5ace05d92b218';
 const WECHAT_GAME_CIRCLE_PLUGIN_ENABLED = /^(1|true|yes)$/i.test(String(
     process.env.WECHAT_GAME_CIRCLE_PLUGIN || process.env.PDD_WECHAT_GAME_CIRCLE_PLUGIN || '',
 ).trim());
+const WECHAT_FIRST_SCREEN_BG_COLOR = {
+    x: 0.9607843137254902,
+    y: 0.9215686274509803,
+    z: 0.8627450980392157,
+    w: 1,
+};
+const WECHAT_FIRST_SCREEN_BG_COLOR_LITERAL = '[' + [
+    WECHAT_FIRST_SCREEN_BG_COLOR.x,
+    WECHAT_FIRST_SCREEN_BG_COLOR.y,
+    WECHAT_FIRST_SCREEN_BG_COLOR.z,
+    WECHAT_FIRST_SCREEN_BG_COLOR.w,
+].join(',') + ']';
 
 function deriveLevelExpCdnUrl(levelDataCdnUrl) {
     var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
@@ -386,6 +398,29 @@ function readJsonFile(filePath) {
 
 function writeJsonFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function normalizeWechatSplashSettings(settingsFilePath) {
+    if (!settingsFilePath || !fs.existsSync(settingsFilePath)) return false;
+    var settings = readJsonFile(settingsFilePath);
+    settings.splashScreen = settings.splashScreen || {};
+    settings.splashScreen.background = settings.splashScreen.background || {};
+    settings.splashScreen.background.type = 'color';
+    settings.splashScreen.background.color = Object.assign({}, WECHAT_FIRST_SCREEN_BG_COLOR);
+    settings.splashScreen.clearColor = Object.assign({}, WECHAT_FIRST_SCREEN_BG_COLOR);
+    writeJsonFile(settingsFilePath, settings);
+    return true;
+}
+
+function patchWechatFirstScreenBackground(firstScreenContent) {
+    if (!/let bgColor = \[[^\]]+\];/.test(firstScreenContent)) {
+        console.error('[3.3/7] first-screen.js 未找到 bgColor 配置，不能确认首帧非黑屏');
+        process.exit(1);
+    }
+    return firstScreenContent.replace(
+        /let bgColor = \[[^\]]+\];/,
+        'let bgColor = ' + WECHAT_FIRST_SCREEN_BG_COLOR_LITERAL + ';',
+    );
 }
 
 function compareVersion(a, b) {
@@ -1236,12 +1271,16 @@ if (fs.existsSync(firstScreenPath)) {
         /let fitWidth = true;\nlet fitHeight = false;/,
         'let fitWidth = false;\nlet fitHeight = true;'
     );
+    patchedFirstScreen = patchWechatFirstScreenBackground(patchedFirstScreen);
     if (patchedFirstScreen !== firstScreen) {
         fs.writeFileSync(firstScreenPath, patchedFirstScreen);
-        console.log('[3.3/7] 已关闭首屏抗锯齿 + 修正竖屏适配 ✓');
+        console.log('[3.3/7] 已关闭首屏抗锯齿 + 修正竖屏适配 + 修正首帧浅色背景 ✓');
     } else {
         console.log('[3.3/7] 首屏配置已就绪 ✓');
     }
+}
+if (normalizeWechatSplashSettings(settingsPath)) {
+    console.log('[3.3b/7] 已修正微信 splash settings 为浅色背景 ✓');
 }
 
 // 3.4 启动后立即使用休闲游戏默认 30 帧；运行时交互/动画阶段再临时升帧
