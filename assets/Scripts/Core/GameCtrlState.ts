@@ -159,6 +159,8 @@ export function initializeGameCtrlState(runtime: any): void {
         _guideBubbleLbl: null,
         _guidePromptDefaultLabelColor: null as Color | null,
         _guidePromptDefaultCenterY: null as number | null,
+        _tutorialSkipGuidePromptBound: false,
+        _tutorialSkipGuidePromptShownTracked: false,
         _guidePulseTweens: [] as Tween<Node>[],
         _guideHighlightCells: [],
         _guideInputSuspended: false,

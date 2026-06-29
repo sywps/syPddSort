@@ -23,27 +23,14 @@ const BOOTSTRAP_PATH_MAP = (() => {
         map.set(`${gameAssetsBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
     }
 
-    for (const prefabPath of [
-        'UI/Prefabs/Panels/WinPanel',
-        'UI/Prefabs/Panels/RevivePanel',
-        'UI/Prefabs/Panels/LosePanel',
-    ]) {
-        map.set(prefabPath, prefabPath);
-    }
-
     for (const audioPath of [
         'Audio/bgm',
         'Audio/pindd/select',
         'Audio/pindd/right_place_short',
         'Audio/pindd/shelf',
         'Audio/pindd/error',
-        'Audio/pindd/prop_freeze',
         'Audio/ui',
         'Audio/tick',
-        'Audio/win',
-        'Audio/winColor',
-        'Audio/winSettlement',
-        'Audio/lose',
         'Audio/guide_level1_pick_1',
         'Audio/guide_level1_place_1',
         'Audio/guide_level1_pick_2',

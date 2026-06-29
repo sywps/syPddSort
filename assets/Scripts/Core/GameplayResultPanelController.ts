@@ -22,7 +22,6 @@ import {
     tween,
 } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
-import { getMiniGameBuildMode, hasDouyinBuildMarker, hasWeChatBuildMarker } from './MiniGamePlatform';
 
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
@@ -63,7 +62,8 @@ const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
 ];
 
 function shouldRequireBootstrapResultPanels(): boolean {
-    return getMiniGameBuildMode() === 'release' && (hasWeChatBuildMarker() || hasDouyinBuildMarker());
+    // Result panels are post-playable gameAssets resources; bootstrap is only an optional warm path.
+    return false;
 }
 
 export class GameplayResultPanelController {

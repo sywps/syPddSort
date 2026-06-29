@@ -12,6 +12,7 @@ import type { LevelData } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { LevelDataCdnService } from './LevelDataCdnService';
 import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
+import type { SlotRowPolicy } from './SlotOnboardingPolicy';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
 export class GameplaySessionController {
@@ -40,10 +41,8 @@ export class GameplaySessionController {
             const gameplayEntryMode = runtime._currentExternalLevelFilePath
                 ? 'external'
                 : (runtime._isThemeLevel ? 'theme' : 'main');
-            const levelExperimentAssignment = LevelDataCdnService.inst.getLevelExperimentAssignment();
-            const isLevelExperimentTreatment = gameplayEntryMode === 'main'
-                && gameplayPrefix === 'level_'
-                && levelExperimentAssignment.group === 'treatment';
+            const useMainlineSlotGuideFlow = gameplayEntryMode === 'main'
+                && gameplayPrefix === 'level_';
             AppRoot.tryGet()?.markGameActive(resolvedLevelId, gameplayPrefix, gameplayEntryMode, 'Game');
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
@@ -64,13 +63,19 @@ export class GameplaySessionController {
             runtime._firstLevelGuideLayerTouchCounts = {};
             runtime.boardModel = new BoardModel(data);
             const maxSlotRows = runtime.getMaxSlotRows();
-            const slotPolicy = resolveSlotRowPolicy({
+            let slotPolicy = resolveSlotRowPolicy({
                 levelId: activeLogicalLevelId,
                 entryMode: gameplayEntryMode,
                 maxRows: maxSlotRows,
                 configuredUnlockedRows: (data as any).initialSlotUnlockedRows,
                 configuredSlotPolicy: data.slotPolicy,
             });
+            slotPolicy = this.applyLevelExperimentGuideSlotPolicy(
+                slotPolicy,
+                activeLogicalLevelId,
+                gameplayEntryMode,
+                maxSlotRows,
+            );
             runtime._activeSlotRowPolicy = slotPolicy;
             runtime.slotUnlockedRows = slotPolicy.unlockedRows;
             runtime.slotRowCount = slotPolicy.rowCount;
@@ -191,18 +196,19 @@ export class GameplaySessionController {
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
                 const tutorialMode = tutorialGateLevelId === 1
                     ? 'level_1'
-                    : (tutorialGateLevelId === 2 && !isLevelExperimentTreatment
-                        ? 'level_2'
-                        : (tutorialGateLevelId === 3 && isLevelExperimentTreatment
-                            ? 'level_exp_slot_intro'
-                            : 'none'));
+                    : (tutorialGateLevelId === 3 && useMainlineSlotGuideFlow
+                        ? 'level_exp_slot_intro'
+                        : 'none');
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
                     runtime.startTutorial(tutorialMode);
                 } else if (slotPolicy.showSlotUnlockGuide) {
+                    runtime.hideTutorialSkipGuidePrompt?.();
                     runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
+                } else {
+                    runtime.hideTutorialSkipGuidePrompt?.();
                 }
-                if (tutorialGateLevelId === 3 && !isLevelExperimentTreatment && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
+                if (tutorialMode === 'none' && tutorialGateLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
                     runtime.startPinchGuide();
                 }
             }
@@ -216,6 +222,41 @@ export class GameplaySessionController {
         const appRoot = AppRoot.tryGet();
         if (!appRoot) return;
         appRoot.clearRouteCover('gameplay-ready');
+    }
+
+    private applyLevelExperimentGuideSlotPolicy(
+        policy: SlotRowPolicy,
+        levelId: number,
+        entryMode: string,
+        maxRows: number,
+    ): SlotRowPolicy {
+        if (entryMode !== 'main') return policy;
+        if (levelId === 2) {
+            return {
+                ...policy,
+                showSlotUnlockGuide: false,
+            };
+        }
+        if (levelId !== 3) return policy;
+
+        const defaultRows = Math.min(Math.max(2, policy.defaultRows), maxRows);
+        const rowCount = Math.min(maxRows, Math.max(defaultRows + 1, policy.rowCount));
+        if (rowCount <= defaultRows) {
+            return policy;
+        }
+        return {
+            ...policy,
+            defaultRows,
+            freeUnlockRows: 1,
+            adUnlockRows: 0,
+            freeUnlockUntilRows: defaultRows + 1,
+            unlockedRows: defaultRows,
+            rowCount,
+            appendLockedRowAfterUnlock: false,
+            unlockMode: 'free',
+            showSkillArea: true,
+            showSlotUnlockGuide: false,
+        };
     }
 
     private clearTutorialRuntimeState(runtime: any): void {
@@ -243,6 +284,8 @@ export class GameplaySessionController {
         runtime._guideBubbleLbl = null;
         runtime._guidePromptDefaultLabelColor = null;
         runtime._guidePromptDefaultCenterY = null;
+        runtime.hideTutorialSkipGuidePrompt?.();
+        runtime._tutorialSkipGuidePromptShownTracked = false;
         runtime._guideHighlightCells = [];
         runtime._guideInputSuspended = false;
         runtime._guideStep = -1;
