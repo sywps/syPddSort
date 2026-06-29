@@ -81,9 +81,93 @@ button { cursor: pointer; background: #f3bd64; color: #34230c; font-weight: 700;
 .metric-value { color: #2e3f66; font-size: 28px; font-weight: 850; line-height: 1; }
 .metric-note { color: #8e857a; font-size: 12px; margin-top: 8px; }
 .table-wrap { overflow-x: auto; border: 1px solid rgba(217, 205, 191, .55); border-radius: 14px; background: #fffdfa; }
+.floating-table-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: none;
+    overflow: hidden;
+    border: 1px solid rgba(217, 205, 191, .55);
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+    background: #f5efe6;
+    box-shadow: 0 10px 22px rgba(64, 48, 30, .14);
+    pointer-events: auto;
+    z-index: 50;
+}
+.floating-table-header table {
+    width: auto;
+    min-width: 0;
+    table-layout: fixed;
+}
 table { width: 100%; border-collapse: collapse; min-width: 1100px; }
 th, td { padding: 12px 14px; border-bottom: 1px solid rgba(226, 216, 204, .75); text-align: left; font-size: 13px; vertical-align: top; }
-th { background: #f5efe6; color: #695b4f; }
+th {
+    position: sticky;
+    top: 0;
+    background: #f5efe6;
+    color: #695b4f;
+    z-index: 1;
+}
+.filterable-column { overflow: visible; }
+.filterable-header { position: relative; display: flex; align-items: center; gap: 8px; }
+.filterable-title { font-weight: 800; white-space: nowrap; }
+.column-filter-button {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(177, 154, 126, .42);
+    border-radius: 7px;
+    background: #fffaf1;
+    color: #806b54;
+    cursor: pointer;
+    font-weight: 800;
+    line-height: 1;
+}
+.column-filter-button:hover,
+.column-filter-button.is-active {
+    border-color: rgba(68, 94, 139, .55);
+    color: #2f456d;
+    background: #eef3fb;
+}
+.column-filter-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20;
+    width: max-content;
+    min-width: 180px;
+    max-width: 260px;
+    max-height: 320px;
+    overflow: auto;
+    padding: 8px;
+    border: 1px solid rgba(196, 177, 151, .72);
+    border-radius: 10px;
+    background: #fffdfa;
+    box-shadow: 0 12px 26px rgba(70, 48, 28, .16);
+}
+.column-filter-menu[hidden] { display: none; }
+.column-filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    color: #4e463f;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.column-filter-option:hover { background: #f6efe4; }
+.column-filter-option input { width: 14px; height: 14px; }
+.column-filter-separator { height: 1px; margin: 6px 2px; background: rgba(218, 206, 191, .78); }
+.experiment-retention-table th:nth-child(1),
+.experiment-retention-table td:nth-child(1),
+.experiment-retention-table th:nth-child(2),
+.experiment-retention-table td:nth-child(2),
+.experiment-retention-table th:nth-child(3),
+.experiment-retention-table td:nth-child(3) {
+    white-space: nowrap;
+}
 td strong { color: #31486e; }
 .ret-cell { display: grid; gap: 3px; line-height: 1.35; }
 .ret-cell span { color: #766a5f; font-size: 12px; }
@@ -123,6 +207,9 @@ td strong { color: #31486e; }
 <script>
 const REPORT_ROOT = '../artifacts/cloudbase-retention-report';
 const state = { index: null, currentDate: '', currentReport: null, showAllUsers: false };
+let floatingHeaderElement = null;
+let floatingHeaderSourceTable = null;
+let floatingHeaderUpdateFrame = 0;
 
 function qs(id) { return document.getElementById(id); }
 function escapeHtml(value) {
@@ -153,6 +240,250 @@ function renderError(message) {
 function renderMetric(label, value, note) {
     return `<div class="metric"><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div><div class="metric-note">${escapeHtml(note || '')}</div></div>`;
 }
+function renderTable(headers, rows, options = {}) {
+    if (!rows || !rows.length) return '<div class="empty">暂无表格数据。</div>';
+    const tableClass = ['retention-table', options.className].filter(Boolean).join(' ');
+    const filterColumns = Array.isArray(options.filterColumns)
+        ? options.filterColumns.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 0)
+        : [];
+    const filterColumnSet = new Set(filterColumns);
+    const filterAttribute = filterColumns.length
+        ? ` data-filter-columns="${escapeHtml(filterColumns.join(','))}"`
+        : '';
+    return `
+        <div class="table-wrap">
+            <table class="${escapeHtml(tableClass)}"${filterAttribute}>
+                <thead>
+                    <tr>${headers.map((header, index) => `
+                        <th class="${filterColumnSet.has(index) ? 'filterable-column' : ''}">
+                            ${filterColumnSet.has(index) ? `
+                                <div class="filterable-header">
+                                    <span class="filterable-title">${escapeHtml(header)}</span>
+                                    <button class="column-filter-button" type="button" data-filter-index="${index}" aria-label="筛选${escapeHtml(header)}">▾</button>
+                                    <div class="column-filter-menu" data-filter-index="${index}" hidden></div>
+                                </div>
+                            ` : escapeHtml(header)}
+                        </th>
+                    `).join('')}</tr>
+                </thead>
+                <tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+            </table>
+        </div>
+    `;
+}
+function ensureFloatingTableHeader() {
+    if (floatingHeaderElement) return floatingHeaderElement;
+    floatingHeaderElement = document.createElement('div');
+    floatingHeaderElement.className = 'floating-table-header';
+    document.body.appendChild(floatingHeaderElement);
+    return floatingHeaderElement;
+}
+function hideFloatingTableHeader() {
+    if (!floatingHeaderElement) return;
+    floatingHeaderElement.style.display = 'none';
+    floatingHeaderElement.innerHTML = '';
+    floatingHeaderSourceTable = null;
+}
+function findActiveTableForFloatingHeader() {
+    const content = qs('content');
+    if (!content) return null;
+    for (const table of content.querySelectorAll('.table-wrap table.retention-table')) {
+        const wrap = table.closest('.table-wrap');
+        const thead = table.tHead;
+        if (!wrap || !thead) continue;
+        const tableRect = table.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        const headerHeight = Math.max(1, thead.getBoundingClientRect().height);
+        const visibleTop = Math.max(tableRect.top, wrapRect.top);
+        const visibleBottom = Math.min(tableRect.bottom, wrapRect.bottom);
+        if (visibleTop <= 0 && visibleBottom > headerHeight + 4) return { table, wrap };
+    }
+    return null;
+}
+function syncFloatingTableHeader(table, wrap) {
+    const tableRect = table.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    if (tableRect.width <= 0 || wrapRect.width <= 0 || !table.tHead) {
+        hideFloatingTableHeader();
+        return;
+    }
+    const floating = ensureFloatingTableHeader();
+    const cloneTable = document.createElement('table');
+    cloneTable.className = table.className;
+    cloneTable.style.width = `${tableRect.width}px`;
+    cloneTable.style.minWidth = '0';
+    cloneTable.appendChild(table.tHead.cloneNode(true));
+    for (const menu of cloneTable.querySelectorAll('.column-filter-menu')) menu.hidden = true;
+    const sourceHeaders = Array.from(table.tHead.querySelectorAll('th'));
+    const cloneHeaders = Array.from(cloneTable.querySelectorAll('th'));
+    sourceHeaders.forEach((sourceHeader, index) => {
+        const cloneHeader = cloneHeaders[index];
+        if (!cloneHeader) return;
+        const width = sourceHeader.getBoundingClientRect().width;
+        if (width > 0) {
+            cloneHeader.style.width = `${width}px`;
+            cloneHeader.style.minWidth = `${width}px`;
+            cloneHeader.style.maxWidth = `${width}px`;
+        }
+    });
+    cloneTable.style.transform = `translateX(${-wrap.scrollLeft}px)`;
+    floating.innerHTML = '';
+    floating.appendChild(cloneTable);
+    floatingHeaderSourceTable = table;
+    floating.style.left = `${wrapRect.left}px`;
+    floating.style.width = `${wrapRect.width}px`;
+    floating.style.display = 'block';
+}
+function updateFloatingTableHeader() {
+    floatingHeaderUpdateFrame = 0;
+    const active = findActiveTableForFloatingHeader();
+    if (!active) {
+        hideFloatingTableHeader();
+        return;
+    }
+    syncFloatingTableHeader(active.table, active.wrap);
+}
+function scheduleFloatingTableHeaderUpdate() {
+    if (floatingHeaderUpdateFrame) return;
+    floatingHeaderUpdateFrame = window.requestAnimationFrame(updateFloatingTableHeader);
+}
+function bindRenderedTableScrollSync() {
+    const content = qs('content');
+    if (!content) return;
+    for (const wrap of content.querySelectorAll('.table-wrap')) {
+        wrap.addEventListener('scroll', scheduleFloatingTableHeaderUpdate, { passive: true });
+    }
+    scheduleFloatingTableHeaderUpdate();
+}
+function getTableCellText(row, columnIndex) {
+    return (row.children[columnIndex]?.innerText || row.children[columnIndex]?.textContent || '').replace(/\s+/g, ' ').trim() || '-';
+}
+function getTableFilterColumns(table) {
+    return String(table.dataset.filterColumns || '')
+        .split(',')
+        .map((item) => Number(item))
+        .filter((item) => Number.isInteger(item) && item >= 0);
+}
+function resolveInteractiveSourceTable(table) {
+    if (!table) return null;
+    return floatingHeaderElement?.contains(table) ? floatingHeaderSourceTable : table;
+}
+function closeColumnFilterMenus(exceptMenu = null) {
+    for (const menu of document.querySelectorAll('.column-filter-menu')) {
+        if (menu !== exceptMenu) menu.hidden = true;
+    }
+}
+function syncColumnFilterMenuState(fromMenu, toMenu) {
+    if (!fromMenu || !toMenu) return;
+    const sourceInputs = Array.from(fromMenu.querySelectorAll('.column-filter-choice'));
+    for (const sourceInput of sourceInputs) {
+        const selector = sourceInput.dataset.filterAll === 'true'
+            ? '.column-filter-choice[data-filter-all="true"]'
+            : `.column-filter-choice[value="${CSS.escape(sourceInput.value)}"]`;
+        const targetInput = toMenu.querySelector(selector);
+        if (!targetInput) continue;
+        targetInput.checked = sourceInput.checked;
+        targetInput.indeterminate = sourceInput.indeterminate;
+    }
+}
+function updateColumnFilterAllState(menu) {
+    const allInput = menu.querySelector('.column-filter-choice[data-filter-all="true"]');
+    const options = Array.from(menu.querySelectorAll('.column-filter-choice:not([data-filter-all="true"])'));
+    if (!allInput) return;
+    const checkedCount = options.filter((input) => input.checked).length;
+    allInput.checked = checkedCount === options.length;
+    allInput.indeterminate = checkedCount > 0 && checkedCount < options.length;
+}
+function updateColumnFilterButton(table, columnIndex) {
+    const menu = table.querySelector(`.column-filter-menu[data-filter-index="${columnIndex}"]`);
+    const button = table.querySelector(`.column-filter-button[data-filter-index="${columnIndex}"]`);
+    if (!menu || !button) return;
+    const options = Array.from(menu.querySelectorAll('.column-filter-choice:not([data-filter-all="true"])'));
+    const checked = options.filter((input) => input.checked);
+    button.classList.toggle('is-active', checked.length > 0 && checked.length < options.length);
+}
+function applyTableColumnFilters(table, options = {}) {
+    const filters = getTableFilterColumns(table).map((columnIndex) => {
+        const menu = table.querySelector(`.column-filter-menu[data-filter-index="${columnIndex}"]`);
+        const choices = Array.from(menu?.querySelectorAll('.column-filter-choice:not([data-filter-all="true"])') || []);
+        const selected = new Set(choices.filter((input) => input.checked).map((input) => input.value));
+        return { columnIndex, selected, active: selected.size > 0 && selected.size < choices.length };
+    }).filter((filter) => filter.selected.size > 0);
+    for (const row of table.querySelectorAll('tbody tr')) {
+        row.hidden = !filters.every((filter) => !filter.active || filter.selected.has(getTableCellText(row, filter.columnIndex)));
+    }
+    for (const columnIndex of getTableFilterColumns(table)) updateColumnFilterButton(table, columnIndex);
+    if (!options.skipFloatingUpdate) scheduleFloatingTableHeaderUpdate();
+}
+function initializeTableFilters() {
+    const content = qs('content');
+    if (!content) return;
+    for (const table of content.querySelectorAll('table[data-filter-columns]')) {
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        for (const columnIndex of getTableFilterColumns(table)) {
+            const menu = table.querySelector(`.column-filter-menu[data-filter-index="${columnIndex}"]`);
+            if (!menu) continue;
+            const values = Array.from(new Set(rows.map((row) => getTableCellText(row, columnIndex)))).sort((left, right) => left.localeCompare(right, 'zh-CN', { numeric: true, sensitivity: 'base' }));
+            menu.innerHTML = `
+                <label class="column-filter-option">
+                    <input class="column-filter-choice" type="checkbox" data-filter-all="true" checked>
+                    <span>全部</span>
+                </label>
+                <div class="column-filter-separator"></div>
+                ${values.map((value) => `
+                    <label class="column-filter-option">
+                        <input class="column-filter-choice" type="checkbox" value="${escapeHtml(value)}" checked>
+                        <span>${escapeHtml(value)}</span>
+                    </label>
+                `).join('')}
+            `;
+            updateColumnFilterButton(table, columnIndex);
+        }
+    }
+}
+function handleColumnFilterClick(event) {
+    const button = event.target.closest('.column-filter-button');
+    if (button) {
+        const rawTable = button.closest('table.retention-table');
+        const table = resolveInteractiveSourceTable(rawTable);
+        const columnIndex = Number(button.dataset.filterIndex);
+        const menu = rawTable?.querySelector(`.column-filter-menu[data-filter-index="${columnIndex}"]`);
+        const sourceMenu = table?.querySelector(`.column-filter-menu[data-filter-index="${columnIndex}"]`);
+        if (!rawTable || !table || !menu) return;
+        if (rawTable !== table && sourceMenu) syncColumnFilterMenuState(sourceMenu, menu);
+        const shouldOpen = menu.hidden;
+        closeColumnFilterMenus(menu);
+        menu.hidden = !shouldOpen;
+        return;
+    }
+    if (!event.target.closest('.column-filter-menu')) closeColumnFilterMenus();
+}
+function handleColumnFilterChange(event) {
+    const input = event.target.closest('.column-filter-choice');
+    if (!input) return;
+    const rawTable = input.closest('table.retention-table');
+    const table = resolveInteractiveSourceTable(rawTable);
+    const menu = input.closest('.column-filter-menu');
+    if (!rawTable || !table || !menu) return;
+
+    if (input.dataset.filterAll === 'true') {
+        for (const option of menu.querySelectorAll('.column-filter-choice:not([data-filter-all="true"])')) {
+            option.checked = input.checked;
+        }
+    } else {
+        updateColumnFilterAllState(menu);
+    }
+    if (rawTable !== table) {
+        const columnIndex = Number(menu.dataset.filterIndex);
+        const sourceMenu = table.querySelector(`.column-filter-menu[data-filter-index="${columnIndex}"]`);
+        syncColumnFilterMenuState(menu, sourceMenu);
+        if (sourceMenu) updateColumnFilterAllState(sourceMenu);
+        applyTableColumnFilters(table, { skipFloatingUpdate: true });
+        updateColumnFilterButton(rawTable, columnIndex);
+        return;
+    }
+    applyTableColumnFilters(table);
+}
 function retentionCell(row, offset) {
     const item = row.retainedByOffset.find((entry) => entry.offset === offset);
     if (!item || item.retainedUsers == null) return '<div class="ret-cell">-<span>数据未生成</span></div>';
@@ -171,8 +502,12 @@ function renderCohortTable(title, subtitle, cohorts) {
     const headers = ['分组', 'T用户', ...Array.from({ length: 7 }, (_, index) => `T+${index + 1}`)];
     const rows = order.map(([key, label]) => {
         const row = cohorts[key];
-        return `<tr><td><strong>${label}</strong></td><td>${formatNumber(row?.baseUsers)}</td>${Array.from({ length: 7 }, (_, index) => `<td>${row ? retentionCell(row, index + 1) : '-'}</td>`).join('')}</tr>`;
-    }).join('');
+        return [
+            `<strong>${escapeHtml(label)}</strong>`,
+            formatNumber(row?.baseUsers),
+            ...Array.from({ length: 7 }, (_, index) => row ? retentionCell(row, index + 1) : '-'),
+        ];
+    });
     return `
         <section class="card">
             <div class="card-header">
@@ -180,12 +515,47 @@ function renderCohortTable(title, subtitle, cohorts) {
                 <div class="card-subtitle">${escapeHtml(subtitle)}</div>
             </div>
             <div class="card-body">
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </div>
+                ${renderTable(headers, rows)}
+            </div>
+        </section>
+    `;
+}
+function renderExperimentRetention(report) {
+    const scopeKey = state.showAllUsers ? 'allUsers' : 'effectiveUsers';
+    const scopeLabel = state.showAllUsers ? '全部活跃用户' : 'L1有效用户';
+    const experiments = report.experimentRetention?.[scopeKey] || {};
+    const sections = Object.values(experiments).filter((section) => Array.isArray(section.groupRows) && section.groupRows.length);
+    if (!sections.length) return '';
+    const cohortOrder = [
+        ['all', '全部'],
+        ['new', '新用户'],
+        ['old', '老用户'],
+        ['unknown', '未知'],
+    ];
+    const headers = ['实验', '桶/分组', '用户类型', 'T用户', ...Array.from({ length: 7 }, (_, index) => `T+${index + 1}`)];
+    const rows = [];
+    for (const section of sections) {
+        for (const groupRow of section.groupRows) {
+            for (const [cohortKey, cohortLabel] of cohortOrder) {
+                const row = groupRow.cohorts?.[cohortKey];
+                rows.push([
+                    `<strong>${escapeHtml(section.experimentId)}</strong>`,
+                    escapeHtml(groupRow.groupLabel || groupRow.bucket || ''),
+                    escapeHtml(cohortLabel),
+                    formatNumber(row?.baseUsers),
+                    ...Array.from({ length: 7 }, (_, index) => row ? retentionCell(row, index + 1) : '-'),
+                ]);
+            }
+        }
+    }
+    return `
+        <section class="card">
+            <div class="card-header">
+                <div class="card-title">实验分桶留存（hash）</div>
+                <div class="card-subtitle">${escapeHtml(scopeLabel)}口径；只使用 openid + salt 计算的 hash 分桶，展示 A+B、C+D、NULL，不读取埋点实验字段。</div>
+            </div>
+            <div class="card-body">
+                ${renderTable(headers, rows, { className: 'experiment-retention-table', filterColumns: [0, 1, 2] })}
             </div>
         </section>
     `;
@@ -232,8 +602,11 @@ function renderReport(report) {
             </div>
         </section>
         ${renderCohortTable(tableTitle, tableSubtitle, cohorts)}
+        ${renderExperimentRetention(report)}
         ${renderQuality(report)}
     `;
+    initializeTableFilters();
+    bindRenderedTableScrollSync();
 }
 async function loadDate(date) {
     if (!date) return;
@@ -256,6 +629,10 @@ async function init() {
             state.showAllUsers = event.target.checked;
             if (state.currentReport) renderReport(state.currentReport);
         });
+        document.addEventListener('click', handleColumnFilterClick);
+        document.addEventListener('change', handleColumnFilterChange);
+        window.addEventListener('scroll', scheduleFloatingTableHeaderUpdate, { passive: true });
+        window.addEventListener('resize', scheduleFloatingTableHeaderUpdate, { passive: true });
         const initialDate = getParamDate() || dates[dates.length - 1] || '';
         await loadDate(initialDate);
     } catch (error) {

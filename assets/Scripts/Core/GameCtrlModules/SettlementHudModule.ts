@@ -944,6 +944,7 @@ export function installSettlementHudModule(target: any): void {
             this._applySpriteFrame(this._guideHand, guideHandFrame, GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_SPRITE_SIZE);
         
             this.showGuideStep(0);
+            this.syncTutorialSkipGuidePrompt?.();
             if ((Number(this._modalFocusRefs) || 0) > 0) {
                 this.suspendGuideForModal('active-modal');
             }
@@ -1020,6 +1021,7 @@ export function installSettlementHudModule(target: any): void {
             this.markTutorialStepInteractiveReadyForFunnel?.(step);
         
             this.playGuideVoiceForCurrentStep(step);
+            this.syncTutorialSkipGuidePrompt?.();
         },
 
         playGuideVoiceForCurrentStep(step: number) {
@@ -1156,7 +1158,6 @@ export function installSettlementHudModule(target: any): void {
             if (!bubbleUT) {
                 throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
             }
-            const w = bubbleUT.contentSize.width;
             const h = bubbleUT.contentSize.height;
             const bg = bubble.getChildByName('BubbleBg');
             const bgSprite = bg?.getComponent(Sprite) || null;

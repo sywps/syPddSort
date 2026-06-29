@@ -23,6 +23,8 @@ import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 
 export class GameSceneRuntimeController {
+    private tutorialExperimentUnsubscribe: (() => void) | null = null;
+
     constructor(private readonly runtime: any) {}
 
     getRuntimeSceneName(fallback: string = 'Game'): string {
@@ -177,6 +179,7 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('PopupRoot');
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
+        this.ensureTutorialExperimentPromptSync();
         this.bindEarlyGameSettingsButton();
         if (pendingGameplayRequest) {
             this.primePendingGameplayShell(pendingGameplayRequest);
@@ -405,6 +408,10 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
+        if (this.tutorialExperimentUnsubscribe) {
+            this.tutorialExperimentUnsubscribe();
+            this.tutorialExperimentUnsubscribe = null;
+        }
         const sceneName = this.getRuntimeSceneName();
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
             sceneName,
@@ -492,6 +499,7 @@ export class GameSceneRuntimeController {
         SySDKMgr.inst.init();
         SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
         UserMgr.inst.touchSession(canAutoSaveGameState);
+        this.ensureTutorialExperimentPromptSync();
         void AnalyticsMgr.inst.bootstrap();
         if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {
             this.runtime.queueCloudGameStateSync();
@@ -558,6 +566,16 @@ export class GameSceneRuntimeController {
             x: Math.round(Number(node.position.x) || 0),
             y: Math.round(Number(node.position.y) || 0),
         };
+    }
+
+    private ensureTutorialExperimentPromptSync(): void {
+        if (this.tutorialExperimentUnsubscribe) {
+            return;
+        }
+        this.tutorialExperimentUnsubscribe = AnalyticsMgr.inst.onTutorialExperimentAssignmentChanged(() => {
+            if (!this.runtime.node?.isValid) return;
+            this.runtime.syncTutorialSkipGuidePrompt?.();
+        });
     }
 
     private findScreenOrCanvasRoot(

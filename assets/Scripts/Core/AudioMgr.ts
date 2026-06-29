@@ -240,7 +240,7 @@ export class AudioMgr {
         }
     }
 
-    private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void) {
+    private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void, logMissing: boolean = true) {
         const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
         bundle.load(resourcePath, AudioClip, (err, clip) => {
             if (!err && clip) {
@@ -248,7 +248,7 @@ export class AudioMgr {
                 onDone(clip);
                 return;
             }
-            if (err) {
+            if (err && logMissing) {
                 console.warn(`[Audio] SFX 加载失败: ${name} (${resourcePath}), err=${err.message}`);
             }
             onDone(null);
@@ -289,7 +289,19 @@ export class AudioMgr {
                 }
                 this.pendingAutoplaySfx.delete(name);
             };
-            this._loadSingleSfxFromBundle(this.bootstrapBundle, name, finish);
+            this._loadSingleSfxFromBundle(this.bootstrapBundle, name, (clip) => {
+                if (clip) {
+                    finish(clip);
+                    return;
+                }
+                this._loadFromGameAssetsBundleAuto((bundle) => {
+                    if (!bundle) {
+                        finish(null);
+                        return;
+                    }
+                    this._loadSingleSfxFromBundle(bundle, name, finish);
+                });
+            }, false);
             return;
         }
         if (!this.gameAssetsBundle) {
