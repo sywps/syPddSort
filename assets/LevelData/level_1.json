@@ -4,11 +4,6 @@
     "boardHeight": 12,
     "timeLimit": 600,
     "slotTotalCount": 24,
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 0
-    },
     "correctColorArr": [
         [
             0,
@@ -420,5 +415,10 @@
         "y": 12
     },
     "sourceImportedAt": "2026-06-05",
-    "initShuffleSeed": 0
+    "initShuffleSeed": 0,
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 0
+    }
 }
