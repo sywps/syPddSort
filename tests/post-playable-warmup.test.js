@@ -43,6 +43,31 @@ for (const method of [
     assert.ok(warmup.includes(method), `warmup queue must cover ${method}`);
 }
 
+assert.ok(warmup.includes('shouldUseConservativePostPlayableWarmup'), 'post-playable warmup must have a release mini-game conservative policy');
+assert.ok(warmup.includes("getMiniGameBuildMode() !== 'release'"), 'conservative warmup policy must only apply to release builds');
+assert.ok(warmup.includes("releaseMiniGame: 'skip'"), 'heavy optional warmups must be skippable in release mini-game builds');
+for (const taskName of [
+    'result-panels',
+    'gameAssets-bundle',
+    'settings-panel',
+    'acquire-resource-panel',
+    'home-scene',
+    'skin-panel',
+    'freeze-spine',
+    'pindd-spine',
+]) {
+    const taskIndex = warmup.indexOf(`name: '${taskName}'`);
+    assert.ok(taskIndex >= 0, `warmup task must still exist for debug/dev: ${taskName}`);
+    const nextTaskIndex = warmup.indexOf('name: ', taskIndex + 1);
+    const skipIndex = warmup.indexOf("releaseMiniGame: 'skip'", taskIndex);
+    assert.ok(
+        skipIndex > taskIndex && (nextTaskIndex < 0 || skipIndex < nextTaskIndex),
+        `${taskName} must be skipped by the release mini-game warmup policy`,
+    );
+}
+assert.ok(warmup.includes('RELEASE_REWARDED_AD_WARMUP_DELAY_SECONDS = 2.0'), 'release rewarded-ad warmup must be delayed away from first playable');
+assert.ok(warmup.includes('Math.max(task.delaySeconds, RELEASE_REWARDED_AD_WARMUP_DELAY_SECONDS)'), 'rewarded-ad warmup must use the release delay floor');
+
 assert.ok(audioMgr.includes('preloadGameplayAudioSet(): void'), 'AudioMgr must expose a gameplay audio warmup method');
 assert.ok(audioMgr.includes('this._loadFromBootstrapBundleAuto((bundle)'), 'BGM must try bootstrap before gameAssets');
 assert.ok(audioMgr.includes('this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, loadFromGameAssets)'), 'bootstrap BGM must fall back to gameAssets in dev');
@@ -50,6 +75,7 @@ assert.ok(audioManifest.includes("'win',"), 'win SFX must be part of bootstrap-c
 assert.ok(audioManifest.includes("'winSettlement',"), 'settlement SFX must be part of bootstrap-capable SFX');
 
 assert.ok(resultPanels.includes('shouldRequireBootstrapResultPanels'), 'result panels must have a release strictness gate');
+assert.ok(resultPanels.includes("return getMiniGameBuildMode() === 'release';"), 'release result panels must not fall back to gameAssets');
 assert.ok(resultPanels.includes('LOCAL_BOOTSTRAP_BUNDLE_NAME'), 'result panels must load from bootstrap first');
 assert.ok(resultPanels.includes('loadPrefabsFromGameAssets'), 'result panels may fall back to gameAssets outside strict release');
 

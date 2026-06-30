@@ -49,10 +49,16 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/pindd/error', 'Audio/pindd/error'],
     ['Audio/ui', 'Audio/ui'],
     ['Audio/tick', 'Audio/tick'],
+    ['Audio/win', 'Audio/win'],
+    ['Audio/lose', 'Audio/lose'],
+    ['Audio/winSettlement', 'Audio/winSettlement'],
     ['Audio/guide_level1_pick_1', 'Audio/guide_level1_pick_1'],
     ['Audio/guide_level1_place_1', 'Audio/guide_level1_place_1'],
     ['Audio/guide_level1_pick_2', 'Audio/guide_level1_pick_2'],
     ['Audio/guide_level1_place_2', 'Audio/guide_level1_place_2'],
+    ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
+    ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
+    ['UI/Prefabs/Panels/LosePanel', 'UI/Prefabs/Panels/LosePanel'],
 ]);
 
 function fail(message) {

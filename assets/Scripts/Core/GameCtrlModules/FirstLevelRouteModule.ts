@@ -1,5 +1,5 @@
 import {
-    _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, BlockInputEvents, Mask,
@@ -324,6 +324,12 @@ export function installFirstLevelRouteModule(target: any): void {
             extra: Record<string, unknown> = {},
         ): Record<string, unknown> {
             const levelDataCdn = LevelDataCdnService.inst.getAvailabilityDiagnostics();
+            const levelDataCdnLastFailure = levelDataCdn.lastFailure && typeof levelDataCdn.lastFailure === 'object'
+                ? levelDataCdn.lastFailure as Record<string, unknown>
+                : {};
+            const levelDataCdnExperiment = levelDataCdn.levelExperiment && typeof levelDataCdn.levelExperiment === 'object'
+                ? levelDataCdn.levelExperiment as Record<string, unknown>
+                : {};
             const diagnostics: Record<string, unknown> = {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
@@ -332,6 +338,13 @@ export function installFirstLevelRouteModule(target: any): void {
                 levelDataCdnCanUse: levelDataCdn.canUse,
                 levelDataCdnReason: levelDataCdn.reason,
                 levelDataCdnLiveUnavailableReason: levelDataCdn.liveUnavailableReason,
+                levelDataCdnLastFailureStage: levelDataCdnLastFailure.stage || '',
+                levelDataCdnLastFailureNamespace: levelDataCdnLastFailure.namespace || '',
+                levelDataCdnLastFailureReason: levelDataCdnLastFailure.reason || '',
+                levelDataCdnLastFailureBucket: levelDataCdnLastFailure.bucket || '',
+                levelDataCdnLastDegradeReason: levelDataCdn.lastDegradeReason || '',
+                levelDataCdnExperimentLiveUnavailableReason: levelDataCdnExperiment.liveUnavailableReason || '',
+                levelDataCdnExperimentLiveUnavailableCooldownMs: levelDataCdnExperiment.liveUnavailableCooldownMs || 0,
                 levelId,
                 levelPath,
                 ...extra,
@@ -409,7 +422,7 @@ export function installFirstLevelRouteModule(target: any): void {
             return layer;
         },
 
-        showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
+        showRemoteLoadFatalError(_levelPath: string, _errorCode: string, _errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
             const visibleSize = this._getLoadingVisibleSize();
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
@@ -435,37 +448,16 @@ export function installFirstLevelRouteModule(target: any): void {
             const card = this.requireUiChild(layer, 'RemoteLoadFatalErrorCard', 'RemoteLoadFatalError/RemoteLoadFatalErrorCard');
             card.active = true;
 
-            const titleLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorTitle');
-            titleLabel.string = '资源加载失败';
-
-            const hintLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorHint');
-            hintLabel.string = '请检查资源与配置后重新进入游戏';
-
-            const pathLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorPath');
-            pathLabel.string = levelPath;
-
-            const detail = `${errorCode}${errorMessage ? ': ' + errorMessage : ''}`;
-            const detailLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorDetail');
-            detailLabel.string = this.truncateLevelDataLoadMessage(detail, 96);
-
-            const retryLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorRetry');
-            retryLabel.string = '已停止进入默认关卡，避免关卡数据错乱';
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true);
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorHint', true);
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false);
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorDetail', false);
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRetry', false);
         },
 
-        requireRemoteLoadFatalLabel(parent: Node, name: string): Label {
+        setRemoteLoadFatalChildActive(parent: Node, name: string, active: boolean): void {
             const node = this.requireUiChild(parent, name, `RemoteLoadFatalErrorCard/${name}`);
-            const label = node.getComponent(Label);
-            if (!label) {
-                throw new Error(`[SceneUI] RemoteLoadFatalErrorCard/${name} is missing Label`);
-            }
-            node.active = true;
-            return label;
-        },
-
-        truncateLevelDataLoadMessage(message: string, maxLength: number): string {
-            const text = String(message || '').replace(/\s+/g, ' ').trim();
-            if (text.length <= maxLength) return text;
-            return text.slice(0, Math.max(0, maxLength - 3)) + '...';
+            node.active = active;
         },
 
         classifyFirstLevelTouchTarget(worldPos: Vec3): string {
