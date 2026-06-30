@@ -6,6 +6,15 @@ const path = require("path");
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const DATABASE_API_PAGE_SIZE = 1000;
+const EXPERIMENT_GROUP_SPECS = [
+  { group: "control", bucket: "A+B", groupLabel: "对照组(A+B)", buckets: ["A", "B"] },
+  { group: "treatment", bucket: "C+D", groupLabel: "实验组(C+D)", buckets: ["C", "D"] },
+  { group: "null", bucket: "NULL", groupLabel: "NULL", buckets: ["NULL"] },
+];
+const SALT_COMPUTED_EXPERIMENTS = [
+  { experimentId: "level_exp_salt", sourceExperimentId: "level_exp", salt: "level_exp_0623" },
+  { experimentId: "tutorial_exp_salt", sourceExperimentId: "tutorial_exp", salt: "tutorial_exp_0623" },
+];
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -213,6 +222,24 @@ function ratio(numerator, denominator) {
   return denominator > 0 ? Number((numerator / denominator).toFixed(4)) : null;
 }
 
+function fnv1aHash(text) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+function bucketFromSalt(openid, experimentId, salt) {
+  if (!openid) return "NULL";
+  const slot = fnv1aHash(`${experimentId}:${salt}:${openid}`) % 100;
+  if (slot < 25) return "A";
+  if (slot < 50) return "B";
+  if (slot < 75) return "C";
+  return "D";
+}
+
 function buildRetentionRows(cohortUsers, activeByDate, baseDate, maxOffset) {
   const baseCount = cohortUsers.size;
   const retainedByOffset = [];
@@ -281,6 +308,56 @@ function splitCohorts(activeUsers, profiles, baseDate, effectivePassUsers = null
   return cohorts;
 }
 
+function buildExperimentBucketRows(baseUsers, profiles, baseDate, activeByDate, maxOffset, experiment) {
+  return EXPERIMENT_GROUP_SPECS.map((spec) => {
+    const users = new Set();
+    for (const openid of baseUsers || []) {
+      const bucket = bucketFromSalt(openid, experiment.sourceExperimentId, experiment.salt);
+      if (spec.buckets.includes(bucket)) users.add(openid);
+    }
+    const cohorts = splitCohorts(users, profiles, baseDate);
+    return {
+      rowType: "group",
+      experimentId: experiment.experimentId,
+      sourceExperimentId: experiment.sourceExperimentId,
+      salt: experiment.salt,
+      bucket: spec.bucket,
+      group: spec.group,
+      groupLabel: spec.groupLabel,
+      cohortUsers: users.size,
+      cohorts: Object.fromEntries(
+        Object.entries(cohorts).map(([name, cohortUsers]) => [
+          name,
+          buildRetentionRows(cohortUsers, activeByDate, baseDate, maxOffset),
+        ]),
+      ),
+    };
+  });
+}
+
+function buildExperimentRetention({ activeUsers, effectivePassUsers, profiles, date, activeByDate, maxOffset }) {
+  const effectiveActiveUsers = new Set();
+  for (const openid of activeUsers || []) {
+    if (effectivePassUsers.has(openid)) effectiveActiveUsers.add(openid);
+  }
+  const buildScope = (scopeUsers) => Object.fromEntries(
+    SALT_COMPUTED_EXPERIMENTS.map((experiment) => [
+      experiment.experimentId,
+      {
+        experimentId: experiment.experimentId,
+        sourceExperimentId: experiment.sourceExperimentId,
+        salt: experiment.salt,
+        scopeUsers: scopeUsers.size,
+        groupRows: buildExperimentBucketRows(scopeUsers, profiles, date, activeByDate, maxOffset, experiment),
+      },
+    ]),
+  );
+  return {
+    allUsers: buildScope(activeUsers),
+    effectiveUsers: buildScope(effectiveActiveUsers),
+  };
+}
+
 function buildDateReport({ date, activeByDate, l1PassByDate, profiles, maxOffset, missingDates, historyFrom }) {
   const activeUsers = activeByDate.get(date) || new Set();
   const effectivePassUsers = unionPassUsersUntil(l1PassByDate, date);
@@ -302,9 +379,18 @@ function buildDateReport({ date, activeByDate, l1PassByDate, profiles, maxOffset
       newUser: "user_profile.firstLoginTime 属于 T 当天",
       oldUser: "user_profile.firstLoginTime 早于 T 当天",
       effectiveUser: "T 当天活跃，且在 T 当天或过往 user_behavior 中出现过 level_pass + levelId=1",
+      experimentBucket: "只使用 openid + salt 的 hash 分桶；缺失 openid 归入 NULL，不使用埋点实验字段",
     },
     allUsers: toMetrics(allCohorts),
     effectiveUsers: toMetrics(effectiveCohorts),
+    experimentRetention: buildExperimentRetention({
+      activeUsers,
+      effectivePassUsers,
+      profiles,
+      date,
+      activeByDate,
+      maxOffset,
+    }),
     dataQuality: {
       baseActiveUsers: activeUsers.size,
       effectivePassUsersKnownUntilDate: effectivePassUsers.size,

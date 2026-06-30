@@ -16,6 +16,7 @@ export type TutorialExperimentAssignment = {
     experimentSalt: string;
     bucket: TutorialExperimentBucket;
 };
+export type TutorialExperimentAssignmentListener = (assignment: TutorialExperimentAssignment) => void;
 
 type CloudResult = {
     ok?: boolean;
@@ -116,6 +117,7 @@ export class AnalyticsMgr {
     private funnelInFlight = false;
     private funnelUploadDisabled = false;
     private funnelUploadDisableWarned = false;
+    private readonly tutorialExperimentListeners = new Set<TutorialExperimentAssignmentListener>();
 
     private constructor() {
         this.openid = this.readCachedOpenid();
@@ -171,7 +173,7 @@ export class AnalyticsMgr {
             if (typeof result?.openid === 'string' && result.openid) {
                 this.openid = result.openid;
                 this.cacheOpenid(result.openid);
-                this.tutorialExperiment = this.resolveTutorialExperimentAssignment();
+                this.updateTutorialExperimentAssignment(this.resolveTutorialExperimentAssignment());
             }
 
             return !!this.openid;
@@ -349,6 +351,13 @@ export class AnalyticsMgr {
         return { ...this.tutorialExperiment };
     }
 
+    onTutorialExperimentAssignmentChanged(listener: TutorialExperimentAssignmentListener): () => void {
+        this.tutorialExperimentListeners.add(listener);
+        return () => {
+            this.tutorialExperimentListeners.delete(listener);
+        };
+    }
+
     getTutorialExperimentEventContext(): Pick<ReportDataOptions, 'abId' | 'abBucket'> {
         return {
             abId: this.tutorialExperiment.experimentId,
@@ -356,7 +365,7 @@ export class AnalyticsMgr {
         };
     }
 
-    isTutorialExperimentTreatment(): boolean {
+    shouldShowTutorialSkipGuidePrompt(): boolean {
         return this.tutorialExperiment.bucket === 'C' || this.tutorialExperiment.bucket === 'D';
     }
 
@@ -690,6 +699,26 @@ export class AnalyticsMgr {
             experimentSalt: TUTORIAL_EXPERIMENT_SALT,
             bucket,
         };
+    }
+
+    private updateTutorialExperimentAssignment(next: TutorialExperimentAssignment): void {
+        const prevBucket = this.tutorialExperiment.bucket;
+        this.tutorialExperiment = next;
+        if (prevBucket === next.bucket) {
+            return;
+        }
+        this.notifyTutorialExperimentAssignmentChanged();
+    }
+
+    private notifyTutorialExperimentAssignmentChanged(): void {
+        const assignment = this.getTutorialExperimentAssignment();
+        for (const listener of this.tutorialExperimentListeners) {
+            try {
+                listener(assignment);
+            } catch (error) {
+                console.warn('[AnalyticsMgr] tutorial experiment listener failed:', error);
+            }
+        }
     }
 
     private readTutorialExperimentBucketOverride(): TutorialExperimentBucket | null {

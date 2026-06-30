@@ -1,0 +1,134 @@
+{
+  "ver": "1.0.27",
+  "importer": "image",
+  "imported": true,
+  "uuid": "e8f180d2-acaa-487c-aab7-3213ab8bb243",
+  "files": [
+    ".json",
+    ".png"
+  ],
+  "subMetas": {
+    "f9941": {
+      "importer": "sprite-frame",
+      "uuid": "e8f180d2-acaa-487c-aab7-3213ab8bb243@f9941",
+      "displayName": "guide_prompt_button",
+      "id": "f9941",
+      "name": "spriteFrame",
+      "userData": {
+        "trimThreshold": 1,
+        "rotated": false,
+        "offsetX": -0.5,
+        "offsetY": 4.5,
+        "trimX": 36,
+        "trimY": 28,
+        "width": 247,
+        "height": 122,
+        "rawWidth": 320,
+        "rawHeight": 187,
+        "borderTop": 0,
+        "borderBottom": 0,
+        "borderLeft": 0,
+        "borderRight": 0,
+        "packable": true,
+        "pixelsToUnit": 100,
+        "pivotX": 0.5,
+        "pivotY": 0.5,
+        "meshType": 0,
+        "vertices": {
+          "rawPosition": [
+            -123.5,
+            -61,
+            0,
+            123.5,
+            -61,
+            0,
+            -123.5,
+            61,
+            0,
+            123.5,
+            61,
+            0
+          ],
+          "indexes": [
+            0,
+            1,
+            2,
+            2,
+            1,
+            3
+          ],
+          "uv": [
+            36,
+            159,
+            283,
+            159,
+            36,
+            37,
+            283,
+            37
+          ],
+          "nuv": [
+            0.1125,
+            0.19786096256684493,
+            0.884375,
+            0.19786096256684493,
+            0.1125,
+            0.8502673796791443,
+            0.884375,
+            0.8502673796791443
+          ],
+          "minPos": [
+            -123.5,
+            -61,
+            0
+          ],
+          "maxPos": [
+            123.5,
+            61,
+            0
+          ]
+        },
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "e8f180d2-acaa-487c-aab7-3213ab8bb243@6c48a",
+        "atlasUuid": "",
+        "trimType": "auto"
+      },
+      "ver": "1.0.12",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    },
+    "6c48a": {
+      "importer": "texture",
+      "uuid": "e8f180d2-acaa-487c-aab7-3213ab8bb243@6c48a",
+      "displayName": "guide_prompt_button",
+      "id": "6c48a",
+      "name": "texture",
+      "userData": {
+        "wrapModeS": "clamp-to-edge",
+        "wrapModeT": "clamp-to-edge",
+        "imageUuidOrDatabaseUri": "e8f180d2-acaa-487c-aab7-3213ab8bb243",
+        "isUuid": true,
+        "visible": false,
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [
+        ".json"
+      ],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "type": "sprite-frame",
+    "hasAlpha": true,
+    "fixAlphaTransparencyArtifacts": false,
+    "redirect": "e8f180d2-acaa-487c-aab7-3213ab8bb243@6c48a"
+  }
+}

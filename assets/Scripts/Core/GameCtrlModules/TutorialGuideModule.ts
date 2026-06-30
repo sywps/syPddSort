@@ -271,9 +271,90 @@ export function installTutorialGuideModule(target: any): void {
             this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回粉色空位');
         },
 
-        shouldUseTutorialRelaxedGuide(): boolean {
-            return (this._guideMode === 'level_1' || this._guideMode === 'level_2')
-                && AnalyticsMgr.inst.isTutorialExperimentTreatment();
+        isStarterTutorialAutoCorrectMode(): boolean {
+            return this._guideMode === 'level_1' || this._guideMode === 'level_2';
+        },
+
+        getTutorialSkipGuidePromptNode(): Node | null {
+            const root = typeof this.requireCanvasUiRoot === 'function'
+                ? this.requireCanvasUiRoot('OverlayRoot')
+                : null;
+            return root?.getChildByName('TutorialSkipGuidePrompt') || null;
+        },
+
+        shouldShowTutorialSkipGuidePrompt(): boolean {
+            const restoreStatus = typeof this.getStartupCloudRestoreStatus === 'function'
+                ? this.getStartupCloudRestoreStatus()
+                : '';
+            return this._guideMode === 'level_1'
+                && !this.isGameEnd
+                && !this._isThemeLevel
+                && !this.isExternalLevelPreviewActive?.()
+                && this.getActiveLogicalLevelId?.() === 1
+                && restoreStatus !== 'cloud_restore_pending'
+                && AnalyticsMgr.inst.shouldShowTutorialSkipGuidePrompt();
+        },
+
+        bindTutorialSkipGuidePrompt(prompt: Node): void {
+            if (!prompt.getComponent(Button)) {
+                throw new Error('[guide] Game.scene is missing Button: OverlayRoot/TutorialSkipGuidePrompt');
+            }
+            prompt.targetOff(this);
+            prompt.on(Button.EventType.CLICK, this.handleTutorialSkipGuidePromptClick, this);
+            this._tutorialSkipGuidePromptBound = true;
+        },
+
+        raiseTutorialSkipGuidePrompt(): void {
+            const prompt = this.getTutorialSkipGuidePromptNode?.();
+            if (!prompt?.isValid || !prompt.active || !prompt.parent) return;
+            prompt.setSiblingIndex(prompt.parent.children.length - 1);
+        },
+
+        hideTutorialSkipGuidePrompt(): void {
+            const prompt = this.getTutorialSkipGuidePromptNode?.();
+            if (prompt?.isValid) prompt.active = false;
+        },
+
+        syncTutorialSkipGuidePrompt(): void {
+            const shouldShow = this.shouldShowTutorialSkipGuidePrompt?.() || false;
+            const prompt = this.getTutorialSkipGuidePromptNode?.();
+            if (!prompt) {
+                if (shouldShow) {
+                    throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialSkipGuidePrompt');
+                }
+                return;
+            }
+            prompt.active = shouldShow;
+            if (!shouldShow) return;
+
+            if (!prompt.getChildByName('Label')?.getComponent(Label)) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialSkipGuidePrompt/Label Label');
+            }
+            this.bindTutorialSkipGuidePrompt(prompt);
+            this.raiseTutorialSkipGuidePrompt();
+            if (!this._tutorialSkipGuidePromptShownTracked) {
+                this._tutorialSkipGuidePromptShownTracked = true;
+                this.trackFirstLevelFunnel('tutorial_skip_prompt_show', {
+                    source: 'tutorial_skip_prompt',
+                    abBucket: AnalyticsMgr.inst.getTutorialExperimentAssignment().bucket,
+                });
+            }
+        },
+
+        handleTutorialSkipGuidePromptClick(): void {
+            if (!this.shouldShowTutorialSkipGuidePrompt?.()) return;
+            AudioMgr.inst.play('button');
+            this.trackFirstLevelFunnel('tutorial_skip_guide', {
+                source: 'tutorial_skip_prompt',
+                success: true,
+                abBucket: AnalyticsMgr.inst.getTutorialExperimentAssignment().bucket,
+            });
+            this.hideTutorialSkipGuidePrompt?.();
+            this.endTutorial?.();
+            if (typeof this.goNextLevel !== 'function') {
+                throw new Error('[guide] missing goNextLevel for tutorial skip');
+            }
+            this.goNextLevel();
         },
 
         trySelectGuideBoardColor(colorId: number): boolean {
@@ -303,8 +384,7 @@ export function installTutorialGuideModule(target: any): void {
             return cells[0] || null;
         },
 
-        handleTutorialRelaxedTap(worldPos: Vec3): boolean {
-            if (!this.shouldUseTutorialRelaxedGuide?.()) return false;
+        handleStarterTutorialAutoCorrectTap(worldPos: Vec3): boolean {
             const step = this._guideStep;
             const rawHitResult = this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
             const rawTouchTarget = this.classifyFirstLevelTouchTarget?.(worldPos) || '';
@@ -416,7 +496,15 @@ export function installTutorialGuideModule(target: any): void {
         
             const step = this._guideStep;
 
-            if (this.handleTutorialRelaxedTap?.(worldPos)) {
+            if (this.isStarterTutorialAutoCorrectMode?.()) {
+                if (!this.handleStarterTutorialAutoCorrectTap?.(worldPos)) {
+                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_failed', false, 'guide_layer', {
+                        autoCorrected: false,
+                        rawHitResult: this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown',
+                        rawTouchTarget: this.classifyFirstLevelTouchTarget?.(worldPos) || '',
+                    });
+                    this.showGuideWrongTargetHint(worldPos);
+                }
                 return;
             }
 
@@ -1164,7 +1252,7 @@ export function installTutorialGuideModule(target: any): void {
                         1.035,
                     );
                 }
-                if (this.shouldUseTutorialRelaxedGuide?.()) return;
+                if (this.isStarterTutorialAutoCorrectMode?.()) return;
                 for (const cell of cells) {
                     const cellNode = this.cellNodes[cell.row]?.[cell.col];
                     if (!cellNode) continue;
@@ -1248,7 +1336,7 @@ export function installTutorialGuideModule(target: any): void {
                         1.035,
                     );
                 }
-                if (this.shouldUseTutorialRelaxedGuide?.()) return;
+                if (this.isStarterTutorialAutoCorrectMode?.()) return;
                 for (const idx of idxs) {
                     const slotNode = this.slotNodes[idx];
                     if (!slotNode) continue;

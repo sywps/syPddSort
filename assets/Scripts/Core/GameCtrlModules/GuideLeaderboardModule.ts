@@ -360,6 +360,7 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideMode = 'none';
             this._guideTotalSteps = 0;
             this._lastGuideVoiceToken = '';
+            this.hideTutorialSkipGuidePrompt?.();
             this.clearGuideHighlight();
             if (this._guideBubble?.isValid) {
                 this._guideBubble.active = false;
