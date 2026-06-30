@@ -249,7 +249,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             };
             this.closeThemePanel();
             if (this.getRuntimeSceneName('Game') === 'Home') {
-                return this.requestGameplaySceneTransition(normalizedLevelId, 'zt_level_', false)
+                return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false)
                     .then(() => true)
                     .catch(onFail);
             }
@@ -530,6 +530,15 @@ export function installThemeLoadingOverlayModule(target: any): void {
             this._startLoadingProgressIntro(overlayVersion);
         },
 
+        setGameplayStartupRootVisible(visible: boolean): void {
+            const canvas = this.node?.scene?.getChildByName('Canvas') || null;
+            const screenRoot = canvas?.getChildByName('ScreenRoot') || null;
+            const gameplayRoot = screenRoot?.getChildByName('GameplayRoot') || null;
+            if (gameplayRoot?.isValid) {
+                gameplayRoot.active = visible;
+            }
+        },
+
         _getLoadingVisibleSize(): Size {
             const viewSize = view.getVisibleSize();
             const frameSize = view.getFrameSize();
@@ -639,6 +648,9 @@ export function installThemeLoadingOverlayModule(target: any): void {
             if (this._loadingProgressLabel) {
                 this._loadingProgressLabel.string = `加载中...${safePercent}%`;
             }
+            if (this._loadingProgressLabelShadow) {
+                this._loadingProgressLabelShadow.string = `加载中...${safePercent}%`;
+            }
         },
 
         _animateLoadingProgressPercent(from: number, to: number, duration: number, overlayVersion: number = this._loadingOverlayVersion || 0) {
@@ -656,6 +668,9 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 this._loadingProgressPercent = safePercent;
                 if (this._loadingProgressLabel) {
                     this._loadingProgressLabel.string = `加载中...${safePercent}%`;
+                }
+                if (this._loadingProgressLabelShadow) {
+                    this._loadingProgressLabelShadow.string = `加载中...${safePercent}%`;
                 }
             };
             if (duration <= 0 || fromPercent === toPercent) {
@@ -688,6 +703,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
 
         hideLoadingOverlayAfterGameplayReady() {
             if (!this._loadingOverlay) return;
+            this.setGameplayStartupRootVisible?.(true);
             const blocker = this._loadingOverlay.getComponent(BlockInputEvents);
             if (blocker) blocker.enabled = false;
             this.scheduleOnce(() => this.hideLoadingOverlay(), 0);

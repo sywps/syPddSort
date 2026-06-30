@@ -418,6 +418,8 @@ export class GameplaySlotUiController {
     private syncSlotUnlockButtonLabels(buttonNode: Node, unlockMode: SlotUnlockMode) {
         const adLabel = this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabel');
         const freeLabel = this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabelFree');
+        adLabel.getComponent(Label)!.string = '增加';
+        freeLabel.getComponent(Label)!.string = '增加';
         const active = buttonNode.active;
         adLabel.active = active && unlockMode === 'ad';
         freeLabel.active = active && unlockMode === 'free';
@@ -608,6 +610,7 @@ export class GameplaySlotUiController {
         runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
         this.rebuildSlotNodes();
         runtime.renderSlots();
+        runtime.clearAdRewardSlotAddReminderVisuals?.();
     }
 
     tryUnlockSlotRow() {
@@ -631,7 +634,7 @@ export class GameplaySlotUiController {
             busyFlag: '_skillActive',
             waitForCloseBeforeComplete: true,
             onAdComplete: () => runtime.resumeTimerForProp(),
-            grantFailToast: '暂存槽解锁失败，请重试',
+            grantFailToast: '暂存槽增加失败，请重试',
         });
     }
 

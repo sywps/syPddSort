@@ -63,4 +63,23 @@ export const AUDIO_SFX_VOLUME_VARIANCE: Partial<Record<SfxName, number>> = {
     tick: 0.03,
 };
 
-export const AUDIO_BOOTSTRAP_SFX_NAMES: SfxName[] = [];
+export const AUDIO_BOOTSTRAP_SFX_NAMES: SfxName[] = [
+    'select',
+    'place',
+    'slot',
+    'return',
+    'button',
+    'uiPanel',
+    'tick',
+    'win',
+    'winColor',
+    'winAll',
+    'winSettlement',
+    'lose',
+    'propFreeze',
+    'revivePop',
+    'guideLevel1Pick1',
+    'guideLevel1Place1',
+    'guideLevel1Pick2',
+    'guideLevel1Place2',
+];

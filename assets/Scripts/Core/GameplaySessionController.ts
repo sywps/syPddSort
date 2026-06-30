@@ -107,6 +107,7 @@ export class GameplaySessionController {
             runtime._freezeTimeLeft = 0;
             runtime._freezeTimeTotal = 0;
             runtime._adTimerSuspended = false;
+            runtime.resetAdRewardHintState?.(dynamicTimeLimit);
             runtime._pendingWinGoldReward = 0;
             runtime._pendingWinAdBonusReward = 0;
             runtime._winAdRewardClaimed = false;
@@ -133,17 +134,13 @@ export class GameplaySessionController {
             runtime.renderSlots();
             runtime.assertGameplayVisualReadiness();
             runtime.hideLoadingOverlayAfterGameplayReady?.();
-            runtime.preloadSettingsPanel?.();
-            if (bootstrapOnlyGameplayStartup) {
-                AudioMgr.inst.playGameBgm();
-            }
+            AudioMgr.inst.playGameBgm();
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
             if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
                 runtime.recordMainlineLevelEntry(activeLogicalLevelId);
             }
-            this.finishGameplayReadyTransition();
+            this.clearGameplayReadyRouteCover();
             runtime.refreshEndgameHints('init-game');
-            runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0.8);
             const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
             const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
             if (runtime.isFirstLevelFunnelActive()) {
@@ -167,6 +164,7 @@ export class GameplaySessionController {
             });
             AnalyticsMgr.inst.flushFunnelEvents();
             runtime.onGameplayUiReadyForStartupServices?.();
+            runtime.startPostPlayableWarmup?.('gameplay-ready');
 
             if (runtime.needsBeanReRender()) {
                 runtime.scheduleOnce(() => {
@@ -210,37 +208,15 @@ export class GameplaySessionController {
                 }
             }
         } catch (error) {
-            AppRoot.tryGet()?.forceHideSceneTransition('gameplay-init-error');
+            AppRoot.tryGet()?.clearRouteCover('gameplay-init-error');
             throw error;
         }
     }
 
-    private finishGameplayReadyTransition(): void {
+    private clearGameplayReadyRouteCover(): void {
         const appRoot = AppRoot.tryGet();
         if (!appRoot) return;
-        let settled = false;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const clearFallback = () => {
-            if (timeoutId !== null) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
-        };
-        const forceHideOnce = (source: string) => {
-            if (settled) return;
-            settled = true;
-            clearFallback();
-            appRoot.forceHideSceneTransition(source);
-        };
-        timeoutId = setTimeout(() => {
-            forceHideOnce('gameplay-ready-timeout');
-        }, 1800);
-        void appRoot.finishSceneTransition('gameplay-ready').then(() => {
-            forceHideOnce('gameplay-ready-complete');
-        }).catch((error: unknown) => {
-            console.warn('[SceneTransition] finish after gameplay ready failed:', error);
-            forceHideOnce('gameplay-ready-fallback');
-        });
+        appRoot.clearRouteCover('gameplay-ready');
     }
 
     private clearTutorialRuntimeState(runtime: any): void {

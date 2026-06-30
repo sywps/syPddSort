@@ -9,15 +9,19 @@ import {
     UIOpacity,
     UITransform,
 } from '../GameCtrlShared';
-import { runtimeWarn } from '../RuntimeLog';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
-const PINDD_SPINE_FX_UUID = 'ebc7075d-a1ec-459b-a209-1b510525f23c';
+const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
 const PINDD_SPINE_FX_NODE_NAME = 'PinddSpineFx';
 const PINDD_SPINE_FX_SOURCE_HEIGHT = 43.27;
 const PINDD_SPINE_FX_SCALE = 1;
 const PINDD_SPINE_FX_ACTIVE_LIMIT = 80;
 const PINDD_SPINE_FX_POOL_LIMIT = 96;
+const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
+const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
+const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
+const PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 72;
+const PINDD_SPINE_PATTERN_COMPLETE_MAX_WAIT_SECONDS = 0.45;
 const PINDD_SPINE_FX_ANIMATION = {
     settle: 'a1_1',
     colorComplete: 'b1_1',
@@ -30,6 +34,15 @@ const PINDD_SPINE_FX_DURATION: Record<PinddSpineFxAnimationName, number> = {
 };
 
 type PinddSpineFxAnimationName = typeof PINDD_SPINE_FX_ANIMATION[keyof typeof PINDD_SPINE_FX_ANIMATION];
+type PinddSpineFxPlayOptions = {
+    retryOnActiveLimit?: boolean;
+    batchSeq?: number;
+};
+type PinddSpineFxBatchOptions = {
+    maxNodes?: number;
+    maxWaitSeconds?: number;
+    waitForAll?: boolean;
+};
 
 const PINDD_SPINE_FX_SCALE_BY_ANIMATION: Record<PinddSpineFxAnimationName, number> = {
     a1_1: 1,
@@ -49,27 +62,89 @@ function setFxLayerDeep(node: Node, layer: number): void {
     }
 }
 
+function createPinddSpineFxError(message: string): Error {
+    return new Error(`[pindd-spine-fx] ${message}`);
+}
+
+function createPinddSpineWasmError(err: unknown): Error {
+    const message = err instanceof Error ? err.message : String(err || 'unknown error');
+    return createPinddSpineFxError(`Spine wasm load failed: ${message}`);
+}
+
+function ensurePinddSpineWasmSubpackageReady(): Promise<void> {
+    const globalScope = globalThis as any;
+    if (!globalScope.__PDD_WECHAT_BUILD__) {
+        return Promise.resolve();
+    }
+    const existing = globalScope.__PDD_SPINE_WASM_SUBPACKAGE_PROMISE__;
+    if (existing && typeof existing.then === 'function') {
+        return existing;
+    }
+    const wxApi = globalScope.__rawWx || globalScope.wx;
+    if (!wxApi || typeof wxApi.loadSubpackage !== 'function') {
+        return Promise.reject(createPinddSpineFxError(`${SPINE_WASM_SUBPACKAGE_NAME} subpackage loader unavailable`));
+    }
+    globalScope.__PDD_SPINE_WASM_SUBPACKAGE_PROMISE__ = new Promise<void>((resolve, reject) => {
+        wxApi.loadSubpackage({
+            name: SPINE_WASM_SUBPACKAGE_NAME,
+            success: () => resolve(),
+            fail: (err: unknown) => reject(createPinddSpineFxError(`${SPINE_WASM_SUBPACKAGE_NAME} subpackage load failed: ${err instanceof Error ? err.message : String(err || 'unknown error')}`)),
+        });
+    });
+    return globalScope.__PDD_SPINE_WASM_SUBPACKAGE_PROMISE__;
+}
+
+function ensurePinddSpineWasmReady(): Promise<void> {
+    return ensurePinddSpineWasmSubpackageReady().then(() => {
+        const loadWasm = (sp as any)?.loadWasmModuleSpine;
+        if (typeof loadWasm !== 'function') {
+            return Promise.resolve();
+        }
+        try {
+            return Promise.resolve(loadWasm.call(sp)).then(() => undefined, (err: unknown) => {
+                throw createPinddSpineWasmError(err);
+            });
+        } catch (err) {
+            return Promise.reject(createPinddSpineWasmError(err));
+        }
+    });
+}
+
+function selectPinddSpineFxBatchNodes(nodes: Node[], maxNodes?: number): Node[] {
+    const safeNodes = (nodes || []).filter((node) => node?.isValid);
+    const limit = Math.floor(Number(maxNodes) || 0);
+    if (limit <= 0 || safeNodes.length <= limit) {
+        return safeNodes;
+    }
+    if (limit === 1) {
+        return [safeNodes[Math.floor(safeNodes.length / 2)]].filter((node) => node?.isValid);
+    }
+    const selected: Node[] = [];
+    const selectedSet = new Set<Node>();
+    const step = (safeNodes.length - 1) / (limit - 1);
+    for (let i = 0; i < limit; i++) {
+        const node = safeNodes[Math.round(i * step)];
+        if (node?.isValid && !selectedSet.has(node)) {
+            selected.push(node);
+            selectedSet.add(node);
+        }
+    }
+    for (const node of safeNodes) {
+        if (selected.length >= limit) break;
+        if (selectedSet.has(node)) continue;
+        selected.push(node);
+        selectedSet.add(node);
+    }
+    return selected;
+}
+
 export function installGameplayColorCompleteFxMethods(target: any): void {
     Object.assign(target, {
-        warnPinddSpineFxLoadFailure(message: string): void {
-            if (this._pinddSpineFxLoadWarned) return;
-            this._pinddSpineFxLoadWarned = true;
-            runtimeWarn(`[pindd-spine-fx] load skipped: ${message}`);
-        },
-
-        warnPinddSpineFxPlayFailure(message: string): void {
-            if (this._pinddSpineFxPlayWarned) return;
-            this._pinddSpineFxPlayWarned = true;
-            runtimeWarn(`[pindd-spine-fx] play skipped: ${message}`);
-        },
-
-        ensurePinddSpineFxSkeletonData(onDone: (data: sp.SkeletonData | null) => void): void {
+        ensurePinddSpineFxSkeletonData(onDone: (data: sp.SkeletonData) => void): void {
             const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const skeletonDataCtor = (sp as any)?.SkeletonData;
             if (!skeletonDataCtor) {
-                this.warnPinddSpineFxLoadFailure('Spine module is disabled or unavailable');
-                onDone(null);
-                return;
+                throw createPinddSpineFxError('Spine module is disabled or unavailable');
             }
             if (this._pinddSpineFxSkeletonData) {
                 onDone(this._pinddSpineFxSkeletonData);
@@ -82,68 +157,70 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
 
             this._pinddSpineFxSkeletonDataLoading = true;
             this._pinddSpineFxSkeletonDataCallbacks = [onDone];
-            const finish = (data: sp.SkeletonData | null) => {
+            const finish = (data: sp.SkeletonData) => {
                 if (!isRuntimeAlive()) return;
                 this._pinddSpineFxSkeletonDataLoading = false;
-                if (data) this._pinddSpineFxSkeletonData = data;
+                this._pinddSpineFxSkeletonData = data;
                 const callbacks = this._pinddSpineFxSkeletonDataCallbacks || [];
                 this._pinddSpineFxSkeletonDataCallbacks = [];
                 for (const cb of callbacks) cb(data);
             };
             const loadFromBundle = (bundle: Bundle | null) => {
-                const loadByUuid = () => {
-                    const loadAny = (assetManager as any)?.loadAny;
-                    if (typeof loadAny !== 'function') {
-                        this.warnPinddSpineFxLoadFailure('assetManager.loadAny unavailable');
-                        finish(null);
-                        return;
-                    }
-                    loadAny.call(assetManager, { uuid: PINDD_SPINE_FX_UUID, type: skeletonDataCtor }, (err: Error | null, data: sp.SkeletonData | null) => {
-                        if (err || !data) {
-                            this.warnPinddSpineFxLoadFailure(err?.message || 'SkeletonData missing');
-                            finish(null);
-                            return;
-                        }
-                        finish(data);
-                    });
-                };
                 if (!bundle) {
-                    loadByUuid();
+                    this._pinddSpineFxSkeletonDataLoading = false;
+                    this._pinddSpineFxSkeletonDataCallbacks = [];
+                    throw createPinddSpineFxError('gameAssets bundle unavailable');
                     return;
                 }
                 bundle.load(PINDD_SPINE_FX_PATH, skeletonDataCtor, (err: Error | null, data: sp.SkeletonData | null) => {
                     if (err || !data) {
-                        loadByUuid();
+                        this._pinddSpineFxSkeletonDataLoading = false;
+                        this._pinddSpineFxSkeletonDataCallbacks = [];
+                        throw createPinddSpineFxError(`missing required SkeletonData ${PINDD_SPINE_FX_PATH}: ${err?.message || 'asset missing'}`);
                         return;
                     }
                     finish(data);
                 });
             };
 
-            if (typeof this._withGameAssetsBundle === 'function') {
-                this._withGameAssetsBundle(loadFromBundle);
-                return;
-            }
-
-            assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
-                if (!isRuntimeAlive()) return;
-                if (err || !bundle) {
-                    this.warnPinddSpineFxLoadFailure(err?.message || 'gameAssets bundle unavailable');
-                    finish(null);
+            const loadSkeletonData = () => {
+                if (typeof this._withGameAssetsBundle === 'function') {
+                    this._withGameAssetsBundle(loadFromBundle);
                     return;
                 }
-                this.gameAssetsBundle = bundle;
-                loadFromBundle(bundle);
+
+                assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                    if (!isRuntimeAlive()) return;
+                    if (err || !bundle) {
+                        this._pinddSpineFxSkeletonDataLoading = false;
+                        this._pinddSpineFxSkeletonDataCallbacks = [];
+                        throw createPinddSpineFxError(`gameAssets bundle unavailable: ${err?.message || 'missing bundle'}`);
+                        return;
+                    }
+                    this.gameAssetsBundle = bundle;
+                    loadFromBundle(bundle);
+                });
+            };
+
+            ensurePinddSpineWasmReady().then(() => {
+                if (!isRuntimeAlive()) return;
+                loadSkeletonData();
+            }).catch((err: Error) => {
+                if (!isRuntimeAlive()) return;
+                this._pinddSpineFxSkeletonDataLoading = false;
+                this._pinddSpineFxSkeletonDataCallbacks = [];
+                throw err;
             });
         },
 
-        acquirePinddSpineFxNode(): { node: Node; skeleton: sp.Skeleton } | null {
+        acquirePinddSpineFxNode(): { node: Node; skeleton: sp.Skeleton } {
             const skeletonCtor = (sp as any)?.Skeleton;
             if (!skeletonCtor) {
-                this.warnPinddSpineFxLoadFailure('Spine component is disabled or unavailable');
-                return null;
+                throw createPinddSpineFxError('Spine component is disabled or unavailable');
             }
-            if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) return null;
+            if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
+                throw createPinddSpineFxError(`active effect limit exceeded: ${PINDD_SPINE_FX_ACTIVE_LIMIT}`);
+            }
             const pool = this._pinddSpineFxPool;
             const node = pool?.get?.() ?? new Node(PINDD_SPINE_FX_NODE_NAME);
             node.name = PINDD_SPINE_FX_NODE_NAME;
@@ -196,6 +273,8 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         },
 
         clearPinddSpineFx(): void {
+            this._pinddSpineFxBatchSeq = (Number(this._pinddSpineFxBatchSeq) || 0) + 1;
+            this._pinddSpineFxReservedCount = 0;
             const skeletonCtor = (sp as any)?.Skeleton;
             const activeNodes: Node[] = Array.isArray(this._activePinddSpineFxNodes) ? this._activePinddSpineFxNodes : [];
             for (const node of activeNodes) {
@@ -218,13 +297,18 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
 
         getPinddSpineFxScaleForBean(beanNode: Node, animationName?: PinddSpineFxAnimationName): number {
             const beanTransform = beanNode.getComponent(UITransform);
-            const fallbackBeanSize = Math.max(1, Number(this.getBoardBeanVisualSize?.() || 1));
+            if (!beanTransform) {
+                throw createPinddSpineFxError(`bean node is missing UITransform: ${beanNode.name}`);
+            }
             const beanSize = Math.max(1, Math.min(
-                Number(beanTransform?.contentSize.width || fallbackBeanSize),
-                Number(beanTransform?.contentSize.height || fallbackBeanSize),
+                Number(beanTransform.contentSize.width),
+                Number(beanTransform.contentSize.height),
             ));
-            const slotSize = Math.max(1, Number(this.getBoardSlotVisualSize?.() || this.cellSize || 0));
-            const targetSize = slotSize > 1 ? slotSize : beanSize;
+            const slotSize = Number(this.getBoardSlotVisualSize?.() || this.cellSize || 0);
+            if (!Number.isFinite(slotSize) || slotSize <= 0) {
+                throw createPinddSpineFxError('board slot visual size is unavailable');
+            }
+            const targetSize = Math.max(slotSize, beanSize);
             const animationScale = animationName ? (PINDD_SPINE_FX_SCALE_BY_ANIMATION[animationName] || 1) : 1;
             return Math.max(0.01, (targetSize * PINDD_SPINE_FX_SCALE * animationScale) / PINDD_SPINE_FX_SOURCE_HEIGHT);
         },
@@ -233,28 +317,40 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             beanNode: Node,
             animationName: PinddSpineFxAnimationName,
             onDone?: () => void,
+            options?: PinddSpineFxPlayOptions,
         ): void {
-            const finishWithoutFx = () => {
-                if (typeof onDone === 'function') onDone();
-            };
             if (!beanNode?.isValid) {
-                finishWithoutFx();
+                if (typeof onDone === 'function') onDone();
                 return;
             }
-            this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData | null) => {
-                if (!beanNode?.isValid) {
-                    finishWithoutFx();
+            const retryOnActiveLimit = options?.retryOnActiveLimit === true;
+            const batchSeq = Number(options?.batchSeq);
+            const isBatchStillCurrent = () => !retryOnActiveLimit
+                || !Number.isFinite(batchSeq)
+                || this._pinddSpineFxBatchSeq === batchSeq;
+            const retryLater = () => {
+                if (!isBatchStillCurrent()) return;
+                if (typeof this.scheduleOnce === 'function') {
+                    this.scheduleOnce(tryPlay, PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS);
                     return;
                 }
-                if (!skeletonData) {
-                    finishWithoutFx();
+                setTimeout(tryPlay, PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS * 1000);
+            };
+            const tryPlay = () => this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
+                if (!isBatchStillCurrent()) return;
+                if (!beanNode?.isValid) {
+                    if (typeof onDone === 'function') onDone();
+                    return;
+                }
+                if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
+                    if (retryOnActiveLimit) {
+                        retryLater();
+                    } else if (typeof onDone === 'function') {
+                        onDone();
+                    }
                     return;
                 }
                 const acquired = this.acquirePinddSpineFxNode();
-                if (!acquired) {
-                    finishWithoutFx();
-                    return;
-                }
                 const { node, skeleton } = acquired;
                 const seq = ((node as any).__pinddSpineFxSeq || 0) + 1;
                 (node as any).__pinddSpineFxSeq = seq;
@@ -281,30 +377,119 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     skeleton.setAnimation(0, animationName, false);
                     this.scheduleOnce(completeOnce, (PINDD_SPINE_FX_DURATION[animationName] || 0.8) + 0.12);
                 } catch (err) {
-                    this.warnPinddSpineFxPlayFailure(err instanceof Error ? err.message : String(err));
-                    completeOnce();
+                    this.recyclePinddSpineFxNode(node);
+                    throw createPinddSpineFxError(`play failed for ${animationName}: ${err instanceof Error ? err.message : String(err)}`);
                 }
             });
+            tryPlay();
         },
 
         playPinddSpineFxOnBeans(
             beanNodes: Node[],
             animationName: PinddSpineFxAnimationName,
             onDone?: () => void,
+            options: PinddSpineFxBatchOptions = {},
         ): void {
-            const nodes = (beanNodes || []).filter((node) => node?.isValid);
-            let remaining = nodes.length;
-            if (remaining === 0) {
+            const nodes = selectPinddSpineFxBatchNodes(beanNodes, options.maxNodes);
+            const total = nodes.length;
+            if (total === 0) {
                 onDone?.();
                 return;
             }
-            const finishOne = () => {
-                remaining--;
-                if (remaining <= 0) onDone?.();
+            const seq = (Number(this._pinddSpineFxBatchSeq) || 0) + 1;
+            this._pinddSpineFxBatchSeq = seq;
+            this._pinddSpineFxReservedCount = 0;
+            let nextIndex = 0;
+            let running = 0;
+            let completed = 0;
+            let done = false;
+            let pumpBatch: () => void = () => {};
+            const finishBatchForTimeout = () => {
+                if (done || this._pinddSpineFxBatchSeq !== seq) return;
+                done = true;
+                this._pinddSpineFxBatchSeq = seq + 1;
+                this._pinddSpineFxReservedCount = 0;
+                onDone?.();
             };
-            for (const beanNode of nodes) {
-                this.playPinddSpineFxOnBean(beanNode, animationName, finishOne);
+            if (options.waitForAll === false) {
+                const maxWaitSeconds = Math.max(0, Number(options.maxWaitSeconds) || 0);
+                if (maxWaitSeconds > 0) {
+                    if (typeof this.scheduleOnce === 'function') {
+                        this.scheduleOnce(finishBatchForTimeout, maxWaitSeconds);
+                    } else {
+                        setTimeout(finishBatchForTimeout, maxWaitSeconds * 1000);
+                    }
+                }
             }
+            const finishOne = () => {
+                if (done || this._pinddSpineFxBatchSeq !== seq) return;
+                running = Math.max(0, running - 1);
+                this._pinddSpineFxReservedCount = Math.max(0, (Number(this._pinddSpineFxReservedCount) || 0) - 1);
+                completed++;
+                if (completed >= total) {
+                    done = true;
+                    onDone?.();
+                    return;
+                }
+                pumpBatch();
+            };
+            const finishSkipped = () => {
+                if (done || this._pinddSpineFxBatchSeq !== seq) return;
+                completed++;
+                if (completed >= total) {
+                    done = true;
+                    onDone?.();
+                    return;
+                }
+                pumpBatch();
+            };
+            const schedulePump = () => {
+                if (done || this._pinddSpineFxBatchSeq !== seq) return;
+                if (typeof this.scheduleOnce === 'function') {
+                    this.scheduleOnce(pumpBatch, PINDD_SPINE_FX_BATCH_RETRY_SECONDS);
+                    return;
+                }
+                setTimeout(pumpBatch, PINDD_SPINE_FX_BATCH_RETRY_SECONDS * 1000);
+            };
+            const launchOne = (beanNode: Node) => {
+                running++;
+                this._pinddSpineFxReservedCount = (Number(this._pinddSpineFxReservedCount) || 0) + 1;
+                try {
+                    this.playPinddSpineFxOnBean(beanNode, animationName, finishOne, {
+                        retryOnActiveLimit: true,
+                        batchSeq: seq,
+                    });
+                } catch (error) {
+                    running = Math.max(0, running - 1);
+                    this._pinddSpineFxReservedCount = Math.max(0, (Number(this._pinddSpineFxReservedCount) || 0) - 1);
+                    done = true;
+                    throw error;
+                }
+            };
+            pumpBatch = () => {
+                if (done || this._pinddSpineFxBatchSeq !== seq) return;
+                const activeCount = Number(this._pinddSpineFxActiveCount) || 0;
+                const reservedCount = Number(this._pinddSpineFxReservedCount) || 0;
+                const availableByActiveLimit = Math.max(0, PINDD_SPINE_FX_ACTIVE_LIMIT - activeCount - reservedCount);
+                const availableByBatchLimit = Math.max(0, PINDD_SPINE_FX_BATCH_CONCURRENCY - running);
+                const launchCount = Math.min(availableByActiveLimit, availableByBatchLimit, total - nextIndex);
+                if (launchCount <= 0) {
+                    schedulePump();
+                    return;
+                }
+                for (let i = 0; i < launchCount; i++) {
+                    const beanNode = nodes[nextIndex++];
+                    if (!beanNode?.isValid) {
+                        finishSkipped();
+                        continue;
+                    }
+                    launchOne(beanNode);
+                }
+                if (nextIndex < total && running < PINDD_SPINE_FX_BATCH_CONCURRENCY) {
+                    schedulePump();
+                }
+            };
+            pumpBatch();
         },
 
         clearPatternCompleteMatchFx(): void {
@@ -377,7 +562,11 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
             this.clearPatternCompleteMatchFx();
-            this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.patternComplete, finish);
+            this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.patternComplete, finish, {
+                maxNodes: PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES,
+                maxWaitSeconds: PINDD_SPINE_PATTERN_COMPLETE_MAX_WAIT_SECONDS,
+                waitForAll: false,
+            });
         },
 
         enqueueColorCompleteEffect(colorId: number, playSound: boolean = true): void {

@@ -4,16 +4,18 @@ const fs = require('fs');
 const path = require('path');
 const platformConfig = require('./minigame-platform-config.js');
 
-const [outputPath, startSceneUrl, startSceneUuid, modeArg] = process.argv.slice(2);
+const [outputPath, startSceneUrl, startSceneUuid, modeArg, outputNameArg] = process.argv.slice(2);
 
 if (!outputPath || !startSceneUrl || !startSceneUuid || !modeArg) {
-    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
+    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug> [outputName]');
     process.exit(1);
 }
 
 const debugMode = modeArg === '--debug' || modeArg === 'debug';
 const releaseMode = modeArg === '--release' || modeArg === 'release';
 const projectRoot = path.resolve(__dirname, '..');
+const WECHAT_WASM_SUBPACKAGE = process.env.WECHAT_WASM_SUBPACKAGE !== '0';
+const WECHAT_LOAD_SPINE_MANUALLY = process.env.WECHAT_LOAD_SPINE_MANUALLY !== '0';
 const MINIGAME_ENGINE_MODULES = [
     '2d',
     'affine-transform',
@@ -26,14 +28,24 @@ const MINIGAME_ENGINE_MODULES = [
     'legacy-pipeline',
     'mask',
     'rich-text',
+    'spine-3.8',
     'tween',
     'ui',
 ];
 
 if (!debugMode && !releaseMode) {
     console.error('未知微信构建模式: ' + modeArg);
-    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug>');
+    console.error('用法: node scripts/write-wechat-build-config.js <outputPath> <startSceneUrl> <startSceneUuid> <--release|--debug> [outputName]');
     process.exit(1);
+}
+
+function normalizeOutputName(value) {
+    const name = String(value || 'wechatgame').trim();
+    if (!/^[A-Za-z0-9._-]+$/.test(name) || name.includes('/') || name.includes('\\')) {
+        console.error('微信构建 outputName 非法: ' + name);
+        process.exit(1);
+    }
+    return name;
 }
 
 function resolveSeparateEngine() {
@@ -80,7 +92,7 @@ const config = {
     wasmCompressionMode: 'true',
     scenes: makeRuntimeScenes(),
     startScene: startSceneUuid,
-    outputName: 'wechatgame',
+    outputName: normalizeOutputName(outputNameArg),
     taskName: 'wechatgame',
     mainBundleCompressionType: 'subpackage',
     packages: {
@@ -96,6 +108,10 @@ const config = {
     server: '',
     engineModulesConfigKey: 'defaultConfig',
     includeModules: MINIGAME_ENGINE_MODULES,
+    flags: {
+        WASM_SUBPACKAGE: WECHAT_WASM_SUBPACKAGE,
+        LOAD_SPINE_MANUALLY: WECHAT_LOAD_SPINE_MANUALLY,
+    },
     buildPath: 'project://build',
     debug: false,
     md5Cache: true,

@@ -422,6 +422,32 @@ export function installSkinBackgroundModule(target: any): void {
             });
         },
 
+        preloadBackgroundSkinPanel(): void {
+            if (this._backgroundSkinPanelPreloading) return;
+            this._backgroundSkinPanelPreloading = true;
+            const finish = () => {
+                this._backgroundSkinPanelPreloading = false;
+            };
+            this._loadBackgroundSkinConfig((config: BackgroundSkinConfig | null) => {
+                if (!this.isValid || !config) {
+                    finish();
+                    return;
+                }
+                this._withGameAssetsBundle((bundle: Bundle | null) => {
+                    if (!this.isValid || !bundle) {
+                        finish();
+                        return;
+                    }
+                    bundle.load(SKIN_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                        if (!err && prefab) {
+                            this._backgroundSkinPanelPrefab = prefab;
+                        }
+                        finish();
+                    });
+                });
+            });
+        },
+
         _getSkinBundle(bundleName: string, callback: (bundle: Bundle | null, err?: Error | null) => void): void {
             const safeName = String(bundleName || '').trim();
             if (!safeName) {
@@ -1304,10 +1330,7 @@ export function installSkinBackgroundModule(target: any): void {
                             const close = requireSkinPanelChild(box, 'XBtn', 'BackgroundSkinPanel/Box');
                             const content = requireSkinPanelChild(box, 'Content', 'BackgroundSkinPanel/Box');
                             requireSkinPanelChild(content, SKIN_PANEL_SCROLL_CONTENT_NAME, 'BackgroundSkinPanel/Box/Content');
-                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => {
-                                AudioMgr.inst.play('uiPanel');
-                                this.closeBackgroundSkinPanel();
-                            });
+                            bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => this.closeBackgroundSkinPanel());
                             this._backgroundSkinPanelOverlay = overlay;
                             this.renderBackgroundSkinPanelCards(content, config.rows);
                             this.playPopupOpenAnim?.(overlay, box);

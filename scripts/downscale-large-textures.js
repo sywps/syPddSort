@@ -11,7 +11,6 @@ const apply = process.argv.includes('--apply');
 const TARGETS = [
     { file: 'assets/GameAssetsBundle/Textures/BG/bg_game.png', max: 1080 },
     { file: 'assets/BootstrapBundle/GameUI/bg_game_pindd.png', max: 1280 },
-    { file: 'assets/GameAssetsBundle/Textures/UI/fm.jpeg', max: 960 },
     { file: 'assets/Textures/UI/loading_cover.jpeg', max: 960 },
     { file: 'assets/HomeAssetsBundle/GameUI/home_bg.jpeg', max: 960 },
     { file: 'assets/BootstrapBundle/GameUI/popup_tool_add_badge.png', max: 128, preserveSpriteFrameTrim: true },

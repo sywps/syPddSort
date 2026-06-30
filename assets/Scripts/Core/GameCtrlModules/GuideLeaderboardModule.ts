@@ -564,10 +564,12 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         deactivateWeChatFriendRank(reason: string = 'unknown') {
-            const openDataContext = this.getWeChatOpenDataContext();
+            const shouldNotifyOpenDataContext = !!this._friendRankOpenDataActive;
+            const openDataContext = shouldNotifyOpenDataContext ? this.getWeChatOpenDataContext() : null;
             this.stopFriendRankInertia();
             debugPerfTrace('friendRank.openData.deactivate', {
                 reason,
+                skippedInactiveOpenData: !shouldNotifyOpenDataContext,
                 hasOpenDataContext: !!openDataContext,
                 hasPostMessage: !!openDataContext?.postMessage,
             });
@@ -578,6 +580,7 @@ export function installGuideLeaderboardModule(target: any): void {
                     console.warn('[GameCtrl] failed to deactivate openDataContext:', err);
                 }
             }
+            this._friendRankOpenDataActive = false;
             this._friendRankScrollOffset = 0;
             this._friendRankLastMoveAt = 0;
             this._friendRankTouchStartY = 0;

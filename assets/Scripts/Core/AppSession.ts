@@ -5,14 +5,15 @@ type Bundle = AssetManager.Bundle;
 export type AppSceneName = 'Home' | 'Game' | 'Boot';
 export type AppVisualState = 'boot' | 'home' | 'game';
 export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
-export type AppSceneTransitionCoverMode = 'auto' | 'cover' | 'none';
-export type AppGameplayEntryCoverMode = AppSceneTransitionCoverMode;
+export type AppRouteCoverMode = 'auto' | 'cover' | 'none';
+export type AppGameplayEntryCoverMode = AppRouteCoverMode;
 
 export interface PendingGameplayRequest {
     levelId: number;
     prefix: string;
     entryMode: AppGameplayEntryMode;
     entryCoverMode: AppGameplayEntryCoverMode;
+    routeReason?: string;
     requestedAt: number;
 }
 
@@ -26,11 +27,6 @@ export interface PendingHomeToast {
     duration: number;
 }
 
-export interface StartupCloudGameRestoreRequest {
-    savedLevel: number;
-    requestedAt: number;
-}
-
 export class AppSession {
     private _currentSceneName: AppSceneName = 'Game';
     private _requestedSceneName: AppSceneName = 'Game';
@@ -40,7 +36,6 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
-    private _startupCloudGameRestoreRequest: StartupCloudGameRestoreRequest | null = null;
     private readonly _routedBundles = new Map<string, Bundle>();
 
     get currentSceneName(): AppSceneName {
@@ -61,10 +56,6 @@ export class AppSession {
 
     get activeGameplayContext(): ActiveGameplayContext | null {
         return this._activeGameplayContext;
-    }
-
-    get startupCloudGameRestoreRequest(): StartupCloudGameRestoreRequest | null {
-        return this._startupCloudGameRestoreRequest;
     }
 
     setCurrentSceneName(sceneName: AppSceneName): void {
@@ -123,36 +114,6 @@ export class AppSession {
         return toast;
     }
 
-    markStartupCloudGameRestoreReady(savedLevel: number): void {
-        const normalizedLevel = Math.max(1, Math.floor(Number(savedLevel) || 1));
-        if (normalizedLevel <= 1) return;
-        this._startupCloudGameRestoreRequest = {
-            savedLevel: normalizedLevel,
-            requestedAt: Date.now(),
-        };
-    }
-
-    clearStartupCloudGameRestoreRequest(): void {
-        this._startupCloudGameRestoreRequest = null;
-    }
-
-    consumeStartupCloudGameRestoreForGameEntry(): StartupCloudGameRestoreRequest | null {
-        const request = this._startupCloudGameRestoreRequest;
-        if (!request) return null;
-        if (Date.now() - request.requestedAt > 15000) {
-            this._startupCloudGameRestoreRequest = null;
-            return null;
-        }
-        if (this._currentSceneName !== 'Boot' || this._requestedSceneName !== 'Game' || this._visualState !== 'boot') {
-            return null;
-        }
-        if (this._pendingGameplayRequest || this._activeGameplayContext) {
-            return null;
-        }
-        this._startupCloudGameRestoreRequest = null;
-        return request;
-    }
-
     rememberRoutedBundle(bundleName: string, bundle: Bundle | null): void {
         const name = String(bundleName || '').trim();
         if (!name || !bundle) return;
@@ -170,12 +131,14 @@ export class AppSession {
         prefix: string,
         entryMode: AppGameplayEntryMode,
         entryCoverMode: AppGameplayEntryCoverMode = 'auto',
+        routeReason: string = '',
     ): PendingGameplayRequest {
         const request: PendingGameplayRequest = {
             levelId: Math.max(1, Math.floor(Number(levelId) || 1)),
             prefix: String(prefix || 'level_'),
             entryMode,
             entryCoverMode,
+            routeReason: String(routeReason || ''),
             requestedAt: Date.now(),
         };
         this._pendingGameplayRequest = request;
@@ -195,6 +158,7 @@ export class AppSession {
             prefix: String(prefix || pending?.prefix || 'level_'),
             entryMode,
             entryCoverMode: pending?.entryCoverMode ?? 'auto',
+            routeReason: pending?.routeReason || '',
             requestedAt: pending?.requestedAt ?? now,
             activeLevelId: Math.max(1, Math.floor(Number(activeLevelId) || 1)),
             activatedAt: now,

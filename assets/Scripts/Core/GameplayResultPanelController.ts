@@ -15,10 +15,14 @@ import {
     UIOpacity,
     UITransform,
     Vec3,
+    assetManager,
+    GAME_ASSETS_BUNDLE_NAME,
+    LOCAL_BOOTSTRAP_BUNDLE_NAME,
     instantiate,
     tween,
 } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
+import { getMiniGameBuildMode, hasDouyinBuildMarker, hasWeChatBuildMarker } from './MiniGamePlatform';
 
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
@@ -35,6 +39,8 @@ const WIN_BANNER_ENTRANCE_SCALE = 0.86;
 const WIN_BANNER_ENTRANCE_OVERSHOOT = 1.055;
 const WIN_BANNER_IDLE_JELLY_INITIAL_DELAY = 0.5;
 const WIN_BANNER_IDLE_JELLY_REPEAT_DELAY = 1.5;
+const WIN_BANNER_LIGHT_NODE_NAME = '\u6a2a\u5e45\u5149\u6548';
+const WIN_BANNER_LIGHT_ROTATION_SECONDS = 12;
 
 type WinBannerSparkleSpec = {
     xRatio: number;
@@ -58,6 +64,10 @@ const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
     { xRatio: 0.16, yRatio: 0.2, size: 7, delay: 3.36 },
 ];
 
+function shouldRequireBootstrapResultPanels(): boolean {
+    return getMiniGameBuildMode() === 'release' && (hasWeChatBuildMarker() || hasDouyinBuildMarker());
+}
+
 export class GameplayResultPanelController {
     constructor(private readonly runtime: any) {}
 
@@ -72,6 +82,63 @@ export class GameplayResultPanelController {
     private isCurrentPrefabLoad(loadSeq: number): boolean {
         const runtime = this.runtime;
         return !!runtime?.isValid && runtime._gameplayResultPanelPrefabLoadSeq === loadSeq;
+    }
+
+    private withBootstrapBundle(callback: (bundle: Bundle | null) => void): void {
+        const runtime = this.runtime;
+        if (typeof runtime._withBootstrapBundle === 'function') {
+            runtime._withBootstrapBundle(callback);
+            return;
+        }
+        assetManager.loadBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME, (err, bundle) => {
+            callback(err || !bundle ? null : bundle);
+        });
+    }
+
+    private withGameAssetsBundle(callback: (bundle: Bundle | null) => void): void {
+        const runtime = this.runtime;
+        if (typeof runtime._withGameAssetsBundle === 'function') {
+            runtime._withGameAssetsBundle(callback);
+            return;
+        }
+        assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+            callback(err || !bundle ? null : bundle);
+        });
+    }
+
+    private loadPrefabsFromBundle(
+        bundle: Bundle,
+        sourceLabel: string,
+        loadSeq: number,
+        onDone: () => void,
+        onError: (error: Error) => void,
+    ): void {
+        if (!this.isCurrentPrefabLoad(loadSeq)) {
+            return;
+        }
+        const activeCache = this.getPrefabCache(`loadPrefabs:${sourceLabel}`);
+        const missingKinds = RESULT_PANEL_KINDS.filter((kind) => !activeCache.get(kind));
+        let remaining = missingKinds.length;
+        let failed = false;
+        if (remaining === 0) {
+            onDone();
+            return;
+        }
+        for (const kind of missingKinds) {
+            bundle.load(RESULT_PANEL_PREFAB_PATHS[kind], Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (failed || !this.isCurrentPrefabLoad(loadSeq)) return;
+                if (err || !prefab) {
+                    failed = true;
+                    onError(new Error(`[result-panel] failed to load ${sourceLabel} prefab "${kind}" from ${RESULT_PANEL_PREFAB_PATHS[kind]}: ${err?.message || 'missing prefab'}`));
+                    return;
+                }
+                this.getPrefabCache(`loadPrefab:${sourceLabel}:${kind}`).set(kind, prefab);
+                remaining -= 1;
+                if (remaining === 0) {
+                    onDone();
+                }
+            });
+        }
     }
 
     hasPrefabsReady() {
@@ -127,7 +194,7 @@ export class GameplayResultPanelController {
                 return;
             }
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-            AppRoot.tryGet()?.forceHideSceneTransition('result-panel-preload-error');
+            AppRoot.tryGet()?.clearRouteCover('result-panel-preload-error');
             throw error;
         };
         const flushCallbacks = () => {
@@ -140,11 +207,11 @@ export class GameplayResultPanelController {
                 callback();
             }
         };
-        const loadPrefabs = () => {
+        const loadPrefabsFromGameAssets = () => {
             if (!this.isCurrentPrefabLoad(loadSeq)) {
                 return;
             }
-            runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            this.withGameAssetsBundle((bundle: Bundle | null) => {
                 if (!this.isCurrentPrefabLoad(loadSeq)) {
                     return;
                 }
@@ -152,32 +219,28 @@ export class GameplayResultPanelController {
                     fail(new Error('[result-panel] failed to load gameAssets bundle'));
                     return;
                 }
-                const activeCache = this.getPrefabCache('loadPrefabs');
-                const missingKinds = RESULT_PANEL_KINDS.filter((kind) => !activeCache.get(kind));
-                let remaining = missingKinds.length;
-                let failed = false;
-                if (remaining === 0) {
-                    flushCallbacks();
-                    return;
-                }
-                for (const kind of missingKinds) {
-                    bundle.load(RESULT_PANEL_PREFAB_PATHS[kind], Prefab, (err: Error | null, prefab: Prefab | null) => {
-                        if (failed || !this.isCurrentPrefabLoad(loadSeq)) return;
-                        if (err || !prefab) {
-                            failed = true;
-                            fail(new Error(`[result-panel] failed to load remote prefab "${kind}" from ${RESULT_PANEL_PREFAB_PATHS[kind]}: ${err?.message || 'missing prefab'}`));
-                            return;
-                        }
-                        this.getPrefabCache(`loadPrefab:${kind}`).set(kind, prefab);
-                        remaining -= 1;
-                        if (remaining === 0) {
-                            flushCallbacks();
-                        }
-                    });
-                }
+                this.ensureResultPanelSpriteFramesReady(() => {
+                    this.loadPrefabsFromBundle(bundle, 'gameAssets', loadSeq, flushCallbacks, fail);
+                }, fail);
             });
         };
-        this.ensureResultPanelSpriteFramesReady(loadPrefabs, fail);
+        const failBootstrapOrFallback = (error: Error): void => {
+            if (shouldRequireBootstrapResultPanels()) {
+                fail(error);
+                return;
+            }
+            loadPrefabsFromGameAssets();
+        };
+        this.withBootstrapBundle((bundle: Bundle | null) => {
+            if (!this.isCurrentPrefabLoad(loadSeq)) {
+                return;
+            }
+            if (!bundle) {
+                failBootstrapOrFallback(new Error(`[result-panel] failed to load ${LOCAL_BOOTSTRAP_BUNDLE_NAME} bundle`));
+                return;
+            }
+            this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, loadSeq, flushCallbacks, failBootstrapOrFallback);
+        });
     }
 
     instantiateGameplayOverlay(kind: ResultPanelKind, name: string): Node {
@@ -305,6 +368,26 @@ export class GameplayResultPanelController {
         return node;
     }
 
+    private startWinBannerLightRotation(box: Node): void {
+        const light = box.getChildByName(WIN_BANNER_LIGHT_NODE_NAME);
+        if (!light) return;
+        const state = light as Node & { __winBannerLightBaseAngle?: number };
+        if (state.__winBannerLightBaseAngle === undefined) {
+            state.__winBannerLightBaseAngle = light.angle;
+        }
+        const baseAngle = state.__winBannerLightBaseAngle;
+        Tween.stopAllByTarget(light);
+        light.angle = baseAngle;
+        tween(light)
+            .to(WIN_BANNER_LIGHT_ROTATION_SECONDS, { angle: baseAngle + 360 }, { easing: 'linear' })
+            .call(() => {
+                light.angle = baseAngle;
+            })
+            .union()
+            .repeatForever()
+            .start();
+    }
+
     private prepareWinBannerStableFx(box: Node): Node | null {
         const banner = this.findActiveWinTitleBanner(box);
         if (!banner) return null;
@@ -424,6 +507,7 @@ export class GameplayResultPanelController {
         const targetPanel = panel ?? this.runtime?.panelWin ?? null;
         const box = targetPanel?.getChildByName('Box') ?? null;
         if (!box) return;
+        this.startWinBannerLightRotation(box);
         const banner = this.prepareWinBannerStableFx(box);
         if (!banner) return;
         const state = this.getWinBannerBaseState(banner);

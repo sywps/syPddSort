@@ -49,6 +49,83 @@ function warnCloudRestoreGameRouteFailed(error: unknown): void {
     console.warn('[GameCtrl] late cloud progress game restore failed:', message);
 }
 
+function clearPendingStartupCloudGameplayRestore(runtime: any): void {
+    runtime._pendingStartupCloudRestoredLevel = 0;
+    runtime._pendingStartupCloudRestoredToastText = '';
+    runtime._pendingStartupCloudRestoredHadLocalUserState = false;
+}
+
+function requestStartupCloudGameplayRestore(
+    runtime: any,
+    restoredLevel: number,
+    toastText: string,
+    hadLocalUserState: boolean,
+    beforeLevel: number,
+    activeLevel: number,
+): void {
+    runtime._pendingStartupCloudRestoredLevel = Math.max(
+        normalizePositiveLevel(runtime._pendingStartupCloudRestoredLevel),
+        restoredLevel,
+    );
+    runtime._pendingStartupCloudRestoredToastText = toastText;
+    runtime._pendingStartupCloudRestoredHadLocalUserState = !!hadLocalUserState;
+    runtimeWarn('[GameCtrl] late cloud progress restore queued', {
+        beforeLevel,
+        activeLevel,
+        restoredLevel,
+        hadLocalUserState,
+        gameplayReady: !!runtime._startupBackgroundServicesUiReady,
+    });
+    flushPendingStartupCloudGameplayRestore(runtime, 'cloud-restore-result');
+}
+
+export function flushPendingStartupCloudGameplayRestore(runtime: any, source: string = 'unknown'): boolean {
+    if (!runtime?.isValid) return false;
+    const restoredLevel = normalizePositiveLevel(runtime._pendingStartupCloudRestoredLevel);
+    if (restoredLevel <= 0) return false;
+    if (!runtime._startupBackgroundServicesUiReady) return false;
+
+    const toastText = String(runtime._pendingStartupCloudRestoredToastText || `已恢复进度到第${restoredLevel}关`);
+    const hadLocalUserState = !!runtime._pendingStartupCloudRestoredHadLocalUserState;
+    clearPendingStartupCloudGameplayRestore(runtime);
+
+    if (shouldSkipLateCloudGameRestore(runtime, restoredLevel)) {
+        if (typeof runtime.showToast === 'function') {
+            runtime.showToast(toastText, 2.5);
+        }
+        runtimeWarn('[GameCtrl] late cloud progress restored, keep current gameplay route', {
+            activeLevel: getRuntimeActiveMainLevel(runtime),
+            restoredLevel,
+            hadLocalUserState,
+            source,
+        });
+        return true;
+    }
+
+    runtimeWarn('[GameCtrl] late cloud progress restored, reloading gameplay level', {
+        activeLevel: getRuntimeActiveMainLevel(runtime),
+        restoredLevel,
+        hadLocalUserState,
+        source,
+    });
+    const sceneName = typeof runtime.getRuntimeSceneName === 'function'
+        ? runtime.getRuntimeSceneName('Game')
+        : 'Game';
+    if (sceneName === 'Game' && typeof runtime.loadLevel === 'function') {
+        runtime.loadLevel(restoredLevel);
+        if (typeof runtime.showToast === 'function') {
+            runtime.showToast(toastText, 2.5);
+        }
+        return true;
+    }
+    if (typeof runtime.requestGameplayRoute === 'function') {
+        const result = runtime.requestGameplayRoute(restoredLevel, 'level_', false, 'none');
+        void Promise.resolve(result).catch(warnCloudRestoreGameRouteFailed);
+        return true;
+    }
+    throw new Error('[GameCtrl] missing gameplay route API for late cloud restore');
+}
+
 export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserState | null, hadLocalUserState: boolean): UserStateRestoreStatus | null {
     if (!runtime.isValid || !state) return null;
     const beforeLevel = runtime.getSavedLevel();
@@ -61,42 +138,7 @@ export function applyLateCloudUserStateToRuntime(runtime: any, state: CloudUserS
             beforeLevel, activeLevel, restoredLevel, hadLocalUserState,
         });
         const toastText = `已恢复进度到第${restoredLevel}关`;
-        const runRouteGame = () => {
-            if (!runtime.isValid) return;
-            if (shouldSkipLateCloudGameRestore(runtime, restoredLevel)) {
-                if (typeof runtime.showToast === 'function') {
-                    runtime.showToast(toastText, 2.5);
-                }
-                runtimeWarn('[GameCtrl] late cloud progress restored, keep current gameplay route', {
-                    beforeLevel, activeLevel: getRuntimeActiveMainLevel(runtime), restoredLevel, hadLocalUserState,
-                });
-                return;
-            }
-            runtimeWarn('[GameCtrl] late cloud progress restored, reloading gameplay level', {
-                beforeLevel, activeLevel: getRuntimeActiveMainLevel(runtime), restoredLevel, hadLocalUserState,
-            });
-            const sceneName = typeof runtime.getRuntimeSceneName === 'function'
-                ? runtime.getRuntimeSceneName('Game')
-                : 'Game';
-            if (sceneName === 'Game' && typeof runtime.loadLevel === 'function') {
-                runtime.loadLevel(restoredLevel);
-                if (typeof runtime.showToast === 'function') {
-                    runtime.showToast(toastText, 2.5);
-                }
-                return;
-            }
-            if (typeof runtime.requestGameplaySceneTransition === 'function') {
-                const result = runtime.requestGameplaySceneTransition(restoredLevel, 'level_', false, 'cover');
-                void Promise.resolve(result).catch(warnCloudRestoreGameRouteFailed);
-                return;
-            }
-            throw new Error('[GameCtrl] missing gameplay route API for late cloud restore');
-        };
-        if (typeof runtime.scheduleOnce === 'function') {
-            runtime.scheduleOnce(runRouteGame, 0.2);
-        } else {
-            runRouteGame();
-        }
+        requestStartupCloudGameplayRestore(runtime, restoredLevel, toastText, hadLocalUserState, beforeLevel, activeLevel);
     }
     return status;
 }

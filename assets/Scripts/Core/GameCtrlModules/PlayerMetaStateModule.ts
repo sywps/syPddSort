@@ -879,7 +879,7 @@ export function installPlayerMetaStateModule(target: any): void {
                                 };
 
                                 this.bindPanelButton(this.requirePanelChild(box, 'XBtn'), () => {
-                                    AudioMgr.inst.play('button');
+                                    AudioMgr.inst.play('uiPanel');
                                     finalizeModal(true);
                                 });
 

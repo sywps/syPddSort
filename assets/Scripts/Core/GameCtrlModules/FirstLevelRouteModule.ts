@@ -1,8 +1,8 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
-    view, ResolutionPolicy, tween, Tween, sys, UIOpacity, Color,
-    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
+    view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
+    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
@@ -21,7 +21,7 @@ import {
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
-    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
+    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, BoardViewportController
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
@@ -29,6 +29,7 @@ import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } f
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { markStartupTrace } from '../StartupTrace';
+import { flushPendingStartupCloudGameplayRestore } from './StartupCloudRestoreHelper';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -390,154 +391,72 @@ export function installFirstLevelRouteModule(target: any): void {
             if (this._levelDataLoadStopped) return;
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
-            AppRoot.tryGet()?.forceHideSceneTransition('level-data-error');
+            AppRoot.tryGet()?.clearRouteCover('level-data-error');
             this.reportLevelDataLoadDiagnostic(levelId, eventName, false, levelPath, {
                 errorCode,
                 errorMessage,
                 extra,
                 flush: true,
             });
-            this.showLevelDataLoadFatalError(levelPath, errorCode, errorMessage);
+            this.setGameplayStartupRootVisible?.(true);
+            this.hideLoadingOverlay?.();
+            this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
         },
 
-        createLevelDataLoadFatalSpriteNode(parent: Node, name: string, width: number, height: number, color: Color): Node {
-            const node = new Node(name);
-            node.layer = parent.layer;
-            parent.addChild(node);
-            const transform = node.addComponent(UITransform);
-            transform.setContentSize(width, height);
-            const sprite = node.addComponent(Sprite);
-            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-            sprite.spriteFrame = createSingleColorSpriteFrame(color, 8, 8);
-            return node;
-        },
-
-        ensureLevelDataLoadFatalLabel(parent: Node, name: string, y: number, fontSize: number, width: number, height: number): Label {
-            let node = parent.getChildByName(name);
-            if (!node) {
-                node = new Node(name);
-                node.layer = parent.layer;
-                parent.addChild(node);
-            }
-            node.active = true;
-            node.setPosition(0, y, 0);
-            const transform = node.getComponent(UITransform) || node.addComponent(UITransform);
-            transform.setContentSize(width, height);
-            const label = node.getComponent(Label) || node.addComponent(Label);
-            label.fontSize = fontSize;
-            label.lineHeight = Math.max(fontSize + 4, Math.round(fontSize * 1.25));
-            label.horizontalAlign = Label.HorizontalAlign.CENTER;
-            label.verticalAlign = Label.VerticalAlign.CENTER;
-            label.color = new Color(255, 255, 255, 255);
-            return label;
-        },
-
-        ensureLevelDataLoadFatalLayer(overlayRoot: Node, visibleSize: Size): Node {
-            let overlayTemplates = overlayRoot.getChildByName('OverlayTemplates');
-            if (!overlayTemplates) {
-                overlayTemplates = new Node('OverlayTemplates');
-                overlayTemplates.layer = overlayRoot.layer;
-                overlayRoot.addChild(overlayTemplates);
-                overlayTemplates.addComponent(UITransform);
-            }
-
-            let layer = overlayTemplates.getChildByName('LevelDataLoadFatalError');
-            if (!layer) {
-                layer = new Node('LevelDataLoadFatalError');
-                layer.layer = overlayTemplates.layer;
-                overlayTemplates.addChild(layer);
-                layer.addComponent(UITransform);
-            }
-
-            let mask = layer.getChildByName('LevelDataLoadFatalErrorMask');
-            if (!mask) {
-                mask = this.createLevelDataLoadFatalSpriteNode(
-                    layer,
-                    'LevelDataLoadFatalErrorMask',
-                    visibleSize.width,
-                    visibleSize.height,
-                    new Color(0, 0, 0, 176),
-                );
-            }
-            mask.layer = layer.layer;
-            mask.setPosition(0, 0, 0);
-            const maskTransform = mask.getComponent(UITransform) || mask.addComponent(UITransform);
-            maskTransform.setContentSize(visibleSize.width, visibleSize.height);
-
-            let card = layer.getChildByName('LevelDataLoadFatalErrorCard');
-            if (!card) {
-                card = this.createLevelDataLoadFatalSpriteNode(
-                    layer,
-                    'LevelDataLoadFatalErrorCard',
-                    560,
-                    320,
-                    new Color(24, 28, 42, 244),
-                );
-            }
-            card.layer = layer.layer;
-            card.setPosition(0, 0, 0);
-            const cardTransform = card.getComponent(UITransform) || card.addComponent(UITransform);
-            cardTransform.setContentSize(560, 320);
-
-            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorTitle', 108, 34, 500, 48);
-            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorHint', 50, 22, 500, 56);
-            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorPath', -18, 18, 500, 42);
-            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorDetail', -74, 18, 500, 56);
-            this.ensureLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorRetry', -132, 18, 500, 36);
+        requireRemoteLoadFatalLayer(overlayRoot: Node): Node {
+            const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates', 'OverlayRoot/OverlayTemplates');
+            const layer = this.requireUiChild(overlayTemplates, 'RemoteLoadFatalError', 'OverlayTemplates/RemoteLoadFatalError');
             return layer;
         },
 
-        showLevelDataLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
+        showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
             const visibleSize = this._getLoadingVisibleSize();
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
-            const overlayTemplates = overlayRoot.getChildByName('OverlayTemplates') || null;
-            const layer = this.ensureLevelDataLoadFatalLayer(overlayRoot, visibleSize);
+            const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates', 'OverlayRoot/OverlayTemplates');
+            const layer = this.requireRemoteLoadFatalLayer(overlayRoot);
             this._remoteLoadErrorOverlay = layer;
 
             const layerTransform = layer.getComponent(UITransform);
-            if (!layerTransform) throw new Error('[SceneUI] LevelDataLoadFatalError is missing UITransform');
+            if (!layerTransform) throw new Error('[SceneUI] RemoteLoadFatalError is missing UITransform');
             layerTransform.setContentSize(visibleSize.width, visibleSize.height);
             const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
             blocker.enabled = true;
             layer.active = true;
-            const activeOverlayTemplates = overlayTemplates?.isValid ? overlayTemplates : overlayRoot.getChildByName('OverlayTemplates');
-            activeOverlayTemplates?.setSiblingIndex(overlayRoot.children.length - 1);
-            if (activeOverlayTemplates?.isValid) {
-                layer.setSiblingIndex(activeOverlayTemplates.children.length - 1);
-            }
+            overlayTemplates.setSiblingIndex(overlayRoot.children.length - 1);
+            layer.setSiblingIndex(overlayTemplates.children.length - 1);
 
-            const mask = this.requireUiChild(layer, 'LevelDataLoadFatalErrorMask', 'LevelDataLoadFatalError/LevelDataLoadFatalErrorMask');
+            const mask = this.requireUiChild(layer, 'RemoteLoadFatalErrorMask', 'RemoteLoadFatalError/RemoteLoadFatalErrorMask');
             const maskTransform = mask.getComponent(UITransform);
-            if (!maskTransform) throw new Error('[SceneUI] LevelDataLoadFatalErrorMask is missing UITransform');
+            if (!maskTransform) throw new Error('[SceneUI] RemoteLoadFatalErrorMask is missing UITransform');
             maskTransform.setContentSize(visibleSize.width, visibleSize.height);
             mask.active = true;
 
-            const card = this.requireUiChild(layer, 'LevelDataLoadFatalErrorCard', 'LevelDataLoadFatalError/LevelDataLoadFatalErrorCard');
+            const card = this.requireUiChild(layer, 'RemoteLoadFatalErrorCard', 'RemoteLoadFatalError/RemoteLoadFatalErrorCard');
             card.active = true;
 
-            const titleLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorTitle');
+            const titleLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorTitle');
             titleLabel.string = '资源加载失败';
 
-            const hintLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorHint');
+            const hintLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorHint');
             hintLabel.string = '请检查资源与配置后重新进入游戏';
 
-            const pathLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorPath');
+            const pathLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorPath');
             pathLabel.string = levelPath;
 
             const detail = `${errorCode}${errorMessage ? ': ' + errorMessage : ''}`;
-            const detailLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorDetail');
+            const detailLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorDetail');
             detailLabel.string = this.truncateLevelDataLoadMessage(detail, 96);
 
-            const retryLabel = this.requireLevelDataLoadFatalLabel(card, 'LevelDataLoadFatalErrorRetry');
+            const retryLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorRetry');
             retryLabel.string = '已停止进入默认关卡，避免关卡数据错乱';
         },
 
-        requireLevelDataLoadFatalLabel(parent: Node, name: string): Label {
-            const node = this.requireUiChild(parent, name, `LevelDataLoadFatalErrorCard/${name}`);
+        requireRemoteLoadFatalLabel(parent: Node, name: string): Label {
+            const node = this.requireUiChild(parent, name, `RemoteLoadFatalErrorCard/${name}`);
             const label = node.getComponent(Label);
             if (!label) {
-                throw new Error(`[SceneUI] LevelDataLoadFatalErrorCard/${name} is missing Label`);
+                throw new Error(`[SceneUI] RemoteLoadFatalErrorCard/${name} is missing Label`);
             }
             node.active = true;
             return label;
@@ -600,6 +519,7 @@ export function installFirstLevelRouteModule(target: any): void {
 
         onGameplayUiReadyForStartupServices() {
             this._startupBackgroundServicesUiReady = true;
+            flushPendingStartupCloudGameplayRestore(this, 'gameplay-ui-ready');
             this.runPendingStartupBackgroundServicesIfReady();
         },
 
@@ -643,7 +563,63 @@ export function installFirstLevelRouteModule(target: any): void {
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const initialDefaultEntryLevel = this.getDefaultEntryLevel();
             const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
-            const speculativeStartupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : initialDefaultEntryLevel);
+            const pendingMainGameplayRequest = !urlLevelFile
+                && urlLevel <= 0
+                && pendingSceneGameplayRequest?.entryMode === 'main'
+                ? pendingSceneGameplayRequest
+                : null;
+            const pendingStartupLevelId = pendingMainGameplayRequest
+                ? Math.max(1, Math.floor(Number(pendingMainGameplayRequest.levelId) || 1))
+                : 0;
+            const pendingStartupPrefix = pendingMainGameplayRequest
+                ? String(pendingMainGameplayRequest.prefix || 'level_')
+                : '';
+            const pendingStartupRouteReason = pendingMainGameplayRequest
+                ? String(pendingMainGameplayRequest.routeReason || '')
+                : '';
+            const pendingLocalDirectStartup = pendingStartupLevelId >= 2
+                && (pendingStartupRouteReason === 'local_progress_gt_1' || hadLocalUserState);
+            if (pendingLocalDirectStartup) {
+                const startupLevelPrefix = pendingStartupPrefix || LOCAL_BOOTSTRAP_LEVEL_PREFIX;
+                markStartupTrace('startup_pending_local_direct', {
+                    levelId: pendingStartupLevelId,
+                    prefix: startupLevelPrefix,
+                    startupLocalProgressState,
+                    pendingStartupRouteReason,
+                });
+                this.reportLevelDataLoadDiagnostic(
+                    pendingStartupLevelId,
+                    'level_data_startup_diagnostics',
+                    true,
+                    this.getLevelDataPath(pendingStartupLevelId, startupLevelPrefix),
+                    {
+                        extra: {
+                            routeMode: 'pending_local_direct',
+                            initialDefaultEntryLevel,
+                            pendingStartupLevelId,
+                            pendingStartupPrefix,
+                            pendingStartupRouteReason,
+                            savedLevel: this.getSavedLevel(),
+                        },
+                    },
+                );
+                void this.beginStartupCloudRestore(true);
+                const useLocalBootstrapStartup =
+                    startupLevelPrefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX
+                    && this.shouldUseLocalBootstrapBundle(pendingStartupLevelId, startupLevelPrefix);
+                if (useLocalBootstrapStartup) {
+                    this.startLocalBootstrapLevelFast(pendingStartupLevelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX, pendingStartupLevelId);
+                } else {
+                    this.startGameAssetsLevelFast(pendingStartupLevelId, startupLevelPrefix, pendingStartupLevelId);
+                }
+                this._startDeferredStartupBackgroundServices(
+                    true,
+                    'local_progress_gt_1',
+                    useLocalBootstrapStartup ? 0.35 : 0,
+                );
+                return;
+            }
+            const speculativeStartupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : (pendingStartupLevelId || initialDefaultEntryLevel));
             const shouldSpeculativeFirstPlayPrefetch =
                 !urlLevelFile
                 && urlLevel <= 0
@@ -661,11 +637,11 @@ export function installFirstLevelRouteModule(target: any): void {
             const defaultEntryLevel = urlLevel > 0 || urlLevelFile
                 ? initialDefaultEntryLevel
                 : this.getDefaultEntryLevel();
-            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : defaultEntryLevel);
+            const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : (pendingStartupLevelId || defaultEntryLevel));
         
             let started = false;
             const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
-            const startupLevelPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : 'level_';
+            const startupLevelPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : (pendingStartupPrefix || 'level_');
             if (!urlLevelFile && startupLevelId > 0) {
                 this.reportLevelDataLoadDiagnostic(
                     startupLevelId,
@@ -680,6 +656,8 @@ export function installFirstLevelRouteModule(target: any): void {
                             urlTheme,
                             restoreStatus,
                             startupLocalProgressState,
+                            pendingStartupLevelId,
+                            pendingStartupPrefix,
                             savedLevel: this.getSavedLevel(),
                         },
                     },
@@ -718,16 +696,19 @@ export function installFirstLevelRouteModule(target: any): void {
             };
         
             let deferredStartupDelaySec = 0;
-            if (!pendingSceneGameplayRequest && startupLevelId > 0 && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())) {
+            const canUseStartupFastPath = startupLevelId > 0
+                && (sys.isNative || this._isMiniGame() || this._isUrlLevelPreview())
+                && (!pendingSceneGameplayRequest || !!pendingMainGameplayRequest);
+            if (canUseStartupFastPath) {
                 const useLocalBootstrapStartup =
-                    urlLevel <= 0 &&
-                    defaultEntryLevel <= 1 &&
-                    this.shouldUseLocalBootstrapBundle(startupLevelId);
+                    urlLevel <= 0
+                    && startupLevelPrefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX
+                    && this.shouldUseLocalBootstrapBundle(startupLevelId, startupLevelPrefix);
                 deferredStartupDelaySec = useLocalBootstrapStartup ? 0.35 : 0;
                 if (useLocalBootstrapStartup) {
                     this.startLocalBootstrapLevelFast(startupLevelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX, startupLevelId);
                 } else {
-                    const fastPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : 'level_';
+                    const fastPrefix = startupLevelPrefix;
                     if (urlLevel > 0 && urlTheme) {
                         this._isThemeLevel = true;
                         this._currentThemeLevelId = urlLevel;

@@ -288,10 +288,7 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "loadingCover": {
-      "__uuid__": "59a66e36-4b59-4a31-8079-918ff4ca67c8@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "loadingCover": null,
     "_id": "492CGLuFJG+6GOZg5yL7uX"
   },
   {

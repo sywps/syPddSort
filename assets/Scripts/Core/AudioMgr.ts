@@ -1,7 +1,7 @@
 /**
  * 全局音效管理 — 中国风 BGM + 轻量 SFX
  *
- * 资源规约：所有音频放在 GameAssetsBundle/Audio/ 下，文件名与 SfxName 对齐。
+ * 资源规约：音频源文件放在 GameAssetsBundle/Audio/ 下；构建时会抽取核心 BGM/SFX 到 bootstrap。
  */
 
 import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, director } from 'cc';
@@ -62,6 +62,7 @@ export class AudioMgr {
     private deferredBootstrapSfxLoads: Set<SfxName> = new Set();
     private deferredSfxLoads: Set<SfxName> = new Set();
     private gameAssetsBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
+    private bootstrapBundleCallbacks: Array<(bundle: Bundle | null) => void> | null = null;
     private bootstrapBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
     private preferRemoteAudio = false;
     private gameAssetsBundleState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
@@ -133,21 +134,38 @@ export class AudioMgr {
         return !!(g?.__rawWx || w?.wx?.getSystemInfoSync || w?.tt?.getSystemInfoSync);
     }
 
-    private _loadFromBootstrapBundleAuto() {
-        if (this.bootstrapBundleState === 'loading' || this.bootstrapBundleState === 'ready') {
+    private _loadFromBootstrapBundleAuto(onReady?: (bundle: Bundle | null) => void) {
+        if (this.bootstrapBundleState === 'ready') {
+            if (onReady) onReady(this.bootstrapBundle);
             return;
         }
+        if (this.bootstrapBundleState === 'failed') {
+            if (onReady) onReady(null);
+            return;
+        }
+        if (this.bootstrapBundleState === 'loading') {
+            if (onReady) {
+                if (!this.bootstrapBundleCallbacks) this.bootstrapBundleCallbacks = [];
+                this.bootstrapBundleCallbacks.push(onReady);
+            }
+            return;
+        }
+        this.bootstrapBundleCallbacks = onReady ? [onReady] : [];
         this.bootstrapBundleState = 'loading';
         assetManager.loadBundle(LOCAL_BOOTSTRAP_BUNDLE_NAME, (err, bundle) => {
+            const callbacks = this.bootstrapBundleCallbacks || [];
+            this.bootstrapBundleCallbacks = null;
             if (err || !bundle) {
                 this.bootstrapBundleState = 'failed';
                 console.warn('[Audio] loadBundle bootstrap 失败，继续等待 remote:', err?.message);
                 this._flushDeferredBootstrapSfxLoads();
+                callbacks.forEach((callback) => callback(null));
                 return;
             }
             this.bootstrapBundleState = 'ready';
             this.bootstrapBundle = bundle;
             this._flushDeferredBootstrapSfxLoads();
+            callbacks.forEach((callback) => callback(bundle));
         });
     }
 
@@ -222,7 +240,7 @@ export class AudioMgr {
         }
     }
 
-    private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void) {
+    private _loadSingleSfxFromBundle(bundle: Bundle, name: SfxName, onDone: (clip: AudioClip | null) => void, logMissing: boolean = true) {
         const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
         bundle.load(resourcePath, AudioClip, (err, clip) => {
             if (!err && clip) {
@@ -230,7 +248,7 @@ export class AudioMgr {
                 onDone(clip);
                 return;
             }
-            if (err) {
+            if (err && logMissing) {
                 console.warn(`[Audio] SFX 加载失败: ${name} (${resourcePath}), err=${err.message}`);
             }
             onDone(null);
@@ -271,7 +289,19 @@ export class AudioMgr {
                 }
                 this.pendingAutoplaySfx.delete(name);
             };
-            this._loadSingleSfxFromBundle(this.bootstrapBundle, name, finish);
+            this._loadSingleSfxFromBundle(this.bootstrapBundle, name, (clip) => {
+                if (clip) {
+                    finish(clip);
+                    return;
+                }
+                this._loadFromGameAssetsBundleAuto((bundle) => {
+                    if (!bundle) {
+                        finish(null);
+                        return;
+                    }
+                    this._loadSingleSfxFromBundle(bundle, name, finish);
+                });
+            }, false);
             return;
         }
         if (!this.gameAssetsBundle) {
@@ -383,7 +413,7 @@ export class AudioMgr {
         this.bgmLoadState = 'loading';
         const resourcePath = this.bgmResourcePath;
         const loadToken = this.bgmLoadToken;
-        if (this.preferRemoteAudio) {
+        const loadFromGameAssets = () => {
             this._loadFromGameAssetsBundleAuto((bundle) => {
                 if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
                 if (bundle) {
@@ -392,19 +422,28 @@ export class AudioMgr {
                 }
                 this.bgmLoadState = 'failed';
             });
+        };
+        if (this.bootstrapBundleState !== 'failed') {
+            this._loadFromBootstrapBundleAuto((bundle) => {
+                if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
+                if (bundle) {
+                    this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, loadFromGameAssets);
+                    return;
+                }
+                loadFromGameAssets();
+            });
             return;
         }
-        this._loadFromGameAssetsBundleAuto((bundle) => {
-            if (loadToken !== this.bgmLoadToken || resourcePath !== this.bgmResourcePath) return;
-            if (bundle) {
-                this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken);
-                return;
-            }
-            this.bgmLoadState = 'failed';
-        });
+        loadFromGameAssets();
     }
 
-    private _loadBgm(bundle: Bundle, resourcePath: string, autoPlay: boolean = true, loadToken: number = this.bgmLoadToken) {
+    private _loadBgm(
+        bundle: Bundle,
+        resourcePath: string,
+        autoPlay: boolean = true,
+        loadToken: number = this.bgmLoadToken,
+        onMissing?: () => void,
+    ) {
         if (this.bgmClip) {
             this.bgmLoadState = 'ready';
             if (autoPlay) this._playBgmClip();
@@ -419,10 +458,24 @@ export class AudioMgr {
                 this.bgmLoadState = 'ready';
                 if (autoPlay) this._playBgmClip();
             } else {
+                if (onMissing) {
+                    this.bgmLoadState = 'idle';
+                    onMissing();
+                    return;
+                }
                 this.bgmLoadState = 'failed';
                 console.warn(`[Audio] BGM 加载失败: ${resourcePath}`, err?.message);
             }
         });
+    }
+
+    preloadGameplayAudioSet(): void {
+        this._setBgmVolume(AUDIO_GAME_BGM_VOLUME);
+        this._setBgmResourcePath(AUDIO_GAME_BGM_RESOURCE_PATH);
+        this._ensureBgmLoaded(false);
+        for (const name of AUDIO_BOOTSTRAP_SFX_NAMES) {
+            this.preload(name);
+        }
     }
 
     warmupBgmAfterInteraction(delayMs: number = 0) {

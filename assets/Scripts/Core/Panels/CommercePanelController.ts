@@ -63,6 +63,21 @@ function syncRequiredPrefabLabel(parent: Node, childName: string, text: string, 
 export class CommercePanelController {
     constructor(private readonly runtime: any) {}
 
+    preloadAcquireResourcePanel(): void {
+        const runtime = this.runtime;
+        if (runtime._acquireResourcePanelPrefabPreloading) return;
+        runtime._acquireResourcePanelPrefabPreloading = true;
+        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            runtime._acquireResourcePanelPrefabPreloading = false;
+            if (!bundle) return;
+            bundle.load(ACQUIRE_RESOURCE_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (!err && prefab) {
+                    runtime._acquireResourcePanelPrefab = prefab;
+                }
+            });
+        });
+    }
+
     private setAcquireVariantActive(parent: Node, activeName: string, names: string[]): void {
         for (const name of names) {
             const node = this.runtime.requirePanelChild(parent, name);

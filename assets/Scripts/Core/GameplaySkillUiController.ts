@@ -184,6 +184,14 @@ export class GameplaySkillUiController {
                     runtime.cancelSelection();
                 }
                 const inventoryCount = runtime.getPropCount(skill.kind);
+                if (skill.kind === 'freeze'
+                    && inventoryCount <= 0
+                    && runtime.tryUseAdRewardFreezeRescue?.(() => this.rebuildSkillButtonsUI())) {
+                    return;
+                }
+                if (skill.kind === 'freeze') {
+                    runtime.markAdRewardFreezeEntryClicked?.();
+                }
                 if (inventoryCount <= 0) {
                     runtime.pauseTimerForProp();
                     const opened = typeof runtime.openToolAcquirePanel === 'function'

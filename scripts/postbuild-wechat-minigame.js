@@ -32,12 +32,31 @@ const BOOTSTRAP_BUNDLE_NAME = 'bootstrap';
 const HOME_ASSETS_BUNDLE_NAME = 'homeAssets';
 const LEVEL_DATA_BUNDLE_NAME = 'levelData';
 const SKIN_BUNDLE_NAMES = [];
+const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
 const MAIN_PACKAGE_TARGET_KB = 3072;
 const MAIN_PACKAGE_ERROR_KB = 4096;
 const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
 const LEVEL_EXP_CDN_URL = process.env.PDD_LEVEL_EXP_CDN_URL || deriveLevelExpCdnUrl(LEVEL_DATA_CDN_URL);
 const SKIN_DATA_CDN_URL = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(LEVEL_DATA_CDN_URL);
 const WECHAT_RECOMMEND_OPENLINK = process.env.WECHAT_RECOMMEND_OPENLINK || process.env.PDD_WECHAT_RECOMMEND_OPENLINK || '';
+const WECHAT_GAME_CIRCLE_MIN_LIB_VERSION = '2.30.3';
+const WECHAT_GAME_CIRCLE_PLUGIN_NAME = 'MiniGameCommon';
+const WECHAT_GAME_CIRCLE_PLUGIN_PROVIDER = 'wxaed5ace05d92b218';
+const WECHAT_GAME_CIRCLE_PLUGIN_ENABLED = /^(1|true|yes)$/i.test(String(
+    process.env.WECHAT_GAME_CIRCLE_PLUGIN || process.env.PDD_WECHAT_GAME_CIRCLE_PLUGIN || '',
+).trim());
+const WECHAT_FIRST_SCREEN_BG_COLOR = {
+    x: 0.9607843137254902,
+    y: 0.9215686274509803,
+    z: 0.8627450980392157,
+    w: 1,
+};
+const WECHAT_FIRST_SCREEN_BG_COLOR_LITERAL = '[' + [
+    WECHAT_FIRST_SCREEN_BG_COLOR.x,
+    WECHAT_FIRST_SCREEN_BG_COLOR.y,
+    WECHAT_FIRST_SCREEN_BG_COLOR.z,
+    WECHAT_FIRST_SCREEN_BG_COLOR.w,
+].join(',') + ']';
 
 function deriveLevelExpCdnUrl(levelDataCdnUrl) {
     var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
@@ -381,15 +400,99 @@ function writeJsonFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+function normalizeWechatSplashSettings(settingsFilePath) {
+    if (!settingsFilePath || !fs.existsSync(settingsFilePath)) return false;
+    var settings = readJsonFile(settingsFilePath);
+    settings.splashScreen = settings.splashScreen || {};
+    settings.splashScreen.background = settings.splashScreen.background || {};
+    settings.splashScreen.background.type = 'color';
+    settings.splashScreen.background.color = Object.assign({}, WECHAT_FIRST_SCREEN_BG_COLOR);
+    settings.splashScreen.clearColor = Object.assign({}, WECHAT_FIRST_SCREEN_BG_COLOR);
+    writeJsonFile(settingsFilePath, settings);
+    return true;
+}
+
+function patchWechatFirstScreenBackground(firstScreenContent) {
+    if (!/let bgColor = \[[^\]]+\];/.test(firstScreenContent)) {
+        console.error('[3.3/7] first-screen.js 未找到 bgColor 配置，不能确认首帧非黑屏');
+        process.exit(1);
+    }
+    return firstScreenContent.replace(
+        /let bgColor = \[[^\]]+\];/,
+        'let bgColor = ' + WECHAT_FIRST_SCREEN_BG_COLOR_LITERAL + ';',
+    );
+}
+
+function compareVersion(a, b) {
+    var left = String(a || '').split('.').map(function (part) { return parseInt(part, 10) || 0; });
+    var right = String(b || '').split('.').map(function (part) { return parseInt(part, 10) || 0; });
+    var len = Math.max(left.length, right.length);
+    for (var i = 0; i < len; i++) {
+        var diff = (left[i] || 0) - (right[i] || 0);
+        if (diff !== 0) return diff;
+    }
+    return 0;
+}
+
 function normalizeWechatProjectConfig(config) {
     if (!config || typeof config !== 'object') return config;
-    if (config.libVersion !== undefined) {
-        var libVersion = typeof config.libVersion === 'string' ? config.libVersion.trim() : '';
-        var isValidLibVersion = libVersion === 'latest' || /^[0-9]+\.[0-9]+(?:\.[0-9]+)?$/.test(libVersion);
-        if (isValidLibVersion) config.libVersion = libVersion;
-        else delete config.libVersion;
+    var libVersion = typeof config.libVersion === 'string' ? config.libVersion.trim() : '';
+    var isValidLibVersion = libVersion === 'latest' || /^[0-9]+\.[0-9]+(?:\.[0-9]+)?$/.test(libVersion);
+    if (!isValidLibVersion || !libVersion) {
+        config.libVersion = WECHAT_GAME_CIRCLE_MIN_LIB_VERSION;
+        return config;
     }
+    if (libVersion !== 'latest' && compareVersion(libVersion, WECHAT_GAME_CIRCLE_MIN_LIB_VERSION) < 0) {
+        config.libVersion = WECHAT_GAME_CIRCLE_MIN_LIB_VERSION;
+        return config;
+    }
+    config.libVersion = libVersion;
     return config;
+}
+
+function ensureWechatGameCirclePluginConfig(gameJson) {
+    if (!gameJson || typeof gameJson !== 'object') return gameJson;
+    var plugins = gameJson.plugins && typeof gameJson.plugins === 'object' && !Array.isArray(gameJson.plugins)
+        ? gameJson.plugins
+        : {};
+    plugins[WECHAT_GAME_CIRCLE_PLUGIN_NAME] = {
+        version: 'latest',
+        provider: WECHAT_GAME_CIRCLE_PLUGIN_PROVIDER,
+        contexts: [
+            { type: 'isolatedContext' },
+        ],
+    };
+    gameJson.plugins = plugins;
+    return gameJson;
+}
+
+function removeWechatGameCirclePluginConfig(gameJson) {
+    if (!gameJson || typeof gameJson !== 'object') return gameJson;
+    var plugins = gameJson.plugins && typeof gameJson.plugins === 'object' && !Array.isArray(gameJson.plugins)
+        ? gameJson.plugins
+        : null;
+    if (!plugins) return gameJson;
+    delete plugins[WECHAT_GAME_CIRCLE_PLUGIN_NAME];
+    if (Object.keys(plugins).length > 0) {
+        gameJson.plugins = plugins;
+    } else {
+        delete gameJson.plugins;
+    }
+    return gameJson;
+}
+
+function syncWechatGameCirclePluginConfig(gameJson) {
+    return WECHAT_GAME_CIRCLE_PLUGIN_ENABLED
+        ? ensureWechatGameCirclePluginConfig(gameJson)
+        : removeWechatGameCirclePluginConfig(gameJson);
+}
+
+function ensureWechatGameCirclePluginInGameJson(gameJsonPath) {
+    if (!gameJsonPath || !fs.existsSync(gameJsonPath)) return false;
+    var gameJson = readJsonFile(gameJsonPath);
+    syncWechatGameCirclePluginConfig(gameJson);
+    writeJsonFile(gameJsonPath, gameJson);
+    return WECHAT_GAME_CIRCLE_PLUGIN_ENABLED;
 }
 
 function walkFiles(dir) {
@@ -474,6 +577,115 @@ function ensureBundleInGameSubpackages(runtimeRoot, bundleName) {
     }
     gameJson.subpackages = subpackages;
     writeJsonFile(gameJsonPath, gameJson);
+}
+
+function listNamesByPattern(dirPath, pattern) {
+    if (!fs.existsSync(dirPath)) return [];
+    return fs.readdirSync(dirPath)
+        .filter(function (name) { return pattern.test(name); })
+        .sort();
+}
+
+function replaceAllLiteral(content, search, replacement) {
+    return content.split(search).join(replacement);
+}
+
+function patchSpineWasmVirtualChunk(cocosDir, movedJsNames) {
+    var virtualNames = listNamesByPattern(cocosDir, /^_virtual_cc-[A-Za-z0-9_-]+\.js$/);
+    var patchedCount = 0;
+    for (var i = 0; i < virtualNames.length; i++) {
+        var virtualPath = path.join(cocosDir, virtualNames[i]);
+        var content = fs.readFileSync(virtualPath, 'utf-8');
+        if (content.indexOf('loadWasmModuleSpine') === -1 && content.indexOf('spine.wasm-') === -1) continue;
+        var patched = content;
+        for (var j = 0; j < movedJsNames.length; j++) {
+            var name = movedJsNames[j];
+            var subpackageImport = '../subpackages/' + SPINE_WASM_SUBPACKAGE_NAME + '/cocos-js/' + name;
+            patched = replaceAllLiteral(patched, '"./' + name + '"', '"' + subpackageImport + '"');
+            patched = replaceAllLiteral(patched, "'./" + name + "'", "'" + subpackageImport + "'");
+        }
+        patched = replaceAllLiteral(
+            patched,
+            't("cocos-js/"+n)',
+            't(n&&0===n.indexOf("subpackages/")?n:"cocos-js/"+n)'
+        );
+        if (patched !== content) {
+            fs.writeFileSync(virtualPath, patched);
+            patchedCount += 1;
+        }
+    }
+    if (patchedCount === 0) {
+        console.error('[4.8/6] 未能修补 Spine wasm 动态 import 路径');
+        process.exit(1);
+    }
+}
+
+function patchMovedSpineWasmJs(subpackageCocosDir) {
+    var jsNames = listNamesByPattern(subpackageCocosDir, /^spine(?:\.(?:wasm|asm|js))?-[A-Za-z0-9_-]+\.js$/);
+    for (var i = 0; i < jsNames.length; i++) {
+        var jsPath = path.join(subpackageCocosDir, jsNames[i]);
+        var content = fs.readFileSync(jsPath, 'utf-8');
+        var patched = content;
+        if (/^spine\.wasm-/.test(jsNames[i])) {
+            patched = replaceAllLiteral(patched, '"./_virtual_cc-', '"../../../cocos-js/_virtual_cc-');
+            patched = replaceAllLiteral(patched, "'./_virtual_cc-", "'../../../cocos-js/_virtual_cc-");
+        } else if (/^spine-[A-Za-z0-9_-]+\.js$/.test(jsNames[i])) {
+            patched = patched.replace(
+                /("default","|\'default\',\')assets\/(spine-[A-Za-z0-9_-]+\.wasm(?:\.br)?)/g,
+                function (match, prefix, assetName) {
+                    return prefix + 'subpackages/' + SPINE_WASM_SUBPACKAGE_NAME + '/cocos-js/assets/' + assetName;
+                }
+            );
+        }
+        if (patched !== content) fs.writeFileSync(jsPath, patched);
+    }
+}
+
+function ensureSpineWasmWechatSubpackage() {
+    var runtimeRoot = resolveRuntimeRoot();
+    var cocosDir = path.join(runtimeRoot, 'cocos-js');
+    var cocosAssetsDir = path.join(cocosDir, 'assets');
+    if (!fs.existsSync(cocosDir)) return;
+
+    var wasmJsNames = listNamesByPattern(cocosDir, /^spine\.wasm-[A-Za-z0-9_-]+\.js$/);
+    var spineJsNames = listNamesByPattern(cocosDir, /^spine(?:\.(?:asm|js))?-[A-Za-z0-9_-]+\.js$/);
+    var wasmAssetNames = listNamesByPattern(cocosAssetsDir, /^spine-[A-Za-z0-9_-]+\.wasm(?:\.br)?$/);
+    if (wasmJsNames.length === 0 && spineJsNames.length === 0 && wasmAssetNames.length === 0) {
+        console.log('[4.8/6] 未发现 root Spine wasm 产物，跳过 spineWasm 分包迁移');
+        return;
+    }
+    if (wasmJsNames.length === 0 || wasmAssetNames.length === 0) {
+        console.error('[4.8/6] root Spine wasm 产物不完整: wasmJs=' + wasmJsNames.length + ', wasmAssets=' + wasmAssetNames.length);
+        process.exit(1);
+    }
+
+    var movedJsNames = Array.from(new Set(wasmJsNames.concat(spineJsNames))).sort();
+    patchSpineWasmVirtualChunk(cocosDir, movedJsNames);
+
+    var subpackageRoot = 'subpackages/' + SPINE_WASM_SUBPACKAGE_NAME;
+    var subpackageDir = path.join(runtimeRoot, subpackageRoot);
+    var subpackageCocosDir = path.join(subpackageDir, 'cocos-js');
+    var subpackageAssetsDir = path.join(subpackageCocosDir, 'assets');
+    fs.mkdirSync(subpackageCocosDir, { recursive: true });
+    fs.mkdirSync(subpackageAssetsDir, { recursive: true });
+
+    for (var i = 0; i < movedJsNames.length; i++) {
+        movePathSync(path.join(cocosDir, movedJsNames[i]), path.join(subpackageCocosDir, movedJsNames[i]));
+    }
+    for (var j = 0; j < wasmAssetNames.length; j++) {
+        movePathSync(path.join(cocosAssetsDir, wasmAssetNames[j]), path.join(subpackageAssetsDir, wasmAssetNames[j]));
+    }
+    patchMovedSpineWasmJs(subpackageCocosDir);
+    fs.writeFileSync(path.join(subpackageDir, 'game.js'), "console.log('[PDD] spine wasm subpackage loaded');\n");
+    ensureBundleInGameSubpackages(runtimeRoot, SPINE_WASM_SUBPACKAGE_NAME);
+
+    var remainingRootSpineFiles = listNamesByPattern(cocosDir, /^spine(?:\.(?:wasm|asm|js))?-[A-Za-z0-9_-]+\.js$/);
+    var remainingRootSpineAssets = listNamesByPattern(cocosAssetsDir, /^spine-[A-Za-z0-9_-]+\.wasm(?:\.br)?$/);
+    if (remainingRootSpineFiles.length > 0 || remainingRootSpineAssets.length > 0) {
+        console.error('[4.8/6] Spine wasm 仍残留在硬主包: js=' + remainingRootSpineFiles.join(',') + ', assets=' + remainingRootSpineAssets.join(','));
+        process.exit(1);
+    }
+    console.log('[4.8/6] 已将 Spine wasm 运行时迁移为微信分包: ' + subpackageRoot + ' ✓');
 }
 
 function ensureGameAssetsInSettingsSubpackages(settingsFilePath) {
@@ -912,17 +1124,17 @@ function ensureStableWechatSubpackageConfigLoader(runtimeRoot) {
     var engineAdapterPath = path.join(runtimeRoot, 'engine-adapter.js');
     if (!fs.existsSync(engineAdapterPath)) return;
     var content = fs.readFileSync(engineAdapterPath, 'utf-8');
-    var pattern = /n=\(y\.platform===y\.Platform\.TAOBAO_MINI_GAME\?"":"subpackages\/"\)\.concat\(o,"\/config\."\)\.concat\(a,"json"\)/g;
-    var patched = content.replace(
-        pattern,
-        'n=(y.platform===y.Platform.TAOBAO_MINI_GAME?"":"subpackages/").concat(o,"/config.json")'
-    );
+    var pattern = /([A-Za-z_$][\w$]*)=\(([A-Za-z_$][\w$]*)\.platform===\2\.Platform\.TAOBAO_MINI_GAME\?"":"subpackages\/"\)\.concat\(([^,]+),"\/config\."\)\.concat\(([^,]+),"json"\)/g;
+    var patched = content.replace(pattern, function (_match, targetExpr, platformExpr, bundleNameExpr) {
+        return targetExpr + '=(' + platformExpr + '.platform===' + platformExpr
+            + '.Platform.TAOBAO_MINI_GAME?"":"subpackages/").concat(' + bundleNameExpr + ',"/config.json")';
+    });
     if (patched !== content) {
         fs.writeFileSync(engineAdapterPath, patched);
         console.log('[3.0b/7] 微信分包 bundle config 已改为稳定 config.json ✓');
         return;
     }
-    if (content.indexOf('subpackages/").concat(o,"/config.").concat(a,"json")') !== -1) {
+    if (/subpackages\/"\)\.concat\([^,]+,"\/config\."\)\.concat\([^,]+,"json"\)/.test(content)) {
         console.error('[3.0b/7] 微信分包 bundle config 仍使用版本化路径，patch 未命中');
         process.exit(1);
     }
@@ -1059,12 +1271,16 @@ if (fs.existsSync(firstScreenPath)) {
         /let fitWidth = true;\nlet fitHeight = false;/,
         'let fitWidth = false;\nlet fitHeight = true;'
     );
+    patchedFirstScreen = patchWechatFirstScreenBackground(patchedFirstScreen);
     if (patchedFirstScreen !== firstScreen) {
         fs.writeFileSync(firstScreenPath, patchedFirstScreen);
-        console.log('[3.3/7] 已关闭首屏抗锯齿 + 修正竖屏适配 ✓');
+        console.log('[3.3/7] 已关闭首屏抗锯齿 + 修正竖屏适配 + 修正首帧浅色背景 ✓');
     } else {
         console.log('[3.3/7] 首屏配置已就绪 ✓');
     }
+}
+if (normalizeWechatSplashSettings(settingsPath)) {
+    console.log('[3.3b/7] 已修正微信 splash settings 为浅色背景 ✓');
 }
 
 // 3.4 启动后立即使用休闲游戏默认 30 帧；运行时交互/动画阶段再临时升帧
@@ -1260,6 +1476,7 @@ if (fs.existsSync(localResourcesBundle)) {
 // 关闭微信分离引擎后，运行时会同步 require assets/<bundle>/index.js。
 // 即使 index.<hash>.js 内容相同，也不能删除稳定入口，否则微信开发者工具会报模块未定义。
 console.log('[4.7/6] 已保留稳定 bundle index 入口，避免运行时 require 缺失 ✓');
+ensureSpineWasmWechatSubpackage();
 
 // 5. 验证主包大小
 function dirSize(dir, exclude) {
@@ -1331,6 +1548,10 @@ function copyDirSync(src, dest) {
     return true;
 }
 if (copyDirSync(openDataContextSrc, openDataContextDest)) {
+    var nestedOpenDataProjectConfig = path.join(openDataContextDest, 'project.config.json');
+    if (fs.existsSync(nestedOpenDataProjectConfig)) {
+        fs.unlinkSync(nestedOpenDataProjectConfig);
+    }
     console.log('[8/8] 开放数据域已复制到构建输出 ✓');
     // 同时更新 project.config.json 添加 subContext
     if (fs.existsSync(projectConfigPath)) {
@@ -1447,7 +1668,7 @@ if (fs.existsSync(projectConfigRootPath)) {
     if (rootProjectConfig.setting && rootProjectConfig.setting.urlCheck) {
         rootProjectConfig.setting.urlCheck = false;
     }
-    // subContext 相对项目根目录配置到 minigame/openDataContext
+    // Cocos/微信开发者工具的 subContext 是相对最终包体根目录，不能按 miniprogramRoot 二次相对。
     rootProjectConfig.subContext = 'minigame/openDataContext';
     fs.writeFileSync(projectConfigRootPath, JSON.stringify(rootProjectConfig, null, 2));
     console.log('[8/8] 已配置 project.config.json (minigame layout) ✓');
@@ -1459,6 +1680,11 @@ if (fs.existsSync(projectConfigRootPath)) {
         gj.openDataContext = 'openDataContext';
         fs.writeFileSync(gameJsonPath, JSON.stringify(gj, null, 2));
         console.log('[8/8] minigame/game.json openDataContext 已配置 ✓');
+    }
+    var minigameOpenDataProjectConfig = path.join(minigameRootPath, 'openDataContext', 'project.config.json');
+    if (fs.existsSync(minigameOpenDataProjectConfig)) {
+        fs.unlinkSync(minigameOpenDataProjectConfig);
+        console.log('[8/8] 已移除开放数据域嵌套 project.config.json ✓');
     }
 }
 
@@ -1490,6 +1716,10 @@ if (debugLevelDataBundle) {
         ? '[8.5/8] levelData debug 分包目录已保留: ' + minigameLevelDataSubpackageRoot + ' ✓'
         : '[8.5/8] levelData debug 分包目录缺失，交由验证脚本确认: ' + minigameLevelDataSubpackageRoot);
 }
+var gameCirclePluginEnabled = ensureWechatGameCirclePluginInGameJson(path.join(minigameRootPath, 'game.json'));
+console.log(gameCirclePluginEnabled
+    ? '[8.6/8] 游戏圈 MiniGameCommon 插件声明已配置 ✓'
+    : '[8.6/8] 游戏圈 MiniGameCommon 插件声明已跳过，避免未授权插件阻塞启动 ✓');
 
 // 9. 复制 SDK 外部脚本到 minigame/sdk/
 var sdkSrc = path.join(projectRoot, 'sdk');

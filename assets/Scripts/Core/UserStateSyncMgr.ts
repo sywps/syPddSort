@@ -400,10 +400,23 @@ export class UserStateSyncMgr {
         const problems: Record<string, unknown> = {};
         const patchGameState = patch.gameState || null;
         const returnedGameState = result?.gameState || null;
+        const patchProfile = patch.profile || null;
+        const returnedProfile = result?.profile || null;
         const expectedSavedLevel = normalizePositiveInt(patchGameState?.savedLevel);
         const returnedSavedLevel = normalizePositiveInt(returnedGameState?.savedLevel);
         if (expectedSavedLevel > 0 && returnedSavedLevel < expectedSavedLevel) {
             problems.savedLevel = { expectedAtLeast: expectedSavedLevel, returned: returnedSavedLevel || null };
+        }
+        const expectedProfileLevel = normalizePositiveInt(patchProfile?.lastLevelId);
+        const expectedProgress = Math.max(expectedSavedLevel, expectedProfileLevel);
+        const returnedProfileLevel = normalizePositiveInt(returnedProfile?.lastLevelId);
+        if (expectedProgress > 0) {
+            if (returnedSavedLevel < expectedProgress) {
+                problems.savedLevelMirror = { expectedAtLeast: expectedProgress, returned: returnedSavedLevel || null };
+            }
+            if (returnedProfileLevel < expectedProgress) {
+                problems.lastLevelIdMirror = { expectedAtLeast: expectedProgress, returned: returnedProfileLevel || null };
+            }
         }
         this.collectArrayAcknowledgementProblem(problems, 'themeUnlockedIds', patchGameState?.themeUnlockedIds, returnedGameState?.themeUnlockedIds);
         this.collectArrayAcknowledgementProblem(problems, 'themeCompletedIds', patchGameState?.themeCompletedIds, returnedGameState?.themeCompletedIds);

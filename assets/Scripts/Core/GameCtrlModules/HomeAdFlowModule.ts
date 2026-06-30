@@ -475,6 +475,7 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         destroyGameplayRuntimeView() {
+            this.clearAdRewardHintVisuals?.(true);
             const host = this.getCanvasUiHost();
             const preservedRootNames = host === this.node
                 ? new Set(['ScreenRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'])
@@ -674,7 +675,7 @@ export function installHomeAdFlowModule(target: any): void {
                         hasMainMenuNode: !!this.mainMenuNode,
                     }),
                 );
-                void this.requestHomeSceneTransition('runtime', 'cover');
+                void this.requestHomeRoute('runtime', 'none');
                 return;
             }
             const sceneName = 'Home';

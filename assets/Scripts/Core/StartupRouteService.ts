@@ -1,4 +1,8 @@
-import { sys } from 'cc';
+import {
+    normalizeStartupLocalLevel,
+    readStartupLocalProgress,
+    resolveStartupLocalProgressFromRaw,
+} from './StartupLocalProgress';
 
 export type StartupRouteDecision = {
     shouldMarkPendingGameplay: boolean;
@@ -6,8 +10,6 @@ export type StartupRouteDecision = {
     prefix: 'level_';
     reason: 'explicit_launch' | 'local_progress_gt_1' | 'default_level_1';
 };
-
-const LS_LEVEL = 'pdd.level';
 
 function getGlobalScope(): any {
     return typeof globalThis !== 'undefined' ? globalThis as any : null;
@@ -62,19 +64,11 @@ function hasExplicitGameplayLaunch(query: Record<string, string>): boolean {
     return false;
 }
 
-function readLocalStartupLevel(): number {
-    try {
-        const raw = sys.localStorage.getItem(LS_LEVEL);
-        if (raw === null) return 1;
-        const parsed = Math.floor(Number.parseInt(raw, 10));
-        return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
-    } catch (_) {
-        return 1;
-    }
-}
-
-export function resolveStartupRouteDecision(): StartupRouteDecision {
-    const query = readLaunchQuery();
+export function resolveStartupRouteDecisionFromInputs(
+    query: Record<string, string> = {},
+    rawLocalLevel: unknown = null,
+    _rawUserProfile: unknown = null,
+): StartupRouteDecision {
     if (hasExplicitGameplayLaunch(query)) {
         return {
             shouldMarkPendingGameplay: false,
@@ -83,7 +77,7 @@ export function resolveStartupRouteDecision(): StartupRouteDecision {
             reason: 'explicit_launch',
         };
     }
-    const localLevel = readLocalStartupLevel();
+    const localLevel = resolveStartupLocalProgressFromRaw(rawLocalLevel).level;
     if (localLevel >= 2) {
         return {
             shouldMarkPendingGameplay: true,
@@ -99,3 +93,10 @@ export function resolveStartupRouteDecision(): StartupRouteDecision {
         reason: 'default_level_1',
     };
 }
+
+export function resolveStartupRouteDecision(): StartupRouteDecision {
+    const localProgress = readStartupLocalProgress();
+    return resolveStartupRouteDecisionFromInputs(readLaunchQuery(), localProgress.rawLevel);
+}
+
+export { normalizeStartupLocalLevel };

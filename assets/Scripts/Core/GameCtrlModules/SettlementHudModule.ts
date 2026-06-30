@@ -36,6 +36,7 @@ const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0.5;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
 const PATTERN_COMPLETE_FX_START_DELAY = PATTERN_COMPLETE_BOARD_SHRINK_DELAY + PATTERN_COMPLETE_BOARD_SHRINK_DURATION;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.12;
+const FINAL_COLOR_COMPLETE_FX_HOLD = 0.28;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const WIN_BONUS_SHARE_ICON_TEXTURE = 'popup_share_icon';
 const WIN_BONUS_SHARE_RATE = 0.2;
@@ -462,9 +463,9 @@ export function installSettlementHudModule(target: any): void {
         playPatternCompleteThenWin(delaySeconds: number = 0) {
             if (this.isGameEnd || this._patternCompleteWinPending) return;
             this._patternCompleteWinPending = true;
-            if (this._pendingColorCompleteEffects instanceof Map) {
-                this._pendingColorCompleteEffects.clear();
-            }
+            const hasPendingColorCompleteEffects = this._pendingColorCompleteEffects instanceof Map
+                && this._pendingColorCompleteEffects.size > 0;
+            this.flushPendingColorCompleteEffects?.();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
             const runWin = () => {
@@ -473,7 +474,11 @@ export function installSettlementHudModule(target: any): void {
                 if (this.isGameEnd) return;
                 this.gameWin();
             };
-            const delay = Math.max(0, Number(delaySeconds) || 0);
+            const delay = Math.max(
+                0,
+                Number(delaySeconds) || 0,
+                hasPendingColorCompleteEffects ? FINAL_COLOR_COMPLETE_FX_HOLD : 0,
+            );
             if (delay > 0 && typeof this.scheduleOnce === 'function') {
                 this.scheduleOnce(runWin, delay);
             } else {
@@ -486,6 +491,7 @@ export function installSettlementHudModule(target: any): void {
             this.isGameEnd = true;
             this._patternCompleteWinPending = false;
             AudioMgr.inst.play('winAll');
+            this.clearAdRewardHintVisuals?.();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_pass', {
@@ -616,6 +622,7 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             this.isGameEnd = true;
+            this.clearAdRewardHintVisuals?.();
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_fail', {
                 source: 'gameLose',

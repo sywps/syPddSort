@@ -100,6 +100,10 @@ export function installHomeCommerceModule(target: any): void {
             return ensureCommercePanelController(this).openToolAcquirePanel(kind, options);
         },
 
+        preloadAcquireResourcePanel() {
+            return ensureCommercePanelController(this).preloadAcquireResourcePanel();
+        },
+
         openDailySignInPanel() {
             return ensureCommercePanelController(this).openDailySignInPanel();
         },
@@ -116,7 +120,7 @@ export function installHomeCommerceModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             const enterSelectedLevel = () => {
                 if (this.getRuntimeSceneName('Game') === 'Home') {
-                    void this.requestGameplaySceneTransition(level, 'level_', false, 'cover');
+                    void this.requestGameplayRoute(level, 'level_', false, 'none');
                     return;
                 }
                 this.deactivateMainMenuNode();

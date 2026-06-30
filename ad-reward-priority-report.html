@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>游戏内广告激励方案汇报</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #637083;
+      --line: #dce3ee;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --green: #0f8a5f;
+      --amber: #b76a00;
+      --red: #c2413a;
+      --shadow: 0 16px 40px rgba(23, 32, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 40px 0 72px;
+    }
+
+    .hero {
+      color: #ffffff;
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(15, 138, 95, 0.94)),
+        #2563eb;
+      border-radius: 18px;
+      padding: 40px 44px;
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.84;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 860px;
+      margin: 18px 0 0;
+      font-size: 18px;
+      opacity: 0.92;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 22px 0 0;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 12px;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      border-radius: 999px;
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .print-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: var(--primary-dark);
+      background: #ffffff;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(23, 32, 51, 0.12);
+    }
+
+    section {
+      margin-top: 28px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 14px;
+      font-size: 24px;
+      line-height: 1.3;
+    }
+
+    .section-title::before {
+      content: "";
+      display: block;
+      width: 6px;
+      height: 24px;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .summary-card {
+      min-height: 136px;
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .summary-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+
+    th,
+    td {
+      padding: 16px 18px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th {
+      color: #334155;
+      background: #eef4ff;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .plan-table th:first-child,
+    .plan-table td:first-child {
+      width: 84px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .plan-table th:nth-child(2),
+    .plan-table td:nth-child(2) {
+      width: 230px;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 800;
+    }
+
+    .plan-table td p {
+      margin: 0 0 8px;
+      color: var(--muted);
+    }
+
+    .plan-table td p:last-child {
+      margin-bottom: 0;
+    }
+
+    .plan-table td strong {
+      color: var(--ink);
+    }
+
+    .plan-table ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .plan-table li {
+      margin: 4px 0;
+    }
+
+    .priority {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      height: 28px;
+      border-radius: 999px;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .p0 { background: var(--red); }
+    .p1 { background: var(--primary); }
+    .p2 { background: var(--amber); }
+    .p3 { background: #6b7280; }
+
+    .fit {
+      color: var(--green);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .medium {
+      color: var(--amber);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .low {
+      color: #6b7280;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h3 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 12px;
+      font-size: 19px;
+      line-height: 1.35;
+    }
+
+    .card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    .card ul,
+    .note ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .card li,
+    .note li {
+      margin: 6px 0;
+    }
+
+    .quote {
+      margin-top: 12px;
+      padding: 12px 14px;
+      color: #1e3a8a;
+      background: #eef4ff;
+      border-left: 4px solid var(--primary);
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .note {
+      padding: 22px;
+      background: #fffaf0;
+      border: 1px solid #f3d49b;
+      border-radius: 14px;
+      color: #3b2a11;
+      box-shadow: var(--shadow);
+    }
+
+    .rollout-stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .rollout {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .rollout-header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 18px 20px;
+      background: #eef4ff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .rollout-header h3 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.35;
+    }
+
+    .detail-table th {
+      width: 150px;
+      background: #f8fbff;
+    }
+
+    .detail-table td {
+      color: var(--muted);
+    }
+
+    .detail-table ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .detail-table li {
+      margin: 4px 0;
+    }
+
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .resource-block {
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .resource-block strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+
+    .resource-block ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .resource-block li {
+      margin: 5px 0;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 18px;
+      align-items: start;
+      padding: 20px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .step-title {
+      color: var(--primary-dark);
+      font-weight: 900;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .footer {
+      margin-top: 30px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid,
+      .cards,
+      .resource-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .step {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page {
+        width: 100%;
+        padding: 0;
+      }
+
+      .hero,
+      .panel,
+      .summary-card,
+      .card,
+      .note,
+      .step {
+        box-shadow: none;
+      }
+
+      .print-btn {
+        display: none;
+      }
+
+      section {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Ad Reward Strategy Report</p>
+      <h1>游戏内广告激励方案汇报</h1>
+      <p>核心方向：把广告包装成玩家当前正需要的解决方案，而不是单纯的广告入口。优先选择已经接入现有系统、能在局内压力点立即解决问题的方案。</p>
+      <div class="toolbar">
+        <div class="tag-row">
+          <span class="tag">局内救场优先</span>
+          <span class="tag">看完立即生效</span>
+          <span class="tag">奖励预期一致</span>
+          <span class="tag">频率可控</span>
+        </div>
+        <button class="print-btn" type="button" onclick="window.print()">打印 / 导出 PDF</button>
+      </div>
+    </header>
+
+    <section>
+      <h2 class="section-title">汇报结论</h2>
+      <div class="summary-grid">
+        <article class="summary-card">
+          <strong>第一优先级是局内救场广告</strong>
+          <p>60 秒冻结、30 秒礼包、暂存槽增加、失败加时都和玩家当下压力直接相关，转化理由最自然。</p>
+        </article>
+        <article class="summary-card">
+          <strong>看完广告要尽量立即解决问题</strong>
+          <p>倒计时和槽位压力场景不适合让玩家看完广告后再二次点击。能立即冻结、立即加时、立即增加暂存槽，体验会更顺。</p>
+        </article>
+        <article class="summary-card">
+          <strong>金币系统要先补足价值感</strong>
+          <p>结算 5 倍、金币飞行、金币购买皮肤需要统一，否则金币广告会缺少说服力，甚至造成预期落差。</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">方案详解总表</h2>
+      <div class="panel">
+        <table class="plan-table">
+          <thead>
+            <tr>
+              <th>优先级</th>
+              <th>方案</th>
+              <th>为什么适合我们项目 + 建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="priority p0">P0</span></td>
+              <td>局内 60 秒冻结时间广告，观看后立即生效</td>
+              <td>
+                <p><strong>为什么适合：</strong>我们项目是倒计时压力型玩法，冻结时间和“剩余时间不足”是强绑定的。剩 60 秒时，玩家已经能感知时间压力，但还没到完全慌乱，这个节点给“冻结时间”最容易被理解成救当前这一局。</p>
+                <p><strong>建议：</strong>不要做成“看广告获得 1 个冻结道具，玩家再点一次使用”，而是改成“剩 60 秒时，如果玩家没有冻结道具，提示免费冻结时间，看完广告后冻结立即生效”。如果玩家有冻结库存，则只高亮冻结按钮，引导玩家直接使用。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p0">P0</span></td>
+              <td>局内 30 秒救场礼包，观看后核心道具立即使用</td>
+              <td>
+                <p><strong>为什么适合：</strong>30 秒时玩家已经很紧张，不适合让玩家看完广告后再自己判断怎么用。这个礼包应该是 60 秒冻结提示的递进方案，而不是和 60 秒提示重复抢曝光。</p>
+                <p><strong>建议：</strong>前提必须是玩家没有点击 60 秒冻结提示，才出现 30 秒礼包。礼包建议“冻结时间立即生效 + 额外送 1 个清槽、框选或消色道具进库存”。如果当前暂存槽快满，优先组合“增加暂存槽/清槽”；如果主要是时间不足，优先冻结。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p0">P0</span></td>
+              <td>暂存槽增加广告包装优化</td>
+              <td>
+                <p><strong>为什么适合：</strong>暂存槽是我们项目最强的局内压力来源。玩家槽位接近满时，多一行空间比泛泛送金币更像刚需，能立刻改变当前局面。</p>
+                <p><strong>建议：</strong>把口径从偏系统化的“解锁”改成“增加”，让玩家理解为当前局马上多出可用空间。槽位接近满时，暂存槽边框增加呼吸光，可增加行位出现扫光或轻微弹跳，用动效吸引注意。广告完成后立即增加一行暂存槽，不只发奖励。</p>
+                <p><strong>×2 时机：</strong>×2 不建议常驻，建议只在连续失败、困难关、限时福利、或槽位极度紧张时出现，用来制造稀缺感和强救场感。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p0">P0</span></td>
+              <td>结算金币 5 倍领取与实际奖励统一</td>
+              <td>
+                <p><strong>为什么适合：</strong>结算页是玩家天然愿意接受奖励广告的场景。玩家刚完成一局，看到“把奖励变大”的选项，比局外硬推广告更自然。</p>
+                <p><strong>建议：</strong>项目结算界面已有“5倍金币”表达，如果实际只是固定加金币，会造成玩家预期落差。要么真的按本局金币做 x5，要么文案改成“额外领取金币”。如果继续使用“5倍金币”，就必须让金币数量、飞行动效、到账表现都匹配 5 倍感受。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p0">P0</span></td>
+              <td>金币可视化强化</td>
+              <td>
+                <p><strong>为什么适合：</strong>你提到的金币存在感很重要。我们项目要做皮肤系统、金币购买，就必须先让玩家觉得金币有价值，否则结算金币广告会缺少吸引力。</p>
+                <p><strong>建议：</strong>结算时金币从关卡区域飞到金币栏，金币栏数字滚动增长；5 倍按钮旁明确显示“本次可多领 +XX”；皮肤页增加金币购买入口，并让玩家能看到金币可以兑换皮肤或外观价值。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p0">P0</span></td>
+              <td>复活/加时界面轻优化</td>
+              <td>
+                <p><strong>为什么适合：</strong>我们项目当前不是“看广告复活”，而是“时间不够 + 300 秒 + 继续游戏”的方向，这和项目玩法更匹配。失败通常不是角色死亡，而是时间不够或局面没完成，所以“加时并保留进度”比“复活”更准确。</p>
+                <p><strong>建议：</strong>继续强化“保留当前进度，加 300 秒继续”，而不是强调广告。进度百分比可以和“差一点就通关”配合，降低玩家不想重来的挫败感。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p1">P1</span></td>
+              <td>智能推荐道具，但先做规则版</td>
+              <td>
+                <p><strong>为什么适合：</strong>我们的局内压力点比较明确：时间少、暂存槽满、棋面混乱、连续失败。第一版不需要复杂算法，用规则就能把广告推荐包装成“当前局面更需要这个”。</p>
+                <p><strong>建议：</strong>剩余时间少推荐冻结；暂存槽快满推荐增加暂存槽或清槽；棋面混乱推荐消色；连续失败推荐加时或开局助力。先跑规则和数据，再决定是否升级为更复杂的智能系统。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p1">P1</span></td>
+              <td>道具广告入口文案改成解决方案文案</td>
+              <td>
+                <p><strong>为什么适合：</strong>项目已有冻结、清槽、框选、消色等广告获取入口，但如果文案只是“观看视频获得”，玩家看到的是广告，不是解决方案，转化会弱。</p>
+                <p><strong>建议：</strong>统一改成结果导向文案：冻结写“免费冻结倒计时”，清槽写“免费清出空间”，框选写“免费框选归位”，消色写“免费消除一组”。文案优先讲玩家当前能解决什么，再用视频图标表达获取方式。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p1">P1</span></td>
+              <td>每日签到增加广告倍领</td>
+              <td>
+                <p><strong>为什么适合：</strong>项目已有签到系统，签到本身就是玩家接受日常奖励的自然场景，在这里增加倍领广告不会像局内强插一样突兀。</p>
+                <p><strong>建议：</strong>保留普通领取，旁边增加“多领 x2/x3”。当天未签到时，玩家每次回到首页都会自动弹出签到，直到领取成功；领取成功后当天不再弹出。这样能保证签到入口曝光，同时不影响已领取玩家。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p1">P1</span></td>
+              <td>皮肤系统广告获取强化</td>
+              <td>
+                <p><strong>为什么适合：</strong>项目里已经有广告获取皮肤的基础，重点不是重做系统，而是强化“看广告能换到明确外观”的价值感。皮肤属于玩家主动追求的长期目标，适合做非局内广告。</p>
+                <p><strong>建议：</strong>显示“观看 1/3”“再看 1 次获得”，把皮肤预览做明显，让玩家知道广告换来的是什么。皮肤页同时放金币购买和广告获取，让金币体系与广告体系形成互补。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p1">P1</span></td>
+              <td>首页每日免费礼包</td>
+              <td>
+                <p><strong>为什么适合：</strong>首页礼包适合提高日活和广告库存，但它不是局内刚需，所以不能压过开始游戏，也不应和签到弹窗同时造成信息过载。</p>
+                <p><strong>建议：</strong>入口轻量展示，礼包内容建议为金币 + 随机道具。首次领取免费，看广告可额外翻倍或再领一次。它的作用是补充日常奖励循环，不是替代局内救场广告。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p2">P2</span></td>
+              <td>主题挑战调整为每日挑战</td>
+              <td>
+                <p><strong>为什么适合：</strong>主题挑战/每日挑战属于内容型广告，适合做活动化和长期留存，但它不像局内冻结、增加暂存槽那样是即时刚需，所以优先级放在后续。</p>
+                <p><strong>建议：</strong>当天每日图案免费玩 3 次，超出次数后看广告获取继续挑战次数。以前的每日图案需要玩家主动点击后看广告进入，不在首页强推，避免打断主线关卡节奏。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p2">P2</span></td>
+              <td>每 3-5 关宝箱广告</td>
+              <td>
+                <p><strong>为什么适合：</strong>宝箱适合做长期循环奖励，能补充广告库存，也能把连续通关后的奖励节奏做起来，但它不是玩家当下局内痛点，转化理由弱于救场广告。</p>
+                <p><strong>建议：</strong>每 3-5 关出现一次宝箱，首次免费开，第二次看广告加开。奖励池可以包含金币、冻结、清槽、皮肤碎片或限时主题奖励。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p2">P2</span></td>
+              <td>图鉴看广告提前玩</td>
+              <td>
+                <p><strong>为什么适合：</strong>图鉴更偏收集展示，和玩家当前局内痛点关系弱。如果直接提前正式通关，可能影响主线推进和内容消耗节奏。</p>
+                <p><strong>建议：</strong>如果做，只开放“试玩一次”，不要直接算正式通关。只在玩家主动点击锁定图案时出现，让广告成为探索内容的入口，而不是强制插入。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p2">P2</span></td>
+              <td>开局前助力广告</td>
+              <td>
+                <p><strong>为什么适合：</strong>开局前玩家还没遇到困难，广告动机相对弱；但在连续失败、困难关、主题关或每日挑战里，玩家会更愿意接受一个开局助力。</p>
+                <p><strong>建议：</strong>只在特定困难场景出现，不做常驻。奖励建议是冻结、增加暂存槽或一个开局提示，文案强调“本关较难，先给你一个助力”。</p>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="priority p3">P3</span></td>
+              <td>复杂智能广告系统</td>
+              <td>
+                <p><strong>为什么暂缓：</strong>当前阶段更重要的是先把高确定性的广告入口做顺，并积累真实数据。直接做复杂智能系统，成本高，也不一定比规则版更有效。</p>
+                <p><strong>建议：</strong>第一版先记录曝光、点击、广告完成、奖励领取和触发场景。等数据稳定后，再判断哪些场景适合升级为复杂推荐。</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">频率控制建议</h2>
+      <div class="note">
+        <strong>频控目标：让广告出现在玩家能理解的节点，而不是破坏主流程。</strong>
+        <ul>
+          <li>前 3 关不主动弹广告，让玩家先理解玩法。</li>
+          <li>局内救场广告每局最多 1-2 次，60 秒和 30 秒不要都强弹成遮挡式弹窗。</li>
+          <li>30 秒礼包只在 60 秒冻结提示未点击时出现，并且本局只出现一次。</li>
+          <li>主题/每日挑战属于内容型广告，玩家主动点击或免费次数用完后再出现。</li>
+          <li>每日挑战建议当天免费 3 次，超出次数看广告；历史挑战建议主动点击后看广告进入。</li>
+          <li>当天未签到时，玩家每次回到首页都弹出签到，直到领取成功；领取成功后当天不再弹出。</li>
+          <li>连续失败可以提高救场广告权重，连续通关可以提高宝箱或金币倍领权重。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">建议落地顺序</h2>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-title">第一批</div>
+          <p>60 秒冻结立即生效、30 秒救场礼包、暂存槽增加包装、结算 5 倍金币一致性、金币飞行和数字增长、失败加时文案轻优化。</p>
+        </div>
+        <div class="step">
+          <div class="step-title">第二批</div>
+          <p>规则版智能推荐、道具获取弹窗文案优化、签到广告倍领、皮肤广告进度展示、首页每日礼包。</p>
+        </div>
+        <div class="step">
+          <div class="step-title">第三批</div>
+          <p>每日挑战、历史挑战广告进入、每 3-5 关宝箱、图鉴提前试玩、复杂智能推荐系统。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">最终原则</h2>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>原则</th>
+              <th>落地含义</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>广告不是入口，广告是解决方案</td>
+              <td>文案优先写玩家能得到的结果，例如免费冻结、免费增加暂存槽、加 300 秒继续，而不是先写观看视频。</td>
+            </tr>
+            <tr>
+              <td>局内压力点优先</td>
+              <td>时间不足、槽位不足、失败边缘，是玩家最愿意接受激励广告的时刻。</td>
+            </tr>
+            <tr>
+              <td>看完尽量立即生效</td>
+              <td>倒计时和槽位场景下，不要让玩家看完广告后再进行多步操作。</td>
+            </tr>
+            <tr>
+              <td>奖励表达必须和实际一致</td>
+              <td>写 5 倍就必须真的像 5 倍；如果是固定金币，就不要包装成倍数奖励。</td>
+            </tr>
+            <tr>
+              <td>内容型广告需要低频和主动触发</td>
+              <td>每日挑战、图鉴、宝箱适合做长期循环，不适合作为第一批强推广告。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footer">汇报用途：游戏内广告激励方案与落地建议。</p>
+  </main>
+</body>
+</html>

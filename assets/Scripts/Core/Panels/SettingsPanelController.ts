@@ -163,6 +163,7 @@ export class SettingsPanelController {
 
         let overlay: Node | null = null;
         let settingsClosed = false;
+        let homeRouteInFlight = false;
         let modalFocusActive = false;
         const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
         const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
@@ -234,6 +235,17 @@ export class SettingsPanelController {
             endSettingsModalFocus();
         };
 
+        const requestHomeRouteFromSettings = async () => {
+            if (!AppRoot.tryGet()) {
+                AppRoot.ensure('Game');
+            }
+            if (typeof runtime.requestHomeRoute === 'function') {
+                await runtime.requestHomeRoute('settings', 'none');
+                return;
+            }
+            await AppRoot.inst.requestHomeRoute('settings', 'none');
+        };
+
         this.ensurePrefabReady((prefab: Prefab) => {
             if (!isOpenTargetAlive()) {
                 cancelStaleOpen();
@@ -265,13 +277,17 @@ export class SettingsPanelController {
                 if (showGameplayActions) {
                     bindClick(closeBtn, closeSettings);
                     bindClick(homeBtn, () => {
-                        if (settingsClosed || !overlay?.isValid) return;
+                        if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;
+                        homeRouteInFlight = true;
                         settingsClosed = true;
                         AudioMgr.inst.play('button');
                         runtime.resumeTimerForProp();
                         runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings-home');
                         endSettingsModalFocus();
-                        void AppRoot.inst.requestHomeSceneTransition('settings', 'cover');
+                        void requestHomeRouteFromSettings().catch((error: unknown) => {
+                            homeRouteInFlight = false;
+                            console.error('[settings-prefab] home route failed:', error);
+                        });
                     });
                 }
 

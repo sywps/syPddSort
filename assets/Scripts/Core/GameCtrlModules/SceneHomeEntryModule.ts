@@ -30,7 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
-import type { AppGameplayEntryCoverMode, AppSceneTransitionCoverMode } from '../AppSession';
+import type { AppGameplayEntryCoverMode, AppRouteCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime } from '../MiniGamePlatform';
@@ -39,7 +39,7 @@ import { markStartupTrace } from '../StartupTrace';
 
 const GAME_CIRCLE_BUTTON_NAME = 'GameCircleBtn';
 const GAME_CIRCLE_ICON_NAME = 'GameCircleIcon';
-const GAME_CIRCLE_OPENLINK = '-SSEykJvFV3pORt5kTNpS0JQmbIQhSkGiSclqmLczVVlFyMEmMYAJUHS2w-TX5HsoPlj1za2H3ZAO40AwyYxjxGGKkKWoVXOnMQPkt8cCamkdknW6G-fj6z0R717I6nJ0YNryfOToQvg1EnFJx_qPSCxEJpNZwhbfTAdIVsUwGX_uWYSlxjAiO6cTee-cvh-gPdielRoc4RqloS1ZLKo7F5QVbpchmnnTWulRkQN9Yjy7pEufusQeamiHP2wPUC-btBkvSILcLsjHKtxyuSFUG-8CPX9fyiK75sVZ9kfpl0vQa6gBh7BdslTcE0ZSSRlXnUsqAH07LRJztwWhz6y0g';
+const GAME_CIRCLE_OPENLINK = '';
 
 export function installSceneHomeEntryModule(target: any): void {
     Object.assign(target, {
@@ -58,40 +58,28 @@ export function installSceneHomeEntryModule(target: any): void {
             );
         },
 
-        async requestGameplaySceneTransition(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'none'): Promise<void> {
+        async requestGameplayRoute(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'none'): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
-                throw new Error('[SceneSplit] AppRoot is not ready for gameplay scene transition');
+                throw new Error('[SceneSplit] AppRoot is not ready for gameplay route');
             }
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
-            const disableSceneTransition = appRoot.shouldDisableSceneTransitionForRoute('Game');
-            const effectiveEntryCoverMode: AppGameplayEntryCoverMode = disableSceneTransition ? 'auto' : entryCoverMode;
+            const effectiveEntryCoverMode: AppGameplayEntryCoverMode = entryCoverMode === 'none' ? 'auto' : entryCoverMode;
             appRoot.markGameRequested(
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
                 effectiveEntryCoverMode,
             );
-            const shouldCover = !disableSceneTransition && entryCoverMode !== 'none';
-            if (shouldCover) {
-                await appRoot.beginSceneTransition('gameplay');
-            }
-            try {
-                await appRoot.router.toGame();
-            } catch (error) {
-                if (shouldCover) {
-                    await appRoot.finishSceneTransition('gameplay-error');
-                }
-                throw error;
-            }
+            await appRoot.router.toGame();
         },
 
-        async requestHomeSceneTransition(source: string = 'runtime', coverMode: AppSceneTransitionCoverMode = 'none'): Promise<void> {
+        async requestHomeRoute(source: string = 'runtime', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
-                throw new Error('[SceneSplit] AppRoot is not ready for home scene transition');
+                throw new Error('[SceneSplit] AppRoot is not ready for home route');
             }
-            await appRoot.requestHomeSceneTransition(source, coverMode);
+            await appRoot.requestHomeRoute(source, coverMode);
         },
 
         shouldPrewarmHomeGameplayEntry(): boolean {
@@ -532,8 +520,9 @@ export function installSceneHomeEntryModule(target: any): void {
             };
             let beanReady = false;
             let uiReady = false;
+            let boardEffectReady = false;
             const tryReady = () => {
-                if (!beanReady || !uiReady) return;
+                if (!beanReady || !uiReady || !boardEffectReady) return;
                 onReady();
             };
             this._prepareBeanFramesForLevelData(data, () => {
@@ -561,6 +550,18 @@ export function installSceneHomeEntryModule(target: any): void {
                 uiReady = true;
                 tryReady();
             }, { bootstrapOnly: bootstrapOnlyCriticalUi });
+            this.prepareRequiredBoardEffectTextures((result) => {
+                if (!result.ok) {
+                    this._stopGameplayEntryWithFatalError(
+                        `level_${activeLevelId || data.levelId || 0}`,
+                        `local_${result.errorCode || 'board_effect_textures_missing'}`,
+                        result.errorMessage || 'missing board effect textures',
+                    );
+                    return;
+                }
+                boardEffectReady = true;
+                tryReady();
+            });
         },
 
         loadBootstrapOnlyMainlineLevel(
@@ -714,12 +715,28 @@ export function installSceneHomeEntryModule(target: any): void {
                 let levelDone = false;
                 let beanAssetsDone = false;
                 let criticalUiDone = false;
+                let boardEffectDone = false;
                 let levelData: LevelData | null = null;
                 const tryFinish = () => {
-                    if (levelDone && beanAssetsDone && criticalUiDone && levelData) {
+                    if (levelDone && beanAssetsDone && criticalUiDone && boardEffectDone && levelData) {
                         finish(levelData);
                     }
                 };
+                this.prepareRequiredBoardEffectTextures((result) => {
+                    if (!result.ok) {
+                        this.stopLevelDataLoadWithFatalError(
+                            activeLevelId,
+                            levelPath,
+                            'gameAssets_board_effect_textures_failed',
+                            `gameAssets_${result.errorCode || 'board_effect_textures_missing'}`,
+                            result.errorMessage || 'missing board effect textures',
+                            { missingTextureNames: result.missingTextureNames || [] },
+                        );
+                        return;
+                    }
+                    boardEffectDone = true;
+                    tryFinish();
+                }, bundle);
                 const handleLevelData = (data: LevelData | null, source: string, levelErr?: Error | null) => {
                     levelData = data;
                     if (!levelData) {
@@ -809,10 +826,15 @@ export function installSceneHomeEntryModule(target: any): void {
                     levelPath: `${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`,
                     sourceEvent: 'first_level_json_loaded',
                 });
+                const levelPath = `${prefix}${levelId}`;
+                const requiredGameAssetsTextureNames = GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS
+                    .map((path) => path.slice(path.lastIndexOf('/') + 1));
                 let beanDone = false;
                 let uiDone = false;
+                let boardEffectDone = false;
+                let gameAssetsDone = true;
                 const tryInit = () => {
-                    if (!beanDone || !uiDone) return;
+                    if (!beanDone || !uiDone || !boardEffectDone || !gameAssetsDone) return;
                     this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
                         const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
                         this._bootstrapOnlyGameplayStartup = true;
@@ -830,6 +852,66 @@ export function installSceneHomeEntryModule(target: any): void {
                         }, LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY);
                     });
                 };
+                const failRequiredGameAssetsTextures = (
+                    eventName: string,
+                    errorCode: string,
+                    message: string,
+                    missingTextureNames: string[] = [],
+                ) => {
+                    this.trackFirstLevelFunnelForLevel(activeLevelId, eventName, {
+                        source: 'bootstrap',
+                        errorCode,
+                        success: false,
+                        extra: { missingTextureNames },
+                    });
+                    this._stopGameplayEntryWithFatalError(levelPath, errorCode, message);
+                };
+                const verifyGameAssetsTextures = () => {
+                    const missingTextureNames = requiredGameAssetsTextureNames.filter((name) => !this.sfCache.has(name));
+                    if (missingTextureNames.length > 0) {
+                        failRequiredGameAssetsTextures(
+                            'bootstrap_game_assets_textures_failed',
+                            'bootstrap_game_assets_textures_missing',
+                            `missing bootstrap gameAssets textures: ${missingTextureNames.join(', ')}`,
+                            missingTextureNames,
+                        );
+                        return;
+                    }
+                    gameAssetsDone = true;
+                    tryInit();
+                };
+                const preloadRequiredGameAssetsTextures = () => {
+                    if (gameAssetsDone) {
+                        tryInit();
+                        return;
+                    }
+                    const loadTextures = (bundle: Bundle) => {
+                        this._preloadGameAssetsTextureSet(
+                            bundle,
+                            verifyGameAssetsTextures,
+                            GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS,
+                        );
+                    };
+                    if (this.gameAssetsBundle) {
+                        loadTextures(this.gameAssetsBundle);
+                        return;
+                    }
+                    this._preloadingBundle = true;
+                    assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                        this._preloadingBundle = false;
+                        if (err || !bundle) {
+                            failRequiredGameAssetsTextures(
+                                'bootstrap_game_assets_bundle_failed',
+                                'bootstrap_game_assets_bundle_missing',
+                                err?.message || 'missing gameAssets bundle',
+                                requiredGameAssetsTextureNames,
+                            );
+                            return;
+                        }
+                        this.gameAssetsBundle = bundle;
+                        loadTextures(bundle);
+                    });
+                };
                 this._prepareBeanFramesForLevelData(data, () => {
                     if (this.needsBeanFramesForLevelData(data)) {
                         this.trackFirstLevelFunnelForLevel(activeLevelId, 'bootstrap_bean_assets_failed', {
@@ -845,6 +927,24 @@ export function installSceneHomeEntryModule(target: any): void {
                         return;
                     }
                     beanDone = true;
+                    tryInit();
+                });
+                this.prepareRequiredBoardEffectTextures((result) => {
+                    if (!result.ok) {
+                        this.trackFirstLevelFunnelForLevel(activeLevelId, 'bootstrap_board_effect_textures_failed', {
+                            source: 'bootstrap',
+                            errorCode: result.errorCode || 'board_effect_textures_missing',
+                            success: false,
+                            extra: { missingTextureNames: result.missingTextureNames || [] },
+                        });
+                        this._stopGameplayEntryWithFatalError(
+                            `${prefix}${levelId}`,
+                            result.errorCode || 'board_effect_textures_missing',
+                            result.errorMessage || 'missing board effect textures',
+                        );
+                        return;
+                    }
+                    boardEffectDone = true;
                     tryInit();
                 });
                 const bootstrapTextureNames = Array.from(LOCAL_BOOTSTRAP_TEXTURE_NAMES);
@@ -868,6 +968,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         );
                     }
                 });
+                // Bootstrap levels must not block first playable UI on gameAssets.
             }, prefix);
         },
 
@@ -914,8 +1015,9 @@ export function installSceneHomeEntryModule(target: any): void {
         openLevelWithGameAssets(bundle: Bundle, data: LevelData, activeLevelId?: number) {
             let beanReady = false;
             let uiReady = false;
+            let boardEffectReady = false;
             const tryReady = () => {
-                if (!beanReady || !uiReady) return;
+                if (!beanReady || !uiReady || !boardEffectReady) return;
                 this.startGameplayWithBackgroundSkinReady(data, activeLevelId);
             };
             this._prepareBeanFramesForLevelData(data, () => {
@@ -952,14 +1054,31 @@ export function installSceneHomeEntryModule(target: any): void {
                 uiReady = true;
                 tryReady();
             });
+            this.prepareRequiredBoardEffectTextures((result) => {
+                if (!result.ok) {
+                    const levelId = data.levelId || activeLevelId || 0;
+                    const levelPath = this.getLevelDataPath(levelId);
+                    this.stopLevelDataLoadWithFatalError(
+                        activeLevelId || levelId,
+                        levelPath,
+                        'gameAssets_board_effect_textures_failed',
+                        `gameAssets_${result.errorCode || 'board_effect_textures_missing'}`,
+                        result.errorMessage || 'missing board effect textures',
+                        { missingTextureNames: result.missingTextureNames || [] },
+                    );
+                    return;
+                }
+                boardEffectReady = true;
+                tryReady();
+            }, bundle);
         },
 
         _stopGameplayEntryWithFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._levelDataLoadStopped) return;
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
-            AppRoot.tryGet()?.forceHideSceneTransition('level-data-error');
-            this.showLevelDataLoadFatalError(levelPath, errorCode, errorMessage);
+            AppRoot.tryGet()?.clearRouteCover('level-data-error');
+            this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
         },
     });
 }

@@ -13,6 +13,7 @@ import { installSceneHomeEntryModule } from './GameCtrlModules/SceneHomeEntryMod
 import { installFriendRankModule } from './GameCtrlModules/FriendRankModule';
 import { installGameplaySlotSkillModule } from './GameCtrlModules/GameplaySlotSkillModule';
 import { installGameplaySkillWandModule } from './GameCtrlModules/GameplaySkillWandModule';
+import { installGameplayAdRewardHintModule } from './GameCtrlModules/GameplayAdRewardHintModule';
 import { installPlayerMetaStateModule } from './GameCtrlModules/PlayerMetaStateModule';
 import { installGuideLeaderboardModule } from './GameCtrlModules/GuideLeaderboardModule';
 import { installSettlementHudModule } from './GameCtrlModules/SettlementHudModule';
@@ -23,6 +24,7 @@ import { installSettingsPanelModule } from './GameCtrlModules/SettingsPanelModul
 import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModule';
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
 import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
+import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -42,6 +44,7 @@ export function installGameCtrlModules(runtime: any): void {
     installGameplayFreezeEffectModule(runtime);
     installGameplaySkillWandModule(runtime);
     installGameplaySkillMagnetModule(runtime);
+    installGameplayAdRewardHintModule(runtime);
     installBoardInputViewportModule(runtime);
     installBoardZoomControlModule(runtime);
     installGameplayPlacementFxModule(runtime);
@@ -54,4 +57,5 @@ export function installGameCtrlModules(runtime: any): void {
     installThemePanelFlowModule(runtime);
     installThemeLoadingOverlayModule(runtime);
     installSettingsPanelModule(runtime);
+    installPostPlayableWarmupModule(runtime);
 }

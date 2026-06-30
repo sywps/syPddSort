@@ -424,6 +424,7 @@ export function installFriendRankModule(target: any): void {
             (subContextView as any)._designResolutionSize = new Size(hostWidth, hostHeight);
             subContextView.fps = FRIEND_RANK_SUBCONTEXT_FPS;
             host.active = true;
+            this._friendRankOpenDataActive = true;
             debugPerfSnapshot('friendRank.openData.host.created', this, {
                 hostWidth,
                 hostHeight,
