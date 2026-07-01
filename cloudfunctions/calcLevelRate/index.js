@@ -20,6 +20,11 @@ function toPercent(numerator, denominator) {
   return Number(((numerator / denominator) * 100).toFixed(2));
 }
 
+function isAbandonedRecord(item) {
+  const reason = String(item?.endReason || '');
+  return reason === 'abandon' || reason === 'interrupted';
+}
+
 async function fetchAllLevelRecords(levelId) {
   const collection = db.collection(LEVEL_RECORD_COLLECTION);
   const result = [];
@@ -54,17 +59,20 @@ exports.main = async (event = {}) => {
 
   try {
     const records = await fetchAllLevelRecords(levelId);
-    const totalSessionCount = records.length;
-    const totalTryCount = records.reduce((sum, item) => sum + Math.max(1, Math.floor(Number(item.tryCount) || 1)), 0);
-    const passCount = records.filter((item) => item.passStatus === true).length;
-    const failCount = totalSessionCount - passCount;
-    const adReviveCount = records.filter((item) => item.useAdRevive === true).length;
+    const abandonedCount = records.filter(isAbandonedRecord).length;
+    const resultRecords = records.filter((item) => !isAbandonedRecord(item));
+    const totalSessionCount = resultRecords.length;
+    const totalTryCount = resultRecords.reduce((sum, item) => sum + Math.max(1, Math.floor(Number(item.tryCount) || 1)), 0);
+    const passCount = resultRecords.filter((item) => item.passStatus === true).length;
+    const failCount = resultRecords.filter((item) => item.passStatus !== true).length;
+    const adReviveCount = resultRecords.filter((item) => item.useAdRevive === true).length;
 
     return {
       ok: true,
       levelId,
       totalTryCount,
       totalSessionCount,
+      abandonedCount,
       passCount,
       passRate: toPercent(passCount, totalSessionCount),
       lossRate: toPercent(failCount, totalSessionCount),

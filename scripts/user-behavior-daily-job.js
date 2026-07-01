@@ -806,6 +806,11 @@ function fixedNumber(value, digits = 2) {
   return Number(numberValue(value).toFixed(digits));
 }
 
+function isAbandonedLevelRecord(record) {
+  const reason = String(record?.endReason || "");
+  return reason === "abandon" || reason === "interrupted";
+}
+
 function quantileValue(values, q) {
   const sorted = values
     .filter((value) => Number.isFinite(value))
@@ -1578,6 +1583,8 @@ function analyzeLevelRecordFile({
   let failRounds = 0;
   let adReviveRounds = 0;
   let shareReviveRounds = 0;
+  let abandonedRounds = 0;
+  let resultRounds = 0;
   let totalTryCount = 0;
   let totalDurationSeconds = 0;
   let durationCount = 0;
@@ -1589,6 +1596,7 @@ function analyzeLevelRecordFile({
     const passStatus = Number(record.passStatus) || 0;
     const useAdRevive = Boolean(record.useAdRevive);
     const useShareRevive = Boolean(record.useShareRevive);
+    const abandonedRecord = isAbandonedLevelRecord(record);
     const startTime = Number(record.startTime) || 0;
     const endTime = Number(record.endTime) || 0;
     const durationSeconds =
@@ -1598,13 +1606,13 @@ function analyzeLevelRecordFile({
 
     if (openid) {
       uniqueUsers.add(openid);
-      if (passStatus) {
+      if (!abandonedRecord && passStatus) {
         passUsers.add(openid);
       }
-      if (useAdRevive) {
+      if (!abandonedRecord && useAdRevive) {
         adReviveUsers.add(openid);
       }
-      if (useShareRevive) {
+      if (!abandonedRecord && useShareRevive) {
         shareReviveUsers.add(openid);
       }
     }
@@ -1613,23 +1621,28 @@ function analyzeLevelRecordFile({
       specialLevelUsers.add(openid);
     }
 
-    if (passStatus) {
-      passRounds += 1;
+    if (abandonedRecord) {
+      abandonedRounds += 1;
     } else {
-      failRounds += 1;
-    }
+      resultRounds += 1;
+      if (passStatus) {
+        passRounds += 1;
+      } else {
+        failRounds += 1;
+      }
 
-    if (useAdRevive) {
-      adReviveRounds += 1;
-    }
-    if (useShareRevive) {
-      shareReviveRounds += 1;
-    }
+      if (useAdRevive) {
+        adReviveRounds += 1;
+      }
+      if (useShareRevive) {
+        shareReviveRounds += 1;
+      }
 
-    totalTryCount += tryCount;
-    if (durationSeconds != null) {
-      totalDurationSeconds += durationSeconds;
-      durationCount += 1;
+      totalTryCount += tryCount;
+      if (durationSeconds != null) {
+        totalDurationSeconds += durationSeconds;
+        durationCount += 1;
+      }
     }
 
     if (levelId == null || levelId < 1) {
@@ -1641,6 +1654,7 @@ function analyzeLevelRecordFile({
         levelId,
         uniqueUsers: new Set(),
         recordCount: 0,
+        abandonedCount: 0,
         passCount: 0,
         failCount: 0,
         adReviveCount: 0,
@@ -1653,6 +1667,13 @@ function analyzeLevelRecordFile({
     }
 
     const row = levelStats.get(levelId);
+    if (abandonedRecord) {
+      row.abandonedCount += 1;
+      if (openid) {
+        row.uniqueUsers.add(openid);
+      }
+      continue;
+    }
     row.recordCount += 1;
     row.tryCountSum += tryCount;
     if (openid) {
@@ -1681,6 +1702,7 @@ function analyzeLevelRecordFile({
       levelId: row.levelId,
       uniqueUsers: row.uniqueUsers.size,
       recordCount: row.recordCount,
+      abandonedCount: row.abandonedCount,
       passCount: row.passCount,
       failCount: row.failCount,
       passRate: row.recordCount ? row.passCount / row.recordCount : 0,
@@ -1737,16 +1759,18 @@ function analyzeLevelRecordFile({
     collection,
     inputPath,
     totalRecords: records.length,
+    resultRecords: resultRounds,
+    abandonedRecords: abandonedRounds,
     uniqueUsers: uniqueUsers.size,
     passUsers: passUsers.size,
     passRounds,
     failRounds,
-    passRate: records.length ? Number((passRounds / records.length).toFixed(4)) : 0,
+    passRate: resultRounds ? Number((passRounds / resultRounds).toFixed(4)) : 0,
     adReviveUsers: adReviveUsers.size,
     shareReviveUsers: shareReviveUsers.size,
     adReviveRounds,
     shareReviveRounds,
-    avgTryCount: records.length ? Number((totalTryCount / records.length).toFixed(4)) : 0,
+    avgTryCount: resultRounds ? Number((totalTryCount / resultRounds).toFixed(4)) : 0,
     avgDurationSeconds: durationCount
       ? Number((totalDurationSeconds / durationCount).toFixed(2))
       : 0,
@@ -1829,6 +1853,7 @@ function analyzeLevelRecordFile({
       "levelId",
       "uniqueUsers",
       "recordCount",
+      "abandonedCount",
       "passCount",
       "failCount",
       "passRate",
@@ -1841,6 +1866,7 @@ function analyzeLevelRecordFile({
       row.levelId,
       row.uniqueUsers,
       row.recordCount,
+      row.abandonedCount,
       row.passCount,
       row.failCount,
       row.passRate.toFixed(4),
@@ -2866,6 +2892,7 @@ function buildLevelRecordSummaryFromRecords(records) {
         levelId,
         users: new Set(),
         recordCount: 0,
+        abandonedCount: 0,
         passCount: 0,
         failCount: 0,
         adReviveCount: 0,
@@ -2879,8 +2906,14 @@ function buildLevelRecordSummaryFromRecords(records) {
     const openid = record.openid || "";
     const tryCount = Number(record.tryCount) || 0;
     const passStatus = Number(record.passStatus) || 0;
+    const abandonedRecord = isAbandonedLevelRecord(record);
     const startTime = Number(record.startTime) || 0;
     const endTime = Number(record.endTime) || 0;
+    if (abandonedRecord) {
+      row.abandonedCount += 1;
+      if (openid) row.users.add(openid);
+      continue;
+    }
     row.recordCount += 1;
     row.tryCountSum += tryCount;
     if (openid) row.users.add(openid);
@@ -2899,6 +2932,7 @@ function buildLevelRecordSummaryFromRecords(records) {
       levelId: row.levelId,
       uniqueUsers: row.users.size,
       recordCount: row.recordCount,
+      abandonedCount: row.abandonedCount,
       passCount: row.passCount,
       failCount: row.failCount,
       passRate: ratio(row.passCount, row.recordCount),

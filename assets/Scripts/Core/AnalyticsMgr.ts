@@ -87,6 +87,13 @@ type LevelSessionState = {
     finalized: boolean;
 };
 
+type LevelRecordEndReason = 'pass' | 'fail' | 'abandon';
+
+function normalizePositiveLevelId(value: string | number | undefined): number {
+    const num = Math.floor(Number(value) || 0);
+    return num > 0 ? num : 0;
+}
+
 @ccclass('AnalyticsMgr')
 export class AnalyticsMgr {
     private static _inst: AnalyticsMgr | null = null;
@@ -378,7 +385,7 @@ export class AnalyticsMgr {
         }
 
         if (this.levelSession && !this.levelSession.finalized && this.levelSession.levelId !== normalizedLevelId) {
-            void this.finalizeActiveLevel(false);
+            void this.finalizeActiveLevel(false, 'abandon');
         }
 
         if (this.levelSession && !this.levelSession.finalized && this.levelSession.levelId === normalizedLevelId) {
@@ -407,9 +414,9 @@ export class AnalyticsMgr {
         });
     }
 
-    markLevelFailed(page?: string): void {
+    markLevelFailed(page?: string, levelIdFallback?: number): void {
         const session = this.levelSession;
-        const levelId = session?.levelId ?? 0;
+        const levelId = session?.levelId ?? normalizePositiveLevelId(levelIdFallback);
         const currentPage = page || session?.page || 'game';
         if (session && !session.finalized) {
             session.pendingFailure = true;
@@ -422,9 +429,9 @@ export class AnalyticsMgr {
         });
     }
 
-    markLevelPassed(page?: string): void {
+    markLevelPassed(page?: string, levelIdFallback?: number): void {
         const session = this.levelSession;
-        const levelId = session?.levelId ?? 0;
+        const levelId = session?.levelId ?? normalizePositiveLevelId(levelIdFallback);
         const currentPage = page || session?.page || 'game';
         void this.wxReportData({
             eventName: 'level_pass',
@@ -432,7 +439,7 @@ export class AnalyticsMgr {
             page: currentPage,
             actionType: 3,
         });
-        void this.finalizeActiveLevel(true);
+        void this.finalizeActiveLevel(true, 'pass');
     }
 
     markAdRevive(): void {
@@ -454,7 +461,7 @@ export class AnalyticsMgr {
     }
 
     abandonActiveLevel(): void {
-        void this.finalizeActiveLevel(false);
+        void this.finalizeActiveLevel(false, 'abandon');
     }
 
     finalizePendingFailedLevel(): void {
@@ -462,7 +469,7 @@ export class AnalyticsMgr {
         if (!session || session.finalized || !session.pendingFailure) {
             return;
         }
-        void this.finalizeActiveLevel(false);
+        void this.finalizeActiveLevel(false, 'fail');
     }
 
     trackAdClick(adType: string, page: string, levelId?: number): void {
@@ -564,7 +571,7 @@ export class AnalyticsMgr {
         game.on(Game.EVENT_SHOW, this.handleShow, this);
     }
 
-    private async finalizeActiveLevel(passStatus: boolean): Promise<void> {
+    private async finalizeActiveLevel(passStatus: boolean, endReason: LevelRecordEndReason): Promise<void> {
         const session = this.levelSession;
         if (!session || session.finalized) {
             return;
@@ -585,6 +592,7 @@ export class AnalyticsMgr {
                 levelId: session.levelId,
                 tryCount: Math.max(1, Math.floor(session.tryCount || 1)),
                 passStatus,
+                endReason,
                 useAdRevive: session.useAdRevive,
                 useShareRevive: session.useShareRevive,
                 startTime: session.startTime,
@@ -604,7 +612,6 @@ export class AnalyticsMgr {
             return;
         }
         this.exitReported = true;
-        this.abandonActiveLevel();
         this.trackFunnelEvent({
             eventName: 'app_hide',
             page: 'app',

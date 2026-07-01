@@ -105,6 +105,11 @@ function toPercent(numerator, denominator) {
   return Number(((numerator / denominator) * 100).toFixed(2));
 }
 
+function isAbandonedLevelRecord(item) {
+  const reason = String(item?.endReason || '');
+  return reason === 'abandon' || reason === 'interrupted';
+}
+
 async function fetchByDateRange(collectionName, fieldName, startDate, endDate, orderField) {
   const startTime = dateToTimestamp(startDate);
   const endTime = dateToTimestamp(shiftDate(endDate, 1));
@@ -233,12 +238,17 @@ function buildLevelTopLoss(records, topLimit) {
         levelId,
         totalTryCount: 0,
         totalSessionCount: 0,
+        abandonedCount: 0,
         passCount: 0,
         failCount: 0,
         adReviveCount: 0,
       });
     }
     const stat = levelMap.get(levelId);
+    if (isAbandonedLevelRecord(item)) {
+      stat.abandonedCount += 1;
+      continue;
+    }
     stat.totalTryCount += Math.max(1, Math.floor(Number(item.tryCount) || 1));
     stat.totalSessionCount += 1;
     if (item.passStatus === true) stat.passCount += 1;
@@ -253,6 +263,7 @@ function buildLevelTopLoss(records, topLimit) {
       passRate: toPercent(item.passCount, item.totalSessionCount),
       lossRate: toPercent(item.failCount, item.totalSessionCount),
       adUseRate: toPercent(item.adReviveCount, item.totalSessionCount),
+      abandonedCount: item.abandonedCount,
     }))
     .sort((a, b) => {
       if (b.lossRate !== a.lossRate) return b.lossRate - a.lossRate;

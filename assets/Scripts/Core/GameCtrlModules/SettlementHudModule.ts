@@ -497,8 +497,8 @@ export function installSettlementHudModule(target: any): void {
                 source: 'gameWin',
                 success: true,
             });
-            AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage());
             const logicalLevelId = this.getActiveLogicalLevelId();
+            AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId);
             SySDKMgr.inst.reportLevelPass(logicalLevelId);
             this.recordDynamicCountdownWin?.();
             if (this._isThemeLevel) {
@@ -626,8 +626,9 @@ export function installSettlementHudModule(target: any): void {
                 source: 'gameLose',
                 success: false,
             });
-            AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage());
-            SySDKMgr.inst.reportLevelFail(this.getAnalyticsLevelId());
+            const logicalLevelId = this.getAnalyticsLevelId();
+            AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId);
+            SySDKMgr.inst.reportLevelFail(logicalLevelId);
             AudioMgr.inst.play('lose');
             const showLoseResult = () => {
                 this.updateLoseProgressLabel();
