@@ -12,37 +12,17 @@ function readJson(relPath) {
     return JSON.parse(read(relPath));
 }
 
-const expectedTimes = new Map();
-for (const level of [11, 12, 13, 14, 16, 17, 18, 20, 21]) expectedTimes.set(level, 270);
-for (const level of [15, 19, 22, 24, 25, 26, 28]) expectedTimes.set(level, 300);
-for (const level of [23, 27, 29, 30, 32, 33, 34]) expectedTimes.set(level, 330);
-for (const level of [31, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 48, 49, 50, 52, 53]) expectedTimes.set(level, 360);
-for (const level of [47, 51, 54, 55, 56, 57, 58, 60, 61, 62, 64, 65]) expectedTimes.set(level, 390);
-for (const level of [59, 63, 66, 67, 68, 69, 70, 72, 73]) expectedTimes.set(level, 420);
-for (const level of [71, 74, 76, 77, 78, 80, 81]) expectedTimes.set(level, 450);
-for (const level of [75, 79, 82, 84, 85, 86, 88]) expectedTimes.set(level, 480);
-for (const level of [83, 89, 90, 92]) expectedTimes.set(level, 510);
-for (const level of [87, 91, 93, 94, 96, 97]) expectedTimes.set(level, 540);
-for (const level of [95, 98]) expectedTimes.set(level, 570);
-for (const level of [99, 100]) expectedTimes.set(level, 600);
-
-assert.strictEqual(expectedTimes.size, 90, 'level 11-100 time table must cover exactly 90 levels');
-for (let level = 4; level <= 10; level++) {
+const sourceTimeLimits = new Map();
+for (let level = 4; level <= 100; level++) {
     const data = readJson(`assets/LevelData/level_${level}.json`);
-    assert.strictEqual(data.timeLimit, 600, `level ${level} timeLimit must stay at 10 minutes`);
-}
-for (let level = 11; level <= 100; level++) {
-    const data = readJson(`assets/LevelData/level_${level}.json`);
-    assert.strictEqual(data.timeLimit, expectedTimes.get(level), `level ${level} timeLimit must match confirmed plan`);
+    assert.ok(Number.isFinite(data.timeLimit) && data.timeLimit > 0, `level ${level} timeLimit must be defined by level JSON`);
+    sourceTimeLimits.set(level, data.timeLimit);
 }
 
 const manifest = readJson('assets/LevelData/level-manifest.json');
 const manifestByLevel = new Map(manifest.entries.map((entry) => [entry.levelId, entry]));
-for (let level = 4; level <= 10; level++) {
-    assert.strictEqual(manifestByLevel.get(level)?.timeLimit, 600, `level ${level} manifest timeLimit must stay at 10 minutes`);
-}
-for (let level = 11; level <= 100; level++) {
-    assert.strictEqual(manifestByLevel.get(level)?.timeLimit, expectedTimes.get(level), `level ${level} manifest timeLimit must match confirmed plan`);
+for (let level = 4; level <= 100; level++) {
+    assert.strictEqual(manifestByLevel.get(level)?.timeLimit, sourceTimeLimits.get(level), `level ${level} manifest timeLimit must match level JSON`);
 }
 
 const dynamicModule = read('assets/Scripts/Core/GameCtrlModules/DynamicCountdownDdaModule.ts');

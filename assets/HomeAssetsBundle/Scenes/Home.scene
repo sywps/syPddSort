@@ -7302,7 +7302,7 @@
       "b": 40,
       "a": 255
     },
-    "_string": "资源加载失败",
+    "_string": "请重启小游戏",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 34,
@@ -7434,7 +7434,7 @@
       "b": 106,
       "a": 255
     },
-    "_string": "请检查资源与配置后重新进入游戏",
+    "_string": "资源更新中",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -7566,7 +7566,7 @@
       "b": 106,
       "a": 255
     },
-    "_string": "LevelData/level_1",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 18,
@@ -7698,7 +7698,7 @@
       "b": 62,
       "a": 255
     },
-    "_string": "remote_load_error",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 16,
@@ -7830,7 +7830,7 @@
       "b": 106,
       "a": 255
     },
-    "_string": "已停止进入默认关卡，避免关卡数据错乱",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 20,

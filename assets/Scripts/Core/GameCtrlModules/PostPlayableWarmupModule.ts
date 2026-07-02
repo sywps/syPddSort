@@ -1,12 +1,34 @@
 import { AudioMgr } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { runtimeWarn } from '../RuntimeLog';
+import { getMiniGameBuildMode, getMiniGameBuildPlatform, isMiniGameRuntime } from '../MiniGamePlatform';
 
 type WarmupTask = {
     name: string;
     delaySeconds: number;
+    releaseMiniGame?: 'run' | 'skip';
     run: () => void;
 };
+
+const RELEASE_REWARDED_AD_WARMUP_DELAY_SECONDS = 2.0;
+
+function shouldUseConservativePostPlayableWarmup(): boolean {
+    if (getMiniGameBuildMode() !== 'release') return false;
+    const platform = getMiniGameBuildPlatform();
+    return platform === 'wechat' || platform === 'douyin' || isMiniGameRuntime();
+}
+
+function normalizeWarmupTaskForPolicy(task: WarmupTask, conservativeRelease: boolean): WarmupTask | null {
+    if (!conservativeRelease) return task;
+    if (task.releaseMiniGame === 'skip') return null;
+    if (task.name === 'rewarded-ad') {
+        return {
+            ...task,
+            delaySeconds: Math.max(task.delaySeconds, RELEASE_REWARDED_AD_WARMUP_DELAY_SECONDS),
+        };
+    }
+    return task;
+}
 
 function runWarmupTask(runtime: any, seq: number, initSeq: number, task: WarmupTask): void {
     const run = () => {
@@ -51,6 +73,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'result-panels',
                     delaySeconds: 0.02,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this._ensureGameplayResultPanelPrefabsReady?.(() => {
                             if (!this.isValid || this._postPlayableWarmupSeq !== seq || this._gameplayInitSeq !== initSeq) return;
@@ -61,6 +84,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'gameAssets-bundle',
                     delaySeconds: 0.04,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this._withGameAssetsBundle?.(() => {});
                     },
@@ -73,8 +97,16 @@ export function installPostPlayableWarmupModule(target: any): void {
                     },
                 },
                 {
+                    name: 'top-hud-prefab',
+                    delaySeconds: 0.12,
+                    run: () => {
+                        this.preloadTopHudPrefab?.();
+                    },
+                },
+                {
                     name: 'settings-panel',
                     delaySeconds: 0.16,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this.preloadSettingsPanel?.();
                     },
@@ -82,6 +114,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'acquire-resource-panel',
                     delaySeconds: 0.22,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this.preloadAcquireResourcePanel?.();
                     },
@@ -89,6 +122,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'home-scene',
                     delaySeconds: 0.32,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         AppRoot.tryGet()?.router.preloadHomeScene(`post-playable-warmup:${reason}`).catch((error: unknown) => {
                             runtimeWarn('[PostPlayableWarmup] Home.scene preload failed:', error);
@@ -98,6 +132,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'skin-panel',
                     delaySeconds: 0.5,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this.preloadBackgroundSkinPanel?.();
                     },
@@ -105,6 +140,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'freeze-spine',
                     delaySeconds: 0.7,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this.ensureFreezeSpineFxSkeletonData?.(() => {});
                     },
@@ -112,14 +148,18 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'pindd-spine',
                     delaySeconds: 0.8,
+                    releaseMiniGame: 'skip',
                     run: () => {
                         this.ensurePinddSpineFxSkeletonData?.(() => {});
                     },
                 },
             ];
 
+            const conservativeRelease = shouldUseConservativePostPlayableWarmup();
             for (const task of tasks) {
-                runWarmupTask(this, seq, initSeq, task);
+                const policyTask = normalizeWarmupTaskForPolicy(task, conservativeRelease);
+                if (!policyTask) continue;
+                runWarmupTask(this, seq, initSeq, policyTask);
             }
         },
     });

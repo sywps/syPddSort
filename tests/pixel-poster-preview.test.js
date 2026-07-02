@@ -11,12 +11,15 @@ function read(relPath) {
 const renderer = read('assets/Scripts/Core/PixelPosterPreviewRenderer.ts');
 assert.ok(renderer.includes("export type PixelPosterPreviewMode = 'list' | 'poster' | 'win'"), 'pixel poster renderer must expose list/poster/win modes');
 assert.ok(renderer.includes('export function renderPixelPosterPreview'), 'pixel poster renderer must expose the shared render entry');
-assert.ok(renderer.includes("mode === 'list' ? 14 : 12"), 'small previews must suppress heavy internal bean texture');
-assert.ok(renderer.includes('size + bleed'), 'pixel cells must bleed slightly to avoid white seams');
-assert.ok(renderer.includes('Math.min(1.25, size * 0.055)'), 'pixel cells must keep subtle corner rounding');
+assert.ok(renderer.includes('import { Color, Graphics, Layers, Node, UITransform }'), 'shared preview renderer must use lightweight Graphics instead of bean SpriteFrames');
+assert.ok(!renderer.includes('SpriteFrame'), 'shared preview renderer must not depend on bean SpriteFrame textures');
+assert.ok(renderer.includes("mode === 'list' ? 24 : 42"), 'small previews must cap cell size without loading heavy internal bean texture');
+assert.ok(renderer.includes('size + seamBleed'), 'pixel cells must bleed slightly to avoid white seams');
+assert.ok(renderer.includes('Math.max(0.5, size * 0.04)'), 'pixel cells must keep subtle corner rounding');
 
 const collection = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
-assert.ok(collection.includes("import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';"), 'collection module must import the shared pixel poster renderer');
+assert.ok(collection.includes("renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';"), 'collection module must import the shared pixel poster renderer');
+assert.ok(collection.includes('releasePixelPosterPreviewTree(oldScrollContent);'), 'collection module must release stale generated preview trees before rerendering');
 assert.ok(collection.includes("name: 'Preview'"), 'large pattern preview must render into the Preview node');
 assert.ok(collection.includes("name: usePrefabContainer ? 'PixelPosterPreview' : 'PixelPreview'"), 'card previews must render inside prefab PixelPreview containers when present');
 assert.ok(collection.includes("Math.min(renderW, renderH) >= 220 ? 'poster' : 'list'"), 'large home previews must use poster mode while small collection cards use list mode');

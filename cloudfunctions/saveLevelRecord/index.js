@@ -31,6 +31,12 @@ function normalizeTryCount(value) {
   return num > 0 ? num : 1;
 }
 
+function normalizeEndReason(value, passStatus) {
+  const text = cleanString(value, 24);
+  if (['pass', 'fail', 'abandon', 'interrupted'].includes(text)) return text;
+  return passStatus ? 'pass' : 'fail';
+}
+
 exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID || cleanString(event.openid, 96);
@@ -52,6 +58,8 @@ exports.main = async (event = {}) => {
 
   const startTime = normalizeTimestamp(event.startTime);
   const endTime = normalizeTimestamp(event.endTime);
+  const passStatus = normalizeBoolean(event.passStatus);
+  const endReason = normalizeEndReason(event.endReason, passStatus);
 
   try {
     const addRes = await db.collection(LEVEL_RECORD_COLLECTION).add({
@@ -59,7 +67,8 @@ exports.main = async (event = {}) => {
         openid,
         levelId,
         tryCount: normalizeTryCount(event.tryCount),
-        passStatus: normalizeBoolean(event.passStatus),
+        passStatus,
+        endReason,
         useAdRevive: normalizeBoolean(event.useAdRevive),
         useShareRevive: normalizeBoolean(event.useShareRevive),
         startTime,

@@ -21,6 +21,51 @@ import { runtimeWarn } from './RuntimeLog';
 import { markStartupTrace } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
+import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
+
+let weChatUpdateManagerBound = false;
+
+function bindWeChatUpdateManagerOnce(): void {
+    if (weChatUpdateManagerBound || !isWeChatMiniGameRuntime()) return;
+    const wxRuntime = getWeChatMiniGameRuntime();
+    const updateManager = typeof wxRuntime?.getUpdateManager === 'function'
+        ? wxRuntime.getUpdateManager()
+        : null;
+    if (!updateManager) return;
+    weChatUpdateManagerBound = true;
+    try {
+        if (typeof updateManager.onUpdateReady === 'function') {
+            updateManager.onUpdateReady(() => {
+                const applyUpdate = () => {
+                    try {
+                        updateManager.applyUpdate();
+                    } catch (error) {
+                        console.error('[MiniGameUpdate] applyUpdate failed:', error);
+                    }
+                };
+                if (typeof wxRuntime.showModal === 'function') {
+                    wxRuntime.showModal({
+                        title: '请重启小游戏',
+                        content: '资源更新中',
+                        showCancel: false,
+                        confirmText: '立即重启',
+                        success: applyUpdate,
+                        fail: applyUpdate,
+                    });
+                } else {
+                    applyUpdate();
+                }
+            });
+        }
+        if (typeof updateManager.onUpdateFailed === 'function') {
+            updateManager.onUpdateFailed(() => {
+                console.error('[MiniGameUpdate] update package failed');
+            });
+        }
+    } catch (error) {
+        console.error('[MiniGameUpdate] bind failed:', error);
+    }
+}
 
 export class GameSceneRuntimeController {
     private tutorialExperimentUnsubscribe: (() => void) | null = null;
@@ -63,6 +108,7 @@ export class GameSceneRuntimeController {
     }
 
     start(): void {
+        bindWeChatUpdateManagerOnce();
         this.runtime.installRuntimeLogGate();
         const sceneName = this.getRuntimeSceneName();
         if (sceneName === 'Home') {

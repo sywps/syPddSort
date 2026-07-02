@@ -31,12 +31,23 @@ const BOOTSTRAP_PATH_MAP = (() => {
         'Audio/pindd/error',
         'Audio/ui',
         'Audio/tick',
+        'Audio/win',
+        'Audio/lose',
+        'Audio/winSettlement',
         'Audio/guide_level1_pick_1',
         'Audio/guide_level1_place_1',
         'Audio/guide_level1_pick_2',
         'Audio/guide_level1_place_2',
     ]) {
         map.set(audioPath, audioPath);
+    }
+
+    for (const prefabPath of [
+        'UI/Prefabs/Panels/WinPanel',
+        'UI/Prefabs/Panels/RevivePanel',
+        'UI/Prefabs/Panels/LosePanel',
+    ]) {
+        map.set(prefabPath, prefabPath);
     }
 
     return map;

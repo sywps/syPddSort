@@ -1,13 +1,10 @@
 import {
     AudioMgr,
     Button,
-    Color,
-    Graphics,
     Label,
     Layers,
     Node,
     SKILL_UNLOCK_FREEZE,
-    Sprite,
     tween,
     Tween,
     UIOpacity,
@@ -149,30 +146,6 @@ function showSceneBubble(bubble: Node | null | undefined, text: string): Node | 
     return bubble;
 }
 
-function drawGiftVisual(root: Node): void {
-    if (root.getChildByName('GiftVisual')?.isValid) return;
-    const visual = new Node('GiftVisual');
-    root.addChild(visual);
-    visual.layer = Layers.Enum.UI_2D;
-    visual.addComponent(UITransform).setContentSize(76, 76);
-    const graphics = visual.addComponent(Graphics);
-    graphics.fillColor = new Color(255, 177, 54, 255);
-    graphics.roundRect(-28, -24, 56, 48, 8);
-    graphics.fill();
-    graphics.fillColor = new Color(255, 70, 66, 255);
-    graphics.rect(-5, -24, 10, 48);
-    graphics.fill();
-    graphics.rect(-28, 0, 56, 10);
-    graphics.fill();
-    graphics.strokeColor = new Color(255, 238, 155, 255);
-    graphics.lineWidth = 3;
-    graphics.roundRect(-28, -24, 56, 48, 8);
-    graphics.stroke();
-    graphics.fillColor = new Color(255, 90, 82, 255);
-    graphics.roundRect(-34, 24, 68, 16, 6);
-    graphics.fill();
-}
-
 function pickGiftBonusProp(): InventoryPropKind {
     return Math.random() < 0.5 ? 'brush' : 'magnet';
 }
@@ -272,31 +245,21 @@ export function installGameplayAdRewardHintModule(target: any): void {
         getOrCreateAdRewardGiftEntry(): Node | null {
             const fixedRoot = typeof this.getGameplayFixedRoot === 'function' ? this.getGameplayFixedRoot() : null;
             if (!fixedRoot?.isValid) return null;
-            let entry = fixedRoot.getChildByName('AdRewardGiftEntry');
+            const entry = fixedRoot.getChildByName('AdRewardGiftEntry');
             if (!entry?.isValid) {
-                entry = new Node('AdRewardGiftEntry');
-                fixedRoot.addChild(entry);
-                entry.addComponent(UITransform).setContentSize(94, 94);
-                entry.addComponent(UIOpacity);
-                this._adRewardGiftNodeCreated = true;
-                const parentUi = fixedRoot.getComponent(UITransform);
-                const x = parentUi ? parentUi.contentSize.width / 2 - 86 : 280;
-                const y = parentUi ? parentUi.contentSize.height / 2 - 172 : 360;
-                entry.setPosition(x, y, 0);
+                return null;
             }
             entry.layer = Layers.Enum.UI_2D;
             entry.active = false;
-            const ui = entry.getComponent(UITransform) || entry.addComponent(UITransform);
-            if (!ui.contentSize.width || !ui.contentSize.height) ui.setContentSize(94, 94);
+            const ui = entry.getComponent(UITransform);
+            if (!ui) {
+                throw new Error('[AdRewardGift] Game.scene is missing UITransform on AdRewardGiftEntry');
+            }
             if (!entry.getComponent(UIOpacity)) entry.addComponent(UIOpacity);
             const button = entry.getComponent(Button) || entry.addComponent(Button);
             button.enabled = true;
             entry.targetOff(this);
             entry.on(Button.EventType.CLICK, () => this.tryUseAdRewardGift?.(), this);
-            const sprite = entry.getComponent(Sprite);
-            if (entry.children.length === 0 && !sprite?.spriteFrame) {
-                drawGiftVisual(entry);
-            }
             setUiLayer(entry);
             this._adRewardGiftNode = entry;
             return entry;
@@ -341,14 +304,6 @@ export function installGameplayAdRewardHintModule(target: any): void {
             if (opacity) Tween.stopAllByTarget(opacity);
             removeNode(entry.getChildByName('AdRewardGiftGlow'));
             restoreTransform(entry);
-            if (destroyCreated && this._adRewardGiftNodeCreated) {
-                entry.targetOff(this);
-                entry.removeFromParent();
-                entry.destroy();
-                this._adRewardGiftNode = null;
-                this._adRewardGiftNodeCreated = false;
-                return;
-            }
             entry.active = false;
         },
 

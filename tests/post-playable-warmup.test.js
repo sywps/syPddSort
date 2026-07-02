@@ -18,6 +18,7 @@ const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteF
 const commerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
 const commerceController = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 const skin = read('assets/Scripts/Core/GameCtrlModules/SkinBackgroundModule.ts');
+const topHud = read('assets/Scripts/Core/GameCtrlModules/TopHudModule.ts');
 const extractBootstrap = read('scripts/extract-bootstrap-bundle.js');
 const patchBootstrap = read('scripts/patch-bootstrap-dynamic-assets.js');
 const postbuildBundles = read('scripts/postbuild-minigame-bundles.js');
@@ -33,6 +34,7 @@ for (const method of [
     '_ensureGameplayResultPanelPrefabsReady',
     '_withGameAssetsBundle',
     'scheduleRewardedAdPreload',
+    'preloadTopHudPrefab',
     'preloadSettingsPanel',
     'preloadAcquireResourcePanel',
     'preloadBackgroundSkinPanel',
@@ -43,6 +45,31 @@ for (const method of [
     assert.ok(warmup.includes(method), `warmup queue must cover ${method}`);
 }
 
+assert.ok(warmup.includes('shouldUseConservativePostPlayableWarmup'), 'post-playable warmup must have a release mini-game conservative policy');
+assert.ok(warmup.includes("getMiniGameBuildMode() !== 'release'"), 'conservative warmup policy must only apply to release builds');
+assert.ok(warmup.includes("releaseMiniGame: 'skip'"), 'heavy optional warmups must be skippable in release mini-game builds');
+for (const taskName of [
+    'result-panels',
+    'gameAssets-bundle',
+    'settings-panel',
+    'acquire-resource-panel',
+    'home-scene',
+    'skin-panel',
+    'freeze-spine',
+    'pindd-spine',
+]) {
+    const taskIndex = warmup.indexOf(`name: '${taskName}'`);
+    assert.ok(taskIndex >= 0, `warmup task must still exist for debug/dev: ${taskName}`);
+    const nextTaskIndex = warmup.indexOf('name: ', taskIndex + 1);
+    const skipIndex = warmup.indexOf("releaseMiniGame: 'skip'", taskIndex);
+    assert.ok(
+        skipIndex > taskIndex && (nextTaskIndex < 0 || skipIndex < nextTaskIndex),
+        `${taskName} must be skipped by the release mini-game warmup policy`,
+    );
+}
+assert.ok(warmup.includes('RELEASE_REWARDED_AD_WARMUP_DELAY_SECONDS = 2.0'), 'release rewarded-ad warmup must be delayed away from first playable');
+assert.ok(warmup.includes('Math.max(task.delaySeconds, RELEASE_REWARDED_AD_WARMUP_DELAY_SECONDS)'), 'rewarded-ad warmup must use the release delay floor');
+
 assert.ok(audioMgr.includes('preloadGameplayAudioSet(): void'), 'AudioMgr must expose a gameplay audio warmup method');
 assert.ok(audioMgr.includes('this._loadFromBootstrapBundleAuto((bundle)'), 'BGM must try bootstrap before gameAssets');
 assert.ok(audioMgr.includes('this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, loadFromGameAssets)'), 'bootstrap BGM must fall back to gameAssets in dev');
@@ -50,6 +77,7 @@ assert.ok(audioManifest.includes("'win',"), 'win SFX must be part of bootstrap-c
 assert.ok(audioManifest.includes("'winSettlement',"), 'settlement SFX must be part of bootstrap-capable SFX');
 
 assert.ok(resultPanels.includes('shouldRequireBootstrapResultPanels'), 'result panels must have a release strictness gate');
+assert.ok(resultPanels.includes("return getMiniGameBuildMode() === 'release';"), 'release result panels must not fall back to gameAssets');
 assert.ok(resultPanels.includes('LOCAL_BOOTSTRAP_BUNDLE_NAME'), 'result panels must load from bootstrap first');
 assert.ok(resultPanels.includes('loadPrefabsFromGameAssets'), 'result panels may fall back to gameAssets outside strict release');
 
@@ -65,6 +93,16 @@ for (const bootstrapPath of [
 ]) {
     assert.ok(extractBootstrap.includes(bootstrapPath), `bootstrap extraction must include ${bootstrapPath}`);
     assert.ok(patchBootstrap.includes(bootstrapPath), `runtime bootstrap patch must include ${bootstrapPath}`);
+}
+for (const bootstrapImagePath of [
+    'GameUI/board_zoom_fill',
+    'GameUI/board_zoom_locate',
+    'GameUI/board_zoom_minus',
+    'GameUI/board_zoom_plus',
+    'GameUI/board_zoom_thumb',
+    'GameUI/board_zoom_track',
+]) {
+    assert.ok(patchBootstrap.includes(bootstrapImagePath), `bootstrap image allowlist must include ${bootstrapImagePath}`);
 }
 assert.ok(patchBootstrap.includes('criticalGameAssetsPathMap'), 'bootstrap runtime patch must merge critical gameAssets entries');
 assert.ok(patchBootstrap.includes("typeof value === 'string'"), 'critical dependency scan must handle Cocos compressed string UUID references');
@@ -91,5 +129,19 @@ assert.ok(!colorFx.includes('waitForAll: false'), 'settlement must wait for the 
 assert.ok(commerce.includes('preloadAcquireResourcePanel'), 'commerce module must expose acquire panel preload');
 assert.ok(commerceController.includes('preloadAcquireResourcePanel(): void'), 'commerce controller must preload acquire panel prefab');
 assert.ok(skin.includes('preloadBackgroundSkinPanel(): void'), 'skin module must expose background skin panel preload');
+const syncTopHudIndex = topHud.indexOf('syncTopHud(parent: Node, mode: TopHudMode)');
+const ensureTopHudRootIndex = topHud.indexOf('ensureTopHudRoot(parent: Node)');
+const preloadTopHudIndex = topHud.indexOf('preloadTopHudPrefab(): void');
+assert.ok(syncTopHudIndex >= 0, 'TopHud module must expose syncTopHud');
+assert.ok(ensureTopHudRootIndex >= 0, 'TopHud module must expose ensureTopHudRoot');
+assert.ok(preloadTopHudIndex >= 0, 'TopHud module must expose explicit preloadTopHudPrefab');
+assert.ok(
+    syncTopHudIndex > preloadTopHudIndex && !topHud.slice(syncTopHudIndex).includes('this.preloadTopHudPrefab?.();'),
+    'syncTopHud must not trigger gameAssets TopHud prefab loading on the first UI sync path',
+);
+assert.ok(
+    ensureTopHudRootIndex > preloadTopHudIndex && !topHud.slice(ensureTopHudRootIndex, syncTopHudIndex).includes('this.preloadTopHudPrefab?.();'),
+    'ensureTopHudRoot must not trigger gameAssets TopHud prefab loading before post-playable warmup',
+);
 
 console.log('post-playable-warmup.test.js passed');

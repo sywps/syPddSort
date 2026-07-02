@@ -211,14 +211,12 @@ export function installTopHudModule(target: any): void {
                     root.destroy();
                     root = null;
                 } else {
-                    this.preloadTopHudPrefab?.();
                     return null;
                 }
             }
             if (!root?.isValid) {
                 const prefab = this._topHudPrefab as Prefab | null;
                 if (!prefab) {
-                    this.preloadTopHudPrefab?.();
                     return null;
                 }
                 root = instantiate(prefab);
@@ -239,7 +237,6 @@ export function installTopHudModule(target: any): void {
         syncTopHud(parent: Node, mode: TopHudMode): TopHudWidgets | null {
             if (!parent?.isValid) return null;
             this.rememberTopHudMount?.(parent, mode);
-            this.preloadTopHudPrefab?.();
             const settingFrame = getSettingFrame(parent, this);
             const goldFrame = getGoldBannerFrame(parent, this);
             const vigorFrame = getVigorBannerFrame(parent);

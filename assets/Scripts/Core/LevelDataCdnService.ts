@@ -1,3 +1,4 @@
+import { sys } from 'cc';
 import type { LevelData } from './LevelConfig';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
@@ -61,14 +62,14 @@ type LevelDataManifestState = {
     unavailableReason: string;
 };
 
-export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D';
+export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D' | 'NULL';
 
 export type LevelExperimentAssignment = {
     experimentId: string;
     experimentSalt: string;
     bucket: LevelExperimentBucket;
     group: 'baseline' | 'treatment';
-    source: 'url' | 'local';
+    source: 'url' | 'openid' | 'missing_identity';
 };
 
 type LevelDataCdnContext = {
@@ -78,12 +79,25 @@ type LevelDataCdnContext = {
     experimentActive: boolean;
 };
 
+type LevelDataLastFailure = {
+    at: number;
+    namespace: string;
+    experimentActive: boolean;
+    bucket: LevelExperimentBucket;
+    stage: string;
+    reason: string;
+    levelId: number;
+    prefix: string;
+};
+
 const MAX_CACHED_LEVEL_PACKS = 1;
 const MAX_PERSISTED_LEVEL_PACKS = 3;
 const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
+const LEVEL_DATA_CLIENT_BUILD = 1;
+const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
+const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
-const LEVEL_EXP_ASSIGNMENT_STORAGE_KEY = 'pdd.levelExp.assignment.v1';
-const LEVEL_EXP_INSTALL_ID_STORAGE_KEY = 'pdd.levelExp.installId.v1';
+const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
 const LEVEL_EXPERIMENT_ID = 'level_exp';
@@ -158,7 +172,10 @@ export class LevelDataCdnService {
 
     private readonly manifestStates = new Map<string, LevelDataManifestState>();
     private readonly packPromises = new Map<string, Promise<LevelPack | null>>();
+    private readonly packUnavailableReasons = new Map<string, string>();
     private lastManifestNamespace = 'stable';
+    private lastFailure: LevelDataLastFailure | null = null;
+    private lastDegradeReason = '';
 
     prefetchLive(): void {
         const context = this.resolveCdnContext(0, DEFAULT_LEVEL_PREFIX);
@@ -186,18 +203,50 @@ export class LevelDataCdnService {
         const normalizedPrefix = normalizeLevelPrefix(prefix);
         if (!normalizedPrefix) return null;
         const context = this.resolveCdnContext(normalizedLevelId, normalizedPrefix);
-        const manifest = await this.getLiveManifest(context);
-        if (!manifest) return null;
-        const packEntry = this.findPack(manifest, normalizedLevelId, normalizedPrefix);
-        if (!packEntry) return null;
-        const pack = await this.loadPack(context, packEntry);
-        if (!pack) return null;
+        this.lastDegradeReason = '';
+        this.lastFailure = null;
+        const primaryLevel = await this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);
+        if (primaryLevel) return primaryLevel;
+        if (this.shouldDegradeExperimentToStable(context, normalizedPrefix)) {
+            const stableContext = this.buildStableContext(context.assignment);
+            this.lastDegradeReason = this.lastFailure?.reason || 'experiment level data unavailable';
+            runtimeWarn('[LevelDataCDN] experiment unavailable, retrying stable CDN:', this.lastDegradeReason);
+            const stableLevel = await this.loadLevelFromContext(stableContext, normalizedLevelId, normalizedPrefix, true);
+            if (stableLevel) return stableLevel;
+        }
+        return null;
+    }
+
+    private async loadLevelFromContext(
+        context: LevelDataCdnContext,
+        levelId: number,
+        prefix: string,
+        foregroundLoad: boolean,
+    ): Promise<LevelData | null> {
+        const manifest = await this.getLiveManifest(context, foregroundLoad);
+        if (!manifest) {
+            this.recordLoadFailure(context, levelId, prefix, 'manifest', this.describeManifestUnavailable(context));
+            return null;
+        }
+        const packEntry = this.findPack(manifest, levelId, prefix);
+        if (!packEntry) {
+            this.recordLoadFailure(context, levelId, prefix, 'manifest_pack_missing', 'level pack index missing target level');
+            return null;
+        }
+        const pack = await this.loadPack(context, packEntry, foregroundLoad);
+        if (!pack) {
+            const cacheKey = this.getPackCacheKey(context, packEntry);
+            this.recordLoadFailure(context, levelId, prefix, 'pack', this.packUnavailableReasons.get(cacheKey) || 'level pack unavailable');
+            return null;
+        }
         const level = pack.levels.find((entry) => {
-            if (entry.levelId !== normalizedLevelId) return false;
-            return this.getPackPrefix(entry.prefix ? { prefix: entry.prefix } : pack) === normalizedPrefix;
+            if (entry.levelId !== levelId) return false;
+            return this.getPackPrefix(entry.prefix ? { prefix: entry.prefix } : pack) === prefix;
         });
         if (level) this.lastManifestNamespace = context.namespace;
-        return level ? level.data : null;
+        if (level) return level.data;
+        this.recordLoadFailure(context, levelId, prefix, 'pack_level_missing', 'target level missing from loaded pack');
+        return null;
     }
 
     getDataVersion(): string {
@@ -232,6 +281,7 @@ export class LevelDataCdnService {
                 experimentSalt: assignment.experimentSalt,
                 bucket: assignment.bucket,
                 group: assignment.group,
+                source: assignment.source,
                 scope: 'mainline',
                 baseUrl: experimentBaseUrl,
                 activeForBucket: assignment.group === 'treatment',
@@ -239,6 +289,8 @@ export class LevelDataCdnService {
                 liveUnavailableCooldownMs: Math.max(0, experimentState.unavailableUntil - Date.now()),
                 liveUnavailableReason: experimentState.unavailableReason,
             },
+            lastFailure: this.lastFailure,
+            lastDegradeReason: this.lastDegradeReason,
             canUse: !reason,
             reason,
             localBrowserCdnOptIn: isLocalBrowserCdnOptIn(),
@@ -253,24 +305,86 @@ export class LevelDataCdnService {
         };
     }
 
-    private async getLiveManifest(context: LevelDataCdnContext): Promise<LevelLiveManifest | null> {
+    private async getLiveManifest(context: LevelDataCdnContext, foregroundLoad: boolean = false): Promise<LevelLiveManifest | null> {
         if (!canUseCdn(context.baseUrl)) return null;
         const state = this.getManifestState(context.namespace);
         if (state.manifest) return state.manifest;
-        if (this.isLiveManifestCoolingDown(state)) return null;
-        if (!state.textPromise) {
-            state.textPromise = this.requestLiveText(context.baseUrl);
+        if (this.isLiveManifestCoolingDown(state) && !foregroundLoad) return null;
+        const attempts = foregroundLoad ? FOREGROUND_CDN_REQUEST_ATTEMPTS : 1;
+        let lastError: unknown = null;
+        for (let attempt = 0; attempt < attempts; attempt++) {
+            if (!state.textPromise) {
+                state.textPromise = this.requestLiveText(context.baseUrl);
+            }
+            const promise = state.textPromise;
+            try {
+                const text = await promise;
+                if (state.textPromise === promise) state.textPromise = null;
+                state.manifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
+                this.clearLiveManifestUnavailable(state);
+                return state.manifest;
+            } catch (err) {
+                lastError = err;
+                if (state.textPromise === promise) state.textPromise = null;
+                if (attempt + 1 < attempts) {
+                    await this.delay(FOREGROUND_CDN_RETRY_DELAY_MS);
+                }
+            }
         }
-        try {
-            const text = await state.textPromise;
-            state.manifest = this.validateLiveManifest(parseJsonText<LevelLiveManifest>(text, 'level_live.json'));
-            this.clearLiveManifestUnavailable(state);
-            return state.manifest;
-        } catch (err) {
-            state.textPromise = null;
-            this.markLiveManifestUnavailable(state, 'level_live.json unavailable', err);
-            return null;
-        }
+        this.markLiveManifestUnavailable(state, 'level_live.json unavailable', lastError);
+        return null;
+    }
+
+    private delay(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+    }
+
+    private describeManifestUnavailable(context: LevelDataCdnContext): string {
+        const reason = getCdnUnavailableReason(context.baseUrl);
+        if (reason) return reason;
+        const state = this.getManifestState(context.namespace);
+        return state.unavailableReason || 'level_live.json unavailable';
+    }
+
+    private recordLoadFailure(
+        context: LevelDataCdnContext,
+        levelId: number,
+        prefix: string,
+        stage: string,
+        reason: string,
+    ): void {
+        this.lastFailure = {
+            at: Date.now(),
+            namespace: context.namespace,
+            experimentActive: context.experimentActive,
+            bucket: context.assignment.bucket,
+            stage,
+            reason: reason || 'unknown level data CDN error',
+            levelId,
+            prefix,
+        };
+    }
+
+    private formatErrorReason(err: unknown): string {
+        return err instanceof Error ? err.message : String(err || 'unknown error');
+    }
+
+    private shouldDegradeExperimentToStable(context: LevelDataCdnContext, prefix: string): boolean {
+        if (!context.experimentActive) return false;
+        if (prefix !== DEFAULT_LEVEL_PREFIX) return false;
+        if (context.namespace === 'stable') return false;
+        const stableBaseUrl = runtimeLevelDataBaseUrl();
+        if (!stableBaseUrl || !canUseCdn(stableBaseUrl)) return false;
+        return normalizeCdnBaseUrl(stableBaseUrl) !== normalizeCdnBaseUrl(context.baseUrl);
+    }
+
+    private buildStableContext(assignment: LevelExperimentAssignment): LevelDataCdnContext {
+        return {
+            baseUrl: runtimeLevelDataBaseUrl(),
+            namespace: 'stable',
+            assignment,
+            experimentActive: false,
+        };
     }
 
     private isLiveManifestCoolingDown(state: LevelDataManifestState): boolean {
@@ -278,7 +392,7 @@ export class LevelDataCdnService {
     }
 
     private markLiveManifestUnavailable(state: LevelDataManifestState, label: string, err: unknown): void {
-        const reason = err instanceof Error ? err.message : String(err || 'unknown error');
+        const reason = this.formatErrorReason(err);
         const now = Date.now();
         const shouldWarn = now >= state.unavailableUntil || state.unavailableReason !== reason;
         state.unavailableReason = reason;
@@ -304,6 +418,18 @@ export class LevelDataCdnService {
         if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) {
             throw new Error('level_live.json schema unsupported');
         }
+        if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') {
+            throw new Error('level_live.json dataVersion missing');
+        }
+        if (!Number.isFinite(Number(manifest.minClientBuild)) || Number(manifest.minClientBuild) < 1) {
+            throw new Error('level_live.json minClientBuild invalid');
+        }
+        if (Number(manifest.minClientBuild) > LEVEL_DATA_CLIENT_BUILD) {
+            throw new Error('level_live.json minClientBuild unsupported: ' + manifest.minClientBuild);
+        }
+        if (!Number.isFinite(Number(manifest.levelCount)) || Number(manifest.levelCount) <= 0) {
+            throw new Error('level_live.json levelCount invalid');
+        }
         return manifest;
     }
 
@@ -322,10 +448,10 @@ export class LevelDataCdnService {
         return null;
     }
 
-    private async loadPack(context: LevelDataCdnContext, packEntry: LevelPackEntry): Promise<LevelPack | null> {
+    private async loadPack(context: LevelDataCdnContext, packEntry: LevelPackEntry, foregroundLoad: boolean = false): Promise<LevelPack | null> {
         const baseUrl = context.baseUrl;
         if (!canUseCdn(baseUrl)) return null;
-        const cacheKey = context.namespace + ':' + packEntry.id + ':' + this.getPackPrefix(packEntry) + ':' + (packEntry.hash || packEntry.url);
+        const cacheKey = this.getPackCacheKey(context, packEntry);
         let promise = this.packPromises.get(cacheKey);
         if (!promise) {
             const url = packEntry.hash
@@ -333,11 +459,25 @@ export class LevelDataCdnService {
                 : joinCdnUrl(baseUrl, packEntry.url);
             const cachedText = readPersistedLevelPack(cacheKey, packEntry.hash || '');
             const parsePackText = (text: string): LevelPack => this.validatePack(parseJsonText<LevelPack>(text, packEntry.url), packEntry);
-            const loadRemotePack = () => requestCdnText(url, 10000).then((text) => {
-                const pack = parsePackText(text);
-                writePersistedLevelPack(cacheKey, packEntry.hash || '', text);
-                return pack;
-            });
+            const loadRemotePack = async (): Promise<LevelPack> => {
+                const attempts = foregroundLoad ? FOREGROUND_CDN_REQUEST_ATTEMPTS : 1;
+                let lastError: unknown = null;
+                for (let attempt = 0; attempt < attempts; attempt++) {
+                    try {
+                        const text = await requestCdnText(url, 10000);
+                        const pack = parsePackText(text);
+                        writePersistedLevelPack(cacheKey, packEntry.hash || '', text);
+                        this.packUnavailableReasons.delete(cacheKey);
+                        return pack;
+                    } catch (err) {
+                        lastError = err;
+                        if (attempt + 1 < attempts) {
+                            await this.delay(FOREGROUND_CDN_RETRY_DELAY_MS);
+                        }
+                    }
+                }
+                throw lastError;
+            };
             promise = (cachedText
                 ? Promise.resolve().then(() => {
                     try {
@@ -350,17 +490,24 @@ export class LevelDataCdnService {
                 })
                 : loadRemotePack())
                 .then((pack) => {
+                    this.packUnavailableReasons.delete(cacheKey);
                     this.trimPackCache(cacheKey);
                     return pack;
                 })
                 .catch((err) => {
                     this.packPromises.delete(cacheKey);
-                    runtimeWarn('[LevelDataCDN] pack unavailable:', packEntry.url, err instanceof Error ? err.message : err);
+                    const reason = this.formatErrorReason(err);
+                    this.packUnavailableReasons.set(cacheKey, reason);
+                    runtimeWarn('[LevelDataCDN] pack unavailable:', packEntry.url, reason);
                     return null;
                 });
             this.packPromises.set(cacheKey, promise);
         }
         return promise;
+    }
+
+    private getPackCacheKey(context: LevelDataCdnContext, packEntry: LevelPackEntry): string {
+        return context.namespace + ':' + packEntry.id + ':' + this.getPackPrefix(packEntry) + ':' + (packEntry.hash || packEntry.url);
     }
 
     private getManifestState(namespace: string): LevelDataManifestState {
@@ -410,18 +557,17 @@ export class LevelDataCdnService {
         if (forced) {
             return this.buildLevelExperimentAssignment(forced, 'url');
         }
-        const persisted = this.readPersistedLevelExperimentAssignment();
-        if (persisted) return persisted;
-        const installId = this.readOrCreateLevelExperimentInstallId();
-        const hashBucket = this.hashStringToBucket(`${LEVEL_EXPERIMENT_ID}:${LEVEL_EXPERIMENT_SALT}:${installId}`);
+        const openid = this.readCachedOpenid();
+        if (!openid) {
+            return this.buildLevelExperimentAssignment('NULL', 'missing_identity');
+        }
+        const hashBucket = this.hashStringToBucket(`${LEVEL_EXPERIMENT_ID}:${LEVEL_EXPERIMENT_SALT}:${openid}`);
         const bucket: LevelExperimentBucket =
             hashBucket < 25 ? 'A' :
             hashBucket < 50 ? 'B' :
             hashBucket < 75 ? 'C' :
             'D';
-        const assignment = this.buildLevelExperimentAssignment(bucket, 'local');
-        writeCdnStorageObject(LEVEL_EXP_ASSIGNMENT_STORAGE_KEY, assignment);
-        return assignment;
+        return this.buildLevelExperimentAssignment(bucket, 'openid');
     }
 
     private buildLevelExperimentAssignment(bucket: LevelExperimentBucket, source: LevelExperimentAssignment['source']): LevelExperimentAssignment {
@@ -429,17 +575,9 @@ export class LevelDataCdnService {
             experimentId: LEVEL_EXPERIMENT_ID,
             experimentSalt: LEVEL_EXPERIMENT_SALT,
             bucket,
-            group: bucket === 'A' || bucket === 'B' ? 'baseline' : 'treatment',
+            group: bucket === 'C' || bucket === 'D' ? 'treatment' : 'baseline',
             source,
         };
-    }
-
-    private readPersistedLevelExperimentAssignment(): LevelExperimentAssignment | null {
-        const stored = readCdnStorageObject(LEVEL_EXP_ASSIGNMENT_STORAGE_KEY);
-        const bucket = this.normalizeLevelExperimentBucket(stored?.bucket);
-        if (!bucket) return null;
-        if (stored?.experimentId !== LEVEL_EXPERIMENT_ID || stored?.experimentSalt !== LEVEL_EXPERIMENT_SALT) return null;
-        return this.buildLevelExperimentAssignment(bucket, 'local');
     }
 
     private readLevelExperimentBucketOverride(): LevelExperimentBucket | null {
@@ -463,15 +601,16 @@ export class LevelDataCdnService {
         if (text === 'B' || text === 'BUCKET_B') return 'B';
         if (text === 'C' || text === 'BUCKET_C') return 'C';
         if (text === 'D' || text === 'BUCKET_D') return 'D';
+        if (text === 'NULL') return 'NULL';
         return null;
     }
 
-    private readOrCreateLevelExperimentInstallId(): string {
-        const stored = readCdnStorageObject(LEVEL_EXP_INSTALL_ID_STORAGE_KEY);
-        if (typeof stored?.installId === 'string' && stored.installId) return stored.installId;
-        const created = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-        writeCdnStorageObject(LEVEL_EXP_INSTALL_ID_STORAGE_KEY, { installId: created });
-        return created;
+    private readCachedOpenid(): string {
+        try {
+            return sys.localStorage.getItem(LS_ANALYTICS_OPENID) || '';
+        } catch (_) {
+            return '';
+        }
     }
 
     private hashStringToBucket(text: string): number {

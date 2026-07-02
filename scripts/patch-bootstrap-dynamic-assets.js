@@ -12,8 +12,12 @@ const gameAssetsBundleName = 'gameAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'GameUI/bg_game_pindd',
+	'GameUI/board_zoom_fill',
 	'GameUI/board_zoom_locate',
+	'GameUI/board_zoom_minus',
+	'GameUI/board_zoom_plus',
 	'GameUI/board_zoom_thumb',
+	'GameUI/board_zoom_track',
 	'GameUI/block_bright_pindd',
 	'GameUI/slot_groove_b_ui',
 	'GameUI/slot_panel_shell_b_ui',
@@ -49,10 +53,16 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/pindd/error', 'Audio/pindd/error'],
     ['Audio/ui', 'Audio/ui'],
     ['Audio/tick', 'Audio/tick'],
+    ['Audio/win', 'Audio/win'],
+    ['Audio/lose', 'Audio/lose'],
+    ['Audio/winSettlement', 'Audio/winSettlement'],
     ['Audio/guide_level1_pick_1', 'Audio/guide_level1_pick_1'],
     ['Audio/guide_level1_place_1', 'Audio/guide_level1_place_1'],
     ['Audio/guide_level1_pick_2', 'Audio/guide_level1_pick_2'],
     ['Audio/guide_level1_place_2', 'Audio/guide_level1_place_2'],
+    ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
+    ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
+    ['UI/Prefabs/Panels/LosePanel', 'UI/Prefabs/Panels/LosePanel'],
 ]);
 
 function fail(message) {

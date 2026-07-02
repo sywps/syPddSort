@@ -49,11 +49,17 @@ assert.strictEqual(skipPrompt._active, false, 'TutorialSkipGuidePrompt must be i
 assert.ok(gameScene.some((entry) => entry && entry._string === '跳过引导'), 'TutorialSkipGuidePrompt label must be scene-owned');
 
 const levelCdn = read('assets/Scripts/Core/LevelDataCdnService.ts');
-assert.ok(levelCdn.includes("export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D'"), 'level experiment must expose A/B/C/D buckets');
+assert.ok(levelCdn.includes("export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D' | 'NULL'"), 'level experiment must expose A/B/C/D buckets plus NULL before openid');
+assert.ok(levelCdn.includes("LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1'"), 'level experiment must share the cached openid seed with analytics');
+assert.ok(levelCdn.includes("return this.buildLevelExperimentAssignment('NULL', 'missing_identity')"), 'level experiment must keep missing identity in NULL');
+assert.ok(!levelCdn.includes('installId'), 'level experiment must not bucket users by local installId');
+assert.ok(levelCdn.includes('const primaryLevel = await this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);'), 'foreground loadLevel must use the foreground CDN load path');
+assert.ok(levelCdn.includes('const manifest = await this.getLiveManifest(context, foregroundLoad);'), 'foreground CDN load path must pass retry intent into manifest loading');
+assert.ok(levelCdn.includes('if (this.isLiveManifestCoolingDown(state) && !foregroundLoad) return null;'), 'only background prefetch should honor manifest failure cooldown');
 assert.ok(!levelCdn.includes('LEVEL_EXPERIMENT_BUCKET_C_RANGE'), 'level experiment bucket C must not hard-code a client-side level range');
 assert.ok(!levelCdn.includes('LEVEL_EXPERIMENT_BUCKET_D_RANGE'), 'level experiment bucket D must not hard-code a client-side level range');
 assert.ok(!levelCdn.includes('getLevelExperimentActiveRange'), 'level experiment range must be owned by the manifest/pack index, not client code');
-assert.ok(levelCdn.includes("bucket === 'A' || bucket === 'B' ? 'baseline' : 'treatment'"), 'level experiment A/B must remain baseline and C/D treatment');
+assert.ok(levelCdn.includes("bucket === 'C' || bucket === 'D' ? 'treatment' : 'baseline'"), 'level experiment NULL/A/B must remain stable and C/D treatment');
 assert.ok(levelCdn.includes("activeRange: assignment.group === 'treatment' ? 'manifest' : null"), 'level experiment diagnostics must show that C/D range is manifest-owned');
 assert.ok(levelCdn.includes("return assignment.group === 'treatment';"), 'level experiment C/D buckets must use experiment CDN for mainline levels');
 
@@ -76,17 +82,19 @@ assert.deepStrictEqual(slotPolicy('assets/LevelData/level_1.json'), {
     freeUnlockRows: 0,
     adUnlockRows: 0,
 }, 'stable level 1 guide level must keep 1/0/0 slot policy');
-assert.deepStrictEqual(slotPolicy('assets/LevelData/level_2.json'), {
-    defaultRows: 1,
-    freeUnlockRows: 1,
-    adUnlockRows: 0,
-}, 'stable level 2 guide level must keep free slot unlock policy');
-for (let level = 3; level <= 10; level++) {
-    assert.deepStrictEqual(slotPolicy(`assets/LevelData/level_${level}.json`), {
-        defaultRows: 2,
-        freeUnlockRows: 0,
-        adUnlockRows: 1,
-    }, `stable level ${level} must keep 2/0/1 slot policy`);
+const stableEarlySlotPolicies = new Map([
+    [2, { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [3, { defaultRows: 2, freeUnlockRows: 1, adUnlockRows: 0 }],
+    [4, { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [5, { defaultRows: 2, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [6, { defaultRows: 2, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [7, { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [8, { defaultRows: 2, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [9, { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 }],
+    [10, { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 }],
+]);
+for (const [level, expectedPolicy] of stableEarlySlotPolicies) {
+    assert.deepStrictEqual(slotPolicy(`assets/LevelData/level_${level}.json`), expectedPolicy, `stable level ${level} slot policy must match current source data`);
 }
 for (let level = 11; level <= 20; level++) {
     assert.deepStrictEqual(slotPolicy(`assets/LevelData/level_${level}.json`), {
