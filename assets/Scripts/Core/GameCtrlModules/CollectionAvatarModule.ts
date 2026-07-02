@@ -30,7 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureCollectionPanelController } from '../Panels/CollectionPanelController';
-import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import { releasePixelPosterPreviewTree, renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 
 function getRankTextColor(rank: number): Color {
     if (rank === 1) return new Color('#D99A16');
@@ -506,6 +506,7 @@ export function installCollectionAvatarModule(target: any): void {
 
             const oldScrollContent = viewport.getChildByName('CollectionScrollContent');
             if (oldScrollContent) {
+                releasePixelPosterPreviewTree(oldScrollContent);
                 oldScrollContent.removeFromParent();
                 oldScrollContent.destroy();
             }

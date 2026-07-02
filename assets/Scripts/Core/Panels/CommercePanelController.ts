@@ -26,7 +26,7 @@ type ResourceAcquireOptions = {
     adType: string;
     successToast: string | (() => string);
     grantFailToast: string;
-    onAdGrant: () => void;
+    onAdGrant: () => boolean | void | Promise<boolean | void>;
     buyLabel?: string;
     goldAmountText?: string;
     onBuy?: () => boolean;
@@ -278,8 +278,12 @@ export class CommercePanelController {
                         if (runtime._adShowing) return;
                         AudioMgr.inst.play('button');
                         const started = runtime.runRewardedGrant(options.adType, () => {
-                            options.onAdGrant();
-                            options.onInventoryChanged?.();
+                            return Promise.resolve(options.onAdGrant()).then((grantResult) => {
+                                if (grantResult !== false) {
+                                    options.onInventoryChanged?.();
+                                }
+                                return grantResult;
+                            });
                         }, {
                             busyFlag: '_adShowing',
                             waitForCloseBeforeComplete: true,
@@ -335,7 +339,14 @@ export class CommercePanelController {
         return { itemLabel: '磁铁', cost: ECONOMY_NUMERIC_TABLE.purchaseCost.magnet, adType: 'skill_magnet_acquire' };
     }
 
-    openToolAcquirePanel(kind: ToolAcquireKind, options: { resumeTimerOnClose?: boolean; onInventoryChanged?: () => void } = {}): boolean {
+    openToolAcquirePanel(
+        kind: ToolAcquireKind,
+        options: {
+            resumeTimerOnClose?: boolean;
+            onInventoryChanged?: () => void;
+            onAdGrant?: () => boolean | void | Promise<boolean | void>;
+        } = {},
+    ): boolean {
         const meta = this.getToolAcquireMeta(kind);
         return this.openResourceAcquirePanel({
             variant: kind,
@@ -355,6 +366,9 @@ export class CommercePanelController {
                 return true;
             },
             onAdGrant: () => {
+                if (options.onAdGrant) {
+                    return options.onAdGrant();
+                }
                 this.runtime.addPropCount(kind, 1);
             },
         });

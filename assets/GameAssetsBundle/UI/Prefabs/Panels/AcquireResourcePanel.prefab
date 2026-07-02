@@ -2354,7 +2354,7 @@
     "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 47.78125,
+    "_actualFontSize": 44,
     "_fontSize": 44,
     "_fontFamily": "Arial",
     "_lineHeight": 52,
@@ -3539,7 +3539,7 @@
         "__id__": 144
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 150
@@ -3553,7 +3553,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 126,
+      "x": 110,
       "y": -245,
       "z": 0
     },
@@ -3603,7 +3603,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -58,
+      "x": -49.159,
       "y": 2,
       "z": 0
     },
@@ -3644,8 +3644,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42,
-      "height": 34
+      "width": 55,
+      "height": 55
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3781,7 +3781,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 150,
-      "height": 44
+      "height": 100
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3819,8 +3819,8 @@
     "_string": "250",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 28,
-    "_fontSize": 28,
+    "_actualFontSize": 45,
+    "_fontSize": 45,
     "_fontFamily": "Arial",
     "_lineHeight": 36,
     "_overflow": 2,
@@ -3889,8 +3889,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 222.817,
-      "height": 96
+      "width": 220,
+      "height": 110
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3977,7 +3977,7 @@
         "__id__": 162
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 168
@@ -3991,7 +3991,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -126,
+      "x": -110,
       "y": -245,
       "z": 0
     },
@@ -4327,8 +4327,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 222.817,
-      "height": 96
+      "width": 220,
+      "height": 110
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -4991,7 +4991,7 @@
     "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 24,
+    "_actualFontSize": 20,
     "_fontSize": 24,
     "_fontFamily": "Arial",
     "_lineHeight": 36,

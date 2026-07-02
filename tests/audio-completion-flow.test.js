@@ -18,7 +18,12 @@ const levelCompleteIndex = settlement.indexOf("AudioMgr.inst.play('winAll');");
 const settlementIndex = settlement.indexOf("AudioMgr.inst.play('winSettlement');");
 assert.ok(levelCompleteIndex >= 0, 'gameWin must play the level-complete cue');
 assert.ok(settlementIndex >= 0, 'gameWin must play the settlement cue');
-assert.ok(levelCompleteIndex < settlementIndex, 'level-complete cue must play before settlement cue');
+const playPatternFxIndex = settlement.indexOf('const playPatternCompleteFx = () =>');
+const playBoardShrinkIndex = settlement.indexOf('const playBoardCompleteShrink = () =>');
+const revealSettlementIndex = settlement.indexOf('const revealSettlement = () =>');
+const showSettlementIndex = settlement.indexOf('const showSettlement = () =>');
+assert.ok(levelCompleteIndex > playPatternFxIndex && levelCompleteIndex < playBoardShrinkIndex, 'level-complete cue must play when full-board c1 starts');
+assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < showSettlementIndex, 'settlement cue must play only when settlement is revealed');
 
 const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
@@ -42,6 +47,9 @@ assert.ok(freezeFx.includes('wxApi.loadSubpackage'), 'Freeze Spine FX must expli
 assert.ok(colorFx.includes("settle: 'a1_1'"), 'bean settle FX must map to the Pindd a1_1 Spine animation');
 assert.ok(colorFx.includes("colorComplete: 'b1_1'"), 'single-color completion FX must map to the Pindd b1_1 Spine animation');
 assert.ok(colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion FX must map to the Pindd c1_1 Spine animation');
+assert.ok(colorFx.includes('playPinddSpineFxOnBeansSameFrame'), 'single-color completion FX must have a same-frame playback path');
+assert.ok(colorFx.includes('this.playPinddSpineFxOnBeansSameFrame(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);'), 'single-color completion FX must start all same-color beans together');
+assert.ok(!colorFx.includes('this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);'), 'single-color completion FX must not use the batched queue');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_SCALE_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation scale tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_OPACITY_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation opacity tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_BATCH_CONCURRENCY'), 'Pindd Spine FX batch playback must limit concurrent active nodes');
@@ -72,6 +80,8 @@ assert.ok(wechatBuildConfig.includes('WASM_SUBPACKAGE: WECHAT_WASM_SUBPACKAGE'),
 assert.ok(wechatBuildConfig.includes('LOAD_SPINE_MANUALLY: WECHAT_LOAD_SPINE_MANUALLY'), 'WeChat build config must enable manual Spine wasm loading');
 
 const placement = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
+const skillMagnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillMagnetModule.ts');
+const skillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
 const previewController = read('assets/Scripts/Core/PreviewController.ts');
 const uiManifest = read('assets/Scripts/Core/UiManifest.ts');
@@ -84,6 +94,17 @@ assert.ok(!placement.includes('if (skipColorCompleteAudio) continue;'), 'final b
 assert.ok(placement.includes('this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);'), 'final color-complete effect must queue visuals while suppressing duplicate audio');
 assert.ok(placement.includes('playLandEffect(row: number, col: number, onComplete?: () => void)'), 'bean landing effect must expose a completion callback');
 assert.ok(placement.includes('playLandingLightAtCell(row: number, col: number): void'), 'bean landing effect must restore a subtle placement light');
+assert.ok(placement.includes('playBoardTargetSettleSound(): void'), 'board target settle sound must have a shared helper');
+assert.ok(placement.includes('this.playBoardTargetSettleSound();\n                        AudioMgr.inst.vibratePlace();'), 'normal board placement must use the shared board settle sound before placement vibration');
+assert.ok(skillMagnet.includes('nextForcedSkillFeedbackSoundAtMs = playAtMs + SKILL_MOVE_STAGGER * 1000'), 'color-clear prop feedback audio must keep the ordinary multi-target rhythm even when visual starts are compressed');
+assert.ok(skillMagnet.includes('scheduleForcedSkillFeedbackSound(sfx);'), 'forced skill feedback must enqueue prop sounds instead of playing dense one-shots immediately');
+assert.ok(skillMagnet.includes("if (sfx === 'place' && typeof this.playBoardTargetSettleSound === 'function')"), 'forced skill feedback must route board target settle audio through the shared helper');
+assert.ok(/playFeedback\('place', move\.feedbackIndex\);[\s\S]*?revealBoardCell\(move\.target\);/.test(skillMagnet), 'forced skill board moves must play board target settle audio');
+assert.ok(/playFeedback\('slot', move\.feedbackIndex\);[\s\S]*?revealSlotIdx\(move\.slotIdx\);/.test(skillMagnet), 'forced skill slot moves must keep slot landing audio');
+assert.ok(/playForcedSkillPlan\([\s\S]*?for \(const move of boardMoves\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\.recycleFlyBeanNode\(bean\);[\s\S]*?finish\(\);[\s\S]*?for \(const move of slotMoves\)/.test(skillMagnet), 'sequential forced skill board moves must use board target settle audio');
+assert.ok(skillWand.includes('nextDumpBoardSettleSoundAtMs = playAtMs + STAGGER * 1000'), 'clear-slot prop board settle audio must keep the ordinary multi-target rhythm');
+assert.ok(skillWand.includes('scheduleDumpBoardSettleSound();'), 'clear-slot dump must enqueue board settle sounds instead of playing dense one-shots immediately');
+assert.ok(/dumpRemainingSlotBeans\(\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\._flyingTargets\.delete/.test(skillWand), 'clear-slot dump fallback must keep board target settle audio');
 assert.ok(placement.includes('this.playBrightFlashAt(worldPos, slotSize * 1.55, 135);'), 'placement light must use the pooled authored bright texture');
 assert.ok(placement.includes("throw new Error('[placement-fx] missing required SpriteFrame: block_bright_pindd')"), 'placement light must fail fast when the bright texture is missing');
 assert.ok(placement.includes('this.playLandingEffectsThen(targets, () =>'), 'color-complete effect must wait for landing effects to finish');
@@ -113,11 +134,14 @@ assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/bl
 assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/block_bright_pindd.png.meta')), 'landing light texture meta must not live in GameAssetsBundle');
 
 assert.ok(settlement.includes('playPatternCompleteThenWin(delaySeconds: number = 0)'), 'final completion must route through a pattern-complete win wrapper');
-assert.ok(settlement.includes('FINAL_COLOR_COMPLETE_FX_HOLD'), 'final pattern win must leave a visible window for the queued color-complete FX');
-assert.ok(settlement.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must flush queued color-complete FX before settlement');
+assert.ok(settlement.includes('this._pendingColorCompleteEffects.clear();'), 'final pattern win must drop the queued final color-complete FX');
+assert.ok(!settlement.includes('FINAL_COLOR_COMPLETE_FX_HOLD'), 'final pattern win must not wait for a separate final-color FX');
+assert.ok(!settlement.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must not flush queued final-color FX before c1');
 assert.ok(settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'settlement must wait for pattern-complete FX callback');
-assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0.5'), 'pattern-complete shrink must wait before c1 like Happy Pindou');
-assert.ok(settlement.includes('PATTERN_COMPLETE_FX_START_DELAY'), 'pattern-complete c1 must start after the shrink lead-in');
+assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0'), 'pattern-complete shrink must start without an extra pre-FX wait');
+assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8'), 'pattern-complete shrink must match the Happy Pindou board scale');
+assert.ok(settlement.includes('.call(playPatternCompleteFx)'), 'pattern-complete c1 must start after the shrink tween finishes');
+assert.ok(!settlement.includes('PATTERN_COMPLETE_FX_START_DELAY'), 'pattern-complete c1 must not use a separate fixed start delay');
 assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD'), 'settlement must not appear immediately after c1 completes');
 
 assert.ok(firstLevelRoute.includes("this.requireUiChild(overlayTemplates, 'RemoteLoadFatalError'"), 'level-data fatal overlay must use the authored RemoteLoadFatalError template');

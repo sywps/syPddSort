@@ -136,6 +136,7 @@ export class GameplaySessionController {
             runtime.buildUI();
             runtime.renderBoard();
             runtime.renderSlots();
+            runtime.resetAdRewardHintState?.(dynamicTimeLimit);
             runtime.assertGameplayVisualReadiness();
             runtime.hideLoadingOverlayAfterGameplayReady?.();
             AudioMgr.inst.playGameBgm();

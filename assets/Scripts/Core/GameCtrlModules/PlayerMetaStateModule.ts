@@ -225,6 +225,9 @@ export function installPlayerMetaStateModule(target: any): void {
             if (this._goldCountLbl) {
                 this._goldCountLbl.string = text;
             }
+            if (this._settlementGoldCountLbl?.isValid) {
+                this._settlementGoldCountLbl.string = text;
+            }
             if (this._shopGoldLbl) {
                 this._shopGoldLbl.string = text;
             }
@@ -680,7 +683,7 @@ export function installPlayerMetaStateModule(target: any): void {
             return label;
         },
 
-        syncRecoverVigorButton(button: Node, labelText: string, iconTexture: string, fill: Color, stroke: Color, interactable: boolean): void {
+        syncRecoverVigorButton(button: Node, labelText: string, fill: Color, stroke: Color, interactable: boolean): void {
             this.syncRecoverVigorRoundedBg(button, 168, 64, 18, fill, stroke, 4);
             const sprite = button.getComponent(Sprite);
             if (sprite) {
@@ -691,8 +694,7 @@ export function installPlayerMetaStateModule(target: any): void {
             const opacity = button.getComponent(UIOpacity) ?? button.addComponent(UIOpacity);
             opacity.opacity = interactable ? 255 : 140;
 
-            const icon = this.ensureRecoverVigorUiNode(button, 'ActionIcon', 34, 34, -54, 0);
-            this.syncRecoverVigorSprite(icon, iconTexture, 34, 34);
+            this.ensureRecoverVigorUiNode(button, 'ActionIcon', 34, 34, -54, 0);
             const labelNode = this.ensureRecoverVigorUiNode(button, 'ActionLabel', 110, 38, 25, 1);
             this.syncRecoverVigorLabel(labelNode, labelText, 30, new Color(255, 255, 255, 255), true, new Color(46, 114, 120, 255));
         },
@@ -703,7 +705,6 @@ export function installPlayerMetaStateModule(target: any): void {
             x: number,
             amount: number,
             buttonText: string,
-            buttonIcon: string,
             buttonFill: Color,
             buttonStroke: Color,
             interactable: boolean,
@@ -719,7 +720,7 @@ export function installPlayerMetaStateModule(target: any): void {
             this.syncRecoverVigorLabel(amountLabel, `${amount}`, 36, new Color(61, 73, 116, 255), true);
 
             const button = this.ensureRecoverVigorUiNode(card, 'ActionButton', 168, 64, 0, -94);
-            this.syncRecoverVigorButton(button, buttonText, buttonIcon, buttonFill, buttonStroke, interactable);
+            this.syncRecoverVigorButton(button, buttonText, buttonFill, buttonStroke, interactable);
 
             const limitNode = this.ensureRecoverVigorUiNode(card, 'LimitLabel', 190, 28, 0, -142);
             const limitLabel = this.syncRecoverVigorLabel(
@@ -748,7 +749,6 @@ export function installPlayerMetaStateModule(target: any): void {
                 -118,
                 RECOVER_VIGOR_AD_REWARD,
                 '\u770b\u89c6\u9891',
-                'popup_ad_play_icon',
                 new Color(68, 179, 238, 255),
                 new Color(38, 121, 203, 255),
                 true,
@@ -759,7 +759,6 @@ export function installPlayerMetaStateModule(target: any): void {
                 118,
                 RECOVER_VIGOR_SHARE_REWARD,
                 '\u5206\u4eab',
-                'popup_share_icon',
                 shareAvailable ? new Color(58, 214, 116, 255) : new Color(170, 170, 170, 255),
                 shareAvailable ? new Color(25, 156, 79, 255) : new Color(120, 120, 120, 255),
                 shareAvailable,

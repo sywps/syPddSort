@@ -1,0 +1,1110 @@
+{
+  "sourceGame": "这不是挑战",
+  "sourcePackage": "C:/Users/EDY/workspaces/这不是挑战",
+  "sourceFile": "OUTPUT/subpackages/loadingScene/import/0f/0fe64396b.e9d84.json",
+  "sourceSet": "main",
+  "sourceLevel": 67,
+  "sourceLevelId": 100001,
+  "sourceLevelName": "企鹅冰棒",
+  "levelName": "企鹅冰棒",
+  "colorMappingMode": "per-level-semantic-official20-v1",
+  "sourceColorIdToLocalColorId": {
+    "0": 18,
+    "1": 13,
+    "2": 20,
+    "3": 14,
+    "4": 4,
+    "5": 16,
+    "6": 5
+  },
+  "sourceColorMergeGroupsInLevel": {},
+  "sourceHighRiskColorsInLevel": [
+    "3"
+  ],
+  "sourceColorsInLevel": {
+    "0": {
+      "sourceColorId": "0",
+      "sourceHex": "#384B8C",
+      "sourceRgb": [
+        56,
+        75,
+        140
+      ],
+      "sourceHsv": [
+        226.43,
+        0.6,
+        0.549
+      ],
+      "semanticFamily": "蓝",
+      "preferredLocalColorIds": [
+        7,
+        18,
+        8,
+        13
+      ],
+      "localColorId": 18,
+      "localName": "深蓝",
+      "localHex": "#36387E",
+      "mappingScore": 12.038,
+      "topCandidates": [
+        {
+          "localColorId": 18,
+          "localName": "深蓝",
+          "localHex": "#36387E",
+          "score": 12.038,
+          "labDistance": 9.895
+        },
+        {
+          "localColorId": 7,
+          "localName": "蓝色",
+          "localHex": "#4A4DCF",
+          "score": 41.297,
+          "labDistance": 39.098
+        },
+        {
+          "localColorId": 13,
+          "localName": "天蓝",
+          "localHex": "#20A8DC",
+          "score": 48.61,
+          "labDistance": 43.24
+        },
+        {
+          "localColorId": 8,
+          "localName": "紫色",
+          "localHex": "#7221BC",
+          "score": 62.761,
+          "labDistance": 54.675
+        },
+        {
+          "localColorId": 19,
+          "localName": "深灰",
+          "localHex": "#373737",
+          "score": 82.122,
+          "labDistance": 42.122
+        }
+      ],
+      "usage": 55,
+      "isHighRisk": false
+    },
+    "1": {
+      "sourceColorId": "1",
+      "sourceHex": "#498FDB",
+      "sourceRgb": [
+        73,
+        143,
+        219
+      ],
+      "sourceHsv": [
+        211.23,
+        0.6667,
+        0.8588
+      ],
+      "semanticFamily": "天蓝",
+      "preferredLocalColorIds": [
+        13,
+        2,
+        7
+      ],
+      "localColorId": 13,
+      "localName": "天蓝",
+      "localHex": "#20A8DC",
+      "mappingScore": 24.262,
+      "topCandidates": [
+        {
+          "localColorId": 13,
+          "localName": "天蓝",
+          "localHex": "#20A8DC",
+          "score": 24.262,
+          "labDistance": 21.627
+        },
+        {
+          "localColorId": 7,
+          "localName": "蓝色",
+          "localHex": "#4A4DCF",
+          "score": 51.634,
+          "labDistance": 46.699
+        },
+        {
+          "localColorId": 18,
+          "localName": "深蓝",
+          "localHex": "#36387E",
+          "score": 59.649,
+          "labDistance": 36.771
+        },
+        {
+          "localColorId": 2,
+          "localName": "青色",
+          "localHex": "#4EEAEA",
+          "score": 65.459,
+          "labDistance": 59.837
+        },
+        {
+          "localColorId": 15,
+          "localName": "浅紫",
+          "localHex": "#C4BED9",
+          "score": 86.137,
+          "labDistance": 38.558
+        }
+      ],
+      "usage": 57,
+      "isHighRisk": false
+    },
+    "2": {
+      "sourceColorId": "2",
+      "sourceHex": "#EFEFEF",
+      "sourceRgb": [
+        239,
+        239,
+        239
+      ],
+      "sourceHsv": [
+        0.0,
+        0.0,
+        0.9373
+      ],
+      "semanticFamily": "米白/白",
+      "preferredLocalColorIds": [
+        20,
+        6,
+        15,
+        19
+      ],
+      "localColorId": 20,
+      "localName": "米白",
+      "localHex": "#F2EDE4",
+      "mappingScore": -5.021,
+      "topCandidates": [
+        {
+          "localColorId": 20,
+          "localName": "米白",
+          "localHex": "#F2EDE4",
+          "score": -5.021,
+          "labDistance": 4.979
+        },
+        {
+          "localColorId": 15,
+          "localName": "浅紫",
+          "localHex": "#C4BED9",
+          "score": 21.87,
+          "labDistance": 21.87
+        },
+        {
+          "localColorId": 6,
+          "localName": "米黄",
+          "localHex": "#EBDEA6",
+          "score": 30.041,
+          "labDistance": 30.041
+        },
+        {
+          "localColorId": 14,
+          "localName": "浅粉",
+          "localHex": "#EEB2BC",
+          "score": 46.542,
+          "labDistance": 28.542
+        },
+        {
+          "localColorId": 5,
+          "localName": "肤色",
+          "localHex": "#F4BD9E",
+          "score": 49.208,
+          "labDistance": 31.208
+        }
+      ],
+      "usage": 54,
+      "isHighRisk": false
+    },
+    "3": {
+      "sourceColorId": "3",
+      "sourceHex": "#FFA6B5",
+      "sourceRgb": [
+        255,
+        166,
+        181
+      ],
+      "sourceHsv": [
+        349.89,
+        0.349,
+        1.0
+      ],
+      "semanticFamily": "红",
+      "preferredLocalColorIds": [
+        10,
+        17,
+        1,
+        16
+      ],
+      "localColorId": 14,
+      "localName": "浅粉",
+      "localHex": "#EEB2BC",
+      "mappingScore": 29.805,
+      "topCandidates": [
+        {
+          "localColorId": 14,
+          "localName": "浅粉",
+          "localHex": "#EEB2BC",
+          "score": 29.805,
+          "labDistance": 11.785
+        },
+        {
+          "localColorId": 1,
+          "localName": "粉红",
+          "localHex": "#ED5090",
+          "score": 39.5,
+          "labDistance": 36.917
+        },
+        {
+          "localColorId": 17,
+          "localName": "酒红",
+          "localHex": "#782F3C",
+          "score": 47.098,
+          "labDistance": 46.995
+        },
+        {
+          "localColorId": 5,
+          "localName": "肤色",
+          "localHex": "#F4BD9E",
+          "score": 49.685,
+          "labDistance": 25.972
+        },
+        {
+          "localColorId": 16,
+          "localName": "棕色",
+          "localHex": "#974714",
+          "score": 59.044,
+          "labDistance": 53.019
+        }
+      ],
+      "usage": 8,
+      "isHighRisk": true
+    },
+    "4": {
+      "sourceColorId": "4",
+      "sourceHex": "#FB8F1B",
+      "sourceRgb": [
+        251,
+        143,
+        27
+      ],
+      "sourceHsv": [
+        31.07,
+        0.8924,
+        0.9843
+      ],
+      "semanticFamily": "橙/棕",
+      "preferredLocalColorIds": [
+        4,
+        5,
+        3,
+        16
+      ],
+      "localColorId": 4,
+      "localName": "橙色",
+      "localHex": "#FE8B10",
+      "mappingScore": -12.173,
+      "topCandidates": [
+        {
+          "localColorId": 4,
+          "localName": "橙色",
+          "localHex": "#FE8B10",
+          "score": -12.173,
+          "labDistance": 3.816
+        },
+        {
+          "localColorId": 3,
+          "localName": "黄色",
+          "localHex": "#F8C811",
+          "score": 38.457,
+          "labDistance": 35.494
+        },
+        {
+          "localColorId": 16,
+          "localName": "棕色",
+          "localHex": "#974714",
+          "score": 42.079,
+          "labDistance": 40.691
+        },
+        {
+          "localColorId": 10,
+          "localName": "红色",
+          "localHex": "#EA281A",
+          "score": 66.218,
+          "labDistance": 43.352
+        },
+        {
+          "localColorId": 5,
+          "localName": "肤色",
+          "localHex": "#F4BD9E",
+          "score": 75.835,
+          "labDistance": 52.135
+        }
+      ],
+      "usage": 8,
+      "isHighRisk": false
+    },
+    "5": {
+      "sourceColorId": "5",
+      "sourceHex": "#B67B4B",
+      "sourceRgb": [
+        182,
+        123,
+        75
+      ],
+      "sourceHsv": [
+        26.92,
+        0.5879,
+        0.7137
+      ],
+      "semanticFamily": "橙/棕",
+      "preferredLocalColorIds": [
+        4,
+        5,
+        3,
+        16
+      ],
+      "localColorId": 16,
+      "localName": "棕色",
+      "localHex": "#974714",
+      "mappingScore": 23.203,
+      "topCandidates": [
+        {
+          "localColorId": 16,
+          "localName": "棕色",
+          "localHex": "#974714",
+          "score": 23.203,
+          "labDistance": 22.563
+        },
+        {
+          "localColorId": 5,
+          "localName": "肤色",
+          "localHex": "#F4BD9E",
+          "score": 27.952,
+          "labDistance": 27.0
+        },
+        {
+          "localColorId": 4,
+          "localName": "橙色",
+          "localHex": "#FE8B10",
+          "score": 28.846,
+          "labDistance": 44.109
+        },
+        {
+          "localColorId": 3,
+          "localName": "黄色",
+          "localHex": "#F8C811",
+          "score": 59.229,
+          "labDistance": 55.518
+        },
+        {
+          "localColorId": 17,
+          "localName": "酒红",
+          "localHex": "#782F3C",
+          "score": 65.55,
+          "labDistance": 40.782
+        }
+      ],
+      "usage": 9,
+      "isHighRisk": false
+    },
+    "6": {
+      "sourceColorId": "6",
+      "sourceHex": "#EDB283",
+      "sourceRgb": [
+        237,
+        178,
+        131
+      ],
+      "sourceHsv": [
+        26.6,
+        0.4473,
+        0.9294
+      ],
+      "semanticFamily": "橙/棕",
+      "preferredLocalColorIds": [
+        4,
+        5,
+        3,
+        16
+      ],
+      "localColorId": 5,
+      "localName": "肤色",
+      "localHex": "#F4BD9E",
+      "mappingScore": 10.733,
+      "topCandidates": [
+        {
+          "localColorId": 5,
+          "localName": "肤色",
+          "localHex": "#F4BD9E",
+          "score": 10.733,
+          "labDistance": 9.837
+        },
+        {
+          "localColorId": 4,
+          "localName": "橙色",
+          "localHex": "#FE8B10",
+          "score": 31.339,
+          "labDistance": 46.546
+        },
+        {
+          "localColorId": 16,
+          "localName": "棕色",
+          "localHex": "#974714",
+          "score": 42.042,
+          "labDistance": 41.458
+        },
+        {
+          "localColorId": 14,
+          "localName": "浅粉",
+          "localHex": "#EEB2BC",
+          "score": 54.442,
+          "labDistance": 29.853
+        },
+        {
+          "localColorId": 3,
+          "localName": "黄色",
+          "localHex": "#F8C811",
+          "score": 55.419,
+          "labDistance": 51.652
+        }
+      ],
+      "usage": 9,
+      "isHighRisk": false
+    }
+  },
+  "levelId": 67,
+  "boardWidth": 16,
+  "boardHeight": 16,
+  "timeLimit": 180,
+  "slotTotalCount": 24,
+  "correctColorArr": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      18,
+      18,
+      18,
+      18,
+      0,
+      18,
+      18,
+      18,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      18,
+      18,
+      18,
+      13,
+      13,
+      13,
+      18,
+      18,
+      13,
+      13,
+      18,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      18,
+      18,
+      13,
+      13,
+      20,
+      20,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      18,
+      18
+    ],
+    [
+      0,
+      0,
+      18,
+      13,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18
+    ],
+    [
+      0,
+      18,
+      13,
+      14,
+      14,
+      20,
+      18,
+      18,
+      20,
+      20,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18
+    ],
+    [
+      0,
+      18,
+      13,
+      14,
+      14,
+      20,
+      18,
+      18,
+      20,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      0
+    ],
+    [
+      0,
+      18,
+      13,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      13,
+      13,
+      20,
+      20,
+      13,
+      18,
+      18
+    ],
+    [
+      0,
+      18,
+      13,
+      20,
+      20,
+      20,
+      4,
+      4,
+      20,
+      20,
+      20,
+      20,
+      20,
+      13,
+      13,
+      18
+    ],
+    [
+      0,
+      18,
+      13,
+      13,
+      20,
+      20,
+      4,
+      4,
+      4,
+      20,
+      18,
+      18,
+      20,
+      20,
+      13,
+      18
+    ],
+    [
+      0,
+      0,
+      18,
+      13,
+      20,
+      20,
+      4,
+      4,
+      4,
+      20,
+      18,
+      18,
+      20,
+      20,
+      13,
+      18
+    ],
+    [
+      0,
+      0,
+      18,
+      13,
+      13,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      20,
+      13,
+      18,
+      0
+    ],
+    [
+      0,
+      0,
+      16,
+      5,
+      13,
+      13,
+      20,
+      20,
+      20,
+      20,
+      14,
+      14,
+      20,
+      13,
+      18,
+      0
+    ],
+    [
+      0,
+      16,
+      5,
+      5,
+      5,
+      13,
+      13,
+      13,
+      20,
+      20,
+      14,
+      14,
+      13,
+      18,
+      18,
+      0
+    ],
+    [
+      16,
+      5,
+      5,
+      5,
+      16,
+      18,
+      18,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      18,
+      0,
+      0
+    ],
+    [
+      16,
+      5,
+      5,
+      16,
+      0,
+      0,
+      0,
+      18,
+      18,
+      18,
+      18,
+      18,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      16,
+      16,
+      16,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "initRandomColorArr": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      20,
+      20,
+      20,
+      20,
+      0,
+      20,
+      20,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      20,
+      20,
+      20,
+      18,
+      18,
+      18,
+      20,
+      20,
+      18,
+      18,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      20,
+      20,
+      18,
+      18,
+      13,
+      13,
+      18,
+      18,
+      18,
+      18,
+      18,
+      20,
+      20,
+      20
+    ],
+    [
+      0,
+      0,
+      20,
+      18,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      18,
+      18,
+      18,
+      18,
+      20
+    ],
+    [
+      0,
+      20,
+      18,
+      4,
+      4,
+      13,
+      14,
+      14,
+      13,
+      13,
+      18,
+      18,
+      18,
+      18,
+      18,
+      20
+    ],
+    [
+      0,
+      20,
+      18,
+      4,
+      4,
+      13,
+      14,
+      14,
+      13,
+      18,
+      18,
+      18,
+      18,
+      18,
+      20,
+      0
+    ],
+    [
+      0,
+      20,
+      18,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      18,
+      13,
+      13,
+      18,
+      20,
+      20
+    ],
+    [
+      0,
+      20,
+      18,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      18,
+      20
+    ],
+    [
+      0,
+      20,
+      18,
+      18,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      14,
+      14,
+      13,
+      13,
+      18,
+      20
+    ],
+    [
+      0,
+      0,
+      20,
+      20,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      14,
+      14,
+      13,
+      13,
+      18,
+      20
+    ],
+    [
+      0,
+      0,
+      20,
+      20,
+      20,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      13,
+      18,
+      20,
+      0
+    ],
+    [
+      0,
+      0,
+      5,
+      16,
+      20,
+      20,
+      13,
+      18,
+      18,
+      18,
+      4,
+      4,
+      13,
+      18,
+      20,
+      0
+    ],
+    [
+      0,
+      5,
+      16,
+      16,
+      16,
+      20,
+      20,
+      18,
+      18,
+      18,
+      4,
+      4,
+      18,
+      20,
+      20,
+      0
+    ],
+    [
+      5,
+      16,
+      16,
+      16,
+      5,
+      20,
+      20,
+      18,
+      18,
+      18,
+      18,
+      18,
+      20,
+      20,
+      0,
+      0
+    ],
+    [
+      5,
+      16,
+      16,
+      5,
+      0,
+      0,
+      0,
+      20,
+      20,
+      20,
+      20,
+      20,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      5,
+      5,
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "filledCellCount": 200,
+  "colorCount": 7,
+  "colorStats": {
+    "4": 8,
+    "5": 9,
+    "13": 57,
+    "14": 8,
+    "16": 9,
+    "18": 55,
+    "20": 54
+  },
+  "displacementRatio": 1.0,
+  "online": false,
+  "isFeatured": false,
+  "levelCategory": "zhe_bu_shi_tiao_zhan_main",
+  "levelType": "main",
+  "fileName": "lv_067.json",
+  "sourceFields": {
+    "id": 100001,
+    "name": "企鹅冰棒",
+    "time": 180,
+    "quality": 0,
+    "color": [
+      "#384B8C",
+      "#498FDB",
+      "#EFEFEF",
+      "#FFA6B5",
+      "#FB8F1B",
+      "#B67B4B",
+      "#EDB283"
+    ],
+    "answerColorStats": {
+      "0": 55,
+      "1": 57,
+      "2": 54,
+      "3": 8,
+      "4": 8,
+      "5": 9,
+      "6": 9
+    },
+    "mapColorStats": {
+      "0": 55,
+      "1": 57,
+      "2": 54,
+      "3": 8,
+      "4": 8,
+      "5": 9,
+      "6": 9
+    },
+    "regionMap": [],
+    "timeRegs": []
+  }
+}

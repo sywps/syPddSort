@@ -15,10 +15,11 @@ import {
     Vec3,
 } from '../GameCtrlShared';
 import type { InventoryPropKind } from '../GameCtrlShared';
+import { isGameplaySkillUnlocked } from '../SlotOnboardingPolicy';
 
 const FREEZE_HINT_REMAIN_SECONDS = 60;
 const GIFT_HINT_REMAIN_SECONDS = 30;
-const FREEZE_HINT_DURATION_SECONDS = 8;
+const FREEZE_HINT_BUBBLE_TEXT = '时间不多啦';
 const SLOT_REMINDER_MAX_PER_GAME = 3;
 const SLOT_REMINDER_COOLDOWN_MS = 22000;
 
@@ -26,6 +27,11 @@ function getActiveLevel(runtime: any): number {
     return typeof runtime.getActiveLogicalLevelId === 'function'
         ? Math.floor(Number(runtime.getActiveLogicalLevelId()) || 0)
         : Math.floor(Number(runtime.levelData?.levelId) || 0);
+}
+
+function getActiveEntryMode(runtime: any): string {
+    return runtime._activeGameplayEntryMode
+        || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
 }
 
 function isTimerGameplay(runtime: any): boolean {
@@ -40,49 +46,6 @@ function setUiLayer(node: Node): void {
     for (const child of node.children) {
         setUiLayer(child);
     }
-}
-
-function getContentSize(node: Node, fallbackW: number, fallbackH: number): { width: number; height: number } {
-    const ui = node.getComponent(UITransform);
-    const width = ui?.contentSize?.width || fallbackW;
-    const height = ui?.contentSize?.height || fallbackH;
-    return {
-        width: Math.max(1, width),
-        height: Math.max(1, height),
-    };
-}
-
-function drawRoundedOutline(node: Node, width: number, height: number, radius: number): void {
-    const graphics = node.getComponent(Graphics) || node.addComponent(Graphics);
-    graphics.clear();
-    graphics.lineWidth = 7;
-    graphics.strokeColor = new Color(255, 214, 50, 105);
-    graphics.roundRect(-width / 2, -height / 2, width, height, radius);
-    graphics.stroke();
-    graphics.lineWidth = 3;
-    graphics.strokeColor = new Color(255, 238, 112, 245);
-    graphics.roundRect(-width / 2, -height / 2, width, height, radius);
-    graphics.stroke();
-}
-
-function ensureGlowNode(target: Node, name: string, padding: number, fallbackW: number, fallbackH: number): Node {
-    let glow = target.getChildByName(name);
-    if (!glow?.isValid) {
-        glow = new Node(name);
-        target.addChild(glow);
-        glow.addComponent(UITransform);
-        glow.addComponent(UIOpacity);
-    }
-    const size = getContentSize(target, fallbackW, fallbackH);
-    const width = size.width + padding * 2;
-    const height = size.height + padding * 2;
-    const radius = Math.min(24, Math.max(8, Math.min(width, height) / 4));
-    glow.layer = Layers.Enum.UI_2D;
-    glow.setPosition(0, 0, 0);
-    glow.setScale(1, 1, 1);
-    glow.getComponent(UITransform)?.setContentSize(width, height);
-    drawRoundedOutline(glow, width, height, radius);
-    return glow;
 }
 
 function removeNode(node: Node | null | undefined): void {
@@ -102,6 +65,19 @@ function restoreTransform(node: Node): void {
     if (scale) node.setScale(scale.x, scale.y, scale.z);
 }
 
+function restoreScale(node: Node): void {
+    const scale = (node as any).__adRewardBaseScale as Vec3 | undefined;
+    if (scale) node.setScale(scale.x, scale.y, scale.z);
+}
+
+function cacheScale(node: Node): Vec3 {
+    const cache = node as any;
+    if (!cache.__adRewardBaseScale) {
+        cache.__adRewardBaseScale = new Vec3(node.scale.x, node.scale.y, node.scale.z);
+    }
+    return cache.__adRewardBaseScale as Vec3;
+}
+
 function cacheTransform(node: Node): void {
     const cache = node as any;
     if (!cache.__adRewardBasePos) {
@@ -112,47 +88,65 @@ function cacheTransform(node: Node): void {
     }
 }
 
-function playShake(node: Node, distance: number, repeat: number, scaleBoost = 1.04): void {
+function playScalePulse(node: Node, peakScale: number, repeat: number, growSeconds: number, shrinkSeconds: number): void {
     if (!node?.isValid) return;
-    cacheTransform(node);
-    restoreTransform(node);
+    const scale = cacheScale(node);
     Tween.stopAllByTarget(node);
-    const cache = node as any;
-    const pos = cache.__adRewardBasePos as Vec3;
-    const scale = cache.__adRewardBaseScale as Vec3;
+    restoreScale(node);
     tween(node)
         .repeat(repeat, tween(node)
-            .to(0.055, { position: new Vec3(pos.x - distance, pos.y, pos.z), scale: new Vec3(scale.x * scaleBoost, scale.y * scaleBoost, scale.z) })
-            .to(0.055, { position: new Vec3(pos.x + distance, pos.y, pos.z) })
-            .to(0.07, { position: new Vec3(pos.x, pos.y, pos.z), scale: new Vec3(scale.x, scale.y, scale.z) }))
-        .call(() => restoreTransform(node))
+            .to(growSeconds, { scale: new Vec3(scale.x * peakScale, scale.y * peakScale, scale.z) })
+            .to(shrinkSeconds, { scale: new Vec3(scale.x, scale.y, scale.z) }))
+        .call(() => restoreScale(node))
         .start();
 }
 
-function playJump(node: Node, height: number, repeat: number): void {
-    if (!node?.isValid) return;
-    cacheTransform(node);
-    restoreTransform(node);
-    Tween.stopAllByTarget(node);
-    const cache = node as any;
-    const pos = cache.__adRewardBasePos as Vec3;
-    const scale = cache.__adRewardBaseScale as Vec3;
-    tween(node)
-        .repeat(repeat, tween(node)
-            .to(0.09, { position: new Vec3(pos.x, pos.y + height, pos.z), scale: new Vec3(scale.x * 1.04, scale.y * 1.04, scale.z) })
-            .to(0.11, { position: new Vec3(pos.x, pos.y, pos.z), scale: new Vec3(scale.x, scale.y, scale.z) }))
-        .call(() => restoreTransform(node))
-        .start();
-}
-
-function findLabelNodeByText(root: Node, text: string): Node | null {
+function findFirstLabel(root: Node): Label | null {
     const label = root.getComponent(Label);
-    if (label?.string === text) return root;
+    if (label) return label;
     for (const child of root.children) {
-        const found = findLabelNodeByText(child, text);
+        const found = findFirstLabel(child);
         if (found) return found;
     }
     return null;
+}
+
+function hideSceneBubble(bubble: Node | null | undefined): void {
+    if (!bubble?.isValid) return;
+    Tween.stopAllByTarget(bubble);
+    const opacity = bubble.getComponent(UIOpacity);
+    if (opacity) {
+        Tween.stopAllByTarget(opacity);
+        opacity.opacity = 255;
+    }
+    restoreTransform(bubble);
+    bubble.active = false;
+}
+
+function showSceneBubble(bubble: Node | null | undefined, text: string): Node | null {
+    if (!bubble?.isValid) return null;
+    const label = findFirstLabel(bubble);
+    if (label) label.string = text;
+    cacheTransform(bubble);
+    restoreTransform(bubble);
+    Tween.stopAllByTarget(bubble);
+    const opacity = bubble.getComponent(UIOpacity) || bubble.addComponent(UIOpacity);
+    Tween.stopAllByTarget(opacity);
+    const cache = bubble as any;
+    const pos = cache.__adRewardBasePos as Vec3;
+    bubble.active = true;
+    bubble.setPosition(pos.x, pos.y - 6, pos.z);
+    opacity.opacity = 0;
+    tween(bubble)
+        .to(0.18, { position: new Vec3(pos.x, pos.y, pos.z) })
+        .start();
+    tween(opacity)
+        .to(0.18, { opacity: 255 })
+        .delay(4.6)
+        .to(0.2, { opacity: 0 })
+        .call(() => hideSceneBubble(bubble))
+        .start();
+    return bubble;
 }
 
 function drawGiftVisual(root: Node): void {
@@ -206,7 +200,7 @@ export function installGameplayAdRewardHintModule(target: any): void {
 
         checkAdRewardTimedHints() {
             if (!isTimerGameplay(this) || this._adShowing) return;
-            if (getActiveLevel(this) < SKILL_UNLOCK_FREEZE) return;
+            if (!isGameplaySkillUnlocked(getActiveLevel(this), getActiveEntryMode(this), SKILL_UNLOCK_FREEZE)) return;
             const initialTime = Number(this._adRewardInitialTimeLimit) || Number(this.timeRemain) || 0;
             const remain = Math.floor(Number(this.timeRemain) || 0);
             if (!this._adRewardFreezeHintShown && initialTime >= FREEZE_HINT_REMAIN_SECONDS && remain <= FREEZE_HINT_REMAIN_SECONDS && remain > GIFT_HINT_REMAIN_SECONDS) {
@@ -217,8 +211,8 @@ export function installGameplayAdRewardHintModule(target: any): void {
                 this.triggerSlotAddReminder?.('half-time');
             }
             if (!this._adRewardGiftShown
-                && this._adRewardFreezeHintShown
                 && !this._adRewardFreezeEntryClicked
+                && !this._adRewardGiftRewarded
                 && initialTime >= FREEZE_HINT_REMAIN_SECONDS
                 && remain <= GIFT_HINT_REMAIN_SECONDS
                 && remain > 0) {
@@ -231,40 +225,23 @@ export function installGameplayAdRewardHintModule(target: any): void {
             const shell = skillRoot?.getChildByName('SkillFreeze');
             if (!shell?.isValid || !shell.activeInHierarchy) return false;
             this._adRewardFreezeHintShown = true;
-            const glow = ensureGlowNode(shell, 'AdRewardFreezeGlow', 9, 92, 92);
-            this._adRewardFreezeGlowNode = glow;
-            glow.active = true;
-            const opacity = glow.getComponent(UIOpacity) || glow.addComponent(UIOpacity);
-            opacity.opacity = 255;
-            Tween.stopAllByTarget(glow);
-            Tween.stopAllByTarget(opacity);
-            const pulseRepeat = Math.ceil(FREEZE_HINT_DURATION_SECONDS / 0.64);
-            tween(opacity).to(0.32, { opacity: 120 }).to(0.32, { opacity: 255 }).union().repeat(pulseRepeat).start();
-            tween(glow)
-                .to(0.32, { scale: new Vec3(1.05, 1.05, 1) })
-                .to(0.32, { scale: new Vec3(1, 1, 1) })
-                .union()
-                .repeat(pulseRepeat)
-                .delay(0.2)
-                .call(() => this.clearAdRewardFreezeHintVisual?.())
-                .start();
+            removeNode(shell.getChildByName('AdRewardFreezeGlow'));
+            playScalePulse(shell, 1.1, 7, 0.34, 0.38);
 
-            const icon = shell.getChildByName('ToolIcon');
-            if (icon?.isValid) playShake(icon, 4, 10, 1.05);
-            const label = findLabelNodeByText(shell, '冻结时间');
-            if (label?.isValid) playJump(label, 5, 8);
-            this.scheduleOnce?.(() => {
-                if (!this._adRewardFreezeHintShown || this._adRewardFreezeEntryClicked) return;
-                if (icon?.isValid) playShake(icon, 2, 3, 1.025);
-                if (label?.isValid) playJump(label, 3, 2);
-            }, FREEZE_HINT_DURATION_SECONDS / 2);
+            this._adRewardFreezeBubbleNode = showSceneBubble(shell.getChildByName('FreezeTimeHintBubble'), FREEZE_HINT_BUBBLE_TEXT);
             return true;
         },
 
         clearAdRewardFreezeHintVisual() {
-            const glow = this._adRewardFreezeGlowNode as Node | null;
-            this._adRewardFreezeGlowNode = null;
-            removeNode(glow);
+            const skillRoot = typeof this.getGameplayBottomHudChild === 'function' ? this.getGameplayBottomHudChild('SkillArea') : null;
+            const shell = skillRoot?.getChildByName('SkillFreeze');
+            if (shell?.isValid) {
+                Tween.stopAllByTarget(shell);
+                restoreTransform(shell);
+                removeNode(shell.getChildByName('AdRewardFreezeGlow'));
+            }
+            hideSceneBubble((this._adRewardFreezeBubbleNode as Node | null) || shell?.getChildByName('FreezeTimeHintBubble'));
+            this._adRewardFreezeBubbleNode = null;
         },
 
         markAdRewardFreezeEntryClicked() {
@@ -278,10 +255,10 @@ export function installGameplayAdRewardHintModule(target: any): void {
             if (!this._adRewardFreezeHintShown || this._adRewardFreezeEntryClicked) return false;
             if (Math.floor(Number(this.timeRemain) || 0) > FREEZE_HINT_REMAIN_SECONDS) return false;
             if (Number(this.getPropCount?.('freeze')) > 0) return false;
-            this._adRewardFreezeEntryClicked = true;
             this.clearAdRewardFreezeHintVisual?.();
             return this.runRewardedGrant('freeze_rescue_60s', () => {
                 if (this.isGameEnd) return false;
+                this._adRewardFreezeEntryClicked = true;
                 this.markDynamicCountdownAssisted?.();
                 this.useSkillFreeze?.(true);
                 onComplete?.();
@@ -335,17 +312,19 @@ export function installGameplayAdRewardHintModule(target: any): void {
             entry.setSiblingIndex(Math.max(0, entry.parent ? entry.parent.children.length - 1 : 0));
             const opacity = entry.getComponent(UIOpacity) || entry.addComponent(UIOpacity);
             opacity.opacity = 255;
-            ensureGlowNode(entry, 'AdRewardGiftGlow', 6, 94, 94);
+            removeNode(entry.getChildByName('AdRewardGiftGlow'));
+            cacheTransform(entry);
             Tween.stopAllByTarget(entry);
             Tween.stopAllByTarget(opacity);
-            entry.setScale(0.55, 0.55, 1);
+            const baseScale = (entry as any).__adRewardBaseScale as Vec3;
+            entry.setScale(baseScale.x * 0.75, baseScale.y * 0.75, baseScale.z);
             tween(entry)
-                .to(0.18, { scale: new Vec3(1.12, 1.12, 1) }, { easing: 'backOut' })
-                .to(0.1, { scale: new Vec3(1, 1, 1) })
+                .to(0.18, { scale: new Vec3(baseScale.x * 1.12, baseScale.y * 1.12, baseScale.z) }, { easing: 'backOut' })
+                .to(0.1, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) })
                 .delay(0.4)
                 .repeatForever(tween(entry)
-                    .to(0.28, { scale: new Vec3(1.08, 1.08, 1) })
-                    .to(0.28, { scale: new Vec3(1, 1, 1) })
+                    .to(0.28, { scale: new Vec3(baseScale.x * 1.06, baseScale.y * 1.06, baseScale.z) })
+                    .to(0.28, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) })
                     .delay(0.7))
                 .start();
             return true;
@@ -360,6 +339,8 @@ export function installGameplayAdRewardHintModule(target: any): void {
             Tween.stopAllByTarget(entry);
             const opacity = entry.getComponent(UIOpacity);
             if (opacity) Tween.stopAllByTarget(opacity);
+            removeNode(entry.getChildByName('AdRewardGiftGlow'));
+            restoreTransform(entry);
             if (destroyCreated && this._adRewardGiftNodeCreated) {
                 entry.targetOff(this);
                 entry.removeFromParent();
@@ -410,7 +391,7 @@ export function installGameplayAdRewardHintModule(target: any): void {
             this._slotAddReminderCount = count + 1;
             this._slotAddReminderLastAt = now;
             this._slotAddReminderLastReason = reason;
-            playShake(button, 5, 4, 1.035);
+            playScalePulse(button, 1.12, 5, 0.32, 0.36);
             return true;
         },
 
@@ -426,7 +407,7 @@ export function installGameplayAdRewardHintModule(target: any): void {
             const button = typeof this.getSlotUnlockButtonNode === 'function' ? this.getSlotUnlockButtonNode() : null;
             if (!button?.isValid) return;
             Tween.stopAllByTarget(button);
-            restoreTransform(button);
+            restoreScale(button);
         },
     });
 }

@@ -47,8 +47,8 @@
       "assetKey": "Skins/Background/bg_002/background",
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_002",
-      "unlockType": "level",
-      "unlockValue": 30,
+      "unlockType": "ad",
+      "unlockValue": 1,
       "price": 0,
       "sort": 2,
       "enabled": true
@@ -64,8 +64,8 @@
       "assetKey": "Skins/Background/bg_003/background",
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_003",
-      "unlockType": "level",
-      "unlockValue": 50,
+      "unlockType": "ad",
+      "unlockValue": 1,
       "price": 0,
       "sort": 3,
       "enabled": true
@@ -116,7 +116,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_006",
       "unlockType": "ad",
-      "unlockValue": 2,
+      "unlockValue": 1,
       "price": 0,
       "sort": 6,
       "enabled": true
@@ -133,7 +133,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_007",
       "unlockType": "ad",
-      "unlockValue": 2,
+      "unlockValue": 1,
       "price": 0,
       "sort": 7,
       "enabled": true
@@ -150,7 +150,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_008",
       "unlockType": "ad",
-      "unlockValue": 3,
+      "unlockValue": 1,
       "price": 0,
       "sort": 8,
       "enabled": true
@@ -167,7 +167,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_009",
       "unlockType": "ad",
-      "unlockValue": 3,
+      "unlockValue": 1,
       "price": 0,
       "sort": 9,
       "enabled": true
@@ -184,7 +184,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_013",
       "unlockType": "ad",
-      "unlockValue": 3,
+      "unlockValue": 1,
       "price": 0,
       "sort": 13,
       "enabled": true
@@ -201,7 +201,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_014",
       "unlockType": "ad",
-      "unlockValue": 3,
+      "unlockValue": 1,
       "price": 0,
       "sort": 14,
       "enabled": true
@@ -218,7 +218,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_016",
       "unlockType": "ad",
-      "unlockValue": 4,
+      "unlockValue": 1,
       "price": 0,
       "sort": 16,
       "enabled": true
@@ -235,7 +235,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_021",
       "unlockType": "ad",
-      "unlockValue": 5,
+      "unlockValue": 1,
       "price": 0,
       "sort": 21,
       "enabled": true
@@ -252,7 +252,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_022",
       "unlockType": "ad",
-      "unlockValue": 5,
+      "unlockValue": 1,
       "price": 0,
       "sort": 22,
       "enabled": true
@@ -269,7 +269,7 @@
       "iconBundle": "gameAssets",
       "iconKey": "Skins/Icons/bg_099",
       "unlockType": "ad",
-      "unlockValue": 6,
+      "unlockValue": 1,
       "price": 0,
       "sort": 99,
       "enabled": true

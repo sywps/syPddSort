@@ -25,6 +25,7 @@ import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModul
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
 import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
 import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
+import { installTopHudModule } from './GameCtrlModules/TopHudModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -34,6 +35,7 @@ export function installGameCtrlModules(runtime: any): void {
     installPlayerMetaStateModule(runtime);
     installFirstLevelRouteModule(runtime);
     installAssetBootstrapModule(runtime);
+    installTopHudModule(runtime);
     installSkinBackgroundModule(runtime);
     installDynamicCountdownDdaModule(runtime);
     installHomeAdFlowModule(runtime);

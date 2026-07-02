@@ -1,0 +1,524 @@
+{
+  "sourceRoot": "C:\\Users\\EDY\\workspaces\\这不是挑战",
+  "jsonFileCount": 232,
+  "levelSourceCount": 3,
+  "levelSources": [
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\loadingScene\\import\\0f\\0fe64396b.e9d84.json",
+      "relativePath": "OUTPUT/subpackages/loadingScene/import/0f/0fe64396b.e9d84.json",
+      "size": 633127,
+      "levelCount": 100,
+      "uniqueIdCount": 100,
+      "duplicateIdCount": 0,
+      "minId": 99999,
+      "maxId": 400011,
+      "sampleIds": [
+        99999,
+        100047,
+        100049,
+        100050,
+        100056,
+        100051,
+        100053,
+        100058,
+        100052,
+        100054,
+        100057,
+        100055
+      ],
+      "sampleNames": [
+        "引导关",
+        "七彩小熊",
+        "珍珠耳环少女",
+        "社畜小狗",
+        "动感超人",
+        "欸嘿小狗",
+        "鲁鲁",
+        "表情包",
+        "啤酒慕斯",
+        "嘻哈喵",
+        "魔法幽灵",
+        "潘哒"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\json\\import\\c7\\c7007844-6fd1-44f7-b045-7764d831c08d.a3ecb.json",
+      "relativePath": "OUTPUT/subpackages/json/import/c7/c7007844-6fd1-44f7-b045-7764d831c08d.a3ecb.json",
+      "size": 629363,
+      "levelCount": 99,
+      "uniqueIdCount": 99,
+      "duplicateIdCount": 0,
+      "minId": 100001,
+      "maxId": 400011,
+      "sampleIds": [
+        100047,
+        100049,
+        100050,
+        100056,
+        100051,
+        100053,
+        100058,
+        100052,
+        100054,
+        100057,
+        100055,
+        100059
+      ],
+      "sampleNames": [
+        "七彩小熊",
+        "珍珠耳环少女",
+        "社畜小狗",
+        "动感超人",
+        "欸嘿小狗",
+        "鲁鲁",
+        "表情包",
+        "啤酒慕斯",
+        "嘻哈喵",
+        "魔法幽灵",
+        "潘哒",
+        "炫彩熊"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\json\\import\\64\\6440c88a-699b-4816-bdf8-c98f10a99024.4469d.json",
+      "relativePath": "OUTPUT/subpackages/json/import/64/6440c88a-699b-4816-bdf8-c98f10a99024.4469d.json",
+      "size": 2031,
+      "levelCount": 1,
+      "uniqueIdCount": 1,
+      "duplicateIdCount": 0,
+      "minId": 99999,
+      "maxId": 99999,
+      "sampleIds": [
+        99999
+      ],
+      "sampleNames": [
+        "引导关"
+      ]
+    }
+  ],
+  "textSignalCount": 16,
+  "textSignals": [
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\assets\\start-scene\\index.js",
+      "relativePath": "OUTPUT/assets/start-scene/index.js",
+      "size": 186459,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 2,
+        "request": 15,
+        "url": 2,
+        "json": 11
+      },
+      "urls": [
+        "https://api-a535d306fb6a820f.keeptrack.cn",
+        "https://api-c5a5b5079c5d88fe.klsw.top"
+      ],
+      "levelContext": [
+        "ion = \"v1.0.8\";     var d = \"e8d58d82-e83f-e9f8-6b36-395d3dac689d\";     n.gaHost = cc.sys.isNative || cc.sys.isBrowser || window.TTMinis ? \"https://api-c5a5b5079c5d88fe.klsw.top\" : \"https://api-a535d306fb6a820f.keeptrack.cn\";     var h = n.gaHost + \"/ga/api/login\",       g = n.gaHost",
+        "-e9f8-6b36-395d3dac689d\";     n.gaHost = cc.sys.isNative || cc.sys.isBrowser || window.TTMinis ? \"https://api-c5a5b5079c5d88fe.klsw.top\" : \"https://api-a535d306fb6a820f.keeptrack.cn\";     var h = n.gaHost + \"/ga/api/login\",       g = n.gaHost + \"/ga/api/report-iaa\",       m = n.gaHos",
+        " function get() {             return this._status;           },           enumerable: !1,           configurable: !0         }), t.prototype.json = function() {           var t = this;           return new Promise(function(e, n) {             try {               e(JSON.parse(t._body))",
+        "ype.makeRequest = function(t, e) {           return console.log(\"use xml request\"), new Promise(function(n, o) {             var i = new XMLHttpRequest();             if (i.open(e.method, t, !0), e.headers)               for (var r in e.headers) i.setRequestHeader(r, e.headers[r]);  ",
+        " && this.res.statusCode ? this.res.statusCode : 0;           },           enumerable: !1,           configurable: !0         }), t.prototype.json = function() {           return this.res && this.res.data ? Promise.resolve(this.res.data) : Promise.resolve(null);         }, t;       }()",
+        "  fail: function fail(t) {                 o(t);               }             };             \"POST\" == e.method && (i.data = e.body), window.wx.request(i);           });         }, t;       }(),       j = function() {         function t() {}         return t.prototype.makeRequest = function",
+        "this.res && this.res.status ? this.res.status : 0;           },           enumerable: !1,           configurable: !0         }), t.prototype.json = function() {           return this.res && this.res.json ? this.res.json() : Promise.resolve(null);         }, t;       }(),       V = fun",
+        "   },           enumerable: !1,           configurable: !0         }), t.prototype.json = function() {           return this.res && this.res.json ? this.res.json() : Promise.resolve(null);         }, t;       }(),       V = function V(t, e) {         return new Promise(function(n, o) ",
+        "enumerable: !1,           configurable: !0         }), t.prototype.json = function() {           return this.res && this.res.json ? this.res.json() : Promise.resolve(null);         }, t;       }(),       V = function V(t, e) {         return new Promise(function(n, o) {           if (",
+        "     }).catch(function(t) {             o(t);           });           else if (window.tt || window.ks || window.bl || !window.wx || !window.wx.request) {             if (window.fetch) {               console.log(\"Use Fetch\");               var i = {                 method: e.method,       ",
+        ".label) {                             case 0:                               return e._debug && console.log(t), t && 200 === t.status ? [4, t.json()] : [3, 2];                             case 1:                               if ((o = s.sent()) && o.status && 0 === o.status.code) {    ",
+        ".label) {                             case 0:                               return e._debug && console.log(t), t && 200 === t.status ? [4, t.json()] : [3, 2];                             case 1:                               if ((o = i.sent()) && o.status && 0 === o.status.code) retur",
+        "el) {                             case 0:                               return e._debug && console.log(n), 200 !== n.status ? [3, 2] : [4, n.json()];                             case 1:                               if ((o = i.sent()) && o.status && 0 === o.status.code) return console",
+        "el) {                             case 0:                               return l._debug && console.log(n), 200 !== n.status ? [3, 2] : [4, n.json()];                             case 1:                               if ((i = s.sent()) && i.status && 0 === i.status.code) {             ",
+        "                     case 0:                               return t._debug && console.log(\"login res:\", n), 200 != n.status ? [3, 2] : [4, n.json()];                             case 1:                               if ((o = r.sent()) && o.status && 0 == o.status.code && o.data && (o.",
+        "Name()) == r.platformName.浏览器 && (t = r.platformName.字节), i.majia_data[t][window.appName] ? t + \"/config_\" + i.majia_data[t][window.appName].jsonUrl + \"/\" : null;         }, t.prototype.getPlatformName = function() {           var t = r.platformName.浏览器;           return o.pl.browser "
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\adapter-min.js",
+      "relativePath": "OUTPUT/adapter-min.js",
+      "size": 166482,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 1,
+        "request": 8,
+        "url": 12,
+        "json": 2
+      },
+      "urls": [
+        "http://www.w3.org/1999/xhtml",
+        "http://www.w3.org/2000/xmlns/",
+        "http://www.w3.org/XML/1998/namespace"
+      ],
+      "levelContext": [
+        "       m = r.isOutOfStorage,       y = !1,       b = null,       g = !1,       v = [],       w = [],       _ = !1,       E = 0,       S = /^https?:\\/\\/.*/;     cc.assetManager.cacheManager = t.exports = {       cacheDir: \"gamecaches\",       cachedFileName: \"cacheList.json\",       cac",
+        "       S = /^https?:\\/\\/.*/;     cc.assetManager.cacheManager = t.exports = {       cacheDir: \"gamecaches\",       cachedFileName: \"cacheList.json\",       cacheEnabled: !0,       autoClear: !0,       cacheInterval: 500,       deleteInterval: 500,       writeFileInterval: 2e3,       out",
+        "      i = e.readArrayBuffer,       a = e.readJson,       m = e.loadSubpackage,       y = e.getUserDataPath,       c = e.exists,       b = /^https?:\\/\\/.*/,       g = {},       e = cc.assetManager.downloader,       t = cc.assetManager.parser,       n = cc.assetManager.presets,       v",
+        "  \".vsh\": N,         \".fsh\": N,         \".atlas\": N,         \".tmx\": N,         \".tsx\": N,         \".plist\": N,         \".fnt\": N,         \".json\": O,         \".ExportJson\": N,         \".binary\": N,         \".bin\": N,         \".dbbin\": N,         \".skel\": N,         \".mp4\": N,        ",
+        "       return o = o || {}, t(\"warning\"), t(\"error\"), t(\"fatalError\"), i;       }(i, o, a), r.domBuilder = n.domBuilder || o, t && (c[\"\"] = \"http://www.w3.org/1999/xhtml\"), c.xml = c.xml || \"http://www.w3.org/XML/1998/namespace\", e ? r.parse(e, c, u) : r.errorHandler.error(\"invalid do",
+        "), t(\"fatalError\"), i;       }(i, o, a), r.domBuilder = n.domBuilder || o, t && (c[\"\"] = \"http://www.w3.org/1999/xhtml\"), c.xml = c.xml || \"http://www.w3.org/XML/1998/namespace\", e ? r.parse(e, c, u) : r.errorHandler.error(\"invalid doc source\"), o.doc;     }, s.prototype = {       st",
+        " t[l(t, r)] = n : t[t.length++] = n, e && (t = (n.ownerElement = e).ownerDocument) && (r && _(t, e, r), r = e, e = n, (n = t) && n._inc++, \"http://www.w3.org/2000/xmlns/\" == e.namespaceURI) && (r._nsMap[e.prefix ? e.localName : \"\"] = e.value);     }      function m(e, t, n) {       v",
+        "    if (v(e, t)) return 1;         } while (e = e.nextSibling);     }      function w() {}      function _(e, t, n) {       e && e._inc++, \"http://www.w3.org/2000/xmlns/\" == n.namespaceURI && delete t._nsMap[n.prefix ? n.localName : \"\"];     }      function E(e, t, n) {       if (e &",
+        "join(\"\");     }      function W(e, t, n) {       var r = e.prefix || \"\",         o = e.namespaceURI;       if ((r || o) && (\"xml\" !== r || \"http://www.w3.org/XML/1998/namespace\" !== o) && \"http://www.w3.org/2000/xmlns/\" != o) {         for (var i = n.length; i--;) {           var a =",
+        "var r = e.prefix || \"\",         o = e.namespaceURI;       if ((r || o) && (\"xml\" !== r || \"http://www.w3.org/XML/1998/namespace\" !== o) && \"http://www.w3.org/2000/xmlns/\" != o) {         for (var i = n.length; i--;) {           var a = n[i];           if (a.prefix == r) return a.name",
+        " o || [];           var i = e.attributes,             a = i.length,             c = e.firstChild,             u = e.tagName;           n = \"http://www.w3.org/1999/xhtml\" === e.namespaceURI || n, t.push(\"<\", u);           for (var s = 0; s < a; s++) \"xmlns\" == (l = i.item(s)).prefix ?",
+        "(s = null, \"xmlns\" === (f = c) && \"\");         a.localName = f, !1 !== c && (null == o && (o = {}, p(n, n = {})), n[c] = o[c] = u, a.uri = \"http://www.w3.org/2000/xmlns/\", t.startPrefixMapping(c, u));       }       for (var s, i = e.length; i--;)(s = (a = e[i]).prefix) && (\"xml\" === ",
+        "000/xmlns/\", t.startPrefixMapping(c, u));       }       for (var s, i = e.length; i--;)(s = (a = e[i]).prefix) && (\"xml\" === s && (a.uri = \"http://www.w3.org/XML/1998/namespace\"), \"xmlns\" !== s) && (a.uri = n[s || \"\"]);       var l,         f = 0 < (l = r.indexOf(\":\")) ? (s = e.prefi",
+        "              u === D && (l = a), u == I ? (i.warning('attribute \"' + l + '\" missed quot(\")!!'), n.add(a, l.replace(/&#?\\w+;/g, o), t)) : (\"http://www.w3.org/1999/xhtml\" === r[\"\"] && l.match(/^(?:disabled|checked|selected)$/i) || i.warning('attribute \"' + l + '\" missed value!! \"' + l",
+        "} else switch (u) {                                 case D:                                   n.tagName;                                   \"http://www.w3.org/1999/xhtml\" === r[\"\"] && a.match(/^(?:disabled|checked|selected)$/i) || i.warning('attribute \"' + a + '\" missed value!! \"' + a",
+        "            o.locator = N, B(x, o, O) && d.push(x), o.locator = f;                     } else B(x, o, O) && d.push(x);                     \"http://www.w3.org/1999/xhtml\" !== x.uri || x.closed ? g++ : g = function(e, t, n, r, o) {                       if (/^(?:script|textarea)$/i.tes",
+        "& void 0 !== arguments[0] ? arguments[0] : \"\";           if (this.readyState !== c.OPENED) throw new Error(\"Failed to execute 'send' on 'XMLHttpRequest': The object's state must be OPENED.\");           e = wx.request({             data: e,             url: l.get(this),             me",
+        "readyState !== c.OPENED) throw new Error(\"Failed to execute 'send' on 'XMLHttpRequest': The object's state must be OPENED.\");           e = wx.request({             data: e,             url: l.get(this),             method: f.get(this),             header: d.get(this),             dataType",
+        "eout: !0,         clearInterval: !0,         requestAnimationFrame: !0,         cancelAnimationFrame: !0,         navigator: !0,         XMLHttpRequest: !0,         WebSocket: !0,         Image: !0,         ImageBitmap: !0,         Audio: !0,         FileReader: !0,         HTMLEleme",
+        "cket\", {         enumerable: !0,         get: function get() {           return c.default;         }       }), Object.defineProperty(n, \"XMLHttpRequest\", {         enumerable: !0,         get: function get() {           return a.default;         }       }), n.clearTimeout = n.clearIn"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\loadingScene\\game.js",
+      "relativePath": "OUTPUT/subpackages/loadingScene/game.js",
+      "size": 199809,
+      "keywords": {
+        "level_arr": 9,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 15,
+        "url": 3,
+        "json": 2
+      },
+      "urls": [
+        "https://mmocgame.qpic.cn/wechatgame/FwVExM72BZuoM0HJyQ8Rd4mbtziaIFN0IzzEGRGhyXlQvQufHWfvbz1hgRXP9C3Oh/0",
+        "https://mmocgame.qpic.cn/wechatgame/GmhjL4XPp3r88d9SSpouUD5kv39mastOsRldnqUibiaCuB6BLWZ3wGS5zuYN4aQ1aP/0",
+        "https://www.keepmobi.com/ga/"
+      ],
+      "levelContext": [
+        "}, e.prototype.getDataJson = function(t, e) {           return new Promise(function(o) {             cc.assetManager.getBundle(t).load(e, cc.JsonAsset, function(n, a) {               a ? o(a) : console.error(\"\\u5B8C\\u5168\\u65E0\\u6CD5\\u4ECE\\u5206\\u5305\\u83B7\\u53D6\\u8D44\\u6E90\", t, \",\",",
+        "ation;         }, i([s()], e.prototype, \"duration\", void 0), i([c], e);       }(cc.Component);     o.default = l, cc._RF.pop();   }, {}],   HttpRequest: [function(t, e, o) {       cc._RF.push(e, \"9d283g4BVVDJaGm91mwvDC0\", \"HttpRequest\"), Object.defineProperty(o, \"__esModule\", {      ",
+        "Component);     o.default = l, cc._RF.pop();   }, {}],   HttpRequest: [function(t, e, o) {       cc._RF.push(e, \"9d283g4BVVDJaGm91mwvDC0\", \"HttpRequest\"), Object.defineProperty(o, \"__esModule\", {       value: !0     }), o.HttpRequest = void 0;     var n = t(\"../module/PlatformApi\"); ",
+        " e, o) {       cc._RF.push(e, \"9d283g4BVVDJaGm91mwvDC0\", \"HttpRequest\"), Object.defineProperty(o, \"__esModule\", {       value: !0     }), o.HttpRequest = void 0;     var n = t(\"../module/PlatformApi\");     (function(t) {       function e(t, e, o) {         var n = new Image();       ",
+        ";       }       t.request = function(e, o, a, i, r, c, s) {         void 0 === c && (c = \"POST\"), void 0 === s && (s = 0);         var l = \"https://www.keepmobi.com/ga/\" + e;         r && (l = e);         var u = JSON.stringify(o),           d = new XMLHttpRequest();         d.onread",
+        " (s = 0);         var l = \"https://www.keepmobi.com/ga/\" + e;         r && (l = e);         var u = JSON.stringify(o),           d = new XMLHttpRequest();         d.onreadystatechange = function() {           if (4 == d.readyState && 200 == d.status) {             var l = null;      ",
+        ")), a && a(l);           } else 4 == d.readyState && 200 != d.status && (d.readyState, d.status, l = null, n.default.get().reportAnalytics(\"http_err\", {             url: e,             err: \"\\u8FDB\\u7A0B\\u9519\\u8BEF\",             status: d.status,             statusText: d.statusText",
+        "xt           }), ++s > 2 ? i && i(\"\\u8FDB\\u7A0B\\u9519\\u8BEF\") : t.request(e, o, a, i, r, c, s));           n.default.get().reportAnalytics(\"http\", {             url: e,             readyState: d.readyState,             status: d.status,             statusText: d.statusText           ",
+        "ext           });         }, d.open(c, l, !0), \"Get\" != c ? (d.onerror = function() {           ++s > 2 ? (n.default.get().reportAnalytics(\"http_err\", {             url: e,             err: \"\\u7F51\\u7EDC\\u9519\\u8BEF\",             status: d.status,             statusText: d.statusText",
+        "9519\\u8BEF\")) : t.request(e, o, a, i, r, c, s);         }, d.ontimeout = function() {           ++s > 2 ? (n.default.get().reportAnalytics(\"http_err\", {             url: e,             err: \"\\u8BF7\\u6C42\\u8D85\\u65F6\",             status: d.status,             statusText: d.statusText",
+        "veUrl = t, a._nativeAsset = e;           } catch (r) {             i = r;           }           n && n(i, a);         });       };     })(o.HttpRequest || (o.HttpRequest = {})), cc._RF.pop();   }, {     \"../module/PlatformApi\": \"PlatformApi\"   }],   KwaiApi: [function(t, e, o) {     ",
+        "veAsset = e;           } catch (r) {             i = r;           }           n && n(i, a);         });       };     })(o.HttpRequest || (o.HttpRequest = {})), cc._RF.pop();   }, {     \"../module/PlatformApi\": \"PlatformApi\"   }],   KwaiApi: [function(t, e, o) {       cc._RF.push(e, \"",
+        "./../zhen_load/majiabao/judge_platform\"),       d = t(\"../../../zhen_load/majiabao/majia_commonFun\"),       p = t(\"../../SSSGF/common/utils/HttpRequest\"),       f = t(\"../../SSSGF/common/utils/Utils\"),       _ = t(\"../../SSSGF/config/ClientEvent\"),       h = t(\"../../SSSGF/config/Con",
+        "tLaunchOptionsSync();           t && t.query.openId && \"\" != t.query.openId ? (console.log(\"\\u4ECE\\u5206\\u4EAB\\u6846\\u8FDB\\u5165\\u7684\"), p.HttpRequest.request(\"ot/zuiNiuTiaoZhan/gameinvited\", {             invite_id: t.query.openId,             receive_id: g._p_data._data.openId,   ",
+        "/../../zhen_load/majiabao/judge_platform\": void 0,     \"../../../zhen_load/majiabao/majia_commonFun\": void 0,     \"../../SSSGF/common/utils/HttpRequest\": \"HttpRequest\",     \"../../SSSGF/common/utils/Utils\": \"Utils\",     \"../../SSSGF/config/ClientEvent\": \"ClientEvent\",     \"../../SSSG",
+        "d/majiabao/judge_platform\": void 0,     \"../../../zhen_load/majiabao/majia_commonFun\": void 0,     \"../../SSSGF/common/utils/HttpRequest\": \"HttpRequest\",     \"../../SSSGF/common/utils/Utils\": \"Utils\",     \"../../SSSGF/config/ClientEvent\": \"ClientEvent\",     \"../../SSSGF/config/Config",
+        "= t(\"../../zhen_load/majiabao/judge_platform\"),       l = t(\"../../zhen_load/majiabao/majia_commonFun\"),       u = t(\"../SSSGF/common/utils/HttpRequest\"),       d = t(\"../SSSGF/config/Config\"),       p = t(\"../SSSGF/dataManagers/playerDataMager/PlayerDataMager\"),       f = cc._decora",
+        "{           var t = this;           console.log(\"\\u8FDB\\u5165main\\u6E38\\u620F\\u65F6\\u957F:\", c.load_public.get_game_time()), d.cPublicMager.level_arr = this.level_data.json;           for (var e = 0; e < d.cPublicMager.level_arr.length; e++) - 1 == d.cPublicMager.level_arr[e].id && (p._p_",
+        "         console.log(\"\\u8FDB\\u5165main\\u6E38\\u620F\\u65F6\\u957F:\", c.load_public.get_game_time()), d.cPublicMager.level_arr = this.level_data.json;           for (var e = 0; e < d.cPublicMager.level_arr.length; e++) - 1 == d.cPublicMager.level_arr[e].id && (p._p_data._data.level = e); ",
+        "65F6\\u957F:\", c.load_public.get_game_time()), d.cPublicMager.level_arr = this.level_data.json;           for (var e = 0; e < d.cPublicMager.level_arr.length; e++) - 1 == d.cPublicMager.level_arr[e].id && (p._p_data._data.level = e);           p._p_data._data.level >= 0 && (d.cPublicMager."
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\main_scene\\game.js",
+      "relativePath": "OUTPUT/subpackages/main_scene/game.js",
+      "size": 29484,
+      "keywords": {
+        "level_arr": 3,
+        "answer": 3,
+        "wx.request": 0,
+        "request": 0,
+        "url": 2,
+        "json": 0
+      },
+      "urls": [
+        "https://gametos.keepmobi.com/remote-res/pin-dou/image/"
+      ],
+      "levelContext": [
+        "show_view(), t.show_level();                 });               }), s.cBunbleMager.get_bundle_sound(\"main_scene\", n);               var c = \"https://gametos.keepmobi.com/remote-res/pin-dou/image/\" + s.cPublicMager.level_data.id + \".png\";               cc.assetManager.loadRemote(c, fun",
+        "_scene\", function() {             if (cc.isValid(a.mainScene)) {               for (var e = 0, t = [], n = 0; n < s.cPublicMager.level_data.answer.length; n++)                 for (var i = 0; i < s.cPublicMager.level_data.answer[n].length; i++) {                   var o = s.cPublicMage",
+        " (var e = 0, t = [], n = 0; n < s.cPublicMager.level_data.answer.length; n++)                 for (var i = 0; i < s.cPublicMager.level_data.answer[n].length; i++) {                   var o = s.cPublicMager.level_data.answer[n][i];                   o >= 0 && (e++, t[o] ? t[o]++ : t[o] ",
+        "                 for (var i = 0; i < s.cPublicMager.level_data.answer[n].length; i++) {                   var o = s.cPublicMager.level_data.answer[n][i];                   o >= 0 && (e++, t[o] ? t[o]++ : t[o] = 1);                 }               s.cNodePool.load(\"game_scene\", \"zuanshi",
+        "        s.cBunbleMager.get_bundle_texture(\"main_scene\", t).then(function(t) {               e.tuzhi.spriteFrame = t;               var a = \"https://gametos.keepmobi.com/remote-res/pin-dou/image/\" + s.cPublicMager.level_data.id + \".png\";               cc.assetManager.loadRemote(a, fun",
+        ") s.cUI.showTips(\"\\u8F93\\u5165\\u7684\\u4E0D\\u662F\\u6570\\u5B57\");             else {               for (var t = -2, a = 0; a < s.cPublicMager.level_arr.length; a++)                 if (s.cPublicMager.level_arr[a].id == e) {                   t = a;                   break;                 }",
+        "57\");             else {               for (var t = -2, a = 0; a < s.cPublicMager.level_arr.length; a++)                 if (s.cPublicMager.level_arr[a].id == e) {                   t = a;                   break;                 } -               1 == e && (t = -1, s.cUI.showTips(\"\\u91CD",
+        "F6E\")), -2 == t ? s.cUI.showTips(\"\\u4E0D\\u5B58\\u5728\\u5173\\u5361\") : (u._p_data._data.level = t, s.cPublicMager.level_data = s.cPublicMager.level_arr[t], this.show_view(), this.show_level(), this.load_game_data());             }           }         }, t.prototype.on_chonghou_ui = function"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\assets\\shoucang_ui\\index.js",
+      "relativePath": "OUTPUT/assets/shoucang_ui/index.js",
+      "size": 16072,
+      "keywords": {
+        "level_arr": 3,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 0,
+        "url": 1,
+        "json": 0
+      },
+      "urls": [
+        "https://gametos.keepmobi.com/remote-res/pin-dou/image/"
+      ],
+      "levelContext": [
+        "new_level_id = -1, c._p_data.saveData(), cc.isValid(p.mainScene) && p.mainScene.show_view(), e >= 1e5) {             var o = r.cPublicMager.level_arr.find(function(t) {               return t.id === e;             });             if (o) {               this.select_quality(o.quality);     ",
+        " return t.id === e;             });             if (o) {               this.select_quality(o.quality);               var i = r.cPublicMager.level_arr.filter(function(t) {                 return t.quality === o.quality;               }).findIndex(function(t) {                 return t.id =",
+        "i\", \"\\u7FFB\\u9875\"), this.current_quality = t, this.current_page = 0, this.page_view.removeAllPages(), this.quality_levels = r.cPublicMager.level_arr.filter(function(e) {             return e.quality === t;           }), this.completed_count = this.quality_levels.filter(function(t) {     ",
+        "    a <= 1 ? this.play_number.node.active = !1 : (this.play_number.node.active = !0, this.play_number.string = \":\" + a);           var c = \"https://gametos.keepmobi.com/remote-res/pin-dou/image/\" + t.id + \".png\";           cc.assetManager.loadRemote(c, function(t, e) {             if"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\assets\\ceshi_ui\\index.js",
+      "relativePath": "OUTPUT/assets/ceshi_ui/index.js",
+      "size": 5489,
+      "keywords": {
+        "level_arr": 2,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 0,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": [
+        "       }, e.prototype.on_add_guan = function() {           this.btn0(), r._p_data._data.level++, i.cPublicMager.level_data = i.cPublicMager.level_arr[r._p_data._data.level], cc.isValid(p.mainScene) && p.mainScene.show_view(), r._p_data.saveData();         }, e.prototype.on_sub_guan = func",
+        " this.btn0(), r._p_data._data.level--, r._p_data._data.level < 0 && (r._p_data._data.level = 0), i.cPublicMager.level_data = i.cPublicMager.level_arr[r._p_data._data.level], cc.isValid(p.mainScene) && p.mainScene.show_view(), r._p_data.saveData();         }, e.prototype.on_add_ap = functi"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\loadingScene\\import\\0f\\0fe64396b.e9d84.json",
+      "relativePath": "OUTPUT/subpackages/loadingScene/import/0f/0fe64396b.e9d84.json",
+      "size": 633127,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 100,
+        "wx.request": 0,
+        "request": 0,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": [
+        "iteFrame\"],3,1,3,6],[\"05bb2vxFI9JKaRotEsEE7xp\",[\"node\"],3,1],[\"cc.Scene\",[\"_name\",\"_active\",\"_children\",\"_anchorPoint\",\"_trs\"],1,2,5,7],[\"cc.JsonAsset\",[\"_name\",\"json\"],1]],[[0,0,6,3,4,2],[1,0,3,2],[1,0,1,2,3,4],[9,0,1,3],[3,0,1,3],[0,0,1,7,3,4,5,3],[0,0,6,3,4,5,2],[0,0,2,6,3,5,3],[4,",
+        ",3,0,0,3,0,0,5,0,0,6,0,0,7,0,0,8,0,2,4,1,3,4,17],[0,0,0,0],[-1,4,5,6],[0,1,2,3]],[[[3,\"引导关\",{\"id\":99999,\"name\":\"引导关\",\"time\":-1,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,0,1,0,0,0,0,0,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,0,1,1,2,2,2",
+        "78ded\",\"#f6efee\",\"#082a45\",\"#f0237f\",\"#83468f\",\"#2d1133\"]}]],0,0,[],[],[]],[[[3,\"level\",[{\"id\":100047,\"name\":\"七彩小熊\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1],[-1,0,1,1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,1,1,0,-1],[0,1,1,1,1",
+        "3ae\",\"#fe6158\",\"#ffaf69\",\"#ffe27d\",\"#88ff95\",\"#77f7ff\",\"#6a9cff\",\"#ffffff\",\"#cc9bf8\"]},{\"id\":100049,\"name\":\"珍珠耳环少女\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,0,0,1,1,1,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,",
+        "12c45\",\"#ffbc3f\",\"#6bc2f3\",\"#dc6b21\",\"#2a64bd\",\"#ffcb9f\",\"#ff767d\",\"#ffffff\",\"#964411\"]},{\"id\":100050,\"name\":\"社畜小狗\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,0,1,1,1,2,2,2,1,1,0,-1,-1,0,0,0",
+        "2,2,2,2,2,2,2,-1,-1,-1,-1]],\"color\":[\"#47281d\",\"#cb8d65\",\"#ffffff\",\"#8a8a8a\",\"#d03434\"]},{\"id\":100056,\"name\":\"动感超人\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[",
+        ",-1,-1,-1,-1,-1]],\"color\":[\"#2e2941\",\"#ff6460\",\"#4faaf4\",\"#fedd72\",\"#fceed1\",\"#fdb2b2\"]},{\"id\":100051,\"name\":\"欸嘿小狗\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1],[-1,-1,0,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1,0,-1",
+        ",2,2,2,2,2,2,2,2,2,2,2,2,2,2,-1,-1,-1]],\"color\":[\"#5a3a2d\",\"#ffbc3f\",\"#ffffff\",\"#ff767d\"]},{\"id\":100053,\"name\":\"鲁鲁\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,2,2,-1,",
+        "1,-1,-1,-1,-1,-1]],\"color\":[\"#a2c859\",\"#dc6b21\",\"#5e2916\",\"#ffcf78\",\"#9be9ff\",\"#ffffff\"]},{\"id\":100058,\"name\":\"表情包\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,0,0,1,1,1,1,1,0,0,0,-1,-1,-1,-1],[-1,-1,-1,-1,0,0,1,1,1,1,1,1",
+        ",0,2,-1,-1,-1,-1,-1,-1,-1]],\"color\":[\"#3a3a50\",\"#fbcc40\",\"#ffffff\",\"#f17e20\",\"#fe7295\"]},{\"id\":100052,\"name\":\"啤酒慕斯\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1",
+        ",-1,-1]],\"color\":[\"#ffffff\",\"#b34e0c\",\"#ff9903\",\"#ffd68a\",\"#ff6460\",\"#feb9b8\",\"#a20036\"]},{\"id\":100054,\"name\":\"嘻哈喵\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,-1,-1,-1,-1",
+        "-1,-1]],\"color\":[\"#783d32\",\"#d03434\",\"#ffd68a\",\"#9be9ff\",\"#ffd6a8\",\"#ffffff\",\"#2a64bd\"]},{\"id\":100057,\"name\":\"魔法幽灵\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-",
+        "\"color\":[\"#8e56ae\",\"#d6bbf4\",\"#f8c83f\",\"#fff7db\",\"#9f9fd4\",\"#ffffff\",\"#3a3a50\",\"#ffb1ab\"]},{\"id\":100055,\"name\":\"潘哒\",\"time\":240,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1,1,1,0,",
+        "color\":[\"#408b38\",\"#94cb77\",\"#2e2941\",\"#858585\",\"#ffffff\",\"#ff767d\",\"#f97f30\",\"#2a64bd\"]},{\"id\":100059,\"name\":\"炫彩熊\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,-1,-1,-1],[-1,-1,0,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,0,-1,-1]",
+        "1,-1,-1]],\"color\":[\"#7785e3\",\"#ffffff\",\"#ffda70\",\"#fea6ed\",\"#ffd2d3\",\"#9fddf4\",\"#a459f6\"]},{\"id\":200008,\"name\":\"啾咪\",\"time\":360,\"quality\":1,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,",
+        "-1,-1,-1,-1,-1,-1]],\"color\":[\"#e0414c\",\"#000000\",\"#535353\",\"#ffa2aa\",\"#d6d6d6\",\"#ffd06b\"]},{\"id\":100007,\"name\":\"月夜\",\"time\":210,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,0,0,1,1,1,1,1,1,1,0,0,-1,-1,-1,-1,-1,-1,-1],[",
+        "-1,-1,-1,-1,-1,-1,-1,-1,-1]],\"color\":[\"#312c45\",\"#4d8dd9\",\"#ffffff\",\"#e9bf70\",\"#adbbff\"]},{\"id\":100002,\"name\":\"应援棒\",\"time\":210,\"quality\":0,\"answer\":[[-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1],[-1,-1,-1,0,1,1,1,1,1,0,0,-1,0,0,1,1,1,1,1,0,-1,-1,-1],[-1,-1,0,1,1,1,1,1,1,",
+        "1,-1,-1,-1,-1,-1]],\"color\":[\"#af215d\",\"#ff96c5\",\"#a8d7ff\",\"#2b8de1\",\"#fdfbfd\",\"#f5cc50\"]},{\"id\":100019,\"name\":\"彩虹花\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,0,1,1,1,0,-1,0,2,2,2,0,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-",
+        "6b1\",\"#ffbf3a\",\"#ffffff\",\"#b36bff\",\"#ace946\",\"#89ceff\",\"#4ff08e\",\"#61b744\",\"#78503f\"]},{\"id\":200010,\"name\":\"开启充电模式\",\"time\":300,\"quality\":1,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,0,0,0,1,1,1,1,1,0,0,0,-1,-1,-1",
+        "d2351\",\"#3c9ccf\",\"#ffebd1\",\"#8fd9e9\",\"#ffd06b\",\"#ffa2aa\",\"#bc86d4\",\"#e0414c\",\"#81c34f\"]},{\"id\":100029,\"name\":\"海洋之星\",\"time\":240,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,1,1,0,"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\json\\import\\c7\\c7007844-6fd1-44f7-b045-7764d831c08d.a3ecb.json",
+      "relativePath": "OUTPUT/subpackages/json/import/c7/c7007844-6fd1-44f7-b045-7764d831c08d.a3ecb.json",
+      "size": 629363,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 99,
+        "wx.request": 0,
+        "request": 0,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": [
+        "[1,0,0,[[\"cc.JsonAsset\",[\"_name\",\"json\"],1]],[[0,0,1,3]],[[0,\"level\",[{\"id\":100047,\"name\":\"七彩小熊\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,0,0,0,-1,-1,-1,-1,-1",
+        "[1,0,0,[[\"cc.JsonAsset\",[\"_name\",\"json\"],1]],[[0,0,1,3]],[[0,\"level\",[{\"id\":100047,\"name\":\"七彩小熊\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1],[-1,0,1,1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,1,1,0,-1],[0,1,1,1,1",
+        "3ae\",\"#fe6158\",\"#ffaf69\",\"#ffe27d\",\"#88ff95\",\"#77f7ff\",\"#6a9cff\",\"#ffffff\",\"#cc9bf8\"]},{\"id\":100049,\"name\":\"珍珠耳环少女\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,0,0,1,1,1,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,",
+        "12c45\",\"#ffbc3f\",\"#6bc2f3\",\"#dc6b21\",\"#2a64bd\",\"#ffcb9f\",\"#ff767d\",\"#ffffff\",\"#964411\"]},{\"id\":100050,\"name\":\"社畜小狗\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,0,1,1,1,2,2,2,1,1,0,-1,-1,0,0,0",
+        "2,2,2,2,2,2,2,-1,-1,-1,-1]],\"color\":[\"#47281d\",\"#cb8d65\",\"#ffffff\",\"#8a8a8a\",\"#d03434\"]},{\"id\":100056,\"name\":\"动感超人\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[",
+        ",-1,-1,-1,-1,-1]],\"color\":[\"#2e2941\",\"#ff6460\",\"#4faaf4\",\"#fedd72\",\"#fceed1\",\"#fdb2b2\"]},{\"id\":100051,\"name\":\"欸嘿小狗\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1],[-1,-1,0,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1,0,-1",
+        ",2,2,2,2,2,2,2,2,2,2,2,2,2,2,-1,-1,-1]],\"color\":[\"#5a3a2d\",\"#ffbc3f\",\"#ffffff\",\"#ff767d\"]},{\"id\":100053,\"name\":\"鲁鲁\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,1,1,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,2,2,-1,",
+        "1,-1,-1,-1,-1,-1]],\"color\":[\"#a2c859\",\"#dc6b21\",\"#5e2916\",\"#ffcf78\",\"#9be9ff\",\"#ffffff\"]},{\"id\":100058,\"name\":\"表情包\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,0,0,1,1,1,1,1,0,0,0,-1,-1,-1,-1],[-1,-1,-1,-1,0,0,1,1,1,1,1,1",
+        ",0,2,-1,-1,-1,-1,-1,-1,-1]],\"color\":[\"#3a3a50\",\"#fbcc40\",\"#ffffff\",\"#f17e20\",\"#fe7295\"]},{\"id\":100052,\"name\":\"啤酒慕斯\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1",
+        ",-1,-1]],\"color\":[\"#ffffff\",\"#b34e0c\",\"#ff9903\",\"#ffd68a\",\"#ff6460\",\"#feb9b8\",\"#a20036\"]},{\"id\":100054,\"name\":\"嘻哈喵\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,-1,-1,-1,-1",
+        "-1,-1]],\"color\":[\"#783d32\",\"#d03434\",\"#ffd68a\",\"#9be9ff\",\"#ffd6a8\",\"#ffffff\",\"#2a64bd\"]},{\"id\":100057,\"name\":\"魔法幽灵\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-",
+        "\"color\":[\"#8e56ae\",\"#d6bbf4\",\"#f8c83f\",\"#fff7db\",\"#9f9fd4\",\"#ffffff\",\"#3a3a50\",\"#ffb1ab\"]},{\"id\":100055,\"name\":\"潘哒\",\"time\":240,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,1,1,1,1,0,",
+        "color\":[\"#408b38\",\"#94cb77\",\"#2e2941\",\"#858585\",\"#ffffff\",\"#ff767d\",\"#f97f30\",\"#2a64bd\"]},{\"id\":100059,\"name\":\"炫彩熊\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,-1,-1,-1],[-1,-1,0,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,0,-1,-1]",
+        "1,-1,-1]],\"color\":[\"#7785e3\",\"#ffffff\",\"#ffda70\",\"#fea6ed\",\"#ffd2d3\",\"#9fddf4\",\"#a459f6\"]},{\"id\":200008,\"name\":\"啾咪\",\"time\":360,\"quality\":1,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,",
+        "-1,-1,-1,-1,-1,-1]],\"color\":[\"#e0414c\",\"#000000\",\"#535353\",\"#ffa2aa\",\"#d6d6d6\",\"#ffd06b\"]},{\"id\":100007,\"name\":\"月夜\",\"time\":210,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,0,0,1,1,1,1,1,1,1,0,0,-1,-1,-1,-1,-1,-1,-1],[",
+        "-1,-1,-1,-1,-1,-1,-1,-1,-1]],\"color\":[\"#312c45\",\"#4d8dd9\",\"#ffffff\",\"#e9bf70\",\"#adbbff\"]},{\"id\":100002,\"name\":\"应援棒\",\"time\":210,\"quality\":0,\"answer\":[[-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1],[-1,-1,-1,0,1,1,1,1,1,0,0,-1,0,0,1,1,1,1,1,0,-1,-1,-1],[-1,-1,0,1,1,1,1,1,1,",
+        "1,-1,-1,-1,-1,-1]],\"color\":[\"#af215d\",\"#ff96c5\",\"#a8d7ff\",\"#2b8de1\",\"#fdfbfd\",\"#f5cc50\"]},{\"id\":100019,\"name\":\"彩虹花\",\"time\":180,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,0,0,0,-1,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,0,1,1,1,0,-1,0,2,2,2,0,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-",
+        "6b1\",\"#ffbf3a\",\"#ffffff\",\"#b36bff\",\"#ace946\",\"#89ceff\",\"#4ff08e\",\"#61b744\",\"#78503f\"]},{\"id\":200010,\"name\":\"开启充电模式\",\"time\":300,\"quality\":1,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,0,0,0,1,1,1,1,1,0,0,0,-1,-1,-1",
+        "d2351\",\"#3c9ccf\",\"#ffebd1\",\"#8fd9e9\",\"#ffd06b\",\"#ffa2aa\",\"#bc86d4\",\"#e0414c\",\"#81c34f\"]},{\"id\":100029,\"name\":\"海洋之星\",\"time\":240,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,1,1,0,",
+        "-1,-1,-1,-1,-1,-1]],\"color\":[\"#1d4b6a\",\"#f5f5f5\",\"#d3f29d\",\"#ff9fc1\",\"#86d5ff\",\"#d7c2ff\"]},{\"id\":300001,\"name\":\"珍珠\",\"time\":690,\"quality\":2,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\game_scene\\game.js",
+      "relativePath": "OUTPUT/subpackages/game_scene/game.js",
+      "size": 130550,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 12,
+        "wx.request": 0,
+        "request": 0,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": [
+        "ta = function() {           this.level_data = JSON.parse(JSON.stringify(u.cPublicMager.level_data));           for (var e = this.level_data.answer.length, t = this.level_data.answer[0].length, n = new Array(t + 2).fill(-1), i = 0; i < e; i++) this.level_data.answer[i].unshift(-1), this",
+        "vel_data = JSON.parse(JSON.stringify(u.cPublicMager.level_data));           for (var e = this.level_data.answer.length, t = this.level_data.answer[0].length, n = new Array(t + 2).fill(-1), i = 0; i < e; i++) this.level_data.answer[i].unshift(-1), this.level_data.answer[i].push(-1), thi",
+        " e = this.level_data.answer.length, t = this.level_data.answer[0].length, n = new Array(t + 2).fill(-1), i = 0; i < e; i++) this.level_data.answer[i].unshift(-1), this.level_data.answer[i].push(-1), this.level_data.map[i].unshift(-1), this.level_data.map[i].push(-1);           this.lev",
+        " this.level_data.answer[0].length, n = new Array(t + 2).fill(-1), i = 0; i < e; i++) this.level_data.answer[i].unshift(-1), this.level_data.answer[i].push(-1), this.level_data.map[i].unshift(-1), this.level_data.map[i].push(-1);           this.level_data.answer.unshift(n.slice()), this",
+        "ift(-1), this.level_data.answer[i].push(-1), this.level_data.map[i].unshift(-1), this.level_data.map[i].push(-1);           this.level_data.answer.unshift(n.slice()), this.level_data.answer.push(n.slice()), this.level_data.map.unshift(n.slice()), this.level_data.map.push(n.slice());   ",
+        ", this.level_data.map[i].unshift(-1), this.level_data.map[i].push(-1);           this.level_data.answer.unshift(n.slice()), this.level_data.answer.push(n.slice()), this.level_data.map.unshift(n.slice()), this.level_data.map.push(n.slice());           var a = 0;           for (i = 0; i ",
+        "this.level_data.map.unshift(n.slice()), this.level_data.map.push(n.slice());           var a = 0;           for (i = 0; i < this.level_data.answer.length; i++) {             for (var o = [], s = 0; s < this.level_data.answer[i].length; s++) {               var r = this.level_data.answe",
+        "         var a = 0;           for (i = 0; i < this.level_data.answer.length; i++) {             for (var o = [], s = 0; s < this.level_data.answer[i].length; s++) {               var r = this.level_data.answer[i][s];               o.push({                 id: a,                 type: r",
+        "nswer.length; i++) {             for (var o = [], s = 0; s < this.level_data.answer[i].length; s++) {               var r = this.level_data.answer[i][s];               o.push({                 id: a,                 type: r,                 color: this.level_data.color[r],             ",
+        "(\"[miaobian] bundle not found\");         }, t.prototype.buildOutline = function(e, t, n) {           for (var i = this, a = this.level_data.answer.length, o = this.level_data.answer[0].length, s = this.brock_size, r = s / 2 + 10.5, h = s / 2 - 10.5 - 4, l = function l(e, t) {          ",
+        "      }, t.prototype.buildOutline = function(e, t, n) {           for (var i = this, a = this.level_data.answer.length, o = this.level_data.answer[0].length, s = this.brock_size, r = s / 2 + 10.5, h = s / 2 - 10.5 - 4, l = function l(e, t) {               return e >= 0 && e < a && t >=",
+        "ize, r = s / 2 + 10.5, h = s / 2 - 10.5 - 4, l = function l(e, t) {               return e >= 0 && e < a && t >= 0 && t < o && i.level_data.answer[e][t] >= 0;             }, _ = [{               pd: 0,               pp: 3,               lx: -25,               ly: r,               lrot:"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\json\\import\\64\\6440c88a-699b-4816-bdf8-c98f10a99024.4469d.json",
+      "relativePath": "OUTPUT/subpackages/json/import/64/6440c88a-699b-4816-bdf8-c98f10a99024.4469d.json",
+      "size": 2031,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 1,
+        "wx.request": 0,
+        "request": 0,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": [
+        "[1,0,0,[[\"cc.JsonAsset\",[\"_name\",\"json\"],1]],[[0,0,1,3]],[[0,\"引导关\",{\"id\":99999,\"name\":\"引导关\",\"time\":-1,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,",
+        "[1,0,0,[[\"cc.JsonAsset\",[\"_name\",\"json\"],1]],[[0,0,1,3]],[[0,\"引导关\",{\"id\":99999,\"name\":\"引导关\",\"time\":-1,\"quality\":0,\"answer\":[[-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,-1,-1,-1,-1,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,-1,0,1,0,0,0,0,0,-1,-1,-1],[-1,-1,-1,-1,-1,-1,-1,0,1,1,2,2,2"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\cocos\\cocos2d-js-min.js",
+      "relativePath": "OUTPUT/cocos/cocos2d-js-min.js",
+      "size": 1767283,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 55,
+        "url": 1,
+        "json": 10
+      },
+      "urls": [
+        "https://github.com/cocos-creator/engine/blob/master/EngineErrorMap.md"
+      ],
+      "levelContext": [
+        "otype.decompress, e.exports = i;   }, {}],   26: [function(t, e) {     var i, n = t(\"./platform/utils\"),       r = (t(\"../../DebugInfos\"), \"https://github.com/cocos-creator/engine/blob/master/EngineErrorMap.md\");      function s(t) {       return function() {         var e = argument",
+        "  for (var i in t) {             var n = t[i],               r = {                 uuid: i,                 packs: n,                 ext: \".json\"               };             e.add(i, r);             for (var s = 0, a = n.length; s < a; s++) {               var o = n[s],             ",
+        "   _map: d                 };               } else r = n[0];             }             i && i(e, r);           });         },         getXMLHttpRequest: function getXMLHttpRequest() {           return new XMLHttpRequest();         },         _parseLoadResArgs: i.parseLoadResArgs,    ",
+        ";               } else r = n[0];             }             i && i(e, r);           });         },         getXMLHttpRequest: function getXMLHttpRequest() {           return new XMLHttpRequest();         },         _parseLoadResArgs: i.parseLoadResArgs,         getItem: function getIt",
+        "     }             i && i(e, r);           });         },         getXMLHttpRequest: function getXMLHttpRequest() {           return new XMLHttpRequest();         },         _parseLoadResArgs: i.parseLoadResArgs,         getItem: function getItem(t) {           return cc.assetManager",
+        "rs;     e.exports = function(t, e, n, r) {       var s = i(e, n, r),         a = (e = s.options, n = s.onProgress, r = s.onComplete, new XMLHttpRequest()),         o = \"download failed: \" + t + \", status: \";       if (a.open(\"GET\", t, !0), void 0 !== e.responseType && (a.responseType",
+        "    \".txt\": b,         \".xml\": b,         \".vsh\": b,         \".fsh\": b,         \".atlas\": b,         \".tmx\": b,         \".tsx\": b,         \".json\": A,         \".ExportJson\": A,         \".plist\": b,         \".fnt\": b,         \".font\": r,         \".eot\": r,         \".ttf\": r,         \".",
+        " = new cc.VideoClip();       r._nativeUrl = t, r._nativeAsset = e, n && n(null, r);     }      function u(t, e, i, n) {       var r = new cc.JsonAsset();       r.json = e, n && n(null, r);     }      function f(t, e, i, n) {       var r = new cc.TextAsset();       r.text = e, n && n(n",
+        ";       r._nativeUrl = t, r._nativeAsset = e, n && n(null, r);     }      function u(t, e, i, n) {       var r = new cc.JsonAsset();       r.json = e, n && n(null, r);     }      function f(t, e, i, n) {       var r = new cc.TextAsset();       r.text = e, n && n(null, r);     }      f",
+        "    \".xml\": f,         \".vsh\": f,         \".fsh\": f,         \".atlas\": f,         \".tmx\": f,         \".tsx\": f,         \".fnt\": f,         \".json\": u,         \".ExportJson\": u,         \".font\": d,         \".eot\": d,         \".ttf\": d,         \".woff\": d,         \".svg\": d,         \".t",
+        " not retrieve data from package\"));                 }               }             });           });         }       },       h = {         \".json\": l.unpackJson       };     e.exports = l;   }, {     \"../platform/deserialize-compiled\": 177,     \"../platform/js\": 183,     \"./cache\": 36",
+        "ared\": 58   }],   57: [function(t, e) {     var i = [];      function n() {       this._id = \"\", this.uuid = \"\", this.url = \"\", this.ext = \".json\", this.content = null, this.file = null, this.info = null, this.config = null, this.isNative = !1, this.options = Object.create(null);     ",
+        "is._id;       },       recycle: function recycle() {         500 !== i.length && (this._id = \"\", this.uuid = \"\", this.url = \"\", this.ext = \".json\", this.content = null, this.file = null, this.info = null, this.config = null, this.isNative = !1, this.options = Object.create(null), i.pu",
+        "etAssetInfo(u);                     }                     l.config = v, l.info = p;                   }                   l.ext = c.ext || \".json\";                   break;                 case \"__requestType__\":                 case \"ext\":                 case \"bundle\":              ",
+        "                     e.push({                         uuid: p.uuid,                         __isNative__: !1,                         ext: \".json\",                         bundle: c.bundle                       });                     }                   }                   l.recycle(",
+        "contain \" + c.path);                     l.config = v, l.uuid = p.uuid, l.info = p;                   }                   l.ext = c.ext || \".json\";                   break;                 case s.SCENE:                   if (a.has(c.bundle)) {                     var v;               ",
+        "Font\",       extends: cc.Asset     });     cc.Font = e.exports = i;   }, {}],   67: [function(t, e) {     var i = cc.Class({       name: \"cc.JsonAsset\",       extends: cc.Asset,       properties: {         json: null       }     });     e.exports = cc.JsonAsset = i;   }, {}],   68: [f",
+        " = cc.Class({       name: \"cc.JsonAsset\",       extends: cc.Asset,       properties: {         json: null       }     });     e.exports = cc.JsonAsset = i;   }, {}],   68: [function(t, e) {     var i = cc.Class({       name: \"cc.LabelAtlas\",       extends: cc.BitmapFont,       onLoad:",
+        "ed = 0, this.textureLoader = t, this.pathPrefix = e;         }         return e.downloadText = function(t, e, i) {           var n = new XMLHttpRequest();           n.open(\"GET\", t, !0), n.onload = function() {             200 == n.status ? e(n.responseText) : i(n.status, n.responseT",
+        "             i(n.status, n.responseText);           }, n.send();         }, e.downloadBinary = function(t, e, i) {           var n = new XMLHttpRequest();           n.open(\"GET\", t, !0), n.responseType = \"arraybuffer\", n.onload = function() {             200 == n.status ? e(new Uint8"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\src\\assets\\loadingScene\\SSSGF\\dataManagers\\playerDataMager\\storage\\libs\\security\\jsencrypt.min.js",
+      "relativePath": "OUTPUT/src/assets/loadingScene/SSSGF/dataManagers/playerDataMager/storage/libs/security/jsencrypt.min.js",
+      "size": 91679,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 0,
+        "url": 0,
+        "json": 1
+      },
+      "urls": [],
+      "levelContext": [
+        "oid 0 === R.obj) throw \"obj shall be specified for 'tag'.\";               return O.obj = b(R.obj), new y(O);             }           }, this.jsonToASN1HEX = function(t) {             return this.newObject(t).getEncodedHex();           };         }(), tt.asn1.ASN1Util.oidHexToInt = fun"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\subpackages\\win_ui\\game.js",
+      "relativePath": "OUTPUT/subpackages/win_ui/game.js",
+      "size": 17821,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 0,
+        "url": 1,
+        "json": 0
+      },
+      "urls": [
+        "https://gametos.keepmobi.com/remote-res/pin-dou/image/"
+      ],
+      "levelContext": [
+        "              n = 100 * o;             this.image.node.scale = 2 * Math.min(200 / a, 200 / n);           } else cc.assetManager.loadRemote(\"https://gametos.keepmobi.com/remote-res/pin-dou/image/\" + t.id + \".png\", function(t, o) {             var a = new cc.SpriteFrame(o);            "
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\src\\scripts\\chouka_ui\\index.js",
+      "relativePath": "OUTPUT/src/scripts/chouka_ui/index.js",
+      "size": 9500,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 0,
+        "url": 1,
+        "json": 0
+      },
+      "urls": [
+        "https://gametos.keepmobi.com/remote-res/pin-dou/image/"
+      ],
+      "levelContext": [
+        "t;           }), this.tag_name.string = i, this.level_name.string = t, this.level_outline.color = cc.color().fromHEX(o);           var l = \"https://gametos.keepmobi.com/remote-res/pin-dou/image/\" + c.cPublicMager.level_data.id + \".png\";           cc.assetManager.loadRemote(l, functio"
+      ]
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\game.json",
+      "relativePath": "OUTPUT/game.json",
+      "size": 1517,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 1,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": []
+    },
+    {
+      "path": "C:\\Users\\EDY\\workspaces\\这不是挑战\\OUTPUT\\app-config.json",
+      "relativePath": "OUTPUT/app-config.json",
+      "size": 1031,
+      "keywords": {
+        "level_arr": 0,
+        "answer": 0,
+        "wx.request": 0,
+        "request": 1,
+        "url": 0,
+        "json": 0
+      },
+      "urls": [],
+      "levelContext": []
+    }
+  ]
+}

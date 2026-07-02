@@ -32,6 +32,7 @@ import type {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
+import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
 
 type RewardedGrantToast = string | (() => string);
@@ -65,6 +66,8 @@ type ShareGrantOptions = {
     afterGrant?: () => RewardedGrantResult;
     onFinally?: () => void;
 };
+
+const SHARE_GRANT_CALLBACK_TIMEOUT_MS = 5000;
 
 function resolveRewardedGrantToast(toast?: RewardedGrantToast): string {
     if (!toast) return '';
@@ -237,6 +240,12 @@ export function installHomeAdFlowModule(target: any): void {
                 this[busyFlag] = true;
             }
 
+            let shareCallbackTimer: ReturnType<typeof setTimeout> | null = null;
+            const clearShareCallbackTimer = () => {
+                if (shareCallbackTimer === null) return;
+                clearTimeout(shareCallbackTimer);
+                shareCallbackTimer = null;
+            };
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -246,6 +255,7 @@ export function installHomeAdFlowModule(target: any): void {
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
+                clearShareCallbackTimer();
                 clearBusy();
                 try {
                     options.onFinally?.();
@@ -307,35 +317,52 @@ export function installHomeAdFlowModule(target: any): void {
                     })
                     .then(runFinally, runFinally);
             };
+            const handleShareSuccess = (source: string) => {
+                if (shareCompleteHandled) {
+                    console.warn(`[ShareGrant] ${page} duplicate share ${source} ignored`);
+                    return;
+                }
+                shareCompleteHandled = true;
+                clearShareCallbackTimer();
+                try {
+                    options.onShareComplete?.(true);
+                } catch (error) {
+                    console.warn(`[ShareGrant] ${page} share-success handler failed:`, error);
+                }
+                AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
+                runGrant();
+            };
+            const handleShareFail = (source: string) => {
+                if (shareCompleteHandled) {
+                    console.warn(`[ShareGrant] ${page} duplicate share ${source} ignored`);
+                    return;
+                }
+                shareCompleteHandled = true;
+                clearShareCallbackTimer();
+                runShareFail();
+            };
+            const handleShareComplete = (result?: any) => {
+                if (shareCompleteHandled) return;
+                const errMsg = String(result?.errMsg || '').toLowerCase();
+                if (errMsg.includes(':ok') || errMsg.endsWith('ok') || errMsg.includes('success')) {
+                    handleShareSuccess('complete');
+                    return;
+                }
+                handleShareFail('complete');
+            };
 
             AnalyticsMgr.inst.trackShareClick(shareType, page, levelId);
             try {
+                shareCallbackTimer = setTimeout(() => {
+                    handleShareFail('timeout');
+                }, SHARE_GRANT_CALLBACK_TIMEOUT_MS);
                 wx.shareAppMessage({
                     title,
                     query,
                     imageUrl,
-                    success: () => {
-                        if (shareCompleteHandled) {
-                            console.warn(`[ShareGrant] ${page} duplicate share success ignored`);
-                            return;
-                        }
-                        shareCompleteHandled = true;
-                        try {
-                            options.onShareComplete?.(true);
-                        } catch (error) {
-                            console.warn(`[ShareGrant] ${page} share-success handler failed:`, error);
-                        }
-                        AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
-                        runGrant();
-                    },
-                    fail: () => {
-                        if (shareCompleteHandled) {
-                            console.warn(`[ShareGrant] ${page} duplicate share fail ignored`);
-                            return;
-                        }
-                        shareCompleteHandled = true;
-                        runShareFail();
-                    },
+                    success: () => handleShareSuccess('success'),
+                    fail: () => handleShareFail('fail'),
+                    complete: handleShareComplete,
                 });
             } catch (error) {
                 console.error(`[ShareGrant] ${page} share request failed:`, error);
@@ -625,8 +652,6 @@ export function installHomeAdFlowModule(target: any): void {
             const heroLayer = this.requireUiChild(menu, 'HeroLayer', 'MainMenuFixedRoot/HeroLayer');
             const primaryActionLayer = this.requireUiChild(menu, 'PrimaryActionLayer', 'MainMenuFixedRoot/PrimaryActionLayer');
             const entryLayer = this.requireUiChild(menu, 'EntryLayer', 'MainMenuFixedRoot/EntryLayer');
-            const vigorGroup = this.requireUiChild(topBarGroup, 'VigorGroup', 'TopBarGroup/VigorGroup');
-            const goldGroup = this.requireUiChild(topBarGroup, 'GoldGroup', 'TopBarGroup/GoldGroup');
 
             const bgNode = this.requireUiChild(bgLayer, 'BG', 'BackgroundLayer/BG');
             const bgFrame = this.requireSceneSpriteFrame(bgNode, 'BackgroundLayer/BG');
@@ -651,9 +676,10 @@ export function installHomeAdFlowModule(target: any): void {
             this.requireSceneSpriteFrame(heroCardFrame, 'HeroCard/HeroCardFrame');
             this.drawHomeLevelPixelPreview(heroCard, curLevel, 0, 0);
 
-            this.drawLivesBanner(vigorGroup);
-            this.drawGoldBanner(goldGroup);
-            this.drawTopRightBtns(topBarGroup);
+            if (typeof this.syncTopHud !== 'function') {
+                throw new Error('[TopHud] runtime missing syncTopHud() for Home scene');
+            }
+            this.syncTopHud(topBarGroup, 'home');
             this.drawStartButton(primaryActionLayer, curLevel);
             this.drawThemeChallengeButton(primaryActionLayer);
             this.drawDailySignInButton(entryLayer);
@@ -779,6 +805,8 @@ export function installHomeAdFlowModule(target: any): void {
             if (releaseResources) {
                 this._releasePanelTexturesNextFrame(RESULT_PANEL_TEXTURE_NAMES, 'gameplay-result-overlays');
             }
+            this._settlementGoldCountLbl = null;
+            this._winBaseGoldFlyPlayed = false;
             this.panelWin = null!;
             this.panelLose = null!;
             this.panelTimeoutContinue = null!;
@@ -788,7 +816,9 @@ export function installHomeAdFlowModule(target: any): void {
             const frameSize = 324;
             parent.getChildByName('HeroCardHint')?.destroy();
             const previewAnchor = this.requireUiChild(parent, 'PreviewAnchor', 'HeroCard/PreviewAnchor');
-            previewAnchor.getChildByName('PixelPreview')?.destroy();
+            const oldPreview = previewAnchor.getChildByName('PixelPreview');
+            releasePixelPosterPreviewTree(oldPreview || null);
+            oldPreview?.destroy();
             this.drawCollectionPixelPreviewOnCard(previewAnchor, levelId, x, y, frameSize, frameSize);
         },
 

@@ -82,6 +82,10 @@ export function installGameplaySlotSkillModule(target: any): void {
             ensureGameplaySkillUiController(this).rebuildSkillButtonsUI();
         },
 
+        syncSkillButtonRuntimeStates() {
+            ensureGameplaySkillUiController(this).syncSkillButtonRuntimeStates();
+        },
+
         updateCountBadge(parent: Node, count: number, showWhenZero: boolean = false) {
             ensureGameplaySkillUiController(this).updateCountBadge(parent, count, showWhenZero);
         },

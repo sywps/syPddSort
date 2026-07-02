@@ -67,7 +67,7 @@ function getBaseColor(colorId: number, grayscale: boolean): Color {
 }
 
 function drawRoundedCell(g: Graphics, x: number, y: number, size: number, color: Color, _mode: PixelPosterPreviewMode): void {
-    const radius = Math.max(0.5, size * 0.14);
+    const radius = Math.max(0.5, size * 0.04);
     const seamBleed = 0.35;
 
     g.fillColor = color;
@@ -79,12 +79,17 @@ function drawRoundedCell(g: Graphics, x: number, y: number, size: number, color:
     g.fillColor = new Color(255, 255, 255, 26);
     g.roundRect(
         x + size * 0.18,
-        y + size * 0.60,
+        y + size * 0.16,
         size * 0.64,
-        size * 0.24,
+        size * 0.16,
         radius,
     );
     g.fill();
+}
+
+export function releasePixelPosterPreviewTree(root: Node | null): void {
+    void root;
+    // Graphics previews do not own generated textures; keep the cleanup hook for existing callers.
 }
 
 export function renderPixelPosterPreview(

@@ -95,7 +95,14 @@ export function installHomeCommerceModule(target: any): void {
             return ensureCommercePanelController(this).openGoldAcquirePanel();
         },
 
-        openToolAcquirePanel(kind: InventoryPropKind, options?: { resumeTimerOnClose?: boolean; onInventoryChanged?: () => void }) {
+        openToolAcquirePanel(
+            kind: InventoryPropKind,
+            options?: {
+                resumeTimerOnClose?: boolean;
+                onInventoryChanged?: () => void;
+                onAdGrant?: () => boolean | void | Promise<boolean | void>;
+            },
+        ) {
             if (kind === 'expand') return false;
             return ensureCommercePanelController(this).openToolAcquirePanel(kind, options);
         },

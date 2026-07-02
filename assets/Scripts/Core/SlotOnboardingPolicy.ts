@@ -100,6 +100,15 @@ export function shouldShowGameplaySkillArea(levelId: unknown, entryMode: SlotOnb
     return normalizeLevelId(levelId) >= 3;
 }
 
+export function isGameplaySkillUnlocked(
+    levelId: unknown,
+    entryMode: SlotOnboardingEntryMode = 'main',
+    unlockLevel: unknown = 3,
+): boolean {
+    if (!isMainlineSlotEntry(entryMode)) return true;
+    return normalizeLevelId(levelId) >= normalizeLevelId(unlockLevel);
+}
+
 export function getSlotUnlockMode(levelId: unknown, entryMode: SlotOnboardingEntryMode = 'main'): SlotUnlockMode {
     if (!isMainlineSlotEntry(entryMode)) return 'ad';
     return normalizeLevelId(levelId) === 2 ? 'free' : 'ad';

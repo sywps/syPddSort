@@ -38,6 +38,8 @@ const WIN_BANNER_ENTRANCE_SCALE = 0.86;
 const WIN_BANNER_ENTRANCE_OVERSHOOT = 1.055;
 const WIN_BANNER_IDLE_JELLY_INITIAL_DELAY = 0.5;
 const WIN_BANNER_IDLE_JELLY_REPEAT_DELAY = 1.5;
+const WIN_BANNER_LIGHT_NODE_NAME = '\u6a2a\u5e45\u5149\u6548';
+const WIN_BANNER_LIGHT_ROTATION_SECONDS = 12;
 
 type WinBannerSparkleSpec = {
     xRatio: number;
@@ -366,6 +368,26 @@ export class GameplayResultPanelController {
         return node;
     }
 
+    private startWinBannerLightRotation(box: Node): void {
+        const light = box.getChildByName(WIN_BANNER_LIGHT_NODE_NAME);
+        if (!light) return;
+        const state = light as Node & { __winBannerLightBaseAngle?: number };
+        if (state.__winBannerLightBaseAngle === undefined) {
+            state.__winBannerLightBaseAngle = light.angle;
+        }
+        const baseAngle = state.__winBannerLightBaseAngle;
+        Tween.stopAllByTarget(light);
+        light.angle = baseAngle;
+        tween(light)
+            .to(WIN_BANNER_LIGHT_ROTATION_SECONDS, { angle: baseAngle + 360 }, { easing: 'linear' })
+            .call(() => {
+                light.angle = baseAngle;
+            })
+            .union()
+            .repeatForever()
+            .start();
+    }
+
     private prepareWinBannerStableFx(box: Node): Node | null {
         const banner = this.findActiveWinTitleBanner(box);
         if (!banner) return null;
@@ -485,6 +507,7 @@ export class GameplayResultPanelController {
         const targetPanel = panel ?? this.runtime?.panelWin ?? null;
         const box = targetPanel?.getChildByName('Box') ?? null;
         if (!box) return;
+        this.startWinBannerLightRotation(box);
         const banner = this.prepareWinBannerStableFx(box);
         if (!banner) return;
         const state = this.getWinBannerBaseState(banner);

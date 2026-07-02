@@ -74,10 +74,42 @@ assert.ok(settlement.includes('this.markDynamicCountdownAssisted?.();'), 'revive
 assert.ok(settlement.includes('completePercent: Math.min(98'), 'fail/revive settlement progress must cap displayed completion below 100%');
 assert.ok(settlement.includes('this.boardModel?.isAllLocked?.()'), 'gameLose must prefer win when the board is already complete');
 
+const slotPolicy = read('assets/Scripts/Core/SlotOnboardingPolicy.ts');
+assert.ok(slotPolicy.includes('export function isGameplaySkillUnlocked'), 'skill unlock policy must be centralized');
+assert.ok(slotPolicy.includes('if (!isMainlineSlotEntry(entryMode)) return true;'), 'non-main gameplay entries must bypass mainline skill unlock levels');
+assert.ok(slotPolicy.includes('return normalizeLevelId(levelId) >= normalizeLevelId(unlockLevel);'), 'mainline gameplay skill unlock must still use the configured unlock level');
+
 const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful skill use must mark assisted run');
 assert.ok(skillUi.includes('const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;'), 'skill buttons must only pause the timer in the final-second prop window');
 assert.ok(skillUi.includes('handler(timerPausedForFinalSecond);'), 'skill handlers must receive the final-second pause state');
+assert.ok(skillUi.includes('import { isGameplaySkillUnlocked, shouldShowGameplaySkillArea }'), 'skill UI must import the centralized skill unlock policy');
+assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, SKILL_UNLOCK_BROOM)'), 'slot-clear runtime refresh must use entry-aware skill unlock policy');
+assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, skill.unlockLevel)'), 'skill button unlock branch must use entry-aware skill unlock policy');
+assert.ok(!skillUi.includes('currentLevel < SKILL_UNLOCK_BROOM'), 'slot-clear runtime refresh must not use a raw mainline level gate');
+assert.ok(!skillUi.includes('currentLevel < skill.unlockLevel'), 'skill button unlock branch must not use a raw mainline level gate');
+assert.ok(skillUi.includes('private useSkillFromAdGrant(skill: GameplaySkillConfig): boolean'), 'gameplay prop ads must directly invoke the skill effect after the ad completes');
+assert.ok(skillUi.includes('onAdGrant: () => this.useSkillFromAdGrant(skill)'), 'gameplay prop acquire panel must use the prop immediately after rewarded ad completion');
+assert.ok(skillUi.includes('private isSkillRuntimeAvailable'), 'gameplay skills must expose a runtime availability guard');
+assert.ok(skillUi.includes("skill.kind === 'brush' && skill.preCheck && !skill.preCheck()"), 'slot-clear runtime availability must depend on slot occupancy');
+assert.ok(skillUi.includes('button.enabled = runtimeAvailable'), 'disabled slot-clear must not be clickable');
+assert.ok(skillUi.includes('if (!this.isSkillRuntimeAvailable(skill)) return;'), 'disabled slot-clear click handler must be guarded before playing feedback or opening ads');
+assert.ok(skillUi.includes('private readonly skillDisabledDimRatio = 0.68'), 'disabled slot-clear dim strength must be explicit');
+assert.ok(skillUi.includes('private dimSkillColor(color: Color): Color'), 'disabled slot-clear must use dimmed original colors');
+assert.ok(skillUi.includes("const spriteTargets = [shell, shell.getChildByName('ToolIcon')]"), 'slot-clear disabled visual must only dim the button body and icon sprites');
+assert.ok(skillUi.includes("const label = shell.getChildByName('Label')?.getComponent(Label);"), 'slot-clear disabled visual must dim the label separately');
+assert.ok(skillUi.includes('sprite.color = this.dimSkillColor(this.getOriginalSpriteColor(sprite));'), 'disabled slot-clear sprites must keep hue while dimming');
+assert.ok(skillUi.includes('label.color = this.dimSkillColor(this.getOriginalLabelColor(label));'), 'disabled slot-clear label must keep hue while dimming');
+assert.ok(!skillUi.includes('sprite.grayscale = disabled'), 'disabled slot-clear must not use Sprite grayscale');
+assert.ok(!skillUi.includes('skillDisabledSpriteColor'), 'slot-clear disabled visual must not use tint colors');
+assert.ok(!skillUi.includes('skillDisabledLabelColor'), 'slot-clear disabled label must not use fixed tint colors');
+assert.ok(!skillUi.includes('sprite.color = disabled'), 'slot-clear disabled visual must not use a flat disabled color');
+assert.ok(!skillUi.includes("if (node.name === 'ToolIcon')"), 'slot-clear disabled visual must not use the rejected layered pure-gray tint');
+assert.ok(skillUi.includes('this.restoreSkillNodeVisual(shell);'), 'disabled visual must restore child badges before applying scoped dim state');
+assert.ok(skillUi.includes('opacity.opacity = 255'), 'runtime-disabled slot-clear must keep full opacity');
+assert.ok(!skillUi.includes('opacity.opacity = available ? 255 : 138'), 'runtime-disabled slot-clear must not fade through opacity');
+assert.ok(skillUi.includes('syncSkillButtonRuntimeStates()'), 'skill UI must expose a runtime state sync path for slot changes');
+assert.ok(skillUi.includes("this.applySkillRuntimeAvailability(brushShell, runtime.slotHasBeans?.() === true);"), 'slot-clear runtime state must refresh from the slot model');
 assert.ok(skillUi.includes("private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const"), 'gameplay skill shell order must be color clear, slot clear, freeze');
 assert.ok(skillUi.includes("if (kind === 'freeze') return 'SkillFreeze';"), 'freeze skill must bind to the Game.scene SkillFreeze shell');
 assert.ok(skillUi.includes("kind: 'freeze' as const"), 'gameplay skill config must include freeze instead of wand');
@@ -167,6 +199,26 @@ assert.ok(skillMagnet.includes('this.pauseTimerForFinalSecondProp();'), 'magnet 
 
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful slot-row unlock must mark assisted run');
+assert.ok(slotUi.includes('this.runtime.slotModel.getAll().some((s: any) => s !== null)'), 'slot-clear availability must read the real slot model occupancy');
+
+const commerce = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
+assert.ok(commerce.includes('onAdGrant?: () => boolean | void | Promise<boolean | void>;'), 'tool acquire panel must allow gameplay to override ad grants');
+assert.ok(commerce.includes('Promise.resolve(options.onAdGrant()).then((grantResult)'), 'rewarded ad grant must preserve async direct-use results');
+assert.ok(commerce.includes('if (grantResult !== false)'), 'inventory changed callback must run only after a successful grant/use');
+assert.ok(commerce.includes('if (options.onAdGrant)'), 'tool acquire panel must prefer the gameplay direct-use ad grant when supplied');
+assert.ok(commerce.includes('this.runtime.addPropCount(kind, 1);'), 'non-gameplay tool acquire ads must keep the default inventory grant behavior');
+
+const levelFlow = read('assets/Scripts/Core/GameCtrlModules/GameplayLevelFlowModule.ts');
+assert.ok(levelFlow.includes('this.syncSkillButtonRuntimeStates?.();'), 'slot rendering must refresh slot-clear enabled/dim state');
+
+const adRewardHint = read('assets/Scripts/Core/GameCtrlModules/GameplayAdRewardHintModule.ts');
+assert.ok(adRewardHint.includes("import { isGameplaySkillUnlocked } from '../SlotOnboardingPolicy';"), 'ad reward hints must share the skill unlock policy');
+assert.ok(adRewardHint.includes('function getActiveEntryMode(runtime: any): string'), 'ad reward hints must resolve entry mode before checking skill unlocks');
+assert.ok(adRewardHint.includes('!isGameplaySkillUnlocked(getActiveLevel(this), getActiveEntryMode(this), SKILL_UNLOCK_FREEZE)'), 'freeze reward hint gate must be entry-aware');
+assert.ok(!adRewardHint.includes('getActiveLevel(this) < SKILL_UNLOCK_FREEZE'), 'freeze reward hint must not use a raw mainline level gate');
+
+const slotSkillModule = read('assets/Scripts/Core/GameCtrlModules/GameplaySlotSkillModule.ts');
+assert.ok(slotSkillModule.includes('syncSkillButtonRuntimeStates()'), 'runtime module bridge must expose skill state sync');
 
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 assert.ok(freezeFx.includes("FREEZE_SPINE_FX_PATH = 'Spine/PinddFreeze/bingdonglizi'"), 'freeze effect must load the PinddFreeze Spine resource');

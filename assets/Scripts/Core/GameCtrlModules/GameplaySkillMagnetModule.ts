@@ -646,11 +646,30 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 }
             };
             const playedFeedbackIndices = new Set<number>();
+            let nextForcedSkillFeedbackSoundAtMs = 0;
+            const playFeedbackSoundNow = (sfx: SfxName) => {
+                if (sfx === 'place' && typeof this.playBoardTargetSettleSound === 'function') {
+                    this.playBoardTargetSettleSound();
+                } else {
+                    AudioMgr.inst.play(sfx);
+                }
+            };
+            const scheduleForcedSkillFeedbackSound = (sfx: SfxName) => {
+                const nowMs = Date.now();
+                const playAtMs = Math.max(nowMs, nextForcedSkillFeedbackSoundAtMs);
+                nextForcedSkillFeedbackSoundAtMs = playAtMs + SKILL_MOVE_STAGGER * 1000;
+                const delaySeconds = Math.max(0, (playAtMs - nowMs) / 1000);
+                if (delaySeconds <= 0.001) {
+                    playFeedbackSoundNow(sfx);
+                    return;
+                }
+                this.scheduleOnce(() => playFeedbackSoundNow(sfx), delaySeconds);
+            };
             const playFeedback = (sfx: SfxName, feedbackIndex: number) => {
                 if (playedFeedbackIndices.has(feedbackIndex)) return;
                 playedFeedbackIndices.add(feedbackIndex);
                 if (feedbackIndex < 3 || feedbackIndex % 4 === 0) {
-                    AudioMgr.inst.play(sfx);
+                    scheduleForcedSkillFeedbackSound(sfx);
                 }
             };
             const applyMoveVisualHide = (move: MoveVisualHide) => {
@@ -704,7 +723,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     })
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
-                        playFeedback('slot', move.feedbackIndex);
+                        playFeedback('place', move.feedbackIndex);
                         this.recycleFlyBeanNode(bean);
                         revealBoardCell(move.target);
                         finish();
@@ -883,6 +902,9 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     });
                 }
             };
+            if (totalMoves > 0 && typeof this.playBeanFlySound === 'function') {
+                this.playBeanFlySound();
+            }
         
             for (const move of boardMoves) {
                 const targetWorldPos = nodeWorldPos(this.cellNodes[move.target.row][move.target.col]);
@@ -901,7 +923,11 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .delay(move.delay)
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
-                        AudioMgr.inst.play('slot');
+                        if (typeof this.playBoardTargetSettleSound === 'function') {
+                            this.playBoardTargetSettleSound();
+                        } else {
+                            AudioMgr.inst.play('place');
+                        }
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })
@@ -971,6 +997,9 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     this.onFlyDone(lockTargets, onDone);
                 }
             };
+            if (totalMoves > 0 && typeof this.playBeanFlySound === 'function') {
+                this.playBeanFlySound();
+            }
         
             for (let i = 0; i < boardMoves.length; i++) {
                 const move = boardMoves[i];
@@ -991,7 +1020,11 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .to(0.1, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .to(0.1, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1, 1, 1) }, { easing: 'circOut' })
                     .call(() => {
-                        AudioMgr.inst.play('place');
+                        if (typeof this.playBoardTargetSettleSound === 'function') {
+                            this.playBoardTargetSettleSound();
+                        } else {
+                            AudioMgr.inst.play('place');
+                        }
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })

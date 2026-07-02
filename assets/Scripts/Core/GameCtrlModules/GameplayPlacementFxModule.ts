@@ -130,6 +130,14 @@ export function installGameplayPlacementFxModule(target: any): void {
             this._hiddenSlotIndices.clear();
         },
 
+        playBoardTargetSettleSound(): void {
+            AudioMgr.inst.play('place');
+        },
+
+        playBeanFlySound(): void {
+            AudioMgr.inst.play('fly');
+        },
+
         createBoardRemainingSelection(block: BeanBlockInfo, remainingCount: number): PendingRemainingSelection | null {
             const count = Math.max(0, Math.min(block.cells.length, Math.floor(Number(remainingCount) || 0)));
             if (count <= 0) return null;
@@ -416,6 +424,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 finishAfterAllLanded();
                 return;
             }
+            this.playBeanFlySound();
         
             for (let i = 0; i < targets.length; i++) {
                 const t = targets[i];
@@ -455,7 +464,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     duration: FLY_TOTAL_DUR,
                     easing: 'sineOut',
                     onComplete: () => {
-                        AudioMgr.inst.play('place');
+                        this.playBoardTargetSettleSound();
                         AudioMgr.inst.vibratePlace();
                         this.recycleFlyBeanNode(bean);
                         this.releaseFlyingTargetKey(targetKey);
@@ -514,6 +523,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 this.endPlacementVisual();
                 return;
             }
+            this.playBeanFlySound();
             const finishSlotLanding = () => {
                 try {
                     this.renderBoardCells(dirtyBoardCells);
@@ -649,14 +659,15 @@ export function installGameplayPlacementFxModule(target: any): void {
                 return;
             }
             Tween.stopAllByTarget(cn);
-            this.playLandingLightAtCell(row, col);
             cn.setScale(1.1, 1.1, 1);
             tween(cn)
                 .to(0.12, { scale: new Vec3(0.97, 0.97, 1) }, { easing: 'sineInOut' })
                 .to(0.08, { scale: new Vec3(1.035, 1.035, 1) }, { easing: 'sineOut' })
-                .to(0.08, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
                 .call(() => {
                     this.playBeanSettleMatchFxOnCell?.(row, col);
+                })
+                .to(0.08, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
+                .call(() => {
                     onComplete?.();
                 })
                 .start();

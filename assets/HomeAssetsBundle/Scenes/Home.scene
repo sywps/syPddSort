@@ -2707,9 +2707,9 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 0.912,
-      "y": 0.912,
-      "z": 0.912
+      "x": 1,
+      "y": 1,
+      "z": 1
     },
     "_mobility": 0,
     "_layer": 1073741824,
@@ -2733,8 +2733,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 184.9306640625,
-      "height": 106.8
+      "width": 159.369140625,
+      "height": 81.6
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2766,11 +2766,11 @@
     "_string": "第1关",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 52,
-    "_fontSize": 52,
+    "_actualFontSize": 60,
+    "_fontSize": 60,
     "_fontFamily": "Arial",
     "_lineHeight": 60,
-    "_overflow": 2,
+    "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
@@ -2817,8 +2817,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 260,
-      "height": 130
+      "width": 300,
+      "height": 150
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2881,7 +2881,7 @@
     "_left": 223.652308,
     "_right": 223.652308,
     "_top": 0,
-    "_bottom": 287.239,
+    "_bottom": 277.239,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -2928,7 +2928,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -456.91100000000006,
+      "y": -456.91099999999994,
       "z": 0
     },
     "_lrot": {
@@ -2988,9 +2988,9 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 1.111111111111111,
-      "y": 1.111111111111111,
-      "z": 1.111111111111111
+      "x": 1,
+      "y": 1,
+      "z": 1
     },
     "_mobility": 0,
     "_layer": 1073741824,
@@ -3014,8 +3014,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 144,
-      "height": 67
+      "width": 204,
+      "height": 92.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3047,11 +3047,11 @@
     "_string": "主题挑战",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 34,
-    "_fontSize": 34,
+    "_actualFontSize": 50,
+    "_fontSize": 50,
     "_fontFamily": "Arial",
-    "_lineHeight": 44,
-    "_overflow": 2,
+    "_lineHeight": 70,
+    "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
@@ -3179,7 +3179,7 @@
     "_string": "当前进度可解锁前 1 关",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 15,
+    "_actualFontSize": 14,
     "_fontSize": 15,
     "_fontFamily": "Arial",
     "_lineHeight": 18,
@@ -3230,8 +3230,8 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 258.9185,
-      "height": 130.23802913276955
+      "width": 300,
+      "height": 150
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -3294,7 +3294,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 117.96998543361525,
+    "_bottom": 108.08900000000003,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,

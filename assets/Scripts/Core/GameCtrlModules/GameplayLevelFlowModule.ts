@@ -404,6 +404,7 @@ export function installGameplayLevelFlowModule(target: any): void {
 
         renderSlots() {
             this.renderSlotsWithHidden(this._hiddenSlotIndices);
+            this.syncSkillButtonRuntimeStates?.();
         },
 
         getTouchId(touch: any, fallback: number): number {

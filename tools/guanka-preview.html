@@ -172,6 +172,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
                 <option value="tools/competitors/拼豆解解压/levels/daily::main">拼豆解解压 Daily</option>
                 <option value="tools/competitors/拼豆达人赛/levels/main::main">拼豆达人赛 主线</option>
                 <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
+                <option value="tools/competitors/这不是挑战/levels/main::main">这不是挑战 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/daily::main">拼豆天才 Daily</option>
             </select>
@@ -298,6 +299,7 @@ const PRESET_LEVEL_DIR_ITEMS = [
     { label: '拼豆解解压 Daily', dir: 'tools/competitors/拼豆解解压/levels/daily', kind: 'main' },
     { label: '拼豆达人赛 主线', dir: 'tools/competitors/拼豆达人赛/levels/main', kind: 'main' },
     { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
+    { label: '这不是挑战 主线', dir: 'tools/competitors/这不是挑战/levels/main', kind: 'main' },
     { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
     { label: '拼豆天才 Daily', dir: 'tools/competitors/拼豆天才/levels/daily', kind: 'main' },
 ];
@@ -1480,6 +1482,25 @@ function getImportBadgeTitle(levelId) {
         .join('\n');
 }
 
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getLevelName(data) {
+    return String(data.levelName || data.sourceLevelName || data.sourceFields?.name || '').trim();
+}
+
+function getLevelTitleHtml(data) {
+    const base = `第 ${data.levelId} 关`;
+    const name = getLevelName(data);
+    return name ? `${base} · ${escapeHtml(name)}` : base;
+}
+
 function renderCard(data) {
     const isFeatured = data.isFeatured || false;
     const isOnline = data.online === true;
@@ -1576,7 +1597,7 @@ function renderCard(data) {
         ? `<span class="online-status">${hasOfficialImport ? `已导入 ${importBadgeText}` : '未导入'}</span>`
         : (SHOW_ONLINE_ACTION ? `<span class="online-status">${isOnline ? '🟢 已上线' : '⚪ 未上线'}</span>` : '');
     info.innerHTML = `
-        <div class="title">第 ${data.levelId} 关</div>
+        <div class="title">${getLevelTitleHtml(data)}</div>
         <div class="meta">
             <span>📐 ${data.boardWidth}×${data.boardHeight}</span>
             <span>🎨 ${colorCount}色</span>
@@ -1639,7 +1660,7 @@ function showDetail(data) {
 
     modal.innerHTML = `
         <button class="close-btn" onclick="closeModal()">✕</button>
-        <h2>第 ${data.levelId} 关</h2>
+        <h2>${getLevelTitleHtml(data)}</h2>
         <div class="compare">
             <div class="col">
                 <h3>🎯 目标图案</h3>
