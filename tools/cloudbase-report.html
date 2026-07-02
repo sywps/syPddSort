@@ -2637,9 +2637,43 @@ function populateDateControls() {
 }
 
 async function loadAvailableDates() {
-    const data = await fetchJson('/api/list-report-dates');
-    state.availableDates = Array.isArray(data.dates) ? data.dates : [];
-    state.latestDate = data.latestDate || '';
+    const pinnedDate = getParamDate();
+    let dates = [];
+    let latestDate = '';
+
+    try {
+        const data = await fetchJson('/api/list-report-dates');
+        dates = Array.isArray(data.dates) ? data.dates : [];
+        latestDate = data.latestDate || '';
+    } catch (_) {
+        dates = await loadAvailableDatesFromStaticListing();
+        latestDate = dates[dates.length - 1] || '';
+    }
+
+    if (pinnedDate && !dates.includes(pinnedDate)) {
+        dates.push(pinnedDate);
+        dates.sort();
+    }
+
+    state.availableDates = dates;
+    state.latestDate = latestDate || dates[dates.length - 1] || pinnedDate || '';
+}
+
+async function loadAvailableDatesFromStaticListing() {
+    try {
+        const response = await fetch(`${REPORT_ROOT}/`, { cache: 'no-store' });
+        if (!response.ok) return [];
+        const html = await response.text();
+        const dates = [];
+        for (const match of html.matchAll(/href=["']([^"']+)["']/g)) {
+            const href = decodeURIComponent(match[1] || '');
+            const date = href.replace(/\/$/, '').split('/').pop();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) dates.push(date);
+        }
+        return Array.from(new Set(dates)).sort();
+    } catch (_) {
+        return [];
+    }
 }
 
 async function loadTrendSummaries(date) {
