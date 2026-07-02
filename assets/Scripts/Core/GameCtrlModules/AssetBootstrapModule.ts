@@ -36,6 +36,7 @@ import { runtimeLog } from '../RuntimeLog';
 import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
+import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { WeChatRecommendService } from '../WeChatRecommendService';
 import { normalizeStartupLocalLevel, readStartupLocalProgress } from '../StartupLocalProgress';
 
@@ -1334,6 +1335,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         _clearSpriteFramesBeforeDestroy(root: Node) {
             if (!root?.isValid) return;
+            releasePixelPosterPreviewTree(root);
             root.active = false;
             const scan = this._collectSpriteComponentsForRuntimeScan(root, `panel-destroy:${root.name || 'unknown'}`);
             for (const sp of scan.sprites) {
@@ -1753,6 +1755,7 @@ export function installAssetBootstrapModule(target: any): void {
                     backgroundSkinAdProgress: {},
                     equippedBackgroundSkinId: 0,
                     equippedBackgroundSkinUpdatedAt: 0,
+                    backgroundSkinResetVersion: 0,
                 };
             return {
                 savedLevel: this.getSavedLevel(),
@@ -1774,6 +1777,7 @@ export function installAssetBootstrapModule(target: any): void {
                 backgroundSkinAdProgress: backgroundSkinState.backgroundSkinAdProgress && typeof backgroundSkinState.backgroundSkinAdProgress === 'object' ? backgroundSkinState.backgroundSkinAdProgress as Record<string, number> : {},
                 equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
                 equippedBackgroundSkinUpdatedAt: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinUpdatedAt) || 0)),
+                backgroundSkinResetVersion: Math.max(0, Math.floor(Number(backgroundSkinState.backgroundSkinResetVersion) || 0)),
                 ...WeChatRecommendService.inst.getCloudGameStatePatch(),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };

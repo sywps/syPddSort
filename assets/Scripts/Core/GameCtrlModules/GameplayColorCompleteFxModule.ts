@@ -8,20 +8,21 @@ import {
     sp,
     UIOpacity,
     UITransform,
+    Vec3,
+    view,
 } from '../GameCtrlShared';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
 const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
 const PINDD_SPINE_FX_NODE_NAME = 'PinddSpineFx';
+const PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME = 'PatternCompleteMatchFxRoot';
 const PINDD_SPINE_FX_SOURCE_HEIGHT = 43.27;
 const PINDD_SPINE_FX_SCALE = 1;
-const PINDD_SPINE_FX_ACTIVE_LIMIT = 80;
-const PINDD_SPINE_FX_POOL_LIMIT = 96;
+const PINDD_SPINE_FX_ACTIVE_LIMIT = 6144;
+const PINDD_SPINE_FX_POOL_LIMIT = 160;
 const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
 const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
 const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
-const PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 72;
-const PINDD_SPINE_PATTERN_COMPLETE_MAX_WAIT_SECONDS = 0.45;
 const PINDD_SPINE_FX_ANIMATION = {
     settle: 'a1_1',
     colorComplete: 'b1_1',
@@ -47,12 +48,12 @@ type PinddSpineFxBatchOptions = {
 const PINDD_SPINE_FX_SCALE_BY_ANIMATION: Record<PinddSpineFxAnimationName, number> = {
     a1_1: 1,
     b1_1: 1,
-    c1_1: 0.92,
+    c1_1: 1,
 };
 const PINDD_SPINE_FX_OPACITY_BY_ANIMATION: Record<PinddSpineFxAnimationName, number> = {
     a1_1: 230,
     b1_1: 245,
-    c1_1: 215,
+    c1_1: 255,
 };
 
 function setFxLayerDeep(node: Node, layer: number): void {
@@ -492,9 +493,128 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             pumpBatch();
         },
 
+        playPinddSpineFxOnBeansSameFrame(
+            beanNodes: Node[],
+            animationName: PinddSpineFxAnimationName,
+            onDone?: () => void,
+        ): void {
+            const nodes = (beanNodes || []).filter((node) => node?.isValid);
+            const total = nodes.length;
+            if (total === 0) {
+                onDone?.();
+                return;
+            }
+            this.ensurePinddSpineFxSkeletonData(() => {
+                let remaining = total;
+                let done = false;
+                const finishOne = () => {
+                    if (done) return;
+                    remaining--;
+                    if (remaining <= 0) {
+                        done = true;
+                        onDone?.();
+                    }
+                };
+                for (const beanNode of nodes) {
+                    this.playPinddSpineFxOnBean(beanNode, animationName, finishOne);
+                }
+            });
+        },
+
+        getPatternCompleteMatchFxRoot(): Node {
+            const fxRoot = typeof this.requireCanvasUiRoot === 'function'
+                ? this.requireCanvasUiRoot('FxRoot')
+                : null;
+            if (!fxRoot?.isValid) {
+                throw createPinddSpineFxError('FxRoot unavailable for pattern-complete effect');
+            }
+            let root = this._patternCompleteMatchFxRoot;
+            if (!root?.isValid || root.parent !== fxRoot) {
+                root = fxRoot.getChildByName(PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME) || new Node(PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME);
+                if (!root.parent) fxRoot.addChild(root);
+                this._patternCompleteMatchFxRoot = root;
+            }
+            root.active = true;
+            root.layer = Layers.Enum.UI_2D;
+            root.setPosition(0, 0, 0);
+            root.setScale(1, 1, 1);
+            root.angle = 0;
+            const transform = root.getComponent(UITransform) || root.addComponent(UITransform);
+            const parentTransform = fxRoot.getComponent(UITransform);
+            const fallbackSize = view.getVisibleSize();
+            transform.setContentSize(
+                Math.max(1, Number(parentTransform?.contentSize.width || fallbackSize.width || 1)),
+                Math.max(1, Number(parentTransform?.contentSize.height || fallbackSize.height || 1)),
+            );
+            setFxLayerDeep(root, Layers.Enum.UI_2D);
+            root.setSiblingIndex(Math.max(0, fxRoot.children.length - 1));
+            return root;
+        },
+
+        playPinddSpineFxAtWorldPosition(
+            fxRoot: Node,
+            fxRootTransform: UITransform,
+            skeletonData: sp.SkeletonData,
+            worldPos: Vec3,
+            animationName: PinddSpineFxAnimationName,
+            onDone?: () => void,
+        ): void {
+            if (!fxRoot?.isValid || !fxRootTransform || !worldPos) {
+                onDone?.();
+                return;
+            }
+            const acquired = this.acquirePinddSpineFxNode();
+            const { node, skeleton } = acquired;
+            const seq = ((node as any).__pinddSpineFxSeq || 0) + 1;
+            (node as any).__pinddSpineFxSeq = seq;
+            fxRoot.addChild(node);
+            setFxLayerDeep(node, Layers.Enum.UI_2D);
+            const localPos = fxRootTransform.convertToNodeSpaceAR(worldPos);
+            node.setPosition(localPos.x - 1, localPos.y - 1, 0);
+            node.setScale(1, 1, 1);
+            const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
+            opacity.opacity = 255;
+
+            let completed = false;
+            const completeOnce = () => {
+                if (completed || !node?.isValid || (node as any).__pinddSpineFxSeq !== seq) return;
+                completed = true;
+                this.recyclePinddSpineFxNode(node);
+                onDone?.();
+            };
+            try {
+                skeleton.skeletonData = skeletonData;
+                skeleton.setCompleteListener(() => {
+                    completeOnce();
+                });
+                skeleton.setAnimation(0, animationName, false);
+                if (typeof this.scheduleOnce === 'function') {
+                    this.scheduleOnce(completeOnce, (PINDD_SPINE_FX_DURATION[animationName] || 0.8) + 0.12);
+                } else {
+                    setTimeout(completeOnce, ((PINDD_SPINE_FX_DURATION[animationName] || 0.8) + 0.12) * 1000);
+                }
+            } catch (err) {
+                this.recyclePinddSpineFxNode(node);
+                throw createPinddSpineFxError(`play failed for ${animationName}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        },
+
         clearPatternCompleteMatchFx(): void {
-            this._patternCompleteMatchFxRoot = null;
-            this.clearPinddSpineFx?.();
+            this._pinddSpineFxBatchSeq = (Number(this._pinddSpineFxBatchSeq) || 0) + 1;
+            this._pinddSpineFxReservedCount = 0;
+            const activeNodes: Node[] = Array.isArray(this._activePinddSpineFxNodes) ? [...this._activePinddSpineFxNodes] : [];
+            for (const node of activeNodes) {
+                if (node?.isValid) this.recyclePinddSpineFxNode(node);
+            }
+            const root = this._patternCompleteMatchFxRoot;
+            if (!root?.isValid) {
+                this._patternCompleteMatchFxRoot = null;
+                return;
+            }
+            for (const child of [...root.children]) {
+                child.removeFromParent();
+                child.destroy();
+            }
         },
 
         clearBeanSettleMatchFx(): void {
@@ -528,7 +648,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
             if (beanNodes.length === 0) return;
 
-            this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);
+            this.playPinddSpineFxOnBeansSameFrame(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);
         },
 
         collectPatternCompleteMatchBeanNodes(): Node[] {
@@ -557,15 +677,50 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
             const beanNodes = this.collectPatternCompleteMatchBeanNodes();
-            if (beanNodes.length === 0) {
+            const beanWorldPositions: Vec3[] = [];
+            for (const beanNode of beanNodes) {
+                const transform = beanNode.getComponent(UITransform);
+                if (!transform) continue;
+                beanWorldPositions.push(transform.convertToWorldSpaceAR(new Vec3(0, 0, 0)));
+            }
+            if (beanWorldPositions.length === 0) {
                 finish();
                 return;
             }
+            if (beanWorldPositions.length > PINDD_SPINE_FX_ACTIVE_LIMIT) {
+                throw createPinddSpineFxError(`pattern-complete effect requires ${beanWorldPositions.length} nodes, active limit is ${PINDD_SPINE_FX_ACTIVE_LIMIT}`);
+            }
             this.clearPatternCompleteMatchFx();
-            this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.patternComplete, finish, {
-                maxNodes: PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES,
-                maxWaitSeconds: PINDD_SPINE_PATTERN_COMPLETE_MAX_WAIT_SECONDS,
-                waitForAll: false,
+            const fxRoot = this.getPatternCompleteMatchFxRoot();
+            const fxRootTransform = fxRoot.getComponent(UITransform);
+            if (!fxRootTransform) {
+                throw createPinddSpineFxError('PatternCompleteMatchFxRoot is missing UITransform');
+            }
+            this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
+                if (!fxRoot?.isValid || !this.isValid) {
+                    finish();
+                    return;
+                }
+                let remaining = beanWorldPositions.length;
+                let done = false;
+                const finishOne = () => {
+                    if (done) return;
+                    remaining--;
+                    if (remaining <= 0) {
+                        done = true;
+                        finish();
+                    }
+                };
+                for (const worldPos of beanWorldPositions) {
+                    this.playPinddSpineFxAtWorldPosition(
+                        fxRoot,
+                        fxRootTransform,
+                        skeletonData,
+                        worldPos,
+                        PINDD_SPINE_FX_ANIMATION.patternComplete,
+                        finishOne,
+                    );
+                }
             });
         },
 

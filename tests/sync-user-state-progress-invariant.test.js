@@ -84,6 +84,95 @@ async function runCase(name, initialDoc, event, expectedLevel) {
     }
 }
 
+async function runSkinResetGetCase() {
+    const runtime = loadCloudFunction({
+        savedLevel: 60,
+        lastLevelId: 60,
+        stateUpdatedAt: 100,
+        ownedBackgroundSkinIds: [1000, 1001, 1002, 1003, 1004],
+        backgroundSkinOwnedIds: [1005],
+        backgroundSkinAdProgress: { 1004: 3 },
+        equippedBackgroundSkinId: 1004,
+        equippedBackgroundSkinUpdatedAt: 123,
+    });
+    const result = clone(await runtime.main({ action: 'get' }));
+    assert.strictEqual(result.ok, true, 'get reset: cloud function should succeed');
+    assert.deepStrictEqual(result.gameState.ownedBackgroundSkinIds, [1000, 1001], 'get reset: returned owned skins');
+    assert.deepStrictEqual(result.gameState.backgroundSkinAdProgress, {}, 'get reset: returned ad progress');
+    assert.strictEqual(result.gameState.backgroundSkinResetVersion, 1, 'get reset: returned reset version');
+    assert.strictEqual(result.gameState.equippedBackgroundSkinId, 1000, 'get reset: returned equipped skin');
+    const doc = runtime.getDoc();
+    assert.deepStrictEqual(doc.ownedBackgroundSkinIds, [1000, 1001], 'get reset: persisted owned skins');
+    assert.deepStrictEqual(doc.backgroundSkinOwnedIds, [], 'get reset: cleared legacy owned skins');
+    assert.deepStrictEqual(doc.backgroundSkinAdProgress, {}, 'get reset: persisted empty ad progress');
+    assert.strictEqual(doc.backgroundSkinResetVersion, 1, 'get reset: persisted reset version');
+    assert.strictEqual(doc.equippedBackgroundSkinId, 1000, 'get reset: persisted equipped skin');
+    assert.ok(doc.backgroundSkinResetBackupV1, 'get reset: backup should exist');
+    assert.deepStrictEqual(doc.backgroundSkinResetBackupV1.ownedBackgroundSkinIds, [1000, 1001, 1002, 1003, 1004, 1005], 'get reset: backup owned skins');
+    assert.deepStrictEqual(doc.backgroundSkinResetBackupV1.backgroundSkinAdProgress, { 1004: 3 }, 'get reset: backup ad progress');
+}
+
+async function runOldClientSkinSaveCase() {
+    const runtime = loadCloudFunction({
+        savedLevel: 10,
+        lastLevelId: 10,
+        stateUpdatedAt: 100,
+        backgroundSkinResetVersion: 1,
+        ownedBackgroundSkinIds: [1000, 1001],
+        backgroundSkinAdProgress: {},
+    });
+    const result = clone(await runtime.main({
+        action: 'save',
+        gameState: {
+            savedLevel: 10,
+            stateUpdatedAt: 200,
+            ownedBackgroundSkinIds: [1000, 1001, 1002, 1003],
+            backgroundSkinAdProgress: { 1002: 1 },
+            equippedBackgroundSkinId: 1002,
+            equippedBackgroundSkinUpdatedAt: 200,
+        },
+    }));
+    assert.strictEqual(result.ok, true, 'old client save: cloud function should succeed');
+    assert.deepStrictEqual(result.gameState.ownedBackgroundSkinIds, [1000, 1001], 'old client save: returned owned skins');
+    assert.deepStrictEqual(result.gameState.backgroundSkinAdProgress, {}, 'old client save: returned ad progress');
+    assert.strictEqual(result.gameState.backgroundSkinResetVersion, 1, 'old client save: returned reset version');
+    assert.notStrictEqual(result.gameState.equippedBackgroundSkinId, 1002, 'old client save: should not equip locked skin');
+    const doc = runtime.getDoc();
+    assert.deepStrictEqual(doc.ownedBackgroundSkinIds, [1000, 1001], 'old client save: persisted owned skins');
+    assert.deepStrictEqual(doc.backgroundSkinAdProgress, {}, 'old client save: persisted ad progress');
+}
+
+async function runPostResetAdUnlockSaveCase() {
+    const runtime = loadCloudFunction({
+        savedLevel: 10,
+        lastLevelId: 10,
+        stateUpdatedAt: 100,
+        backgroundSkinResetVersion: 1,
+        ownedBackgroundSkinIds: [1000, 1001],
+        backgroundSkinAdProgress: {},
+    });
+    const result = clone(await runtime.main({
+        action: 'save',
+        gameState: {
+            savedLevel: 10,
+            stateUpdatedAt: 300,
+            backgroundSkinResetVersion: 1,
+            ownedBackgroundSkinIds: [1000, 1001, 1004],
+            backgroundSkinAdProgress: { 1004: 1 },
+            equippedBackgroundSkinId: 1004,
+            equippedBackgroundSkinUpdatedAt: 300,
+        },
+    }));
+    assert.strictEqual(result.ok, true, 'post-reset ad save: cloud function should succeed');
+    assert.deepStrictEqual(result.gameState.ownedBackgroundSkinIds, [1000, 1001, 1004], 'post-reset ad save: returned owned skins');
+    assert.deepStrictEqual(result.gameState.backgroundSkinAdProgress, { 1004: 1 }, 'post-reset ad save: returned ad progress');
+    assert.strictEqual(result.gameState.equippedBackgroundSkinId, 1004, 'post-reset ad save: returned equipped skin');
+    const doc = runtime.getDoc();
+    assert.deepStrictEqual(doc.ownedBackgroundSkinIds, [1000, 1001, 1004], 'post-reset ad save: persisted owned skins');
+    assert.deepStrictEqual(doc.backgroundSkinAdProgress, { 1004: 1 }, 'post-reset ad save: persisted ad progress');
+    assert.strictEqual(doc.equippedBackgroundSkinId, 1004, 'post-reset ad save: persisted equipped skin');
+}
+
 (async () => {
     await runCase(
         'get normalizes profile-only progress',
@@ -123,6 +212,10 @@ async function runCase(name, initialDoc, event, expectedLevel) {
         },
         10,
     );
+
+    await runSkinResetGetCase();
+    await runOldClientSkinSaveCase();
+    await runPostResetAdUnlockSaveCase();
 
     console.log('sync-user-state-progress-invariant.test.js passed');
 })().catch((error) => {

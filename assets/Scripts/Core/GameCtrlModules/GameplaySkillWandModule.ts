@@ -899,6 +899,28 @@ export function installGameplaySkillWandModule(target: any): void {
             const nodeWorldPos = (node: Node): Vec3 => node.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
             const STAGGER = 0.028;
             let remaining = moves.length;
+            let nextDumpBoardSettleSoundAtMs = 0;
+            const playDumpBoardSettleSoundNow = () => {
+                if (typeof this.playBoardTargetSettleSound === 'function') {
+                    this.playBoardTargetSettleSound();
+                } else {
+                    AudioMgr.inst.play('place');
+                }
+            };
+            const scheduleDumpBoardSettleSound = () => {
+                const nowMs = Date.now();
+                const playAtMs = Math.max(nowMs, nextDumpBoardSettleSoundAtMs);
+                nextDumpBoardSettleSoundAtMs = playAtMs + STAGGER * 1000;
+                const delaySeconds = Math.max(0, (playAtMs - nowMs) / 1000);
+                if (delaySeconds <= 0.001) {
+                    playDumpBoardSettleSoundNow();
+                    return;
+                }
+                this.scheduleOnce(playDumpBoardSettleSoundNow, delaySeconds);
+            };
+            if (moves.length > 0 && typeof this.playBeanFlySound === 'function') {
+                this.playBeanFlySound();
+            }
         
             for (let i = 0; i < moves.length; i++) {
                 const move = moves[i];
@@ -926,7 +948,7 @@ export function installGameplaySkillWandModule(target: any): void {
                         scale: new Vec3(1, 1, 1),
                     }, { easing: 'circOut' })
                     .call(() => {
-                        AudioMgr.inst.play('place');
+                        scheduleDumpBoardSettleSound();
                         this.recycleFlyBeanNode(bean);
                         this._flyingTargets.delete(`${move.targetRow},${move.targetCol}`);
                         this.renderBoardCell(move.targetRow, move.targetCol);

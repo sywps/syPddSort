@@ -32,11 +32,10 @@ import type {
 import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import { WeChatRecommendService } from '../WeChatRecommendService';
 
-const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0.5;
+const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
-const PATTERN_COMPLETE_FX_START_DELAY = PATTERN_COMPLETE_BOARD_SHRINK_DELAY + PATTERN_COMPLETE_BOARD_SHRINK_DURATION;
-const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.12;
-const FINAL_COLOR_COMPLETE_FX_HOLD = 0.28;
+const PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8;
+const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const WIN_BONUS_SHARE_ICON_TEXTURE = 'popup_share_icon';
 const WIN_BONUS_SHARE_RATE = 0.2;
@@ -52,6 +51,24 @@ type WinBonusShareGateState = {
     lastLevelId: number;
     lastAtMs: number;
 };
+
+const GOLD_TEXTURE_NAME = '\u91d1\u5e01';
+
+function ensureUi(node: Node, width: number, height: number): UITransform {
+    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
+    ui.setContentSize(width, height);
+    return ui;
+}
+
+function getNodeCenterInRoot(root: Node, node: Node): Vec3 {
+    const rootUi = root.getComponent(UITransform);
+    const nodeUi = node.getComponent(UITransform);
+    if (!rootUi || !nodeUi) {
+        return new Vec3(node.position.x, node.position.y, node.position.z);
+    }
+    const world = nodeUi.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+    return rootUi.convertToNodeSpaceAR(world);
+}
 
 export function installSettlementHudModule(target: any): void {
     Object.assign(target, {
@@ -171,6 +188,151 @@ export function installSettlementHudModule(target: any): void {
                     : `+${rewardGold} 金币到手`;
             }
             this.refreshWinAdBonusUI();
+        },
+
+        syncWinSettlementGoldBox() {
+            const label = this._settlementGoldCountLbl as Label | null;
+            if (label?.isValid) {
+                label.string = `${this.getGold()}`;
+            }
+        },
+
+        applySettlementSpriteFrame(sprite: Sprite, names: string[], fallback?: SpriteFrame | null): void {
+            const cached = names.map((name) => this.getSF?.(name) || null).find((frame) => !!frame) || null;
+            if (cached) {
+                sprite.spriteFrame = cached;
+                return;
+            }
+            if (fallback) {
+                sprite.spriteFrame = fallback;
+                return;
+            }
+            if (typeof this._loadSpriteFrameByName !== 'function') return;
+            const tryLoad = (index: number) => {
+                if (!sprite?.isValid) return;
+                const name = names[index];
+                if (!name) return;
+                this._loadSpriteFrameByName(name, (sf: SpriteFrame | null) => {
+                    if (!sprite?.isValid) return;
+                    if (sf) {
+                        sprite.spriteFrame = sf;
+                        return;
+                    }
+                    tryLoad(index + 1);
+                });
+            };
+            tryLoad(0);
+        },
+
+        ensureWinSettlementTopWidgets() {
+            const panel = this.panelWin as Node | null;
+            if (!panel?.isValid) return null;
+            if (typeof this.syncTopHud !== 'function') {
+                throw new Error('[TopHud] runtime missing syncTopHud() for win settlement');
+            }
+            const widgets = this.syncTopHud(panel, 'winSettlement');
+            const settingsBtn = widgets?.settingsBtn as Node | null;
+            const goldBox = widgets?.goldBox as Node | null;
+            if (!settingsBtn?.isValid || !goldBox?.isValid) {
+                throw new Error('[TopHud] failed to mount win settlement widgets');
+            }
+            widgets.root.setSiblingIndex(Math.max(0, panel.children.length - 1));
+            return { settingsBtn, goldBox, coinIcon: widgets.coinIcon || goldBox };
+        },
+
+        resolveWinSettlementCoinFrame(): SpriteFrame | null {
+            return this.getSF?.(GOLD_TEXTURE_NAME) || null;
+        },
+
+        playWinSettlementGoldFlyReward(amount: number, sourceNode?: Node | null): boolean {
+            const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+            if (safeAmount <= 0) return false;
+            const panel = this.panelWin as Node | null;
+            if (!panel?.isValid || !panel.activeInHierarchy) return false;
+            const widgets = this.ensureWinSettlementTopWidgets?.();
+            const goldBox = widgets?.goldBox as Node | null;
+            const coinTarget = widgets?.coinIcon as Node | null;
+            if (!goldBox?.isValid) return false;
+            const box = panel.getChildByName('Box');
+            const source = sourceNode?.isValid
+                ? sourceNode
+                : (box?.getChildByName('RewardGoldIcon') || goldBox);
+            const targetNode = coinTarget?.isValid ? coinTarget : goldBox;
+            const start = getNodeCenterInRoot(panel, source);
+            const end = getNodeCenterInRoot(panel, targetNode);
+            const coinFrame = this.resolveWinSettlementCoinFrame?.() || null;
+            if (!coinFrame) {
+                console.error('[WinSettlementGoldFly] missing required SpriteFrame:', GOLD_TEXTURE_NAME);
+                return false;
+            }
+            const coinCount = Math.min(12, Math.max(8, Math.ceil(Math.sqrt(safeAmount)) + 4));
+            let lastLandingSoundAt = -1;
+            for (let i = 0; i < coinCount; i++) {
+                const coin = new Node('WinSettlementFlyingCoin');
+                panel.addChild(coin);
+                coin.layer = Layers.Enum.UI_2D;
+                coin.setSiblingIndex(Math.max(0, panel.children.length - 1));
+                ensureUi(coin, 20, 20);
+                const sprite = coin.addComponent(Sprite);
+                sprite.spriteFrame = coinFrame;
+                const opacity = coin.addComponent(UIOpacity);
+                opacity.opacity = 255;
+                const startPos = new Vec3(start.x, start.y, 0);
+                coin.setPosition(startPos);
+                coin.setScale(0.28, 0.28, 1);
+                const arcOffsetX = (Math.random() - 0.5) * 44;
+                const mid = new Vec3(
+                    (startPos.x + end.x) / 2 + arcOffsetX,
+                    Math.max(startPos.y, end.y) + 50 + Math.random() * 46,
+                    0,
+                );
+                const launchDelay = i * 0.045;
+                const firstLegDuration = 0.24 + Math.random() * 0.04;
+                const secondLegDuration = 0.26 + Math.random() * 0.05;
+                const landingSoundAt = launchDelay + firstLegDuration + secondLegDuration;
+                const shouldPlayLandingSound = lastLandingSoundAt < 0 || landingSoundAt - lastLandingSoundAt >= 0.045;
+                if (shouldPlayLandingSound) {
+                    lastLandingSoundAt = landingSoundAt;
+                }
+                tween(coin)
+                    .delay(launchDelay)
+                    .to(firstLegDuration, { position: mid, scale: new Vec3(0.72, 0.72, 1) }, { easing: 'sineOut' })
+                    .to(secondLegDuration, { position: new Vec3(end.x, end.y, 0), scale: new Vec3(0.18, 0.18, 1) }, { easing: 'sineIn' })
+                    .call(() => {
+                        if (shouldPlayLandingSound) {
+                            AudioMgr.inst.play('place');
+                        }
+                        coin.removeFromParent();
+                        coin.destroy();
+                    })
+                    .start();
+            }
+            const landDelay = (coinCount - 1) * 0.045 + 0.24 + 0.04 + 0.26 + 0.05;
+            this.scheduleOnce?.(() => {
+                if (!goldBox?.isValid) return;
+                this.syncWinSettlementGoldBox?.();
+                Tween.stopAllByTarget(goldBox);
+                goldBox.setScale(1, 1, 1);
+                tween(goldBox)
+                    .to(0.08, { scale: new Vec3(1.08, 1.08, 1) })
+                    .to(0.12, { scale: new Vec3(1, 1, 1) })
+                    .start();
+            }, landDelay);
+            return true;
+        },
+
+        playWinBaseGoldRewardFx(): boolean {
+            if (this._winBaseGoldFlyPlayed) return false;
+            const amount = Math.max(0, Math.floor(Number(this._pendingWinGoldReward) || 0));
+            if (amount <= 0) return false;
+            this._winBaseGoldFlyPlayed = true;
+            const source = this.panelWin
+                ?.getChildByName('Box')
+                ?.getChildByName('RewardGoldIcon') || null;
+            this.scheduleOnce?.(() => {
+                this.playWinSettlementGoldFlyReward?.(amount, source);
+            }, 0.18);
+            return true;
         },
 
         getWinBonusShareGateDateKey(nowMs: number = Date.now()): string {
@@ -309,8 +471,15 @@ export function installSettlementHudModule(target: any): void {
                 if (adIcon) adIcon.active = false;
                 if (existingShareIcon) existingShareIcon.active = false;
                 if (claimedLbl) claimedLbl.active = true;
-                if (btn) btn.interactable = false;
-                opacity.opacity = 178;
+                if (btn) {
+                    btn.interactable = true;
+                    btn.enabled = false;
+                }
+                opacity.opacity = 255;
+                for (const sprite of adBtn.getComponentsInChildren(Sprite)) {
+                    sprite.grayscale = false;
+                    sprite.color = Color.WHITE;
+                }
                 return;
             }
         
@@ -328,8 +497,15 @@ export function installSettlementHudModule(target: any): void {
             if (shareIcon) {
                 shareIcon.active = gateMode === 'share';
             }
-            if (btn) btn.interactable = true;
+            if (btn) {
+                btn.enabled = true;
+                btn.interactable = true;
+            }
             opacity.opacity = 255;
+            for (const sprite of adBtn.getComponentsInChildren(Sprite)) {
+                sprite.grayscale = false;
+                sprite.color = Color.WHITE;
+            }
         },
 
         claimWinAdBonusReward() {
@@ -337,9 +513,14 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             const grantWinBonusReward = () => {
-                this.addGold(this._pendingWinAdBonusReward);
+                const rewardAmount = Math.max(0, Math.floor(Number(this._pendingWinAdBonusReward) || 0));
+                const baseAmount = Math.max(0, Math.floor(Number(this._pendingWinGoldReward) || 0));
+                const box = this.panelWin?.getChildByName('Box');
+                const source = box?.getChildByName('RewardGoldIcon') || box?.getChildByName('RewardGoldLbl') || null;
+                this.addGold(rewardAmount);
                 this._winAdRewardClaimed = true;
-                this.refreshWinAdBonusUI();
+                this.updateWinRewardLabel(baseAmount + rewardAmount);
+                this.playWinSettlementGoldFlyReward?.(rewardAmount, source);
             };
             if (this.resolveWinBonusRewardGateMode() === 'share') {
                 this.runShareGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
@@ -348,7 +529,6 @@ export function installSettlementHudModule(target: any): void {
                     title: () => `我在拼豆豆通关了第${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}关，快来一起挑战！`,
                     query: () => `level=${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}`,
                     shareFailToast: '分享未完成，未获得加领奖励',
-                    successToast: () => `额外获取${this._pendingWinAdBonusReward}金币`,
                     grantFailToast: '加领奖励发放失败，请重试',
                 });
                 return;
@@ -356,7 +536,6 @@ export function installSettlementHudModule(target: any): void {
             this.runRewardedGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
                 busyFlag: '_adShowing',
                 adFailToast: '广告未完成，未获得加领奖励',
-                successToast: () => `额外获取${this._pendingWinAdBonusReward}金币`,
                 grantFailToast: '加领奖励发放失败，请重试',
             });
         },
@@ -463,9 +642,9 @@ export function installSettlementHudModule(target: any): void {
         playPatternCompleteThenWin(delaySeconds: number = 0) {
             if (this.isGameEnd || this._patternCompleteWinPending) return;
             this._patternCompleteWinPending = true;
-            const hasPendingColorCompleteEffects = this._pendingColorCompleteEffects instanceof Map
-                && this._pendingColorCompleteEffects.size > 0;
-            this.flushPendingColorCompleteEffects?.();
+            if (this._pendingColorCompleteEffects instanceof Map) {
+                this._pendingColorCompleteEffects.clear();
+            }
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
             const runWin = () => {
@@ -474,11 +653,7 @@ export function installSettlementHudModule(target: any): void {
                 if (this.isGameEnd) return;
                 this.gameWin();
             };
-            const delay = Math.max(
-                0,
-                Number(delaySeconds) || 0,
-                hasPendingColorCompleteEffects ? FINAL_COLOR_COMPLETE_FX_HOLD : 0,
-            );
+            const delay = Math.max(0, Number(delaySeconds) || 0);
             if (delay > 0 && typeof this.scheduleOnce === 'function') {
                 this.scheduleOnce(runWin, delay);
             } else {
@@ -490,7 +665,7 @@ export function installSettlementHudModule(target: any): void {
             if (this.isGameEnd) return;
             this.isGameEnd = true;
             this._patternCompleteWinPending = false;
-            AudioMgr.inst.play('winAll');
+            this.clearAdRewardHintVisuals?.();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_pass', {
@@ -512,23 +687,11 @@ export function installSettlementHudModule(target: any): void {
                 : Math.max(0, ECONOMY_NUMERIC_TABLE.adReward.winBonusGold);
             this._winAdRewardClaimed = false;
             this._winBonusRewardGateMode = null;
+            this._winBaseGoldFlyPlayed = false;
             this._settlementNextTransitioning = false;
             this.addGold(this._pendingWinGoldReward);
             this.ensureGameplayResultPanelsCreated?.();
             this.updateWinRewardLabel(this._pendingWinGoldReward);
-
-            const playBoardCompleteShrink = () => {
-                if (!this.isValid || !this.isGameEnd || !this.boardGroup) return;
-                tween(this.boardGroup)
-                    .to(PATTERN_COMPLETE_BOARD_SHRINK_DURATION, { scale: new Vec3(0.85, 0.85, 1), position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0) }, { easing: 'sineOut' })
-                    .start();
-            };
-
-            if (this.boardGroup && PATTERN_COMPLETE_BOARD_SHRINK_DELAY > 0 && typeof this.scheduleOnce === 'function') {
-                this.scheduleOnce(playBoardCompleteShrink, PATTERN_COMPLETE_BOARD_SHRINK_DELAY);
-            } else {
-                playBoardCompleteShrink();
-            }
 
             const revealSettlement = () => {
                 if (!this.isValid || !this.isGameEnd) return;
@@ -547,7 +710,9 @@ export function installSettlementHudModule(target: any): void {
                         if (this.panelWin) {
                             this.panelWin.active = true;
                             this.panelWin.setSiblingIndex(999);
+                            this.ensureWinSettlementTopWidgets?.();
                             this.playWinSettlementBannerFx?.();
+                            this.playWinBaseGoldRewardFx?.();
                             this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
                         }
                     });
@@ -558,7 +723,9 @@ export function installSettlementHudModule(target: any): void {
                 if (this.panelWin) {
                     this.panelWin.active = true;
                     this.panelWin.setSiblingIndex(999);
+                    this.ensureWinSettlementTopWidgets?.();
                     this.playWinSettlementBannerFx?.();
+                    this.playWinBaseGoldRewardFx?.();
                     this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
                 }
             };
@@ -574,13 +741,33 @@ export function installSettlementHudModule(target: any): void {
 
             const playPatternCompleteFx = () => {
                 if (!this.isValid || !this.isGameEnd) return;
+                AudioMgr.inst.play('winAll');
                 this.playPatternCompleteMatchFx(showSettlement);
             };
-            const fxStartDelay = this.boardGroup ? PATTERN_COMPLETE_FX_START_DELAY : 0;
-            if (fxStartDelay > 0 && typeof this.scheduleOnce === 'function') {
-                this.scheduleOnce(playPatternCompleteFx, fxStartDelay);
+
+            const playBoardCompleteShrink = () => {
+                if (!this.isValid || !this.isGameEnd) return;
+                if (!this.boardGroup) {
+                    playPatternCompleteFx();
+                    return;
+                }
+                tween(this.boardGroup)
+                    .to(
+                        PATTERN_COMPLETE_BOARD_SHRINK_DURATION,
+                        {
+                            scale: new Vec3(PATTERN_COMPLETE_BOARD_SHRINK_SCALE, PATTERN_COMPLETE_BOARD_SHRINK_SCALE, 1),
+                            position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0),
+                        },
+                        { easing: 'sineOut' },
+                    )
+                    .call(playPatternCompleteFx)
+                    .start();
+            };
+
+            if (this.boardGroup && PATTERN_COMPLETE_BOARD_SHRINK_DELAY > 0 && typeof this.scheduleOnce === 'function') {
+                this.scheduleOnce(playBoardCompleteShrink, PATTERN_COMPLETE_BOARD_SHRINK_DELAY);
             } else {
-                playPatternCompleteFx();
+                playBoardCompleteShrink();
             }
         },
 
@@ -621,6 +808,7 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             this.isGameEnd = true;
+            this.clearAdRewardHintVisuals?.();
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_fail', {
                 source: 'gameLose',

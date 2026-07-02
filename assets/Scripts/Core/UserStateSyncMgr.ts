@@ -43,6 +43,7 @@ export type CloudGameState = {
     backgroundSkinAdProgress: Record<string, number>;
     equippedBackgroundSkinId: number;
     equippedBackgroundSkinUpdatedAt: number;
+    backgroundSkinResetVersion: number;
     wechatRecommendRecommended?: boolean;
     wechatRecommendRecommendedAt?: number;
     wechatRecommendFirstSuccessAt?: number;

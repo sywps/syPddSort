@@ -69,6 +69,8 @@ type SlotTapIntent = {
     source: 'direct' | 'tolerant' | 'area' | 'miss';
 };
 
+const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud']);
+
 export function installBoardInputViewportModule(target: any): void {
     Object.assign(target, {
         getGameplayNodeBoundsInFixedRoot(node: Node | null): { left: number; right: number; bottom: number; top: number } | null {
@@ -123,7 +125,10 @@ export function installBoardInputViewportModule(target: any): void {
             let bounds: { bottom: number; top: number } | null = null;
             for (const child of parent.children) {
                 if (!child?.isValid || !child.active) continue;
-                bounds = this.mergeVerticalBounds(bounds, this.getGameplayNodeVerticalBoundsInFixedRoot(child));
+                const childBounds = GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES.has(child.name)
+                    ? this.getGameplayChildrenVerticalBounds(child)
+                    : this.getGameplayNodeVerticalBoundsInFixedRoot(child);
+                bounds = this.mergeVerticalBounds(bounds, childBounds);
             }
             return bounds;
         },
@@ -282,6 +287,7 @@ export function installBoardInputViewportModule(target: any): void {
             this.boardViewport.zoomAround(uiPos, boardLocal, nextScale);
             this.boardViewScale = this.boardViewport.scale;
             this.refreshBoardZoomControl?.();
+            this.pulseBoardZoomControlActivity?.();
         },
 
         beginPinchFromActiveTouches(): boolean {

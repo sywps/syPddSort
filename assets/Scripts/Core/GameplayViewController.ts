@@ -1,12 +1,10 @@
 import {
-    AudioMgr,
     BOARD_PLACE_HIT_CELL_RATIO,
     BOARD_PLACE_HIT_MIN_UI,
     BOARD_SELECT_HIT_CELL_RATIO,
     BOARD_SELECT_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_CELL_RATIO,
     BOARD_SLOT_PLACE_HIT_MIN_UI,
-    Button,
     DEFAULT_CELL_SIZE,
     Graphics,
     Label,
@@ -426,15 +424,10 @@ export class GameplayViewController {
             this.buildLightweightTopBar(root);
             return;
         }
-        const gear = runtime.requireUiChild(root, 'Settings', 'TopBarGroup/Settings');
-        const settingsIcon = runtime.requireUiChild(gear, 'SettingsIcon', 'Settings/SettingsIcon');
-        this.requireSceneSpriteFrame(settingsIcon, 'Settings/SettingsIcon');
-        gear.getComponent(Button) || gear.addComponent(Button);
-        gear.targetOff(runtime);
-        gear.on(Button.EventType.CLICK, () => {
-            AudioMgr.inst.play('button');
-            runtime.openSettingsPanel();
-        }, runtime);
+        if (typeof runtime.syncTopHud !== 'function') {
+            throw new Error('[TopHud] runtime missing syncTopHud() for Gameplay scene');
+        }
+        runtime.syncTopHud(root, 'game');
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
         this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
@@ -455,15 +448,10 @@ export class GameplayViewController {
     buildLightweightTopBar(root: Node) {
         const runtime = this.runtime;
         root.active = true;
-        const gearBtn = runtime.requireUiChild(root, 'Settings', 'TopBarGroup/Settings');
-        gearBtn.getComponent(Button) || gearBtn.addComponent(Button);
-        gearBtn.targetOff(runtime);
-        gearBtn.on(Button.EventType.CLICK, () => {
-            AudioMgr.inst.play('button');
-            runtime.openSettingsPanel();
-        }, runtime);
-        const settingsIcon = runtime.requireUiChild(gearBtn, 'SettingsIcon', 'Settings/SettingsIcon');
-        this.requireSceneSpriteFrame(settingsIcon, 'Settings/SettingsIcon');
+        if (typeof runtime.syncTopHud !== 'function') {
+            throw new Error('[TopHud] runtime missing syncTopHud() for lightweight Gameplay scene');
+        }
+        runtime.syncTopHud(root, 'game');
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
         this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');

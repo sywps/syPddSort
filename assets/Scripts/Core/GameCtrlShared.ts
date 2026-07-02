@@ -3,7 +3,7 @@
  */
 
 import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, Slider,
     Vec2, Vec3, SpriteFrame, JsonAsset, assetManager,
     Button, Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, NodePool, sp,
@@ -605,7 +605,7 @@ class BoardViewportController {
 }
 
 export {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, Slider,
     Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, sp,

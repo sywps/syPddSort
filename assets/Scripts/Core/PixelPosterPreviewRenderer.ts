@@ -66,39 +66,30 @@ function getBaseColor(colorId: number, grayscale: boolean): Color {
     return new Color(softened, softened, softened, 190);
 }
 
-function drawRoundedCell(g: Graphics, x: number, y: number, size: number, color: Color, mode: PixelPosterPreviewMode): void {
-    const drawShadow = mode !== 'list' && size >= 10;
-    const drawDetail = size >= (mode === 'list' ? 14 : 12);
-    const radius = Math.max(0.35, Math.min(1.25, size * 0.055));
-    const bleed = Math.max(0.45, Math.min(0.95, size * 0.045));
-    const bodyX = x - bleed;
-    const bodyY = y - bleed;
-    const bodySize = size + bleed * 2;
-
-    if (drawShadow) {
-        g.fillColor = new Color(0, 0, 0, mode === 'win' ? 14 : 10);
-        g.roundRect(bodyX + size * 0.025, bodyY - size * 0.025, bodySize, bodySize, radius);
-        g.fill();
-    }
+function drawRoundedCell(g: Graphics, x: number, y: number, size: number, color: Color, _mode: PixelPosterPreviewMode): void {
+    const radius = Math.max(0.5, size * 0.04);
+    const seamBleed = 0.35;
 
     g.fillColor = color;
-    g.roundRect(bodyX, bodyY, bodySize, bodySize, radius);
+    g.roundRect(x, y, size + seamBleed, size + seamBleed, radius);
     g.fill();
 
-    if (!drawDetail) return;
+    if (size < 7) return;
 
-    const detailRadius = Math.max(0.2, Math.min(radius, size * 0.035));
-    const highlightH = Math.max(0.5, size * 0.07);
-    g.fillColor = new Color(255, 255, 255, mode === 'list' ? 8 : 12);
-    g.roundRect(x + size * 0.24, y + size * 0.68, size * 0.52, highlightH, detailRadius);
+    g.fillColor = new Color(255, 255, 255, 26);
+    g.roundRect(
+        x + size * 0.18,
+        y + size * 0.16,
+        size * 0.64,
+        size * 0.16,
+        radius,
+    );
     g.fill();
+}
 
-    if (mode === 'list') return;
-
-    const shadeH = Math.max(0.5, size * 0.06);
-    g.fillColor = new Color(0, 0, 0, mode === 'win' ? 7 : 6);
-    g.roundRect(x + size * 0.22, y + size * 0.16, size * 0.56, shadeH, detailRadius);
-    g.fill();
+export function releasePixelPosterPreviewTree(root: Node | null): void {
+    void root;
+    // Graphics previews do not own generated textures; keep the cleanup hook for existing callers.
 }
 
 export function renderPixelPosterPreview(

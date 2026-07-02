@@ -68,6 +68,10 @@ const LS_BACKGROUND_SKIN_AD_PROGRESS = 'pdd.skin.background.adProgress';
 const LS_BACKGROUND_SKIN_REFRESH_SEQ = 'pdd.skin.background.refreshSeq';
 const LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE = 'pdd.skin.background.equippedRow';
 const DEFAULT_BACKGROUND_SKIN_ID = 1000;
+const BACKGROUND_SKIN_RESET_VERSION = 1;
+const LS_BACKGROUND_SKIN_RESET_VERSION = 'pdd.skin.background.resetVersion';
+const DEFAULT_OWNED_BACKGROUND_SKIN_IDS = [1000, 1001];
+const DEFAULT_OWNED_BACKGROUND_SKIN_ID_SET = new Set<number>(DEFAULT_OWNED_BACKGROUND_SKIN_IDS);
 const LOCAL_BACKGROUND_SKIN_SHORT_ID_SET = new Set<number>([2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 16, 21, 22, 99]);
 const SKIN_PANEL_NAME = 'BackgroundSkinPanelOverlay';
 const SKIN_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/BackgroundSkinPanel';
@@ -653,7 +657,7 @@ export function installSkinBackgroundModule(target: any): void {
             const next = this.getBackgroundSkinAdProgress(safeId) + 1;
             progress[String(safeId)] = next;
             this._writeBackgroundSkinAdProgress(progress);
-            this.syncBackgroundSkinCloudState?.();
+            this.queueCloudGameStateSync?.();
             return next;
         },
 
@@ -797,12 +801,50 @@ export function installSkinBackgroundModule(target: any): void {
             sys.localStorage.setItem(LS_OWNED_BACKGROUND_SKINS, JSON.stringify(normalizeBackgroundSkinIdList(Array.from(ids))));
         },
 
+        _readBackgroundSkinResetVersion(): number {
+            return Math.max(0, Math.floor(Number(sys.localStorage.getItem(LS_BACKGROUND_SKIN_RESET_VERSION)) || 0));
+        },
+
+        _writeBackgroundSkinResetVersion(version: number): void {
+            sys.localStorage.setItem(LS_BACKGROUND_SKIN_RESET_VERSION, String(Math.max(0, Math.floor(Number(version) || 0))));
+        },
+
+        _applyBackgroundSkinResetMigration(syncCloud: boolean = true): boolean {
+            if (this._readBackgroundSkinResetVersion() >= BACKGROUND_SKIN_RESET_VERSION) return false;
+            const owned = new Set<number>(DEFAULT_OWNED_BACKGROUND_SKIN_IDS);
+            this._writeBackgroundSkinOwnedIds(owned);
+            this._writeBackgroundSkinAdProgress({});
+            const equippedState = this._readEquippedBackgroundSkinState();
+            const equippedId = toBackgroundSkinStorageId(equippedState.id);
+            if (equippedId && !DEFAULT_OWNED_BACKGROUND_SKIN_ID_SET.has(equippedId)) {
+                this._writeEquippedBackgroundSkinState(DEFAULT_BACKGROUND_SKIN_ID, Date.now());
+                this._equippedBackgroundSkinId = 0;
+                this._equippedBackgroundSkinFrame = null;
+                this._clearEquippedBackgroundSkinRowCache();
+                this._markBackgroundSkinChanged();
+            }
+            this._writeBackgroundSkinResetVersion(BACKGROUND_SKIN_RESET_VERSION);
+            if (syncCloud) this.syncBackgroundSkinCloudState?.();
+            return true;
+        },
+
         _syncDefaultOwnedBackgroundSkins(config: BackgroundSkinConfig): void {
+            this._applyBackgroundSkinResetMigration(false);
             const owned = this._readBackgroundSkinOwnedIds();
+            let changed = false;
             for (const row of config.rows) {
-                if (row.isDefault || row.unlockType === 'default' || row.unlockType === 'free' || this.isBackgroundSkinLevelUnlocked(row) || this.isBackgroundSkinAdUnlocked(row)) owned.add(row.id);
+                if (
+                    row.isDefault
+                    || row.unlockType === 'default'
+                    || row.unlockType === 'free'
+                    || this.isBackgroundSkinAdUnlocked(row)
+                ) {
+                    if (!owned.has(row.id)) changed = true;
+                    owned.add(row.id);
+                }
             }
             this._writeBackgroundSkinOwnedIds(owned);
+            if (changed) this.syncBackgroundSkinCloudState?.();
         },
 
         isBackgroundSkinOwned(id: number): boolean {
@@ -811,7 +853,7 @@ export function installSkinBackgroundModule(target: any): void {
             if (!safeId) return false;
             const row = config?.byId.get(safeId);
             if (row?.isDefault || row?.unlockType === 'default' || row?.unlockType === 'free') return true;
-            if (row && (this.isBackgroundSkinLevelUnlocked(row) || this.isBackgroundSkinAdUnlocked(row))) return true;
+            if (row && this.isBackgroundSkinAdUnlocked(row)) return true;
             return this._readBackgroundSkinOwnedIds().has(safeId);
         },
 
@@ -822,21 +864,30 @@ export function installSkinBackgroundModule(target: any): void {
             const hadOwned = owned.has(safeId);
             owned.add(safeId);
             this._writeBackgroundSkinOwnedIds(owned);
-            if (!hadOwned) this.queueCloudGameStateSync?.();
+            if (!hadOwned) this.syncBackgroundSkinCloudState?.();
             return true;
         },
 
         captureBackgroundSkinCloudState(): Record<string, unknown> {
+            this._applyBackgroundSkinResetMigration(false);
             return {
                 ownedBackgroundSkinIds: this.getOwnedBackgroundSkinIds(),
                 backgroundSkinAdProgress: normalizeBackgroundSkinAdProgress(this._readBackgroundSkinAdProgress()),
                 equippedBackgroundSkinId: this.getCloudSyncEquippedBackgroundSkinId(),
                 equippedBackgroundSkinUpdatedAt: this.getCloudSyncEquippedBackgroundSkinUpdatedAt(),
+                backgroundSkinResetVersion: Math.max(this._readBackgroundSkinResetVersion(), BACKGROUND_SKIN_RESET_VERSION),
             };
         },
 
         applyBackgroundSkinCloudState(gameState: Record<string, unknown> | null | undefined, applyEquipped: boolean = true): void {
             if (!gameState || typeof gameState !== 'object') return;
+            const cloudResetVersion = Math.max(0, Math.floor(Number(gameState.backgroundSkinResetVersion) || 0));
+            if (cloudResetVersion < BACKGROUND_SKIN_RESET_VERSION) {
+                this._applyBackgroundSkinResetMigration(true);
+                return;
+            }
+            this._applyBackgroundSkinResetMigration(false);
+            this._writeBackgroundSkinResetVersion(cloudResetVersion);
             const owned = this._readBackgroundSkinOwnedIds();
             for (const id of normalizeBackgroundSkinIdList(gameState.ownedBackgroundSkinIds)) owned.add(id);
             for (const id of normalizeBackgroundSkinIdList(gameState.backgroundSkinOwnedIds)) owned.add(id);
@@ -845,9 +896,12 @@ export function installSkinBackgroundModule(target: any): void {
             if (Object.keys(cloudProgress).length > 0) {
                 this._writeBackgroundSkinAdProgress(mergeBackgroundSkinAdProgress(this._readBackgroundSkinAdProgress(), cloudProgress));
             }
+            if (this._backgroundSkinConfigCache) {
+                this._syncDefaultOwnedBackgroundSkins(this._backgroundSkinConfigCache);
+            }
             if (applyEquipped) {
                 this.applyCloudBackgroundSkinState(
-                    Array.from(owned),
+                    this.getOwnedBackgroundSkinIds(),
                     gameState.equippedBackgroundSkinId,
                     gameState.equippedBackgroundSkinUpdatedAt,
                 );
@@ -918,6 +972,7 @@ export function installSkinBackgroundModule(target: any): void {
             if (typeof this.queueCloudGameStateSync === 'function') {
                 this.queueCloudGameStateSync();
             }
+            void UserStateSyncMgr.inst.flushPendingSave();
         },
 
         _readBackgroundSkinRefreshSeq(): number {
@@ -1537,20 +1592,27 @@ export function installSkinBackgroundModule(target: any): void {
                 const equippedId = this.getEquippedBackgroundSkinId();
                 const action = requireSkinPanelChild(card, 'ActionBtn', card.name);
                 const label = requireSkinPanelLabel(action, 'ActionLbl', card.name + '/ActionBtn');
+                const adIcon = requireSkinPanelChild(action, 'AdIcon', card.name + '/ActionBtn');
+                requireSkinPanelSprite(action, 'AdIcon', card.name + '/ActionBtn');
+                const setActionVisual = (showAdIcon: boolean, text: string = '') => {
+                    label.node.active = !showAdIcon;
+                    adIcon.active = showAdIcon;
+                    label.string = text;
+                };
                 let actionLabel = '';
                 let canWatchAd = false;
+                let showAdIcon = false;
                 if (owned) {
                     actionLabel = skin.id === equippedId ? '已使用' : '使用';
                 } else if (skin.unlockType === 'level') {
                     actionLabel = '通关' + skin.unlockValue + '关';
                 } else if (skin.unlockType === 'ad') {
-                    const adProgress = Math.min(this.getBackgroundSkinAdProgress(skin.id), Math.max(1, skin.unlockValue));
-                    actionLabel = '看广告 ' + adProgress + '/' + Math.max(1, skin.unlockValue);
+                    showAdIcon = true;
                     canWatchAd = true;
                 } else {
                     actionLabel = '未获得';
                 }
-                label.string = actionLabel;
+                setActionVisual(showAdIcon, actionLabel);
                 action.targetOff(this);
                 const actionButton = requireSkinPanelButton(action, card.name + '/ActionBtn');
                 const isEquipped = owned && skin.id === equippedId;
@@ -1560,11 +1622,11 @@ export function installSkinBackgroundModule(target: any): void {
                         if (consumeSuppressedClick()) return;
                         const button = action.getComponent(Button);
                         if (button) button.interactable = false;
-                        label.string = '加载中';
+                        setActionVisual(false, '加载中');
                         this.equipBackgroundSkin(skin.id, (ok) => {
                             if (ok) refreshActions();
                             else {
-                                label.string = '使用';
+                                setActionVisual(false, '使用');
                                 const activeButton = action.getComponent(Button);
                                 if (activeButton) activeButton.interactable = true;
                             }
@@ -1575,7 +1637,7 @@ export function installSkinBackgroundModule(target: any): void {
                         if (consumeSuppressedClick()) return;
                         const button = action.getComponent(Button);
                         if (button) button.interactable = false;
-                        label.string = '广告中';
+                        setActionVisual(true);
                         this.watchBackgroundSkinUnlockAd(skin, () => {
                             refreshActions();
                         });

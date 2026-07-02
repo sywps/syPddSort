@@ -662,7 +662,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -3.763,
+      "x": 0,
       "y": 7.481,
       "z": 0
     },
@@ -739,7 +739,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "时间不够啦",
+    "_string": "快完成啦",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 50,
@@ -1419,7 +1419,7 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -59.314,
+      "x": -40.282,
       "y": 6.964,
       "z": 0
     },
@@ -1605,7 +1605,7 @@
       "b": 179,
       "a": 255
     },
-    "_string": "加时               并继续游戏",
+    "_string": "加时               继续游戏",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 40,
@@ -1660,8 +1660,6 @@
       "__id__": 0
     },
     "fileId": "b9nSvUDwhNYoQImjpasf1j",
-    "instance": null,
-    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -2302,8 +2300,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -93.711,
-      "y": 5.143,
+      "x": -108.14,
+      "y": 7.758,
       "z": 0
     },
     "_lrot": {
@@ -2343,7 +2341,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 58,
+      "width": 50,
       "height": 42
     },
     "_anchorPoint": {
@@ -2441,8 +2439,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 35.207,
-      "y": 9.4,
+      "x": 45.025,
+      "y": 9.214,
       "z": 0
     },
     "_lrot": {
@@ -2482,8 +2480,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 190,
-      "height": 100
+      "width": 231.6708984375,
+      "height": 92.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2518,14 +2516,14 @@
       "b": 255,
       "a": 255
     },
-    "_string": "复活",
+    "_string": "+300秒",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 70,
     "_fontSize": 70,
     "_fontFamily": "Arial",
-    "_lineHeight": 58,
-    "_overflow": 2,
+    "_lineHeight": 70,
+    "_overflow": 0,
     "_enableWrapText": false,
     "_font": null,
     "_isSystemFontUsed": true,
@@ -2538,9 +2536,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 74,
-      "g": 99,
-      "b": 182,
+      "r": 12,
+      "g": 100,
+      "b": 23,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -2610,7 +2608,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 412.63891936582183,
-      "height": 172.70454567977086
+      "height": 185
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",

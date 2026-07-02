@@ -203,11 +203,18 @@ export class GameSceneRuntimeController {
 
     private bindEarlyGameSettingsButton(): void {
         const screenRoot = this.runtime.requireCanvasUiRoot('ScreenRoot');
-        const settingsButton = screenRoot
+        const topBar = screenRoot
             .getChildByName('GameplayRoot')
             ?.getChildByName('GameplayFixedRoot')
-            ?.getChildByName('TopBarGroup')
-            ?.getChildByName('Settings') || null;
+            ?.getChildByName('TopBarGroup') || null;
+        if (topBar?.isValid && typeof this.runtime.syncTopHud === 'function') {
+            this.runtime.syncTopHud(topBar, 'game');
+        }
+        const settingsButton = topBar
+            ?.getChildByName('TopHud')
+            ?.getChildByName('SettingsButton')
+            || topBar?.getChildByName('Settings')
+            || null;
         if (!settingsButton?.isValid) return;
         settingsButton.getComponent(Button) || settingsButton.addComponent(Button);
         settingsButton.targetOff(this.runtime);

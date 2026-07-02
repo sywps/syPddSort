@@ -1,6 +1,7 @@
 import {
     AudioMgr,
     Button,
+    Color,
     Label,
     Layers,
     LS_SKILL_BROOM_USED,
@@ -15,14 +16,27 @@ import {
     UITransform,
     Vec3,
 } from './GameCtrlShared';
-import { shouldShowGameplaySkillArea } from './SlotOnboardingPolicy';
+import { isGameplaySkillUnlocked, shouldShowGameplaySkillArea } from './SlotOnboardingPolicy';
+
+type GameplaySkillKind = 'freeze' | 'brush' | 'magnet';
+type GameplaySkillConfig = {
+    kind: GameplaySkillKind;
+    label: string;
+    unlockLevel: number;
+    lsKey: string;
+    preCheck?: () => boolean;
+    handler: (timerAlreadyPaused?: boolean) => void;
+};
 
 export class GameplaySkillUiController {
     constructor(private readonly runtime: any) {}
 
     private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const;
+    private readonly skillSpriteOriginalColors = new WeakMap<Sprite, Color>();
+    private readonly skillLabelOriginalColors = new WeakMap<Label, Color>();
+    private readonly skillDisabledDimRatio = 0.68;
 
-    private getSkillShellName(kind: 'freeze' | 'brush' | 'magnet'): string {
+    private getSkillShellName(kind: GameplaySkillKind): string {
         if (kind === 'freeze') return 'SkillFreeze';
         if (kind === 'brush') return 'SkillBrush';
         return 'SkillMagnet';
@@ -128,9 +142,123 @@ export class GameplaySkillUiController {
         return adPlayIcon;
     }
 
+    private isSkillRuntimeAvailable(skill: Pick<GameplaySkillConfig, 'kind' | 'preCheck'>): boolean {
+        if (skill.kind === 'brush' && skill.preCheck && !skill.preCheck()) {
+            return false;
+        }
+        return true;
+    }
+
+    private cloneColor(color: Color): Color {
+        return new Color(color.r, color.g, color.b, color.a);
+    }
+
+    private dimSkillColor(color: Color): Color {
+        return new Color(
+            Math.round(color.r * this.skillDisabledDimRatio),
+            Math.round(color.g * this.skillDisabledDimRatio),
+            Math.round(color.b * this.skillDisabledDimRatio),
+            color.a,
+        );
+    }
+
+    private getOriginalSpriteColor(sprite: Sprite): Color {
+        let original = this.skillSpriteOriginalColors.get(sprite);
+        if (!original) {
+            original = this.cloneColor(sprite.color);
+            this.skillSpriteOriginalColors.set(sprite, original);
+        }
+        return original;
+    }
+
+    private getOriginalLabelColor(label: Label): Color {
+        let original = this.skillLabelOriginalColors.get(label);
+        if (!original) {
+            original = this.cloneColor(label.color);
+            this.skillLabelOriginalColors.set(label, original);
+        }
+        return original;
+    }
+
+    private restoreSkillNodeVisual(node: Node): void {
+        const sprite = node.getComponent(Sprite);
+        if (sprite) {
+            sprite.color = this.cloneColor(this.getOriginalSpriteColor(sprite));
+            sprite.grayscale = false;
+        }
+        const label = node.getComponent(Label);
+        if (label) {
+            label.color = this.cloneColor(this.getOriginalLabelColor(label));
+        }
+        for (const child of node.children) {
+            this.restoreSkillNodeVisual(child);
+        }
+    }
+
+    private applySkillDisabledVisual(shell: Node, disabled: boolean): void {
+        this.restoreSkillNodeVisual(shell);
+        if (!disabled) return;
+        const spriteTargets = [shell, shell.getChildByName('ToolIcon')];
+        for (const target of spriteTargets) {
+            const sprite = target?.getComponent(Sprite);
+            if (sprite) {
+                sprite.grayscale = false;
+                sprite.color = this.dimSkillColor(this.getOriginalSpriteColor(sprite));
+            }
+        }
+        const label = shell.getChildByName('Label')?.getComponent(Label);
+        if (label) {
+            label.color = this.dimSkillColor(this.getOriginalLabelColor(label));
+        }
+    }
+
+    private applySkillRuntimeAvailability(shell: Node, available: boolean): void {
+        const opacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
+        opacity.opacity = 255;
+        this.applySkillDisabledVisual(shell, !available);
+        const button = shell.getComponent(Button);
+        if (button) {
+            button.enabled = available;
+        }
+    }
+
+    private useSkillFromAdGrant(skill: GameplaySkillConfig): boolean {
+        const runtime = this.runtime;
+        if (!this.isSkillRuntimeAvailable(skill)) return false;
+        if (runtime.isPlacementVisualBusy?.()) return false;
+        if (runtime.isGameEnd || runtime._skillActive) return false;
+        if (runtime.isSelected || runtime.currentBlock) {
+            runtime.cancelSelection();
+        }
+        const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;
+        if (skill.preCheck && !skill.preCheck()) {
+            if (timerPausedForFinalSecond) runtime.resumeTimerForProp();
+            return false;
+        }
+        runtime.markDynamicCountdownAssisted?.();
+        skill.handler(timerPausedForFinalSecond);
+        return true;
+    }
+
+    syncSkillButtonRuntimeStates() {
+        const runtime = this.runtime;
+        if (!runtime.levelData || runtime.isGameEnd) return;
+        if (typeof runtime.getGameplayBottomHudChild !== 'function') return;
+        const root = runtime.getGameplayBottomHudChild('SkillArea');
+        if (!root?.isValid) return;
+        const currentLevel = runtime.getActiveLogicalLevelId();
+        const entryMode = runtime._activeGameplayEntryMode
+            || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
+        if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) return;
+        if (!isGameplaySkillUnlocked(currentLevel, entryMode, SKILL_UNLOCK_BROOM)) return;
+        const brushShell = root.getChildByName('SkillBrush');
+        if (!brushShell?.isValid || !brushShell.active) return;
+        this.applySkillRuntimeAvailability(brushShell, runtime.slotHasBeans?.() === true);
+    }
+
     buildSkillButtons(root: Node) {
         const runtime = this.runtime;
-        const skills = [
+        const skills: GameplaySkillConfig[] = [
             { kind: 'magnet' as const, label: '\u6d88\u8272', unlockLevel: SKILL_UNLOCK_MAGNET, lsKey: LS_SKILL_MAGNET_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearColor(timerAlreadyPaused) },
             { kind: 'brush' as const, label: '\u6e05\u7a7a\u69fd\u4f4d', unlockLevel: SKILL_UNLOCK_BROOM, lsKey: LS_SKILL_BROOM_USED, preCheck: () => runtime.slotHasBeans(), handler: (timerAlreadyPaused?: boolean) => runtime.useSkillClearSlot(timerAlreadyPaused) },
             { kind: 'freeze' as const, label: '\u51bb\u7ed3\u65f6\u95f4', unlockLevel: SKILL_UNLOCK_FREEZE, lsKey: LS_SKILL_FREEZE_USED, handler: (timerAlreadyPaused?: boolean) => runtime.useSkillFreeze(timerAlreadyPaused) },
@@ -158,8 +286,9 @@ export class GameplaySkillUiController {
             const button = shell.getComponent(Button) || shell.addComponent(Button);
             shell.targetOff(runtime);
 
-            if (currentLevel < skill.unlockLevel) {
+            if (!isGameplaySkillUnlocked(currentLevel, entryMode, skill.unlockLevel)) {
                 shellOpacity.opacity = 138;
+                this.applySkillDisabledVisual(shell, false);
                 this.updateCountBadge(shell, 0, false);
                 button.enabled = true;
                 shell.on(Button.EventType.CLICK, () => {
@@ -169,14 +298,17 @@ export class GameplaySkillUiController {
                 continue;
             }
 
+            const runtimeAvailable = this.isSkillRuntimeAvailable(skill);
             shellOpacity.opacity = 255;
             const inventoryCount = runtime.getPropCount(skill.kind);
             this.updateCountBadge(shell, inventoryCount, true);
 
             const handler = skill.handler;
             const preCheck = skill.preCheck;
-            button.enabled = true;
+            button.enabled = runtimeAvailable;
+            this.applySkillRuntimeAvailability(shell, runtimeAvailable);
             shell.on(Button.EventType.CLICK, () => {
+                if (!this.isSkillRuntimeAvailable(skill)) return;
                 AudioMgr.inst.play('button');
                 if (runtime.isPlacementVisualBusy?.()) return;
                 if (runtime.isGameEnd || runtime._skillActive) return;
@@ -184,12 +316,21 @@ export class GameplaySkillUiController {
                     runtime.cancelSelection();
                 }
                 const inventoryCount = runtime.getPropCount(skill.kind);
+                if (skill.kind === 'freeze'
+                    && inventoryCount <= 0
+                    && runtime.tryUseAdRewardFreezeRescue?.(() => this.rebuildSkillButtonsUI())) {
+                    return;
+                }
+                if (skill.kind === 'freeze') {
+                    runtime.markAdRewardFreezeEntryClicked?.();
+                }
                 if (inventoryCount <= 0) {
                     runtime.pauseTimerForProp();
                     const opened = typeof runtime.openToolAcquirePanel === 'function'
                         ? runtime.openToolAcquirePanel(skill.kind, {
                             resumeTimerOnClose: true,
                             onInventoryChanged: () => this.rebuildSkillButtonsUI(),
+                            onAdGrant: () => this.useSkillFromAdGrant(skill),
                         })
                         : false;
                     if (!opened) {

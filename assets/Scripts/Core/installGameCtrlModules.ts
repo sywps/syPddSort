@@ -13,6 +13,7 @@ import { installSceneHomeEntryModule } from './GameCtrlModules/SceneHomeEntryMod
 import { installFriendRankModule } from './GameCtrlModules/FriendRankModule';
 import { installGameplaySlotSkillModule } from './GameCtrlModules/GameplaySlotSkillModule';
 import { installGameplaySkillWandModule } from './GameCtrlModules/GameplaySkillWandModule';
+import { installGameplayAdRewardHintModule } from './GameCtrlModules/GameplayAdRewardHintModule';
 import { installPlayerMetaStateModule } from './GameCtrlModules/PlayerMetaStateModule';
 import { installGuideLeaderboardModule } from './GameCtrlModules/GuideLeaderboardModule';
 import { installSettlementHudModule } from './GameCtrlModules/SettlementHudModule';
@@ -24,6 +25,7 @@ import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModul
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
 import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
 import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
+import { installTopHudModule } from './GameCtrlModules/TopHudModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -33,6 +35,7 @@ export function installGameCtrlModules(runtime: any): void {
     installPlayerMetaStateModule(runtime);
     installFirstLevelRouteModule(runtime);
     installAssetBootstrapModule(runtime);
+    installTopHudModule(runtime);
     installSkinBackgroundModule(runtime);
     installDynamicCountdownDdaModule(runtime);
     installHomeAdFlowModule(runtime);
@@ -43,6 +46,7 @@ export function installGameCtrlModules(runtime: any): void {
     installGameplayFreezeEffectModule(runtime);
     installGameplaySkillWandModule(runtime);
     installGameplaySkillMagnetModule(runtime);
+    installGameplayAdRewardHintModule(runtime);
     installBoardInputViewportModule(runtime);
     installBoardZoomControlModule(runtime);
     installGameplayPlacementFxModule(runtime);

@@ -170,7 +170,8 @@ export class GameplaySlotUiController {
             return Math.min(currentRows, 2);
         }
         const sceneRows = Math.max(1, Math.round((panelHeight - MAINLINE_SLOT_PANEL_EXTRA_HEIGHT - rowHeight) / spacing + 1));
-        return Math.min(currentRows, sceneRows);
+        const minSceneRows = currentRows >= 2 ? 2 : 1;
+        return Math.min(currentRows, Math.max(minSceneRows, sceneRows));
     }
 
     private getSlotAreaSceneScaleY(): number {
@@ -417,8 +418,13 @@ export class GameplaySlotUiController {
 
     private syncSlotUnlockButtonLabels(buttonNode: Node, unlockMode: SlotUnlockMode) {
         const adLabel = this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabel');
-        const freeLabel = this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabelFree');
+        const freeLabel = buttonNode.getChildByName('SlotUnlockLabelFree');
         const active = buttonNode.active;
+        if (!freeLabel?.isValid) {
+            adLabel.active = active;
+            return;
+        }
+        this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabelFree');
         adLabel.active = active && unlockMode === 'ad';
         freeLabel.active = active && unlockMode === 'free';
     }
@@ -608,6 +614,7 @@ export class GameplaySlotUiController {
         runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
         this.rebuildSlotNodes();
         runtime.renderSlots();
+        runtime.clearAdRewardSlotAddReminderVisuals?.();
     }
 
     tryUnlockSlotRow() {
@@ -631,7 +638,7 @@ export class GameplaySlotUiController {
             busyFlag: '_skillActive',
             waitForCloseBeforeComplete: true,
             onAdComplete: () => runtime.resumeTimerForProp(),
-            grantFailToast: '暂存槽解锁失败，请重试',
+            grantFailToast: '暂存槽增加失败，请重试',
         });
     }
 
