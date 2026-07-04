@@ -2676,13 +2676,29 @@ async function loadAvailableDatesFromStaticListing() {
     }
 }
 
-async function loadTrendSummaries(date) {
+function isCalendarDate(date) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+    if (!match) return false;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year
+        && parsed.getUTCMonth() === month - 1
+        && parsed.getUTCDate() === day;
+}
+
+async function loadTrendSummaries(date, currentSummary = null) {
+    if (currentSummary?.synthetic) {
+        return [currentSummary];
+    }
     const currentIndex = state.availableDates.indexOf(date);
     const dates = currentIndex >= 0
         ? state.availableDates.slice(Math.max(0, currentIndex - 6), currentIndex + 1)
         : [date];
+    const trendDates = dates.filter((itemDate) => itemDate === date || isCalendarDate(itemDate));
     const summaries = await Promise.all(
-        dates.map(async (itemDate) => {
+        trendDates.map(async (itemDate) => {
             try {
                 return await fetchJson(`${REPORT_ROOT}/${itemDate}/combined_summary.json`);
             } catch (_) {
@@ -2705,10 +2721,8 @@ async function loadReport(date) {
 
     const summaryUrl = `${REPORT_ROOT}/${date}/combined_summary.json`;
     try {
-        const [summary, trendSummaries] = await Promise.all([
-            fetchJson(summaryUrl),
-            loadTrendSummaries(date),
-        ]);
+        const summary = await fetchJson(summaryUrl);
+        const trendSummaries = await loadTrendSummaries(date, summary);
         await enrichAdFallbackFromBehavior(summary);
         state.summary = summary;
         state.trendSummaries = trendSummaries;

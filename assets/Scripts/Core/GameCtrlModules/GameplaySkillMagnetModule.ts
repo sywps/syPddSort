@@ -640,14 +640,27 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     const extraRenderTargets = finishTargets.filter((target) => !lockTargetKeys.has(`${target.row},${target.col}`));
                     const finishAfterLocks = () => {
                         if (extraRenderTargets.length > 0) this.renderBoardCells(extraRenderTargets);
+                        closeForcedSkillFeedbackAudio();
                         this.scheduleOnce(onDone, SKILL_DONE_DELAY);
                     };
                     this.onFlyDone(lockTargets, finishAfterLocks);
                 }
             };
             const playedFeedbackIndices = new Set<number>();
+            const queuedFeedbackCallbacks = new Set<() => void>();
+            let forcedSkillFeedbackAudioOpen = true;
             let nextForcedSkillFeedbackSoundAtMs = 0;
+            const closeForcedSkillFeedbackAudio = () => {
+                if (!forcedSkillFeedbackAudioOpen) return;
+                forcedSkillFeedbackAudioOpen = false;
+                for (const callback of queuedFeedbackCallbacks) {
+                    this.unschedule(callback);
+                }
+                queuedFeedbackCallbacks.clear();
+                AudioMgr.inst.stopSfx();
+            };
             const playFeedbackSoundNow = (sfx: SfxName) => {
+                if (!forcedSkillFeedbackAudioOpen) return;
                 if (sfx === 'place' && typeof this.playBoardTargetSettleSound === 'function') {
                     this.playBoardTargetSettleSound();
                 } else {
@@ -663,7 +676,12 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     playFeedbackSoundNow(sfx);
                     return;
                 }
-                this.scheduleOnce(() => playFeedbackSoundNow(sfx), delaySeconds);
+                const callback = () => {
+                    queuedFeedbackCallbacks.delete(callback);
+                    playFeedbackSoundNow(sfx);
+                };
+                queuedFeedbackCallbacks.add(callback);
+                this.scheduleOnce(callback, delaySeconds);
             };
             const playFeedback = (sfx: SfxName, feedbackIndex: number) => {
                 if (playedFeedbackIndices.has(feedbackIndex)) return;

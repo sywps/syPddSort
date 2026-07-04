@@ -51,7 +51,6 @@ const SCENE_HOME_SPRITE_FRAME_NAMES = new Set<string>(HOME_MENU_TEXTURE_NAMES);
 const SCENE_GAME_SPRITE_FRAME_NAMES = new Set<string>([
     ...GAMEPLAY_SLOT_TEXTURE_NAMES,
     ...SKILL_BUTTON_TEXTURE_NAMES,
-    ...BOARD_EFFECT_TEXTURE_NAMES,
 ]);
 const SHARED_UI_SPRITE_FRAME_NAMES = new Set<string>([
     ...POPUP_UI_TEXTURE_NAMES,
@@ -312,6 +311,7 @@ export function installAssetBootstrapModule(target: any): void {
             callback: (result: { ok: boolean; errorCode?: string; errorMessage?: string; missingTextureNames?: string[] }) => void,
             bundle?: Bundle | null,
         ) {
+            void bundle;
             const requiredTextureNames = this.getRequiredBoardEffectTextureNames();
             if (requiredTextureNames.length === 0) {
                 callback({ ok: true });
@@ -340,12 +340,8 @@ export function installAssetBootstrapModule(target: any): void {
                     });
                     return;
                 }
-                this._preloadBootstrapTextureSetStrict(requiredTextureNames, verifyLoaded);
+                this._preloadBootstrapTexturePathsStrict(BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, verifyLoaded, targetBundle);
             };
-            if (bundle) {
-                loadFromBundle(bundle);
-                return;
-            }
             this._withBootstrapBundle(loadFromBundle);
         },
 
@@ -436,6 +432,57 @@ export function installAssetBootstrapModule(target: any): void {
                     },
                 );
             });
+        },
+
+        _preloadBootstrapTexturePathsStrict(assetPaths: string[], callback: () => void, bundle?: Bundle | null) {
+            const paths = Array.from(new Set(assetPaths.filter((path) => !!path)));
+            if (paths.length === 0) {
+                callback();
+                return;
+            }
+            const loadFromBundle = (targetBundle: Bundle | null) => {
+                if (!targetBundle) {
+                    for (const assetPath of paths) {
+                        console.warn('[bootstrap] critical UI texture missing:', assetPath);
+                    }
+                    callback();
+                    return;
+                }
+                let remaining = paths.length;
+                const finishOne = () => {
+                    remaining -= 1;
+                    if (remaining > 0) return;
+                    callback();
+                };
+                for (const assetPath of paths) {
+                    const basePath = assetPath.endsWith('/spriteFrame') ? assetPath.slice(0, -'/spriteFrame'.length) : assetPath;
+                    const fallbackName = basePath.slice(basePath.lastIndexOf('/') + 1);
+                    this._loadSpriteFrameWithCandidates(
+                        (candidate, done) => targetBundle.load(candidate, SpriteFrame, done),
+                        this._getSpriteFrameLoadCandidates(assetPath),
+                        (sf) => {
+                            if (sf) {
+                                this._cacheSpriteFrame(sf, fallbackName, { scope: SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP });
+                                finishOne();
+                                return;
+                            }
+                            this._loadBootstrapImageSpriteFrame(targetBundle, fallbackName, (imageSf) => {
+                                if (imageSf) {
+                                    this._cacheSpriteFrame(imageSf, fallbackName, { scope: SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP });
+                                } else {
+                                    console.warn('[bootstrap] critical UI texture missing:', assetPath);
+                                }
+                                finishOne();
+                            });
+                        },
+                    );
+                }
+            };
+            if (bundle) {
+                loadFromBundle(bundle);
+                return;
+            }
+            this._withBootstrapBundle(loadFromBundle);
         },
 
         _loadSpriteFrameFromBootstrapThenRemote(imgName: string, callback: (sf: SpriteFrame | null) => void) {

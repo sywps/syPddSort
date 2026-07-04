@@ -46,6 +46,9 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/进度条',
 ]);
 const criticalGameAssetsPathMap = new Map([
+    ['Textures/UI/ad_rescue_gift_icon', 'Textures/UI/ad_rescue_gift_icon'],
+    ['Textures/UI/ad_rescue_gift_icon/texture', 'Textures/UI/ad_rescue_gift_icon/texture'],
+    ['Textures/UI/ad_rescue_gift_icon/spriteFrame', 'Textures/UI/ad_rescue_gift_icon/spriteFrame'],
     ['Audio/bgm', 'Audio/bgm'],
     ['Audio/pindd/select', 'Audio/pindd/select'],
     ['Audio/pindd/right_place_short', 'Audio/pindd/right_place_short'],
@@ -226,6 +229,48 @@ function findPathEntries(config) {
     return entries;
 }
 
+function buildUuidIndexLookup(config) {
+    const lookup = new Map();
+    const uuids = Array.isArray(config.uuids) ? config.uuids : [];
+    for (let index = 0; index < uuids.length; index += 1) {
+        const uuid = uuids[index];
+        if (typeof uuid !== 'string' || !uuid) continue;
+        lookup.set(uuid, index);
+        const decoded = decodeUuid(uuid);
+        lookup.set(decoded, index);
+        const separatorIndex = uuid.indexOf('@');
+        if (separatorIndex > 0) {
+            const base = uuid.slice(0, separatorIndex);
+            const suffix = uuid.slice(separatorIndex);
+            lookup.set(`${decodeUuid(base)}${suffix}`, index);
+        }
+    }
+    return lookup;
+}
+
+function normalizePackIndices(config, configPath) {
+    if (!config.packs || typeof config.packs !== 'object') return 0;
+    const uuidIndexLookup = buildUuidIndexLookup(config);
+    let normalized = 0;
+    for (const [packName, entries] of Object.entries(config.packs)) {
+        if (!Array.isArray(entries)) continue;
+        for (let index = 0; index < entries.length; index += 1) {
+            const entry = entries[index];
+            if (typeof entry === 'number') continue;
+            if (typeof entry === 'string') {
+                const mappedIndex = uuidIndexLookup.get(entry);
+                if (typeof mappedIndex === 'number') {
+                    entries[index] = mappedIndex;
+                    normalized += 1;
+                    continue;
+                }
+            }
+            fail(`bootstrap pack 引用无法解析: ${path.basename(configPath)} ${packName}[${index}]=${entry}`);
+        }
+    }
+    return normalized;
+}
+
 function appendAssetEntry(config, uuid, assetPath, typeName) {
     if (!Array.isArray(config.uuids)) config.uuids = [];
     if (!config.paths || typeof config.paths !== 'object') config.paths = {};
@@ -295,6 +340,49 @@ function appendVersionHash(config, kind, uuid, hash) {
     }
     versions.push(index, hash);
     return true;
+}
+
+function removeVersionHashByIndex(config, kind, targetIndex) {
+    const versions = config.versions && Array.isArray(config.versions[kind]) ? config.versions[kind] : [];
+    if (versions.length === 0) return false;
+    let removed = false;
+    const next = [];
+    for (let i = 0; i < versions.length; i += 2) {
+        if (versions[i] === targetIndex) {
+            removed = true;
+            continue;
+        }
+        next.push(versions[i], versions[i + 1]);
+    }
+    if (!removed) return false;
+    config.versions[kind] = next;
+    return true;
+}
+
+function ensureStableBootstrapPackImportFiles(config) {
+    if (!config.packs || typeof config.packs !== 'object' || !Array.isArray(config.uuids)) return { copied: 0, versionEntriesRemoved: 0 };
+    const importVersions = buildVersionHashByIndex(config, 'import');
+    let copied = 0;
+    let versionEntriesRemoved = 0;
+    for (const packName of Object.keys(config.packs)) {
+        const packIndex = config.uuids.indexOf(packName);
+        if (packIndex < 0) continue;
+        const hash = importVersions.get(packIndex);
+        const packDir = path.join(bootstrapOutputRoot, 'import', packName.slice(0, 2));
+        const stablePath = path.join(packDir, `${packName}.json`);
+        const versionedPath = hash ? path.join(packDir, `${packName}.${hash}.json`) : '';
+        if (!fs.existsSync(stablePath)) {
+            if (!versionedPath || !fs.existsSync(versionedPath)) {
+                fail('bootstrap pack import 缺失: ' + packName + (hash ? ' version=' + hash : ''));
+            }
+            fs.copyFileSync(versionedPath, stablePath);
+            copied += 1;
+        }
+        if (removeVersionHashByIndex(config, 'import', packIndex)) {
+            versionEntriesRemoved += 1;
+        }
+    }
+    return { copied, versionEntriesRemoved };
 }
 
 function findArtifactByDecodedUuid(bundleRoot, kind, decodedUuid) {
@@ -526,6 +614,9 @@ for (const entry of criticalGameAssets.entries) {
 
 let addedEntries = 0;
 let addedCriticalEntries = 0;
+let normalizedPackEntries = 0;
+let stablePackImportsCopied = 0;
+let stablePackImportVersionsRemoved = 0;
 for (const { configPath, config } of configRecords) {
     for (const asset of assets) {
         if (appendAssetEntry(config, asset.uuid, asset.assetPath, asset.typeName)) addedEntries += 1;
@@ -547,7 +638,11 @@ for (const { configPath, config } of configRecords) {
             }
         }
     }
+    normalizedPackEntries += normalizePackIndices(config, configPath);
+    const stablePackResult = ensureStableBootstrapPackImportFiles(config);
+    stablePackImportsCopied += stablePackResult.copied;
+    stablePackImportVersionsRemoved += stablePackResult.versionEntriesRemoved;
     writeJson(configPath, config);
 }
 
-console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, configs=${configPaths.length}`);
+console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, normalizedPackEntries=${normalizedPackEntries}, stablePackImports=${stablePackImportsCopied}, stablePackImportVersionsRemoved=${stablePackImportVersionsRemoved}, configs=${configPaths.length}`);

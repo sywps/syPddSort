@@ -150,8 +150,9 @@ export function installTutorialGuideModule(target: any): void {
                     const bounds = this.getGuidePromptNodeBounds(this.slotAreaNode || null, bubble);
                     return bounds ? { ...bounds, kind: 'slot' } : null;
                 }
-                if (step === 2) {
-                    const block = this.findBlockOnBoard?.(this._guideSecondColorId);
+                if (step === 0 || step === 2) {
+                    const colorId = step === 0 ? this._guideFirstColorId : this._guideSecondColorId;
+                    const block = this.findBlockOnBoard?.(colorId);
                     const bounds = this.getGuidePromptCellsBounds(block?.cells || [], bubble);
                     return bounds ? { ...bounds, kind: 'board' } : null;
                 }
@@ -181,14 +182,11 @@ export function installTutorialGuideModule(target: any): void {
             if (!bubbleUT) return;
             const target = this.getGuidePromptTargetBoundsForCurrentStep(bubble);
             if (!target) return;
-            const currentY = bubble.position.y;
             const bubbleHeight = bubbleUT.contentSize.height || 154;
             const targetGap = target.kind === 'slot' ? 44 : 16;
             const desiredY = target.top + targetGap + bubbleHeight / 2;
-            const nextY = target.kind === 'slot'
-                ? desiredY
-                : Math.min(currentY, desiredY);
-            bubble.setPosition(bubble.position.x, this.clampGuidePromptCenterY(bubble, nextY), bubble.position.z);
+            const nextY = this.clampGuidePromptCenterY(bubble, desiredY);
+            bubble.setPosition(bubble.position.x, nextY, bubble.position.z);
         },
 
         /** Step 0: 选中 firstColorId 豆豆块 */

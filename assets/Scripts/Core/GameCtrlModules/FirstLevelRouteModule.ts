@@ -1,5 +1,5 @@
 import {
-    _decorator, Component, Node, UITransform, Sprite, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, BlockInputEvents, Mask,
@@ -422,8 +422,13 @@ export function installFirstLevelRouteModule(target: any): void {
             return layer;
         },
 
-        showRemoteLoadFatalError(_levelPath: string, _errorCode: string, _errorMessage: string): void {
+        showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
+            runtimeWarn('[LevelDataLoad] fatal error hidden from user-facing panel', {
+                levelPath,
+                errorCode,
+                errorMessage,
+            });
             const visibleSize = this._getLoadingVisibleSize();
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
             const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates', 'OverlayRoot/OverlayTemplates');
@@ -457,7 +462,15 @@ export function installFirstLevelRouteModule(target: any): void {
 
         setRemoteLoadFatalChildActive(parent: Node, name: string, active: boolean): void {
             const node = this.requireUiChild(parent, name, `RemoteLoadFatalErrorCard/${name}`);
+            const label = node.getComponent(Label);
+            if (!label) {
+                throw new Error(`[SceneUI] RemoteLoadFatalErrorCard/${name} is missing Label`);
+            }
             node.active = active;
+        },
+
+        hideRemoteLoadFatalDiagnosticLabel(parent: Node, name: string): void {
+            this.setRemoteLoadFatalChildActive(parent, name, false);
         },
 
         classifyFirstLevelTouchTarget(worldPos: Vec3): string {
