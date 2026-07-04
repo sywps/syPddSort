@@ -253,79 +253,123 @@ export function installThemePanelFlowModule(target: any): void {
 
         // ==================== 缩放引导 ====================
         
-        startPinchGuide() {
+        startPinchGuide(options: { title?: string; subtitle?: string; autoCloseSeconds?: number } = {}) {
             if (this._pinchGuideLayer) return;
-            const root = this.node;
+            const title = options.title || '双指拖动可放大缩小图案';
+            const subtitle = options.subtitle || '';
+            const autoCloseSeconds = Math.max(0, Number(options.autoCloseSeconds ?? 8) || 0);
+            const requiredFrames = ['guide_hand', 'guide_bubble_frame'];
+            const guideHandFrame = this.getSF?.('guide_hand') || null;
+            const guideBubbleFrame = this.getSF?.('guide_bubble_frame') || null;
+            if (!guideHandFrame || !guideBubbleFrame) {
+                if (typeof this._ensureSpriteFramesByName === 'function') {
+                    this._ensureSpriteFramesByName(requiredFrames, () => this.startPinchGuide(options));
+                    return;
+                }
+                throw new Error('[pinch-guide] missing required SpriteFrames: guide_hand, guide_bubble_frame');
+            }
+            const root = typeof this.requireCanvasUiRoot === 'function'
+                ? this.requireCanvasUiRoot('OverlayRoot')
+                : this.node;
+            if (root.parent) {
+                root.setSiblingIndex(root.parent.children.length - 1);
+            }
+            const rootTransform = root.getComponent(UITransform);
+            const layerWidth = rootTransform?.contentSize.width || 720;
+            const layerHeight = rootTransform?.contentSize.height || 1280;
+            const visibleHalfH = layerHeight / 2;
             const layer = new Node('PinchGuide');
             root.addChild(layer);
-            layer.addComponent(UITransform).setContentSize(720, 1280);
+            layer.addComponent(UITransform).setContentSize(layerWidth, layerHeight);
             layer.layer = Layers.Enum.UI_2D;
+            layer.setSiblingIndex(Math.max(0, root.children.length - 1));
+            layer.addComponent(BlockInputEvents);
+            layer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+                event.propagationStopped = true;
+                this.closePinchGuide();
+            }, this);
             this._pinchGuideLayer = layer;
-        
-            // 气泡框（移到右上角，不遮挡棋盘）
+
             const bubble = new Node('Bubble');
             layer.addChild(bubble);
-            bubble.addComponent(UITransform).setContentSize(420, 120);
+            const bubbleText = title;
+            const hasSubtitle = subtitle.length > 0;
+            const bubbleWidth = hasSubtitle ? 430 : Math.max(560, Math.min(640, bubbleText.length * 40 + 120));
+            const bubbleHeight = hasSubtitle ? 132 : 128;
+            bubble.addComponent(UITransform).setContentSize(bubbleWidth, bubbleHeight);
             bubble.layer = Layers.Enum.UI_2D;
-            bubble.setPosition(0, 480, 0);
-            const bubbleGraphics = bubble.addComponent(Graphics);
-            bubbleGraphics.fillColor = new Color('#FFF8EE');
-            bubbleGraphics.roundRect(-210, -60, 420, 120, 16);
-            bubbleGraphics.fill();
-            bubbleGraphics.strokeColor = new Color('#D1B285');
-            bubbleGraphics.lineWidth = 2;
-            bubbleGraphics.roundRect(-210, -60, 420, 120, 16);
-            bubbleGraphics.stroke();
-        
-            // 提示文字
-            syncDynamicThemeLabelNode(bubble, 'PinchText', '双指捏合', 22, new Color('#5A4A3A'), 320, 32, 0, 16);
-            syncDynamicThemeLabelNode(bubble, 'PinchSub', '可以放大/缩小棋盘', 18, new Color('#8A7A6A'), 320, 28, 0, -16);
-        
-            // 捏合手势动画图标（两个手指圆圈）
-            const hand = new Node('PinchHand');
-            layer.addChild(hand);
-            hand.addComponent(UITransform).setContentSize(120, 80);
-            hand.layer = Layers.Enum.UI_2D;
-            hand.setPosition(0, 420);
-            const hg = hand.addComponent(Graphics);
-        
-            // 左圆圈
-            hg.fillColor = new Color(255, 255, 255, 180);
-            hg.strokeColor = new Color('#B08A60');
-            hg.lineWidth = 2;
-            hg.circle(-25, 0, 20);
-            hg.fill();
-            hg.stroke();
-            // 右圆圈
-            hg.circle(25, 0, 20);
-            hg.fill();
-            hg.stroke();
-            // 箭头（向内收缩）
-            hg.fillColor = new Color('#B08A60');
-            hg.moveTo(-10, 0); hg.lineTo(-2, -6); hg.lineTo(-2, 6); hg.close(); hg.fill();
-            hg.moveTo(10, 0); hg.lineTo(2, -6); hg.lineTo(2, 6); hg.close(); hg.fill();
-        
-            // 脉冲动画
-            tween(hand)
-                .to(0.8, { scale: new Vec3(1.1, 1.1, 1) }, { easing: 'sineInOut' })
-                .to(0.8, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineInOut' })
-                .union()
-                .repeatForever()
-                .start();
-        
-            // 8秒后自动关闭
-            this.scheduleOnce(() => {
+            const bubbleY = Math.min(visibleHalfH - 150, 430);
+            bubble.setPosition(0, bubbleY, 0);
+            this._applySpriteFrame(bubble, guideBubbleFrame, bubbleWidth, bubbleHeight, Sprite.Type.SLICED);
+
+            const titleLabel = syncDynamicThemeLabelNode(
+                bubble,
+                'PinchText',
+                bubbleText,
+                hasSubtitle ? 32 : 34,
+                new Color('#7162A2'),
+                bubbleWidth - 112,
+                hasSubtitle ? 40 : 64,
+                0,
+                hasSubtitle ? 18 : 22,
+            );
+            (titleLabel as Label & { isBold?: boolean }).isBold = true;
+            if (hasSubtitle) {
+                syncDynamicThemeLabelNode(bubble, 'PinchSub', subtitle, 22, new Color('#7162A2'), 330, 32, 0, -18);
+            }
+
+            const handSize = Math.round(GUIDE_HAND_SPRITE_SIZE * 1.15);
+            const gestureCenterY = bubble.position.y - 480;
+            const nearGap = 74;
+            const farGap = 250;
+            const setHandFingertip = (hand: Node, targetX: number, targetY: number, mirrored: boolean) => {
+                const offsetX = mirrored ? -GUIDE_HAND_FINGERTIP_OFFSET_X : GUIDE_HAND_FINGERTIP_OFFSET_X;
+                hand.setPosition(targetX - offsetX, targetY - GUIDE_HAND_FINGERTIP_OFFSET_Y, 0);
+            };
+            const createPinchHand = (name: string, mirrored: boolean, nearTipX: number, farTipX: number) => {
+                const hand = new Node(name);
+                layer.addChild(hand);
+                hand.addComponent(UITransform).setContentSize(handSize, handSize);
+                hand.layer = Layers.Enum.UI_2D;
+                this._applySpriteFrame(hand, guideHandFrame, handSize, handSize);
+                setHandFingertip(hand, nearTipX, gestureCenterY, mirrored);
+                hand.setScale(mirrored ? -1 : 1, 1, 1);
+                const nearPos = new Vec3(hand.position.x, hand.position.y, hand.position.z);
+                setHandFingertip(hand, farTipX, gestureCenterY, mirrored);
+                const farPos = new Vec3(hand.position.x, hand.position.y, hand.position.z);
+                hand.setPosition(nearPos);
+                tween(hand)
+                    .delay(0.18)
+                    .repeatForever(
+                        tween(hand)
+                            .to(0.58, { position: farPos }, { easing: 'sineOut' })
+                            .delay(0.36)
+                            .to(0.16, { position: nearPos }, { easing: 'quadIn' })
+                            .delay(0.16)
+                    )
+                    .start();
+            };
+            createPinchHand('PinchGuideLeftHand', true, -nearGap / 2, -farGap / 2);
+            createPinchHand('PinchGuideRightHand', false, nearGap / 2, farGap / 2);
+
+            this._pinchGuideAutoCloseHandler = () => {
                 if (this._pinchGuideLayer) this.closePinchGuide();
-            }, 8);
+            };
+            if (autoCloseSeconds > 0) {
+                this.scheduleOnce(this._pinchGuideAutoCloseHandler, autoCloseSeconds);
+            }
         },
 
         closePinchGuide() {
+            if (this._pinchGuideAutoCloseHandler) {
+                this.unschedule(this._pinchGuideAutoCloseHandler);
+                this._pinchGuideAutoCloseHandler = null;
+            }
             if (this._pinchGuideLayer) {
                 this._pinchGuideLayer.destroy();
             }
             this._pinchGuideLayer = null;
             sys.localStorage.setItem(LS_PINCH_GUIDE, '1');
-            this.unscheduleAllCallbacks(); // 清除自动关闭的定时器
         },
 
         // ==================== 内置关卡 ====================

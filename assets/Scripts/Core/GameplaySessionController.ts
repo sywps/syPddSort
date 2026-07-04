@@ -75,10 +75,14 @@ export class GameplaySessionController {
                 activeLogicalLevelId,
                 gameplayEntryMode,
                 maxSlotRows,
+                data,
             );
             runtime._activeSlotRowPolicy = slotPolicy;
             runtime.slotUnlockedRows = slotPolicy.unlockedRows;
-            runtime.slotRowCount = slotPolicy.rowCount;
+            const initialVisibleSlotRows = slotPolicy.unlockAllRowsAtOnce
+                ? Math.min(slotPolicy.rowCount, Math.max(1, slotPolicy.unlockedRows) + 1)
+                : slotPolicy.rowCount;
+            runtime.slotRowCount = initialVisibleSlotRows;
             runtime.initialSlotRowCount = runtime.slotRowCount;
             runtime.slotModel = new SlotModel(SLOTS_PER_ROW * runtime.slotRowCount);
             runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
@@ -195,11 +199,16 @@ export class GameplaySessionController {
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
             const tutorialGateLevelId = gameplayEntryMode === 'main' ? activeLogicalLevelId : 0;
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
-                const tutorialMode = tutorialGateLevelId === 1
+                const tutorialGuideMode = this.getLevelTutorialGuideMode(data);
+                const shouldStartZoomGuide = tutorialGuideMode === 'zoom'
+                    || (tutorialGateLevelId === 2 && useMainlineSlotGuideFlow);
+                const tutorialMode = shouldStartZoomGuide
+                    ? 'none'
+                    : (tutorialGateLevelId === 1
                     ? 'level_1'
                     : (tutorialGateLevelId === 3 && useMainlineSlotGuideFlow
                         ? 'level_exp_slot_intro'
-                        : 'none');
+                        : 'none'));
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
                     runtime.startTutorial(tutorialMode);
@@ -209,7 +218,13 @@ export class GameplaySessionController {
                 } else {
                     runtime.hideTutorialSkipGuidePrompt?.();
                 }
-                if (tutorialMode === 'none' && tutorialGateLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
+                if (tutorialMode === 'none' && shouldStartZoomGuide) {
+                    runtime.startPinchGuide({
+                        title: '双指拖动可放大缩小图案',
+                        subtitle: '',
+                        autoCloseSeconds: 0,
+                    });
+                } else if (tutorialMode === 'none' && tutorialGateLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
                     runtime.startPinchGuide();
                 }
             }
@@ -230,8 +245,28 @@ export class GameplaySessionController {
         levelId: number,
         entryMode: string,
         maxRows: number,
+        data?: LevelData,
     ): SlotRowPolicy {
         if (entryMode !== 'main') return policy;
+        const guideMode = this.getLevelTutorialGuideMode(data);
+        if (guideMode === 'zoom') {
+            return {
+                ...policy,
+                showSlotUnlockGuide: false,
+            };
+        }
+        if (guideMode === 'slot_expand_all') {
+            const rowCount = Math.min(maxRows, Math.max(policy.defaultRows, policy.rowCount));
+            return {
+                ...policy,
+                rowCount,
+                freeUnlockUntilRows: Math.max(policy.freeUnlockUntilRows, rowCount),
+                appendLockedRowAfterUnlock: false,
+                unlockMode: 'free',
+                showSkillArea: true,
+                showSlotUnlockGuide: false,
+            };
+        }
         if (levelId === 2) {
             return {
                 ...policy,
@@ -258,6 +293,11 @@ export class GameplaySessionController {
             showSkillArea: true,
             showSlotUnlockGuide: false,
         };
+    }
+
+    private getLevelTutorialGuideMode(data?: LevelData): string {
+        const mode = data?.tutorialGuide?.mode;
+        return typeof mode === 'string' ? mode : '';
     }
 
     private clearTutorialRuntimeState(runtime: any): void {

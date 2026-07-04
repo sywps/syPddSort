@@ -1336,29 +1336,47 @@ export function installSettlementHudModule(target: any): void {
 
         styleStarterGuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
             bubble.active = true;
-            lbl.string = this._guideMode === 'level_2'
+            const promptText = this._guideMode === 'level_2'
                 ? this.formatLevel2GuidePrompt(primaryText)
                 : this.formatLevel1GuidePrompt(primaryText);
+            lbl.string = promptText;
             const defaultColor = this._guidePromptDefaultLabelColor;
             if (defaultColor) {
                 lbl.color = new Color(defaultColor.r, defaultColor.g, defaultColor.b, defaultColor.a);
             }
+            const isLevel1Prompt = this._guideMode === 'level_1';
+            if (isLevel1Prompt || this._guideMode === 'level_2') {
+                lbl.color = new Color('#7162A2');
+            }
+            lbl.fontSize = isLevel1Prompt ? 44 : 36;
+            lbl.lineHeight = isLevel1Prompt ? 54 : 42;
+            (lbl as Label & { isBold?: boolean }).isBold = isLevel1Prompt;
             const bubbleUT = bubble.getComponent(UITransform);
             if (!bubbleUT) {
                 throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
             }
-            const h = bubbleUT.contentSize.height;
             const bg = bubble.getChildByName('BubbleBg');
             const bgSprite = bg?.getComponent(Sprite) || null;
             if (!bg?.isValid || !bgSprite?.spriteFrame) {
                 throw new Error('[guide] Game.scene is missing bubble sprite: OverlayRoot/TutorialGuidePrompt/BubbleBg');
             }
             bg.active = true;
+            const normalizedText = String(promptText || '').replace(/\s+/g, '');
+            const bubbleWidth = isLevel1Prompt
+                ? Math.max(340, Math.min(480, normalizedText.length * 48 + 136))
+                : Math.max(230, Math.min(390, normalizedText.length * 34 + 92));
+            const bubbleHeight = isLevel1Prompt ? 116 : 88;
+            bubbleUT.setContentSize(bubbleWidth, bubbleHeight);
+            const bgUT = bg.getComponent(UITransform);
+            if (bgUT) bgUT.setContentSize(bubbleWidth, bubbleHeight);
+            bgSprite.type = Sprite.Type.SLICED;
+            const labelUT = lbl.node.getComponent(UITransform);
+            if (labelUT) labelUT.setContentSize(Math.max(1, bubbleWidth - 72), isLevel1Prompt ? 64 : 44);
 
             const defaultY = Number.isFinite(this._guidePromptDefaultCenterY)
                 ? this._guidePromptDefaultCenterY
                 : bubble.position.y;
-            const y = this.getGuidePromptCenterY(defaultY, h);
+            const y = this.getGuidePromptCenterY(defaultY, bubbleHeight);
             bubble.setPosition(0, y, 0);
         },
 

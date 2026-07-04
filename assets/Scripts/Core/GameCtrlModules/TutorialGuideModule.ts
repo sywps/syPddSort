@@ -33,7 +33,12 @@ import type {
 export function installTutorialGuideModule(target: any): void {
     Object.assign(target, {
         styleLevel2GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
-            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro')
+            if (this._guideMode === 'level_exp_slot_intro'
+                && typeof this.styleLevelExpSlotIntroGuidePrompt === 'function') {
+                this.styleLevelExpSlotIntroGuidePrompt(_gb, bubble, lbl, primaryText);
+                return;
+            }
+            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
                 && typeof this.styleStarterGuidePrompt === 'function') {
                 this.styleStarterGuidePrompt(_gb, bubble, lbl, primaryText);
                 this.adjustStarterGuidePromptForCurrentStep?.(bubble);
@@ -58,6 +63,66 @@ export function installTutorialGuideModule(target: any): void {
             lbl.string = this.formatLevel2GuidePrompt(primaryText);
         },
 
+        styleLevelExpSlotIntroGuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, _primaryText: string) {
+            bubble.active = true;
+            const bg = bubble.getChildByName('BubbleBg');
+            const bgSprite = bg?.getComponent(Sprite) || null;
+            const bubbleUT = bubble.getComponent(UITransform);
+            const labelUT = lbl.node.getComponent(UITransform);
+            if (!bubbleUT || !labelUT || !bg?.isValid || !bgSprite) {
+                throw new Error('[guide] Game.scene is missing level-exp slot intro prompt nodes');
+            }
+
+            const primaryText = this.getConfiguredGuideCopy(0, '试试增加放置区空间，存放更多的钻石');
+            const emphasisText = this.getConfiguredGuideCopy(1, '本次直接免费全部解锁');
+            const bubbleWidth = 620;
+            const bubbleHeight = 158;
+            bubbleUT.setContentSize(bubbleWidth, bubbleHeight);
+            const bgUT = bg.getComponent(UITransform);
+            if (bgUT) bgUT.setContentSize(bubbleWidth, bubbleHeight);
+            bg.active = true;
+            bgSprite.type = Sprite.Type.SLICED;
+
+            lbl.string = primaryText;
+            lbl.fontSize = 34;
+            lbl.lineHeight = 42;
+            lbl.color = new Color('#7162A2');
+            lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
+            lbl.verticalAlign = Label.VerticalAlign.CENTER;
+            lbl.overflow = Label.Overflow.SHRINK;
+            lbl.enableWrapText = false;
+            (lbl as Label & { isBold?: boolean }).isBold = true;
+            labelUT.setContentSize(bubbleWidth - 72, 46);
+            lbl.node.setPosition(0, 36, 0);
+
+            let emphasisNode = bubble.getChildByName('PromptLabelEmphasis');
+            if (!emphasisNode) {
+                emphasisNode = new Node('PromptLabelEmphasis');
+                bubble.addChild(emphasisNode);
+                emphasisNode.layer = bubble.layer || Layers.Enum.UI_2D;
+            }
+            emphasisNode.active = true;
+            emphasisNode.setPosition(0, -8, 0);
+            const emphasisUT = emphasisNode.getComponent(UITransform) || emphasisNode.addComponent(UITransform);
+            emphasisUT.setContentSize(bubbleWidth - 72, 46);
+            const emphasisLabel = emphasisNode.getComponent(Label) || emphasisNode.addComponent(Label);
+            emphasisLabel.string = emphasisText;
+            emphasisLabel.fontSize = 34;
+            emphasisLabel.lineHeight = 42;
+            emphasisLabel.color = new Color('#FF4D5A');
+            emphasisLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+            emphasisLabel.verticalAlign = Label.VerticalAlign.CENTER;
+            emphasisLabel.overflow = Label.Overflow.SHRINK;
+            emphasisLabel.enableWrapText = false;
+            (emphasisLabel as Label & { isBold?: boolean }).isBold = true;
+
+            const boardBounds = this.getGuidePromptNodeBounds?.(this.boardNode || null, bubble) || null;
+            const defaultY = boardBounds
+                ? boardBounds.top + bubbleHeight / 2 + 18
+                : 360;
+            bubble.setPosition(0, this.clampGuidePromptCenterY(bubble, defaultY), 0);
+        },
+
         clampGuidePromptCenterY(bubble: Node, centerY: number): number {
             const rootTransform = bubble.parent?.getComponent(UITransform)
                 || (typeof this.requireCanvasUiRoot === 'function' ? this.requireCanvasUiRoot('OverlayRoot') : null)?.getComponent(UITransform);
@@ -65,6 +130,12 @@ export function installTutorialGuideModule(target: any): void {
             const visibleHalfH = rootTransform ? rootTransform.contentSize.height / 2 : 640;
             const margin = 12;
             return Math.max(-visibleHalfH + bubbleHeight / 2 + margin, Math.min(centerY, visibleHalfH - bubbleHeight / 2 - margin));
+        },
+
+        getConfiguredGuideCopy(step: number, fallback: string): string {
+            const copies = this.levelData?.tutorialGuide?.guideCopies;
+            const copy = Array.isArray(copies) ? copies[step] : '';
+            return typeof copy === 'string' && copy.trim().length > 0 ? copy.trim() : fallback;
         },
 
         getGuidePromptNodeBounds(node: Node | null, bubble: Node): { bottom: number; top: number; centerY: number } | null {
@@ -197,17 +268,17 @@ export function installTutorialGuideModule(target: any): void {
                 this.startHandGestureOnBlock(block, hand);
             }
         
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点任意粉色豆豆');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(0, '点任意粉色豆豆'));
         },
 
         guideLevel2UnlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotUnlockButtonForGuide(hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '解锁下方空位');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(0, '解锁下方空位'));
         },
 
         guideLevelExpSlotIntroStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotUnlockButtonForGuide(hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '免费送一个空位');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(0, '免费送一个空位'));
         },
 
         guideLevel2PickBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
@@ -216,20 +287,20 @@ export function installTutorialGuideModule(target: any): void {
                 this.autoHighlightBlock(block.cells);
                 this.startHandGestureOnBlock(block, hand);
             }
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点高亮豆豆');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(1, '点高亮豆豆'));
         },
 
         guideLevel2PlaceBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放到空槽里');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(2, '放到空槽里'));
         },
 
         /** Step 1: 点击暂存槽放入（place 阶段） */
         guideStep1(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放到空槽里');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(1, '放到空槽里'));
         },
 
         /** Step 2: 选中 secondColorId 豆豆块 */
@@ -241,14 +312,14 @@ export function installTutorialGuideModule(target: any): void {
                 this.startHandGestureToBoard(block, hand, handTargetOffsetY);
             }
         
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点任意黄色豆豆');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(2, '点任意黄色豆豆'));
         },
 
         /** Step 3: 点击棋盘目标放置 secondColorId（place 阶段） */
         guideStep3(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightEmptyTarget(this._guideSecondColorId);
             this.startHandGestureOnBoardTarget(this._guideSecondColorId, hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回黄色空位');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(3, '放回黄色空位'));
         },
 
         /** Step 4: 从暂存槽选中 firstColorId 豆豆 */
@@ -259,14 +330,14 @@ export function installTutorialGuideModule(target: any): void {
                 this.startHandGestureOnSlot(hand);
             }
         
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '点槽里的粉色豆豆');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(4, '点槽里的粉色豆豆'));
         },
 
         /** Step 5: 点击棋盘目标放置 firstColorId → 通关（place 阶段） */
         guideStep5(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             this.highlightEmptyTarget(this._guideFirstColorId);
             this.startHandGestureOnBoardTarget(this._guideFirstColorId, hand);
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, '放回粉色空位');
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(5, '放回粉色空位'));
         },
 
         isStarterTutorialAutoCorrectMode(): boolean {
@@ -755,20 +826,20 @@ export function installTutorialGuideModule(target: any): void {
 
         getStarterGuideWrongTargetHint(_hitResult: string): string {
             if (this._guideMode === 'level_exp_slot_intro') {
-                return '点下方免费空位';
+                return this.getConfiguredGuideCopy(0, '点下方免费空位');
             }
             if (this._guideMode === 'level_2') {
-                if (this._guideStep === 0) return '点下方解锁空位';
-                if (this._guideStep === 1) return '点高亮豆豆';
-                return '放到空槽里';
+                if (this._guideStep === 0) return this.getConfiguredGuideCopy(0, '点下方解锁空位');
+                if (this._guideStep === 1) return this.getConfiguredGuideCopy(1, '点高亮豆豆');
+                return this.getConfiguredGuideCopy(2, '放到空槽里');
             }
             switch (this._guideStep) {
-                case 0: return '点任意粉色豆豆';
-                case 1: return '放到空槽里';
-                case 2: return '点任意黄色豆豆';
-                case 3: return '放回黄色空位';
-                case 4: return '点槽里的粉色豆豆';
-                case 5: return '放回粉色空位';
+                case 0: return this.getConfiguredGuideCopy(0, '点任意粉色豆豆');
+                case 1: return this.getConfiguredGuideCopy(1, '放到空槽里');
+                case 2: return this.getConfiguredGuideCopy(2, '点任意黄色豆豆');
+                case 3: return this.getConfiguredGuideCopy(3, '放回黄色空位');
+                case 4: return this.getConfiguredGuideCopy(4, '点槽里的粉色豆豆');
+                case 5: return this.getConfiguredGuideCopy(5, '放回粉色空位');
                 default: return '点高亮区域';
             }
         },

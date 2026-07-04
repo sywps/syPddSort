@@ -598,6 +598,10 @@ export function installHomeAdFlowModule(target: any): void {
             this.closeThemePanel();
             this._isThemeLevel = false;
             this._currentThemeLevelId = 0;
+            if (this._pinchGuideAutoCloseHandler) {
+                this.unschedule(this._pinchGuideAutoCloseHandler);
+                this._pinchGuideAutoCloseHandler = null;
+            }
             if (this._pinchGuideLayer) this._pinchGuideLayer.destroy();
             this._pinchGuideLayer = null;
             if (this._guideBubble?.isValid) this._guideBubble.active = false;

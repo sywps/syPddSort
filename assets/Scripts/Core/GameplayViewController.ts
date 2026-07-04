@@ -778,8 +778,8 @@ export class GameplayViewController {
             minScale,
             Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
         );
-        const level2InitialScaleMultiplier = levelId === 2 ? 0.82 : 1;
-        const initScale = Math.max(minScale, Math.min(maxScale, baseInitScale * level2InitialScaleMultiplier));
+        const starterInitialScaleMultiplier = levelId === 1 ? 0.86 : (levelId === 2 ? 0.82 : 1);
+        const initScale = Math.max(minScale, Math.min(maxScale, baseInitScale * starterInitialScaleMultiplier));
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - bw / 2) * step;
         const targetCenterY = (bh / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
         const viewportCenterX = (safeRect.left + safeRect.right) / 2;
