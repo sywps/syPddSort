@@ -7,6 +7,7 @@ import {
     Graphics,
     Label,
     Node,
+    PerformanceMgr,
     Prefab,
     ProgressBar,
     RESULT_PANEL_TEXTURE_NAMES,
@@ -504,6 +505,7 @@ export class GameplayResultPanelController {
     }
 
     playWinSettlementBannerFx(panel?: Node | null): void {
+        PerformanceMgr.inst.markUserActivity(8000);
         const targetPanel = panel ?? this.runtime?.panelWin ?? null;
         const box = targetPanel?.getChildByName('Box') ?? null;
         if (!box) return;

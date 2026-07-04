@@ -695,6 +695,7 @@ export function installSettlementHudModule(target: any): void {
 
             const revealSettlement = () => {
                 if (!this.isValid || !this.isGameEnd) return;
+                PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winSettlement');
                 if (this.boardGroup) {
                     tween(this.boardGroup)
@@ -741,6 +742,7 @@ export function installSettlementHudModule(target: any): void {
 
             const playPatternCompleteFx = () => {
                 if (!this.isValid || !this.isGameEnd) return;
+                PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winAll');
                 this.playPatternCompleteMatchFx(showSettlement);
             };
@@ -817,6 +819,7 @@ export function installSettlementHudModule(target: any): void {
             const logicalLevelId = this.getAnalyticsLevelId();
             AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId);
             SySDKMgr.inst.reportLevelFail(logicalLevelId);
+            PerformanceMgr.inst.markUserActivity(6000);
             AudioMgr.inst.play('lose');
             const showLoseResult = () => {
                 this.updateLoseProgressLabel();
@@ -1016,13 +1019,12 @@ export function installSettlementHudModule(target: any): void {
             const requiredGuideFrames = [
                 'guide_hand',
                 'guide_bubble_frame',
-                'guide_area_highlight',
-                'guide_slot_highlight',
             ];
             if (requiredGuideFrames.some((name) => !this.getSF(name))) {
                 this._ensureSpriteFramesByName(requiredGuideFrames, () => this.startTutorial(mode));
                 return;
             }
+            PerformanceMgr.inst.markUserActivity(8000);
             this._guideMode = mode;
             this._guideStep = 0;
             this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : (mode === 'level_exp_slot_intro' ? 1 : 0));

@@ -212,7 +212,7 @@ function readCocosLogTextSince(logPath, startedAtMs) {
         .join('\n');
 }
 
-function assertCocosImporterLogsHealthy(startedAtMs) {
+function collectCocosImporterHealth(startedAtMs) {
     const assetDbLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'asset-db', 'log'), startedAtMs);
     const builderLogs = getRecentLogFiles(path.join(projectDir, 'temp', 'builder', 'log'), startedAtMs);
     const importerFailures = [];
@@ -230,14 +230,43 @@ function assertCocosImporterLogsHealthy(startedAtMs) {
             emptyAssetStats.push(path.relative(projectDir, logPath));
         }
     }
-    if (importerFailures.length > 0 || emptyAssetStats.length > 0) {
-        fail([
-            'Cocos AssetDB 导入器未正确注册，构建产物不可用。',
-            importerFailures.length ? '导入器错误: ' + importerFailures.join(' | ') : '',
-            emptyAssetStats.length ? '空资源统计: ' + emptyAssetStats.join(', ') : '',
-            '请先修复 Cocos batch/importer 环境，不能继续用空 bundle 做浏览器或微信验证。',
-        ].filter(Boolean).join(' '));
+    return { importerFailures, emptyAssetStats };
+}
+
+function formatCocosImporterHealthError(health) {
+    return [
+        'Cocos AssetDB 导入器未正确注册，构建产物不可用。',
+        health.importerFailures.length ? '导入器错误: ' + health.importerFailures.join(' | ') : '',
+        health.emptyAssetStats.length ? '空资源统计: ' + health.emptyAssetStats.join(', ') : '',
+        '请先修复 Cocos batch/importer 环境，不能继续用空 bundle 做浏览器或微信验证。',
+    ].filter(Boolean).join(' ');
+}
+
+function runCocosBuildWithAssetDbRetry() {
+    let startedAtMs = Date.now();
+    let result = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
+    repairCocosMetaFiles();
+    assertCocosAssetDbPrewarmRan(startedAtMs);
+    let health = collectCocosImporterHealth(startedAtMs);
+    if (health.importerFailures.length === 0 && health.emptyAssetStats.length === 0) {
+        return result;
     }
+
+    logInfo('Cocos AssetDB 首次构建未就绪，准备在当前已导入缓存上自动重试一次');
+    logInfo(formatCocosImporterHealthError(health));
+    rm(buildDir);
+    rm(assetDbPrewarmPath);
+
+    startedAtMs = Date.now();
+    result = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
+    repairCocosMetaFiles();
+    assertCocosAssetDbPrewarmRan(startedAtMs);
+    health = collectCocosImporterHealth(startedAtMs);
+    if (health.importerFailures.length > 0 || health.emptyAssetStats.length > 0) {
+        fail(formatCocosImporterHealthError(health));
+    }
+    logInfo('Cocos AssetDB 自动重试通过');
+    return result;
 }
 
 function assertCocosAssetDbPrewarmRan(startedAtMs) {
@@ -553,11 +582,7 @@ logInfo('微信构建配置已生成: ' + buildConfigPath);
 
 logStep('1. Cocos Creator 构建 wechatgame...');
 rm(assetDbPrewarmPath);
-const cocosBuildStartedAt = Date.now();
-const buildResult = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
-repairCocosMetaFiles();
-assertCocosAssetDbPrewarmRan(cocosBuildStartedAt);
-assertCocosImporterLogsHealthy(cocosBuildStartedAt);
+const buildResult = runCocosBuildWithAssetDbRetry();
 if (!findSettingsPath(buildDir) && !findSettingsPath(path.join(buildDir, 'minigame'))) {
     logInfo('Cocos 构建进程已返回，等待 settings.json/settings.<hash>.json 落盘...');
     if (!waitForSettingsPath(45000)) {

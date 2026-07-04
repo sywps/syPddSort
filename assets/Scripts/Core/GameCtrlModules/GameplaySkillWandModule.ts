@@ -36,6 +36,7 @@ export function installGameplaySkillWandModule(target: any): void {
         useSkillFreeze(timerAlreadyPaused: boolean = false) {
             if (this._skillActive) return;
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            PerformanceMgr.inst.markUserActivity(3500);
             const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 180));
             this._freezeTimeLeft = freezeSeconds;
             this._freezeTimeTotal = freezeSeconds;
@@ -52,6 +53,7 @@ export function installGameplaySkillWandModule(target: any): void {
         useSkillClearArea(timerAlreadyPaused: boolean = false) {
             if (this._skillActive) return; // 防止上次动画未结束时重复触发
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            PerformanceMgr.inst.markUserActivity(8000);
             AudioMgr.inst.play('propWand');
             this._skillActive = true;
             this.resetIdleHintTimer();
@@ -597,6 +599,7 @@ export function installGameplaySkillWandModule(target: any): void {
         useSkillClearSlot(timerAlreadyPaused: boolean = false, viewportAlreadyReset: boolean = false) {
             if (this._skillActive && !viewportAlreadyReset) return;
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            PerformanceMgr.inst.markUserActivity(8000);
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             const slotAllInit = this.slotModel.getAll();
             const slotMovable: { slotIdx: number; colorId: number }[] = [];

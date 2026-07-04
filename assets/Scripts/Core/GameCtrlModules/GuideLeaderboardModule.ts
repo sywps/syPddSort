@@ -124,10 +124,13 @@ export function installGuideLeaderboardModule(target: any): void {
 
         tryHandleGuideSystemModalTap(worldPos: Vec3): boolean {
             const topBar = this.getGameplayFixedGroup?.('TopBarGroup') || null;
-            const settingsButton = topBar?.getChildByName('Settings')
-                || topBar?.getChildByName('SettingsButton')
-                || null;
-            if (!this.isGuideModalLauncherHit(settingsButton, worldPos)) return false;
+            const settingsButtonCandidates: Array<Node | null> = [
+                topBar?.getChildByName('TopHud')?.getChildByName('SettingsButton') || null,
+                topBar?.getChildByName('Settings') || null,
+                topBar?.getChildByName('SettingsButton') || null,
+            ];
+            const settingsButton = settingsButtonCandidates.find((node) => this.isGuideModalLauncherHit(node, worldPos)) || null;
+            if (!settingsButton) return false;
             AudioMgr.inst.play('button');
             this.openSettingsPanel();
             return true;

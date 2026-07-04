@@ -18,6 +18,7 @@ import {
     MAINLINE_SLOT_PANEL_EXTRA_HEIGHT,
     MAINLINE_SLOT_PANEL_TEXTURE,
     Node,
+    PerformanceMgr,
     SLOT_AREA_CENTER_Y,
     SLOTS_PER_ROW,
     SLOT_ROW_BG_WIDTH,
@@ -427,6 +428,9 @@ export class GameplaySlotUiController {
         this.requireSlotUnlockLabel(buttonNode, 'SlotUnlockLabelFree');
         adLabel.active = active && unlockMode === 'ad';
         freeLabel.active = active && unlockMode === 'free';
+        if (freeLabel.active) {
+            freeLabel.setPosition(0, freeLabel.position.y, freeLabel.position.z);
+        }
     }
 
     private syncSlotUnlockButtonModeIcon(buttonNode: Node) {
@@ -622,6 +626,7 @@ export class GameplaySlotUiController {
         if (runtime.slotUnlockedRows >= runtime.slotRowCount) return;
         if (runtime.isPlacementVisualBusy?.()) return;
         if (runtime._skillActive) return;
+        PerformanceMgr.inst.markUserActivity(3500);
         AudioMgr.inst.play('button');
         runtime.pauseTimerForProp();
         if (this.getCurrentSlotUnlockMode() === 'free') {
@@ -679,6 +684,7 @@ export class GameplaySlotUiController {
             || null;
         const targetNode = unlockBtn || addBtn;
         if (!targetNode) return;
+        PerformanceMgr.inst.markUserActivity(8000);
         const guideMode: 'expand' | 'unlock' = unlockBtn ? 'unlock' : 'expand';
         const targetUT = targetNode.getComponent(UITransform);
         if (!targetUT) return;

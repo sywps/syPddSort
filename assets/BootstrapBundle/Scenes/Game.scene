@@ -17372,7 +17372,7 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 23.841,
+      "x": 0,
       "y": 2.967,
       "z": 0
     },
@@ -17441,7 +17441,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "增加",
+    "_string": "解锁",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 35,
