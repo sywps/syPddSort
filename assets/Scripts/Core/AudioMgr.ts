@@ -607,6 +607,12 @@ export class AudioMgr {
         this._ensureSfxLoaded(name);
     }
 
+    stopSfx(): void {
+        try {
+            this.sfxSrc?.stop();
+        } catch (_) { /* ignore */ }
+    }
+
     /** 触发短震动（默认 30ms），用于点击/放置等触觉反馈 */
     legacyVibrate(ms: number = 30) {
         if (this.suspended || !this.vibrateEnabled) return;

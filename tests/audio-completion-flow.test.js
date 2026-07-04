@@ -89,6 +89,10 @@ const shared = read('assets/Scripts/Core/GameCtrlShared.ts');
 const levelFlow = read('assets/Scripts/Core/GameCtrlModules/GameplayLevelFlowModule.ts');
 const sceneHome = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
+const patchBootstrapDynamicAssets = read('scripts/patch-bootstrap-dynamic-assets.js');
+const gameScene = read('assets/BootstrapBundle/Scenes/Game.scene');
+const homeScene = read('assets/HomeAssetsBundle/Scenes/Home.scene');
+const uiPreviewScene = read('assets/Scenes/UIPreview.scene');
 assert.ok(placement.includes('const skipColorCompleteAudio = bm.isAllLocked();'), 'final board completion must suppress ordinary color-complete audio');
 assert.ok(!placement.includes('if (skipColorCompleteAudio) continue;'), 'final board completion must not suppress the last ordinary color-complete visual');
 assert.ok(placement.includes('this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);'), 'final color-complete effect must queue visuals while suppressing duplicate audio');
@@ -99,6 +103,10 @@ assert.ok(placement.includes('this.playBoardTargetSettleSound();\n              
 assert.ok(skillMagnet.includes('nextForcedSkillFeedbackSoundAtMs = playAtMs + SKILL_MOVE_STAGGER * 1000'), 'color-clear prop feedback audio must keep the ordinary multi-target rhythm even when visual starts are compressed');
 assert.ok(skillMagnet.includes('scheduleForcedSkillFeedbackSound(sfx);'), 'forced skill feedback must enqueue prop sounds instead of playing dense one-shots immediately');
 assert.ok(skillMagnet.includes("if (sfx === 'place' && typeof this.playBoardTargetSettleSound === 'function')"), 'forced skill feedback must route board target settle audio through the shared helper');
+assert.ok(skillMagnet.includes('const queuedFeedbackCallbacks = new Set<() => void>();'), 'forced skill queued feedback callbacks must be tracked for cancellation');
+assert.ok(skillMagnet.includes('const closeForcedSkillFeedbackAudio = () =>'), 'forced skill feedback audio must have an explicit close point');
+assert.ok(skillMagnet.includes('this.unschedule(callback);'), 'forced skill queued feedback sounds must be unscheduled when the visual flow completes');
+assert.ok(skillMagnet.includes('AudioMgr.inst.stopSfx();'), 'forced skill active one-shot SFX must stop when the visual flow completes');
 assert.ok(/playFeedback\('place', move\.feedbackIndex\);[\s\S]*?revealBoardCell\(move\.target\);/.test(skillMagnet), 'forced skill board moves must play board target settle audio');
 assert.ok(/playFeedback\('slot', move\.feedbackIndex\);[\s\S]*?revealSlotIdx\(move\.slotIdx\);/.test(skillMagnet), 'forced skill slot moves must keep slot landing audio');
 assert.ok(/playForcedSkillPlan\([\s\S]*?for \(const move of boardMoves\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\.recycleFlyBeanNode\(bean\);[\s\S]*?finish\(\);[\s\S]*?for \(const move of slotMoves\)/.test(skillMagnet), 'sequential forced skill board moves must use board target settle audio');
@@ -116,11 +124,17 @@ assert.ok(uiManifest.includes('GameUI/${name}'), 'board effect textures must loa
 assert.ok(uiManifest.includes('GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = []'), 'board effect textures must not be prewarmed from gameAssets');
 assert.ok(shared.includes('BOARD_EFFECT_TEXTURE_NAMES'), 'board effect textures must be exported through GameCtrlShared');
 assert.ok(shared.includes('BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS'), 'bootstrap board effect paths must be exported through GameCtrlShared');
+assert.ok(/LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES[\s\S]*?\.\.\.BOARD_EFFECT_TEXTURE_NAMES/.test(shared), 'board effect textures must be retained as bootstrap-owned startup resources');
+assert.ok(/LOCAL_BOOTSTRAP_TEXTURE_NAMES[\s\S]*?\.\.\.BOARD_EFFECT_TEXTURE_NAMES/.test(shared), 'board effect textures must be loadable from bootstrap texture set');
 assert.ok(!levelFlow.includes("...GAMEPLAY_SLOT_TEXTURE_NAMES, ...BOARD_EFFECT_TEXTURE_NAMES"), 'board effect textures must not be classified as generic critical gameplay UI textures');
 assert.ok(assetBootstrap.includes('prepareRequiredBoardEffectTextures'), 'board effect textures must have a dedicated readiness check');
-assert.ok(assetBootstrap.includes('this._preloadBootstrapTextureSetStrict(requiredTextureNames, verifyLoaded);'), 'board effect textures must load strictly from bootstrap');
+assert.ok(!/SCENE_GAME_SPRITE_FRAME_NAMES[\s\S]*?\.\.\.BOARD_EFFECT_TEXTURE_NAMES[\s\S]*?\]\);/.test(assetBootstrap), 'board effect textures must not be released with Game scene-scoped textures');
+assert.ok(assetBootstrap.includes('this._preloadBootstrapTexturePathsStrict(BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, verifyLoaded, targetBundle);'), 'board effect textures must load strictly from bootstrap-owned paths');
+assert.ok(assetBootstrap.includes('scope: SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP'), 'board effect textures must be cached as startup bootstrap scope');
 assert.ok(assetBootstrap.includes('...this.getRequiredBoardEffectTextureNames(),'), 'startup bootstrap prefetch must include board effect textures');
 assert.ok(!assetBootstrap.includes('this._withGameAssetsBundle(loadFromBundle);'), 'board effect textures must not load the full gameAssets bundle');
+assert.ok(patchBootstrapDynamicAssets.includes('ensureStableBootstrapPackImportFiles'), 'bootstrap postbuild must stabilize pack import filenames');
+assert.ok(patchBootstrapDynamicAssets.includes("removeVersionHashByIndex(config, 'import', packIndex)"), 'bootstrap pack imports must not depend on changing md5 version entries');
 assert.ok(sceneHome.includes('let gameAssetsDone = true;'), 'bootstrap gameplay must not block first playable UI on gameAssets effect textures');
 assert.ok(sceneHome.includes('let boardEffectDone = false;'), 'bootstrap fast path must wait for board effect textures before initGame');
 assert.ok(sceneHome.includes('!boardEffectDone'), 'bootstrap fast path init gate must include board effect readiness');
@@ -148,6 +162,20 @@ assert.ok(firstLevelRoute.includes("this.requireUiChild(overlayTemplates, 'Remot
 assert.ok(!firstLevelRoute.includes('ensureLevelDataLoadFatalLayer'), 'level-data fatal overlay must not create a runtime layer fallback');
 assert.ok(!firstLevelRoute.includes('createLevelDataLoadFatalSpriteNode'), 'missing fatal overlay visuals must fail fast instead of being generated');
 assert.ok(firstLevelRoute.includes("const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates'"), 'fatal overlay display must require an authored OverlayTemplates node');
+assert.ok(firstLevelRoute.includes('hideRemoteLoadFatalDiagnosticLabel'), 'fatal overlay must hide internal diagnostic labels from users');
+assert.ok(!firstLevelRoute.includes('pathLabel.string = levelPath'), 'fatal overlay must not expose level paths to users');
+assert.ok(!firstLevelRoute.includes('detailLabel.string'), 'fatal overlay must not expose error codes or resource names to users');
+for (const [sceneName, sceneContent] of [
+    ['Game.scene', gameScene],
+    ['Home.scene', homeScene],
+    ['UIPreview.scene', uiPreviewScene],
+]) {
+    assert.ok(sceneContent.includes('"资源加载异常，请重启游戏后再试"'), `${sceneName} fatal overlay user-facing copy must live in the Cocos scene template`);
+    assert.ok(!sceneContent.includes('"请检查资源与配置后重新进入游戏"'), `${sceneName} fatal overlay template must not retain old implementation-facing copy`);
+    assert.ok(!sceneContent.includes('"LevelData/level_1"'), `${sceneName} fatal overlay template must not retain technical level-path text`);
+    assert.ok(!sceneContent.includes('"remote_load_error"'), `${sceneName} fatal overlay template must not retain technical error-code text`);
+    assert.ok(!sceneContent.includes('"已停止进入默认关卡，避免关卡数据错乱"'), `${sceneName} fatal overlay template must not retain internal data-protection copy`);
+}
 assert.ok(previewController.includes("'RemoteLoadFatalError'"), 'preview runtime must hide the authored fatal overlay template name');
 assert.ok(!previewController.includes('LevelDataLoadFatalError'), 'preview runtime must not reference the retired fatal overlay fallback name');
 

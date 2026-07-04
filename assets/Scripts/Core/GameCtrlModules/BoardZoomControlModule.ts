@@ -1,7 +1,6 @@
 import {
     AudioMgr,
     EventTouch,
-    Graphics,
     Node,
     ProgressBar,
     Slider,
@@ -187,16 +186,6 @@ export function installBoardZoomControlModule(target: any): void {
             const thumbSprite = requireSprite(thumb, 'BoardZoomControl/ZoomTrack/Thumb');
             const trackBgSprite = requireSprite(trackBg, 'BoardZoomControl/ZoomTrack/TrackBg');
 
-            const oldFillGraphics = fill.getComponent(Graphics);
-            if (oldFillGraphics) {
-                oldFillGraphics.clear();
-                oldFillGraphics.enabled = false;
-            }
-            const oldFillSprite = fill.getComponent(Sprite);
-            if (oldFillSprite) {
-                oldFillSprite.enabled = false;
-            }
-
             const ui: BoardZoomControlUi = {
                 root,
                 track,
@@ -239,9 +228,29 @@ export function installBoardZoomControlModule(target: any): void {
             if (minusGlyph) minusGlyph.active = true;
             thumb.setSiblingIndex(track.children.length - 1);
 
-            this.setBoardZoomControlActive(false, true);
             this.bindBoardZoomControlEvents();
+            if (!this.syncBoardZoomControlVisibility()) return;
+            this.setBoardZoomControlActive(false, true);
             this.refreshBoardZoomControl();
+        },
+
+        shouldHideBoardZoomControlForCurrentLevel(): boolean {
+            if (this._isThemeLevel) return false;
+            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
+                ? this.getActiveLogicalLevelId()
+                : Math.max(1, Math.floor(Number(this.levelData?.levelId || 1) || 1));
+            return Math.max(1, Math.floor(Number(logicalLevelId) || 1)) === 1;
+        },
+
+        syncBoardZoomControlVisibility(): boolean {
+            const ui = this._boardZoomControlUi as BoardZoomControlUi | null;
+            if (!ui?.root?.isValid) return false;
+            const visible = !this.shouldHideBoardZoomControlForCurrentLevel();
+            if (ui.root.active !== visible) {
+                stopBoardZoomControlOpacityTweens(ui);
+                ui.root.active = visible;
+            }
+            return visible;
         },
 
         bindBoardZoomControlEvents(): void {
@@ -269,6 +278,7 @@ export function installBoardZoomControlModule(target: any): void {
         setBoardZoomControlActive(active: boolean, immediate: boolean = false): void {
             const ui = this._boardZoomControlUi as BoardZoomControlUi | null;
             if (!ui?.root?.isValid) return;
+            if (!this.syncBoardZoomControlVisibility()) return;
             stopBoardZoomControlOpacityTweens(ui);
             if (immediate) {
                 setBoardZoomControlVisualState(
@@ -320,6 +330,7 @@ export function installBoardZoomControlModule(target: any): void {
         pulseBoardZoomControlActivity(): void {
             const ui = this._boardZoomControlUi as BoardZoomControlUi | null;
             if (!ui?.root?.isValid) return;
+            if (!this.syncBoardZoomControlVisibility()) return;
             this.setBoardZoomControlActive(true);
             this.setBoardZoomControlActive(false);
         },
@@ -415,6 +426,7 @@ export function installBoardZoomControlModule(target: any): void {
         refreshBoardZoomControl(): void {
             const ui = this._boardZoomControlUi as BoardZoomControlUi | null;
             if (!ui?.root?.isValid || !ui.thumb?.isValid || !ui.fill?.isValid || !ui.fillBar?.isValid) return;
+            if (!this.syncBoardZoomControlVisibility()) return;
             const progress = clamp01(
                 typeof this.getBoardViewportScaleNormalized === 'function'
                     ? this.getBoardViewportScaleNormalized()

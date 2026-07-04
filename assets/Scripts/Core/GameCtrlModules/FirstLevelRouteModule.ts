@@ -411,6 +411,11 @@ export function installFirstLevelRouteModule(target: any): void {
 
         showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
+            runtimeWarn('[LevelDataLoad] fatal error hidden from user-facing panel', {
+                levelPath,
+                errorCode,
+                errorMessage,
+            });
             const visibleSize = this._getLoadingVisibleSize();
             const overlayRoot = this.requireCanvasUiRoot('OverlayRoot');
             const overlayTemplates = this.requireUiChild(overlayRoot, 'OverlayTemplates', 'OverlayRoot/OverlayTemplates');
@@ -435,21 +440,11 @@ export function installFirstLevelRouteModule(target: any): void {
             const card = this.requireUiChild(layer, 'RemoteLoadFatalErrorCard', 'RemoteLoadFatalError/RemoteLoadFatalErrorCard');
             card.active = true;
 
-            const titleLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorTitle');
-            titleLabel.string = '资源加载失败';
-
-            const hintLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorHint');
-            hintLabel.string = '请检查资源与配置后重新进入游戏';
-
-            const pathLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorPath');
-            pathLabel.string = levelPath;
-
-            const detail = `${errorCode}${errorMessage ? ': ' + errorMessage : ''}`;
-            const detailLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorDetail');
-            detailLabel.string = this.truncateLevelDataLoadMessage(detail, 96);
-
-            const retryLabel = this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorRetry');
-            retryLabel.string = '已停止进入默认关卡，避免关卡数据错乱';
+            this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorTitle');
+            this.requireRemoteLoadFatalLabel(card, 'RemoteLoadFatalErrorHint');
+            this.hideRemoteLoadFatalDiagnosticLabel(card, 'RemoteLoadFatalErrorPath');
+            this.hideRemoteLoadFatalDiagnosticLabel(card, 'RemoteLoadFatalErrorDetail');
+            this.hideRemoteLoadFatalDiagnosticLabel(card, 'RemoteLoadFatalErrorRetry');
         },
 
         requireRemoteLoadFatalLabel(parent: Node, name: string): Label {
@@ -460,6 +455,15 @@ export function installFirstLevelRouteModule(target: any): void {
             }
             node.active = true;
             return label;
+        },
+
+        hideRemoteLoadFatalDiagnosticLabel(parent: Node, name: string): void {
+            const node = this.requireUiChild(parent, name, `RemoteLoadFatalErrorCard/${name}`);
+            const label = node.getComponent(Label);
+            if (!label) {
+                throw new Error(`[SceneUI] RemoteLoadFatalErrorCard/${name} is missing Label`);
+            }
+            node.active = false;
         },
 
         truncateLevelDataLoadMessage(message: string, maxLength: number): string {

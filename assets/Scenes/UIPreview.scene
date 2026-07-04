@@ -3471,7 +3471,7 @@
       "b": 58,
       "a": 255
     },
-    "_string": "请检查资源与配置后重新进入游戏",
+    "_string": "资源加载异常，请重启游戏后再试",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -3522,7 +3522,7 @@
       "__id__": 76
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 84
@@ -3603,7 +3603,7 @@
       "b": 84,
       "a": 255
     },
-    "_string": "LevelData/level_1",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 18,
@@ -3654,7 +3654,7 @@
       "__id__": 76
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 87
@@ -3735,7 +3735,7 @@
       "b": 62,
       "a": 255
     },
-    "_string": "remote_load_error",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 16,
@@ -3786,7 +3786,7 @@
       "__id__": 76
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 90
@@ -3867,7 +3867,7 @@
       "b": 66,
       "a": 255
     },
-    "_string": "已停止进入默认关卡，避免关卡数据错乱",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 20,
