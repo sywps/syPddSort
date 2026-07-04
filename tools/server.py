@@ -271,7 +271,7 @@ def repair_import_target_marker(source_path, target_type, marker, fingerprint_in
 
     matches = fingerprint_index.get(source_fingerprint, [])
     if not matches:
-        return updated, changed
+        return None, True
 
     try:
         current_target_id = int(updated.get('targetLevelId'))
@@ -342,12 +342,18 @@ def repair_import_map(import_map):
                 fingerprint_indexes[target_type],
             )
             if target_changed:
-                targets[target_type] = repaired_target
+                if repaired_target is None:
+                    targets.pop(target_type, None)
+                else:
+                    targets[target_type] = repaired_target
                 marker_changed = True
         repaired_marker['targets'] = targets
 
         if marker_changed:
-            repaired_map[source_rel] = repaired_marker
+            if targets:
+                repaired_map[source_rel] = repaired_marker
+            else:
+                repaired_map.pop(source_rel, None)
             changed = True
 
     return repaired_map, changed

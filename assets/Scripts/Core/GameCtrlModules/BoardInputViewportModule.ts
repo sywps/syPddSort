@@ -284,10 +284,14 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         zoomBoardViewportAround(uiPos: Vec2, boardLocal: Vec2, nextScale: number) {
+            const prevScale = this.boardViewport.scale;
             this.boardViewport.zoomAround(uiPos, boardLocal, nextScale);
             this.boardViewScale = this.boardViewport.scale;
             this.refreshBoardZoomControl?.();
             this.pulseBoardZoomControlActivity?.();
+            if (this._pinchGuideLayer && Math.abs(this.boardViewport.scale - prevScale) > 0.01) {
+                this.closePinchGuide();
+            }
         },
 
         beginPinchFromActiveTouches(): boolean {
@@ -311,9 +315,6 @@ export function installBoardInputViewportModule(target: any): void {
             this.pinchStartScale = this.boardViewScale || this.boardGroup.scale.x;
             this.pinchAnchorBoardLocal.set(anchorLocal.x, anchorLocal.y);
             this.totalMoveDistance = 0;
-            if (this._pinchGuideLayer) {
-                this.closePinchGuide();
-            }
             return true;
         },
 

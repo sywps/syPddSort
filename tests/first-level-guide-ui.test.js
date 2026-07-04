@@ -27,6 +27,8 @@ assert.ok(
 );
 
 const tutorialGuide = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
+const settlementHud = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
 assert.ok(
     tutorialGuide.includes('if (step === 0 || step === 2)'),
     'level 1 guide prompt must target the first and second board-pick steps',
@@ -50,6 +52,34 @@ assert.ok(
 assert.ok(
     !tutorialGuide.includes('Math.min(currentY, desiredY)'),
     'starter guide prompt must not stay at the bottom default for board targets',
+);
+assert.ok(
+    settlementHud.includes('? Math.max(340, Math.min(480'),
+    'level 1 guide prompt bubble must be larger than the generic starter prompt',
+);
+assert.ok(
+    settlementHud.includes('(lbl as Label & { isBold?: boolean }).isBold = isLevel1Prompt'),
+    'level 1 guide prompt text should support bold styling',
+);
+assert.ok(
+    settlementHud.includes("lbl.color = new Color('#7162A2')"),
+    'level 1 guide prompt text must use the same light purple as the level 3 prompt',
+);
+assert.ok(
+    settlementHud.includes('lbl.fontSize = isLevel1Prompt ? 44 : 36'),
+    'level 1 guide prompt text must be larger than the generic starter prompt',
+);
+assert.ok(
+    settlementHud.includes(': Math.max(230, Math.min(390'),
+    'starter guide prompt bubble must shrink to the configured text width instead of using the full scene frame',
+);
+assert.ok(
+    settlementHud.includes('bubbleUT.setContentSize(bubbleWidth, bubbleHeight)'),
+    'starter guide prompt must apply the dynamic bubble size to its container',
+);
+assert.ok(
+    gameplayView.includes('levelId === 1 ? 0.86'),
+    'level 1 board should start slightly smaller than the default fit scale',
 );
 
 console.log('first-level-guide-ui.test.js passed');

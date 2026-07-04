@@ -14,6 +14,8 @@ import {
     MAINLINE_SLOT_LOCK_ROW_HEIGHT,
     MAINLINE_SLOT_LOCK_ROW_WIDTH,
     MAINLINE_SLOT_MARKER_HEIGHT,
+    MAINLINE_SLOT_MARKER_LOCKED_OPACITY,
+    MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY,
     MAINLINE_SLOT_MARKER_WIDTH,
     MAINLINE_SLOT_PANEL_EXTRA_HEIGHT,
     MAINLINE_SLOT_PANEL_TEXTURE,
@@ -38,6 +40,8 @@ import {
     shouldShowGameplaySkillArea,
 } from './SlotOnboardingPolicy';
 import type { SlotUnlockMode } from './SlotOnboardingPolicy';
+
+const LOCKED_SLOT_PREVIEW_OPACITY = 168;
 
 type SlotShellSceneLayout = {
     x: number;
@@ -373,6 +377,23 @@ export class GameplaySlotUiController {
         return shouldAppendLockedSlotRowAfterUnlock(this.runtime.getActiveLogicalLevelId(), this.getActiveGameplayEntryMode());
     }
 
+    private getAllRowsUnlockTargetRowCount(): number {
+        const runtime = this.runtime;
+        const policy = runtime._activeSlotRowPolicy;
+        if (!policy?.unlockAllRowsAtOnce) return Math.max(1, Math.floor(Number(runtime.slotRowCount) || 1));
+        const configuredTarget = Math.floor(Number(policy.rowCount) || Number(runtime.slotRowCount) || 1);
+        return Math.max(
+            Math.max(1, Math.floor(Number(runtime.slotRowCount) || 1)),
+            Math.min(runtime.getMaxSlotRows(), configuredTarget),
+        );
+    }
+
+    private hasPendingAllRowsUnlock(): boolean {
+        const policy = this.runtime._activeSlotRowPolicy;
+        return !!policy?.unlockAllRowsAtOnce
+            && this.getAllRowsUnlockTargetRowCount() > Math.max(1, Math.floor(Number(this.runtime.slotRowCount) || 1));
+    }
+
     private destroyLegacySlotUnlockButtonText(buttonNode: Node) {
         const legacyLabel = buttonNode.getChildByName('SlotUnlockModeLabel');
         if (!legacyLabel?.isValid) return;
@@ -504,7 +525,10 @@ export class GameplaySlotUiController {
             panelSprite.spriteFrame = panelFrame;
         }
         panelSprite.type = Sprite.Type.SLICED;
-        const lockedPreviewRow = runtime.slotUnlockedRows < rowCount ? rowCount - 1 : -1;
+        const hasPendingAllRowsUnlock = this.hasPendingAllRowsUnlock();
+        const lockedPreviewRow = runtime.slotUnlockedRows < rowCount
+            ? rowCount - 1
+            : (hasPendingAllRowsUnlock ? rowCount : -1);
 
         for (let r = 0; r < maxRows; r++) {
             for (let c = 0; c < SLOTS_PER_ROW; c++) {
@@ -528,7 +552,10 @@ export class GameplaySlotUiController {
                 shellSprite.sizeMode = Sprite.SizeMode.CUSTOM;
                 shellSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_GROOVE_TEXTURE) || shellSprite.spriteFrame;
                 const shellOpacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
-                shellOpacity.opacity = 255;
+                const row = Math.floor(idx / SLOTS_PER_ROW);
+                shellOpacity.opacity = row >= runtime.slotUnlockedRows
+                    ? Math.max(MAINLINE_SLOT_MARKER_LOCKED_OPACITY, LOCKED_SLOT_PREVIEW_OPACITY)
+                    : MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY;
 
                 const beanNode = this.getSlotBeanNode(shell);
                 beanNode.layer = Layers.Enum.UI_2D;
@@ -547,7 +574,8 @@ export class GameplaySlotUiController {
             }
         }
 
-        const lockedRowAnchor = lockedPreviewRow >= 0 ? this.getSlotLocalPosition(lockedPreviewRow * SLOTS_PER_ROW, rowCount) : new Vec3(0, 0, 0);
+        const lockedRowLayoutRowCount = Math.max(rowCount, lockedPreviewRow + 1);
+        const lockedRowAnchor = lockedPreviewRow >= 0 ? this.getSlotLocalPosition(lockedPreviewRow * SLOTS_PER_ROW, lockedRowLayoutRowCount) : new Vec3(0, 0, 0);
         const lockRowCenterY = lockedPreviewRow >= 0 ? panel.position.y + lockedRowAnchor.y : 0;
         const lockMask = this.getOrCreateSlotAreaSpriteChild('SlotRowLockMask');
         lockMask.layer = Layers.Enum.UI_2D;
@@ -609,9 +637,29 @@ export class GameplaySlotUiController {
 
     unlockSlotRow() {
         const runtime = this.runtime;
+        const policy = runtime._activeSlotRowPolicy;
+        const currentRows = Math.max(1, Math.floor(Number(runtime.slotUnlockedRows) || 1));
+        if (policy?.unlockAllRowsAtOnce) {
+            const targetRows = this.getAllRowsUnlockTargetRowCount();
+            if (currentRows >= targetRows && runtime.slotRowCount >= targetRows) return;
+            if (runtime.slotRowCount < targetRows) {
+                const rowsToAdd = targetRows - runtime.slotRowCount;
+                runtime.slotRowCount = targetRows;
+                runtime.slotModel.expand(SLOTS_PER_ROW * rowsToAdd);
+            }
+            runtime.slotUnlockedRows = Math.min(runtime.slotRowCount, Math.max(currentRows + 1, targetRows));
+            runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
+            this.rebuildSlotNodes();
+            runtime.renderSlots();
+            runtime.clearAdRewardSlotAddReminderVisuals?.();
+            return;
+        }
         if (runtime.slotUnlockedRows >= runtime.slotRowCount) return;
-        runtime.slotUnlockedRows++;
-        if (this.shouldAppendLockedSlotRowAfterCurrentUnlock() && runtime.slotUnlockedRows >= runtime.slotRowCount && runtime.slotRowCount < runtime.getMaxSlotRows()) {
+        const targetRows = policy?.unlockAllRowsAtOnce
+            ? Math.max(currentRows + 1, Math.floor(Number(policy.rowCount) || currentRows + 1))
+            : currentRows + 1;
+        runtime.slotUnlockedRows = Math.min(runtime.slotRowCount, targetRows);
+        while (this.shouldAppendLockedSlotRowAfterCurrentUnlock() && runtime.slotUnlockedRows >= runtime.slotRowCount && runtime.slotRowCount < runtime.getMaxSlotRows()) {
             runtime.slotRowCount++;
             runtime.slotModel.expand(SLOTS_PER_ROW);
         }
@@ -623,7 +671,7 @@ export class GameplaySlotUiController {
 
     tryUnlockSlotRow() {
         const runtime = this.runtime;
-        if (runtime.slotUnlockedRows >= runtime.slotRowCount) return;
+        if (runtime.slotUnlockedRows >= runtime.slotRowCount && !this.hasPendingAllRowsUnlock()) return;
         if (runtime.isPlacementVisualBusy?.()) return;
         if (runtime._skillActive) return;
         PerformanceMgr.inst.markUserActivity(3500);

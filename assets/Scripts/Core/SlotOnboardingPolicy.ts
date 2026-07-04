@@ -5,6 +5,7 @@ export type SlotPolicyConfig = {
     defaultRows?: unknown;
     freeUnlockRows?: unknown;
     adUnlockRows?: unknown;
+    unlockAllRowsAtOnce?: unknown;
 };
 
 export type SlotRowPolicy = {
@@ -18,6 +19,7 @@ export type SlotRowPolicy = {
     unlockMode: SlotUnlockMode;
     showSkillArea: boolean;
     showSlotUnlockGuide: boolean;
+    unlockAllRowsAtOnce: boolean;
 };
 
 export const ONBOARDING_TEACHING_TIME_LIMIT_SECONDS = 600;
@@ -81,6 +83,7 @@ function resolveConfiguredSlotRowPolicy(options: {
         unlockMode: freeUnlockRows > 0 ? 'free' : 'ad',
         showSkillArea: shouldShowGameplaySkillArea(options.levelId, options.entryMode),
         showSlotUnlockGuide: options.levelId === 2 && freeUnlockRows > 0,
+        unlockAllRowsAtOnce: config.unlockAllRowsAtOnce === true,
     };
 }
 
@@ -173,6 +176,7 @@ export function resolveSlotRowPolicy(options: {
             unlockMode: 'ad',
             showSkillArea: true,
             showSlotUnlockGuide: false,
+            unlockAllRowsAtOnce: false,
         };
     }
 
@@ -208,5 +212,6 @@ export function resolveSlotRowPolicy(options: {
         unlockMode: freeUnlockRows > 0 ? 'free' : 'ad',
         showSkillArea: shouldShowGameplaySkillArea(levelId, entryMode),
         showSlotUnlockGuide: levelId === 2 && freeUnlockRows > 0,
+        unlockAllRowsAtOnce: false,
     };
 }

@@ -108,6 +108,14 @@ export interface LevelSlotPolicy {
     defaultRows: number;
     freeUnlockRows: number;
     adUnlockRows: number;
+    unlockAllRowsAtOnce?: boolean;
+}
+
+export interface LevelTutorialGuideConfig {
+    mode?: string;
+    guideCopies?: string[];
+    title?: string;
+    subtitle?: string;
 }
 
 /** 关卡数据 */
@@ -119,6 +127,7 @@ export interface LevelData {
     slotTotalCount: number;
     initialSlotUnlockedRows?: number;
     slotPolicy?: LevelSlotPolicy;
+    tutorialGuide?: LevelTutorialGuideConfig;
     /** 每格正确颜色 [row][col] */
     correctColorArr: number[][];
     /** 初始乱序颜色 [row][col] */

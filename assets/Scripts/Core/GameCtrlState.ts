@@ -223,6 +223,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _collectionImageModal: null,
         _themeImageModal: null,
         _pinchGuideLayer: null,
+        _pinchGuideAutoCloseHandler: null,
         gestureMode: 'idle',
         suppressTap: false,
         activeBoardTouches: new Map<number, Vec2>(),
