@@ -27,8 +27,6 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/guide_hand',
 	'GameUI/guide_bubble_frame',
 	'GameUI/guide_prompt_button',
-	'GameUI/guide_area_highlight',
-	'GameUI/guide_slot_highlight',
 	'GameUI/loading_cover',
 	'GameUI/popup_guide_highlight_ring',
 	'GameUI/popup_ad_play_icon',

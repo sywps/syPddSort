@@ -2,6 +2,7 @@ import { AudioMgr, Node, UITransform, Vec3, view } from '../GameCtrlShared';
 import {
     createWeChatGameCircleButton,
     destroyWeChatGameCircleButton,
+    getWeChatMiniGameRuntime,
     getWeChatMiniGameWindowInfo,
     type WeChatGameClubButtonHandle,
     type WeChatGameClubButtonStyle,
@@ -107,6 +108,10 @@ function resolveNativeButtonStyle(node: Node): WeChatGameClubButtonStyle {
     }, windowSize);
 }
 
+function hasWeChatGameCircleRuntime(): boolean {
+    return !!getWeChatMiniGameRuntime();
+}
+
 export class GameCirclePanelController {
     constructor(private readonly runtime: any) {}
 
@@ -119,6 +124,7 @@ export class GameCirclePanelController {
 
     open(openlink: string): void {
         const runtime = this.runtime;
+        if (!hasWeChatGameCircleRuntime()) return;
         if (runtime._gameCircleOverlay?.isValid) return;
         runtime._gameCircleOverlay = null;
         this.destroyNativeButton();

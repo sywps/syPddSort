@@ -428,6 +428,7 @@ export function installHomeAdFlowModule(target: any): void {
                         runAdFail();
                         return;
                     }
+                    PerformanceMgr.inst.markUserActivity(6000);
 
                     Promise.resolve()
                         .then(() => grant())
@@ -679,7 +680,10 @@ export function installHomeAdFlowModule(target: any): void {
             if (typeof this.syncTopHud !== 'function') {
                 throw new Error('[TopHud] runtime missing syncTopHud() for Home scene');
             }
-            this.syncTopHud(topBarGroup, 'home');
+            const topHudWidgets = this.syncTopHud(topBarGroup, 'home');
+            if (!topHudWidgets) {
+                this.drawTopRightBtns(topBarGroup);
+            }
             this.drawStartButton(primaryActionLayer, curLevel);
             this.drawThemeChallengeButton(primaryActionLayer);
             this.drawDailySignInButton(entryLayer);

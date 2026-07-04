@@ -37,6 +37,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             if (this._skillActive && !viewportAlreadyReset) return;
             if (!viewportAlreadyReset) this._skillActive = true;
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            PerformanceMgr.inst.markUserActivity(8000);
             if (!viewportAlreadyReset && typeof this.resetBoardViewportToHomeForSkill === 'function') {
                 this.resetBoardViewportToHomeForSkill(() => this.useSkillClearColor(true, true));
                 return;

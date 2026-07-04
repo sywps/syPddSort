@@ -660,9 +660,8 @@ export function installTutorialGuideModule(target: any): void {
             const h = Math.max(58, targetUT.contentSize.height + 18);
 
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
-                this.showGuideSpriteHighlight('guide_slot_highlight', targetLocal.x, targetLocal.y, w, h, 1.035);
                 hand.active = true;
-                this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y - 16);
+                this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y + 8);
                 this.startGuideHandPulse(hand);
                 return;
             }
@@ -725,7 +724,6 @@ export function installTutorialGuideModule(target: any): void {
             const h = slotUT.contentSize.height + 16;
 
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
-                this.showGuideSpriteHighlight('guide_slot_highlight', slotLocal.x, slotLocal.y, w, Math.max(70, h), 1.035);
                 return;
             }
         
@@ -1207,49 +1205,11 @@ export function installTutorialGuideModule(target: any): void {
             };
         },
 
-        showGuideSpriteHighlight(frameName: string, centerX: number, centerY: number, width: number, height: number, pulseScale: number = 1.04) {
-            const frame = this.getSF(frameName);
-            if (!frame) {
-                throw new Error(`[guide] missing guide highlight sprite: ${frameName}`);
-            }
-            const hl = new Node('GuideHighlight');
-            this._guideLayer!.addChild(hl);
-            hl.layer = Layers.Enum.UI_2D;
-            hl.addComponent(UITransform).setContentSize(width, height);
-            hl.setPosition(centerX, centerY, 0);
-            this._applySpriteFrame(hl, frame, width, height, Sprite.Type.SLICED);
-            const sp = hl.getComponent(Sprite);
-            if (sp) sp.color = new Color(255, 255, 255, 255);
-            const opacity = hl.getComponent(UIOpacity) || hl.addComponent(UIOpacity);
-            opacity.opacity = 255;
-
-            const ht = tween(hl)
-                .to(0.46, { scale: new Vec3(pulseScale, pulseScale, 1) }, { easing: 'sineInOut' })
-                .to(0.46, { scale: new Vec3(1, 1, 1) }, { easing: 'sineInOut' })
-                .union()
-                .repeatForever();
-            ht.start();
-            this._guidePulseTweens.push(ht);
-            this.raiseGuideHandAboveHighlights?.();
-            return hl;
-        },
-
         /** 自动高亮棋盘上的目标豆豆块 — 整个连通块一个统一外轮廓高亮 */
         autoHighlightBlock(cells: { row: number; col: number }[]) {
             this.clearGuideHighlight();
             this._guideHighlightCells = [...cells];
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
-                const bounds = this.getGuideCellsLayerBounds(cells);
-                if (bounds) {
-                    this.showGuideSpriteHighlight(
-                        'guide_area_highlight',
-                        bounds.centerX,
-                        bounds.centerY,
-                        Math.max(120, bounds.width + 18),
-                        Math.max(72, bounds.height + 14),
-                        1.035,
-                    );
-                }
                 if (this.isStarterTutorialAutoCorrectMode?.()) return;
                 for (const cell of cells) {
                     const cellNode = this.cellNodes[cell.row]?.[cell.col];
@@ -1323,17 +1283,6 @@ export function installTutorialGuideModule(target: any): void {
         
             this._guideHighlightCells = []; // 棋盘格子不需要
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
-                const bounds = this.getGuideSlotIndicesLayerBounds(idxs);
-                if (bounds) {
-                    this.showGuideSpriteHighlight(
-                        'guide_slot_highlight',
-                        bounds.centerX,
-                        bounds.centerY,
-                        Math.max(96, bounds.width + 20),
-                        Math.max(66, bounds.height + 16),
-                        1.035,
-                    );
-                }
                 if (this.isStarterTutorialAutoCorrectMode?.()) return;
                 for (const idx of idxs) {
                     const slotNode = this.slotNodes[idx];
@@ -1472,14 +1421,6 @@ export function installTutorialGuideModule(target: any): void {
             if (!bounds) return;
 
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2') {
-                this.showGuideSpriteHighlight(
-                    'guide_area_highlight',
-                    bounds.centerX,
-                    bounds.centerY,
-                    Math.max(120, bounds.width + 18),
-                    Math.max(72, bounds.height + 14),
-                    1.035,
-                );
                 return;
             }
         
