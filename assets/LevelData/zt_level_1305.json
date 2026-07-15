@@ -1,4 +1,9 @@
 {
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 1
+    },
     "levelId": 1305,
     "boardWidth": 45,
     "boardHeight": 52,

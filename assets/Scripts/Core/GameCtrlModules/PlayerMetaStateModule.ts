@@ -474,7 +474,11 @@ export function installPlayerMetaStateModule(target: any): void {
                             if (!iconSprite || !spriteFrame) {
                                 throw new Error(`[reward-result-prefab] missing reward icon SpriteFrame: ${item.iconName}`);
                             }
-                            iconSprite.spriteFrame = spriteFrame;
+                            if (typeof this.scheduleSpriteFrameApply === 'function') {
+                                this.scheduleSpriteFrameApply(iconSprite, spriteFrame, `reward-result:${item.iconName}`);
+                            } else {
+                                iconSprite.spriteFrame = spriteFrame;
+                            }
 
                             const amountLabel = syncExistingPopupLabel(card, 'RewardAmountLabel', item.amountText, '[reward-result-prefab]');
                             amountLabel.overflow = Label.Overflow.SHRINK;
@@ -660,16 +664,24 @@ export function installPlayerMetaStateModule(target: any): void {
             if (!node.getComponent(UITransform)) {
                 throw new Error(`[recover-vigor-prefab] missing UITransform: ${node.name}`);
             }
+            const applyFrame = (targetSprite: Sprite | null, frame: SpriteFrame | null, reason: string) => {
+                if (!targetSprite || !frame) return;
+                if (typeof this.scheduleSpriteFrameApply === 'function') {
+                    this.scheduleSpriteFrameApply(targetSprite, frame, reason);
+                    return;
+                }
+                targetSprite.spriteFrame = frame;
+            };
             const cached = this.getSF?.(textureName) || null;
             if (cached) {
-                sprite.spriteFrame = cached;
+                applyFrame(sprite, cached, `recover-vigor:${textureName}:cache`);
                 return;
             }
             if (typeof this._loadSpriteFrameByName !== 'function') return;
             this._loadSpriteFrameByName(textureName, (sf: SpriteFrame | null) => {
                 if (!node?.isValid || !sf) return;
                 const currentSprite = node.getComponent(Sprite);
-                if (currentSprite) currentSprite.spriteFrame = sf;
+                applyFrame(currentSprite, sf, `recover-vigor:${textureName}:load`);
             });
         },
 

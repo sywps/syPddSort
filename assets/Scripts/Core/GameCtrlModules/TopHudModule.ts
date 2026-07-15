@@ -243,6 +243,14 @@ export function installTopHudModule(target: any): void {
             const vigorTimeBgFrame = getVigorTimeBgFrame(parent);
             const root = this.ensureTopHudRoot(parent);
             if (!root) return null;
+            const applyFrame = (sprite: Sprite | null, frame: SpriteFrame | null, reason: string) => {
+                if (!sprite || !frame) return;
+                if (typeof this.scheduleSpriteFrameApply === 'function') {
+                    this.scheduleSpriteFrameApply(sprite, frame, reason);
+                    return;
+                }
+                sprite.spriteFrame = frame;
+            };
             hideLegacyTopHudChildren(parent, root);
 
             const settingsBtn = requireChild(root, SETTINGS_BUTTON_NAME, `${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}`);
@@ -250,7 +258,7 @@ export function installTopHudModule(target: any): void {
             const settingsIcon = requireChild(settingsBtn, SETTINGS_ICON_NAME, `${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}/${SETTINGS_ICON_NAME}`);
             const settingsSprite = requireSprite(settingsIcon, `${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}/${SETTINGS_ICON_NAME}`);
             if (!settingsSprite.spriteFrame && settingFrame) {
-                settingsSprite.spriteFrame = settingFrame;
+                applyFrame(settingsSprite, settingFrame, `top-hud:${mode}:settings`);
             }
             const goldNode = requireChild(root, GOLD_GROUP_NAME, `${TOP_HUD_ROOT_NAME}/${GOLD_GROUP_NAME}`);
             const vigorNode = requireChild(root, VIGOR_GROUP_NAME, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}`);
@@ -268,7 +276,7 @@ export function installTopHudModule(target: any): void {
                 const goldBanner = requireChild(goldNode, GOLD_BANNER_NAME, `${TOP_HUD_ROOT_NAME}/${GOLD_GROUP_NAME}/${GOLD_BANNER_NAME}`);
                 const goldBannerSprite = requireSprite(goldBanner, `${TOP_HUD_ROOT_NAME}/${GOLD_GROUP_NAME}/${GOLD_BANNER_NAME}`);
                 if (!goldBannerSprite.spriteFrame && goldFrame) {
-                    goldBannerSprite.spriteFrame = goldFrame;
+                    applyFrame(goldBannerSprite, goldFrame, `top-hud:${mode}:gold`);
                 }
                 const goldCount = requireChild(goldNode, GOLD_COUNT_NAME, `${TOP_HUD_ROOT_NAME}/${GOLD_GROUP_NAME}/${GOLD_COUNT_NAME}`);
                 const goldLabel = requireLabel(goldCount, `${TOP_HUD_ROOT_NAME}/${GOLD_GROUP_NAME}/${GOLD_COUNT_NAME}`);
@@ -298,7 +306,7 @@ export function installTopHudModule(target: any): void {
                 const vigorBanner = requireChild(vigorNode, VIGOR_BANNER_NAME, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_BANNER_NAME}`);
                 const vigorBannerSprite = requireSprite(vigorBanner, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_BANNER_NAME}`);
                 if (!vigorBannerSprite.spriteFrame && vigorFrame) {
-                    vigorBannerSprite.spriteFrame = vigorFrame;
+                    applyFrame(vigorBannerSprite, vigorFrame, 'top-hud:home:vigor');
                 }
                 const vigorCount = requireChild(vigorNode, VIGOR_COUNT_NAME, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_COUNT_NAME}`);
                 const vigorCountLabel = requireLabel(vigorCount, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_COUNT_NAME}`);
@@ -306,7 +314,7 @@ export function installTopHudModule(target: any): void {
                 const timeBg = requireChild(vigorNode, VIGOR_TIME_BG_NAME, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_TIME_BG_NAME}`);
                 const timeBgSprite = timeBg.getComponent(Sprite);
                 if (timeBgSprite && !timeBgSprite.spriteFrame && vigorTimeBgFrame) {
-                    timeBgSprite.spriteFrame = vigorTimeBgFrame;
+                    applyFrame(timeBgSprite, vigorTimeBgFrame, 'top-hud:home:vigor-time-bg');
                 }
                 const vigorTime = requireChild(vigorNode, VIGOR_TIME_NAME, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_TIME_NAME}`);
                 const vigorTimeLabel = requireLabel(vigorTime, `${TOP_HUD_ROOT_NAME}/${VIGOR_GROUP_NAME}/${VIGOR_TIME_NAME}`);

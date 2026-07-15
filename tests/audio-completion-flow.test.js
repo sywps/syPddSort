@@ -20,10 +20,10 @@ assert.ok(levelCompleteIndex >= 0, 'gameWin must play the level-complete cue');
 assert.ok(settlementIndex >= 0, 'gameWin must play the settlement cue');
 const playPatternFxIndex = settlement.indexOf('const playPatternCompleteFx = () =>');
 const playBoardShrinkIndex = settlement.indexOf('const playBoardCompleteShrink = () =>');
-const revealSettlementIndex = settlement.indexOf('const revealSettlement = () =>');
-const showSettlementIndex = settlement.indexOf('const showSettlement = () =>');
+const revealSettlementIndex = settlement.indexOf('revealWinSettlementPanel(logicalLevelId: number, revealToken: number)');
+const requestSettlementIndex = settlement.indexOf('requestWinSettlementReveal(logicalLevelId: number, revealToken: number)');
 assert.ok(levelCompleteIndex > playPatternFxIndex && levelCompleteIndex < playBoardShrinkIndex, 'level-complete cue must play when full-board c1 starts');
-assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < showSettlementIndex, 'settlement cue must play only when settlement is revealed');
+assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < requestSettlementIndex, 'settlement cue must play only inside the guarded panel reveal');
 
 const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
@@ -83,7 +83,7 @@ const placement = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxM
 const skillMagnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillMagnetModule.ts');
 const skillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
-const previewController = read('assets/Scripts/Core/PreviewController.ts');
+const previewController = read('assets/PreviewBundle/PreviewController.ts');
 const uiManifest = read('assets/Scripts/Core/UiManifest.ts');
 const shared = read('assets/Scripts/Core/GameCtrlShared.ts');
 const levelFlow = read('assets/Scripts/Core/GameCtrlModules/GameplayLevelFlowModule.ts');
@@ -92,7 +92,7 @@ const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapM
 const patchBootstrapDynamicAssets = read('scripts/patch-bootstrap-dynamic-assets.js');
 const gameScene = read('assets/BootstrapBundle/Scenes/Game.scene');
 const homeScene = read('assets/HomeAssetsBundle/Scenes/Home.scene');
-const uiPreviewScene = read('assets/Scenes/UIPreview.scene');
+const uiPreviewScene = read('assets/PreviewBundle/UIPreview.scene');
 assert.ok(placement.includes('const skipColorCompleteAudio = bm.isAllLocked();'), 'final board completion must suppress ordinary color-complete audio');
 assert.ok(!placement.includes('if (skipColorCompleteAudio) continue;'), 'final board completion must not suppress the last ordinary color-complete visual');
 assert.ok(placement.includes('this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);'), 'final color-complete effect must queue visuals while suppressing duplicate audio');

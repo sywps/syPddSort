@@ -63,7 +63,7 @@ function promoteStagingBuild() {
         fail('微信 staging 构建目录不存在，不能发布到 build/wechatgame: ' + buildDir);
     }
     rm(finalBuildDir);
-    fs.renameSync(buildDir, finalBuildDir);
+    fs.cpSync(buildDir, finalBuildDir, { recursive: true });
 }
 
 function toFinalBuildPath(filePath) {
@@ -252,10 +252,16 @@ function runCocosBuildWithAssetDbRetry() {
         return result;
     }
 
-    logInfo('Cocos AssetDB 首次构建未就绪，准备在当前已导入缓存上自动重试一次');
+    logInfo('Cocos AssetDB 首次构建未就绪，准备清理 importer 缓存后自动重试一次');
     logInfo(formatCocosImporterHealthError(health));
     rm(buildDir);
     rm(assetDbPrewarmPath);
+    buildCommon.cleanCocosGeneratedCacheDirs(
+        projectDir,
+        logInfo,
+        '已清理 Cocos importer/cache，避免复用本次失败生成的空 AssetDB 缓存',
+    );
+    repairCocosMetaFiles();
 
     startedAtMs = Date.now();
     result = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
@@ -391,6 +397,23 @@ function assertRuntimeBundleNoSourceArtifacts(bundleDir, bundleName, sourceDir, 
     }
 }
 
+function assertRuntimeTextAbsent(runtimeDir, forbiddenTexts, label) {
+    const hits = [];
+    for (const filePath of walkFiles(runtimeDir)) {
+        if (!/\.(?:js|json)$/i.test(filePath)) continue;
+        const text = fs.readFileSync(filePath, 'utf8');
+        for (const forbiddenText of forbiddenTexts) {
+            if (!text.includes(forbiddenText)) continue;
+            hits.push(path.relative(runtimeDir, filePath) + ':' + forbiddenText);
+            if (hits.length >= 8) break;
+        }
+        if (hits.length >= 8) break;
+    }
+    if (hits.length > 0) {
+        fail(label + ': ' + hits.join(', '));
+    }
+}
+
 function assertRuntimeBundleConfig(bundleDir, bundleName, expectedPaths, expectedSceneUrl) {
     const config = readBundleConfig(bundleDir, bundleName);
     if (expectedSceneUrl && (!config.scenes || config.scenes[expectedSceneUrl] === undefined)) {
@@ -437,6 +460,13 @@ function assertRuntimeBundleNoDeps(bundleDir, bundleName, forbiddenDeps) {
     const forbidden = forbiddenDeps.filter((dep) => deps.includes(dep));
     if (forbidden.length > 0) {
         fail(bundleName + ' config 不应依赖: ' + forbidden.join(', '));
+    }
+}
+
+function assertRuntimeLocalBundleAbsent(runtimeDir, bundleName, reason) {
+    const localDir = path.join(runtimeDir, 'assets', bundleName);
+    if (fs.existsSync(localDir)) {
+        fail('微信包不应包含本地 assets/' + bundleName + ': ' + reason);
     }
 }
 
@@ -621,18 +651,19 @@ const runtimeInfo = {
     homeAssetsDir: resolveBundleDir(runtimeDir, 'homeAssets', gameJson),
     gameAssetsDir: resolveBundleDir(runtimeDir, 'gameAssets', gameJson),
 };
+assertRuntimeLocalBundleAbsent(runtimeDir, 'levelData', '关卡数据必须走远程 CDN，本地 levelData 会导致 debug/release 包结构不一致并撑大主包');
+assertRuntimeLocalBundleAbsent(runtimeDir, 'preview', 'PreviewBundle 只属于编辑器/plain web preview');
+assertRuntimeTextAbsent(runtimeDir, ['PreviewController', 'UIPreview', 'Panel Preview', 'Fx Preview'], '微信包不应包含 Preview 代码或场景');
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas', 'GameUI/block_bright_pindd'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', buildMode === 'debug' ? ['Skins/skins', 'Skins/Icons/bg_000'] : [], '');
+assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', [], '');
 assertRuntimeBundleNoPath(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', 'Textures/UI/block_bright_pindd');
-if (buildMode === 'release') {
-    assertRuntimeBundleNoPathPrefix(runtimeInfo.gameAssetsDir, 'gameAssets', 'Skins/');
-    assertRuntimeBundleNoSourceArtifacts(runtimeInfo.gameAssetsDir, 'gameAssets', path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins'), 'GameAssetsBundle/Skins 本地镜像');
-}
+assertRuntimeBundleNoPathPrefix(runtimeInfo.gameAssetsDir, 'gameAssets', 'Skins/');
+assertRuntimeBundleNoSourceArtifacts(runtimeInfo.gameAssetsDir, 'gameAssets', path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins'), 'GameAssetsBundle/Skins 本地镜像');
 assertRuntimeBundleNoDeps(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', ['bootstrap', 'homeAssets']);
 const subpackageRoots = (Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [])
     .map((item) => String(item && item.root || '').replace(/^\/+|\/+$/g, ''))

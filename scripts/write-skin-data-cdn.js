@@ -205,16 +205,21 @@ function buildOutput() {
             row.id,
             'background',
         );
-        const icon = copySkinAsset(
+        const thumbnail = copySkinAsset(
             iconSource,
-            path.join('assets', 'icons', getTargetImageName(row.code, iconSource)),
+            path.join('assets', 'thumbnails', getTargetImageName(row.code, iconSource)),
             row.id,
-            'icon',
+            'thumbnail',
         );
+        const icon = {
+            ...thumbnail,
+            kind: 'icon',
+        };
         return {
             ...row,
             assets: {
                 background,
+                thumbnail,
                 icon,
             },
         };
@@ -222,7 +227,7 @@ function buildOutput() {
 
     const defaultEquipped = toSkinId(config.defaultEquipped)
         || (skins.find((row) => row.isDefault) || skins[0]).id;
-    const assetCount = skins.reduce((sum, row) => sum + Object.keys(row.assets).length, 0);
+    const assetCount = skins.length * 2;
     const skinDataVersion = hashJson({
         defaultEquipped,
         skins: skins.map((row) => ({

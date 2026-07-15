@@ -28,6 +28,13 @@ type PreparedBoardSlotCell = {
     uv: number[];
 };
 
+function getRenderableTexture(sf: SpriteFrame | null): any | null {
+    if (!sf?.isValid) return null;
+    const texture = (sf as any)._texture || sf.texture || null;
+    if (!texture || texture.isValid === false || typeof texture.getHash !== 'function') return null;
+    return texture;
+}
+
 const boardSlotBatchAssembler: IAssembler = {
     createData(comp: UIRenderer): RenderData {
         const batch = comp as BoardSlotBatchRenderer;
@@ -48,7 +55,7 @@ const boardSlotBatchAssembler: IAssembler = {
         const batch = comp as BoardSlotBatchRenderer;
         const renderData = batch.renderData as RenderData | null;
         const textureFrame = batch.textureFrame;
-        if (!renderData || !textureFrame) return;
+        if (!renderData || !textureFrame || !batch.isTextureFrameRenderable()) return;
         const expectedVertexCount = batch.getPreparedCells().length * 4;
         if (renderData.dataLength !== expectedVertexCount) {
             batch.rebuildRenderDataForBatch();
@@ -116,13 +123,14 @@ export class BoardSlotBatchRenderer extends UIRenderer {
             throw new Error(`[BoardSlotBatch] too many slot quads: ${cells.length}`);
         }
         const textureFrame = cells[0]?.spriteFrame || null;
-        const texture = textureFrame?.texture || null;
+        const texture = getRenderableTexture(textureFrame);
         const prepared: PreparedBoardSlotCell[] = [];
         for (const cell of cells) {
-            if (!cell.spriteFrame?.texture) {
+            const cellTexture = getRenderableTexture(cell.spriteFrame);
+            if (!cellTexture) {
                 throw new Error('[BoardSlotBatch] missing slot sprite texture');
             }
-            if (texture && cell.spriteFrame.texture !== texture) {
+            if (texture && cellTexture !== texture) {
                 throw new Error('[BoardSlotBatch] slot sprite frames must share one atlas texture');
             }
             prepared.push({
@@ -155,6 +163,10 @@ export class BoardSlotBatchRenderer extends UIRenderer {
         return this._cells;
     }
 
+    isTextureFrameRenderable(): boolean {
+        return !!getRenderableTexture(this._textureFrame);
+    }
+
     rebuildRenderDataForBatch(): void {
         this.destroyRenderData();
         this.flushBatchAssembler();
@@ -175,13 +187,13 @@ export class BoardSlotBatchRenderer extends UIRenderer {
     }
 
     protected _render(render: any): void {
-        if (!this._textureFrame || !(this as any)._assembler) return;
+        if (!this._textureFrame || !this.isTextureFrameRenderable() || !(this as any)._assembler) return;
         render.commitComp(this, this.renderData, this._textureFrame, (this as any)._assembler, null);
     }
 
     protected _canRender(): boolean {
         return super._canRender()
-            && !!this._textureFrame?.texture
+            && this.isTextureFrameRenderable()
             && this._cells.length > 0
             && !!this.renderData;
     }

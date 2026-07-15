@@ -28,6 +28,20 @@ function rm(target) {
     fs.rmSync(target, { recursive: true, force: true });
 }
 
+const cocosGeneratedCachePaths = [
+    'library',
+    'temp/asset-db',
+    'temp/builder',
+    'temp/programming',
+];
+
+function cleanCocosGeneratedCacheDirs(projectDir, logInfo, message) {
+    for (const relPath of cocosGeneratedCachePaths) {
+        rm(path.join(projectDir, relPath));
+    }
+    logInfo(message || '已清理 Cocos 项目级生成缓存，避免 stale asset-db/importer/script 状态污染构建');
+}
+
 function walkFiles(dir, out = []) {
     if (!fs.existsSync(dir)) return out;
     for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -71,15 +85,7 @@ function cleanCocosGeneratedCaches(projectDir, envName, logInfo) {
         logInfo('已跳过 Cocos 项目级生成缓存清理');
         return;
     }
-    for (const relPath of [
-        'library',
-        'temp/asset-db',
-        'temp/builder',
-        'temp/programming',
-    ]) {
-        rm(path.join(projectDir, relPath));
-    }
-    logInfo('已清理 Cocos 项目级生成缓存，避免 stale asset-db/importer/script 状态污染构建');
+    cleanCocosGeneratedCacheDirs(projectDir, logInfo);
 }
 
 function repairCocosMetaFiles(projectDir) {
@@ -143,6 +149,7 @@ function resolveRuntimeRoot(buildDir) {
 }
 
 module.exports = {
+    cleanCocosGeneratedCacheDirs,
     cleanCocosGeneratedCaches,
     dirSize,
     fail,

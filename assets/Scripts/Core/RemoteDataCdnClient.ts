@@ -38,6 +38,19 @@ export function isLocalBrowserCdnOptIn(): boolean {
     }
 }
 
+export function isExplicitLocalTestProfile(): boolean {
+    if (!isLocalBrowserPreview()) return false;
+    const w: any = typeof window !== 'undefined' ? window : null;
+    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    const search = String(w?.location?.search || g?.location?.search || '');
+    if (!search) return false;
+    try {
+        return String(new URLSearchParams(search).get('profile') || '').trim().toLowerCase() === 'local-test';
+    } catch (_) {
+        return false;
+    }
+}
+
 export function isPlainBrowserRuntime(): boolean {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
     return typeof g?.fetch === 'function' && !isMiniGameRuntime();

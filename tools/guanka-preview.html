@@ -608,6 +608,8 @@ function shouldUseDirectLevelParam(data) {
 
 function buildPlayUrl(data) {
     const url = new URL(GAME_PREVIEW_URL);
+    url.searchParams.set('scene', 'db://assets/BootstrapBundle/Scenes/Game.scene');
+    url.searchParams.set('profile', 'local-test');
     if (shouldUseDirectLevelParam(data)) {
         url.searchParams.set('level', String(data.levelId));
     } else {

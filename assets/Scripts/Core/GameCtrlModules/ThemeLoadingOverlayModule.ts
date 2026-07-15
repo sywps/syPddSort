@@ -125,6 +125,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             canUnlock: boolean,
             unlockRequirementLevel: number,
             levelName: string = '',
+            options: { deferPreview?: boolean } = {},
         ) {
             const existing = parent.getChildByName(`ThemeCard_${levelId}`);
             const template = parent.getChildByName('ThemeCardTemplate');
@@ -223,7 +224,15 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 }
             }, this);
 
-            this.drawThemePixelPreview(previewContainer, levelId, 0, 0, previewUi.width, previewUi.height);
+            if (!options.deferPreview) {
+                this.drawThemePixelPreview(previewContainer, levelId, 0, 0, previewUi.width, previewUi.height);
+            }
+            return {
+                card,
+                previewContainer,
+                previewW: previewUi.width,
+                previewH: previewUi.height,
+            };
         },
 
         /** 在主题卡片上绘制像素图预览（基于 zt_level_xxx.json 的 correctColorArr） */

@@ -670,6 +670,9 @@ export function installThemePanelFlowModule(target: any): void {
             const sectionGap = 28;
             const topPad = Math.max(0, Number.isFinite(templateTopPad) ? templateTopPad : 18);
             const headerCardGap = Math.max(0, Number.isFinite(templateHeaderCardGap) ? templateHeaderCardGap : 0);
+            this._themePreviewItems = [];
+            this._themePreviewRowPitch = cardH + gapY;
+            this._themePreviewBufferRows = 1;
 
             let total = topPad;
             for (const grp of groups) {
@@ -711,7 +714,17 @@ export function installThemePanelFlowModule(target: any): void {
                         const unlockRequirementLevel = this.getThemeUnlockRequirementLevel(lvId);
                         const cx = c === 0 ? leftX : rightX;
                         const cy = cursorY - cardH / 2 - r * (cardH + gapY);
-                        this.drawThemeCard(content, lvId, cx, cy, cardW, cardH, isUnlocked, isCompleted, canUnlock, unlockRequirementLevel, lvName);
+                        const previewInfo = this.drawThemeCard(content, lvId, cx, cy, cardW, cardH, isUnlocked, isCompleted, canUnlock, unlockRequirementLevel, lvName, {
+                            deferPreview: true,
+                        });
+                        this._themePreviewItems.push({
+                            card: previewInfo?.card || content.getChildByName(`ThemeCard_${lvId}`),
+                            previewContainer: previewInfo?.previewContainer || null,
+                            levelId: lvId,
+                            rendered: false,
+                            previewW: previewInfo?.previewW || Math.max(1, cardW - 24),
+                            previewH: previewInfo?.previewH || Math.max(1, cardH - 74),
+                        });
                     }
                 }
                 cursorY -= rows * cardH + (rows - 1) * gapY;
@@ -723,6 +736,25 @@ export function installThemePanelFlowModule(target: any): void {
                 content.setPosition(0, -(total - scrollH) / 2);
             } else {
                 content.setPosition(0, 0);
+            }
+        },
+
+        renderThemePanelVisiblePreviews(content?: Node, scrollH?: number, bufferRows: number = 1) {
+            const resolvedContent = content || this._themeOverlay?.getChildByName('Box')?.getChildByName('Content')?.getChildByName('ThemeScrollContent');
+            const items = this._themePreviewItems as Array<any>;
+            if (!resolvedContent?.isValid || !Array.isArray(items) || items.length === 0) return;
+            const viewH = Math.max(1, Number(scrollH) || 1);
+            const rowPitch = Math.max(1, Number(this._themePreviewRowPitch) || 1);
+            const bufferPx = rowPitch * Math.max(0, Math.floor(Number(bufferRows) || 0));
+            const minY = -viewH / 2 - bufferPx - resolvedContent.position.y;
+            const maxY = viewH / 2 + bufferPx - resolvedContent.position.y;
+
+            for (const item of items) {
+                if (!item || item.rendered || !item.card?.isValid || !item.previewContainer?.isValid) continue;
+                const cardY = item.card.position.y;
+                if (cardY < minY || cardY > maxY) continue;
+                item.rendered = true;
+                this.drawThemePixelPreview(item.previewContainer, item.levelId, 0, 0, item.previewW, item.previewH);
             }
         },
     });

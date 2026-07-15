@@ -146,7 +146,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     onDone?.(false);
                     return;
                 }
-                this._loadLevelDataFromCdnOrLocal(normalizedLevelId, prefix, (levelData, source, err) => {
+                this._loadLevelDataFromConfiguredSource(normalizedLevelId, prefix, (levelData, source, err) => {
                     if (!levelData) {
                         console.warn('[HomeWarmup] level data unavailable for', levelPath, source, err?.message || 'missing level data');
                         onDone?.(false);
@@ -575,7 +575,7 @@ export function installSceneHomeEntryModule(target: any): void {
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath, {
                 extra: { assetMode: 'bootstrap_only_mainline' },
             });
-            this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+            this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
                 if (!levelData) {
                     this.stopLevelDataLoadWithFatalError(
                         activeLevelId,
@@ -613,7 +613,7 @@ export function installSceneHomeEntryModule(target: any): void {
             const levelPath = this.getLevelDataPath(levelId, prefix);
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath);
             const loadLevelData = (bundle: Bundle) => {
-                this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+                this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
                     if (!levelData) {
                         this.stopLevelDataLoadWithFatalError(
                             activeLevelId,
@@ -789,7 +789,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     });
                     tryFinish();
                 };
-                this._loadLevelDataFromCdnOrLocal(levelId, prefix, handleLevelData);
+                this._loadLevelDataFromConfiguredSource(levelId, prefix, handleLevelData);
             });
         },
 

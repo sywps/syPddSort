@@ -5,6 +5,8 @@ import {
     Layers,
     Node,
     SKILL_UNLOCK_FREEZE,
+    Sprite,
+    SpriteFrame,
     tween,
     Tween,
     UIOpacity,
@@ -13,10 +15,12 @@ import {
 } from '../GameCtrlShared';
 import type { InventoryPropKind } from '../GameCtrlShared';
 import { isGameplaySkillUnlocked } from '../SlotOnboardingPolicy';
+import { runtimeWarn } from '../RuntimeLog';
 
 const FREEZE_HINT_REMAIN_SECONDS = 60;
 const GIFT_HINT_REMAIN_SECONDS = 30;
 const FREEZE_HINT_BUBBLE_TEXT = '时间不多啦';
+const AD_REWARD_GIFT_ICON_TEXTURE = 'ad_rescue_gift_icon';
 const SLOT_REMINDER_MAX_PER_GAME = 3;
 const SLOT_REMINDER_COOLDOWN_MS = 22000;
 
@@ -262,7 +266,42 @@ export function installGameplayAdRewardHintModule(target: any): void {
             entry.on(Button.EventType.CLICK, () => this.tryUseAdRewardGift?.(), this);
             setUiLayer(entry);
             this._adRewardGiftNode = entry;
+            this.ensureAdRewardGiftEntryIcon?.(entry);
             return entry;
+        },
+
+        ensureAdRewardGiftEntryIcon(entry: Node): void {
+            if (!entry?.isValid) return;
+            const sprite = entry.getComponent(Sprite);
+            if (!sprite?.isValid || sprite.spriteFrame) return;
+            const applyFrame = (frame: SpriteFrame | null, reason: string) => {
+                if (!frame) return;
+                if (typeof this.scheduleSpriteFrameApply === 'function') {
+                    this.scheduleSpriteFrameApply(sprite, frame, reason);
+                    return;
+                }
+                if (sprite?.isValid && sprite.node?.isValid) {
+                    sprite.spriteFrame = frame;
+                }
+            };
+            const cached = this.getSF?.(AD_REWARD_GIFT_ICON_TEXTURE) || null;
+            if (cached) {
+                applyFrame(cached, 'ad-reward-gift-icon:cache');
+                return;
+            }
+            if (typeof this._loadSpriteFrameByName !== 'function') return;
+            const marker = entry as any;
+            if (marker.__adRewardGiftIconLoading) return;
+            marker.__adRewardGiftIconLoading = true;
+            this._loadSpriteFrameByName(AD_REWARD_GIFT_ICON_TEXTURE, (frame: SpriteFrame | null) => {
+                marker.__adRewardGiftIconLoading = false;
+                if (!entry?.isValid || !sprite?.isValid || !sprite.node?.isValid) return;
+                if (!frame) {
+                    runtimeWarn('[AdRewardGift] optional icon SpriteFrame missing:', AD_REWARD_GIFT_ICON_TEXTURE);
+                    return;
+                }
+                applyFrame(frame, 'ad-reward-gift-icon:load');
+            });
         },
 
         showAdRewardGiftEntry() {
@@ -270,6 +309,7 @@ export function installGameplayAdRewardHintModule(target: any): void {
             if (this._adRewardGiftShown || this._adRewardFreezeEntryClicked) return false;
             const entry = this.getOrCreateAdRewardGiftEntry?.();
             if (!entry?.isValid) return false;
+            this.ensureAdRewardGiftEntryIcon?.(entry);
             this._adRewardGiftShown = true;
             entry.active = true;
             entry.setSiblingIndex(Math.max(0, entry.parent ? entry.parent.children.length - 1 : 0));

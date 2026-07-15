@@ -1,4 +1,9 @@
 {
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 1
+    },
     "boardWidth": 30,
     "boardHeight": 36,
     "timeLimit": 600,

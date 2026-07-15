@@ -16,7 +16,7 @@ import { runtimeWarn } from './RuntimeLog';
 
 export type SkinRemoteAsset = {
     skinId: number;
-    kind: 'background' | 'icon' | string;
+    kind: 'background' | 'thumbnail' | 'icon' | string;
     url: string;
     hash: string;
     bytes?: number;
@@ -43,6 +43,7 @@ export type SkinLiveRow = {
     iconKey?: string;
     assets?: {
         background?: SkinRemoteAsset;
+        thumbnail?: SkinRemoteAsset;
         icon?: SkinRemoteAsset;
         [key: string]: SkinRemoteAsset | undefined;
     };
@@ -202,11 +203,10 @@ export class SkinResourceCdnService {
         const seenIds = new Set<number>();
         const seenUrls = new Set<string>();
         let assetCount = 0;
-        const validateAsset = (skinId: number, expectedKind: 'background' | 'icon', asset: SkinRemoteAsset | undefined): void => {
-            if (!asset) throw new Error(`skin_live.json missing ${expectedKind} asset: ${skinId}`);
-            if (Number(asset.skinId) !== skinId) throw new Error(`skin_live.json asset skinId mismatch: ${skinId}/${expectedKind}`);
-            if (asset.kind !== expectedKind) throw new Error(`skin_live.json asset kind mismatch: ${skinId}/${expectedKind}`);
-            if (typeof asset.url !== 'string' || !asset.url.startsWith('assets/')) throw new Error(`skin_live.json asset url invalid: ${skinId}/${expectedKind}`);
+        const validateAssetBase = (skinId: number, asset: SkinRemoteAsset | undefined, label: string): SkinRemoteAsset => {
+            if (!asset) throw new Error(`skin_live.json missing ${label} asset: ${skinId}`);
+            if (Number(asset.skinId) !== skinId) throw new Error(`skin_live.json asset skinId mismatch: ${skinId}/${label}`);
+            if (typeof asset.url !== 'string' || !asset.url.startsWith('assets/')) throw new Error(`skin_live.json asset url invalid: ${skinId}/${label}`);
             if (seenUrls.has(asset.url)) throw new Error(`skin_live.json asset url duplicated: ${asset.url}`);
             seenUrls.add(asset.url);
             if (!asset.hash || typeof asset.hash !== 'string') throw new Error(`skin_live.json asset hash missing: ${asset.url}`);
@@ -215,6 +215,17 @@ export class SkinResourceCdnService {
             if (!Number.isFinite(Number(asset.height)) || Number(asset.height) <= 0) throw new Error(`skin_live.json asset height invalid: ${asset.url}`);
             if (asset.format && !/^(png|jpe?g)$/i.test(String(asset.format))) throw new Error(`skin_live.json asset format unsupported: ${asset.url}`);
             assetCount += 1;
+            return asset;
+        };
+        const validateBackgroundAsset = (skinId: number, asset: SkinRemoteAsset | undefined): void => {
+            const validated = validateAssetBase(skinId, asset, 'background');
+            if (validated.kind !== 'background') throw new Error(`skin_live.json asset kind mismatch: ${skinId}/background`);
+        };
+        const validatePreviewAsset = (skinId: number, asset: SkinRemoteAsset | undefined): void => {
+            const validated = validateAssetBase(skinId, asset, 'thumbnail');
+            if (validated.kind !== 'thumbnail' && validated.kind !== 'icon') {
+                throw new Error(`skin_live.json asset kind mismatch: ${skinId}/thumbnail`);
+            }
         };
         for (const skin of manifest.skins) {
             const id = Math.floor(Number(skin?.id) || 0);
@@ -224,8 +235,8 @@ export class SkinResourceCdnService {
             if (skin.type !== 'background') throw new Error(`skin_live.json skin.type unsupported: ${id}`);
             if (!skin.code || typeof skin.code !== 'string') throw new Error(`skin_live.json skin.code missing: ${id}`);
             if (skin.enabled === false) throw new Error(`skin_live.json disabled skin row is not publishable: ${id}`);
-            validateAsset(id, 'background', skin.assets?.background);
-            validateAsset(id, 'icon', skin.assets?.icon);
+            validateBackgroundAsset(id, skin.assets?.background);
+            validatePreviewAsset(id, skin.assets?.thumbnail || skin.assets?.icon);
         }
         if (manifest.assetCount !== assetCount) {
             throw new Error(`skin_live.json assetCount mismatch: ${manifest.assetCount} != ${assetCount}`);

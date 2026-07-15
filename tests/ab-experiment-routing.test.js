@@ -66,7 +66,7 @@ function unplacedComponentSummary(relPath) {
     return summary.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
 }
 
-const levelExpSourceDir = 'level_exp_data/level_exp';
+const levelExpSourceDir = 'temp/levels_exp';
 const bootstrapLevel1Path = 'assets/BootstrapBundle/LevelData/level_1.json';
 
 const experimentUrlParam = read('assets/Scripts/Core/ExperimentUrlParam.ts');
@@ -83,28 +83,29 @@ assert.ok(analytics.includes("type TutorialExperimentBucket = 'A' | 'B' | 'C' | 
 assert.ok(analytics.includes("hashBucket < 25 ? 'A'"), 'tutorial experiment must allocate bucket A');
 assert.ok(analytics.includes("hashBucket < 50 ? 'B'"), 'tutorial experiment must allocate bucket B');
 assert.ok(analytics.includes("hashBucket < 75 ? 'C'"), 'tutorial experiment must allocate bucket C');
-assert.ok(analytics.includes('shouldShowTutorialSkipGuidePrompt'), 'tutorial experiment C/D gate must only name the skip-guide prompt behavior');
-assert.ok(analytics.includes("this.tutorialExperiment.bucket === 'C' || this.tutorialExperiment.bucket === 'D'"), 'tutorial skip-guide prompt treatment must be C/D');
-assert.ok(analytics.includes('onTutorialExperimentAssignmentChanged'), 'tutorial bucket changes must be observable after async openid resolution');
-assert.ok(analytics.includes('notifyTutorialExperimentAssignmentChanged'), 'tutorial bucket changes must notify prompt sync listeners');
+assert.ok(analytics.includes('getTutorialExperimentEventContext'), 'tutorial experiment attribution must remain available for analytics');
+assert.ok(!analytics.includes('shouldShowTutorialSkipGuidePrompt'), 'retired tutorial prompt gate must be removed');
+assert.ok(!analytics.includes('onTutorialExperimentAssignmentChanged'), 'retired tutorial prompt sync listeners must be removed');
+assert.ok(!analytics.includes('notifyTutorialExperimentAssignmentChanged'), 'retired tutorial prompt sync notifications must be removed');
 
 const tutorialGuide = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 assert.ok(!tutorialGuide.includes('AnalyticsMgr.inst.isTutorialExperimentTreatment()'), 'starter guide auto-correct must not be gated by tutorial buckets after full rollout');
 assert.ok(!tutorialGuide.includes('handleTutorialRelaxedTap'), 'old treatment-only relaxed tap handler must be removed');
-assert.ok(!tutorialGuide.includes("label.string = '跳过引导'"), 'skip-guide prompt copy must stay scene-owned');
 assert.ok(tutorialGuide.includes('handleStarterTutorialAutoCorrectTap'), 'starter guide auto-correct must be the default handler');
-assert.ok(tutorialGuide.includes('AnalyticsMgr.inst.shouldShowTutorialSkipGuidePrompt()'), 'tutorial buckets must only gate skip-guide prompt');
+assert.ok(!tutorialGuide.includes('TutorialSkipGuidePrompt'), 'retired tutorial skip prompt runtime code must be removed');
+assert.ok(!tutorialGuide.includes('tutorial_skip_prompt'), 'retired tutorial skip prompt tracking must be removed');
+assert.ok(!tutorialGuide.includes('tutorial_skip_guide'), 'retired tutorial skip prompt click tracking must be removed');
 
 const gameScene = readJson('assets/BootstrapBundle/Scenes/Game.scene');
 const skipPrompt = gameScene.find((entry) => entry && entry._name === 'TutorialSkipGuidePrompt');
-assert.ok(skipPrompt, 'Game.scene must contain Cocos-owned TutorialSkipGuidePrompt');
-assert.strictEqual(skipPrompt._active, false, 'TutorialSkipGuidePrompt must be inactive by default');
-assert.ok(gameScene.some((entry) => entry && entry._string === '跳过引导'), 'TutorialSkipGuidePrompt label must be scene-owned');
+assert.ok(!skipPrompt, 'Game.scene must not contain retired TutorialSkipGuidePrompt');
+assert.ok(!gameScene.some((entry) => entry && entry._string === '跳过引导'), 'retired TutorialSkipGuidePrompt label must be removed from Game.scene');
 
 const levelCdn = read('assets/Scripts/Core/LevelDataCdnService.ts');
 assert.ok(levelCdn.includes("export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D' | 'NULL'"), 'level experiment must expose A/B/C/D buckets plus NULL before openid');
 assert.ok(levelCdn.includes("LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1'"), 'level experiment must share the cached openid seed with analytics');
-assert.ok(levelCdn.includes("return this.buildLevelExperimentAssignment('NULL', 'missing_identity')"), 'level experiment must keep missing identity in NULL');
+assert.ok(levelCdn.includes("this.sessionExperimentAssignment = this.buildLevelExperimentAssignment('NULL', 'missing_identity')"), 'level experiment must keep missing identity in NULL');
+assert.ok(levelCdn.includes('if (this.sessionExperimentAssignment) return this.sessionExperimentAssignment;'), 'level experiment assignment must not change between direct Game and later Home routes');
 assert.ok(!levelCdn.includes('installId'), 'level experiment must not bucket users by local installId');
 assert.ok(levelCdn.includes('const primaryLevel = await this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);'), 'foreground loadLevel must use the foreground CDN load path');
 assert.ok(levelCdn.includes('const manifest = await this.getLiveManifest(context, foregroundLoad);'), 'foreground CDN load path must pass retry intent into manifest loading');
@@ -127,14 +128,14 @@ assert.ok(!session.includes('LevelDataCdnService.inst.getLevelExperimentAssignme
 assert.ok(!session.includes('tutorialGateLevelId === 2 && !isLevelExperimentTreatment'), 'level 2 old slot guide must not be tied to level experiment baseline');
 assert.ok(!session.includes('tutorialGateLevelId === 3 && isLevelExperimentTreatment'), 'level 3 slot intro must not be limited to level experiment treatment buckets');
 assert.ok(!session.includes("'level_2'"), 'GameplaySessionController must not start the old level 2 tutorial');
-assert.ok(session.includes('tutorialGateLevelId === 3 && useMainlineSlotGuideFlow'), 'all mainline level experiment buckets must use the level 3 slot intro guide flow');
+assert.ok(session.includes('activeLogicalLevelId === 3 && useMainlineSlotGuideFlow'), 'all mainline level experiment buckets must resolve the level 3 slot intro layout before buildUI');
 assert.ok(session.includes('applyLevelExperimentGuideSlotPolicy'), 'level experiment guide flow must decouple guide slot policy from CDN routing');
 assert.ok(session.includes('levelId === 2') && session.includes('showSlotUnlockGuide: false'), 'level 2 must suppress the old slot unlock guide for all buckets');
 assert.ok(session.includes("unlockMode: 'free'"), 'level 3 slot intro must force a free unlock row even for stable CDN buckets');
 assert.ok(session.includes('slotPolicy.unlockAllRowsAtOnce'), 'unlock-all row policy must start from the current unlocked rows instead of rendering all target rows immediately');
 assert.ok(session.includes('Math.min(slotPolicy.rowCount, Math.max(1, slotPolicy.unlockedRows) + 1)'), 'unlock-all row policy must render the default unlocked row plus one locked preview row');
 assert.ok(session.includes('const shouldStartZoomGuide'), 'level 2 zoom guide must use an explicit startup gate');
-assert.ok(session.includes("tutorialGuideMode === 'zoom'") && session.includes('tutorialGateLevelId === 2 && useMainlineSlotGuideFlow'), 'mainline level 2 must start the zoom guide even if imported JSON is stale');
+assert.ok(session.includes("configuredTutorialGuideMode === 'zoom'") && session.includes('activeLogicalLevelId === 2 && useMainlineSlotGuideFlow'), 'mainline level 2 must start the zoom guide even if imported JSON is stale');
 assert.ok(session.includes("title: '双指拖动可放大缩小图案'"), 'level 2 zoom guide must use the final single-line prompt copy');
 assert.ok(session.includes("subtitle: ''"), 'level 2 zoom guide must not render the old second prompt line');
 assert.ok(session.includes('autoCloseSeconds: 0'), 'level 2 zoom guide must not auto-close before the player actually zooms');
@@ -146,11 +147,22 @@ assert.ok(slotUi.includes('runtime.slotModel.expand(SLOTS_PER_ROW * rowsToAdd)')
 assert.ok(slotUi.includes('row >= runtime.slotUnlockedRows'), 'slot UI must visually lock every row above the unlocked row count');
 assert.ok(slotUi.includes('LOCKED_SLOT_PREVIEW_OPACITY'), 'locked slot preview grooves must remain visible in the intro slot panel');
 assert.ok(tutorialGuideModule.includes('styleLevelExpSlotIntroGuidePrompt'), 'level 3 slot intro must use a dedicated two-line prompt style');
-assert.ok(tutorialGuideModule.includes("new Color('#FF4D5A')"), 'level 3 slot intro must render the free unlock line in red');
+assert.ok(tutorialGuideModule.includes("this.activateGuidePromptVariant(bubble, 'SlotIntroPrompt')"), 'level 3 slot intro must activate the scene-owned two-line variant');
 assert.ok(tutorialGuideModule.includes('PromptLabelEmphasis'), 'level 3 slot intro must render the red emphasis line as a separate label');
-assert.ok(tutorialGuideModule.includes('const bubbleHeight = 158'), 'level 3 slot intro bubble must keep both lines above the tail');
-assert.ok(tutorialGuideModule.includes('lbl.node.setPosition(0, 36, 0)'), 'level 3 slot intro primary copy must sit inside the bubble body');
-assert.ok(tutorialGuideModule.includes('emphasisNode.setPosition(0, -8, 0)'), 'level 3 slot intro red copy must sit above the bubble tail');
+assert.ok(!tutorialGuideModule.includes("new Node('PromptLabelEmphasis')"), 'level 3 slot intro emphasis label must be scene-owned');
+assert.ok(!tutorialGuideModule.includes('emphasisNode.addComponent(Label)'), 'level 3 slot intro must not create its static Label at runtime');
+const emphasisNode = gameScene.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'PromptLabelEmphasis');
+assert.ok(emphasisNode, 'Game.scene must own the level 3 emphasis node');
+assert.strictEqual(emphasisNode._active, false, 'level 3 emphasis copy must default inactive outside the slot-intro guide');
+const emphasisLabel = gameScene.find((entry) => entry && entry.__type__ === 'cc.Label' && entry.node?.__id__ === gameScene.indexOf(emphasisNode));
+assert.ok(emphasisLabel && emphasisLabel._fontSize === 34, 'Game.scene must own the level 3 emphasis label style');
+assert.ok(tutorialGuideModule.includes('const LEVEL_EXP_SLOT_INTRO_UNLOCK_HAND_TARGET_Y_OFFSET = -16'), 'level 3 slot intro hand endpoint must be lowered onto the unlock button');
+assert.ok(tutorialGuideModule.includes('targetLocal.y + unlockHandOffsetY'), 'slot intro hand target must use the mode-specific unlock button offset');
+assert.ok(tutorialGuideModule.includes('this.getLevelExpSlotIntroGuideBand?.()'), 'slot intro bubble must use the shared top prompt band');
+assert.ok(!tutorialGuideModule.includes('occupiedTop + bubbleHeight / 2'), 'slot intro bubble must not remain anchored directly above the bottom slot tray');
+assert.ok(tutorialGuideModule.includes('refreshLevelExpSlotIntroGuideLayout'), 'slot intro bubble must support post-layout remeasurement');
+assert.ok(boardInput.includes('getLevelExpSlotIntroGuideBand'), 'board viewport must expose the slot-intro prompt exclusion band');
+assert.ok(boardInput.includes('guideBand.bottom - LEVEL_EXP_SLOT_INTRO_PROMPT_BOARD_GAP'), 'board viewport must fit below the prompt band');
 assert.ok(themePanelFlow.includes("this.requireCanvasUiRoot('OverlayRoot')"), 'pinch guide must attach to OverlayRoot so it appears above gameplay');
 assert.ok(themePanelFlow.includes('layer.addComponent(BlockInputEvents)'), 'level 2 pinch guide must consume the first tap so any tap can dismiss the guide');
 assert.ok(themePanelFlow.includes('this.closePinchGuide();'), 'level 2 pinch guide must close on tap');
@@ -167,8 +179,8 @@ assert.ok(themePanelFlow.includes("createPinchHand('PinchGuideLeftHand', true"),
 assert.ok(themePanelFlow.includes("createPinchHand('PinchGuideRightHand', false"), 'pinch guide must render the normal right hand');
 assert.ok(!themePanelFlow.includes("new Node('PinchHand')"), 'pinch guide must not fall back to the old graphics-only circle gesture');
 assert.ok(session.includes('LevelDataCdnService.inst.getLevelExperimentEventContext'), 'analytics context must prefer active level experiment bucket');
-assert.ok(sceneRuntime.includes('ensureTutorialExperimentPromptSync'), 'game runtime must subscribe to tutorial bucket changes');
-assert.ok(sceneRuntime.includes('this.runtime.syncTutorialSkipGuidePrompt?.()'), 'tutorial bucket changes must resync the skip-guide prompt');
+assert.ok(!sceneRuntime.includes('ensureTutorialExperimentPromptSync'), 'retired tutorial prompt sync must not run in game runtime');
+assert.ok(!sceneRuntime.includes('syncTutorialSkipGuidePrompt'), 'retired tutorial prompt sync call must be removed');
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_1.json'), {
     defaultRows: 1,
@@ -211,28 +223,23 @@ assert.deepStrictEqual(slotPolicy(`${levelExpSourceDir}/level_1.json`), {
     freeUnlockRows: 0,
     adUnlockRows: 0,
 }, 'experiment level 1 must keep first-level guide slot policy');
-assert.deepStrictEqual(colorCounts(`${levelExpSourceDir}/level_1.json`, 'correctColorArr'), [[10, 12], [13, 12]], 'experiment level 1 correct colors must be red/blue');
-assert.deepStrictEqual(colorCounts(`${levelExpSourceDir}/level_1.json`, 'initRandomColorArr'), [[10, 12], [13, 12]], 'experiment level 1 init colors must be red/blue');
-assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_1.json`).mode, 'level_1_red_blue', 'experiment level 1 must declare red/blue guide copy mode');
+assert.deepStrictEqual(colorCounts(`${levelExpSourceDir}/level_1.json`, 'correctColorArr'), [[1, 12], [3, 12]], 'experiment level 1 correct colors must match the current level experiment source');
+assert.deepStrictEqual(colorCounts(`${levelExpSourceDir}/level_1.json`, 'initRandomColorArr'), [[1, 12], [3, 12]], 'experiment level 1 init colors must match the current level experiment source');
+assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_1.json`), undefined, 'experiment level 1 must not carry tutorial guide content');
 
 assert.deepStrictEqual(slotPolicy(`${levelExpSourceDir}/level_2.json`), {
-    defaultRows: 2,
+    defaultRows: 1,
     freeUnlockRows: 0,
-    adUnlockRows: 0,
-}, 'experiment level 2 must open two slot rows and avoid old unlock-slot teaching');
-assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_2.json`).mode, 'zoom', 'experiment level 2 must declare zoom tutorial mode');
-assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_2.json`).title, '双指拖动可放大缩小图案', 'experiment level 2 zoom guide copy must use the final single-line prompt');
-assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_2.json`).subtitle, '', 'experiment level 2 zoom guide subtitle must be empty');
+    adUnlockRows: 1,
+}, 'experiment level 2 must use the current level experiment slot policy');
+assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_2.json`), undefined, 'experiment level 2 must not carry tutorial guide content');
 
 assert.deepStrictEqual(slotPolicy(`${levelExpSourceDir}/level_3.json`), {
-    defaultRows: 1,
-    freeUnlockRows: 3,
+    defaultRows: 2,
+    freeUnlockRows: 1,
     adUnlockRows: 0,
-    unlockAllRowsAtOnce: true,
-}, 'experiment level 3 must start with one row and unlock the remaining three rows with one free action');
-assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_3.json`).mode, 'slot_expand_all', 'experiment level 3 must declare all-row slot intro mode');
-assert.deepStrictEqual(readTutorialGuide(`${levelExpSourceDir}/level_3.json`).guideCopies, level3SlotIntroCopies, 'experiment level 3 must use the two-line competitor-style slot intro copy');
-assert.deepStrictEqual(unplacedComponentSummary(`${levelExpSourceDir}/level_3.json`), [[3, 48], [6, 48], [9, 48], [10, 48], [14, 48], [15, 48], [20, 48]], 'experiment level 3 must keep only seven 48-bean main disorder blocks');
+}, 'experiment level 3 must use the current level experiment slot policy');
+assert.strictEqual(readTutorialGuide(`${levelExpSourceDir}/level_3.json`), undefined, 'experiment level 3 must not carry tutorial guide content');
 
 for (let level = 1; level <= 3; level++) {
     assert.ok(fs.existsSync(path.join(root, `${levelExpSourceDir}/level_${level}.json`)), `experiment level ${level} data must exist`);

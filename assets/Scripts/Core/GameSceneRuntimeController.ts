@@ -68,8 +68,6 @@ function bindWeChatUpdateManagerOnce(): void {
 }
 
 export class GameSceneRuntimeController {
-    private tutorialExperimentUnsubscribe: (() => void) | null = null;
-
     constructor(private readonly runtime: any) {}
 
     getRuntimeSceneName(fallback: string = 'Game'): string {
@@ -138,6 +136,7 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('FxRoot');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:beforeShowMainMenu');
         this.runtime.showMainMenu();
+        this.runtime.startRenderResourceDiagnostics?.('home-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:afterShowMainMenu', {
             hasMainMenuNode: !!this.runtime.mainMenuNode,
         });
@@ -164,6 +163,7 @@ export class GameSceneRuntimeController {
         });
         this.prepareSceneFrame('Boot');
         this.runtime.bindUserStateLifecycle();
+        this.runtime.startRenderResourceDiagnostics?.('boot-start');
         this.runtime.requireCanvasUiRoot('BootRoot');
         const routeDecision = resolveStartupRouteDecision();
         if (routeDecision.shouldMarkPendingGameplay) {
@@ -225,7 +225,6 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('PopupRoot');
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
-        this.ensureTutorialExperimentPromptSync();
         this.bindEarlyGameSettingsButton();
         if (pendingGameplayRequest) {
             this.primePendingGameplayShell(pendingGameplayRequest);
@@ -244,6 +243,7 @@ export class GameSceneRuntimeController {
             pendingGameplayRequest: !!pendingGameplayRequest,
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
         });
+        this.runtime.startRenderResourceDiagnostics?.('game-start');
         void this.runtime.continueStartup();
     }
 
@@ -461,10 +461,6 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
-        if (this.tutorialExperimentUnsubscribe) {
-            this.tutorialExperimentUnsubscribe();
-            this.tutorialExperimentUnsubscribe = null;
-        }
         const sceneName = this.getRuntimeSceneName();
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
             sceneName,
@@ -473,6 +469,8 @@ export class GameSceneRuntimeController {
             AnalyticsMgr.inst.abandonActiveLevel();
             SySDKMgr.inst.reportLevelExit(this.runtime.getAnalyticsLevelId());
         }
+        this.runtime.scanRenderSpriteFrameHealth?.(`runtime.destroy.before:${sceneName}`, null, { always: true });
+        this.runtime.stopRenderResourceDiagnostics?.(`runtime-destroy:${sceneName}`);
         this.runtime.unbindUserStateLifecycle();
         void UserStateSyncMgr.inst.flushPendingSave();
         this.runtime.unscheduleAllCallbacks();
@@ -494,6 +492,7 @@ export class GameSceneRuntimeController {
         this.runtime.clearBoardVisualPools?.();
         this.runtime.clearEffectPools();
         this.runtime.cancelSpriteFrameLoadQueue?.(`runtime-destroy:${sceneName}`);
+        this.runtime.releaseBackgroundSkinCachedSpriteFrames?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
         debugPerfTrace('runtime.destroy.after', {
             sceneName,
@@ -552,7 +551,6 @@ export class GameSceneRuntimeController {
         SySDKMgr.inst.init();
         SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
         UserMgr.inst.touchSession(canAutoSaveGameState);
-        this.ensureTutorialExperimentPromptSync();
         void AnalyticsMgr.inst.bootstrap();
         if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {
             this.runtime.queueCloudGameStateSync();
@@ -619,16 +617,6 @@ export class GameSceneRuntimeController {
             x: Math.round(Number(node.position.x) || 0),
             y: Math.round(Number(node.position.y) || 0),
         };
-    }
-
-    private ensureTutorialExperimentPromptSync(): void {
-        if (this.tutorialExperimentUnsubscribe) {
-            return;
-        }
-        this.tutorialExperimentUnsubscribe = AnalyticsMgr.inst.onTutorialExperimentAssignmentChanged(() => {
-            if (!this.runtime.node?.isValid) return;
-            this.runtime.syncTutorialSkipGuidePrompt?.();
-        });
     }
 
     private findScreenOrCanvasRoot(

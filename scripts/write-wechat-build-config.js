@@ -171,16 +171,6 @@ const config = {
     },
 };
 
-if (debugMode) {
-    config.bundleConfigs.push({
-        root: 'db://assets/LevelData',
-        name: 'levelData',
-        compressionType: 'subpackage',
-        isRemote: false,
-        output: true,
-    });
-}
-
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, JSON.stringify(config, null, 2) + '\n');
 console.log('已生成微信构建配置(' + (debugMode ? 'debug' : 'release') + '): ' + outputPath);

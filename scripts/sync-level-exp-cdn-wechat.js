@@ -4,6 +4,7 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
 
 const EXPERIMENT_ID = 'level_exp';
 const DEFAULT_CDN_URL = 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/level_experiments/level_exp/levels/';
@@ -170,7 +171,8 @@ function validateLevelExpPackage(range) {
     assertDir(packDir, '关卡实验 pack 目录');
     assertFile(liveManifestPath, 'level_live.json');
     const manifest = readJson(liveManifestPath);
-    if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) fail('level_live.json schema 不正确');
+    if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) fail('level_live.json schema 不正确');
+    if (manifest.minClientBuild !== LEVEL_DATA_CLIENT_BUILD) fail('level_live.json minClientBuild 不正确');
     if (manifest.experimentId !== EXPERIMENT_ID) fail('level_live.json experimentId 不正确: ' + manifest.experimentId);
     if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') fail('level_live.json 缺少 dataVersion');
     if (manifest.levelDataVersion && manifest.levelDataVersion !== manifest.dataVersion) fail('level_live.json levelDataVersion 与 dataVersion 不一致');
@@ -193,6 +195,7 @@ function validateLevelExpPackage(range) {
         const packPath = path.join(outputDir, pack.url);
         const packJson = readJson(packPath);
         if (packJson.id !== pack.id) fail('关卡实验 pack id 不一致: ' + pack.url);
+        if (packJson.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) fail('关卡实验 pack schema 不正确: ' + pack.url);
         if (String(packJson.prefix || 'level_') !== 'level_') fail('关卡实验 pack prefix 不一致: ' + pack.url);
         if (!Array.isArray(packJson.levels) || packJson.levels.length !== pack.levelCount) {
             fail('关卡实验 pack levelCount 不一致: ' + pack.url);
@@ -205,6 +208,11 @@ function validateLevelExpPackage(range) {
             if (foundKeys.has(key)) fail('关卡实验重复关卡: ' + key);
             foundKeys.add(key);
             packKeys.push(key);
+            try {
+                validateSlotPolicy(entry && entry.data, pack.url + ' ' + key);
+            } catch (err) {
+                fail(err && err.message ? err.message : String(err));
+            }
         }
         if (Array.isArray(pack.levelKeys)) {
             const manifestKeys = pack.levelKeys.slice().sort();

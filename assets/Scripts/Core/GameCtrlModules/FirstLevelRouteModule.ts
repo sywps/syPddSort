@@ -864,6 +864,8 @@ export function installFirstLevelRouteModule(target: any): void {
                     this._bootstrapBeanAtlasTexture = texture;
                     this._bootstrapBeanAtlasImageAsset = textureMeta?.imageAsset ?? null;
                     this._bootstrapBeanAtlasTextureReleaseMode = textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset';
+                    const releaseMode = textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset';
+                    const imageAsset = textureMeta?.imageAsset ?? null;
                     let count = 0;
                     for (const name in frames) {
                         const f = frames[name];
@@ -871,7 +873,19 @@ export function installFirstLevelRouteModule(target: any): void {
                         sf.texture = texture;
                         sf.rect = new Rect(f.x, f.y, f.w, f.h);
                         sf.name = name;
-                        this.sfCache.set(name, sf);
+                        (sf as any).__pddReleaseMode = releaseMode;
+                        (sf as any).__pddOwnedTexture = releaseMode === 'dynamic' ? texture : null;
+                        (sf as any).__pddSourceImageAsset = imageAsset;
+                        if (typeof this._cacheSpriteFrame === 'function') {
+                            this._cacheSpriteFrame(sf, name, {
+                                releaseMode,
+                                texture,
+                                imageAsset,
+                                scope: 'startup-bootstrap',
+                            });
+                        } else {
+                            this.sfCache.set(name, sf);
+                        }
                         this._bootstrapAtlasFrameCache.set(name, sf);
                         count++;
                     }

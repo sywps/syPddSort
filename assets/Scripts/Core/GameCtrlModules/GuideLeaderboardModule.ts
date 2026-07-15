@@ -353,6 +353,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         endTutorial() {
+            const completedGuideMode = this._guideMode;
             this.trackFirstLevelFunnel('tutorial_done', {
                 source: 'tutorial',
                 success: true,
@@ -361,9 +362,9 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideInputSuspended = false;
             this._guideStep = -1;
             this._guideMode = 'none';
+            this._activeGameplayGuideLayoutMode = 'none';
             this._guideTotalSteps = 0;
             this._lastGuideVoiceToken = '';
-            this.hideTutorialSkipGuidePrompt?.();
             this.clearGuideHighlight();
             if (this._guideBubble?.isValid) {
                 this._guideBubble.active = false;
@@ -378,6 +379,9 @@ export function installGuideLeaderboardModule(target: any): void {
                 this._guideBubbleLbl = null;
                 this._guidePromptDefaultLabelColor = null;
                 this._guidePromptDefaultCenterY = null;
+            }
+            if (completedGuideMode === 'level_exp_slot_intro') {
+                this.refitBoardViewportToSafeRect?.();
             }
             this.unschedule(this.tickTimer);
             if (!this._currentLevelUnlimitedTime) {

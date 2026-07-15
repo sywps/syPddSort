@@ -141,7 +141,7 @@ this.cellSize = Math.max(8, this.cellSize);
 
 可通过URL参数跳转到任意关卡：
 ```
-http://localhost:7456/?level=50
+http://localhost:7456/?scene=db%3A%2F%2Fassets%2FBootstrapBundle%2FScenes%2FGame.scene&level=50&profile=local-test
 ```
 
 ---

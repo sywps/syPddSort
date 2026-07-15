@@ -802,7 +802,10 @@ export function installGameplaySkillWandModule(target: any): void {
             if (showBean) {
                 if (markerSp) markerSp.enabled = false;
                 sp.enabled = true;
-                sp.spriteFrame = this.getBeanSpriteFrame(block!.colorId, false);
+                sp.spriteFrame = this.requireRenderReadySpriteFrame(
+                    this.getBeanSpriteFrame(block!.colorId, false),
+                    `slot-bean:${index}:color:${block!.colorId}`,
+                );
                 slot.setSiblingIndex((slot.parent?.children.length || 1) - 1);
                 if (isLocked) {
                     sp.node.getComponent(UIOpacity) || sp.node.addComponent(UIOpacity);
