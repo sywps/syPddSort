@@ -29,6 +29,22 @@ assert.ok(
 const tutorialGuide = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 const settlementHud = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
+const gameScene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
+const singleLinePrompt = gameScene.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'SingleLinePrompt');
+const slotIntroPrompt = gameScene.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'SlotIntroPrompt');
+const emphasisNode = gameScene.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'PromptLabelEmphasis');
+assert.ok(singleLinePrompt && singleLinePrompt._active === false, 'single-line prompt variant must default inactive in Game.scene');
+assert.ok(slotIntroPrompt && slotIntroPrompt._active === false, 'slot-intro prompt variant must default inactive in Game.scene');
+assert.ok(emphasisNode && emphasisNode._active === false, 'experiment-only emphasis copy must default inactive in Game.scene');
+assert.ok(
+    tutorialGuide.includes("this.activateGuidePromptVariant(bubble, 'SingleLinePrompt')"),
+    'ordinary starter guide must activate the scene-owned single-line variant',
+);
+assert.ok(
+    !settlementHud.includes('lbl.fontSize = isLevel1Prompt')
+        && !settlementHud.includes('bubbleUT.setContentSize(bubbleWidth, bubbleHeight)'),
+    'settlement code must not rewrite scene-owned guide typography or bubble geometry',
+);
 assert.ok(
     tutorialGuide.includes('if (step === 0 || step === 2)'),
     'level 1 guide prompt must target the first and second board-pick steps',
@@ -53,30 +69,13 @@ assert.ok(
     !tutorialGuide.includes('Math.min(currentY, desiredY)'),
     'starter guide prompt must not stay at the bottom default for board targets',
 );
-assert.ok(
-    settlementHud.includes('? Math.max(340, Math.min(480'),
-    'level 1 guide prompt bubble must be larger than the generic starter prompt',
-);
-assert.ok(
-    settlementHud.includes('(lbl as Label & { isBold?: boolean }).isBold = isLevel1Prompt'),
-    'level 1 guide prompt text should support bold styling',
-);
-assert.ok(
-    settlementHud.includes("lbl.color = new Color('#7162A2')"),
-    'level 1 guide prompt text must use the same light purple as the level 3 prompt',
-);
-assert.ok(
-    settlementHud.includes('lbl.fontSize = isLevel1Prompt ? 44 : 36'),
-    'level 1 guide prompt text must be larger than the generic starter prompt',
-);
-assert.ok(
-    settlementHud.includes(': Math.max(230, Math.min(390'),
-    'starter guide prompt bubble must shrink to the configured text width instead of using the full scene frame',
-);
-assert.ok(
-    settlementHud.includes('bubbleUT.setContentSize(bubbleWidth, bubbleHeight)'),
-    'starter guide prompt must apply the dynamic bubble size to its container',
-);
+const singleLineLabelNodeIndex = singleLinePrompt._children
+    .map((ref) => ref.__id__)
+    .find((index) => gameScene[index]?._name === 'PromptLabel');
+const singleLineLabelNode = gameScene[singleLineLabelNodeIndex];
+const singleLineLabel = gameScene.find((entry) => entry && entry.__type__ === 'cc.Label' && entry.node?.__id__ === singleLineLabelNodeIndex);
+assert.ok(singleLineLabelNode && singleLineLabelNode._lpos.y === 18, 'single-line label must use the scene-owned visual center above the bubble tail');
+assert.ok(singleLineLabel && singleLineLabel._fontSize === 44 && singleLineLabel._lineHeight === 54, 'single-line typography must be scene-owned');
 assert.ok(
     gameplayView.includes('levelId === 1 ? 0.86'),
     'level 1 board should start slightly smaller than the default fit scale',

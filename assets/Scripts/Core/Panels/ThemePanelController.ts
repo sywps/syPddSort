@@ -41,11 +41,13 @@ export class ThemePanelController {
             onClose: () => {
                 runtime._releasePanelTextureOwner('theme', 'theme');
                 runtime._themeOverlay = null;
+                runtime._themePreviewItems = [];
                 runtime._themeScrollSuppressClick = false;
             },
             onError: () => {
                 runtime._releasePanelTextureOwner('theme', 'theme-open-failed');
                 runtime._themeOverlay = null;
+                runtime._themePreviewItems = [];
                 runtime._themeScrollSuppressClick = false;
             },
             onReady: ({ overlay, box, content }) => {
@@ -82,6 +84,7 @@ export class ThemePanelController {
                 runtime.requirePanelChild(scrollContent, 'ThemeCardTemplate').active = false;
 
                 runtime.renderThemePanelContent(scrollContent, scrollContentUi.width, scrollH);
+                runtime.renderThemePanelVisiblePreviews?.(scrollContent, scrollH, 1);
 
                 let startY = 0;
                 let lastY = 0;
@@ -106,10 +109,12 @@ export class ThemePanelController {
                     const { minY, maxY, totalH } = getRange();
                     if (totalH <= scrollH) {
                         scrollContent.setPosition(scrollContent.position.x, 0, 0);
+                        runtime.renderThemePanelVisiblePreviews?.(scrollContent, scrollH, 1);
                         return 0;
                     }
                     const clamped = Math.max(minY, Math.min(maxY, nextY));
                     scrollContent.setPosition(scrollContent.position.x, clamped, 0);
+                    runtime.renderThemePanelVisiblePreviews?.(scrollContent, scrollH, 1);
                     return clamped;
                 };
                 const endHandler = (_e?: EventTouch) => {

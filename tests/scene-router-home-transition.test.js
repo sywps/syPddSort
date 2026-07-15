@@ -91,6 +91,7 @@ assert.ok(sceneRouter.includes('this._homeScenePreloadedAsset = sceneAsset;'), '
 assert.ok(sceneRouter.includes('consumePreloadedBundledScene(sceneName, bundleName)'), 'foreground Home route must try to consume the preloaded SceneAsset');
 assert.ok(sceneRouter.includes("runLoadedScene(preloadedSceneAsset, 'preloaded')"), 'foreground Home route must run the preloaded Home SceneAsset without reloading Home.scene');
 assert.ok(gameplaySession.includes('runtime.startPostPlayableWarmup?.('), 'Game ready must start the post-playable warmup queue');
-assert.ok(postPlayableWarmup.includes('preloadHomeScene(`post-playable-warmup:${reason}`)'), 'post-playable warmup must start Home.scene preload in the background');
+assert.ok(!postPlayableWarmup.includes('preloadHomeScene('), 'post-playable warmup must not deserialize and retain Home.scene without user intent');
+assert.ok(settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'settings Home affordance must provide intent-driven Home preload');
 
 console.log('scene-router-home-transition.test.js passed');

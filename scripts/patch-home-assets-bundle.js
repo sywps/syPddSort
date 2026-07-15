@@ -19,7 +19,6 @@ const sourceBundleDirName = sourceBundleDirByName[bundleName] || '';
 const sourceRoot = sourceBundleDirName ? path.join(projectRoot, 'assets', sourceBundleDirName) : '';
 const libraryRoot = path.join(projectRoot, 'library');
 const assetDbRoot = path.join(projectRoot, 'temp', 'asset-db', 'assets');
-const buildMode = process.env.WECHAT_BUILD_MODE || '';
 
 function fail(message) {
     console.error('ERROR: ' + message);
@@ -130,7 +129,7 @@ function copyNative(bundleDir, uuid) {
 }
 
 function isReleaseSkinMirrorArtifact(artifact) {
-    if (bundleName !== 'gameAssets' || buildMode !== 'release') return false;
+    if (bundleName !== 'gameAssets') return false;
     const source = String(artifact && artifact.source || '');
     return source.startsWith(path.join(sourceRoot, 'Skins') + path.sep);
 }
@@ -187,4 +186,4 @@ for (const artifact of artifacts) {
 }
 
 const skipped = sourceArtifacts.length - artifacts.length;
-console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}${skipped ? `, skippedReleaseSkinMirror=${skipped}, removedReleaseSkinMirror=${removedReleaseSkinMirror}` : ''}`);
+console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}${skipped ? `, skippedSkinMirror=${skipped}, removedSkinMirror=${removedReleaseSkinMirror}` : ''}`);

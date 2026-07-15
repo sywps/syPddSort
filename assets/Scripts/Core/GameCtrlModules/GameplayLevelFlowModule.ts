@@ -47,7 +47,7 @@ export function installGameplayLevelFlowModule(target: any): void {
                 }
                 if (this.gameAssetsBundle) {
                     this.unschedule(check);
-                    this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+                    this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
                         if (!levelData) {
                             this.stopLevelDataLoadWithFatalError(
                                 activeLevelId,
@@ -103,7 +103,7 @@ export function installGameplayLevelFlowModule(target: any): void {
                 return;
             }
             const path = this.getLevelDataPath(levelId, prefix);
-            this._loadLevelDataFromCdnOrLocal(levelId, prefix, (levelData, source, err) => {
+            this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
                 if (levelData) {
                     runtimeLog('[LevelDataLoad] OK level data', this.getLevelDataLoadDiagnostics(levelId, path, {
                         source,
@@ -343,6 +343,10 @@ export function installGameplayLevelFlowModule(target: any): void {
             ensureGameplayViewController(this).buildUI();
         },
 
+        refitBoardViewportToSafeRect() {
+            ensureGameplayViewController(this).refitBoardViewportToSafeRect();
+        },
+
         buildTopBar(root: Node) {
             ensureGameplayViewController(this).buildTopBar(root);
         },
@@ -405,6 +409,7 @@ export function installGameplayLevelFlowModule(target: any): void {
         renderSlots() {
             this.renderSlotsWithHidden(this._hiddenSlotIndices);
             this.syncSkillButtonRuntimeStates?.();
+            this.refreshLevelExpSlotIntroGuideLayout?.();
         },
 
         getTouchId(touch: any, fallback: number): number {

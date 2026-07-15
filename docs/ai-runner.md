@@ -48,7 +48,7 @@ npm run ai:web:personas
 ```bash
 node scripts/ai-runner.js --target web --persona explorer --steps 60 --duration-ms 90000
 node scripts/ai-runner.js --target web --persona aggressive --headed
-node scripts/ai-runner.js --target web --all-personas --url http://localhost:7456/?level=50
+node scripts/ai-runner.js --target web --all-personas --url 'http://localhost:7456/?scene=db%3A%2F%2Fassets%2FBootstrapBundle%2FScenes%2FGame.scene&level=50&profile=local-test'
 ```
 
 ## Personas

@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { runtimeWarn } from '../RuntimeLog';
 import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import { WeChatRecommendService } from '../WeChatRecommendService';
 
@@ -68,6 +69,17 @@ function getNodeCenterInRoot(root: Node, node: Node): Vec3 {
     }
     const world = nodeUi.convertToWorldSpaceAR(new Vec3(0, 0, 0));
     return rootUi.convertToNodeSpaceAR(world);
+}
+
+function getSpriteFrameFromNode(node?: Node | null): SpriteFrame | null {
+    if (!node?.isValid) return null;
+    const direct = node.getComponent(Sprite)?.spriteFrame || null;
+    if (direct) return direct;
+    for (const child of node.children) {
+        const childFrame = child.getComponent(Sprite)?.spriteFrame || null;
+        if (childFrame) return childFrame;
+    }
+    return null;
 }
 
 export function installSettlementHudModule(target: any): void {
@@ -198,13 +210,22 @@ export function installSettlementHudModule(target: any): void {
         },
 
         applySettlementSpriteFrame(sprite: Sprite, names: string[], fallback?: SpriteFrame | null): void {
+            const applyFrame = (frame: SpriteFrame | null, reason: string) => {
+                if (typeof this.scheduleSpriteFrameApply === 'function') {
+                    this.scheduleSpriteFrameApply(sprite, frame, reason);
+                    return;
+                }
+                if (frame) {
+                    sprite.spriteFrame = frame;
+                }
+            };
             const cached = names.map((name) => this.getSF?.(name) || null).find((frame) => !!frame) || null;
             if (cached) {
-                sprite.spriteFrame = cached;
+                applyFrame(cached, `settlement:${names.join('|')}:cache`);
                 return;
             }
             if (fallback) {
-                sprite.spriteFrame = fallback;
+                applyFrame(fallback, `settlement:${names.join('|')}:fallback`);
                 return;
             }
             if (typeof this._loadSpriteFrameByName !== 'function') return;
@@ -215,7 +236,7 @@ export function installSettlementHudModule(target: any): void {
                 this._loadSpriteFrameByName(name, (sf: SpriteFrame | null) => {
                     if (!sprite?.isValid) return;
                     if (sf) {
-                        sprite.spriteFrame = sf;
+                        applyFrame(sf, `settlement:${name}:load`);
                         return;
                     }
                     tryLoad(index + 1);
@@ -227,20 +248,40 @@ export function installSettlementHudModule(target: any): void {
         ensureWinSettlementTopWidgets() {
             const panel = this.panelWin as Node | null;
             if (!panel?.isValid) return null;
-            if (typeof this.syncTopHud !== 'function') {
-                throw new Error('[TopHud] runtime missing syncTopHud() for win settlement');
+            const root = panel.getChildByName('SettlementTopHud');
+            const settingsBtn = root?.getChildByName('SettingsButton') || null;
+            const settingsIcon = settingsBtn?.getChildByName('SettingsIcon') || null;
+            const goldBox = root?.getChildByName('GoldGroup') || null;
+            const goldBanner = goldBox?.getChildByName('GoldBanner') || null;
+            const goldCount = goldBox?.getChildByName('GoldCount') || null;
+            const settingsSprite = settingsIcon?.getComponent(Sprite) || null;
+            const goldBannerSprite = goldBanner?.getComponent(Sprite) || null;
+            const goldLabel = goldCount?.getComponent(Label) || null;
+            if (!root?.isValid || !settingsBtn?.isValid || !settingsSprite?.spriteFrame
+                || !goldBox?.isValid || !goldBannerSprite?.spriteFrame || !goldLabel) {
+                throw new Error('[WinPanel] missing route-owned SettlementTopHud widgets');
             }
-            const widgets = this.syncTopHud(panel, 'winSettlement');
-            const settingsBtn = widgets?.settingsBtn as Node | null;
-            const goldBox = widgets?.goldBox as Node | null;
-            if (!settingsBtn?.isValid || !goldBox?.isValid) {
-                throw new Error('[TopHud] failed to mount win settlement widgets');
-            }
-            widgets.root.setSiblingIndex(Math.max(0, panel.children.length - 1));
-            return { settingsBtn, goldBox, coinIcon: widgets.coinIcon || goldBox };
+
+            root.active = true;
+            root.setSiblingIndex(Math.max(0, panel.children.length - 1));
+            settingsBtn.targetOff(this);
+            const settingsButton = settingsBtn.getComponent(Button) || settingsBtn.addComponent(Button);
+            settingsButton.node.on(Button.EventType.CLICK, () => {
+                AudioMgr.inst.play('uiPanel');
+                this.openSettingsPanel?.();
+            }, this);
+            goldLabel.string = `${this.getGold?.() ?? 0}`;
+            this._settlementGoldCountLbl = goldLabel;
+            return { settingsBtn, goldBox, coinIcon: goldBox };
         },
 
-        resolveWinSettlementCoinFrame(): SpriteFrame | null {
+        resolveWinSettlementCoinFrame(sourceNode?: Node | null): SpriteFrame | null {
+            const fromSource = getSpriteFrameFromNode(sourceNode);
+            if (fromSource) return fromSource;
+            const box = (this.panelWin as Node | null)?.getChildByName('Box') || null;
+            const rewardIcon = box?.getChildByName('RewardGoldIcon') || null;
+            const fromRewardIcon = getSpriteFrameFromNode(rewardIcon);
+            if (fromRewardIcon) return fromRewardIcon;
             return this.getSF?.(GOLD_TEXTURE_NAME) || null;
         },
 
@@ -260,9 +301,9 @@ export function installSettlementHudModule(target: any): void {
             const targetNode = coinTarget?.isValid ? coinTarget : goldBox;
             const start = getNodeCenterInRoot(panel, source);
             const end = getNodeCenterInRoot(panel, targetNode);
-            const coinFrame = this.resolveWinSettlementCoinFrame?.() || null;
+            const coinFrame = this.resolveWinSettlementCoinFrame?.(source) || null;
             if (!coinFrame) {
-                console.error('[WinSettlementGoldFly] missing required SpriteFrame:', GOLD_TEXTURE_NAME);
+                runtimeWarn('[WinSettlementGoldFly] optional coin SpriteFrame missing:', GOLD_TEXTURE_NAME);
                 return false;
             }
             const coinCount = Math.min(12, Math.max(8, Math.ceil(Math.sqrt(safeAmount)) + 4));
@@ -432,13 +473,21 @@ export function installSettlementHudModule(target: any): void {
             }
             const sprite = icon.getComponent(Sprite) ?? icon.addComponent(Sprite);
             const cached = this.getSF?.(WIN_BONUS_SHARE_ICON_TEXTURE) || null;
+            const applyShareIcon = (targetSprite: Sprite | null, frame: SpriteFrame | null, reason: string) => {
+                if (!targetSprite || !frame) return;
+                if (typeof this.scheduleSpriteFrameApply === 'function') {
+                    this.scheduleSpriteFrameApply(targetSprite, frame, reason);
+                    return;
+                }
+                targetSprite.spriteFrame = frame;
+            };
             if (cached) {
-                sprite.spriteFrame = cached;
+                applyShareIcon(sprite, cached, `${WIN_BONUS_SHARE_ICON_TEXTURE}:cache`);
             } else if (typeof this._loadSpriteFrameByName === 'function') {
                 this._loadSpriteFrameByName(WIN_BONUS_SHARE_ICON_TEXTURE, (sf: SpriteFrame | null) => {
                     if (!icon?.isValid || !sf) return;
                     const currentSprite = icon.getComponent(Sprite);
-                    if (currentSprite) currentSprite.spriteFrame = sf;
+                    applyShareIcon(currentSprite, sf, `${WIN_BONUS_SHARE_ICON_TEXTURE}:load`);
                 });
             }
             return icon;
@@ -639,6 +688,68 @@ export function installSettlementHudModule(target: any): void {
             }, 0.25);
         },
 
+        failWinSettlementReveal(error: unknown, revealToken: number): void {
+            if (revealToken !== this._settlementRevealToken || this._settlementRevealState === 'failed') return;
+            this._settlementRevealState = 'failed';
+            const message = error instanceof Error ? error.message : String(error || 'unknown error');
+            console.error('[settlement] failed to reveal win panel:', error);
+            try {
+                this.showRemoteLoadFatalError?.('UI/Prefabs/Panels/WinPanel', 'win_settlement_reveal_failed', message);
+            } catch (fatalUiError) {
+                console.error('[settlement] failed to show terminal error UI:', fatalUiError);
+            }
+        },
+
+        revealWinSettlementPanel(logicalLevelId: number, revealToken: number): boolean {
+            if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return false;
+            if (this._settlementRevealState === 'shown' || this._settlementRevealState === 'revealing' || this._settlementRevealState === 'failed') {
+                return false;
+            }
+            if (!this.ensureGameplayResultPanelsCreated?.()) return false;
+            this._settlementRevealState = 'revealing';
+            try {
+                const panel = this.panelWin as Node | null;
+                if (!panel?.isValid) {
+                    throw new Error('[WinPanel] result prefab was ready but panel instance is missing');
+                }
+                this.updateWinRewardLabel(this._pendingWinGoldReward);
+                this.drawWinPatternPreview();
+                this.ensureWinSettlementTopWidgets?.();
+                PerformanceMgr.inst.markUserActivity(8000);
+                AudioMgr.inst.play('winSettlement');
+                if (this.boardGroup) {
+                    tween(this.boardGroup)
+                        .to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
+                        .start();
+                }
+                panel.active = true;
+                panel.setSiblingIndex(999);
+                this.playWinSettlementBannerFx?.();
+                this.playWinBaseGoldRewardFx?.();
+                this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
+                this._settlementRevealState = 'shown';
+                return true;
+            } catch (error) {
+                this.failWinSettlementReveal?.(error, revealToken);
+                return false;
+            }
+        },
+
+        requestWinSettlementReveal(logicalLevelId: number, revealToken: number): void {
+            if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+            if (this._settlementRevealState === 'shown' || this._settlementRevealState === 'revealing' || this._settlementRevealState === 'failed') return;
+            if (this.revealWinSettlementPanel?.(logicalLevelId, revealToken)) return;
+            this._settlementRevealState = 'waiting';
+            if (typeof this._ensureGameplayResultPanelPrefabsReady !== 'function') {
+                this.failWinSettlementReveal?.(new Error('[WinPanel] result prefab readiness API is missing'), revealToken);
+                return;
+            }
+            this._ensureGameplayResultPanelPrefabsReady(() => {
+                if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                this.revealWinSettlementPanel?.(logicalLevelId, revealToken);
+            });
+        },
+
         playPatternCompleteThenWin(delaySeconds: number = 0) {
             if (this.isGameEnd || this._patternCompleteWinPending) return;
             this._patternCompleteWinPending = true;
@@ -689,46 +800,16 @@ export function installSettlementHudModule(target: any): void {
             this._winBonusRewardGateMode = null;
             this._winBaseGoldFlyPlayed = false;
             this._settlementNextTransitioning = false;
+            const revealToken = (Number(this._settlementRevealToken) || 0) + 1;
+            this._settlementRevealToken = revealToken;
+            this._settlementRevealState = 'waiting';
             this.addGold(this._pendingWinGoldReward);
             this.ensureGameplayResultPanelsCreated?.();
             this.updateWinRewardLabel(this._pendingWinGoldReward);
 
             const revealSettlement = () => {
                 if (!this.isValid || !this.isGameEnd) return;
-                PerformanceMgr.inst.markUserActivity(8000);
-                AudioMgr.inst.play('winSettlement');
-                if (this.boardGroup) {
-                    tween(this.boardGroup)
-                        .to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
-                        .start();
-                }
-                if (!this.ensureGameplayResultPanelsCreated?.()) {
-                    this._ensureGameplayResultPanelPrefabsReady?.(() => {
-                        if (!this.isValid || !this.isGameEnd) return;
-                        this.ensureGameplayResultPanelsCreated?.();
-                        this.updateWinRewardLabel(this._pendingWinGoldReward);
-                        this.drawWinPatternPreview();
-                        if (this.panelWin) {
-                            this.panelWin.active = true;
-                            this.panelWin.setSiblingIndex(999);
-                            this.ensureWinSettlementTopWidgets?.();
-                            this.playWinSettlementBannerFx?.();
-                            this.playWinBaseGoldRewardFx?.();
-                            this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
-                        }
-                    });
-                    return;
-                }
-                this.updateWinRewardLabel(this._pendingWinGoldReward);
-                this.drawWinPatternPreview();
-                if (this.panelWin) {
-                    this.panelWin.active = true;
-                    this.panelWin.setSiblingIndex(999);
-                    this.ensureWinSettlementTopWidgets?.();
-                    this.playWinSettlementBannerFx?.();
-                    this.playWinBaseGoldRewardFx?.();
-                    this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
-                }
+                this.requestWinSettlementReveal?.(logicalLevelId, revealToken);
             };
 
             const showSettlement = () => {
@@ -1116,9 +1197,12 @@ export function installSettlementHudModule(target: any): void {
             if (!guidePrompt) {
                 throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt');
             }
-            const lbl = guidePrompt.getChildByName('PromptLabel')?.getComponent(Label);
+            const promptVariant = this._guideMode === 'level_exp_slot_intro'
+                ? 'SlotIntroPrompt'
+                : 'SingleLinePrompt';
+            const lbl = this.activateGuidePromptVariant?.(guidePrompt, promptVariant) || null;
             if (!lbl) {
-                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt/PromptLabel Label');
+                throw new Error(`[guide] Game.scene is missing ${promptVariant}/PromptLabel Label`);
             }
             guidePrompt.active = true;
             this._guideBubble = guidePrompt;
@@ -1135,7 +1219,6 @@ export function installSettlementHudModule(target: any): void {
             this._applySpriteFrame(this._guideHand, guideHandFrame, GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_SPRITE_SIZE);
         
             this.showGuideStep(0);
-            this.syncTutorialSkipGuidePrompt?.();
             if ((Number(this._modalFocusRefs) || 0) > 0) {
                 this.suspendGuideForModal('active-modal');
             }
@@ -1212,7 +1295,6 @@ export function installSettlementHudModule(target: any): void {
             this.markTutorialStepInteractiveReadyForFunnel?.(step);
         
             this.playGuideVoiceForCurrentStep(step);
-            this.syncTutorialSkipGuidePrompt?.();
         },
 
         playGuideVoiceForCurrentStep(step: number) {
@@ -1334,52 +1416,6 @@ export function installSettlementHudModule(target: any): void {
                 centerY = Math.max(centerY, boardTop + promptHeight / 2 + boardGap);
             }
             return clampToVisible(centerY);
-        },
-
-        styleStarterGuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
-            bubble.active = true;
-            const promptText = this._guideMode === 'level_2'
-                ? this.formatLevel2GuidePrompt(primaryText)
-                : this.formatLevel1GuidePrompt(primaryText);
-            lbl.string = promptText;
-            const defaultColor = this._guidePromptDefaultLabelColor;
-            if (defaultColor) {
-                lbl.color = new Color(defaultColor.r, defaultColor.g, defaultColor.b, defaultColor.a);
-            }
-            const isLevel1Prompt = this._guideMode === 'level_1';
-            if (isLevel1Prompt || this._guideMode === 'level_2') {
-                lbl.color = new Color('#7162A2');
-            }
-            lbl.fontSize = isLevel1Prompt ? 44 : 36;
-            lbl.lineHeight = isLevel1Prompt ? 54 : 42;
-            (lbl as Label & { isBold?: boolean }).isBold = isLevel1Prompt;
-            const bubbleUT = bubble.getComponent(UITransform);
-            if (!bubbleUT) {
-                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
-            }
-            const bg = bubble.getChildByName('BubbleBg');
-            const bgSprite = bg?.getComponent(Sprite) || null;
-            if (!bg?.isValid || !bgSprite?.spriteFrame) {
-                throw new Error('[guide] Game.scene is missing bubble sprite: OverlayRoot/TutorialGuidePrompt/BubbleBg');
-            }
-            bg.active = true;
-            const normalizedText = String(promptText || '').replace(/\s+/g, '');
-            const bubbleWidth = isLevel1Prompt
-                ? Math.max(340, Math.min(480, normalizedText.length * 48 + 136))
-                : Math.max(230, Math.min(390, normalizedText.length * 34 + 92));
-            const bubbleHeight = isLevel1Prompt ? 116 : 88;
-            bubbleUT.setContentSize(bubbleWidth, bubbleHeight);
-            const bgUT = bg.getComponent(UITransform);
-            if (bgUT) bgUT.setContentSize(bubbleWidth, bubbleHeight);
-            bgSprite.type = Sprite.Type.SLICED;
-            const labelUT = lbl.node.getComponent(UITransform);
-            if (labelUT) labelUT.setContentSize(Math.max(1, bubbleWidth - 72), isLevel1Prompt ? 64 : 44);
-
-            const defaultY = Number.isFinite(this._guidePromptDefaultCenterY)
-                ? this._guidePromptDefaultCenterY
-                : bubble.position.y;
-            const y = this.getGuidePromptCenterY(defaultY, bubbleHeight);
-            bubble.setPosition(0, y, 0);
         },
 
         styleLevel1GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {

@@ -192,7 +192,11 @@ export function installEndgameHintModule(target: any): void {
                         if (!isRuntimeAlive()) return;
                         if (!err && frame) {
                             frame.name = ENDGAME_HINT_STAR_FRAME_NAME;
-                            this.sfCache.set(ENDGAME_HINT_STAR_FRAME_NAME, frame);
+                            if (typeof this._cacheSpriteFrame === 'function') {
+                                this._cacheSpriteFrame(frame, ENDGAME_HINT_STAR_FRAME_NAME);
+                            } else {
+                                this.sfCache.set(ENDGAME_HINT_STAR_FRAME_NAME, frame);
+                            }
                             onDone([frame]);
                             return;
                         }

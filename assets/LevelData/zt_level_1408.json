@@ -1,4 +1,9 @@
 {
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 1
+    },
   "levelId": 1408,
   "levelName": "阿嬷的情书",
   "patternKey": "movie_letter_old_love_letter",

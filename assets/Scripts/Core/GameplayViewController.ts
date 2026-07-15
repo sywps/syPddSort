@@ -541,7 +541,10 @@ export class GameplayViewController {
         }
         runtime.setNodeSquareSize(node, runtime.getBoardSlotVisualSize());
         sp.enabled = true;
-        sp.spriteFrame = runtime.getSlotSpriteFrame(correctId);
+        sp.spriteFrame = runtime.requireRenderReadySpriteFrame(
+            runtime.getSlotSpriteFrame(correctId),
+            `board-slot:${row},${col}:color:${correctId}`,
+        );
     }
 
     renderCell(row: number, col: number) {
@@ -566,7 +569,10 @@ export class GameplayViewController {
             return;
         }
         sp.enabled = true;
-        sp.spriteFrame = runtime.getBeanSpriteFrame(colorId, isLocked);
+        sp.spriteFrame = runtime.requireRenderReadySpriteFrame(
+            runtime.getBeanSpriteFrame(colorId, isLocked),
+            `board-bean:${row},${col}:color:${colorId}:locked:${isLocked ? 1 : 0}`,
+        );
     }
 
     getTouchId(touch: any, fallback: number): number {
@@ -710,6 +716,68 @@ export class GameplayViewController {
         return { minRow, maxRow, minCol, maxCol };
     }
 
+    private fitBoardViewportToSafeRect(boardWidth: number, boardHeight: number, padding: number): void {
+        const runtime = this.runtime;
+        const safeRect = runtime.getBoardSafeViewportRect();
+        const availableW = Math.max(1, safeRect.right - safeRect.left);
+        const availableH = Math.max(1, safeRect.top - safeRect.bottom);
+        const targetBounds = this.getTargetContentBounds(runtime.levelData.correctColorArr || [], boardWidth, boardHeight);
+        const targetCols = Math.max(1, targetBounds.maxCol - targetBounds.minCol + 1);
+        const targetRows = Math.max(1, targetBounds.maxRow - targetBounds.minRow + 1);
+        const step = runtime.cellSize + runtime.cellGap;
+        const targetW = targetCols * step - runtime.cellGap + padding;
+        const targetH = targetRows * step - runtime.cellGap + padding;
+        const maxDim = Math.max(boardWidth, boardHeight);
+        const widthFitRatio = 0.95;
+        const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;
+        const widthScale = availableW * widthFitRatio / Math.max(1, targetW);
+        const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
+        const rawInitScale = Math.min(widthScale, heightScale);
+        const minScale = Number(runtime.constructor.MIN_SCALE) || 0.7;
+        const baseMaxScale = Math.max(minScale, Number(runtime.constructor.MAX_SCALE) || 2.2);
+        const playableCellUiSize = Math.max(1, Number(runtime.constructor.BOARD_PLAYABLE_CELL_UI_SIZE) || 32);
+        const dynamicMaxScaleCap = Math.max(baseMaxScale, Number(runtime.constructor.BOARD_DYNAMIC_MAX_SCALE_CAP) || baseMaxScale);
+        const maxScale = Math.max(
+            baseMaxScale,
+            Math.min(dynamicMaxScaleCap, playableCellUiSize / Math.max(1, runtime.cellSize)),
+        );
+        runtime.boardViewport.setScaleBounds(minScale, maxScale);
+        const levelId = Number(runtime.levelData?.levelId) || 0;
+        const baseInitScale = Math.max(
+            minScale,
+            Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
+        );
+        const starterInitialScaleMultiplier = levelId === 1 ? 0.86 : (levelId === 2 ? 0.82 : 1);
+        const initScale = Math.max(minScale, Math.min(maxScale, baseInitScale * starterInitialScaleMultiplier));
+        const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - boardWidth / 2) * step;
+        const targetCenterY = (boardHeight / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
+        const viewportCenterX = (safeRect.left + safeRect.right) / 2;
+        const starterBoardLift = levelId === 1 || levelId === 2 ? 64 : 0;
+        const viewportCenterY = (safeRect.bottom + safeRect.top) / 2 + starterBoardLift;
+        runtime.boardViewport.setViewTransformClamped(
+            initScale,
+            new Vec2(
+                viewportCenterX - targetCenterX * initScale,
+                viewportCenterY - targetCenterY * initScale,
+            ),
+        );
+        runtime.boardViewScale = runtime.boardViewport.scale;
+        runtime.boardViewport.setHomeFromCurrent();
+        const homeTransform = runtime.boardViewport.getHomeTransform();
+        runtime.boardHomeScale = homeTransform.scale;
+        runtime.boardHomePos = new Vec3(homeTransform.offset.x, homeTransform.offset.y, 0);
+    }
+
+    refitBoardViewportToSafeRect(): void {
+        const runtime = this.runtime;
+        if (!runtime.levelData || !runtime.boardViewport) return;
+        const boardWidth = runtime.levelData.boardWidth;
+        const boardHeight = runtime.levelData.boardHeight;
+        const maxDim = Math.max(boardWidth, boardHeight);
+        const padding = maxDim > 20 ? 8 : 28;
+        this.fitBoardViewportToSafeRect(boardWidth, boardHeight, padding);
+    }
+
     buildBoard(root: Node) {
         const runtime = this.runtime;
         const bw = runtime.levelData.boardWidth;
@@ -750,53 +818,7 @@ export class GameplayViewController {
         const boardOutlineTopLayer = ensureBoardOutlineLayer(runtime.boardNode, BOARD_OUTLINE_TOP_LAYER_NAME, boardW, boardH, slotIndex + 2, clearBoardOutlineChildren);
         buildBoardOutline(boardOutlineLayer, boardOutlineTopLayer, runtime.boardModel.correctColors, runtime.cellSize, runtime.cellGap, bw, bh);
 
-        const safeRect = runtime.getBoardSafeViewportRect();
-        const availableW = Math.max(1, safeRect.right - safeRect.left);
-        const availableH = Math.max(1, safeRect.top - safeRect.bottom);
-        const targetBounds = this.getTargetContentBounds(runtime.levelData.correctColorArr || [], bw, bh);
-        const targetCols = Math.max(1, targetBounds.maxCol - targetBounds.minCol + 1);
-        const targetRows = Math.max(1, targetBounds.maxRow - targetBounds.minRow + 1);
-        const step = runtime.cellSize + runtime.cellGap;
-        const targetW = targetCols * step - runtime.cellGap + padding;
-        const targetH = targetRows * step - runtime.cellGap + padding;
-        const widthFitRatio = 0.95;
-        const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;
-        const widthScale = availableW * widthFitRatio / Math.max(1, targetW);
-        const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
-        const rawInitScale = Math.min(widthScale, heightScale);
-        const minScale = Number(runtime.constructor.MIN_SCALE) || 0.7;
-        const baseMaxScale = Math.max(minScale, Number(runtime.constructor.MAX_SCALE) || 2.2);
-        const playableCellUiSize = Math.max(1, Number(runtime.constructor.BOARD_PLAYABLE_CELL_UI_SIZE) || 32);
-        const dynamicMaxScaleCap = Math.max(baseMaxScale, Number(runtime.constructor.BOARD_DYNAMIC_MAX_SCALE_CAP) || baseMaxScale);
-        const maxScale = Math.max(
-            baseMaxScale,
-            Math.min(dynamicMaxScaleCap, playableCellUiSize / Math.max(1, runtime.cellSize)),
-        );
-        runtime.boardViewport.setScaleBounds(minScale, maxScale);
-        const levelId = Number(runtime.levelData?.levelId) || 0;
-        const baseInitScale = Math.max(
-            minScale,
-            Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
-        );
-        const starterInitialScaleMultiplier = levelId === 1 ? 0.86 : (levelId === 2 ? 0.82 : 1);
-        const initScale = Math.max(minScale, Math.min(maxScale, baseInitScale * starterInitialScaleMultiplier));
-        const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - bw / 2) * step;
-        const targetCenterY = (bh / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
-        const viewportCenterX = (safeRect.left + safeRect.right) / 2;
-        const starterBoardLift = levelId === 1 || levelId === 2 ? 64 : 0;
-        const viewportCenterY = (safeRect.bottom + safeRect.top) / 2 + starterBoardLift;
-        runtime.boardViewport.setViewTransformClamped(
-            initScale,
-            new Vec2(
-                viewportCenterX - targetCenterX * initScale,
-                viewportCenterY - targetCenterY * initScale,
-            ),
-        );
-        runtime.boardViewScale = runtime.boardViewport.scale;
-        runtime.boardViewport.setHomeFromCurrent();
-        const homeTransform = runtime.boardViewport.getHomeTransform();
-        runtime.boardHomeScale = homeTransform.scale;
-        runtime.boardHomePos = new Vec3(homeTransform.offset.x, homeTransform.offset.y, 0);
+        this.fitBoardViewportToSafeRect(bw, bh, padding);
 
         const slotBatchCells: BoardSlotBatchCell[] = [];
         runtime.cellNodes = [];
@@ -814,10 +836,10 @@ export class GameplayViewController {
                 const x = (c - bw / 2 + 0.5) * (runtime.cellSize + runtime.cellGap);
                 const y = ((bh / 2 - 0.5) - r) * (runtime.cellSize + runtime.cellGap);
 
-                const slotFrame = runtime.getSlotSpriteFrame(correctId);
-                if (!slotFrame) {
-                    throw new Error(`[BoardSlotBatch] missing slot frame for color ${correctId}`);
-                }
+                const slotFrame = runtime.requireRenderReadySpriteFrame(
+                    runtime.getSlotSpriteFrame(correctId),
+                    `board-slot-batch:${r},${c}:color:${correctId}`,
+                );
                 slotBatchCells.push({
                     x,
                     y,

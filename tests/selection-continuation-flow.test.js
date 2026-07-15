@@ -29,7 +29,7 @@ assert.ok(!input.includes('if (this.isPlacementInputLocked?.()) { this.resetTouc
 assert.ok(!input.includes('if (this.isPlacementInputLocked?.()) return;'), 'board wheel input must not be globally swallowed by placement visuals');
 assert.ok(input.includes('if (this.isPlacementVisualBusy?.()) return true;'), 'slot unlock input must still avoid placement visual overlap');
 assert.ok(skillUi.includes('if (runtime.isPlacementVisualBusy?.()) return;'), 'skill buttons must be blocked during placement visuals');
-assert.ok(slotUi.includes('if (runtime.isPlacementVisualBusy?.()) return;'), 'slot unlock UI must be blocked during placement visuals');
+assert.ok(slotUi.includes('if (runtime.isPlacementVisualBusy?.()) return false;'), 'slot unlock UI must be blocked during placement visuals');
 
 assert.ok(input.includes('applyBoardSelection(block: BeanBlockInfo, options: { playFeedback?: boolean; preserveVisual?: boolean } = {})'), 'board selection must support silent visual-preserving reselect');
 assert.ok(input.includes('selectSlotBlockByIndex(slotIndex: number, options: { playFeedback?: boolean } = {})'), 'slot selection must support silent reselect');

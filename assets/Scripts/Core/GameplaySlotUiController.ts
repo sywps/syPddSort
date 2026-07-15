@@ -40,8 +40,10 @@ import {
     shouldShowGameplaySkillArea,
 } from './SlotOnboardingPolicy';
 import type { SlotUnlockMode } from './SlotOnboardingPolicy';
+import { Widget } from 'cc';
 
 const LOCKED_SLOT_PREVIEW_OPACITY = 168;
+const MAINLINE_SCENE_BASE_ROW_COUNT = 2;
 
 type SlotShellSceneLayout = {
     x: number;
@@ -67,6 +69,11 @@ export class GameplaySlotUiController {
     private captureSlotAreaSceneAnchor() {
         const runtime = this.runtime;
         if (typeof runtime._slotAreaSceneBasePanelBottomY === 'number') return;
+        const slotAreaWidget = runtime.slotAreaNode.getComponent(Widget);
+        if (!slotAreaWidget) {
+            throw new Error('[GameplayScene] Game.scene is missing Widget component on SlotArea');
+        }
+        slotAreaWidget.updateAlignment?.();
         const slotAreaUi = runtime.slotAreaNode.getComponent(UITransform);
         if (!slotAreaUi) {
             throw new Error('[GameplayScene] Game.scene is missing UITransform component on SlotArea');
@@ -87,7 +94,7 @@ export class GameplaySlotUiController {
         runtime._slotAreaSceneScaleZ = slotAreaScale.z;
         runtime._slotAreaSceneBaseWidth = slotAreaUi.contentSize.width;
         runtime._slotAreaSceneBaseHeight = slotAreaUi.contentSize.height;
-        runtime._slotAreaSceneBaseRowCount = Math.max(1, Math.floor(Number(runtime.slotRowCount) || 1));
+        runtime._slotAreaSceneBaseRowCount = MAINLINE_SCENE_BASE_ROW_COUNT;
         runtime._slotAreaScenePanelLocalX = panel.position.x;
         runtime._slotAreaScenePanelLocalY = panel.position.y;
         runtime._slotAreaScenePanelLocalZ = panel.position.z;
@@ -166,17 +173,15 @@ export class GameplaySlotUiController {
 
     private resolveSlotAreaSceneBaseRowCount(panelUi: UITransform, sceneRowSpacing: number): number {
         const runtime = this.runtime;
-        const currentRows = Math.max(1, Math.floor(Number(runtime.slotRowCount) || Number(runtime.initialSlotRowCount) || 1));
-        if (!runtime.shouldUseMainlineSlotUI()) return currentRows;
+        if (!runtime.shouldUseMainlineSlotUI()) return 1;
         const panelHeight = panelUi.contentSize.height;
         const rowHeight = runtime.getSlotRowBgHeight();
         const spacing = Number(sceneRowSpacing);
         if (!Number.isFinite(panelHeight) || !Number.isFinite(rowHeight) || !Number.isFinite(spacing) || spacing <= 0) {
-            return Math.min(currentRows, 2);
+            return MAINLINE_SCENE_BASE_ROW_COUNT;
         }
         const sceneRows = Math.max(1, Math.round((panelHeight - MAINLINE_SLOT_PANEL_EXTRA_HEIGHT - rowHeight) / spacing + 1));
-        const minSceneRows = currentRows >= 2 ? 2 : 1;
-        return Math.min(currentRows, Math.max(minSceneRows, sceneRows));
+        return Math.max(MAINLINE_SCENE_BASE_ROW_COUNT, sceneRows);
     }
 
     private getSlotAreaSceneScaleY(): number {
@@ -184,7 +189,8 @@ export class GameplaySlotUiController {
     }
 
     private getSlotAreaBaseRowCount(): number {
-        return Math.max(1, Math.floor(this.getFiniteNumber(this.runtime._slotAreaSceneBaseRowCount, this.runtime.initialSlotRowCount || this.runtime.slotRowCount || 1)));
+        const fallback = this.runtime.shouldUseMainlineSlotUI() ? MAINLINE_SCENE_BASE_ROW_COUNT : 1;
+        return Math.max(1, Math.floor(this.getFiniteNumber(this.runtime._slotAreaSceneBaseRowCount, fallback)));
     }
 
     private shouldUseSingleRowSlotPanel(rowCount: number = this.runtime.slotRowCount): boolean {
@@ -249,6 +255,10 @@ export class GameplaySlotUiController {
 
     private applySlotAreaTransform() {
         const runtime = this.runtime;
+        const slotAreaWidget = runtime.slotAreaNode.getComponent(Widget);
+        if (!slotAreaWidget) {
+            throw new Error('[GameplayScene] Game.scene is missing Widget component on SlotArea');
+        }
         const slotAreaUi = runtime.slotAreaNode.getComponent(UITransform);
         if (slotAreaUi) {
             const width = this.shouldUseSingleRowSlotPanel()
@@ -257,13 +267,13 @@ export class GameplaySlotUiController {
             slotAreaUi.setContentSize(width, this.getSlotAreaLayoutHeight());
         }
         const current = runtime.slotAreaNode.position;
-        const x = typeof runtime._slotAreaSceneBaseX === 'number' ? runtime._slotAreaSceneBaseX : current.x;
         const z = typeof runtime._slotAreaSceneBaseZ === 'number' ? runtime._slotAreaSceneBaseZ : current.z;
         const scaleX = this.getFiniteNumber(runtime._slotAreaSceneScaleX, runtime.getSlotAreaScale());
         const scaleY = this.getFiniteNumber(runtime._slotAreaSceneScaleY, runtime.getSlotAreaScale());
         const scaleZ = this.getFiniteNumber(runtime._slotAreaSceneScaleZ, 1);
         runtime.slotAreaNode.setScale(scaleX, scaleY, scaleZ);
-        runtime.slotAreaNode.setPosition(x, this.getSlotAreaLocalCenterY(), z);
+        runtime.slotAreaNode.setPosition(current.x, current.y, z);
+        slotAreaWidget.updateAlignment?.();
     }
 
     private getSlotAreaCenterYInGameplayRoot(): number {
@@ -635,13 +645,24 @@ export class GameplaySlotUiController {
         this.tryUnlockSlotRow();
     }
 
-    unlockSlotRow() {
+    unlockSlotRow(): boolean {
         const runtime = this.runtime;
         const policy = runtime._activeSlotRowPolicy;
+        const beforeUnlockedRows = Math.floor(Number(runtime.slotUnlockedRows) || 0);
+        const beforeRowCount = Math.floor(Number(runtime.slotRowCount) || 0);
+        const beforeUnlockedCount = Math.floor(Number(runtime.slotModel?.unlockedCount) || 0);
+        const didAdvance = () => {
+            const afterUnlockedRows = Math.floor(Number(runtime.slotUnlockedRows) || 0);
+            const afterRowCount = Math.floor(Number(runtime.slotRowCount) || 0);
+            const afterUnlockedCount = Math.floor(Number(runtime.slotModel?.unlockedCount) || 0);
+            return afterUnlockedRows > beforeUnlockedRows
+                || afterRowCount > beforeRowCount
+                || afterUnlockedCount > beforeUnlockedCount;
+        };
         const currentRows = Math.max(1, Math.floor(Number(runtime.slotUnlockedRows) || 1));
         if (policy?.unlockAllRowsAtOnce) {
             const targetRows = this.getAllRowsUnlockTargetRowCount();
-            if (currentRows >= targetRows && runtime.slotRowCount >= targetRows) return;
+            if (currentRows >= targetRows && runtime.slotRowCount >= targetRows) return false;
             if (runtime.slotRowCount < targetRows) {
                 const rowsToAdd = targetRows - runtime.slotRowCount;
                 runtime.slotRowCount = targetRows;
@@ -652,9 +673,9 @@ export class GameplaySlotUiController {
             this.rebuildSlotNodes();
             runtime.renderSlots();
             runtime.clearAdRewardSlotAddReminderVisuals?.();
-            return;
+            return didAdvance();
         }
-        if (runtime.slotUnlockedRows >= runtime.slotRowCount) return;
+        if (runtime.slotUnlockedRows >= runtime.slotRowCount) return false;
         const targetRows = policy?.unlockAllRowsAtOnce
             ? Math.max(currentRows + 1, Math.floor(Number(policy.rowCount) || currentRows + 1))
             : currentRows + 1;
@@ -667,26 +688,31 @@ export class GameplaySlotUiController {
         this.rebuildSlotNodes();
         runtime.renderSlots();
         runtime.clearAdRewardSlotAddReminderVisuals?.();
+        return didAdvance();
     }
 
-    tryUnlockSlotRow() {
+    tryUnlockSlotRow(): boolean {
         const runtime = this.runtime;
-        if (runtime.slotUnlockedRows >= runtime.slotRowCount && !this.hasPendingAllRowsUnlock()) return;
-        if (runtime.isPlacementVisualBusy?.()) return;
-        if (runtime._skillActive) return;
+        if (runtime.slotUnlockedRows >= runtime.slotRowCount && !this.hasPendingAllRowsUnlock()) return false;
+        if (runtime.isPlacementVisualBusy?.()) return false;
+        if (runtime._skillActive) return false;
         PerformanceMgr.inst.markUserActivity(3500);
         AudioMgr.inst.play('button');
         runtime.pauseTimerForProp();
         if (this.getCurrentSlotUnlockMode() === 'free') {
-            this.unlockSlotRow();
-            runtime.markDynamicCountdownAssisted?.();
+            const unlocked = this.unlockSlotRow();
+            if (unlocked) {
+                runtime.markDynamicCountdownAssisted?.();
+                sys.localStorage.setItem(LS_EXPAND_USED, '1');
+            }
             runtime.resumeTimerForProp();
-            sys.localStorage.setItem(LS_EXPAND_USED, '1');
-            return;
+            return unlocked;
         }
-        runtime.runRewardedGrant('unlock_slot_row', () => {
-            this.unlockSlotRow();
+        return runtime.runRewardedGrant('unlock_slot_row', () => {
+            const unlocked = this.unlockSlotRow();
+            if (!unlocked) return false;
             runtime.markDynamicCountdownAssisted?.();
+            return true;
         }, {
             busyFlag: '_skillActive',
             waitForCloseBeforeComplete: true,

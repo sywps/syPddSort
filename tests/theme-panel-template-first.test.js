@@ -29,5 +29,8 @@ assert.ok(flow.includes('const leftX = Number.isFinite(cardTemplate.position.x)'
 assert.ok(flow.includes('const templateTopPad = templateContentH / 2 - (headerTemplate.position.y + headerH / 2);'), 'theme top padding should derive from prefab template placement');
 assert.ok(flow.includes('const templateHeaderCardGap = (headerTemplate.position.y - headerH / 2) - (cardTemplate.position.y + cardH / 2);'), 'theme header-card gap should derive from prefab template placement');
 assert.ok(flow.includes('total += headerCardGap;'), 'theme scroll height must include prefab-derived header-card gap');
+assert.ok(flow.includes('deferPreview: true'), 'theme panel should defer zt_level preview rendering at open time');
+assert.ok(flow.includes('renderThemePanelVisiblePreviews'), 'theme panel should render previews through a visible-window pass');
+assert.ok(controller.includes('runtime.renderThemePanelVisiblePreviews?.(scrollContent, scrollH, 1);'), 'theme scroll controller must render previews as the visible window changes');
 
 console.log('theme-panel-template-first.test.js passed');

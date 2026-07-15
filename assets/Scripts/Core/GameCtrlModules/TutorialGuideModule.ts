@@ -1,10 +1,10 @@
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
-    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
+    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
-    NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
-    PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
+    NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel,
+    PerformanceMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
@@ -30,8 +30,37 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 
+const LEVEL_EXP_SLOT_INTRO_UNLOCK_HAND_TARGET_Y_OFFSET = -16;
+
 export function installTutorialGuideModule(target: any): void {
     Object.assign(target, {
+        getGuidePromptVariantNode(bubble: Node, variantName: 'SingleLinePrompt' | 'SlotIntroPrompt'): Node {
+            const variant = bubble.getChildByName(variantName);
+            if (!variant?.isValid || !variant.getComponent(UITransform)) {
+                throw new Error(`[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt/${variantName}`);
+            }
+            return variant;
+        },
+
+        activateGuidePromptVariant(bubble: Node, variantName: 'SingleLinePrompt' | 'SlotIntroPrompt'): Label {
+            const singleLine = this.getGuidePromptVariantNode(bubble, 'SingleLinePrompt');
+            const slotIntro = this.getGuidePromptVariantNode(bubble, 'SlotIntroPrompt');
+            singleLine.active = variantName === 'SingleLinePrompt';
+            slotIntro.active = variantName === 'SlotIntroPrompt';
+            const activeVariant = variantName === 'SingleLinePrompt' ? singleLine : slotIntro;
+            const label = activeVariant.getChildByName('PromptLabel')?.getComponent(Label) || null;
+            if (!label) {
+                throw new Error(`[guide] Game.scene is missing ${variantName}/PromptLabel Label`);
+            }
+            this._guideBubbleLbl = label;
+            return label;
+        },
+
+        getGuidePromptVisualHeight(bubble: Node): number {
+            const variantName = this._guideMode === 'level_exp_slot_intro' ? 'SlotIntroPrompt' : 'SingleLinePrompt';
+            return this.getGuidePromptVariantNode(bubble, variantName).getComponent(UITransform)!.contentSize.height;
+        },
+
         styleLevel2GuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, primaryText: string) {
             if (this._guideMode === 'level_exp_slot_intro'
                 && typeof this.styleLevelExpSlotIntroGuidePrompt === 'function') {
@@ -44,89 +73,78 @@ export function installTutorialGuideModule(target: any): void {
                 this.adjustStarterGuidePromptForCurrentStep?.(bubble);
                 return;
             }
+            const activeLabel = this.activateGuidePromptVariant(bubble, 'SingleLinePrompt');
             bubble.active = true;
-            const bg = bubble.getChildByName('BubbleBg');
-            if (bg?.isValid) bg.active = true;
-            const bubbleUT = bubble.getComponent(UITransform);
-            if (!bubbleUT) {
-                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
-            }
-            const labelUT = lbl.node.getComponent(UITransform);
-            if (!labelUT) {
-                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt/PromptLabel');
-            }
-            const promptHeight = bubbleUT.contentSize.height || 154;
+            const promptHeight = this.getGuidePromptVisualHeight(bubble);
             const centerY = typeof this.getGuidePromptCenterY === 'function'
                 ? this.getGuidePromptCenterY(438, promptHeight)
                 : 438;
             bubble.setPosition(0, centerY, 0);
-            lbl.string = this.formatLevel2GuidePrompt(primaryText);
+            activeLabel.string = this.formatLevel2GuidePrompt(primaryText);
+        },
+
+        setGuidePromptEmphasisActive(bubble: Node, active: boolean): Node {
+            const slotIntro = this.getGuidePromptVariantNode(bubble, 'SlotIntroPrompt');
+            const emphasisNode = slotIntro.getChildByName('PromptLabelEmphasis');
+            if (!emphasisNode?.isValid || !emphasisNode.getComponent(Label)) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt/PromptLabelEmphasis');
+            }
+            emphasisNode.active = active;
+            return emphasisNode;
         },
 
         styleLevelExpSlotIntroGuidePrompt(_gb: Graphics | null, bubble: Node, lbl: Label, _primaryText: string) {
             bubble.active = true;
-            const bg = bubble.getChildByName('BubbleBg');
+            const slotIntro = this.getGuidePromptVariantNode(bubble, 'SlotIntroPrompt');
+            const activeLabel = this.activateGuidePromptVariant(bubble, 'SlotIntroPrompt');
+            const bg = slotIntro.getChildByName('BubbleBg');
             const bgSprite = bg?.getComponent(Sprite) || null;
-            const bubbleUT = bubble.getComponent(UITransform);
-            const labelUT = lbl.node.getComponent(UITransform);
-            if (!bubbleUT || !labelUT || !bg?.isValid || !bgSprite) {
+            const bubbleUT = slotIntro.getComponent(UITransform);
+            const labelUT = activeLabel.node.getComponent(UITransform);
+            const emphasisNode = this.setGuidePromptEmphasisActive?.(bubble, true) || null;
+            const emphasisLabel = emphasisNode?.getComponent(Label) || null;
+            if (!bubbleUT || !labelUT || !bg?.isValid || !bgSprite || !emphasisNode?.isValid || !emphasisLabel) {
                 throw new Error('[guide] Game.scene is missing level-exp slot intro prompt nodes');
             }
 
             const primaryText = this.getConfiguredGuideCopy(0, '试试增加放置区空间，存放更多的钻石');
             const emphasisText = this.getConfiguredGuideCopy(1, '本次直接免费全部解锁');
-            const bubbleWidth = 620;
-            const bubbleHeight = 158;
-            bubbleUT.setContentSize(bubbleWidth, bubbleHeight);
-            const bgUT = bg.getComponent(UITransform);
-            if (bgUT) bgUT.setContentSize(bubbleWidth, bubbleHeight);
             bg.active = true;
-            bgSprite.type = Sprite.Type.SLICED;
-
-            lbl.string = primaryText;
-            lbl.fontSize = 34;
-            lbl.lineHeight = 42;
-            lbl.color = new Color('#7162A2');
-            lbl.horizontalAlign = Label.HorizontalAlign.CENTER;
-            lbl.verticalAlign = Label.VerticalAlign.CENTER;
-            lbl.overflow = Label.Overflow.SHRINK;
-            lbl.enableWrapText = false;
-            (lbl as Label & { isBold?: boolean }).isBold = true;
-            labelUT.setContentSize(bubbleWidth - 72, 46);
-            lbl.node.setPosition(0, 36, 0);
-
-            let emphasisNode = bubble.getChildByName('PromptLabelEmphasis');
-            if (!emphasisNode) {
-                emphasisNode = new Node('PromptLabelEmphasis');
-                bubble.addChild(emphasisNode);
-                emphasisNode.layer = bubble.layer || Layers.Enum.UI_2D;
-            }
-            emphasisNode.active = true;
-            emphasisNode.setPosition(0, -8, 0);
-            const emphasisUT = emphasisNode.getComponent(UITransform) || emphasisNode.addComponent(UITransform);
-            emphasisUT.setContentSize(bubbleWidth - 72, 46);
-            const emphasisLabel = emphasisNode.getComponent(Label) || emphasisNode.addComponent(Label);
+            activeLabel.string = primaryText;
             emphasisLabel.string = emphasisText;
-            emphasisLabel.fontSize = 34;
-            emphasisLabel.lineHeight = 42;
-            emphasisLabel.color = new Color('#FF4D5A');
-            emphasisLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
-            emphasisLabel.verticalAlign = Label.VerticalAlign.CENTER;
-            emphasisLabel.overflow = Label.Overflow.SHRINK;
-            emphasisLabel.enableWrapText = false;
-            (emphasisLabel as Label & { isBold?: boolean }).isBold = true;
 
-            const boardBounds = this.getGuidePromptNodeBounds?.(this.boardNode || null, bubble) || null;
-            const defaultY = boardBounds
-                ? boardBounds.top + bubbleHeight / 2 + 18
-                : 360;
+            this.positionLevelExpSlotIntroGuidePrompt?.(bubble);
+            const layoutToken = `${this._gameplayInitSeq}:${this._guideMode}:${this._guideStep}`;
+            this.scheduleOnce?.(() => {
+                if (!bubble?.isValid || !bubble.activeInHierarchy) return;
+                if (layoutToken !== `${this._gameplayInitSeq}:${this._guideMode}:${this._guideStep}`) return;
+                this.positionLevelExpSlotIntroGuidePrompt?.(bubble);
+            }, 0);
+        },
+
+        positionLevelExpSlotIntroGuidePrompt(bubble: Node): void {
+            const bubbleUT = this.getGuidePromptVariantNode(bubble, 'SlotIntroPrompt').getComponent(UITransform);
+            if (!bubbleUT) {
+                throw new Error('[guide] Game.scene is missing UITransform: OverlayRoot/TutorialGuidePrompt');
+            }
+            const guideBand = this.getLevelExpSlotIntroGuideBand?.() || null;
+            const defaultY = Number.isFinite(guideBand?.centerY) ? guideBand.centerY : 360;
             bubble.setPosition(0, this.clampGuidePromptCenterY(bubble, defaultY), 0);
+        },
+
+        refreshLevelExpSlotIntroGuideLayout(): void {
+            if (this._guideMode !== 'level_exp_slot_intro' || this._guideStep !== 0) return;
+            const bubble = this._guideBubble as Node | null;
+            if (!bubble?.isValid || !bubble.activeInHierarchy) return;
+            this.positionLevelExpSlotIntroGuidePrompt?.(bubble);
         },
 
         clampGuidePromptCenterY(bubble: Node, centerY: number): number {
             const rootTransform = bubble.parent?.getComponent(UITransform)
                 || (typeof this.requireCanvasUiRoot === 'function' ? this.requireCanvasUiRoot('OverlayRoot') : null)?.getComponent(UITransform);
-            const bubbleHeight = bubble.getComponent(UITransform)?.contentSize.height || 154;
+            const bubbleHeight = this.getGuidePromptVisualHeight?.(bubble)
+                || bubble.getComponent(UITransform)?.contentSize.height
+                || 154;
             const visibleHalfH = rootTransform ? rootTransform.contentSize.height / 2 : 640;
             const margin = 12;
             return Math.max(-visibleHalfH + bubbleHeight / 2 + margin, Math.min(centerY, visibleHalfH - bubbleHeight / 2 - margin));
@@ -253,11 +271,24 @@ export function installTutorialGuideModule(target: any): void {
             if (!bubbleUT) return;
             const target = this.getGuidePromptTargetBoundsForCurrentStep(bubble);
             if (!target) return;
-            const bubbleHeight = bubbleUT.contentSize.height || 154;
+            const bubbleHeight = this.getGuidePromptVisualHeight?.(bubble) || bubbleUT.contentSize.height || 154;
             const targetGap = target.kind === 'slot' ? 44 : 16;
             const desiredY = target.top + targetGap + bubbleHeight / 2;
             const nextY = this.clampGuidePromptCenterY(bubble, desiredY);
             bubble.setPosition(bubble.position.x, nextY, bubble.position.z);
+        },
+
+        styleStarterGuidePrompt(_gb: Graphics | null, bubble: Node, _lbl: Label, primaryText: string) {
+            const lbl = this.activateGuidePromptVariant(bubble, 'SingleLinePrompt');
+            bubble.active = true;
+            lbl.string = this._guideMode === 'level_2'
+                ? this.formatLevel2GuidePrompt(primaryText)
+                : this.formatLevel1GuidePrompt(primaryText);
+            const promptHeight = this.getGuidePromptVisualHeight(bubble);
+            const defaultY = Number.isFinite(this._guidePromptDefaultCenterY)
+                ? this._guidePromptDefaultCenterY
+                : bubble.position.y;
+            bubble.setPosition(0, this.getGuidePromptCenterY(defaultY, promptHeight), 0);
         },
 
         /** Step 0: 选中 firstColorId 豆豆块 */
@@ -342,88 +373,6 @@ export function installTutorialGuideModule(target: any): void {
 
         isStarterTutorialAutoCorrectMode(): boolean {
             return this._guideMode === 'level_1' || this._guideMode === 'level_2';
-        },
-
-        getTutorialSkipGuidePromptNode(): Node | null {
-            const root = typeof this.requireCanvasUiRoot === 'function'
-                ? this.requireCanvasUiRoot('OverlayRoot')
-                : null;
-            return root?.getChildByName('TutorialSkipGuidePrompt') || null;
-        },
-
-        shouldShowTutorialSkipGuidePrompt(): boolean {
-            const restoreStatus = typeof this.getStartupCloudRestoreStatus === 'function'
-                ? this.getStartupCloudRestoreStatus()
-                : '';
-            return this._guideMode === 'level_1'
-                && !this.isGameEnd
-                && !this._isThemeLevel
-                && !this.isExternalLevelPreviewActive?.()
-                && this.getActiveLogicalLevelId?.() === 1
-                && restoreStatus !== 'cloud_restore_pending'
-                && AnalyticsMgr.inst.shouldShowTutorialSkipGuidePrompt();
-        },
-
-        bindTutorialSkipGuidePrompt(prompt: Node): void {
-            if (!prompt.getComponent(Button)) {
-                throw new Error('[guide] Game.scene is missing Button: OverlayRoot/TutorialSkipGuidePrompt');
-            }
-            prompt.targetOff(this);
-            prompt.on(Button.EventType.CLICK, this.handleTutorialSkipGuidePromptClick, this);
-            this._tutorialSkipGuidePromptBound = true;
-        },
-
-        raiseTutorialSkipGuidePrompt(): void {
-            const prompt = this.getTutorialSkipGuidePromptNode?.();
-            if (!prompt?.isValid || !prompt.active || !prompt.parent) return;
-            prompt.setSiblingIndex(prompt.parent.children.length - 1);
-        },
-
-        hideTutorialSkipGuidePrompt(): void {
-            const prompt = this.getTutorialSkipGuidePromptNode?.();
-            if (prompt?.isValid) prompt.active = false;
-        },
-
-        syncTutorialSkipGuidePrompt(): void {
-            const shouldShow = this.shouldShowTutorialSkipGuidePrompt?.() || false;
-            const prompt = this.getTutorialSkipGuidePromptNode?.();
-            if (!prompt) {
-                if (shouldShow) {
-                    throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialSkipGuidePrompt');
-                }
-                return;
-            }
-            prompt.active = shouldShow;
-            if (!shouldShow) return;
-
-            if (!prompt.getChildByName('Label')?.getComponent(Label)) {
-                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialSkipGuidePrompt/Label Label');
-            }
-            this.bindTutorialSkipGuidePrompt(prompt);
-            this.raiseTutorialSkipGuidePrompt();
-            if (!this._tutorialSkipGuidePromptShownTracked) {
-                this._tutorialSkipGuidePromptShownTracked = true;
-                this.trackFirstLevelFunnel('tutorial_skip_prompt_show', {
-                    source: 'tutorial_skip_prompt',
-                    abBucket: AnalyticsMgr.inst.getTutorialExperimentAssignment().bucket,
-                });
-            }
-        },
-
-        handleTutorialSkipGuidePromptClick(): void {
-            if (!this.shouldShowTutorialSkipGuidePrompt?.()) return;
-            AudioMgr.inst.play('button');
-            this.trackFirstLevelFunnel('tutorial_skip_guide', {
-                source: 'tutorial_skip_prompt',
-                success: true,
-                abBucket: AnalyticsMgr.inst.getTutorialExperimentAssignment().bucket,
-            });
-            this.hideTutorialSkipGuidePrompt?.();
-            this.endTutorial?.();
-            if (typeof this.goNextLevel !== 'function') {
-                throw new Error('[guide] missing goNextLevel for tutorial skip');
-            }
-            this.goNextLevel();
         },
 
         trySelectGuideBoardColor(colorId: number): boolean {
@@ -732,7 +681,10 @@ export function installTutorialGuideModule(target: any): void {
 
             if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro') {
                 hand.active = true;
-                this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y + 8);
+                const unlockHandOffsetY = this._guideMode === 'level_exp_slot_intro'
+                    ? LEVEL_EXP_SLOT_INTRO_UNLOCK_HAND_TARGET_Y_OFFSET
+                    : 8;
+                this.setGuideHandTarget(hand, targetLocal.x, targetLocal.y + unlockHandOffsetY);
                 this.startGuideHandPulse(hand);
                 return;
             }

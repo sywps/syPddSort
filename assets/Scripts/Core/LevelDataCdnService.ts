@@ -17,6 +17,7 @@ import {
 } from './RemoteDataCdnClient';
 import { runtimeWarn } from './RuntimeLog';
 import { readExperimentBucketOverrideFromSearch } from './ExperimentUrlParam';
+import { LEVEL_DATA_SLOT_POLICY_MAX_ROWS, validateSlotPolicyConfig } from './SlotOnboardingPolicy';
 
 type LevelPackEntry = {
     id: string;
@@ -44,6 +45,7 @@ type LevelPack = {
     kind?: string;
     prefix?: string;
     dataVersion?: string;
+    schemaVersion: number;
     levelRange: [number, number];
     levels: Array<{ levelId: number; prefix?: string; data: LevelData }>;
 };
@@ -93,7 +95,9 @@ type LevelDataLastFailure = {
 const MAX_CACHED_LEVEL_PACKS = 1;
 const MAX_PERSISTED_LEVEL_PACKS = 3;
 const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
-const LEVEL_DATA_CLIENT_BUILD = 1;
+const LEVEL_DATA_CLIENT_BUILD = 2;
+const LEVEL_DATA_SCHEMA_VERSION = 2;
+const LEVEL_DATA_COMPAT_SCHEMA_VERSION = 1;
 const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
 const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
@@ -176,6 +180,7 @@ export class LevelDataCdnService {
     private lastManifestNamespace = 'stable';
     private lastFailure: LevelDataLastFailure | null = null;
     private lastDegradeReason = '';
+    private sessionExperimentAssignment: LevelExperimentAssignment | null = null;
 
     prefetchLive(): void {
         const context = this.resolveCdnContext(0, DEFAULT_LEVEL_PREFIX);
@@ -415,7 +420,8 @@ export class LevelDataCdnService {
         if (!manifest || !Array.isArray(manifest.packs)) {
             throw new Error('level_live.json packs missing');
         }
-        if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) {
+        if (manifest.manifestVersion !== 1
+            || (manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION && manifest.schemaVersion !== LEVEL_DATA_COMPAT_SCHEMA_VERSION)) {
             throw new Error('level_live.json schema unsupported');
         }
         if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') {
@@ -553,13 +559,16 @@ export class LevelDataCdnService {
     }
 
     private resolveLevelExperimentAssignment(): LevelExperimentAssignment {
+        if (this.sessionExperimentAssignment) return this.sessionExperimentAssignment;
         const forced = this.readLevelExperimentBucketOverride();
         if (forced) {
-            return this.buildLevelExperimentAssignment(forced, 'url');
+            this.sessionExperimentAssignment = this.buildLevelExperimentAssignment(forced, 'url');
+            return this.sessionExperimentAssignment;
         }
         const openid = this.readCachedOpenid();
         if (!openid) {
-            return this.buildLevelExperimentAssignment('NULL', 'missing_identity');
+            this.sessionExperimentAssignment = this.buildLevelExperimentAssignment('NULL', 'missing_identity');
+            return this.sessionExperimentAssignment;
         }
         const hashBucket = this.hashStringToBucket(`${LEVEL_EXPERIMENT_ID}:${LEVEL_EXPERIMENT_SALT}:${openid}`);
         const bucket: LevelExperimentBucket =
@@ -567,7 +576,8 @@ export class LevelDataCdnService {
             hashBucket < 50 ? 'B' :
             hashBucket < 75 ? 'C' :
             'D';
-        return this.buildLevelExperimentAssignment(bucket, 'openid');
+        this.sessionExperimentAssignment = this.buildLevelExperimentAssignment(bucket, 'openid');
+        return this.sessionExperimentAssignment;
     }
 
     private buildLevelExperimentAssignment(bucket: LevelExperimentBucket, source: LevelExperimentAssignment['source']): LevelExperimentAssignment {
@@ -629,6 +639,9 @@ export class LevelDataCdnService {
         if (pack.id !== packEntry.id) {
             throw new Error('pack id mismatch: ' + pack.id + ' != ' + packEntry.id);
         }
+        if (pack.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION && pack.schemaVersion !== LEVEL_DATA_COMPAT_SCHEMA_VERSION) {
+            throw new Error('pack schema unsupported: ' + pack.schemaVersion);
+        }
         const expectedPrefix = this.getPackPrefix(packEntry);
         const actualPrefix = this.getPackPrefix(pack);
         if (actualPrefix !== expectedPrefix) {
@@ -646,6 +659,13 @@ export class LevelDataCdnService {
                 throw new Error('pack duplicate level key: ' + key);
             }
             seenKeys.add(key);
+            if (!entry?.data || typeof entry.data !== 'object') {
+                throw new Error('pack level data missing: ' + key);
+            }
+            if (Math.max(1, Math.floor(Number(entry.data.levelId) || 1)) !== entryLevelId) {
+                throw new Error('pack level data id mismatch: ' + key);
+            }
+            validateSlotPolicyConfig(entry.data.slotPolicy, LEVEL_DATA_SLOT_POLICY_MAX_ROWS);
         }
         return pack;
     }

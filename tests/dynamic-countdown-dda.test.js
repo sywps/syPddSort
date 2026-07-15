@@ -179,6 +179,11 @@ assert.ok(skillMagnet.includes('this.pauseTimerForFinalSecondProp();'), 'magnet 
 
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful slot-row unlock must mark assisted run');
+assert.ok(slotUi.includes('unlockSlotRow(): boolean'), 'slot-row unlock must report whether it actually changed slot state');
+assert.ok(slotUi.includes('const beforeUnlockedRows'), 'slot-row unlock must snapshot state before applying a grant');
+assert.ok(slotUi.includes('return didAdvance();'), 'slot-row unlock must return false when policy/state makes the grant a no-op');
+assert.ok(slotUi.includes('const unlocked = this.unlockSlotRow();'), 'slot-row rewarded ad grant must inspect the actual unlock result');
+assert.ok(slotUi.includes('if (!unlocked) return false;'), 'slot-row rewarded ad grant must fail when no row was unlocked');
 assert.ok(slotUi.includes('this.runtime.slotModel.getAll().some((s: any) => s !== null)'), 'slot-clear availability must read the real slot model occupancy');
 
 const commerce = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
@@ -199,6 +204,8 @@ assert.ok(!adRewardHint.includes('getActiveLevel(this) < SKILL_UNLOCK_FREEZE'), 
 
 const slotSkillModule = read('assets/Scripts/Core/GameCtrlModules/GameplaySlotSkillModule.ts');
 assert.ok(slotSkillModule.includes('syncSkillButtonRuntimeStates()'), 'runtime module bridge must expose skill state sync');
+assert.ok(slotSkillModule.includes('unlockSlotRow(): boolean'), 'runtime module bridge must preserve slot-row unlock result');
+assert.ok(slotSkillModule.includes('tryUnlockSlotRow(): boolean'), 'runtime module bridge must preserve slot-row unlock request result');
 
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 assert.ok(freezeFx.includes("FREEZE_SPINE_FX_PATH = 'Spine/PinddFreeze/bingdonglizi'"), 'freeze effect must load the PinddFreeze Spine resource');

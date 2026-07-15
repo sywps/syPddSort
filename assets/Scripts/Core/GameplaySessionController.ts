@@ -50,6 +50,19 @@ export class GameplaySessionController {
             const activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
+            const configuredTutorialGuideMode = this.getLevelTutorialGuideMode(data);
+            const shouldStartZoomGuide = configuredTutorialGuideMode === 'zoom'
+                || (activeLogicalLevelId === 2 && useMainlineSlotGuideFlow);
+            const tutorialMode = gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
+                ? (shouldStartZoomGuide
+                    ? 'none'
+                    : (activeLogicalLevelId === 1
+                        ? 'level_1'
+                        : (activeLogicalLevelId === 3 && useMainlineSlotGuideFlow
+                            ? 'level_exp_slot_intro'
+                            : 'none')))
+                : 'none';
+            runtime._activeGameplayGuideLayoutMode = tutorialMode;
             runtime._firstFunnelTouchSent = false;
             runtime._firstLevelAnyTouchSent = false;
             runtime._firstFunnelSelectSent = false;
@@ -67,7 +80,6 @@ export class GameplaySessionController {
                 levelId: activeLogicalLevelId,
                 entryMode: gameplayEntryMode,
                 maxRows: maxSlotRows,
-                configuredUnlockedRows: (data as any).initialSlotUnlockedRows,
                 configuredSlotPolicy: data.slotPolicy,
             });
             slotPolicy = this.applyLevelExperimentGuideSlotPolicy(
@@ -120,6 +132,8 @@ export class GameplaySessionController {
             runtime._pendingWinAdBonusReward = 0;
             runtime._winAdRewardClaimed = false;
             runtime._settlementNextTransitioning = false;
+            runtime._settlementRevealState = 'idle';
+            runtime._settlementRevealToken = (Number(runtime._settlementRevealToken) || 0) + 1;
             runtime._completedColors = new Set();
             runtime._pendingColorCompleteEffects = new Map();
             runtime._patternCompleteWinPending = false;
@@ -199,24 +213,11 @@ export class GameplaySessionController {
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
             const tutorialGateLevelId = gameplayEntryMode === 'main' ? activeLogicalLevelId : 0;
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
-                const tutorialGuideMode = this.getLevelTutorialGuideMode(data);
-                const shouldStartZoomGuide = tutorialGuideMode === 'zoom'
-                    || (tutorialGateLevelId === 2 && useMainlineSlotGuideFlow);
-                const tutorialMode = shouldStartZoomGuide
-                    ? 'none'
-                    : (tutorialGateLevelId === 1
-                    ? 'level_1'
-                    : (tutorialGateLevelId === 3 && useMainlineSlotGuideFlow
-                        ? 'level_exp_slot_intro'
-                        : 'none'));
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
                     runtime.startTutorial(tutorialMode);
                 } else if (slotPolicy.showSlotUnlockGuide) {
-                    runtime.hideTutorialSkipGuidePrompt?.();
                     runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
-                } else {
-                    runtime.hideTutorialSkipGuidePrompt?.();
                 }
                 if (tutorialMode === 'none' && shouldStartZoomGuide) {
                     runtime.startPinchGuide({
@@ -325,12 +326,11 @@ export class GameplaySessionController {
         runtime._guideBubbleLbl = null;
         runtime._guidePromptDefaultLabelColor = null;
         runtime._guidePromptDefaultCenterY = null;
-        runtime.hideTutorialSkipGuidePrompt?.();
-        runtime._tutorialSkipGuidePromptShownTracked = false;
         runtime._guideHighlightCells = [];
         runtime._guideInputSuspended = false;
         runtime._guideStep = -1;
         runtime._guideMode = 'none';
+        runtime._activeGameplayGuideLayoutMode = 'none';
         runtime._guideTotalSteps = 0;
         runtime._guidePhase = 'select';
         runtime._lastGuideVoiceToken = '';

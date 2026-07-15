@@ -10,7 +10,6 @@ import {
     PerformanceMgr,
     Prefab,
     ProgressBar,
-    RESULT_PANEL_TEXTURE_NAMES,
     Sprite,
     Tween,
     UIOpacity,
@@ -23,7 +22,7 @@ import {
     tween,
 } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
-import { getMiniGameBuildMode } from './MiniGamePlatform';
+import { isMiniGameRuntime } from './MiniGamePlatform';
 
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
@@ -64,10 +63,6 @@ const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
     { xRatio: -0.02, yRatio: 0.18, size: 7, delay: 3.06 },
     { xRatio: 0.16, yRatio: 0.2, size: 7, delay: 3.36 },
 ];
-
-function shouldRequireBootstrapResultPanels(): boolean {
-    return getMiniGameBuildMode() === 'release';
-}
 
 export class GameplayResultPanelController {
     constructor(private readonly runtime: any) {}
@@ -142,35 +137,30 @@ export class GameplayResultPanelController {
         }
     }
 
+    private loadBrowserPreviewSourcePrefabs(
+        loadSeq: number,
+        onDone: () => void,
+        onError: (error: Error) => void,
+    ): void {
+        if (isMiniGameRuntime()) {
+            onError(new Error('[result-panel] bootstrap result prefabs are required in minigame runtime'));
+            return;
+        }
+        this.withGameAssetsBundle((bundle: Bundle | null) => {
+            if (!this.isCurrentPrefabLoad(loadSeq)) {
+                return;
+            }
+            if (!bundle) {
+                onError(new Error(`[result-panel] failed to load ${GAME_ASSETS_BUNDLE_NAME} bundle for browser preview source prefabs`));
+                return;
+            }
+            this.loadPrefabsFromBundle(bundle, `${GAME_ASSETS_BUNDLE_NAME}-preview-source`, loadSeq, onDone, onError);
+        });
+    }
+
     hasPrefabsReady() {
         const cache = this.getPrefabCache('hasPrefabsReady');
         return RESULT_PANEL_KINDS.every((kind) => !!cache.get(kind));
-    }
-
-    private ensureResultPanelSpriteFramesReady(onDone: () => void, onError: (error: Error) => void): void {
-        const runtime = this.runtime;
-        const uniqueNames = Array.from(new Set(RESULT_PANEL_TEXTURE_NAMES));
-        const missingNames = uniqueNames.filter((name) => !runtime.getSF(name));
-        if (missingNames.length === 0) {
-            onDone();
-            return;
-        }
-        let remaining = missingNames.length;
-        const finishOne = () => {
-            remaining -= 1;
-            if (remaining > 0) return;
-            const stillMissing = uniqueNames.filter((name) => !runtime.getSF(name));
-            if (stillMissing.length > 0) {
-                onError(new Error(`[result-panel] missing panel SpriteFrames: ${stillMissing.join(', ')}`));
-                return;
-            }
-            onDone();
-        };
-        for (const name of missingNames) {
-            runtime._loadSpriteFrameByName(name, () => {
-                finishOne();
-            });
-        }
     }
 
     ensurePrefabsReady(onDone: () => void) {
@@ -208,39 +198,22 @@ export class GameplayResultPanelController {
                 callback();
             }
         };
-        const loadPrefabsFromGameAssets = () => {
-            if (!this.isCurrentPrefabLoad(loadSeq)) {
-                return;
-            }
-            this.withGameAssetsBundle((bundle: Bundle | null) => {
-                if (!this.isCurrentPrefabLoad(loadSeq)) {
-                    return;
-                }
-                if (!bundle) {
-                    fail(new Error('[result-panel] failed to load gameAssets bundle'));
-                    return;
-                }
-                this.ensureResultPanelSpriteFramesReady(() => {
-                    this.loadPrefabsFromBundle(bundle, 'gameAssets', loadSeq, flushCallbacks, fail);
-                }, fail);
-            });
-        };
-        const failBootstrapOrFallback = (error: Error): void => {
-            if (shouldRequireBootstrapResultPanels()) {
+        const failBootstrapOrLoadPreviewSource = (error: Error): void => {
+            if (isMiniGameRuntime()) {
                 fail(error);
                 return;
             }
-            loadPrefabsFromGameAssets();
+            this.loadBrowserPreviewSourcePrefabs(loadSeq, flushCallbacks, fail);
         };
         this.withBootstrapBundle((bundle: Bundle | null) => {
             if (!this.isCurrentPrefabLoad(loadSeq)) {
                 return;
             }
             if (!bundle) {
-                failBootstrapOrFallback(new Error(`[result-panel] failed to load ${LOCAL_BOOTSTRAP_BUNDLE_NAME} bundle`));
+                failBootstrapOrLoadPreviewSource(new Error(`[result-panel] failed to load ${LOCAL_BOOTSTRAP_BUNDLE_NAME} bundle`));
                 return;
             }
-            this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, loadSeq, flushCallbacks, failBootstrapOrFallback);
+            this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, loadSeq, flushCallbacks, failBootstrapOrLoadPreviewSource);
         });
     }
 

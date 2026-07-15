@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
 
 const projectDir = path.resolve(__dirname, '..');
 const options = parseArgs(process.argv.slice(2));
@@ -120,6 +121,11 @@ function collectLevels() {
             if (dataLevelId !== levelId) {
                 fail('关卡文件名与 levelId 不一致: ' + name + ' levelId=' + dataLevelId);
             }
+            try {
+                validateSlotPolicy(data, name);
+            } catch (err) {
+                fail(err && err.message ? err.message : String(err));
+            }
             return { levelId, file: name, data, prefix: info.prefix, kind: info.kind };
         })
         .sort((a, b) => {
@@ -170,7 +176,7 @@ function buildPack(group, packLevels) {
         id,
         kind: group.kind,
         prefix: group.prefix,
-        schemaVersion: 1,
+        schemaVersion: LEVEL_DATA_SCHEMA_VERSION,
         levelRange: [first, last],
         levelCount: packLevels.length,
         levels: packLevels.map((entry) => ({
@@ -224,8 +230,8 @@ function buildOutput() {
         manifestVersion: 1,
         dataVersion,
         levelDataVersion: dataVersion,
-        schemaVersion: 1,
-        minClientBuild: 1,
+        schemaVersion: LEVEL_DATA_SCHEMA_VERSION,
+        minClientBuild: LEVEL_DATA_CLIENT_BUILD,
         generatedAt: new Date().toISOString(),
         source: path.relative(projectDir, sourceLevelDir).split(path.sep).join('/') || sourceLevelDir,
         packSize,

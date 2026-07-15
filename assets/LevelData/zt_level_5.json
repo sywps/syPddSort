@@ -1,4 +1,9 @@
 {
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 1
+    },
     "sourceGame": "PinDouJieJieYa",
     "sourcePackage": "C:/Users/EDY/workspaces/拼豆解解压",
     "sourceFile": "output/competitor_pindou_jiejieya/reports/extracted_remote_levels_0/text_assets/lv_86_-6764631516509048528.json",

@@ -4,6 +4,7 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
 
 const dryRun = process.argv.includes('--dry-run');
 const projectDir = path.resolve(__dirname, '..');
@@ -114,7 +115,8 @@ function validateLevelDataPackage() {
     assertDir(packDir, '关卡数据 pack 目录');
     assertFile(liveManifestPath, 'level_live.json');
     const manifest = readJson(liveManifestPath);
-    if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== 1) fail('level_live.json schema 不正确');
+    if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) fail('level_live.json schema 不正确');
+    if (manifest.minClientBuild !== LEVEL_DATA_CLIENT_BUILD) fail('level_live.json minClientBuild 不正确');
     if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') fail('level_live.json 缺少 dataVersion');
     if (manifest.levelDataVersion && manifest.levelDataVersion !== manifest.dataVersion) fail('level_live.json levelDataVersion 与 dataVersion 不一致');
     if (!Array.isArray(manifest.packs) || manifest.packs.length === 0) fail('level_live.json 缺少 packs');
@@ -134,6 +136,7 @@ function validateLevelDataPackage() {
         assertFile(packPath, '关卡数据 pack');
         const packJson = readJson(packPath);
         if (packJson.id !== pack.id) fail('关卡数据 pack id 不一致: ' + pack.url);
+        if (packJson.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) fail('关卡数据 pack schema 不正确: ' + pack.url);
         if (String(packJson.prefix || packPrefix) !== packPrefix) fail('关卡数据 pack prefix 不一致: ' + pack.url);
         if (!Array.isArray(packJson.levels) || packJson.levels.length !== pack.levelCount) {
             fail('关卡数据 pack levelCount 不一致: ' + pack.url);
@@ -148,6 +151,11 @@ function validateLevelDataPackage() {
             cdnKeys.add(key);
             packPayloadKeys.push(key);
             cdnPrefixCounts[entryPrefix] = (cdnPrefixCounts[entryPrefix] || 0) + 1;
+            try {
+                validateSlotPolicy(entry && entry.data, pack.url + ' ' + key);
+            } catch (err) {
+                fail(err && err.message ? err.message : String(err));
+            }
         }
         if (Array.isArray(pack.levelKeys)) {
             const manifestKeys = pack.levelKeys.slice().sort();

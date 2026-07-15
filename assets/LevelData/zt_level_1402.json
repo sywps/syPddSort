@@ -1,4 +1,9 @@
 {
+    "slotPolicy": {
+        "defaultRows": 1,
+        "freeUnlockRows": 0,
+        "adUnlockRows": 1
+    },
   "levelId": 1402,
   "theme": "给阿嬷的情书",
   "levelName": "灯下家书",

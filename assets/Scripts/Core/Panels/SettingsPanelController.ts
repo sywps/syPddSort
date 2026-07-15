@@ -60,33 +60,6 @@ export class SettingsPanelController {
         return !!(runtime?._isRuntimeAliveForAsyncCallback?.() ?? runtime?.isValid);
     }
 
-    private ensureSpriteFramesReady(onDone: () => void, onError: (error: Error) => void): void {
-        const runtime = this.runtime;
-        const uniqueNames = Array.from(new Set(SETTINGS_PANEL_TEXTURE_NAMES));
-        const missingNames = uniqueNames.filter((name) => !runtime.getSF(name));
-        if (missingNames.length === 0) {
-            onDone();
-            return;
-        }
-        let remaining = missingNames.length;
-        const finishOne = () => {
-            if (!this.isRuntimeAlive()) return;
-            remaining -= 1;
-            if (remaining > 0) return;
-            const stillMissing = uniqueNames.filter((name) => !runtime.getSF(name));
-            if (stillMissing.length > 0) {
-                onError(new Error(`[settings-prefab] missing panel SpriteFrames: ${stillMissing.join(', ')}`));
-                return;
-            }
-            onDone();
-        };
-        for (const name of missingNames) {
-            runtime._loadSpriteFrameByName(name, () => {
-                finishOne();
-            });
-        }
-    }
-
     private flushPrefabCallbacks(prefab: Prefab | null, error: Error | null): void {
         const callbacks = this.prefabCallbacks;
         this.prefabCallbacks = [];
@@ -148,7 +121,7 @@ export class SettingsPanelController {
             });
         };
 
-        this.ensureSpriteFramesReady(loadPrefab, fail);
+        loadPrefab();
     }
 
     open() {
@@ -272,6 +245,12 @@ export class SettingsPanelController {
                 const showGameplayActions = runtime.getRuntimeSceneName('Game') === 'Game';
                 homeBtn.active = showGameplayActions;
                 closeBtn.active = showGameplayActions;
+                if (showGameplayActions) {
+                    const router = AppRoot.tryGet()?.router;
+                    if (router && typeof router.preloadHomeScene === 'function') {
+                        void router.preloadHomeScene('settings-home-intent').catch(() => {});
+                    }
+                }
 
                 bindClick(xBtn, closeSettings);
                 if (showGameplayActions) {

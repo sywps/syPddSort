@@ -16,7 +16,6 @@ export type TutorialExperimentAssignment = {
     experimentSalt: string;
     bucket: TutorialExperimentBucket;
 };
-export type TutorialExperimentAssignmentListener = (assignment: TutorialExperimentAssignment) => void;
 
 type CloudResult = {
     ok?: boolean;
@@ -124,8 +123,6 @@ export class AnalyticsMgr {
     private funnelInFlight = false;
     private funnelUploadDisabled = false;
     private funnelUploadDisableWarned = false;
-    private readonly tutorialExperimentListeners = new Set<TutorialExperimentAssignmentListener>();
-
     private constructor() {
         this.openid = this.readCachedOpenid();
         this.tutorialExperiment = this.resolveTutorialExperimentAssignment();
@@ -358,22 +355,11 @@ export class AnalyticsMgr {
         return { ...this.tutorialExperiment };
     }
 
-    onTutorialExperimentAssignmentChanged(listener: TutorialExperimentAssignmentListener): () => void {
-        this.tutorialExperimentListeners.add(listener);
-        return () => {
-            this.tutorialExperimentListeners.delete(listener);
-        };
-    }
-
     getTutorialExperimentEventContext(): Pick<ReportDataOptions, 'abId' | 'abBucket'> {
         return {
             abId: this.tutorialExperiment.experimentId,
             abBucket: this.tutorialExperiment.bucket,
         };
-    }
-
-    shouldShowTutorialSkipGuidePrompt(): boolean {
-        return this.tutorialExperiment.bucket === 'C' || this.tutorialExperiment.bucket === 'D';
     }
 
     beginLevel(levelId: number, page: string, context?: Partial<Pick<ReportDataOptions, 'abId' | 'abBucket' | 'logicalLevelId' | 'physicalLevelId'>>): void {
@@ -709,23 +695,7 @@ export class AnalyticsMgr {
     }
 
     private updateTutorialExperimentAssignment(next: TutorialExperimentAssignment): void {
-        const prevBucket = this.tutorialExperiment.bucket;
         this.tutorialExperiment = next;
-        if (prevBucket === next.bucket) {
-            return;
-        }
-        this.notifyTutorialExperimentAssignmentChanged();
-    }
-
-    private notifyTutorialExperimentAssignmentChanged(): void {
-        const assignment = this.getTutorialExperimentAssignment();
-        for (const listener of this.tutorialExperimentListeners) {
-            try {
-                listener(assignment);
-            } catch (error) {
-                console.warn('[AnalyticsMgr] tutorial experiment listener failed:', error);
-            }
-        }
     }
 
     private readTutorialExperimentBucketOverride(): TutorialExperimentBucket | null {

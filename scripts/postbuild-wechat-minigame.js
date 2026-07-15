@@ -24,7 +24,7 @@ if (!buildPath) {
 const projectRoot = path.resolve(buildPath, '..', '..');
 const gameAssetsMode = 'subpackage';
 const buildMode = process.env.WECHAT_BUILD_MODE || 'release';
-const debugLevelDataBundle = buildMode === 'debug';
+const debugLevelDataBundle = false;
 const screenAdaptDebug = process.env.PDD_SCREEN_ADAPT_DEBUG === '1';
 
 const BUNDLE_NAME = 'gameAssets';
@@ -286,7 +286,7 @@ function findImportArtifactFiles(bundleDir, compressedUuid, importBase) {
 }
 
 function pruneReleaseSkinMirrorFromBundle(bundleDir) {
-    if (buildMode !== 'release' || !fs.existsSync(bundleDir)) return;
+    if (!fs.existsSync(bundleDir)) return;
     var configFiles = listBundleConfigFiles(bundleDir);
     if (configFiles.length === 0) return;
     var sourceConfig = readJsonFile(configFiles[0]);
@@ -355,12 +355,12 @@ function pruneReleaseSkinMirrorFromBundle(bundleDir) {
         writeJsonFile(configPath, config);
     });
 
-    console.log('[4.3/6] release gameAssets 已移除本地皮肤镜像: paths=' + removedIndexSet.size + ', importFiles=' + removedImportFiles + ', nativeFiles=' + removedNativeFiles + ' ✓');
+    console.log('[4.3/6] gameAssets 已移除本地皮肤镜像: paths=' + removedIndexSet.size + ', importFiles=' + removedImportFiles + ', nativeFiles=' + removedNativeFiles + ' ✓');
     assertReleaseSkinMirrorAbsent(bundleDir);
 }
 
 function assertReleaseSkinMirrorAbsent(bundleDir) {
-    if (buildMode !== 'release' || !fs.existsSync(bundleDir)) return;
+    if (!fs.existsSync(bundleDir)) return;
     var configFiles = listBundleConfigFiles(bundleDir);
     for (var i = 0; i < configFiles.length; i++) {
         var configPath = configFiles[i];
@@ -369,7 +369,7 @@ function assertReleaseSkinMirrorAbsent(bundleDir) {
             .filter(function (entry) { return Array.isArray(entry) && String(entry[0] || '').startsWith('Skins/'); })
             .map(function (entry) { return entry[0]; });
         if (skinPaths.length > 0) {
-            console.error('[4.3/6] release gameAssets config 仍包含本地皮肤路径: ' + skinPaths.slice(0, 8).join(', '));
+            console.error('[4.3/6] gameAssets config 仍包含本地皮肤路径: ' + skinPaths.slice(0, 8).join(', '));
             console.error('       文件: ' + path.relative(resolveRuntimeRoot(), configPath));
             process.exit(1);
         }
@@ -1283,17 +1283,17 @@ if (normalizeWechatSplashSettings(settingsPath)) {
     console.log('[3.3b/7] 已修正微信 splash settings 为浅色背景 ✓');
 }
 
-// 3.4 启动后立即使用休闲游戏默认 45 帧；运行时交互/动画阶段再临时升帧
+// 3.4 启动后立即使用休闲游戏默认 30 帧；运行时交互/动画阶段再临时升帧
 var applicationPath = resolveApplicationPath();
 if (fs.existsSync(applicationPath)) {
     var applicationContent = fs.readFileSync(applicationPath, 'utf-8');
     var patchedApplication = applicationContent.replace(
         /key: "onPostSystemInit",\s+value: function onPostSystemInit\(\) \{\s+\/\/ do custom logic\s+\}/,
-        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 45; cc.game.setFrameRate(45); }'
+        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 30; cc.game.setFrameRate(30); }'
     );
     patchedApplication = patchedApplication.replace(
         /key: "onPostSystemInit",\s+value: function onPostSystemInit\(\) \{\s+cc\.game\.frameRate = \d+;\s+cc\.game\.setFrameRate\(\d+\);\s+\}/,
-        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 45; cc.game.setFrameRate(45); }'
+        'key: "onPostSystemInit", value: function onPostSystemInit() { cc.game.frameRate = 30; cc.game.setFrameRate(30); }'
     );
     patchedApplication = patchedApplication.replace(
         /key: "onPostInitBase",\s+value: function onPostInitBase\(\) \{\s+\/\/ cc\.settings\.overrideSettings\('assets', 'server', ''\);\s+\/\/ do custom logic\s+\}/,
@@ -1301,7 +1301,7 @@ if (fs.existsSync(applicationPath)) {
     );
     if (patchedApplication !== applicationContent) {
         fs.writeFileSync(applicationPath, patchedApplication);
-        console.log('[3.4/7] 已锁定启动帧率为 45 ✓');
+        console.log('[3.4/7] 已锁定启动帧率为 30 ✓');
     } else {
         console.log('[3.4/7] 启动帧率已锁定 ✓');
     }

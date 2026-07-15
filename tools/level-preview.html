@@ -143,9 +143,10 @@ function getLevelFileName(data) {
 }
 
 function getPlayUrl(data) {
+    const gameScene = encodeURIComponent('db://assets/BootstrapBundle/Scenes/Game.scene');
     return isThemeLevel(data)
-        ? `http://localhost:7456/?level=${data.levelId}&theme=1`
-        : `http://localhost:7456/?level=${data.levelId}`;
+        ? `http://localhost:7456/?scene=${gameScene}&level=${data.levelId}&theme=1&profile=local-test`
+        : `http://localhost:7456/?scene=${gameScene}&level=${data.levelId}&profile=local-test`;
 }
 
 function getEditorUrl(data) {

@@ -52,13 +52,13 @@ export function installGameplaySlotSkillModule(target: any): void {
             ensureGameplaySlotUiController(this).onAddSlotRow();
         },
 
-        unlockSlotRow() {
-            ensureGameplaySlotUiController(this).unlockSlotRow();
+        unlockSlotRow(): boolean {
+            return ensureGameplaySlotUiController(this).unlockSlotRow();
         },
 
         /** 点击解锁按钮：免费模式直接解锁，广告模式看广告解锁 */
-        tryUnlockSlotRow() {
-            ensureGameplaySlotUiController(this).tryUnlockSlotRow();
+        tryUnlockSlotRow(): boolean {
+            return ensureGameplaySlotUiController(this).tryUnlockSlotRow();
         },
 
         /** 判断暂存槽是否有豆豆 */

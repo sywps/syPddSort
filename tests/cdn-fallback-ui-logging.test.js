@@ -29,7 +29,7 @@ assert.ok(!firstLevelRoute.includes("pathLabel.string ="), 'fatal overlay code m
 assert.ok(!firstLevelRoute.includes("detailLabel.string ="), 'fatal overlay code must not render internal error details');
 
 for (const scenePath of [
-    'assets/Scenes/UIPreview.scene',
+    'assets/PreviewBundle/UIPreview.scene',
     'assets/HomeAssetsBundle/Scenes/Home.scene',
     'assets/BootstrapBundle/Scenes/Game.scene',
 ]) {

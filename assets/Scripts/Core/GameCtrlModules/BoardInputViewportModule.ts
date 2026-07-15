@@ -70,6 +70,9 @@ type SlotTapIntent = {
 };
 
 const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud']);
+const LEVEL_EXP_SLOT_INTRO_PROMPT_TOP_GAP = 16;
+const LEVEL_EXP_SLOT_INTRO_PROMPT_BOARD_GAP = 18;
+const LEVEL_EXP_SLOT_INTRO_PROMPT_FALLBACK_HEIGHT = 158;
 
 export function installBoardInputViewportModule(target: any): void {
     Object.assign(target, {
@@ -153,6 +156,26 @@ export function installBoardInputViewportModule(target: any): void {
             return Number.isFinite(bounds?.top) ? bounds!.top : null;
         },
 
+        getLevelExpSlotIntroGuideBand(): { top: number; bottom: number; centerY: number; height: number } | null {
+            if (this._activeGameplayGuideLayoutMode !== 'level_exp_slot_intro') return null;
+            const overlayRoot = this.requireCanvasUiRoot?.('OverlayRoot') || null;
+            const prompt = overlayRoot?.getChildByName('TutorialGuidePrompt') || null;
+            const slotIntro = prompt?.getChildByName('SlotIntroPrompt') || null;
+            const promptHeight = slotIntro?.getComponent(UITransform)?.contentSize.height
+                || LEVEL_EXP_SLOT_INTRO_PROMPT_FALLBACK_HEIGHT;
+            const topBarBottom = this.getTopBarAvoidBottomY();
+            const fallbackTop = this.getTopBarY() - 30;
+            const top = (Number.isFinite(topBarBottom) ? topBarBottom! : fallbackTop)
+                - LEVEL_EXP_SLOT_INTRO_PROMPT_TOP_GAP;
+            const bottom = top - promptHeight;
+            return {
+                top,
+                bottom,
+                centerY: (top + bottom) / 2,
+                height: promptHeight,
+            };
+        },
+
         getBoardSafeViewportRect(): { left: number; right: number; bottom: number; top: number } {
             const gap = 12;
             const marginX = 18;
@@ -165,6 +188,10 @@ export function installBoardInputViewportModule(target: any): void {
             const topBarBottom = this.getTopBarAvoidBottomY();
             if (topBarBottom !== null) {
                 top = Math.min(top, topBarBottom - gap);
+            }
+            const guideBand = this.getLevelExpSlotIntroGuideBand?.() || null;
+            if (guideBand) {
+                top = Math.min(top, guideBand.bottom - LEVEL_EXP_SLOT_INTRO_PROMPT_BOARD_GAP);
             }
             let bottom = -visibleH / 2 + 180;
             if (this.shouldShowSlotArea() && this.slotAreaNode?.isValid) {
