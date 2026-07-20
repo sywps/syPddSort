@@ -1,21 +1,10 @@
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { runtimeLog } from './RuntimeLog';
-import { readExperimentBucketOverrideFromSearch } from './ExperimentUrlParam';
 
 const { ccclass } = _decorator;
 
 const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
-const TUTORIAL_EXPERIMENT_ID = 'tutorial_exp';
-const TUTORIAL_EXPERIMENT_SALT = 'tutorial_exp_0623';
-
-type TutorialExperimentBucket = 'A' | 'B' | 'C' | 'D' | 'NULL';
-
-export type TutorialExperimentAssignment = {
-    experimentId: string;
-    experimentSalt: string;
-    bucket: TutorialExperimentBucket;
-};
 
 type CloudResult = {
     ok?: boolean;
@@ -32,8 +21,6 @@ export type ReportDataOptions = {
     shareType?: string;
     adType?: string;
     duration?: number;
-    abId?: string;
-    abBucket?: string;
     logicalLevelId?: string | number;
     physicalLevelId?: string | number;
 };
@@ -52,8 +39,6 @@ export type FunnelEventOptions = {
     duration?: number;
     logicalLevelId?: string | number;
     physicalLevelId?: string | number;
-    abId?: string;
-    abBucket?: string;
     extra?: Record<string, unknown>;
 };
 
@@ -106,14 +91,13 @@ export class AnalyticsMgr {
 
     private readyPromise: Promise<boolean> | null = null;
     private openid = '';
-    private tutorialExperiment: TutorialExperimentAssignment;
     private bootstrapped = false;
     private lifecycleBound = false;
     private exitReported = false;
     private gameSessionStartTime = Date.now();
     private levelSession: LevelSessionState | null = null;
     private unavailableWarned = false;
-    private experimentContext: Partial<Pick<ReportDataOptions, 'abId' | 'abBucket' | 'logicalLevelId' | 'physicalLevelId'>> = {};
+    private levelContext: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>> = {};
     private readonly funnelSessionId = this.createSessionId();
     private readonly appLaunchTime = Date.now();
     private funnelEventSeq = 0;
@@ -125,7 +109,6 @@ export class AnalyticsMgr {
     private funnelUploadDisableWarned = false;
     private constructor() {
         this.openid = this.readCachedOpenid();
-        this.tutorialExperiment = this.resolveTutorialExperimentAssignment();
     }
 
     async bootstrap(): Promise<boolean> {
@@ -177,7 +160,6 @@ export class AnalyticsMgr {
             if (typeof result?.openid === 'string' && result.openid) {
                 this.openid = result.openid;
                 this.cacheOpenid(result.openid);
-                this.updateTutorialExperimentAssignment(this.resolveTutorialExperimentAssignment());
             }
 
             return !!this.openid;
@@ -209,10 +191,8 @@ export class AnalyticsMgr {
                 shareType: opt.shareType || '',
                 adType: opt.adType || '',
                 duration: opt.duration ?? 0,
-                abId: opt.abId || this.experimentContext.abId || this.tutorialExperiment.experimentId,
-                abBucket: opt.abBucket || this.experimentContext.abBucket || this.tutorialExperiment.bucket,
-                logicalLevelId: opt.logicalLevelId ?? this.experimentContext.logicalLevelId ?? opt.levelId ?? 0,
-                physicalLevelId: opt.physicalLevelId ?? this.experimentContext.physicalLevelId ?? opt.levelId ?? 0,
+                logicalLevelId: opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0,
+                physicalLevelId: opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0,
             });
         } catch (error) {
             console.warn('[AnalyticsMgr] addBehaviorData failed:', error);
@@ -230,8 +210,8 @@ export class AnalyticsMgr {
             this.firstLevelReadyTime = now;
         }
 
-        const logicalLevelId = opt.logicalLevelId ?? this.experimentContext.logicalLevelId ?? opt.levelId ?? 0;
-        const physicalLevelId = opt.physicalLevelId ?? this.experimentContext.physicalLevelId ?? opt.levelId ?? 0;
+        const logicalLevelId = opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
+        const physicalLevelId = opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
         const event: Record<string, unknown> = {
             sessionId: this.funnelSessionId,
             eventSeq: ++this.funnelEventSeq,
@@ -246,8 +226,6 @@ export class AnalyticsMgr {
             errorCode: opt.errorCode || '',
             errorMessage: opt.errorMessage || '',
             duration: opt.duration ?? 0,
-            abId: opt.abId || this.experimentContext.abId || this.tutorialExperiment.experimentId,
-            abBucket: opt.abBucket || this.experimentContext.abBucket || this.tutorialExperiment.bucket,
             logicalLevelId,
             physicalLevelId,
             elapsedMsFromLaunch: Math.max(0, now - this.appLaunchTime),
@@ -255,10 +233,8 @@ export class AnalyticsMgr {
             timestamp: now,
         };
         event.extra = {
-            experimentId: this.tutorialExperiment.experimentId,
-            experimentSalt: this.tutorialExperiment.experimentSalt,
-            experimentBucket: this.tutorialExperiment.bucket,
             ...(opt.extra && typeof opt.extra === 'object' ? opt.extra : {}),
+            launchChannelAtEvent: this.resolveChannel(),
         };
 
         this.funnelQueue.push(event);
@@ -344,30 +320,19 @@ export class AnalyticsMgr {
             message.includes('errcode: -501000');
     }
 
-    setExperimentContext(context: Partial<Pick<ReportDataOptions, 'abId' | 'abBucket' | 'logicalLevelId' | 'physicalLevelId'>>): void {
-        this.experimentContext = {
-            ...this.experimentContext,
+    setLevelContext(context: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>>): void {
+        this.levelContext = {
+            ...this.levelContext,
             ...context,
         };
     }
 
-    getTutorialExperimentAssignment(): TutorialExperimentAssignment {
-        return { ...this.tutorialExperiment };
-    }
-
-    getTutorialExperimentEventContext(): Pick<ReportDataOptions, 'abId' | 'abBucket'> {
-        return {
-            abId: this.tutorialExperiment.experimentId,
-            abBucket: this.tutorialExperiment.bucket,
-        };
-    }
-
-    beginLevel(levelId: number, page: string, context?: Partial<Pick<ReportDataOptions, 'abId' | 'abBucket' | 'logicalLevelId' | 'physicalLevelId'>>): void {
+    beginLevel(levelId: number, page: string, context?: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>>): void {
         const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
         const normalizedPage = page || 'game';
         const now = Date.now();
         if (context) {
-            this.setExperimentContext(context);
+            this.setLevelContext(context);
         }
 
         if (this.levelSession && !this.levelSession.finalized && this.levelSession.levelId !== normalizedLevelId) {
@@ -667,69 +632,6 @@ export class AnalyticsMgr {
         } catch (_) {
             // ignore storage failures
         }
-    }
-
-    private resolveTutorialExperimentAssignment(): TutorialExperimentAssignment {
-        const forced = this.readTutorialExperimentBucketOverride();
-        if (forced) {
-            return this.buildTutorialExperimentAssignment(forced);
-        }
-        if (!this.openid) {
-            return this.buildTutorialExperimentAssignment('NULL');
-        }
-        const hashBucket = this.hashStringToBucket(`${TUTORIAL_EXPERIMENT_ID}:${TUTORIAL_EXPERIMENT_SALT}:${this.openid}`);
-        const bucket: TutorialExperimentBucket =
-            hashBucket < 25 ? 'A' :
-            hashBucket < 50 ? 'B' :
-            hashBucket < 75 ? 'C' :
-            'D';
-        return this.buildTutorialExperimentAssignment(bucket);
-    }
-
-    private buildTutorialExperimentAssignment(bucket: TutorialExperimentBucket): TutorialExperimentAssignment {
-        return {
-            experimentId: TUTORIAL_EXPERIMENT_ID,
-            experimentSalt: TUTORIAL_EXPERIMENT_SALT,
-            bucket,
-        };
-    }
-
-    private updateTutorialExperimentAssignment(next: TutorialExperimentAssignment): void {
-        this.tutorialExperiment = next;
-    }
-
-    private readTutorialExperimentBucketOverride(): TutorialExperimentBucket | null {
-        try {
-            const search = typeof window !== 'undefined' ? window.location.search : '';
-            if (!search) return null;
-            const rawBucket = readExperimentBucketOverrideFromSearch({
-                search,
-                experimentId: TUTORIAL_EXPERIMENT_ID,
-            });
-            if (!rawBucket) return null;
-            return this.normalizeTutorialExperimentBucket(rawBucket);
-        } catch (_) {
-            return null;
-        }
-    }
-
-    private normalizeTutorialExperimentBucket(value: unknown): TutorialExperimentBucket | null {
-        const text = String(value ?? '').trim().toUpperCase();
-        if (text === 'A' || text === 'BUCKET_A') return 'A';
-        if (text === 'B' || text === 'BUCKET_B') return 'B';
-        if (text === 'C' || text === 'BUCKET_C') return 'C';
-        if (text === 'D' || text === 'BUCKET_D') return 'D';
-        if (text === 'NULL' || text === 'BUCKET_NULL') return 'NULL';
-        return null;
-    }
-
-    private hashStringToBucket(text: string): number {
-        let hash = 2166136261;
-        for (let i = 0; i < text.length; i++) {
-            hash ^= text.charCodeAt(i);
-            hash = Math.imul(hash, 16777619);
-        }
-        return (hash >>> 0) % 100;
     }
 
     private warnUnavailableOnce(): void {

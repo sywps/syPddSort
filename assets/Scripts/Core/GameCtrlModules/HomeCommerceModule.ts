@@ -29,6 +29,7 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { AppRoot } from '../AppRoot';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { ensureHomeStartButtonFx } from '../HomeStartButtonFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
@@ -136,11 +137,16 @@ export function installHomeCommerceModule(target: any): void {
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
                 if (!this.costVigorForLevel(level, 'main')) {
-                    // 体力不足，弹出广告弹窗
-                    this.showNoLivesAdModal(() => {
-                        if (this.costVigorForLevel(level, 'main')) {
+                    this.showNoLivesAdModal({
+                        source: 'home_start',
+                        onResult: (result: any) => {
+                            if (result?.status !== 'granted' || !this.isValid) return;
+                            if (this.getRuntimeSceneName('Game') !== 'Home') return;
+                            const appRoot = AppRoot.tryGet();
+                            if (!appRoot || appRoot.router.isTransitioning || appRoot.session.pendingGameplayRequest) return;
+                            if (!this.costVigorForLevel(level, 'main')) return;
                             enterSelectedLevel();
-                        }
+                        },
                     });
                     return;
                 }

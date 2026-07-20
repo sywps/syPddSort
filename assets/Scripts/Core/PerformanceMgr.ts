@@ -71,9 +71,6 @@ export class PerformanceMgr {
         this.clearActiveFrameRateTimer();
         AudioMgr.inst.suspendForBackground();
         this.applyFrameRate(BACKGROUND_FPS);
-        if (!game.isPaused()) {
-            game.pause();
-        }
     }
 
     private handleShow(): void {

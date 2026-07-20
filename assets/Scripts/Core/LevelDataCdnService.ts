@@ -1,4 +1,3 @@
-import { sys } from 'cc';
 import type { LevelData } from './LevelConfig';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
@@ -16,7 +15,6 @@ import {
     writeCdnStorageObject,
 } from './RemoteDataCdnClient';
 import { runtimeWarn } from './RuntimeLog';
-import { readExperimentBucketOverrideFromSearch } from './ExperimentUrlParam';
 import { LEVEL_DATA_SLOT_POLICY_MAX_ROWS, validateSlotPolicyConfig } from './SlotOnboardingPolicy';
 
 type LevelPackEntry = {
@@ -64,28 +62,14 @@ type LevelDataManifestState = {
     unavailableReason: string;
 };
 
-export type LevelExperimentBucket = 'A' | 'B' | 'C' | 'D' | 'NULL';
-
-export type LevelExperimentAssignment = {
-    experimentId: string;
-    experimentSalt: string;
-    bucket: LevelExperimentBucket;
-    group: 'baseline' | 'treatment';
-    source: 'url' | 'openid' | 'missing_identity';
-};
-
 type LevelDataCdnContext = {
     baseUrl: string;
     namespace: string;
-    assignment: LevelExperimentAssignment;
-    experimentActive: boolean;
 };
 
 type LevelDataLastFailure = {
     at: number;
     namespace: string;
-    experimentActive: boolean;
-    bucket: LevelExperimentBucket;
     stage: string;
     reason: string;
     levelId: number;
@@ -101,11 +85,8 @@ const LEVEL_DATA_COMPAT_SCHEMA_VERSION = 1;
 const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
 const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
-const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
 const THEME_LEVEL_PREFIX = 'zt_level_';
-const LEVEL_EXPERIMENT_ID = 'level_exp';
-const LEVEL_EXPERIMENT_SALT = 'level_exp_0623';
 const DEFAULT_WECHAT_LEVEL_DATA_CDN_URL = 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
 
 function runtimeLevelDataBaseUrl(): string {
@@ -114,18 +95,6 @@ function runtimeLevelDataBaseUrl(): string {
     const injected = normalizeCdnBaseUrl(g?.__PDD_LEVEL_DATA_CDN_URL__ || w?.__PDD_LEVEL_DATA_CDN_URL__);
     if (injected) return injected;
     return isLocalBrowserCdnOptIn() ? DEFAULT_WECHAT_LEVEL_DATA_CDN_URL : '';
-}
-
-function runtimeLevelExperimentBaseUrl(stableBaseUrl: string): string {
-    const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
-    const w: any = typeof window !== 'undefined' ? window : null;
-    const forced = normalizeCdnBaseUrl(g?.__PDD_LEVEL_EXP_CDN_URL__ || w?.__PDD_LEVEL_EXP_CDN_URL__);
-    if (forced) return forced;
-    const stable = normalizeCdnBaseUrl(stableBaseUrl);
-    if (/\/remote_wechat\/levels\/$/i.test(stable)) {
-        return stable.replace(/\/remote_wechat\/levels\/$/i, '/remote_wechat/level_experiments/level_exp/levels/');
-    }
-    return '';
 }
 
 function readPersistedLevelPack(cacheKey: string, hash: string): string {
@@ -177,10 +146,7 @@ export class LevelDataCdnService {
     private readonly manifestStates = new Map<string, LevelDataManifestState>();
     private readonly packPromises = new Map<string, Promise<LevelPack | null>>();
     private readonly packUnavailableReasons = new Map<string, string>();
-    private lastManifestNamespace = 'stable';
     private lastFailure: LevelDataLastFailure | null = null;
-    private lastDegradeReason = '';
-    private sessionExperimentAssignment: LevelExperimentAssignment | null = null;
 
     prefetchLive(): void {
         const context = this.resolveCdnContext(0, DEFAULT_LEVEL_PREFIX);
@@ -208,18 +174,8 @@ export class LevelDataCdnService {
         const normalizedPrefix = normalizeLevelPrefix(prefix);
         if (!normalizedPrefix) return null;
         const context = this.resolveCdnContext(normalizedLevelId, normalizedPrefix);
-        this.lastDegradeReason = '';
         this.lastFailure = null;
-        const primaryLevel = await this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);
-        if (primaryLevel) return primaryLevel;
-        if (this.shouldDegradeExperimentToStable(context, normalizedPrefix)) {
-            const stableContext = this.buildStableContext(context.assignment);
-            this.lastDegradeReason = this.lastFailure?.reason || 'experiment level data unavailable';
-            runtimeWarn('[LevelDataCDN] experiment unavailable, retrying stable CDN:', this.lastDegradeReason);
-            const stableLevel = await this.loadLevelFromContext(stableContext, normalizedLevelId, normalizedPrefix, true);
-            if (stableLevel) return stableLevel;
-        }
-        return null;
+        return this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);
     }
 
     private async loadLevelFromContext(
@@ -248,54 +204,23 @@ export class LevelDataCdnService {
             if (entry.levelId !== levelId) return false;
             return this.getPackPrefix(entry.prefix ? { prefix: entry.prefix } : pack) === prefix;
         });
-        if (level) this.lastManifestNamespace = context.namespace;
         if (level) return level.data;
         this.recordLoadFailure(context, levelId, prefix, 'pack_level_missing', 'target level missing from loaded pack');
         return null;
     }
 
     getDataVersion(): string {
-        return this.manifestStates.get(this.lastManifestNamespace)?.manifest?.dataVersion || '';
-    }
-
-    getLevelExperimentAssignment(): LevelExperimentAssignment {
-        return this.resolveLevelExperimentAssignment();
-    }
-
-    getLevelExperimentEventContext(levelId: number, prefix: string = DEFAULT_LEVEL_PREFIX): { abId: string; abBucket: string } | null {
-        const assignment = this.resolveLevelExperimentAssignment();
-        if (!this.shouldUseLevelExperiment(levelId, prefix, assignment)) return null;
-        return {
-            abId: assignment.experimentId,
-            abBucket: assignment.bucket,
-        };
+        return this.manifestStates.get('stable')?.manifest?.dataVersion || '';
     }
 
     getAvailabilityDiagnostics(): Record<string, unknown> {
         const baseUrl = runtimeLevelDataBaseUrl();
-        const assignment = this.resolveLevelExperimentAssignment();
-        const experimentBaseUrl = runtimeLevelExperimentBaseUrl(baseUrl);
         const stableState = this.getManifestState('stable');
-        const experimentState = this.getManifestState('experiment:' + LEVEL_EXPERIMENT_ID + ':treatment');
         const requester = getCdnPlatformRequester();
         const reason = getCdnUnavailableReason(baseUrl);
         return {
             baseUrl,
-            levelExperiment: {
-                experimentId: assignment.experimentId,
-                experimentSalt: assignment.experimentSalt,
-                bucket: assignment.bucket,
-                group: assignment.group,
-                source: assignment.source,
-                scope: 'mainline',
-                baseUrl: experimentBaseUrl,
-                activeForBucket: assignment.group === 'treatment',
-                activeRange: assignment.group === 'treatment' ? 'manifest' : null,
-                liveUnavailableCooldownMs: Math.max(0, experimentState.unavailableUntil - Date.now()),
-                liveUnavailableReason: experimentState.unavailableReason,
-            },
             lastFailure: this.lastFailure,
-            lastDegradeReason: this.lastDegradeReason,
             canUse: !reason,
             reason,
             localBrowserCdnOptIn: isLocalBrowserCdnOptIn(),
@@ -361,8 +286,6 @@ export class LevelDataCdnService {
         this.lastFailure = {
             at: Date.now(),
             namespace: context.namespace,
-            experimentActive: context.experimentActive,
-            bucket: context.assignment.bucket,
             stage,
             reason: reason || 'unknown level data CDN error',
             levelId,
@@ -372,24 +295,6 @@ export class LevelDataCdnService {
 
     private formatErrorReason(err: unknown): string {
         return err instanceof Error ? err.message : String(err || 'unknown error');
-    }
-
-    private shouldDegradeExperimentToStable(context: LevelDataCdnContext, prefix: string): boolean {
-        if (!context.experimentActive) return false;
-        if (prefix !== DEFAULT_LEVEL_PREFIX) return false;
-        if (context.namespace === 'stable') return false;
-        const stableBaseUrl = runtimeLevelDataBaseUrl();
-        if (!stableBaseUrl || !canUseCdn(stableBaseUrl)) return false;
-        return normalizeCdnBaseUrl(stableBaseUrl) !== normalizeCdnBaseUrl(context.baseUrl);
-    }
-
-    private buildStableContext(assignment: LevelExperimentAssignment): LevelDataCdnContext {
-        return {
-            baseUrl: runtimeLevelDataBaseUrl(),
-            namespace: 'stable',
-            assignment,
-            experimentActive: false,
-        };
     }
 
     private isLiveManifestCoolingDown(state: LevelDataManifestState): boolean {
@@ -531,105 +436,11 @@ export class LevelDataCdnService {
         return state;
     }
 
-    private resolveCdnContext(levelId: number, prefix: string): LevelDataCdnContext {
-        const stableBaseUrl = runtimeLevelDataBaseUrl();
-        const assignment = this.resolveLevelExperimentAssignment();
-        const experimentActive = this.shouldUseLevelExperiment(levelId, prefix, assignment);
-        if (!experimentActive) {
-            return {
-                baseUrl: stableBaseUrl,
-                namespace: 'stable',
-                assignment,
-                experimentActive: false,
-            };
-        }
-        const experimentBaseUrl = runtimeLevelExperimentBaseUrl(stableBaseUrl);
+    private resolveCdnContext(_levelId: number, _prefix: string): LevelDataCdnContext {
         return {
-            baseUrl: experimentBaseUrl || stableBaseUrl,
-            namespace: 'experiment:' + assignment.experimentId + ':treatment',
-            assignment,
-            experimentActive: true,
+            baseUrl: runtimeLevelDataBaseUrl(),
+            namespace: 'stable',
         };
-    }
-
-    private shouldUseLevelExperiment(_levelId: number, prefix: string, assignment: LevelExperimentAssignment): boolean {
-        const normalizedPrefix = normalizeLevelPrefix(prefix);
-        if (normalizedPrefix !== DEFAULT_LEVEL_PREFIX) return false;
-        return assignment.group === 'treatment';
-    }
-
-    private resolveLevelExperimentAssignment(): LevelExperimentAssignment {
-        if (this.sessionExperimentAssignment) return this.sessionExperimentAssignment;
-        const forced = this.readLevelExperimentBucketOverride();
-        if (forced) {
-            this.sessionExperimentAssignment = this.buildLevelExperimentAssignment(forced, 'url');
-            return this.sessionExperimentAssignment;
-        }
-        const openid = this.readCachedOpenid();
-        if (!openid) {
-            this.sessionExperimentAssignment = this.buildLevelExperimentAssignment('NULL', 'missing_identity');
-            return this.sessionExperimentAssignment;
-        }
-        const hashBucket = this.hashStringToBucket(`${LEVEL_EXPERIMENT_ID}:${LEVEL_EXPERIMENT_SALT}:${openid}`);
-        const bucket: LevelExperimentBucket =
-            hashBucket < 25 ? 'A' :
-            hashBucket < 50 ? 'B' :
-            hashBucket < 75 ? 'C' :
-            'D';
-        this.sessionExperimentAssignment = this.buildLevelExperimentAssignment(bucket, 'openid');
-        return this.sessionExperimentAssignment;
-    }
-
-    private buildLevelExperimentAssignment(bucket: LevelExperimentBucket, source: LevelExperimentAssignment['source']): LevelExperimentAssignment {
-        return {
-            experimentId: LEVEL_EXPERIMENT_ID,
-            experimentSalt: LEVEL_EXPERIMENT_SALT,
-            bucket,
-            group: bucket === 'C' || bucket === 'D' ? 'treatment' : 'baseline',
-            source,
-        };
-    }
-
-    private readLevelExperimentBucketOverride(): LevelExperimentBucket | null {
-        try {
-            const search = typeof window !== 'undefined' ? window.location.search : '';
-            if (!search) return null;
-            const rawBucket = readExperimentBucketOverrideFromSearch({
-                search,
-                experimentId: LEVEL_EXPERIMENT_ID,
-            });
-            if (!rawBucket) return null;
-            return this.normalizeLevelExperimentBucket(rawBucket);
-        } catch (_) {
-            return null;
-        }
-    }
-
-    private normalizeLevelExperimentBucket(value: unknown): LevelExperimentBucket | null {
-        const text = String(value ?? '').trim().toUpperCase();
-        if (text === 'A' || text === 'BUCKET_A') return 'A';
-        if (text === 'B' || text === 'BUCKET_B') return 'B';
-        if (text === 'C' || text === 'BUCKET_C') return 'C';
-        if (text === 'D' || text === 'BUCKET_D') return 'D';
-        if (text === 'NULL') return 'NULL';
-        return null;
-    }
-
-    private readCachedOpenid(): string {
-        try {
-            return sys.localStorage.getItem(LS_ANALYTICS_OPENID) || '';
-        } catch (_) {
-            return '';
-        }
-    }
-
-    private hashStringToBucket(text: string): number {
-        let hash = 2166136261;
-        for (let i = 0; i < text.length; i++) {
-            hash ^= text.charCodeAt(i);
-            hash = Math.imul(hash, 16777619);
-        }
-        return (hash >>> 0) % 100;
     }
 
     private validatePack(pack: LevelPack, packEntry: LevelPackEntry): LevelPack {

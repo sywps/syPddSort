@@ -35,7 +35,118 @@ const cocosGeneratedCachePaths = [
     'temp/programming',
 ];
 
-function cleanCocosGeneratedCacheDirs(projectDir, logInfo, message) {
+const DEFAULT_COCOS_PREVIEW_PORT = 7456;
+const DEFAULT_COCOS_PREVIEW_PORT_SCAN_COUNT = 10;
+const COCOS_PREVIEW_PORT_PROBE_SOURCE = `
+const net = require('net');
+const ports = JSON.parse(process.argv[1]);
+const timeoutMs = Math.max(50, Number(process.argv[2]) || 180);
+Promise.all(ports.map((port) => new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    let settled = false;
+    const finish = (open) => {
+        if (settled) return;
+        settled = true;
+        socket.destroy();
+        resolve(open ? port : null);
+    };
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
+    socket.setTimeout(timeoutMs, () => finish(false));
+}))).then((result) => {
+    process.stdout.write(JSON.stringify(result.filter((port) => port !== null)));
+});
+`;
+
+function normalizeTcpPort(value) {
+    const port = Math.floor(Number(value) || 0);
+    return port >= 1 && port <= 65535 ? port : 0;
+}
+
+function parseCocosPreviewPorts(value) {
+    const ports = String(value || '')
+        .split(',')
+        .map((entry) => normalizeTcpPort(entry.trim()))
+        .filter(Boolean);
+    return Array.from(new Set(ports));
+}
+
+function readConfiguredCocosPreviewPort(projectDir) {
+    const configPath = path.join(projectDir, 'profiles', 'v2', 'packages', 'server.json');
+    if (!fs.existsSync(configPath)) return DEFAULT_COCOS_PREVIEW_PORT;
+    try {
+        return normalizeTcpPort(readJson(configPath).server_port) || DEFAULT_COCOS_PREVIEW_PORT;
+    } catch (_) {
+        return DEFAULT_COCOS_PREVIEW_PORT;
+    }
+}
+
+function resolveCocosPreviewPorts(projectDir, env = process.env) {
+    const explicitPorts = parseCocosPreviewPorts(env.COCOS_PREVIEW_PORTS);
+    if (explicitPorts.length > 0) return explicitPorts;
+    const basePort = normalizeTcpPort(env.COCOS_PREVIEW_PORT) || readConfiguredCocosPreviewPort(projectDir);
+    const scanCount = Math.min(20, Math.max(1,
+        Math.floor(Number(env.COCOS_PREVIEW_PORT_SCAN_COUNT) || DEFAULT_COCOS_PREVIEW_PORT_SCAN_COUNT),
+    ));
+    const ports = [];
+    for (let offset = 0; offset < scanCount && basePort + offset <= 65535; offset += 1) {
+        ports.push(basePort + offset);
+    }
+    return ports;
+}
+
+function probeLocalTcpPorts(ports, timeoutMs = 180) {
+    if (!ports.length) return [];
+    const result = childProcess.spawnSync(
+        process.execPath,
+        ['-e', COCOS_PREVIEW_PORT_PROBE_SOURCE, JSON.stringify(ports), String(timeoutMs)],
+        {
+            encoding: 'utf8',
+            shell: false,
+            timeout: Math.max(1000, timeoutMs * 2 + 500),
+        },
+    );
+    if (result.error || result.status !== 0) {
+        const detail = result.error?.message || String(result.stderr || '').trim() || `status=${result.status}`;
+        throw new Error('无法确认 Cocos 本地预览是否仍在运行: ' + detail);
+    }
+    try {
+        const activePorts = JSON.parse(String(result.stdout || '[]'));
+        return Array.isArray(activePorts) ? activePorts.map(normalizeTcpPort).filter(Boolean) : [];
+    } catch (err) {
+        throw new Error('无法解析 Cocos 本地预览端口检测结果: ' + err.message);
+    }
+}
+
+function findActiveCocosPreviewPorts(projectDir, options = {}) {
+    const ports = options.ports || resolveCocosPreviewPorts(projectDir, options.env || process.env);
+    const probePorts = options.probePorts || probeLocalTcpPorts;
+    return probePorts(ports, options.timeoutMs).map(normalizeTcpPort).filter(Boolean);
+}
+
+function assertNoActiveCocosPreview(projectDir, options = {}) {
+    const activePorts = findActiveCocosPreviewPorts(projectDir, options);
+    if (activePorts.length === 0) return;
+    throw new Error([
+        `检测到仍在运行的 Cocos 本地预览端口: ${activePorts.join(', ')}`,
+        '平台构建会重建 library、temp/asset-db、temp/builder 和 temp/programming；继续会让已打开的 localhost 页面持有失效资源并在关卡切换时出现 404。',
+        '请先停止 Cocos Browser Preview；如果编辑器仍占用该端口，请关闭当前 Cocos 项目。关闭或刷新旧 localhost 页面后再重新执行构建。localhost 仍默认读取本地 assets/LevelData，无需切换到 CDN。',
+    ].join('\n'));
+}
+
+function guardCocosPreviewOrFail(projectDir, options = {}) {
+    try {
+        assertNoActiveCocosPreview(projectDir, options);
+    } catch (err) {
+        const failHandler = options.fail || fail;
+        failHandler(err instanceof Error ? err.message : String(err));
+    }
+}
+
+function cleanCocosGeneratedCacheDirs(projectDir, logInfo, message, options = {}) {
+    if (!options.skipPreviewGuard) {
+        guardCocosPreviewOrFail(projectDir, options);
+    }
     for (const relPath of cocosGeneratedCachePaths) {
         rm(path.join(projectDir, relPath));
     }
@@ -80,12 +191,16 @@ function runNode(projectDir, script, args = []) {
     if (result.status !== 0) process.exit(result.status || 1);
 }
 
-function cleanCocosGeneratedCaches(projectDir, envName, logInfo) {
+function cleanCocosGeneratedCaches(projectDir, envName, logInfo, options = {}) {
+    guardCocosPreviewOrFail(projectDir, options);
     if (process.env[envName] === '0') {
         logInfo('已跳过 Cocos 项目级生成缓存清理');
         return;
     }
-    cleanCocosGeneratedCacheDirs(projectDir, logInfo);
+    cleanCocosGeneratedCacheDirs(projectDir, logInfo, undefined, {
+        ...options,
+        skipPreviewGuard: true,
+    });
 }
 
 function repairCocosMetaFiles(projectDir) {
@@ -148,17 +263,47 @@ function resolveRuntimeRoot(buildDir) {
     return buildDir;
 }
 
+function hasOnlyEmptyCocosAssetStats(text) {
+    const pattern = /Number of all scenes:\s*(\d+)[\s\S]*?Number of all scripts:\s*(\d+)[\s\S]*?Number of other assets:\s*(\d+)/g;
+    let sawStats = false;
+    let match;
+    while ((match = pattern.exec(text))) {
+        sawStats = true;
+        if (Number(match[1]) + Number(match[2]) + Number(match[3]) > 0) return false;
+    }
+    return sawStats;
+}
+
+function hasNoPopulatedCocosSceneScriptStats(text) {
+    const pattern = /Number of all scenes:\s*(\d+)[\s\S]*?Number of all scripts:\s*(\d+)[\s\S]*?Number of other assets:\s*(\d+)/g;
+    let sawStats = false;
+    let match;
+    while ((match = pattern.exec(text))) {
+        sawStats = true;
+        if (Number(match[1]) > 0 && Number(match[2]) > 0) return false;
+    }
+    return sawStats;
+}
+
 module.exports = {
+    assertNoActiveCocosPreview,
     cleanCocosGeneratedCacheDirs,
     cleanCocosGeneratedCaches,
     dirSize,
     fail,
+    findActiveCocosPreviewPorts,
     findSettingsPath,
     formatMB,
+    guardCocosPreviewOrFail,
+    hasNoPopulatedCocosSceneScriptStats,
+    hasOnlyEmptyCocosAssetStats,
     parseBuildMode,
+    parseCocosPreviewPorts,
+    probeLocalTcpPorts,
     readAssetUuid,
     readJson,
     repairCocosMetaFiles,
+    resolveCocosPreviewPorts,
     resolveCocosCli,
     resolveRuntimeRoot,
     rm,

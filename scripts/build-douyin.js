@@ -108,6 +108,7 @@ console.log('=== 抖音小游戏打包 ===');
 logInfo('Mode: ' + buildMode);
 logInfo('AppID: ' + douyinAppId);
 logInfo('LevelData CDN: ' + douyinLevelDataCdnUrl);
+buildCommon.guardCocosPreviewOrFail(projectDir);
 
 logStep('0. 清理旧产物...');
 buildCommon.rm(buildDir);

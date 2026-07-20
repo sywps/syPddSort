@@ -27,6 +27,8 @@ import {
     ensureBoardOutlineLayer,
 } from './GameplayBoardOutlineRenderer';
 
+const ZOOM_HINT_SCALE_HEADROOM = 0.06;
+
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
 
@@ -183,13 +185,13 @@ export class GameplayViewController {
             inputRoot.off(Node.EventType.TOUCH_START, runtime.onTouchStart, runtime);
             inputRoot.off(Node.EventType.TOUCH_MOVE, runtime.onTouchMove, runtime);
             inputRoot.off(Node.EventType.TOUCH_END, runtime.onTouchEnd, runtime);
-            inputRoot.off(Node.EventType.TOUCH_CANCEL, runtime.onTouchEnd, runtime);
+            inputRoot.off(Node.EventType.TOUCH_CANCEL, runtime.onTouchCancel, runtime);
             inputRoot.off(Node.EventType.MOUSE_WHEEL, runtime.onMouseWheel, runtime);
         }
         runtime.node.off(Node.EventType.TOUCH_START, runtime.onTouchStart, runtime);
         runtime.node.off(Node.EventType.TOUCH_MOVE, runtime.onTouchMove, runtime);
         runtime.node.off(Node.EventType.TOUCH_END, runtime.onTouchEnd, runtime);
-        runtime.node.off(Node.EventType.TOUCH_CANCEL, runtime.onTouchEnd, runtime);
+        runtime.node.off(Node.EventType.TOUCH_CANCEL, runtime.onTouchCancel, runtime);
         runtime.node.off(Node.EventType.MOUSE_WHEEL, runtime.onMouseWheel, runtime);
         runtime._sceneInputRoot = null;
     }
@@ -407,7 +409,7 @@ export class GameplayViewController {
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_START, runtime.onTouchStart, runtime);
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_MOVE, runtime.onTouchMove, runtime);
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_END, runtime.onTouchEnd, runtime);
-        runtime._sceneInputRoot.on(Node.EventType.TOUCH_CANCEL, runtime.onTouchEnd, runtime);
+        runtime._sceneInputRoot.on(Node.EventType.TOUCH_CANCEL, runtime.onTouchCancel, runtime);
         runtime._sceneInputRoot.on(Node.EventType.MOUSE_WHEEL, runtime.onMouseWheel, runtime);
 
         runtime.refreshEquippedGameplayBackground?.(false);
@@ -577,7 +579,10 @@ export class GameplayViewController {
 
     getTouchId(touch: any, fallback: number): number {
         if (touch && typeof touch.getID === 'function') {
-            return touch.getID();
+            const id = touch.getID();
+            if (Number.isFinite(id)) {
+                return id;
+            }
         }
         return fallback;
     }
@@ -589,26 +594,29 @@ export class GameplayViewController {
 
     updateActiveBoardTouches(event: any, removeChanged: boolean = false): number {
         const runtime = this.runtime;
-        const touches = event.getAllTouches();
-        const activeIds = new Set<number>();
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i] as any;
-            const id = this.getTouchId(touch, i);
-            activeIds.add(id);
-            runtime.activeBoardTouches.set(id, this.getTouchUiPos(touch));
-        }
-        if (!removeChanged) {
+        const allTouches = typeof event?.getAllTouches === 'function'
+            ? event.getAllTouches()
+            : null;
+        if (Array.isArray(allTouches)) {
+            const globallyActiveIds = new Set<number>();
+            for (let i = 0; i < allTouches.length; i++) {
+                globallyActiveIds.add(this.getTouchId(allTouches[i], i));
+            }
             const trackedTouchIds = Array.from(runtime.activeBoardTouches.keys()) as number[];
             for (const id of trackedTouchIds) {
-                if (!activeIds.has(id)) {
+                if (!globallyActiveIds.has(id)) {
                     runtime.activeBoardTouches.delete(id);
                 }
             }
-        } else {
-            const changedTouches = typeof event.getTouches === 'function' ? event.getTouches() : touches;
-            for (let i = 0; i < changedTouches.length; i++) {
-                const touch = changedTouches[i] as any;
-                runtime.activeBoardTouches.delete(this.getTouchId(touch, i));
+        }
+
+        const currentTouch = event?.touch || event;
+        if (currentTouch && typeof currentTouch.getUILocation === 'function') {
+            const id = this.getTouchId(currentTouch, 0);
+            if (removeChanged) {
+                runtime.activeBoardTouches.delete(id);
+            } else {
+                runtime.activeBoardTouches.set(id, this.getTouchUiPos(currentTouch));
             }
         }
         return runtime.activeBoardTouches.size;
@@ -747,8 +755,16 @@ export class GameplayViewController {
             minScale,
             Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
         );
-        const starterInitialScaleMultiplier = levelId === 1 ? 0.86 : (levelId === 2 ? 0.82 : 1);
-        const initScale = Math.max(minScale, Math.min(maxScale, baseInitScale * starterInitialScaleMultiplier));
+        const starterInitialScaleMultiplier = levelId === 1 ? 0.86 : (levelId === 2 ? 1.025 : 1);
+        const zoomHintScaleHeadroom = runtime._activeGameplayGuideLayoutMode === 'zoom'
+            ? Math.min(ZOOM_HINT_SCALE_HEADROOM, Math.max(0, (maxScale - minScale) / 2))
+            : 0;
+        const initMinScale = minScale + zoomHintScaleHeadroom;
+        const initMaxScale = maxScale - zoomHintScaleHeadroom;
+        const initScale = Math.max(
+            initMinScale,
+            Math.min(initMaxScale, baseInitScale * starterInitialScaleMultiplier),
+        );
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - boardWidth / 2) * step;
         const targetCenterY = (boardHeight / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
         const viewportCenterX = (safeRect.left + safeRect.right) / 2;

@@ -324,7 +324,7 @@ export function installTopHudModule(target: any): void {
                 vigorBox.targetOff(this);
                 getOrAddButton(vigorBox).node.on(Button.EventType.CLICK, () => {
                     AudioMgr.inst.play('button');
-                    this.showNoLivesAdModal?.(() => {});
+                    this.showNoLivesAdModal?.({ source: 'home_hud' });
                 }, this);
                 this.refreshVigorUI?.();
             } else if (vigorNode?.isValid) {

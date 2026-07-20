@@ -64,12 +64,11 @@ export function installSceneHomeEntryModule(target: any): void {
                 throw new Error('[SceneSplit] AppRoot is not ready for gameplay route');
             }
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
-            const effectiveEntryCoverMode: AppGameplayEntryCoverMode = entryCoverMode === 'none' ? 'auto' : entryCoverMode;
             appRoot.markGameRequested(
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
-                effectiveEntryCoverMode,
+                entryCoverMode,
             );
             await appRoot.router.toGame();
         },

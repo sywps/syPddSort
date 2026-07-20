@@ -17,8 +17,11 @@ export class AdConfig extends Component {
     private static readonly WECHAT_AD_ID: string = WECHAT_PLATFORM_CONFIG.ads.rewardedVideo;
 
     public static notifyGameResumed() {
-        // 已移除兜底成功逻辑，不再按游戏恢复事件判定广告成功。
-        // 保留此方法以免外部调用报错。
+        AdConfig.getProvider().notifyGameResumed();
+    }
+
+    public static cancelRewardedAdInteraction(reason: string = 'manual'): boolean {
+        return AdConfig.getProvider().cancelPending(reason);
     }
 
     public static canAutoPreloadRewardedAd(): boolean {

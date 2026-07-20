@@ -11,10 +11,7 @@ const EXPERIMENT_GROUP_SPECS = [
   { group: "treatment", bucket: "C+D", groupLabel: "实验组(C+D)", buckets: ["C", "D"] },
   { group: "null", bucket: "NULL", groupLabel: "NULL", buckets: ["NULL"] },
 ];
-const SALT_COMPUTED_EXPERIMENTS = [
-  { experimentId: "level_exp_salt", sourceExperimentId: "level_exp", salt: "level_exp_0623" },
-  { experimentId: "tutorial_exp_salt", sourceExperimentId: "tutorial_exp", salt: "tutorial_exp_0623" },
-];
+const SALT_COMPUTED_EXPERIMENTS = [];
 
 function requireEnv(name) {
   const value = process.env[name];

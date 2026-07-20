@@ -44,9 +44,6 @@ export type CloudGameState = {
     equippedBackgroundSkinId: number;
     equippedBackgroundSkinUpdatedAt: number;
     backgroundSkinResetVersion: number;
-    wechatRecommendRecommended?: boolean;
-    wechatRecommendRecommendedAt?: number;
-    wechatRecommendFirstSuccessAt?: number;
     stateUpdatedAt: number;
 };
 
@@ -157,21 +154,6 @@ function getEquippedBackgroundSkinPair(gameState?: Partial<CloudGameState> | nul
 function normalizePositiveInt(value: unknown): number {
     const num = Math.floor(Number(value) || 0);
     return Number.isFinite(num) && num > 0 ? num : 0;
-}
-
-function latestPositiveInt(...values: unknown[]): number {
-    let latest = 0;
-    for (const value of values) {
-        latest = Math.max(latest, normalizePositiveInt(value));
-    }
-    return latest;
-}
-
-function earliestPositiveInt(...values: unknown[]): number {
-    const normalized = values
-        .map((value) => normalizePositiveInt(value))
-        .filter((value) => value > 0);
-    return normalized.length > 0 ? Math.min(...normalized) : 0;
 }
 
 function normalizeIdArray(value: unknown): number[] {
@@ -439,26 +421,6 @@ export class UserStateSyncMgr {
             }
         }
 
-        if (patchGameState?.wechatRecommendRecommended === true) {
-            const returnedRecommended = returnedGameState?.wechatRecommendRecommended === true;
-            const expectedRecommendedAt = normalizePositiveInt(patchGameState.wechatRecommendRecommendedAt);
-            const returnedRecommendedAt = normalizePositiveInt(returnedGameState?.wechatRecommendRecommendedAt);
-            const expectedFirstSuccessAt = normalizePositiveInt(patchGameState.wechatRecommendFirstSuccessAt);
-            const returnedFirstSuccessAt = normalizePositiveInt(returnedGameState?.wechatRecommendFirstSuccessAt);
-            const recommendedAtAcknowledged = expectedRecommendedAt <= 0 || returnedRecommendedAt >= expectedRecommendedAt;
-            const firstSuccessAcknowledged = expectedFirstSuccessAt <= 0 || (returnedFirstSuccessAt > 0 && returnedFirstSuccessAt <= expectedFirstSuccessAt);
-            if (!returnedRecommended || !recommendedAtAcknowledged || !firstSuccessAcknowledged) {
-                problems.wechatRecommendRecommended = {
-                    expected: true,
-                    returned: returnedRecommended,
-                    expectedRecommendedAt: expectedRecommendedAt || null,
-                    returnedRecommendedAt: returnedRecommendedAt || null,
-                    expectedFirstSuccessAt: expectedFirstSuccessAt || null,
-                    returnedFirstSuccessAt: returnedFirstSuccessAt || null,
-                };
-            }
-        }
-
         if (Object.keys(problems).length === 0) {
             return;
         }
@@ -543,24 +505,6 @@ export class UserStateSyncMgr {
                 ...baseGameState,
                 ...nextGameState,
             };
-            if (baseGameState.wechatRecommendRecommended === true || nextGameState.wechatRecommendRecommended === true) {
-                const recommendedAt = latestPositiveInt(
-                    baseGameState.wechatRecommendRecommendedAt,
-                    baseGameState.wechatRecommendFirstSuccessAt,
-                    nextGameState.wechatRecommendRecommendedAt,
-                    nextGameState.wechatRecommendFirstSuccessAt,
-                ) || Date.now();
-                const firstSuccessAt = earliestPositiveInt(
-                    baseGameState.wechatRecommendFirstSuccessAt,
-                    baseGameState.wechatRecommendRecommendedAt,
-                    nextGameState.wechatRecommendFirstSuccessAt,
-                    nextGameState.wechatRecommendRecommendedAt,
-                    recommendedAt,
-                ) || recommendedAt;
-                mergedGameState.wechatRecommendRecommended = true;
-                mergedGameState.wechatRecommendRecommendedAt = recommendedAt;
-                mergedGameState.wechatRecommendFirstSuccessAt = firstSuccessAt;
-            }
             merged.gameState = mergedGameState;
         }
         return merged;

@@ -115,6 +115,11 @@ function hasWeChatGameCircleRuntime(): boolean {
 export class GameCirclePanelController {
     constructor(private readonly runtime: any) {}
 
+    destroy(): void {
+        this.destroyNativeButton();
+        this.runtime._gameCircleOverlay = null;
+    }
+
     private destroyNativeButton(): void {
         const runtime = this.runtime;
         const button = runtime._gameCircleNativeButton as WeChatGameClubButtonHandle | null | undefined;

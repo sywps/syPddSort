@@ -51,6 +51,7 @@ const THUMB_DIM_ACTIVE_OPACITY = 0;
 const CONTROL_IDLE_DELAY_SECONDS = 3;
 const CONTROL_IDLE_FADE_SECONDS = 0.5;
 const BOARD_ZOOM_CONTROL_VISIBLE = true;
+const BOARD_ZOOM_STEP_PROGRESS = 1 / 5;
 
 function clamp01(value: number): number {
     if (!Number.isFinite(value)) return 0;
@@ -260,6 +261,8 @@ export function installBoardZoomControlModule(target: any): void {
             ui.track.targetOff(this);
             ui.thumb.targetOff(this);
             ui.locate.targetOff(this);
+            ui.plusGlyph?.targetOff(this);
+            ui.minusGlyph?.targetOff(this);
 
             ui.track.on('slide', this.onBoardZoomSliderChanged, this);
             ui.track.on(Node.EventType.TOUCH_START, this.onBoardZoomSliderTouchStart, this);
@@ -273,6 +276,14 @@ export function installBoardZoomControlModule(target: any): void {
             ui.locate.on(Node.EventType.TOUCH_START, this.onBoardZoomLocateTouchStart, this);
             ui.locate.on(Node.EventType.TOUCH_END, this.onBoardZoomLocateTouchEnd, this);
             ui.locate.on(Node.EventType.TOUCH_CANCEL, this.onBoardZoomLocateTouchCancel, this);
+
+            ui.plusGlyph?.on(Node.EventType.TOUCH_START, this.onBoardZoomStepTouchStart, this);
+            ui.plusGlyph?.on(Node.EventType.TOUCH_END, this.onBoardZoomPlusTouchEnd, this);
+            ui.plusGlyph?.on(Node.EventType.TOUCH_CANCEL, this.onBoardZoomStepTouchCancel, this);
+
+            ui.minusGlyph?.on(Node.EventType.TOUCH_START, this.onBoardZoomStepTouchStart, this);
+            ui.minusGlyph?.on(Node.EventType.TOUCH_END, this.onBoardZoomMinusTouchEnd, this);
+            ui.minusGlyph?.on(Node.EventType.TOUCH_CANCEL, this.onBoardZoomStepTouchCancel, this);
         },
 
         setBoardZoomControlActive(active: boolean, immediate: boolean = false): void {
@@ -345,12 +356,12 @@ export function installBoardZoomControlModule(target: any): void {
             };
         },
 
-        applyBoardZoomControlProgress(progress: number): void {
+        applyBoardZoomControlProgress(progress: number, tutorialSource: 'zoom_progress' | 'zoom_button'): void {
             const normalized = clamp01(progress);
             this._boardZoomControlUpdatingFromSlider = true;
             try {
                 if (typeof this.setBoardViewportScaleNormalized === 'function') {
-                    this.setBoardViewportScaleNormalized(normalized);
+                    this.setBoardViewportScaleNormalized(normalized, tutorialSource);
                 } else if (this.boardViewport?.setScaleNormalized) {
                     this.boardViewport.setScaleNormalized(normalized);
                     this.boardViewScale = this.boardViewport.scale;
@@ -370,7 +381,7 @@ export function installBoardZoomControlModule(target: any): void {
                 return;
             }
             this.setBoardZoomControlActive(true);
-            this.applyBoardZoomControlProgress(slider?.progress ?? ui.slider.progress);
+            this.applyBoardZoomControlProgress(slider?.progress ?? ui.slider.progress, 'zoom_progress');
         },
 
         onBoardZoomSliderTouchStart(event: EventTouch): void {
@@ -388,6 +399,52 @@ export function installBoardZoomControlModule(target: any): void {
         },
 
         onBoardZoomSliderTouchCancel(event: EventTouch): void {
+            stopZoomEvent(event);
+            this.refreshBoardZoomControl();
+            this.setBoardZoomControlActive(false);
+        },
+
+        stepBoardZoomControl(direction: -1 | 1): void {
+            const currentProgress = clamp01(
+                typeof this.getBoardViewportScaleNormalized === 'function'
+                    ? this.getBoardViewportScaleNormalized()
+                    : this.boardViewport?.getScaleNormalized?.() ?? 0,
+            );
+            this.applyBoardZoomControlProgress(currentProgress + direction * BOARD_ZOOM_STEP_PROGRESS, 'zoom_button');
+        },
+
+        onBoardZoomStepTouchStart(event: EventTouch): void {
+            stopZoomEvent(event);
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
+            if (typeof this.resetTouchState === 'function') {
+                this.resetTouchState();
+            }
+            this.setBoardZoomControlActive(true);
+        },
+
+        onBoardZoomPlusTouchEnd(event: EventTouch): void {
+            stopZoomEvent(event);
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
+                this.setBoardZoomControlActive(false);
+                return;
+            }
+            AudioMgr.inst.play('button');
+            this.stepBoardZoomControl(1);
+            this.setBoardZoomControlActive(false);
+        },
+
+        onBoardZoomMinusTouchEnd(event: EventTouch): void {
+            stopZoomEvent(event);
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
+                this.setBoardZoomControlActive(false);
+                return;
+            }
+            AudioMgr.inst.play('button');
+            this.stepBoardZoomControl(-1);
+            this.setBoardZoomControlActive(false);
+        },
+
+        onBoardZoomStepTouchCancel(event: EventTouch): void {
             stopZoomEvent(event);
             this.refreshBoardZoomControl();
             this.setBoardZoomControlActive(false);

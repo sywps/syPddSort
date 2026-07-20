@@ -14,6 +14,8 @@ export type RewardedAdHooks = {
 
 type RewardedAdCallback = (success: boolean) => void;
 type RewardedAdStatus = 'idle' | 'loading' | 'ready' | 'showing';
+const WECHAT_CLOSE_WATCHDOG_MS = 60 * 1000;
+const FOREGROUND_RECOVERY_GRACE_MS = 1500;
 
 export type RewardedAdUnitIds = {
     douyin: string;
@@ -25,6 +27,8 @@ export interface RewardedAdProvider {
     preload(reason?: string): void;
     show(callback: RewardedAdCallback, hooks?: RewardedAdHooks): void;
     hasNativeAdWindow(): boolean;
+    notifyGameResumed(): void;
+    cancelPending(reason?: string): boolean;
 }
 
 abstract class NativeRewardedAdProvider implements RewardedAdProvider {
@@ -35,7 +39,10 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     private loadPromise: Promise<boolean> | null = null;
     private currentCallback: RewardedAdCallback | null = null;
     private currentHooks: RewardedAdHooks | null = null;
+    private currentRequestId = 0;
+    private loadWaitTimer: any = null;
     private showSafetyTimer: any = null;
+    private foregroundRecoveryTimer: any = null;
     private shownAt = 0;
 
     constructor(private readonly adUnitId: string) {}
@@ -56,47 +63,63 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             callback(false);
             return;
         }
+        const requestId = ++this.currentRequestId;
+        this.currentCallback = callback;
+        this.currentHooks = hooks;
         const loadPromise = this.status === 'ready'
             ? Promise.resolve(true)
             : this.startLoad('show');
         const waitMs = this.getClickLoadWaitMs(hooks);
-        let settled = false;
-        const timer = setTimeout(() => {
-            if (settled) return;
-            settled = true;
+        this.loadWaitTimer = setTimeout(() => {
+            if (!this.isCurrentRequest(requestId)) return;
+            this.loadWaitTimer = null;
             const devtoolsSuccess = this.shouldSimulateDevtoolsCompletion();
             console.warn(`[AdConfig] ${this.platform} rewarded ad preload/show wait timeout, success=${devtoolsSuccess}`);
             if (devtoolsSuccess) {
-                hooks.onShow?.();
-                hooks.onClose?.();
+                this.currentHooks?.onShow?.();
+                this.invokeCurrentCloseHook();
             }
-            callback(devtoolsSuccess);
-            this.preloadAfterInteraction('after-click-timeout');
+            this.resolveCurrent(devtoolsSuccess);
         }, waitMs);
 
         loadPromise.then((ready) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
+            if (!this.isCurrentRequest(requestId)) return;
+            this.clearLoadWaitTimer();
             if (!ready) {
-                callback(false);
-                this.preloadAfterInteraction('after-load-fail');
+                this.resolveCurrent(false);
                 return;
             }
-            this.showLoadedAd(callback, hooks);
+            this.showLoadedAd(requestId);
         }).catch((err) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
+            if (!this.isCurrentRequest(requestId)) return;
+            this.clearLoadWaitTimer();
             console.warn(`[AdConfig] ${this.platform} rewarded ad load failed:`, err);
-            callback(false);
-            this.preloadAfterInteraction('after-load-error');
+            this.resolveCurrent(false);
         });
     }
 
     hasNativeAdWindow(): boolean {
         const api = this.getRuntimeApi();
         return !!(api && typeof api.createRewardedVideoAd === 'function' && this.adUnitId);
+    }
+
+    notifyGameResumed(): void {
+        if (!this.currentCallback) return;
+        this.clearForegroundRecoveryTimer();
+        const requestId = this.currentRequestId;
+        this.foregroundRecoveryTimer = setTimeout(() => {
+            this.foregroundRecoveryTimer = null;
+            if (!this.isCurrentRequest(requestId)) return;
+            this.cancelPending('foreground-close-missing');
+        }, FOREGROUND_RECOVERY_GRACE_MS);
+    }
+
+    cancelPending(reason: string = 'manual'): boolean {
+        if (!this.currentCallback) return false;
+        console.error(`[AdConfig] ${this.platform} rewarded ad recovered from pending state: ${reason}`);
+        this.invokeCurrentCloseHook();
+        this.resolveCurrent(false);
+        return true;
     }
 
     protected abstract getRuntimeApi(): any;
@@ -108,7 +131,11 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (!api || typeof api.createRewardedVideoAd !== 'function' || !this.adUnitId) return null;
         this.ad = api.createRewardedVideoAd({ adUnitId: this.adUnitId });
         this.ad.onClose?.((res: any) => {
-            this.currentHooks?.onClose?.();
+            if (!this.currentCallback || this.status !== 'showing' || this.shownAt <= 0) {
+                console.warn(`[AdConfig] ${this.platform} stale rewarded ad close ignored`);
+                return;
+            }
+            this.invokeCurrentCloseHook();
             this.resolveCurrent(this.resolveCloseSuccess(res));
         });
         this.ad.onError?.((err: any) => {
@@ -155,33 +182,36 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         return loadPromise;
     }
 
-    private showLoadedAd(callback: RewardedAdCallback, hooks: RewardedAdHooks): void {
+    private showLoadedAd(requestId: number): void {
+        if (!this.isCurrentRequest(requestId)) return;
         const ad = this.ensureAd();
         if (!ad || typeof ad.show !== 'function') {
-            callback(false);
+            this.resolveCurrent(false);
             return;
         }
-        this.currentCallback = callback;
-        this.currentHooks = hooks;
         this.status = 'showing';
         this.shownAt = 0;
         this.showSafetyTimer = setTimeout(() => {
+            this.showSafetyTimer = null;
+            if (!this.isCurrentRequest(requestId)) return;
             const success = this.shouldSimulateDevtoolsCompletion();
             console.warn(`[AdConfig] ${this.platform} rewarded ad close timeout, success=${success}`);
             if (success) {
-                this.currentHooks?.onClose?.();
+                this.invokeCurrentCloseHook();
             }
             this.resolveCurrent(success);
-        }, this.getShowSafetyMs(hooks));
+        }, this.getShowSafetyMs(this.currentHooks || {}));
 
         Promise.resolve()
             .then(() => ad.show())
             .then(() => {
+                if (!this.isCurrentRequest(requestId)) return;
                 this.shownAt = Date.now();
-                hooks.onShow?.();
+                this.currentHooks?.onShow?.();
                 console.log(`[AdConfig] ${this.platform} rewarded ad show resolved`);
             })
             .catch((err) => {
+                if (!this.isCurrentRequest(requestId)) return;
                 console.warn(`[AdConfig] ${this.platform} rewarded ad show failed:`, err);
                 this.resolveCurrent(false);
             });
@@ -189,17 +219,51 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
 
     private resolveCurrent(success: boolean): void {
         if (!this.currentCallback) return;
-        if (this.showSafetyTimer) {
-            clearTimeout(this.showSafetyTimer);
-            this.showSafetyTimer = null;
-        }
+        this.clearLoadWaitTimer();
+        this.clearShowSafetyTimer();
+        this.clearForegroundRecoveryTimer();
         const callback = this.currentCallback;
         this.currentCallback = null;
         this.currentHooks = null;
         this.status = 'idle';
         this.shownAt = 0;
-        callback(success);
-        this.preloadAfterInteraction('after-show');
+        try {
+            callback(success);
+        } catch (error) {
+            console.error(`[AdConfig] ${this.platform} rewarded ad callback failed:`, error);
+        } finally {
+            this.preloadAfterInteraction('after-show');
+        }
+    }
+
+    private invokeCurrentCloseHook(): void {
+        try {
+            this.currentHooks?.onClose?.();
+        } catch (error) {
+            console.warn(`[AdConfig] ${this.platform} rewarded ad close hook failed:`, error);
+        }
+    }
+
+    private isCurrentRequest(requestId: number): boolean {
+        return !!this.currentCallback && this.currentRequestId === requestId;
+    }
+
+    private clearLoadWaitTimer(): void {
+        if (!this.loadWaitTimer) return;
+        clearTimeout(this.loadWaitTimer);
+        this.loadWaitTimer = null;
+    }
+
+    private clearShowSafetyTimer(): void {
+        if (!this.showSafetyTimer) return;
+        clearTimeout(this.showSafetyTimer);
+        this.showSafetyTimer = null;
+    }
+
+    private clearForegroundRecoveryTimer(): void {
+        if (!this.foregroundRecoveryTimer) return;
+        clearTimeout(this.foregroundRecoveryTimer);
+        this.foregroundRecoveryTimer = null;
     }
 
     private preloadAfterInteraction(reason: string): void {
@@ -229,7 +293,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
 
     private getShowSafetyMs(hooks: RewardedAdHooks): number {
         if (this.platform === 'wechat') {
-            return 60000;
+            return WECHAT_CLOSE_WATCHDOG_MS;
         }
         if (this.isDevtoolsLike()) {
             return Math.max(1500, Math.min(6000, hooks.minFallbackWatchMs || 3000));
@@ -309,6 +373,12 @@ class WebRewardedAdProvider implements RewardedAdProvider {
     }
 
     hasNativeAdWindow(): boolean {
+        return false;
+    }
+
+    notifyGameResumed(): void {}
+
+    cancelPending(_reason: string = 'manual'): boolean {
         return false;
     }
 }

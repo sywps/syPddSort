@@ -61,6 +61,20 @@ type RecoverVigorShareState = {
     count: number;
 };
 
+export type RecoverVigorSource = 'home_hud' | 'home_start' | 'restart' | 'next_level';
+export type RecoverVigorResultStatus = 'granted' | 'failed' | 'cancelled';
+export type RecoverVigorResult = {
+    source: RecoverVigorSource;
+    status: RecoverVigorResultStatus;
+    granted: number;
+    vigorAfter: number;
+    transactionId: number;
+};
+export type RecoverVigorOptions = {
+    source: RecoverVigorSource;
+    onResult?: (result: RecoverVigorResult) => void;
+};
+
 function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     if (!node || !node.isValid) {
         runtimeWarn(`[UI尺寸] ${name}: 节点不存在`);
@@ -562,6 +576,7 @@ export function installPlayerMetaStateModule(target: any): void {
                 else if (sec <= 0) this._vigorTimeLbl.string = '00:00';
                 else { const mm = Math.floor(sec / 60), ss = sec % 60; this._vigorTimeLbl.string = `${mm < 10 ? '0' : ''}${mm}:${ss < 10 ? '0' : ''}${ss}`; }
             }
+            this.refreshRecoverVigorModalUI?.();
         },
 
         /** 体力 Tick（每帧 0.2s 刷新） */
@@ -783,12 +798,94 @@ export function installPlayerMetaStateModule(target: any): void {
             };
         },
 
-        /** 无体力弹窗 */
-        showNoLivesAdModal(onDone: () => void): void {
-            this.openRecoverVigorPrefabModal(onDone);
+        refreshRecoverVigorModalUI(): void {
+            const statusLabel = this._recoverVigorStatusLbl as Label | null;
+            if (!statusLabel?.node?.isValid) return;
+            const ceiling = (this.constructor as any).VIGOR_CEILING;
+            const currentVigor = this.getVigor();
+            const hasCapacity = currentVigor < ceiling;
+            statusLabel.string = `当前体力 ${currentVigor}/${ceiling}`;
+
+            const busy = !!this._recoverVigorBusy;
+            const videoButton = this._recoverVigorVideoButton as Node | null;
+            if (videoButton?.isValid) {
+                this.syncRecoverVigorButton(
+                    videoButton,
+                    '\u770b\u89c6\u9891',
+                    new Color(68, 179, 238, 255),
+                    new Color(38, 121, 203, 255),
+                    hasCapacity && !busy,
+                );
+            }
+
+            const remaining = this.getRecoverVigorShareRemaining();
+            const shareAvailable = remaining > 0;
+            const shareButton = this._recoverVigorShareButton as Node | null;
+            if (shareButton?.isValid) {
+                this.syncRecoverVigorButton(
+                    shareButton,
+                    '\u5206\u4eab',
+                    shareAvailable ? new Color(58, 214, 116, 255) : new Color(170, 170, 170, 255),
+                    shareAvailable ? new Color(25, 156, 79, 255) : new Color(120, 120, 120, 255),
+                    hasCapacity && shareAvailable && !busy,
+                );
+            }
+            const shareRemainingLabel = this._recoverVigorShareRemainingLbl as Label | null;
+            if (shareRemainingLabel?.node?.isValid) {
+                shareRemainingLabel.node.active = true;
+                shareRemainingLabel.string = shareAvailable
+                    ? `\u4eca\u65e5\u5269\u4f59 ${remaining}/${RECOVER_VIGOR_SHARE_DAILY_LIMIT}`
+                    : '\u4eca\u65e5\u5df2\u7528\u5b8c';
+                shareRemainingLabel.color = shareAvailable
+                    ? new Color(71, 93, 132, 255)
+                    : new Color(168, 72, 72, 255);
+            }
+
+            const closeButton = this._recoverVigorCloseButton as Node | null;
+            if (closeButton?.isValid) {
+                const button = closeButton.getComponent(Button) ?? closeButton.addComponent(Button);
+                button.interactable = !busy;
+                const opacity = closeButton.getComponent(UIOpacity) ?? closeButton.addComponent(UIOpacity);
+                opacity.opacity = busy ? 140 : 255;
+            }
         },
 
-        openRecoverVigorPrefabModal(onDone: () => void): void {
+        setRecoverVigorModalBusy(busy: boolean): void {
+            this._recoverVigorBusy = !!busy;
+            this.refreshRecoverVigorModalUI();
+        },
+
+        clearRecoverVigorModalRuntimeState(): void {
+            this._recoverVigorStatusLbl = null;
+            this._recoverVigorVideoButton = null;
+            this._recoverVigorShareButton = null;
+            this._recoverVigorShareRemainingLbl = null;
+            this._recoverVigorCloseButton = null;
+            this._recoverVigorBusy = false;
+            this._recoverVigorTransaction = null;
+        },
+
+        auditRecoverVigorInteractionState(reason: string = 'runtime'): void {
+            const modal = this._noLivesModal as Node | null;
+            if (!modal?.isValid) {
+                this._noLivesModal = null;
+                this.clearRecoverVigorModalRuntimeState();
+                return;
+            }
+            if (this._recoverVigorBusy && !this._adShowing) {
+                console.warn(`[recover-vigor] release stale popup transaction after ${reason}`, this._recoverVigorTransaction);
+                this._recoverVigorBusy = false;
+                this._recoverVigorTransaction = null;
+            }
+            this.refreshRecoverVigorModalUI();
+        },
+
+        /** 无体力弹窗 */
+        showNoLivesAdModal(options: RecoverVigorOptions): void {
+            this.openRecoverVigorPrefabModal(options);
+        },
+
+        openRecoverVigorPrefabModal(options: RecoverVigorOptions): void {
             const panelKey = 'recover-vigor';
             const prefabLoadKey = 'recover-vigor-prefab';
             this._openPanelAfterTextures(
@@ -805,6 +902,7 @@ export function installPlayerMetaStateModule(target: any): void {
                         if (!isRuntimeAlive()) return;
                         this._panelOpenInFlight.delete(prefabLoadKey);
                         this._noLivesModal = null;
+                        this.clearRecoverVigorModalRuntimeState();
                         this._releasePanelTextureOwner('recover-vigor', 'recover-vigor-open-stale');
                     };
                     const failOpen = (message: string, overlay?: Node | null) => {
@@ -814,6 +912,7 @@ export function installPlayerMetaStateModule(target: any): void {
                             this._destroyDetachedNodeNextFrame(overlay);
                         }
                         this._noLivesModal = null;
+                        this.clearRecoverVigorModalRuntimeState();
                         this._releasePanelTextureOwner('recover-vigor', 'recover-vigor-open-failed');
                         throw new Error(message);
                     };
@@ -854,14 +953,20 @@ export function installPlayerMetaStateModule(target: any): void {
                                 if (!box.getComponent(BlockInputEvents)) {
                                     box.addComponent(BlockInputEvents);
                                 }
-                                const currentVigor = this.getVigor();
-                                const ceiling = (this.constructor as any).VIGOR_CEILING;
                                 const statusLabel = this.requirePanelChild(box, 'RecoverVigorStatus').getComponent(Label);
                                 if (!statusLabel) {
                                     throw new Error('[recover-vigor-prefab] missing RecoverVigorStatus label');
                                 }
-                                statusLabel.string = `当前体力 ${currentVigor}/${ceiling}`;
                                 const rewardPanel = this.syncRecoverVigorDualRewardPanel(box);
+                                const closeButton = this.requirePanelChild(box, 'XBtn');
+                                this._recoverVigorStatusLbl = statusLabel;
+                                this._recoverVigorVideoButton = rewardPanel.videoButton;
+                                this._recoverVigorShareButton = rewardPanel.shareButton;
+                                this._recoverVigorShareRemainingLbl = rewardPanel.shareRemainingLabel;
+                                this._recoverVigorCloseButton = closeButton;
+                                this._recoverVigorBusy = false;
+                                this._recoverVigorTransaction = null;
+                                this.refreshRecoverVigorModalUI();
                                 if (DEBUG_RECOVER_VIGOR_LAYOUT) {
                                     const modalForLog = modal;
                                     this.scheduleOnce(() => {
@@ -877,7 +982,20 @@ export function installPlayerMetaStateModule(target: any): void {
                                 }
 
                                 let closed = false;
-                                const finalizeModal = (shouldNotify: boolean) => {
+                                const emitResult = (status: RecoverVigorResultStatus, granted: number = 0, transactionId: number = 0) => {
+                                    try {
+                                        options.onResult?.({
+                                            source: options.source,
+                                            status,
+                                            granted: Math.max(0, Math.floor(Number(granted) || 0)),
+                                            vigorAfter: this.getVigor(),
+                                            transactionId,
+                                        });
+                                    } catch (error) {
+                                        console.warn('[recover-vigor] result handler failed:', error);
+                                    }
+                                };
+                                const finalizeModal = () => {
                                     if (closed) return;
                                     closed = true;
                                     if (modal?.isValid) {
@@ -886,52 +1004,83 @@ export function installPlayerMetaStateModule(target: any): void {
                                         this._releasePanelTextureOwner('recover-vigor', 'recover-vigor');
                                     }
                                     this._noLivesModal = null;
-                                    if (shouldNotify && onDone) onDone();
+                                    this.clearRecoverVigorModalRuntimeState();
+                                };
+                                const beginAttempt = (method: string): number => {
+                                    if (closed || this._recoverVigorBusy || this._adShowing) return 0;
+                                    const transactionId = Math.max(1, Math.floor(Number(this._recoverVigorTransactionSeq) || 0) + 1);
+                                    this._recoverVigorTransactionSeq = transactionId;
+                                    this._recoverVigorTransaction = {
+                                        id: transactionId,
+                                        source: options.source,
+                                        method,
+                                        startedAt: Date.now(),
+                                    };
+                                    this.setRecoverVigorModalBusy(true);
+                                    return transactionId;
+                                };
+                                const finishAttempt = (transactionId: number, granted: number) => {
+                                    if (this._recoverVigorTransaction?.id !== transactionId) return;
+                                    this._recoverVigorTransaction = null;
+                                    this.setRecoverVigorModalBusy(false);
+                                    if (granted > 0) {
+                                        finalizeModal();
+                                        emitResult('granted', granted, transactionId);
+                                        return;
+                                    }
+                                    emitResult('failed', 0, transactionId);
                                 };
 
-                                this.bindPanelButton(this.requirePanelChild(box, 'XBtn'), () => {
+                                this.bindPanelButton(closeButton, () => {
+                                    if (this._recoverVigorBusy) return;
                                     AudioMgr.inst.play('uiPanel');
-                                    finalizeModal(true);
+                                    finalizeModal();
+                                    emitResult('cancelled');
                                 });
 
                                 this.bindPanelButton(rewardPanel.videoButton, () => {
-                                    if (this._adShowing) return;
+                                    const transactionId = beginAttempt('video');
+                                    if (!transactionId) return;
                                     AudioMgr.inst.play('button');
                                     if (this.getVigor() >= (this.constructor as any).VIGOR_CEILING) {
                                         this.showToast('\u4f53\u529b\u5df2\u7ecf\u6ee1\u4e86');
+                                        finishAttempt(transactionId, 0);
                                         return;
                                     }
-                                    finalizeModal(false);
-                                    this.runRewardedGrant('vigor_recover', () => {
-                                        const granted = this.grantVigorByAmount(RECOVER_VIGOR_AD_REWARD);
-                                        if (granted <= 0) return false;
+                                    let grantedAmount = 0;
+                                    const started = this.runRewardedGrant('vigor_recover', () => {
+                                        grantedAmount = this.grantVigorByAmount(RECOVER_VIGOR_AD_REWARD);
+                                        if (grantedAmount <= 0) return false;
                                     }, {
                                         busyFlag: '_adShowing',
                                         adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
                                         successToast: () => `\u83b7\u5f97${RECOVER_VIGOR_AD_REWARD}\u70b9\u4f53\u529b`,
                                         grantFailToast: '\u4f53\u529b\u53d1\u653e\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
-                                        onFinally: () => {
-                                            if (onDone) onDone();
-                                        },
+                                        onFinally: () => finishAttempt(transactionId, grantedAmount),
                                     });
+                                    if (!started && this._recoverVigorTransaction?.id === transactionId) {
+                                        finishAttempt(transactionId, 0);
+                                    }
                                 });
 
                                 this.bindPanelButton(rewardPanel.shareButton, () => {
-                                    if (this._adShowing) return;
+                                    const transactionId = beginAttempt('share');
+                                    if (!transactionId) return;
                                     AudioMgr.inst.play('button');
                                     if (this.getVigor() >= (this.constructor as any).VIGOR_CEILING) {
                                         this.showToast('\u4f53\u529b\u5df2\u7ecf\u6ee1\u4e86');
+                                        finishAttempt(transactionId, 0);
                                         return;
                                     }
                                     if (!this.canRecoverVigorByShare()) {
                                         this.showToast('\u4eca\u65e5\u5206\u4eab\u6b21\u6570\u5df2\u7528\u5b8c');
-                                        this.syncRecoverVigorDualRewardPanel(box);
+                                        finishAttempt(transactionId, 0);
                                         return;
                                     }
-                                    finalizeModal(false);
-                                    this.runShareGrant('vigor_recover', () => {
-                                        const granted = this.grantVigorByAmount(RECOVER_VIGOR_SHARE_REWARD);
-                                        if (granted <= 0) return false;
+                                    let grantedAmount = 0;
+                                    const started = this.runShareGrant('vigor_recover', () => {
+                                        grantedAmount = this.grantVigorByAmount(RECOVER_VIGOR_SHARE_REWARD);
+                                        if (grantedAmount <= 0) return false;
                                         this.recordRecoverVigorShareGrant();
                                     }, {
                                         busyFlag: '_adShowing',
@@ -941,10 +1090,11 @@ export function installPlayerMetaStateModule(target: any): void {
                                         shareFailToast: '\u5206\u4eab\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
                                         successToast: () => `\u83b7\u5f97${RECOVER_VIGOR_SHARE_REWARD}\u70b9\u4f53\u529b`,
                                         grantFailToast: '\u4f53\u529b\u53d1\u653e\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
-                                        onFinally: () => {
-                                            if (onDone) onDone();
-                                        },
+                                        onFinally: () => finishAttempt(transactionId, grantedAmount),
                                     });
+                                    if (!started && this._recoverVigorTransaction?.id === transactionId) {
+                                        finishAttempt(transactionId, 0);
+                                    }
                                 });
 
                                 modal.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
@@ -957,8 +1107,10 @@ export function installPlayerMetaStateModule(target: any): void {
                                         e.propagationStopped = true;
                                         return;
                                     }
+                                    if (this._recoverVigorBusy) return;
                                     AudioMgr.inst.play('button');
-                                    finalizeModal(true);
+                                    finalizeModal();
+                                    emitResult('cancelled');
                                 }, this);
 
                                 this._noLivesModal = modal;

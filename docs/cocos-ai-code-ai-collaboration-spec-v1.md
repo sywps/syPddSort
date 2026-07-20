@@ -297,7 +297,7 @@ preview 资产可以存在于源码、编辑器工作流和 plain web preview �
 
 | 用户类型 | 精确定义 | 首屏路由 | 首屏前不得阻塞 |
 |---|---|---|---|
-| A 新用户 / 早期新用户 | 本地没有 `pdd.level >= 2`，云端最终也没有 `savedLevel >= 2` | 进入 `gameEntry/bootstrap` 的 `Game.scene`，打开第 1 关 / 引导关 | 不等 `wx.getGameExptInfo()`，不等 CDN，不能下载 `homeAssets` / `gameAssets`。 |
+| A 新用户 / 早期新用户 | 本地没有 `pdd.level >= 2`，云端最终也没有 `savedLevel >= 2` | 进入 `gameEntry/bootstrap` 的 `Game.scene`，打开第 1 关 / 引导关 | 不等 CDN，不能下载 `homeAssets` / `gameAssets`。 |
 | B 正常老用户 | 本地 `validLocalLevel = N` 且 `N >= 2` | 进入 `gameEntry/bootstrap` 的 `Game.scene`，直接打开本地进度第 N 关 | 不等云端恢复，不下载 `homeAssets`；目标关卡数据缺失时在 Game 内显式加载或报错，不能路由到 Home。 |
 | C 删包 / 清缓存回流老用户 | 本地缺失或只有 `1`，但云端 `savedLevel = N` 且 `N >= 2` | 先进入 `gameEntry/bootstrap` 的 `Game.scene` 第 1 关临时态；云端高进度返回后在 Game 内恢复 / 重载到第 N 关 | 不把本地默认 `1` 或 starter 状态写回云端覆盖高进度；不等云端才显示首屏；不恢复到 Home。 |
 
@@ -309,12 +309,10 @@ preview 资产可以存在于源码、编辑器工作流和 plain web preview �
 4. 本地低进度且云端恢复未决时，Game 可以按第 1 关启动，但这段进度必须视为 provisional。云端未确认前可以写本地 `pdd.level = 1`，但不能把低进度同步到云端。
 5. 如果云端返回 `savedLevel > currentLevel`，必须在 Game 内完成恢复：更新本地有效进度，停止或收口当前第 1 关临时态，再加载真实第 N 关。恢复动作不能跳到 Home，也不能要求用户重新进游戏。
 6. 如果 B 类用户的第 N 关数据不在本地包或缓存中，`Game.scene` 可以展示游戏内 loading / retry / 明确错误，并按远程数据 manifest / hash 规则加载目标 pack；不能静默降级到第 1 关，也不能把 Home 当作兜底。
-7. `wx.getGameExptInfo()`、URL `ab`、实验 bucket、策略 bucket 只属于实验 / 埋点维度，不能命名或实现成 A/B/C 用户类型。
-8. 实验值可以首屏后后台获取；获取失败或超时不能阻塞 A/B/C 首屏路由。
-9. Home 只能是首屏之后由用户行为、运营入口或明确功能路由打开的非启动场景；任何 A/B/C 首屏路由都不得以 Home 为目标。
+7. Home 只能是首屏之后由用户行为、运营入口或明确功能路由打开的非启动场景；任何 A/B/C 首屏路由都不得以 Home 为目标。
 
 ### 11.2 数据分类与本地 / 远程协作规则
-本项目不能把“远程”当成单一概念。云函数用户状态、CDN 资源内容、实验配置和本地启动快照的读写频率、合并规则和失败处理都不同。
+本项目不能把“远程”当成单一概念。云函数用户状态、CDN 资源内容、运营配置和本地启动快照的读写频率、合并规则和失败处理都不同。
 
 总原则：
 
@@ -327,10 +325,10 @@ preview 资产可以存在于源码、编辑器工作流和 plain web preview �
 | 数据类型 | 典型数据 | 本地形态 | 远程形态 | 读取 / 同步时机 | 合并与失败规则 |
 |---|---|---|---|---|---|
 | 用户状态数据 | `pdd.level` / `savedLevel`、金币、体力、道具数量、签到状态、主题解锁、已拥有皮肤、当前装备皮肤、用户 profile | `sys.localStorage`、运行时内存、`UserMgr` / `GameCtrl` 状态 | 云函数 `syncUserState` 读写的用户文档 | 启动时尝试拉取；本地状态变化后 debounce 写云端；隐藏 / 退出前 flush | 进度取 `max(local, cloud)`；云端恢复未决时低进度只能写本地，不能写云端；云端更高时在 Game 内恢复到第 N 关；云端失败不能把 C 类老用户误判为可覆盖的新用户。 |
-| 玩法资源数据 | 关卡 JSON、主题关卡 JSON、难度曲线、关卡 manifest、关卡 pack | 第 1 关 / 引导关本地快照在 `gameEntry/bootstrap`；显式 `local-test` profile 可带与目标 schema 对齐的本地镜像；会话内或应用级缓存已加载 pack | 同一个 CDN 根地址下的 `levels/level_live.json` 和 `levels/level_packs/*.json` | 启动进入第 N 关、下一关跨 pack、云端恢复到第 N 关、主题关卡跳转时，都必须通过同一套 `loadLevel(levelId)` 入口按需读 manifest 并找目标 pack；只下载目标关卡所在 pack | 默认微信 debug / release 都不能用本地镜像掩盖 CDN 失败；核心关卡数据缺失必须 fail fast，显示游戏内 loading / retry / 明确错误；不能静默降级到第 1 关或 Home；不能每次启动全量下载所有 CDN pack；不能只在启动时下载一次后就不再跨 pack 拉新数据。 |
+| 玩法资源数据 | 关卡 JSON、主题关卡 JSON、难度曲线、关卡 manifest、关卡 pack | 第 1 关 / 引导关本地快照在 `gameEntry/bootstrap`；普通 localhost browser preview 和显式 `local-test` profile 可带与目标 schema 对齐的本地镜像；会话内或应用级缓存已加载 pack | 同一个 CDN 根地址下的 `levels/level_live.json` 和 `levels/level_packs/*.json` | 启动进入第 N 关、下一关跨 pack、云端恢复到第 N 关、主题关卡跳转时，都必须通过同一套 `loadLevel(levelId)` 入口按需读 manifest 并找目标 pack；只下载目标关卡所在 pack | 默认微信 debug / release 都不能用本地镜像掩盖 CDN 失败；核心关卡数据缺失必须 fail fast，显示游戏内 loading / retry / 明确错误；不能静默降级到第 1 关或 Home；不能每次启动全量下载所有 CDN pack；不能只在启动时下载一次后就不再跨 pack 拉新数据。 |
 | 皮肤状态数据 | 已拥有皮肤 ID、当前装备皮肤 ID、抽取 / 解锁结果 | 与用户状态同源，写入本地状态 | 与用户状态同源，写入云函数用户文档 | 启动云恢复、皮肤解锁 / 装备变化、用户状态 flush | 按用户状态规则合并；云端拥有集合可以补足本地，本地高版本或更多拥有项不能被空集合覆盖；装备 ID 不存在时回到有效默认值并记录错误。 |
 | 皮肤资源数据 | 皮肤资源清单、皮肤图标、背景大图、棋盘 / 槽位 / 豆子换肤资源 | 只允许保留首屏默认兜底资源、入口占位图或 debug 本地镜像；这不是皮肤系统的正式资源真源 | 同一个 CDN 根地址下的 `skin/skin_live.json`、`skin/assets/**`；正式皮肤资源真源不在 gameplay 分包，也不挂在 `levels/Skins` 下 | 打开皮肤面板、装备皮肤、进入 Game 后异步应用时先读小型 `skin/skin_live.json`，再按当前皮肤 ID / 面板可见项下载目标资源 | 非首屏皮肤大图失败不能阻塞 `initGame`；皮肤资源必须有独立 `skinDataVersion` 和资源 hash；不能复用关卡 `dataVersion` 判断皮肤是否变化。 |
-| 运行时策略 / 运营配置 | 实验 bucket、广告策略、活动开关、轻量运营配置 | 本地默认值或上次缓存 | 云函数、平台实验 API 或 CDN 小配置 | 首屏后后台获取；必要时按 TTL / version 刷新 | 不能阻塞 A/B/C 首屏路由；失败使用本地默认策略并记录诊断；不能把实验 bucket 当成 A/B/C 用户分类。 |
+| 运行时策略 / 运营配置 | 广告策略、活动开关、轻量运营配置 | 本地默认值或上次缓存 | 云函数或 CDN 小配置 | 首屏后后台获取；必要时按 TTL / version 刷新 | 不能阻塞 A/B/C 首屏路由；失败使用本地默认策略并记录诊断。 |
 
 关卡 JSON 可以携带影响玩法结构的确定性字段；这些字段属于关卡数据真源，不能在客户端再按关卡号写一套平行规则。底部暂存槽行数必须使用 `slotPolicy`：
 
@@ -381,7 +379,7 @@ content：带 hash 的不可变内容文件，只在目标资源缺失或 hash �
 2. `场景 / prefab / 纹理常驻` 会反序列化 scene、创建节点、解码纹理或持有资源引用，只能由明确用户意图或即将发生的功能路由触发；关闭入口、取消路由或离开 scene 后必须按 owner 释放。
 3. Home 可以在首个 Game 可玩后低优先级预下载包或 bundle manifest，但不能无条件反序列化并长期持有 `Home.scene` / Home 纹理。打开设置并显示返回 Home、点击 Home 入口、结算页出现明确 Home 路由等，才属于可建立 Home 场景常驻的用户意图。
 
-默认微信 debug / release 必须使用相同的生产资源契约、路由和失败语义；差异只允许出现在日志和诊断强度。需要本地资源镜像或 mock 时，使用显式 `local-test` profile，不能复用普通微信 debug 名称：
+默认微信 debug / release 必须使用相同的生产资源契约、路由和失败语义；差异只允许出现在日志和诊断强度。普通 localhost browser preview 默认使用本地镜像；需要在平台测试包中使用本地资源镜像或 mock 时，必须使用显式 `local-test` profile，不能复用普通微信 debug 名称：
 
 | 构建变体 | 用户状态 | 关卡资源 | 皮肤资源 | 日志 / 诊断 |
 |---|---|---|---|---|
@@ -400,9 +398,9 @@ content：带 hash 的不可变内容文件，只在目标资源缺失或 hash �
 | `gameEntry` | `bootstrap` | 全用户统一游戏入口层，放 `Game.scene`、第 1 关本地快照、通用游戏壳、HUD、槽位、豆子图集、引导关同步必需资源，以及能让 B/C 用户进入目标关卡加载流程的最小代码和稳定 UI。 |
 | `home` | `homeAssets` | 非启动 Home / 菜单功能资源。只有在首个 `Game.scene` 已经可见后，因用户行为、运营入口或明确功能路由需要 Home 时才加载；不再承担老用户首屏入口职责。 |
 | `gameplay` | `gameAssets` | 后续玩法和非首屏功能资源，例如后续弹窗、排行榜、图鉴、商店、签到、主题、音频、特效、大背景和后续玩法 prefab。 |
-| `remoteLevelData` | 同一 CDN 根地址下的 `levels/`；仅显式 `local-test` 可对应本地镜像 | 高频动态关卡 JSON、`levels/level_live.json`、`levels/level_packs/*.json`、难度曲线和关卡投放。 |
+| `remoteLevelData` | 同一 CDN 根地址下的 `levels/`；普通 localhost browser preview 或显式 `local-test` 可对应本地镜像 | 高频动态关卡 JSON、`levels/level_live.json`、`levels/level_packs/*.json`、难度曲线和关卡投放。 |
 | `remoteSkinData` | 同一 CDN 根地址下的 `skin/`；仅显式 `local-test` 可对应本地 skin 镜像 | 皮肤资源清单 `skin/skin_live.json`、皮肤图标、背景大图、棋盘 / 槽位 / 豆子换肤资源；版本和 hash 独立于 `remoteLevelData`。 |
-| `remoteOpsData` | CDN / 云函数 / 平台配置 | 少量运营配置、实验策略、活动开关。 |
+| `remoteOpsData` | CDN / 云函数 / 平台配置 | 少量运营配置、广告策略、活动开关。 |
 
 启动直进 `Game.scene` 时，玩法 BGM 属于首个可玩会话的必需体验资源，但不应阻塞棋盘首屏。默认策略是：BGM 文件仍可放在 `gameplay/gameAssets`，`initGame` 必须在棋盘与槽位渲染完成后登记播放意图并异步加载；如果产品要求首帧即有音乐，才允许把单独压缩后的 BGM 作为 `gameEntry/bootstrap` 的 route-owned 资源。普通 SFX、结算音效、功能音效仍归 `gameplay/gameAssets`，不得整体挪入启动路径。
 
@@ -624,7 +622,7 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 5. `playwright run-code` 传入异步函数表达式，例如 `async (page) => { ... }`；不要传裸 `await page...`，也不要在该入口里依赖动态 `import(...)`。
 6. Cocos canvas 页面必须验证实际画面或运行时状态。对 bundle / scene 问题，优先在页面内用 `cc.assetManager.loadBundle`、`bundle.loadScene`、`cc.director.loadScene` 等运行时 API 验证目标 bundle 和场景，而不是只看页面是否能打开。
 7. Cocos Creator 编辑器 preview 验证游戏入口时必须显式指定启动场景，例如 `http://localhost:7456/?scene=db%3A%2F%2Fassets%2FScenes%2FBoot.scene&level=1`。裸 `?level=1` 会使用编辑器内存中的 `current_scene`，如果当前打开的是空场景会出现黑屏，不能作为有效入口验证。
-8. 普通 browser preview 默认不访问外部关卡 CDN；只有显式追加 `use_cdn=true` 时才允许本地 `localhost` 浏览器读取默认微信关卡 CDN。这个开关只用于本地验证关卡 CDN 行为，不能替代微信 release CDN 验证；同时 OSS / CDN 必须对 `http://localhost:7456` 或等价本地 origin 放行 CORS，否则浏览器会在进入游戏逻辑前拦截 manifest / pack 请求。
+8. 普通 browser preview 默认从本地 `levelData` 镜像读取关卡，因此 `http://localhost:7456/?level=2` 这类入口不依赖外部 CDN；只有显式追加 `use_cdn=true` 时才改为读取默认微信关卡 CDN。这个开关只用于本地验证关卡 CDN 行为，不能替代微信 release CDN 验证；同时 OSS / CDN 必须对 `http://localhost:7456` 或等价本地 origin 放行 CORS，否则浏览器会在进入游戏逻辑前拦截 manifest / pack 请求。
 9. 构建后的 web 产物用本地静态服务验证；验证结束后关闭临时服务。`favicon.ico` 这类无关 404 可以记录但不阻断，业务资源、bundle、scene、脚本、贴图缺失必须阻断。
 
 ### 13.1.2 Chrome 插件使用边界
@@ -692,7 +690,7 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 11. `Boot.scene` 直接引用 `bootstrap`、`homeAssets`、`gameAssets` 或 `LevelData` 资源。
 12. 构建产物中 `main`、`bootstrap`、`homeAssets`、`gameAssets` 出现非预期 `deps`，但仍继续当作验证通过。
 13. 默认启动 `preloadBundles` 包含 `bootstrap`、`homeAssets` 或 `gameAssets`，且没有明确的专项性能评审和启动下载量证明。
-14. 把 A/B/C 用户状态当成实验 bucket，让 `wx.getGameExptInfo()` 阻塞首屏路由，或把任一 A/B/C 用户首屏路由到 Home。
+14. 混淆 A/B/C 用户状态分类，或把任一 A/B/C 用户首屏路由到 Home。
 15. 在云端恢复未决时，把默认第 1 关或低进度状态同步到云端，覆盖可能存在的老用户高进度。
 16. Cocos 构建日志已经出现 importer 缺失、0 scenes、0 scripts 或空 bundle config，仍把产物交给 Browser / 微信开发者工具验证。
 17. 客户端把 CDN 资源数据当成本地目录镜像，每次启动全量下载远程关卡 pack、皮肤资源或整个远程数据域。
@@ -707,10 +705,9 @@ AI-first 工作流不能把自测默认外包给 Human。每次用户可见改�
 3. `Human`：负责需求输入 / 审美纠偏 / 局部微调 / 风险判断 / 最终验收。
 4. `cocosCore/main + gameEntry/bootstrap + home/homeAssets + gameplay/gameAssets + remoteLevelData/CDN + remoteSkinData/CDN`：当前默认发布结构，替代旧的“主包 + Cocos remote bundle”默认口径；其中 `home/homeAssets` 是首屏后可选功能包，不再是老用户启动入口，`remoteLevelData/CDN` 与 `remoteSkinData/CDN` 必须分 manifest / 分 hash / 按目标资源加载。
 5. A/B/C：用户状态分类。A 是新用户或最终有效进度不超过 1 的用户；B 是本地 `validLocalLevel = N` 且 `N >= 2` 的正常老用户；C 是本地缺失或只有 1 但云端 `savedLevel = N` 且 `N >= 2` 的删包 / 清缓存回流老用户。三类用户首屏都进入 `Game.scene`，区别只在初始关卡和云端恢复时机。
-6. 实验 bucket：只用于策略、埋点或灰度，不等于 A/B/C 用户类型；实验信息应首屏后后台获取，不能阻塞启动。
-7. Route-owned 资源：为了保证 `deps=[]`，避免 Boot、统一游戏入口、Home 和后续玩法互相多下载而保留的同视觉不同 UUID 资源，不按“像素重复”直接删除。
-8. 用户状态数据：玩家进度、金币、体力、道具、主题解锁、已拥有皮肤和装备皮肤，走本地状态 + 云函数合并；不能和 CDN 资源下载规则混用。
-9. 资源内容数据：关卡 pack、皮肤背景大图等可版本化资源，走 CDN manifest / hash / 按需下载；关卡和皮肤必须在同一个 CDN 根地址下拆成 `levels/` 与 `skin/` 两个目录和两个 manifest，不能共用版本号；也不能和云函数用户状态合并规则混用。
+6. Route-owned 资源：为了保证 `deps=[]`，避免 Boot、统一游戏入口、Home 和后续玩法互相多下载而保留的同视觉不同 UUID 资源，不按“像素重复”直接删除。
+7. 用户状态数据：玩家进度、金币、体力、道具、主题解锁、已拥有皮肤和装备皮肤，走本地状态 + 云函数合并；不能和 CDN 资源下载规则混用。
+8. 资源内容数据：关卡 pack、皮肤背景大图等可版本化资源，走 CDN manifest / hash / 按需下载；关卡和皮肤必须在同一个 CDN 根地址下拆成 `levels/` 与 `skin/` 两个目录和两个 manifest，不能共用版本号；也不能和云函数用户状态合并规则混用。
 
 最终原则：
 

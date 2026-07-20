@@ -13,6 +13,7 @@ type WeChatRuntime = {
     getDeviceInfo?: () => Record<string, unknown>;
     getSystemInfoSync?: () => Record<string, unknown>;
     getLaunchOptionsSync?: () => Record<string, unknown>;
+    getEnterOptionsSync?: () => Record<string, unknown>;
 };
 
 @ccclass('WxCloudMgr')
@@ -128,7 +129,8 @@ export class WxCloudMgr {
 
     getLaunchChannel(): string {
         try {
-            const launch = this.getWx(false)?.getLaunchOptionsSync?.() || {};
+            const wx = this.getWx(false);
+            const launch = wx?.getEnterOptionsSync?.() || wx?.getLaunchOptionsSync?.() || {};
             const query = (launch.query && typeof launch.query === 'object') ? launch.query as Record<string, unknown> : {};
             const channel = query.channel ?? query.from ?? launch.scene ?? '';
             return typeof channel === 'string' || typeof channel === 'number' ? String(channel) : '';

@@ -20,7 +20,7 @@ import {
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
-    GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
+    GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, TUTORIAL_ZOOM_SCALE_DELTA, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
@@ -70,9 +70,9 @@ type SlotTapIntent = {
 };
 
 const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud']);
-const LEVEL_EXP_SLOT_INTRO_PROMPT_TOP_GAP = 16;
-const LEVEL_EXP_SLOT_INTRO_PROMPT_BOARD_GAP = 18;
-const LEVEL_EXP_SLOT_INTRO_PROMPT_FALLBACK_HEIGHT = 158;
+const SLOT_INTRO_PROMPT_TOP_GAP = 16;
+const SLOT_INTRO_PROMPT_BOARD_GAP = 18;
+const SLOT_INTRO_PROMPT_FALLBACK_HEIGHT = 158;
 
 export function installBoardInputViewportModule(target: any): void {
     Object.assign(target, {
@@ -156,17 +156,17 @@ export function installBoardInputViewportModule(target: any): void {
             return Number.isFinite(bounds?.top) ? bounds!.top : null;
         },
 
-        getLevelExpSlotIntroGuideBand(): { top: number; bottom: number; centerY: number; height: number } | null {
-            if (this._activeGameplayGuideLayoutMode !== 'level_exp_slot_intro') return null;
+        getSlotIntroGuideBand(): { top: number; bottom: number; centerY: number; height: number } | null {
+            if (this._activeGameplayGuideLayoutMode !== 'slot_intro') return null;
             const overlayRoot = this.requireCanvasUiRoot?.('OverlayRoot') || null;
             const prompt = overlayRoot?.getChildByName('TutorialGuidePrompt') || null;
             const slotIntro = prompt?.getChildByName('SlotIntroPrompt') || null;
             const promptHeight = slotIntro?.getComponent(UITransform)?.contentSize.height
-                || LEVEL_EXP_SLOT_INTRO_PROMPT_FALLBACK_HEIGHT;
+                || SLOT_INTRO_PROMPT_FALLBACK_HEIGHT;
             const topBarBottom = this.getTopBarAvoidBottomY();
             const fallbackTop = this.getTopBarY() - 30;
             const top = (Number.isFinite(topBarBottom) ? topBarBottom! : fallbackTop)
-                - LEVEL_EXP_SLOT_INTRO_PROMPT_TOP_GAP;
+                - SLOT_INTRO_PROMPT_TOP_GAP;
             const bottom = top - promptHeight;
             return {
                 top,
@@ -189,9 +189,9 @@ export function installBoardInputViewportModule(target: any): void {
             if (topBarBottom !== null) {
                 top = Math.min(top, topBarBottom - gap);
             }
-            const guideBand = this.getLevelExpSlotIntroGuideBand?.() || null;
+            const guideBand = this.getSlotIntroGuideBand?.() || null;
             if (guideBand) {
-                top = Math.min(top, guideBand.bottom - LEVEL_EXP_SLOT_INTRO_PROMPT_BOARD_GAP);
+                top = Math.min(top, guideBand.bottom - SLOT_INTRO_PROMPT_BOARD_GAP);
             }
             let bottom = -visibleH / 2 + 180;
             if (this.shouldShowSlotArea() && this.slotAreaNode?.isValid) {
@@ -252,11 +252,16 @@ export function installBoardInputViewportModule(target: any): void {
             return this.boardViewport?.getScaleNormalized?.() ?? 0;
         },
 
-        setBoardViewportScaleNormalized(value: number): void {
+        setBoardViewportScaleNormalized(value: number, tutorialSource: string = ''): void {
             if (!this.boardViewport) return;
             this.boardViewport.setScaleNormalized(value);
             this.boardViewScale = this.boardViewport.scale;
             this.refreshBoardZoomControl?.();
+            if (this._pinchGuideLayer
+                && Math.abs(this.boardViewport.scale - this.pinchStartScale) > TUTORIAL_ZOOM_SCALE_DELTA) {
+                this.closePinchGuide();
+            }
+            this.completeZoomTutorialIfThresholdReached?.(tutorialSource);
         },
 
         resetBoardViewportToHome(): void {
@@ -311,14 +316,15 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         zoomBoardViewportAround(uiPos: Vec2, boardLocal: Vec2, nextScale: number) {
-            const prevScale = this.boardViewport.scale;
             this.boardViewport.zoomAround(uiPos, boardLocal, nextScale);
             this.boardViewScale = this.boardViewport.scale;
             this.refreshBoardZoomControl?.();
             this.pulseBoardZoomControlActivity?.();
-            if (this._pinchGuideLayer && Math.abs(this.boardViewport.scale - prevScale) > 0.01) {
+            if (this._pinchGuideLayer
+                && Math.abs(this.boardViewport.scale - this.pinchStartScale) > TUTORIAL_ZOOM_SCALE_DELTA) {
                 this.closePinchGuide();
             }
+            this.completeZoomTutorialIfThresholdReached?.('pinch');
         },
 
         beginPinchFromActiveTouches(): boolean {
@@ -364,9 +370,29 @@ export function installBoardInputViewportModule(target: any): void {
             return true;
         },
 
+        transitionFromPinchToRemainingTouch(): void {
+            this.pinchTouchIds = null;
+            this.setGestureMode('idle');
+            this.suppressTap = true;
+            const remaining = Array.from(this.activeBoardTouches.values())[0] as Vec2 | undefined;
+            if (remaining) {
+                this.beginBoardPanFromUiPos(remaining, true);
+                this.suppressTap = true;
+                return;
+            }
+            this.resetTouchState();
+        },
+
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
+            const firstTouchUiPos = event.getUILocation();
+            const firstTouchWorldPos = new Vec3(firstTouchUiPos.x, firstTouchUiPos.y, 0);
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
+                this.reportInteractionTouchAttempt?.(
+                    firstTouchWorldPos,
+                    'board_input',
+                    (Number(this._modalFocusRefs) || 0) > 0 ? 'modal_focus' : 'guide_suspended',
+                );
                 this.resetTouchState();
                 return;
             }
@@ -375,9 +401,8 @@ export function installBoardInputViewportModule(target: any): void {
                 return;
             }
             PerformanceMgr.inst.markUserActivity();
-            const firstTouchUiPos = event.getUILocation();
-            const firstTouchWorldPos = new Vec3(firstTouchUiPos.x, firstTouchUiPos.y, 0);
             this.markFirstLevelTouchTiming?.();
+            this.reportInteractionTouchAttempt?.(firstTouchWorldPos, 'board_input', 'delivered');
             this.reportFirstLevelAnyTouch?.(firstTouchWorldPos, 'board_input', this._guideStep >= 0 ? 'tutorial' : 'free_play');
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
                 this._firstFunnelTouchSent = true;
@@ -396,8 +421,8 @@ export function installBoardInputViewportModule(target: any): void {
                 this.setGestureMode('idle');
                 return;
             }
-            // 引导期间禁止拖动/缩放，只允许点击
-            if (this._guideStep >= 0) {
+            // 普通引导仅允许点击；缩放引导保留棋盘手势，但由引导状态机决定是否完成。
+            if (this._guideStep >= 0 && this._guideMode !== 'zoom') {
                 const uiPos = event.getUILocation();
                 this.setGestureMode('tapCandidate');
                 this.panStartPos.set(uiPos.x, uiPos.y);
@@ -440,18 +465,24 @@ export function installBoardInputViewportModule(target: any): void {
                 );
                 return;
             }
-            if (this._guideStep >= 0) return;  // 引导期间禁止拖动
+            if (this._guideStep >= 0 && this._guideMode !== 'zoom') return;
             const touchCount = this.updateActiveBoardTouches(event);
             if (touchCount >= 2) {
-                if (this.gestureMode !== 'pinching' || !this.pinchTouchIds) {
+                const hasTrackedPinchTouches = this.pinchTouchIds
+                    && this.activeBoardTouches.has(this.pinchTouchIds[0])
+                    && this.activeBoardTouches.has(this.pinchTouchIds[1]);
+                if (this.gestureMode !== 'pinching' || !hasTrackedPinchTouches) {
                     this.beginPinchFromActiveTouches();
                     return;
                 }
                 this.handlePinchMoveFromActiveTouches();
                 return;
             }
-            if (this.gestureMode === 'pinching'
-                || (this.suppressTap && this.gestureMode !== 'tapCandidate' && this.gestureMode !== 'panning')) {
+            if (this.gestureMode === 'pinching') {
+                this.transitionFromPinchToRemainingTouch();
+                return;
+            }
+            if (this.suppressTap && this.gestureMode !== 'tapCandidate' && this.gestureMode !== 'panning') {
                 return;
             }
             const uiPos = event.getUILocation();
@@ -490,7 +521,24 @@ export function installBoardInputViewportModule(target: any): void {
                 this.resetTouchState();
                 return;
             }
-            // 新手引导期间：限制用户只能操作引导指定的区域
+            // 缩放提示不阻断游戏：手势可关闭提示，普通点击关闭提示后继续执行本次点击。
+            if (this._guideStep >= 0 && this._guideMode === 'zoom') {
+                const touchCount = this.updateActiveBoardTouches(event, true);
+                if (this.gestureMode === 'pinching') {
+                    this.transitionFromPinchToRemainingTouch();
+                    return;
+                }
+                if (this.suppressTap || this.totalMoveDistance > (this.constructor as any).DRAG_THRESHOLD) {
+                    this.dismissZoomHint?.('board_gesture');
+                    if (touchCount > 0) return;
+                    this.resetTouchState();
+                    return;
+                }
+                if (this.gestureMode === 'tapCandidate') {
+                    this.dismissZoomHint?.('board_tap');
+                }
+            }
+            // 其他新手引导：限制用户只能操作引导指定的区域。
             if (this._guideStep >= 0) {
                 if (this.gestureMode === 'tapCandidate') {
                     const uiPos = event.getUILocation();
@@ -502,18 +550,7 @@ export function installBoardInputViewportModule(target: any): void {
             }
             const touchCount = this.updateActiveBoardTouches(event, true);
             if (this.gestureMode === 'pinching') {
-                this.pinchTouchIds = null;
-                this.setGestureMode('idle');
-                this.suppressTap = true;
-                if (touchCount > 0) {
-                    const remaining = Array.from(this.activeBoardTouches.values())[0];
-                    if (remaining) {
-                        this.beginBoardPanFromUiPos(remaining, true);
-                        this.suppressTap = true;
-                    }
-                    return;
-                }
-                this.resetTouchState();
+                this.transitionFromPinchToRemainingTouch();
                 return;
             }
             if (this.suppressTap || this.totalMoveDistance > (this.constructor as any).DRAG_THRESHOLD) {
@@ -548,9 +585,13 @@ export function installBoardInputViewportModule(target: any): void {
             this.totalMoveDistance = 0;
         },
 
+        onTouchCancel(_event: EventTouch) {
+            this.resetTouchState();
+        },
+
         /** PC 端滚轮缩放棋盘 */
         onMouseWheel(event: EventMouse) {
-            if (this.isGameEnd || this._guideStep >= 0) return;
+            if (this.isGameEnd || (this._guideStep >= 0 && this._guideMode !== 'zoom')) return;
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) return;
             if (this._skillActive && !this._wandMode) return;
             PerformanceMgr.inst.markUserActivity();
@@ -780,6 +821,7 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         triggerSlotUnlockFromInput(): boolean {
+            if (this._guideStep >= 0) return true;
             if (this.isPlacementVisualBusy?.()) return true;
             const now = Date.now();
             const lastAt = Number(this._lastSlotUnlockInputAt) || 0;

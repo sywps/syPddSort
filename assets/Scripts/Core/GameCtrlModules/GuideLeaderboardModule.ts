@@ -64,6 +64,8 @@ export function installGuideLeaderboardModule(target: any): void {
 
         suspendGuideForModal(_reason: string = 'modal') {
             this._guideInputSuspended = true;
+            this.clearGuideReminderTimer?.();
+            this.hideGuideReminderVisuals?.();
             this.clearGuideRuntimeVisuals();
             if (this._guideLayer?.isValid) {
                 this._guideLayer.active = false;
@@ -84,6 +86,8 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         clearGuideRuntimeVisuals() {
+            this.clearGuideReminderTimer?.();
+            this.hideGuideReminderVisuals?.();
             if (this._guideHand?.isValid) {
                 Tween.stopAllByTarget(this._guideHand);
                 this._guideHand.active = false;
@@ -158,29 +162,10 @@ export function installGuideLeaderboardModule(target: any): void {
 
         /** 手势引导：手停在豆豆块上方，执行点击动作 */
         startHandGestureToBoard(block: BeanBlockInfo, hand: Node, targetOffsetY: number = 0) {
-            const layerUT = this._guideLayer!.getComponent(UITransform)!;
-            const boardUT = this.boardNode.getComponent(UITransform)!;
-            const boardWorldCenter = boardUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-            const boardCenter = layerUT.convertToNodeSpaceAR(boardWorldCenter);
-            const step = this.cellSize + this.cellGap;
-        
-            // 计算豆豆块中心位置
-            let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
-            for (const cell of block.cells) {
-                if (cell.row < minRow) minRow = cell.row;
-                if (cell.row > maxRow) maxRow = cell.row;
-                if (cell.col < minCol) minCol = cell.col;
-                if (cell.col > maxCol) maxCol = cell.col;
-            }
-            const halfBoard = this.levelData.boardWidth / 2;
-            const halfH = this.levelData.boardHeight / 2;
-            const blockCenterCol = (minCol + maxCol) / 2;
-            const blockCenterRow = (minRow + maxRow) / 2;
-            const blockX = (blockCenterCol - halfBoard + 0.5) * step;
-            const blockY = (halfH - 0.5 - blockCenterRow) * step;
-        
+            const bounds = this.getGuideCellsLayerBounds?.(block.cells) || null;
+            if (!bounds) return;
             hand.active = true;
-            this.setGuideHandTarget(hand, boardCenter.x + blockX, boardCenter.y + blockY + targetOffsetY);
+            this.setGuideHandTarget(hand, bounds.centerX, bounds.centerY + targetOffsetY);
             this.startGuideHandPulse(hand);
         },
 
@@ -214,6 +199,11 @@ export function installGuideLeaderboardModule(target: any): void {
 
         startGuideHandPulse(hand: Node) {
             Tween.stopAllByTarget(hand);
+            if (!this._guideReminderVisible) {
+                hand.active = false;
+                return;
+            }
+            hand.active = true;
             hand.setScale(1, 1, 1);
             const base = new Vec3(hand.position.x, hand.position.y, hand.position.z);
             tween(hand)
@@ -223,7 +213,7 @@ export function installGuideLeaderboardModule(target: any): void {
                         .to(0.26, { position: new Vec3(base.x, base.y + 18, base.z) }, { easing: 'sineOut' })
                         .to(0.30, { position: new Vec3(base.x, base.y - 8, base.z) }, { easing: 'quadIn' })
                         .call(() => {
-                            if (this._guideMode === 'level_1' || this._guideMode === 'level_2') this.playGuideHandTapRipple?.(hand);
+                            if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'zoom') this.playGuideHandTapRipple?.(hand);
                         })
                         .delay(0.22)
                 )
@@ -321,6 +311,9 @@ export function installGuideLeaderboardModule(target: any): void {
         advanceTutorial() {
             if (this._guideStep < 0) return;
             if (this._guideInputSuspended) return;
+            this._guideStatus = 'settling';
+            this.clearGuideReminderTimer?.();
+            this.hideGuideReminderVisuals?.();
             const completedStep = this._guideStep;
             this.trackFirstLevelFunnel('tutorial_step_done', {
                 stepId: completedStep,
@@ -341,8 +334,11 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         getTutorialPhaseForStep(step: number): string {
-            if (this._guideMode === 'level_exp_slot_intro') {
+            if (this._guideMode === 'slot_intro') {
                 return 'unlock';
+            }
+            if (this._guideMode === 'zoom') {
+                return 'zoom';
             }
             if (this._guideMode === 'level_2') {
                 if (step === 0) return 'unlock';
@@ -359,18 +355,23 @@ export function installGuideLeaderboardModule(target: any): void {
                 success: true,
             });
             SySDKMgr.inst.reportTutorialFinish();
+            this.clearGuideReminderTimer?.();
+            this.hideGuideReminderVisuals?.();
             this._guideInputSuspended = false;
             this._guideStep = -1;
             this._guideMode = 'none';
             this._activeGameplayGuideLayoutMode = 'none';
             this._guideTotalSteps = 0;
+            this._guideStatus = 'done';
+            this._guideLevel2SlotPlacementSucceeded = false;
+            this._guideReminderPausedForLifecycle = false;
             this._lastGuideVoiceToken = '';
             this.clearGuideHighlight();
             if (this._guideBubble?.isValid) {
                 this._guideBubble.active = false;
             }
             if (this._guideLayer) {
-                Tween.stopAllByTarget(this._guideHand!);
+                if (this._guideHand?.isValid) Tween.stopAllByTarget(this._guideHand);
                 this._guideLayer.destroy();
                 this._guideLayer = null;
                 this._guideMask = null;
@@ -380,7 +381,13 @@ export function installGuideLeaderboardModule(target: any): void {
                 this._guidePromptDefaultLabelColor = null;
                 this._guidePromptDefaultCenterY = null;
             }
-            if (completedGuideMode === 'level_exp_slot_intro') {
+            if (this._guideHandsRoot?.isValid) {
+                this._guideHandsRoot.active = false;
+            }
+            this._guideHandsRoot = null;
+            this._guidePinchLeftHand = null;
+            this._guidePinchRightHand = null;
+            if (completedGuideMode === 'slot_intro') {
                 this.refitBoardViewportToSafeRect?.();
             }
             this.unschedule(this.tickTimer);

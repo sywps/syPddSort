@@ -105,10 +105,7 @@ const EXPERIMENT_GROUP_SPECS = [
   { group: "unattributed", bucket: "未归因", groupLabel: "未归因", buckets: [] },
 ];
 const RETIRED_EXPERIMENT_IDS = new Set(["first_level_route"]);
-const SALT_COMPUTED_EXPERIMENTS = [
-  { experimentId: "level_exp_salt", sourceExperimentId: "level_exp", salt: "level_exp_0623" },
-  { experimentId: "tutorial_exp_salt", sourceExperimentId: "tutorial_exp", salt: "tutorial_exp_0623" },
-];
+const SALT_COMPUTED_EXPERIMENTS = [];
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -4,8 +4,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
+const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
+const cdnSlot = readOptionalWechatCdnSlot(process.env.PDD_WECHAT_CDN_SLOT);
 const options = parseArgs(process.argv.slice(2));
 const sourceLevelDir = path.resolve(options.source || path.join(projectDir, 'assets', 'LevelData'));
 const outputDir = path.resolve(options.output || path.join(projectDir, 'build', 'level-data-cdn'));
@@ -19,9 +21,7 @@ function parseArgs(args) {
     const parsed = {
         output: '',
         source: '',
-        range: '',
         prefix: '',
-        experimentId: '',
     };
     const positionals = [];
     for (let i = 0; i < args.length; i++) {
@@ -30,18 +30,10 @@ function parseArgs(args) {
             parsed.source = args[++i] || '';
         } else if (arg.startsWith('--source=')) {
             parsed.source = arg.slice('--source='.length);
-        } else if (arg === '--range') {
-            parsed.range = args[++i] || '';
-        } else if (arg.startsWith('--range=')) {
-            parsed.range = arg.slice('--range='.length);
         } else if (arg === '--prefix') {
             parsed.prefix = args[++i] || '';
         } else if (arg.startsWith('--prefix=')) {
             parsed.prefix = arg.slice('--prefix='.length);
-        } else if (arg === '--experiment-id') {
-            parsed.experimentId = args[++i] || '';
-        } else if (arg.startsWith('--experiment-id=')) {
-            parsed.experimentId = arg.slice('--experiment-id='.length);
         } else if (!arg.startsWith('-')) {
             positionals.push(arg);
         } else {
@@ -57,14 +49,13 @@ function fail(message) {
     process.exit(1);
 }
 
-function parseRange(value) {
-    if (!value) return null;
-    const match = /^(\d+)\s*[-:]\s*(\d+)$/.exec(String(value).trim());
-    if (!match) fail('range 格式应为 start-end，例如 1-351: ' + value);
-    const min = Math.max(1, Math.floor(Number(match[1]) || 1));
-    const max = Math.max(1, Math.floor(Number(match[2]) || 1));
-    if (min > max) fail('range 起点不能大于终点: ' + value);
-    return { min, max };
+function readOptionalWechatCdnSlot(value) {
+    if (!String(value || '').trim()) return '';
+    try {
+        return normalizeWechatCdnSlot(value);
+    } catch (error) {
+        fail(error && error.message ? error.message : String(error));
+    }
 }
 
 function readJson(filePath) {
@@ -102,13 +93,11 @@ function collectLevels() {
     if (!fs.existsSync(sourceLevelDir)) {
         fail('关卡源码目录不存在: ' + path.relative(projectDir, sourceLevelDir));
     }
-    const range = parseRange(options.range);
     const requiredPrefix = String(options.prefix || '').trim();
     const levels = fs.readdirSync(sourceLevelDir)
         .map((name) => ({ name, info: parseLevelFileName(name) }))
         .filter((entry) => entry.info)
         .filter((entry) => !requiredPrefix || entry.info.prefix === requiredPrefix)
-        .filter((entry) => !range || (entry.info.levelId >= range.min && entry.info.levelId <= range.max))
         .map((entry) => {
             const name = entry.name;
             const info = entry.info;
@@ -140,16 +129,6 @@ function collectLevels() {
         const key = level.prefix + level.levelId;
         if (seenKeys.has(key)) fail('关卡真源存在重复 key: ' + key);
         seenKeys.add(key);
-    }
-    if (range) {
-        const prefix = requiredPrefix || 'level_';
-        const levelIds = new Set(levels.filter((level) => level.prefix === prefix).map((level) => level.levelId));
-        for (let levelId = range.min; levelId <= range.max; levelId++) {
-            if (!levelIds.has(levelId)) fail('关卡范围缺少文件: ' + prefix + levelId + '.json');
-        }
-        for (const level of levels) {
-            if (level.prefix !== prefix) fail('range 模式不允许混合 prefix: ' + level.file);
-        }
     }
     return levels;
 }
@@ -228,6 +207,7 @@ function buildOutput() {
     const dataVersion = hashJson({ packs }).slice(0, 16);
     const manifest = {
         manifestVersion: 1,
+        ...(cdnSlot ? { cdnSlot } : {}),
         dataVersion,
         levelDataVersion: dataVersion,
         schemaVersion: LEVEL_DATA_SCHEMA_VERSION,
@@ -239,10 +219,6 @@ function buildOutput() {
         levelCounts,
         packs,
     };
-    if (options.experimentId) {
-        manifest.experimentId = options.experimentId;
-        if (options.range) manifest.experimentRange = options.range;
-    }
     writeJson(path.join(outputDir, 'level_live.json'), manifest);
     console.log('wrote ' + path.relative(projectDir, outputDir) + ' packs=' + packs.length + ' levels=' + levels.length + ' dataVersion=' + dataVersion);
 }

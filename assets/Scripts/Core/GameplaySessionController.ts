@@ -2,17 +2,14 @@ import {
     AnalyticsMgr,
     AudioMgr,
     BoardModel,
-    LS_PINCH_GUIDE,
     SLOTS_PER_ROW,
     SlotModel,
     SySDKMgr,
-    sys,
 } from './GameCtrlShared';
-import type { LevelData } from './GameCtrlShared';
+import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
-import { LevelDataCdnService } from './LevelDataCdnService';
+import { collectActiveBlockInputEvents } from './DebugPerfTrace';
 import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
-import type { SlotRowPolicy } from './SlotOnboardingPolicy';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
 export class GameplaySessionController {
@@ -21,6 +18,7 @@ export class GameplaySessionController {
     initGame(data: LevelData, activeLevelId?: number) {
         const runtime = this.runtime;
         try {
+            runtime.cancelRewardedGrantInteraction?.('gameplay-init');
             runtime._gameplayInitSeq = (Number(runtime._gameplayInitSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
@@ -41,8 +39,6 @@ export class GameplaySessionController {
             const gameplayEntryMode = runtime._currentExternalLevelFilePath
                 ? 'external'
                 : (runtime._isThemeLevel ? 'theme' : 'main');
-            const useMainlineSlotGuideFlow = gameplayEntryMode === 'main'
-                && gameplayPrefix === 'level_';
             AppRoot.tryGet()?.markGameActive(resolvedLevelId, gameplayPrefix, gameplayEntryMode, 'Game');
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
@@ -50,17 +46,8 @@ export class GameplaySessionController {
             const activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
-            const configuredTutorialGuideMode = this.getLevelTutorialGuideMode(data);
-            const shouldStartZoomGuide = configuredTutorialGuideMode === 'zoom'
-                || (activeLogicalLevelId === 2 && useMainlineSlotGuideFlow);
             const tutorialMode = gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
-                ? (shouldStartZoomGuide
-                    ? 'none'
-                    : (activeLogicalLevelId === 1
-                        ? 'level_1'
-                        : (activeLogicalLevelId === 3 && useMainlineSlotGuideFlow
-                            ? 'level_exp_slot_intro'
-                            : 'none')))
+                ? this.resolveTutorialMode(data)
                 : 'none';
             runtime._activeGameplayGuideLayoutMode = tutorialMode;
             runtime._firstFunnelTouchSent = false;
@@ -74,26 +61,21 @@ export class GameplaySessionController {
             runtime._firstLevelGuideStepReadyAt = {};
             runtime._firstLevelGuideStepFirstTouchSent = {};
             runtime._firstLevelGuideLayerTouchCounts = {};
+            runtime._interactionTouchAttemptCount = 0;
             runtime.boardModel = new BoardModel(data);
             const maxSlotRows = runtime.getMaxSlotRows();
-            let slotPolicy = resolveSlotRowPolicy({
+            const slotPolicy = resolveSlotRowPolicy({
                 levelId: activeLogicalLevelId,
                 entryMode: gameplayEntryMode,
                 maxRows: maxSlotRows,
                 configuredSlotPolicy: data.slotPolicy,
             });
-            slotPolicy = this.applyLevelExperimentGuideSlotPolicy(
-                slotPolicy,
-                activeLogicalLevelId,
-                gameplayEntryMode,
-                maxSlotRows,
-                data,
-            );
             runtime._activeSlotRowPolicy = slotPolicy;
             runtime.slotUnlockedRows = slotPolicy.unlockedRows;
-            const initialVisibleSlotRows = slotPolicy.unlockAllRowsAtOnce
-                ? Math.min(slotPolicy.rowCount, Math.max(1, slotPolicy.unlockedRows) + 1)
-                : slotPolicy.rowCount;
+            const initialVisibleSlotRows = Math.min(
+                slotPolicy.rowCount,
+                Math.max(1, slotPolicy.unlockedRows) + (slotPolicy.unlockedRows < slotPolicy.rowCount ? 1 : 0),
+            );
             runtime.slotRowCount = initialVisibleSlotRows;
             runtime.initialSlotRowCount = runtime.slotRowCount;
             runtime.slotModel = new SlotModel(SLOTS_PER_ROW * runtime.slotRowCount);
@@ -201,17 +183,11 @@ export class GameplaySessionController {
             runtime.resetIdleHintTimer();
             const analyticsLevelId = runtime.getAnalyticsLevelId();
             const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
-            const levelExperimentContext = LevelDataCdnService.inst.getLevelExperimentEventContext(
-                activeLogicalLevelId,
-                gameplayPrefix,
-            );
             AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
-                ...(levelExperimentContext || AnalyticsMgr.inst.getTutorialExperimentEventContext()),
                 logicalLevelId: analyticsLevelId,
                 physicalLevelId: analyticsPhysicalLevelId,
             });
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
-            const tutorialGateLevelId = gameplayEntryMode === 'main' ? activeLogicalLevelId : 0;
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
@@ -219,16 +195,14 @@ export class GameplaySessionController {
                 } else if (slotPolicy.showSlotUnlockGuide) {
                     runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
                 }
-                if (tutorialMode === 'none' && shouldStartZoomGuide) {
-                    runtime.startPinchGuide({
-                        title: '双指拖动可放大缩小图案',
-                        subtitle: '',
-                        autoCloseSeconds: 0,
-                    });
-                } else if (tutorialMode === 'none' && tutorialGateLevelId === 3 && (runtime.getUrlForceGuide() || sys.localStorage.getItem(LS_PINCH_GUIDE) !== '1')) {
-                    runtime.startPinchGuide();
-                }
             }
+            this.reportLevelInteractionReady(
+                runtime,
+                analyticsLevelId,
+                analyticsPhysicalLevelId,
+                gameplayEntryMode,
+                tutorialMode,
+            );
         } catch (error) {
             AppRoot.tryGet()?.clearRouteCover('gameplay-init-error');
             throw error;
@@ -241,59 +215,13 @@ export class GameplaySessionController {
         appRoot.clearRouteCover('gameplay-ready');
     }
 
-    private applyLevelExperimentGuideSlotPolicy(
-        policy: SlotRowPolicy,
-        levelId: number,
-        entryMode: string,
-        maxRows: number,
-        data?: LevelData,
-    ): SlotRowPolicy {
-        if (entryMode !== 'main') return policy;
-        const guideMode = this.getLevelTutorialGuideMode(data);
-        if (guideMode === 'zoom') {
-            return {
-                ...policy,
-                showSlotUnlockGuide: false,
-            };
+    private resolveTutorialMode(data?: LevelData): TutorialMode {
+        switch (this.getLevelTutorialGuideMode(data)) {
+            case 'level_1_red_blue': return 'level_1';
+            case 'slot_expand_all': return 'level_2';
+            case 'zoom': return 'zoom';
+            default: return 'none';
         }
-        if (guideMode === 'slot_expand_all') {
-            const rowCount = Math.min(maxRows, Math.max(policy.defaultRows, policy.rowCount));
-            return {
-                ...policy,
-                rowCount,
-                freeUnlockUntilRows: Math.max(policy.freeUnlockUntilRows, rowCount),
-                appendLockedRowAfterUnlock: false,
-                unlockMode: 'free',
-                showSkillArea: true,
-                showSlotUnlockGuide: false,
-            };
-        }
-        if (levelId === 2) {
-            return {
-                ...policy,
-                showSlotUnlockGuide: false,
-            };
-        }
-        if (levelId !== 3) return policy;
-
-        const defaultRows = Math.min(Math.max(2, policy.defaultRows), maxRows);
-        const rowCount = Math.min(maxRows, Math.max(defaultRows + 1, policy.rowCount));
-        if (rowCount <= defaultRows) {
-            return policy;
-        }
-        return {
-            ...policy,
-            defaultRows,
-            freeUnlockRows: 1,
-            adUnlockRows: 0,
-            freeUnlockUntilRows: defaultRows + 1,
-            unlockedRows: defaultRows,
-            rowCount,
-            appendLockedRowAfterUnlock: false,
-            unlockMode: 'free',
-            showSkillArea: true,
-            showSlotUnlockGuide: false,
-        };
     }
 
     private getLevelTutorialGuideMode(data?: LevelData): string {
@@ -301,7 +229,49 @@ export class GameplaySessionController {
         return typeof mode === 'string' ? mode : '';
     }
 
+    private reportLevelInteractionReady(
+        runtime: any,
+        logicalLevelId: number,
+        physicalLevelId: number,
+        entryMode: string,
+        tutorialMode: TutorialMode,
+    ): void {
+        if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 3) return;
+        const blockers = collectActiveBlockInputEvents();
+        const expectedGuideBlocker = tutorialMode === 'level_1' || tutorialMode === 'level_2';
+        const unexpectedBlockers = blockers.filter((entry) => {
+            const path = String(entry.path || '');
+            return !(expectedGuideBlocker && path.includes('/GuideLayer'));
+        });
+        AnalyticsMgr.inst.trackFunnelEvent({
+            eventName: 'level_interaction_ready',
+            page: runtime.getAnalyticsPage(),
+            levelId: logicalLevelId,
+            logicalLevelId,
+            physicalLevelId,
+            source: 'gameplay_session',
+            success: unexpectedBlockers.length === 0 && (Number(runtime._modalFocusRefs) || 0) === 0,
+            errorCode: unexpectedBlockers.length > 0 ? 'unexpected_input_blocker' : '',
+            extra: {
+                tutorialMode,
+                guideMode: runtime._guideMode || 'none',
+                guideStep: Math.max(-1, Math.floor(Number(runtime._guideStep) || 0)),
+                guidePhase: runtime._guidePhase || '',
+                modalFocusRefs: Math.max(0, Number(runtime._modalFocusRefs) || 0),
+                activeTouchCount: Math.max(0, Number(runtime.activeBoardTouches?.size) || 0),
+                gestureMode: runtime.gestureMode || 'idle',
+                slotUnlockedRows: Math.max(0, Number(runtime.slotUnlockedRows) || 0),
+                slotRowCount: Math.max(0, Number(runtime.slotRowCount) || 0),
+                dataVersion: runtime.getRuntimeRemoteHash?.() || '',
+                activeBlockers: blockers.map((entry) => String(entry.path || '')).join('|'),
+                unexpectedBlockers: unexpectedBlockers.map((entry) => String(entry.path || '')).join('|'),
+            },
+        });
+    }
+
     private clearTutorialRuntimeState(runtime: any): void {
+        runtime.clearGuideReminderTimer?.();
+        runtime.hideGuideReminderVisuals?.();
         if (runtime._guideLayer?.isValid && typeof runtime.clearGuideHighlight === 'function') {
             runtime.clearGuideHighlight();
         }
@@ -322,6 +292,9 @@ export class GameplaySessionController {
         runtime._guideLayer = null;
         runtime._guideMask = null;
         runtime._guideHand = null;
+        runtime._guideHandsRoot = null;
+        runtime._guidePinchLeftHand = null;
+        runtime._guidePinchRightHand = null;
         runtime._guideBubble = null;
         runtime._guideBubbleLbl = null;
         runtime._guidePromptDefaultLabelColor = null;
@@ -333,6 +306,13 @@ export class GameplaySessionController {
         runtime._activeGameplayGuideLayoutMode = 'none';
         runtime._guideTotalSteps = 0;
         runtime._guidePhase = 'select';
+        runtime._guideStatus = 'idle';
+        runtime._guideReminderPausedForLifecycle = false;
+        runtime._guideZoomStartScale = 1;
+        runtime._guideZoomLastScale = 1;
+        runtime._guideZoomAccumulatedScaleDelta = 0;
+        runtime._guideZoomLastSource = '';
+        runtime._interactionTouchAttemptCount = 0;
         runtime._lastGuideVoiceToken = '';
     }
 

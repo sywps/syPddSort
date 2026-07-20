@@ -1,4 +1,4 @@
-import { director } from 'cc';
+import { BlockInputEvents, director, game, Node, UITransform } from 'cc';
 import {
     getMiniGameBuildMode,
     getMiniGameBuildPlatform,
@@ -89,6 +89,29 @@ function readMemorySnapshot(): PlainRecord | null {
     }
 }
 
+export function collectActiveBlockInputEvents(): PlainRecord[] {
+    const scene = director.getScene();
+    if (!scene?.isValid) return [];
+    const result: PlainRecord[] = [];
+    const visit = (node: Node, path: string): void => {
+        if (result.length >= 20 || !node?.isValid || !node.activeInHierarchy) return;
+        const blocker = node.getComponent(BlockInputEvents);
+        if (blocker?.enabled) {
+            const ui = node.getComponent(UITransform);
+            result.push({
+                path,
+                width: Math.max(0, Number(ui?.contentSize.width) || 0),
+                height: Math.max(0, Number(ui?.contentSize.height) || 0),
+            });
+        }
+        for (const child of node.children) {
+            visit(child, `${path}/${child.name}`);
+        }
+    };
+    visit(scene, scene.name || 'Scene');
+    return result;
+}
+
 export function collectDebugPerfRuntimeSnapshot(runtime: any): PlainRecord {
     if (!runtime) return {};
     let runtimeSceneName = '';
@@ -97,8 +120,21 @@ export function collectDebugPerfRuntimeSnapshot(runtime: any): PlainRecord {
     } catch (_) {
         runtimeSceneName = '';
     }
+    const isPaused = (game as any).isPaused;
     return {
         runtimeSceneName,
+        enginePaused: typeof isPaused === 'function' ? !!isPaused.call(game) : false,
+        activeBlockInputEvents: collectActiveBlockInputEvents(),
+        adShowing: !!runtime._adShowing,
+        skillActive: !!runtime._skillActive,
+        modalFocusRefs: Math.max(0, Number(runtime._modalFocusRefs) || 0),
+        noLivesModalActive: !!runtime._noLivesModal?.isValid,
+        recoverVigorBusy: !!runtime._recoverVigorBusy,
+        recoverVigorTransaction: makeJsonSafe(runtime._recoverVigorTransaction, 1),
+        recoverVigorValue: Math.max(0, Number(runtime.getVigor?.()) || 0),
+        recoverVigorHudText: String(runtime._vigorCountLbl?.string || ''),
+        recoverVigorPopupText: String(runtime._recoverVigorStatusLbl?.string || ''),
+        loadingOverlayActive: !!runtime._loadingOverlay?.isValid && runtime._loadingOverlay.active !== false,
         sfCacheSize: getMapLikeSize(runtime.sfCache),
         spriteFrameMetaSize: getMapLikeSize(runtime._spriteFrameCacheMeta),
         pendingSpriteFrameLoads: getMapLikeSize(runtime._pendingSpriteFrameLoads),

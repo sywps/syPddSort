@@ -31,7 +31,6 @@ import type {
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
 import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
-import { WeChatRecommendService } from '../WeChatRecommendService';
 
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
@@ -675,19 +674,6 @@ export function installSettlementHudModule(target: any): void {
             }, 0.95);
         },
 
-        scheduleAutoShowWeChatRecommendAfterWin(logicalLevelId: number) {
-            this.scheduleOnce(() => {
-                if (this._isThemeLevel || !this.panelWin?.isValid || this.panelWin.activeInHierarchy === false) return;
-                WeChatRecommendService.inst.attemptAutoShowAfterWin({
-                    logicalLevelId,
-                    physicalLevelId: this.levelData?.levelId || logicalLevelId,
-                    page: typeof this.getAnalyticsPage === 'function' ? this.getAnalyticsPage() : 'game',
-                    source: 'win_panel_auto',
-                    isThemeLevel: this._isThemeLevel === true,
-                });
-            }, 0.25);
-        },
-
         failWinSettlementReveal(error: unknown, revealToken: number): void {
             if (revealToken !== this._settlementRevealToken || this._settlementRevealState === 'failed') return;
             this._settlementRevealState = 'failed';
@@ -705,6 +691,7 @@ export function installSettlementHudModule(target: any): void {
             if (this._settlementRevealState === 'shown' || this._settlementRevealState === 'revealing' || this._settlementRevealState === 'failed') {
                 return false;
             }
+            this.closePinchGuide?.();
             if (!this.ensureGameplayResultPanelsCreated?.()) return false;
             this._settlementRevealState = 'revealing';
             try {
@@ -726,7 +713,6 @@ export function installSettlementHudModule(target: any): void {
                 panel.setSiblingIndex(999);
                 this.playWinSettlementBannerFx?.();
                 this.playWinBaseGoldRewardFx?.();
-                this.scheduleAutoShowWeChatRecommendAfterWin?.(logicalLevelId);
                 this._settlementRevealState = 'shown';
                 return true;
             } catch (error) {
@@ -775,6 +761,7 @@ export function installSettlementHudModule(target: any): void {
         gameWin() {
             if (this.isGameEnd) return;
             this.isGameEnd = true;
+            this.closePinchGuide?.();
             this._patternCompleteWinPending = false;
             this.clearAdRewardHintVisuals?.();
             this.clearEndgameHints(false);
@@ -927,10 +914,15 @@ export function installSettlementHudModule(target: any): void {
             const entryMode = this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
             const activeLevel = this.getActiveLogicalLevelId();
             if (!this.costVigorForLevel(activeLevel, entryMode)) {
-                this.showNoLivesAdModal(() => {
-                    if (this.costVigorForLevel(activeLevel, entryMode)) {
+                this.showNoLivesAdModal({
+                    source: 'restart',
+                    onResult: (result: any) => {
+                        if (result?.status !== 'granted' || !this.isValid) return;
+                        if (this.getRuntimeSceneName('Game') !== 'Game') return;
+                        if (this.getActiveLogicalLevelId() !== activeLevel) return;
+                        if (!this.costVigorForLevel(activeLevel, entryMode)) return;
                         this.doRestart();
-                    }
+                    },
                 });
                 return;
             }
@@ -1002,12 +994,21 @@ export function installSettlementHudModule(target: any): void {
             this.saveLevelProgress(nextId);
             // 下一关消耗体力
             if (!this.costVigorForLevel(nextId, 'main')) {
-                this.showNoLivesAdModal(() => {
-                    if (this.costVigorForLevel(nextId, 'main')) {
+                this.showNoLivesAdModal({
+                    source: 'next_level',
+                    onResult: (result: any) => {
+                        if (result?.status === 'cancelled') {
+                            this.endSettlementNextTransition();
+                            return;
+                        }
+                        if (result?.status !== 'granted' || !this.isValid) return;
+                        if (this.getRuntimeSceneName('Game') !== 'Game') return;
+                        if (!this.costVigorForLevel(nextId, 'main')) {
+                            this.endSettlementNextTransition();
+                            return;
+                        }
                         this.loadLevel(nextId);
-                    } else {
-                        this.endSettlementNextTransition();
-                    }
+                    },
                 });
                 return;
             }
@@ -1035,7 +1036,7 @@ export function installSettlementHudModule(target: any): void {
         //
         // level_2:
         // Step 0: 点击解锁按钮扩展第二排暂存槽
-        // Step 1: 选中超过一排暂存槽容量的豆豆块（select 阶段，目标=暂存槽）
+        // Step 1: 选中任意可操作豆豆块（select 阶段，目标=暂存槽）
         // Step 2: 点击暂存槽放入（place 阶段）
 
         collectLevel2TutorialColorIds(limit: number = 2): number[] {
@@ -1061,9 +1062,7 @@ export function installSettlementHudModule(target: any): void {
                 }
             }
             blocks.sort((a, b) => {
-                const overflowA = a.size > SLOTS_PER_ROW ? 1 : 0;
-                const overflowB = b.size > SLOTS_PER_ROW ? 1 : 0;
-                return overflowB - overflowA || b.size - a.size || a.order - b.order;
+                return b.size - a.size || a.order - b.order;
             });
             const colors: number[] = [];
             const seen = new Set<number>();
@@ -1074,6 +1073,19 @@ export function installSettlementHudModule(target: any): void {
                 if (colors.length >= limit) break;
             }
             return colors;
+        },
+
+        collectZoomTutorialColorIds(limit: number = 2): number[] {
+            const colors = this.collectLevel2TutorialColorIds(limit);
+            return colors.sort((colorA: number, colorB: number) => {
+                const blockA = this.findBlockOnBoard?.(colorA);
+                const blockB = this.findBlockOnBoard?.(colorB);
+                const averageRow = (block: BeanBlockInfo | null | undefined) => {
+                    if (!block?.cells?.length) return -1;
+                    return block.cells.reduce((sum: number, cell: { row: number }) => sum + cell.row, 0) / block.cells.length;
+                };
+                return averageRow(blockB) - averageRow(blockA);
+            });
         },
         
         collectTutorialColorIds(limit: number = 2): number[] {
@@ -1097,19 +1109,13 @@ export function installSettlementHudModule(target: any): void {
         },
 
         startTutorial(mode: TutorialMode) {
-            const requiredGuideFrames = [
-                'guide_hand',
-                'guide_bubble_frame',
-            ];
-            if (requiredGuideFrames.some((name) => !this.getSF(name))) {
-                this._ensureSpriteFramesByName(requiredGuideFrames, () => this.startTutorial(mode));
-                return;
-            }
             PerformanceMgr.inst.markUserActivity(8000);
             this._guideMode = mode;
             this._guideStep = 0;
-            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : (mode === 'level_exp_slot_intro' ? 1 : 0));
+            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : ((mode === 'zoom' || mode === 'slot_intro') ? 1 : 0));
             this._guideInputSuspended = false;
+            this._guideLevel2SlotPlacementSucceeded = false;
+            this._guideStatus = 'awaiting_action';
             this._guidePhase = typeof this.getTutorialPhaseForStep === 'function'
                 ? this.getTutorialPhaseForStep(0)
                 : 'select';
@@ -1120,7 +1126,7 @@ export function installSettlementHudModule(target: any): void {
             }
         
             // 从当前棋盘动态确定两种可操作颜色（跳过已锁定格）
-            if (mode === 'level_exp_slot_intro') {
+            if (mode === 'slot_intro' || mode === 'zoom') {
                 this._guideFirstColorId = 0;
                 this._guideSecondColorId = 0;
             } else {
@@ -1130,6 +1136,9 @@ export function installSettlementHudModule(target: any): void {
                 this._guideFirstColorId = tutorialColors[0] || 0;
                 this._guideSecondColorId = tutorialColors[1] || this._guideFirstColorId;
                 if (this._guideFirstColorId === 0) {
+                    if (mode === 'level_2') {
+                        throw new Error('[guide] level_2 requires a playable board block');
+                    }
                     this._guideMode = 'none';
                     this._guideTotalSteps = 0;
                     this._guideStep = -1;
@@ -1145,6 +1154,10 @@ export function installSettlementHudModule(target: any): void {
                 this.boardViewport.resetToHome();
                 this.boardViewScale = this.boardViewport.scale;
             }
+            this._guideZoomStartScale = Number(this.boardViewport?.scale || this.boardViewScale || 1);
+            this._guideZoomLastScale = this._guideZoomStartScale;
+            this._guideZoomAccumulatedScaleDelta = 0;
+            this._guideZoomLastSource = '';
         
             const root = typeof this.requireCanvasUiRoot === 'function'
                 ? this.requireCanvasUiRoot('OverlayRoot')
@@ -1160,33 +1173,35 @@ export function installSettlementHudModule(target: any): void {
             this._guideLayer.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
             this._guideLayer.layer = Layers.Enum.UI_2D;
             this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
-            this._guideLayer.addComponent(BlockInputEvents);
-            this._guideLayer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-                const uiPos = event.getUILocation();
-                const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
-                this.markFirstLevelTouchTiming?.();
-                if (this._guideInputSuspended) {
-                    this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
-                    return;
-                }
-                this.reportFirstLevelAnyTouch?.(worldPos, 'guide_layer', 'tutorial');
-                this.reportTutorialLayerTouchStart?.(worldPos);
-                event.propagationStopped = true;
-            }, this);
-            this._guideLayer.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                const uiPos = event.getUILocation();
-                const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
-                if (this._guideInputSuspended) {
-                    this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
-                    return;
-                }
-                if (this.isGameEnd || this._guideStep < 0) {
-                    this.reportTutorialTapResult?.(worldPos, 'ignored_invalid_step', false, 'guide_layer');
-                    return;
-                }
-                this.handleGuideTap(worldPos);
-                event.propagationStopped = true;
-            }, this);
+            if (mode !== 'zoom') {
+                this._guideLayer.addComponent(BlockInputEvents);
+                this._guideLayer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+                    const uiPos = event.getUILocation();
+                    const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
+                    this.markFirstLevelTouchTiming?.();
+                    if (this._guideInputSuspended) {
+                        this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
+                        return;
+                    }
+                    this.reportFirstLevelAnyTouch?.(worldPos, 'guide_layer', 'tutorial');
+                    this.reportTutorialLayerTouchStart?.(worldPos);
+                    event.propagationStopped = true;
+                }, this);
+                this._guideLayer.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                    const uiPos = event.getUILocation();
+                    const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
+                    if (this._guideInputSuspended) {
+                        this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
+                        return;
+                    }
+                    if (this.isGameEnd || this._guideStep < 0) {
+                        this.reportTutorialTapResult?.(worldPos, 'ignored_invalid_step', false, 'guide_layer');
+                        return;
+                    }
+                    this.handleGuideTap(worldPos);
+                    event.propagationStopped = true;
+                }, this);
+            }
         
             this._guideMask = new Node('GuideMask');
             this._guideLayer.addChild(this._guideMask);
@@ -1197,7 +1212,7 @@ export function installSettlementHudModule(target: any): void {
             if (!guidePrompt) {
                 throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuidePrompt');
             }
-            const promptVariant = this._guideMode === 'level_exp_slot_intro'
+            const promptVariant = this._guideMode === 'slot_intro'
                 ? 'SlotIntroPrompt'
                 : 'SingleLinePrompt';
             const lbl = this.activateGuidePromptVariant?.(guidePrompt, promptVariant) || null;
@@ -1210,13 +1225,24 @@ export function installSettlementHudModule(target: any): void {
             this._guidePromptDefaultLabelColor = new Color(lbl.color.r, lbl.color.g, lbl.color.b, lbl.color.a);
             this._guidePromptDefaultCenterY = guidePrompt.position.y;
         
-            this._guideHand = new Node('GuideHand');
-            this._guideLayer.addChild(this._guideHand);
-            this._guideHand.addComponent(UITransform).setContentSize(GUIDE_HAND_BOX_SIZE, GUIDE_HAND_BOX_SIZE);
-            this._guideHand.layer = Layers.Enum.UI_2D;
-            const guideHandFrame = this.getSF('guide_hand');
-            if (!guideHandFrame) throw new Error('[guide] missing sprite frame: guide_hand');
-            this._applySpriteFrame(this._guideHand, guideHandFrame, GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_SPRITE_SIZE);
+            const handsRoot = root.getChildByName('TutorialGuideHands');
+            const singleHand = handsRoot?.getChildByName('GuideHandSingle') || null;
+            const pinchLeftHand = handsRoot?.getChildByName('GuideHandPinchLeft') || null;
+            const pinchRightHand = handsRoot?.getChildByName('GuideHandPinchRight') || null;
+            if (!handsRoot?.isValid || !singleHand?.getComponent(Sprite)
+                || !pinchLeftHand?.getComponent(Sprite) || !pinchRightHand?.getComponent(Sprite)) {
+                throw new Error('[guide] Game.scene is missing OverlayRoot/TutorialGuideHands hand variants');
+            }
+            handsRoot.active = true;
+            handsRoot.setSiblingIndex(root.children.length - 1);
+            singleHand.active = false;
+            pinchLeftHand.active = false;
+            pinchRightHand.active = false;
+            this._guideHandsRoot = handsRoot;
+            this._guideHand = singleHand;
+            this._guidePinchLeftHand = pinchLeftHand;
+            this._guidePinchRightHand = pinchRightHand;
+            guidePrompt.setSiblingIndex(root.children.length - 1);
         
             this.showGuideStep(0);
             if ((Number(this._modalFocusRefs) || 0) > 0) {
@@ -1225,7 +1251,10 @@ export function installSettlementHudModule(target: any): void {
         },
 
         showGuideStep(step: number) {
+            this.clearGuideReminderTimer?.();
+            this.hideGuideReminderVisuals?.();
             this._guideStep = step;
+            this._guideStatus = 'awaiting_action';
             if (this._guideInputSuspended) {
                 this.clearGuideRuntimeVisuals?.();
                 if (this._guideLayer?.isValid) {
@@ -1282,9 +1311,15 @@ export function installSettlementHudModule(target: any): void {
                         default: this.endTutorial(); break;
                     }
                     break;
-                case 'level_exp_slot_intro':
+                case 'zoom':
                     switch (step) {
-                        case 0: this.guideLevelExpSlotIntroStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 0: this.guideZoomGestureStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        default: this.endTutorial(); break;
+                    }
+                    break;
+                case 'slot_intro':
+                    switch (step) {
+                        case 0: this.guideSlotIntroStep(gm, gb as Graphics, lbl, bubble, hand); break;
                         default: this.endTutorial(); break;
                     }
                     break;
@@ -1293,6 +1328,7 @@ export function installSettlementHudModule(target: any): void {
                     break;
             }
             this.markTutorialStepInteractiveReadyForFunnel?.(step);
+            this.armGuideReminder?.();
         
             this.playGuideVoiceForCurrentStep(step);
         },
@@ -1321,7 +1357,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         isMinimalTutorialGuide(): boolean {
-            return this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'level_exp_slot_intro';
+            return this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'zoom' || this._guideMode === 'slot_intro';
         },
 
         formatLevel1GuidePrompt(primaryText: string): string {

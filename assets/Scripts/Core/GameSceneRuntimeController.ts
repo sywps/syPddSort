@@ -462,6 +462,7 @@ export class GameSceneRuntimeController {
 
     destroy(): void {
         const sceneName = this.getRuntimeSceneName();
+        this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
             sceneName,
         });
@@ -480,6 +481,9 @@ export class GameSceneRuntimeController {
         this.runtime.clearIdleHint();
         this.runtime.clearSelectionOverlay();
         this.runtime.clearDragNodes();
+        this.runtime.clearExpandSlotGuide?.();
+        this.runtime._gameCirclePanelController?.destroy?.();
+        UserMgr.inst.destroyUserInfoButtons();
         const inputRoot: Node = this.runtime._sceneInputRoot || this.runtime.node;
         inputRoot.off(Node.EventType.TOUCH_START, this.runtime.onTouchStart, this.runtime);
         inputRoot.off(Node.EventType.TOUCH_MOVE, this.runtime.onTouchMove, this.runtime);
