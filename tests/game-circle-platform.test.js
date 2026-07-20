@@ -11,6 +11,7 @@ function read(relPath) {
 const platform = read('assets/Scripts/Core/MiniGamePlatform.ts');
 const panel = read('assets/Scripts/Core/Panels/GameCirclePanelController.ts');
 const sceneHome = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
+const sceneRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const postbuild = read('scripts/postbuild-wechat-minigame.js');
 
 assert.ok(platform.includes('getWeChatMiniGameWindowInfo'), 'Game Circle must use full WeChat window diagnostics');
@@ -40,6 +41,9 @@ assert.ok(!panel.includes('openByPageManager'), 'Game Circle must not call PageM
 assert.ok(!panel.includes('openWeChatGameCirclePage'), 'Game Circle panel must not trigger openPage directly');
 assert.ok(!panel.includes('runtimeWarn'), 'Game Circle platform failures must not be downgraded to warnings');
 assert.ok(!panel.includes('showToast'), 'Game Circle platform failures must not be downgraded to Toast messages');
+assert.ok(panel.includes('destroy(): void'), 'Game Circle controller must expose scene-owner cleanup for its native button');
+assert.ok(sceneRuntime.includes('this.runtime._gameCirclePanelController?.destroy?.();'), 'scene teardown must destroy any surviving native Game Circle button');
+assert.ok(sceneRuntime.includes('UserMgr.inst.destroyUserInfoButtons();'), 'scene teardown must destroy any surviving native user-info button');
 
 assert.ok(sceneHome.includes("const GAME_CIRCLE_OPENLINK = '';"), 'default Game Circle entry must open the Game Circle home page instead of a stale hard-coded openlink');
 

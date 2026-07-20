@@ -38,9 +38,8 @@ import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup,
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
-import { WeChatRecommendService } from '../WeChatRecommendService';
 import { normalizeStartupLocalLevel, readStartupLocalProgress } from '../StartupLocalProgress';
-import { isExplicitLocalTestProfile } from '../RemoteDataCdnClient';
+import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
 
 const SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP = 'startup-bootstrap';
 const SPRITE_FRAME_SCOPE_SCENE_HOME = 'scene-home';
@@ -1462,7 +1461,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _loadLevelDataFromConfiguredSource(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void) {
-            if (isExplicitLocalTestProfile()) {
+            if (shouldUseLocalLevelDataMirror()) {
                 this._loadLevelDataFromLocalBundle(levelId, prefix, callback);
                 return;
             }
@@ -2629,7 +2628,6 @@ export function installAssetBootstrapModule(target: any): void {
                 equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
                 equippedBackgroundSkinUpdatedAt: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinUpdatedAt) || 0)),
                 backgroundSkinResetVersion: Math.max(0, Math.floor(Number(backgroundSkinState.backgroundSkinResetVersion) || 0)),
-                ...WeChatRecommendService.inst.getCloudGameStatePatch(),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -2753,7 +2751,6 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
             const { profile, gameState } = restoreResult;
-            WeChatRecommendService.inst.applyCloudGameState(gameState || null);
             if (!profile && !gameState) {
                 return 'cloud_confirmed_empty';
             }
@@ -2798,7 +2795,9 @@ export function installAssetBootstrapModule(target: any): void {
                 }
             }
             if (shouldSkipVolatileRestore) {
+                this.refreshVigorUI?.();
                 this.refreshGoldUI();
+                this.syncSkillButtonRuntimeStates?.();
                 if (effectiveLevel > cloudSavedLevel && effectiveLevel > 1) return 'local_progress_gt_1';
                 return cloudSavedLevel > 1 ? 'cloud_progress_gt_1' : 'cloud_confirmed_empty';
             }
@@ -2847,7 +2846,9 @@ export function installAssetBootstrapModule(target: any): void {
             if (cloudUpdatedAt > 0) {
                 this.setLocalUserStateUpdatedAt(cloudUpdatedAt);
             }
+            this.refreshVigorUI?.();
             this.refreshGoldUI();
+            this.syncSkillButtonRuntimeStates?.();
             if (cloudSavedLevel > localSavedLevel && cloudSavedLevel > 1) return 'cloud_progress_gt_1';
             if (effectiveLevel > cloudSavedLevel && effectiveLevel > 1) return 'local_progress_gt_1';
             return cloudSavedLevel > 1 ? 'local_progress_gt_1' : 'cloud_confirmed_empty';
@@ -2855,7 +2856,6 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
             const gameState = state?.gameState || null;
-            WeChatRecommendService.inst.applyCloudGameState(gameState);
             if (gameState && typeof this.applyCloudBackgroundSkinState === 'function') {
                 this.applyCloudBackgroundSkinState(
                     gameState.ownedBackgroundSkinIds,
@@ -2868,10 +2868,15 @@ export function installAssetBootstrapModule(target: any): void {
             }
             this.mergeAuthoritativeCloudThemeState(gameState);
             const cloudSavedLevel = Math.floor(Number(state?.gameState?.savedLevel) || 0);
-            if (cloudSavedLevel <= this.getSavedLevel()) {
+            const localSavedLevel = this.getSavedLevel();
+            if (cloudSavedLevel > localSavedLevel) {
+                applyLateCloudUserStateToRuntime(this, state, true);
                 return;
             }
-            applyLateCloudUserStateToRuntime(this, state, true);
+            const cloudUpdatedAt = Math.max(0, Math.floor(Number(gameState?.stateUpdatedAt) || 0));
+            if (cloudUpdatedAt > this.getLocalUserStateUpdatedAt()) {
+                this.applyCloudUserState(state);
+            }
         },
 
         bindUserStateLifecycle(): void {
@@ -2897,15 +2902,25 @@ export function installAssetBootstrapModule(target: any): void {
             game.off(Game.EVENT_SHOW, this.handleGameShowLifecycle, this);
             this._pendingPostAdSkillAction = null;
             this.cancelRewardedAdPreload?.();
+            this.clearRewardedGrantForegroundRecoveryTimer?.();
         },
 
         handleGameHideFlushUserState(): void {
             this._gameForeground = false;
+            this.resetTouchState?.();
+            this.pauseGuideReminderForLifecycle?.();
             void UserStateSyncMgr.inst.flushPendingSave();
         },
 
         handleGameShowLifecycle(): void {
             this._gameForeground = true;
+            this.resetTouchState?.();
+            this.resumeGuideReminderForLifecycle?.();
+            this.scheduleRewardedGrantForegroundRecovery?.('foreground');
+            this.refreshVigorUI?.();
+            this.refreshGoldUI?.();
+            this.syncSkillButtonRuntimeStates?.();
+            this.auditRecoverVigorInteractionState?.('foreground');
             const pendingAction = this._pendingPostAdSkillAction;
             if (!pendingAction) {
                 return;

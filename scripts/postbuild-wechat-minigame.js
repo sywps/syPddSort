@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { configureWechatCdnEnvironment } = require('./wechat-cdn-slot-config');
 
 const buildPath = process.argv[2] || process.env.BUILD_PATH;
 if (!buildPath) {
@@ -26,6 +27,13 @@ const gameAssetsMode = 'subpackage';
 const buildMode = process.env.WECHAT_BUILD_MODE || 'release';
 const debugLevelDataBundle = false;
 const screenAdaptDebug = process.env.PDD_SCREEN_ADAPT_DEBUG === '1';
+let wechatCdnTarget;
+try {
+    wechatCdnTarget = configureWechatCdnEnvironment(process.env.PDD_WECHAT_CDN_SLOT, process.env);
+} catch (error) {
+    console.error('微信 postbuild CDN 槽位无效: ' + (error && error.message ? error.message : String(error)));
+    process.exit(1);
+}
 
 const BUNDLE_NAME = 'gameAssets';
 const BOOTSTRAP_BUNDLE_NAME = 'bootstrap';
@@ -35,10 +43,9 @@ const SKIN_BUNDLE_NAMES = [];
 const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
 const MAIN_PACKAGE_TARGET_KB = 3072;
 const MAIN_PACKAGE_ERROR_KB = 4096;
-const LEVEL_DATA_CDN_URL = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
-const LEVEL_EXP_CDN_URL = process.env.PDD_LEVEL_EXP_CDN_URL || deriveLevelExpCdnUrl(LEVEL_DATA_CDN_URL);
-const SKIN_DATA_CDN_URL = process.env.PDD_SKIN_DATA_CDN_URL || deriveSkinDataCdnUrl(LEVEL_DATA_CDN_URL);
-const WECHAT_RECOMMEND_OPENLINK = process.env.WECHAT_RECOMMEND_OPENLINK || process.env.PDD_WECHAT_RECOMMEND_OPENLINK || '';
+const CDN_SLOT = wechatCdnTarget.slot;
+const LEVEL_DATA_CDN_URL = wechatCdnTarget.levelDataCdnUrl;
+const SKIN_DATA_CDN_URL = wechatCdnTarget.skinDataCdnUrl;
 const WECHAT_GAME_CIRCLE_MIN_LIB_VERSION = '2.30.3';
 const WECHAT_GAME_CIRCLE_PLUGIN_NAME = 'MiniGameCommon';
 const WECHAT_GAME_CIRCLE_PLUGIN_PROVIDER = 'wxaed5ace05d92b218';
@@ -57,22 +64,6 @@ const WECHAT_FIRST_SCREEN_BG_COLOR_LITERAL = '[' + [
     WECHAT_FIRST_SCREEN_BG_COLOR.z,
     WECHAT_FIRST_SCREEN_BG_COLOR.w,
 ].join(',') + ']';
-
-function deriveLevelExpCdnUrl(levelDataCdnUrl) {
-    var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
-    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/level_experiments/level_exp/levels/';
-    if (/\/remote_wechat\/levels\/$/i.test(normalized)) {
-        return normalized.replace(/\/remote_wechat\/levels\/$/i, '/remote_wechat/level_experiments/level_exp/levels/');
-    }
-    return '';
-}
-
-function deriveSkinDataCdnUrl(levelDataCdnUrl) {
-    var normalized = String(levelDataCdnUrl || '').trim().replace(/\/?$/, '/');
-    if (!normalized) return 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/skin/';
-    if (/\/levels\/$/i.test(normalized)) return normalized.replace(/\/levels\/$/i, '/skin/');
-    return normalized + 'skin/';
-}
 
 function resolveRuntimeRoot() {
     var nested = path.join(buildPath, 'minigame');
@@ -954,10 +945,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var marker = 'globalThis.__PDD_WECHAT_BUILD__=true;';
     var buildModeMarker = 'globalThis.__PDD_WECHAT_BUILD_MODE__=' + JSON.stringify(buildMode) + ';';
     var gameAssetsModeMarker = 'globalThis.__PDD_GAME_ASSETS_MODE__=' + JSON.stringify(gameAssetsMode) + ';';
+    var cdnSlotMarker = 'globalThis.__PDD_CDN_SLOT__=' + JSON.stringify(CDN_SLOT) + ';';
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
-    var levelExpCdnMarker = 'globalThis.__PDD_LEVEL_EXP_CDN_URL__=' + JSON.stringify(LEVEL_EXP_CDN_URL) + ';';
     var skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(SKIN_DATA_CDN_URL) + ';';
-    var recommendOpenlinkMarker = 'globalThis.__PDD_WECHAT_RECOMMEND_OPENLINK__=' + JSON.stringify(WECHAT_RECOMMEND_OPENLINK) + ';';
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
@@ -965,10 +955,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
+    var cdnSlotPattern = /globalThis\.__PDD_CDN_SLOT__="[^"]*";/g;
     var levelDataCdnPattern = /globalThis\.__PDD_LEVEL_DATA_CDN_URL__="[^"]*";/g;
-    var levelExpCdnPattern = /globalThis\.__PDD_LEVEL_EXP_CDN_URL__="[^"]*";/g;
     var skinDataCdnPattern = /globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g;
-    var recommendOpenlinkPattern = /globalThis\.__PDD_WECHAT_RECOMMEND_OPENLINK__="[^"]*";/g;
     var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
     if (platformMarkerPattern.test(content)) {
@@ -980,17 +969,14 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (modeMarkerPattern.test(content)) {
         content = content.replace(modeMarkerPattern, gameAssetsModeMarker);
     }
+    if (cdnSlotPattern.test(content)) {
+        content = content.replace(cdnSlotPattern, cdnSlotMarker);
+    }
     if (levelDataCdnPattern.test(content)) {
         content = content.replace(levelDataCdnPattern, levelDataCdnMarker);
     }
-    if (levelExpCdnPattern.test(content)) {
-        content = content.replace(levelExpCdnPattern, levelExpCdnMarker);
-    }
     if (skinDataCdnPattern.test(content)) {
         content = content.replace(skinDataCdnPattern, skinDataCdnMarker);
-    }
-    if (recommendOpenlinkPattern.test(content)) {
-        content = content.replace(recommendOpenlinkPattern, recommendOpenlinkMarker);
     }
     if (screenAdaptDebugPattern.test(content)) {
         content = content.replace(screenAdaptDebugPattern, screenAdaptDebugMarker);
@@ -1000,10 +986,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(marker) === -1) missingLines.push(marker);
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
     if (content.indexOf(gameAssetsModeMarker) === -1) missingLines.push(gameAssetsModeMarker);
+    if (content.indexOf(cdnSlotMarker) === -1) missingLines.push(cdnSlotMarker);
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
-    if (content.indexOf(levelExpCdnMarker) === -1) missingLines.push(levelExpCdnMarker);
     if (content.indexOf(skinDataCdnMarker) === -1) missingLines.push(skinDataCdnMarker);
-    if (content.indexOf(recommendOpenlinkMarker) === -1) missingLines.push(recommendOpenlinkMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
     if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {
         missingLines.push(
@@ -1192,6 +1177,7 @@ if (fs.existsSync(settingsPath)) {
     console.log('[2/6] projectBundles 已配置 gameEntry/bootstrap + homeAssets + gameAssets' + (debugLevelDataBundle ? ' + levelData' : '') + ' ✓');
     console.log('[2/6] startup preload: cocosCore/main only; gameEntry/bootstrap 由统一游戏入口路由按需加载 ✓');
     console.log('[2/6] gameAssets 模式: ' + gameAssetsMode + ' ✓');
+    console.log('[2/6] CDN 槽位: ' + CDN_SLOT);
     console.log('[2/6] 关卡数据 CDN: ' + LEVEL_DATA_CDN_URL);
     console.log('[2/6] 皮肤数据 CDN: ' + SKIN_DATA_CDN_URL);
 }

@@ -14,10 +14,10 @@ function readJson(relPath) {
 
 const levelCdn = read('assets/Scripts/Core/LevelDataCdnService.ts');
 assert.ok(levelCdn.includes('FOREGROUND_CDN_REQUEST_ATTEMPTS = 2'), 'foreground CDN requests must retry once before failing');
-assert.ok(levelCdn.includes('shouldDegradeExperimentToStable'), 'C/D experiment CDN failures must be able to retry stable CDN');
-assert.ok(levelCdn.includes('buildStableContext(context.assignment)'), 'experiment degradation must keep the original bucket context while loading stable data');
+assert.ok(levelCdn.includes("namespace: 'stable'"), 'all foreground retries must remain on the stable CDN');
+assert.ok(!levelCdn.toLowerCase().includes('experiment'), 'retired experiment degradation must be removed');
 assert.ok(levelCdn.includes('lastFailure: this.lastFailure'), 'CDN diagnostics must expose the last failure stage');
-assert.ok(levelCdn.includes('lastDegradeReason: this.lastDegradeReason'), 'CDN diagnostics must expose experiment degradation reason');
+assert.ok(!levelCdn.includes('lastDegradeReason'), 'stable-only diagnostics must not expose a retired degradation reason');
 assert.ok(levelCdn.includes('level_live.json minClientBuild unsupported'), 'level data manifest must enforce client build compatibility');
 
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');

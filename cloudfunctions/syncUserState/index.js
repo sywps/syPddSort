@@ -27,17 +27,6 @@ function normalizeTimestamp(value, fallback = 0) {
   return num > 0 ? num : fallback;
 }
 
-function latestPositiveTimestamp(...values) {
-  return values.reduce((latest, value) => Math.max(latest, normalizeTimestamp(value, 0)), 0);
-}
-
-function earliestPositiveTimestamp(...values) {
-  const normalized = values
-    .map((value) => normalizeTimestamp(value, 0))
-    .filter((value) => value > 0);
-  return normalized.length > 0 ? Math.min(...normalized) : 0;
-}
-
 function normalizeNonNegativeInt(value, fallback = 0) {
   const num = Math.floor(Number(value) || 0);
   return num >= 0 ? num : fallback;
@@ -316,23 +305,6 @@ function extractGameState(doc, effectiveProgress = 0) {
     state.equippedBackgroundSkinId = equippedBackgroundSkinId;
     state.equippedBackgroundSkinUpdatedAt = equippedBackgroundSkinUpdatedAt;
   }
-  const wechatRecommendRecommended = normalizeBoolean(doc?.wechatRecommendRecommended)
-    || normalizeTimestamp(doc?.wechatRecommendRecommendedAt, 0) > 0
-    || normalizeTimestamp(doc?.wechatRecommendFirstSuccessAt, 0) > 0;
-  if (wechatRecommendRecommended) {
-    const recommendedAt = latestPositiveTimestamp(
-      doc?.wechatRecommendRecommendedAt,
-      doc?.wechatRecommendFirstSuccessAt,
-    ) || Date.now();
-    state.wechatRecommendRecommended = true;
-    state.wechatRecommendRecommendedAt = recommendedAt;
-    state.wechatRecommendFirstSuccessAt = earliestPositiveTimestamp(
-      doc?.wechatRecommendFirstSuccessAt,
-      doc?.wechatRecommendRecommendedAt,
-      recommendedAt,
-    );
-  }
-
   return Object.keys(state).length > 0 ? state : null;
 }
 
@@ -423,12 +395,6 @@ function buildGameStatePatch(source = {}, current = {}) {
   const sourceEquippedBackgroundSkinId = hasOwn(source, 'equippedBackgroundSkinId') ? normalizeBackgroundSkinId(source.equippedBackgroundSkinId) : 0;
   const currentEquippedBackgroundSkinUpdatedAt = normalizeTimestamp(current.equippedBackgroundSkinUpdatedAt, 0);
   const sourceEquippedBackgroundSkinUpdatedAt = normalizeTimestamp(source.equippedBackgroundSkinUpdatedAt, 0);
-  const currentWechatRecommendRecommended = normalizeBoolean(current.wechatRecommendRecommended)
-    || normalizeTimestamp(current.wechatRecommendRecommendedAt, 0) > 0
-    || normalizeTimestamp(current.wechatRecommendFirstSuccessAt, 0) > 0;
-  const sourceWechatRecommendRecommended = normalizeBoolean(source.wechatRecommendRecommended)
-    || normalizeTimestamp(source.wechatRecommendRecommendedAt, 0) > 0
-    || normalizeTimestamp(source.wechatRecommendFirstSuccessAt, 0) > 0;
   const currentEquippedBackgroundSkinValid = currentEquippedBackgroundSkinId > 0 && currentEquippedBackgroundSkinUpdatedAt > 0;
   const sourceEquippedBackgroundSkinValid = sourceEquippedBackgroundSkinId > 0 && sourceEquippedBackgroundSkinUpdatedAt > 0;
   let equippedBackgroundSkinId = currentEquippedBackgroundSkinValid ? currentEquippedBackgroundSkinId : 0;
@@ -449,6 +415,7 @@ function buildGameStatePatch(source = {}, current = {}) {
   const shouldPreserveCurrentVolatileState =
     currentStateUpdatedAt > 0 &&
     (
+      sourceStateUpdatedAt < currentStateUpdatedAt ||
       (hasOwn(source, 'savedLevel') && sourceSavedLevel < currentSavedLevel) ||
       mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
       mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length ||
@@ -488,23 +455,6 @@ function buildGameStatePatch(source = {}, current = {}) {
   };
   if (mergedSavedLevel > 0) {
     patch.savedLevel = mergedSavedLevel;
-  }
-  if (currentWechatRecommendRecommended || sourceWechatRecommendRecommended) {
-    const recommendedAt = latestPositiveTimestamp(
-      current.wechatRecommendRecommendedAt,
-      current.wechatRecommendFirstSuccessAt,
-      source.wechatRecommendRecommendedAt,
-      source.wechatRecommendFirstSuccessAt,
-    ) || Date.now();
-    patch.wechatRecommendRecommended = true;
-    patch.wechatRecommendRecommendedAt = recommendedAt;
-    patch.wechatRecommendFirstSuccessAt = earliestPositiveTimestamp(
-      current.wechatRecommendFirstSuccessAt,
-      current.wechatRecommendRecommendedAt,
-      source.wechatRecommendFirstSuccessAt,
-      source.wechatRecommendRecommendedAt,
-      recommendedAt,
-    );
   }
   if (shouldBackupCurrentSkinReset && !originalCurrent?.[BACKGROUND_SKIN_RESET_BACKUP_FIELD]) {
     patch[BACKGROUND_SKIN_RESET_BACKUP_FIELD] = buildBackgroundSkinResetBackup(originalCurrent, now);

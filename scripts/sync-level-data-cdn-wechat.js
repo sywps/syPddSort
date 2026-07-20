@@ -4,27 +4,61 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
+const {
+    LEVEL_DATA_CLIENT_BUILD,
+    LEVEL_DATA_CONTRACT,
+    LEVEL_DATA_SCHEMA_VERSION,
+    validateSlotPolicy,
+} = require('./slot-policy-contract');
+const {
+    configureWechatCdnEnvironment,
+    extractRequiredWechatCdnSlot,
+} = require('./wechat-cdn-slot-config');
 
-const dryRun = process.argv.includes('--dry-run');
 const projectDir = path.resolve(__dirname, '..');
 const cdnPlatform = process.env.PDD_CDN_PLATFORM === 'douyin' ? 'douyin' : 'wechat';
+const syncCommand = parseSyncCommand(process.argv.slice(2), cdnPlatform);
+const dryRun = syncCommand.dryRun;
+const wechatCdnTarget = syncCommand.wechatCdnTarget;
 const platformLabel = cdnPlatform === 'douyin' ? '抖音' : '微信';
-const platformRemoteDir = cdnPlatform === 'douyin' ? 'remote_douyin' : 'remote_wechat';
+const platformRemoteDir = cdnPlatform === 'douyin' ? 'remote_douyin' : wechatCdnTarget.remoteDir;
 const levelDataSourceDir = path.join(projectDir, 'assets', 'LevelData');
 const levelDataDir = path.resolve(projectDir, process.env.PDD_LEVEL_DATA_CDN_DIR || (cdnPlatform === 'douyin' ? 'build/level-data-cdn-douyin' : 'build/level-data-cdn'));
 const packDir = path.join(levelDataDir, 'level_packs');
 const liveManifestPath = path.join(levelDataDir, 'level_live.json');
 
-const cdnUrl = process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/levels/';
+const cdnUrl = cdnPlatform === 'wechat'
+    ? wechatCdnTarget.levelDataCdnUrl
+    : (process.env.PDD_LEVEL_DATA_CDN_URL || 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/' + platformRemoteDir + '/levels/');
 const ossutilBin = process.env.PDD_OSSUTIL_BIN || 'ossutil';
 const ossEndpoint = process.env.PDD_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com';
 const ossBucket = process.env.PDD_OSS_BUCKET || 'game-pdd-v2';
-const ossPath = process.env.PDD_LEVEL_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/levels/';
+const ossPath = cdnPlatform === 'wechat'
+    ? wechatCdnTarget.levelDataOssPath
+    : (process.env.PDD_LEVEL_DATA_OSS_PATH || 'syGame/pdd_v2/' + platformRemoteDir + '/levels/');
 
 function fail(message) {
     console.error('ERROR: ' + message);
     process.exit(1);
+}
+
+function parseSyncCommand(args, platform) {
+    let remainingArgs = args.slice();
+    let wechatCdnTarget = null;
+    if (platform === 'wechat') {
+        try {
+            const parsed = extractRequiredWechatCdnSlot(remainingArgs);
+            wechatCdnTarget = configureWechatCdnEnvironment(parsed.target, process.env);
+            remainingArgs = parsed.remainingArgs;
+        } catch (error) {
+            fail(error && error.message ? error.message : String(error));
+        }
+    }
+    const dryRunArgs = remainingArgs.filter((arg) => arg === '--dry-run');
+    const unknownArgs = remainingArgs.filter((arg) => arg !== '--dry-run');
+    if (unknownArgs.length > 0) fail('未知参数: ' + unknownArgs.join(' '));
+    if (dryRunArgs.length > 1) fail('只能传入一次 --dry-run');
+    return { dryRun: dryRunArgs.length === 1, wechatCdnTarget };
 }
 
 function assertDir(dirPath, label) {
@@ -60,6 +94,15 @@ function dirSize(dir) {
 function assertLevelDataTarget(cdn, oss) {
     const normalizedCdn = normalizeTrailingSlash(cdn);
     const normalizedOss = normalizeOssPath(oss);
+    if (cdnPlatform === 'wechat') {
+        if (
+            normalizedCdn !== wechatCdnTarget.levelDataCdnUrl
+            || normalizedOss !== wechatCdnTarget.levelDataOssPath
+        ) {
+            fail('微信关卡数据 CDN 与槽位 ' + wechatCdnTarget.slot + ' 不一致: ' + normalizedCdn + ' / ' + normalizedOss);
+        }
+        return;
+    }
     const otherRemoteDir = cdnPlatform === 'douyin' ? 'remote_wechat' : 'remote_douyin';
     if (normalizedCdn.includes(otherRemoteDir) || normalizedOss.includes(otherRemoteDir)) {
         fail(platformLabel + '关卡数据 CDN 不能指向 ' + otherRemoteDir + ': ' + normalizedCdn + ' / ' + normalizedOss);
@@ -116,6 +159,9 @@ function validateLevelDataPackage() {
     assertFile(liveManifestPath, 'level_live.json');
     const manifest = readJson(liveManifestPath);
     if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) fail('level_live.json schema 不正确');
+    if (cdnPlatform === 'wechat' && manifest.cdnSlot !== wechatCdnTarget.slot) {
+        fail('level_live.json cdnSlot 不正确: ' + String(manifest.cdnSlot || '<missing>') + ' != ' + wechatCdnTarget.slot);
+    }
     if (manifest.minClientBuild !== LEVEL_DATA_CLIENT_BUILD) fail('level_live.json minClientBuild 不正确');
     if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') fail('level_live.json 缺少 dataVersion');
     if (manifest.levelDataVersion && manifest.levelDataVersion !== manifest.dataVersion) fail('level_live.json levelDataVersion 与 dataVersion 不一致');
@@ -215,6 +261,9 @@ async function verifyRemoteLiveManifest(expectedServer, localManifest, localLeve
     }
     const remoteUrl = expectedServer + 'level_live.json?t=' + Date.now();
     const remoteManifest = await requestJson(remoteUrl);
+    if (cdnPlatform === 'wechat' && remoteManifest.cdnSlot !== wechatCdnTarget.slot) {
+        fail('远端 level_live.json cdnSlot 异常: ' + String(remoteManifest.cdnSlot || '<missing>') + ' != ' + wechatCdnTarget.slot);
+    }
     if (remoteManifest.dataVersion !== localManifest.dataVersion) {
         fail('远端 level_live.json dataVersion 未更新: ' + remoteManifest.dataVersion + ' != ' + localManifest.dataVersion);
     }
@@ -253,6 +302,9 @@ function runOssutil(args, label) {
 }
 
 console.log('=== 同步' + platformLabel + '关卡数据 CDN ===');
+console.log('');
+if (wechatCdnTarget) console.log('CDN 槽位: ' + wechatCdnTarget.slot);
+console.log('关卡数据协议: ' + LEVEL_DATA_CONTRACT + ' (schemaVersion=' + LEVEL_DATA_SCHEMA_VERSION + ', minClientBuild=' + LEVEL_DATA_CLIENT_BUILD + ')');
 console.log('');
 
 assertLevelDataTarget(cdnUrl, ossPath);

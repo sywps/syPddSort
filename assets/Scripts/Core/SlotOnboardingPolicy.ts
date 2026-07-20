@@ -22,7 +22,6 @@ export type SlotRowPolicy = {
     unlockAllRowsAtOnce: boolean;
 };
 
-export const ONBOARDING_TEACHING_TIME_LIMIT_SECONDS = 600;
 export const LEVEL_DATA_SLOT_POLICY_MAX_ROWS = 4;
 const MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MIN_LEVEL = 3;
 const MAINLINE_TWO_UNLOCKED_SLOT_ROWS_MAX_LEVEL = 10;
@@ -149,11 +148,7 @@ export function resolveSlotOnboardingTimeLimit(options: {
     entryMode?: SlotOnboardingEntryMode;
     configuredTimeLimit?: unknown;
 }): number {
-    const configuredTimeLimit = Math.max(0, Math.floor(Number(options.configuredTimeLimit) || 0));
-    if (isMainlineSlotEntry(options.entryMode || 'main') && normalizeLevelId(options.levelId) <= 2) {
-        return ONBOARDING_TEACHING_TIME_LIMIT_SECONDS;
-    }
-    return configuredTimeLimit;
+    return Math.max(0, Math.floor(Number(options.configuredTimeLimit) || 0));
 }
 
 export function resolveSlotRowPolicy(options: {

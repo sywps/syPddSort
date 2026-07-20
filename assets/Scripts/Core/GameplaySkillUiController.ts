@@ -226,7 +226,7 @@ export class GameplaySkillUiController {
         const runtime = this.runtime;
         if (!this.isSkillRuntimeAvailable(skill)) return false;
         if (runtime.isPlacementVisualBusy?.()) return false;
-        if (runtime.isGameEnd || runtime._skillActive) return false;
+        if (runtime.isGameEnd || runtime._skillActive || runtime._guideStep >= 0) return false;
         if (runtime.isSelected || runtime.currentBlock) {
             runtime.cancelSelection();
         }
@@ -308,6 +308,7 @@ export class GameplaySkillUiController {
             button.enabled = runtimeAvailable;
             this.applySkillRuntimeAvailability(shell, runtimeAvailable);
             shell.on(Button.EventType.CLICK, () => {
+                if (runtime._guideStep >= 0) return;
                 if (!this.isSkillRuntimeAvailable(skill)) return;
                 AudioMgr.inst.play('button');
                 if (runtime.isPlacementVisualBusy?.()) return;

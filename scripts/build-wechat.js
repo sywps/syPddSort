@@ -4,8 +4,14 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const buildCommon = require('./minigame-build-common.js');
 const platformConfig = require('./minigame-platform-config.js');
+const {
+    configureWechatCdnEnvironment,
+    extractRequiredWechatCdnSlot,
+} = require('./wechat-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
+const wechatBuildCommand = parseWechatBuildCommand(process.argv.slice(2));
+const wechatCdnTarget = configureWechatBuildEnvironment(wechatBuildCommand.target);
 const finalBuildDir = path.join(projectDir, 'build', 'wechatgame');
 const stagingBuildName = 'wechatgame-staging';
 const buildDir = path.join(projectDir, 'build', stagingBuildName);
@@ -13,8 +19,9 @@ const levelDataCdnDir = path.join(projectDir, 'build', 'level-data-cdn');
 const skinDataCdnDir = path.join(projectDir, 'build', 'skin-cdn');
 const buildConfigPath = path.join(projectDir, 'temp', 'wechat-build-config.json');
 const assetDbPrewarmPath = path.join(projectDir, 'temp', 'pdd-assetdb-prewarm.json');
+const assetDbWarmPath = path.join(projectDir, 'temp', 'pdd-assetdb-warm.json');
 const startSceneUrl = 'db://assets/Scenes/Boot.scene';
-const buildMode = parseBuildMode(process.argv.slice(2));
+const buildMode = parseBuildMode(wechatBuildCommand.remainingArgs);
 const mainPackageTargetKB = 3072;
 const startupDownloadTargetKB = 3072;
 const wechatFirstScreenBgColor = [0.9607843137254902, 0.9215686274509803, 0.8627450980392157, 1];
@@ -25,6 +32,7 @@ process.env.WECHAT_BUILD_MODE = buildMode;
 process.env.WECHAT_GAME_ASSETS_MODE = 'subpackage';
 process.env.WECHAT_APPID = wechatAppId;
 process.env.WECHAT_OPEN_DEVTOOLS = openDevtools;
+process.env.WECHAT_CLEAN_COCOS_CACHE = process.env.WECHAT_CLEAN_COCOS_CACHE || '0';
 process.env.PDD_COCOS_ASSETDB_PREWARM = process.env.PDD_COCOS_ASSETDB_PREWARM || '0';
 process.env.PDD_COCOS_ASSETDB_PREWARM_FILE = assetDbPrewarmPath;
 
@@ -41,8 +49,27 @@ function fail(message) {
     process.exit(1);
 }
 
+function parseWechatBuildCommand(args) {
+    try {
+        return extractRequiredWechatCdnSlot(args);
+    } catch (error) {
+        fail(error && error.message ? error.message : String(error));
+    }
+}
+
+function configureWechatBuildEnvironment(target) {
+    try {
+        return configureWechatCdnEnvironment(target, process.env);
+    } catch (error) {
+        fail(error && error.message ? error.message : String(error));
+    }
+}
+
 function parseBuildMode(args) {
-    return buildCommon.parseBuildMode(args, 'node scripts/build-wechat.js <--release|--debug>');
+    return buildCommon.parseBuildMode(
+        args,
+        'node scripts/build-wechat.js <--release|--debug> <--cdn-slot=A|--cdn-slot=B>',
+    );
 }
 
 function readJson(filePath) {
@@ -52,6 +79,32 @@ function readJson(filePath) {
 function writeJson(filePath, data) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n');
+}
+
+function assertGeneratedCdnManifests(target) {
+    const levelManifest = readJson(path.join(levelDataCdnDir, 'level_live.json'));
+    const skinManifest = readJson(path.join(skinDataCdnDir, 'skin_live.json'));
+    if (levelManifest.cdnSlot !== target.slot) {
+        fail('关卡 CDN 清单槽位错误: ' + String(levelManifest.cdnSlot || '<missing>') + ' != ' + target.slot);
+    }
+    if (skinManifest.cdnSlot !== target.slot) {
+        fail('皮肤 CDN 清单槽位错误: ' + String(skinManifest.cdnSlot || '<missing>') + ' != ' + target.slot);
+    }
+}
+
+function assertRuntimeWechatCdnTarget(runtimeDir, target) {
+    const gameJsPath = path.join(runtimeDir, 'game.js');
+    if (!fs.existsSync(gameJsPath)) fail('微信运行时缺少 game.js，无法校验 CDN 槽位');
+    const content = fs.readFileSync(gameJsPath, 'utf8');
+    const markers = [
+        'globalThis.__PDD_CDN_SLOT__=' + JSON.stringify(target.slot) + ';',
+        'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(target.levelDataCdnUrl) + ';',
+        'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(target.skinDataCdnUrl) + ';',
+    ];
+    const missing = markers.filter((marker) => !content.includes(marker));
+    if (missing.length > 0) {
+        fail('微信运行时 CDN 标记不完整:\n' + missing.join('\n'));
+    }
 }
 
 function rm(target) {
@@ -116,6 +169,24 @@ function runNode(script, args = []) {
 
 function repairCocosMetaFiles() {
     buildCommon.repairCocosMetaFiles(projectDir);
+}
+
+function warmCocosAssetDb() {
+    if (process.env.WECHAT_WARM_COCOS_ASSETDB === '0') {
+        logInfo('已跳过正常编辑器 AssetDB 预热');
+        return;
+    }
+    rm(assetDbWarmPath);
+    runNode('scripts/warm-cocos-assetdb.js', [assetDbWarmPath]);
+    const result = readJson(assetDbWarmPath);
+    if (!result.done || !result.assetDbReady || result.sceneCount <= 0 || result.scriptCount <= 0) {
+        fail(
+            '正常编辑器 AssetDB 预热未恢复有效库存: scenes=' + Number(result.sceneCount || 0)
+            + ', scripts=' + Number(result.scriptCount || 0)
+            + (result.error ? ', error=' + result.error : ''),
+        );
+    }
+    logInfo('AssetDB 库存已恢复: ' + result.sceneCount + ' scenes / ' + result.scriptCount + ' scripts');
 }
 
 function getStartSceneUuid() {
@@ -226,7 +297,7 @@ function collectCocosImporterHealth(startedAtMs) {
     const emptyAssetStats = [];
     for (const logPath of builderLogs) {
         const text = readCocosLogTextSince(logPath, startedAtMs);
-        if (/Number of all scenes:\s*0\b/.test(text) && /Number of all scripts:\s*0\b/.test(text)) {
+        if (buildCommon.hasNoPopulatedCocosSceneScriptStats(text)) {
             emptyAssetStats.push(path.relative(projectDir, logPath));
         }
     }
@@ -252,16 +323,12 @@ function runCocosBuildWithAssetDbRetry() {
         return result;
     }
 
-    logInfo('Cocos AssetDB 首次构建未就绪，准备清理 importer 缓存后自动重试一次');
+    logInfo('Cocos AssetDB 首次构建未就绪，准备保留 library 并重新预热后自动重试一次');
     logInfo(formatCocosImporterHealthError(health));
     rm(buildDir);
     rm(assetDbPrewarmPath);
-    buildCommon.cleanCocosGeneratedCacheDirs(
-        projectDir,
-        logInfo,
-        '已清理 Cocos importer/cache，避免复用本次失败生成的空 AssetDB 缓存',
-    );
     repairCocosMetaFiles();
+    warmCocosAssetDb();
 
     startedAtMs = Date.now();
     result = buildCommon.spawnCocosBuild(projectDir, buildConfigPath);
@@ -426,6 +493,20 @@ function assertRuntimeBundleConfig(bundleDir, bundleName, expectedPaths, expecte
     }
 }
 
+function assertRuntimeJsonArtifactContainsAll(bundleDir, bundleName, requiredTexts) {
+    const matches = [];
+    for (const filePath of walkFiles(bundleDir)) {
+        if (!/\.json$/i.test(filePath)) continue;
+        const content = fs.readFileSync(filePath, 'utf8');
+        if (requiredTexts.every((text) => content.includes(text))) {
+            matches.push(path.relative(bundleDir, filePath));
+        }
+    }
+    if (matches.length === 0) {
+        fail(bundleName + ' 编译资产缺少场景契约: ' + requiredTexts.join(', '));
+    }
+}
+
 function assertWechatFirstScreenBackground(runtimeDir, settings) {
     const firstScreenPath = path.join(runtimeDir, 'first-screen.js');
     if (!fs.existsSync(firstScreenPath)) {
@@ -584,6 +665,8 @@ function maybeReloadWechatDevtools(projectPath) {
 console.log('=== 微信小游戏打包 ===');
 logInfo('Mode: ' + buildMode);
 logInfo('GameAssets bundle: wechat subpackage');
+logInfo('CDN slot: ' + wechatCdnTarget.slot + ' (' + wechatCdnTarget.cdnRootUrl + ')');
+buildCommon.guardCocosPreviewOrFail(projectDir);
 
 logStep('0. 清理旧产物...');
 rm(buildDir);
@@ -601,6 +684,7 @@ logInfo('关卡数据 CDN 产物已生成: ' + levelDataCdnDir);
 logStep('0.16 生成远程皮肤数据包...');
 runNode('scripts/write-skin-data-cdn.js', [skinDataCdnDir]);
 logInfo('皮肤数据 CDN 产物已生成: ' + skinDataCdnDir);
+assertGeneratedCdnManifests(wechatCdnTarget);
 
 logStep('0.2 准备 BootstrapBundle 游戏入口快照...');
 runNode('scripts/prepare-bootstrap.js');
@@ -609,6 +693,10 @@ logInfo('BootstrapBundle 源目录已准备');
 const startSceneUuid = getStartSceneUuid();
 runNode('scripts/write-wechat-build-config.js', [buildConfigPath, startSceneUrl, startSceneUuid, '--' + buildMode, stagingBuildName]);
 logInfo('微信构建配置已生成: ' + buildConfigPath);
+
+logStep('0.3 预热 Cocos AssetDB...');
+repairCocosMetaFiles();
+warmCocosAssetDb();
 
 logStep('1. Cocos Creator 构建 wechatgame...');
 rm(assetDbPrewarmPath);
@@ -635,6 +723,7 @@ if (fs.existsSync(path.join(projectDir, 'cloudfunctions'))) {
 const runtimeDir = resolveRuntimeDir();
 let gameJson = readJson(path.join(runtimeDir, 'game.json'));
 let settings = readJson(findSettingsPath(runtimeDir));
+assertRuntimeWechatCdnTarget(runtimeDir, wechatCdnTarget);
 assertWechatProjectConfig();
 assertRuntimeCoreConfig(runtimeDir, gameJson, settings);
 assertWechatFirstScreenBackground(runtimeDir, settings);
@@ -657,6 +746,12 @@ assertRuntimeTextAbsent(runtimeDir, ['PreviewController', 'UIPreview', 'Panel Pr
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas', 'GameUI/block_bright_pindd'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeJsonArtifactContainsAll(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', [
+    'TutorialGuideHands',
+    'GuideHandSingle',
+    'GuideHandPinchLeft',
+    'GuideHandPinchRight',
+]);
 assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
@@ -699,10 +794,11 @@ for (const item of startupDownload.included) {
 console.log('   minigame 实际目录: ' + formatMB(runtimeBytes));
 console.log('');
 console.log('=== 打包完成 ===');
+console.log('CDN 槽位：' + wechatCdnTarget.slot + ' (' + wechatCdnTarget.cdnRootUrl + ')');
 console.log('本地包：' + finalBuildDir);
 console.log('关卡数据包：' + levelDataCdnDir);
 console.log('皮肤数据包：' + skinDataCdnDir);
-console.log('如需上传全部 CDN 数据，再执行：npm run sync:cdn:wechat');
-console.log('如需只上传关卡数据，再执行：npm run sync:cdn:wechat:level_data');
-console.log('如需只上传皮肤数据，再执行：npm run sync:cdn:wechat:skin_data');
+console.log('如需上传全部 CDN 数据，再执行：npm run sync:cdn:wechat -- --cdn-slot=' + wechatCdnTarget.slot);
+console.log('如需只上传关卡数据，再执行：npm run sync:cdn:wechat:level_data -- --cdn-slot=' + wechatCdnTarget.slot);
+console.log('如需只上传皮肤数据，再执行：npm run sync:cdn:wechat:skin_data -- --cdn-slot=' + wechatCdnTarget.slot);
 maybeReloadWechatDevtools(finalBuildDir);

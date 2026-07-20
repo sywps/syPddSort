@@ -26,7 +26,7 @@ import {
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
-import { debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
+import { collectActiveBlockInputEvents, debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { markStartupTrace } from '../StartupTrace';
 import { flushPendingStartupCloudGameplayRestore } from './StartupCloudRestoreHelper';
@@ -41,7 +41,6 @@ export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
         trackFirstLevelFunnel(eventName: string, opt: Record<string, unknown> = {}, force: boolean = false): void {
             if (!force && !this.isFirstLevelFunnelActive()) return;
-            const experimentPayload = AnalyticsMgr.inst.getTutorialExperimentEventContext();
             const activePhysicalLevelId = this.getActivePhysicalLevelId();
             const activeLogicalLevelId = this.getActiveLogicalLevelId?.() || activePhysicalLevelId;
             AnalyticsMgr.inst.trackFunnelEvent({
@@ -50,7 +49,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 levelId: activeLogicalLevelId,
                 logicalLevelId: activeLogicalLevelId,
                 physicalLevelId: activePhysicalLevelId,
-                ...experimentPayload,
                 ...opt,
             });
         },
@@ -63,14 +61,12 @@ export function installFirstLevelRouteModule(target: any): void {
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             if (!force && normalizedLevelId !== 1 && normalizedLevelId !== 2) return;
-            const experimentPayload = AnalyticsMgr.inst.getTutorialExperimentEventContext();
             AnalyticsMgr.inst.trackFunnelEvent({
                 eventName,
                 page: 'level_game',
                 levelId: normalizedLevelId,
                 logicalLevelId: normalizedLevelId,
                 physicalLevelId: normalizedLevelId,
-                ...experimentPayload,
                 ...opt,
             });
         },
@@ -192,6 +188,32 @@ export function installFirstLevelRouteModule(target: any): void {
             });
         },
 
+        reportInteractionTouchAttempt(worldPos: Vec3, inputLayer: string, deliveryState: string): void {
+            if (!this.isFirstLevelFunnelActive?.()) return;
+            const attempt = Math.max(0, Number(this._interactionTouchAttemptCount) || 0) + 1;
+            this._interactionTouchAttemptCount = attempt;
+            if (attempt > 5) return;
+            const blockers = collectActiveBlockInputEvents();
+            const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
+            this.trackFirstLevelFunnel('interaction_touch_attempt', {
+                stepId: attempt,
+                stepName: this.getFirstLevelGuideStepKey(),
+                touchTarget,
+                source: inputLayer,
+                success: deliveryState === 'delivered' || deliveryState === 'guide_gate',
+                errorCode: deliveryState === 'delivered' || deliveryState === 'guide_gate' ? '' : deliveryState,
+                extra: this.buildFirstLevelGuideExtra(inputLayer, deliveryState, {
+                    ...this.buildFirstLevelTouchPositionExtra(worldPos),
+                    deliveryState,
+                    modalFocusRefs: Math.max(0, Number(this._modalFocusRefs) || 0),
+                    guideInputSuspended: this._guideInputSuspended === true,
+                    gestureMode: this.gestureMode || 'idle',
+                    activeTouchCount: Math.max(0, Number(this.activeBoardTouches?.size) || 0),
+                    activeBlockers: blockers.map((entry) => String(entry.path || '')).join('|'),
+                }),
+            });
+        },
+
         markTutorialStepShownForFunnel(step: number): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
             const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
@@ -214,7 +236,8 @@ export function installFirstLevelRouteModule(target: any): void {
             });
         },
 
-        reportTutorialLayerTouchStart(_worldPos: Vec3): void {
+        reportTutorialLayerTouchStart(worldPos: Vec3): void {
+            this.reportInteractionTouchAttempt?.(worldPos, 'guide_layer', 'guide_gate');
         },
 
         reportTutorialStepFirstTouch(_worldPos: Vec3, _inputLayer: string): void {
@@ -327,9 +350,6 @@ export function installFirstLevelRouteModule(target: any): void {
             const levelDataCdnLastFailure = levelDataCdn.lastFailure && typeof levelDataCdn.lastFailure === 'object'
                 ? levelDataCdn.lastFailure as Record<string, unknown>
                 : {};
-            const levelDataCdnExperiment = levelDataCdn.levelExperiment && typeof levelDataCdn.levelExperiment === 'object'
-                ? levelDataCdn.levelExperiment as Record<string, unknown>
-                : {};
             const diagnostics: Record<string, unknown> = {
                 remoteHash: this.getRuntimeRemoteHash(),
                 remoteServer: this.getRuntimeRemoteServer(),
@@ -341,10 +361,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 levelDataCdnLastFailureStage: levelDataCdnLastFailure.stage || '',
                 levelDataCdnLastFailureNamespace: levelDataCdnLastFailure.namespace || '',
                 levelDataCdnLastFailureReason: levelDataCdnLastFailure.reason || '',
-                levelDataCdnLastFailureBucket: levelDataCdnLastFailure.bucket || '',
-                levelDataCdnLastDegradeReason: levelDataCdn.lastDegradeReason || '',
-                levelDataCdnExperimentLiveUnavailableReason: levelDataCdnExperiment.liveUnavailableReason || '',
-                levelDataCdnExperimentLiveUnavailableCooldownMs: levelDataCdnExperiment.liveUnavailableCooldownMs || 0,
                 levelId,
                 levelPath,
                 ...extra,

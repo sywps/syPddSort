@@ -24,7 +24,8 @@ const slotAreaWidget = gameScene.find((entry) => entry && entry.__type__ === 'cc
 assert.ok(slotAreaWidget && (slotAreaWidget._alignFlags & 4) !== 0, 'SlotArea must keep its Cocos-owned bottom Widget anchor');
 
 assert.ok(session.indexOf('runtime._activeGameplayGuideLayoutMode = tutorialMode') < session.indexOf('runtime.buildUI()'), 'guide layout mode must be resolved before board fitting');
-assert.ok(boardInput.includes('getLevelExpSlotIntroGuideBand'), 'level 3 must reserve a top guide band');
+assert.ok(boardInput.includes('getSlotIntroGuideBand'), 'level 3 must reserve a top guide band');
 assert.ok(gameplayView.includes('this.fitBoardViewportToSafeRect(bw, bh, padding)'), 'initial board fit must consume the guide-aware safe viewport');
+assert.ok(gameplayView.includes('levelId === 2 ? 1.025'), 'level 2 must start at exactly 1.25x its former 0.82 fitted scale');
 
 console.log('gameplay-layout-parity.test.js passed');

@@ -716,7 +716,7 @@ export class GameplaySlotUiController {
         }, {
             busyFlag: '_skillActive',
             waitForCloseBeforeComplete: true,
-            onAdComplete: () => runtime.resumeTimerForProp(),
+            onFinally: () => runtime.resumeTimerForProp(),
             grantFailToast: '暂存槽增加失败，请重试',
         });
     }

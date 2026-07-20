@@ -711,26 +711,33 @@ export function installThemeLoadingOverlayModule(target: any): void {
         },
 
         hideLoadingOverlayAfterGameplayReady() {
-            if (!this._loadingOverlay) return;
             this.setGameplayStartupRootVisible?.(true);
-            const blocker = this._loadingOverlay.getComponent(BlockInputEvents);
-            if (blocker) blocker.enabled = false;
-            this.scheduleOnce(() => this.hideLoadingOverlay(), 0);
+            this.hideLoadingOverlay();
         },
 
         /** 隐藏并销毁加载封面 */
         hideLoadingOverlay() {
-            if (!this._loadingOverlay) return;
             if (this._loadingClosing) return;
+            const canvas = this.node?.scene?.getChildByName('Canvas') || null;
+            const bootRoot = canvas?.getChildByName('BootRoot')
+                || canvas?.getChildByName('ScreenRoot')?.getChildByName('BootRoot')
+                || null;
+            const authoredOverlay = bootRoot?.getChildByName('StartupLoadingUI') || null;
+            const overlay = this._loadingOverlay?.isValid
+                ? this._loadingOverlay
+                : (authoredOverlay?.isValid ? authoredOverlay : null);
+            if (!overlay) return;
             this._loadingClosing = true;
             const overlayVersion = this._loadingOverlayVersion || 0;
             this._setLoadingProgress(1, 0, overlayVersion);
             this._stopLoadingShine();
             this._loadingOverlayVersion = overlayVersion + 1;
-            if ((this._loadingOverlay as any).__uiCreatedByRuntime) {
-                this._loadingOverlay.destroy();
+            const blocker = overlay.getComponent(BlockInputEvents);
+            if (blocker) blocker.enabled = false;
+            if ((overlay as any).__uiCreatedByRuntime) {
+                overlay.destroy();
             } else {
-                this._loadingOverlay.active = false;
+                overlay.active = false;
             }
             this._loadingOverlay = null;
             this._loadingProgressFill = null;

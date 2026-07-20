@@ -1,7 +1,13 @@
 'use strict';
 
-const LEVEL_DATA_SCHEMA_VERSION = 2;
-const LEVEL_DATA_CLIENT_BUILD = 2;
+const DEFAULT_LEVEL_DATA_CONTRACT = 'v2';
+const requestedContract = String(process.env.PDD_LEVEL_DATA_CONTRACT || DEFAULT_LEVEL_DATA_CONTRACT).trim().toLowerCase();
+if (requestedContract !== 'v1' && requestedContract !== 'v2') {
+    throw new Error('PDD_LEVEL_DATA_CONTRACT must be v1 or v2: ' + requestedContract);
+}
+const LEVEL_DATA_CONTRACT = requestedContract;
+const LEVEL_DATA_SCHEMA_VERSION = LEVEL_DATA_CONTRACT === 'v1' ? 1 : 2;
+const LEVEL_DATA_CLIENT_BUILD = LEVEL_DATA_CONTRACT === 'v1' ? 1 : 2;
 const MAX_SLOT_ROWS = 4;
 
 function validateSlotPolicy(data, label = 'level data', maxRows = MAX_SLOT_ROWS) {
@@ -30,6 +36,7 @@ function validateSlotPolicy(data, label = 'level data', maxRows = MAX_SLOT_ROWS)
 }
 
 module.exports = {
+    LEVEL_DATA_CONTRACT,
     LEVEL_DATA_SCHEMA_VERSION,
     LEVEL_DATA_CLIENT_BUILD,
     MAX_SLOT_ROWS,

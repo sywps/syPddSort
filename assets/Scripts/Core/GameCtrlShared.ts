@@ -198,6 +198,7 @@ const GUIDE_HAND_BOX_SIZE = 94;
 const GUIDE_HAND_SPRITE_SIZE = 88;
 const GUIDE_HAND_FINGERTIP_OFFSET_X = -31;
 const GUIDE_HAND_FINGERTIP_OFFSET_Y = 24;
+const TUTORIAL_ZOOM_SCALE_DELTA = 0.03;
 
 type SkillSourceGroup = {
     colorId: number;
@@ -245,7 +246,7 @@ type ForcedSkillPlan = {
     maxStartDelay?: number;
 };
 
-type TutorialMode = 'none' | 'level_1' | 'level_2' | 'level_exp_slot_intro';
+type TutorialMode = 'none' | 'level_1' | 'level_2' | 'zoom' | 'slot_intro';
 type InventoryPropKind = 'expand' | 'wand' | 'freeze' | 'brush' | 'magnet';
 type DailySignInReward = typeof ECONOMY_NUMERIC_TABLE.dailySignIn.rewards[number];
 
@@ -626,7 +627,7 @@ export {
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT, FREEZE_PROP_SECONDS,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_FREEZE, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
-    GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
+    GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, TUTORIAL_ZOOM_SCALE_DELTA, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 };

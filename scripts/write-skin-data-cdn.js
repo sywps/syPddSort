@@ -3,8 +3,10 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
+const cdnSlot = readOptionalWechatCdnSlot(process.env.PDD_WECHAT_CDN_SLOT);
 const skinConfigPath = path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins', 'skins.json');
 const bootstrapRoot = path.join(projectDir, 'assets', 'BootstrapBundle');
 const gameAssetsRoot = path.join(projectDir, 'assets', 'GameAssetsBundle');
@@ -14,6 +16,15 @@ const outputDir = path.resolve(process.argv[2] || path.join(projectDir, 'build',
 function fail(message) {
     console.error('ERROR: ' + message);
     process.exit(1);
+}
+
+function readOptionalWechatCdnSlot(value) {
+    if (!String(value || '').trim()) return '';
+    try {
+        return normalizeWechatCdnSlot(value);
+    } catch (error) {
+        fail(error && error.message ? error.message : String(error));
+    }
 }
 
 function readJson(filePath) {
@@ -241,6 +252,7 @@ function buildOutput() {
     }).slice(0, 16);
     const manifest = {
         manifestVersion: 1,
+        ...(cdnSlot ? { cdnSlot } : {}),
         skinDataVersion,
         schemaVersion: 1,
         minClientBuild: 1,

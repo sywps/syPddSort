@@ -51,6 +51,13 @@ type RewardedGrantOptions = {
     afterGrant?: () => RewardedGrantResult;
     onFinally?: () => void;
 };
+type RewardedGrantRuntimeTransaction = {
+    id: number;
+    page: string;
+    phase: 'ad' | 'grant';
+    startedAt: number;
+    cancel: (reason: string) => void;
+};
 type ShareGrantOptions = {
     levelId?: number;
     shareType?: string;
@@ -68,6 +75,7 @@ type ShareGrantOptions = {
 };
 
 const SHARE_GRANT_CALLBACK_TIMEOUT_MS = 5000;
+const REWARDED_GRANT_FOREGROUND_RECOVERY_MS = 2500;
 
 function resolveRewardedGrantToast(toast?: RewardedGrantToast): string {
     if (!toast) return '';
@@ -88,6 +96,42 @@ function showRewardedGrantToast(runtime: any, toast?: RewardedGrantToast): void 
 
 export function installHomeAdFlowModule(target: any): void {
     Object.assign(target, {
+        clearRewardedGrantForegroundRecoveryTimer(): void {
+            const timer = this._rewardedGrantForegroundRecoveryTimer;
+            if (timer === null || timer === undefined) return;
+            clearTimeout(timer);
+            this._rewardedGrantForegroundRecoveryTimer = null;
+        },
+
+        cancelRewardedGrantInteraction(reason: string = 'manual'): boolean {
+            this.clearRewardedGrantForegroundRecoveryTimer();
+            const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+            if (transaction) {
+                transaction.cancel(reason);
+            }
+            let providerCancelled = false;
+            try {
+                providerCancelled = AdConfig.cancelRewardedAdInteraction(reason);
+            } catch (error) {
+                console.error(`[RewardedGrant] provider cancellation failed: ${reason}`, error);
+            }
+            return providerCancelled || !!transaction;
+        },
+
+        scheduleRewardedGrantForegroundRecovery(reason: string = 'foreground'): void {
+            this.clearRewardedGrantForegroundRecoveryTimer();
+            const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+            if (!transaction || transaction.phase !== 'ad') return;
+            const transactionId = transaction.id;
+            this._rewardedGrantForegroundRecoveryTimer = setTimeout(() => {
+                this._rewardedGrantForegroundRecoveryTimer = null;
+                const pending = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+                if (!pending || pending.id !== transactionId || pending.phase !== 'ad') return;
+                console.error(`[RewardedGrant] ${pending.page} recovered after ${reason} without completion`);
+                this.cancelRewardedGrantInteraction(`${reason}-completion-missing`);
+            }, REWARDED_GRANT_FOREGROUND_RECOVERY_MS);
+        },
+
         runAfterAdWindowClosed(onReady: () => void): void {
             let settled = false;
             const run = () => {
@@ -378,22 +422,35 @@ export function installHomeAdFlowModule(target: any): void {
             options: RewardedGrantOptions = {},
         ): boolean {
             const busyFlag = options.busyFlag || '';
-            if (busyFlag && this[busyFlag]) {
+            if (this._rewardedGrantTransaction || (busyFlag && this[busyFlag])) {
                 return false;
             }
             if (busyFlag) {
                 this[busyFlag] = true;
             }
 
+            const transactionId = (Number(this._rewardedGrantTransactionSeq) || 0) + 1;
+            this._rewardedGrantTransactionSeq = transactionId;
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
                 }
             };
             let finalized = false;
+            let cancelled = false;
+            let adCompleteHandled = false;
+            const isActive = () => {
+                const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+                return !cancelled && !!active && active.id === transactionId;
+            };
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
+                this.clearRewardedGrantForegroundRecoveryTimer();
+                const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+                if (active?.id === transactionId) {
+                    this._rewardedGrantTransaction = null;
+                }
                 clearBusy();
                 try {
                     options.onFinally?.();
@@ -401,7 +458,23 @@ export function installHomeAdFlowModule(target: any): void {
                     console.warn(`[RewardedGrant] ${page} finally failed:`, error);
                 }
             };
+            const cancelTransaction = (reason: string) => {
+                if (finalized) return;
+                cancelled = true;
+                adCompleteHandled = true;
+                console.error(`[RewardedGrant] ${page} transaction cancelled: ${reason}`);
+                this.resumeTimerAfterAd?.();
+                runFinally();
+            };
+            this._rewardedGrantTransaction = {
+                id: transactionId,
+                page,
+                phase: 'ad',
+                startedAt: Date.now(),
+                cancel: cancelTransaction,
+            } as RewardedGrantRuntimeTransaction;
             const runAdFail = () => {
+                if (!isActive()) return;
                 showRewardedGrantToast(this, options.adFailToast);
                 try {
                     options.onAdFail?.();
@@ -411,9 +484,12 @@ export function installHomeAdFlowModule(target: any): void {
                 runFinally();
             };
 
-            let adCompleteHandled = false;
             try {
                 this.showTrackedRewardedAd(page, (success: boolean) => {
+                    if (!isActive()) {
+                        console.warn(`[RewardedGrant] ${page} late ad-complete ignored`);
+                        return;
+                    }
                     if (adCompleteHandled) {
                         console.warn(`[RewardedGrant] ${page} duplicate ad-complete ignored`);
                         return;
@@ -428,11 +504,22 @@ export function installHomeAdFlowModule(target: any): void {
                         runAdFail();
                         return;
                     }
+                    const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+                    if (transaction?.id === transactionId) {
+                        transaction.phase = 'grant';
+                        this.clearRewardedGrantForegroundRecoveryTimer();
+                    }
                     PerformanceMgr.inst.markUserActivity(6000);
 
                     Promise.resolve()
-                        .then(() => grant())
-                        .then(async (grantResult) => {
+                        .then(async () => {
+                            if (!isActive()) return { active: false, result: undefined };
+                            const result = await grant();
+                            return { active: true, result };
+                        })
+                        .then(async (outcome) => {
+                            if (!outcome.active || !isActive()) return;
+                            const grantResult = outcome.result;
                             if (grantResult === false) {
                                 console.warn(`[RewardedGrant] ${page} grant returned false`);
                                 showRewardedGrantToast(this, options.grantFailToast);
@@ -444,16 +531,19 @@ export function installHomeAdFlowModule(target: any): void {
                             }
                             try {
                                 const afterResult = await options.afterGrant();
+                                if (!isActive()) return;
                                 if (afterResult === false) {
                                     console.warn(`[RewardedGrant] ${page} afterGrant returned false`);
                                     showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
                                 }
                             } catch (error) {
+                                if (!isActive()) return;
                                 console.error(`[RewardedGrant] ${page} afterGrant failed:`, error);
                                 showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
                             }
                         })
                         .catch((error) => {
+                            if (!isActive()) return;
                             console.error(`[RewardedGrant] ${page} grant failed:`, error);
                             showRewardedGrantToast(this, options.grantFailToast);
                         })
@@ -466,7 +556,11 @@ export function installHomeAdFlowModule(target: any): void {
             } catch (error) {
                 console.error(`[RewardedGrant] ${page} ad request failed:`, error);
                 this.resumeTimerAfterAd?.();
-                runAdFail();
+                if (isActive()) {
+                    runAdFail();
+                } else {
+                    runFinally();
+                }
                 return false;
             }
             return true;
@@ -550,6 +644,7 @@ export function installHomeAdFlowModule(target: any): void {
             this._loadingShineTween = null;
             this._remoteLoadErrorOverlay = null;
             this._noLivesModal = null;
+            this.clearRecoverVigorModalRuntimeState?.();
             this._collectionOverlay = null;
             this._collectionContentNode = null;
             this._collectionScrollContentNode = null;
@@ -568,6 +663,7 @@ export function installHomeAdFlowModule(target: any): void {
         cleanupGameplayForHomeTransition() {
             this.clearToastNodes?.();
             Tween.stopAll();
+            this.cancelRewardedGrantInteraction?.('home-transition');
             this.cancelRewardedAdPreload?.();
             this.unscheduleAllCallbacks();
             this.deactivateWeChatFriendRank('cleanup-for-main-menu');
@@ -838,7 +934,7 @@ export function installHomeAdFlowModule(target: any): void {
             parent.getComponent(Button) || parent.addComponent(Button);
             parent.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
-                this.showNoLivesAdModal(() => {});
+                this.showNoLivesAdModal({ source: 'home_hud' });
             }, this);
             const countLbl = this.requireUiChild(parent, 'VigorCount', 'VigorGroup/VigorCount');
             const vigorLabel = countLbl.getComponent(Label);

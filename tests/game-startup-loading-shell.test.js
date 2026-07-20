@@ -71,6 +71,15 @@ assert.ok(
     'loading overlay must restore GameplayRoot before hiding the cover after initGame renders the target level',
 );
 assert.ok(
+    loadingOverlayModule.includes("const authoredOverlay = bootRoot?.getChildByName('StartupLoadingUI') || null;"),
+    'gameplay-ready must recover and release the authored loading blocker even when the cached overlay reference is missing',
+);
+assert.ok(
+    loadingOverlayModule.includes('const blocker = overlay.getComponent(BlockInputEvents);')
+    && loadingOverlayModule.includes('if (blocker) blocker.enabled = false;'),
+    'loading overlay teardown must disable input interception before deactivating the overlay',
+);
+assert.ok(
     loadingOverlayModule.includes('this._loadingProgressLabelShadow.string = `加载中...${safePercent}%`;'),
     'loading progress shadow label must stay in sync with the visible percentage label',
 );

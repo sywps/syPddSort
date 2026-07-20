@@ -15,6 +15,7 @@ const postPlayableWarmup = read('assets/Scripts/Core/GameCtrlModules/PostPlayabl
 const settingsPanel = read('assets/Scripts/Core/Panels/SettingsPanelController.ts');
 const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
 const homeCommerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
+const sceneHomeEntry = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
 const startupCloudRestore = read('assets/Scripts/Core/GameCtrlModules/StartupCloudRestoreHelper.ts');
 const homeScene = read('assets/HomeAssetsBundle/Scenes/Home.scene');
 const routeCoverPascal = ['Scene', 'Transition'].join('');
@@ -61,6 +62,8 @@ assert.ok(!homeAdFlow.includes("requestHomeRoute('runtime', 'cover')"), 'runtime
 assert.ok(homeAdFlow.includes("requestHomeRoute('runtime', 'none')"), 'runtime Home route must explicitly route Home without cover');
 assert.ok(!homeCommerce.includes("requestGameplayRoute(level, 'level_', false, 'cover')"), 'main start button must not request a cover');
 assert.ok(homeCommerce.includes("requestGameplayRoute(level, 'level_', false, 'none')"), 'main start button must enter gameplay without route cover');
+assert.ok(sceneHomeEntry.includes('this.getGameplayEntryMode(prefix, external),\n                entryCoverMode,'), 'gameplay route must preserve the caller entry-cover mode');
+assert.ok(!sceneHomeEntry.includes("entryCoverMode === 'none' ? 'auto'"), 'gameplay route must not silently convert no-cover entry back to auto cover');
 assert.ok(!startupCloudRestore.includes("requestGameplayRoute(restoredLevel, 'level_', false, 'cover')"), 'cloud restore route must not request a cover');
 assert.ok(startupCloudRestore.includes("requestGameplayRoute(restoredLevel, 'level_', false, 'none')"), 'cloud restore route must enter gameplay without route cover');
 

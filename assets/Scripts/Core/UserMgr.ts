@@ -30,6 +30,7 @@ export class UserMgr {
 
     private profile: UserProfile;
     private sessionTouched = false;
+    private activeUserInfoButtonCleanups = new Set<() => void>();
 
     private constructor() {
         this.profile = this.loadProfile();
@@ -189,16 +190,33 @@ export class UserMgr {
                     }
                 });
 
-                button.onTap((res: any) => {
-                    const ok = this._applyWeChatUserInfo(res?.userInfo);
-                    button.destroy();
+                let settled = false;
+                const onTap = (res: any) => settle(this._applyWeChatUserInfo(res?.userInfo));
+                const cleanup = () => settle(false);
+                const settle = (ok: boolean) => {
+                    if (settled) return;
+                    settled = true;
+                    this.activeUserInfoButtonCleanups.delete(cleanup);
+                    try {
+                        button.offTap?.(onTap);
+                    } catch (_) {}
+                    try {
+                        button.destroy?.();
+                    } catch (_) {}
                     resolve(ok);
-                });
+                };
+                this.activeUserInfoButtonCleanups.add(cleanup);
+                button.onTap(onTap);
             } catch (e: any) {
                 console.warn('[UserMgr] createUserInfoButton failed:', e);
                 resolve(false);
             }
         });
+    }
+
+    destroyUserInfoButtons(): void {
+        const cleanups = Array.from(this.activeUserInfoButtonCleanups);
+        for (const cleanup of cleanups) cleanup();
     }
 
     private _applyWeChatUserInfo(info: any): boolean {

@@ -2,7 +2,7 @@ import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
-    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
+    ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, Mask,
     NodePool, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
@@ -254,6 +254,7 @@ export function installThemePanelFlowModule(target: any): void {
         // ==================== 缩放引导 ====================
         
         startPinchGuide(options: { title?: string; subtitle?: string; autoCloseSeconds?: number } = {}) {
+            if (this.isGameEnd) return;
             if (this._pinchGuideLayer) return;
             const title = options.title || '双指拖动可放大缩小图案';
             const subtitle = options.subtitle || '';
@@ -283,11 +284,6 @@ export function installThemePanelFlowModule(target: any): void {
             layer.addComponent(UITransform).setContentSize(layerWidth, layerHeight);
             layer.layer = Layers.Enum.UI_2D;
             layer.setSiblingIndex(Math.max(0, root.children.length - 1));
-            layer.addComponent(BlockInputEvents);
-            layer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-                event.propagationStopped = true;
-                this.closePinchGuide();
-            }, this);
             this._pinchGuideLayer = layer;
 
             const bubble = new Node('Bubble');

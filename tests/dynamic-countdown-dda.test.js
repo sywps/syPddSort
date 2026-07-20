@@ -184,6 +184,8 @@ assert.ok(slotUi.includes('const beforeUnlockedRows'), 'slot-row unlock must sna
 assert.ok(slotUi.includes('return didAdvance();'), 'slot-row unlock must return false when policy/state makes the grant a no-op');
 assert.ok(slotUi.includes('const unlocked = this.unlockSlotRow();'), 'slot-row rewarded ad grant must inspect the actual unlock result');
 assert.ok(slotUi.includes('if (!unlocked) return false;'), 'slot-row rewarded ad grant must fail when no row was unlocked');
+assert.ok(slotUi.includes('onFinally: () => runtime.resumeTimerForProp()'), 'slot-row timer must resume only after rewarded grant finalization');
+assert.ok(!slotUi.includes('onAdComplete: () => runtime.resumeTimerForProp()'), 'slot-row timer must not resume before the rewarded grant runs');
 assert.ok(slotUi.includes('this.runtime.slotModel.getAll().some((s: any) => s !== null)'), 'slot-clear availability must read the real slot model occupancy');
 
 const commerce = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
