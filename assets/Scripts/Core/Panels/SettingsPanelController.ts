@@ -33,10 +33,10 @@ function buildSettingsToggle(runtime: any, parent: Node, initialOn: boolean, onT
     toggle.targetOff(runtime);
     toggle.getComponent(Button) || toggle.addComponent(Button);
     toggle.on(Button.EventType.CLICK, () => {
-        AudioMgr.inst.play('button');
         const next = !currentOn;
         sync(next);
         onToggle(next);
+        AudioMgr.inst.play('button');
     }, runtime);
 }
 

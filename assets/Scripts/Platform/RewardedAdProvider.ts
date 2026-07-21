@@ -14,8 +14,7 @@ export type RewardedAdHooks = {
 
 type RewardedAdCallback = (success: boolean) => void;
 type RewardedAdStatus = 'idle' | 'loading' | 'ready' | 'showing';
-const WECHAT_CLOSE_WATCHDOG_MS = 60 * 1000;
-const FOREGROUND_RECOVERY_GRACE_MS = 1500;
+const WECHAT_CLOSE_WATCHDOG_MS = 5 * 60 * 1000;
 
 export type RewardedAdUnitIds = {
     douyin: string;
@@ -42,8 +41,6 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     private currentRequestId = 0;
     private loadWaitTimer: any = null;
     private showSafetyTimer: any = null;
-    private foregroundRecoveryTimer: any = null;
-    private shownAt = 0;
 
     constructor(private readonly adUnitId: string) {}
 
@@ -104,14 +101,8 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     }
 
     notifyGameResumed(): void {
-        if (!this.currentCallback) return;
-        this.clearForegroundRecoveryTimer();
-        const requestId = this.currentRequestId;
-        this.foregroundRecoveryTimer = setTimeout(() => {
-            this.foregroundRecoveryTimer = null;
-            if (!this.isCurrentRequest(requestId)) return;
-            this.cancelPending('foreground-close-missing');
-        }, FOREGROUND_RECOVERY_GRACE_MS);
+        // Foreground can arrive before the native rewarded-ad close callback.
+        // Only the active request's onClose result may settle a displayed ad.
     }
 
     cancelPending(reason: string = 'manual'): boolean {
@@ -131,7 +122,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (!api || typeof api.createRewardedVideoAd !== 'function' || !this.adUnitId) return null;
         this.ad = api.createRewardedVideoAd({ adUnitId: this.adUnitId });
         this.ad.onClose?.((res: any) => {
-            if (!this.currentCallback || this.status !== 'showing' || this.shownAt <= 0) {
+            if (!this.currentCallback || this.status !== 'showing') {
                 console.warn(`[AdConfig] ${this.platform} stale rewarded ad close ignored`);
                 return;
             }
@@ -190,7 +181,6 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             return;
         }
         this.status = 'showing';
-        this.shownAt = 0;
         this.showSafetyTimer = setTimeout(() => {
             this.showSafetyTimer = null;
             if (!this.isCurrentRequest(requestId)) return;
@@ -206,7 +196,6 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             .then(() => ad.show())
             .then(() => {
                 if (!this.isCurrentRequest(requestId)) return;
-                this.shownAt = Date.now();
                 this.currentHooks?.onShow?.();
                 console.log(`[AdConfig] ${this.platform} rewarded ad show resolved`);
             })
@@ -221,12 +210,10 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (!this.currentCallback) return;
         this.clearLoadWaitTimer();
         this.clearShowSafetyTimer();
-        this.clearForegroundRecoveryTimer();
         const callback = this.currentCallback;
         this.currentCallback = null;
         this.currentHooks = null;
         this.status = 'idle';
-        this.shownAt = 0;
         try {
             callback(success);
         } catch (error) {
@@ -258,12 +245,6 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (!this.showSafetyTimer) return;
         clearTimeout(this.showSafetyTimer);
         this.showSafetyTimer = null;
-    }
-
-    private clearForegroundRecoveryTimer(): void {
-        if (!this.foregroundRecoveryTimer) return;
-        clearTimeout(this.foregroundRecoveryTimer);
-        this.foregroundRecoveryTimer = null;
     }
 
     private preloadAfterInteraction(reason: string): void {

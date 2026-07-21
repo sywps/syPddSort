@@ -349,15 +349,30 @@ export function installTutorialGuideModule(target: any): void {
                 }
                 return null;
             }
-            if (this._guideMode === 'level_2' || this._guideMode === 'slot_intro') {
+            if (this._guideMode === 'level_2') {
                 if (step === 0) {
                     const bounds = this.getGuidePromptNodeBounds(this.getSlotUnlockGuideTarget?.() || this.slotAreaNode || null, bubble);
                     return bounds ? { ...bounds, kind: 'slot' } : null;
                 }
-                if (step === 2) {
+                if (step === 2 || step === 5) {
                     const bounds = this.getGuidePromptNodeBounds(this.slotAreaNode || null, bubble);
                     return bounds ? { ...bounds, kind: 'slot' } : null;
                 }
+                if (step === 1 || step === 3) {
+                    const colorId = step === 1 ? this._guideFirstColorId : this._guideSecondColorId;
+                    const block = this.findBlockOnBoard?.(colorId);
+                    const bounds = this.getGuidePromptCellsBounds(block?.cells || [], bubble);
+                    return bounds ? { ...bounds, kind: 'board' } : null;
+                }
+                if (step === 4 || step === 6) {
+                    const colorId = step === 4 ? this._guideSecondColorId : this._guideFirstColorId;
+                    const bounds = this.getGuidePromptCellsBounds(this.getGuideEmptyTargetCellsForPrompt(colorId), bubble);
+                    return bounds ? { ...bounds, kind: 'board' } : null;
+                }
+            }
+            if (this._guideMode === 'slot_intro' && step === 0) {
+                const bounds = this.getGuidePromptNodeBounds(this.getSlotUnlockGuideTarget?.() || this.slotAreaNode || null, bubble);
+                return bounds ? { ...bounds, kind: 'slot' } : null;
             }
             return null;
         },
@@ -416,9 +431,10 @@ export function installTutorialGuideModule(target: any): void {
         guideLevel2PickBlockStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
             const block = this.findBlockOnBoard(this._guideFirstColorId);
             if (block) {
+                this.autoHighlightBlock(block.cells);
                 this.startHandGestureOnBlock(block, hand);
             }
-            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(1, '点击任意豆子'));
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(1, '点击高亮豆子'));
         },
 
         guideZoomGestureStep(_gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, _hand: Node) {
@@ -428,6 +444,8 @@ export function installTutorialGuideModule(target: any): void {
                 : '双指【缩放图案】';
             const configuredSubtitle = this.levelData?.tutorialGuide?.subtitle;
             const subtitle = typeof configuredSubtitle === 'string' ? configuredSubtitle.trim() : '';
+            this.startGuidePinchReminderAnimation?.();
+            this.setBoardZoomControlActive?.(true, true);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, subtitle ? `${title}，${subtitle}` : title);
         },
 
@@ -435,6 +453,36 @@ export function installTutorialGuideModule(target: any): void {
             this.highlightSlotAreaForGuide();
             this.startHandGestureOnSlot(hand);
             this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(2, '放到空槽里'));
+        },
+
+        guideLevel2PickCounterpartStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
+            const block = this.findBlockOnBoard(this._guideSecondColorId);
+            if (block) {
+                this.autoHighlightBlock(block.cells);
+                this.startHandGestureToBoard(block, hand, 0);
+            }
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(3, '点击另一组豆子'));
+        },
+
+        guideLevel2PlaceCounterpartStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
+            this.highlightEmptyTarget(this._guideSecondColorId);
+            this.startHandGestureOnBoardTarget(this._guideSecondColorId, hand);
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(4, '放回对应空位'));
+        },
+
+        guideLevel2PickBufferedStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
+            const block = this.findSlotBlock(this._guideFirstColorId);
+            if (block) {
+                this.autoHighlightSlotBeans(this._guideFirstColorId);
+                this.startHandGestureOnSlot(hand);
+            }
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(5, '点击槽内豆子'));
+        },
+
+        guideLevel2PlaceBufferedStep(gm: Graphics, gb: Graphics, lbl: Label, bubble: Node, hand: Node) {
+            this.highlightEmptyTarget(this._guideFirstColorId);
+            this.startHandGestureOnBoardTarget(this._guideFirstColorId, hand);
+            this.styleLevel2GuidePrompt(gb, bubble, lbl, this.getConfiguredGuideCopy(6, '放回最后空位'));
         },
 
         /** Step 1: 点击暂存槽放入（place 阶段） */
@@ -500,7 +548,6 @@ export function installTutorialGuideModule(target: any): void {
 
         armGuideReminder(): void {
             this.clearGuideReminderTimer(false);
-            this.hideGuideReminderVisuals();
             if (this._guideStep < 0 || this._guideInputSuspended || this._guideReminderPausedForLifecycle) return;
             const token = (Number(this._guideReminderToken) || 0) + 1;
             const step = this._guideStep;
@@ -508,11 +555,6 @@ export function installTutorialGuideModule(target: any): void {
             this._guideReminderToken = token;
             this._guideStatus = 'awaiting_action';
             const isZoomHint = mode === 'zoom' && step === 0;
-            if (isZoomHint) {
-                this._guideReminderVisible = true;
-                this.startGuidePinchReminderAnimation?.();
-                this.setBoardZoomControlActive?.(true, true);
-            }
             const handler = () => {
                 this._guideReminderHandler = null;
                 if (this._guideReminderToken !== token || this._guideStep !== step || this._guideMode !== mode) return;
@@ -597,6 +639,7 @@ export function installTutorialGuideModule(target: any): void {
             if (!this._guideReminderPausedForLifecycle) return;
             this._guideReminderPausedForLifecycle = false;
             if (this._guideStep < 0 || this._guideInputSuspended || (Number(this._modalFocusRefs) || 0) > 0) return;
+            this.showGuideReminderForCurrentStep?.();
             this.armGuideReminder();
         },
 
@@ -655,10 +698,10 @@ export function installTutorialGuideModule(target: any): void {
             }
         
             if (this._guidePhase === 'select') {
-                // 偶数步：选中目标块，成功后直接推进到下一步（放置阶段）
+                // 选中目标块，成功后直接推进到对应放置步骤。
                 if (this.isGuideSelectStep(step)) {
                     let selected = false;
-                    if (this._guideMode === 'level_1'
+                    if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
                         && !this.shouldGuideSelectFromSlot(step)) {
                         selected = this.trySelectHighlightedGuideBoardBlock(step, worldPos);
                     } else {
@@ -700,22 +743,6 @@ export function installTutorialGuideModule(target: any): void {
                     }
                 }
             } else if (this._guidePhase === 'place') {
-                // L2 放置提示期间允许用户改选任意棋盘豆子，提示保持在当前步骤。
-                if (this._guideMode === 'level_2' && this.isGuideSlotPlaceStep(step) && this.trySelectBoard(worldPos)) {
-                    this.reportTutorialTapResult?.(
-                        worldPos,
-                        'hit_reselect',
-                        true,
-                        'guide_layer',
-                        {
-                            selectedSource: this.currentBlock?.source,
-                            colorId: this.currentBlock?.colorId,
-                        },
-                    );
-                    this._guidePhase = 'place';
-                    this.showGuideStep(step);
-                    return;
-                }
                 // 放置阶段
                 if (!this.currentBlock) {
                     this.reportTutorialTapResult?.(worldPos, 'ignored_not_ready', false, 'guide_layer', {
@@ -742,7 +769,7 @@ export function installTutorialGuideModule(target: any): void {
                     return;
                 }
         
-                const target = this._guideMode === 'level_1'
+                const target = (this._guideMode === 'level_1' || this._guideMode === 'level_2')
                     ? this.getFirstLevelGuideBoardPlaceTarget(worldPos, this.getGuidePlaceTargetColor(step))
                     : this.getBoardPlaceTargetFromWorldPos(worldPos, this.getGuidePlaceTargetColor(step));
                 if (target) {
@@ -767,7 +794,7 @@ export function installTutorialGuideModule(target: any): void {
 
         isGuideSelectStep(step: number): boolean {
             if (this._guideMode === 'zoom') return false;
-            if (this._guideMode === 'level_2') return step === 1;
+            if (this._guideMode === 'level_2') return step === 1 || step === 3 || step === 5;
             if (this._guideMode === 'slot_intro') return false;
             return step % 2 === 0;
         },
@@ -778,16 +805,20 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         shouldGuideSelectFromSlot(step: number): boolean {
-            return this._guideMode === 'level_1' && step === 4;
+            return (this._guideMode === 'level_1' && step === 4)
+                || (this._guideMode === 'level_2' && step === 5);
         },
 
         getGuidePlaceTargetColor(step: number): number {
+            if (this._guideMode === 'level_2') {
+                return step === 4 ? this._guideSecondColorId : this._guideFirstColorId;
+            }
             return step === 3 ? this._guideSecondColorId : this._guideFirstColorId;
         },
 
         isGuidePlaceTargetHit(worldPos: Vec3): boolean {
             const step = this._guideStep;
-            // level2 Step 1: 点击暂存槽区域
+            // 引导中的入槽步骤：点击暂存槽区域。
             if (this.isGuideSlotPlaceStep(step)) {
                 const slotUT = this.slotAreaNode.getComponent(UITransform)!;
                 const localPos = slotUT.convertToNodeSpaceAR(worldPos);
@@ -919,9 +950,16 @@ export function installTutorialGuideModule(target: any): void {
                     ? (this.levelData?.tutorialGuide?.title || '双指【缩放图案】')
                     : this.getConfiguredGuideCopy(1, '点击【高亮的豆豆】');
             } else if (this._guideMode === 'level_2') {
-                if (this._guideStep === 0) hint = this.getConfiguredGuideCopy(0, '点下方解锁空位');
-                else if (this._guideStep === 1) hint = this.getConfiguredGuideCopy(1, '点击任意豆子');
-                else hint = this.getConfiguredGuideCopy(2, '放到空槽里');
+                const fallbackByStep = [
+                    '点击解锁按钮',
+                    '点击高亮豆子',
+                    '放到下方插槽',
+                    '点击另一组豆子',
+                    '放回对应空位',
+                    '点击槽内豆子',
+                    '放回最后空位',
+                ];
+                hint = this.getConfiguredGuideCopy(this._guideStep, fallbackByStep[this._guideStep] || '点击高亮区域');
             } else {
                 switch (this._guideStep) {
                     case 0: hint = this.getConfiguredGuideCopy(0, '点任意粉色豆豆'); break;
@@ -980,7 +1018,7 @@ export function installTutorialGuideModule(target: any): void {
             }
             switch (step) {
                 case 0: lbl.string = this._guideMode === 'level_2' ? '请点击解锁按钮！' : '请点击目标区域！'; break;
-                case 1: lbl.string = this._guideMode === 'level_1' ? '请点击下方暂存槽放入！' : '请点击任意豆子！'; break;
+                case 1: lbl.string = this._guideMode === 'level_1' ? '请点击下方暂存槽放入！' : '请点击高亮豆子！'; break;
                 case 2: lbl.string = this._guideMode === 'level_2' ? '请点击下方暂存槽放入！' : '请点击目标区域！'; break;
                 case 3: lbl.string = '请点击高亮区域放置！'; break;
                 case 5: lbl.string = '请点击高亮区域放置！'; break;
@@ -1065,7 +1103,7 @@ export function installTutorialGuideModule(target: any): void {
                     this.finishPlace();
                 }
             } else {
-                // Step 3/5: 从棋盘放置到棋盘目标（Step 3: secondColorId, Step 5: firstColorId from slot）
+                // 将当前选中块放到对应颜色的棋盘空位。
                 const sources = this.collectSourceWorldPositions(block);
                 const guideDirtyBoardCells = block.source === 'board'
                     ? block.cells.map((cell) => ({ row: cell.row, col: cell.col }))
@@ -1154,9 +1192,12 @@ export function installTutorialGuideModule(target: any): void {
                         default: return false;
                     }
                 case 'level_2':
-                    return step === 1
-                        && block.source === 'board'
-                        && block.cells.length > 0;
+                    switch (step) {
+                        case 1: return block.colorId === this._guideFirstColorId && block.source === 'board';
+                        case 3: return block.colorId === this._guideSecondColorId && block.source === 'board';
+                        case 5: return block.colorId === this._guideFirstColorId && block.source === 'slot';
+                        default: return false;
+                    }
                 case 'zoom':
                     return false;
                 default:
@@ -1185,7 +1226,9 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         trySelectHighlightedGuideBoardBlock(step: number, worldPos: Vec3): boolean {
-            const colorId = step === 2 ? this._guideSecondColorId : this._guideFirstColorId;
+            const usesSecondColor = (this._guideMode === 'level_1' && step === 2)
+                || (this._guideMode === 'level_2' && step === 3);
+            const colorId = usesSecondColor ? this._guideSecondColorId : this._guideFirstColorId;
             const block = this.findBlockOnBoard(colorId);
             if (!block || !this.isWorldPosNearGuideCells(worldPos, block.cells, 'select')) return false;
             const targetCell = block.cells[0];
@@ -1250,8 +1293,16 @@ export function installTutorialGuideModule(target: any): void {
                     }
                     break;
                 case 'level_2':
-                    if (step === 2) {
-                        done = this._guideLevel2SlotPlacementSucceeded === true;
+                    switch (step) {
+                        case 2:
+                            done = this._guideLevel2SlotPlacementSucceeded === true;
+                            break;
+                        case 4:
+                            done = this.isColorFullyLocked(this._guideSecondColorId);
+                            break;
+                        case 6:
+                            done = this.boardModel.isAllLocked();
+                            break;
                     }
                     break;
             }
@@ -1259,10 +1310,6 @@ export function installTutorialGuideModule(target: any): void {
             if (done) {
                 this.scheduleOnce(() => {
                     if (this._guideStep < 0) return;
-                    if (this._guideMode === 'level_2' && step === this._guideTotalSteps - 1) {
-                        this.endTutorial();
-                        return;
-                    }
                     if (step === this._guideTotalSteps - 1) {
                         // 最后一步完成，结束引导并通关
                         this.endTutorial();
@@ -1272,7 +1319,7 @@ export function installTutorialGuideModule(target: any): void {
                     }
                 }, 0.2);
             } else {
-                // 没有正确放置，重置到当前步骤重新操作（奇数步始终为 place 阶段）
+                // 没有正确放置，重置到当前放置步骤重新操作。
                 this._guidePhase = 'place';
                 this.showGuideStep(step);
             }

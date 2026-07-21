@@ -2902,7 +2902,6 @@ export function installAssetBootstrapModule(target: any): void {
             game.off(Game.EVENT_SHOW, this.handleGameShowLifecycle, this);
             this._pendingPostAdSkillAction = null;
             this.cancelRewardedAdPreload?.();
-            this.clearRewardedGrantForegroundRecoveryTimer?.();
         },
 
         handleGameHideFlushUserState(): void {
@@ -2916,7 +2915,6 @@ export function installAssetBootstrapModule(target: any): void {
             this._gameForeground = true;
             this.resetTouchState?.();
             this.resumeGuideReminderForLifecycle?.();
-            this.scheduleRewardedGrantForegroundRecovery?.('foreground');
             this.refreshVigorUI?.();
             this.refreshGoldUI?.();
             this.syncSkillButtonRuntimeStates?.();

@@ -1035,9 +1035,13 @@ export function installSettlementHudModule(target: any): void {
         // Step 5: 点击棋盘目标位置放置 → 通关（place 阶段）
         //
         // level_2:
-        // Step 0: 点击解锁按钮扩展第二排暂存槽
-        // Step 1: 选中任意可操作豆豆块（select 阶段，目标=暂存槽）
+        // Step 0: 点击解锁按钮解锁全部剩余暂存槽
+        // Step 1: 选中 firstColorId 豆豆块（select 阶段，目标=暂存槽）
         // Step 2: 点击暂存槽放入（place 阶段）
+        // Step 3: 选中 secondColorId 豆豆块（select 阶段，目标=棋盘）
+        // Step 4: 点击棋盘目标位置放置（place 阶段）
+        // Step 5: 从暂存槽选中 firstColorId（select 阶段，目标=棋盘）
+        // Step 6: 点击棋盘目标位置放置 → 通关（place 阶段）
 
         collectLevel2TutorialColorIds(limit: number = 2): number[] {
             const bm = this.boardModel;
@@ -1112,7 +1116,7 @@ export function installSettlementHudModule(target: any): void {
             PerformanceMgr.inst.markUserActivity(8000);
             this._guideMode = mode;
             this._guideStep = 0;
-            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 3 : ((mode === 'zoom' || mode === 'slot_intro') ? 1 : 0));
+            this._guideTotalSteps = mode === 'level_1' ? 6 : (mode === 'level_2' ? 7 : ((mode === 'zoom' || mode === 'slot_intro') ? 1 : 0));
             this._guideInputSuspended = false;
             this._guideLevel2SlotPlacementSucceeded = false;
             this._guideStatus = 'awaiting_action';
@@ -1264,6 +1268,9 @@ export function installSettlementHudModule(target: any): void {
             }
             if (!this._guideLayer) return;
             this._guideLayer.active = true;
+            // 首次展示与 5 秒未操作提醒是两件事。步骤创建当帧就允许手势可见；
+            // armGuideReminder() 只负责后续重复提醒，不能再作为首次显示门控。
+            this._guideReminderVisible = true;
             this.markTutorialStepShownForFunnel?.(step);
             this.trackFirstLevelFunnel('tutorial_step_show', {
                 stepId: step,
@@ -1308,6 +1315,10 @@ export function installSettlementHudModule(target: any): void {
                         case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
                         case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
                         case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 3: this.guideLevel2PickCounterpartStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 4: this.guideLevel2PlaceCounterpartStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 5: this.guideLevel2PickBufferedStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                        case 6: this.guideLevel2PlaceBufferedStep(gm, gb as Graphics, lbl, bubble, hand); break;
                         default: this.endTutorial(); break;
                     }
                     break;

@@ -75,7 +75,6 @@ type ShareGrantOptions = {
 };
 
 const SHARE_GRANT_CALLBACK_TIMEOUT_MS = 5000;
-const REWARDED_GRANT_FOREGROUND_RECOVERY_MS = 2500;
 
 function resolveRewardedGrantToast(toast?: RewardedGrantToast): string {
     if (!toast) return '';
@@ -96,15 +95,7 @@ function showRewardedGrantToast(runtime: any, toast?: RewardedGrantToast): void 
 
 export function installHomeAdFlowModule(target: any): void {
     Object.assign(target, {
-        clearRewardedGrantForegroundRecoveryTimer(): void {
-            const timer = this._rewardedGrantForegroundRecoveryTimer;
-            if (timer === null || timer === undefined) return;
-            clearTimeout(timer);
-            this._rewardedGrantForegroundRecoveryTimer = null;
-        },
-
         cancelRewardedGrantInteraction(reason: string = 'manual'): boolean {
-            this.clearRewardedGrantForegroundRecoveryTimer();
             const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
             if (transaction) {
                 transaction.cancel(reason);
@@ -116,20 +107,6 @@ export function installHomeAdFlowModule(target: any): void {
                 console.error(`[RewardedGrant] provider cancellation failed: ${reason}`, error);
             }
             return providerCancelled || !!transaction;
-        },
-
-        scheduleRewardedGrantForegroundRecovery(reason: string = 'foreground'): void {
-            this.clearRewardedGrantForegroundRecoveryTimer();
-            const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
-            if (!transaction || transaction.phase !== 'ad') return;
-            const transactionId = transaction.id;
-            this._rewardedGrantForegroundRecoveryTimer = setTimeout(() => {
-                this._rewardedGrantForegroundRecoveryTimer = null;
-                const pending = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
-                if (!pending || pending.id !== transactionId || pending.phase !== 'ad') return;
-                console.error(`[RewardedGrant] ${pending.page} recovered after ${reason} without completion`);
-                this.cancelRewardedGrantInteraction(`${reason}-completion-missing`);
-            }, REWARDED_GRANT_FOREGROUND_RECOVERY_MS);
         },
 
         runAfterAdWindowClosed(onReady: () => void): void {
@@ -446,7 +423,6 @@ export function installHomeAdFlowModule(target: any): void {
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
-                this.clearRewardedGrantForegroundRecoveryTimer();
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 if (active?.id === transactionId) {
                     this._rewardedGrantTransaction = null;
@@ -507,7 +483,6 @@ export function installHomeAdFlowModule(target: any): void {
                     const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                     if (transaction?.id === transactionId) {
                         transaction.phase = 'grant';
-                        this.clearRewardedGrantForegroundRecoveryTimer();
                     }
                     PerformanceMgr.inst.markUserActivity(6000);
 
