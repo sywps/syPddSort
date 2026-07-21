@@ -337,7 +337,6 @@ export function initializeGameCtrlState(runtime: any): void {
         _pendingRewardedAdPreload: null,
         _rewardedGrantTransactionSeq: 0,
         _rewardedGrantTransaction: null,
-        _rewardedGrantForegroundRecoveryTimer: null as ReturnType<typeof setTimeout> | null,
         mainMenuNode: null,
         _homeGameplayWarmupKey: '',
         _homeGameplayWarmupState: 'idle',

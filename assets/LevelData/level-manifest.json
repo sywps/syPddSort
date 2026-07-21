@@ -26,17 +26,12 @@
       "boardHeight": 23,
       "filledCellCount": 0,
       "colorIds": [
-        3,
-        4,
-        6,
         9,
         10,
-        13,
-        14,
         15,
         20
       ],
-      "colorCount": 9,
+      "colorCount": 4,
       "slotTotalCount": 440,
       "timeLimit": 300,
       "isMainline": true,

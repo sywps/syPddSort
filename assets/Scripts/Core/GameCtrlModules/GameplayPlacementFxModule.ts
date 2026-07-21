@@ -56,6 +56,18 @@ type FlyBeanFollowOptions = {
     onComplete?: () => void;
 };
 
+const DEFAULT_BEAN_FLY_STAGGER_SECONDS = 0.028;
+const MAX_BEAN_FLY_STAGGER_WINDOW_SECONDS = 0.35;
+
+export function getBeanFlyStaggerDelay(beanCount: number): number {
+    const normalizedCount = Math.max(0, Math.floor(Number(beanCount) || 0));
+    if (normalizedCount <= 1) return 0;
+    return Math.min(
+        DEFAULT_BEAN_FLY_STAGGER_SECONDS,
+        MAX_BEAN_FLY_STAGGER_WINDOW_SECONDS / (normalizedCount - 1),
+    );
+}
+
 export function installGameplayPlacementFxModule(target: any): void {
     installGameplayColorCompleteFxMethods(target);
     installGameplaySlotCompactionMethods(target);
@@ -404,7 +416,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
         
             const layerUT = this.dragLayer.getComponent(UITransform)!;
-            const FLY_DELAY = 0.028;
+            const flyDelay = getBeanFlyStaggerDelay(targets.length);
             const FLY_GROW_DUR = 0.09;
             const FLY_MOVE_DUR = 0.11;
             const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
@@ -460,7 +472,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     initialTargetBeanSize: targetBeanSize,
                     targetRow: t.row,
                     targetCol: t.col,
-                    delay: i * FLY_DELAY,
+                    delay: i * flyDelay,
                     duration: FLY_TOTAL_DUR,
                     easing: 'sineOut',
                     onComplete: () => {
@@ -512,7 +524,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             }
         
             const layerUT = this.dragLayer.getComponent(UITransform)!;
-            const FLY_DELAY = 0.028;
+            const flyDelay = getBeanFlyStaggerDelay(slotIdxs.length);
             const FLY_GROW_DUR = 0.09;
             const FLY_MOVE_DUR = 0.11;
             const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
@@ -579,7 +591,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 }
         
                 tween(bean)
-                    .delay(i * FLY_DELAY)
+                    .delay(i * flyDelay)
                     .to(FLY_TOTAL_DUR, flyProps, { easing: 'sineOut' })
                     .call(() => {
                         AudioMgr.inst.play('slot');

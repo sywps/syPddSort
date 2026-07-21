@@ -342,8 +342,9 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             if (this._guideMode === 'level_2') {
                 if (step === 0) return 'unlock';
-                if (step === 1) return 'select';
-                return 'place';
+                if (step === 1 || step === 3 || step === 5) return 'select';
+                if (step === 2 || step === 4 || step === 6) return 'place';
+                return 'select';
             }
             return step % 2 === 0 ? 'select' : 'place';
         },

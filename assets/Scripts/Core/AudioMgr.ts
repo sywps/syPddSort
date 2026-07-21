@@ -31,6 +31,7 @@ type Bundle = AssetManager.Bundle;
 const LS_SFX = 'pdd.setting.sfx';
 const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
+const SFX_CHANNEL_COUNT = 8;
 
 const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);
 
@@ -46,7 +47,9 @@ export class AudioMgr {
     private bgmClip: AudioClip | null = null;
     private host: Node | null = null;
     private audioRoot: Node | null = null;
-    private sfxSrc: AudioSource | null = null;
+    private sfxSources: AudioSource[] = [];
+    private busySfxSources: Set<AudioSource> = new Set();
+    private sfxSourceCursor = 0;
     private bgmSrc: AudioSource | null = null;
     private gameAssetsBundle: Bundle | null = null;
     private bootstrapBundle: Bundle | null = null;
@@ -85,16 +88,29 @@ export class AudioMgr {
     init(host: Node) {
         if (!host?.isValid) return;
         const audioHost = this.getOrCreateAudioRoot(host);
-        if (this.host === audioHost && this.host?.isValid && this.sfxSrc?.isValid && this.bgmSrc?.isValid) return;
-        if (this.host !== audioHost) {
-            try {
-                this.sfxSrc?.stop();
-                this.bgmSrc?.stop();
-            } catch (_) { /* ignore */ }
-        }
+        if (this.host === audioHost
+            && this.host?.isValid
+            && this.sfxSources.length === SFX_CHANNEL_COUNT
+            && this.sfxSources.every((source) => source?.isValid)
+            && this.bgmSrc?.isValid) return;
+        this.stopSfx();
+        try {
+            this.bgmSrc?.stop();
+        } catch (_) { /* ignore */ }
         this.host = audioHost;
-        this.sfxSrc = audioHost.addComponent(AudioSource);
+        audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
+        this.sfxSources = [];
+        this.busySfxSources.clear();
+        this.sfxSourceCursor = 0;
+        for (let i = 0; i < SFX_CHANNEL_COUNT; i++) {
+            const source = audioHost.addComponent(AudioSource);
+            source.playOnAwake = false;
+            source.loop = false;
+            this.sfxSources.push(source);
+        }
+        audioHost.on(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
         this.bgmSrc = audioHost.addComponent(AudioSource);
+        this.bgmSrc.playOnAwake = false;
         this.bgmSrc.loop = true;
         this.bgmSrc.volume = this.bgmVolume;
         this.preferRemoteAudio = this._isMinigameEnv();
@@ -119,6 +135,27 @@ export class AudioMgr {
         }
         this.audioRoot = root;
         return root;
+    }
+
+    private _handleSfxSourceEnded(source: AudioSource) {
+        this.busySfxSources.delete(source);
+    }
+
+    private _acquireSfxSource(): AudioSource | null {
+        const sources = this.sfxSources.filter((source) => source?.isValid);
+        if (sources.length === 0) return null;
+        for (let offset = 0; offset < sources.length; offset++) {
+            const index = (this.sfxSourceCursor + offset) % sources.length;
+            const source = sources[index];
+            if (this.busySfxSources.has(source)) continue;
+            this.sfxSourceCursor = (index + 1) % sources.length;
+            return source;
+        }
+        const index = this.sfxSourceCursor % sources.length;
+        const source = sources[index];
+        this.sfxSourceCursor = (index + 1) % sources.length;
+        this.busySfxSources.delete(source);
+        return source;
     }
 
     private _clearBgmWarmupTimer() {
@@ -256,14 +293,23 @@ export class AudioMgr {
     }
 
     private _playLoadedClip(name: SfxName, clip: AudioClip) {
-        if (this.suspended || !this.sfxEnabled || !this.sfxSrc) return;
+        if (this.suspended || !this.sfxEnabled) return;
+        const source = this._acquireSfxSource();
+        if (!source) return;
         try {
             const baseVolume = AUDIO_SFX_VOLUME[name] ?? 0.7;
             const variance = AUDIO_SFX_VOLUME_VARIANCE[name] ?? 0;
             const jitter = variance > 0 ? (Math.random() * 2 - 1) * variance : 0;
             const volume = Math.max(0, Math.min(1, baseVolume * (1 + jitter)));
-            this.sfxSrc.playOneShot(clip, volume);
+            source.stop();
+            source.playOnAwake = false;
+            source.loop = false;
+            source.clip = clip;
+            source.volume = volume;
+            this.busySfxSources.add(source);
+            source.play();
         } catch (e) {
+            this.busySfxSources.delete(source);
             // WeChat innerAudioContext may throw if audio not ready
         }
     }
@@ -533,7 +579,7 @@ export class AudioMgr {
         }
         this.pendingBgmRestartAfterExternalInterruption = false;
         this.bgmWasPlayingBeforeExternalInterruption = !!this.bgmSrc?.playing || this.bgmAutoplayRequested;
-        this.sfxSrc?.stop();
+        this.stopSfx();
         this.bgmSrc?.pause();
         this.logAudioLifecycle('begin-external', reason);
     }
@@ -597,7 +643,7 @@ export class AudioMgr {
 
     play(name: SfxName) {
         this._retryRequestedBgmPlayback();
-        if (this.suspended || !this.sfxEnabled || !this.sfxSrc) return;
+        if (this.suspended || !this.sfxEnabled || this.sfxSources.length === 0) return;
         const clip = this.sfxClips.get(name);
         if (clip) {
             this._playLoadedClip(name, clip);
@@ -608,9 +654,14 @@ export class AudioMgr {
     }
 
     stopSfx(): void {
-        try {
-            this.sfxSrc?.stop();
-        } catch (_) { /* ignore */ }
+        this.pendingAutoplaySfx.clear();
+        for (const source of this.sfxSources) {
+            if (!source?.isValid) continue;
+            try {
+                source.stop();
+            } catch (_) { /* ignore */ }
+        }
+        this.busySfxSources.clear();
     }
 
     /** 触发短震动（默认 30ms），用于点击/放置等触觉反馈 */
@@ -677,6 +728,7 @@ export class AudioMgr {
     setSfxEnabled(on: boolean) {
         this.sfxEnabled = on;
         sys.localStorage.setItem(LS_SFX, on ? '1' : '0');
+        if (!on) this.stopSfx();
     }
     setBgmEnabled(on: boolean) {
         this.bgmEnabled = on;
@@ -699,7 +751,7 @@ export class AudioMgr {
         if (this.suspended) return;
         this.suspended = true;
         this.bgmWasPlayingBeforeSuspend = !!this.bgmSrc?.playing || this.bgmAutoplayRequested;
-        this.sfxSrc?.stop();
+        this.stopSfx();
         this.bgmSrc?.pause();
         this.logAudioLifecycle('suspend-background', 'game-hide');
     }

@@ -114,7 +114,7 @@ async function flushMicrotasks(rounds = 12) {
     }
 }
 
-async function testCompletedAdUsesOneMinuteWatchdog() {
+async function testCompletedAdUsesFiveMinuteWatchdog() {
     const harness = loadWechatProvider();
     const events = [];
     harness.provider.show(
@@ -128,12 +128,13 @@ async function testCompletedAdUsesOneMinuteWatchdog() {
 
     assert.deepStrictEqual(harness.adCalls, ['load', 'show']);
     assert.deepStrictEqual(events, ['show'], 'reward must wait for the native close callback');
-    assert.strictEqual(harness.activeTimers(60000).length, 1, 'WeChat ads must retain a bounded one-minute close watchdog');
+    assert.strictEqual(harness.activeTimers(60000).length, 0, 'a long WeChat ad must not fail at one minute');
+    assert.strictEqual(harness.activeTimers(300000).length, 1, 'WeChat ads must retain a bounded five-minute close watchdog');
 
     harness.triggerClose({ isEnded: true });
     harness.triggerClose({ isEnded: true });
     assert.deepStrictEqual(events, ['show', 'close', 'result:true'], 'completed native close must settle exactly once');
-    assert.strictEqual(harness.activeTimers(60000).length, 0, 'native close must clear the watchdog');
+    assert.strictEqual(harness.activeTimers(300000).length, 0, 'native close must clear the watchdog');
 }
 
 async function testEarlyCloseStillFails() {
@@ -145,19 +146,19 @@ async function testEarlyCloseStillFails() {
     assert.deepStrictEqual(results, [false], 'explicit early close must not grant a reward');
 }
 
-async function testMissingCloseFailsClosedAfterOneMinute() {
+async function testMissingCloseFailsClosedAfterFiveMinutes() {
     const harness = loadWechatProvider();
     const results = [];
     harness.provider.show((success) => results.push(success));
     await flushMicrotasks();
 
-    harness.fireTimers(60000);
-    assert.deepStrictEqual(results, [false], 'missing native close must fail closed after one minute');
+    harness.fireTimers(300000);
+    assert.deepStrictEqual(results, [false], 'missing native close must fail closed after five minutes');
     harness.triggerClose({ isEnded: true });
     assert.deepStrictEqual(results, [false], 'a late close must not change the timed-out result');
 }
 
-async function testForegroundRecoveryFailsClosedAndIgnoresLateClose() {
+async function testForegroundWaitsForDelayedNativeClose() {
     const harness = loadWechatProvider();
     const events = [];
     harness.provider.show(
@@ -170,13 +171,27 @@ async function testForegroundRecoveryFailsClosedAndIgnoresLateClose() {
     await flushMicrotasks();
 
     harness.provider.notifyGameResumed();
-    assert.strictEqual(harness.activeTimers(1500).length, 1, 'foreground recovery must use a short grace window');
-    harness.fireTimers(1500);
-    assert.deepStrictEqual(events, ['show', 'close', 'result:false'], 'missing close after foreground must fail closed and release the caller');
-    assert.strictEqual(harness.activeTimers(60000).length, 0, 'foreground recovery must clear the long watchdog');
-
+    assert.strictEqual(harness.activeTimers(1500).length, 0, 'foreground resume must not arm a premature failure timer');
+    assert.deepStrictEqual(events, ['show'], 'foreground resume must keep waiting for the native close result');
     harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(events, ['show', 'close', 'result:false'], 'late native close must not grant after recovery');
+    assert.deepStrictEqual(events, ['show', 'close', 'result:true'], 'a delayed completed close after foreground must grant');
+    assert.strictEqual(harness.activeTimers(300000).length, 0, 'native close must clear the terminal watchdog');
+}
+
+async function testTwoIndependentCompletedAdsEachSucceed() {
+    const harness = loadWechatProvider();
+    const results = [];
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        harness.provider.show((success) => results.push({ attempt, success }));
+        await flushMicrotasks();
+        harness.provider.notifyGameResumed();
+        harness.triggerClose({ isEnded: true });
+        await flushMicrotasks();
+    }
+    assert.deepStrictEqual(results, [
+        { attempt: 1, success: true },
+        { attempt: 2, success: true },
+    ], 'each completed ad attempt must settle its own reward successfully');
 }
 
 async function testExplicitCancelDuringLoadSettlesOnce() {
@@ -198,7 +213,7 @@ async function testStaleCloseCannotSettleNextLoadingRequest() {
     const harness = loadWechatProvider();
     const results = [];
     harness.provider.show((success) => results.push(`first:${success}`));
-    harness.provider.cancelPending('foreground-close-missing');
+    harness.provider.cancelPending('scene-destroy');
 
     harness.provider.show((success) => results.push(`second:${success}`));
     harness.triggerClose({ isEnded: true });
@@ -225,10 +240,11 @@ async function testThrowingCallerCannotLeaveProviderBusy() {
 }
 
 async function main() {
-    await testCompletedAdUsesOneMinuteWatchdog();
+    await testCompletedAdUsesFiveMinuteWatchdog();
     await testEarlyCloseStillFails();
-    await testMissingCloseFailsClosedAfterOneMinute();
-    await testForegroundRecoveryFailsClosedAndIgnoresLateClose();
+    await testMissingCloseFailsClosedAfterFiveMinutes();
+    await testForegroundWaitsForDelayedNativeClose();
+    await testTwoIndependentCompletedAdsEachSucceed();
     await testExplicitCancelDuringLoadSettlesOnce();
     await testStaleCloseCannotSettleNextLoadingRequest();
     await testThrowingCallerCannotLeaveProviderBusy();

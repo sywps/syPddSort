@@ -33,11 +33,14 @@ assert.ok(userMgr.includes('destroyUserInfoButtons(): void'), 'native user-info 
 assert.ok(sceneRuntime.includes('this.runtime.clearExpandSlotGuide?.();'), 'scene teardown must remove the full-screen slot guide input target');
 
 assert.ok(adConfig.includes('AdConfig.getProvider().notifyGameResumed();'), 'foreground lifecycle must reach the active rewarded-ad provider');
-assert.ok(rewardedAdProvider.includes('FOREGROUND_RECOVERY_GRACE_MS = 1500'), 'missing native close must have a short foreground recovery grace');
+assert.ok(rewardedAdProvider.includes('WECHAT_CLOSE_WATCHDOG_MS = 5 * 60 * 1000'), 'missing native close must retain a bounded five-minute terminal watchdog');
+assert.ok(!rewardedAdProvider.includes('FOREGROUND_RECOVERY_GRACE_MS'), 'foreground resume must not arm a provider failure timer');
+assert.ok(!rewardedAdProvider.includes("cancelPending('foreground-close-missing')"), 'foreground resume must not cancel a pending rewarded request');
 assert.ok(homeAdFlow.includes("this.cancelRewardedGrantInteraction?.('home-transition');"), 'home transition must cancel an orphan rewarded transaction');
 assert.ok(gameplaySession.includes("runtime.cancelRewardedGrantInteraction?.('gameplay-init');"), 'new gameplay init must cancel an orphan rewarded transaction');
 assert.ok(sceneRuntime.includes('this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);'), 'scene teardown must cancel an orphan rewarded transaction');
-assert.ok(assetBootstrap.includes("this.scheduleRewardedGrantForegroundRecovery?.('foreground');"), 'foreground lifecycle must audit the runtime rewarded transaction');
+assert.ok(!assetBootstrap.includes('scheduleRewardedGrantForegroundRecovery'), 'foreground lifecycle must not cancel a transaction before native ad completion');
+assert.ok(!homeAdFlow.includes('REWARDED_GRANT_FOREGROUND_RECOVERY_MS'), 'business reward flow must not retain a duplicate foreground cancellation timer');
 assert.ok((assetBootstrap.match(/this\.resetTouchState\?\.\(\);/g) || []).length >= 2, 'hide and show must both clear stale board gesture state');
 assert.ok(boardInput.includes('onTouchCancel(_event: EventTouch)') && boardInput.includes('this.resetTouchState();'), 'touch cancel must be a reset-only action path');
 assert.ok(!gameplayView.includes('Node.EventType.TOUCH_CANCEL, runtime.onTouchEnd'), 'touch cancel must never execute normal touch-end gameplay');

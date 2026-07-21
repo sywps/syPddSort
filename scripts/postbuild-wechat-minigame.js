@@ -1139,7 +1139,69 @@ function ensureBundleScriptStub(runtimeRoot, bundleName, label) {
     }
 }
 
+function assertDnSdkIntegration(sdkRoot, label) {
+    sdkRoot = path.resolve(sdkRoot);
+    var configPath = path.join(sdkRoot, 'sysdk-conf.js');
+    var wrapperPath = path.join(sdkRoot, 'sysdk-wxapp.js');
+    var sdkPath = path.join(sdkRoot, 'wxsdk', 'index.js');
+    [configPath, wrapperPath, sdkPath].forEach(function (filePath) {
+        if (!fs.existsSync(filePath)) {
+            console.error('[DN SDK] ' + label + ' 缺少文件: ' + filePath);
+            process.exit(1);
+        }
+    });
+    delete require.cache[require.resolve(configPath)];
+    var config = require(configPath);
+    var dataSourceId = Number(config.DN_DATA_SOURCE_ID);
+    var secretKey = String(config.DN_SECRET_KEY || '');
+    if (!Number.isInteger(dataSourceId) || dataSourceId <= 0) {
+        console.error('[DN SDK] ' + label + ' DN_DATA_SOURCE_ID 必须为正整数');
+        process.exit(1);
+    }
+    if (secretKey.length !== 32) {
+        console.error('[DN SDK] ' + label + ' DN_SECRET_KEY 必须为 32 位字符串');
+        process.exit(1);
+    }
+    if (config.APP_ID !== 'wxbb6160c828f380ca') {
+        console.error('[DN SDK] ' + label + ' APP_ID 与目标小游戏不一致');
+        process.exit(1);
+    }
+    var sdkContent = fs.readFileSync(sdkPath, 'utf8');
+    if (sdkContent.indexOf('@dn-sdk/minigame v1.5.11') === -1) {
+        console.error('[DN SDK] ' + label + ' 未使用 @dn-sdk/minigame v1.5.11');
+        process.exit(1);
+    }
+    var wrapperContent = fs.readFileSync(wrapperPath, 'utf8');
+    var constructorMatches = wrapperContent.match(/new SDK\s*\(/g) || [];
+    var constructorIndex = wrapperContent.indexOf('new SDK(');
+    var firstLoginIndex = wrapperContent.indexOf('wx.login(');
+    if (constructorMatches.length !== 1 || constructorIndex < 0 || firstLoginIndex < 0 || constructorIndex > firstLoginIndex) {
+        console.error('[DN SDK] ' + label + ' 必须且只能初始化一次，并早于首次 wx.login');
+        process.exit(1);
+    }
+    console.log('[DN SDK] ' + label + ' v1.5.11 / 单实例 / wx.login 前初始化校验通过，数据源ID=' + dataSourceId + ' ✓');
+}
+
+function assertDnSdkGameEntry(runtimeRoot) {
+    var gameEntryPath = path.join(path.resolve(runtimeRoot), 'game.js');
+    if (!fs.existsSync(gameEntryPath)) {
+        console.error('[DN SDK] 微信生成包缺少 game.js');
+        process.exit(1);
+    }
+    var gameEntry = fs.readFileSync(gameEntryPath, 'utf8');
+    var sdkRequire = "require('./sdk/sysdk-wxapp')";
+    var requireMatches = gameEntry.match(/require\('\.\/sdk\/sysdk-wxapp'\)/g) || [];
+    var requireIndex = gameEntry.indexOf(sdkRequire);
+    var appInitIndex = gameEntry.indexOf('function __initApp');
+    if (requireMatches.length !== 1 || requireIndex < 0 || appInitIndex < 0 || requireIndex > appInitIndex) {
+        console.error('[DN SDK] SDK wrapper 必须在微信 game.js 中且早于 Cocos __initApp 加载一次');
+        process.exit(1);
+    }
+    console.log('[DN SDK] 微信 game.js 在 Cocos __initApp 前加载 SDK wrapper ✓');
+}
+
 // 1. 创建 src/bundle-scripts/gameAssets/index.js
+assertDnSdkIntegration(path.join(projectRoot, 'sdk'), '源码');
 ensureBundleScriptStub(resolveRuntimeRoot(), HOME_ASSETS_BUNDLE_NAME, '[1/6] homeAssets');
 ensureBundleScriptStub(resolveRuntimeRoot(), BUNDLE_NAME, '[1/6] gameAssets');
 SKIN_BUNDLE_NAMES.forEach(function (bundleName) {
@@ -1713,6 +1775,8 @@ var sdkDest = path.join(minigameRootPath, 'sdk');
 if (fs.existsSync(sdkSrc)) {
     if (fs.existsSync(sdkDest)) fs.rmSync(sdkDest, { recursive: true, force: true });
     fs.cpSync(sdkSrc, sdkDest, { recursive: true });
+    assertDnSdkIntegration(sdkDest, '微信生成包');
+    assertDnSdkGameEntry(minigameRootPath);
     console.log('[SDK] SDK 外部脚本已复制到 minigame/sdk/ ✓');
 } else {
     console.warn('[SDK] 未找到 sdk/ 目录，跳过');

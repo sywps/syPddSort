@@ -1,7 +1,56 @@
 let confArr = ['./sysdk-conf', 'APP_ID', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=login', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportRoleInfo', '1007.2.2', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=canPay', 'GAME_KEY', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=setTunnelClick', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getMaterials', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportShare', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportClick', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=descMidasCoin', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=send_tpl_msg', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=get_box_list', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=open_box', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=click_box', 'wss://ws.docater1.cn', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getOpenClipboard', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getDealPackageInfo', 'https://docater1.cn/index.php?g=Wap&m=WxSecCheck&a=msgSecCheck', 'https://docater1.cn/index.php?g=Wap&m=WxSecCheck&a=imgSecCheck', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getGameShareCardData', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportMidasErrorInfo', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getBoxCheckoutCode', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getUserPopupConfig', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportClickPopup', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=roleLogout', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=uploadCasualAction', 'https://docater1.cn/index.php?g=Wap&m=WxSecCheck&a=checkShieldWords', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getGameShareCardDataV3', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportShareCardDataV3', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=wxDataDecrypt', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getGameUserPhoneNumber', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getReportOrderInfo', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=postBackCallback', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=reportWxClientCallbackLog', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=sdkAndroidPayGetOrderData', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=checkSessionKey', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=updateSessionKey', 'https://docater1.cn/index.php?g=Wap&m=MiniGame&a=getSpecifyShareData'];
 
 const SY_CONF = require(confArr[0]);
-const SDK = require('./wxsdk/index.js');
+const { SDK } = require('./wxsdk/index.js');
+
+function shouldSkipWxSdkBootstrap() {
+  const wxRef = typeof wx !== 'undefined' ? wx : globalThis.wx;
+  if (!wxRef) return true;
+  try {
+    const system = wxRef.getSystemInfoSync && wxRef.getSystemInfoSync();
+    if (String(system && system.platform || '').toLowerCase() === 'devtools') return true;
+    if (system && system.host && !system.host.appId) return true;
+  } catch (_) {}
+  try {
+    const account = wxRef.getAccountInfoSync && wxRef.getAccountInfoSync();
+    if (account && account.miniProgram && !account.miniProgram.appId) return true;
+  } catch (_) {}
+  return false;
+}
+
+function getWxSdkConfig() {
+  const dataSourceId = Number(SY_CONF.DN_DATA_SOURCE_ID);
+  const secretKey = String(SY_CONF.DN_SECRET_KEY || '');
+  if (!Number.isInteger(dataSourceId) || dataSourceId <= 0) {
+    throw new Error('[DN SDK] DN_DATA_SOURCE_ID 必须为正整数');
+  }
+  if (secretKey.length !== 32) {
+    throw new Error('[DN SDK] DN_SECRET_KEY 必须为 32 位字符串');
+  }
+  if (typeof SY_CONF.APP_ID !== 'string' || !/^wx[0-9a-f]{16}$/i.test(SY_CONF.APP_ID)) {
+    throw new Error('[DN SDK] APP_ID 格式无效');
+  }
+  return {
+    user_action_set_id: dataSourceId,
+    secret_key: secretKey,
+    appid: SY_CONF.APP_ID,
+  };
+}
+
+function bootstrapWxSdk() {
+  if (shouldSkipWxSdkBootstrap()) {
+    return { sdk: '', initResult: null };
+  }
+  const sdk = new SDK(getWxSdkConfig());
+  const initResult = sdk.getInitResult();
+  if (!initResult || initResult.inited !== true) {
+    const detail = initResult && initResult.initErrMsg ? ': ' + initResult.initErrMsg : '';
+    throw new Error('[DN SDK] 初始化失败' + detail);
+  }
+  return { sdk, initResult };
+}
+
+const wxSdkBootstrap = bootstrapWxSdk();
 
 const Sygame = {
   // 初始化
@@ -29,7 +78,8 @@ const Sygame = {
   isGetSpecifyShareData: 0,//是否获取指定分享数据
   adunitid: '', // 激励视频广告ID
   rewardVideo: null, // 激励视频广告
-  wxSdk: '',
+  wxSdk: wxSdkBootstrap.sdk,
+  wxSdkInitResult: wxSdkBootstrap.initResult,
   isOpenWxCallback: false,
   androidPayType: 0,//0客户端扣款、1服务端扣款
   androidPayLoopCallback: 0,
@@ -42,7 +92,11 @@ const Sygame = {
     Sygame.commit_id = SY_CONF['commitId'];
     Sygame.touchNumber = 0;
     Sygame.jumpVersion = 0;
-    console.log('syInit:', Sygame);
+    console.log('syInit:', {
+      appid: Sygame.appid,
+      app_version: Sygame.app_version,
+      scene: Sygame.scene,
+    });
     let queryData = {
       query: data.query
     };
@@ -100,7 +154,7 @@ const Sygame = {
     // login request
     wx.login({
       success(res) {
-        console.log("syLoginCode:", res);
+        console.log('syLoginCode:', { hasCode: !!res.code });
         Sygame.listenShareAction();//分享
         if (res.code) {
           // get openId and userinfo from server
@@ -117,7 +171,11 @@ const Sygame = {
               clipboard: Sygame.clipboard,
             },
             success(ret) {
-              console.log("syLogin:", ret);
+              console.log('syLogin:', {
+                code: ret.data && ret.data.code,
+                hasOpenid: !!(ret.data && ret.data.openid),
+                wxSdkCallbackEnabled: !!(ret.data && ret.data.wxSdkCallbackData && ret.data.wxSdkCallbackData.isOpenWxSdkCallback),
+              });
               if (ret.data.code == 1001) {
                 resolve(ret.data);
                 Sygame.openid = ret.data.openid
@@ -163,7 +221,7 @@ const Sygame = {
                   confirmText: '确认',
                   showCancel: false,
                   success: () => {
-                    console.log('syLogin5001', ret);
+                    console.log('syLogin5001', { code: ret.data.code });
                   }
                 })
                 wx.onTouchStart(() => {
@@ -173,7 +231,7 @@ const Sygame = {
                     confirmText: '确认',
                     showCancel: false,
                     success: () => {
-                      console.log('syLogin5001', ret);
+                      console.log('syLogin5001', { code: ret.data.code });
                     }
                   })
                 });
@@ -1595,21 +1653,28 @@ const Sygame = {
 
     switch (type) {
       case 'login':
-        Sygame.isOpenWxCallback = true;
-        //1、初始化
-        if (!Sygame.wxSdk) {
-          Sygame.wxSdk = new SDK({
-            user_action_set_id: callbackData.dataSourceId,
-            secret_key: callbackData.dataSecretKey,
-            appid: Sygame.appid,
-          });
-          // 获取初始化状态
-          const initResult =  Sygame.wxSdk.getInitResult();
-          Sygame.reportWxClientCallbackLog('initWxSdk', initResult)
-          //2、设置opneId
-          const setOpenIdResult = Sygame.wxSdk.setOpenId(data.openid);
-          Sygame.reportWxClientCallbackLog('setOpenId', setOpenIdResult)
+        const configuredDataSourceId = Number(SY_CONF.DN_DATA_SOURCE_ID);
+        const callbackDataSourceId = Number(callbackData.dataSourceId);
+        const isConfigMatched = callbackDataSourceId === configuredDataSourceId
+          && String(callbackData.dataSecretKey || '') === String(SY_CONF.DN_SECRET_KEY || '');
+        if (!isConfigMatched) {
+          const mismatchResult = { code: 100, message: 'DataNexus 客户端配置与登录接口配置不一致' };
+          console.error('[DN SDK] 登录接口返回的 DataNexus 配置与本地应用配置不一致');
+          Sygame.reportWxClientCallbackLog('validateWxSdkConfig', mismatchResult);
+          return false;
         }
+        if (!Sygame.wxSdk || !Sygame.wxSdkInitResult || Sygame.wxSdkInitResult.inited !== true) {
+          const initErrorResult = { code: 100, message: 'DataNexus SDK 未在 wx.login 前完成初始化' };
+          console.error('[DN SDK] SDK 未在 wx.login 前完成初始化');
+          Sygame.reportWxClientCallbackLog('initWxSdk', initErrorResult);
+          return false;
+        }
+        Sygame.isOpenWxCallback = true;
+        //1、上报提前初始化状态
+        Sygame.reportWxClientCallbackLog('initWxSdk', Sygame.wxSdkInitResult);
+        //2、设置openId
+        const setOpenIdResult = Sygame.wxSdk.setOpenId(data.openid);
+        Sygame.reportWxClientCallbackLog('setOpenId', setOpenIdResult)
         //3、上报注册行为
         let loginResult = '';
         if (callbackData.callbackUser === 1) {
@@ -1905,4 +1970,3 @@ const Sygame = {
   },
 };
 globalThis.Sygame = Sygame;
-

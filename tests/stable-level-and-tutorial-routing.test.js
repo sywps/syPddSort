@@ -66,6 +66,21 @@ function unplacedComponentSummary(relPath) {
     return summary.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
 }
 
+function mismatchPairSummary(relPath) {
+    const data = readJson(relPath);
+    const counts = new Map();
+    for (let row = 0; row < data.boardHeight; row++) {
+        for (let col = 0; col < data.boardWidth; col++) {
+            const source = data.initRandomColorArr[row]?.[col] || 0;
+            const target = data.correctColorArr[row]?.[col] || 0;
+            if (!source || source === target) continue;
+            const key = `${source}->${target}`;
+            counts.set(key, (counts.get(key) || 0) + 1);
+        }
+    }
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+}
+
 const bootstrapLevel1Path = 'assets/BootstrapBundle/LevelData/level_1.json';
 
 const cocosSpec = read('docs/cocos-ai-code-ai-collaboration-spec-v1.md');
@@ -117,7 +132,7 @@ const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRout
 assert.ok(!session.toLowerCase().includes('experiment'), 'guide behavior and analytics must not branch on experiment assignment');
 assert.ok(session.includes('this.resolveTutorialMode(data)'), 'tutorial routing must be driven by the loaded level data');
 assert.ok(session.includes("case 'level_1_red_blue': return 'level_1'"), 'level 1 data must resolve to the mandatory core tutorial');
-assert.ok(session.includes("case 'slot_expand_all': return 'level_2'"), 'slot expansion data must resolve to the mandatory three-step level 2 tutorial');
+assert.ok(session.includes("case 'slot_expand_all': return 'level_2'"), 'slot expansion data must resolve to the mandatory seven-step level 2 tutorial');
 assert.ok(session.includes("case 'zoom': return 'zoom'"), 'zoom data must resolve to the optional zoom hint');
 assert.ok(!session.includes('applyGuideSlotPolicy'), 'client code must not rewrite the validated slotPolicy by level number');
 assert.ok(session.includes('slotPolicy.unlockedRows < slotPolicy.rowCount ? 1 : 0'), 'every progressive row policy must render only the next locked preview row');
@@ -145,13 +160,15 @@ assert.ok(slotUi.includes('hasPendingAllRowsUnlock'), 'slot UI must keep the add
 assert.ok(slotUi.includes('runtime.slotModel.expand(SLOTS_PER_ROW * rowsToAdd)'), 'slot UI must expand all pending rows in one action');
 assert.ok(slotUi.includes('row >= runtime.slotUnlockedRows'), 'slot UI must visually lock every row above the unlocked row count');
 assert.ok(slotUi.includes('LOCKED_SLOT_PREVIEW_OPACITY'), 'locked slot preview grooves must remain visible in the intro slot panel');
-assert.ok(tutorialGuideModule.includes('guideLevel2UnlockStep') && tutorialGuideModule.includes('guideLevel2PlaceBlockStep'), 'level 2 must guide unlock through a real board-to-slot placement');
-assert.ok(tutorialGuideModule.includes("'hit_reselect'"), 'level 2 must allow board reselection while the placement prompt remains active');
+assert.ok(tutorialGuideModule.includes('guideLevel2UnlockStep') && tutorialGuideModule.includes('guideLevel2PlaceBufferedStep'), 'level 2 must guide the full unlock/buffer/swap/return path');
+assert.ok(!tutorialGuideModule.includes("'hit_reselect'"), 'level 2 slot placement must retain the prescribed block instead of silently changing the seven-tap solution');
 assert.ok(tutorialGuideModule.includes('this._guideLevel2SlotPlacementSucceeded = true'), 'a real slot store must explicitly arm level 2 guide completion');
-assert.ok(tutorialGuideModule.includes('done = this._guideLevel2SlotPlacementSucceeded === true'), 'level 2 must finish only after a real slot placement lands');
+assert.ok(tutorialGuideModule.includes('done = this._guideLevel2SlotPlacementSucceeded === true'), 'level 2 must continue only after a real slot placement lands');
+assert.ok(tutorialGuideModule.includes('done = this.isColorFullyLocked(this._guideSecondColorId)'), 'level 2 must verify the counterpart board placement');
+assert.ok(tutorialGuideModule.includes('done = this.boardModel.isAllLocked()'), 'level 2 must finish only after the buffered color locks the whole board');
 assert.ok(tutorialGuideModule.includes('const ZOOM_HINT_HAND_TARGET_Y_OFFSET = -180;'), 'level 3 pinch hands must be shifted visibly below the board center');
-assert.ok(!tutorialGuideModule.includes("this.getConfiguredGuideCopy(1, '点高亮豆豆')"), 'level 2 must not describe one hidden unique target');
-assert.ok(tutorialGuideModule.includes("'请点击任意豆子！'"), 'level 2 wrong-target feedback must keep the arbitrary-selection contract');
+assert.ok(tutorialGuideModule.includes("this.getConfiguredGuideCopy(1, '点击高亮豆子')"), 'level 2 must describe the exact first block used by the seven-tap path');
+assert.ok(tutorialGuideModule.includes('step === 1 || step === 3 || step === 5'), 'level 2 must expose all three deterministic selection steps');
 assert.ok(!tutorialGuideModule.includes("new Node('PromptLabel"), 'level 3 slot intro must not create static labels at runtime');
 const secondaryEmphasisNode = gameScene.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'PromptLabelSecondaryEmphasis');
 assert.ok(secondaryEmphasisNode, 'Game.scene must own the level 3 secondary emphasis node');
@@ -183,8 +200,12 @@ const level1GuideCopies = [
 ];
 const level2GuideCopies = [
     '点击【解锁按钮】',
-    '点击【任意豆子】',
+    '点击【高亮豆子】',
     '放到【下方插槽】',
+    '点击【另一组豆子】',
+    '放回【对应空位】',
+    '点击【槽内豆子】',
+    '放回【最后空位】',
 ];
 const level3ZoomCopies = [
     '双指【缩放图案】',
@@ -215,13 +236,16 @@ assert.deepStrictEqual(slotPolicy('assets/LevelData/level_2.json'), {
     unlockAllRowsAtOnce: true,
 }, 'stable level 2 must unlock the remaining three rows with one free action');
 assert.strictEqual(readTutorialGuide('assets/LevelData/level_2.json').mode, 'slot_expand_all', 'stable level 2 must declare mandatory all-row expansion');
-assert.deepStrictEqual(readTutorialGuide('assets/LevelData/level_2.json').guideCopies, level2GuideCopies, 'stable level 2 must guide unlock, selection, and real placement');
+assert.deepStrictEqual(readTutorialGuide('assets/LevelData/level_2.json').guideCopies, level2GuideCopies, 'stable level 2 must guide all seven accepted actions');
 assert.deepStrictEqual(
     [level2Data.levelId, level2Data.boardWidth, level2Data.boardHeight, level2Data.timeLimit, level2Data.slotTotalCount],
     [2, 29, 23, 300, 440],
     'logical level 2 must own the complete former level 3 gameplay and settlement payload',
 );
-assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json'), [[3, 48], [6, 48], [9, 48], [10, 48], [14, 48], [15, 48], [20, 48]], 'stable level 2 must provide oversized blocks for the slot-expansion tutorial');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'correctColorArr'), [[9, 96], [10, 106], [15, 136], [20, 102]], 'stable level 2 correct data must use exactly four approved colors');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'initRandomColorArr'), [[9, 96], [10, 106], [15, 136], [20, 102]], 'stable level 2 initial data must use the same four-color population');
+assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json'), [[15, 48], [20, 48]], 'stable level 2 must contain exactly one 48-bean swap pair');
+assert.deepStrictEqual(mismatchPairSummary('assets/LevelData/level_2.json'), [['15->20', 48], ['20->15', 48]], 'stable level 2 must reduce to three block transfers and seven normal taps including unlock');
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_3.json'), {
     defaultRows: 2,

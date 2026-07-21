@@ -168,21 +168,10 @@ async function main() {
     );
     assert.strictEqual(providerCancelRuntime._skillActive, false, 'provider cancellation must leave the busy flag released');
 
-    const foregroundTimers = [];
-    const installWithFakeTimers = loadInstaller({
-        setTimeout(callback, delay) {
-            const timer = { callback, delay, cleared: false };
-            foregroundTimers.push(timer);
-            return timer;
-        },
-        clearTimeout(timer) {
-            timer.cleared = true;
-        },
-    });
     const foregroundEvents = [];
     let foregroundLateComplete = null;
     const foregroundRuntime = { _skillActive: false };
-    installWithFakeTimers(foregroundRuntime);
+    installHomeAdFlowModule(foregroundRuntime);
     foregroundRuntime.showTrackedRewardedAd = (_page, onComplete) => {
         foregroundLateComplete = onComplete;
     };
@@ -193,16 +182,16 @@ async function main() {
         busyFlag: '_skillActive',
         onFinally: () => foregroundEvents.push('finally'),
     });
-    foregroundRuntime.scheduleRewardedGrantForegroundRecovery('foreground');
-    const recoveryTimer = foregroundTimers.find((timer) => timer.delay === 2500 && !timer.cleared);
-    assert.ok(recoveryTimer, 'foreground audit must create a bounded runtime recovery timer');
-    recoveryTimer.callback();
-    assert.strictEqual(foregroundRuntime._skillActive, false, 'foreground recovery must release the gameplay busy flag');
-    assert.deepStrictEqual(foregroundEvents, ['finally']);
-
+    assert.strictEqual(
+        typeof foregroundRuntime.scheduleRewardedGrantForegroundRecovery,
+        'undefined',
+        'ordinary foreground resume must not install a business-level reward cancellation timer',
+    );
+    assert.strictEqual(foregroundRuntime._skillActive, true, 'the transaction must remain pending until native ad completion');
     foregroundLateComplete(true);
     await flushMicrotasks();
-    assert.deepStrictEqual(foregroundEvents, ['finally'], 'foreground recovery must ignore a late verified-success callback');
+    assert.deepStrictEqual(foregroundEvents, ['grant', 'finally'], 'a verified success after foreground must still execute and finalize the grant');
+    assert.strictEqual(foregroundRuntime._skillActive, false, 'successful completion must release the gameplay busy flag');
 
     console.log('rewarded-grant-transaction.test.js passed');
 }
