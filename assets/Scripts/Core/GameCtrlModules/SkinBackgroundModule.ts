@@ -1571,6 +1571,7 @@ export function installSkinBackgroundModule(target: any): void {
                 if (unlocked) this.grantBackgroundSkin(skin.id);
                 return true;
             }, {
+                claimKey: `background_skin_unlock:${skin.id}`,
                 busyFlag: '_backgroundSkinAdUnlocking',
                 adFailToast: '广告未完成，未获得解锁进度',
                 grantFailToast: '皮肤解锁失败，请重试',

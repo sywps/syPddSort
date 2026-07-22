@@ -40,13 +40,20 @@ export function installGameplaySkillWandModule(target: any): void {
             const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 180));
             this._freezeTimeLeft = freezeSeconds;
             this._freezeTimeTotal = freezeSeconds;
-            AudioMgr.inst.play('propFreeze');
             this._skillActive = true;
             this._skillAnimOnly = true;
-            this.resetIdleHintTimer();
-            this.refreshFreezeTimerLabel?.();
-            this.playFreezeSpineFx?.();
-            this.scheduleOnce(() => this.finishSkillUsage(), 0.05);
+            const finish = () => this.finishSkillUsage();
+            try {
+                this.scheduleOnce(finish, 0.05);
+                AudioMgr.inst.play('propFreeze');
+                this.resetIdleHintTimer();
+                this.refreshFreezeTimerLabel?.();
+                this.playFreezeSpineFx?.();
+            } catch (error) {
+                this.unschedule?.(finish);
+                finish();
+                throw error;
+            }
         },
         
         /** 魔法棒：在棋盘上显示 6×6 框，拖动定位后松手，框内未锁定豆豆强制还原。（复刻 pdd Spine 骨骼动画效果） */

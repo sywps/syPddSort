@@ -696,10 +696,11 @@ export class GameplaySlotUiController {
         if (runtime.slotUnlockedRows >= runtime.slotRowCount && !this.hasPendingAllRowsUnlock()) return false;
         if (runtime.isPlacementVisualBusy?.()) return false;
         if (runtime._skillActive) return false;
+        if (runtime._adShowing) return false;
         PerformanceMgr.inst.markUserActivity(3500);
         AudioMgr.inst.play('button');
-        runtime.pauseTimerForProp();
         if (this.getCurrentSlotUnlockMode() === 'free') {
+            runtime.pauseTimerForProp();
             const unlocked = this.unlockSlotRow();
             if (unlocked) {
                 runtime.markDynamicCountdownAssisted?.();
@@ -714,9 +715,10 @@ export class GameplaySlotUiController {
             runtime.markDynamicCountdownAssisted?.();
             return true;
         }, {
-            busyFlag: '_skillActive',
-            waitForCloseBeforeComplete: true,
-            onFinally: () => runtime.resumeTimerForProp(),
+            claimKey: `unlock_slot_row:${runtime.getActiveLogicalLevelId?.() || 0}:${runtime.slotUnlockedRows}`,
+            busyFlag: '_adShowing',
+            onInteractionStarted: () => runtime.pauseTimerForProp(),
+            onInteractionReleased: () => runtime.resumeTimerForProp(),
             grantFailToast: '暂存槽增加失败，请重试',
         });
     }

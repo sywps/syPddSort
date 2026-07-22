@@ -16,29 +16,65 @@ function transpile(relPath) {
     }).outputText;
 }
 
-function loadWechatProvider() {
+function loadWechatProvider(behavior = {}) {
     const timers = [];
-    const onCloseCallbacks = [];
-    const onErrorCallbacks = [];
     const adCalls = [];
-    const ad = {
-        onClose(callback) {
-            onCloseCallbacks.push(callback);
-        },
-        onError(callback) {
-            onErrorCallbacks.push(callback);
-        },
-        load() {
-            adCalls.push('load');
-            return Promise.resolve();
-        },
-        show() {
-            adCalls.push('show');
-            return Promise.resolve();
-        },
-    };
+    const adInstances = [];
     const wxRuntime = {
-        createRewardedVideoAd() {
+        createRewardedVideoAd(adOptions) {
+            const id = adInstances.length + 1;
+            const closeCallbacks = [];
+            const allCloseCallbacks = [];
+            const errorCallbacks = [];
+            const allErrorCallbacks = [];
+            const ad = {
+                id,
+                options: adOptions,
+                destroyed: false,
+                onClose(callback) {
+                    closeCallbacks.push(callback);
+                    allCloseCallbacks.push(callback);
+                },
+                offClose(callback) {
+                    const index = closeCallbacks.indexOf(callback);
+                    if (index >= 0) closeCallbacks.splice(index, 1);
+                },
+                onError(callback) {
+                    errorCallbacks.push(callback);
+                    allErrorCallbacks.push(callback);
+                },
+                offError(callback) {
+                    const index = errorCallbacks.indexOf(callback);
+                    if (index >= 0) errorCallbacks.splice(index, 1);
+                },
+                load() {
+                    adCalls.push(`${id}:load`);
+                    return Promise.resolve();
+                },
+                show() {
+                    adCalls.push(`${id}:show`);
+                    return typeof behavior.show === 'function'
+                        ? behavior.show(ad)
+                        : Promise.resolve();
+                },
+                destroy() {
+                    this.destroyed = true;
+                    adCalls.push(`${id}:destroy`);
+                },
+                triggerClose(result) {
+                    for (const callback of [...closeCallbacks]) callback(result);
+                },
+                forceStaleClose(result) {
+                    for (const callback of [...allCloseCallbacks]) callback(result);
+                },
+                triggerError(error) {
+                    for (const callback of [...errorCallbacks]) callback(error);
+                },
+                forceStaleError(error) {
+                    for (const callback of [...allErrorCallbacks]) callback(error);
+                },
+            };
+            adInstances.push(ad);
             return ad;
         },
         getDeviceInfo() {
@@ -86,24 +122,25 @@ function loadWechatProvider() {
             wechat: 'wechat-test-ad',
         }),
         adCalls,
+        adInstances,
+        currentAd() {
+            assert.ok(adInstances.length > 0, 'provider must create an ad instance');
+            return adInstances[adInstances.length - 1];
+        },
         activeTimers(delay) {
             return timers.filter((timer) => !timer.cleared && !timer.fired && timer.delay === delay);
         },
-        fireTimers(delay) {
-            const pending = this.activeTimers(delay);
-            assert.ok(pending.length > 0, `expected an active ${delay}ms timer`);
-            for (const timer of pending) {
-                timer.fired = true;
-                timer.callback();
-            }
+        fireTimer(delay) {
+            const timer = this.activeTimers(delay)[0];
+            assert.ok(timer, `expected active timer: ${delay}`);
+            timer.fired = true;
+            timer.callback();
         },
         triggerClose(result) {
-            assert.ok(onCloseCallbacks.length > 0, 'provider must register onClose');
-            for (const callback of onCloseCallbacks) callback(result);
+            this.currentAd().triggerClose(result);
         },
         triggerError(error) {
-            assert.ok(onErrorCallbacks.length > 0, 'provider must register onError');
-            for (const callback of onErrorCallbacks) callback(error);
+            this.currentAd().triggerError(error);
         },
     };
 }
@@ -114,11 +151,11 @@ async function flushMicrotasks(rounds = 12) {
     }
 }
 
-async function testCompletedAdUsesFiveMinuteWatchdog() {
+async function testCompletedAdHasNoCompletionWatchdog() {
     const harness = loadWechatProvider();
     const events = [];
     harness.provider.show(
-        (success) => events.push(`result:${success}`),
+        (outcome) => events.push(`result:${outcome.status}:${outcome.attemptId}`),
         {
             onShow: () => events.push('show'),
             onClose: () => events.push('close'),
@@ -126,102 +163,167 @@ async function testCompletedAdUsesFiveMinuteWatchdog() {
     );
     await flushMicrotasks();
 
-    assert.deepStrictEqual(harness.adCalls, ['load', 'show']);
+    assert.deepStrictEqual(harness.adCalls, ['1:load', '1:show']);
+    assert.strictEqual(harness.adInstances[0].options.adUnitId, 'wechat-test-ad');
+    assert.strictEqual(harness.adInstances[0].options.multiton, true, 'each WeChat attempt must use an independently destroyable multiton instance');
     assert.deepStrictEqual(events, ['show'], 'reward must wait for the native close callback');
     assert.strictEqual(harness.activeTimers(60000).length, 0, 'a long WeChat ad must not fail at one minute');
-    assert.strictEqual(harness.activeTimers(300000).length, 1, 'WeChat ads must retain a bounded five-minute close watchdog');
+    assert.strictEqual(harness.activeTimers(300000).length, 0, 'there must be no five-minute completion verdict');
+    assert.strictEqual(harness.activeTimers(1800000).length, 0, 'there must be no thirty-minute completion verdict either');
+    assert.strictEqual(harness.activeTimers(10000).length, 0, 'show-establishment timer must clear once the ad is visible');
 
     harness.triggerClose({ isEnded: true });
     harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(events, ['show', 'close', 'result:true'], 'completed native close must settle exactly once');
-    assert.strictEqual(harness.activeTimers(300000).length, 0, 'native close must clear the watchdog');
+    assert.deepStrictEqual(events, ['show', 'close', 'result:verified_complete:1'], 'completed native close must settle exactly once');
+    assert.strictEqual(harness.adInstances[0].destroyed, true, 'a settled attempt must release its native instance');
+}
+
+async function testUnresolvedShowEstablishmentRecoversWithoutReward() {
+    let resolveShow = null;
+    const harness = loadWechatProvider({
+        show() {
+            return new Promise((resolve) => {
+                resolveShow = resolve;
+            });
+        },
+    });
+    const results = [];
+    harness.provider.show((outcome) => results.push(`${outcome.status}:${outcome.reason}`));
+    await flushMicrotasks();
+
+    assert.deepStrictEqual(harness.adCalls, ['1:load', '1:show']);
+    assert.strictEqual(harness.activeTimers(10000).length, 1, 'an unresolved native show operation must have a bounded establishment timer');
+    harness.fireTimer(10000);
+    assert.deepStrictEqual(results, ['technical_error:show-establish-timeout']);
+    assert.strictEqual(harness.adInstances[0].destroyed, true, 'establishment timeout must destroy the stuck native instance');
+
+    resolveShow();
+    await flushMicrotasks();
+    assert.deepStrictEqual(results, ['technical_error:show-establish-timeout'], 'late show resolution after recovery must be stale');
+}
+
+async function testCloseBeforeShowPromiseResolutionStillGrantsOnce() {
+    let resolveShow = null;
+    const harness = loadWechatProvider({
+        show() {
+            return new Promise((resolve) => {
+                resolveShow = resolve;
+            });
+        },
+    });
+    const results = [];
+    harness.provider.show((outcome) => results.push(outcome.status));
+    await flushMicrotasks();
+
+    harness.triggerClose({ isEnded: true });
+    assert.deepStrictEqual(results, ['verified_complete'], 'native completed close must remain authoritative during establishment');
+    resolveShow();
+    await flushMicrotasks();
+    assert.deepStrictEqual(results, ['verified_complete'], 'late show resolution must not duplicate the completed result');
 }
 
 async function testEarlyCloseStillFails() {
     const harness = loadWechatProvider();
     const results = [];
-    harness.provider.show((success) => results.push(success));
+    harness.provider.show((outcome) => results.push(outcome.status));
     await flushMicrotasks();
     harness.triggerClose({ isEnded: false });
-    assert.deepStrictEqual(results, [false], 'explicit early close must not grant a reward');
+    assert.deepStrictEqual(results, ['verified_incomplete'], 'explicit early close must not grant a reward');
 }
 
-async function testMissingCloseFailsClosedAfterFiveMinutes() {
-    const harness = loadWechatProvider();
-    const results = [];
-    harness.provider.show((success) => results.push(success));
-    await flushMicrotasks();
-
-    harness.fireTimers(300000);
-    assert.deepStrictEqual(results, [false], 'missing native close must fail closed after five minutes');
-    harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(results, [false], 'a late close must not change the timed-out result');
-}
-
-async function testForegroundWaitsForDelayedNativeClose() {
+async function testForegroundOnlyMakesAttemptRecoverable() {
     const harness = loadWechatProvider();
     const events = [];
     harness.provider.show(
-        (success) => events.push(`result:${success}`),
-        {
-            onShow: () => events.push('show'),
-            onClose: () => events.push('close'),
-        },
+        (outcome) => events.push(`result:${outcome.status}`),
+        { onRecoverable: (_attemptId, reason) => events.push(`recoverable:${reason}`) },
     );
     await flushMicrotasks();
 
     harness.provider.notifyGameResumed();
-    assert.strictEqual(harness.activeTimers(1500).length, 0, 'foreground resume must not arm a premature failure timer');
-    assert.deepStrictEqual(events, ['show'], 'foreground resume must keep waiting for the native close result');
+    harness.provider.notifyGameResumed();
+    assert.deepStrictEqual(events, ['recoverable:foreground'], 'foreground may release UI once but must not settle reward');
+    assert.strictEqual(harness.currentAd().destroyed, false, 'recoverable attempt must keep listening for a delayed close');
     harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(events, ['show', 'close', 'result:true'], 'a delayed completed close after foreground must grant');
-    assert.strictEqual(harness.activeTimers(300000).length, 0, 'native close must clear the terminal watchdog');
+    assert.deepStrictEqual(events, ['recoverable:foreground', 'result:verified_complete'], 'arbitrarily delayed verified close must still grant');
+}
+
+async function testMissingIsEndedBecomesUnknownAndCanRetry() {
+    const harness = loadWechatProvider();
+    const results = [];
+    harness.provider.show((outcome) => results.push(`first:${outcome.status}`));
+    await flushMicrotasks();
+    const oldAd = harness.currentAd();
+    harness.triggerClose({});
+    assert.deepStrictEqual(results, ['first:unknown'], 'missing protocol proof must not be treated as success or failure');
+    assert.strictEqual(oldAd.destroyed, true);
+
+    harness.provider.show((outcome) => results.push(`second:${outcome.status}`));
+    await flushMicrotasks();
+    oldAd.forceStaleClose({ isEnded: true });
+    assert.deepStrictEqual(results, ['first:unknown'], 'a destroyed old instance must not settle the retry');
+    harness.triggerClose({ isEnded: true });
+    assert.deepStrictEqual(results, ['first:unknown', 'second:verified_complete']);
 }
 
 async function testTwoIndependentCompletedAdsEachSucceed() {
     const harness = loadWechatProvider();
     const results = [];
     for (let attempt = 1; attempt <= 2; attempt += 1) {
-        harness.provider.show((success) => results.push({ attempt, success }));
+        harness.provider.show((outcome) => results.push({ attempt, status: outcome.status }));
         await flushMicrotasks();
-        harness.provider.notifyGameResumed();
         harness.triggerClose({ isEnded: true });
         await flushMicrotasks();
     }
     assert.deepStrictEqual(results, [
-        { attempt: 1, success: true },
-        { attempt: 2, success: true },
+        { attempt: 1, status: 'verified_complete' },
+        { attempt: 2, status: 'verified_complete' },
     ], 'each completed ad attempt must settle its own reward successfully');
+    assert.strictEqual(harness.adInstances.length, 2, 'settled attempts must never reuse a previous native instance');
 }
 
 async function testExplicitCancelDuringLoadSettlesOnce() {
     const harness = loadWechatProvider();
     const events = [];
     harness.provider.show(
-        (success) => events.push(`result:${success}`),
+        (outcome) => events.push(`result:${outcome.status}:${outcome.reason}`),
         { onClose: () => events.push('close') },
     );
     assert.strictEqual(harness.provider.cancelPending('scene-destroy'), true);
     await flushMicrotasks();
 
-    assert.deepStrictEqual(events, ['close', 'result:false'], 'scene cancellation must settle an in-flight load exactly once');
-    assert.deepStrictEqual(harness.adCalls, ['load'], 'a cancelled load must never continue into ad.show');
+    assert.deepStrictEqual(events, ['result:unknown:cancelled:scene-destroy'], 'scene cancellation must report UNKNOWN, not an invented ad failure');
+    assert.deepStrictEqual(harness.adCalls, ['1:destroy'], 'a cancelled pre-show attempt must be destroyed before it can show');
     assert.strictEqual(harness.provider.cancelPending('duplicate'), false, 'duplicate cancellation must be idempotent');
 }
 
 async function testStaleCloseCannotSettleNextLoadingRequest() {
     const harness = loadWechatProvider();
     const results = [];
-    harness.provider.show((success) => results.push(`first:${success}`));
+    harness.provider.show((outcome) => results.push(`first:${outcome.status}`));
+    const oldAd = harness.currentAd();
     harness.provider.cancelPending('scene-destroy');
 
-    harness.provider.show((success) => results.push(`second:${success}`));
-    harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(results, ['first:false'], 'an old close arriving while the next request loads must be ignored');
+    harness.provider.show((outcome) => results.push(`second:${outcome.status}`));
+    oldAd.forceStaleClose({ isEnded: true });
+    assert.deepStrictEqual(results, ['first:unknown'], 'an old close arriving while the next request loads must be ignored');
 
     await flushMicrotasks();
     harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(results, ['first:false', 'second:true'], 'the next request must settle only from its own shown-ad close');
+    assert.deepStrictEqual(results, ['first:unknown', 'second:verified_complete'], 'the next request must settle only from its own shown-ad close');
+}
+
+async function testConcurrentShowDoesNotInvalidateActiveAttempt() {
+    const harness = loadWechatProvider();
+    const results = [];
+    harness.provider.show((outcome) => results.push(`first:${outcome.status}`));
+    await flushMicrotasks();
+    harness.provider.show((outcome) => results.push(`second:${outcome.status}:${outcome.reason}`));
+    harness.triggerClose({ isEnded: true });
+    assert.deepStrictEqual(results, [
+        'second:technical_error:attempt-already-active',
+        'first:verified_complete',
+    ], 'a rejected concurrent request must not change the active attempt identity');
 }
 
 async function testThrowingCallerCannotLeaveProviderBusy() {
@@ -233,20 +335,23 @@ async function testThrowingCallerCannotLeaveProviderBusy() {
     harness.triggerClose({ isEnded: true });
 
     const results = [];
-    harness.provider.show((success) => results.push(success));
+    harness.provider.show((outcome) => results.push(outcome.status));
     await flushMicrotasks();
     harness.triggerClose({ isEnded: true });
-    assert.deepStrictEqual(results, [true], 'provider cleanup must survive an exception thrown by the previous caller');
+    assert.deepStrictEqual(results, ['verified_complete'], 'provider cleanup must survive an exception thrown by the previous caller');
 }
 
 async function main() {
-    await testCompletedAdUsesFiveMinuteWatchdog();
+    await testCompletedAdHasNoCompletionWatchdog();
+    await testUnresolvedShowEstablishmentRecoversWithoutReward();
+    await testCloseBeforeShowPromiseResolutionStillGrantsOnce();
     await testEarlyCloseStillFails();
-    await testMissingCloseFailsClosedAfterFiveMinutes();
-    await testForegroundWaitsForDelayedNativeClose();
+    await testForegroundOnlyMakesAttemptRecoverable();
+    await testMissingIsEndedBecomesUnknownAndCanRetry();
     await testTwoIndependentCompletedAdsEachSucceed();
     await testExplicitCancelDuringLoadSettlesOnce();
     await testStaleCloseCannotSettleNextLoadingRequest();
+    await testConcurrentShowDoesNotInvalidateActiveAttempt();
     await testThrowingCallerCannotLeaveProviderBusy();
     console.log('rewarded-ad-runtime.test.js passed');
 }

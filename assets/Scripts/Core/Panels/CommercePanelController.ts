@@ -286,10 +286,9 @@ export class CommercePanelController {
                             });
                         }, {
                             busyFlag: '_adShowing',
-                            waitForCloseBeforeComplete: true,
                             successToast: options.successToast,
                             grantFailToast: options.grantFailToast,
-                            onFinally: () => {
+                            onInteractionReleased: () => {
                                 if (options.resumeTimerOnClose) {
                                     runtime.resumeTimerForProp?.();
                                 }

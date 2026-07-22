@@ -2908,6 +2908,8 @@ export function installAssetBootstrapModule(target: any): void {
             this._gameForeground = false;
             this.resetTouchState?.();
             this.pauseGuideReminderForLifecycle?.();
+            this.reportFirstLevelReleaseState?.('app_hide');
+            AnalyticsMgr.inst.flushFunnelEvents();
             void UserStateSyncMgr.inst.flushPendingSave();
         },
 
@@ -2915,6 +2917,7 @@ export function installAssetBootstrapModule(target: any): void {
             this._gameForeground = true;
             this.resetTouchState?.();
             this.resumeGuideReminderForLifecycle?.();
+            this.reportFirstLevelReleaseState?.('app_show');
             this.refreshVigorUI?.();
             this.refreshGoldUI?.();
             this.syncSkillButtonRuntimeStates?.();

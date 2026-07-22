@@ -20,6 +20,7 @@ export class GameplaySessionController {
         try {
             runtime.cancelRewardedGrantInteraction?.('gameplay-init');
             runtime._gameplayInitSeq = (Number(runtime._gameplayInitSeq) || 0) + 1;
+            runtime.resetFirstLevelReleaseDiagnostics?.();
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
             this.clearTutorialRuntimeState(runtime);
@@ -49,6 +50,9 @@ export class GameplaySessionController {
             const tutorialMode = gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
                 ? this.resolveTutorialMode(data)
                 : 'none';
+            if (gameplayEntryMode === 'main' && activeLogicalLevelId === 1) {
+                runtime.beginFirstLevelReleaseDiagnostics?.();
+            }
             runtime._activeGameplayGuideLayoutMode = tutorialMode;
             runtime._firstFunnelTouchSent = false;
             runtime._firstLevelAnyTouchSent = false;
@@ -133,12 +137,15 @@ export class GameplaySessionController {
             runtime.clearPlacementVisualState?.();
             runtime.detachGameplayInputHandlers();
 
+            runtime.reportFirstLevelReleaseState?.('before_ui_build');
             runtime.buildUI();
             runtime.renderBoard();
             runtime.renderSlots();
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
             runtime.assertGameplayVisualReadiness();
+            runtime.reportFirstLevelReleaseState?.('before_loading_hide');
             runtime.hideLoadingOverlayAfterGameplayReady?.();
+            runtime.reportFirstLevelReleaseState?.('after_loading_hide');
             AudioMgr.inst.playGameBgm();
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
             if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
@@ -156,6 +163,7 @@ export class GameplaySessionController {
                     physicalLevelId: startupTracePhysicalLevel,
                     source: runtime.shouldUseLocalBootstrapBundle(startupTracePhysicalLevel) ? 'bootstrap' : 'remote',
                 });
+                runtime.reportFirstLevelReleaseState?.('ui_ready_emitted');
             }
             markStartupTrace('startup_first_playable_ready', {
                 levelId: startupTraceLogicalLevel,
@@ -191,9 +199,13 @@ export class GameplaySessionController {
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
+                    runtime.reportFirstLevelReleaseState?.('before_tutorial');
                     runtime.startTutorial(tutorialMode);
+                    runtime.reportFirstLevelReleaseState?.('after_tutorial');
                 } else if (slotPolicy.showSlotUnlockGuide) {
                     runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
+                } else if (activeLogicalLevelId === 1) {
+                    runtime.reportFirstLevelReleaseState?.('tutorial_missing');
                 }
             }
             this.reportLevelInteractionReady(
@@ -203,6 +215,8 @@ export class GameplaySessionController {
                 gameplayEntryMode,
                 tutorialMode,
             );
+            runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
+            runtime.scheduleFirstLevelReleaseDiagnostics?.();
         } catch (error) {
             AppRoot.tryGet()?.clearRouteCover('gameplay-init-error');
             throw error;

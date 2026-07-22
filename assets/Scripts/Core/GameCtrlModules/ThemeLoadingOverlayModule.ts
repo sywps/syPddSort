@@ -342,7 +342,6 @@ export function installThemeLoadingOverlayModule(target: any): void {
             }, {
                 busyFlag: '_adShowing',
                 levelId,
-                waitForCloseBeforeComplete: true,
                 adFailToast: '广告未完成，未解锁',
                 grantFailToast: '解锁保存失败，请重试',
                 successToast: '解锁成功',

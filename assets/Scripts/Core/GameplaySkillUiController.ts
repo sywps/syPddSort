@@ -149,6 +149,18 @@ export class GameplaySkillUiController {
         return true;
     }
 
+    private invokeSkillHandler(skill: GameplaySkillConfig, timerAlreadyPaused: boolean): void {
+        try {
+            skill.handler(timerAlreadyPaused);
+        } catch (error) {
+            const runtime = this.runtime;
+            if (runtime._skillActive || runtime._timerLockedForProp) {
+                runtime.finishSkillUsage?.();
+            }
+            throw error;
+        }
+    }
+
     private cloneColor(color: Color): Color {
         return new Color(color.r, color.g, color.b, color.a);
     }
@@ -236,7 +248,7 @@ export class GameplaySkillUiController {
             return false;
         }
         runtime.markDynamicCountdownAssisted?.();
-        skill.handler(timerPausedForFinalSecond);
+        this.invokeSkillHandler(skill, timerPausedForFinalSecond);
         return true;
     }
 
@@ -317,6 +329,10 @@ export class GameplaySkillUiController {
                     runtime.cancelSelection();
                 }
                 const inventoryCount = runtime.getPropCount(skill.kind);
+                if (inventoryCount <= 0 && (runtime._adShowing || runtime._rewardedGrantTransaction)) {
+                    runtime.showToast('广告加载中，请稍后');
+                    return;
+                }
                 if (skill.kind === 'freeze'
                     && inventoryCount <= 0
                     && runtime.tryUseAdRewardFreezeRescue?.(() => this.rebuildSkillButtonsUI())) {
@@ -353,7 +369,7 @@ export class GameplaySkillUiController {
                 }
                 runtime.markDynamicCountdownAssisted?.();
                 this.rebuildSkillButtonsUI();
-                handler(timerPausedForFinalSecond);
+                this.invokeSkillHandler(skill, timerPausedForFinalSecond);
             }, runtime);
         }
     }

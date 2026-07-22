@@ -26,8 +26,15 @@ function loadInstaller(timerApi = {}, adApi = {}) {
                 return {
                     AdConfig: {
                         cancelRewardedAdInteraction: adApi.cancelRewardedAdInteraction || (() => false),
+                        showRewardedAd: adApi.showRewardedAd || (() => {
+                            throw new Error('showRewardedAd must be stubbed when showTrackedRewardedAd is executed');
+                        }),
+                        canAutoPreloadRewardedAd: adApi.canAutoPreloadRewardedAd || (() => false),
                     },
+                    AnalyticsMgr: { inst: { trackAdClick() {}, trackAdShow() {}, trackAdFinish() {}, markAdRevive() {} } },
+                    AudioMgr: adApi.AudioMgr || { inst: { beginExternalInterruption() {}, endExternalInterruptionWithBgmRestart() {} } },
                     PerformanceMgr: { inst: { markUserActivity() {} } },
+                    SySDKMgr: { inst: { reportAdClick() {}, reportAdShow() {}, reportAdFinish() {} } },
                 };
             }
             if (id === '../AppRoot') return { AppRoot: {} };
@@ -56,6 +63,10 @@ async function flushMicrotasks(rounds = 12) {
     }
 }
 
+function adOutcome(status, attemptId = 1, detail = {}) {
+    return { attemptId, status, ...detail };
+}
+
 async function main() {
     const installHomeAdFlowModule = loadInstaller();
 
@@ -65,7 +76,7 @@ async function main() {
         showToast: (text) => failureEvents.push(`toast:${text}`),
     };
     installHomeAdFlowModule(failureRuntime);
-    failureRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(false);
+    failureRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('verified_incomplete'));
     assert.strictEqual(failureRuntime.runRewardedGrant('unlock_slot_row', () => {
         failureEvents.push('grant');
         return true;
@@ -88,7 +99,7 @@ async function main() {
         showToast: (text) => noopEvents.push(`toast:${text}`),
     };
     installHomeAdFlowModule(noopRuntime);
-    noopRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(true);
+    noopRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('verified_complete'));
     assert.strictEqual(noopRuntime.runRewardedGrant('unlock_slot_row', () => {
         noopEvents.push('grant');
         return false;
@@ -126,7 +137,7 @@ async function main() {
     assert.strictEqual(cancelledRuntime._skillActive, false, 'scene or gameplay reset must release the busy flag');
     assert.deepStrictEqual(cancelledEvents, ['finally']);
 
-    delayedAdComplete(true);
+    delayedAdComplete(adOutcome('verified_complete'));
     await flushMicrotasks();
     assert.deepStrictEqual(
         cancelledEvents,
@@ -139,7 +150,7 @@ async function main() {
     const installWithSynchronousProviderCancel = loadInstaller({}, {
         cancelRewardedAdInteraction(reason) {
             providerCancelEvents.push(`provider-cancel:${reason}`);
-            providerCancelComplete(false);
+            providerCancelComplete(adOutcome('unknown', 1, { reason: `cancelled:${reason}` }));
             return true;
         },
     });
@@ -170,28 +181,149 @@ async function main() {
 
     const foregroundEvents = [];
     let foregroundLateComplete = null;
+    let foregroundRecoverable = null;
     const foregroundRuntime = { _skillActive: false };
     installHomeAdFlowModule(foregroundRuntime);
-    foregroundRuntime.showTrackedRewardedAd = (_page, onComplete) => {
+    foregroundRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
         foregroundLateComplete = onComplete;
+        foregroundRecoverable = options.onRecoverable;
     };
     foregroundRuntime.runRewardedGrant('unlock_slot_row', () => {
         foregroundEvents.push('grant');
         return true;
     }, {
         busyFlag: '_skillActive',
+        onRecoverable: () => foregroundEvents.push('recoverable'),
         onFinally: () => foregroundEvents.push('finally'),
     });
-    assert.strictEqual(
-        typeof foregroundRuntime.scheduleRewardedGrantForegroundRecovery,
-        'undefined',
-        'ordinary foreground resume must not install a business-level reward cancellation timer',
-    );
     assert.strictEqual(foregroundRuntime._skillActive, true, 'the transaction must remain pending until native ad completion');
-    foregroundLateComplete(true);
+    foregroundRecoverable();
+    assert.strictEqual(foregroundRuntime._skillActive, false, 'foreground recovery must release the gameplay busy lease');
+    assert.strictEqual(foregroundRuntime._rewardedGrantTransaction.phase, 'recoverable');
+    assert.deepStrictEqual(foregroundEvents, ['recoverable'], 'recoverable is not a terminal finally/failure');
+    foregroundLateComplete(adOutcome('verified_complete'));
     await flushMicrotasks();
-    assert.deepStrictEqual(foregroundEvents, ['grant', 'finally'], 'a verified success after foreground must still execute and finalize the grant');
+    assert.deepStrictEqual(foregroundEvents, ['recoverable', 'grant', 'finally'], 'a verified success after foreground must still execute and finalize the grant');
     assert.strictEqual(foregroundRuntime._skillActive, false, 'successful completion must release the gameplay busy flag');
+
+    const pendingEvents = [];
+    const pendingCallbacks = [];
+    const pendingRecoveries = [];
+    const pendingRuntime = {
+        _skillActive: false,
+        showToast: (text) => pendingEvents.push(`toast:${text}`),
+    };
+    installHomeAdFlowModule(pendingRuntime);
+    pendingRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
+        pendingCallbacks.push(onComplete);
+        pendingRecoveries.push(options.onRecoverable);
+    };
+    let pendingGrantCount = 0;
+    assert.strictEqual(pendingRuntime.runRewardedGrant('unlock_slot_row', () => {
+        pendingGrantCount += 1;
+        return true;
+    }, {
+        claimKey: 'unlock_slot_row:10:2',
+        busyFlag: '_skillActive',
+        onInteractionReleased: () => pendingEvents.push('release:1'),
+        onFinally: () => pendingEvents.push('finally:1'),
+    }), true);
+    const stableClaimId = pendingRuntime._rewardedGrantTransaction.id;
+    pendingRecoveries[0]();
+    assert.strictEqual(pendingRuntime._rewardedGrantTransaction.id, stableClaimId);
+    assert.strictEqual(pendingRuntime._rewardedGrantTransaction.phase, 'recoverable');
+    assert.deepStrictEqual(pendingEvents, ['release:1']);
+
+    assert.strictEqual(pendingRuntime.runRewardedGrant('unlock_slot_row', () => {
+        pendingGrantCount += 1;
+        return true;
+    }, {
+        claimKey: 'unlock_slot_row:10:2',
+        busyFlag: '_skillActive',
+        onInteractionReleased: () => pendingEvents.push('release:2'),
+        onFinally: () => pendingEvents.push('finally:2'),
+    }), false, 'a recoverable claim must preserve the first native close instead of replacing it');
+    assert.strictEqual(pendingRuntime._rewardedGrantTransaction.id, stableClaimId, 'the original claim must remain active');
+    assert.strictEqual(pendingCallbacks.length, 1, 'repeat taps must not open a second rewarded ad');
+    assert.deepStrictEqual(pendingEvents, ['release:1', 'toast:奖励确认中，请稍后']);
+
+    pendingCallbacks[0](adOutcome('verified_complete', 1));
+    pendingCallbacks[0](adOutcome('verified_complete', 1));
+    await flushMicrotasks();
+    assert.strictEqual(pendingGrantCount, 1, 'the delayed authoritative close must grant the original claim exactly once');
+    assert.deepStrictEqual(pendingEvents, ['release:1', 'toast:奖励确认中，请稍后', 'finally:1']);
+    assert.strictEqual(pendingRuntime._rewardedGrantTransaction, null);
+
+    const unknownEvents = [];
+    const unknownRuntime = {
+        _skillActive: false,
+        showToast: (text) => unknownEvents.push(`toast:${text}`),
+    };
+    installHomeAdFlowModule(unknownRuntime);
+    unknownRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('unknown'));
+    assert.strictEqual(unknownRuntime.runRewardedGrant('unlock_slot_row', () => {
+        unknownEvents.push('grant');
+        return true;
+    }, {
+        busyFlag: '_skillActive',
+        adFailToast: '广告结果未确认',
+        onFinally: () => unknownEvents.push('finally'),
+    }), true);
+    assert.deepStrictEqual(unknownEvents, ['toast:广告结果未确认', 'finally']);
+    assert.strictEqual(unknownRuntime._rewardedGrantTransaction, null, 'a terminal unknown result must allow a clean later attempt');
+
+    const trackedCallbacks = [];
+    let trackedAudioRefs = 0;
+    const installTrackedFlow = loadInstaller({}, {
+        showRewardedAd(callback, hooks) {
+            trackedCallbacks.push({ callback, hooks });
+        },
+        AudioMgr: {
+            inst: {
+                beginExternalInterruption() { trackedAudioRefs += 1; },
+                endExternalInterruptionWithBgmRestart() {
+                    if (trackedAudioRefs > 0) trackedAudioRefs -= 1;
+                },
+            },
+        },
+    });
+    let trackedGrantCount = 0;
+    const trackedRuntime = {
+        _adShowing: false,
+        _adTimerSuspended: false,
+        _timerStarted: false,
+        _skillActive: false,
+        _gameForeground: true,
+        isValid: true,
+        getActiveLogicalLevelId: () => 165,
+        scheduleOnce() {
+            throw new Error('verified reward must not depend on a later Cocos schedule');
+        },
+        unschedule() {},
+    };
+    installTrackedFlow(trackedRuntime);
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+        assert.strictEqual(trackedRuntime.runRewardedGrant('unlock_slot_row', () => {
+            trackedGrantCount += 1;
+            return true;
+        }, {
+            claimKey: `unlock_slot_row:165:${attempt}`,
+            busyFlag: '_adShowing',
+        }), true);
+        assert.strictEqual(trackedRuntime._adShowing, true);
+        const trackedAttempt = trackedCallbacks.shift();
+        assert.ok(trackedAttempt, 'shared provider callback must be registered');
+        trackedAttempt.callback(adOutcome('verified_complete', attempt, { closeResult: { isEnded: true } }));
+        assert.strictEqual(trackedGrantCount, attempt, 'verified close must invoke the concrete grant in the same turn');
+        assert.strictEqual(trackedAudioRefs, 0, 'verified close must release shared audio before later lifecycle work');
+        assert.strictEqual(trackedRuntime._adShowing, false);
+        await flushMicrotasks();
+        assert.strictEqual(trackedRuntime._rewardedGrantTransaction, null);
+    }
+
+    assert.strictEqual(trackedRuntime.cancelRewardedGrantInteraction('scene-destroy'), false, 'later teardown must not find a completed claim to cancel');
+    assert.strictEqual(trackedGrantCount, 2, 'two independent completed ads must each grant exactly once');
 
     console.log('rewarded-grant-transaction.test.js passed');
 }

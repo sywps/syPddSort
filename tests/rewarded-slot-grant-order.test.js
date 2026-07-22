@@ -90,6 +90,7 @@ function testRewardedGrantOrder() {
             events.push(`request:${page}`);
             capturedGrant = grant;
             capturedOptions = options;
+            options.onInteractionStarted?.();
             return true;
         },
     };
@@ -101,23 +102,56 @@ function testRewardedGrantOrder() {
     };
 
     assert.strictEqual(controller.tryUnlockSlotRow(), true);
-    assert.deepStrictEqual(events, ['activity', 'audio', 'pause', 'request:unlock_slot_row']);
+    assert.deepStrictEqual(events, ['activity', 'audio', 'request:unlock_slot_row', 'pause']);
+    assert.strictEqual(capturedOptions.busyFlag, '_adShowing', 'slot ad wait must not own the board-wide skill input gate');
+    assert.strictEqual(typeof capturedOptions.onInteractionStarted, 'function');
     assert.strictEqual(capturedOptions.onAdComplete, undefined, 'slot timer must not resume in ad-complete callback');
-    assert.strictEqual(typeof capturedOptions.onFinally, 'function');
+    assert.strictEqual(typeof capturedOptions.onInteractionReleased, 'function');
+    assert.strictEqual(capturedOptions.onFinally, undefined, 'slot timer release belongs to the attempt lease, not the claim terminal hook');
 
     assert.strictEqual(capturedGrant(), true);
     assert.deepStrictEqual(
         events,
-        ['activity', 'audio', 'pause', 'request:unlock_slot_row', 'grant', 'assisted'],
+        ['activity', 'audio', 'request:unlock_slot_row', 'pause', 'grant', 'assisted'],
         'slot grant must finish while the prop timer remains paused',
     );
 
-    capturedOptions.onFinally();
+    capturedOptions.onInteractionReleased();
     assert.deepStrictEqual(
         events,
-        ['activity', 'audio', 'pause', 'request:unlock_slot_row', 'grant', 'assisted', 'resume'],
+        ['activity', 'audio', 'request:unlock_slot_row', 'pause', 'grant', 'assisted', 'resume'],
         'prop timer must resume only after rewarded grant finalization',
     );
+}
+
+function testRejectedRewardedClaimDoesNotPauseTimer() {
+    const events = [];
+    const runtime = {
+        slotUnlockedRows: 1,
+        slotRowCount: 2,
+        _activeSlotRowPolicy: {},
+        _skillActive: false,
+        _adShowing: false,
+        isPlacementVisualBusy: () => false,
+        getActiveLogicalLevelId: () => 10,
+        getMaxSlotRows: () => 4,
+        pauseTimerForProp: () => events.push('pause'),
+        resumeTimerForProp: () => events.push('resume'),
+        runRewardedGrant(page) {
+            events.push(`request:${page}`);
+            return false;
+        },
+    };
+    const GameplaySlotUiController = loadSlotController(events);
+    const controller = new GameplaySlotUiController(runtime);
+
+    assert.strictEqual(controller.tryUnlockSlotRow(), false);
+    assert.deepStrictEqual(
+        events,
+        ['activity', 'audio', 'request:unlock_slot_row'],
+        'a conflicting active reward claim must reject slot unlock before it acquires a timer pause',
+    );
+    assert.strictEqual(runtime._skillActive, false);
 }
 
 function testRewardedUnlockExpandsRealCapacity() {
@@ -174,5 +208,6 @@ function testRewardedUnlockExpandsRealCapacity() {
 }
 
 testRewardedGrantOrder();
+testRejectedRewardedClaimDoesNotPauseTimer();
 testRewardedUnlockExpandsRealCapacity();
 console.log('rewarded-slot-grant-order.test.js passed');
