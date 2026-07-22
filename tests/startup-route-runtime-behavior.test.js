@@ -31,6 +31,12 @@ function loadFirstLevelRouteModule(appRoot, traceEvents) {
         module,
         exports: module.exports,
         require(id) {
+            if (id === 'cc') {
+                return {
+                    director: { once() {}, off() {}, getTotalFrames: () => 0 },
+                    Director: { EVENT_AFTER_DRAW: 'after-draw' },
+                };
+            }
             if (id === '../GameCtrlShared') return gameCtrlShared;
             if (id === '../AppRoot') return { AppRoot: { tryGet: () => appRoot } };
             if (id === '../LevelDataCdnService') {

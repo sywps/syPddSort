@@ -36,6 +36,10 @@ import type {
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { director, Director } from 'cc';
+
+const FIRST_LEVEL_RELEASE_DIAGNOSTIC_EVENT_LIMIT = 18;
+const FIRST_LEVEL_RELEASE_CAPTURE_EVENT_LIMIT = 3;
 
 export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
@@ -69,6 +73,346 @@ export function installFirstLevelRouteModule(target: any): void {
                 physicalLevelId: normalizedLevelId,
                 ...opt,
             });
+        },
+
+        isFirstLevelReleaseDiagnosticsActive(): boolean {
+            if ((Number(this._firstLevelReleaseDiagStartedAt) || 0) <= 0) return false;
+            if (this._isThemeLevel || this._activeGameplayEntryMode !== 'main') return false;
+            return Math.max(1, Math.floor(Number(this.getActiveLogicalLevelId?.()) || 1)) === 1;
+        },
+
+        getFirstLevelReleaseNodePath(node: Node | null): string {
+            if (!node?.isValid) return '';
+            if (typeof this._getNodePathForDiagnostics === 'function') {
+                try {
+                    return String(this._getNodePathForDiagnostics(node) || '').slice(0, 220);
+                } catch (_) {
+                    // Release diagnostics must never interfere with touch delivery.
+                }
+            }
+            const names: string[] = [];
+            let current: Node | null = node;
+            let guard = 0;
+            while (current?.isValid && guard < 12) {
+                names.unshift(current.name || '(unnamed)');
+                current = current.parent || null;
+                guard += 1;
+            }
+            return names.join('/').slice(0, 220);
+        },
+
+        resetFirstLevelReleaseDiagnostics(): void {
+            const afterDrawEvent = (Director as any)?.EVENT_AFTER_DRAW;
+            const afterDrawHandler = this._firstLevelReleaseAfterDrawHandler;
+            if (afterDrawEvent && afterDrawHandler && typeof director?.off === 'function') {
+                try {
+                    director.off(afterDrawEvent, afterDrawHandler, this);
+                } catch (_) {
+                    // Best-effort cleanup for observer-only diagnostics.
+                }
+            }
+            if (this._firstLevelReleaseAfterDrawFallbackTimer) {
+                try {
+                    clearTimeout(this._firstLevelReleaseAfterDrawFallbackTimer);
+                } catch (_) {
+                    // Best-effort cleanup for observer-only diagnostics.
+                }
+            }
+            if (Array.isArray(this._firstLevelReleaseDelayedHandlers) && typeof this.unschedule === 'function') {
+                for (const handler of this._firstLevelReleaseDelayedHandlers) {
+                    try {
+                        this.unschedule(handler);
+                    } catch (_) {
+                        // Best-effort cleanup for observer-only diagnostics.
+                    }
+                }
+            }
+            this._firstLevelReleaseDiagToken = (Number(this._firstLevelReleaseDiagToken) || 0) + 1;
+            this._firstLevelReleaseDiagStartedAt = 0;
+            this._firstLevelReleaseDiagEventCount = 0;
+            this._firstLevelReleaseCanvasTouchCount = 0;
+            this._firstLevelReleaseAfterDrawHandler = null;
+            this._firstLevelReleaseAfterDrawFallbackTimer = null;
+            this._firstLevelReleaseAfterDrawSeen = false;
+            this._firstLevelReleaseDelayedHandlers = [];
+        },
+
+        beginFirstLevelReleaseDiagnostics(): void {
+            if (this._isThemeLevel || this._activeGameplayEntryMode !== 'main') return;
+            if (Math.max(1, Math.floor(Number(this.getActiveLogicalLevelId?.()) || 1)) !== 1) return;
+            this.bindFirstLevelReleaseTouchObserver?.();
+            this._firstLevelReleaseDiagStartedAt = Date.now();
+            this._firstLevelReleaseDiagEventCount = 0;
+            this._firstLevelReleaseCanvasTouchCount = 0;
+            const observerBoundAt = Number(this._firstLevelReleaseObserverBoundAt) || 0;
+            const earlyFirstAt = Number(this._firstLevelReleaseEarlyFirstTouchAt) || 0;
+            const earlyLastAt = Number(this._firstLevelReleaseEarlyLastTouchAt) || 0;
+            const earlyTouchWindow = [
+                Math.max(0, Number(this._firstLevelReleaseEarlyTouchCount) || 0),
+                observerBoundAt > 0 && earlyFirstAt >= observerBoundAt ? earlyFirstAt - observerBoundAt : 0,
+                observerBoundAt > 0 && earlyLastAt >= observerBoundAt ? earlyLastAt - observerBoundAt : 0,
+            ].join('|');
+            this.reportFirstLevelReleaseState?.('diagnostic_start', { earlyTouchWindow });
+        },
+
+        bindFirstLevelReleaseTouchObserver(): void {
+            const scene = this.node?.scene || null;
+            const canvas = scene?.getChildByName('Canvas') || null;
+            if (!canvas?.isValid) return;
+            if (this._firstLevelReleaseObserverNode === canvas && this._firstLevelReleaseObserverHandler) return;
+            this.unbindFirstLevelReleaseTouchObserver?.();
+            this._firstLevelReleaseObserverNode = canvas;
+            this._firstLevelReleaseObserverBoundAt = Date.now();
+            this._firstLevelReleaseEarlyTouchCount = 0;
+            this._firstLevelReleaseEarlyFirstTouchAt = 0;
+            this._firstLevelReleaseEarlyLastTouchAt = 0;
+            const handler = (event: EventTouch): void => {
+                try {
+                    const now = Date.now();
+                    if (!this.isFirstLevelReleaseDiagnosticsActive?.()) {
+                        this._firstLevelReleaseEarlyTouchCount = Math.min(
+                            999,
+                            Math.max(0, Number(this._firstLevelReleaseEarlyTouchCount) || 0) + 1,
+                        );
+                        if ((Number(this._firstLevelReleaseEarlyFirstTouchAt) || 0) <= 0) {
+                            this._firstLevelReleaseEarlyFirstTouchAt = now;
+                        }
+                        this._firstLevelReleaseEarlyLastTouchAt = now;
+                        return;
+                    }
+                    const touchSeq = Math.max(0, Number(this._firstLevelReleaseCanvasTouchCount) || 0) + 1;
+                    this._firstLevelReleaseCanvasTouchCount = touchSeq;
+                    if (touchSeq > FIRST_LEVEL_RELEASE_CAPTURE_EVENT_LIMIT) return;
+                    const uiPos = event?.getUILocation?.();
+                    const targetPath = this.getFirstLevelReleaseNodePath?.((event as any)?.target || null) || '';
+                    const canvasTouch = [
+                        touchSeq,
+                        targetPath,
+                        `${Math.round(Number(uiPos?.x) || 0)},${Math.round(Number(uiPos?.y) || 0)}`,
+                    ].join('|');
+                    this.reportFirstLevelReleaseState?.('canvas_touch_capture', { canvasTouch });
+                } catch (_) {
+                    // Never change propagation or gameplay state when diagnostic collection fails.
+                }
+            };
+            this._firstLevelReleaseObserverHandler = handler;
+            try {
+                canvas.on(Node.EventType.TOUCH_START, handler, this, true);
+            } catch (_) {
+                this._firstLevelReleaseObserverNode = null;
+                this._firstLevelReleaseObserverHandler = null;
+            }
+        },
+
+        unbindFirstLevelReleaseTouchObserver(): void {
+            const node = this._firstLevelReleaseObserverNode;
+            const handler = this._firstLevelReleaseObserverHandler;
+            if (node?.isValid && handler) {
+                try {
+                    (node as any).off(Node.EventType.TOUCH_START, handler, this, true);
+                } catch (_) {
+                    // Best-effort cleanup for observer-only diagnostics.
+                }
+            }
+            this._firstLevelReleaseObserverNode = null;
+            this._firstLevelReleaseObserverHandler = null;
+            this._firstLevelReleaseObserverBoundAt = 0;
+            this._firstLevelReleaseEarlyTouchCount = 0;
+            this._firstLevelReleaseEarlyFirstTouchAt = 0;
+            this._firstLevelReleaseEarlyLastTouchAt = 0;
+        },
+
+        reportFirstLevelReleaseState(phase: string, phaseExtra: Record<string, unknown> = {}): void {
+            if (!this.isFirstLevelReleaseDiagnosticsActive?.()) return;
+            const nextSeq = Math.max(0, Number(this._firstLevelReleaseDiagEventCount) || 0) + 1;
+            if (nextSeq > FIRST_LEVEL_RELEASE_DIAGNOSTIC_EVENT_LIMIT) return;
+            this._firstLevelReleaseDiagEventCount = nextSeq;
+            try {
+            const scene = this.node?.scene || null;
+            const canvas = scene?.getChildByName('Canvas') || null;
+            const screenRoot = canvas?.getChildByName('ScreenRoot') || null;
+            const gameplayRoot = screenRoot?.getChildByName('GameplayRoot') || null;
+            const bootRoot = canvas?.getChildByName('BootRoot') || screenRoot?.getChildByName('BootRoot') || null;
+            const authoredLoading = bootRoot?.getChildByName('StartupLoadingUI') || null;
+            const loading = this._loadingOverlay?.isValid ? this._loadingOverlay : authoredLoading;
+            const loadingBlocker = loading?.getComponent(BlockInputEvents) || null;
+            const guideLayer = this._guideLayer?.isValid ? this._guideLayer : null;
+            const guideLayerUi = guideLayer?.getComponent(UITransform) || null;
+            const guideBlocker = guideLayer?.getComponent(BlockInputEvents) || null;
+            const guideHand = this._guideHand?.isValid ? this._guideHand : null;
+            const guideHandSprite = guideHand?.getComponent(Sprite) || null;
+            const guideBubble = this._guideBubble?.isValid ? this._guideBubble : null;
+            const guideGeometry = guideLayer && guideLayerUi
+                ? `${Math.round(guideLayerUi.contentSize.width)}x${Math.round(guideLayerUi.contentSize.height)}@${guideLayer.getSiblingIndex()}/${guideLayer.parent?.children.length || 0}`
+                : '';
+            const loadingActive = !!loading?.isValid && loading.activeInHierarchy;
+            const guideLayerActive = !!guideLayer?.isValid && guideLayer.activeInHierarchy;
+            const guideHandActive = !!guideHand?.isValid && guideHand.activeInHierarchy;
+            const guideBubbleActive = !!guideBubble?.isValid && guideBubble.activeInHierarchy;
+            const shouldScanBlockers = phase === 'before_loading_hide'
+                || phase === 'after_tutorial'
+                || phase === 'after_draw_confirmed'
+                || phase === 'after_draw_missing'
+                || phase === 'canvas_touch_capture'
+                || phase === 'app_hide'
+                || phase === 'app_show'
+                || phase === 'tutorial_done_before_cleanup'
+                || phase.indexOf('no_guide_touch_') === 0;
+            const blockers = shouldScanBlockers ? collectActiveBlockInputEvents() : [];
+            const loadingAllowed = phase === 'diagnostic_start'
+                || phase === 'before_ui_build'
+                || phase === 'before_loading_hide';
+            const unexpectedBlockers = blockers.filter((entry) => {
+                const path = String(entry.path || '');
+                if (path.includes('/GuideLayer')) return false;
+                if (loadingAllowed && path.includes('/StartupLoadingUI')) return false;
+                return true;
+            });
+            const activeBlockersText = blockers
+                .slice(0, 6)
+                .map((entry) => String(entry.path || ''))
+                .join('|')
+                .slice(0, 240);
+            const unexpectedBlockersText = unexpectedBlockers
+                .slice(0, 6)
+                .map((entry) => String(entry.path || ''))
+                .join('|')
+                .slice(0, 240);
+            const rawGuideStep = Number(this._guideStep);
+            const guideStep = Number.isFinite(rawGuideStep) ? Math.floor(rawGuideStep) : -1;
+            const guideExpected = this._guideMode === 'level_1' && guideStep >= 0;
+            const foreground = this._gameForeground !== false;
+            let errorCode = phase === 'after_draw_missing' || phase === 'tutorial_missing' ? phase : '';
+            if (!errorCode && foreground && !loadingAllowed && loadingActive) errorCode = 'loading_overlay_active';
+            if (!errorCode && foreground && unexpectedBlockers.length > 0) errorCode = 'unexpected_input_blocker';
+            if (!errorCode && foreground && guideExpected && !guideLayerActive) errorCode = 'guide_layer_inactive';
+            if (!errorCode && foreground && guideExpected && !guideBlocker?.enabled) errorCode = 'guide_blocker_disabled';
+            if (!errorCode && foreground && guideExpected && this._guideInputSuspended === true) errorCode = 'guide_input_suspended';
+            if (!errorCode && foreground && guideExpected && (Number(this._modalFocusRefs) || 0) > 0) errorCode = 'modal_focus_active';
+            if (!errorCode && foreground && guideExpected && this._adShowing === true) errorCode = 'ad_showing';
+            if (!errorCode && foreground && guideExpected && this._skillActive === true) errorCode = 'skill_active';
+            if (!errorCode && foreground && guideExpected && this._timerLockedForProp === true) errorCode = 'timer_locked_for_prop';
+            if (!errorCode && foreground && guideExpected && (Number(this._placementVisualRefs) || 0) > 0) errorCode = 'placement_visual_active';
+            if (!errorCode && foreground && guideExpected && (!guideHandActive || !guideHandSprite?.spriteFrame || !guideBubbleActive)) {
+                errorCode = 'guide_visual_missing';
+            }
+            const boundedPhaseExtra: Record<string, unknown> = {};
+            const phaseExtraEntry = Object.entries(phaseExtra)[0];
+            if (phaseExtraEntry) boundedPhaseExtra[phaseExtraEntry[0]] = phaseExtraEntry[1];
+            this.trackFirstLevelFunnel('l1_release_state', {
+                stepId: guideStep,
+                stepName: String(phase || 'unknown').slice(0, 96),
+                source: 'l1_release_diagnostics',
+                success: !errorCode,
+                errorCode,
+                extra: {
+                    diagSeq: nextSeq,
+                    msFromDiagStart: Math.max(0, Date.now() - (Number(this._firstLevelReleaseDiagStartedAt) || Date.now())),
+                    gameForeground: foreground,
+                    gameplayRootActive: !!gameplayRoot?.isValid && gameplayRoot.activeInHierarchy,
+                    loadingActive,
+                    loadingBlockerEnabled: !!loadingBlocker?.enabled,
+                    guideLayerValid: !!guideLayer?.isValid,
+                    guideLayerActive,
+                    guideBlockerEnabled: !!guideBlocker?.enabled,
+                    guideGeometry,
+                    guideMode: this._guideMode || 'none',
+                    guidePhase: this._guidePhase || '',
+                    guideStatus: this._guideStatus || '',
+                    guideInputSuspended: this._guideInputSuspended === true,
+                    guideHandActive,
+                    guideHandSpriteReady: !!guideHandSprite?.spriteFrame,
+                    guideBubbleActive,
+                    modalFocusRefs: Math.max(0, Number(this._modalFocusRefs) || 0),
+                    adShowing: this._adShowing === true,
+                    skillActive: this._skillActive === true,
+                    timerLockedForProp: this._timerLockedForProp === true,
+                    placementVisualRefs: Math.max(0, Number(this._placementVisualRefs) || 0),
+                    activeTouchCount: Math.max(0, Number(this.activeBoardTouches?.size) || 0),
+                    gestureMode: this.gestureMode || 'idle',
+                    canvasTouchCount: Math.max(0, Number(this._firstLevelReleaseCanvasTouchCount) || 0),
+                    activeBlockers: activeBlockersText,
+                    unexpectedBlockers: unexpectedBlockersText,
+                    dataVersion: this.getRuntimeRemoteHash?.() || '',
+                    ...boundedPhaseExtra,
+                },
+            });
+            } catch (error) {
+                try {
+                    this.trackFirstLevelFunnel('l1_release_state', {
+                        stepId: -1,
+                        stepName: `${String(phase || 'unknown').slice(0, 70)}_logger_error`,
+                        source: 'l1_release_diagnostics',
+                        success: false,
+                        errorCode: 'diagnostic_exception',
+                        errorMessage: String((error as any)?.message || error || 'diagnostic failed').slice(0, 200),
+                        extra: { diagSeq: nextSeq },
+                    });
+                } catch (_) {
+                    // A diagnostic failure must never break L1 startup or touch handling.
+                }
+            }
+        },
+
+        scheduleFirstLevelReleaseDiagnostics(): void {
+            if (!this.isFirstLevelReleaseDiagnosticsActive?.()) return;
+            const token = Number(this._firstLevelReleaseDiagToken) || 0;
+            const afterDrawEvent = (Director as any)?.EVENT_AFTER_DRAW;
+            const reportAfterDraw = (): void => {
+                if (token !== (Number(this._firstLevelReleaseDiagToken) || 0)) return;
+                if (this._firstLevelReleaseAfterDrawSeen) return;
+                this._firstLevelReleaseAfterDrawSeen = true;
+                this._firstLevelReleaseAfterDrawHandler = null;
+                if (this._firstLevelReleaseAfterDrawFallbackTimer) {
+                    clearTimeout(this._firstLevelReleaseAfterDrawFallbackTimer);
+                    this._firstLevelReleaseAfterDrawFallbackTimer = null;
+                }
+                const renderFrame = Math.max(0, Number((director as any)?.getTotalFrames?.()) || 0);
+                this.reportFirstLevelReleaseState?.('after_draw_confirmed', { renderFrame });
+            };
+            this._firstLevelReleaseAfterDrawSeen = false;
+            if (afterDrawEvent && typeof director?.once === 'function') {
+                try {
+                    this._firstLevelReleaseAfterDrawHandler = reportAfterDraw;
+                    director.once(afterDrawEvent, reportAfterDraw, this);
+                    this._firstLevelReleaseAfterDrawFallbackTimer = setTimeout(() => {
+                        if (token !== (Number(this._firstLevelReleaseDiagToken) || 0)) return;
+                        if (this._firstLevelReleaseAfterDrawSeen) return;
+                        if (this._firstLevelReleaseAfterDrawHandler) {
+                            try {
+                                director.off(afterDrawEvent, this._firstLevelReleaseAfterDrawHandler, this);
+                            } catch (_) {
+                                // Best-effort cleanup for observer-only diagnostics.
+                            }
+                        }
+                        this._firstLevelReleaseAfterDrawHandler = null;
+                        this._firstLevelReleaseAfterDrawFallbackTimer = null;
+                        this.reportFirstLevelReleaseState?.('after_draw_missing');
+                    }, 1000);
+                } catch (_) {
+                    this._firstLevelReleaseAfterDrawHandler = null;
+                    this._firstLevelReleaseAfterDrawFallbackTimer = null;
+                    this.reportFirstLevelReleaseState?.('after_draw_missing');
+                }
+            } else {
+                this.reportFirstLevelReleaseState?.('after_draw_missing');
+            }
+
+            const delayedHandlers: Array<() => void> = [];
+            for (const [delaySeconds, phase] of [[0.5, 'no_guide_touch_500ms'], [2, 'no_guide_touch_2000ms'], [5, 'no_guide_touch_5000ms']] as Array<[number, string]>) {
+                const handler = (): void => {
+                    if (token !== (Number(this._firstLevelReleaseDiagToken) || 0)) return;
+                    if (this._firstLevelAnyTouchSent) return;
+                    this.reportFirstLevelReleaseState?.(phase);
+                };
+                delayedHandlers.push(handler);
+                try {
+                    this.scheduleOnce?.(handler, delaySeconds);
+                } catch (_) {
+                    // Sampling is optional and must not affect gameplay scheduling.
+                }
+            }
+            this._firstLevelReleaseDelayedHandlers = delayedHandlers;
         },
 
         getFirstLevelGuideStepKey(step: number = this._guideStep, phase: string = this._guidePhase): string {
@@ -179,6 +523,7 @@ export function installFirstLevelRouteModule(target: any): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
             if (this._firstLevelAnyTouchSent) return;
             this._firstLevelAnyTouchSent = true;
+            this.reportFirstLevelReleaseState?.('guide_layer_touch');
             const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
             this.trackFirstLevelFunnel('first_level_any_touch', {
                 touchTarget,

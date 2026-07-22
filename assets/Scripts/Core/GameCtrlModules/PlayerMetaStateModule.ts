@@ -873,6 +873,12 @@ export function installPlayerMetaStateModule(target: any): void {
                 return;
             }
             if (this._recoverVigorBusy && !this._adShowing) {
+                const rewardedTransaction = this._rewardedGrantTransaction as { page?: string; phase?: string } | null;
+                if (rewardedTransaction?.page === 'vigor_recover' && rewardedTransaction.phase === 'recoverable') {
+                    this._recoverVigorBusy = false;
+                    this.refreshRecoverVigorModalUI();
+                    return;
+                }
                 console.warn(`[recover-vigor] release stale popup transaction after ${reason}`, this._recoverVigorTransaction);
                 this._recoverVigorBusy = false;
                 this._recoverVigorTransaction = null;
@@ -1008,6 +1014,16 @@ export function installPlayerMetaStateModule(target: any): void {
                                 };
                                 const beginAttempt = (method: string): number => {
                                     if (closed || this._recoverVigorBusy || this._adShowing) return 0;
+                                    const rewardedTransaction = this._rewardedGrantTransaction as { page?: string; phase?: string } | null;
+                                    const pendingVideoReward = rewardedTransaction?.page === 'vigor_recover'
+                                        && rewardedTransaction.phase === 'recoverable';
+                                    if (pendingVideoReward) {
+                                        this.showToast('奖励确认中，请稍后');
+                                        return 0;
+                                    }
+                                    if (this._recoverVigorTransaction) {
+                                        return 0;
+                                    }
                                     const transactionId = Math.max(1, Math.floor(Number(this._recoverVigorTransactionSeq) || 0) + 1);
                                     this._recoverVigorTransactionSeq = transactionId;
                                     this._recoverVigorTransaction = {
@@ -1052,10 +1068,16 @@ export function installPlayerMetaStateModule(target: any): void {
                                         grantedAmount = this.grantVigorByAmount(RECOVER_VIGOR_AD_REWARD);
                                         if (grantedAmount <= 0) return false;
                                     }, {
+                                        claimKey: 'vigor_recover:video',
                                         busyFlag: '_adShowing',
                                         adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
                                         successToast: () => `\u83b7\u5f97${RECOVER_VIGOR_AD_REWARD}\u70b9\u4f53\u529b`,
                                         grantFailToast: '\u4f53\u529b\u53d1\u653e\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
+                                        onRecoverable: () => {
+                                            if (this._recoverVigorTransaction?.id === transactionId) {
+                                                this.setRecoverVigorModalBusy(false);
+                                            }
+                                        },
                                         onFinally: () => finishAttempt(transactionId, grantedAmount),
                                     });
                                     if (!started && this._recoverVigorTransaction?.id === transactionId) {

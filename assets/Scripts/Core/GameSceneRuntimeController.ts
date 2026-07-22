@@ -225,6 +225,7 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('PopupRoot');
         this.runtime.requireCanvasUiRoot('OverlayRoot');
         this.runtime.requireCanvasUiRoot('FxRoot');
+        this.runtime.bindFirstLevelReleaseTouchObserver?.();
         this.bindEarlyGameSettingsButton();
         if (pendingGameplayRequest) {
             this.primePendingGameplayShell(pendingGameplayRequest);
@@ -472,6 +473,8 @@ export class GameSceneRuntimeController {
         }
         this.runtime.scanRenderSpriteFrameHealth?.(`runtime.destroy.before:${sceneName}`, null, { always: true });
         this.runtime.stopRenderResourceDiagnostics?.(`runtime-destroy:${sceneName}`);
+        this.runtime.resetFirstLevelReleaseDiagnostics?.();
+        this.runtime.unbindFirstLevelReleaseTouchObserver?.();
         this.runtime.unbindUserStateLifecycle();
         void UserStateSyncMgr.inst.flushPendingSave();
         this.runtime.unscheduleAllCallbacks();

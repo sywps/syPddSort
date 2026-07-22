@@ -351,6 +351,9 @@ export function installGuideLeaderboardModule(target: any): void {
 
         endTutorial() {
             const completedGuideMode = this._guideMode;
+            if (completedGuideMode === 'level_1') {
+                this.reportFirstLevelReleaseState?.('tutorial_done_before_cleanup');
+            }
             this.trackFirstLevelFunnel('tutorial_done', {
                 source: 'tutorial',
                 success: true,
@@ -396,6 +399,10 @@ export function installGuideLeaderboardModule(target: any): void {
                 this.schedule(this.tickTimer, 1);
             }
             this.resetIdleHintTimer();
+            if (completedGuideMode === 'level_1') {
+                this.resetFirstLevelReleaseDiagnostics?.();
+                this.unbindFirstLevelReleaseTouchObserver?.();
+            }
         },
 
         // ==================== 工具方法 ====================

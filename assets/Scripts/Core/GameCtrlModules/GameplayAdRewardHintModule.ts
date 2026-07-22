@@ -241,7 +241,6 @@ export function installGameplayAdRewardHintModule(target: any): void {
                 onComplete?.();
             }, {
                 busyFlag: '_adShowing',
-                waitForCloseBeforeComplete: true,
                 grantFailToast: '冻结时间生效失败，请重试',
             }) === true;
         },
@@ -362,7 +361,6 @@ export function installGameplayAdRewardHintModule(target: any): void {
                 this.clearAdRewardGiftEntry?.();
             }, {
                 busyFlag: '_adShowing',
-                waitForCloseBeforeComplete: true,
                 grantFailToast: '救场礼包领取失败，请重试',
             }) === true;
         },

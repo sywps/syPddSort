@@ -62,7 +62,7 @@ assert.ok(slotPolicy.includes('return normalizeLevelId(levelId) >= normalizeLeve
 const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful skill use must mark assisted run');
 assert.ok(skillUi.includes('const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;'), 'skill buttons must only pause the timer in the final-second prop window');
-assert.ok(skillUi.includes('handler(timerPausedForFinalSecond);'), 'skill handlers must receive the final-second pause state');
+assert.ok(skillUi.includes('this.invokeSkillHandler(skill, timerPausedForFinalSecond);'), 'skill handlers must receive the final-second pause state through the exception-safe invocation path');
 assert.ok(skillUi.includes('import { isGameplaySkillUnlocked, shouldShowGameplaySkillArea }'), 'skill UI must import the centralized skill unlock policy');
 assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, SKILL_UNLOCK_BROOM)'), 'slot-clear runtime refresh must use entry-aware skill unlock policy');
 assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, skill.unlockLevel)'), 'skill button unlock branch must use entry-aware skill unlock policy');
@@ -184,7 +184,7 @@ assert.ok(slotUi.includes('const beforeUnlockedRows'), 'slot-row unlock must sna
 assert.ok(slotUi.includes('return didAdvance();'), 'slot-row unlock must return false when policy/state makes the grant a no-op');
 assert.ok(slotUi.includes('const unlocked = this.unlockSlotRow();'), 'slot-row rewarded ad grant must inspect the actual unlock result');
 assert.ok(slotUi.includes('if (!unlocked) return false;'), 'slot-row rewarded ad grant must fail when no row was unlocked');
-assert.ok(slotUi.includes('onFinally: () => runtime.resumeTimerForProp()'), 'slot-row timer must resume only after rewarded grant finalization');
+assert.ok(slotUi.includes('onInteractionReleased: () => runtime.resumeTimerForProp()'), 'slot-row timer must resume when the ad interaction lease is released');
 assert.ok(!slotUi.includes('onAdComplete: () => runtime.resumeTimerForProp()'), 'slot-row timer must not resume before the rewarded grant runs');
 assert.ok(slotUi.includes('this.runtime.slotModel.getAll().some((s: any) => s !== null)'), 'slot-clear availability must read the real slot model occupancy');
 

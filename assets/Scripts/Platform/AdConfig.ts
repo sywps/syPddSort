@@ -3,7 +3,11 @@
  */
 
 import { _decorator, Component } from 'cc';
-import { getRewardedAdProvider, type RewardedAdHooks } from './RewardedAdProvider';
+import {
+    getRewardedAdProvider,
+    type RewardedAdHooks,
+    type RewardedAdOutcome,
+} from './RewardedAdProvider';
 import { DOUYIN_PLATFORM_CONFIG } from './Douyin/DouyinPlatformConfig';
 import { WECHAT_PLATFORM_CONFIG } from './WeChat/WeChatPlatformConfig';
 import { getMiniGameBuildMode, getMiniGameBuildPlatform, getWeChatMiniGameRuntime } from '../Core/MiniGamePlatform';
@@ -15,6 +19,7 @@ type RewardedAdMode = 'native' | 'mock-success' | 'mock-fail';
 export class AdConfig extends Component {
     public static readonly DOUYIN_AD_ID: string = DOUYIN_PLATFORM_CONFIG.ads.rewardedVideo;
     private static readonly WECHAT_AD_ID: string = WECHAT_PLATFORM_CONFIG.ads.rewardedVideo;
+    private static rewardedAdMockAttemptSeq: number = 0;
 
     public static notifyGameResumed() {
         AdConfig.getProvider().notifyGameResumed();
@@ -46,20 +51,22 @@ export class AdConfig extends Component {
     }
 
     public static showRewardedAd(
-        callback: (success: boolean) => void,
+        callback: (outcome: RewardedAdOutcome) => void,
         hooks: RewardedAdHooks = {}
     ) {
         const mode = AdConfig.getRewardedAdMode();
         if (mode === 'mock-success') {
+            const attemptId = ++AdConfig.rewardedAdMockAttemptSeq;
             console.warn('[AdConfig] mock wechat rewarded ad success; native ad not created');
-            hooks.onShow?.();
-            hooks.onClose?.();
-            callback(true);
+            hooks.onShow?.(attemptId);
+            hooks.onClose?.({ isEnded: true }, attemptId);
+            callback({ attemptId, status: 'verified_complete', closeResult: { isEnded: true } });
             return;
         }
         if (mode === 'mock-fail') {
+            const attemptId = ++AdConfig.rewardedAdMockAttemptSeq;
             console.warn('[AdConfig] mock wechat rewarded ad failure; native ad not created');
-            callback(false);
+            callback({ attemptId, status: 'technical_error', reason: 'developer-tool-mock-fail' });
             return;
         }
         AdConfig.getProvider().show(callback, hooks);

@@ -34,13 +34,14 @@ import { AppRoot } from '../AppRoot';
 import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
+import type { RewardedAdOutcome } from '../../Platform/RewardedAdProvider';
 
 type RewardedGrantToast = string | (() => string);
 type RewardedGrantResult = boolean | void | Promise<boolean | void>;
 type RewardedGrantOptions = {
     levelId?: number;
+    claimKey?: string;
     markLevelRevive?: boolean;
-    waitForCloseBeforeComplete?: boolean;
     busyFlag?: string;
     adFailToast?: RewardedGrantToast;
     grantFailToast?: RewardedGrantToast;
@@ -48,13 +49,17 @@ type RewardedGrantOptions = {
     successToast?: RewardedGrantToast;
     onAdComplete?: (success: boolean) => void;
     onAdFail?: () => void;
+    onRecoverable?: () => void;
+    onInteractionStarted?: () => void;
+    onInteractionReleased?: () => void;
     afterGrant?: () => RewardedGrantResult;
     onFinally?: () => void;
 };
 type RewardedGrantRuntimeTransaction = {
     id: number;
+    claimKey: string;
     page: string;
-    phase: 'ad' | 'grant';
+    phase: 'ad' | 'recoverable' | 'grant';
     startedAt: number;
     cancel: (reason: string) => void;
 };
@@ -73,8 +78,6 @@ type ShareGrantOptions = {
     afterGrant?: () => RewardedGrantResult;
     onFinally?: () => void;
 };
-
-const SHARE_GRANT_CALLBACK_TIMEOUT_MS = 5000;
 
 function resolveRewardedGrantToast(toast?: RewardedGrantToast): string {
     if (!toast) return '';
@@ -181,69 +184,56 @@ export function installHomeAdFlowModule(target: any): void {
 
         showTrackedRewardedAd(
             page: string,
-            onComplete: (success: boolean) => void,
-            options: { levelId?: number; markLevelRevive?: boolean; waitForCloseBeforeComplete?: boolean } = {},
+            onComplete: (outcome: RewardedAdOutcome) => void,
+            options: {
+                levelId?: number;
+                markLevelRevive?: boolean;
+                onRecoverable?: () => void;
+            } = {},
         ) {
             const adType = `rewardedVideo:${page}`;
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
-            let adClosed = false;
-            let pendingAfterCloseFinalize: (() => void) | null = null;
-            let audioInterruptionEnded = false;
+            let interactionReleased = false;
             const adAudioReason = `rewarded:${page}`;
-            const endAdAudioInterruption = (reason: string) => {
-                if (audioInterruptionEnded) return;
-                audioInterruptionEnded = true;
+            const releaseInteraction = (reason: string) => {
+                if (interactionReleased) return;
+                interactionReleased = true;
                 AudioMgr.inst.endExternalInterruptionWithBgmRestart(`${adAudioReason}:${reason}`);
+                this.resumeTimerAfterAd();
             };
             AnalyticsMgr.inst.trackAdClick(adType, page, levelId);
             SySDKMgr.inst.reportAdClick(page);
             this.suspendTimerForAd();
             AudioMgr.inst.beginExternalInterruption(adAudioReason);
             try {
-                AdConfig.showRewardedAd((success: boolean) => {
-                    const finalize = () => {
-                        endAdAudioInterruption(success ? 'complete-success' : 'complete-fail');
-                        this.resumeTimerAfterAd();
-                        if (success) {
-                            AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
-                            SySDKMgr.inst.reportAdFinish(page);
-                            if (options.markLevelRevive) {
-                                AnalyticsMgr.inst.markAdRevive();
-                            }
+                AdConfig.showRewardedAd((outcome: RewardedAdOutcome) => {
+                    const success = outcome.status === 'verified_complete';
+                    releaseInteraction(`complete-${outcome.status}`);
+                    if (success) {
+                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
+                        SySDKMgr.inst.reportAdFinish(page);
+                        if (options.markLevelRevive) {
+                            AnalyticsMgr.inst.markAdRevive();
                         }
-                        onComplete(success);
-                        this.scheduleRewardedAdPreload(success ? 'after-ad-success' : 'after-ad-fail', 1.5);
-                    };
-                    if (options.waitForCloseBeforeComplete && adClosed) {
-                        this.runAfterAdWindowClosed(finalize);
-                        return;
                     }
-                    if (options.waitForCloseBeforeComplete && success) {
-                        if (AdConfig.hasRewardedAdWindow()) {
-                            pendingAfterCloseFinalize = finalize;
-                        } else {
-                            finalize();
-                        }
-                        return;
+                    try {
+                        onComplete(outcome);
+                    } finally {
+                        this.scheduleRewardedAdPreload(`after-ad-${outcome.status}`, 1.5);
                     }
-                    finalize();
                 }, {
                     onShow: () => {
                         AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
                         SySDKMgr.inst.reportAdShow(page);
                     },
-                    onClose: () => {
-                        adClosed = true;
-                        if (!pendingAfterCloseFinalize) return;
-                        const finalize = pendingAfterCloseFinalize;
-                        pendingAfterCloseFinalize = null;
-                        this.runAfterAdWindowClosed(finalize);
+                    onRecoverable: () => {
+                        releaseInteraction('recoverable');
+                        options.onRecoverable?.();
                     },
                     minFallbackWatchMs: this.getRewardedAdMinFallbackWatchMs(page),
                 });
             } catch (error) {
-                endAdAudioInterruption('throw');
-                this.resumeTimerAfterAd();
+                releaseInteraction('throw');
                 throw error;
             }
         },
@@ -261,12 +251,6 @@ export function installHomeAdFlowModule(target: any): void {
                 this[busyFlag] = true;
             }
 
-            let shareCallbackTimer: ReturnType<typeof setTimeout> | null = null;
-            const clearShareCallbackTimer = () => {
-                if (shareCallbackTimer === null) return;
-                clearTimeout(shareCallbackTimer);
-                shareCallbackTimer = null;
-            };
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -276,7 +260,6 @@ export function installHomeAdFlowModule(target: any): void {
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
-                clearShareCallbackTimer();
                 clearBusy();
                 try {
                     options.onFinally?.();
@@ -306,7 +289,6 @@ export function installHomeAdFlowModule(target: any): void {
             const title = resolveRewardedGrantToast(options.title) || `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
             const query = resolveRewardedGrantToast(options.query) || `level=${levelId}`;
             const imageUrl = resolveRewardedGrantToast(options.imageUrl);
-            let shareCompleteHandled = false;
 
             const runGrant = () => {
                 Promise.resolve()
@@ -338,53 +320,21 @@ export function installHomeAdFlowModule(target: any): void {
                     })
                     .then(runFinally, runFinally);
             };
-            const handleShareSuccess = (source: string) => {
-                if (shareCompleteHandled) {
-                    console.warn(`[ShareGrant] ${page} duplicate share ${source} ignored`);
-                    return;
-                }
-                shareCompleteHandled = true;
-                clearShareCallbackTimer();
-                try {
-                    options.onShareComplete?.(true);
-                } catch (error) {
-                    console.warn(`[ShareGrant] ${page} share-success handler failed:`, error);
-                }
-                AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
-                runGrant();
-            };
-            const handleShareFail = (source: string) => {
-                if (shareCompleteHandled) {
-                    console.warn(`[ShareGrant] ${page} duplicate share ${source} ignored`);
-                    return;
-                }
-                shareCompleteHandled = true;
-                clearShareCallbackTimer();
-                runShareFail();
-            };
-            const handleShareComplete = (result?: any) => {
-                if (shareCompleteHandled) return;
-                const errMsg = String(result?.errMsg || '').toLowerCase();
-                if (errMsg.includes(':ok') || errMsg.endsWith('ok') || errMsg.includes('success')) {
-                    handleShareSuccess('complete');
-                    return;
-                }
-                handleShareFail('complete');
-            };
 
             AnalyticsMgr.inst.trackShareClick(shareType, page, levelId);
             try {
-                shareCallbackTimer = setTimeout(() => {
-                    handleShareFail('timeout');
-                }, SHARE_GRANT_CALLBACK_TIMEOUT_MS);
                 wx.shareAppMessage({
                     title,
                     query,
                     imageUrl,
-                    success: () => handleShareSuccess('success'),
-                    fail: () => handleShareFail('fail'),
-                    complete: handleShareComplete,
                 });
+                try {
+                    options.onShareComplete?.(true);
+                } catch (error) {
+                    console.warn(`[ShareGrant] ${page} share-dispatch handler failed:`, error);
+                }
+                AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
+                runGrant();
             } catch (error) {
                 console.error(`[ShareGrant] ${page} share request failed:`, error);
                 runShareFail();
@@ -399,15 +349,21 @@ export function installHomeAdFlowModule(target: any): void {
             options: RewardedGrantOptions = {},
         ): boolean {
             const busyFlag = options.busyFlag || '';
-            if (this._rewardedGrantTransaction || (busyFlag && this[busyFlag])) {
+            const claimKey = String(options.claimKey || `${page}:${options.levelId ?? ''}`);
+            const activeTransaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+            if (activeTransaction) {
+                if (activeTransaction.phase === 'recoverable') {
+                    showRewardedGrantToast(this, '奖励确认中，请稍后');
+                }
                 return false;
             }
-            if (busyFlag) {
-                this[busyFlag] = true;
-            }
+            if (busyFlag && this[busyFlag]) return false;
 
             const transactionId = (Number(this._rewardedGrantTransactionSeq) || 0) + 1;
             this._rewardedGrantTransactionSeq = transactionId;
+            const claimGrant = grant;
+            const claimOptions = options;
+            let startAttempt: () => boolean = () => false;
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -415,7 +371,9 @@ export function installHomeAdFlowModule(target: any): void {
             };
             let finalized = false;
             let cancelled = false;
-            let adCompleteHandled = false;
+            let grantStarted = false;
+            let attemptGeneration = 0;
+            let releaseCurrentAttemptInteraction: (() => void) | null = null;
             const isActive = () => {
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 return !cancelled && !!active && active.id === transactionId;
@@ -429,7 +387,7 @@ export function installHomeAdFlowModule(target: any): void {
                 }
                 clearBusy();
                 try {
-                    options.onFinally?.();
+                    claimOptions.onFinally?.();
                 } catch (error) {
                     console.warn(`[RewardedGrant] ${page} finally failed:`, error);
                 }
@@ -437,108 +395,167 @@ export function installHomeAdFlowModule(target: any): void {
             const cancelTransaction = (reason: string) => {
                 if (finalized) return;
                 cancelled = true;
-                adCompleteHandled = true;
+                attemptGeneration++;
                 console.error(`[RewardedGrant] ${page} transaction cancelled: ${reason}`);
+                releaseCurrentAttemptInteraction?.();
+                releaseCurrentAttemptInteraction = null;
                 this.resumeTimerAfterAd?.();
                 runFinally();
             };
-            this._rewardedGrantTransaction = {
+            const transaction: RewardedGrantRuntimeTransaction = {
                 id: transactionId,
+                claimKey,
                 page,
                 phase: 'ad',
                 startedAt: Date.now(),
                 cancel: cancelTransaction,
-            } as RewardedGrantRuntimeTransaction;
+            };
+            this._rewardedGrantTransaction = transaction;
             const runAdFail = () => {
                 if (!isActive()) return;
-                showRewardedGrantToast(this, options.adFailToast);
+                showRewardedGrantToast(this, claimOptions.adFailToast);
                 try {
-                    options.onAdFail?.();
+                    claimOptions.onAdFail?.();
                 } catch (error) {
                     console.warn(`[RewardedGrant] ${page} ad-fail handler failed:`, error);
                 }
                 runFinally();
             };
+            const beginGrant = () => {
+                if (!isActive() || grantStarted) return;
+                grantStarted = true;
+                transaction.phase = 'grant';
+                PerformanceMgr.inst.markUserActivity(6000);
 
-            try {
-                this.showTrackedRewardedAd(page, (success: boolean) => {
-                    if (!isActive()) {
-                        console.warn(`[RewardedGrant] ${page} late ad-complete ignored`);
-                        return;
-                    }
-                    if (adCompleteHandled) {
-                        console.warn(`[RewardedGrant] ${page} duplicate ad-complete ignored`);
-                        return;
-                    }
-                    adCompleteHandled = true;
-                    try {
-                        options.onAdComplete?.(success);
-                    } catch (error) {
-                        console.warn(`[RewardedGrant] ${page} ad-complete handler failed:`, error);
-                    }
-                    if (!success) {
-                        runAdFail();
-                        return;
-                    }
-                    const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
-                    if (transaction?.id === transactionId) {
-                        transaction.phase = 'grant';
-                    }
-                    PerformanceMgr.inst.markUserActivity(6000);
-
-                    Promise.resolve()
-                        .then(async () => {
-                            if (!isActive()) return { active: false, result: undefined };
-                            const result = await grant();
-                            return { active: true, result };
-                        })
-                        .then(async (outcome) => {
-                            if (!outcome.active || !isActive()) return;
-                            const grantResult = outcome.result;
-                            if (grantResult === false) {
-                                console.warn(`[RewardedGrant] ${page} grant returned false`);
-                                showRewardedGrantToast(this, options.grantFailToast);
-                                return;
-                            }
-                            showRewardedGrantToast(this, options.successToast);
-                            if (!options.afterGrant) {
-                                return;
-                            }
-                            try {
-                                const afterResult = await options.afterGrant();
-                                if (!isActive()) return;
-                                if (afterResult === false) {
-                                    console.warn(`[RewardedGrant] ${page} afterGrant returned false`);
-                                    showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
-                                }
-                            } catch (error) {
-                                if (!isActive()) return;
-                                console.error(`[RewardedGrant] ${page} afterGrant failed:`, error);
-                                showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
-                            }
-                        })
-                        .catch((error) => {
-                            if (!isActive()) return;
-                            console.error(`[RewardedGrant] ${page} grant failed:`, error);
-                            showRewardedGrantToast(this, options.grantFailToast);
-                        })
-                        .then(runFinally, runFinally);
-                }, {
-                    levelId: options.levelId,
-                    markLevelRevive: options.markLevelRevive,
-                    waitForCloseBeforeComplete: options.waitForCloseBeforeComplete,
-                });
-            } catch (error) {
-                console.error(`[RewardedGrant] ${page} ad request failed:`, error);
-                this.resumeTimerAfterAd?.();
-                if (isActive()) {
-                    runAdFail();
-                } else {
+                let grantResult: RewardedGrantResult;
+                try {
+                    grantResult = claimGrant();
+                } catch (error) {
+                    console.error(`[RewardedGrant] ${page} grant failed:`, error);
+                    showRewardedGrantToast(this, claimOptions.grantFailToast);
                     runFinally();
+                    return;
                 }
-                return false;
-            }
-            return true;
+
+                Promise.resolve(grantResult)
+                    .then(async (resolvedGrantResult) => {
+                        if (!isActive()) return;
+                        if (resolvedGrantResult === false) {
+                            console.warn(`[RewardedGrant] ${page} grant returned false`);
+                            showRewardedGrantToast(this, claimOptions.grantFailToast);
+                            return;
+                        }
+                        showRewardedGrantToast(this, claimOptions.successToast);
+                        if (!claimOptions.afterGrant) return;
+                        try {
+                            const afterResult = await claimOptions.afterGrant();
+                            if (!isActive()) return;
+                            if (afterResult === false) {
+                                console.warn(`[RewardedGrant] ${page} afterGrant returned false`);
+                                showRewardedGrantToast(this, claimOptions.afterGrantFailToast || claimOptions.grantFailToast);
+                            }
+                        } catch (error) {
+                            if (!isActive()) return;
+                            console.error(`[RewardedGrant] ${page} afterGrant failed:`, error);
+                            showRewardedGrantToast(this, claimOptions.afterGrantFailToast || claimOptions.grantFailToast);
+                        }
+                    })
+                    .catch((error) => {
+                        if (!isActive()) return;
+                        console.error(`[RewardedGrant] ${page} grant failed:`, error);
+                        showRewardedGrantToast(this, claimOptions.grantFailToast);
+                    })
+                    .then(runFinally, runFinally);
+            };
+
+            startAttempt = (): boolean => {
+                if (!isActive() || grantStarted) return false;
+                const generation = ++attemptGeneration;
+                transaction.phase = 'ad';
+                if (busyFlag) this[busyFlag] = true;
+                let outcomeHandled = false;
+                let recoverableHandled = false;
+                let interactionReleased = false;
+                const isCurrentAttempt = () => isActive() && generation === attemptGeneration;
+                const releaseAttemptInteraction = () => {
+                    if (interactionReleased) return;
+                    interactionReleased = true;
+                    if (releaseCurrentAttemptInteraction === releaseAttemptInteraction) {
+                        releaseCurrentAttemptInteraction = null;
+                    }
+                    clearBusy();
+                    try {
+                        claimOptions.onInteractionReleased?.();
+                    } catch (error) {
+                        console.warn(`[RewardedGrant] ${page} interaction-release handler failed:`, error);
+                    }
+                };
+                const markRecoverable = () => {
+                    if (!isCurrentAttempt() || recoverableHandled || grantStarted) return;
+                    recoverableHandled = true;
+                    transaction.phase = 'recoverable';
+                    releaseAttemptInteraction();
+                    try {
+                        claimOptions.onRecoverable?.();
+                    } catch (error) {
+                        console.warn(`[RewardedGrant] ${page} recoverable handler failed:`, error);
+                    }
+                };
+                releaseCurrentAttemptInteraction = releaseAttemptInteraction;
+
+                try {
+                    claimOptions.onInteractionStarted?.();
+                } catch (error) {
+                    console.error(`[RewardedGrant] ${page} interaction-start handler failed:`, error);
+                    releaseAttemptInteraction();
+                    runAdFail();
+                    return false;
+                }
+
+                try {
+                    this.showTrackedRewardedAd(page, (outcome: RewardedAdOutcome) => {
+                        if (!isCurrentAttempt()) {
+                            console.warn(`[RewardedGrant] ${page} stale attempt ${outcome.attemptId} ignored`);
+                            return;
+                        }
+                        if (outcomeHandled) {
+                            console.warn(`[RewardedGrant] ${page} duplicate attempt ${outcome.attemptId} ignored`);
+                            return;
+                        }
+                        outcomeHandled = true;
+                        releaseAttemptInteraction();
+                        if (outcome.status === 'unknown') {
+                            runAdFail();
+                            return;
+                        }
+                        const success = outcome.status === 'verified_complete';
+                        try {
+                            claimOptions.onAdComplete?.(success);
+                        } catch (error) {
+                            console.warn(`[RewardedGrant] ${page} ad-complete handler failed:`, error);
+                        }
+                        if (!success) {
+                            runAdFail();
+                            return;
+                        }
+                        beginGrant();
+                    }, {
+                        levelId: claimOptions.levelId,
+                        markLevelRevive: claimOptions.markLevelRevive,
+                        onRecoverable: markRecoverable,
+                    });
+                } catch (error) {
+                    console.error(`[RewardedGrant] ${page} ad request failed:`, error);
+                    releaseAttemptInteraction();
+                    this.resumeTimerAfterAd?.();
+                    if (isActive()) runAdFail();
+                    else runFinally();
+                    return false;
+                }
+                return true;
+            };
+
+            return startAttempt();
         },
 
         suspendTimerForAd() {

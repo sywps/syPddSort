@@ -297,17 +297,27 @@ export function installBoardInputViewportModule(target: any): void {
             }
 
             Tween.stopAllByTarget(group);
+            let completed = false;
+            let fallback: (() => void) | null = null;
+            const complete = () => {
+                if (completed) return;
+                completed = true;
+                if (fallback) this.unschedule?.(fallback);
+                if (group?.isValid) {
+                    viewport.resetToHome();
+                    this.boardViewScale = viewport.scale;
+                    this.refreshBoardZoomControl?.();
+                }
+                onDone();
+            };
+            fallback = () => complete();
+            this.scheduleOnce(fallback, 0.6);
             tween(group)
                 .to(0.22, {
                     position: new Vec3(homePos.x, homePos.y, 0),
                     scale: new Vec3(homeScale, homeScale, 1),
                 }, { easing: 'sineOut' })
-                .call(() => {
-                    viewport.resetToHome();
-                    this.boardViewScale = viewport.scale;
-                    this.refreshBoardZoomControl?.();
-                    onDone();
-                })
+                .call(complete)
                 .start();
         },
 

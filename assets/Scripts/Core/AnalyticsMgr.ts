@@ -583,6 +583,10 @@ export class AnalyticsMgr {
         }
         this.exitReported = false;
         this.gameSessionStartTime = Date.now();
+        this.trackFunnelEvent({
+            eventName: 'app_show',
+            page: 'app',
+        });
         void this.wxReportData({
             eventName: 'game_start',
             page: 'app',
