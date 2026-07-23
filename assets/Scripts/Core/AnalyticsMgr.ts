@@ -23,6 +23,8 @@ export type ReportDataOptions = {
     duration?: number;
     logicalLevelId?: string | number;
     physicalLevelId?: string | number;
+    abId?: string;
+    abBucket?: string;
 };
 
 export type FunnelEventOptions = {
@@ -39,8 +41,12 @@ export type FunnelEventOptions = {
     duration?: number;
     logicalLevelId?: string | number;
     physicalLevelId?: string | number;
+    abId?: string;
+    abBucket?: string;
     extra?: Record<string, unknown>;
 };
+
+type AnalyticsLevelContext = Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket'>>;
 
 export type UpdateUserProfileAssetsOptions = {
     openid?: string;
@@ -97,7 +103,7 @@ export class AnalyticsMgr {
     private gameSessionStartTime = Date.now();
     private levelSession: LevelSessionState | null = null;
     private unavailableWarned = false;
-    private levelContext: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>> = {};
+    private levelContext: AnalyticsLevelContext = {};
     private readonly funnelSessionId = this.createSessionId();
     private readonly appLaunchTime = Date.now();
     private funnelEventSeq = 0;
@@ -193,6 +199,8 @@ export class AnalyticsMgr {
                 duration: opt.duration ?? 0,
                 logicalLevelId: opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0,
                 physicalLevelId: opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0,
+                abId: opt.abId ?? this.levelContext.abId ?? '',
+                abBucket: opt.abBucket ?? this.levelContext.abBucket ?? '',
             });
         } catch (error) {
             console.warn('[AnalyticsMgr] addBehaviorData failed:', error);
@@ -212,6 +220,8 @@ export class AnalyticsMgr {
 
         const logicalLevelId = opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
         const physicalLevelId = opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
+        const abId = opt.abId ?? this.levelContext.abId ?? '';
+        const abBucket = opt.abBucket ?? this.levelContext.abBucket ?? '';
         const event: Record<string, unknown> = {
             sessionId: this.funnelSessionId,
             eventSeq: ++this.funnelEventSeq,
@@ -228,6 +238,8 @@ export class AnalyticsMgr {
             duration: opt.duration ?? 0,
             logicalLevelId,
             physicalLevelId,
+            abId,
+            abBucket,
             elapsedMsFromLaunch: Math.max(0, now - this.appLaunchTime),
             elapsedMsFromLevelReady: this.firstLevelReadyTime > 0 ? Math.max(0, now - this.firstLevelReadyTime) : 0,
             timestamp: now,
@@ -248,7 +260,7 @@ export class AnalyticsMgr {
         }
     }
 
-    markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'page' | 'source'>>): void {
+    markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'page' | 'source'>>): void {
         this.firstLevelReadyTime = Date.now();
         this.trackFunnelEvent({
             eventName: 'first_level_ui_ready',
@@ -256,6 +268,8 @@ export class AnalyticsMgr {
             levelId: context?.levelId,
             logicalLevelId: context?.logicalLevelId,
             physicalLevelId: context?.physicalLevelId,
+            abId: context?.abId,
+            abBucket: context?.abBucket,
             source: context?.source || 'initGame',
         });
     }
@@ -320,14 +334,14 @@ export class AnalyticsMgr {
             message.includes('errcode: -501000');
     }
 
-    setLevelContext(context: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>>): void {
+    setLevelContext(context: AnalyticsLevelContext): void {
         this.levelContext = {
             ...this.levelContext,
             ...context,
         };
     }
 
-    beginLevel(levelId: number, page: string, context?: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>>): void {
+    beginLevel(levelId: number, page: string, context?: AnalyticsLevelContext): void {
         const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
         const normalizedPage = page || 'game';
         const now = Date.now();

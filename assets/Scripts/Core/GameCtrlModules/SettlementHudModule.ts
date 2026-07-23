@@ -19,7 +19,7 @@ import {
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
-    GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
+    GUIDE_HAND_SPRITE_SIZE, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, BoardViewportController
 } from '../GameCtrlShared';
@@ -43,6 +43,13 @@ const WIN_BONUS_SHARE_DAILY_LIMIT = 2;
 const WIN_BONUS_SHARE_MIN_LEVEL_GAP = 5;
 const WIN_BONUS_SHARE_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const WIN_BONUS_SHARE_GATE_STATE_KEY = 'pdd.winBonusShareGate.v1';
+const PRE10_IDLE_HINT_DELAY_SECONDS = 10;
+const PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS = 1.2;
+const PRE10_IDLE_HINT_MAX_LEVEL_ID = 10;
+const SMART_IDLE_HINT_FINGERTIP_OFFSET_X = -31;
+const SMART_IDLE_HINT_FINGERTIP_OFFSET_Y = 43;
+const SMART_IDLE_HINT_TAP_SCALE = 0.88;
+const SMART_IDLE_HINT_HAND_TIME_SCALE = 1.25;
 
 type WinBonusRewardGateMode = 'ad' | 'share';
 type WinBonusShareGateState = {
@@ -50,6 +57,14 @@ type WinBonusShareGateState = {
     appearCount: number;
     lastLevelId: number;
     lastAtMs: number;
+};
+type SmartIdleHintStep = 'board_to_slot' | 'board_to_board' | 'slot_to_board';
+type SmartIdleHintPlan = {
+    step: SmartIdleHintStep;
+    colorId: number;
+    block?: BeanBlockInfo;
+    targetCells?: { row: number; col: number }[];
+    slotIndices?: number[];
 };
 
 const GOLD_TEXTURE_NAME = '\u91d1\u5e01';
@@ -742,6 +757,7 @@ export function installSettlementHudModule(target: any): void {
             if (this._pendingColorCompleteEffects instanceof Map) {
                 this._pendingColorCompleteEffects.clear();
             }
+            this.clearIdleHint();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
             const runWin = () => {
@@ -763,6 +779,7 @@ export function installSettlementHudModule(target: any): void {
             this.isGameEnd = true;
             this.closePinchGuide?.();
             this._patternCompleteWinPending = false;
+            this.clearIdleHint();
             this.clearAdRewardHintVisuals?.();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
@@ -878,6 +895,7 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             this.isGameEnd = true;
+            this.clearIdleHint();
             this.clearAdRewardHintVisuals?.();
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_fail', {
@@ -1015,14 +1033,547 @@ export function installSettlementHudModule(target: any): void {
             this.loadLevel(nextId);
         },
 
-        // Idle hint is intentionally disabled; keep these hooks for existing callers.
         stopIdleHintTimer() {
+            const handler = this._smartIdleHintTimerHandler as (() => void) | null;
+            if (handler) {
+                this.unschedule(handler);
+            }
+            this._smartIdleHintTimerHandler = null;
+            this._smartIdleHintToken = (Number(this._smartIdleHintToken) || 0) + 1;
         },
 
         resetIdleHintTimer() {
+            this.stopIdleHintTimer();
+            this.clearSmartIdleHintVisuals?.();
+            if (!this.canArmSmartIdleHint?.()) return;
+            this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
         },
 
         clearIdleHint() {
+            this.stopIdleHintTimer();
+            this.clearSmartIdleHintVisuals?.();
+        },
+
+        armSmartIdleHintTimer(delaySeconds: number) {
+            const existingHandler = this._smartIdleHintTimerHandler as (() => void) | null;
+            if (existingHandler) {
+                this.unschedule(existingHandler);
+            }
+            const token = Number(this._smartIdleHintToken) || 0;
+            const handler = () => this.showSmartIdleHintIfReady?.(token);
+            this._smartIdleHintTimerHandler = handler;
+            this.scheduleOnce(handler, Math.max(0, Number(delaySeconds) || 0));
+        },
+
+        canArmSmartIdleHint(): boolean {
+            if (this.isGameEnd) return false;
+            if (!this.boardModel || !this.slotModel || !this.levelData) return false;
+            const entryMode = typeof this.getActiveGameplayEntryMode === 'function'
+                ? this.getActiveGameplayEntryMode()
+                : (this._activeGameplayEntryMode || 'main');
+            if (entryMode !== 'main') return false;
+            if (typeof this.isExternalLevelPreviewActive === 'function' && this.isExternalLevelPreviewActive()) return false;
+            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
+                ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
+                : Math.floor(Number(this.levelData?.levelId) || 0);
+            return logicalLevelId >= 1 && logicalLevelId <= PRE10_IDLE_HINT_MAX_LEVEL_ID;
+        },
+
+        canShowSmartIdleHint(): boolean {
+            if (!this.canArmSmartIdleHint?.()) return false;
+            const guideStep = Number.isFinite(Number(this._guideStep))
+                ? Math.floor(Number(this._guideStep))
+                : -1;
+            if (guideStep >= 0) return false;
+            if ((this._guideMode || 'none') !== 'none') return false;
+            if ((this._activeGameplayGuideLayoutMode || 'none') !== 'none') return false;
+            if ((Number(this._modalFocusRefs) || 0) > 0) return false;
+            if (this._guideInputSuspended) return false;
+            if (this._skillActive) return false;
+            if (this.isPlacementVisualActive?.()) return false;
+            return true;
+        },
+
+        showSmartIdleHintIfReady(token: number) {
+            if (token !== (Number(this._smartIdleHintToken) || 0)) return;
+            this._smartIdleHintTimerHandler = null;
+            if (!this.canShowSmartIdleHint?.()) {
+                if (this.canArmSmartIdleHint?.()) {
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                }
+                return;
+            }
+
+            const plan = this.resolveSmartIdleHintPlan?.() as SmartIdleHintPlan | null;
+            if (!plan) {
+                if (this.canArmSmartIdleHint?.()) {
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                }
+                return;
+            }
+            this.clearSmartIdleHintVisuals?.();
+            if (!this.ensureSmartIdleHintLayer?.()) return;
+            this._smartIdleHintActive = true;
+            this._smartIdleHintPlan = plan;
+            this._guideReminderVisible = true;
+            this._guideLayer!.active = true;
+
+            const hand = this._guideHand as Node | null;
+            if (!hand?.isValid) return;
+
+            if (plan.step === 'board_to_slot' && plan.block) {
+                const from = this.getSmartIdleHintBlockTapPoint?.(plan.block);
+                const to = this.getSmartIdleHintFirstEmptySlotCenter?.();
+                if (from && to) {
+                    this.startSmartIdleHintHandPath?.(hand, from, to);
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                } else if (this.canArmSmartIdleHint?.()) {
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                }
+                return;
+            }
+
+            if (plan.step === 'board_to_board' && plan.block && plan.targetCells?.length) {
+                const from = this.getSmartIdleHintBlockTapPoint?.(plan.block);
+                const to = this.getSmartIdleHintCellsTapPoint?.(plan.targetCells);
+                if (from && to) {
+                    this.startSmartIdleHintHandPath?.(hand, from, to);
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                } else if (this.canArmSmartIdleHint?.()) {
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                }
+                return;
+            }
+
+            if (plan.step === 'slot_to_board' && plan.targetCells?.length) {
+                const from = this.getSmartIdleHintFirstSlotIndexCenter?.(plan.slotIndices || []);
+                const to = this.getSmartIdleHintCellsTapPoint?.(plan.targetCells);
+                if (from && to) {
+                    this.startSmartIdleHintHandPath?.(hand, from, to);
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                } else if (this.canArmSmartIdleHint?.()) {
+                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                }
+            }
+        },
+
+        clearSmartIdleHintVisuals() {
+            const hadSmartIdleHint = !!this._smartIdleHintActive || !!this._smartIdleHintPlan;
+            this._smartIdleHintActive = false;
+            this._smartIdleHintPlan = null;
+            if (!hadSmartIdleHint) return;
+
+            this._guideReminderVisible = false;
+            if (this._guideHand?.isValid) {
+                Tween.stopAllByTarget(this._guideHand);
+                this._guideHand.setScale(1, 1, 1);
+                this._guideHand.active = false;
+            }
+            this.clearSmartIdleHintTapRipples?.();
+            this.clearGuideHighlight?.();
+            const guideStep = Number.isFinite(Number(this._guideStep))
+                ? Math.floor(Number(this._guideStep))
+                : -1;
+            if (guideStep < 0) {
+                if (this._guideBubble?.isValid) this._guideBubble.active = false;
+                if (this._guideLayer?.isValid) this._guideLayer.active = false;
+            }
+        },
+
+        resolveSmartIdleHintPlan(): SmartIdleHintPlan | null {
+            const selectedPlan = this.resolveSelectedSmartIdleHintPlan?.() as SmartIdleHintPlan | null;
+            if (selectedPlan) return selectedPlan;
+
+            const slotEntries = this.getUsableSlotEntriesForIdleHint?.() || [];
+            const occupiedSlots = slotEntries.filter((entry: { block: BeanBlockInfo | null }) => !!entry.block);
+            if (occupiedSlots.length > 0) {
+                const boardToBoard = this.findBoardToBoardIdleHint?.(occupiedSlots) as SmartIdleHintPlan | null;
+                if (boardToBoard) return boardToBoard;
+
+                const slotToBoard = this.findSlotToBoardIdleHint?.(occupiedSlots) as SmartIdleHintPlan | null;
+                if (slotToBoard) return slotToBoard;
+            }
+
+            if (this.slotModel?.hasEmptySlot?.()) {
+                const block = this.findBestMismatchedBoardBlockForIdleHint?.() as BeanBlockInfo | null;
+                if (block) {
+                    return {
+                        step: 'board_to_slot',
+                        colorId: block.colorId,
+                        block,
+                    };
+                }
+            }
+            return null;
+        },
+
+        resolveSelectedSmartIdleHintPlan(): SmartIdleHintPlan | null {
+            if (!this.isSelected || !this.currentBlock) return null;
+            const block = this.currentBlock as BeanBlockInfo;
+            const colorId = Math.floor(Number(block.colorId) || 0);
+            if (colorId <= 0) return null;
+            const targetCells = this.getEmptyTargetCellsForIdleHint?.(colorId) || [];
+
+            if (block.source === 'slot' || (Array.isArray(this._selectedSlotIndices) && this._selectedSlotIndices.length > 0)) {
+                if (targetCells.length <= 0) return null;
+                if ((block.cells?.length || 0) > targetCells.length) return null;
+                return {
+                    step: 'slot_to_board',
+                    colorId,
+                    targetCells,
+                    slotIndices: Array.isArray(this._selectedSlotIndices) ? [...this._selectedSlotIndices] : [],
+                };
+            }
+
+            if (targetCells.length > 0) {
+                return {
+                    step: 'board_to_board',
+                    colorId,
+                    block,
+                    targetCells,
+                };
+            }
+
+            if (this.slotModel?.hasEmptySlot?.() && this.isMismatchedBoardBlockForIdleHint?.(block)) {
+                return {
+                    step: 'board_to_slot',
+                    colorId,
+                    block,
+                };
+            }
+            return null;
+        },
+
+        getUsableSlotEntriesForIdleHint(): { index: number; block: BeanBlockInfo | null }[] {
+            const all = this.slotModel?.getAll?.() || [];
+            const totalCount = Math.max(0, Math.floor(Number(this.slotModel?.totalCount) || all.length));
+            const unlockedCount = Math.max(0, Math.floor(Number(this.slotModel?.unlockedCount) || totalCount));
+            const usableCount = Math.min(all.length, totalCount, unlockedCount);
+            const entries: { index: number; block: BeanBlockInfo | null }[] = [];
+            for (let i = 0; i < usableCount; i++) {
+                if (this._hiddenSlotIndices?.has?.(i)) continue;
+                entries.push({ index: i, block: all[i] || null });
+            }
+            return entries;
+        },
+
+        getEmptyTargetCellsForIdleHint(colorId: number): { row: number; col: number }[] {
+            const bm = this.boardModel;
+            const cells: { row: number; col: number }[] = [];
+            if (!bm || colorId <= 0) return cells;
+            for (let r = 0; r < bm.height; r++) {
+                for (let c = 0; c < bm.width; c++) {
+                    if (bm.currentColors[r][c] === 0
+                        && !bm.locked[r][c]
+                        && bm.correctColors[r][c] === colorId) {
+                        cells.push({ row: r, col: c });
+                    }
+                }
+            }
+            return cells;
+        },
+
+        collectBoardBlocksForIdleHint(): BeanBlockInfo[] {
+            const bm = this.boardModel;
+            const blocks: BeanBlockInfo[] = [];
+            if (!bm) return blocks;
+            const visited = Array.from({ length: bm.height }, () => Array(bm.width).fill(false));
+            for (let r = 0; r < bm.height; r++) {
+                for (let c = 0; c < bm.width; c++) {
+                    if (visited[r][c]) continue;
+                    const colorId = bm.currentColors[r]?.[c] || 0;
+                    if (colorId <= 0 || bm.locked[r]?.[c]) {
+                        visited[r][c] = true;
+                        continue;
+                    }
+                    const block = bm.getConnectedBlock(r, c);
+                    if (!block) {
+                        visited[r][c] = true;
+                        continue;
+                    }
+                    for (const cell of block.cells) {
+                        if (visited[cell.row]) visited[cell.row][cell.col] = true;
+                    }
+                    blocks.push(block);
+                }
+            }
+            return blocks;
+        },
+
+        isMismatchedBoardBlockForIdleHint(block: BeanBlockInfo): boolean {
+            const bm = this.boardModel;
+            if (!bm || !block?.cells?.length) return false;
+            return block.cells.some((cell) => bm.correctColors[cell.row]?.[cell.col] !== block.colorId);
+        },
+
+        findBestMismatchedBoardBlockForIdleHint(): BeanBlockInfo | null {
+            const blocks = this.collectBoardBlocksForIdleHint?.() || [];
+            let best: BeanBlockInfo | null = null;
+            for (const block of blocks) {
+                if (!this.isMismatchedBoardBlockForIdleHint?.(block)) continue;
+                if (!best || block.cells.length > best.cells.length) {
+                    best = block;
+                }
+            }
+            return best;
+        },
+
+        findBoardToBoardIdleHint(
+            occupiedSlots: { index: number; block: BeanBlockInfo | null }[],
+        ): SmartIdleHintPlan | null {
+            if (occupiedSlots.length === 0) return null;
+
+            const blocks = this.collectBoardBlocksForIdleHint?.() || [];
+            let best: SmartIdleHintPlan | null = null;
+            let bestScore = -1;
+            for (const block of blocks) {
+                if (!this.isMismatchedBoardBlockForIdleHint?.(block)) continue;
+                const targetCells = this.getEmptyTargetCellsForIdleHint?.(block.colorId) || [];
+                if (targetCells.length <= 0) continue;
+                const score = Math.min(block.cells.length, targetCells.length);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = {
+                        step: 'board_to_board',
+                        colorId: block.colorId,
+                        block,
+                        targetCells,
+                    };
+                }
+            }
+            return best;
+        },
+
+        findSlotToBoardIdleHint(
+            occupiedSlots: { index: number; block: BeanBlockInfo | null }[],
+        ): SmartIdleHintPlan | null {
+            const byColor = new Map<number, { slotIndices: number[]; cellCount: number }>();
+            for (const entry of occupiedSlots) {
+                const block = entry.block;
+                if (!block) continue;
+                const colorId = Math.floor(Number(block.colorId) || 0);
+                if (colorId <= 0) continue;
+                const group = byColor.get(colorId) || { slotIndices: [], cellCount: 0 };
+                group.slotIndices.push(entry.index);
+                group.cellCount += block.cells?.length || 0;
+                byColor.set(colorId, group);
+            }
+
+            let best: SmartIdleHintPlan | null = null;
+            let bestScore = -1;
+            for (const [colorId, group] of byColor) {
+                const targetCells = this.getEmptyTargetCellsForIdleHint?.(colorId) || [];
+                if (targetCells.length <= 0) continue;
+                if (group.cellCount > targetCells.length) continue;
+                const score = group.cellCount;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = {
+                        step: 'slot_to_board',
+                        colorId,
+                        targetCells,
+                        slotIndices: group.slotIndices,
+                    };
+                }
+            }
+            return best;
+        },
+
+        ensureSmartIdleHintLayer(): boolean {
+            const root = typeof this.requireCanvasUiRoot === 'function'
+                ? this.requireCanvasUiRoot('OverlayRoot')
+                : this.node;
+            if (!root?.isValid) return false;
+            if (root.parent) {
+                root.setSiblingIndex(root.parent.children.length - 1);
+            }
+            const rootTransform = root.getComponent(UITransform);
+            const guideLayerWidth = rootTransform?.contentSize.width || 720;
+            const guideLayerHeight = rootTransform?.contentSize.height || 1280;
+            if (!this._guideLayer?.isValid) {
+                this._guideLayer = new Node('GuideLayer');
+                root.addChild(this._guideLayer);
+                this._guideLayer.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
+                this._guideLayer.layer = Layers.Enum.UI_2D;
+            }
+            this._guideLayer.active = true;
+            this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
+            const blocker = this._guideLayer.getComponent(BlockInputEvents);
+            if (blocker) blocker.enabled = false;
+
+            if (!this._guideMask?.isValid) {
+                this._guideMask = new Node('GuideMask');
+                this._guideLayer.addChild(this._guideMask);
+                this._guideMask.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
+                this._guideMask.layer = Layers.Enum.UI_2D;
+            }
+
+            const guidePrompt = root.getChildByName('TutorialGuidePrompt');
+            if (guidePrompt?.isValid) {
+                guidePrompt.active = false;
+                this._guideBubble = guidePrompt;
+                this._guideBubbleLbl = guidePrompt
+                    .getChildByName('SingleLinePrompt')
+                    ?.getChildByName('PromptLabel')
+                    ?.getComponent(Label) || null;
+            }
+
+            const handsRoot = root.getChildByName('TutorialGuideHands');
+            const singleHand = handsRoot?.getChildByName('GuideHandSingle') || null;
+            if (!handsRoot?.isValid || !singleHand?.getComponent(Sprite)) {
+                runtimeWarn('[SmartIdleHint] missing guide hand node');
+                return false;
+            }
+            handsRoot.active = true;
+            handsRoot.setSiblingIndex(root.children.length - 1);
+            singleHand.active = false;
+            this._guideHandsRoot = handsRoot;
+            this._guideHand = singleHand;
+            return true;
+        },
+
+        getSmartIdleHintCellsCenter(cells: { row: number; col: number }[]): Vec3 | null {
+            if (!cells?.length || !this._guideLayer?.isValid) return null;
+            const bounds = this.getGuideCellsLayerBounds?.(cells);
+            if (!bounds) return null;
+            return new Vec3(bounds.centerX, bounds.centerY, 0);
+        },
+
+        pickSmartIdleHintCell(cells: { row: number; col: number }[]): { row: number; col: number } | null {
+            if (!cells?.length) return null;
+            const center = cells.reduce(
+                (sum, cell) => ({ row: sum.row + cell.row, col: sum.col + cell.col }),
+                { row: 0, col: 0 },
+            );
+            const centerRow = center.row / cells.length;
+            const centerCol = center.col / cells.length;
+            let best = cells[0];
+            let bestDist = Infinity;
+            for (const cell of cells) {
+                const rowDelta = cell.row - centerRow;
+                const colDelta = cell.col - centerCol;
+                const dist = rowDelta * rowDelta + colDelta * colDelta;
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = cell;
+                }
+            }
+            return best;
+        },
+
+        getSmartIdleHintCellsTapPoint(cells: { row: number; col: number }[]): Vec3 | null {
+            const cell = this.pickSmartIdleHintCell?.(cells);
+            return cell ? this.getSmartIdleHintCellsCenter?.([cell]) || null : null;
+        },
+
+        getSmartIdleHintBlockTapPoint(block: BeanBlockInfo): Vec3 | null {
+            return this.getSmartIdleHintCellsTapPoint?.(block?.cells || []) || null;
+        },
+
+        getSmartIdleHintSlotIndexCenter(slotIndex: number): Vec3 | null {
+            if (!Number.isFinite(Number(slotIndex)) || !this._guideLayer?.isValid) return null;
+            const index = Math.floor(Number(slotIndex));
+            const bounds = this.getGuideSlotIndicesLayerBounds?.([index]);
+            return bounds ? new Vec3(bounds.centerX, bounds.centerY, 0) : null;
+        },
+
+        getSmartIdleHintFirstSlotIndexCenter(slotIndices: number[]): Vec3 | null {
+            for (const slotIndex of slotIndices || []) {
+                const center = this.getSmartIdleHintSlotIndexCenter?.(slotIndex);
+                if (center) return center;
+            }
+            return null;
+        },
+
+        getSmartIdleHintFirstEmptySlotCenter(): Vec3 | null {
+            const entries = this.getUsableSlotEntriesForIdleHint?.() || [];
+            const empty = entries.find((entry: { index: number; block: BeanBlockInfo | null }) => !entry.block);
+            return empty ? this.getSmartIdleHintSlotIndexCenter?.(empty.index) || null : null;
+        },
+
+        getSmartIdleHintHandPositionForTarget(target: Vec3): Vec3 {
+            return new Vec3(
+                target.x - SMART_IDLE_HINT_FINGERTIP_OFFSET_X,
+                target.y - SMART_IDLE_HINT_FINGERTIP_OFFSET_Y,
+                0,
+            );
+        },
+
+        playSmartIdleHintTapRipple(target: Vec3) {
+            const layer = this._guideLayer as Node | null;
+            if (!layer?.isValid) return;
+
+            const ring = new Node('GuideTapRing');
+            layer.addChild(ring);
+            ring.layer = layer.layer;
+            ring.addComponent(UITransform).setContentSize(112, 112);
+            ring.setPosition(target.x, target.y, 0);
+            ring.setScale(0.68, 0.68, 1);
+
+            const opacity = ring.addComponent(UIOpacity);
+            opacity.opacity = 220;
+            const g = ring.addComponent(Graphics);
+            g.fillColor = new Color(94, 148, 255, 42);
+            g.circle(0, 0, 30);
+            g.fill();
+            g.strokeColor = new Color(86, 142, 255, 210);
+            g.lineWidth = 6;
+            g.circle(0, 0, 30);
+            g.stroke();
+            g.strokeColor = new Color(255, 255, 255, 190);
+            g.lineWidth = 3;
+            g.circle(0, 0, 18);
+            g.stroke();
+
+            tween(ring)
+                .to(0.42, { scale: new Vec3(1.7, 1.7, 1) }, { easing: 'sineOut' })
+                .call(() => {
+                    if (ring.isValid) ring.destroy();
+                })
+                .start();
+            tween(opacity)
+                .to(0.42, { opacity: 0 }, { easing: 'quadIn' })
+                .start();
+        },
+
+        clearSmartIdleHintTapRipples() {
+            const layer = this._guideLayer as Node | null;
+            if (!layer?.isValid) return;
+            const toRemove = layer.children.filter((child: Node) => child.name === 'GuideTapRing');
+            for (const child of toRemove) {
+                Tween.stopAllByTarget(child);
+                child.destroy();
+            }
+        },
+
+        startSmartIdleHintHandPath(hand: Node, from: Vec3, to: Vec3) {
+            Tween.stopAllByTarget(hand);
+            hand.active = true;
+            hand.setScale(1, 1, 1);
+            const s = SMART_IDLE_HINT_HAND_TIME_SCALE;
+            const start = this.getSmartIdleHintHandPositionForTarget?.(from) || new Vec3(from.x, from.y, 0);
+            const end = this.getSmartIdleHintHandPositionForTarget?.(to) || new Vec3(to.x, to.y, 0);
+            hand.setPosition(start);
+            tween(hand)
+                .repeatForever(
+                    tween(hand)
+                        .call(() => {
+                            hand.setPosition(start);
+                            hand.setScale(1, 1, 1);
+                        })
+                        .delay(0.08 * s)
+                        .to(0.10 * s, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
+                        .call(() => this.playSmartIdleHintTapRipple?.(from))
+                        .to(0.12 * s, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
+                        .delay(0.16 * s)
+                        .to(0.55 * s, { position: end }, { easing: 'sineInOut' })
+                        .delay(0.08 * s)
+                        .to(0.10 * s, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
+                        .call(() => this.playSmartIdleHintTapRipple?.(to))
+                        .to(0.12 * s, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
+                        .delay(0.45 * s)
+                )
+                .start();
         },
 
         // ==================== 新手引导 ====================

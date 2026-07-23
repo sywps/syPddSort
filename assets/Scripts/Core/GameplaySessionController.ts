@@ -9,6 +9,7 @@ import {
 import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { collectActiveBlockInputEvents } from './DebugPerfTrace';
+import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
 import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
@@ -183,9 +184,14 @@ export class GameplaySessionController {
             runtime.resetIdleHintTimer();
             const analyticsLevelId = runtime.getAnalyticsLevelId();
             const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
+            const experimentAnalyticsContext = gameplayEntryMode === 'main'
+                ? getFrontLevelExperimentAnalyticsContext(analyticsLevelId, 'level_')
+                : null;
             AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
                 logicalLevelId: analyticsLevelId,
                 physicalLevelId: analyticsPhysicalLevelId,
+                abId: experimentAnalyticsContext?.abId,
+                abBucket: experimentAnalyticsContext?.abBucket,
             });
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
             if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
@@ -308,6 +314,10 @@ export class GameplaySessionController {
         runtime._guidePhase = 'select';
         runtime._guideStatus = 'idle';
         runtime._guideReminderPausedForLifecycle = false;
+        runtime._smartIdleHintTimerHandler = null;
+        runtime._smartIdleHintToken = (Number(runtime._smartIdleHintToken) || 0) + 1;
+        runtime._smartIdleHintActive = false;
+        runtime._smartIdleHintPlan = null;
         runtime._guideZoomStartScale = 1;
         runtime._guideZoomLastScale = 1;
         runtime._guideZoomAccumulatedScaleDelta = 0;

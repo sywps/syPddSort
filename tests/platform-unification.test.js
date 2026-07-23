@@ -27,6 +27,15 @@ assert.ok(wechatMarkerIndex < previewParamIndex, 'build marker must take priorit
 assert.ok(miniGamePlatform.includes("params.get('platform')"), 'browser preview platform must use platform query param');
 assert.ok(miniGamePlatform.includes("normalized === 'wechat'"), 'platform param must support wechat');
 assert.ok(miniGamePlatform.includes("normalized === 'douyin'"), 'platform param must support douyin');
+assert.ok(!miniGamePlatform.includes("if (buildPlatform === 'wechat') return true;"), 'wechat build/preview marker alone must not be treated as a real wx runtime');
+const wechatRuntimeFunction = miniGamePlatform.match(/export function isWeChatMiniGameRuntime\(\): boolean \{[\s\S]*?\n\}/)?.[0] || '';
+assert.ok(wechatRuntimeFunction.includes("if (buildPlatform === 'douyin') return false;"), 'WeChat runtime detection must still reject Douyin builds');
+assert.ok(wechatRuntimeFunction.includes('const wxRuntime = getWeChatRuntimeCandidate();'), 'WeChat runtime detection must inspect real wx APIs');
+assert.ok(wechatRuntimeFunction.includes("typeof wxRuntime?.request === 'function'"), 'WeChat runtime detection must require wx.request for CDN-capable runtime');
+assert.ok(wechatRuntimeFunction.includes('wxRuntime?.getSystemInfoSync'), 'WeChat runtime detection must accept wx.getSystemInfoSync');
+assert.ok(wechatRuntimeFunction.includes('wxRuntime?.getDeviceInfo'), 'WeChat runtime detection must accept wx.getDeviceInfo');
+assert.ok(wechatRuntimeFunction.includes('wxRuntime?.cloud'), 'WeChat runtime detection must accept wx.cloud');
+assert.ok(wechatRuntimeFunction.includes('wxRuntime?.getStorageSync'), 'WeChat runtime detection must accept wx storage as a runtime marker');
 
 assert.ok(installPlatformModules.includes("import { runtimeLog } from '../Core/RuntimeLog';"), 'platform installer must gate debug logging');
 assert.ok(!installPlatformModules.includes('hasDouyinBuildMarker'), 'platform installer must not duplicate build marker checks');
