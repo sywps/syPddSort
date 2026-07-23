@@ -22,6 +22,8 @@ const playPatternFxIndex = settlement.indexOf('const playPatternCompleteFx = () 
 const playBoardShrinkIndex = settlement.indexOf('const playBoardCompleteShrink = () =>');
 const revealSettlementIndex = settlement.indexOf('revealWinSettlementPanel(logicalLevelId: number, revealToken: number)');
 const requestSettlementIndex = settlement.indexOf('requestWinSettlementReveal(logicalLevelId: number, revealToken: number)');
+const patternCompleteFxCallIndex = settlement.indexOf('this.playPatternCompleteMatchFx();', playPatternFxIndex);
+const scheduleSettlementIndex = settlement.indexOf('showSettlement();', patternCompleteFxCallIndex);
 assert.ok(levelCompleteIndex > playPatternFxIndex && levelCompleteIndex < playBoardShrinkIndex, 'level-complete cue must play when full-board c1 starts');
 assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < requestSettlementIndex, 'settlement cue must play only inside the guarded panel reveal');
 
@@ -151,12 +153,13 @@ assert.ok(settlement.includes('playPatternCompleteThenWin(delaySeconds: number =
 assert.ok(settlement.includes('this._pendingColorCompleteEffects.clear();'), 'final pattern win must drop the queued final color-complete FX');
 assert.ok(!settlement.includes('FINAL_COLOR_COMPLETE_FX_HOLD'), 'final pattern win must not wait for a separate final-color FX');
 assert.ok(!settlement.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must not flush queued final-color FX before c1');
-assert.ok(settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'settlement must wait for pattern-complete FX callback');
+assert.ok(patternCompleteFxCallIndex >= 0 && scheduleSettlementIndex > patternCompleteFxCallIndex, 'settlement must be scheduled after full-board c1 starts without waiting for its completion callback');
+assert.ok(!settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'full-board c1 completion must not block settlement reveal');
 assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0'), 'pattern-complete shrink must start without an extra pre-FX wait');
 assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8'), 'pattern-complete shrink must match the Happy Pindou board scale');
 assert.ok(settlement.includes('.call(playPatternCompleteFx)'), 'pattern-complete c1 must start after the shrink tween finishes');
 assert.ok(!settlement.includes('PATTERN_COMPLETE_FX_START_DELAY'), 'pattern-complete c1 must not use a separate fixed start delay');
-assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD'), 'settlement must not appear immediately after c1 completes');
+assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.2'), 'settlement must keep only the approved short overlap hold');
 
 assert.ok(firstLevelRoute.includes("this.requireUiChild(overlayTemplates, 'RemoteLoadFatalError'"), 'level-data fatal overlay must use the authored RemoteLoadFatalError template');
 assert.ok(!firstLevelRoute.includes('ensureLevelDataLoadFatalLayer'), 'level-data fatal overlay must not create a runtime layer fallback');

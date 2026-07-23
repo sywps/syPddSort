@@ -40,20 +40,19 @@
     {
       "levelId": 3,
       "file": "LevelData/level_3.json",
-      "boardWidth": 12,
-      "boardHeight": 12,
+      "boardWidth": 30,
+      "boardHeight": 25,
       "filledCellCount": 0,
       "colorIds": [
-        4,
-        7,
+        1,
         10,
-        13,
-        16,
+        15,
+        19,
         20
       ],
-      "colorCount": 6,
-      "slotTotalCount": 0,
-      "timeLimit": 300,
+      "colorCount": 5,
+      "slotTotalCount": 611,
+      "timeLimit": 180,
       "isMainline": true,
       "isTutorial": false
     },
@@ -71,7 +70,7 @@
       ],
       "colorCount": 4,
       "slotTotalCount": 136,
-      "timeLimit": 300,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -92,7 +91,7 @@
       ],
       "colorCount": 7,
       "slotTotalCount": 198,
-      "timeLimit": 300,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },

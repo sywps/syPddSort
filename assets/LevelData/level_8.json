@@ -4,7 +4,7 @@
     "timeLimit": 180,
     "slotTotalCount": 440,
     "slotPolicy": {
-        "defaultRows": 2,
+        "defaultRows": 1,
         "freeUnlockRows": 0,
         "adUnlockRows": 1
     },

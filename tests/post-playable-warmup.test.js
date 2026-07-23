@@ -159,7 +159,7 @@ assert.ok(colorFx.includes('playPinddSpineFxAtWorldPosition'), 'pattern-complete
 assert.ok(colorFx.includes('beanWorldPositions.length > PINDD_SPINE_FX_ACTIVE_LIMIT'), 'pattern-complete Spine FX must fail fast if all-board playback exceeds the active limit');
 assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES'), 'pattern-complete Spine FX must not sample a partial board');
 assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_WAIT_SECONDS'), 'pattern-complete Spine FX must not use a fixed settlement timeout');
-assert.ok(!colorFx.includes('waitForAll: false'), 'settlement must wait for the full-board c1 callbacks');
+assert.ok(!colorFx.includes('waitForAll: false'), 'the optional pattern-complete callback must still represent all full-board c1 callbacks');
 
 assert.ok(commerce.includes('preloadAcquireResourcePanel'), 'commerce module must expose acquire panel preload');
 assert.ok(commerceController.includes('preloadAcquireResourcePanel(): void'), 'commerce controller must preload acquire panel prefab');

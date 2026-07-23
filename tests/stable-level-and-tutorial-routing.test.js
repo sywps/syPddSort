@@ -248,18 +248,20 @@ assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json')
 assert.deepStrictEqual(mismatchPairSummary('assets/LevelData/level_2.json'), [['15->20', 48], ['20->15', 48]], 'stable level 2 must reduce to three block transfers and seven normal taps including unlock');
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_3.json'), {
-    defaultRows: 2,
+    defaultRows: 1,
     freeUnlockRows: 0,
-    adUnlockRows: 2,
-}, 'stable level 3 must start with two rows and expose two progressive rewarded unlock rows');
+    adUnlockRows: 3,
+}, 'stable level 3 must use the V3 one-row start and expose three progressive rewarded unlock rows');
 assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').mode, 'zoom', 'stable level 3 must declare the optional zoom hint');
 assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').subtitle, '也可以直接开始游戏', 'level 3 zoom copy must explicitly permit direct play');
 assert.deepStrictEqual(readTutorialGuide('assets/LevelData/level_3.json').guideCopies, level3ZoomCopies, 'stable level 3 zoom hint must remain one-step and non-blocking');
 assert.deepStrictEqual(
     [level3Data.levelId, level3Data.boardWidth, level3Data.boardHeight, level3Data.timeLimit, level3Data.slotTotalCount],
-    [3, 12, 12, 300, 0],
-    'logical level 3 must own the complete former level 2 gameplay and settlement payload',
+    [3, 30, 25, 180, 611],
+    'logical level 3 must own the approved V3 level 3 gameplay and settlement payload',
 );
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_3.json', 'correctColorArr'), [[1, 156], [10, 30], [15, 131], [19, 189], [20, 105]], 'stable level 3 correct data must retain the approved V3 color population');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_3.json', 'initRandomColorArr'), [[1, 156], [10, 30], [15, 131], [19, 189], [20, 105]], 'stable level 3 initial data must retain the approved V3 color population');
 assert.deepStrictEqual(
     [manifestByLevel.get(2)?.boardWidth, manifestByLevel.get(2)?.boardHeight, manifestByLevel.get(2)?.timeLimit, manifestByLevel.get(2)?.slotTotalCount],
     [29, 23, 300, 440],
@@ -267,13 +269,26 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(
     [manifestByLevel.get(3)?.boardWidth, manifestByLevel.get(3)?.boardHeight, manifestByLevel.get(3)?.timeLimit, manifestByLevel.get(3)?.slotTotalCount],
-    [12, 12, 300, 0],
-    'generated level 3 manifest metadata must follow the swapped settlement payload',
+    [30, 25, 180, 611],
+    'generated level 3 manifest metadata must follow the approved V3 payload',
 );
 
-for (const levelId of [2, 3, 4, 5]) {
-    assert.strictEqual(readJson(`assets/LevelData/level_${levelId}.json`).timeLimit, 300, `level ${levelId} must use the five-minute early-level floor`);
-    assert.strictEqual(manifestByLevel.get(levelId)?.timeLimit, 300, `level ${levelId} manifest must retain the same five-minute floor`);
+assert.deepStrictEqual(slotPolicy('assets/LevelData/level_8.json'), {
+    defaultRows: 1,
+    freeUnlockRows: 0,
+    adUnlockRows: 1,
+}, 'stable level 8 must start with one unlocked row and expose one rewarded unlock row');
+
+const expectedEarlyLevelTimeLimits = new Map([
+    [2, 300],
+    [3, 180],
+    [4, 90],
+    [5, 120],
+    [8, 180],
+]);
+for (const [levelId, expectedTimeLimit] of expectedEarlyLevelTimeLimits) {
+    assert.strictEqual(readJson(`assets/LevelData/level_${levelId}.json`).timeLimit, expectedTimeLimit, `level ${levelId} must retain its approved early-level time limit`);
+    assert.strictEqual(manifestByLevel.get(levelId)?.timeLimit, expectedTimeLimit, `level ${levelId} manifest must retain the approved early-level time limit`);
 }
 
 const packageJson = read('package.json');

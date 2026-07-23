@@ -35,7 +35,7 @@ import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
 const PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8;
-const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5;
+const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.2;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const WIN_BONUS_SHARE_ICON_TEXTURE = 'popup_share_icon';
 const WIN_BONUS_SHARE_RATE = 0.2;
@@ -812,7 +812,8 @@ export function installSettlementHudModule(target: any): void {
                 if (!this.isValid || !this.isGameEnd) return;
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winAll');
-                this.playPatternCompleteMatchFx(showSettlement);
+                this.playPatternCompleteMatchFx();
+                showSettlement();
             };
 
             const playBoardCompleteShrink = () => {

@@ -45,5 +45,18 @@ assert.ok(
     settlement.includes('this.requestWinSettlementReveal?.(logicalLevelId, revealToken);'),
     'the scheduled completion callback must enter the guarded reveal path',
 );
+assert.ok(
+    settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.2'),
+    'win settlement must use the approved short overlap hold',
+);
+assert.match(
+    settlement,
+    /this\.playPatternCompleteMatchFx\(\);\s*showSettlement\(\);/,
+    'win settlement must start full-board c1 before scheduling the overlapping panel reveal',
+);
+assert.ok(
+    !settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'),
+    'win settlement must not wait for every full-board c1 callback before revealing',
+);
 
 console.log('win-settlement-readiness.test.js passed');
