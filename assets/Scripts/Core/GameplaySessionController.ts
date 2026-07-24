@@ -239,6 +239,7 @@ export class GameplaySessionController {
         switch (this.getLevelTutorialGuideMode(data)) {
             case 'level_1_red_blue': return 'level_1';
             case 'slot_expand_all': return 'level_2';
+            case 'slot_intro': return 'slot_intro';
             case 'zoom': return 'zoom';
             default: return 'none';
         }
