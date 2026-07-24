@@ -16,9 +16,9 @@ const PAGE_SIZE = 100;
 const MAX_SCAN_SIZE = 50000;
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const FRONT10_EXPERIMENT_ID = 'front10_v1';
+const FRONT10_EXPERIMENT_ID = 'ly_0224';
 const FRONT10_MAX_LEVEL_ID = 10;
-const FRONT10_BUCKETS = ['all', 'control', 'treatment', 'unknown'];
+const FRONT10_BUCKETS = ['all', 'base', 'exp', 'unknown'];
 
 const FIRST_LEVEL_FUNNEL_STEPS = [
   { key: 'app_launch', label: '启动游戏' },
@@ -363,8 +363,8 @@ function buildFunnel(behaviorList) {
 
 function normalizeFront10ExperimentBucket(value) {
   const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  if (text === 'control' || text === 'a' || text === 'bucket_a') return 'control';
-  if (text === 'treatment' || text === 'b' || text === 'bucket_b') return 'treatment';
+  if (text === 'base' || text === 'control' || text === 'a' || text === 'b' || text === 'bucket_a' || text === 'bucket_b') return 'base';
+  if (text === 'exp' || text === 'treatment' || text === 'c' || text === 'd' || text === 'bucket_c' || text === 'bucket_d') return 'exp';
   return 'unknown';
 }
 

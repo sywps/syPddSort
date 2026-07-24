@@ -9,19 +9,19 @@ const timestamp = Date.parse('2026-07-24T10:00:00+08:00');
 
 const collections = {
   user_behavior: [
-    { openid: 'control-pass', eventName: 'enter_level', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', timestamp },
-    { openid: 'control-pass', eventName: 'smart_hint_show', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', timestamp: timestamp + 1 },
-    { openid: 'control-pass', eventName: 'ad_show', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', timestamp: timestamp + 2 },
-    { openid: 'control-pass', eventName: 'ad_finish', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', timestamp: timestamp + 3 },
-    { openid: 'control-pass', eventName: 'level_pass', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', smartHintShownCount: 1, timestamp: timestamp + 4 },
-    { openid: 'control-fail', eventName: 'enter_level', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', timestamp: timestamp + 5 },
-    { openid: 'control-fail', eventName: 'level_fail', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'control', timestamp: timestamp + 6 },
-    { openid: 'treatment-pass', eventName: 'enter_level', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'treatment', timestamp: timestamp + 7 },
-    { openid: 'treatment-pass', eventName: 'ad_show', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'treatment', timestamp: timestamp + 8 },
-    { openid: 'treatment-pass', eventName: 'ad_click', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'treatment', timestamp: timestamp + 9 },
-    { openid: 'treatment-pass', eventName: 'level_pass', levelId: 2, logicalLevelId: 2, abId: 'front10_v1', abBucket: 'treatment', smartHintShownCount: 0, timestamp: timestamp + 10 },
-    { openid: 'treatment-pass', eventName: 'enter_level', levelId: 10, logicalLevelId: 10, abId: 'front10_v1', abBucket: 'treatment', timestamp: timestamp + 11 },
-    { openid: 'treatment-pass', eventName: 'level_pass', levelId: 10, logicalLevelId: 10, abId: 'front10_v1', abBucket: 'treatment', smartHintShownCount: 0, timestamp: timestamp + 12 },
+    { openid: 'base-pass', eventName: 'enter_level', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', timestamp },
+    { openid: 'base-pass', eventName: 'smart_hint_show', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', timestamp: timestamp + 1 },
+    { openid: 'base-pass', eventName: 'ad_show', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', timestamp: timestamp + 2 },
+    { openid: 'base-pass', eventName: 'ad_finish', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', timestamp: timestamp + 3 },
+    { openid: 'base-pass', eventName: 'level_pass', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', smartHintShownCount: 1, timestamp: timestamp + 4 },
+    { openid: 'base-fail', eventName: 'enter_level', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', timestamp: timestamp + 5 },
+    { openid: 'base-fail', eventName: 'level_fail', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'base', timestamp: timestamp + 6 },
+    { openid: 'exp-pass', eventName: 'enter_level', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'exp', timestamp: timestamp + 7 },
+    { openid: 'exp-pass', eventName: 'ad_show', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'exp', timestamp: timestamp + 8 },
+    { openid: 'exp-pass', eventName: 'ad_click', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'exp', timestamp: timestamp + 9 },
+    { openid: 'exp-pass', eventName: 'level_pass', levelId: 2, logicalLevelId: 2, abId: 'ly_0224', abBucket: 'exp', smartHintShownCount: 0, timestamp: timestamp + 10 },
+    { openid: 'exp-pass', eventName: 'enter_level', levelId: 10, logicalLevelId: 10, abId: 'ly_0224', abBucket: 'exp', timestamp: timestamp + 11 },
+    { openid: 'exp-pass', eventName: 'level_pass', levelId: 10, logicalLevelId: 10, abId: 'ly_0224', abBucket: 'exp', smartHintShownCount: 0, timestamp: timestamp + 12 },
   ],
   level_record: [],
   first_level_funnel: [],
@@ -110,31 +110,31 @@ function findRow(stats, logicalLevelId, abBucket) {
   });
 
   assert.strictEqual(result.ok, true, result.errorMessage);
-  assert.strictEqual(result.front10ExperimentStats.experimentId, 'front10_v1');
+  assert.strictEqual(result.front10ExperimentStats.experimentId, 'ly_0224');
 
   const level2All = findRow(result.front10ExperimentStats, 2, 'all');
   assert.strictEqual(level2All.enterUsers, 3);
   assert.strictEqual(level2All.passUsers, 2);
   assert.strictEqual(level2All.smartGuidedPassUsers, 1);
 
-  const level2Control = findRow(result.front10ExperimentStats, 2, 'control');
-  assert.strictEqual(level2Control.enterUsers, 2);
-  assert.strictEqual(level2Control.passUsers, 1);
-  assert.strictEqual(level2Control.failUsers, 1);
-  assert.strictEqual(level2Control.adFinishCount, 1);
-  assert.strictEqual(level2Control.smartHintShowCount, 1);
-  assert.strictEqual(level2Control.smartGuidedPassUsers, 1);
-  assert.strictEqual(level2Control.smartGuidedPassShownTotal, 1);
+  const level2Base = findRow(result.front10ExperimentStats, 2, 'base');
+  assert.strictEqual(level2Base.enterUsers, 2);
+  assert.strictEqual(level2Base.passUsers, 1);
+  assert.strictEqual(level2Base.failUsers, 1);
+  assert.strictEqual(level2Base.adFinishCount, 1);
+  assert.strictEqual(level2Base.smartHintShowCount, 1);
+  assert.strictEqual(level2Base.smartGuidedPassUsers, 1);
+  assert.strictEqual(level2Base.smartGuidedPassShownTotal, 1);
 
-  const level2Treatment = findRow(result.front10ExperimentStats, 2, 'treatment');
-  assert.strictEqual(level2Treatment.enterUsers, 1);
-  assert.strictEqual(level2Treatment.passUsers, 1);
-  assert.strictEqual(level2Treatment.adClickCount, 1);
-  assert.strictEqual(level2Treatment.smartGuidedPassUsers, 0);
+  const level2Exp = findRow(result.front10ExperimentStats, 2, 'exp');
+  assert.strictEqual(level2Exp.enterUsers, 1);
+  assert.strictEqual(level2Exp.passUsers, 1);
+  assert.strictEqual(level2Exp.adClickCount, 1);
+  assert.strictEqual(level2Exp.smartGuidedPassUsers, 0);
 
-  const level10Treatment = findRow(result.front10ExperimentStats, 10, 'treatment');
-  assert.strictEqual(level10Treatment.enterUsers, 1);
-  assert.strictEqual(level10Treatment.passUsers, 1);
+  const level10Exp = findRow(result.front10ExperimentStats, 10, 'exp');
+  assert.strictEqual(level10Exp.enterUsers, 1);
+  assert.strictEqual(level10Exp.passUsers, 1);
 
   console.log('front10-experiment-dashboard-cloud.test.js passed');
 })().catch((error) => {

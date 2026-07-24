@@ -440,7 +440,7 @@ export class LevelDataCdnService {
 
     private resolveCdnContext(levelId: number, prefix: string): LevelDataCdnContext {
         const experiment = resolveFrontLevelExperimentContext(levelId, prefix);
-        if (experiment?.variant === 'treatment') {
+        if (experiment?.variant === 'exp') {
             return {
                 baseUrl: experiment.baseUrl,
                 namespace: experiment.namespace,

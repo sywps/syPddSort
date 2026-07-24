@@ -88,10 +88,9 @@ assert.ok(!fs.existsSync(path.join(root, 'assets/Scripts/Core/ExperimentUrlParam
 assert.ok(!cocosSpec.includes('实验 bucket'), 'runtime collaboration spec must not describe a retired experiment bucket');
 
 const analytics = read('assets/Scripts/Core/AnalyticsMgr.ts');
-assert.ok(!analytics.toLowerCase().includes('experiment'), 'tutorial experiment assignment must be removed');
-assert.ok(!analytics.includes('abId'), 'new behavior and funnel events must not emit an experiment id');
-assert.ok(!analytics.includes('abBucket'), 'new behavior and funnel events must not emit an experiment bucket');
-assert.ok(analytics.includes('setLevelContext'), 'analytics must retain logical and physical level context without experiment metadata');
+assert.ok(analytics.includes('abId?: string'), 'level experiment behavior and funnel events must accept an experiment id');
+assert.ok(analytics.includes('abBucket?: string'), 'level experiment behavior and funnel events must accept an experiment bucket');
+assert.ok(analytics.includes('setLevelContext'), 'analytics must retain logical and physical level context alongside experiment metadata');
 assert.ok(!analytics.includes('shouldShowTutorialSkipGuidePrompt'), 'retired tutorial prompt gate must be removed');
 assert.ok(analytics.includes('launchChannelAtEvent: this.resolveChannel()'), 'each funnel event must retain its event-time launch channel');
 const wxCloudMgr = read('assets/Scripts/Core/WxCloudMgr.ts');
@@ -112,7 +111,8 @@ assert.ok(!skipPrompt, 'Game.scene must not contain retired TutorialSkipGuidePro
 assert.ok(!gameScene.some((entry) => entry && entry._string === '跳过引导'), 'retired TutorialSkipGuidePrompt label must be removed from Game.scene');
 
 const levelCdn = read('assets/Scripts/Core/LevelDataCdnService.ts');
-assert.ok(!levelCdn.toLowerCase().includes('experiment'), 'level experiment assignment and routing must be removed');
+assert.ok(levelCdn.includes('resolveFrontLevelExperimentContext(levelId, prefix)'), 'level experiment assignment and routing must resolve per level');
+assert.ok(levelCdn.includes("experiment?.variant === 'exp'"), 'only exp bucket levels should route to the experiment CDN');
 assert.ok(levelCdn.includes('return this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);'), 'foreground loadLevel must use the single stable CDN path');
 assert.ok(levelCdn.includes('const manifest = await this.getLiveManifest(context, foregroundLoad);'), 'foreground CDN load path must pass retry intent into manifest loading');
 assert.ok(levelCdn.includes('if (this.isLiveManifestCoolingDown(state) && !foregroundLoad) return null;'), 'only background prefetch should honor manifest failure cooldown');
@@ -129,7 +129,8 @@ const settlementHud = read('assets/Scripts/Core/GameCtrlModules/SettlementHudMod
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 const tutorialGuideModule = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
-assert.ok(!session.toLowerCase().includes('experiment'), 'guide behavior and analytics must not branch on experiment assignment');
+assert.ok(session.includes('getFrontLevelExperimentAnalyticsContext'), 'mainline level analytics must attach level experiment context');
+assert.ok(session.includes("gameplayEntryMode === 'main'"), 'experiment analytics must only be attached to mainline gameplay');
 assert.ok(session.includes('this.resolveTutorialMode(data)'), 'tutorial routing must be driven by the loaded level data');
 assert.ok(session.includes("case 'level_1_red_blue': return 'level_1'"), 'level 1 data must resolve to the mandatory core tutorial');
 assert.ok(session.includes("case 'slot_expand_all': return 'level_2'"), 'slot expansion data must resolve to the mandatory seven-step level 2 tutorial');
