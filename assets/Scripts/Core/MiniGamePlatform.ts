@@ -140,9 +140,9 @@ export function isDouyinMiniGameRuntime(): boolean {
 export function isWeChatMiniGameRuntime(): boolean {
     const buildPlatform = getMiniGameBuildPlatform();
     if (buildPlatform === 'douyin') return false;
-    if (buildPlatform === 'wechat') return true;
     const wxRuntime = getWeChatRuntimeCandidate();
-    return !!(wxRuntime?.getSystemInfoSync || wxRuntime?.getDeviceInfo || wxRuntime?.cloud);
+    return typeof wxRuntime?.request === 'function'
+        && !!(wxRuntime?.getSystemInfoSync || wxRuntime?.getDeviceInfo || wxRuntime?.cloud || wxRuntime?.getStorageSync);
 }
 
 export function getMiniGameBuildMode(): string {

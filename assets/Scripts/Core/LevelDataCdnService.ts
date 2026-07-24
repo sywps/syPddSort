@@ -1,4 +1,5 @@
 import type { LevelData } from './LevelConfig';
+import { getFrontLevelExperimentDiagnostics, resolveFrontLevelExperimentContext } from './LevelExperimentService';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
     canUseCdn,
@@ -232,6 +233,7 @@ export class LevelDataCdnService {
             hasRequester: typeof requester === 'function',
             liveUnavailableCooldownMs: Math.max(0, stableState.unavailableUntil - Date.now()),
             liveUnavailableReason: stableState.unavailableReason,
+            front10Experiment: getFrontLevelExperimentDiagnostics(),
         };
     }
 
@@ -436,7 +438,14 @@ export class LevelDataCdnService {
         return state;
     }
 
-    private resolveCdnContext(_levelId: number, _prefix: string): LevelDataCdnContext {
+    private resolveCdnContext(levelId: number, prefix: string): LevelDataCdnContext {
+        const experiment = resolveFrontLevelExperimentContext(levelId, prefix);
+        if (experiment?.variant === 'treatment') {
+            return {
+                baseUrl: experiment.baseUrl,
+                namespace: experiment.namespace,
+            };
+        }
         return {
             baseUrl: runtimeLevelDataBaseUrl(),
             namespace: 'stable',

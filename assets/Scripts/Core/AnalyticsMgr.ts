@@ -23,6 +23,9 @@ export type ReportDataOptions = {
     duration?: number;
     logicalLevelId?: string | number;
     physicalLevelId?: string | number;
+    abId?: string;
+    abBucket?: string;
+    smartHintShownCount?: number;
 };
 
 export type FunnelEventOptions = {
@@ -39,7 +42,19 @@ export type FunnelEventOptions = {
     duration?: number;
     logicalLevelId?: string | number;
     physicalLevelId?: string | number;
+    abId?: string;
+    abBucket?: string;
     extra?: Record<string, unknown>;
+};
+
+type AnalyticsLevelContext = Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket'>>;
+
+type SmartHintShowOptions = {
+    levelId?: string | number;
+    page?: string;
+    step?: string;
+    colorId?: string | number;
+    source?: string;
 };
 
 export type UpdateUserProfileAssetsOptions = {
@@ -69,6 +84,7 @@ type LevelSessionState = {
     useShareRevive: boolean;
     pendingFailure: boolean;
     finalized: boolean;
+    smartHintShownCount: number;
 };
 
 type LevelRecordEndReason = 'pass' | 'fail' | 'abandon';
@@ -97,7 +113,7 @@ export class AnalyticsMgr {
     private gameSessionStartTime = Date.now();
     private levelSession: LevelSessionState | null = null;
     private unavailableWarned = false;
-    private levelContext: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>> = {};
+    private levelContext: AnalyticsLevelContext = {};
     private readonly funnelSessionId = this.createSessionId();
     private readonly appLaunchTime = Date.now();
     private funnelEventSeq = 0;
@@ -193,6 +209,9 @@ export class AnalyticsMgr {
                 duration: opt.duration ?? 0,
                 logicalLevelId: opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0,
                 physicalLevelId: opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0,
+                abId: opt.abId ?? this.levelContext.abId ?? '',
+                abBucket: opt.abBucket ?? this.levelContext.abBucket ?? '',
+                smartHintShownCount: opt.smartHintShownCount ?? 0,
             });
         } catch (error) {
             console.warn('[AnalyticsMgr] addBehaviorData failed:', error);
@@ -212,6 +231,8 @@ export class AnalyticsMgr {
 
         const logicalLevelId = opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
         const physicalLevelId = opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
+        const abId = opt.abId ?? this.levelContext.abId ?? '';
+        const abBucket = opt.abBucket ?? this.levelContext.abBucket ?? '';
         const event: Record<string, unknown> = {
             sessionId: this.funnelSessionId,
             eventSeq: ++this.funnelEventSeq,
@@ -228,6 +249,8 @@ export class AnalyticsMgr {
             duration: opt.duration ?? 0,
             logicalLevelId,
             physicalLevelId,
+            abId,
+            abBucket,
             elapsedMsFromLaunch: Math.max(0, now - this.appLaunchTime),
             elapsedMsFromLevelReady: this.firstLevelReadyTime > 0 ? Math.max(0, now - this.firstLevelReadyTime) : 0,
             timestamp: now,
@@ -248,7 +271,7 @@ export class AnalyticsMgr {
         }
     }
 
-    markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'page' | 'source'>>): void {
+    markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'page' | 'source'>>): void {
         this.firstLevelReadyTime = Date.now();
         this.trackFunnelEvent({
             eventName: 'first_level_ui_ready',
@@ -256,6 +279,8 @@ export class AnalyticsMgr {
             levelId: context?.levelId,
             logicalLevelId: context?.logicalLevelId,
             physicalLevelId: context?.physicalLevelId,
+            abId: context?.abId,
+            abBucket: context?.abBucket,
             source: context?.source || 'initGame',
         });
     }
@@ -320,14 +345,14 @@ export class AnalyticsMgr {
             message.includes('errcode: -501000');
     }
 
-    setLevelContext(context: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>>): void {
+    setLevelContext(context: AnalyticsLevelContext): void {
         this.levelContext = {
             ...this.levelContext,
             ...context,
         };
     }
 
-    beginLevel(levelId: number, page: string, context?: Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId'>>): void {
+    beginLevel(levelId: number, page: string, context?: AnalyticsLevelContext): void {
         const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
         const normalizedPage = page || 'game';
         const now = Date.now();
@@ -344,6 +369,7 @@ export class AnalyticsMgr {
             this.levelSession.pendingFailure = false;
             this.levelSession.page = normalizedPage;
             this.levelSession.startTime = now;
+            this.levelSession.smartHintShownCount = 0;
         } else {
             this.levelSession = {
                 levelId: normalizedLevelId,
@@ -354,6 +380,7 @@ export class AnalyticsMgr {
                 useShareRevive: false,
                 pendingFailure: false,
                 finalized: false,
+                smartHintShownCount: 0,
             };
         }
 
@@ -362,6 +389,44 @@ export class AnalyticsMgr {
             levelId: normalizedLevelId,
             page: normalizedPage,
             actionType: 1,
+        });
+    }
+
+    getSmartHintShownCount(): number {
+        return Math.max(0, Math.floor(Number(this.levelSession?.smartHintShownCount) || 0));
+    }
+
+    trackSmartHintShow(opt?: SmartHintShowOptions): void {
+        const options = opt || {};
+        const session = this.levelSession;
+        if (session && !session.finalized) {
+            session.smartHintShownCount += 1;
+        }
+        const smartHintShownCount = this.getSmartHintShownCount();
+        const levelId = options.levelId ?? session?.levelId ?? 0;
+        const page = options.page || session?.page || 'game';
+        const stepName = typeof options.step === 'string' ? options.step : '';
+        const colorId = normalizePositiveLevelId(options.colorId);
+
+        void this.wxReportData({
+            eventName: 'smart_hint_show',
+            levelId,
+            page,
+            actionType: 1,
+            smartHintShownCount,
+        });
+        this.trackFunnelEvent({
+            eventName: 'smart_hint_show',
+            levelId,
+            page,
+            stepName,
+            source: options.source || 'smart_idle_hint',
+            success: true,
+            extra: {
+                hintStep: stepName,
+                colorId,
+                smartHintShownCount,
+            },
         });
     }
 
@@ -384,11 +449,13 @@ export class AnalyticsMgr {
         const session = this.levelSession;
         const levelId = session?.levelId ?? normalizePositiveLevelId(levelIdFallback);
         const currentPage = page || session?.page || 'game';
+        const smartHintShownCount = this.getSmartHintShownCount();
         void this.wxReportData({
             eventName: 'level_pass',
             levelId,
             page: currentPage,
             actionType: 3,
+            smartHintShownCount,
         });
         void this.finalizeActiveLevel(true, 'pass');
     }
