@@ -16,6 +16,9 @@ const PAGE_SIZE = 100;
 const MAX_SCAN_SIZE = 50000;
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const FRONT10_EXPERIMENT_ID = 'front10_v1';
+const FRONT10_MAX_LEVEL_ID = 10;
+const FRONT10_BUCKETS = ['all', 'control', 'treatment', 'unknown'];
 
 const FIRST_LEVEL_FUNNEL_STEPS = [
   { key: 'app_launch', label: '启动游戏' },
@@ -358,6 +361,176 @@ function buildFunnel(behaviorList) {
   return funnelList;
 }
 
+function normalizeFront10ExperimentBucket(value) {
+  const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (text === 'control' || text === 'a' || text === 'bucket_a') return 'control';
+  if (text === 'treatment' || text === 'b' || text === 'bucket_b') return 'treatment';
+  return 'unknown';
+}
+
+function getBehaviorLogicalLevelId(item) {
+  const candidates = [item?.logicalLevelId, item?.levelId, item?.physicalLevelId];
+  for (const value of candidates) {
+    const levelId = Math.floor(Number(value));
+    if (Number.isFinite(levelId) && levelId > 0) return levelId;
+  }
+  return 0;
+}
+
+function getBehaviorUserKey(item) {
+  return item?.openid || item?._openid || '';
+}
+
+function isFront10ExperimentRecord(item) {
+  return String(item?.abId || '').trim() === FRONT10_EXPERIMENT_ID;
+}
+
+function normalizeNonNegativeCount(value) {
+  const count = Math.floor(Number(value) || 0);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function createFront10ExperimentLevelStat(logicalLevelId, abBucket) {
+  return {
+    logicalLevelId,
+    abBucket,
+    enterCount: 0,
+    passCount: 0,
+    failCount: 0,
+    adShowCount: 0,
+    adClickCount: 0,
+    adFinishCount: 0,
+    smartHintShowCount: 0,
+    smartGuidedPassCount: 0,
+    smartGuidedPassShownTotal: 0,
+    users: new Set(),
+    enterUsers: new Set(),
+    passUsers: new Set(),
+    failUsers: new Set(),
+    adShowUsers: new Set(),
+    adClickUsers: new Set(),
+    adFinishUsers: new Set(),
+    smartHintShowUsers: new Set(),
+    smartGuidedPassUsers: new Set(),
+  };
+}
+
+function buildFront10ExperimentStatKey(logicalLevelId, abBucket) {
+  return `${logicalLevelId}:${abBucket}`;
+}
+
+function ensureFront10ExperimentLevelStat(statMap, logicalLevelId, abBucket) {
+  const key = buildFront10ExperimentStatKey(logicalLevelId, abBucket);
+  if (!statMap.has(key)) {
+    statMap.set(key, createFront10ExperimentLevelStat(logicalLevelId, abBucket));
+  }
+  return statMap.get(key);
+}
+
+function addFront10ExperimentRecord(stat, item) {
+  const eventName = typeof item?.eventName === 'string' ? item.eventName.trim() : '';
+  const userKey = getBehaviorUserKey(item);
+  const smartHintShownCount = normalizeNonNegativeCount(item?.smartHintShownCount);
+  if (userKey) stat.users.add(userKey);
+
+  if (eventName === 'enter_level') {
+    stat.enterCount += 1;
+    if (userKey) stat.enterUsers.add(userKey);
+  } else if (eventName === 'level_pass') {
+    stat.passCount += 1;
+    if (userKey) stat.passUsers.add(userKey);
+    if (smartHintShownCount > 0) {
+      stat.smartGuidedPassCount += 1;
+      stat.smartGuidedPassShownTotal += smartHintShownCount;
+      if (userKey) stat.smartGuidedPassUsers.add(userKey);
+    }
+  } else if (eventName === 'level_fail') {
+    stat.failCount += 1;
+    if (userKey) stat.failUsers.add(userKey);
+  } else if (eventName === 'smart_hint_show') {
+    stat.smartHintShowCount += 1;
+    if (userKey) stat.smartHintShowUsers.add(userKey);
+  } else if (eventName === 'ad_show') {
+    stat.adShowCount += 1;
+    if (userKey) stat.adShowUsers.add(userKey);
+  } else if (eventName === 'ad_click') {
+    stat.adClickCount += 1;
+    if (userKey) stat.adClickUsers.add(userKey);
+  } else if (eventName === 'ad_finish') {
+    stat.adFinishCount += 1;
+    if (userKey) stat.adFinishUsers.add(userKey);
+  }
+}
+
+function serializeFront10ExperimentLevelStat(stat) {
+  return {
+    logicalLevelId: stat.logicalLevelId,
+    abBucket: stat.abBucket,
+    userCount: stat.users.size,
+    enterCount: stat.enterCount,
+    enterUsers: stat.enterUsers.size,
+    passCount: stat.passCount,
+    passUsers: stat.passUsers.size,
+    failCount: stat.failCount,
+    failUsers: stat.failUsers.size,
+    passRate: toPercent(stat.passUsers.size, stat.enterUsers.size),
+    adShowCount: stat.adShowCount,
+    adShowUsers: stat.adShowUsers.size,
+    adClickCount: stat.adClickCount,
+    adClickUsers: stat.adClickUsers.size,
+    adFinishCount: stat.adFinishCount,
+    adFinishUsers: stat.adFinishUsers.size,
+    adFinishRate: toPercent(stat.adFinishCount, stat.adShowCount),
+    adFinishPerEnterRate: toPercent(stat.adFinishUsers.size, stat.enterUsers.size),
+    smartHintShowCount: stat.smartHintShowCount,
+    smartHintShowUsers: stat.smartHintShowUsers.size,
+    smartHintUsageRate: toPercent(stat.smartHintShowUsers.size, stat.enterUsers.size),
+    smartGuidedPassCount: stat.smartGuidedPassCount,
+    smartGuidedPassUsers: stat.smartGuidedPassUsers.size,
+    smartGuidedPassRate: toPercent(stat.smartGuidedPassUsers.size, stat.passUsers.size),
+    smartGuidedPassShownTotal: stat.smartGuidedPassShownTotal,
+  };
+}
+
+function buildFront10ExperimentStats(behaviorList, opt = {}) {
+  const maxLogicalLevelId = Math.max(1, Math.min(50, Math.floor(Number(opt.maxLogicalLevelId) || FRONT10_MAX_LEVEL_ID)));
+  const statMap = new Map();
+
+  for (const item of behaviorList) {
+    const logicalLevelId = getBehaviorLogicalLevelId(item);
+    if (logicalLevelId < 1 || logicalLevelId > maxLogicalLevelId) continue;
+
+    addFront10ExperimentRecord(
+      ensureFront10ExperimentLevelStat(statMap, logicalLevelId, 'all'),
+      item,
+    );
+
+    const abBucket = isFront10ExperimentRecord(item)
+      ? normalizeFront10ExperimentBucket(item.abBucket)
+      : 'unknown';
+    addFront10ExperimentRecord(
+      ensureFront10ExperimentLevelStat(statMap, logicalLevelId, abBucket),
+      item,
+    );
+  }
+
+  const bucketOrder = new Map(FRONT10_BUCKETS.map((bucket, index) => [bucket, index]));
+  const rows = Array.from(statMap.values())
+    .map(serializeFront10ExperimentLevelStat)
+    .filter((row) => row.userCount > 0 || row.enterCount > 0 || row.passCount > 0 || row.adShowCount > 0 || row.smartHintShowCount > 0)
+    .sort((a, b) => {
+      if (a.logicalLevelId !== b.logicalLevelId) return a.logicalLevelId - b.logicalLevelId;
+      return (bucketOrder.get(a.abBucket) ?? 99) - (bucketOrder.get(b.abBucket) ?? 99);
+    });
+
+  return {
+    experimentId: FRONT10_EXPERIMENT_ID,
+    maxLogicalLevelId,
+    buckets: FRONT10_BUCKETS,
+    rows,
+  };
+}
+
 function normalizeAbBucket(value) {
   const text = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (text === 'bucket_a') return 'bucket_a';
@@ -546,6 +719,7 @@ exports.main = async (event = {}) => {
       levelTopLoss: buildLevelTopLoss(levelRecords, topLimit),
       adConversion: buildAdConversion(behaviorList),
       funnel: buildFunnel(behaviorList),
+      front10ExperimentStats: buildFront10ExperimentStats(behaviorList),
       firstLevelFunnel: buildFirstLevelFunnel(firstLevelFunnelEvents, { logicalLevelId: 1, includeSessionEvents: true }),
       onboardingLevelFunnel: buildOnboardingLevelFunnel(firstLevelFunnelEvents),
     };

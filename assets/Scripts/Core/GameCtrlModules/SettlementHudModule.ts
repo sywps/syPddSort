@@ -783,11 +783,15 @@ export function installSettlementHudModule(target: any): void {
             this.clearAdRewardHintVisuals?.();
             this.clearEndgameHints(false);
             this.unschedule(this.tickTimer);
+            const logicalLevelId = this.getActiveLogicalLevelId();
+            const smartHintShownCount = AnalyticsMgr.inst.getSmartHintShownCount();
             this.trackFirstLevelFunnel('level_pass', {
                 source: 'gameWin',
                 success: true,
+                extra: {
+                    smartHintShownCount,
+                },
             });
-            const logicalLevelId = this.getActiveLogicalLevelId();
             AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId);
             SySDKMgr.inst.reportLevelPass(logicalLevelId);
             this.recordDynamicCountdownWin?.();
@@ -1121,12 +1125,13 @@ export function installSettlementHudModule(target: any): void {
             const hand = this._guideHand as Node | null;
             if (!hand?.isValid) return;
 
+            // 成功展示后手指路径会自己循环；不要再挂下一轮计时器打断当前 tween。
             if (plan.step === 'board_to_slot' && plan.block) {
                 const from = this.getSmartIdleHintBlockTapPoint?.(plan.block);
                 const to = this.getSmartIdleHintFirstEmptySlotCenter?.();
                 if (from && to) {
                     this.startSmartIdleHintHandPath?.(hand, from, to);
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                    this.trackSmartIdleHintShown?.(plan);
                 } else if (this.canArmSmartIdleHint?.()) {
                     this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
@@ -1138,7 +1143,7 @@ export function installSettlementHudModule(target: any): void {
                 const to = this.getSmartIdleHintCellsTapPoint?.(plan.targetCells);
                 if (from && to) {
                     this.startSmartIdleHintHandPath?.(hand, from, to);
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                    this.trackSmartIdleHintShown?.(plan);
                 } else if (this.canArmSmartIdleHint?.()) {
                     this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
@@ -1150,11 +1155,24 @@ export function installSettlementHudModule(target: any): void {
                 const to = this.getSmartIdleHintCellsTapPoint?.(plan.targetCells);
                 if (from && to) {
                     this.startSmartIdleHintHandPath?.(hand, from, to);
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                    this.trackSmartIdleHintShown?.(plan);
                 } else if (this.canArmSmartIdleHint?.()) {
                     this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
             }
+        },
+
+        trackSmartIdleHintShown(plan: SmartIdleHintPlan) {
+            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
+                ? this.getActiveLogicalLevelId()
+                : this.getAnalyticsLevelId?.();
+            AnalyticsMgr.inst.trackSmartHintShow({
+                levelId: logicalLevelId,
+                page: this.getAnalyticsPage?.() || 'game',
+                step: plan.step,
+                colorId: plan.colorId,
+                source: 'smart_idle_hint',
+            });
         },
 
         clearSmartIdleHintVisuals() {

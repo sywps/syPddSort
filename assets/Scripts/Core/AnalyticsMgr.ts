@@ -25,6 +25,7 @@ export type ReportDataOptions = {
     physicalLevelId?: string | number;
     abId?: string;
     abBucket?: string;
+    smartHintShownCount?: number;
 };
 
 export type FunnelEventOptions = {
@@ -47,6 +48,14 @@ export type FunnelEventOptions = {
 };
 
 type AnalyticsLevelContext = Partial<Pick<ReportDataOptions, 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket'>>;
+
+type SmartHintShowOptions = {
+    levelId?: string | number;
+    page?: string;
+    step?: string;
+    colorId?: string | number;
+    source?: string;
+};
 
 export type UpdateUserProfileAssetsOptions = {
     openid?: string;
@@ -75,6 +84,7 @@ type LevelSessionState = {
     useShareRevive: boolean;
     pendingFailure: boolean;
     finalized: boolean;
+    smartHintShownCount: number;
 };
 
 type LevelRecordEndReason = 'pass' | 'fail' | 'abandon';
@@ -201,6 +211,7 @@ export class AnalyticsMgr {
                 physicalLevelId: opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0,
                 abId: opt.abId ?? this.levelContext.abId ?? '',
                 abBucket: opt.abBucket ?? this.levelContext.abBucket ?? '',
+                smartHintShownCount: opt.smartHintShownCount ?? 0,
             });
         } catch (error) {
             console.warn('[AnalyticsMgr] addBehaviorData failed:', error);
@@ -358,6 +369,7 @@ export class AnalyticsMgr {
             this.levelSession.pendingFailure = false;
             this.levelSession.page = normalizedPage;
             this.levelSession.startTime = now;
+            this.levelSession.smartHintShownCount = 0;
         } else {
             this.levelSession = {
                 levelId: normalizedLevelId,
@@ -368,6 +380,7 @@ export class AnalyticsMgr {
                 useShareRevive: false,
                 pendingFailure: false,
                 finalized: false,
+                smartHintShownCount: 0,
             };
         }
 
@@ -376,6 +389,44 @@ export class AnalyticsMgr {
             levelId: normalizedLevelId,
             page: normalizedPage,
             actionType: 1,
+        });
+    }
+
+    getSmartHintShownCount(): number {
+        return Math.max(0, Math.floor(Number(this.levelSession?.smartHintShownCount) || 0));
+    }
+
+    trackSmartHintShow(opt?: SmartHintShowOptions): void {
+        const options = opt || {};
+        const session = this.levelSession;
+        if (session && !session.finalized) {
+            session.smartHintShownCount += 1;
+        }
+        const smartHintShownCount = this.getSmartHintShownCount();
+        const levelId = options.levelId ?? session?.levelId ?? 0;
+        const page = options.page || session?.page || 'game';
+        const stepName = typeof options.step === 'string' ? options.step : '';
+        const colorId = normalizePositiveLevelId(options.colorId);
+
+        void this.wxReportData({
+            eventName: 'smart_hint_show',
+            levelId,
+            page,
+            actionType: 1,
+            smartHintShownCount,
+        });
+        this.trackFunnelEvent({
+            eventName: 'smart_hint_show',
+            levelId,
+            page,
+            stepName,
+            source: options.source || 'smart_idle_hint',
+            success: true,
+            extra: {
+                hintStep: stepName,
+                colorId,
+                smartHintShownCount,
+            },
         });
     }
 
@@ -398,11 +449,13 @@ export class AnalyticsMgr {
         const session = this.levelSession;
         const levelId = session?.levelId ?? normalizePositiveLevelId(levelIdFallback);
         const currentPage = page || session?.page || 'game';
+        const smartHintShownCount = this.getSmartHintShownCount();
         void this.wxReportData({
             eventName: 'level_pass',
             levelId,
             page: currentPage,
             actionType: 3,
+            smartHintShownCount,
         });
         void this.finalizeActiveLevel(true, 'pass');
     }

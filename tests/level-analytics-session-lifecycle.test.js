@@ -28,6 +28,7 @@ function methodBody(source, methodName) {
 
 const analytics = read('assets/Scripts/Core/AnalyticsMgr.ts');
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const addBehaviorData = read('cloudfunctions/addBehaviorData/index.js');
 const saveLevelRecord = read('cloudfunctions/saveLevelRecord/index.js');
 const calcLevelRate = read('cloudfunctions/calcLevelRate/index.js');
 const dashboard = read('cloudfunctions/getAllDashboardData/index.js');
@@ -44,10 +45,16 @@ assert.ok(methodBody(analytics, 'finalizePendingFailedLevel').includes("void thi
 assert.ok(methodBody(analytics, 'markLevelPassed').includes('normalizePositiveLevelId(levelIdFallback)'), 'pass event must have explicit level fallback');
 assert.ok(methodBody(analytics, 'markLevelFailed').includes('normalizePositiveLevelId(levelIdFallback)'), 'fail event must have explicit level fallback');
 assert.ok(analytics.includes('endReason,'), 'saveLevelRecord payload must include endReason');
+assert.ok(methodBody(analytics, 'trackSmartHintShow').includes("eventName: 'smart_hint_show'"), 'smart idle hints must emit smart_hint_show behavior events');
+assert.ok(methodBody(analytics, 'trackSmartHintShow').includes('this.trackFunnelEvent'), 'smart idle hints must also emit funnel events');
+assert.ok(methodBody(analytics, 'markLevelPassed').includes('smartHintShownCount'), 'level_pass behavior event must carry smartHintShownCount');
 
 assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId)'), 'gameWin must pass the runtime logical level id');
 assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId)'), 'gameLose must pass the runtime logical level id');
+assert.ok(settlement.includes('const smartHintShownCount = AnalyticsMgr.inst.getSmartHintShownCount()'), 'gameWin funnel event must include smart hint attribution count');
+assert.ok(settlement.includes('this.trackSmartIdleHintShown?.(plan)'), 'smart idle hint visual show must be counted only after a path is started');
 
+assert.ok(addBehaviorData.includes('smartHintShownCount: normalizeNonNegativeInt(event.smartHintShownCount)'), 'addBehaviorData must persist smartHintShownCount');
 assert.ok(saveLevelRecord.includes('normalizeEndReason'), 'saveLevelRecord must normalize endReason');
 assert.ok(saveLevelRecord.includes('endReason,'), 'saveLevelRecord must persist endReason');
 assert.ok(calcLevelRate.includes('isAbandonedRecord'), 'calcLevelRate must identify abandoned/interrupted records');
@@ -55,6 +62,12 @@ assert.ok(calcLevelRate.includes('resultRecords = records.filter'), 'calcLevelRa
 assert.ok(calcLevelRate.includes('abandonedCount'), 'calcLevelRate must expose abandonedCount for diagnostics');
 assert.ok(dashboard.includes('isAbandonedLevelRecord'), 'dashboard cloud function must identify abandoned/interrupted records');
 assert.ok(dashboard.includes('stat.abandonedCount += 1'), 'dashboard cloud function must keep abandoned diagnostics');
+assert.ok(dashboard.includes('buildFront10ExperimentStats'), 'dashboard must expose front10 experiment level stats');
+assert.ok(dashboard.includes("eventName === 'smart_hint_show'"), 'dashboard must count smart_hint_show events');
+assert.ok(dashboard.includes('smartGuidedPassUsers'), 'dashboard must expose users who passed after seeing smart hints');
+assert.ok(dashboard.includes('smartHintShownCount > 0'), 'dashboard must attribute guided passes from smartHintShownCount');
+assert.ok(dashboard.includes('adFinishCount'), 'dashboard must expose per-level completed ad count for the experiment');
+assert.ok(dashboard.includes('front10ExperimentStats: buildFront10ExperimentStats(behaviorList)'), 'dashboard response must include front10ExperimentStats');
 assert.ok(dailyJob.includes('isAbandonedLevelRecord'), 'daily job must identify abandoned/interrupted records');
 assert.ok(dailyJob.includes('resultRecords: resultRounds'), 'daily job summary must report result-record denominator');
 assert.ok(dailyJob.includes('abandonedRecords: abandonedRounds'), 'daily job summary must report abandoned records');

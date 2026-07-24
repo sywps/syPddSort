@@ -147,6 +147,7 @@ exports.main = async (event = {}) => {
     abBucket: cleanString(event.abBucket, 64),
     logicalLevelId: normalizeExperimentLevelId(event.logicalLevelId),
     physicalLevelId: normalizeExperimentLevelId(event.physicalLevelId),
+    smartHintShownCount: normalizeNonNegativeInt(event.smartHintShownCount),
     timestamp,
   };
 
