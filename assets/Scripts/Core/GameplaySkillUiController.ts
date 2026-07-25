@@ -342,16 +342,17 @@ export class GameplaySkillUiController {
                     runtime.markAdRewardFreezeEntryClicked?.();
                 }
                 if (inventoryCount <= 0) {
-                    runtime.pauseTimerForProp();
+                    const resourceAcquireTimerToken = runtime.pauseTimerForProp('resource-acquire');
                     const opened = typeof runtime.openToolAcquirePanel === 'function'
                         ? runtime.openToolAcquirePanel(skill.kind, {
                             resumeTimerOnClose: true,
+                            timerPauseToken: resourceAcquireTimerToken,
                             onInventoryChanged: () => this.rebuildSkillButtonsUI(),
                             onAdGrant: () => this.useSkillFromAdGrant(skill),
                         })
                         : false;
                     if (!opened) {
-                        runtime.resumeTimerForProp();
+                        runtime.resumeTimerForProp(resourceAcquireTimerToken || 'resource-acquire');
                         runtime.showToast(`${skill.label}不足`);
                     }
                     return;

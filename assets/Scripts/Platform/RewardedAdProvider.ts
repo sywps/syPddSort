@@ -28,7 +28,17 @@ export type RewardedAdOutcome = {
 };
 
 type RewardedAdCallback = (outcome: RewardedAdOutcome) => void;
-type RewardedAdStatus = 'idle' | 'loading' | 'ready' | 'establishing' | 'visible';
+export type RewardedAdStatus = 'idle' | 'loading' | 'ready' | 'establishing' | 'visible' | 'recoverable';
+export type RewardedAdStateSnapshot = {
+    status: RewardedAdStatus;
+    previousStatus: RewardedAdStatus;
+    reason: string;
+    requestId: number;
+    generation: number;
+    changedAt: number;
+    durationMs: number;
+};
+type RewardedAdStateListener = (snapshot: RewardedAdStateSnapshot) => void;
 
 export type RewardedAdUnitIds = {
     douyin: string;
@@ -42,6 +52,9 @@ export interface RewardedAdProvider {
     hasNativeAdWindow(): boolean;
     notifyGameResumed(): void;
     cancelPending(reason?: string): boolean;
+    endRecoverableWait(reason?: string): boolean;
+    getState(): RewardedAdStateSnapshot;
+    subscribe(listener: RewardedAdStateListener): () => void;
 }
 
 abstract class NativeRewardedAdProvider implements RewardedAdProvider {
@@ -61,8 +74,35 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     private adErrorListener: ((error: unknown) => void) | null = null;
     private loadWaitTimer: any = null;
     private showEstablishTimer: any = null;
+    private stateChangedAt = Date.now();
+    private stateReason = 'init';
+    private readonly stateListeners = new Set<RewardedAdStateListener>();
 
     constructor(private readonly adUnitId: string) {}
+
+    getState(): RewardedAdStateSnapshot {
+        return {
+            status: this.status,
+            previousStatus: this.status,
+            reason: this.stateReason,
+            requestId: this.currentRequestId,
+            generation: this.currentAdGeneration,
+            changedAt: this.stateChangedAt,
+            durationMs: Math.max(0, Date.now() - this.stateChangedAt),
+        };
+    }
+
+    subscribe(listener: RewardedAdStateListener): () => void {
+        this.stateListeners.add(listener);
+        try {
+            listener(this.getState());
+        } catch (error) {
+            console.warn(`[AdConfig] ${this.platform} rewarded ad state listener failed:`, error);
+        }
+        return () => {
+            this.stateListeners.delete(listener);
+        };
+    }
 
     preload(reason: string = 'manual'): void {
         if (!this.hasNativeAdWindow()) return;
@@ -137,6 +177,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             || (this.status !== 'establishing' && this.status !== 'visible')
             || this.currentRecoverableNotified) return;
         this.currentRecoverableNotified = true;
+        this.setStatus('recoverable', 'foreground-before-close');
         try {
             this.currentHooks?.onRecoverable?.(this.currentRequestId, 'foreground');
         } catch (error) {
@@ -146,13 +187,46 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
 
     cancelPending(reason: string = 'manual'): boolean {
         if (!this.currentCallback) return false;
+        if (this.status === 'visible' || this.status === 'recoverable') return false;
         console.error(`[AdConfig] ${this.platform} rewarded ad recovered from pending state: ${reason}`);
         this.resolveCurrent({ status: 'unknown', reason: `cancelled:${reason}` });
         return true;
     }
 
+    endRecoverableWait(reason: string = 'manual'): boolean {
+        if (!this.currentCallback || this.status !== 'recoverable') return false;
+        console.error(`[AdConfig] ${this.platform} rewarded ad recoverable wait ended: ${reason}`);
+        this.resolveCurrent({ status: 'unknown', reason: `recoverable-ended:${reason}` });
+        return true;
+    }
+
     protected abstract getRuntimeApi(): any;
     protected abstract getSystemInfo(api: any): any;
+
+    private setStatus(status: RewardedAdStatus, reason: string): void {
+        const previousStatus = this.status;
+        const now = Date.now();
+        const durationMs = Math.max(0, now - this.stateChangedAt);
+        this.status = status;
+        this.stateChangedAt = now;
+        this.stateReason = String(reason || '');
+        const snapshot: RewardedAdStateSnapshot = {
+            status,
+            previousStatus,
+            reason: this.stateReason,
+            requestId: this.currentRequestId,
+            generation: this.currentAdGeneration,
+            changedAt: now,
+            durationMs,
+        };
+        for (const listener of [...this.stateListeners]) {
+            try {
+                listener(snapshot);
+            } catch (error) {
+                console.warn(`[AdConfig] ${this.platform} rewarded ad state listener failed:`, error);
+            }
+        }
+    }
 
     private ensureAd(): any {
         if (this.ad) return this.ad;
@@ -167,7 +241,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.currentAdGeneration = generation;
         this.adCloseListener = (result: unknown) => {
             if (!this.currentCallback
-                || (this.status !== 'establishing' && this.status !== 'visible')
+                || (this.status !== 'establishing' && this.status !== 'visible' && this.status !== 'recoverable')
                 || this.ad !== ad
                 || this.currentAdGeneration !== generation) {
                 console.warn(`[AdConfig] ${this.platform} stale rewarded ad close ignored`);
@@ -186,7 +260,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
                 this.resolveCurrent({ status: 'technical_error', reason: 'native-error', error });
                 return;
             }
-            this.status = 'idle';
+            this.setStatus('idle', 'native-error-idle');
             this.loadPromise = null;
             this.cleanupAd(ad);
         };
@@ -197,13 +271,15 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
 
     private startLoad(reason: string): Promise<boolean> {
         if (this.status === 'ready') return Promise.resolve(true);
-        if (this.status === 'establishing' || this.status === 'visible') return Promise.resolve(false);
+        if (this.status === 'establishing' || this.status === 'visible' || this.status === 'recoverable') {
+            return Promise.resolve(false);
+        }
         if (this.status === 'loading' && this.loadPromise) return this.loadPromise;
 
         const ad = this.ensureAd();
         if (!ad || typeof ad.load !== 'function') return Promise.resolve(false);
         const generation = this.currentAdGeneration;
-        this.status = 'loading';
+        this.setStatus('loading', reason);
         const loadPromise = Promise.resolve()
             .then(() => {
                 if (this.ad !== ad || this.currentAdGeneration !== generation) return false;
@@ -212,7 +288,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             .then((loaded) => {
                 const isCurrentAd = loaded && this.ad === ad && this.currentAdGeneration === generation;
                 if (isCurrentAd && this.status === 'loading') {
-                    this.status = 'ready';
+                    this.setStatus('ready', reason);
                     console.log(`[AdConfig] ${this.platform} rewarded ad preloaded:`, reason);
                 }
                 return isCurrentAd;
@@ -220,7 +296,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             .catch((err) => {
                 console.warn(`[AdConfig] ${this.platform} rewarded ad preload failed:`, err);
                 if (this.ad === ad && this.currentAdGeneration === generation) {
-                    this.status = 'idle';
+                    this.setStatus('idle', `load-failed:${reason}`);
                     this.cleanupAd(ad);
                 }
                 return false;
@@ -242,7 +318,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             this.resolveCurrent({ status: 'technical_error', reason: 'show-unavailable' });
             return;
         }
-        this.status = 'establishing';
+        this.setStatus('establishing', 'show-start');
         const establishWaitMs = this.getShowEstablishWaitMs(this.currentHooks || {});
         this.showEstablishTimer = setTimeout(() => {
             if (!this.isCurrentRequest(requestId) || this.status !== 'establishing') return;
@@ -255,7 +331,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             .then(() => {
                 if (!this.isCurrentRequest(requestId)) return;
                 this.clearShowEstablishTimer();
-                this.status = 'visible';
+                this.setStatus('visible', 'show-resolved');
                 this.currentHooks?.onShow?.(requestId);
                 console.log(`[AdConfig] ${this.platform} rewarded ad show resolved`);
             })
@@ -276,7 +352,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.currentCallback = null;
         this.currentHooks = null;
         this.currentRecoverableNotified = false;
-        this.status = 'idle';
+        this.setStatus('idle', `outcome:${outcome.status}:${outcome.reason || ''}`);
         this.loadPromise = null;
         this.cleanupAd(ad);
         try {
@@ -366,7 +442,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (this.isDevtoolsLike()) {
             return Math.max(1200, Math.min(3000, hooks.minFallbackWatchMs || 2000));
         }
-        return 5000;
+        return 10000;
     }
 
     private getShowEstablishWaitMs(hooks: RewardedAdHooks): number {
@@ -376,7 +452,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (this.isDevtoolsLike()) {
             return Math.max(1200, Math.min(3000, hooks.minFallbackWatchMs || 2000));
         }
-        return 5000;
+        return 10000;
     }
 
     private shouldSimulateDevtoolsCompletion(): boolean {
@@ -441,13 +517,26 @@ class WeChatRewardedAdProvider extends NativeRewardedAdProvider {
 
 class WebRewardedAdProvider implements RewardedAdProvider {
     public readonly platform: MiniGameBuildPlatform = 'web';
+    private state: RewardedAdStateSnapshot = {
+        status: 'idle',
+        previousStatus: 'idle',
+        reason: 'init',
+        requestId: 0,
+        generation: 0,
+        changedAt: Date.now(),
+        durationMs: 0,
+    };
+    private readonly listeners = new Set<RewardedAdStateListener>();
 
     preload(_reason: string = 'manual'): void {}
 
     show(callback: RewardedAdCallback, hooks: RewardedAdHooks = {}): void {
         console.log('[AdConfig] web/preview rewarded ad simulated success');
+        this.updateState('visible', 'preview-show');
         hooks.onShow?.(1);
+        hooks.onClose?.({ isEnded: true }, 1);
         callback({ attemptId: 1, status: 'verified_complete' });
+        this.updateState('idle', 'preview-complete');
     }
 
     hasNativeAdWindow(): boolean {
@@ -458,6 +547,37 @@ class WebRewardedAdProvider implements RewardedAdProvider {
 
     cancelPending(_reason: string = 'manual'): boolean {
         return false;
+    }
+
+    endRecoverableWait(_reason: string = 'manual'): boolean {
+        return false;
+    }
+
+    getState(): RewardedAdStateSnapshot {
+        return {
+            ...this.state,
+            durationMs: Math.max(0, Date.now() - this.state.changedAt),
+        };
+    }
+
+    subscribe(listener: RewardedAdStateListener): () => void {
+        this.listeners.add(listener);
+        listener(this.getState());
+        return () => this.listeners.delete(listener);
+    }
+
+    private updateState(status: RewardedAdStatus, reason: string): void {
+        const now = Date.now();
+        this.state = {
+            status,
+            previousStatus: this.state.status,
+            reason,
+            requestId: 1,
+            generation: 0,
+            changedAt: now,
+            durationMs: Math.max(0, now - this.state.changedAt),
+        };
+        for (const listener of [...this.listeners]) listener(this.state);
     }
 }
 

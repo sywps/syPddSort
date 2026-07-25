@@ -21,6 +21,7 @@ const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts
 const gameplaySkillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const gameplaySkillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 const settlementHud = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const gameplayPlacementFx = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
 const adConfig = read('assets/Scripts/Platform/AdConfig.ts');
 const rewardedAdProvider = read('assets/Scripts/Platform/RewardedAdProvider.ts');
 
@@ -86,6 +87,56 @@ const skillMethods = vm.runInNewContext(`({${freezeMethod},${finishSkillMethod}}
     FREEZE_PROP_SECONDS: 180,
     PerformanceMgr: { inst: { markUserActivity() {} } },
 });
+
+const pauseTimerForProp = extractObjectMethod(
+    gameplayPlacementFx,
+    "pauseTimerForProp(owner: string = 'prop'): string {",
+)
+    .replace("owner: string = 'prop'", "owner = 'prop'")
+    .replace('): string {', ') {');
+const resumeTimerForProp = extractObjectMethod(
+    gameplayPlacementFx,
+    "resumeTimerForProp(tokenOrOwner: string = 'prop') {",
+).replace("tokenOrOwner: string = 'prop'", "tokenOrOwner = 'prop'");
+const timerLockMethods = vm.runInNewContext(`({${pauseTimerForProp},${resumeTimerForProp}})`, {
+    runtimeLog() {},
+});
+
+let timerOwnerSeq = 0;
+const nestedTimerLockRuntime = {
+    ...timerLockMethods,
+    _timerPauseRefs: 0,
+    _timerLockedForProp: false,
+    _timerOwners: new Map(),
+    acquireRuntimeOwner(_scope, owner) {
+        const token = `timer:${++timerOwnerSeq}:${owner}`;
+        this._timerOwners.set(token, owner);
+        return token;
+    },
+    releaseRuntimeOwner(token) {
+        return this._timerOwners.delete(token);
+    },
+    releaseRuntimeOwnerByName(_scope, owner) {
+        const entry = [...this._timerOwners.entries()].reverse().find(([, value]) => value === owner);
+        return entry ? this._timerOwners.delete(entry[0]) : false;
+    },
+    getRuntimeOwnerCount() {
+        return this._timerOwners.size;
+    },
+};
+const firstTimerToken = nestedTimerLockRuntime.pauseTimerForProp();
+const secondTimerToken = nestedTimerLockRuntime.pauseTimerForProp();
+assert.strictEqual(nestedTimerLockRuntime._timerPauseRefs, 2);
+assert.strictEqual(nestedTimerLockRuntime._timerLockedForProp, true);
+nestedTimerLockRuntime.resumeTimerForProp(firstTimerToken);
+assert.strictEqual(nestedTimerLockRuntime._timerPauseRefs, 1);
+assert.strictEqual(nestedTimerLockRuntime._timerLockedForProp, true, 'releasing one exact token must preserve the other timer owner');
+nestedTimerLockRuntime.resumeTimerForProp(secondTimerToken);
+assert.strictEqual(nestedTimerLockRuntime._timerPauseRefs, 0);
+assert.strictEqual(nestedTimerLockRuntime._timerLockedForProp, false, 'the final owner release must clear the stale lock flag');
+nestedTimerLockRuntime.resumeTimerForProp();
+assert.strictEqual(nestedTimerLockRuntime._timerPauseRefs, 0, 'an extra release must remain clamped at zero');
+assert.strictEqual(nestedTimerLockRuntime._timerLockedForProp, false, 'an extra release must not recreate the lock');
 
 function createFreezeRuntime(playFreezeSpineFx) {
     const scheduled = [];

@@ -55,6 +55,8 @@ assert.strictEqual(findNode('TitleFreeze')._active, false, 'TitleFreeze must def
 assert.strictEqual(findNode('IconFreeze')._active, false, 'IconFreeze must default inactive');
 assert.strictEqual(findNode('TextFreeze')._active, false, 'TextFreeze must default inactive');
 assert.strictEqual(findNode('AcquireInsufficientGoldTip')._active, false, 'insufficient gold tip must default inactive');
+assert.strictEqual(findNode('AcquireCancelBtn')._active, false, 'ad wait cancellation must stay hidden until an ad request starts');
+assert.strictEqual(getComponent('AcquireCancelLbl', 'cc.Label')._string, '取消等待', 'ad wait cancellation copy must be prefab-owned');
 
 const controller = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 assert.ok(controller.includes("freeze: 'TitleFreeze'"), 'freeze title variant must map to TitleFreeze');
@@ -69,5 +71,10 @@ assert.ok(!controller.includes('暂停倒计时'), 'old freeze copy must not rem
 assert.ok(controller.includes("this.setAcquireInsufficientGoldTipActive(box, false);"), 'acquire panel must hide insufficient gold tip on open');
 assert.ok(controller.includes("this.setAcquireInsufficientGoldTipActive(box, true);"), 'failed coin buy must show insufficient gold tip');
 assert.ok(!controller.includes('金币不足'), 'insufficient gold copy must not be hardcoded in controller');
+assert.ok(controller.includes("setAdPanelState('广告准备中…', true, true, '取消等待');"), 'the panel must expose a cancellable loading state');
+assert.ok(controller.includes('onAdShown: hidePanelForNativeAd'), 'the panel must stay open until the native ad actually becomes visible');
+assert.ok(controller.includes("setAdPanelState('正在确认结果…', true, true, '结束等待');"), 'a delayed native close must expose an explicit end-wait action');
+assert.ok(controller.includes("outcome?.status === 'verified_incomplete'"), 'early close and technical failure must restore distinct retry copy');
+assert.ok(!controller.includes('if (started) closePanel'), 'request acceptance alone must never close the panel');
 
 console.log('freeze-acquire-prefab.test.js passed');

@@ -2916,6 +2916,7 @@ export function installAssetBootstrapModule(target: any): void {
         handleGameShowLifecycle(): void {
             this._gameForeground = true;
             this.resetTouchState?.();
+            this.auditRuntimeOwnersAfterForeground?.();
             this.resumeGuideReminderForLifecycle?.();
             this.reportFirstLevelReleaseState?.('app_show');
             this.refreshVigorUI?.();

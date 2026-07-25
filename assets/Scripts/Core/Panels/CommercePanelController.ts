@@ -1,6 +1,7 @@
 import {
     AudioMgr,
     BlockInputEvents,
+    Button,
     Bundle,
     DAILY_SIGNIN_TEXTURE_NAMES,
     ECONOMY_NUMERIC_TABLE,
@@ -10,9 +11,11 @@ import {
     Node,
     Prefab,
     RESOURCE_ACQUIRE_TEXTURE_NAMES,
+    Tween,
     UITransform,
     Vec3,
     instantiate,
+    tween,
 } from '../GameCtrlShared';
 import type { DailySignInReward, InventoryPropKind } from '../GameCtrlShared';
 
@@ -31,6 +34,7 @@ type ResourceAcquireOptions = {
     goldAmountText?: string;
     onBuy?: () => boolean;
     resumeTimerOnClose?: boolean;
+    timerPauseToken?: string;
     onInventoryChanged?: () => void;
 };
 
@@ -163,17 +167,19 @@ export class CommercePanelController {
         runtime._panelOpenInFlight.add(prefabLoadKey);
         runtime._retainPanelTextureOwner(options.panelKey, RESOURCE_ACQUIRE_TEXTURE_NAMES);
         let modalFocusActive = false;
+        let modalFocusToken = '';
 
         const beginAcquireModalFocus = () => {
             if (modalFocusActive) return;
             modalFocusActive = true;
-            runtime.beginModalFocus?.('resource-acquire');
+            modalFocusToken = runtime.beginModalFocus?.('resource-acquire') || '';
         };
 
         const endAcquireModalFocus = () => {
             if (!modalFocusActive) return;
             modalFocusActive = false;
-            runtime.endModalFocus?.('resource-acquire');
+            runtime.endModalFocus?.(modalFocusToken || 'resource-acquire');
+            modalFocusToken = '';
         };
 
         const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
@@ -183,7 +189,7 @@ export class CommercePanelController {
             runtime._panelOpenInFlight.delete(prefabLoadKey);
             endAcquireModalFocus();
             if (options.resumeTimerOnClose) {
-                runtime.resumeTimerForProp?.();
+                runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
             }
             runtime._releasePanelTextureOwner(options.panelKey, 'resource-acquire-open-stale');
         };
@@ -196,7 +202,7 @@ export class CommercePanelController {
             }
             endAcquireModalFocus();
             if (options.resumeTimerOnClose) {
-                runtime.resumeTimerForProp?.();
+                runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
             }
             runtime._releasePanelTextureOwner(options.panelKey, 'resource-acquire-open-failed');
             console.error(message);
@@ -217,16 +223,18 @@ export class CommercePanelController {
                 if (err || !prefab) { failOpen(`[resource-acquire-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
                 let overlay: Node | null = null;
                 let closed = false;
+                let stopAdSpinner: () => void = () => {};
                 const closePanel = (resumeTimer = !!options.resumeTimerOnClose, playSound = true) => {
                     if (closed) return;
                     closed = true;
+                    stopAdSpinner();
                     if (playSound) AudioMgr.inst.play('button');
                     if (overlay?.isValid) {
                         runtime._closePanelWithTextureOwner(overlay, options.panelKey, 'resource-acquire');
                     }
                     endAcquireModalFocus();
                     if (resumeTimer) {
-                        runtime.resumeTimerForProp?.();
+                        runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
                     }
                 };
 
@@ -241,6 +249,25 @@ export class CommercePanelController {
                     const box = runtime.requirePanelChild(overlay, 'Box');
                     this.syncAcquireVariant(box, options);
                     if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
+                    const panelTransaction = () => {
+                        const transaction = runtime._rewardedGrantTransaction;
+                        return transaction?.page === options.adType ? transaction : null;
+                    };
+                    const requestPanelClose = () => {
+                        const transaction = panelTransaction();
+                        if (transaction?.phase === 'recoverable') {
+                            runtime.showToast?.('奖励确认中，请稍后');
+                            return;
+                        }
+                        if (transaction?.phase === 'grant') {
+                            runtime.showToast?.('奖励发放中，请稍后');
+                            return;
+                        }
+                        if (transaction) {
+                            runtime.cancelRewardedGrantInteraction?.('resource-acquire-close');
+                        }
+                        closePanel();
+                    };
                     overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
                         const boxUT = box.getComponent(UITransform);
                         if (!boxUT) return;
@@ -251,15 +278,64 @@ export class CommercePanelController {
                             e.propagationStopped = true;
                             return;
                         }
-                        closePanel();
+                        requestPanelClose();
                     }, runtime);
 
-                    runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), () => closePanel());
+                    runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), requestPanelClose);
 
                     const buyBtn = runtime.requirePanelChild(box, 'AcquireBuyBtn');
                     const adBtn = runtime.requirePanelChild(box, 'AcquireAdBtn');
                     const goldAdBtn = runtime.requirePanelChild(box, 'AcquireGoldAdBtn');
+                    const cancelBtn = runtime.requirePanelChild(box, 'AcquireCancelBtn');
                     const activeAdBtn = options.variant === 'gold' ? goldAdBtn : adBtn;
+                    const activeAdLabelName = options.variant === 'gold' ? 'AcquireGoldAdLbl' : 'AcquireAdLbl';
+                    const activeAdIconName = options.variant === 'gold' ? 'AcquireGoldAdIcon' : 'AcquireAdIcon';
+                    const activeAdIcon = runtime.requirePanelChild(activeAdBtn, activeAdIconName);
+                    const activeAdButton = activeAdBtn.getComponent(Button) || activeAdBtn.addComponent(Button);
+                    const buyButton = buyBtn.getComponent(Button) || buyBtn.addComponent(Button);
+                    let adGrantSucceeded = false;
+                    let adFailureLabel = '看广告领取';
+
+                    const setAdSpinnerActive = (active: boolean) => {
+                        Tween.stopAllByTarget(activeAdIcon);
+                        activeAdIcon.angle = 0;
+                        if (active) {
+                            tween(activeAdIcon)
+                                .by(0.8, { angle: -360 })
+                                .repeatForever()
+                                .start();
+                        }
+                    };
+                    stopAdSpinner = () => setAdSpinnerActive(false);
+                    const setCancelAction = (active: boolean, text: string = '') => {
+                        cancelBtn.active = active;
+                        if (active) {
+                            this.setAcquireLabelText(cancelBtn, 'AcquireCancelLbl', text);
+                        }
+                    };
+                    const setAdPanelState = (
+                        text: string,
+                        busy: boolean,
+                        spinning: boolean,
+                        cancelText: string = '',
+                    ) => {
+                        if (closed) return;
+                        if (overlay?.isValid) overlay.active = true;
+                        beginAcquireModalFocus();
+                        this.setAcquireLabelText(activeAdBtn, activeAdLabelName, text);
+                        activeAdButton.interactable = !busy;
+                        buyButton.interactable = !busy;
+                        setAdSpinnerActive(spinning);
+                        setCancelAction(!!cancelText, cancelText);
+                    };
+                    const hidePanelForNativeAd = () => {
+                        if (closed) return;
+                        stopAdSpinner();
+                        setCancelAction(false);
+                        endAcquireModalFocus();
+                        if (overlay?.isValid) overlay.active = false;
+                    };
+                    setAdPanelState('看广告领取', false, false);
 
                     if (options.onBuy && options.buyLabel) {
                         runtime.bindPanelButton(buyBtn, () => {
@@ -274,28 +350,79 @@ export class CommercePanelController {
                         });
                     }
 
+                    runtime.bindPanelButton(cancelBtn, () => {
+                        const transaction = panelTransaction();
+                        if (!transaction) {
+                            setCancelAction(false);
+                            return;
+                        }
+                        if (transaction.phase === 'recoverable') {
+                            runtime.showToast?.('奖励确认中，请稍后');
+                            return;
+                        }
+                        adFailureLabel = transaction.phase === 'recoverable_endable'
+                            ? '重新加载广告'
+                            : '看广告领取';
+                        runtime.cancelRewardedGrantInteraction?.(
+                            transaction.phase === 'recoverable_endable'
+                                ? 'resource-acquire-end-wait'
+                                : 'resource-acquire-cancel',
+                        );
+                        setAdPanelState(adFailureLabel, false, false);
+                    });
+
                     runtime.bindPanelButton(activeAdBtn, () => {
-                        if (runtime._adShowing) return;
+                        if (runtime._adShowing || panelTransaction()) return;
                         AudioMgr.inst.play('button');
+                        adGrantSucceeded = false;
+                        adFailureLabel = '看广告领取';
                         const started = runtime.runRewardedGrant(options.adType, () => {
                             return Promise.resolve(options.onAdGrant()).then((grantResult) => {
                                 if (grantResult !== false) {
+                                    adGrantSucceeded = true;
                                     options.onInventoryChanged?.();
                                 }
                                 return grantResult;
                             });
                         }, {
                             busyFlag: '_adShowing',
+                            suppressPendingStrip: true,
                             successToast: options.successToast,
                             grantFailToast: options.grantFailToast,
-                            onInteractionReleased: () => {
-                                if (options.resumeTimerOnClose) {
-                                    runtime.resumeTimerForProp?.();
+                            onInteractionStarted: () => {
+                                setAdPanelState('广告准备中…', true, true, '取消等待');
+                            },
+                            onAdShown: hidePanelForNativeAd,
+                            onRecoverable: () => {
+                                setAdPanelState('正在确认结果…', true, true);
+                            },
+                            onRecoverableEndable: () => {
+                                setAdPanelState('正在确认结果…', true, true, '结束等待');
+                            },
+                            onAdComplete: (success: boolean, outcome: any) => {
+                                if (success) {
+                                    adFailureLabel = '重新领取';
+                                    return;
                                 }
+                                adFailureLabel = outcome?.status === 'verified_incomplete'
+                                    ? '再看一次'
+                                    : '重新加载广告';
+                                setAdPanelState(adFailureLabel, false, false);
+                            },
+                            onAdFail: () => {
+                                setAdPanelState(adFailureLabel, false, false);
+                            },
+                            onFinally: () => {
+                                if (closed) return;
+                                if (adGrantSucceeded) {
+                                    closePanel(!!options.resumeTimerOnClose, false);
+                                    return;
+                                }
+                                setAdPanelState(adFailureLabel, false, false);
                             },
                         });
-                        if (started) {
-                            closePanel(false, false);
+                        if (!started) {
+                            setAdPanelState('重新加载广告', false, false);
                         }
                     });
 
@@ -342,6 +469,7 @@ export class CommercePanelController {
         kind: ToolAcquireKind,
         options: {
             resumeTimerOnClose?: boolean;
+            timerPauseToken?: string;
             onInventoryChanged?: () => void;
             onAdGrant?: () => boolean | void | Promise<boolean | void>;
         } = {},
@@ -356,6 +484,7 @@ export class CommercePanelController {
             successToast: '',
             grantFailToast: `${meta.itemLabel}领取失败，请重试`,
             resumeTimerOnClose: options.resumeTimerOnClose,
+            timerPauseToken: options.timerPauseToken,
             onInventoryChanged: options.onInventoryChanged,
             onBuy: () => {
                 if (!this.runtime.spendGold(meta.cost)) {

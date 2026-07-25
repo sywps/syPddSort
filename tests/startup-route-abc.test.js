@@ -100,12 +100,12 @@ function plain(value) {
 }
 
 assert.ok(
-    cocosSpec.includes('三类用户启动后的第一个业务场景都必须是 `Game.scene`'),
-    'project v1 spec must keep A/B/C first business scene on Game.scene',
+    cocosSpec.includes('所有状态的第一个业务场景都是 `Game.scene`'),
+    'project v1 spec must keep every semantic startup state on Game.scene',
 );
 assert.ok(
-    cocosSpec.includes('B 注入 `pdd.level = N` 且 `N >= 2` 验证进入 `Game.scene` 第 N 关'),
-    'project v1 spec must keep B startup as local pdd.level=N direct Game level N',
+    cocosSpec.includes('`local_snapshot`（注入 `pdd.level = N` 且 `N >= 2`，直进 `Game.scene` 第 N 关'),
+    'project v1 spec must keep local_snapshot startup as local pdd.level=N direct Game level N',
 );
 
 assert.ok(

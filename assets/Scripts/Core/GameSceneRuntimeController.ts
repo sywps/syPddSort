@@ -290,6 +290,13 @@ export class GameSceneRuntimeController {
         if (showOverlay) {
             const overlayVersion = (this.runtime._loadingOverlayVersion || 0) + 1;
             this.runtime._loadingOverlayVersion = overlayVersion;
+            if (this.runtime._loadingOwnerToken) {
+                this.runtime.releaseRuntimeOwner?.(this.runtime._loadingOwnerToken);
+            }
+            this.runtime._loadingOwnerToken = this.runtime.acquireRuntimeOwner?.(
+                'loading',
+                `game-scene-${overlayVersion}`,
+            ) || '';
             this.configureExistingGameLoadingOverlay(layer);
             this.bindExistingGameLoadingProgress(layer, overlayVersion);
             this.runtime.setGameplayStartupRootVisible?.(false);
@@ -351,17 +358,41 @@ export class GameSceneRuntimeController {
         }
         const shadowNode = group.getChildByName('LoadingPercentLabelShadow') || null;
         const shadowLabel = shadowNode?.getComponent(Label) || null;
+        const slowActions = this.runtime.requireUiChild(
+            layer,
+            'LoadingSlowActions',
+            'StartupLoadingUI/LoadingSlowActions',
+        );
+        const retryNode = this.runtime.requireUiChild(
+            slowActions,
+            'LoadingRetryButton',
+            'LoadingSlowActions/LoadingRetryButton',
+        );
+        const backNode = this.runtime.requireUiChild(
+            slowActions,
+            'LoadingBackButton',
+            'LoadingSlowActions/LoadingBackButton',
+        );
+        const retryButton = retryNode.getComponent(Button);
+        const backButton = backNode.getComponent(Button);
+        if (!retryButton || !backButton) {
+            throw new Error('[GameScene] Game.scene loading slow actions are missing Button components');
+        }
+        retryNode.targetOff(this.runtime);
+        retryNode.on(Button.EventType.CLICK, () => this.runtime.retryGameplayLoading?.('slow-action'), this.runtime);
+        backNode.targetOff(this.runtime);
+        backNode.on(Button.EventType.CLICK, () => this.runtime.exitGameplayLoading?.('slow-action'), this.runtime);
+        group.active = false;
+        slowActions.active = false;
+        this.runtime._loadingProgressGroup = group;
+        this.runtime._loadingSlowActions = slowActions;
         this.runtime._loadingProgressLabel = label;
         this.runtime._loadingProgressLabelShadow = shadowLabel;
         this.runtime._loadingProgressFill = this.createGameLoadingProgressAdapter(group);
         this.runtime._loadingProgress = 0;
         this.runtime._loadingProgressPercent = 0;
-        if (typeof this.runtime._setLoadingProgressPercentText === 'function') {
-            this.runtime._setLoadingProgressPercentText(0);
-        } else {
-            label.string = '加载中...0%';
-            if (shadowLabel) shadowLabel.string = label.string;
-        }
+        label.string = '正在准备关卡…';
+        if (shadowLabel) shadowLabel.string = label.string;
         if (typeof this.runtime._startLoadingProgressIntro === 'function') {
             this.runtime._startLoadingProgressIntro(overlayVersion);
         }
@@ -373,10 +404,17 @@ export class GameSceneRuntimeController {
         if (!fill?.isValid || !fillUT) return null;
         const fullWidth = Math.max(1, Math.floor(Number(fillUT.width) || 1));
         const fullHeight = Math.max(1, Math.floor(Number(fillUT.height) || 1));
+        const track = group.getChildByName('LoadingBarTrack') || null;
+        const trackUT = track?.getComponent(UITransform) || null;
         const highlight = fill.getChildByName('LoadingBarFillHighlight') || null;
         const highlightUT = highlight?.getComponent(UITransform) || null;
         const shine = fill.getChildByName('LoadingBarShine') || null;
         const leftEdge = -fullWidth / 2;
+        this.runtime._loadingProgressFillNode = fill;
+        this.runtime._loadingProgressFullWidth = fullWidth;
+        this.runtime._loadingProgressFullHeight = fullHeight;
+        this.runtime._loadingProgressTrackWidth = Math.max(fullWidth, Number(trackUT?.width) || fullWidth);
+        this.runtime._loadingShine = shine;
         let current = 0;
         const apply = (value: number) => {
             current = Math.max(0, Math.min(1, Number(value) || 0));
@@ -464,6 +502,8 @@ export class GameSceneRuntimeController {
     destroy(): void {
         const sceneName = this.getRuntimeSceneName();
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
+        this.runtime._rewardedAdStateUnsubscribe?.();
+        this.runtime._rewardedAdStateUnsubscribe = null;
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
             sceneName,
         });

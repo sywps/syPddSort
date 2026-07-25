@@ -35,6 +35,11 @@ assert.strictEqual(slotB.skinDataOssPath, 'syGame/pdd_v2/remote_wechat_b/skin/')
 assert.throws(() => extractRequiredWechatCdnSlot([]), /必须显式传入 --cdn-slot/);
 assert.throws(() => extractRequiredWechatCdnSlot(['--cdn-slot=C']), /必须是 A 或 B/);
 assert.throws(
+    () => extractRequiredWechatCdnSlot(['--cdn-slot=EXP']),
+    /必须是 A 或 B/,
+    'build/release slot parsing must remain restricted to stable A/B',
+);
+assert.throws(
     () => extractRequiredWechatCdnSlot(['--cdn-slot=A', '--cdn-slot=B']),
     /只能传入一个/,
 );
@@ -68,6 +73,16 @@ const runnerMissingSlot = spawnSync(process.execPath, [path.join(root, 'scripts'
 assert.notStrictEqual(runnerMissingSlot.status, 0, 'Release runner must reject a missing CDN slot');
 assert.match(runnerMissingSlot.stdout + runnerMissingSlot.stderr, /--cdn-slot=A.*--cdn-slot=B/);
 
+const runnerExpSlot = spawnSync(process.execPath, [
+    path.join(root, 'scripts', 'run-wechat-release.js'),
+    '--cdn-slot=EXP',
+], {
+    cwd: root,
+    encoding: 'utf8',
+});
+assert.notStrictEqual(runnerExpSlot.status, 0, 'Release runner must reject EXP before starting a build');
+assert.match(runnerExpSlot.stdout + runnerExpSlot.stderr, /必须是 A 或 B/);
+
 const packageJson = JSON.parse(read('package.json'));
 assert.strictEqual(packageJson.scripts['sync:cdn:wechat'], 'node scripts/sync-wechat-cdn.js');
 assert.strictEqual(packageJson.scripts['sync:cdn:wechat:all'], 'node scripts/sync-wechat-cdn.js');
@@ -81,10 +96,49 @@ assert.ok(runner.includes("'--cdn-slot=' + slot"), 'Release runner must forward 
 const buildWechat = read('scripts/build-wechat.js');
 assert.ok(buildWechat.includes('assertRuntimeWechatCdnTarget'), 'Release build must inspect generated CDN markers');
 assert.ok(buildWechat.includes('wechatCdnTarget.slot'), 'Release build must carry the resolved slot');
+assert.ok(buildWechat.includes('createWechatClientBuildId'), 'Release build must create one immutable client build identity');
+assert.ok(buildWechat.includes('process.env.PDD_CLIENT_BUILD_ID'), 'Release build must preserve the client build identity through child postbuilds');
 
 const postbuild = read('scripts/postbuild-wechat-minigame.js');
 assert.ok(postbuild.includes('__PDD_CDN_SLOT__'), 'postbuild must inject a visible CDN slot marker');
+assert.ok(postbuild.includes('__PDD_CLIENT_BUILD_ID__'), 'postbuild must inject a visible client build marker');
 assert.ok(!postbuild.includes("process.env.PDD_LEVEL_DATA_CDN_URL || 'https://"), 'postbuild must not silently default to A');
+
+const metaRepairDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'pdd-meta-repair-'));
+try {
+    const atlasPath = path.join(metaRepairDir, 'sample.atlas.txt');
+    const atlasMetaPath = atlasPath + '.meta';
+    fs.writeFileSync(atlasPath, 'sample.png\nsize: 1,1\n');
+    fs.writeFileSync(atlasMetaPath, JSON.stringify({
+        importer: '*',
+        uuid: '12345678-1234-4234-8234-123456789abc',
+        userData: {},
+    }));
+    const prefabPath = path.join(metaRepairDir, 'sample.prefab');
+    const prefabMetaPath = prefabPath + '.meta';
+    fs.writeFileSync(prefabPath, '[]');
+    fs.writeFileSync(prefabMetaPath, JSON.stringify({
+        importer: '*',
+        uuid: 'abcdefab-1234-4234-8234-123456789abc',
+        userData: { syncNodeName: 'Sample' },
+    }));
+    const repairResult = spawnSync(process.execPath, [
+        path.join(root, 'scripts', 'repair-cocos-meta.js'),
+        metaRepairDir,
+    ], {
+        cwd: root,
+        encoding: 'utf8',
+    });
+    assert.strictEqual(repairResult.status, 0, repairResult.stdout + repairResult.stderr);
+    const repairedAtlasMeta = JSON.parse(fs.readFileSync(atlasMetaPath, 'utf8'));
+    assert.strictEqual(repairedAtlasMeta.importer, 'text');
+    assert.deepStrictEqual(repairedAtlasMeta.files, ['.json']);
+    const repairedPrefabMeta = JSON.parse(fs.readFileSync(prefabMetaPath, 'utf8'));
+    assert.strictEqual(repairedPrefabMeta.importer, 'prefab');
+    assert.strictEqual(repairedPrefabMeta.userData.syncNodeName, 'Sample');
+} finally {
+    fs.rmSync(metaRepairDir, { recursive: true, force: true });
+}
 
 for (const relPath of ['scripts/write-level-data-cdn.js', 'scripts/write-skin-data-cdn.js']) {
     assert.ok(read(relPath).includes('cdnSlot'), `${relPath} must bind generated manifests to the selected slot`);

@@ -7,6 +7,7 @@ import {
     getRewardedAdProvider,
     type RewardedAdHooks,
     type RewardedAdOutcome,
+    type RewardedAdStateSnapshot,
 } from './RewardedAdProvider';
 import { DOUYIN_PLATFORM_CONFIG } from './Douyin/DouyinPlatformConfig';
 import { WECHAT_PLATFORM_CONFIG } from './WeChat/WeChatPlatformConfig';
@@ -27,6 +28,20 @@ export class AdConfig extends Component {
 
     public static cancelRewardedAdInteraction(reason: string = 'manual'): boolean {
         return AdConfig.getProvider().cancelPending(reason);
+    }
+
+    public static endRewardedAdWait(reason: string = 'manual'): boolean {
+        return AdConfig.getProvider().endRecoverableWait(reason);
+    }
+
+    public static getRewardedAdState(): RewardedAdStateSnapshot {
+        return AdConfig.getProvider().getState();
+    }
+
+    public static subscribeRewardedAdState(
+        listener: (snapshot: RewardedAdStateSnapshot) => void,
+    ): () => void {
+        return AdConfig.getProvider().subscribe(listener);
     }
 
     public static canAutoPreloadRewardedAd(): boolean {

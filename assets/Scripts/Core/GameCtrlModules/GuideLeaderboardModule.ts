@@ -50,23 +50,119 @@ function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string
 
 export function installGuideLeaderboardModule(target: any): void {
     Object.assign(target, {
-        beginModalFocus(reason: string = 'modal') {
-            this._modalFocusRefs = Math.max(0, Number(this._modalFocusRefs) || 0) + 1;
-            this.suspendGuideForModal(reason);
+        acquireRuntimeOwner(scope: string, owner: string): string {
+            const normalizedScope = String(scope || 'runtime');
+            const normalizedOwner = String(owner || 'anonymous');
+            const seq = Math.max(0, Number(this._runtimeOwnerSeq) || 0) + 1;
+            this._runtimeOwnerSeq = seq;
+            const token = `${normalizedScope}:${seq}:${normalizedOwner}`;
+            const scopes: Map<string, Map<string, string>> = this._runtimeOwners
+                || (this._runtimeOwners = new Map<string, Map<string, string>>());
+            const owners = scopes.get(normalizedScope) || new Map<string, string>();
+            owners.set(token, normalizedOwner);
+            scopes.set(normalizedScope, owners);
+            return token;
         },
 
-        endModalFocus(reason: string = 'modal') {
-            this._modalFocusRefs = Math.max(0, (Number(this._modalFocusRefs) || 0) - 1);
+        releaseRuntimeOwner(token: string): boolean {
+            const normalizedToken = String(token || '');
+            if (!normalizedToken) return false;
+            const scopes: Map<string, Map<string, string>> = this._runtimeOwners;
+            if (!(scopes instanceof Map)) return false;
+            for (const [scope, owners] of scopes.entries()) {
+                if (!owners.delete(normalizedToken)) continue;
+                if (owners.size === 0) scopes.delete(scope);
+                return true;
+            }
+            return false;
+        },
+
+        releaseRuntimeOwnerByName(scope: string, owner: string): boolean {
+            const owners: Map<string, string> | undefined = this._runtimeOwners?.get?.(String(scope || ''));
+            if (!(owners instanceof Map)) return false;
+            const entries = [...owners.entries()];
+            for (let index = entries.length - 1; index >= 0; index -= 1) {
+                const [token, currentOwner] = entries[index];
+                if (currentOwner !== String(owner || 'anonymous')) continue;
+                return this.releaseRuntimeOwner(token);
+            }
+            return false;
+        },
+
+        getRuntimeOwnerCount(scope: string): number {
+            const owners = this._runtimeOwners?.get?.(String(scope || ''));
+            return owners instanceof Map ? owners.size : 0;
+        },
+
+        clearRuntimeOwners(scope?: string): void {
+            if (!(this._runtimeOwners instanceof Map)) {
+                this._runtimeOwners = new Map<string, Map<string, string>>();
+                return;
+            }
+            if (scope) {
+                this._runtimeOwners.delete(String(scope));
+            } else {
+                this._runtimeOwners.clear();
+            }
+        },
+
+        auditRuntimeOwnersAfterForeground(): void {
+            const canvas = this.node?.scene?.getChildByName('Canvas') || null;
+            const screenRoot = canvas?.getChildByName('ScreenRoot') || null;
+            const popupRoot = screenRoot?.getChildByName('PopupRoot') || canvas?.getChildByName('PopupRoot') || null;
+            const hasExpectedModal = !!popupRoot?.children?.some?.((child: Node) =>
+                child?.isValid && child.activeInHierarchy && !!child.getComponent(BlockInputEvents),
+            );
+            if (this.getRuntimeOwnerCount('modal') > 0 && !hasExpectedModal) {
+                this.clearRuntimeOwners('modal');
+                this._modalFocusRefs = 0;
+                this.resumeGuideAfterModal?.('foreground-owner-recovery');
+            }
+            const loadingActive = !!this._loadingOverlay?.isValid && this._loadingOverlay.activeInHierarchy;
+            if (this.getRuntimeOwnerCount('loading') > 0 && !loadingActive) {
+                this.clearRuntimeOwners('loading');
+                this._loadingOwnerToken = '';
+            }
+            const hasPlacementArtifacts = (Number(this._flyingTargets?.size) || 0) > 0
+                || (Number(this._hiddenSlotIndices?.size) || 0) > 0;
+            if (this.getRuntimeOwnerCount('placement') > 0 && !hasPlacementArtifacts) {
+                this.clearRuntimeOwners('placement');
+                this._placementVisualRefs = 0;
+            }
+        },
+
+        beginModalFocus(reason: string = 'modal'): string {
+            const token = this.acquireRuntimeOwner('modal', reason);
+            this._modalFocusRefs = this.getRuntimeOwnerCount('modal');
+            this.suspendGuideForModal(reason);
+            return token;
+        },
+
+        endModalFocus(tokenOrReason: string = 'modal') {
+            const released = String(tokenOrReason || '').startsWith('modal:')
+                ? this.releaseRuntimeOwner(tokenOrReason)
+                : this.releaseRuntimeOwnerByName('modal', tokenOrReason);
+            if (!released && (Number(this._modalFocusRefs) || 0) > 0) {
+                debugPerfTrace('modal.owner.release.missing', { tokenOrReason });
+            }
+            this._modalFocusRefs = this.getRuntimeOwnerCount('modal');
             if (this._modalFocusRefs === 0) {
-                this.resumeGuideAfterModal(reason);
+                this.resumeGuideAfterModal(tokenOrReason);
+                const pendingReadyStep = Math.floor(Number(this._pendingTutorialInteractiveReadyStep));
+                if (pendingReadyStep >= 0) {
+                    this.markTutorialStepInteractiveReadyForFunnel?.(pendingReadyStep);
+                }
             }
         },
 
         suspendGuideForModal(_reason: string = 'modal') {
             this._guideInputSuspended = true;
-            this.clearGuideReminderTimer?.();
+            if (this._guideStatus === 'transitioning') {
+                this._guidePreviewStep = -1;
+            }
+            this.clearGuideReminderTimer?.(true, true);
             this.hideGuideReminderVisuals?.();
-            this.clearGuideRuntimeVisuals();
+            this.clearGuideRuntimeVisuals(true);
             if (this._guideLayer?.isValid) {
                 this._guideLayer.active = false;
             }
@@ -77,17 +173,22 @@ export function installGuideLeaderboardModule(target: any): void {
             if (!this._guideInputSuspended) return;
             this._guideInputSuspended = false;
             if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) return;
+            if (this._guideStatus === 'transitioning') {
+                if (!this.isPlacementVisualBusy?.()) this.checkGuideStepComplete?.();
+                return;
+            }
             if (!this._guideLayer?.isValid) return;
             this._guideLayer.active = true;
             if (this._guideMask?.isValid) {
                 this._guideMask.active = true;
             }
-            this.showGuideStep(this._guideStep);
+            this.showGuideStep(this._guideStep, { resumeOnly: true });
         },
 
-        clearGuideRuntimeVisuals() {
-            this.clearGuideReminderTimer?.();
+        clearGuideRuntimeVisuals(preserveReminder: boolean = false) {
+            this.clearGuideReminderTimer?.(true, preserveReminder);
             this.hideGuideReminderVisuals?.();
+            this.clearGuideFeedbackVisuals?.();
             if (this._guideHand?.isValid) {
                 Tween.stopAllByTarget(this._guideHand);
                 this._guideHand.active = false;
@@ -107,7 +208,12 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             const layer = this._guideLayer as Node | null;
             if (!layer?.isValid) return;
-            const transientNames = new Set(['GuideHighlight', 'GuideTapRing']);
+            const transientNames = new Set([
+                'GuideHighlight',
+                'GuideTapRing',
+                'GuideTargetFeedback',
+                'GuideTapFeedback',
+            ]);
             for (const child of [...layer.children]) {
                 if (!transientNames.has(child.name)) continue;
                 Tween.stopAllByTarget(child);
@@ -115,6 +221,442 @@ export function installGuideLeaderboardModule(target: any): void {
                 if (opacity) Tween.stopAllByTarget(opacity);
                 child.destroy();
             }
+        },
+
+        requireGuideAuthoredTemplate(name: string): Node {
+            const root = this.requireCanvasUiRoot?.('OverlayRoot') as Node | null;
+            const templates = root?.getChildByName('OverlayTemplates') || null;
+            const template = templates?.getChildByName(name) || null;
+            if (!template?.isValid) {
+                throw new Error(`[guide-feedback] Game.scene is missing OverlayTemplates/${name}`);
+            }
+            return template;
+        },
+
+        setGuideNodeLayerRecursively(node: Node, layer: number): void {
+            node.layer = layer;
+            for (const child of node.children) {
+                this.setGuideNodeLayerRecursively?.(child, layer);
+            }
+        },
+
+        instantiateGuideAuthoredTemplate(name: string, instanceName: string): Node {
+            const layer = this._guideLayer as Node | null;
+            if (!layer?.isValid) {
+                throw new Error('[guide-feedback] GuideLayer is unavailable');
+            }
+            const instance = instantiate(this.requireGuideAuthoredTemplate(name));
+            instance.name = instanceName;
+            instance.active = true;
+            layer.addChild(instance);
+            this.setGuideNodeLayerRecursively?.(instance, layer.layer);
+            return instance;
+        },
+
+        destroyGuideFeedbackNode(node: Node | null): void {
+            if (!node?.isValid) return;
+            Tween.stopAllByTarget(node);
+            const opacity = node.getComponent(UIOpacity);
+            if (opacity) Tween.stopAllByTarget(opacity);
+            node.destroy();
+        },
+
+        clearGuideFeedbackVisuals(): void {
+            this.destroyGuideFeedbackNode?.(this._guideTargetFeedbackNode || null);
+            this._guideTargetFeedbackNode = null;
+            this.destroyGuideFeedbackNode?.(this._guideDimMaskNode || null);
+            this._guideDimMaskNode = null;
+            this.destroyGuideFeedbackNode?.(this._guideDemoAssistNode || null);
+            this._guideDemoAssistNode = null;
+            this._guideDemoPlayingUntil = 0;
+            const transientNodes = Array.isArray(this._guideTransientFeedbackNodes)
+                ? [...this._guideTransientFeedbackNodes]
+                : [];
+            this._guideTransientFeedbackNodes = [];
+            for (const node of transientNodes) {
+                this.destroyGuideFeedbackNode?.(node);
+            }
+            this._guidePreviewVisible = false;
+        },
+
+        convertGuideRootPointToLayer(point: Vec3): Vec3 {
+            const layer = this._guideLayer as Node | null;
+            const layerUT = layer?.getComponent(UITransform) || null;
+            const sourceRoot = this._guideBubble?.parent as Node | null;
+            const sourceUT = sourceRoot?.getComponent(UITransform) || null;
+            if (!layer?.isValid || !layerUT || !sourceRoot?.isValid || !sourceUT) {
+                return point.clone();
+            }
+            const world = sourceUT.convertToWorldSpaceAR(point);
+            return layerUT.convertToNodeSpaceAR(world);
+        },
+
+        createGuideFeedbackRing(
+            name: string,
+            center: Vec3,
+            width: number,
+            height: number,
+            color: Color,
+            opacityValue: number,
+        ): Node {
+            const ring = this.instantiateGuideAuthoredTemplate(
+                'GuideFeedbackRingTemplate',
+                name,
+            );
+            const transform = ring.getComponent(UITransform);
+            const sprite = ring.getComponent(Sprite);
+            const opacity = ring.getComponent(UIOpacity);
+            if (!transform || !sprite || !opacity) {
+                ring.destroy();
+                throw new Error('[guide-feedback] GuideFeedbackRingTemplate is incomplete');
+            }
+            ring.setPosition(center);
+            transform.setContentSize(
+                Math.max(92, Math.round(width)),
+                Math.max(92, Math.round(height)),
+            );
+            sprite.color = color;
+            opacity.opacity = Math.max(0, Math.min(255, Math.round(opacityValue)));
+            return ring;
+        },
+
+        showGuideTargetFeedback(
+            state: 'preview' | 'actionable' | 'reinforce' | 'success' = 'actionable',
+            _reinforceCycles: number = 2,
+        ): boolean {
+            this.destroyGuideFeedbackNode?.(this._guideTargetFeedbackNode || null);
+            this._guideTargetFeedbackNode = null;
+            if (state === 'success') {
+                const opacity = this._guideDimMaskNode?.getComponent(UIOpacity) || null;
+                if (opacity) {
+                    Tween.stopAllByTarget(opacity);
+                    tween(opacity).to(0.18, { opacity: 112 }, { easing: 'sineOut' }).start();
+                }
+                return true;
+            }
+            const dimOpacity = state === 'preview' ? 112 : (state === 'reinforce' ? 172 : 132);
+            return this.showGuideDimMask?.(dimOpacity, state === 'reinforce') === true;
+        },
+
+        showGuideDimMask(alphaValue: number = 132, animate: boolean = false): boolean {
+            const bubble = this._guideBubble as Node | null;
+            const layer = this._guideLayer as Node | null;
+            const layerUT = layer?.getComponent(UITransform) || null;
+            if (!bubble?.isValid || !layer?.isValid || !layerUT) return false;
+            const bounds = this.getGuidePromptTargetBoundsForCurrentStep?.(bubble) || null;
+            if (!bounds) return false;
+            let mask = this._guideDimMaskNode as Node | null;
+            if (!mask?.isValid) {
+                mask = this.instantiateGuideAuthoredTemplate('GuideDimMaskTemplate', 'GuideDimMask');
+                this._guideDimMaskNode = mask;
+            }
+            mask.active = true;
+            mask.setSiblingIndex(0);
+            const center = this.convertGuideRootPointToLayer(new Vec3(bounds.centerX, bounds.centerY, 0));
+            const halfW = layerUT.contentSize.width / 2;
+            const halfH = layerUT.contentSize.height / 2;
+            const holeHalfW = Math.max(46, Number(bounds.width || 0) / 2 + 20);
+            const holeHalfH = Math.max(46, Number(bounds.height || 0) / 2 + 20);
+            const holeLeft = Math.max(-halfW, center.x - holeHalfW);
+            const holeRight = Math.min(halfW, center.x + holeHalfW);
+            const holeBottom = Math.max(-halfH, center.y - holeHalfH);
+            const holeTop = Math.min(halfH, center.y + holeHalfH);
+            const setPanel = (name: string, x: number, y: number, width: number, height: number) => {
+                const panel = mask!.getChildByName(name);
+                const transform = panel?.getComponent(UITransform) || null;
+                if (!panel?.isValid || !transform) {
+                    throw new Error(`[guide-feedback] GuideDimMaskTemplate is missing ${name}`);
+                }
+                panel.active = width > 0.5 && height > 0.5;
+                if (!panel.active) return;
+                transform.setContentSize(Math.max(1, width), Math.max(1, height));
+                panel.setPosition(x, y, 0);
+            };
+            const topHeight = Math.max(0, halfH - holeTop);
+            const bottomHeight = Math.max(0, holeBottom + halfH);
+            const middleHeight = Math.max(0, holeTop - holeBottom);
+            const leftWidth = Math.max(0, holeLeft + halfW);
+            const rightWidth = Math.max(0, halfW - holeRight);
+            setPanel('GuideDimTop', 0, holeTop + topHeight / 2, halfW * 2, topHeight);
+            setPanel('GuideDimBottom', 0, -halfH + bottomHeight / 2, halfW * 2, bottomHeight);
+            setPanel('GuideDimLeft', -halfW + leftWidth / 2, (holeTop + holeBottom) / 2, leftWidth, middleHeight);
+            setPanel('GuideDimRight', holeRight + rightWidth / 2, (holeTop + holeBottom) / 2, rightWidth, middleHeight);
+            const opacity = mask.getComponent(UIOpacity);
+            if (!opacity) {
+                throw new Error('[guide-feedback] GuideDimMaskTemplate is missing UIOpacity');
+            }
+            const nextOpacity = Math.max(0, Math.min(196, Math.round(alphaValue)));
+            Tween.stopAllByTarget(opacity);
+            if (animate) {
+                tween(opacity).to(0.18, { opacity: nextOpacity }, { easing: 'sineOut' }).start();
+            } else {
+                opacity.opacity = nextOpacity;
+            }
+            return true;
+        },
+
+        getGuideVisualToken(): string {
+            return [
+                Number(this._gameplayInitSeq) || 0,
+                this._guideMode || 'none',
+                Math.floor(Number(this._guideStep) || 0),
+                Number(this._guideActionEnabledAt) || 0,
+            ].join(':');
+        },
+
+        isGuideVisualTokenCurrent(token: string): boolean {
+            return !!token && token === this.getGuideVisualToken()
+                && this._guideStep >= 0
+                && !this._guideInputSuspended;
+        },
+
+        playGuidePathHint(repeatCount: number = 1, source: string = 'reminder'): boolean {
+            const endpoints = this.getGuidePathEndpointsForCurrentStep?.() || null;
+            if (!endpoints || !this._guideLayer?.isValid) return false;
+            const token = this.getGuideVisualToken();
+            const count = Math.max(1, Math.min(2, Math.floor(Number(repeatCount) || 1)));
+            for (let index = 0; index < count; index++) {
+                this.playSingleGuidePathHint?.(
+                    endpoints.from,
+                    endpoints.to,
+                    index * 0.92,
+                    token,
+                    source,
+                );
+            }
+            return true;
+        },
+
+        playSingleGuidePathHint(from: Vec3, to: Vec3, delaySeconds: number, token: string, source: string): void {
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (!Number.isFinite(distance) || distance < 1) return;
+            const path = this.instantiateGuideAuthoredTemplate('GuidePathHintTemplate', 'GuidePathHint');
+            const dotTemplate = path.getChildByName('GuidePathDotTemplate');
+            const arrow = path.getChildByName('GuidePathArrow');
+            const opacity = path.getComponent(UIOpacity);
+            if (!dotTemplate?.isValid || !arrow?.isValid || !opacity) {
+                path.destroy();
+                throw new Error('[guide-feedback] GuidePathHintTemplate is incomplete');
+            }
+            path.setSiblingIndex(Math.min(1, Math.max(0, this._guideLayer.children.length - 1)));
+            const dotCount = Math.max(3, Math.min(9, Math.ceil(distance / 36)));
+            const dots: Node[] = [];
+            for (let index = 0; index < dotCount; index++) {
+                const dot = instantiate(dotTemplate);
+                dot.name = 'GuidePathDot';
+                dot.active = false;
+                path.addChild(dot);
+                this.setGuideNodeLayerRecursively?.(dot, path.layer);
+                const t = (index + 1) / (dotCount + 1);
+                dot.setPosition(from.x + dx * t, from.y + dy * t, 0);
+                dot.setScale(0.48, 0.48, 1);
+                dots.push(dot);
+            }
+            arrow.active = false;
+            arrow.setPosition(to);
+            arrow.setScale(0.72, 0.72, 1);
+            arrow.setRotationFromEuler(0, 0, Math.atan2(dy, dx) * 180 / Math.PI);
+            opacity.opacity = 255;
+            this._guideTransientFeedbackNodes = Array.isArray(this._guideTransientFeedbackNodes)
+                ? this._guideTransientFeedbackNodes
+                : [];
+            this._guideTransientFeedbackNodes.push(path);
+            const revealSpan = 0.46;
+            dots.forEach((dot, index) => {
+                const revealDelay = delaySeconds + (dotCount <= 1 ? 0 : revealSpan * index / (dotCount - 1));
+                tween(dot)
+                    .delay(revealDelay)
+                    .call(() => {
+                        if (!this.isGuideVisualTokenCurrent?.(token) || !dot.isValid) return;
+                        dot.active = true;
+                    })
+                    .to(0.12, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
+                    .start();
+            });
+            tween(arrow)
+                .delay(delaySeconds + 0.46)
+                .call(() => {
+                    if (!this.isGuideVisualTokenCurrent?.(token) || !arrow.isValid) return;
+                    arrow.active = true;
+                })
+                .to(0.12, { scale: new Vec3(1.08, 1.08, 1) }, { easing: 'sineOut' })
+                .to(0.06, { scale: new Vec3(1, 1, 1) }, { easing: 'sineIn' })
+                .start();
+            tween(opacity)
+                .delay(delaySeconds + 0.58)
+                .to(0.12, { opacity: 0 }, { easing: 'quadIn' })
+                .call(() => {
+                    this._guideTransientFeedbackNodes = (this._guideTransientFeedbackNodes || [])
+                        .filter((node: Node) => node !== path);
+                    this.destroyGuideFeedbackNode?.(path);
+                })
+                .start();
+            this.trackFirstLevelFunnel?.('tutorial_path_hint_shown', {
+                stepId: this._guideStep,
+                stepName: this.getFirstLevelGuideStepKey?.(),
+                source,
+                success: true,
+                extra: { dotCount, durationMs: 700, delayMs: Math.round(delaySeconds * 1000) },
+            });
+        },
+
+        isGuideDemoTouchTarget(target: Node | null): boolean {
+            let current = target;
+            while (current?.isValid) {
+                if (current.name === 'GuideDemoAssist' || current.name === 'GuideDemoButton') return true;
+                if (current === this._guideLayer) break;
+                current = current.parent;
+            }
+            return false;
+        },
+
+        showGuideDemoAssist(): boolean {
+            if (this._guideStep < 0 || !this._guideLayer?.isValid || this._guideInputSuspended) return false;
+            if (this._guideDemoAssistNode?.isValid) {
+                this._guideDemoAssistNode.active = true;
+                return true;
+            }
+            const assist = this.instantiateGuideAuthoredTemplate('GuideDemoAssistTemplate', 'GuideDemoAssist');
+            const buttonNode = assist.getChildByName('GuideDemoButton');
+            const button = buttonNode?.getComponent(Button) || null;
+            const label = buttonNode?.getChildByName('GuideDemoButtonLabel')?.getComponent(Label) || null;
+            const assistUT = assist.getComponent(UITransform);
+            const layerUT = this._guideLayer.getComponent(UITransform);
+            if (!buttonNode?.isValid || !button || !label || !assistUT || !layerUT) {
+                assist.destroy();
+                throw new Error('[guide-feedback] GuideDemoAssistTemplate is incomplete');
+            }
+            const bubble = this._guideBubble as Node | null;
+            const bubbleUT = bubble?.getComponent(UITransform) || null;
+            let desiredX = 0;
+            let desiredY = assist.position.y;
+            if (bubble?.isValid && bubbleUT) {
+                const promptHeight = Math.max(1, Number(this.getGuidePromptVisualHeight?.(bubble)) || 116);
+                const bubbleBottomWorld = bubbleUT.convertToWorldSpaceAR(
+                    new Vec3(0, -promptHeight / 2, 0),
+                );
+                const bubbleBottom = layerUT.convertToNodeSpaceAR(bubbleBottomWorld);
+                desiredX = bubbleBottom.x;
+                desiredY = bubbleBottom.y - assistUT.contentSize.height / 2 - 12;
+                const targetBounds = this.getGuidePromptTargetBoundsForCurrentStep?.(bubble) || null;
+                if (targetBounds) {
+                    const targetCenter = this.convertGuideRootPointToLayer(
+                        new Vec3(targetBounds.centerX, targetBounds.centerY, 0),
+                    );
+                    const assistHalfW = assistUT.contentSize.width / 2;
+                    const assistHalfH = assistUT.contentSize.height / 2;
+                    const targetHalfW = Math.max(1, Number(targetBounds.width) || 0) / 2 + 18;
+                    const targetHalfH = Math.max(1, Number(targetBounds.height) || 0) / 2 + 18;
+                    const overlapsTarget = Math.abs(desiredX - targetCenter.x) < assistHalfW + targetHalfW
+                        && Math.abs(desiredY - targetCenter.y) < assistHalfH + targetHalfH;
+                    if (overlapsTarget) {
+                        const bubbleTopWorld = bubbleUT.convertToWorldSpaceAR(
+                            new Vec3(0, promptHeight / 2, 0),
+                        );
+                        const bubbleTop = layerUT.convertToNodeSpaceAR(bubbleTopWorld);
+                        desiredY = bubbleTop.y + assistHalfH + 12;
+                    }
+                }
+            }
+            const halfW = layerUT.contentSize.width / 2;
+            const halfH = layerUT.contentSize.height / 2;
+            desiredX = Math.max(-halfW + assistUT.contentSize.width / 2 + 12, Math.min(
+                desiredX,
+                halfW - assistUT.contentSize.width / 2 - 12,
+            ));
+            desiredY = Math.max(-halfH + assistUT.contentSize.height / 2 + 12, Math.min(
+                desiredY,
+                halfH - assistUT.contentSize.height / 2 - 12,
+            ));
+            assist.setPosition(desiredX, desiredY, 0);
+            assist.setSiblingIndex(this._guideLayer.children.length - 1);
+            const stopDemoTouch = (event: EventTouch) => {
+                event.propagationStopped = true;
+            };
+            buttonNode.on(Node.EventType.TOUCH_START, stopDemoTouch, this);
+            buttonNode.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                event.propagationStopped = true;
+                this.playGuideDemonstration?.();
+            }, this);
+            this._guideDemoAssistNode = assist;
+            return true;
+        },
+
+        playGuideDemonstration(): boolean {
+            if (!this._guideDemoAssistNode?.isValid || this._guideInputSuspended || this._guideStep < 0) return false;
+            const now = Date.now();
+            if (now < (Number(this._guideDemoPlayingUntil) || 0)) return false;
+            const buttonNode = this._guideDemoAssistNode.getChildByName('GuideDemoButton');
+            const button = buttonNode?.getComponent(Button) || null;
+            const label = buttonNode?.getChildByName('GuideDemoButtonLabel')?.getComponent(Label) || null;
+            if (!button || !label) return false;
+            const token = this.getGuideVisualToken();
+            this._guideDemoPlayingUntil = now + 1500;
+            button.interactable = false;
+            label.string = '演示中…';
+            this.showGuideTargetFeedback?.('reinforce', 1);
+            this.startGuideHandPulse?.(this._guideHand, 1);
+            this.playGuidePathHint?.(1, 'demo');
+            this.trackFirstLevelFunnel?.('tutorial_demo_requested', {
+                stepId: this._guideStep,
+                stepName: this.getFirstLevelGuideStepKey?.(),
+                source: 'demo_button',
+                success: true,
+            });
+            this.scheduleOnce?.(() => {
+                if (!this.isGuideVisualTokenCurrent?.(token)) return;
+                if (!button?.isValid || !label?.isValid) return;
+                button.interactable = true;
+                label.string = '演示一下';
+                this._guideDemoPlayingUntil = 0;
+            }, 1.5);
+            return true;
+        },
+
+        playGuideSuccessFeedback(): void {
+            this.showGuideTargetFeedback?.('success');
+        },
+
+        showGuideTapFeedback(
+            worldPos: Vec3,
+            state: 'tap' | 'wrong' | 'busy' = 'tap',
+        ): void {
+            const layer = this._guideLayer as Node | null;
+            const layerUT = layer?.getComponent(UITransform) || null;
+            if (!layer?.isValid || !layerUT) return;
+            const center = layerUT.convertToNodeSpaceAR(worldPos);
+            const color = state === 'wrong'
+                ? new Color(255, 92, 92, 255)
+                : (state === 'busy' ? new Color(115, 174, 255, 255) : new Color(255, 255, 255, 255));
+            const ring = this.createGuideFeedbackRing(
+                'GuideTapFeedback',
+                center,
+                state === 'wrong' ? 104 : 88,
+                state === 'wrong' ? 104 : 88,
+                color,
+                state === 'wrong' ? 235 : 205,
+            );
+            this._guideTransientFeedbackNodes = Array.isArray(this._guideTransientFeedbackNodes)
+                ? this._guideTransientFeedbackNodes
+                : [];
+            this._guideTransientFeedbackNodes.push(ring);
+            ring.setScale(0.52, 0.52, 1);
+            const opacity = ring.getComponent(UIOpacity)!;
+            tween(ring)
+                .to(state === 'wrong' ? 0.38 : 0.30, {
+                    scale: new Vec3(state === 'wrong' ? 1.36 : 1.18, state === 'wrong' ? 1.36 : 1.18, 1),
+                }, { easing: 'sineOut' })
+                .call(() => {
+                    this._guideTransientFeedbackNodes = (this._guideTransientFeedbackNodes || [])
+                        .filter((node: Node) => node !== ring);
+                    this.destroyGuideFeedbackNode?.(ring);
+                })
+                .start();
+            tween(opacity)
+                .to(state === 'wrong' ? 0.38 : 0.30, { opacity: 0 }, { easing: 'quadIn' })
+                .start();
         },
 
         isGuideModalLauncherHit(node: Node | null, worldPos: Vec3, padding: number = 12): boolean {
@@ -169,11 +711,11 @@ export function installGuideLeaderboardModule(target: any): void {
             this.startGuideHandPulse(hand);
         },
 
-        startHandGestureOnBoardTarget(colorId: number, hand: Node) {
+        startHandGestureOnBoardTarget(colorId: number, hand: Node, targetOffsetY: number = 0) {
             const targetCenter = this.getGuideBoardTargetCenter(colorId);
             if (!targetCenter) return;
             hand.active = true;
-            this.setGuideHandTarget(hand, targetCenter.x, targetCenter.y);
+            this.setGuideHandTarget(hand, targetCenter.x, targetCenter.y + targetOffsetY);
             this.startGuideHandPulse(hand);
         },
 
@@ -192,12 +734,13 @@ export function installGuideLeaderboardModule(target: any): void {
                 }
             }
             if (emptyCells.length === 0) return null;
-            const bounds = this.getGuideCellsLayerBounds?.(emptyCells);
+            const targetCell = this.getNearestGuideCellToBoundsCenter?.(emptyCells) || emptyCells[0];
+            const bounds = this.getGuideCellsLayerBounds?.([targetCell]);
             if (!bounds) return null;
             return new Vec3(bounds.centerX, bounds.centerY, 0);
         },
 
-        startGuideHandPulse(hand: Node) {
+        startGuideHandPulse(hand: Node, cycleCount: number = 2) {
             Tween.stopAllByTarget(hand);
             if (!this._guideReminderVisible) {
                 hand.active = false;
@@ -206,62 +749,83 @@ export function installGuideLeaderboardModule(target: any): void {
             hand.active = true;
             hand.setScale(1, 1, 1);
             const base = new Vec3(hand.position.x, hand.position.y, hand.position.z);
+            if (this._guideSuppressInitialHandPulse) {
+                hand.setPosition(base);
+                return;
+            }
+            const cycles = Math.max(1, Math.min(2, Math.floor(Number(cycleCount) || 1)));
+            const tapCycle = tween(hand)
+                .delay(0.25)
+                .to(0.22, {
+                    position: new Vec3(base.x, base.y + 16, base.z),
+                    scale: new Vec3(1, 1, 1),
+                }, { easing: 'sineOut' })
+                .to(0.24, {
+                    position: new Vec3(base.x, base.y - 6, base.z),
+                    scale: new Vec3(0.94, 0.94, 1),
+                }, { easing: 'quadIn' })
+                .call(() => {
+                    if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'zoom') {
+                        this.playGuideHandTapRipple?.(hand);
+                    }
+                })
+                .to(0.18, {
+                    position: base,
+                    scale: new Vec3(1, 1, 1),
+                }, { easing: 'sineOut' })
+                .delay(0.65);
             tween(hand)
-                .delay(0.3)
-                .repeatForever(
-                    tween(hand)
-                        .to(0.26, { position: new Vec3(base.x, base.y + 18, base.z) }, { easing: 'sineOut' })
-                        .to(0.30, { position: new Vec3(base.x, base.y - 8, base.z) }, { easing: 'quadIn' })
-                        .call(() => {
-                            if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'zoom') this.playGuideHandTapRipple?.(hand);
-                        })
-                        .delay(0.22)
-                )
+                .repeat(cycles, tapCycle)
+                .call(() => {
+                    if (!hand.isValid) return;
+                    hand.setPosition(base);
+                    hand.setScale(1, 1, 1);
+                })
+                .start();
+        },
+
+        startGuideWrongTargetHandPulse(hand: Node, cycleCount: number = 2) {
+            Tween.stopAllByTarget(hand);
+            if (!this._guideReminderVisible) {
+                hand.active = false;
+                return;
+            }
+            hand.active = true;
+            hand.setScale(1, 1, 1);
+            const base = new Vec3(hand.position.x, hand.position.y, hand.position.z);
+            const cycles = Math.max(1, Math.min(2, Math.floor(Number(cycleCount) || 1)));
+            const fastTapCycle = tween(hand)
+                .to(0.08, {
+                    position: new Vec3(base.x, base.y + 12, base.z),
+                    scale: new Vec3(1, 1, 1),
+                }, { easing: 'sineOut' })
+                .to(0.10, {
+                    position: new Vec3(base.x, base.y - 4, base.z),
+                    scale: new Vec3(0.94, 0.94, 1),
+                }, { easing: 'quadIn' })
+                .to(0.10, {
+                    position: base,
+                    scale: new Vec3(1, 1, 1),
+                }, { easing: 'sineOut' })
+                .delay(0.10);
+            tween(hand)
+                .repeat(cycles, fastTapCycle)
+                .call(() => {
+                    if (!hand.isValid) return;
+                    hand.setPosition(base);
+                    hand.setScale(1, 1, 1);
+                })
                 .start();
         },
 
         playGuideHandTapRipple(hand: Node) {
             const layer = this._guideLayer as Node | null;
-            if (!layer?.isValid || !hand?.isValid || hand.parent !== layer) return;
-
-            const ring = new Node('GuideTapRing');
-            layer.addChild(ring);
-            ring.layer = layer.layer;
-            ring.addComponent(UITransform).setContentSize(112, 112);
-            const visualFingertipOffsetX = -31;
-            const visualFingertipOffsetY = 43;
-            ring.setPosition(
-                hand.position.x + visualFingertipOffsetX,
-                hand.position.y + visualFingertipOffsetY,
-                0,
+            const handUT = hand?.getComponent(UITransform) || null;
+            if (!layer?.isValid || !hand?.isValid || !handUT) return;
+            const fingertipWorld = handUT.convertToWorldSpaceAR(
+                new Vec3(GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, 0),
             );
-            ring.setScale(0.68, 0.68, 1);
-
-            const opacity = ring.addComponent(UIOpacity);
-            opacity.opacity = 220;
-            const g = ring.addComponent(Graphics);
-            g.fillColor = new Color(94, 148, 255, 42);
-            g.circle(0, 0, 30);
-            g.fill();
-            g.strokeColor = new Color(86, 142, 255, 210);
-            g.lineWidth = 6;
-            g.circle(0, 0, 30);
-            g.stroke();
-            g.strokeColor = new Color(255, 255, 255, 190);
-            g.lineWidth = 3;
-            g.circle(0, 0, 18);
-            g.stroke();
-
-            this.raiseGuideHandAboveHighlights(hand);
-            tween(ring)
-                .to(0.42, { scale: new Vec3(1.7, 1.7, 1) }, { easing: 'sineOut' })
-                .call(() => {
-                    if (ring.isValid) ring.destroy();
-                })
-                .start();
-            tween(opacity)
-                .to(0.42, { opacity: 0 }, { easing: 'quadIn' })
-                .start();
+            this.showGuideTapFeedback?.(fingertipWorld, 'tap');
         },
 
         setGuideHandTarget(hand: Node, targetX: number, targetY: number) {
@@ -311,17 +875,23 @@ export function installGuideLeaderboardModule(target: any): void {
         advanceTutorial() {
             if (this._guideStep < 0) return;
             if (this._guideInputSuspended) return;
+            this.clearGuideTransitionWatchdog?.();
+            const completedStep = this._guideStep;
+            const nextStep = completedStep + 1;
+            const hasVisiblePreview = (this._guideMode === 'level_1' || this._guideMode === 'level_2')
+                && this._guideStatus === 'transitioning'
+                && this._guidePreviewStep === nextStep
+                && this._guidePreviewVisible === true
+                && this._guideDimMaskNode?.isValid;
             this._guideStatus = 'settling';
             this.clearGuideReminderTimer?.();
-            this.hideGuideReminderVisuals?.();
-            const completedStep = this._guideStep;
+            if (!hasVisiblePreview) this.hideGuideReminderVisuals?.();
             this.trackFirstLevelFunnel('tutorial_step_done', {
                 stepId: completedStep,
                 stepName: `${this._guideMode}:${completedStep}:${this._guidePhase}`,
                 source: 'tutorial',
                 success: true,
             });
-            const nextStep = this._guideStep + 1;
             if (nextStep >= this._guideTotalSteps) {
                 this.endTutorial();
                 if (this.boardModel.isAllLocked()) {
@@ -350,6 +920,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         endTutorial() {
+            this.clearGuideTransitionWatchdog?.();
             const completedGuideMode = this._guideMode;
             if (completedGuideMode === 'level_1') {
                 this.reportFirstLevelReleaseState?.('tutorial_done_before_cleanup');
@@ -367,9 +938,21 @@ export function installGuideLeaderboardModule(target: any): void {
             this._activeGameplayGuideLayoutMode = 'none';
             this._guideTotalSteps = 0;
             this._guideStatus = 'done';
+            this._guidePreviewStep = -1;
+            this._guideRenderStep = -1;
+            this._guidePreviewVisible = false;
+            this._guideVisualShownAt = 0;
+            this._guideActionEnabledAt = 0;
+            this._guideTransitionStartedAt = 0;
+            this._guideWrongAttemptCount = 0;
+            this._guideReminderStage = 0;
+            this._guideReminderDueAt = 0;
+            this._guideReminderRemainingMs = 0;
+            this._guideReminderVoicePlayed = false;
             this._guideLevel2SlotPlacementSucceeded = false;
             this._guideReminderPausedForLifecycle = false;
             this._lastGuideVoiceToken = '';
+            this.clearGuideFeedbackVisuals?.();
             this.clearGuideHighlight();
             if (this._guideBubble?.isValid) {
                 this._guideBubble.active = false;

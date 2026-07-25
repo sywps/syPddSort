@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "ly_0224",
+  "bucket": "exp",
+  "levelPrefix": "level_",
+  "runtimeMinimumLevelId": 2,
+  "levelDataContract": "v2",
+  "packSize": 100,
+  "tutorialContracts": {
+    "2": {
+      "mode": "slot_intro",
+      "stepCount": 1,
+      "guideCopies": [
+        "点击【解锁按钮】"
+      ]
+    },
+    "3": {
+      "mode": "zoom",
+      "stepCount": 1,
+      "title": "双指【缩放图案】",
+      "subtitle": "也可以直接开始游戏",
+      "guideCopies": [
+        "双指【缩放图案】"
+      ]
+    }
+  },
+  "stableSourceDir": "assets/LevelData",
+  "sourceMode": "stable_full_plus_overrides",
+  "outputDir": "build/level-experiment-cdn/ly_0224/treatment",
+  "overrideLevelIds": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "cdnBaseUrl": "https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/",
+  "ossPath": "syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/"
+}

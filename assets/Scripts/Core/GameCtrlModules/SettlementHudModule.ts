@@ -23,6 +23,7 @@ import {
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, BoardViewportController
 } from '../GameCtrlShared';
+import { Widget } from 'cc';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -43,9 +44,13 @@ const WIN_BONUS_SHARE_DAILY_LIMIT = 2;
 const WIN_BONUS_SHARE_MIN_LEVEL_GAP = 5;
 const WIN_BONUS_SHARE_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const WIN_BONUS_SHARE_GATE_STATE_KEY = 'pdd.winBonusShareGate.v1';
-const PRE10_IDLE_HINT_DELAY_SECONDS = 10;
-const PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS = 1.2;
-const PRE10_IDLE_HINT_MAX_LEVEL_ID = 10;
+const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
+const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 2;
+const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;
+const SMART_IDLE_HINT_SLOW_DELAY_SECONDS = 5;
+const SMART_IDLE_HINT_MAX_LEVEL_ID = 10;
+const LATER_LEVEL_IDLE_HINT_SHOW_LIMIT = 1;
+const SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS = 1.2;
 const SMART_IDLE_HINT_FINGERTIP_OFFSET_X = -31;
 const SMART_IDLE_HINT_FINGERTIP_OFFSET_Y = 43;
 const SMART_IDLE_HINT_TAP_SCALE = 0.88;
@@ -73,6 +78,21 @@ function ensureUi(node: Node, width: number, height: number): UITransform {
     const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
     ui.setContentSize(width, height);
     return ui;
+}
+
+function stretchRuntimeUiNodeToParent(node: Node): void {
+    const widget = node.getComponent(Widget) || node.addComponent(Widget);
+    const raw = widget as any;
+    raw.isAlignLeft = true;
+    raw.isAlignRight = true;
+    raw.isAlignTop = true;
+    raw.isAlignBottom = true;
+    raw.left = 0;
+    raw.right = 0;
+    raw.top = 0;
+    raw.bottom = 0;
+    raw.alignMode = 2;
+    widget.updateAlignment?.();
 }
 
 function getNodeCenterInRoot(root: Node, node: Node): Vec3 {
@@ -1051,7 +1071,7 @@ export function installSettlementHudModule(target: any): void {
             this.stopIdleHintTimer();
             this.clearSmartIdleHintVisuals?.();
             if (!this.canArmSmartIdleHint?.()) return;
-            this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+            this.armSmartIdleHintTimer?.(this.getSmartIdleHintDelaySeconds?.() ?? LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS);
         },
 
         clearIdleHint() {
@@ -1070,6 +1090,17 @@ export function installSettlementHudModule(target: any): void {
             this.scheduleOnce(handler, Math.max(0, Number(delaySeconds) || 0));
         },
 
+        getSmartIdleHintDelaySeconds(): number {
+            const shownCount = Math.max(0, Math.floor(Number(this._smartIdleHintShownCount) || 0));
+            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
+                ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
+                : Math.floor(Number(this.levelData?.levelId) || 0);
+            return logicalLevelId === LEVEL_3_IDLE_HINT_LEVEL_ID
+                && shownCount < LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT
+                ? LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS
+                : SMART_IDLE_HINT_SLOW_DELAY_SECONDS;
+        },
+
         canArmSmartIdleHint(): boolean {
             if (this.isGameEnd) return false;
             if (!this.boardModel || !this.slotModel || !this.levelData) return false;
@@ -1081,7 +1112,12 @@ export function installSettlementHudModule(target: any): void {
             const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
                 ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
                 : Math.floor(Number(this.levelData?.levelId) || 0);
-            return logicalLevelId >= 1 && logicalLevelId <= PRE10_IDLE_HINT_MAX_LEVEL_ID;
+            if (logicalLevelId < LEVEL_3_IDLE_HINT_LEVEL_ID || logicalLevelId > SMART_IDLE_HINT_MAX_LEVEL_ID) {
+                return false;
+            }
+            if (logicalLevelId === LEVEL_3_IDLE_HINT_LEVEL_ID) return true;
+            return Math.max(0, Math.floor(Number(this._smartIdleHintShownCount) || 0))
+                < LATER_LEVEL_IDLE_HINT_SHOW_LIMIT;
         },
 
         canShowSmartIdleHint(): boolean {
@@ -1104,7 +1140,7 @@ export function installSettlementHudModule(target: any): void {
             this._smartIdleHintTimerHandler = null;
             if (!this.canShowSmartIdleHint?.()) {
                 if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
                 return;
             }
@@ -1112,7 +1148,7 @@ export function installSettlementHudModule(target: any): void {
             const plan = this.resolveSmartIdleHintPlan?.() as SmartIdleHintPlan | null;
             if (!plan) {
                 if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_DELAY_SECONDS);
+                    this.armSmartIdleHintTimer?.(this.getSmartIdleHintDelaySeconds?.() ?? LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS);
                 }
                 return;
             }
@@ -1134,7 +1170,7 @@ export function installSettlementHudModule(target: any): void {
                     this.startSmartIdleHintHandPath?.(hand, from, to);
                     this.trackSmartIdleHintShown?.(plan);
                 } else if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
                 return;
             }
@@ -1146,7 +1182,7 @@ export function installSettlementHudModule(target: any): void {
                     this.startSmartIdleHintHandPath?.(hand, from, to);
                     this.trackSmartIdleHintShown?.(plan);
                 } else if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
                 return;
             }
@@ -1158,12 +1194,16 @@ export function installSettlementHudModule(target: any): void {
                     this.startSmartIdleHintHandPath?.(hand, from, to);
                     this.trackSmartIdleHintShown?.(plan);
                 } else if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(PRE10_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
                 }
             }
         },
 
         trackSmartIdleHintShown(plan: SmartIdleHintPlan) {
+            this._smartIdleHintShownCount = Math.max(
+                0,
+                Math.floor(Number(this._smartIdleHintShownCount) || 0),
+            ) + 1;
             const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
                 ? this.getActiveLogicalLevelId()
                 : this.getAnalyticsLevelId?.();
@@ -1398,6 +1438,29 @@ export function installSettlementHudModule(target: any): void {
             return best;
         },
 
+        bindGuideLayerViewportSync(): void {
+            const layer = this._guideLayer as Node | null;
+            if (!layer?.isValid) return;
+            layer.off(Node.EventType.SIZE_CHANGED, this.refreshGuideLayerViewportLayout, this);
+            layer.on(Node.EventType.SIZE_CHANGED, this.refreshGuideLayerViewportLayout, this);
+        },
+
+        refreshGuideLayerViewportLayout(): void {
+            if (!this._guideLayer?.isValid || !this._guideLayer.activeInHierarchy) return;
+            const dimMask = this._guideDimMaskNode as Node | null;
+            if (dimMask?.isValid && dimMask.activeInHierarchy) {
+                const opacity = dimMask.getComponent(UIOpacity);
+                this.showGuideDimMask?.(Math.max(0, Number(opacity?.opacity) || 132), false);
+            }
+            const bubble = this._guideBubble as Node | null;
+            if (!bubble?.isValid || !bubble.activeInHierarchy) return;
+            if (this._guideMode === 'slot_intro') {
+                this.refreshSlotIntroGuideLayout?.();
+            } else {
+                this.adjustStarterGuidePromptForCurrentStep?.(bubble);
+            }
+        },
+
         ensureSmartIdleHintLayer(): boolean {
             const root = typeof this.requireCanvasUiRoot === 'function'
                 ? this.requireCanvasUiRoot('OverlayRoot')
@@ -1415,6 +1478,8 @@ export function installSettlementHudModule(target: any): void {
                 this._guideLayer.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
                 this._guideLayer.layer = Layers.Enum.UI_2D;
             }
+            stretchRuntimeUiNodeToParent(this._guideLayer);
+            this.bindGuideLayerViewportSync?.();
             this._guideLayer.active = true;
             this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
             const blocker = this._guideLayer.getComponent(BlockInputEvents);
@@ -1426,6 +1491,7 @@ export function installSettlementHudModule(target: any): void {
                 this._guideMask.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
                 this._guideMask.layer = Layers.Enum.UI_2D;
             }
+            stretchRuntimeUiNodeToParent(this._guideMask);
 
             const guidePrompt = root.getChildByName('TutorialGuidePrompt');
             if (guidePrompt?.isValid) {
@@ -1690,6 +1756,14 @@ export function installSettlementHudModule(target: any): void {
             this._guideInputSuspended = false;
             this._guideLevel2SlotPlacementSucceeded = false;
             this._guideStatus = 'awaiting_action';
+            this._guidePreviewVisible = false;
+            this._guideTargetFeedbackNode = null;
+            this._guideTransientFeedbackNodes = [];
+            this._guideVisualShownAt = 0;
+            this._guideActionEnabledAt = 0;
+            this._guideTransitionStartedAt = 0;
+            this._guideWrongAttemptCount = 0;
+            this._guideReminderStage = 0;
             this._guidePhase = typeof this.getTutorialPhaseForStep === 'function'
                 ? this.getTutorialPhaseForStep(0)
                 : 'select';
@@ -1746,10 +1820,16 @@ export function installSettlementHudModule(target: any): void {
             root.addChild(this._guideLayer);
             this._guideLayer.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
             this._guideLayer.layer = Layers.Enum.UI_2D;
+            stretchRuntimeUiNodeToParent(this._guideLayer);
+            this.bindGuideLayerViewportSync?.();
             this._guideLayer.setSiblingIndex(Math.max(0, root.children.length - 1));
             if (mode !== 'zoom') {
                 this._guideLayer.addComponent(BlockInputEvents);
                 this._guideLayer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
+                    if (this.isGuideDemoTouchTarget?.(event.target as Node)) {
+                        event.propagationStopped = true;
+                        return;
+                    }
                     const uiPos = event.getUILocation();
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     this.markFirstLevelTouchTiming?.();
@@ -1762,6 +1842,10 @@ export function installSettlementHudModule(target: any): void {
                     event.propagationStopped = true;
                 }, this);
                 this._guideLayer.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
+                    if (this.isGuideDemoTouchTarget?.(event.target as Node)) {
+                        event.propagationStopped = true;
+                        return;
+                    }
                     const uiPos = event.getUILocation();
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     if (this._guideInputSuspended) {
@@ -1781,6 +1865,7 @@ export function installSettlementHudModule(target: any): void {
             this._guideLayer.addChild(this._guideMask);
             this._guideMask.addComponent(UITransform).setContentSize(guideLayerWidth, guideLayerHeight);
             this._guideMask.layer = Layers.Enum.UI_2D;
+            stretchRuntimeUiNodeToParent(this._guideMask);
         
             const guidePrompt = root.getChildByName('TutorialGuidePrompt');
             if (!guidePrompt) {
@@ -1824,29 +1909,45 @@ export function installSettlementHudModule(target: any): void {
             }
         },
 
-        showGuideStep(step: number) {
-            this.clearGuideReminderTimer?.();
-            this.hideGuideReminderVisuals?.();
-            this._guideStep = step;
-            this._guideStatus = 'awaiting_action';
+        showGuideStep(step: number, options: { previewOnly?: boolean; resumeOnly?: boolean } = {}): boolean {
+            const previewOnly = options.previewOnly === true;
+            const resumeOnly = !previewOnly && options.resumeOnly === true;
+            const renderPhase = previewOnly
+                ? (this.getTutorialPhaseForStep?.(step) || this._guidePhase)
+                : this._guidePhase;
+            if (previewOnly && (
+                (this._guideMode !== 'level_1' && this._guideMode !== 'level_2')
+                || this._guideStatus !== 'transitioning'
+                || step !== this._guideStep + 1
+            )) {
+                return false;
+            }
+            this.clearGuideRuntimeVisuals?.(resumeOnly);
+            if (!previewOnly && !resumeOnly) {
+                this._guideStep = step;
+                this._guidePreviewStep = -1;
+                this._guideRenderStep = -1;
+                this._guidePreviewVisible = false;
+                this._guideWrongAttemptCount = 0;
+                this._guideReminderStage = 0;
+                this._guideReminderDueAt = 0;
+                this._guideReminderRemainingMs = 0;
+                this._guideReminderVoicePlayed = false;
+                this._guideStatus = 'awaiting_action';
+            }
             if (this._guideInputSuspended) {
                 this.clearGuideRuntimeVisuals?.();
                 if (this._guideLayer?.isValid) {
                     this._guideLayer.active = false;
                 }
-                return;
+                return false;
             }
-            if (!this._guideLayer) return;
+            if (!this._guideLayer) return false;
             this._guideLayer.active = true;
-            // 首次展示与 5 秒未操作提醒是两件事。步骤创建当帧就允许手势可见；
-            // armGuideReminder() 只负责后续重复提醒，不能再作为首次显示门控。
-            this._guideReminderVisible = true;
-            this.markTutorialStepShownForFunnel?.(step);
-            this.trackFirstLevelFunnel('tutorial_step_show', {
-                stepId: step,
-                stepName: `${this._guideMode}:${step}:${this._guidePhase}`,
-                source: 'tutorial',
-            });
+            if (this._guideMask?.isValid) {
+                this._guideMask.active = true;
+            }
+            this._guideReminderVisible = !previewOnly;
         
             Tween.stopAllByTarget(this._guideHand!);
             this._guideHand!.setScale(1, 1, 1);
@@ -1867,63 +1968,134 @@ export function installSettlementHudModule(target: any): void {
         
             let gm = mask.getComponent(Graphics); if (!gm) gm = mask.addComponent(Graphics); gm.clear();
             const gb = bubble.getComponent(Graphics); if (gb) gb.clear();
-        
-            switch (this._guideMode) {
-                case 'level_1':
-                    switch (step) {
-                        case 0: this.guideStep0(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 1: this.guideStep1(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 2: this.guideStep2(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 3: this.guideStep3(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 4: this.guideStep4(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 5: this.guideStep5(gm, gb as Graphics, lbl, bubble, hand); break;
-                        default: this.endTutorial(); break;
-                    }
-                    break;
-                case 'level_2':
-                    switch (step) {
-                        case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 3: this.guideLevel2PickCounterpartStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 4: this.guideLevel2PlaceCounterpartStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 5: this.guideLevel2PickBufferedStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        case 6: this.guideLevel2PlaceBufferedStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        default: this.endTutorial(); break;
-                    }
-                    break;
-                case 'zoom':
-                    switch (step) {
-                        case 0: this.guideZoomGestureStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        default: this.endTutorial(); break;
-                    }
-                    break;
-                case 'slot_intro':
-                    switch (step) {
-                        case 0: this.guideSlotIntroStep(gm, gb as Graphics, lbl, bubble, hand); break;
-                        default: this.endTutorial(); break;
-                    }
-                    break;
-                default:
-                    this.endTutorial();
-                    break;
+            if (previewOnly) {
+                bubble.active = false;
+                hand.active = false;
+                const previousRenderStep = this._guideRenderStep;
+                this._guideRenderStep = step;
+                const previewShown = this.showGuideTargetFeedback?.('preview') === true;
+                this._guideRenderStep = previousRenderStep;
+                if (!previewShown) return false;
+                this._guidePreviewStep = step;
+                this._guidePreviewVisible = true;
+                this._guideVisualShownAt = Date.now();
+                this._guideStatus = 'transitioning';
+                this.trackFirstLevelFunnel('tutorial_transition_feedback_shown', {
+                    stepId: step,
+                    stepName: `${this._guideMode}:${step}:${renderPhase}`,
+                    source: 'tutorial_preview',
+                    success: true,
+                    extra: {
+                        previewOnly: true,
+                        actionEnabled: false,
+                        transitionElapsedMs: Math.max(0, Date.now() - (Number(this._guideTransitionStartedAt) || Date.now())),
+                    },
+                });
+                return true;
             }
-            this.markTutorialStepInteractiveReadyForFunnel?.(step);
+            const previousRenderStep = this._guideRenderStep;
+            this._guideRenderStep = step;
+            this._guideSuppressInitialHandPulse = resumeOnly;
+            try {
+                switch (this._guideMode) {
+                    case 'level_1':
+                        switch (step) {
+                            case 0: this.guideStep0(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 1: this.guideStep1(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 2: this.guideStep2(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 3: this.guideStep3(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 4: this.guideStep4(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 5: this.guideStep5(gm, gb as Graphics, lbl, bubble, hand); break;
+                            default: this.endTutorial(); break;
+                        }
+                        break;
+                    case 'level_2':
+                        switch (step) {
+                            case 0: this.guideLevel2UnlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 1: this.guideLevel2PickBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 2: this.guideLevel2PlaceBlockStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 3: this.guideLevel2PickCounterpartStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 4: this.guideLevel2PlaceCounterpartStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 5: this.guideLevel2PickBufferedStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            case 6: this.guideLevel2PlaceBufferedStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            default: this.endTutorial(); break;
+                        }
+                        break;
+                    case 'zoom':
+                        switch (step) {
+                            case 0: this.guideZoomGestureStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            default: this.endTutorial(); break;
+                        }
+                        break;
+                    case 'slot_intro':
+                        switch (step) {
+                            case 0: this.guideSlotIntroStep(gm, gb as Graphics, lbl, bubble, hand); break;
+                            default: this.endTutorial(); break;
+                        }
+                        break;
+                    default:
+                        this.endTutorial();
+                        break;
+                }
+            } finally {
+                this._guideRenderStep = previousRenderStep;
+                this._guideSuppressInitialHandPulse = false;
+            }
+            if (this._guideMode !== 'zoom') {
+                this.showGuideTargetFeedback?.('actionable');
+                this.showGuideDimMask?.(
+                    resumeOnly && (Number(this._guideReminderStage) || 0) >= 2 ? 184 : 132,
+                    false,
+                );
+            }
+            const actionableNow = resumeOnly && (Number(this._guideActionEnabledAt) || 0) > 0
+                ? Number(this._guideActionEnabledAt)
+                : Date.now();
+            if (!resumeOnly) {
+                this._guideVisualShownAt = actionableNow;
+                this._guideActionEnabledAt = actionableNow;
+            }
+            if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
+                && (!bubble.active || !hand.active)) {
+                throw new Error(`[guide] actionable step is missing visible bubble/hand: ${this._guideMode}:${step}:${renderPhase}`);
+            }
+            if (!resumeOnly) {
+                this.markTutorialStepShownForFunnel?.(step, renderPhase);
+                this.trackFirstLevelFunnel('tutorial_step_show', {
+                    stepId: step,
+                    stepName: `${this._guideMode}:${step}:${renderPhase}`,
+                    source: 'tutorial',
+                    success: true,
+                    extra: {
+                        actionEnabled: true,
+                        visualToActionMs: 0,
+                    },
+                });
+                this.markTutorialStepInteractiveReadyForFunnel?.(step);
+            }
             this.armGuideReminder?.();
+            if (!resumeOnly && this.shouldPlayInitialGuidePathForStep?.(step)) {
+                this.playGuidePathHint?.(1, 'step_enter');
+            }
         
-            this.playGuideVoiceForCurrentStep(step);
+            if (!resumeOnly) this.playGuideVoiceForCurrentStep(step);
+            return true;
         },
 
-        playGuideVoiceForCurrentStep(step: number) {
-            if (this._guideMode !== 'level_1') return;
-            if (this.isMainlineMainLevel()) return;
+        getGuideVoiceCueForStep(step: number): SfxName | null {
             const cueByStep: Partial<Record<number, SfxName>> = {
                 0: 'guideLevel1Pick1',
                 1: 'guideLevel1Place1',
                 2: 'guideLevel1Pick2',
                 3: 'guideLevel1Place2',
             };
-            const cue = cueByStep[step];
+            return cueByStep[step] || null;
+        },
+
+        playGuideVoiceForCurrentStep(step: number) {
+            if (this._guideMode !== 'level_1') return;
+            if (this.isMainlineMainLevel()) return;
+            const cue = this.getGuideVoiceCueForStep?.(step) || null;
             if (!cue) return;
         
             const token = `${this._guideMode}:${step}`;
@@ -1935,6 +2107,15 @@ export function installSettlementHudModule(target: any): void {
                     AudioMgr.inst.play(cue);
                 }
             }, 0.05);
+        },
+
+        playGuideReminderVoiceForCurrentStep(step: number): void {
+            if (this._guideMode !== 'level_1' || this.isMainlineMainLevel()) return;
+            if (this._guideReminderVoicePlayed) return;
+            const cue = this.getGuideVoiceCueForStep?.(step) || null;
+            if (!cue) return;
+            this._guideReminderVoicePlayed = true;
+            AudioMgr.inst.play(cue);
         },
 
         isMinimalTutorialGuide(): boolean {

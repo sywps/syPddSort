@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const buildCommon = require('./minigame-build-common.js');
 const platformConfig = require('./minigame-platform-config.js');
@@ -35,6 +36,7 @@ process.env.WECHAT_OPEN_DEVTOOLS = openDevtools;
 process.env.WECHAT_CLEAN_COCOS_CACHE = process.env.WECHAT_CLEAN_COCOS_CACHE || '0';
 process.env.PDD_COCOS_ASSETDB_PREWARM = process.env.PDD_COCOS_ASSETDB_PREWARM || '0';
 process.env.PDD_COCOS_ASSETDB_PREWARM_FILE = assetDbPrewarmPath;
+process.env.PDD_CLIENT_BUILD_ID = process.env.PDD_CLIENT_BUILD_ID || createWechatClientBuildId();
 
 function logStep(message) {
     console.log('');
@@ -100,6 +102,7 @@ function assertRuntimeWechatCdnTarget(runtimeDir, target) {
         'globalThis.__PDD_CDN_SLOT__=' + JSON.stringify(target.slot) + ';',
         'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(target.levelDataCdnUrl) + ';',
         'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(target.skinDataCdnUrl) + ';',
+        'globalThis.__PDD_CLIENT_BUILD_ID__=' + JSON.stringify(process.env.PDD_CLIENT_BUILD_ID) + ';',
     ];
     const missing = markers.filter((marker) => !content.includes(marker));
     if (missing.length > 0) {
@@ -137,6 +140,29 @@ function walkFiles(dir, out = []) {
         else out.push(full);
     }
     return out;
+}
+
+function createWechatClientBuildId() {
+    const hash = crypto.createHash('sha256');
+    const sourceRoots = [
+        path.join(projectDir, 'assets', 'Scripts'),
+        path.join(projectDir, 'assets', 'Scenes'),
+    ];
+    const sourceFiles = sourceRoots
+        .flatMap((sourceRoot) => walkFiles(sourceRoot))
+        .filter((filePath) => /\.(?:ts|js|json|scene|prefab)$/i.test(filePath))
+        .sort((a, b) => a.localeCompare(b));
+    if (sourceFiles.length === 0) {
+        fail('无法生成客户端构建 ID：未找到脚本或场景源文件');
+    }
+    for (const filePath of sourceFiles) {
+        hash.update(path.relative(projectDir, filePath));
+        hash.update('\0');
+        hash.update(fs.readFileSync(filePath));
+        hash.update('\0');
+    }
+    const timestamp = new Date().toISOString().replace(/[-:.]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    return timestamp + '-' + hash.digest('hex').slice(0, 12);
 }
 
 function dirSize(dir, excludeRoot) {

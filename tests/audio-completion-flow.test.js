@@ -173,8 +173,10 @@ for (const [sceneName, sceneContent] of [
     ['Home.scene', homeScene],
     ['UIPreview.scene', uiPreviewScene],
 ]) {
-    assert.ok(sceneContent.includes('"请重启小游戏"'), `${sceneName} fatal overlay title copy must live in the Cocos scene template`);
-    assert.ok(sceneContent.includes('"资源更新中"'), `${sceneName} fatal overlay hint copy must live in the Cocos scene template`);
+    assert.ok(sceneContent.includes('"关卡没准备好"'), `${sceneName} fatal overlay title copy must live in the Cocos scene template`);
+    assert.ok(sceneContent.includes('"请检查网络后重试"'), `${sceneName} fatal overlay hint copy must live in the Cocos scene template`);
+    assert.ok(!sceneContent.includes('"请重启小游戏"'), `${sceneName} fatal overlay must not force a restart when retry/back actions are available`);
+    assert.ok(!sceneContent.includes('"资源更新中"'), `${sceneName} fatal overlay must not retain the old non-actionable wait copy`);
     assert.ok(!sceneContent.includes('"请检查资源与配置后重新进入游戏"'), `${sceneName} fatal overlay template must not retain old implementation-facing copy`);
     assert.ok(!sceneContent.includes('"LevelData/level_1"'), `${sceneName} fatal overlay template must not retain technical level-path text`);
     assert.ok(!sceneContent.includes('"remote_load_error"'), `${sceneName} fatal overlay template must not retain technical error-code text`);

@@ -179,7 +179,8 @@ function repair(metaPath) {
     else if (ext === '.mp3' || ext === '.wav') next = { ver: '1.0.0', importer: 'audio-clip', imported: true, uuid: meta.uuid, files: ['.json', ext], subMetas: {}, userData: { downloadMode: 0 } };
     else if (ext === '.ts') next = { ver: '4.0.24', importer: 'typescript', imported: true, uuid: meta.uuid, files: [], subMetas: {}, userData: meta.userData || {} };
     else if (ext === '.scene') next = { ver: '1.1.50', importer: 'scene', imported: true, uuid: meta.uuid, files: ['.json'], subMetas: {}, userData: meta.userData || {} };
-    else if (ext === '.md') next = { ver: '1.0.1', importer: 'text', imported: true, uuid: meta.uuid, files: ['.json'], subMetas: {}, userData: meta.userData || {} };
+    else if (ext === '.prefab') next = { ver: '1.1.50', importer: 'prefab', imported: true, uuid: meta.uuid, files: ['.json'], subMetas: {}, userData: meta.userData || {} };
+    else if (ext === '.md' || ext === '.txt') next = { ver: '1.0.1', importer: 'text', imported: true, uuid: meta.uuid, files: ['.json'], subMetas: {}, userData: meta.userData || {} };
     if (!next) throw new Error('Unsupported meta asset type: ' + path.relative(root, assetPath));
     writeJson(metaPath, next);
     return true;

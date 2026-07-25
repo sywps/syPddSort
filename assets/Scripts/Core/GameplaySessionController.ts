@@ -18,13 +18,24 @@ export class GameplaySessionController {
 
     initGame(data: LevelData, activeLevelId?: number) {
         const runtime = this.runtime;
+        let initStage = 'runtime_reset';
+        let resolvedLevelId = Math.max(1, Math.floor(Number(activeLevelId || data?.levelId) || 1));
+        let activeLogicalLevelId = resolvedLevelId;
+        let gameplayPrefix = 'level_';
+        let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
+        let tutorialMode: TutorialMode = 'none';
         try {
             runtime.cancelRewardedGrantInteraction?.('gameplay-init');
+            for (const scope of ['modal', 'timer', 'placement', 'placement-input', 'guide', 'ad']) {
+                runtime.clearRuntimeOwners?.(scope);
+            }
+            runtime._modalFocusRefs = 0;
             runtime._gameplayInitSeq = (Number(runtime._gameplayInitSeq) || 0) + 1;
             runtime.resetFirstLevelReleaseDiagnostics?.();
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
             runtime._gameplayResultPanelPrefabLoadCallbacks = null;
             this.clearTutorialRuntimeState(runtime);
+            initStage = 'audio_init';
             AudioMgr.inst.init(runtime.node);
             const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
             if (!bootstrapOnlyGameplayStartup) {
@@ -32,23 +43,24 @@ export class GameplaySessionController {
                 AudioMgr.inst.playGameBgm();
             }
             runtime.levelData = data;
-            const resolvedLevelId = runtime._isThemeLevel
+            initStage = 'route_context';
+            resolvedLevelId = runtime._isThemeLevel
                 ? Math.max(1, Math.floor(Number(runtime._currentThemeLevelId || data.levelId) || 1))
                 : Math.max(1, Math.floor(Number(activeLevelId || data.levelId) || 1));
-            const gameplayPrefix = runtime._currentExternalLevelFilePath
+            gameplayPrefix = runtime._currentExternalLevelFilePath
                 ? runtime._currentExternalLevelPrefix
                 : (runtime._isThemeLevel ? 'zt_level_' : 'level_');
-            const gameplayEntryMode = runtime._currentExternalLevelFilePath
+            gameplayEntryMode = runtime._currentExternalLevelFilePath
                 ? 'external'
                 : (runtime._isThemeLevel ? 'theme' : 'main');
             AppRoot.tryGet()?.markGameActive(resolvedLevelId, gameplayPrefix, gameplayEntryMode, 'Game');
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;
             runtime._activeGameplayEntryMode = gameplayEntryMode;
-            const activeLogicalLevelId = gameplayEntryMode === 'main'
+            activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
-            const tutorialMode = gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
+            tutorialMode = gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
                 ? this.resolveTutorialMode(data)
                 : 'none';
             if (gameplayEntryMode === 'main' && activeLogicalLevelId === 1) {
@@ -66,8 +78,11 @@ export class GameplaySessionController {
             runtime._firstLevelGuideStepReadyAt = {};
             runtime._firstLevelGuideStepFirstTouchSent = {};
             runtime._firstLevelGuideLayerTouchCounts = {};
+            runtime._pendingTutorialInteractiveReadyStep = -1;
             runtime._interactionTouchAttemptCount = 0;
+            initStage = 'model_build';
             runtime.boardModel = new BoardModel(data);
+            initStage = 'slot_policy';
             const maxSlotRows = runtime.getMaxSlotRows();
             const slotPolicy = resolveSlotRowPolicy({
                 levelId: activeLogicalLevelId,
@@ -83,8 +98,10 @@ export class GameplaySessionController {
             );
             runtime.slotRowCount = initialVisibleSlotRows;
             runtime.initialSlotRowCount = runtime.slotRowCount;
+            initStage = 'slot_model';
             runtime.slotModel = new SlotModel(SLOTS_PER_ROW * runtime.slotRowCount);
             runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
+            initStage = 'time_policy';
             const resolvedTimeLimit = resolveSlotOnboardingTimeLimit({
                 levelId: activeLogicalLevelId,
                 entryMode: gameplayEntryMode,
@@ -98,6 +115,7 @@ export class GameplaySessionController {
                 })
                 : resolvedTimeLimit;
             const dynamicTimeLimit = gameplayEntryMode === 'main' && activeLogicalLevelId === 1 ? 0 : resolvedDynamicTimeLimit;
+            initStage = 'state_reset';
             runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
             runtime.timeRemain = dynamicTimeLimit;
             runtime.isGameEnd = false;
@@ -124,8 +142,10 @@ export class GameplaySessionController {
             runtime._completedColors = new Set();
             runtime._pendingColorCompleteEffects = new Map();
             runtime._patternCompleteWinPending = false;
+            runtime._smartIdleHintShownCount = 0;
             runtime.clearPatternCompleteMatchFx?.();
             runtime.clearFreezeSpineFx?.();
+            initStage = 'runtime_cleanup';
             runtime._guidePulseTweens = [];
             runtime._pulseTweens = [];
             runtime.stopPulseTweens();
@@ -138,12 +158,17 @@ export class GameplaySessionController {
             runtime.clearPlacementVisualState?.();
             runtime.detachGameplayInputHandlers();
 
+            initStage = 'ui_build';
             runtime.reportFirstLevelReleaseState?.('before_ui_build');
             runtime.buildUI();
+            initStage = 'board_render';
             runtime.renderBoard();
+            initStage = 'slot_render';
             runtime.renderSlots();
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
+            initStage = 'visual_readiness';
             runtime.assertGameplayVisualReadiness();
+            initStage = 'loading_release';
             runtime.reportFirstLevelReleaseState?.('before_loading_hide');
             runtime.hideLoadingOverlayAfterGameplayReady?.();
             runtime.reportFirstLevelReleaseState?.('after_loading_hide');
@@ -177,6 +202,7 @@ export class GameplaySessionController {
                 physicalLevelId: startupTracePhysicalLevel,
             });
             AnalyticsMgr.inst.flushFunnelEvents();
+            initStage = 'startup_services';
             runtime.onGameplayUiReadyForStartupServices?.();
             runtime.startPostPlayableWarmup?.('gameplay-ready');
 
@@ -192,6 +218,7 @@ export class GameplaySessionController {
             runtime.resetIdleHintTimer();
             const analyticsLevelId = runtime.getAnalyticsLevelId();
             const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
+            initStage = 'level_analytics';
             const experimentAnalyticsContext = gameplayEntryMode === 'main'
                 ? getFrontLevelExperimentAnalyticsContext(analyticsLevelId, 'level_')
                 : null;
@@ -206,6 +233,7 @@ export class GameplaySessionController {
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
                     runtime.reportFirstLevelReleaseState?.('before_tutorial');
+                    initStage = 'tutorial_start';
                     runtime.startTutorial(tutorialMode);
                     runtime.reportFirstLevelReleaseState?.('after_tutorial');
                 } else if (slotPolicy.showSlotUnlockGuide) {
@@ -214,6 +242,7 @@ export class GameplaySessionController {
                     runtime.reportFirstLevelReleaseState?.('tutorial_missing');
                 }
             }
+            initStage = 'interaction_ready';
             this.reportLevelInteractionReady(
                 runtime,
                 analyticsLevelId,
@@ -224,7 +253,15 @@ export class GameplaySessionController {
             runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
             runtime.scheduleFirstLevelReleaseDiagnostics?.();
         } catch (error) {
-            AppRoot.tryGet()?.clearRouteCover('gameplay-init-error');
+            this.failGameplayInitialization(runtime, {
+                error,
+                initStage,
+                resolvedLevelId,
+                activeLogicalLevelId,
+                gameplayPrefix,
+                gameplayEntryMode,
+                tutorialMode,
+            });
             throw error;
         }
     }
@@ -250,6 +287,112 @@ export class GameplaySessionController {
         return typeof mode === 'string' ? mode : '';
     }
 
+    private failGameplayInitialization(
+        runtime: any,
+        context: {
+            error: unknown;
+            initStage: string;
+            resolvedLevelId: number;
+            activeLogicalLevelId: number;
+            gameplayPrefix: string;
+            gameplayEntryMode: string;
+            tutorialMode: TutorialMode;
+        },
+    ): void {
+        const errorMessage = context.error instanceof Error
+            ? context.error.message
+            : String(context.error || 'unknown gameplay initialization error');
+        const safeStage = String(context.initStage || 'unknown').replace(/[^a-z0-9_]+/gi, '_').toLowerCase();
+        const errorCode = `gameplay_init_${safeStage}_failed`;
+        const levelId = Math.max(1, Math.floor(Number(context.activeLogicalLevelId || context.resolvedLevelId) || 1));
+        const levelPath = runtime._currentExternalLevelFilePath
+            || (typeof runtime.getLevelDataPath === 'function'
+                ? runtime.getLevelDataPath(context.resolvedLevelId, context.gameplayPrefix)
+                : `${context.gameplayPrefix}${context.resolvedLevelId}`);
+        const cleanupErrors: string[] = [];
+        const runCleanup = (label: string, callback: () => void) => {
+            try {
+                callback();
+            } catch (cleanupError) {
+                const message = cleanupError instanceof Error ? cleanupError.message : String(cleanupError || 'unknown');
+                cleanupErrors.push(`${label}:${message}`.slice(0, 180));
+            }
+        };
+
+        runtime.isGameEnd = true;
+        runCleanup('tutorial', () => this.clearTutorialRuntimeState(runtime));
+        runCleanup('callbacks', () => runtime.unscheduleAllCallbacks?.());
+        runCleanup('timer', () => runtime.unschedule?.(runtime.tickTimer));
+        runCleanup('input', () => runtime.detachGameplayInputHandlers?.());
+        runCleanup('placement', () => runtime.clearPlacementVisualState?.());
+        runtime._timerStarted = false;
+        runtime._adTimerSuspended = false;
+
+        AppRoot.tryGet()?.clearRouteCover('gameplay-init-error');
+        runCleanup('gameplay-root', () => runtime.setGameplayStartupRootVisible?.(true));
+        runCleanup('loading', () => runtime.hideLoadingOverlay?.());
+
+        const diagnosticExtra = {
+            initStage: safeStage,
+            initSeq: Math.max(0, Number(runtime._gameplayInitSeq) || 0),
+            entryMode: context.gameplayEntryMode,
+            tutorialMode: context.tutorialMode,
+            logicalLevelId: levelId,
+            physicalLevelId: Math.max(1, Math.floor(Number(context.resolvedLevelId) || levelId)),
+            dataVersion: runtime.getRuntimeRemoteHash?.() || '',
+            cleanupErrors: cleanupErrors.join('|'),
+        };
+        let fatalSurfaceAttempted = false;
+        if (typeof runtime.stopLevelDataLoadWithFatalError === 'function') {
+            try {
+                fatalSurfaceAttempted = true;
+                runtime.stopLevelDataLoadWithFatalError(
+                    levelId,
+                    levelPath,
+                    'gameplay_init_failed',
+                    errorCode,
+                    errorMessage.slice(0, 500),
+                    diagnosticExtra,
+                );
+            } catch (fatalError) {
+                console.error('[GameplayInit] failed to show terminal error surface:', fatalError);
+            }
+        }
+        if (!runtime._remoteLoadErrorOverlay?.isValid && typeof runtime.showRemoteLoadFatalError === 'function') {
+            try {
+                fatalSurfaceAttempted = true;
+                runtime.showRemoteLoadFatalError(levelPath, errorCode, errorMessage.slice(0, 500));
+            } catch (fatalError) {
+                console.error('[GameplayInit] terminal error surface unavailable:', fatalError);
+            }
+        }
+        if (!fatalSurfaceAttempted) {
+            AnalyticsMgr.inst.trackFunnelEvent({
+                eventName: 'gameplay_init_failed',
+                page: runtime.getAnalyticsPage?.() || 'level_game',
+                levelId,
+                logicalLevelId: levelId,
+                physicalLevelId: diagnosticExtra.physicalLevelId,
+                source: 'gameplay_session',
+                success: false,
+                errorCode,
+                errorMessage: errorMessage.slice(0, 500),
+                extra: diagnosticExtra,
+            });
+            AnalyticsMgr.inst.flushFunnelEvents();
+        }
+        console.error('[GameplayInit] initialization failed:', {
+            levelId,
+            physicalLevelId: diagnosticExtra.physicalLevelId,
+            entryMode: context.gameplayEntryMode,
+            tutorialMode: context.tutorialMode,
+            initStage: safeStage,
+            errorCode,
+            errorMessage,
+            cleanupErrors,
+        });
+    }
+
     private reportLevelInteractionReady(
         runtime: any,
         logicalLevelId: number,
@@ -260,10 +403,17 @@ export class GameplaySessionController {
         if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 3) return;
         const blockers = collectActiveBlockInputEvents();
         const expectedGuideBlocker = tutorialMode === 'level_1' || tutorialMode === 'level_2';
+        const modalFocusActive = (Number(runtime._modalFocusRefs) || 0) > 0;
+        const expectedModalBlockers = modalFocusActive
+            ? blockers.filter((entry) => runtime.isExpectedModalBlockerPath?.(String(entry.path || '')))
+            : [];
         const unexpectedBlockers = blockers.filter((entry) => {
             const path = String(entry.path || '');
-            return !(expectedGuideBlocker && path.includes('/GuideLayer'));
+            if (expectedGuideBlocker && path.includes('/GuideLayer')) return false;
+            if (modalFocusActive && runtime.isExpectedModalBlockerPath?.(path)) return false;
+            return true;
         });
+        const modalFocusMismatch = modalFocusActive && expectedModalBlockers.length === 0;
         AnalyticsMgr.inst.trackFunnelEvent({
             eventName: 'level_interaction_ready',
             page: runtime.getAnalyticsPage(),
@@ -271,8 +421,10 @@ export class GameplaySessionController {
             logicalLevelId,
             physicalLevelId,
             source: 'gameplay_session',
-            success: unexpectedBlockers.length === 0 && (Number(runtime._modalFocusRefs) || 0) === 0,
-            errorCode: unexpectedBlockers.length > 0 ? 'unexpected_input_blocker' : '',
+            success: unexpectedBlockers.length === 0 && !modalFocusMismatch,
+            errorCode: unexpectedBlockers.length > 0
+                ? 'unexpected_input_blocker'
+                : (modalFocusMismatch ? 'modal_focus_without_expected_blocker' : ''),
             extra: {
                 tutorialMode,
                 guideMode: runtime._guideMode || 'none',
@@ -285,12 +437,15 @@ export class GameplaySessionController {
                 slotRowCount: Math.max(0, Number(runtime.slotRowCount) || 0),
                 dataVersion: runtime.getRuntimeRemoteHash?.() || '',
                 activeBlockers: blockers.map((entry) => String(entry.path || '')).join('|'),
+                blockerClassification: expectedModalBlockers.length > 0 ? 'expected_modal' : 'normal',
+                expectedModalBlockers: expectedModalBlockers.map((entry) => String(entry.path || '')).join('|'),
                 unexpectedBlockers: unexpectedBlockers.map((entry) => String(entry.path || '')).join('|'),
             },
         });
     }
 
     private clearTutorialRuntimeState(runtime: any): void {
+        runtime.clearGuideTransitionWatchdog?.();
         runtime.clearGuideReminderTimer?.();
         runtime.hideGuideReminderVisuals?.();
         if (runtime._guideLayer?.isValid && typeof runtime.clearGuideHighlight === 'function') {
@@ -328,11 +483,14 @@ export class GameplaySessionController {
         runtime._guideTotalSteps = 0;
         runtime._guidePhase = 'select';
         runtime._guideStatus = 'idle';
+        runtime._guidePreviewStep = -1;
+        runtime._guideRenderStep = -1;
         runtime._guideReminderPausedForLifecycle = false;
         runtime._smartIdleHintTimerHandler = null;
         runtime._smartIdleHintToken = (Number(runtime._smartIdleHintToken) || 0) + 1;
         runtime._smartIdleHintActive = false;
         runtime._smartIdleHintPlan = null;
+        runtime._smartIdleHintShownCount = 0;
         runtime._guideZoomStartScale = 1;
         runtime._guideZoomLastScale = 1;
         runtime._guideZoomAccumulatedScaleDelta = 0;

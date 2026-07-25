@@ -35,6 +35,15 @@ const funnelEvents = [];
 let activeBlockers = [];
 let blockerReadError = false;
 let afterDrawHandler = null;
+let nativeTouchHandler = null;
+const rawWx = {
+    onTouchStart(handler) {
+        nativeTouchHandler = handler;
+    },
+    offTouchStart(handler) {
+        if (nativeTouchHandler === handler) nativeTouchHandler = null;
+    },
+};
 
 const AnalyticsMgr = {
     inst: {
@@ -124,6 +133,7 @@ const sandbox = {
         throw new Error(`unexpected require: ${id}`);
     },
     console,
+    __rawWx: rawWx,
     setTimeout: () => ({ timer: true }),
     clearTimeout() {},
 };
@@ -190,6 +200,7 @@ const runtime = {
     _guideStep: 0,
     _guidePhase: 'select',
     _guideStatus: 'awaiting_action',
+    _guideActionEnabledAt: Date.now(),
     _guideInputSuspended: false,
     _guideLayer: guideLayer,
     _guideHand: guideHand,
@@ -214,12 +225,14 @@ const runtime = {
 const { installFirstLevelRouteModule } = moduleRef.exports;
 installFirstLevelRouteModule(runtime);
 runtime.bindFirstLevelReleaseTouchObserver();
+assert.strictEqual(typeof nativeTouchHandler, 'function', 'raw WeChat touch capture must bind beside the Cocos observer');
 
 const earlyEvent = {
     target: loading,
     propagationStopped: false,
     getUILocation: () => ({ x: 12, y: 34 }),
 };
+nativeTouchHandler({ touches: [{ clientX: 8, clientY: 16 }] });
 canvas.captureHandler(earlyEvent);
 assert.strictEqual(earlyEvent.propagationStopped, false, 'the observer must not consume an early touch');
 
@@ -228,8 +241,14 @@ const diagnosticStart = funnelEvents.find((event) => event.stepName === 'diagnos
 assert.ok(diagnosticStart, 'L1 startup must emit a Release diagnostic start event');
 assert.strictEqual(diagnosticStart.stepId, 0, 'guide step zero must remain zero in Release diagnostics');
 assert.ok(String(diagnosticStart.extra.earlyTouchWindow).startsWith('1|'), 'pre-init Canvas touches must be retained for L1 correlation');
+assert.ok(String(diagnosticStart.extra.inputTrace).endsWith('|1'), 'pre-init native touches must be retained separately');
 
 activeBlockers = [{ path: 'Game/Canvas/ScreenRoot/OverlayRoot/GuideLayer' }];
+nativeTouchHandler({ touches: [{ clientX: 123, clientY: 456 }] });
+assert.ok(
+    funnelEvents.some((event) => event.stepName === 'native_touch_capture'),
+    'a raw WeChat touch must be logged without altering delivery',
+);
 const routedEvent = {
     target: guideLayer,
     propagationStopped: false,
@@ -241,6 +260,31 @@ const captureLog = funnelEvents.find((event) => event.stepName === 'canvas_touch
 assert.ok(captureLog, 'a Canvas touch must be logged before GuideLayer delivery');
 assert.ok(String(captureLog.extra.canvasTouch).includes('GuideLayer'), 'the capture log must retain the target path');
 assert.strictEqual(captureLog.success, true, 'the expected GuideLayer blocker must not be labeled as an error');
+const guideTrace = runtime.markFirstLevelTouchTraceLayer('guide');
+const resultTrace = runtime.markFirstLevelTouchTraceLayer('result');
+assert.strictEqual(guideTrace.touchTraceId, resultTrace.touchTraceId, 'one native touch must keep the same trace id through tutorial result');
+assert.strictEqual(
+    resultTrace.touchTraceStages,
+    'native>canvas>guide>result',
+    'Release diagnostics must expose the raw touch → Canvas → GuideLayer → tutorial-result chain',
+);
+
+runtime._modalFocusRefs = 1;
+runtime._guideInputSuspended = true;
+activeBlockers = [{ path: 'Game/Canvas/ScreenRoot/PopupRoot/SettingsOverlay' }];
+runtime.reportFirstLevelReleaseState('app_show');
+const expectedModalLog = funnelEvents.find((event) => (
+    event.eventName === 'l1_release_state'
+    && event.stepName === 'app_show'
+));
+assert.ok(expectedModalLog, 'an open settings modal must remain observable');
+assert.strictEqual(expectedModalLog.success, true, 'an authored settings modal must not be diagnosed as an input failure');
+assert.strictEqual(expectedModalLog.errorCode, '', 'an expected modal must not emit unexpected_input_blocker');
+assert.strictEqual(expectedModalLog.extra.blockerClassification, 'expected_modal');
+assert.ok(String(expectedModalLog.extra.expectedModalBlockers).includes('SettingsOverlay'));
+runtime._modalFocusRefs = 0;
+runtime._guideInputSuspended = false;
+activeBlockers = [{ path: 'Game/Canvas/ScreenRoot/OverlayRoot/GuideLayer' }];
 
 blockerReadError = true;
 assert.doesNotThrow(
@@ -266,7 +310,7 @@ for (let index = 0; index < 30; index += 1) {
 const releaseEvents = funnelEvents.filter((event) => event.eventName === 'l1_release_state');
 assert.strictEqual(releaseEvents.length, 18, 'Release diagnostics must be capped per L1 initialization');
 for (const event of releaseEvents) {
-    assert.ok(Object.keys(event.extra || {}).length <= 29, 'diagnostic extras must leave room for launchChannelAtEvent in the cloud contract');
+    assert.ok(Object.keys(event.extra || {}).length <= 27, 'diagnostic extras must leave room for build identity and launch channel');
 }
 assert.strictEqual(gameplayRoot.activeInHierarchy, true, 'diagnostics must not mutate gameplay visibility');
 assert.strictEqual(guideLayer.activeInHierarchy, true, 'diagnostics must not rebuild or hide the guide');
@@ -274,5 +318,6 @@ runtime.resetFirstLevelReleaseDiagnostics();
 runtime.unbindFirstLevelReleaseTouchObserver();
 assert.strictEqual(afterDrawHandler, null, 'after-draw observers must be detached during cleanup');
 assert.strictEqual(canvas.captureHandler, null, 'Canvas capture observers must be detached during cleanup');
+assert.strictEqual(nativeTouchHandler, null, 'raw WeChat observers must be detached during cleanup');
 
 console.log('first-level-release-diagnostics.test.js passed');

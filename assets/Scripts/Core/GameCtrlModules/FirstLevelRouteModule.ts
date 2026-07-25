@@ -43,6 +43,12 @@ const FIRST_LEVEL_RELEASE_CAPTURE_EVENT_LIMIT = 3;
 
 export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
+        isExpectedModalBlockerPath(path: string): boolean {
+            const normalized = String(path || '');
+            return normalized.includes('/PopupRoot/')
+                && !normalized.includes('/PopupRoot/OverlayTemplates/');
+        },
+
         trackFirstLevelFunnel(eventName: string, opt: Record<string, unknown> = {}, force: boolean = false): void {
             if (!force && !this.isFirstLevelFunnelActive()) return;
             const activePhysicalLevelId = this.getActivePhysicalLevelId();
@@ -101,6 +107,36 @@ export function installFirstLevelRouteModule(target: any): void {
             return names.join('/').slice(0, 220);
         },
 
+        markFirstLevelTouchTraceLayer(layer: 'native' | 'canvas' | 'guide' | 'result', forceNew: boolean = false): {
+            touchTraceId: string;
+            touchTraceStages: string;
+            touchTraceAgeMs: number;
+        } {
+            const now = Date.now();
+            const lastUpdatedAt = Number(this._firstLevelTouchTraceUpdatedAt) || 0;
+            if (forceNew || !this._firstLevelTouchTraceId || now - lastUpdatedAt > 1500) {
+                const seq = Math.max(0, Number(this._firstLevelTouchTraceSeq) || 0) + 1;
+                this._firstLevelTouchTraceSeq = seq;
+                this._firstLevelTouchTraceId = [
+                    'l1t',
+                    Math.max(0, Number(this._firstLevelReleaseDiagToken) || 0),
+                    seq,
+                ].join('-');
+                this._firstLevelTouchTraceStartedAt = now;
+                this._firstLevelTouchTraceStages = [];
+            }
+            const stages = Array.isArray(this._firstLevelTouchTraceStages)
+                ? this._firstLevelTouchTraceStages
+                : (this._firstLevelTouchTraceStages = []);
+            if (!stages.includes(layer)) stages.push(layer);
+            this._firstLevelTouchTraceUpdatedAt = now;
+            return {
+                touchTraceId: String(this._firstLevelTouchTraceId || ''),
+                touchTraceStages: stages.join('>'),
+                touchTraceAgeMs: Math.max(0, now - (Number(this._firstLevelTouchTraceStartedAt) || now)),
+            };
+        },
+
         resetFirstLevelReleaseDiagnostics(): void {
             const afterDrawEvent = (Director as any)?.EVENT_AFTER_DRAW;
             const afterDrawHandler = this._firstLevelReleaseAfterDrawHandler;
@@ -131,6 +167,12 @@ export function installFirstLevelRouteModule(target: any): void {
             this._firstLevelReleaseDiagStartedAt = 0;
             this._firstLevelReleaseDiagEventCount = 0;
             this._firstLevelReleaseCanvasTouchCount = 0;
+            this._firstLevelReleaseNativeTouchCount = 0;
+            this._firstLevelTouchTraceSeq = 0;
+            this._firstLevelTouchTraceId = '';
+            this._firstLevelTouchTraceStartedAt = 0;
+            this._firstLevelTouchTraceUpdatedAt = 0;
+            this._firstLevelTouchTraceStages = [];
             this._firstLevelReleaseAfterDrawHandler = null;
             this._firstLevelReleaseAfterDrawFallbackTimer = null;
             this._firstLevelReleaseAfterDrawSeen = false;
@@ -144,6 +186,12 @@ export function installFirstLevelRouteModule(target: any): void {
             this._firstLevelReleaseDiagStartedAt = Date.now();
             this._firstLevelReleaseDiagEventCount = 0;
             this._firstLevelReleaseCanvasTouchCount = 0;
+            this._firstLevelReleaseNativeTouchCount = 0;
+            this._firstLevelTouchTraceSeq = 0;
+            this._firstLevelTouchTraceId = '';
+            this._firstLevelTouchTraceStartedAt = 0;
+            this._firstLevelTouchTraceUpdatedAt = 0;
+            this._firstLevelTouchTraceStages = [];
             const observerBoundAt = Number(this._firstLevelReleaseObserverBoundAt) || 0;
             const earlyFirstAt = Number(this._firstLevelReleaseEarlyFirstTouchAt) || 0;
             const earlyLastAt = Number(this._firstLevelReleaseEarlyLastTouchAt) || 0;
@@ -158,9 +206,13 @@ export function installFirstLevelRouteModule(target: any): void {
         bindFirstLevelReleaseTouchObserver(): void {
             const scene = this.node?.scene || null;
             const canvas = scene?.getChildByName('Canvas') || null;
+            if (this._firstLevelReleaseObserverNode === canvas && this._firstLevelReleaseObserverHandler) {
+                this.bindFirstLevelReleaseNativeTouchObserver?.();
+                return;
+            }
+            this.unbindFirstLevelReleaseTouchObserver?.(false);
+            this.bindFirstLevelReleaseNativeTouchObserver?.();
             if (!canvas?.isValid) return;
-            if (this._firstLevelReleaseObserverNode === canvas && this._firstLevelReleaseObserverHandler) return;
-            this.unbindFirstLevelReleaseTouchObserver?.();
             this._firstLevelReleaseObserverNode = canvas;
             this._firstLevelReleaseObserverBoundAt = Date.now();
             this._firstLevelReleaseEarlyTouchCount = 0;
@@ -190,7 +242,8 @@ export function installFirstLevelRouteModule(target: any): void {
                         targetPath,
                         `${Math.round(Number(uiPos?.x) || 0)},${Math.round(Number(uiPos?.y) || 0)}`,
                     ].join('|');
-                    this.reportFirstLevelReleaseState?.('canvas_touch_capture', { canvasTouch });
+                    const touchTrace = this.markFirstLevelTouchTraceLayer?.('canvas') || {};
+                    this.reportFirstLevelReleaseState?.('canvas_touch_capture', { canvasTouch, ...touchTrace });
                 } catch (_) {
                     // Never change propagation or gameplay state when diagnostic collection fails.
                 }
@@ -204,7 +257,85 @@ export function installFirstLevelRouteModule(target: any): void {
             }
         },
 
-        unbindFirstLevelReleaseTouchObserver(): void {
+        bindFirstLevelReleaseNativeTouchObserver(): void {
+            const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
+            const rawWx = globalScope?.__rawWx || null;
+            if (this._firstLevelReleaseNativeTouchApi === rawWx && this._firstLevelReleaseNativeTouchHandler) return;
+            this.unbindFirstLevelReleaseNativeTouchObserver?.();
+            if (!rawWx || typeof rawWx.onTouchStart !== 'function' || typeof rawWx.offTouchStart !== 'function') {
+                this._firstLevelReleaseNativeTouchObserverState = 'unavailable';
+                return;
+            }
+            this._firstLevelReleaseNativeTouchObserverState = 'binding';
+            this._firstLevelReleaseNativeTouchBoundAt = Date.now();
+            this._firstLevelReleaseNativeEarlyTouchCount = 0;
+            this._firstLevelReleaseNativeEarlyFirstTouchAt = 0;
+            this._firstLevelReleaseNativeEarlyLastTouchAt = 0;
+            const handler = (event: any): void => {
+                try {
+                    const now = Date.now();
+                    if (!this.isFirstLevelReleaseDiagnosticsActive?.()) {
+                        this._firstLevelReleaseNativeEarlyTouchCount = Math.min(
+                            999,
+                            Math.max(0, Number(this._firstLevelReleaseNativeEarlyTouchCount) || 0) + 1,
+                        );
+                        if ((Number(this._firstLevelReleaseNativeEarlyFirstTouchAt) || 0) <= 0) {
+                            this._firstLevelReleaseNativeEarlyFirstTouchAt = now;
+                        }
+                        this._firstLevelReleaseNativeEarlyLastTouchAt = now;
+                        return;
+                    }
+                    const touchSeq = Math.max(0, Number(this._firstLevelReleaseNativeTouchCount) || 0) + 1;
+                    this._firstLevelReleaseNativeTouchCount = touchSeq;
+                    if (touchSeq > FIRST_LEVEL_RELEASE_CAPTURE_EVENT_LIMIT) return;
+                    const touches = Array.isArray(event?.touches)
+                        ? event.touches
+                        : (Array.isArray(event?.changedTouches) ? event.changedTouches : []);
+                    const touch = touches[0] || null;
+                    const nativeTouch = [
+                        touchSeq,
+                        touches.length,
+                        `${Math.round(Number(touch?.clientX ?? touch?.pageX) || 0)},${Math.round(Number(touch?.clientY ?? touch?.pageY) || 0)}`,
+                    ].join('|');
+                    const touchTrace = this.markFirstLevelTouchTraceLayer?.('native', true) || {};
+                    this.reportFirstLevelReleaseState?.('native_touch_capture', { nativeTouch, ...touchTrace });
+                } catch (_) {
+                    // Read-only native diagnostics must never affect platform touch delivery.
+                }
+            };
+            try {
+                rawWx.onTouchStart(handler);
+                this._firstLevelReleaseNativeTouchApi = rawWx;
+                this._firstLevelReleaseNativeTouchHandler = handler;
+                this._firstLevelReleaseNativeTouchObserverState = 'bound';
+            } catch (_) {
+                this._firstLevelReleaseNativeTouchApi = null;
+                this._firstLevelReleaseNativeTouchHandler = null;
+                this._firstLevelReleaseNativeTouchObserverState = 'bind_failed';
+            }
+        },
+
+        unbindFirstLevelReleaseNativeTouchObserver(): void {
+            const rawWx = this._firstLevelReleaseNativeTouchApi;
+            const handler = this._firstLevelReleaseNativeTouchHandler;
+            if (rawWx && handler && typeof rawWx.offTouchStart === 'function') {
+                try {
+                    rawWx.offTouchStart(handler);
+                } catch (_) {
+                    // Best-effort cleanup for observer-only diagnostics.
+                }
+            }
+            this._firstLevelReleaseNativeTouchApi = null;
+            this._firstLevelReleaseNativeTouchHandler = null;
+            this._firstLevelReleaseNativeTouchObserverState = 'unbound';
+            this._firstLevelReleaseNativeTouchBoundAt = 0;
+            this._firstLevelReleaseNativeTouchCount = 0;
+            this._firstLevelReleaseNativeEarlyTouchCount = 0;
+            this._firstLevelReleaseNativeEarlyFirstTouchAt = 0;
+            this._firstLevelReleaseNativeEarlyLastTouchAt = 0;
+        },
+
+        unbindFirstLevelReleaseTouchObserver(unbindNative: boolean = true): void {
             const node = this._firstLevelReleaseObserverNode;
             const handler = this._firstLevelReleaseObserverHandler;
             if (node?.isValid && handler) {
@@ -220,6 +351,7 @@ export function installFirstLevelRouteModule(target: any): void {
             this._firstLevelReleaseEarlyTouchCount = 0;
             this._firstLevelReleaseEarlyFirstTouchAt = 0;
             this._firstLevelReleaseEarlyLastTouchAt = 0;
+            if (unbindNative) this.unbindFirstLevelReleaseNativeTouchObserver?.();
         },
 
         reportFirstLevelReleaseState(phase: string, phaseExtra: Record<string, unknown> = {}): void {
@@ -257,15 +389,21 @@ export function installFirstLevelRouteModule(target: any): void {
                 || phase === 'app_hide'
                 || phase === 'app_show'
                 || phase === 'tutorial_done_before_cleanup'
+                || phase === 'native_touch_capture'
                 || phase.indexOf('no_guide_touch_') === 0;
             const blockers = shouldScanBlockers ? collectActiveBlockInputEvents() : [];
             const loadingAllowed = phase === 'diagnostic_start'
                 || phase === 'before_ui_build'
                 || phase === 'before_loading_hide';
+            const modalFocusActive = (Number(this._modalFocusRefs) || 0) > 0;
+            const expectedModalBlockers = modalFocusActive
+                ? blockers.filter((entry) => this.isExpectedModalBlockerPath?.(String(entry.path || '')))
+                : [];
             const unexpectedBlockers = blockers.filter((entry) => {
                 const path = String(entry.path || '');
                 if (path.includes('/GuideLayer')) return false;
                 if (loadingAllowed && path.includes('/StartupLoadingUI')) return false;
+                if (modalFocusActive && this.isExpectedModalBlockerPath?.(path)) return false;
                 return true;
             });
             const activeBlockersText = blockers
@@ -278,27 +416,58 @@ export function installFirstLevelRouteModule(target: any): void {
                 .map((entry) => String(entry.path || ''))
                 .join('|')
                 .slice(0, 240);
+            const expectedModalBlockersText = expectedModalBlockers
+                .slice(0, 6)
+                .map((entry) => String(entry.path || ''))
+                .join('|')
+                .slice(0, 240);
             const rawGuideStep = Number(this._guideStep);
             const guideStep = Number.isFinite(rawGuideStep) ? Math.floor(rawGuideStep) : -1;
             const guideExpected = this._guideMode === 'level_1' && guideStep >= 0;
             const foreground = this._gameForeground !== false;
+            const guideActionEnabled = this._guideStatus === 'awaiting_action'
+                && (Number(this._guideActionEnabledAt) || 0) > 0;
+            const nativeTouchCount = Math.max(0, Number(this._firstLevelReleaseNativeTouchCount) || 0);
+            const canvasTouchCount = Math.max(0, Number(this._firstLevelReleaseCanvasTouchCount) || 0);
             let errorCode = phase === 'after_draw_missing' || phase === 'tutorial_missing' ? phase : '';
             if (!errorCode && foreground && !loadingAllowed && loadingActive) errorCode = 'loading_overlay_active';
             if (!errorCode && foreground && unexpectedBlockers.length > 0) errorCode = 'unexpected_input_blocker';
-            if (!errorCode && foreground && guideExpected && !guideLayerActive) errorCode = 'guide_layer_inactive';
-            if (!errorCode && foreground && guideExpected && !guideBlocker?.enabled) errorCode = 'guide_blocker_disabled';
-            if (!errorCode && foreground && guideExpected && this._guideInputSuspended === true) errorCode = 'guide_input_suspended';
-            if (!errorCode && foreground && guideExpected && (Number(this._modalFocusRefs) || 0) > 0) errorCode = 'modal_focus_active';
-            if (!errorCode && foreground && guideExpected && this._adShowing === true) errorCode = 'ad_showing';
-            if (!errorCode && foreground && guideExpected && this._skillActive === true) errorCode = 'skill_active';
-            if (!errorCode && foreground && guideExpected && this._timerLockedForProp === true) errorCode = 'timer_locked_for_prop';
-            if (!errorCode && foreground && guideExpected && (Number(this._placementVisualRefs) || 0) > 0) errorCode = 'placement_visual_active';
-            if (!errorCode && foreground && guideExpected && (!guideHandActive || !guideHandSprite?.spriteFrame || !guideBubbleActive)) {
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && !guideLayerActive) {
+                errorCode = 'guide_layer_inactive';
+            }
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && !guideBlocker?.enabled) {
+                errorCode = 'guide_blocker_disabled';
+            }
+            if (!errorCode && foreground && guideExpected && this._guideInputSuspended === true && !modalFocusActive) {
+                errorCode = 'guide_input_suspended';
+            }
+            if (!errorCode && foreground && guideExpected && modalFocusActive && expectedModalBlockers.length === 0) {
+                errorCode = 'modal_focus_without_expected_blocker';
+            }
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && this._adShowing === true) errorCode = 'ad_showing';
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && this._skillActive === true) errorCode = 'skill_active';
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && this._timerLockedForProp === true) {
+                errorCode = 'timer_locked_for_prop';
+            }
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && (Number(this._placementVisualRefs) || 0) > 0) {
+                errorCode = 'placement_visual_active';
+            }
+            if (!errorCode && foreground && guideExpected && !modalFocusActive
+                && this._guideStatus === 'awaiting_action' && !guideActionEnabled) {
+                errorCode = 'guide_action_not_ready';
+            }
+            if (!errorCode && foreground && phase.indexOf('no_guide_touch_') === 0
+                && nativeTouchCount > canvasTouchCount) {
+                errorCode = 'native_touch_not_delivered_to_canvas';
+            }
+            if (!errorCode && foreground && guideExpected && !modalFocusActive && this._guideStatus !== 'transitioning'
+                && (!guideHandActive || !guideHandSprite?.spriteFrame || !guideBubbleActive)) {
                 errorCode = 'guide_visual_missing';
             }
             const boundedPhaseExtra: Record<string, unknown> = {};
-            const phaseExtraEntry = Object.entries(phaseExtra)[0];
-            if (phaseExtraEntry) boundedPhaseExtra[phaseExtraEntry[0]] = phaseExtraEntry[1];
+            for (const key of Object.keys(phaseExtra).slice(0, 3)) {
+                boundedPhaseExtra[key] = phaseExtra[key];
+            }
             this.trackFirstLevelFunnel('l1_release_state', {
                 stepId: guideStep,
                 stepName: String(phase || 'unknown').slice(0, 96),
@@ -309,29 +478,43 @@ export function installFirstLevelRouteModule(target: any): void {
                     diagSeq: nextSeq,
                     msFromDiagStart: Math.max(0, Date.now() - (Number(this._firstLevelReleaseDiagStartedAt) || Date.now())),
                     gameForeground: foreground,
+                    inputTrace: [
+                        this._firstLevelReleaseNativeTouchObserverState || 'unavailable',
+                        nativeTouchCount,
+                        canvasTouchCount,
+                        Math.max(0, Number(this._firstLevelReleaseNativeEarlyTouchCount) || 0),
+                    ].join('|'),
+                    guideFeedbackState: [
+                        this._guideMode || 'none',
+                        this._guidePhase || '',
+                        this._guideStatus || '',
+                        this._guidePreviewVisible === true ? 1 : 0,
+                        guideActionEnabled ? 1 : 0,
+                        this._guideDimMaskNode?.isValid ? 1 : 0,
+                    ].join('|'),
                     gameplayRootActive: !!gameplayRoot?.isValid && gameplayRoot.activeInHierarchy,
                     loadingActive,
                     loadingBlockerEnabled: !!loadingBlocker?.enabled,
-                    guideLayerValid: !!guideLayer?.isValid,
                     guideLayerActive,
                     guideBlockerEnabled: !!guideBlocker?.enabled,
                     guideGeometry,
-                    guideMode: this._guideMode || 'none',
-                    guidePhase: this._guidePhase || '',
-                    guideStatus: this._guideStatus || '',
                     guideInputSuspended: this._guideInputSuspended === true,
                     guideHandActive,
                     guideHandSpriteReady: !!guideHandSprite?.spriteFrame,
                     guideBubbleActive,
-                    modalFocusRefs: Math.max(0, Number(this._modalFocusRefs) || 0),
-                    adShowing: this._adShowing === true,
-                    skillActive: this._skillActive === true,
-                    timerLockedForProp: this._timerLockedForProp === true,
-                    placementVisualRefs: Math.max(0, Number(this._placementVisualRefs) || 0),
+                    runtimeLocks: [
+                        Math.max(0, Number(this._modalFocusRefs) || 0),
+                        this._adShowing === true ? 1 : 0,
+                        this._skillActive === true ? 1 : 0,
+                        this._timerLockedForProp === true ? 1 : 0,
+                        Math.max(0, Number(this._placementVisualRefs) || 0),
+                    ].join('|'),
                     activeTouchCount: Math.max(0, Number(this.activeBoardTouches?.size) || 0),
                     gestureMode: this.gestureMode || 'idle',
-                    canvasTouchCount: Math.max(0, Number(this._firstLevelReleaseCanvasTouchCount) || 0),
+                    canvasTouchCount,
                     activeBlockers: activeBlockersText,
+                    blockerClassification: expectedModalBlockers.length > 0 ? 'expected_modal' : 'normal',
+                    expectedModalBlockers: expectedModalBlockersText,
                     unexpectedBlockers: unexpectedBlockersText,
                     dataVersion: this.getRuntimeRemoteHash?.() || '',
                     ...boundedPhaseExtra,
@@ -439,6 +622,10 @@ export function installFirstLevelRouteModule(target: any): void {
                 msFromStepShow: stepShowAt > 0 ? Math.max(0, now - stepShowAt) : 0,
                 msFromStepReady: stepReadyAt > 0 ? Math.max(0, now - stepReadyAt) : 0,
                 msSincePrevTouch: Math.max(0, Number(this._firstLevelLastTouchIntervalMs) || 0),
+                touchTraceId: String(this._firstLevelTouchTraceId || ''),
+                touchTraceStages: Array.isArray(this._firstLevelTouchTraceStages)
+                    ? this._firstLevelTouchTraceStages.join('>')
+                    : '',
                 ...extra,
             };
         },
@@ -522,8 +709,9 @@ export function installFirstLevelRouteModule(target: any): void {
         reportFirstLevelAnyTouch(worldPos: Vec3, inputLayer: string, source: string = 'tutorial'): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
             if (this._firstLevelAnyTouchSent) return;
+            const touchTrace = this.markFirstLevelTouchTraceLayer?.('guide') || {};
             this._firstLevelAnyTouchSent = true;
-            this.reportFirstLevelReleaseState?.('guide_layer_touch');
+            this.reportFirstLevelReleaseState?.('guide_layer_touch', touchTrace);
             const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
             this.trackFirstLevelFunnel('first_level_any_touch', {
                 touchTarget,
@@ -559,18 +747,24 @@ export function installFirstLevelRouteModule(target: any): void {
             });
         },
 
-        markTutorialStepShownForFunnel(step: number): void {
+        markTutorialStepShownForFunnel(step: number, phase: string = this._guidePhase): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
-            const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
+            const key = this.getFirstLevelGuideStepKey(step, phase);
             this._firstLevelGuideStepShowAt = this._firstLevelGuideStepShowAt || {};
             this._firstLevelGuideStepShowAt[key] = Date.now();
         },
 
         markTutorialStepInteractiveReadyForFunnel(step: number): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
-            if (this._guideStep !== step || this._guideInputSuspended) return;
+            if (this._guideStep !== step) return;
+            if (this._guideInputSuspended || (Number(this._modalFocusRefs) || 0) > 0) {
+                this._pendingTutorialInteractiveReadyStep = step;
+                return;
+            }
             const key = this.getFirstLevelGuideStepKey(step, this._guidePhase);
             this._firstLevelGuideStepReadyAt = this._firstLevelGuideStepReadyAt || {};
+            if ((Number(this._firstLevelGuideStepReadyAt[key]) || 0) > 0) return;
+            this._pendingTutorialInteractiveReadyStep = -1;
             this._firstLevelGuideStepReadyAt[key] = Date.now();
             this.trackFirstLevelFunnel('tutorial_step_interactive_ready', {
                 stepId: step,
@@ -582,6 +776,7 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         reportTutorialLayerTouchStart(worldPos: Vec3): void {
+            this.markFirstLevelTouchTraceLayer?.('guide');
             this.reportInteractionTouchAttempt?.(worldPos, 'guide_layer', 'guide_gate');
         },
 
@@ -612,6 +807,7 @@ export function installFirstLevelRouteModule(target: any): void {
             extra: Record<string, unknown> = {},
         ): void {
             if (!this.isFirstLevelFunnelActive?.()) return;
+            this.markFirstLevelTouchTraceLayer?.('result');
             const touchTarget = worldPos ? this.classifyFirstLevelTouchTarget(worldPos) : '';
             const payloadExtra = this.buildFirstLevelGuideExtra(inputLayer, hitResult, {
                 ...this.buildFirstLevelTouchPositionExtra(worldPos),
@@ -785,7 +981,7 @@ export function installFirstLevelRouteModule(target: any): void {
 
         showRemoteLoadFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
             if (this._remoteLoadErrorOverlay?.isValid) return;
-            runtimeWarn('[LevelDataLoad] fatal error hidden from user-facing panel', {
+            runtimeWarn('[LevelDataLoad] fatal error surfaced with non-technical recovery actions', {
                 levelPath,
                 errorCode,
                 errorMessage,
@@ -818,7 +1014,29 @@ export function installFirstLevelRouteModule(target: any): void {
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorHint', true);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorDetail', false);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRetry', false);
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRetry', true);
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorBack', true);
+            const retryNode = this.requireUiChild(
+                card,
+                'RemoteLoadFatalErrorRetry',
+                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorRetry',
+            );
+            const backNode = this.requireUiChild(
+                card,
+                'RemoteLoadFatalErrorBack',
+                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorBack',
+            );
+            const retryButton = retryNode.getComponent(Button);
+            const backButton = backNode.getComponent(Button);
+            if (!retryButton || !backButton) {
+                throw new Error('[SceneUI] RemoteLoadFatalError recovery actions are missing Button components');
+            }
+            retryButton.interactable = true;
+            backButton.interactable = true;
+            retryNode.targetOff(this);
+            retryNode.on(Button.EventType.CLICK, () => this.retryGameplayLoading?.('fatal-error'), this);
+            backNode.targetOff(this);
+            backNode.on(Button.EventType.CLICK, () => this.exitGameplayLoading?.('fatal-error'), this);
         },
 
         setRemoteLoadFatalChildActive(parent: Node, name: string, active: boolean): void {

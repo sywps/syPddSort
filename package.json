@@ -21,6 +21,8 @@
     "sync:cdn:wechat:all:dry": "node scripts/sync-wechat-cdn.js --dry-run",
     "sync:cdn:wechat:level_data": "node scripts/sync-level-data-cdn-wechat.js",
     "sync:cdn:wechat:level_data:dry": "node scripts/sync-level-data-cdn-wechat.js --dry-run",
+    "sync:cdn:wechat:level_data:exp": "node scripts/sync-level-data-cdn-wechat.js --cdn-slot=EXP",
+    "sync:cdn:wechat:level_data:exp:dry": "node scripts/sync-level-data-cdn-wechat.js --cdn-slot=EXP --dry-run",
     "sync:cdn:wechat:level_data:v1": "PDD_LEVEL_DATA_CONTRACT=v1 PDD_LEVEL_DATA_CDN_DIR=build/level-data-cdn-v1 node scripts/sync-level-data-cdn-wechat.js",
     "sync:cdn:wechat:level_data:v1:dry": "PDD_LEVEL_DATA_CONTRACT=v1 PDD_LEVEL_DATA_CDN_DIR=build/level-data-cdn-v1 node scripts/sync-level-data-cdn-wechat.js --dry-run",
     "sync:cdn:wechat:skin_data": "node scripts/sync-skin-data-cdn-wechat.js",

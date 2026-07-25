@@ -100,6 +100,7 @@ export function installHomeCommerceModule(target: any): void {
             kind: InventoryPropKind,
             options?: {
                 resumeTimerOnClose?: boolean;
+                timerPauseToken?: string;
                 onInventoryChanged?: () => void;
                 onAdGrant?: () => boolean | void | Promise<boolean | void>;
             },
