@@ -71,6 +71,37 @@ function adOutcome(status, attemptId = 1, detail = {}) {
 async function main() {
     const installHomeAdFlowModule = loadInstaller();
 
+    const directHandoffEvents = [];
+    let directHandoffComplete = null;
+    let directHandoffRecoverable = null;
+    const directHandoffRuntime = { _skillActive: false };
+    installHomeAdFlowModule(directHandoffRuntime);
+    directHandoffRuntime.showRewardedAdPendingStrip = (text, mode) => {
+        directHandoffEvents.push(`strip:${mode}:${text}`);
+    };
+    directHandoffRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
+        directHandoffEvents.push('native-show');
+        directHandoffComplete = onComplete;
+        directHandoffRecoverable = options.onRecoverable;
+    };
+    assert.strictEqual(directHandoffRuntime.runRewardedGrant('unlock_slot_row', () => true, {
+        busyFlag: '_skillActive',
+        onInteractionStarted: () => directHandoffEvents.push('interaction-start'),
+    }), true);
+    assert.deepStrictEqual(
+        directHandoffEvents,
+        ['interaction-start', 'native-show'],
+        'an accepted ad request must hand off directly without a custom preparation strip',
+    );
+    directHandoffRecoverable();
+    assert.deepStrictEqual(
+        directHandoffEvents,
+        ['interaction-start', 'native-show', 'strip:wait:正在确认广告结果…'],
+        'the strip must remain reserved for post-ad result recovery',
+    );
+    directHandoffComplete(adOutcome('verified_complete'));
+    await flushMicrotasks();
+
     const failureEvents = [];
     const failureRuntime = {
         _skillActive: false,

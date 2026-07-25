@@ -173,7 +173,7 @@ export function installHomeAdFlowModule(target: any): void {
 
         showRewardedAdPendingStrip(
             text: string,
-            cancelMode: 'cancel' | 'wait' | 'end' = 'cancel',
+            cancelMode: 'wait' | 'end' = 'wait',
         ): void {
             const sceneName = this.getRuntimeSceneName?.('Game') || 'Game';
             if (sceneName !== 'Game' && sceneName !== 'Home') return;
@@ -204,9 +204,7 @@ export function installHomeAdFlowModule(target: any): void {
                         }
                         if (transaction?.phase === 'recoverable_endable') {
                             this.cancelRewardedGrantInteraction?.('pending-strip-end-wait');
-                            return;
                         }
-                        this.cancelRewardedGrantInteraction?.('pending-strip-cancel');
                     });
                 }
             }
@@ -220,7 +218,7 @@ export function installHomeAdFlowModule(target: any): void {
                     .getChildByName('AdPendingCancelLabel')
                     ?.getComponent(Label);
                 if (cancelLabel) {
-                    cancelLabel.string = cancelMode === 'end' ? '结束等待' : '取消';
+                    cancelLabel.string = '结束等待';
                 }
             }
         },
@@ -690,9 +688,6 @@ export function installHomeAdFlowModule(target: any): void {
 
                 try {
                     claimOptions.onInteractionStarted?.();
-                    if (!claimOptions.suppressPendingStrip) {
-                        this.showRewardedAdPendingStrip?.('广告准备中…', 'cancel');
-                    }
                 } catch (error) {
                     console.error(`[RewardedGrant] ${page} interaction-start handler failed:`, error);
                     releaseAttemptInteraction();
@@ -786,7 +781,7 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         destroyGameplayRuntimeView() {
-            this.clearAdRewardHintVisuals?.(true);
+            this.clearAdRewardHintVisuals?.();
             const host = this.getCanvasUiHost();
             const preservedRootNames = host === this.node
                 ? new Set(['ScreenRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'])

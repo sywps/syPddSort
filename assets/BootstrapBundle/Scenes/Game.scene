@@ -28555,7 +28555,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "广告准备中…",
+    "_string": "正在确认广告结果…",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 28,
@@ -28855,7 +28855,7 @@
       "b": 162,
       "a": 255
     },
-    "_string": "取消",
+    "_string": "结束等待",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,

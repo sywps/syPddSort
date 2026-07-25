@@ -389,9 +389,7 @@ export class CommercePanelController {
                             suppressPendingStrip: true,
                             successToast: options.successToast,
                             grantFailToast: options.grantFailToast,
-                            onInteractionStarted: () => {
-                                setAdPanelState('广告准备中…', true, true, '取消等待');
-                            },
+                            onInteractionStarted: hidePanelForNativeAd,
                             onAdShown: hidePanelForNativeAd,
                             onRecoverable: () => {
                                 setAdPanelState('正在确认结果…', true, true);
