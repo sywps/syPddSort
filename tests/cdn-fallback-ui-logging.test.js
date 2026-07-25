@@ -15,7 +15,7 @@ function readJson(relPath) {
 const levelCdn = read('assets/Scripts/Core/LevelDataCdnService.ts');
 assert.ok(levelCdn.includes('FOREGROUND_CDN_REQUEST_ATTEMPTS = 2'), 'foreground CDN requests must retry once before failing');
 assert.ok(levelCdn.includes("namespace: 'stable'"), 'all foreground retries must remain on the stable CDN');
-assert.ok(!levelCdn.toLowerCase().includes('experiment'), 'retired experiment degradation must be removed');
+assert.ok(!levelCdn.toLowerCase().includes('degrade'), 'experiment CDN failures must not degrade to the stable CDN');
 assert.ok(levelCdn.includes('lastFailure: this.lastFailure'), 'CDN diagnostics must expose the last failure stage');
 assert.ok(!levelCdn.includes('lastDegradeReason'), 'stable-only diagnostics must not expose a retired degradation reason');
 assert.ok(levelCdn.includes('level_live.json minClientBuild unsupported'), 'level data manifest must enforce client build compatibility');
@@ -37,8 +37,10 @@ for (const scenePath of [
     const strings = scene
         .filter((entry) => entry && typeof entry._string === 'string')
         .map((entry) => entry._string);
-    assert.ok(strings.includes('请重启小游戏'), `${scenePath} must own the short restart title`);
-    assert.ok(strings.includes('资源更新中'), `${scenePath} must own the short update hint`);
+    assert.ok(strings.includes('关卡没准备好'), `${scenePath} must own the recoverable loading title`);
+    assert.ok(strings.includes('请检查网络后重试'), `${scenePath} must own the retry hint`);
+    assert.ok(!strings.includes('请重启小游戏'), `${scenePath} must not require a full mini-game restart`);
+    assert.ok(!strings.includes('资源更新中'), `${scenePath} must not hide a terminal failure as an update`);
     assert.ok(!strings.includes('资源加载失败'), `${scenePath} must not expose the old fatal title`);
     assert.ok(!strings.includes('请检查资源与配置后重新进入游戏'), `${scenePath} must not expose operator-facing copy`);
     assert.ok(!strings.includes('已停止进入默认关卡，避免关卡数据错乱'), `${scenePath} must not expose internal safety copy`);

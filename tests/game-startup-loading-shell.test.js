@@ -80,8 +80,23 @@ assert.ok(
     'loading overlay teardown must disable input interception before deactivating the overlay',
 );
 assert.ok(
-    loadingOverlayModule.includes('this._loadingProgressLabelShadow.string = `加载中...${safePercent}%`;'),
-    'loading progress shadow label must stay in sync with the visible percentage label',
+    loadingOverlayModule.includes('this._loadingProgressLabel.string = status;')
+    && loadingOverlayModule.includes('this._loadingProgressLabelShadow.string = status;'),
+    'loading status shadow label must stay in sync with the visible status label',
+);
+assert.ok(
+    loadingOverlayModule.includes('this.scheduleOnce(showProgress, 0.3);')
+    && loadingOverlayModule.includes('this.scheduleOnce(showSlowActions, 3);'),
+    'startup loading must suppress short flashes and expose recovery actions only after a slow wait',
+);
+assert.ok(
+    loadingOverlayModule.includes("this._loadingHasMeasuredProgress ? `正在准备关卡 ${safePercent}%` : '正在准备关卡…'"),
+    'startup loading must show a percentage only when real measured progress exists',
+);
+assert.ok(
+    !loadingOverlayModule.includes('_setLoadingProgress(0.5')
+    && !loadingOverlayModule.includes('_setLoadingProgress(0.8'),
+    'startup loading must not manufacture the old 50% and 80% milestones',
 );
 assert.ok(
     firstLevelRouteModule.includes(`this.setGameplayStartupRootVisible?.(true);

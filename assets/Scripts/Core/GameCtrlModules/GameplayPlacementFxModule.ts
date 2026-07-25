@@ -36,6 +36,7 @@ import { runtimeLog } from '../RuntimeLog';
 type FlyPlaceVisualOptions = {
     sourceBeanSize?: number;
     targetBeanSize?: number;
+    awaitLandEffect?: boolean;
 };
 
 type PendingRemainingSelection =
@@ -53,6 +54,7 @@ type FlyBeanFollowOptions = {
     delay?: number;
     duration: number;
     easing?: string;
+    generation?: number;
     onComplete?: () => void;
 };
 
@@ -80,22 +82,46 @@ export function installGameplayPlacementFxModule(target: any): void {
             return (Number(this._placementVisualRefs) || 0) > 0 || this.isPlacementInputLocked();
         },
 
-        beginPlacementInputLock(): void {
-            this._placementInputLockRefs = Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0)) + 1;
-            this._placementInputLocked = true;
+        beginPlacementInputLock(owner: string = 'placement-input'): string {
+            const token = this.acquireRuntimeOwner?.('placement-input', owner)
+                || `placement-input:legacy:${Date.now()}:${owner}`;
+            this._placementInputLockRefs = typeof this.getRuntimeOwnerCount === 'function'
+                ? this.getRuntimeOwnerCount('placement-input')
+                : Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0)) + 1;
+            this._placementInputLocked = this._placementInputLockRefs > 0;
+            return token;
         },
 
-        endPlacementInputLock(): void {
-            this._placementInputLockRefs = Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0) - 1);
+        endPlacementInputLock(tokenOrOwner: string = 'placement-input'): void {
+            if (String(tokenOrOwner || '').startsWith('placement-input:')) {
+                this.releaseRuntimeOwner?.(tokenOrOwner);
+            } else {
+                this.releaseRuntimeOwnerByName?.('placement-input', tokenOrOwner);
+            }
+            this._placementInputLockRefs = typeof this.getRuntimeOwnerCount === 'function'
+                ? this.getRuntimeOwnerCount('placement-input')
+                : Math.max(0, Math.floor(Number(this._placementInputLockRefs) || 0) - 1);
             this._placementInputLocked = this._placementInputLockRefs > 0;
         },
 
-        beginPlacementVisual(): void {
-            this._placementVisualRefs = Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0)) + 1;
+        beginPlacementVisual(owner: string = 'placement'): string {
+            const token = this.acquireRuntimeOwner?.('placement', owner)
+                || `placement:legacy:${Date.now()}:${owner}`;
+            this._placementVisualRefs = typeof this.getRuntimeOwnerCount === 'function'
+                ? this.getRuntimeOwnerCount('placement')
+                : Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0)) + 1;
+            return token;
         },
 
-        endPlacementVisual(): void {
-            this._placementVisualRefs = Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0) - 1);
+        endPlacementVisual(tokenOrOwner: string = 'placement'): void {
+            if (String(tokenOrOwner || '').startsWith('placement:')) {
+                this.releaseRuntimeOwner?.(tokenOrOwner);
+            } else {
+                this.releaseRuntimeOwnerByName?.('placement', tokenOrOwner);
+            }
+            this._placementVisualRefs = typeof this.getRuntimeOwnerCount === 'function'
+                ? this.getRuntimeOwnerCount('placement')
+                : Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0) - 1);
         },
 
         retainFlyingTarget(row: number, col: number): string {
@@ -135,7 +161,15 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         clearPlacementVisualState(): void {
+            this._placementAnimationGeneration = Math.max(
+                0,
+                Math.floor(Number(this._placementAnimationGeneration) || 0),
+            ) + 1;
+            this.clearRuntimeOwners?.('placement');
+            this.clearRuntimeOwners?.('placement-input');
             this._placementVisualRefs = 0;
+            this._placementInputLockRefs = 0;
+            this._placementInputLocked = false;
             this._flyingTargetRefs?.clear?.();
             this._hiddenSlotIndexRefs?.clear?.();
             this._flyingTargets.clear();
@@ -350,8 +384,12 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         startBoardTargetFollowTween(options: FlyBeanFollowOptions): void {
             const state = { t: 0 };
+            const generation = Math.max(0, Math.floor(Number(options.generation) || 0));
+            const isCurrentGeneration = () => !generation
+                || generation === Math.max(0, Math.floor(Number(this._placementAnimationGeneration) || 0));
             const initialTargetBeanSize = Math.max(1, Number(options.initialTargetBeanSize) || 1);
             const updateBean = () => {
+                if (!isCurrentGeneration()) return;
                 if (!options.bean?.isValid || !this.dragLayer?.isValid) return;
                 const layerUT = this.dragLayer.getComponent(UITransform);
                 const targetWorld = this.getBoardCellWorldPosition?.(options.targetRow, options.targetCol) || null;
@@ -377,6 +415,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     onUpdate: updateBean,
                 })
                 .call(() => {
+                    if (!isCurrentGeneration()) return;
                     state.t = 1;
                     updateBean();
                     options.onComplete?.();
@@ -393,8 +432,14 @@ export function installGameplayPlacementFxModule(target: any): void {
             afterAllLanded?: (onComplete: () => void) => void,
             visualOptions?: FlyPlaceVisualOptions,
             remainingSelection: PendingRemainingSelection | null = null,
+            onFirstTargetArrived?: () => void,
         ) {
-            this.beginPlacementVisual();
+            const placementGeneration = Math.max(
+                0,
+                Math.floor(Number(this._placementAnimationGeneration) || 0),
+            ) + 1;
+            this._placementAnimationGeneration = placementGeneration;
+            const placementOwnerToken = this.beginPlacementVisual('fly-place');
             // 清除浮起节点 + 恢复格子位置
             this.clearDragNodes();
             this.stopPulseTweens();
@@ -424,12 +469,19 @@ export function installGameplayPlacementFxModule(target: any): void {
             const targetBeanSize = Math.max(1, visualOptions?.targetBeanSize ?? defaultTargetBeanSize);
             const sourceBeanSize = Math.max(1, visualOptions?.sourceBeanSize ?? targetBeanSize);
             const sourceScale = sourceBeanSize / targetBeanSize;
+            const awaitLandEffect = visualOptions?.awaitLandEffect !== false;
             let remaining = targets.length;
+            let firstTargetArrived = false;
+            const notifyFirstTargetArrived = () => {
+                if (firstTargetArrived) return;
+                firstTargetArrived = true;
+                onFirstTargetArrived?.();
+            };
             const finishAfterAllLanded = () => {
                 try {
                     this.onFlyAllLanded(targets);
                 } finally {
-                    this.endPlacementVisual();
+                    this.endPlacementVisual(placementOwnerToken);
                 }
             };
             if (remaining === 0) {
@@ -447,6 +499,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 if (!targetWorld) {
                     this.releaseFlyingTargetKey(targetKey);
                     this.renderBoardCell(t.row, t.col);
+                    notifyFirstTargetArrived();
                     remaining--;
                     if (remaining <= 0) finishAfterAllLanded();
                     continue;
@@ -472,6 +525,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     initialTargetBeanSize: targetBeanSize,
                     targetRow: t.row,
                     targetCol: t.col,
+                    generation: placementGeneration,
                     delay: i * flyDelay,
                     duration: FLY_TOTAL_DUR,
                     easing: 'sineOut',
@@ -481,12 +535,19 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.recycleFlyBeanNode(bean);
                         this.releaseFlyingTargetKey(targetKey);
                         this.renderBoardCell(t.row, t.col);
-                        this.playLandEffect(t.row, t.col, () => {
+                        notifyFirstTargetArrived();
+                        const completeArrival = () => {
                             remaining--;
                             if (remaining <= 0) {
                                 finishAfterAllLanded();
                             }
-                        });
+                        };
+                        if (awaitLandEffect) {
+                            this.playLandEffect(t.row, t.col, completeArrival);
+                        } else {
+                            this.playLandEffect(t.row, t.col);
+                            completeArrival();
+                        }
                     },
                 });
             }
@@ -499,8 +560,14 @@ export function installGameplayPlacementFxModule(target: any): void {
             slotIdxs: number[],
             dirtyBoardCells: { row: number; col: number }[] = [],
             remainingSelection: PendingRemainingSelection | null = null,
+            onFirstTargetArrived?: () => void,
         ) {
-            this.beginPlacementVisual();
+            const placementGeneration = Math.max(
+                0,
+                Math.floor(Number(this._placementAnimationGeneration) || 0),
+            ) + 1;
+            this._placementAnimationGeneration = placementGeneration;
+            const placementOwnerToken = this.beginPlacementVisual('fly-to-slots');
             const preserveBoardCells = remainingSelection?.source === 'board' ? remainingSelection.cells : [];
             this.clearDragNodes();
             this.stopPulseTweens();
@@ -530,9 +597,15 @@ export function installGameplayPlacementFxModule(target: any): void {
             const FLY_TOTAL_DUR = FLY_GROW_DUR + FLY_MOVE_DUR;
             const sourceBeanSize = this.getBoardFlyBeanSizeInLayer(this.dragLayer);
             let remaining = slotIdxs.length;
+            let firstTargetArrived = false;
+            const notifyFirstTargetArrived = () => {
+                if (firstTargetArrived) return;
+                firstTargetArrived = true;
+                onFirstTargetArrived?.();
+            };
             if (remaining === 0) {
                 this.finishPlace();
-                this.endPlacementVisual();
+                this.endPlacementVisual(placementOwnerToken);
                 return;
             }
             this.playBeanFlySound();
@@ -548,7 +621,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.refreshEndgameHints('slot-landed');
                     }
                 } finally {
-                    this.endPlacementVisual();
+                    this.endPlacementVisual(placementOwnerToken);
                 }
             };
             const completeOne = () => {
@@ -594,11 +667,16 @@ export function installGameplayPlacementFxModule(target: any): void {
                     .delay(i * flyDelay)
                     .to(FLY_TOTAL_DUR, flyProps, { easing: 'sineOut' })
                     .call(() => {
+                        if (placementGeneration !== Math.max(
+                            0,
+                            Math.floor(Number(this._placementAnimationGeneration) || 0),
+                        )) return;
                         AudioMgr.inst.play('slot');
                         AudioMgr.inst.vibratePlace();
                         this.recycleFlyBeanNode(bean);
                         this.releaseHiddenSlotIndex(slotIdx);
                         this.renderSlotIndices([slotIdx]);
+                        notifyFirstTargetArrived();
                         completeOne();
                     })
                     .start();
@@ -1022,6 +1100,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 }
             }
             if (!this._timerLockedForProp && this._timerPauseRefs > 0) {
+                this.clearRuntimeOwners?.('timer');
                 this._timerPauseRefs = 0;
                 runtimeLog('[Timer] resumed via bean reselection');
             }
@@ -1039,15 +1118,27 @@ export function installGameplayPlacementFxModule(target: any): void {
             return true;
         },
 
-        pauseTimerForProp() {
-            this._timerPauseRefs++;
-            this._timerLockedForProp = true;
-            runtimeLog('[Timer] pauseTimerForProp, refs:', this._timerPauseRefs);
+        pauseTimerForProp(owner: string = 'prop'): string {
+            const token = this.acquireRuntimeOwner?.('timer', owner) || `timer:legacy:${Date.now()}:${owner}`;
+            this._timerPauseRefs = typeof this.getRuntimeOwnerCount === 'function'
+                ? this.getRuntimeOwnerCount('timer')
+                : Math.max(0, Number(this._timerPauseRefs) || 0) + 1;
+            this._timerLockedForProp = this._timerPauseRefs > 0;
+            runtimeLog('[Timer] pauseTimerForProp, refs:', this._timerPauseRefs, 'owner:', owner);
+            return token;
         },
 
-        resumeTimerForProp() {
-            if (this._timerPauseRefs > 0) this._timerPauseRefs--;
-            runtimeLog('[Timer] resumeTimerForProp, refs:', this._timerPauseRefs);
+        resumeTimerForProp(tokenOrOwner: string = 'prop') {
+            if (String(tokenOrOwner || '').startsWith('timer:')) {
+                this.releaseRuntimeOwner?.(tokenOrOwner);
+            } else {
+                this.releaseRuntimeOwnerByName?.('timer', tokenOrOwner);
+            }
+            this._timerPauseRefs = typeof this.getRuntimeOwnerCount === 'function'
+                ? this.getRuntimeOwnerCount('timer')
+                : Math.max(0, Math.floor(Number(this._timerPauseRefs) || 0) - 1);
+            this._timerLockedForProp = this._timerPauseRefs > 0;
+            runtimeLog('[Timer] resumeTimerForProp, refs:', this._timerPauseRefs, 'owner:', tokenOrOwner);
         },
     });
 }

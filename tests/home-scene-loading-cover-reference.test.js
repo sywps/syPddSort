@@ -12,6 +12,15 @@ assert.ok(
   !homeScene.includes(staleLoadingCoverUuid),
   'Home.scene must not reference the shared loading_cover SpriteFrame outside HomeAssetsBundle',
 );
+const bootstrapGuideButtonUuid = 'e8f180d2-acaa-487c-aab7-3213ab8bb243@f9941';
+assert.ok(
+  !homeScene.includes(bootstrapGuideButtonUuid),
+  'Home.scene ad wait UI must use a HomeAssets-owned SpriteFrame instead of creating a bootstrap bundle dependency',
+);
+assert.ok(
+  homeScene.includes('"AdPendingStripTemplate"'),
+  'Home.scene must keep an authored ad waiting strip for cancellable pre-show feedback',
+);
 
 const hostComponent = sceneJson.find((item) => (
   item

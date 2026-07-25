@@ -132,25 +132,27 @@ export class SettingsPanelController {
 
         runtime._panelOpenInFlight.add(SETTINGS_PREFAB_IN_FLIGHT_KEY);
         runtime._retainPanelTextureOwner('settings', SETTINGS_PANEL_TEXTURE_NAMES);
-        runtime.pauseTimerForProp();
+        const settingsTimerToken = runtime.pauseTimerForProp('settings');
 
         let overlay: Node | null = null;
         let settingsClosed = false;
         let homeRouteInFlight = false;
         let modalFocusActive = false;
+        let modalFocusToken = '';
         const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
         const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
 
         const beginSettingsModalFocus = () => {
             if (modalFocusActive) return;
             modalFocusActive = true;
-            runtime.beginModalFocus?.('settings');
+            modalFocusToken = runtime.beginModalFocus?.('settings') || '';
         };
 
         const endSettingsModalFocus = () => {
             if (!modalFocusActive) return;
             modalFocusActive = false;
-            runtime.endModalFocus?.('settings');
+            runtime.endModalFocus?.(modalFocusToken || 'settings');
+            modalFocusToken = '';
         };
 
         const cancelStaleOpen = () => {
@@ -161,7 +163,7 @@ export class SettingsPanelController {
                 runtime._destroyDetachedNodeNextFrame(overlay);
             }
             endSettingsModalFocus();
-            runtime.resumeTimerForProp();
+            runtime.resumeTimerForProp(settingsTimerToken || 'settings');
             runtime._releasePanelTextureOwner('settings', 'settings-prefab-stale');
         };
 
@@ -172,7 +174,7 @@ export class SettingsPanelController {
                 runtime._destroyDetachedNodeNextFrame(overlay);
             }
             endSettingsModalFocus();
-            runtime.resumeTimerForProp();
+            runtime.resumeTimerForProp(settingsTimerToken || 'settings');
             runtime._releasePanelTextureOwner('settings', 'settings-prefab-failed');
             console.error(message);
         };
@@ -204,7 +206,7 @@ export class SettingsPanelController {
                 AudioMgr.inst.play('button');
                 runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings');
             }
-            runtime.resumeTimerForProp();
+            runtime.resumeTimerForProp(settingsTimerToken || 'settings');
             endSettingsModalFocus();
         };
 
@@ -260,7 +262,7 @@ export class SettingsPanelController {
                         homeRouteInFlight = true;
                         settingsClosed = true;
                         AudioMgr.inst.play('button');
-                        runtime.resumeTimerForProp();
+                        runtime.resumeTimerForProp(settingsTimerToken || 'settings');
                         runtime._closePanelWithTextureOwner(overlay, 'settings', 'settings-home');
                         endSettingsModalFocus();
                         void requestHomeRouteFromSettings().catch((error: unknown) => {

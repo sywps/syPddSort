@@ -1,26 +1,17 @@
 import {
-    AudioMgr,
-    Button,
     Label,
-    Layers,
     Node,
     SKILL_UNLOCK_FREEZE,
-    Sprite,
-    SpriteFrame,
     tween,
     Tween,
     UIOpacity,
-    UITransform,
     Vec3,
 } from '../GameCtrlShared';
-import type { InventoryPropKind } from '../GameCtrlShared';
 import { isGameplaySkillUnlocked } from '../SlotOnboardingPolicy';
-import { runtimeWarn } from '../RuntimeLog';
 
 const FREEZE_HINT_REMAIN_SECONDS = 60;
-const GIFT_HINT_REMAIN_SECONDS = 30;
+const FREEZE_HINT_EXPIRE_SECONDS = 30;
 const FREEZE_HINT_BUBBLE_TEXT = '时间不多啦';
-const AD_REWARD_GIFT_ICON_TEXTURE = 'ad_rescue_gift_icon';
 const SLOT_REMINDER_MAX_PER_GAME = 3;
 const SLOT_REMINDER_COOLDOWN_MS = 22000;
 
@@ -40,13 +31,6 @@ function isTimerGameplay(runtime: any): boolean {
         && !runtime._currentLevelUnlimitedTime
         && runtime._timerStarted
         && runtime._guideStep < 0;
-}
-
-function setUiLayer(node: Node): void {
-    node.layer = Layers.Enum.UI_2D;
-    for (const child of node.children) {
-        setUiLayer(child);
-    }
 }
 
 function removeNode(node: Node | null | undefined): void {
@@ -150,28 +134,21 @@ function showSceneBubble(bubble: Node | null | undefined, text: string): Node | 
     return bubble;
 }
 
-function pickGiftBonusProp(): InventoryPropKind {
-    return Math.random() < 0.5 ? 'brush' : 'magnet';
-}
-
 export function installGameplayAdRewardHintModule(target: any): void {
     Object.assign(target, {
         resetAdRewardHintState(timeLimit?: number) {
-            this.clearAdRewardHintVisuals?.(true);
+            this.clearAdRewardHintVisuals?.();
             this._adRewardInitialTimeLimit = Math.max(0, Math.floor(Number(timeLimit ?? this.timeRemain) || 0));
             this._adRewardFreezeHintShown = false;
             this._adRewardFreezeEntryClicked = false;
-            this._adRewardGiftShown = false;
-            this._adRewardGiftRewarded = false;
             this._slotAddReminderCount = 0;
             this._slotAddReminderLastAt = 0;
             this._slotAddReminderFirstFullShown = false;
             this._slotAddReminderHalfTimeShown = false;
         },
 
-        clearAdRewardHintVisuals(destroyGift: boolean = false) {
+        clearAdRewardHintVisuals() {
             this.clearAdRewardFreezeHintVisual?.();
-            this.clearAdRewardGiftEntry?.(destroyGift);
             this.clearAdRewardSlotAddReminderVisuals?.();
         },
 
@@ -180,20 +157,12 @@ export function installGameplayAdRewardHintModule(target: any): void {
             if (!isGameplaySkillUnlocked(getActiveLevel(this), getActiveEntryMode(this), SKILL_UNLOCK_FREEZE)) return;
             const initialTime = Number(this._adRewardInitialTimeLimit) || Number(this.timeRemain) || 0;
             const remain = Math.floor(Number(this.timeRemain) || 0);
-            if (!this._adRewardFreezeHintShown && initialTime >= FREEZE_HINT_REMAIN_SECONDS && remain <= FREEZE_HINT_REMAIN_SECONDS && remain > GIFT_HINT_REMAIN_SECONDS) {
+            if (!this._adRewardFreezeHintShown && initialTime >= FREEZE_HINT_REMAIN_SECONDS && remain <= FREEZE_HINT_REMAIN_SECONDS && remain > FREEZE_HINT_EXPIRE_SECONDS) {
                 this.showAdRewardFreezeHint?.();
             }
             if (!this._slotAddReminderHalfTimeShown && initialTime > 0 && remain <= Math.floor(initialTime / 2)) {
                 this._slotAddReminderHalfTimeShown = true;
                 this.triggerSlotAddReminder?.('half-time');
-            }
-            if (!this._adRewardGiftShown
-                && !this._adRewardFreezeEntryClicked
-                && !this._adRewardGiftRewarded
-                && initialTime >= FREEZE_HINT_REMAIN_SECONDS
-                && remain <= GIFT_HINT_REMAIN_SECONDS
-                && remain > 0) {
-                this.showAdRewardGiftEntry?.();
             }
         },
 
@@ -242,126 +211,6 @@ export function installGameplayAdRewardHintModule(target: any): void {
             }, {
                 busyFlag: '_adShowing',
                 grantFailToast: '冻结时间生效失败，请重试',
-            }) === true;
-        },
-
-        getOrCreateAdRewardGiftEntry(): Node | null {
-            const fixedRoot = typeof this.getGameplayFixedRoot === 'function' ? this.getGameplayFixedRoot() : null;
-            if (!fixedRoot?.isValid) return null;
-            const entry = fixedRoot.getChildByName('AdRewardGiftEntry');
-            if (!entry?.isValid) {
-                return null;
-            }
-            entry.layer = Layers.Enum.UI_2D;
-            entry.active = false;
-            const ui = entry.getComponent(UITransform);
-            if (!ui) {
-                throw new Error('[AdRewardGift] Game.scene is missing UITransform on AdRewardGiftEntry');
-            }
-            if (!entry.getComponent(UIOpacity)) entry.addComponent(UIOpacity);
-            const button = entry.getComponent(Button) || entry.addComponent(Button);
-            button.enabled = true;
-            entry.targetOff(this);
-            entry.on(Button.EventType.CLICK, () => this.tryUseAdRewardGift?.(), this);
-            setUiLayer(entry);
-            this._adRewardGiftNode = entry;
-            this.ensureAdRewardGiftEntryIcon?.(entry);
-            return entry;
-        },
-
-        ensureAdRewardGiftEntryIcon(entry: Node): void {
-            if (!entry?.isValid) return;
-            const sprite = entry.getComponent(Sprite);
-            if (!sprite?.isValid || sprite.spriteFrame) return;
-            const applyFrame = (frame: SpriteFrame | null, reason: string) => {
-                if (!frame) return;
-                if (typeof this.scheduleSpriteFrameApply === 'function') {
-                    this.scheduleSpriteFrameApply(sprite, frame, reason);
-                    return;
-                }
-                if (sprite?.isValid && sprite.node?.isValid) {
-                    sprite.spriteFrame = frame;
-                }
-            };
-            const cached = this.getSF?.(AD_REWARD_GIFT_ICON_TEXTURE) || null;
-            if (cached) {
-                applyFrame(cached, 'ad-reward-gift-icon:cache');
-                return;
-            }
-            if (typeof this._loadSpriteFrameByName !== 'function') return;
-            const marker = entry as any;
-            if (marker.__adRewardGiftIconLoading) return;
-            marker.__adRewardGiftIconLoading = true;
-            this._loadSpriteFrameByName(AD_REWARD_GIFT_ICON_TEXTURE, (frame: SpriteFrame | null) => {
-                marker.__adRewardGiftIconLoading = false;
-                if (!entry?.isValid || !sprite?.isValid || !sprite.node?.isValid) return;
-                if (!frame) {
-                    runtimeWarn('[AdRewardGift] optional icon SpriteFrame missing:', AD_REWARD_GIFT_ICON_TEXTURE);
-                    return;
-                }
-                applyFrame(frame, 'ad-reward-gift-icon:load');
-            });
-        },
-
-        showAdRewardGiftEntry() {
-            if (!isTimerGameplay(this) || this._adShowing || this._skillActive) return false;
-            if (this._adRewardGiftShown || this._adRewardFreezeEntryClicked) return false;
-            const entry = this.getOrCreateAdRewardGiftEntry?.();
-            if (!entry?.isValid) return false;
-            this.ensureAdRewardGiftEntryIcon?.(entry);
-            this._adRewardGiftShown = true;
-            entry.active = true;
-            entry.setSiblingIndex(Math.max(0, entry.parent ? entry.parent.children.length - 1 : 0));
-            const opacity = entry.getComponent(UIOpacity) || entry.addComponent(UIOpacity);
-            opacity.opacity = 255;
-            removeNode(entry.getChildByName('AdRewardGiftGlow'));
-            cacheTransform(entry);
-            Tween.stopAllByTarget(entry);
-            Tween.stopAllByTarget(opacity);
-            const baseScale = (entry as any).__adRewardBaseScale as Vec3;
-            entry.setScale(baseScale.x * 0.75, baseScale.y * 0.75, baseScale.z);
-            tween(entry)
-                .to(0.18, { scale: new Vec3(baseScale.x * 1.12, baseScale.y * 1.12, baseScale.z) }, { easing: 'backOut' })
-                .to(0.1, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) })
-                .delay(0.4)
-                .repeatForever(tween(entry)
-                    .to(0.28, { scale: new Vec3(baseScale.x * 1.06, baseScale.y * 1.06, baseScale.z) })
-                    .to(0.28, { scale: new Vec3(baseScale.x, baseScale.y, baseScale.z) })
-                    .delay(0.7))
-                .start();
-            return true;
-        },
-
-        clearAdRewardGiftEntry(destroyCreated: boolean = false) {
-            const entry = this._adRewardGiftNode as Node | null;
-            if (!entry?.isValid) {
-                this._adRewardGiftNode = null;
-                return;
-            }
-            Tween.stopAllByTarget(entry);
-            const opacity = entry.getComponent(UIOpacity);
-            if (opacity) Tween.stopAllByTarget(opacity);
-            removeNode(entry.getChildByName('AdRewardGiftGlow'));
-            restoreTransform(entry);
-            entry.active = false;
-        },
-
-        tryUseAdRewardGift(): boolean {
-            if (!isTimerGameplay(this) || this._adShowing || this._skillActive) return false;
-            if (!this._adRewardGiftShown || this._adRewardGiftRewarded) return false;
-            AudioMgr.inst.play('button');
-            return this.runRewardedGrant('rescue_gift_30s', () => {
-                if (this.isGameEnd) return false;
-                const bonusProp = pickGiftBonusProp();
-                this.markDynamicCountdownAssisted?.();
-                this.useSkillFreeze?.(true);
-                this.addPropCount?.(bonusProp, 1);
-                this.rebuildSkillButtonsUI?.();
-                this._adRewardGiftRewarded = true;
-                this.clearAdRewardGiftEntry?.();
-            }, {
-                busyFlag: '_adShowing',
-                grantFailToast: '救场礼包领取失败，请重试',
             }) === true;
         },
 

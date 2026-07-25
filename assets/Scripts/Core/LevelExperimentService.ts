@@ -21,7 +21,6 @@ export type FrontLevelExperimentAnalyticsContext = {
 
 export const FRONT_LEVEL_EXPERIMENT_ID = 'ly_0224';
 export const FRONT_LEVEL_EXPERIMENT_MIN_LEVEL = 2;
-export const FRONT_LEVEL_EXPERIMENT_MAX_LEVEL = 9;
 export const FRONT_LEVEL_TREATMENT_CDN_BASE_URL =
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
 
@@ -29,6 +28,13 @@ const DEFAULT_LEVEL_PREFIX = 'level_';
 const ANALYTICS_OPENID_STORAGE_KEY = 'pdd.analytics.openid.v1';
 const EXPERIMENT_NAMESPACE_PREFIX = 'wechat-front10';
 const EXPERIMENT_SPLIT_PERCENT = 50;
+type FrontLevelExperimentAssignment = {
+    variant: FrontLevelExperimentVariant;
+    bucketIndex: number;
+    forced: boolean;
+};
+let sessionAssignmentResolved = false;
+let sessionAssignment: FrontLevelExperimentAssignment | null = null;
 
 function getGlobalScope(): any {
     return typeof globalThis !== 'undefined' ? globalThis : null;
@@ -227,8 +233,7 @@ function assignVariant(): { variant: FrontLevelExperimentVariant; bucketIndex: n
 export function isFrontLevelExperimentTarget(levelId: unknown, prefix: string = DEFAULT_LEVEL_PREFIX): boolean {
     const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
     return prefix === DEFAULT_LEVEL_PREFIX
-        && normalizedLevelId >= FRONT_LEVEL_EXPERIMENT_MIN_LEVEL
-        && normalizedLevelId <= FRONT_LEVEL_EXPERIMENT_MAX_LEVEL;
+        && normalizedLevelId >= FRONT_LEVEL_EXPERIMENT_MIN_LEVEL;
 }
 
 function isFrontLevelExperimentAnalyticsTarget(levelId: unknown, prefix: string = DEFAULT_LEVEL_PREFIX): boolean {
@@ -236,7 +241,7 @@ function isFrontLevelExperimentAnalyticsTarget(levelId: unknown, prefix: string 
     return prefix === DEFAULT_LEVEL_PREFIX && normalizedLevelId >= FRONT_LEVEL_EXPERIMENT_MIN_LEVEL;
 }
 
-function getFrontLevelExperimentAssignment(): { variant: FrontLevelExperimentVariant; bucketIndex: number; forced: boolean } | null {
+function resolveFrontLevelExperimentAssignment(): FrontLevelExperimentAssignment | null {
     const forced = getForcedVariant();
     if (forced === 'off') return null;
     if (!forced && !isWechatExperimentRuntime()) return null;
@@ -247,6 +252,13 @@ function getFrontLevelExperimentAssignment(): { variant: FrontLevelExperimentVar
         ...assigned,
         forced: !!forced,
     };
+}
+
+function getFrontLevelExperimentAssignment(): FrontLevelExperimentAssignment | null {
+    if (sessionAssignmentResolved) return sessionAssignment;
+    sessionAssignment = resolveFrontLevelExperimentAssignment();
+    sessionAssignmentResolved = true;
+    return sessionAssignment;
 }
 
 export function resolveFrontLevelExperimentContext(levelId: unknown, prefix: string = DEFAULT_LEVEL_PREFIX): FrontLevelExperimentContext | null {
@@ -276,16 +288,18 @@ export function getFrontLevelExperimentAnalyticsContext(levelId: unknown, prefix
 export function getFrontLevelExperimentDiagnostics(): Record<string, unknown> {
     const forced = getForcedVariant();
     const enabledForPlatform = isWechatExperimentRuntime();
-    const assignment = forced && forced !== 'off'
-        ? { variant: forced, bucketIndex: forced === 'base' ? 0 : EXPERIMENT_SPLIT_PERCENT }
-        : (enabledForPlatform ? assignVariant() : null);
+    const assignment = sessionAssignmentResolved
+        ? sessionAssignment
+        : resolveFrontLevelExperimentAssignment();
     return {
         id: FRONT_LEVEL_EXPERIMENT_ID,
-        levelRange: [FRONT_LEVEL_EXPERIMENT_MIN_LEVEL, FRONT_LEVEL_EXPERIMENT_MAX_LEVEL],
+        levelRange: [FRONT_LEVEL_EXPERIMENT_MIN_LEVEL, null],
+        levelRangeLabel: `${FRONT_LEVEL_EXPERIMENT_MIN_LEVEL}+`,
         enabledForPlatform,
         forcedVariant: forced || '',
         assignedVariant: assignment?.variant || '',
         bucketIndex: assignment?.bucketIndex ?? null,
+        sessionAssignmentResolved,
         cachedOpenidAvailable: !!normalizeExperimentUid(readStorageString(ANALYTICS_OPENID_STORAGE_KEY)),
         localBrowserTreatmentBaseUrl: readLocalBrowserTreatmentBaseUrl(),
         treatmentBaseUrl: FRONT_LEVEL_TREATMENT_CDN_BASE_URL,

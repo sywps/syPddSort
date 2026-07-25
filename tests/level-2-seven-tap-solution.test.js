@@ -53,19 +53,19 @@ const slotModel = new SlotModel(48);
 assert.strictEqual(level2.correctColorArr.flat().filter(Boolean).length, 440, 'the accepted silhouette must retain all 440 occupied cells');
 assert.strictEqual(new Set(level2.correctColorArr.flat().filter(Boolean)).size, 4, 'the accepted silhouette must use exactly four colors');
 
-const firstBlock = findMovableBlock(boardModel, 15);
-assert.ok(firstBlock, 'the buffered lavender block must be present');
+const firstBlock = findMovableBlock(boardModel, 10);
+assert.ok(firstBlock, 'the buffered red block must be present');
 assert.strictEqual(firstBlock.cells.length, 48, 'the buffered block must exactly fit the unlocked slots');
 boardModel.removeBlock(firstBlock);
 for (const cell of firstBlock.cells) {
-    assert.notStrictEqual(slotModel.store({ colorId: 15, cells: [cell], isLocked: false, source: 'slot' }), -1, 'all 48 buffered beans must fit');
+    assert.notStrictEqual(slotModel.store({ colorId: 10, cells: [cell], isLocked: false, source: 'slot' }), -1, 'all 48 buffered red beans must fit');
 }
 
 const counterpart = findMovableBlock(boardModel, 20);
 assert.ok(counterpart, 'the off-white counterpart block must remain selectable');
 assert.strictEqual(counterpart.cells.length, 48, 'the counterpart block must contain 48 beans');
 boardModel.removeBlock(counterpart);
-const counterpartResult = boardModel.placeBlockMaximize(counterpart, firstBlock.cells[0].row, firstBlock.cells[0].col);
+const counterpartResult = boardModel.placeBlockMaximize(counterpart, 19, 15);
 assert.deepStrictEqual(
     [counterpartResult.placed.length, counterpartResult.remaining],
     [48, 0],
@@ -73,9 +73,9 @@ assert.deepStrictEqual(
 );
 
 const bufferedBlock = slotModel.takeAllSameColor(0);
-assert.ok(bufferedBlock, 'the buffered lavender block must be selectable from the slots');
+assert.ok(bufferedBlock, 'the buffered red block must be selectable from the slots');
 assert.strictEqual(bufferedBlock.cells.length, 48, 'slot selection must merge all 48 same-color beans');
-const bufferedResult = boardModel.placeBlockMaximize(bufferedBlock, counterpart.cells[0].row, counterpart.cells[0].col);
+const bufferedResult = boardModel.placeBlockMaximize(bufferedBlock, 21, 14);
 assert.deepStrictEqual(
     [bufferedResult.placed.length, bufferedResult.remaining],
     [48, 0],

@@ -248,6 +248,40 @@ async function testForegroundOnlyMakesAttemptRecoverable() {
     assert.deepStrictEqual(events, ['recoverable:foreground', 'result:verified_complete'], 'arbitrarily delayed verified close must still grant');
 }
 
+async function testStateSubscriptionAndManualRecoverableEnd() {
+    const harness = loadWechatProvider();
+    const snapshots = [];
+    const results = [];
+    const unsubscribe = harness.provider.subscribe((snapshot) => {
+        snapshots.push(`${snapshot.previousStatus}>${snapshot.status}:${snapshot.reason}`);
+    });
+    harness.provider.show((outcome) => results.push(`${outcome.status}:${outcome.reason}`));
+    await flushMicrotasks();
+
+    assert.deepStrictEqual(snapshots.slice(0, 5), [
+        'idle>idle:init',
+        'idle>loading:show',
+        'loading>ready:show',
+        'ready>establishing:show-start',
+        'establishing>visible:show-resolved',
+    ], 'provider state subscription must expose load and show establishment transitions in order');
+
+    harness.provider.notifyGameResumed();
+    assert.ok(
+        snapshots.includes('visible>recoverable:foreground-before-close'),
+        'foreground return before native close must enter a visible recoverable state',
+    );
+    assert.strictEqual(harness.provider.endRecoverableWait('user-end'), true);
+    assert.deepStrictEqual(results, ['unknown:recoverable-ended:user-end']);
+    assert.ok(
+        snapshots.includes('recoverable>idle:outcome:unknown:recoverable-ended:user-end'),
+        'manual end must settle the recoverable wait and restore provider idle state',
+    );
+    harness.currentAd().forceStaleClose({ isEnded: true });
+    assert.deepStrictEqual(results, ['unknown:recoverable-ended:user-end'], 'a close after manual end must remain stale');
+    unsubscribe();
+}
+
 async function testMissingIsEndedBecomesUnknownAndCanRetry() {
     const harness = loadWechatProvider();
     const results = [];
@@ -347,6 +381,7 @@ async function main() {
     await testCloseBeforeShowPromiseResolutionStillGrantsOnce();
     await testEarlyCloseStillFails();
     await testForegroundOnlyMakesAttemptRecoverable();
+    await testStateSubscriptionAndManualRecoverableEnd();
     await testMissingIsEndedBecomesUnknownAndCanRetry();
     await testTwoIndependentCompletedAdsEachSucceed();
     await testExplicitCancelDuringLoadSettlesOnce();

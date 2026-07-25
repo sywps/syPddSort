@@ -26,6 +26,7 @@ function loadInstaller(timerApi = {}, adApi = {}) {
                 return {
                     AdConfig: {
                         cancelRewardedAdInteraction: adApi.cancelRewardedAdInteraction || (() => false),
+                        endRewardedAdWait: adApi.endRewardedAdWait || (() => false),
                         showRewardedAd: adApi.showRewardedAd || (() => {
                             throw new Error('showRewardedAd must be stubbed when showTrackedRewardedAd is executed');
                         }),
@@ -69,6 +70,37 @@ function adOutcome(status, attemptId = 1, detail = {}) {
 
 async function main() {
     const installHomeAdFlowModule = loadInstaller();
+
+    const directHandoffEvents = [];
+    let directHandoffComplete = null;
+    let directHandoffRecoverable = null;
+    const directHandoffRuntime = { _skillActive: false };
+    installHomeAdFlowModule(directHandoffRuntime);
+    directHandoffRuntime.showRewardedAdPendingStrip = (text, mode) => {
+        directHandoffEvents.push(`strip:${mode}:${text}`);
+    };
+    directHandoffRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
+        directHandoffEvents.push('native-show');
+        directHandoffComplete = onComplete;
+        directHandoffRecoverable = options.onRecoverable;
+    };
+    assert.strictEqual(directHandoffRuntime.runRewardedGrant('unlock_slot_row', () => true, {
+        busyFlag: '_skillActive',
+        onInteractionStarted: () => directHandoffEvents.push('interaction-start'),
+    }), true);
+    assert.deepStrictEqual(
+        directHandoffEvents,
+        ['interaction-start', 'native-show'],
+        'an accepted ad request must hand off directly without a custom preparation strip',
+    );
+    directHandoffRecoverable();
+    assert.deepStrictEqual(
+        directHandoffEvents,
+        ['interaction-start', 'native-show', 'strip:wait:正在确认广告结果…'],
+        'the strip must remain reserved for post-ad result recovery',
+    );
+    directHandoffComplete(adOutcome('verified_complete'));
+    await flushMicrotasks();
 
     const failureEvents = [];
     const failureRuntime = {
@@ -205,6 +237,68 @@ async function main() {
     await flushMicrotasks();
     assert.deepStrictEqual(foregroundEvents, ['recoverable', 'grant', 'finally'], 'a verified success after foreground must still execute and finalize the grant');
     assert.strictEqual(foregroundRuntime._skillActive, false, 'successful completion must release the gameplay busy flag');
+
+    const recoverableTimers = [];
+    const recoverableEndEvents = [];
+    const installRecoverableEndFlow = loadInstaller({
+        setTimeout(callback, delay) {
+            const timer = { callback, delay, cleared: false };
+            recoverableTimers.push(timer);
+            return timer;
+        },
+        clearTimeout(timer) {
+            if (timer) timer.cleared = true;
+        },
+    }, {
+        endRewardedAdWait(reason) {
+            recoverableEndEvents.push(`provider-end:${reason}`);
+            return true;
+        },
+    });
+    let recoverableEndHook = null;
+    const recoverableEndRuntime = {
+        _skillActive: false,
+        showToast: (text) => recoverableEndEvents.push(`toast:${text}`),
+    };
+    installRecoverableEndFlow(recoverableEndRuntime);
+    recoverableEndRuntime.showTrackedRewardedAd = (_page, _onComplete, options) => {
+        recoverableEndHook = options.onRecoverable;
+    };
+    recoverableEndRuntime.runRewardedGrant('unlock_slot_row', () => {
+        recoverableEndEvents.push('grant');
+        return true;
+    }, {
+        claimKey: 'unlock_slot_row:10:recoverable-end',
+        busyFlag: '_skillActive',
+        suppressPendingStrip: true,
+        onRecoverable: () => recoverableEndEvents.push('recoverable'),
+        onRecoverableEndable: () => recoverableEndEvents.push('endable'),
+        onFinally: () => recoverableEndEvents.push('finally'),
+    });
+    recoverableEndHook();
+    const endableTimer = recoverableTimers.find((timer) => timer.delay === 5000 && !timer.cleared);
+    assert.ok(endableTimer, 'recoverable result confirmation must wait five seconds before offering an exit');
+    endableTimer.callback();
+    assert.strictEqual(recoverableEndRuntime._rewardedGrantTransaction.phase, 'recoverable_endable');
+    assert.deepStrictEqual(recoverableEndEvents, [
+        'recoverable',
+        'toast:广告结果仍未返回，可点击“结束等待”',
+        'endable',
+    ]);
+    assert.strictEqual(
+        recoverableEndRuntime.cancelRewardedGrantInteraction('recoverable-user-end'),
+        true,
+        'the explicit end action must release a recoverable transaction',
+    );
+    assert.deepStrictEqual(recoverableEndEvents, [
+        'recoverable',
+        'toast:广告结果仍未返回，可点击“结束等待”',
+        'endable',
+        'finally',
+        'provider-end:recoverable-user-end',
+    ]);
+    assert.strictEqual(recoverableEndRuntime._rewardedGrantTransaction, null);
+    assert.strictEqual(recoverableEndRuntime._skillActive, false);
 
     const pendingEvents = [];
     const pendingCallbacks = [];

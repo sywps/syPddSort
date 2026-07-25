@@ -949,6 +949,16 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var levelDataCdnMarker = 'globalThis.__PDD_LEVEL_DATA_CDN_URL__=' + JSON.stringify(LEVEL_DATA_CDN_URL) + ';';
     var skinDataCdnMarker = 'globalThis.__PDD_SKIN_DATA_CDN_URL__=' + JSON.stringify(SKIN_DATA_CDN_URL) + ';';
     var screenAdaptDebugMarker = 'globalThis.__PDD_SCREEN_ADAPT_DEBUG__=' + (screenAdaptDebug ? 'true' : 'false') + ';';
+    var configuredClientBuildId = String(process.env.PDD_CLIENT_BUILD_ID || '').trim();
+    if (configuredClientBuildId && !/^[A-Za-z0-9._:-]{1,80}$/.test(configuredClientBuildId)) {
+        console.error('PDD_CLIENT_BUILD_ID 格式无效');
+        process.exit(1);
+    }
+    var clientBuildIdPattern = /globalThis\.__PDD_CLIENT_BUILD_ID__="[^"]*";/g;
+    var artifactHashSource = content.replace(clientBuildIdPattern, '');
+    var clientBuildId = configuredClientBuildId
+        || ('artifact-' + crypto.createHash('sha256').update(artifactHashSource).digest('hex').slice(0, 12));
+    var clientBuildIdMarker = 'globalThis.__PDD_CLIENT_BUILD_ID__=' + JSON.stringify(clientBuildId) + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
     var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=3;';
@@ -981,6 +991,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (screenAdaptDebugPattern.test(content)) {
         content = content.replace(screenAdaptDebugPattern, screenAdaptDebugMarker);
     }
+    if (clientBuildIdPattern.test(content)) {
+        content = content.replace(clientBuildIdPattern, clientBuildIdMarker);
+    }
     var missingLines = [];
     if (content.indexOf(platformMarker) === -1) missingLines.push(platformMarker);
     if (content.indexOf(marker) === -1) missingLines.push(marker);
@@ -990,6 +1003,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(levelDataCdnMarker) === -1) missingLines.push(levelDataCdnMarker);
     if (content.indexOf(skinDataCdnMarker) === -1) missingLines.push(skinDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
+    if (content.indexOf(clientBuildIdMarker) === -1) missingLines.push(clientBuildIdMarker);
     if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {
         missingLines.push(
             '(function pddEarlyPerfTrace(){',

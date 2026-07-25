@@ -57,7 +57,7 @@ const cdnService = fs.readFileSync(path.join(root, 'assets/Scripts/Core/LevelDat
 assert.ok(cdnService.includes('validateSlotPolicyConfig(entry.data.slotPolicy'), 'CDN pack parsing must validate slotPolicy before returning level data');
 assert.ok(cdnService.includes("namespace: 'stable'"), 'control and non-experiment levels must use the stable CDN namespace');
 assert.ok(cdnService.includes('resolveFrontLevelExperimentContext'), 'front10 treatment routing must be isolated in the experiment service');
-assert.ok(cdnService.includes("experiment?.variant === 'treatment'"), 'control levels must continue to use the stable CDN namespace');
+assert.ok(cdnService.includes("experiment?.variant === 'exp'"), 'only the current exp bucket may leave the stable CDN namespace');
 
 const assetBootstrap = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts'), 'utf8');
 assert.ok(!assetBootstrap.includes('_isReleaseLevelDataCdnOnly'), 'ordinary debug and release must share CDN failure semantics');

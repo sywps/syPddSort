@@ -57,7 +57,13 @@ assert.ok(input.includes('this.compactSlotsAfterSelectionConsume();'), 'slot mod
 assert.ok(input.includes('this._hiddenSlotIndices?.has(slotIndex)'), 'hidden in-flight slot targets must not be selectable');
 assert.ok(placement.includes('this.startFlyToSlots(block.colorId, sources.slice(0, storedSlotIdxs.length), storedSlotIdxs, block.cells, remainingSelection);'), 'board-to-slot partial placement must preserve remaining board selection');
 assert.ok(tutorial.includes('const remainingSelection = result.remaining > 0'), 'tutorial placement path must use the same remaining selection model');
-assert.ok(tutorial.includes('this.startFlyToSlots(block.colorId, sources.slice(0, storedIdxs.length), storedIdxs, block.cells, remainingSelection);'), 'tutorial board-to-slot partial placement must preserve remaining board selection');
-assert.ok(tutorial.includes('undefined, undefined, remainingSelection'), 'tutorial fly placement must pass remaining selection');
+assert.ok(
+    /this\.startFlyToSlots\(\s*block\.colorId,\s*sources\.slice\(0, storedIdxs\.length\),\s*storedIdxs,\s*block\.cells,\s*remainingSelection,/.test(tutorial),
+    'tutorial board-to-slot partial placement must preserve remaining board selection before the arrival callback',
+);
+assert.ok(
+    /this\.startFlyPlace\([\s\S]*?guideDirtySlotIndices,\s*undefined,\s*\{\s*awaitLandEffect:\s*false\s*\},\s*remainingSelection,\s*\(\) => this\.previewNextGuideStepDuringPlacement/.test(tutorial),
+    'tutorial fly placement must preserve remaining selection before the arrival callback',
+);
 
 console.log('selection-continuation-flow.test.js passed');

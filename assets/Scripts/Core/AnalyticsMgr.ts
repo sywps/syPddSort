@@ -94,6 +94,15 @@ function normalizePositiveLevelId(value: string | number | undefined): number {
     return num > 0 ? num : 0;
 }
 
+function resolveClientBuildIdentity(): { id: string; source: string } {
+    const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
+    const injectedId = String(globalScope?.__PDD_CLIENT_BUILD_ID__ || '').trim();
+    if (injectedId) {
+        return { id: injectedId.slice(0, 80), source: 'wechat_build_marker' };
+    }
+    return { id: 'browser-dev', source: 'browser_dev' };
+}
+
 @ccclass('AnalyticsMgr')
 export class AnalyticsMgr {
     private static _inst: AnalyticsMgr | null = null;
@@ -233,6 +242,7 @@ export class AnalyticsMgr {
         const physicalLevelId = opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
         const abId = opt.abId ?? this.levelContext.abId ?? '';
         const abBucket = opt.abBucket ?? this.levelContext.abBucket ?? '';
+        const clientBuild = resolveClientBuildIdentity();
         const event: Record<string, unknown> = {
             sessionId: this.funnelSessionId,
             eventSeq: ++this.funnelEventSeq,
@@ -256,8 +266,10 @@ export class AnalyticsMgr {
             timestamp: now,
         };
         event.extra = {
-            ...(opt.extra && typeof opt.extra === 'object' ? opt.extra : {}),
+            clientBuildId: clientBuild.id,
+            clientBuildIdSource: clientBuild.source,
             launchChannelAtEvent: this.resolveChannel(),
+            ...(opt.extra && typeof opt.extra === 'object' ? opt.extra : {}),
         };
 
         this.funnelQueue.push(event);

@@ -62,6 +62,20 @@ assert.ok(queryIndex >= 0 && queryIndex < repairIndex, 'monitor must preserve a 
 assert.ok(repairIndex >= 0 && repairIndex < refreshIndex, 'every cold refresh must restore importer metadata first');
 assert.ok(monitor.includes("process.env.PDD_COCOS_ASSETDB_FORCE_REFRESH === '1'"), 'worker warmup must support a forced refresh for source mtime changes');
 assert.ok(monitor.includes('importedAssetContractsReady()'), 'warmup must validate imported scene contents before reporting ready');
+assert.ok(
+    monitor.includes('Number(process.env.WECHAT_COCOS_ASSETDB_WARM_TIMEOUT_MS)'),
+    'the in-editor monitor must honor the same bounded warmup timeout as its launcher',
+);
+assert.ok(!monitor.includes('const timeoutMs = 90000;'), 'the in-editor monitor must not fail before a configured large-project import bound');
+assert.ok(monitor.includes('let refreshAttempted = false;'), 'each warmup must track whether its one AssetDB refresh was already issued');
+assert.ok(monitor.includes('const shouldRefresh = !refreshAttempted'), 'a large import must not be reset by repeated full refreshes');
+assert.ok(
+    monitor.includes('(forcedRefreshPending && assetContractsReady)'),
+    'a forced refresh must wait until the importer-backed inventory is healthy',
+);
+assert.ok(monitor.includes('recoveryRefreshDelayMs'), 'an unhealthy first import may receive one delayed recovery refresh');
+assert.ok(monitor.includes('refreshAttempted = true;'), 'the first refresh must close the one-shot gate');
+assert.ok(!monitor.includes('Date.now() - lastRefreshAt'), 'refresh polling must not restart a still-running full import');
 
 const helper = read('scripts/warm-cocos-assetdb.js');
 assert.ok(helper.includes("child.kill('SIGTERM')"), 'helper must close the exact editor process it launched');

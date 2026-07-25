@@ -23,6 +23,7 @@
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
+import { AppRoot } from '../AppRoot';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -521,6 +522,10 @@ export function installThemeLoadingOverlayModule(target: any): void {
             if (!this.loadingCover) throw new Error('[LoadingOverlay] loadingCover is not assigned');
             const overlayVersion = (this._loadingOverlayVersion || 0) + 1;
             this._loadingOverlayVersion = overlayVersion;
+            if (this._loadingOwnerToken) {
+                this.releaseRuntimeOwner?.(this._loadingOwnerToken);
+            }
+            this._loadingOwnerToken = this.acquireRuntimeOwner?.('loading', `overlay-${overlayVersion}`) || '';
             const visibleSize = this._getLoadingVisibleSize();
             const overlayParent = this.requireCanvasUiRoot('BootRoot');
             const layer = this.requireUiChild(overlayParent, 'StartupLoadingUI', 'BootRoot/StartupLoadingUI');
@@ -595,6 +600,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const group = this.requireUiChild(layer, 'LoadingProgressGroup', 'StartupLoadingUI/LoadingProgressGroup');
             const groupUI = group.getComponent(UITransform);
             if (!groupUI) throw new Error('[BootScene] Boot.scene is missing UITransform on StartupLoadingUI/LoadingProgressGroup');
+            this._loadingProgressGroup = group;
 
             const labelNode = this.requireUiChild(group, 'Label', 'LoadingProgressGroup/Label');
             const label = labelNode.getComponent(Label);
@@ -620,19 +626,103 @@ export function installThemeLoadingOverlayModule(target: any): void {
             this._loadingProgressFill = progressBar;
             this._loadingProgressLabelShadow = null;
             this._loadingShine = null;
-            this._setLoadingProgressPercentText(0);
+            this._setLoadingStatusText('正在准备关卡…');
         },
 
         _startLoadingProgressIntro(overlayVersion: number) {
-            this._setLoadingProgress(0, 0, overlayVersion);
-            this.scheduleOnce(() => {
+            this._stopLoadingShine();
+            this._loadingProgress = 0;
+            this._loadingProgressPercent = 0;
+            this._setLoadingStatusText('正在准备关卡…');
+            if (this._loadingProgressGroup?.isValid) {
+                this._loadingProgressGroup.active = false;
+            }
+            if (this._loadingSlowActions?.isValid) {
+                this._loadingSlowActions.active = false;
+            }
+            const showProgress = () => {
+                this._loadingProgressIntroHandler = null;
                 if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
-                this._setLoadingProgress(0.5, 0.2, overlayVersion);
-            }, 0);
-            this.scheduleOnce(() => {
+                if (this._loadingProgressGroup?.isValid) {
+                    this._loadingProgressGroup.active = true;
+                }
+                this._startLoadingIndeterminate(overlayVersion);
+            };
+            const showSlowActions = () => {
+                this._loadingSlowActionHandler = null;
                 if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
-                this._setLoadingProgress(0.8, 0.4, overlayVersion);
-            }, 0.22);
+                this._setLoadingStatusText('仍在准备关卡…');
+                if (this._loadingSlowActions?.isValid) {
+                    this._loadingSlowActions.active = true;
+                }
+                AnalyticsMgr.inst.trackFunnelEvent({
+                    eventName: 'loading_wait_slow',
+                    page: this.getAnalyticsPage?.() || 'level_game',
+                    levelId: this.getAnalyticsLevelId?.() || 0,
+                    source: 'startup_loading',
+                    success: true,
+                    extra: { thresholdMs: 3000 },
+                });
+            };
+            this._loadingProgressIntroHandler = showProgress;
+            this._loadingSlowActionHandler = showSlowActions;
+            this.scheduleOnce(showProgress, 0.3);
+            this.scheduleOnce(showSlowActions, 3);
+        },
+
+        _setLoadingStatusText(text: string) {
+            const status = String(text || '正在准备关卡…');
+            if (this._loadingProgressLabel) {
+                this._loadingProgressLabel.string = status;
+            }
+            if (this._loadingProgressLabelShadow) {
+                this._loadingProgressLabelShadow.string = status;
+            }
+        },
+
+        _startLoadingIndeterminate(overlayVersion: number) {
+            if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
+            this._stopLoadingShine();
+            const fillNode = this._loadingProgressFillNode as Node | null;
+            const fillTransform = fillNode?.getComponent(UITransform) || null;
+            if (fillNode?.isValid && fillTransform) {
+                const trackWidth = Math.max(120, Number(this._loadingProgressTrackWidth) || 520);
+                const segmentWidth = Math.min(120, trackWidth);
+                const segmentHeight = Math.max(1, Number(this._loadingProgressFullHeight) || 8);
+                const startX = -trackWidth / 2 + segmentWidth / 2;
+                const endX = trackWidth / 2 - segmentWidth / 2;
+                fillTransform.setContentSize(segmentWidth, segmentHeight);
+                const highlight = fillNode.getChildByName('LoadingBarFillHighlight') || null;
+                const highlightTransform = highlight?.getComponent(UITransform) || null;
+                if (highlightTransform) {
+                    highlightTransform.setContentSize(segmentWidth, highlightTransform.height);
+                }
+                if (highlight?.isValid) {
+                    highlight.setPosition(segmentWidth / 2, highlight.position.y, highlight.position.z);
+                }
+                const shine = fillNode.getChildByName('LoadingBarShine') || null;
+                if (shine?.isValid) {
+                    shine.active = true;
+                    shine.setPosition(segmentWidth / 2, shine.position.y, shine.position.z);
+                }
+                const y = fillNode.position.y;
+                const z = fillNode.position.z;
+                fillNode.setPosition(startX, y, z);
+                const sweep = tween(fillNode)
+                    .to(1.2, { position: new Vec3(endX, y, z) }, { easing: 'sineInOut' })
+                    .call(() => fillNode.setPosition(startX, y, z));
+                this._loadingShineTween = tween(fillNode).repeatForever(sweep).start();
+                return;
+            }
+            const progressBar = this._loadingProgressFill as ProgressBar | null;
+            if (!progressBar) return;
+            progressBar.progress = 0.18;
+            this._loadingShineTween = tween(progressBar)
+                .to(0.6, { progress: 0.72 }, { easing: 'sineInOut' })
+                .to(0.6, { progress: 0.18 }, { easing: 'sineInOut' })
+                .union()
+                .repeatForever()
+                .start();
         },
 
         _setLoadingProgress(progress: number, duration = 0.2, overlayVersion: number = this._loadingOverlayVersion || 0) {
@@ -653,12 +743,9 @@ export function installThemeLoadingOverlayModule(target: any): void {
         _setLoadingProgressPercentText(percent: number) {
             const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
             this._loadingProgressPercent = safePercent;
-            if (this._loadingProgressLabel) {
-                this._loadingProgressLabel.string = `加载中...${safePercent}%`;
-            }
-            if (this._loadingProgressLabelShadow) {
-                this._loadingProgressLabelShadow.string = `加载中...${safePercent}%`;
-            }
+            this._setLoadingStatusText(
+                this._loadingHasMeasuredProgress ? `正在准备关卡 ${safePercent}%` : '正在准备关卡…',
+            );
         },
 
         _animateLoadingProgressPercent(from: number, to: number, duration: number, overlayVersion: number = this._loadingOverlayVersion || 0) {
@@ -674,12 +761,9 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 }
                 const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
                 this._loadingProgressPercent = safePercent;
-                if (this._loadingProgressLabel) {
-                    this._loadingProgressLabel.string = `加载中...${safePercent}%`;
-                }
-                if (this._loadingProgressLabelShadow) {
-                    this._loadingProgressLabelShadow.string = `加载中...${safePercent}%`;
-                }
+                this._setLoadingStatusText(
+                    this._loadingHasMeasuredProgress ? `正在准备关卡 ${safePercent}%` : '正在准备关卡…',
+                );
             };
             if (duration <= 0 || fromPercent === toPercent) {
                 applyPercentText(toPercent);
@@ -707,6 +791,141 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 this._loadingProgressLabelTween.stop();
                 this._loadingProgressLabelTween = null;
             }
+            if (this._loadingShineTween) {
+                this._loadingShineTween.stop();
+                this._loadingShineTween = null;
+            }
+            if (this._loadingProgressFillNode?.isValid) {
+                Tween.stopAllByTarget(this._loadingProgressFillNode);
+            }
+        },
+
+        clearLoadingStageTimers() {
+            for (const key of ['_loadingProgressIntroHandler', '_loadingSlowActionHandler', '_loadingWatchdogHandler']) {
+                const handler = this[key];
+                if (handler && typeof this.unschedule === 'function') {
+                    this.unschedule(handler);
+                }
+                this[key] = null;
+            }
+        },
+
+        beginGameplayLoadingWatchdog(
+            levelId: number,
+            levelPath: string,
+            source: 'local' | 'remote' = 'remote',
+        ) {
+            if (this._loadingWatchdogHandler && typeof this.unschedule === 'function') {
+                this.unschedule(this._loadingWatchdogHandler);
+            }
+            const timeoutMs = source === 'local' ? 5000 : 10000;
+            const requestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
+            this._gameplayLoadRequestVersion = requestVersion;
+            this._levelDataLoadStopped = false;
+            const handler = () => {
+                this._loadingWatchdogHandler = null;
+                if (requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+                if (this._levelDataLoadStopped || !this.isValid) return;
+                this.stopLevelDataLoadWithFatalError?.(
+                    Math.max(1, Math.floor(Number(levelId) || 1)),
+                    String(levelPath || `level_${levelId}`),
+                    'level_data_load_timeout',
+                    source === 'local' ? 'local_load_timeout' : 'remote_load_timeout',
+                    `${source} gameplay startup exceeded ${timeoutMs}ms`,
+                    { timeoutMs, loadSource: source },
+                );
+            };
+            this._loadingWatchdogHandler = handler;
+            this.scheduleOnce(handler, timeoutMs / 1000);
+        },
+
+        setLoadingActionButtonsInteractable(interactable: boolean) {
+            const roots = [
+                this._loadingSlowActions,
+                this._remoteLoadErrorOverlay?.getChildByName('RemoteLoadFatalErrorCard') || null,
+            ];
+            for (const root of roots) {
+                if (!root?.isValid) continue;
+                for (const name of [
+                    'LoadingRetryButton',
+                    'LoadingBackButton',
+                    'RemoteLoadFatalErrorRetry',
+                    'RemoteLoadFatalErrorBack',
+                ]) {
+                    const button = root.getChildByName(name)?.getComponent(Button) || null;
+                    if (button) button.interactable = interactable;
+                }
+            }
+        },
+
+        retryGameplayLoading(source: string = 'loading') {
+            if (this._loadingRouteActionInFlight) return;
+            const appRoot = AppRoot.tryGet();
+            if (!appRoot) {
+                this._setLoadingStatusText('重新加载失败，请返回首页');
+                return;
+            }
+            const pending = appRoot.session.pendingGameplayRequest;
+            const active = appRoot.session.activeGameplayContext;
+            const request = pending || active;
+            const levelId = Math.max(
+                1,
+                Math.floor(Number(request?.levelId || this._activePhysicalLevelId || this._currentThemeLevelId) || 1),
+            );
+            const entryMode = request?.entryMode
+                || (this._currentExternalLevelFilePath ? 'external' : (this._isThemeLevel ? 'theme' : 'main'));
+            const prefix = String(request?.prefix || (entryMode === 'theme' ? 'zt_level_' : 'level_'));
+            this._loadingRouteActionInFlight = true;
+            this._levelDataLoadStopped = true;
+            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
+            this.clearLoadingStageTimers();
+            this._stopLoadingShine();
+            this._setLoadingStatusText('正在重新加载…');
+            this.setLoadingActionButtonsInteractable(false);
+            AnalyticsMgr.inst.trackFunnelEvent({
+                eventName: 'loading_retry_clicked',
+                page: this.getAnalyticsPage?.() || 'level_game',
+                levelId,
+                source,
+                success: true,
+            });
+            AnalyticsMgr.inst.flushFunnelEvents();
+            appRoot.markGameRequested(levelId, prefix, entryMode, 'cover', 'loading-retry');
+            appRoot.router.toGame().catch((error) => {
+                if (!this.isValid) return;
+                this._loadingRouteActionInFlight = false;
+                this._levelDataLoadStopped = false;
+                this._setLoadingStatusText('重新加载失败，请返回首页');
+                this.setLoadingActionButtonsInteractable(true);
+                console.error('[LoadingOverlay] retry route failed:', error);
+            });
+        },
+
+        exitGameplayLoading(source: string = 'loading') {
+            if (this._loadingRouteActionInFlight) return;
+            const appRoot = AppRoot.tryGet();
+            if (!appRoot) return;
+            this._loadingRouteActionInFlight = true;
+            this._levelDataLoadStopped = true;
+            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
+            this.clearLoadingStageTimers();
+            this._stopLoadingShine();
+            this.setLoadingActionButtonsInteractable(false);
+            AnalyticsMgr.inst.trackFunnelEvent({
+                eventName: 'loading_back_clicked',
+                page: this.getAnalyticsPage?.() || 'level_game',
+                levelId: this.getAnalyticsLevelId?.() || 0,
+                source,
+                success: true,
+            });
+            AnalyticsMgr.inst.flushFunnelEvents();
+            appRoot.requestHomeRoute('loading-back', 'cover').catch((error) => {
+                if (!this.isValid) return;
+                this._loadingRouteActionInFlight = false;
+                this._levelDataLoadStopped = false;
+                this.setLoadingActionButtonsInteractable(true);
+                console.error('[LoadingOverlay] home route failed:', error);
+            });
         },
 
         hideLoadingOverlayAfterGameplayReady() {
@@ -717,6 +936,8 @@ export function installThemeLoadingOverlayModule(target: any): void {
         /** 隐藏并销毁加载封面 */
         hideLoadingOverlay() {
             if (this._loadingClosing) return;
+            this.clearLoadingStageTimers();
+            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
             const canvas = this.node?.scene?.getChildByName('Canvas') || null;
             const bootRoot = canvas?.getChildByName('BootRoot')
                 || canvas?.getChildByName('ScreenRoot')?.getChildByName('BootRoot')
@@ -725,10 +946,14 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const overlay = this._loadingOverlay?.isValid
                 ? this._loadingOverlay
                 : (authoredOverlay?.isValid ? authoredOverlay : null);
+            if (this._loadingOwnerToken) {
+                this.releaseRuntimeOwner?.(this._loadingOwnerToken);
+                this._loadingOwnerToken = '';
+            }
+            this.clearRuntimeOwners?.('loading');
             if (!overlay) return;
             this._loadingClosing = true;
             const overlayVersion = this._loadingOverlayVersion || 0;
-            this._setLoadingProgress(1, 0, overlayVersion);
             this._stopLoadingShine();
             this._loadingOverlayVersion = overlayVersion + 1;
             const blocker = overlay.getComponent(BlockInputEvents);
@@ -740,11 +965,15 @@ export function installThemeLoadingOverlayModule(target: any): void {
             }
             this._loadingOverlay = null;
             this._loadingProgressFill = null;
+            this._loadingProgressFillNode = null;
+            this._loadingProgressGroup = null;
+            this._loadingSlowActions = null;
             this._loadingProgressLabel = null;
             this._loadingProgressLabelShadow = null;
             this._loadingShine = null;
             this._loadingProgress = 0;
             this._loadingProgressPercent = 0;
+            this._loadingRouteActionInFlight = false;
             this._loadingClosing = false;
         },
     });

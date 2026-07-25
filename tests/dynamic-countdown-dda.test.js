@@ -184,7 +184,8 @@ assert.ok(slotUi.includes('const beforeUnlockedRows'), 'slot-row unlock must sna
 assert.ok(slotUi.includes('return didAdvance();'), 'slot-row unlock must return false when policy/state makes the grant a no-op');
 assert.ok(slotUi.includes('const unlocked = this.unlockSlotRow();'), 'slot-row rewarded ad grant must inspect the actual unlock result');
 assert.ok(slotUi.includes('if (!unlocked) return false;'), 'slot-row rewarded ad grant must fail when no row was unlocked');
-assert.ok(slotUi.includes('onInteractionReleased: () => runtime.resumeTimerForProp()'), 'slot-row timer must resume when the ad interaction lease is released');
+assert.ok(slotUi.includes("runtime.pauseTimerForProp('slot-unlock-ad')"), 'slot-row ad wait must acquire an explicit timer owner');
+assert.ok(slotUi.includes("runtime.resumeTimerForProp(timerToken || 'slot-unlock-ad')"), 'slot-row timer must release the exact ad interaction token');
 assert.ok(!slotUi.includes('onAdComplete: () => runtime.resumeTimerForProp()'), 'slot-row timer must not resume before the rewarded grant runs');
 assert.ok(slotUi.includes('this.runtime.slotModel.getAll().some((s: any) => s !== null)'), 'slot-clear availability must read the real slot model occupancy');
 
@@ -194,6 +195,7 @@ assert.ok(commerce.includes('Promise.resolve(options.onAdGrant()).then((grantRes
 assert.ok(commerce.includes('if (grantResult !== false)'), 'inventory changed callback must run only after a successful grant/use');
 assert.ok(commerce.includes('if (options.onAdGrant)'), 'tool acquire panel must prefer the gameplay direct-use ad grant when supplied');
 assert.ok(commerce.includes('this.runtime.addPropCount(kind, 1);'), 'non-gameplay tool acquire ads must keep the default inventory grant behavior');
+assert.ok(commerce.includes("runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire')"), 'tool acquire close paths must release the exact timer token');
 
 const levelFlow = read('assets/Scripts/Core/GameCtrlModules/GameplayLevelFlowModule.ts');
 assert.ok(levelFlow.includes('this.syncSkillButtonRuntimeStates?.();'), 'slot rendering must refresh slot-clear enabled/dim state');

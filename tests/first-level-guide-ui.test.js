@@ -27,6 +27,7 @@ assert.ok(
 );
 
 const tutorialGuide = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
+const guideLeaderboard = read('assets/Scripts/Core/GameCtrlModules/GuideLeaderboardModule.ts');
 const settlementHud = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
 const gameScene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
@@ -34,6 +35,8 @@ const singleLinePrompt = gameScene.find((entry) => entry && entry.__type__ === '
 const slotIntroPrompt = gameScene.find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'SlotIntroPrompt');
 const inlineEmphasisNames = [
     'PromptLabelInlineEmphasis',
+    'PromptLabelInlineEmphasisBlue',
+    'PromptLabelInlineEmphasisAction',
     'PromptLabelPrimaryEmphasis',
     'PromptLabelSecondaryEmphasis',
 ];
@@ -48,19 +51,30 @@ assert.ok(singleLinePrompt && singleLinePrompt._active === false, 'single-line p
 assert.ok(slotIntroPrompt && slotIntroPrompt._active === false, 'slot-intro prompt variant must default inactive in Game.scene');
 assert.ok(inlineEmphasisNodes.every((node) => node && node._active === false), 'inline emphasis labels must default inactive in Game.scene');
 assert.ok(secondaryNode && secondaryNode._active === true, 'slot-intro secondary base label must remain active inside its inactive variant');
+const expectedEmphasisColors = new Map([
+    ['PromptLabelInlineEmphasis', '255,77,90'],
+    ['PromptLabelInlineEmphasisBlue', '74,125,255'],
+    ['PromptLabelInlineEmphasisAction', '217,130,0'],
+    ['PromptLabelPrimaryEmphasis', '255,77,90'],
+    ['PromptLabelSecondaryEmphasis', '255,77,90'],
+]);
 for (const node of inlineEmphasisNodes) {
     const index = gameScene.indexOf(node);
     const label = findSceneComponent(index, 'cc.Label');
-    assert.ok(label && label._color.r === 255 && label._color.g === 77 && label._color.b === 90, `${node._name} must use the scene-owned red emphasis color`);
+    assert.strictEqual(
+        label && `${label._color.r},${label._color.g},${label._color.b}`,
+        expectedEmphasisColors.get(node._name),
+        `${node._name} must use its scene-owned semantic emphasis color`,
+    );
     assert.strictEqual(label._overflow, 0, `${node._name} must measure its marked copy with Overflow.NONE`);
 }
 const promptLabelComponents = [singleLinePrompt, slotIntroPrompt]
     .flatMap((variant) => variant._children.map((ref) => findSceneComponent(ref.__id__, 'cc.Label')))
     .filter(Boolean);
-const allowedPromptColors = new Set(['113,98,162', '255,77,90']);
+const allowedPromptColors = new Set(['113,98,162', '255,77,90', '74,125,255', '217,130,0']);
 assert.ok(
     promptLabelComponents.every((label) => allowedPromptColors.has(`${label._color.r},${label._color.g},${label._color.b}`)),
-    'all L1-L3 prompt labels must use only the scene-owned base purple or emphasis red',
+    'all L1-L3 prompt labels must use only the scene-owned base or semantic emphasis colors',
 );
 assert.ok(
     tutorialGuide.includes("this.activateGuidePromptVariant(bubble, 'SingleLinePrompt')"),
@@ -103,12 +117,24 @@ assert.ok(
     'level 1 step 0 prompt must follow the first-color board block',
 );
 assert.ok(
-    tutorialGuide.includes('const targetGap = target.kind === \'slot\' ? 44 : 16;'),
+    tutorialGuide.includes('const defaultTargetGap = target.kind === \'slot\' ? 44 : 16;')
+        && tutorialGuide.includes('const LEVEL_2_FIRST_SLOT_PLACE_PROMPT_GAP = 20;'),
     'slot and board guide prompts must keep separate target gaps',
 );
 assert.ok(
     tutorialGuide.includes('this.clampGuidePromptCenterY(bubble, desiredY)'),
     'target guide prompts must be positioned directly from the target bounds',
+);
+assert.ok(
+    tutorialGuide.includes('const GUIDE_PROMPT_TOP_HUD_SAFE_INSET = 72;')
+        && tutorialGuide.includes('const maxCenterY = visibleHalfH - bubbleHeight / 2 - GUIDE_PROMPT_TOP_HUD_SAFE_INSET;'),
+    'guide prompts must reserve the authored top HUD band on tablet and short-aspect layouts',
+);
+assert.ok(
+    tutorialGuide.includes("if (target.kind === 'board' && clampedAboveY < desiredY - 0.5)")
+        && tutorialGuide.includes('const boardBounds = this.getGuidePromptBoardVisualBounds(bubble);')
+        && tutorialGuide.includes('const belowBoardY = boardBounds.bottom - defaultTargetGap - bubbleHeight / 2;'),
+    'board prompts that cannot fit above the target without entering the HUD must move below the board',
 );
 assert.ok(
     !tutorialGuide.includes('this.getGuidePromptCenterY(desiredY, bubbleHeight)'),
@@ -117,6 +143,41 @@ assert.ok(
 assert.ok(
     !tutorialGuide.includes('Math.min(currentY, desiredY)'),
     'starter guide prompt must not stay at the bottom default for board targets',
+);
+assert.ok(
+    guideLeaderboard.includes('const overlapsTarget =')
+        && guideLeaderboard.includes('const bubbleTopWorld = bubbleUT.convertToWorldSpaceAR(')
+        && guideLeaderboard.includes('desiredY = bubbleTop.y + assistHalfH + 12;'),
+    'the 12-second demo control must move above the bubble when its preferred position would cover the active target',
+);
+assert.ok(
+    guideLeaderboard.includes("const dimOpacity = state === 'preview' ? 112 : (state === 'reinforce' ? 172 : 132);")
+        && guideLeaderboard.includes('showGuideDimMask(alphaValue: number = 132')
+        && guideLeaderboard.includes('Math.min(196, Math.round(alphaValue))')
+        && settlementHud.includes('? 184 : 132')
+        && settlementHud.includes("if (this._guideMode !== 'zoom')"),
+    'target emphasis must use a strong cutout dim mask instead of a decorative outer ring',
+);
+assert.ok(
+    !tutorialGuide.includes("this.showGuideTapFeedback?.(worldPos, 'wrong')")
+        && tutorialGuide.includes('this.startGuideWrongTargetHandPulse?.(this._guideHand);')
+        && guideLeaderboard.includes('startGuideWrongTargetHandPulse(hand: Node'),
+    'wrong taps must redirect attention through a faster correct-hand pulse, not a ripple at the wrong coordinate',
+);
+assert.ok(
+    settlementHud.includes('function stretchRuntimeUiNodeToParent(node: Node): void')
+        && (settlementHud.match(/stretchRuntimeUiNodeToParent\(this\._guideLayer\);/g) || []).length >= 2
+        && (settlementHud.match(/stretchRuntimeUiNodeToParent\(this\._guideMask\);/g) || []).length >= 2,
+    'runtime guide layers must stay stretched to OverlayRoot after browser or device-preview resizing',
+);
+assert.ok(
+    settlementHud.includes('layer.on(Node.EventType.SIZE_CHANGED, this.refreshGuideLayerViewportLayout, this);')
+        && settlementHud.includes('this.showGuideDimMask?.(Math.max(0, Number(opacity?.opacity) || 132), false);'),
+    'viewport resizing must recompute all four dim-mask panels instead of leaving stale bright strips',
+);
+assert.ok(
+    !guideLeaderboard.includes('new Color(255, 205, 74'),
+    'the tutorial target must not render the rejected yellow outer ring',
 );
 const singleLineLabelNodeIndex = singleLinePrompt._children
     .map((ref) => ref.__id__)

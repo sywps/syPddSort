@@ -55,6 +55,7 @@ function loadSettlementInstaller() {
         exports: module.exports,
         require(id) {
             if (id === '../GameCtrlShared') return {};
+            if (id === 'cc') return { Widget: class Widget {} };
             if (id === '../RuntimeLog') return { runtimeWarn() {} };
             if (id === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
             throw new Error(`unexpected require: ${id}`);

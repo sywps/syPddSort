@@ -5,8 +5,11 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const pollIntervalMs = 1000;
-const refreshIntervalMs = 5000;
-const timeoutMs = 90000;
+const timeoutMs = Math.max(
+    30000,
+    Number(process.env.WECHAT_COCOS_ASSETDB_WARM_TIMEOUT_MS) || 110000,
+);
+const recoveryRefreshDelayMs = Math.min(120000, Math.max(30000, Math.floor(timeoutMs / 2)));
 const importedAssetContracts = [
     {
         relativePath: 'BootstrapBundle/Scenes/Game.scene',
@@ -89,10 +92,10 @@ function importedAssetContractsReady() {
 async function monitor(resultPath) {
     const startedAt = Date.now();
     let attempts = 0;
-    let lastRefreshAt = 0;
     let lastError = '';
     let healthyCountStreak = 0;
     let forcedRefreshPending = process.env.PDD_COCOS_ASSETDB_FORCE_REFRESH === '1';
+    let refreshAttempted = false;
     while (Date.now() - startedAt < timeoutMs) {
         attempts += 1;
         const assetDbReady = await requestReady();
@@ -101,13 +104,22 @@ async function monitor(resultPath) {
                 const counts = await queryCounts();
                 const hasInventory = counts.sceneCount > 0 && counts.scriptCount > 0;
                 const assetContractsReady = hasInventory && importedAssetContractsReady();
-                healthyCountStreak = assetContractsReady ? healthyCountStreak + 1 : 0;
-                if ((forcedRefreshPending || !assetContractsReady) && Date.now() - lastRefreshAt >= refreshIntervalMs) {
+                const recoveryDelayElapsed = Date.now() - startedAt >= recoveryRefreshDelayMs;
+                const shouldRefresh = !refreshAttempted && (
+                    (forcedRefreshPending && assetContractsReady)
+                    || (!assetContractsReady && recoveryDelayElapsed)
+                );
+                if (shouldRefresh) {
                     repairMetaFiles();
                     await Editor.Message.request('asset-db', 'refresh-asset', 'db://assets');
                     forcedRefreshPending = false;
+                    refreshAttempted = true;
                     healthyCountStreak = 0;
-                    lastRefreshAt = Date.now();
+                } else {
+                    const forcedRefreshSatisfied = !forcedRefreshPending || refreshAttempted;
+                    healthyCountStreak = assetContractsReady && forcedRefreshSatisfied
+                        ? healthyCountStreak + 1
+                        : 0;
                 }
                 const result = {
                     done: healthyCountStreak >= 3,

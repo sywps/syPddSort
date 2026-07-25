@@ -3339,7 +3339,7 @@
       "b": 40,
       "a": 255
     },
-    "_string": "请重启小游戏",
+    "_string": "关卡没准备好",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 34,
@@ -3471,7 +3471,7 @@
       "b": 58,
       "a": 255
     },
-    "_string": "资源更新中",
+    "_string": "请检查网络后重试",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -4400,7 +4400,7 @@
       "b": 62,
       "a": 150
     },
-    "_string": "正在加载：0%",
+    "_string": "正在准备关卡…",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -4532,7 +4532,7 @@
       "b": 184,
       "a": 255
     },
-    "_string": "正在加载：0%",
+    "_string": "正在准备关卡…",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,

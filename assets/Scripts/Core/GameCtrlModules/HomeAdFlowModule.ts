@@ -34,7 +34,7 @@ import { AppRoot } from '../AppRoot';
 import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
-import type { RewardedAdOutcome } from '../../Platform/RewardedAdProvider';
+import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/RewardedAdProvider';
 
 type RewardedGrantToast = string | (() => string);
 type RewardedGrantResult = boolean | void | Promise<boolean | void>;
@@ -47,9 +47,12 @@ type RewardedGrantOptions = {
     grantFailToast?: RewardedGrantToast;
     afterGrantFailToast?: RewardedGrantToast;
     successToast?: RewardedGrantToast;
-    onAdComplete?: (success: boolean) => void;
+    onAdComplete?: (success: boolean, outcome?: RewardedAdOutcome) => void;
     onAdFail?: () => void;
+    onAdShown?: () => void;
     onRecoverable?: () => void;
+    onRecoverableEndable?: () => void;
+    suppressPendingStrip?: boolean;
     onInteractionStarted?: () => void;
     onInteractionReleased?: () => void;
     afterGrant?: () => RewardedGrantResult;
@@ -59,7 +62,7 @@ type RewardedGrantRuntimeTransaction = {
     id: number;
     claimKey: string;
     page: string;
-    phase: 'ad' | 'recoverable' | 'grant';
+    phase: 'ad' | 'recoverable' | 'recoverable_endable' | 'grant';
     startedAt: number;
     cancel: (reason: string) => void;
 };
@@ -100,14 +103,28 @@ export function installHomeAdFlowModule(target: any): void {
     Object.assign(target, {
         cancelRewardedGrantInteraction(reason: string = 'manual'): boolean {
             const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+            const wasRecoverable = transaction?.phase === 'recoverable'
+                || transaction?.phase === 'recoverable_endable';
             if (transaction) {
                 transaction.cancel(reason);
             }
             let providerCancelled = false;
             try {
-                providerCancelled = AdConfig.cancelRewardedAdInteraction(reason);
+                providerCancelled = wasRecoverable
+                    ? AdConfig.endRewardedAdWait(reason)
+                    : AdConfig.cancelRewardedAdInteraction(reason);
             } catch (error) {
                 console.error(`[RewardedGrant] provider cancellation failed: ${reason}`, error);
+            }
+            if (providerCancelled) {
+                AnalyticsMgr.inst.trackFunnelEvent?.({
+                    eventName: wasRecoverable ? 'rewarded_ad_wait_cancel' : 'rewarded_ad_load_cancel',
+                    page: transaction?.page || this.getAnalyticsPage?.() || 'level_game',
+                    levelId: this.getAnalyticsLevelId?.() || 0,
+                    source: reason,
+                    success: true,
+                });
+                AnalyticsMgr.inst.flushFunnelEvents?.();
             }
             return providerCancelled || !!transaction;
         },
@@ -145,14 +162,123 @@ export function installHomeAdFlowModule(target: any): void {
             }
         },
 
-        scheduleRewardedAdPreload(reason: string = 'idle', delaySeconds: number = 0.8): void {
+        clearRewardedAdPendingStrip(): void {
+            const strip = this._rewardedAdPendingStrip as Node | null;
+            if (strip?.isValid) {
+                strip.targetOff(this);
+                strip.destroy();
+            }
+            this._rewardedAdPendingStrip = null;
+        },
+
+        showRewardedAdPendingStrip(
+            text: string,
+            cancelMode: 'wait' | 'end' = 'wait',
+        ): void {
+            const sceneName = this.getRuntimeSceneName?.('Game') || 'Game';
+            if (sceneName !== 'Game' && sceneName !== 'Home') return;
+            let strip = this._rewardedAdPendingStrip as Node | null;
+            if (!strip?.isValid) {
+                const overlayRoot = this.requireCanvasUiRoot?.('OverlayRoot') as Node | null;
+                const template = overlayRoot
+                    ?.getChildByName('OverlayTemplates')
+                    ?.getChildByName('AdPendingStripTemplate') || null;
+                if (!overlayRoot?.isValid || !template?.isValid) {
+                    console.error(`[rewarded-ad] ${sceneName}.scene is missing OverlayTemplates/AdPendingStripTemplate`);
+                    return;
+                }
+                strip = instantiate(template);
+                strip.name = 'AdPendingStrip';
+                strip.active = true;
+                overlayRoot.addChild(strip);
+                strip.setSiblingIndex(Math.max(0, overlayRoot.children.length - 1));
+                this.setGuideNodeLayerRecursively?.(strip, overlayRoot.layer);
+                this._rewardedAdPendingStrip = strip;
+                const cancelButton = strip.getChildByName('AdPendingCancelButton');
+                if (cancelButton) {
+                    this.bindPanelButton?.(cancelButton, () => {
+                        const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
+                        if (transaction?.phase === 'recoverable') {
+                            showRewardedGrantToast(this, '奖励确认中，请稍后');
+                            return;
+                        }
+                        if (transaction?.phase === 'recoverable_endable') {
+                            this.cancelRewardedGrantInteraction?.('pending-strip-end-wait');
+                        }
+                    });
+                }
+            }
+            strip.active = true;
+            const statusLabel = strip.getChildByName('AdPendingStatusLabel')?.getComponent(Label);
+            if (statusLabel) statusLabel.string = text;
+            const cancelButton = strip.getChildByName('AdPendingCancelButton');
+            if (cancelButton) {
+                cancelButton.active = cancelMode !== 'wait';
+                const cancelLabel = cancelButton
+                    .getChildByName('AdPendingCancelLabel')
+                    ?.getComponent(Label);
+                if (cancelLabel) {
+                    cancelLabel.string = '结束等待';
+                }
+            }
+        },
+
+        ensureRewardedAdStateTelemetry(): void {
+            if (this._rewardedAdStateUnsubscribe
+                || typeof AdConfig.subscribeRewardedAdState !== 'function') return;
+            this._rewardedAdStateUnsubscribe = AdConfig.subscribeRewardedAdState(
+                (snapshot: RewardedAdStateSnapshot) => {
+                    if (snapshot.previousStatus === snapshot.status) return;
+                    let eventName = '';
+                    let success = true;
+                    if (snapshot.status === 'loading') {
+                        eventName = 'rewarded_ad_load_start';
+                    } else if (snapshot.status === 'ready' && snapshot.previousStatus === 'loading') {
+                        eventName = 'rewarded_ad_load_success';
+                    } else if (snapshot.status === 'establishing') {
+                        eventName = 'rewarded_ad_show_start';
+                    } else if (snapshot.status === 'visible') {
+                        eventName = 'rewarded_ad_show_success';
+                    } else if (snapshot.status === 'recoverable') {
+                        eventName = 'rewarded_ad_wait_shown';
+                    } else if (snapshot.status === 'idle' && snapshot.previousStatus === 'loading') {
+                        eventName = 'rewarded_ad_load_fail';
+                        success = false;
+                    } else if (snapshot.status === 'idle' && snapshot.previousStatus === 'establishing') {
+                        eventName = 'rewarded_ad_show_fail';
+                        success = false;
+                    }
+                    if (!eventName) return;
+                    AnalyticsMgr.inst.trackFunnelEvent?.({
+                        eventName,
+                        page: this._rewardedAdTelemetryPage || this.getAnalyticsPage?.() || 'level_game',
+                        levelId: Number(this._rewardedAdTelemetryLevelId)
+                            || this.getAnalyticsLevelId?.()
+                            || 0,
+                        source: 'rewarded_ad_provider',
+                        success,
+                        errorCode: success ? '' : String(snapshot.reason || snapshot.status),
+                        extra: {
+                            attemptId: snapshot.requestId,
+                            generation: snapshot.generation,
+                            previousStatus: snapshot.previousStatus,
+                            providerStatus: snapshot.status,
+                            durationMs: snapshot.durationMs,
+                            reason: snapshot.reason,
+                        },
+                    });
+                },
+            );
+        },
+
+        scheduleRewardedAdPreload(reason: string = 'idle', delaySeconds: number = 1): void {
             if (!this.isValid) return;
             this.cancelRewardedAdPreload();
             if (!AdConfig.canAutoPreloadRewardedAd()) {
                 runtimeLog(`[AdConfig] skip rewarded ad preload schedule: ${reason}`);
                 return;
             }
-            const safeDelay = Math.max(0, Number(delaySeconds) || 0);
+            const safeDelay = Math.max(1, Number(delaySeconds) || 0);
             const preload = () => {
                 if (!this.isValid) return;
                 this._pendingRewardedAdPreload = null;
@@ -162,6 +288,11 @@ export function installHomeAdFlowModule(target: any): void {
                     ? this.getRuntimeSceneName('Game')
                     : 'Game';
                 if (sceneName === 'Game' && this.isGameEnd) return;
+                this.ensureRewardedAdStateTelemetry();
+                this._rewardedAdTelemetryPage = sceneName === 'Home'
+                    ? 'home'
+                    : (this.getAnalyticsPage?.() || 'level_game');
+                this._rewardedAdTelemetryLevelId = this.getAnalyticsLevelId?.() || 0;
                 AdConfig.preloadRewardedAd(reason);
             };
             this._pendingRewardedAdPreload = preload;
@@ -188,6 +319,7 @@ export function installHomeAdFlowModule(target: any): void {
             options: {
                 levelId?: number;
                 markLevelRevive?: boolean;
+                onShow?: () => void;
                 onRecoverable?: () => void;
             } = {},
         ) {
@@ -195,6 +327,9 @@ export function installHomeAdFlowModule(target: any): void {
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
             let interactionReleased = false;
             const adAudioReason = `rewarded:${page}`;
+            this.ensureRewardedAdStateTelemetry();
+            this._rewardedAdTelemetryPage = page;
+            this._rewardedAdTelemetryLevelId = levelId;
             const releaseInteraction = (reason: string) => {
                 if (interactionReleased) return;
                 interactionReleased = true;
@@ -219,12 +354,17 @@ export function installHomeAdFlowModule(target: any): void {
                     try {
                         onComplete(outcome);
                     } finally {
+                        if (this._rewardedAdTelemetryPage === page) {
+                            this._rewardedAdTelemetryPage = '';
+                            this._rewardedAdTelemetryLevelId = 0;
+                        }
                         this.scheduleRewardedAdPreload(`after-ad-${outcome.status}`, 1.5);
                     }
                 }, {
                     onShow: () => {
                         AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
                         SySDKMgr.inst.reportAdShow(page);
+                        options.onShow?.();
                     },
                     onRecoverable: () => {
                         releaseInteraction('recoverable');
@@ -354,6 +494,12 @@ export function installHomeAdFlowModule(target: any): void {
             if (activeTransaction) {
                 if (activeTransaction.phase === 'recoverable') {
                     showRewardedGrantToast(this, '奖励确认中，请稍后');
+                } else if (activeTransaction.phase === 'recoverable_endable') {
+                    if (activeTransaction.claimKey === claimKey) {
+                        this.cancelRewardedGrantInteraction?.('recoverable-user-end');
+                    } else {
+                        showRewardedGrantToast(this, '请先结束当前广告等待');
+                    }
                 }
                 return false;
             }
@@ -363,7 +509,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._rewardedGrantTransactionSeq = transactionId;
             const claimGrant = grant;
             const claimOptions = options;
-            let startAttempt: () => boolean = () => false;
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -374,6 +519,16 @@ export function installHomeAdFlowModule(target: any): void {
             let grantStarted = false;
             let attemptGeneration = 0;
             let releaseCurrentAttemptInteraction: (() => void) | null = null;
+            let recoverableEndTimer: any = null;
+            const adOwnerToken = this.acquireRuntimeOwner?.(
+                'ad',
+                `rewarded:${page}:${transactionId}`,
+            ) || '';
+            const clearRecoverableEndTimer = () => {
+                if (!recoverableEndTimer) return;
+                clearTimeout(recoverableEndTimer);
+                recoverableEndTimer = null;
+            };
             const isActive = () => {
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 return !cancelled && !!active && active.id === transactionId;
@@ -381,9 +536,16 @@ export function installHomeAdFlowModule(target: any): void {
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
+                clearRecoverableEndTimer();
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 if (active?.id === transactionId) {
                     this._rewardedGrantTransaction = null;
+                }
+                if (!claimOptions.suppressPendingStrip) {
+                    this.clearRewardedAdPendingStrip?.();
+                }
+                if (adOwnerToken) {
+                    this.releaseRuntimeOwner?.(adOwnerToken);
                 }
                 clearBusy();
                 try {
@@ -424,6 +586,7 @@ export function installHomeAdFlowModule(target: any): void {
             const beginGrant = () => {
                 if (!isActive() || grantStarted) return;
                 grantStarted = true;
+                clearRecoverableEndTimer();
                 transaction.phase = 'grant';
                 PerformanceMgr.inst.markUserActivity(6000);
 
@@ -468,7 +631,7 @@ export function installHomeAdFlowModule(target: any): void {
                     .then(runFinally, runFinally);
             };
 
-            startAttempt = (): boolean => {
+            const startAttempt = (): boolean => {
                 if (!isActive() || grantStarted) return false;
                 const generation = ++attemptGeneration;
                 transaction.phase = 'ad';
@@ -500,6 +663,26 @@ export function installHomeAdFlowModule(target: any): void {
                     } catch (error) {
                         console.warn(`[RewardedGrant] ${page} recoverable handler failed:`, error);
                     }
+                    if (!claimOptions.suppressPendingStrip) {
+                        this.showRewardedAdPendingStrip?.('正在确认广告结果…', 'wait');
+                    }
+                    clearRecoverableEndTimer();
+                    recoverableEndTimer = setTimeout(() => {
+                        recoverableEndTimer = null;
+                        if (!isCurrentAttempt()
+                            || transaction.phase !== 'recoverable'
+                            || grantStarted) return;
+                        transaction.phase = 'recoverable_endable';
+                        showRewardedGrantToast(this, '广告结果仍未返回，可点击“结束等待”');
+                        try {
+                            claimOptions.onRecoverableEndable?.();
+                        } catch (error) {
+                            console.warn(`[RewardedGrant] ${page} recoverable-endable handler failed:`, error);
+                        }
+                        if (!claimOptions.suppressPendingStrip) {
+                            this.showRewardedAdPendingStrip?.('广告结果仍未返回', 'end');
+                        }
+                    }, 5000);
                 };
                 releaseCurrentAttemptInteraction = releaseAttemptInteraction;
 
@@ -524,15 +707,18 @@ export function installHomeAdFlowModule(target: any): void {
                         }
                         outcomeHandled = true;
                         releaseAttemptInteraction();
+                        const success = outcome.status === 'verified_complete';
+                        if (!claimOptions.suppressPendingStrip) {
+                            this.clearRewardedAdPendingStrip?.();
+                        }
+                        try {
+                            claimOptions.onAdComplete?.(success, outcome);
+                        } catch (error) {
+                            console.warn(`[RewardedGrant] ${page} ad-complete handler failed:`, error);
+                        }
                         if (outcome.status === 'unknown') {
                             runAdFail();
                             return;
-                        }
-                        const success = outcome.status === 'verified_complete';
-                        try {
-                            claimOptions.onAdComplete?.(success);
-                        } catch (error) {
-                            console.warn(`[RewardedGrant] ${page} ad-complete handler failed:`, error);
                         }
                         if (!success) {
                             runAdFail();
@@ -542,6 +728,12 @@ export function installHomeAdFlowModule(target: any): void {
                     }, {
                         levelId: claimOptions.levelId,
                         markLevelRevive: claimOptions.markLevelRevive,
+                        onShow: () => {
+                            if (!claimOptions.suppressPendingStrip) {
+                                this.clearRewardedAdPendingStrip?.();
+                            }
+                            claimOptions.onAdShown?.();
+                        },
                         onRecoverable: markRecoverable,
                     });
                 } catch (error) {
@@ -589,7 +781,7 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         destroyGameplayRuntimeView() {
-            this.clearAdRewardHintVisuals?.(true);
+            this.clearAdRewardHintVisuals?.();
             const host = this.getCanvasUiHost();
             const preservedRootNames = host === this.node
                 ? new Set(['ScreenRoot', 'PopupRoot', 'OverlayRoot', 'FxRoot'])
@@ -624,16 +816,22 @@ export function installHomeAdFlowModule(target: any): void {
             this.dragLayer = null!;
             this.dragNodes = [];
             this.destroyGameplayResultOverlays(true);
+            this.clearLoadingStageTimers?.();
             this._loadingProgressLabelTween?.stop?.();
             this._loadingShineTween?.stop?.();
             this._loadingOverlayVersion = (this._loadingOverlayVersion || 0) + 1;
             this._loadingOverlay = null;
             this._loadingProgressFill = null;
+            this._loadingProgressFillNode = null;
+            this._loadingProgressGroup = null;
+            this._loadingSlowActions = null;
             this._loadingProgressLabel = null;
             this._loadingProgressLabelShadow = null;
             this._loadingProgressLabelTween = null;
             this._loadingShine = null;
             this._loadingShineTween = null;
+            this._loadingRouteActionInFlight = false;
+            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
             this._remoteLoadErrorOverlay = null;
             this._noLivesModal = null;
             this.clearRecoverVigorModalRuntimeState?.();
@@ -657,6 +855,9 @@ export function installHomeAdFlowModule(target: any): void {
             Tween.stopAll();
             this.cancelRewardedGrantInteraction?.('home-transition');
             this.cancelRewardedAdPreload?.();
+            this.clearRewardedAdPendingStrip?.();
+            this.clearRuntimeOwners?.();
+            this._modalFocusRefs = 0;
             this.unscheduleAllCallbacks();
             this.deactivateWeChatFriendRank('cleanup-for-main-menu');
             this.detachGameplayInputHandlers();

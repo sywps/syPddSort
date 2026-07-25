@@ -700,15 +700,16 @@ export class GameplaySlotUiController {
         PerformanceMgr.inst.markUserActivity(3500);
         AudioMgr.inst.play('button');
         if (this.getCurrentSlotUnlockMode() === 'free') {
-            runtime.pauseTimerForProp();
+            const timerToken = runtime.pauseTimerForProp('slot-unlock-free');
             const unlocked = this.unlockSlotRow();
             if (unlocked) {
                 runtime.markDynamicCountdownAssisted?.();
                 sys.localStorage.setItem(LS_EXPAND_USED, '1');
             }
-            runtime.resumeTimerForProp();
+            runtime.resumeTimerForProp(timerToken || 'slot-unlock-free');
             return unlocked;
         }
+        let timerToken = '';
         return runtime.runRewardedGrant('unlock_slot_row', () => {
             const unlocked = this.unlockSlotRow();
             if (!unlocked) return false;
@@ -717,8 +718,13 @@ export class GameplaySlotUiController {
         }, {
             claimKey: `unlock_slot_row:${runtime.getActiveLogicalLevelId?.() || 0}:${runtime.slotUnlockedRows}`,
             busyFlag: '_adShowing',
-            onInteractionStarted: () => runtime.pauseTimerForProp(),
-            onInteractionReleased: () => runtime.resumeTimerForProp(),
+            onInteractionStarted: () => {
+                timerToken = runtime.pauseTimerForProp('slot-unlock-ad');
+            },
+            onInteractionReleased: () => {
+                runtime.resumeTimerForProp(timerToken || 'slot-unlock-ad');
+                timerToken = '';
+            },
             grantFailToast: '暂存槽增加失败，请重试',
         });
     }

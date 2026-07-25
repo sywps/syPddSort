@@ -445,9 +445,15 @@ export function installSceneHomeEntryModule(target: any): void {
                 return;
             }
             this.syncAppSessionForGameplayRequest(this.parseExternalLevelId(normalizedPath) || 1, prefix, true);
+            this.beginGameplayLoadingWatchdog?.(
+                this.parseExternalLevelId(normalizedPath) || 1,
+                normalizedPath,
+                'remote',
+            );
         
             this.loadExternalLevelFileData(normalizedPath)
                 .then((data) => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     const inferredLevelId = this.parseExternalLevelId(normalizedPath);
                     const normalizedLevelId = Number.isFinite(data.levelId) && data.levelId > 0
                         ? data.levelId
@@ -462,6 +468,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     this.openLocalLevelWithAssets(data, onInitialized);
                 })
                 .catch((err) => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     console.warn('[GameCtrl] loadExternalLevelFile failed:', normalizedPath, err);
                     this.clearCurrentExternalLevelFile();
                     this._stopGameplayEntryWithFatalError(
@@ -475,12 +482,14 @@ export function installSceneHomeEntryModule(target: any): void {
         /** 从 bootstrap/remote 加载关卡 */
         loadLocalLevel(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             const levelPath = this.getLevelDataPath(levelId, prefix);
+            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, 'local');
             markStartupTrace('startup_level_data_start', {
                 levelId: activeLevelId,
                 levelPath,
                 sourceEvent: 'local_level_json_start',
             });
             this._loadLocalLevelDataImpl(levelId, (data) => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 if (!data) {
                     console.warn(`[loadLocalLevel] ${prefix}${levelId} not found`);
                     this.trackFirstLevelFunnelForLevel(activeLevelId, 'local_level_json_failed', {
@@ -506,7 +515,9 @@ export function installSceneHomeEntryModule(target: any): void {
 
         openLocalLevelWithAssets(data: LevelData, onInitialized?: () => void, activeLevelId?: number, bootstrapOnlyCriticalUi: boolean = false) {
             const onReady = () => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
                     this._bootstrapOnlyGameplayStartup = bootstrapOnlyCriticalUi;
                     try {
@@ -521,6 +532,7 @@ export function installSceneHomeEntryModule(target: any): void {
             let uiReady = false;
             let boardEffectReady = false;
             const tryReady = () => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 if (!beanReady || !uiReady || !boardEffectReady) return;
                 onReady();
             };
@@ -571,10 +583,12 @@ export function installSceneHomeEntryModule(target: any): void {
         ) {
             if (this._levelDataLoadStopped) return;
             const levelPath = this.getLevelDataPath(levelId, prefix);
+            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, 'remote');
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath, {
                 extra: { assetMode: 'bootstrap_only_mainline' },
             });
             this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 if (!levelData) {
                     this.stopLevelDataLoadWithFatalError(
                         activeLevelId,
@@ -610,9 +624,11 @@ export function installSceneHomeEntryModule(target: any): void {
             }
             if (this._levelDataLoadStopped) return;
             const levelPath = this.getLevelDataPath(levelId, prefix);
+            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, 'remote');
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath);
             const loadLevelData = (bundle: Bundle) => {
                 this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     if (!levelData) {
                         this.stopLevelDataLoadWithFatalError(
                             activeLevelId,
@@ -665,6 +681,11 @@ export function installSceneHomeEntryModule(target: any): void {
         startGameAssetsLevelFast(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             if (this._levelDataLoadStopped) return;
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
+            this.beginGameplayLoadingWatchdog?.(
+                activeLevelId,
+                this.getLevelDataPath(levelId, prefix),
+                'remote',
+            );
             if (this.shouldUseBootstrapOnlyMainlineLevel(levelId, prefix)) {
                 this.loadBootstrapOnlyMainlineLevel(
                     levelId,
@@ -678,6 +699,7 @@ export function installSceneHomeEntryModule(target: any): void {
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'gameAssets_config_start', true, levelPath);
             let finished = false;
             const finish = (data: LevelData) => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 if (finished) return;
                 finished = true;
                 this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
@@ -697,6 +719,7 @@ export function installSceneHomeEntryModule(target: any): void {
         
             this._preloadingBundle = true;
             assetManager.loadBundle(GAME_ASSETS_BUNDLE_NAME, (err, bundle) => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 this._preloadingBundle = false;
                 if (err || !bundle) {
                     this.stopLevelDataLoadWithFatalError(
@@ -717,6 +740,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 let boardEffectDone = false;
                 let levelData: LevelData | null = null;
                 const tryFinish = () => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     if (levelDone && beanAssetsDone && criticalUiDone && boardEffectDone && levelData) {
                         finish(levelData);
                     }
@@ -737,6 +761,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     tryFinish();
                 }, bundle);
                 const handleLevelData = (data: LevelData | null, source: string, levelErr?: Error | null) => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     levelData = data;
                     if (!levelData) {
                         this.stopLevelDataLoadWithFatalError(
@@ -794,6 +819,11 @@ export function installSceneHomeEntryModule(target: any): void {
 
         startLocalBootstrapLevelFast(levelId: number, prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX, activeLevelId: number = levelId) {
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
+            this.beginGameplayLoadingWatchdog?.(
+                activeLevelId,
+                `${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`,
+                'local',
+            );
             markStartupTrace('startup_level_data_start', {
                 levelId: activeLevelId,
                 levelPath: `${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`,
@@ -803,6 +833,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 source: 'bootstrap',
             });
             this._loadLocalLevelDataImpl(levelId, (data) => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 if (!data) {
                     this.trackFirstLevelFunnelForLevel(activeLevelId, 'first_level_json_failed', {
                         source: 'bootstrap',
@@ -833,6 +864,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 let boardEffectDone = false;
                 let gameAssetsDone = true;
                 const tryInit = () => {
+                    if (this._levelDataLoadStopped || !this.isValid) return;
                     if (!beanDone || !uiDone || !boardEffectDone || !gameAssetsDone) return;
                     this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
                         const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
@@ -1016,6 +1048,7 @@ export function installSceneHomeEntryModule(target: any): void {
             let uiReady = false;
             let boardEffectReady = false;
             const tryReady = () => {
+                if (this._levelDataLoadStopped || !this.isValid) return;
                 if (!beanReady || !uiReady || !boardEffectReady) return;
                 this.startGameplayWithBackgroundSkinReady(data, activeLevelId);
             };
@@ -1077,6 +1110,8 @@ export function installSceneHomeEntryModule(target: any): void {
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;
             AppRoot.tryGet()?.clearRouteCover('level-data-error');
+            this.setGameplayStartupRootVisible?.(true);
+            this.hideLoadingOverlay?.();
             this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
         },
     });

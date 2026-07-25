@@ -45,9 +45,6 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/进度条',
 ]);
 const criticalGameAssetsPathMap = new Map([
-    ['Textures/UI/ad_rescue_gift_icon', 'Textures/UI/ad_rescue_gift_icon'],
-    ['Textures/UI/ad_rescue_gift_icon/texture', 'Textures/UI/ad_rescue_gift_icon/texture'],
-    ['Textures/UI/ad_rescue_gift_icon/spriteFrame', 'Textures/UI/ad_rescue_gift_icon/spriteFrame'],
     ['Audio/bgm', 'Audio/bgm'],
     ['Audio/pindd/select', 'Audio/pindd/select'],
     ['Audio/pindd/right_place_short', 'Audio/pindd/right_place_short'],

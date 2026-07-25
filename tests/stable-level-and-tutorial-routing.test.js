@@ -81,6 +81,42 @@ function mismatchPairSummary(relPath) {
     return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+function unplacedRowWidths(relPath, colorId) {
+    const data = readJson(relPath);
+    const widths = [];
+    for (let row = 0; row < data.boardHeight; row++) {
+        let count = 0;
+        for (let col = 0; col < data.boardWidth; col++) {
+            if (data.initRandomColorArr[row]?.[col] === colorId
+                && data.correctColorArr[row]?.[col] !== colorId) {
+                count += 1;
+            }
+        }
+        if (count > 0) widths.push([row, count]);
+    }
+    return widths;
+}
+
+function unplacedContainsFilledRectangle(relPath, colorId, height, width) {
+    const data = readJson(relPath);
+    for (let top = 0; top <= data.boardHeight - height; top++) {
+        for (let left = 0; left <= data.boardWidth - width; left++) {
+            let filled = true;
+            for (let row = top; row < top + height && filled; row++) {
+                for (let col = left; col < left + width; col++) {
+                    if (data.initRandomColorArr[row]?.[col] !== colorId
+                        || data.correctColorArr[row]?.[col] === colorId) {
+                        filled = false;
+                        break;
+                    }
+                }
+            }
+            if (filled) return true;
+        }
+    }
+    return false;
+}
+
 const bootstrapLevel1Path = 'assets/BootstrapBundle/LevelData/level_1.json';
 
 const cocosSpec = read('docs/cocos-ai-code-ai-collaboration-spec-v1.md');
@@ -126,6 +162,7 @@ const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
 const slotOnboardingPolicy = read('assets/Scripts/Core/SlotOnboardingPolicy.ts');
 const themePanelFlow = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
 const settlementHud = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const guideLeaderboard = read('assets/Scripts/Core/GameCtrlModules/GuideLeaderboardModule.ts');
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 const tutorialGuideModule = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
@@ -141,7 +178,7 @@ assert.ok(session.includes("eventName: 'level_interaction_ready'"), 'early level
 assert.ok(firstLevelRoute.includes("trackFirstLevelFunnel('interaction_touch_attempt'"), 'the first five L1/L2 attempts must capture delivery and blocker state');
 assert.ok(tutorialGuide.includes("source !== 'zoom_button'"), 'visible plus/minus zoom buttons must be accepted by the zoom hint');
 assert.ok(tutorialGuide.includes('this._guideZoomAccumulatedScaleDelta <= TUTORIAL_ZOOM_SCALE_DELTA'), 'zoom hint must require a real accumulated scale change');
-assert.ok(tutorialGuide.includes("this.dismissZoomHint?.('timeout')"), 'optional zoom hint must auto-dismiss after five seconds');
+assert.ok(!tutorialGuide.includes("this.dismissZoomHint?.('timeout')"), 'the zoom hint must not disappear merely because the user needed more time');
 assert.ok(boardInput.includes("this.completeZoomTutorialIfThresholdReached?.('pinch')"), 'real board pinch movement must report actual scale changes to the tutorial state machine');
 assert.ok(boardInput.includes("this.dismissZoomHint?.('board_tap')"), 'the first normal board tap must dismiss the zoom hint without being consumed');
 const boardZoomControl = read('assets/Scripts/Core/GameCtrlModules/BoardZoomControlModule.ts');
@@ -149,8 +186,49 @@ assert.ok(boardZoomControl.includes("'zoom_progress' | 'zoom_button'"), 'zoom co
 assert.ok(boardZoomControl.includes("'zoom_progress'"), 'zoom progress interaction must be eligible for tutorial completion');
 assert.ok(boardZoomControl.includes("'zoom_button'"), 'zoom plus/minus buttons must report their source to the optional hint');
 assert.ok(!settlementHud.includes('guideZoomPickBlockStep'), 'zoom must not add a second mandatory highlighted-bean step');
-assert.ok(tutorialGuide.includes('this.scheduleOnce(handler, 5);'), 'every tutorial step must arm the five-second reminder');
+assert.ok(
+    tutorialGuide.includes('const defaultDelaySeconds = [2, 2][reminderStage]'),
+    'tutorial reminders must use only the cumulative two-second and four-second stages',
+);
+assert.ok(tutorialGuide.includes('if (reminderStage >= 2)'), 'tutorial reminders must stop after the four-second stage');
+assert.ok(!tutorialGuide.includes("'seven_second_reminder'"), 'the retired seven-second path reminder must not remain');
+assert.ok(!tutorialGuide.includes('this.showGuideDemoAssist?.()'), 'the retired twelve-second demo reminder must not remain');
+assert.ok(!tutorialGuide.includes('getLevel1GuideReinforcedCopy'), 'idle reminders must not replace the current step copy');
+assert.ok(!tutorialGuide.includes('showTemporaryGuideCopy'), 'wrong taps and reminders must keep the current step copy fixed');
+assert.ok(tutorialGuide.includes("this.showGuideTargetFeedback?.('reinforce')"), 'reminders must visibly reinforce the current target');
 assert.ok(tutorialGuide.includes('startGuidePinchReminderAnimation'), 'zoom hint must render the two-hand gesture immediately');
+assert.ok(
+    tutorialGuide.includes("const isZoomReminder = this._guideMode === 'zoom' && this._guideStep === 0;")
+        && tutorialGuide.includes('if (isZoomReminder)'),
+    'zoom reminders must use their dedicated two-hand path instead of activating the single-hand reminder',
+);
+assert.ok(
+    settlementHud.includes("if (this._guideMode !== 'zoom')")
+        && settlementHud.includes('const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 2;')
+        && settlementHud.includes('const SMART_IDLE_HINT_SLOW_DELAY_SECONDS = 5;')
+        && settlementHud.includes('const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;')
+        && settlementHud.includes('const SMART_IDLE_HINT_MAX_LEVEL_ID = 10;')
+        && settlementHud.includes('const LATER_LEVEL_IDLE_HINT_SHOW_LIMIT = 1;')
+        && settlementHud.includes('this._smartIdleHintShownCount = Math.max('),
+    'zoom must skip dim rendering; level 3 uses five fast hints and levels 4 through 10 use one slow hint',
+);
+assert.ok(
+    tutorialGuideModule.includes('const block = this.findBlockOnBoard?.(colorId);')
+        && tutorialGuideModule.includes('this.getGuidePromptCellsBounds(block?.cells || [], bubble);'),
+    'level 2 pick-step bright regions must cover the complete target block',
+);
+assert.ok(
+    !tutorialGuideModule.includes("this.showGuideTapFeedback?.(worldPos, 'wrong')")
+        && tutorialGuideModule.includes('this.startGuideWrongTargetHandPulse?.(this._guideHand);')
+        && guideLeaderboard.includes('startGuideWrongTargetHandPulse(hand: Node'),
+    'wrong tutorial taps must accelerate the correct hand without drawing a ripple at the wrong position',
+);
+assert.ok(
+    tutorialGuideModule.includes('const LEVEL_1_HAND_ARTWORK_TARGET_Y_OFFSET = -17;')
+        && tutorialGuideModule.includes('const LEVEL_2_HAND_ARTWORK_TARGET_Y_OFFSET = -36;')
+        && guideLeaderboard.includes('targetCenter.y + targetOffsetY'),
+    'level 1 and level 2 hand artwork must sit lower while preserving the real fingertip target',
+);
 assert.ok(themePanelFlow.includes('if (this.isGameEnd) return;'), 'an async guide asset callback must not recreate the pinch guide after gameplay ends');
 assert.ok((settlementHud.match(/this\.closePinchGuide\?\.\(\);/g) || []).length >= 2, 'win completion and settlement reveal must both force-close stale pinch guide UI');
 assert.ok(gameplayView.includes('ZOOM_HINT_SCALE_HEADROOM = 0.06'), 'the configured zoom-hint level must start with room to shrink as well as enlarge');
@@ -193,16 +271,16 @@ assert.ok(!sceneRuntime.includes('syncTutorialSkipGuidePrompt'), 'retired tutori
 
 const level1GuideCopies = [
     '点击【红色豆豆】',
-    '放进【暂存区】，腾出空位',
+    '放到【空插槽】',
     '点击【蓝色豆豆】',
-    '放进【刚腾出的空位】',
-    '点击暂存区的【红色豆豆】',
-    '放进【红色空位】',
+    '放回【蓝色空位】',
+    '点击【槽内红豆】',
+    '放回【红色空位】',
 ];
 const level2GuideCopies = [
     '点击【解锁按钮】',
     '点击【高亮豆子】',
-    '放到【下方插槽】',
+    '放到【空插槽】',
     '点击【另一组豆子】',
     '放回【对应空位】',
     '点击【槽内豆子】',
@@ -211,6 +289,25 @@ const level2GuideCopies = [
 const level3ZoomCopies = [
     '双指【缩放图案】',
 ];
+for (const copy of [...level1GuideCopies, ...level2GuideCopies, ...level3ZoomCopies]) {
+    assert.ok(!/[上下]方/.test(copy), `the first three tutorial levels must avoid ambiguous direction copy: ${copy}`);
+}
+for (const relPath of [
+    'assets/LevelData/level_1.json',
+    bootstrapLevel1Path,
+    'assets/LevelData/level_2.json',
+    'assets/LevelData/level_3.json',
+]) {
+    const guide = readTutorialGuide(relPath);
+    const visibleCopies = [
+        guide?.title,
+        guide?.subtitle,
+        ...(Array.isArray(guide?.guideCopies) ? guide.guideCopies : []),
+    ].filter(Boolean);
+    for (const copy of visibleCopies) {
+        assert.ok(!/[上下]方/.test(copy), `${relPath} must not expose ambiguous direction copy: ${copy}`);
+    }
+}
 const level2Data = readJson('assets/LevelData/level_2.json');
 const level3Data = readJson('assets/LevelData/level_3.json');
 const levelManifest = readJson('assets/LevelData/level-manifest.json');
@@ -243,10 +340,14 @@ assert.deepStrictEqual(
     [2, 29, 23, 300, 440],
     'logical level 2 must own the complete former level 3 gameplay and settlement payload',
 );
-assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'correctColorArr'), [[9, 96], [10, 106], [15, 136], [20, 102]], 'stable level 2 correct data must use exactly four approved colors');
-assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'initRandomColorArr'), [[9, 96], [10, 106], [15, 136], [20, 102]], 'stable level 2 initial data must use the same four-color population');
-assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json'), [[15, 48], [20, 48]], 'stable level 2 must contain exactly one 48-bean swap pair');
-assert.deepStrictEqual(mismatchPairSummary('assets/LevelData/level_2.json'), [['15->20', 48], ['20->15', 48]], 'stable level 2 must reduce to three block transfers and seven normal taps including unlock');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'correctColorArr'), [[9, 96], [10, 93], [15, 136], [20, 115]], 'stable level 2 correct data must use exactly four approved colors');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'initRandomColorArr'), [[9, 96], [10, 93], [15, 136], [20, 115]], 'stable level 2 initial data must use the same four-color population');
+assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json'), [[10, 48], [20, 48]], 'stable level 2 must contain exactly one red/white 48-bean swap pair');
+assert.deepStrictEqual(mismatchPairSummary('assets/LevelData/level_2.json'), [['10->20', 48], ['20->10', 48]], 'stable level 2 must keep green/lavender solved and reduce to the fixed red/white seven-action chain');
+assert.deepStrictEqual(unplacedRowWidths('assets/LevelData/level_2.json', 10), [[18, 17], [19, 23], [20, 8]], 'the red tutorial block must be a broad lower-body mass, not an outline chain');
+assert.deepStrictEqual(unplacedRowWidths('assets/LevelData/level_2.json', 20), [[20, 10], [21, 21], [22, 17]], 'the white tutorial block must remain a broad central-lower mass');
+assert.strictEqual(unplacedContainsFilledRectangle('assets/LevelData/level_2.json', 10, 2, 8), true, 'the red tutorial block must contain a filled 2x8 area');
+assert.strictEqual(unplacedContainsFilledRectangle('assets/LevelData/level_2.json', 20, 2, 8), true, 'the white tutorial block must contain a filled 2x8 area');
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_3.json'), {
     defaultRows: 1,
