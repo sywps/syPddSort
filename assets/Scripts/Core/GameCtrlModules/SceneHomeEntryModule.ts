@@ -33,7 +33,7 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppRouteCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
-import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime } from '../MiniGamePlatform';
+import { getMiniGameBuildPlatform } from '../MiniGamePlatform';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
 import { markStartupTrace } from '../StartupTrace';
 
@@ -181,15 +181,14 @@ export function installSceneHomeEntryModule(target: any): void {
 
         drawLeaderboardButton(parent: Node) {
             const btn = this.requireUiChild(parent, 'LeaderboardBtn', 'EntryLayer/LeaderboardBtn');
-        
+            const isDouyin = getMiniGameBuildPlatform() === 'douyin';
             btn.targetOff(this);
+            btn.active = !isDouyin;
+            if (isDouyin) return;
+
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('uiPanel');
-                if (getMiniGameBuildPlatform() === 'douyin' || isDouyinMiniGameRuntime()) {
-                    this.showToast?.('\u6392\u884c\u699c\u6682\u672a\u5f00\u653e', 1.6);
-                    return;
-                }
                 void this.openLeaderboard();
             }, this);
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
@@ -215,12 +214,15 @@ export function installSceneHomeEntryModule(target: any): void {
 
         drawGameCircleButton(parent: Node) {
             const btn = this.requireUiChild(parent, GAME_CIRCLE_BUTTON_NAME, 'EntryLayer/GameCircleBtn');
-            btn.active = true;
+            const isWeChat = getMiniGameBuildPlatform() === 'wechat';
+            btn.targetOff(this);
+            btn.active = isWeChat;
+            if (!isWeChat) return;
+
             const iconNode = this.requireUiChild(btn, GAME_CIRCLE_ICON_NAME, 'GameCircleBtn/GameCircleIcon');
             this.requireSceneSpriteFrame(iconNode, 'GameCircleBtn/GameCircleIcon');
             ensureHomeIconIdleWiggle(iconNode);
 
-            btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('uiPanel');

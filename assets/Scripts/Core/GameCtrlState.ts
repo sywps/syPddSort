@@ -95,7 +95,6 @@ export function initializeGameCtrlState(runtime: any): void {
         _pendingWinAdBonusReward: 0,
         _winAdRewardClaimed: false,
         _winBaseGoldFlyPlayed: false,
-        _winBonusRewardGateMode: null,
         _settlementNextTransitioning: false,
         _settlementRevealState: 'idle',
         _settlementRevealToken: 0,

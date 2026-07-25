@@ -1,5 +1,6 @@
 import { _decorator, assetManager, Button, Label, Node, ResolutionPolicy, SceneAsset, director, view } from 'cc';
 import { GameRuntimeHost } from '../Scripts/Core/GameRuntimeHost';
+import { ECONOMY_NUMERIC_TABLE } from '../Scripts/Core/EconomyConfig';
 import { HOME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from '../Scripts/Core/PackageNames';
 
 const { ccclass } = _decorator;
@@ -250,13 +251,14 @@ export class PreviewController extends GameRuntimeHost {
             this.clearPreviewPopups();
             this.prepareResultPreviewBoardModel(runtime);
             runtime._isThemeLevel = false;
-            runtime._pendingWinGoldReward = 80;
-            runtime._pendingWinAdBonusReward = 50;
+            const baseGoldReward = 80;
+            runtime._pendingWinGoldReward = baseGoldReward;
+            runtime._pendingWinAdBonusReward = baseGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1);
             runtime._winAdRewardClaimed = false;
             if (kind === 'win') {
                 const showWinPanel = () => {
                     runtime.panelWin = runtime.createWinSettlementPanel();
-                    runtime.updateWinRewardLabel?.(80);
+                    runtime.updateWinRewardLabel?.(baseGoldReward);
                     runtime.refreshWinAdBonusUI?.();
                     if (typeof runtime.drawWinPatternPreview !== 'function') {
                         throw new Error('[panel-preview] missing drawWinPatternPreview');

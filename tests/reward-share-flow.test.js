@@ -72,8 +72,8 @@ async function flushMicrotasks(rounds = 12) {
     for (let index = 0; index < rounds; index += 1) await Promise.resolve();
 }
 
-async function testSettlementShareDispatchGrantsGoldExactlyOnce() {
-    const analyticsEvents = [];
+async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
+    const adCalls = [];
     const shareCalls = [];
     const events = [];
     const runtime = {
@@ -83,15 +83,8 @@ async function testSettlementShareDispatchGrantsGoldExactlyOnce() {
         _pendingWinGoldReward: 20,
         _adShowing: false,
         _settlementNextTransitioning: false,
-        _winBonusRewardGateMode: 'share',
         panelWin: null,
         gold: 20,
-        getActiveLogicalLevelId: () => 12,
-        getWeChatRuntime: () => ({
-            shareAppMessage(options) {
-                shareCalls.push(options);
-            },
-        }),
         addGold(amount) {
             this.gold += amount;
             events.push(`gold:${amount}`);
@@ -105,33 +98,42 @@ async function testSettlementShareDispatchGrantsGoldExactlyOnce() {
         showToast(text) {
             events.push(`toast:${text}`);
         },
+        runShareGrant() {
+            shareCalls.push('unexpected');
+        },
+        runRewardedGrant(page, grant, options) {
+            adCalls.push({ page, options });
+            this._adShowing = true;
+            Promise.resolve().then(() => {
+                grant();
+                this._adShowing = false;
+            });
+            return true;
+        },
     };
-    loadHomeAdFlowInstaller(analyticsEvents)(runtime);
     loadSettlementInstaller()(runtime);
     runtime.updateWinRewardLabel = (amount) => events.push(`label:${amount}`);
     runtime.playWinSettlementGoldFlyReward = (amount) => events.push(`fly:${amount}`);
 
     runtime.claimWinAdBonusReward();
     runtime.claimWinAdBonusReward();
-    assert.strictEqual(runtime._adShowing, true, 'share claim must stay busy until its grant finishes');
-    assert.strictEqual(shareCalls.length, 1, 'a double tap must dispatch only one settlement share');
-    assert.strictEqual(shareCalls[0].title.includes('第12关'), true);
-    assert.strictEqual(shareCalls[0].query, 'level=12');
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(shareCalls[0], 'success'), false, 'share must not wait for an unsupported success callback');
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(shareCalls[0], 'fail'), false, 'share must not wait for an unsupported fail callback');
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(shareCalls[0], 'complete'), false, 'share must not wait for an unsupported complete callback');
+    assert.strictEqual(runtime._adShowing, true, 'rewarded-ad claim must stay busy until its grant finishes');
+    assert.strictEqual(adCalls.length, 1, 'a double tap must dispatch only one settlement rewarded ad');
+    assert.strictEqual(adCalls[0].page, 'win_bonus_reward');
+    assert.strictEqual(adCalls[0].options.busyFlag, '_adShowing');
+    assert.strictEqual(shareCalls.length, 0, 'settlement bonus must never dispatch a share');
 
     await flushMicrotasks();
-    assert.strictEqual(runtime.gold, 100, 'the dispatched settlement share must add the 80 bonus gold');
+    assert.strictEqual(runtime.gold, 100, '20 base gold plus the 80 ad bonus must total exactly 5x');
     assert.strictEqual(runtime._winAdRewardClaimed, true);
     assert.strictEqual(runtime._adShowing, false);
     assert.deepStrictEqual(events, ['gold:80', 'label:100', 'fly:80']);
-    assert.deepStrictEqual(analyticsEvents.map((entry) => entry[0]), ['click', 'success']);
 
     runtime.claimWinAdBonusReward();
     await flushMicrotasks();
     assert.strictEqual(runtime.gold, 100, 'a settled claim must remain idempotent');
-    assert.strictEqual(shareCalls.length, 1);
+    assert.strictEqual(adCalls.length, 1);
+    assert.strictEqual(shareCalls.length, 0);
 }
 
 async function testSynchronousShareFailureDoesNotGrant() {
@@ -155,7 +157,14 @@ async function testSynchronousShareFailureDoesNotGrant() {
 }
 
 (async () => {
-    await testSettlementShareDispatchGrantsGoldExactlyOnce();
+    const settlementSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts'), 'utf8');
+    const economySource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/EconomyConfig.ts'), 'utf8');
+    assert.ok(!settlementSource.includes('runShareGrant(WIN_BONUS_REWARD_GATE_PAGE'), 'settlement reward must not retain a randomized share branch');
+    assert.ok(!settlementSource.includes('WIN_BONUS_SHARE_'), 'settlement reward must not retain share gate constants');
+    assert.ok(economySource.includes('winTotalMultiplier: 5'), 'settlement economy must declare a true total multiplier');
+    assert.ok(!economySource.includes('winBonusGold'), 'settlement economy must not retain a misleading fixed bonus');
+
+    await testSettlementRewardedAdGrantsTrueFiveTimesTotal();
     await testSynchronousShareFailureDoesNotGrant();
     console.log('reward-share-flow.test.js passed');
 })().catch((error) => {

@@ -22,7 +22,7 @@ export const ECONOMY_NUMERIC_TABLE = {
     },
     adReward: {
         goldShopReward: 30,
-        winBonusGold: 50,
+        winTotalMultiplier: 5,
     },
     dailySignIn: {
         rewards: [

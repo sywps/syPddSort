@@ -144,7 +144,9 @@ assert.ok(patchBootstrap.includes("typeof typeIndex === 'string'"), 'bootstrap p
 assert.ok(patchBootstrap.includes('hasNativeVersionMap'), 'bootstrap patch must not require minigame native version maps in browser bundles');
 assert.ok(!gameScene.includes('4fd100be-d604-4245-b8a0-286c234e5ae0@f9941'), 'Game.scene must not directly reference gameAssets ad rescue gift icon');
 const legacyGiftEntry = JSON.parse(gameScene).find((entry) => entry && entry.__type__ === 'cc.Node' && entry._name === 'AdRewardGiftEntry');
-assert.ok(!legacyGiftEntry || legacyGiftEntry._active === false, 'the removed 30-second gift shell must be absent or authored inactive');
+assert.ok(!legacyGiftEntry, 'the removed 30-second gift shell must be absent from Game.scene');
+assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/ad_rescue_gift_icon.png')), 'the removed gift PNG must be deleted');
+assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/ad_rescue_gift_icon.png.meta')), 'the removed gift PNG metadata must be deleted');
 assert.ok(!adRewardHint.includes('AdRewardGiftEntry'), 'runtime code must not find or activate the removed 30-second gift entry');
 assert.ok(!adRewardHint.includes('rescue_gift_30s'), 'runtime code must not retain the removed gift rewarded-ad page');
 assert.ok(!adRewardHint.includes('ad_rescue_gift_icon'), 'runtime code must not load the removed gift icon');

@@ -46,6 +46,13 @@ assert.ok(sceneRuntime.includes('this.runtime._gameCirclePanelController?.destro
 assert.ok(sceneRuntime.includes('UserMgr.inst.destroyUserInfoButtons();'), 'scene teardown must destroy any surviving native user-info button');
 
 assert.ok(sceneHome.includes("const GAME_CIRCLE_OPENLINK = '';"), 'default Game Circle entry must open the Game Circle home page instead of a stale hard-coded openlink');
+assert.ok(sceneHome.includes("const isDouyin = getMiniGameBuildPlatform() === 'douyin';"), 'Douyin leaderboard visibility must use the unified build/preview platform contract');
+assert.ok(sceneHome.includes('btn.active = !isDouyin;'), 'Douyin leaderboard entry must be hidden instead of left as a dead button');
+assert.ok(sceneHome.includes('if (isDouyin) return;'), 'Douyin leaderboard entry must return before icon work and click binding');
+assert.ok(!sceneHome.includes('排行榜暂未开放'), 'Douyin must not retain the dead leaderboard toast path');
+assert.ok(sceneHome.includes("const isWeChat = getMiniGameBuildPlatform() === 'wechat';"), 'Game Circle visibility must use the unified build/preview platform contract');
+assert.ok(sceneHome.includes('btn.active = isWeChat;'), 'Game Circle entry must be hidden outside WeChat');
+assert.ok(sceneHome.includes('if (!isWeChat) return;'), 'non-WeChat Game Circle entry must return before icon work and click binding');
 
 assert.ok(postbuild.includes("WECHAT_GAME_CIRCLE_MIN_LIB_VERSION = '2.30.3'"), 'WeChat build must pin the minimum Game Circle openlink base library');
 assert.ok(postbuild.includes('compareVersion(libVersion, WECHAT_GAME_CIRCLE_MIN_LIB_VERSION) < 0'), 'WeChat build must bump too-low libVersion values');
