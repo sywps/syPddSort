@@ -85,7 +85,7 @@ assert.ok(colorFx.includes('ensurePinddSpineFxSkeletonData'), 'pindd Spine must 
 assert.ok(!settingsPanel.includes('ensureSpriteFramesReady'), 'settings preload must not batch-load all settings SpriteFrames during Game rendering');
 assert.ok(!settingsPanel.includes('runtime._loadSpriteFrameByName(name'), 'settings preload must rely on prefab ownership instead of SpriteFrame burst loads');
 assert.ok(settingsPanel.includes('loadPrefab();'), 'settings preload must still load the prefab itself');
-assert.ok(settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'opening gameplay settings must prefetch Home only after explicit user intent');
+assert.ok(!settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'opening Settings must not create a competing speculative Home scene load');
 
 assert.ok(audioMgr.includes('preloadGameplayAudioSet(): void'), 'AudioMgr must expose a gameplay audio warmup method');
 assert.ok(audioMgr.includes('this._loadFromBootstrapBundleAuto((bundle)'), 'BGM must try bootstrap before gameAssets');

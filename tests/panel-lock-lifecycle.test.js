@@ -279,4 +279,50 @@ assert.strictEqual(closeRuntime._panelOpenInFlight.size, 0);
 assert.strictEqual(overlay.active, false);
 assert.strictEqual(overlay.getComponent(BlockInputEvents).enabled, false);
 
+const homeEvents = [];
+let resolveHomeRoute;
+const homeRoutePromise = new Promise((resolve) => {
+    resolveHomeRoute = resolve;
+});
+const homeRuntime = createBaseRuntime(homeEvents);
+homeRuntime._withGameAssetsBundle = (onReady) => {
+    onReady({
+        load(_path, _type, callback) {
+            callback(null, new Prefab(createSettingsOverlay));
+        },
+    });
+};
+homeRuntime._closePanelWithTextureOwner = (node, key, reason) => {
+    homeEvents.push(`visual-close:${key}:${reason}`);
+    node.isValid = false;
+};
+homeRuntime.requestHomeRoute = (source, coverMode) => {
+    homeEvents.push(`route:${source}:${coverMode}`);
+    return homeRoutePromise;
+};
+const homeController = new SettingsPanelController(homeRuntime);
+homeController.open();
+const homeOverlay = homeRuntime.popupRoot.getChildByName('SettingsOverlay');
+assert.ok(homeOverlay);
+const homeButton = homeOverlay.getChildByName('Box').getChildByName('Home');
+homeOverlay.emit(FakeNode.EventType.TOUCH_END, {
+    target: homeButton,
+    getUILocation: () => ({ x: 500, y: 500 }),
+});
+homeButton.emit(Button.EventType.CLICK);
+homeButton.emit(Button.EventType.CLICK);
+
+const routeIndex = homeEvents.indexOf('route:settings:none');
+const homeResumeIndex = homeEvents.indexOf('resume:timer:1:settings');
+const homeVisualIndex = homeEvents.indexOf('visual-close:settings:settings-home');
+assert.ok(routeIndex >= 0, 'Settings Home must dispatch the Home route');
+assert.ok(routeIndex < homeResumeIndex, 'Home route dispatch must be established before Settings lease release');
+assert.ok(routeIndex < homeVisualIndex, 'Home route dispatch must precede fallible Settings visual teardown');
+assert.strictEqual(
+    homeEvents.filter((event) => event === 'route:settings:none').length,
+    1,
+    'repeated Home clicks must share one route dispatch',
+);
+resolveHomeRoute();
+
 console.log('panel-lock-lifecycle.test.js passed');

@@ -58,6 +58,11 @@ assert.ok(
 
 assert.ok(!settingsPanel.includes("requestHomeRoute('settings', 'cover')"), 'settings Home button must not request a cover');
 assert.ok(settingsPanel.includes("requestHomeRoute('settings', 'none')"), 'settings Home button must route Home without cover');
+assert.ok(
+    settingsPanel.indexOf('routePromise = requestHomeRouteFromSettings();')
+        < settingsPanel.indexOf("finalizeSettings('settings-home', true);"),
+    'settings Home must establish route dispatch before releasing the panel',
+);
 assert.ok(!homeAdFlow.includes("requestHomeRoute('runtime', 'cover')"), 'runtime Home route must not request a cover');
 assert.ok(homeAdFlow.includes("requestHomeRoute('runtime', 'none')"), 'runtime Home route must explicitly route Home without cover');
 assert.ok(!homeCommerce.includes("requestGameplayRoute(level, 'level_', false, 'cover')"), 'main start button must not request a cover');
@@ -95,6 +100,6 @@ assert.ok(sceneRouter.includes('consumePreloadedBundledScene(sceneName, bundleNa
 assert.ok(sceneRouter.includes("runLoadedScene(preloadedSceneAsset, 'preloaded')"), 'foreground Home route must run the preloaded Home SceneAsset without reloading Home.scene');
 assert.ok(gameplaySession.includes('runtime.startPostPlayableWarmup?.('), 'Game ready must start the post-playable warmup queue');
 assert.ok(!postPlayableWarmup.includes('preloadHomeScene('), 'post-playable warmup must not deserialize and retain Home.scene without user intent');
-assert.ok(settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'settings Home affordance must provide intent-driven Home preload');
+assert.ok(!settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'settings Home correctness must not depend on a speculative scene preload');
 
 console.log('scene-router-home-transition.test.js passed');

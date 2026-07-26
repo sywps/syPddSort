@@ -37,10 +37,10 @@ export class GameplaySessionController {
             this.clearTutorialRuntimeState(runtime);
             initStage = 'audio_init';
             AudioMgr.inst.init(runtime.node);
+            AudioMgr.inst.preload('button');
             const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
             if (!bootstrapOnlyGameplayStartup) {
                 AudioMgr.inst.preload('place');
-                AudioMgr.inst.playGameBgm();
             }
             runtime.levelData = data;
             initStage = 'route_context';

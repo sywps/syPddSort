@@ -7,7 +7,6 @@ import {
     Prefab,
     SETTINGS_PANEL_TEXTURE_NAMES,
     UITransform,
-    Vec3,
     instantiate,
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
@@ -343,15 +342,24 @@ export class SettingsPanelController {
 
         const closeSettings = () => finalizeSettings('settings', true);
 
-        const requestHomeRouteFromSettings = async () => {
+        const requestHomeRouteFromSettings = (): Promise<void> => {
             if (!AppRoot.tryGet()) {
                 AppRoot.ensure('Game');
             }
             if (typeof runtime.requestHomeRoute === 'function') {
-                await runtime.requestHomeRoute('settings', 'none');
-                return;
+                return Promise.resolve(runtime.requestHomeRoute('settings', 'none'));
             }
-            await AppRoot.inst.requestHomeRoute('settings', 'none');
+            return AppRoot.inst.requestHomeRoute('settings', 'none');
+        };
+
+        const reportHomeRouteFailure = (error: unknown) => {
+            homeRouteInFlight = false;
+            console.error('[settings-prefab] home route failed:', error);
+            try {
+                runtime.showToast?.('返回主页失败，请重试', 1.8);
+            } catch (toastError) {
+                console.warn('[settings-prefab] home route failure toast failed:', toastError);
+            }
         };
 
         this.ensurePrefabReady((prefab: Prefab) => {
@@ -381,12 +389,6 @@ export class SettingsPanelController {
                 const showGameplayActions = runtime.getRuntimeSceneName('Game') === 'Game';
                 homeBtn.active = showGameplayActions;
                 closeBtn.active = showGameplayActions;
-                if (showGameplayActions) {
-                    const router = AppRoot.tryGet()?.router;
-                    if (router && typeof router.preloadHomeScene === 'function') {
-                        void router.preloadHomeScene('settings-home-intent').catch(() => {});
-                    }
-                }
 
                 bindClick(xBtn, closeSettings);
                 if (showGameplayActions) {
@@ -394,23 +396,20 @@ export class SettingsPanelController {
                     bindClick(homeBtn, () => {
                         if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;
                         homeRouteInFlight = true;
-                        if (!finalizeSettings('settings-home', true)) return;
-                        void requestHomeRouteFromSettings().catch((error: unknown) => {
-                            homeRouteInFlight = false;
-                            console.error('[settings-prefab] home route failed:', error);
-                        });
+                        let routePromise: Promise<void>;
+                        try {
+                            routePromise = requestHomeRouteFromSettings();
+                        } catch (error) {
+                            reportHomeRouteFailure(error);
+                            return;
+                        }
+                        finalizeSettings('settings-home', true);
+                        void routePromise.catch(reportHomeRouteFailure);
                     });
                 }
 
                 overlay.on(Node.EventType.TOUCH_END, (event: any) => {
-                    const boxTransform = box.getComponent(UITransform);
-                    if (!boxTransform) return;
-                    const uiPos = event.getUILocation();
-                    const local = boxTransform.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
-                    const size = boxTransform.contentSize;
-                    if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) {
-                        return;
-                    }
+                    if (event?.target && event.target !== overlay) return;
                     closeSettings();
                 }, runtime);
 
