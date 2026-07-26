@@ -11,7 +11,9 @@ function read(relPath) {
 const debugPerf = read('assets/Scripts/Core/DebugPerfTrace.ts');
 const runtimeController = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
+const boardOutline = read('assets/Scripts/Core/GameplayBoardOutlineRenderer.ts');
 const rewardedAd = read('assets/Scripts/Platform/RewardedAdProvider.ts');
+const textureAudit = read('scripts/audit-texture-memory.js');
 
 assert.ok(debugPerf.includes('export function debugPerfFrameStep'), 'debug builds must expose a frame-gap sampling hook');
 assert.ok(debugPerf.includes("debugPerfSnapshot('frame.gap'"), 'frame gaps must emit the full runtime/memory snapshot');
@@ -19,6 +21,10 @@ assert.ok(debugPerf.includes('FRAME_GAP_TRACE_THRESHOLD_MS = 50'), 'frame-gap tr
 assert.ok(debugPerf.includes('FRAME_GAP_TRACE_INTERVAL_MS = 1000'), 'frame-gap diagnostics must be throttled');
 for (const field of [
     'boardFilledCellCount',
+    'liveBoardCellNodeCount',
+    'boardSlotBatchCount',
+    'boardSlotBatchVisibleCellCount',
+    'gameplayResultPanelInstanceCount',
     'activePinddSpineFxCount',
     'reservedPinddSpineFxCount',
     'pinddSpineFxPoolSize',
@@ -28,12 +34,29 @@ for (const field of [
     assert.ok(debugPerf.includes(field), `debug snapshots must include ${field}`);
 }
 assert.ok(runtimeController.includes('debugPerfFrameStep(this.runtime, dt);'), 'the scene update loop must feed real frame deltas to diagnostics');
+assert.ok(gameplayView.includes("debugPerfSnapshot('board.build.start'"), 'board construction must emit a before snapshot with the target cell count');
+assert.ok(gameplayView.includes("debugPerfSnapshot('board.build.finish'"), 'board construction must emit stage timings and a live-node snapshot');
+for (const timingField of ['outlineDurationMs', 'cellNodeBuildDurationMs', 'slotBatchDurationMs', 'durationMs']) {
+    assert.ok(gameplayView.includes(timingField), `board construction diagnostics must include ${timingField}`);
+}
 
 assert.ok(gameplayView.includes('private renderLegacyBoardSlotCell'), 'legacy node slots must have a side-effect-free cell renderer');
 assert.ok(gameplayView.includes('const hasBatchedSlots = this.markBoardSlotBatchRenderersForUpdate();'), 'board operations must dirty slot batches once before traversing cells');
 assert.ok(
     !/for \(let r = 0; r < runtime\.boardModel\.height; r\+\+\) \{[\s\S]{0,240}this\.renderBoardSlotCell\(r, c\);/.test(gameplayView),
     'full-board loops must not dirty all slot batches once per cell',
+);
+assert.ok(
+    boardOutline.includes('[BOARD_OUTLINE_SHADOW_NAME, BOARD_OUTLINE_OUTER_NAME, BOARD_OUTLINE_MAIN_NAME]'),
+    'base outline Graphics nodes must survive level rebuilds for reuse',
+);
+assert.ok(
+    boardOutline.includes('[BOARD_OUTLINE_INNER_NAME, BOARD_OUTLINE_HIGHLIGHT_NAME]'),
+    'top outline Graphics nodes must survive level rebuilds for reuse',
+);
+assert.ok(
+    textureAudit.includes("['levelData', path.join(projectDir, 'assets', 'LevelData')]"),
+    'texture memory audit must include full-screen LevelData backgrounds',
 );
 
 assert.ok(rewardedAd.includes('REWARDED_AD_UNUSED_READY_TTL_MS = 45000'), 'unused native ad residency must be bounded');

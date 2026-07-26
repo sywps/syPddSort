@@ -57,6 +57,33 @@ function countFilledBoardCells(runtime: any): number {
     return count;
 }
 
+function countLiveGridNodes(grid: any): number {
+    if (!Array.isArray(grid)) return 0;
+    let count = 0;
+    for (const row of grid) {
+        if (!Array.isArray(row)) continue;
+        for (const node of row) {
+            if (node?.isValid) count++;
+        }
+    }
+    return count;
+}
+
+function countLiveNodes(nodes: any[]): number {
+    return nodes.reduce((count, node) => count + (node?.isValid ? 1 : 0), 0);
+}
+
+function getLiveBoardSlotBatchRenderers(runtime: any): any[] {
+    const renderers = Array.isArray(runtime?._boardSlotBatchRenderers)
+        ? runtime._boardSlotBatchRenderers.filter((renderer: any) => !!renderer?.isValid)
+        : [];
+    const legacyRenderer = runtime?._boardSlotBatchRenderer;
+    if (legacyRenderer?.isValid && !renderers.includes(legacyRenderer)) {
+        renderers.unshift(legacyRenderer);
+    }
+    return renderers;
+}
+
 function readEarlyTraceStartedAt(): number {
     try {
         const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
@@ -160,6 +187,7 @@ export function collectDebugPerfRuntimeSnapshot(runtime: any): PlainRecord {
         : [];
     const skillWatchdogMeta = runtime._skillUsageWatchdogMeta;
     const rewardTransaction = runtime._rewardedGrantTransaction;
+    const boardSlotBatchRenderers = getLiveBoardSlotBatchRenderers(runtime);
     return {
         runtimeSceneName,
         enginePaused: typeof isPaused === 'function' ? !!isPaused.call(game) : false,
@@ -170,6 +198,17 @@ export function collectDebugPerfRuntimeSnapshot(runtime: any): PlainRecord {
         boardWidth: Math.max(0, Number(runtime.boardModel?.width || runtime.levelData?.boardWidth) || 0),
         boardHeight: Math.max(0, Number(runtime.boardModel?.height || runtime.levelData?.boardHeight) || 0),
         boardFilledCellCount: countFilledBoardCells(runtime),
+        liveBoardCellNodeCount: countLiveGridNodes(runtime.cellNodes),
+        boardSlotBatchCount: boardSlotBatchRenderers.length,
+        boardSlotBatchVisibleCellCount: boardSlotBatchRenderers.reduce(
+            (count, renderer) => count + Math.max(0, Number(renderer.visibleCellCount) || 0),
+            0,
+        ),
+        gameplayResultPanelInstanceCount: countLiveNodes([
+            runtime.panelWin,
+            runtime.panelLose,
+            runtime.panelTimeoutContinue,
+        ]),
         activeBoardTouchCount: getMapLikeSize(runtime.activeBoardTouches),
         placementVisualRefs: Math.max(0, Number(runtime._placementVisualRefs) || 0),
         placementInputRefs: Math.max(0, Number(runtime._placementInputLockRefs) || 0),

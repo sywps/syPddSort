@@ -227,7 +227,11 @@ export class GameplayResultPanelController {
             throw new Error(`[result-panel] prefab "${kind}" is not ready`);
         }
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
-        popupRoot.getChildByName(name)?.destroy();
+        const previous = popupRoot.getChildByName(name);
+        if (previous?.isValid) {
+            previous.removeFromParent();
+            previous.destroy();
+        }
         const overlay = instantiate(prefab);
         overlay.name = name;
         popupRoot.addChild(overlay);

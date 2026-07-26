@@ -26,6 +26,7 @@ import {
     buildBoardOutline,
     ensureBoardOutlineLayer,
 } from './GameplayBoardOutlineRenderer';
+import { debugPerfSnapshot } from './DebugPerfTrace';
 
 const ZOOM_HINT_SCALE_HEADROOM = 0.06;
 
@@ -404,7 +405,6 @@ export class GameplayViewController {
         this.prepareDragLayer(dragRoot);
 
         runtime.destroyGameplayResultOverlays();
-        runtime.ensureGameplayResultPanelsCreated?.();
 
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_START, runtime.onTouchStart, runtime);
         runtime._sceneInputRoot.on(Node.EventType.TOUCH_MOVE, runtime.onTouchMove, runtime);
@@ -812,6 +812,7 @@ export class GameplayViewController {
 
     buildBoard(root: Node) {
         const runtime = this.runtime;
+        const buildStartedAt = Date.now();
         const bw = runtime.levelData.boardWidth;
         const bh = runtime.levelData.boardHeight;
         const maxBoardPx = 660;
@@ -833,6 +834,9 @@ export class GameplayViewController {
         runtime.boardNode.getComponent(UITransform)?.setContentSize(boardW, boardH);
         runtime.boardNode.setPosition(0, 0, 0);
         const boardVisualCellCount = this.countBoardVisualCells(runtime.boardModel.correctColors, bw, bh);
+        debugPerfSnapshot('board.build.start', runtime, {
+            boardVisualCellCount,
+        });
         this.recycleBoardNodeGrid(runtime.cellNodes, runtime._boardCellPool, boardVisualCellCount);
         runtime.clearChildrenExcept(runtime.boardNode, [BOARD_OUTLINE_LAYER_NAME, BOARD_OUTLINE_TOP_LAYER_NAME, 'BoardSlots']);
 
@@ -846,15 +850,18 @@ export class GameplayViewController {
         runtime._boardSlotBatchRenderer = null;
         const slotIndex = Math.max(0, runtime.boardNode.children.indexOf(runtime.boardSlotsNode));
         const clearBoardOutlineChildren = runtime.clearChildrenExcept.bind(runtime);
+        const outlineStartedAt = Date.now();
         const boardOutlineLayer = ensureBoardOutlineLayer(runtime.boardNode, BOARD_OUTLINE_LAYER_NAME, boardW, boardH, slotIndex + 1, clearBoardOutlineChildren);
         const boardOutlineTopLayer = ensureBoardOutlineLayer(runtime.boardNode, BOARD_OUTLINE_TOP_LAYER_NAME, boardW, boardH, slotIndex + 2, clearBoardOutlineChildren);
         buildBoardOutline(boardOutlineLayer, boardOutlineTopLayer, runtime.boardModel.correctColors, runtime.cellSize, runtime.cellGap, bw, bh);
+        const outlineDurationMs = Date.now() - outlineStartedAt;
 
         this.fitBoardViewportToSafeRect(bw, bh, padding);
 
         const slotBatchCells: BoardSlotBatchCell[] = [];
         runtime.cellNodes = [];
         runtime.boardSlotBgNodes = [];
+        const cellNodeBuildStartedAt = Date.now();
         for (let r = 0; r < bh; r++) {
             runtime.cellNodes[r] = [];
             runtime.boardSlotBgNodes[r] = [];
@@ -891,14 +898,25 @@ export class GameplayViewController {
                 runtime.cellNodes[r][c] = cell;
             }
         }
+        const cellNodeBuildDurationMs = Date.now() - cellNodeBuildStartedAt;
+        const slotBatchStartedAt = Date.now();
         const slotBatchCount = Math.ceil(slotBatchCells.length / BOARD_SLOT_BATCH_MAX_CELLS);
         const slotBatchRenderers = this.prepareBoardSlotBatchRenderers(runtime.boardSlotsNode, boardW, boardH, slotBatchCount);
         for (let i = 0; i < slotBatchRenderers.length; i++) {
             const start = i * BOARD_SLOT_BATCH_MAX_CELLS;
             slotBatchRenderers[i].configure(slotBatchCells.slice(start, start + BOARD_SLOT_BATCH_MAX_CELLS));
         }
+        const slotBatchDurationMs = Date.now() - slotBatchStartedAt;
         this.trimBoardNodePool(runtime._boardCellPool, 0);
         this.trimBoardNodePool(runtime._boardSlotBgPool, 0);
+        debugPerfSnapshot('board.build.finish', runtime, {
+            boardVisualCellCount,
+            slotBatchCount,
+            outlineDurationMs,
+            cellNodeBuildDurationMs,
+            slotBatchDurationMs,
+            durationMs: Date.now() - buildStartedAt,
+        });
     }
 }
 

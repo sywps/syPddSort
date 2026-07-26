@@ -14,6 +14,9 @@ const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 const audioMgr = read('assets/Scripts/Core/AudioMgr.ts');
 const audioManifest = read('assets/Scripts/Core/AudioManifest.ts');
 const resultPanels = read('assets/Scripts/Core/GameplayResultPanelController.ts');
+const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
+const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
+const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 const commerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
@@ -103,6 +106,18 @@ assert.ok(resultPanels.includes('preview-source'), 'browser preview source load 
 assert.ok(resultPanels.includes('const loadNext = (index: number): void =>'), 'missing result prefabs must load through one sequential owner');
 assert.ok(resultPanels.includes('loadNext(index + 1);'), 'result-prefab loading must advance only after the previous prefab completes');
 assert.ok(!resultPanels.includes('for (const kind of missingKinds)'), 'result prefabs must not allocate/parse in a three-request burst');
+assert.ok(resultPanels.includes('previous.removeFromParent();'), 'replacing a result overlay must synchronously detach the old blocker before deferred destruction');
+assert.ok(!gameplayView.includes('runtime.ensureGameplayResultPanelsCreated?.();'), 'level UI rebuild must not eagerly instantiate all hidden result panels');
+const ensureResultPanelsStart = homeAdFlow.indexOf('ensureGameplayResultPanelsCreated(');
+const ensureResultPanelsEnd = homeAdFlow.indexOf('instantiateResultOverlay(', ensureResultPanelsStart);
+const ensureResultPanelsSource = homeAdFlow.slice(ensureResultPanelsStart, ensureResultPanelsEnd);
+assert.ok(ensureResultPanelsStart >= 0 && ensureResultPanelsEnd > ensureResultPanelsStart, 'result panel creation method must remain inspectable');
+assert.ok(ensureResultPanelsSource.includes("const needsWin = target === 'win' || target === 'all';"), 'result panel creation must support win-only instances');
+assert.ok(ensureResultPanelsSource.includes("const needsRevive = target === 'revive' || target === 'lose-flow' || target === 'all';"), 'loss flow must create its revive instance on demand');
+assert.ok(ensureResultPanelsSource.includes("const needsLose = target === 'lose' || target === 'lose-flow' || target === 'all';"), 'loss flow must create its final lose instance on demand');
+assert.ok(!ensureResultPanelsSource.includes('this.destroyGameplayResultOverlays();'), 'creating one result kind must not destroy unrelated valid result instances');
+assert.ok(settlement.includes("ensureGameplayResultPanelsCreated?.('win')"), 'win settlement must request only its own panel instance');
+assert.ok(settlement.includes("ensureGameplayResultPanelsCreated?.('lose-flow')"), 'loss settlement must request only revive and final-lose instances');
 
 assert.ok(postbuildWechat.includes('const debugLevelDataBundle = false;'), 'WeChat debug must not add a debug-only levelData bundle');
 assert.ok(!postbuildWechat.includes("const debugLevelDataBundle = buildMode === 'debug';"), 'WeChat build package layout must not branch on debug/release');

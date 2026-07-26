@@ -1288,6 +1288,7 @@ export function installHomeAdFlowModule(target: any): void {
                         this._clearSpriteFramesBeforeDestroy(panel);
                         this._destroyDetachedNodeNextFrame(panel);
                     } else {
+                        panel.removeFromParent();
                         panel.destroy();
                     }
                 }
@@ -1373,18 +1374,27 @@ export function installHomeAdFlowModule(target: any): void {
             ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone);
         },
 
-        ensureGameplayResultPanelsCreated(): boolean {
+        ensureGameplayResultPanelsCreated(
+            target: 'win' | 'revive' | 'lose' | 'lose-flow' | 'all' = 'all',
+        ): boolean {
             if (!this._hasGameplayResultPanelPrefabsReady()) {
                 return false;
             }
-            if (this.panelWin?.isValid && this.panelLose?.isValid && this.panelTimeoutContinue?.isValid) {
-                return true;
+            const needsWin = target === 'win' || target === 'all';
+            const needsRevive = target === 'revive' || target === 'lose-flow' || target === 'all';
+            const needsLose = target === 'lose' || target === 'lose-flow' || target === 'all';
+            if (needsWin && !this.panelWin?.isValid) {
+                this.panelWin = this.createWinSettlementPanel();
             }
-            this.destroyGameplayResultOverlays();
-            this.panelWin = this.createWinSettlementPanel();
-            this.panelLose = this.createLoseSettlementPanel();
-            this.panelTimeoutContinue = this.createReviveSettlementPanel();
-            return true;
+            if (needsLose && !this.panelLose?.isValid) {
+                this.panelLose = this.createLoseSettlementPanel();
+            }
+            if (needsRevive && !this.panelTimeoutContinue?.isValid) {
+                this.panelTimeoutContinue = this.createReviveSettlementPanel();
+            }
+            return (!needsWin || !!this.panelWin?.isValid)
+                && (!needsLose || !!this.panelLose?.isValid)
+                && (!needsRevive || !!this.panelTimeoutContinue?.isValid);
         },
 
         instantiateResultOverlay(name: string): Node {

@@ -710,7 +710,7 @@ export function installSettlementHudModule(target: any): void {
                 return false;
             }
             this.closePinchGuide?.();
-            if (!this.ensureGameplayResultPanelsCreated?.()) return false;
+            if (!this.ensureGameplayResultPanelsCreated?.('win')) return false;
             this._settlementRevealState = 'revealing';
             try {
                 const panel = this.panelWin as Node | null;
@@ -814,7 +814,7 @@ export function installSettlementHudModule(target: any): void {
             this._settlementRevealToken = revealToken;
             this._settlementRevealState = 'waiting';
             this.addGold(this._pendingWinGoldReward);
-            this.ensureGameplayResultPanelsCreated?.();
+            this.ensureGameplayResultPanelsCreated?.('win');
             this.updateWinRewardLabel(this._pendingWinGoldReward);
 
             const revealSettlement = () => {
@@ -924,10 +924,10 @@ export function installSettlementHudModule(target: any): void {
                 }
                 this.showLosePanel();
             };
-            if (!this.ensureGameplayResultPanelsCreated?.()) {
+            if (!this.ensureGameplayResultPanelsCreated?.('lose-flow')) {
                 this._ensureGameplayResultPanelPrefabsReady?.(() => {
                     if (!this.isValid || !this.isGameEnd) return;
-                    this.ensureGameplayResultPanelsCreated?.();
+                    this.ensureGameplayResultPanelsCreated?.('lose-flow');
                     showLoseResult();
                 });
                 return;

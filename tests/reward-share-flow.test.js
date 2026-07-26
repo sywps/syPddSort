@@ -16,7 +16,7 @@ function transpile(relPath) {
     }).outputText;
 }
 
-function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}) {
+function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelController = {}) {
     const module = { exports: {} };
     vm.runInNewContext(transpile('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts'), {
         module,
@@ -35,7 +35,7 @@ function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}) {
                 };
             }
             if (id === '../AppRoot') return { AppRoot: {} };
-            if (id === '../GameplayResultPanelController') return { ensureGameplayResultPanelController: () => ({}) };
+            if (id === '../GameplayResultPanelController') return { ensureGameplayResultPanelController: () => resultPanelController };
             if (id === '../PixelPosterPreviewRenderer') return { releasePixelPosterPreviewTree() {} };
             if (id === '../RuntimeLog') return { runtimeLog() {} };
             throw new Error(`unexpected require: ${id}`);
@@ -156,6 +156,42 @@ async function testSynchronousShareFailureDoesNotGrant() {
     assert.strictEqual(runtime._shareShowing, false);
 }
 
+function testResultPanelsInstantiateOnlyForRequestedSettlementPath() {
+    const created = [];
+    const makePanel = (kind) => ({ isValid: true, kind });
+    const controller = {
+        hasPrefabsReady: () => true,
+        createWinSettlementPanel() {
+            created.push('win');
+            return makePanel('win');
+        },
+        createLoseSettlementPanel() {
+            created.push('lose');
+            return makePanel('lose');
+        },
+        createReviveSettlementPanel() {
+            created.push('revive');
+            return makePanel('revive');
+        },
+    };
+    const runtime = {
+        panelWin: null,
+        panelLose: null,
+        panelTimeoutContinue: null,
+    };
+    loadHomeAdFlowInstaller([], {}, controller)(runtime);
+
+    assert.strictEqual(runtime.ensureGameplayResultPanelsCreated('win'), true);
+    assert.deepStrictEqual(created, ['win'], 'win settlement must not instantiate hidden loss panels');
+    assert.strictEqual(runtime.ensureGameplayResultPanelsCreated('win'), true);
+    assert.deepStrictEqual(created, ['win'], 'an existing valid result panel must be reused');
+
+    assert.strictEqual(runtime.ensureGameplayResultPanelsCreated('lose-flow'), true);
+    assert.deepStrictEqual(created, ['win', 'lose', 'revive'], 'loss flow must add only lose and revive panels');
+    assert.strictEqual(runtime.ensureGameplayResultPanelsCreated('all'), true);
+    assert.deepStrictEqual(created, ['win', 'lose', 'revive'], 'all requested panels must reuse the already valid instances');
+}
+
 async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     const timers = [];
     const events = [];
@@ -220,6 +256,7 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
 
     await testSettlementRewardedAdGrantsTrueFiveTimesTotal();
     await testSynchronousShareFailureDoesNotGrant();
+    testResultPanelsInstantiateOnlyForRequestedSettlementPath();
     await testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim();
     console.log('reward-share-flow.test.js passed');
 })().catch((error) => {
