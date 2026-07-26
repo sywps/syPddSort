@@ -16,7 +16,7 @@ import {
 } from './GameCtrlShared';
 import { ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
-import { debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
+import { debugPerfFrameStep, debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
 import { markStartupTrace } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
@@ -496,12 +496,14 @@ export class GameSceneRuntimeController {
     }
 
     update(dt: number): void {
+        debugPerfFrameStep(this.runtime, dt);
         this.runtime.vigorTick(dt);
     }
 
     destroy(): void {
         const sceneName = this.getRuntimeSceneName();
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
+        this.runtime.disposeSettingsPanel?.();
         this.runtime._rewardedAdStateUnsubscribe?.();
         this.runtime._rewardedAdStateUnsubscribe = null;
         debugPerfSnapshot('runtime.destroy.before', this.runtime, {
@@ -524,6 +526,8 @@ export class GameSceneRuntimeController {
         this.runtime.clearIdleHint();
         this.runtime.clearSelectionOverlay();
         this.runtime.clearDragNodes();
+        this.runtime.clearSkillUsageWatchdog?.(`scene-destroy:${sceneName}`);
+        this.runtime.clearPlacementVisualState?.();
         this.runtime.clearExpandSlotGuide?.();
         this.runtime._gameCirclePanelController?.destroy?.();
         UserMgr.inst.destroyUserInfoButtons();
@@ -531,13 +535,14 @@ export class GameSceneRuntimeController {
         inputRoot.off(Node.EventType.TOUCH_START, this.runtime.onTouchStart, this.runtime);
         inputRoot.off(Node.EventType.TOUCH_MOVE, this.runtime.onTouchMove, this.runtime);
         inputRoot.off(Node.EventType.TOUCH_END, this.runtime.onTouchEnd, this.runtime);
-        inputRoot.off(Node.EventType.TOUCH_CANCEL, this.runtime.onTouchEnd, this.runtime);
+        inputRoot.off(Node.EventType.TOUCH_CANCEL, this.runtime.onTouchCancel, this.runtime);
         inputRoot.off(Node.EventType.MOUSE_WHEEL, this.runtime.onMouseWheel, this.runtime);
         inputRoot.targetOff(this.runtime);
         this.runtime.node.targetOff(this.runtime);
         this.runtime.deactivateWeChatFriendRank('destroy');
         this.runtime.clearBoardVisualPools?.();
         this.runtime.clearEffectPools();
+        this.runtime.clearRuntimeOwners?.();
         this.runtime.cancelSpriteFrameLoadQueue?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseBackgroundSkinCachedSpriteFrames?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');

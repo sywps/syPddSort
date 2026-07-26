@@ -366,6 +366,98 @@ async function main() {
     assert.deepStrictEqual(unknownEvents, ['toast:广告结果未确认', 'finally']);
     assert.strictEqual(unknownRuntime._rewardedGrantTransaction, null, 'a terminal unknown result must allow a clean later attempt');
 
+    const deadlineTimers = [];
+    const installDeadlineFlow = loadInstaller({
+        setTimeout(callback, delay) {
+            const timer = { callback, delay, cleared: false };
+            deadlineTimers.push(timer);
+            return timer;
+        },
+        clearTimeout(timer) {
+            if (timer) timer.cleared = true;
+        },
+    });
+    const deadlineEvents = [];
+    let resolveTimedOutGrant;
+    let deadlineAdRequests = 0;
+    const deadlineRuntime = {
+        _skillActive: false,
+        showToast: (text) => deadlineEvents.push(`toast:${text}`),
+    };
+    installDeadlineFlow(deadlineRuntime);
+    deadlineRuntime.showTrackedRewardedAd = (_page, onComplete) => {
+        deadlineAdRequests += 1;
+        onComplete(adOutcome('verified_complete'));
+    };
+    assert.strictEqual(deadlineRuntime.runRewardedGrant('gold_acquire_reward', () => (
+        new Promise((resolve) => {
+            resolveTimedOutGrant = resolve;
+        })
+    ), {
+        claimKey: 'gold-acquire:timeout',
+        busyFlag: '_skillActive',
+        grantTimeoutMs: 25,
+        onFinally: () => deadlineEvents.push('finally'),
+    }), true);
+    assert.strictEqual(deadlineRuntime._rewardedGrantTransaction.phase, 'grant');
+    const grantDeadline = deadlineTimers.find((timer) => timer.delay === 25 && !timer.cleared);
+    assert.ok(grantDeadline, 'grant stage must own a concrete deadline');
+    grantDeadline.callback();
+    assert.strictEqual(deadlineRuntime._rewardedGrantTransaction, null, 'grant timeout must release the global transaction');
+    assert.deepStrictEqual(deadlineEvents, ['toast:奖励处理超时，请稍后查看到账结果', 'finally']);
+    assert.ok(deadlineRuntime._rewardedGrantTimedOutClaims.has('gold-acquire:timeout'));
+    assert.strictEqual(deadlineRuntime.runRewardedGrant('gold_acquire_reward', () => true, {
+        claimKey: 'gold-acquire:timeout',
+    }), false, 'the same logical claim must stay quarantined while the timed-out grant is unresolved');
+    assert.strictEqual(deadlineAdRequests, 1, 'quarantined retry must not open another rewarded ad');
+    resolveTimedOutGrant(true);
+    await flushMicrotasks();
+    assert.ok(!deadlineRuntime._rewardedGrantTimedOutClaims.has('gold-acquire:timeout'));
+    assert.strictEqual(
+        deadlineEvents.filter((event) => event === 'finally').length,
+        1,
+        'late grant settlement must not finalize twice',
+    );
+
+    const afterGrantTimers = [];
+    const installAfterGrantDeadlineFlow = loadInstaller({
+        setTimeout(callback, delay) {
+            const timer = { callback, delay, cleared: false };
+            afterGrantTimers.push(timer);
+            return timer;
+        },
+        clearTimeout(timer) {
+            if (timer) timer.cleared = true;
+        },
+    });
+    let resolveTimedOutAfterGrant;
+    let afterGrantFinallyCount = 0;
+    const afterGrantRuntime = { _skillActive: false };
+    installAfterGrantDeadlineFlow(afterGrantRuntime);
+    afterGrantRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('verified_complete'));
+    assert.strictEqual(afterGrantRuntime.runRewardedGrant('win_bonus_reward', () => true, {
+        claimKey: 'win-bonus:after-timeout',
+        afterGrantTimeoutMs: 35,
+        afterGrant: () => new Promise((resolve) => {
+            resolveTimedOutAfterGrant = resolve;
+        }),
+        onFinally: () => {
+            afterGrantFinallyCount += 1;
+        },
+    }), true);
+    await flushMicrotasks();
+    assert.strictEqual(afterGrantRuntime._rewardedGrantTransaction.phase, 'after_grant');
+    const afterGrantDeadline = afterGrantTimers.find((timer) => timer.delay === 35 && !timer.cleared);
+    assert.ok(afterGrantDeadline, 'afterGrant stage must own an independent deadline');
+    afterGrantDeadline.callback();
+    assert.strictEqual(afterGrantRuntime._rewardedGrantTransaction, null);
+    assert.strictEqual(afterGrantFinallyCount, 1);
+    assert.ok(afterGrantRuntime._rewardedGrantTimedOutClaims.has('win-bonus:after-timeout'));
+    resolveTimedOutAfterGrant(true);
+    await flushMicrotasks();
+    assert.ok(!afterGrantRuntime._rewardedGrantTimedOutClaims.has('win-bonus:after-timeout'));
+    assert.strictEqual(afterGrantFinallyCount, 1, 'late afterGrant settlement must remain inert');
+
     const trackedCallbacks = [];
     let trackedAudioRefs = 0;
     const installTrackedFlow = loadInstaller({}, {

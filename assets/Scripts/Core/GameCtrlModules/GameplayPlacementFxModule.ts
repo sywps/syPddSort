@@ -60,6 +60,7 @@ type FlyBeanFollowOptions = {
 
 const DEFAULT_BEAN_FLY_STAGGER_SECONDS = 0.028;
 const MAX_BEAN_FLY_STAGGER_WINDOW_SECONDS = 0.35;
+const PLACEMENT_OPERATION_TIMEOUT_MS = 3000;
 
 export function getBeanFlyStaggerDelay(beanCount: number): number {
     const normalizedCount = Math.max(0, Math.floor(Number(beanCount) || 0));
@@ -124,6 +125,84 @@ export function installGameplayPlacementFxModule(target: any): void {
                 : Math.max(0, Math.floor(Number(this._placementVisualRefs) || 0) - 1);
         },
 
+        clearPlacementOperationWatchdog(token: string): void {
+            if (!token) return;
+            const watchdogs: Map<string, any> = this._placementOperationWatchdogs
+                || (this._placementOperationWatchdogs = new Map<string, any>());
+            const watchdog = watchdogs.get(token);
+            if (!watchdog) return;
+            clearTimeout(watchdog.timer);
+            watchdogs.delete(token);
+        },
+
+        clearPlacementOperationWatchdogs(): void {
+            const watchdogs: Map<string, any> = this._placementOperationWatchdogs
+                || (this._placementOperationWatchdogs = new Map<string, any>());
+            for (const watchdog of watchdogs.values()) {
+                clearTimeout(watchdog.timer);
+            }
+            watchdogs.clear();
+        },
+
+        recoverExpiredPlacementOperationsAfterForeground(): number {
+            const watchdogs: Map<string, any> = this._placementOperationWatchdogs
+                || (this._placementOperationWatchdogs = new Map<string, any>());
+            const now = Date.now();
+            let recovered = 0;
+            for (const watchdog of Array.from(watchdogs.values())) {
+                if (Number(watchdog?.deadlineAt) > now || typeof watchdog?.recover !== 'function') continue;
+                if (watchdog.recover('foreground')) recovered++;
+            }
+            return recovered;
+        },
+
+        armPlacementOperationWatchdog(
+            token: string,
+            generation: number,
+            owner: string,
+            onTimeout: () => void,
+        ): void {
+            this.clearPlacementOperationWatchdog(token);
+            const watchdogs: Map<string, any> = this._placementOperationWatchdogs
+                || (this._placementOperationWatchdogs = new Map<string, any>());
+            const startedAt = Date.now();
+            const watchdog = {
+                token,
+                generation,
+                owner,
+                startedAt,
+                deadlineAt: startedAt + PLACEMENT_OPERATION_TIMEOUT_MS,
+                timer: null as any,
+                recover: null as any,
+            };
+            watchdog.recover = (source: string = 'timeout') => {
+                if (watchdogs.get(token) !== watchdog) return;
+                clearTimeout(watchdog.timer);
+                watchdogs.delete(token);
+                const activeGeneration = Math.max(
+                    0,
+                    Math.floor(Number(this._placementAnimationGeneration) || 0),
+                );
+                if (generation !== activeGeneration) return false;
+                console.error(`[Placement] ${owner} recovered after ${PLACEMENT_OPERATION_TIMEOUT_MS}ms: ${source}`);
+                try {
+                    onTimeout();
+                } catch (error) {
+                    console.error(`[Placement] ${owner} timeout recovery failed`, error);
+                    try {
+                        this.endPlacementVisual(token);
+                    } catch (releaseError) {
+                        console.error(`[Placement] ${owner} owner release failed`, releaseError);
+                    }
+                }
+                return true;
+            };
+            watchdog.timer = setTimeout(() => {
+                watchdog.recover('timeout');
+            }, PLACEMENT_OPERATION_TIMEOUT_MS);
+            watchdogs.set(token, watchdog);
+        },
+
         retainFlyingTarget(row: number, col: number): string {
             const key = `${row},${col}`;
             const refs: Map<string, number> = this._flyingTargetRefs || (this._flyingTargetRefs = new Map<string, number>());
@@ -161,10 +240,12 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         clearPlacementVisualState(): void {
+            this.clearPlacementOperationWatchdogs?.();
             this._placementAnimationGeneration = Math.max(
                 0,
                 Math.floor(Number(this._placementAnimationGeneration) || 0),
             ) + 1;
+            this.clearActiveFlyBeanNodes?.('placement-state-clear');
             this.clearRuntimeOwners?.('placement');
             this.clearRuntimeOwners?.('placement-input');
             this._placementVisualRefs = 0;
@@ -440,6 +521,40 @@ export function installGameplayPlacementFxModule(target: any): void {
             ) + 1;
             this._placementAnimationGeneration = placementGeneration;
             const placementOwnerToken = this.beginPlacementVisual('fly-place');
+            const activeFlyBeans = new Set<Node>();
+            let placementFinished = false;
+            const finishPlacementOwner = () => {
+                if (placementFinished) return false;
+                placementFinished = true;
+                this.clearPlacementOperationWatchdog?.(placementOwnerToken);
+                this.endPlacementVisual(placementOwnerToken);
+                return true;
+            };
+            const recoverTimedOutPlacement = () => {
+                if (placementFinished) return;
+                this._placementAnimationGeneration = placementGeneration + 1;
+                for (const bean of Array.from(activeFlyBeans)) {
+                    activeFlyBeans.delete(bean);
+                    try {
+                        if (bean?.isValid) {
+                            this.recycleFlyBeanNode(bean);
+                        }
+                    } catch (error) {
+                        console.error('[Placement] fly-place bean recovery failed', error);
+                    }
+                }
+                try {
+                    this.onFlyAllLanded(targets);
+                } finally {
+                    finishPlacementOwner();
+                }
+            };
+            this.armPlacementOperationWatchdog?.(
+                placementOwnerToken,
+                placementGeneration,
+                'fly-place',
+                recoverTimedOutPlacement,
+            );
             // 清除浮起节点 + 恢复格子位置
             this.clearDragNodes();
             this.stopPulseTweens();
@@ -478,10 +593,11 @@ export function installGameplayPlacementFxModule(target: any): void {
                 onFirstTargetArrived?.();
             };
             const finishAfterAllLanded = () => {
+                if (placementFinished) return;
                 try {
                     this.onFlyAllLanded(targets);
                 } finally {
-                    this.endPlacementVisual(placementOwnerToken);
+                    finishPlacementOwner();
                 }
             };
             if (remaining === 0) {
@@ -513,6 +629,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     targetBeanSize,
                     this.getBeanSpriteFrame(colorId, false),
                 );
+                activeFlyBeans.add(bean);
                 this.dragLayer.addChild(bean);
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
                 bean.setScale(sourceScale, sourceScale, 1);
@@ -532,6 +649,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     onComplete: () => {
                         this.playBoardTargetSettleSound();
                         AudioMgr.inst.vibratePlace();
+                        activeFlyBeans.delete(bean);
                         this.recycleFlyBeanNode(bean);
                         this.releaseFlyingTargetKey(targetKey);
                         this.renderBoardCell(t.row, t.col);
@@ -568,6 +686,66 @@ export function installGameplayPlacementFxModule(target: any): void {
             ) + 1;
             this._placementAnimationGeneration = placementGeneration;
             const placementOwnerToken = this.beginPlacementVisual('fly-to-slots');
+            const activeFlyBeans = new Set<Node>();
+            const pendingSlotIndices = new Set<number>();
+            let placementFinished = false;
+            const finishPlacementOwner = () => {
+                if (placementFinished) return false;
+                placementFinished = true;
+                this.clearPlacementOperationWatchdog?.(placementOwnerToken);
+                this.endPlacementVisual(placementOwnerToken);
+                return true;
+            };
+            const finishSlotLanding = () => {
+                if (placementFinished) return;
+                try {
+                    this.renderBoardCells(dirtyBoardCells);
+                    this.checkGuideStepComplete();
+                    this.resetIdleHintTimer();
+                    if (this.boardModel.isAllLocked()) {
+                        this.clearEndgameHints(false);
+                        this.playPatternCompleteThenWin();
+                    } else {
+                        this.refreshEndgameHints('slot-landed');
+                    }
+                } finally {
+                    finishPlacementOwner();
+                }
+            };
+            const recoverTimedOutPlacement = () => {
+                if (placementFinished) return;
+                this._placementAnimationGeneration = placementGeneration + 1;
+                for (const bean of Array.from(activeFlyBeans)) {
+                    activeFlyBeans.delete(bean);
+                    try {
+                        if (bean?.isValid) {
+                            this.recycleFlyBeanNode(bean);
+                        }
+                    } catch (error) {
+                        console.error('[Placement] fly-to-slots bean recovery failed', error);
+                    }
+                }
+                for (const slotIdx of Array.from(pendingSlotIndices)) {
+                    pendingSlotIndices.delete(slotIdx);
+                    try {
+                        this.releaseHiddenSlotIndex(slotIdx);
+                    } catch (error) {
+                        console.error('[Placement] hidden slot recovery failed', error);
+                    }
+                }
+                try {
+                    this.renderSlots();
+                    finishSlotLanding();
+                } finally {
+                    finishPlacementOwner();
+                }
+            };
+            this.armPlacementOperationWatchdog?.(
+                placementOwnerToken,
+                placementGeneration,
+                'fly-to-slots',
+                recoverTimedOutPlacement,
+            );
             const preserveBoardCells = remainingSelection?.source === 'board' ? remainingSelection.cells : [];
             this.clearDragNodes();
             this.stopPulseTweens();
@@ -581,7 +759,10 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.clearForcedSkillHiddenState();
             this._lastPlacedCells = null;
         
-            for (const idx of slotIdxs) this.retainHiddenSlotIndex(idx);
+            for (const idx of slotIdxs) {
+                this.retainHiddenSlotIndex(idx);
+                pendingSlotIndices.add(idx);
+            }
             this.renderBoardCells(dirtyBoardCells);
             // 同色插入会把后续已占用槽整体右移；这里必须先全量重绘一遍槽区，
             // 否则被挪动的豆子要等到下一次交互触发刷新才会重新出现。
@@ -605,25 +786,10 @@ export function installGameplayPlacementFxModule(target: any): void {
             };
             if (remaining === 0) {
                 this.finishPlace();
-                this.endPlacementVisual(placementOwnerToken);
+                finishPlacementOwner();
                 return;
             }
             this.playBeanFlySound();
-            const finishSlotLanding = () => {
-                try {
-                    this.renderBoardCells(dirtyBoardCells);
-                    this.checkGuideStepComplete();
-                    this.resetIdleHintTimer();
-                    if (this.boardModel.isAllLocked()) {
-                        this.clearEndgameHints(false);
-                        this.playPatternCompleteThenWin();
-                    } else {
-                        this.refreshEndgameHints('slot-landed');
-                    }
-                } finally {
-                    this.endPlacementVisual(placementOwnerToken);
-                }
-            };
             const completeOne = () => {
                 remaining--;
                 if (remaining <= 0) {
@@ -635,6 +801,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                 const slotIdx = slotIdxs[i];
                 const slotNode = this.slotNodes[slotIdx];
                 if (!slotNode) {
+                    pendingSlotIndices.delete(slotIdx);
                     this.releaseHiddenSlotIndex(slotIdx);
                     completeOne();
                     continue;
@@ -653,6 +820,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                     targetBeanSize,
                     this.getBeanSpriteFrame(colorId, false),
                 );
+                activeFlyBeans.add(bean);
                 this.dragLayer.addChild(bean);
                 bean.setPosition(srcLocal.x, srcLocal.y, 0);
                 bean.setScale(sourceScale, sourceScale, 1);
@@ -673,7 +841,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                         )) return;
                         AudioMgr.inst.play('slot');
                         AudioMgr.inst.vibratePlace();
+                        activeFlyBeans.delete(bean);
                         this.recycleFlyBeanNode(bean);
+                        pendingSlotIndices.delete(slotIdx);
                         this.releaseHiddenSlotIndex(slotIdx);
                         this.renderSlotIndices([slotIdx]);
                         notifyFirstTargetArrived();
@@ -953,7 +1123,10 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         clearDragNodes() {
-            for (const n of this.dragNodes) n.destroy();
+            for (const n of this.dragNodes) {
+                Tween.stopAllByTarget(n);
+                n.destroy();
+            }
             this.dragNodes = [];
         },
 
@@ -1114,8 +1287,16 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         pauseTimerForFinalSecondProp() {
             if (!this.shouldPauseTimerForFinalSecondProp()) return false;
-            this.pauseTimerForProp();
+            if (this._skillTimerPauseToken) return true;
+            this._skillTimerPauseToken = this.pauseTimerForProp('skill-prop');
             return true;
+        },
+
+        resumeSkillTimerPause(): void {
+            const token = String(this._skillTimerPauseToken || '');
+            this._skillTimerPauseToken = '';
+            if (!token) return;
+            this.resumeTimerForProp(token);
         },
 
         pauseTimerForProp(owner: string = 'prop'): string {

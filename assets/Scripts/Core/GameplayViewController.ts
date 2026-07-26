@@ -488,18 +488,24 @@ export class GameplayViewController {
 
     renderBoardSlots() {
         const runtime = this.runtime;
+        if (this.markBoardSlotBatchRenderersForUpdate()) {
+            return;
+        }
         for (let r = 0; r < runtime.boardModel.height; r++) {
             for (let c = 0; c < runtime.boardModel.width; c++) {
-                this.renderBoardSlotCell(r, c);
+                this.renderLegacyBoardSlotCell(r, c);
             }
         }
     }
 
     renderBoard() {
         const runtime = this.runtime;
+        const hasBatchedSlots = this.markBoardSlotBatchRenderersForUpdate();
         for (let r = 0; r < runtime.boardModel.height; r++) {
             for (let c = 0; c < runtime.boardModel.width; c++) {
-                this.renderBoardSlotCell(r, c);
+                if (!hasBatchedSlots) {
+                    this.renderLegacyBoardSlotCell(r, c);
+                }
                 this.renderCell(r, c);
             }
         }
@@ -507,13 +513,16 @@ export class GameplayViewController {
     }
 
     renderBoardCell(row: number, col: number) {
-        this.renderBoardSlotCell(row, col);
+        if (!this.markBoardSlotBatchRenderersForUpdate()) {
+            this.renderLegacyBoardSlotCell(row, col);
+        }
         this.renderCell(row, col);
     }
 
     renderBoardCells(cells: Array<{ row: number; col: number }>) {
         const runtime = this.runtime;
         if (cells.length === 0) return;
+        const hasBatchedSlots = this.markBoardSlotBatchRenderersForUpdate();
         const seen = new Set<string>();
         for (const cell of cells) {
             if (cell.row < 0 || cell.row >= runtime.boardModel.height || cell.col < 0 || cell.col >= runtime.boardModel.width) {
@@ -522,16 +531,23 @@ export class GameplayViewController {
             const key = `${cell.row},${cell.col}`;
             if (seen.has(key)) continue;
             seen.add(key);
-            this.renderBoardCell(cell.row, cell.col);
+            if (!hasBatchedSlots) {
+                this.renderLegacyBoardSlotCell(cell.row, cell.col);
+            }
+            this.renderCell(cell.row, cell.col);
         }
         runtime.refreshCompletionProgressLabel();
     }
 
     renderBoardSlotCell(row: number, col: number) {
-        const runtime = this.runtime;
         if (this.markBoardSlotBatchRenderersForUpdate()) {
             return;
         }
+        this.renderLegacyBoardSlotCell(row, col);
+    }
+
+    private renderLegacyBoardSlotCell(row: number, col: number) {
+        const runtime = this.runtime;
         const node = runtime.boardSlotBgNodes[row]?.[col] || null;
         if (!node) return;
         const sp = node.getComponent(Sprite);

@@ -61,6 +61,14 @@ export function installGuideLeaderboardModule(target: any): void {
             const owners = scopes.get(normalizedScope) || new Map<string, string>();
             owners.set(token, normalizedOwner);
             scopes.set(normalizedScope, owners);
+            const metadata: Map<string, any> = this._runtimeOwnerMeta
+                || (this._runtimeOwnerMeta = new Map<string, any>());
+            metadata.set(token, {
+                token,
+                scope: normalizedScope,
+                owner: normalizedOwner,
+                startedAt: Date.now(),
+            });
             return token;
         },
 
@@ -71,6 +79,7 @@ export function installGuideLeaderboardModule(target: any): void {
             if (!(scopes instanceof Map)) return false;
             for (const [scope, owners] of scopes.entries()) {
                 if (!owners.delete(normalizedToken)) continue;
+                this._runtimeOwnerMeta?.delete?.(normalizedToken);
                 if (owners.size === 0) scopes.delete(scope);
                 return true;
             }
@@ -94,15 +103,39 @@ export function installGuideLeaderboardModule(target: any): void {
             return owners instanceof Map ? owners.size : 0;
         },
 
+        getRuntimeOwnerDiagnostics(): any[] {
+            const metadata: Map<string, any> = this._runtimeOwnerMeta;
+            if (!(metadata instanceof Map)) return [];
+            const now = Date.now();
+            return Array.from(metadata.values())
+                .map((entry: any) => ({
+                    token: String(entry?.token || ''),
+                    scope: String(entry?.scope || ''),
+                    owner: String(entry?.owner || ''),
+                    startedAt: Math.max(0, Number(entry?.startedAt) || 0),
+                    ageMs: Math.max(0, now - (Number(entry?.startedAt) || now)),
+                }))
+                .sort((a: any, b: any) => b.ageMs - a.ageMs);
+        },
+
         clearRuntimeOwners(scope?: string): void {
             if (!(this._runtimeOwners instanceof Map)) {
                 this._runtimeOwners = new Map<string, Map<string, string>>();
+                this._runtimeOwnerMeta = new Map<string, any>();
                 return;
             }
             if (scope) {
-                this._runtimeOwners.delete(String(scope));
+                const normalizedScope = String(scope);
+                const owners: Map<string, string> | undefined = this._runtimeOwners.get(normalizedScope);
+                if (owners instanceof Map) {
+                    for (const token of owners.keys()) {
+                        this._runtimeOwnerMeta?.delete?.(token);
+                    }
+                }
+                this._runtimeOwners.delete(normalizedScope);
             } else {
                 this._runtimeOwners.clear();
+                this._runtimeOwnerMeta?.clear?.();
             }
         },
 
@@ -110,6 +143,15 @@ export function installGuideLeaderboardModule(target: any): void {
             const canvas = this.node?.scene?.getChildByName('Canvas') || null;
             const screenRoot = canvas?.getChildByName('ScreenRoot') || null;
             const popupRoot = screenRoot?.getChildByName('PopupRoot') || canvas?.getChildByName('PopupRoot') || null;
+            this.recoverExpiredPlacementOperationsAfterForeground?.();
+            this.recoverSkillUsageAfterForeground?.();
+            const rewardTransaction = this._rewardedGrantTransaction as any;
+            if ((rewardTransaction?.phase === 'grant' || rewardTransaction?.phase === 'after_grant')
+                && Number(rewardTransaction.deadlineAt) > 0
+                && Number(rewardTransaction.deadlineAt) <= Date.now()) {
+                this.showToast?.('奖励处理超时，请稍后查看到账结果');
+                rewardTransaction.cancel?.('foreground-stage-timeout');
+            }
             const hasExpectedModal = !!popupRoot?.children?.some?.((child: Node) =>
                 child?.isValid && child.activeInHierarchy && !!child.getComponent(BlockInputEvents),
             );
@@ -125,10 +167,35 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             const hasPlacementArtifacts = (Number(this._flyingTargets?.size) || 0) > 0
                 || (Number(this._hiddenSlotIndices?.size) || 0) > 0;
-            if (this.getRuntimeOwnerCount('placement') > 0 && !hasPlacementArtifacts) {
+            const placementWatchdogCount = Number(this._placementOperationWatchdogs?.size) || 0;
+            if (this.getRuntimeOwnerCount('placement') > 0
+                && !hasPlacementArtifacts
+                && placementWatchdogCount === 0) {
                 this.clearRuntimeOwners('placement');
                 this._placementVisualRefs = 0;
             }
+            const hasSettingsOverlay = !!popupRoot?.children?.some?.((child: Node) =>
+                child?.isValid && child.name === 'SettingsOverlay',
+            );
+            const hasAcquireOverlay = !!popupRoot?.children?.some?.((child: Node) =>
+                child?.isValid && child.name.includes('AcquireOverlay'),
+            );
+            const timerOwners = this.getRuntimeOwnerDiagnostics()
+                .filter((entry: any) => entry.scope === 'timer');
+            for (const entry of timerOwners) {
+                const owner = String(entry.owner || '');
+                const orphaned = (owner === 'settings' && !hasSettingsOverlay)
+                    || (owner === 'resource-acquire' && !hasAcquireOverlay)
+                    || (owner === 'skill-prop' && !this._skillActive);
+                if (!orphaned) continue;
+                this.releaseRuntimeOwner(entry.token);
+                if (String(this._skillTimerPauseToken || '') === String(entry.token || '')) {
+                    this._skillTimerPauseToken = '';
+                }
+                debugPerfTrace('timer.owner.foreground.recovered', entry);
+            }
+            this._timerPauseRefs = this.getRuntimeOwnerCount('timer');
+            this._timerLockedForProp = this._timerPauseRefs > 0;
         },
 
         beginModalFocus(reason: string = 'modal'): string {

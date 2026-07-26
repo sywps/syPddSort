@@ -11,6 +11,7 @@ import {
     Vec3,
     view,
 } from '../GameCtrlShared';
+import { debugPerfTrace } from '../DebugPerfTrace';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
 const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
@@ -18,11 +19,13 @@ const PINDD_SPINE_FX_NODE_NAME = 'PinddSpineFx';
 const PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME = 'PatternCompleteMatchFxRoot';
 const PINDD_SPINE_FX_SOURCE_HEIGHT = 43.27;
 const PINDD_SPINE_FX_SCALE = 1;
-const PINDD_SPINE_FX_ACTIVE_LIMIT = 6144;
-const PINDD_SPINE_FX_POOL_LIMIT = 160;
+const PINDD_SPINE_FX_ACTIVE_LIMIT = 48;
+const PINDD_SPINE_FX_POOL_LIMIT = 48;
 const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
 const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
 const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
+const PINDD_SPINE_COLOR_COMPLETE_MAX_NODES = 24;
+const PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 48;
 const PINDD_SPINE_FX_ANIMATION = {
     settle: 'a1_1',
     colorComplete: 'b1_1',
@@ -497,13 +500,21 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             beanNodes: Node[],
             animationName: PinddSpineFxAnimationName,
             onDone?: () => void,
+            options: Pick<PinddSpineFxBatchOptions, 'maxNodes'> = {},
         ): void {
-            const nodes = (beanNodes || []).filter((node) => node?.isValid);
+            const requestedCount = (beanNodes || []).filter((node) => node?.isValid).length;
+            const nodes = selectPinddSpineFxBatchNodes(beanNodes, options.maxNodes);
             const total = nodes.length;
             if (total === 0) {
                 onDone?.();
                 return;
             }
+            debugPerfTrace('pinddSpineFx.sameFrame', {
+                animationName,
+                requestedCount,
+                selectedCount: total,
+                activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
+            });
             this.ensurePinddSpineFxSkeletonData(() => {
                 let remaining = total;
                 let done = false;
@@ -560,6 +571,10 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             onDone?: () => void,
         ): void {
             if (!fxRoot?.isValid || !fxRootTransform || !worldPos) {
+                onDone?.();
+                return;
+            }
+            if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
                 onDone?.();
                 return;
             }
@@ -648,7 +663,12 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
             if (beanNodes.length === 0) return;
 
-            this.playPinddSpineFxOnBeansSameFrame(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);
+            this.playPinddSpineFxOnBeansSameFrame(
+                beanNodes,
+                PINDD_SPINE_FX_ANIMATION.colorComplete,
+                undefined,
+                { maxNodes: PINDD_SPINE_COLOR_COMPLETE_MAX_NODES },
+            );
         },
 
         collectPatternCompleteMatchBeanNodes(): Node[] {
@@ -677,8 +697,12 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
             const beanNodes = this.collectPatternCompleteMatchBeanNodes();
+            const selectedBeanNodes = selectPinddSpineFxBatchNodes(
+                beanNodes,
+                PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES,
+            );
             const beanWorldPositions: Vec3[] = [];
-            for (const beanNode of beanNodes) {
+            for (const beanNode of selectedBeanNodes) {
                 const transform = beanNode.getComponent(UITransform);
                 if (!transform) continue;
                 beanWorldPositions.push(transform.convertToWorldSpaceAR(new Vec3(0, 0, 0)));
@@ -687,9 +711,11 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 finish();
                 return;
             }
-            if (beanWorldPositions.length > PINDD_SPINE_FX_ACTIVE_LIMIT) {
-                throw createPinddSpineFxError(`pattern-complete effect requires ${beanWorldPositions.length} nodes, active limit is ${PINDD_SPINE_FX_ACTIVE_LIMIT}`);
-            }
+            debugPerfTrace('pinddSpineFx.patternComplete', {
+                requestedCount: beanNodes.length,
+                selectedCount: beanWorldPositions.length,
+                activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
+            });
             this.clearPatternCompleteMatchFx();
             const fxRoot = this.getPatternCompleteMatchFxRoot();
             const fxRootTransform = fxRoot.getComponent(UITransform);

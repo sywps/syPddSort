@@ -16,7 +16,7 @@ function transpile(relPath) {
     }).outputText;
 }
 
-function loadHomeAdFlowInstaller(analyticsEvents) {
+function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}) {
     const module = { exports: {} };
     vm.runInNewContext(transpile('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts'), {
         module,
@@ -42,8 +42,8 @@ function loadHomeAdFlowInstaller(analyticsEvents) {
         },
         console,
         Promise,
-        setTimeout,
-        clearTimeout,
+        setTimeout: timerApi.setTimeout || setTimeout,
+        clearTimeout: timerApi.clearTimeout || clearTimeout,
     }, { filename: 'HomeAdFlowModule.ts' });
     return module.exports.installHomeAdFlowModule;
 }
@@ -156,6 +156,60 @@ async function testSynchronousShareFailureDoesNotGrant() {
     assert.strictEqual(runtime._shareShowing, false);
 }
 
+async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
+    const timers = [];
+    const events = [];
+    const install = loadHomeAdFlowInstaller([], {
+        setTimeout(callback, delay) {
+            const timer = { callback, delay, cleared: false };
+            timers.push(timer);
+            return timer;
+        },
+        clearTimeout(timer) {
+            if (timer) timer.cleared = true;
+        },
+    });
+    let resolveGrant;
+    let shareRequests = 0;
+    const runtime = {
+        _shareShowing: false,
+        getActiveLogicalLevelId: () => 9,
+        getWeChatRuntime: () => ({
+            shareAppMessage() {
+                shareRequests += 1;
+            },
+        }),
+        showToast(text) {
+            events.push(`toast:${text}`);
+        },
+    };
+    install(runtime);
+    assert.strictEqual(runtime.runShareGrant('share_reward', () => new Promise((resolve) => {
+        resolveGrant = resolve;
+    }), {
+        claimKey: 'share-reward:9',
+        busyFlag: '_shareShowing',
+        grantTimeoutMs: 20,
+        onFinally: () => events.push('finally'),
+    }), true);
+    await flushMicrotasks();
+    assert.strictEqual(runtime._shareShowing, true);
+    const deadline = timers.find((timer) => timer.delay === 20 && !timer.cleared);
+    assert.ok(deadline, 'share grant must own a deadline');
+    deadline.callback();
+    assert.strictEqual(runtime._shareShowing, false, 'share timeout must release its busy flag');
+    assert.deepStrictEqual(events, ['toast:奖励处理超时，请稍后查看到账结果', 'finally']);
+    assert.strictEqual(runtime.runShareGrant('share_reward', () => true, {
+        claimKey: 'share-reward:9',
+        busyFlag: '_shareShowing',
+    }), false);
+    assert.strictEqual(shareRequests, 1, 'quarantined share claim must not dispatch a duplicate share');
+    resolveGrant(true);
+    await flushMicrotasks();
+    assert.ok(!runtime._rewardedGrantTimedOutClaims.has('share:share-reward:9'));
+    assert.strictEqual(events.filter((event) => event === 'finally').length, 1);
+}
+
 (async () => {
     const settlementSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts'), 'utf8');
     const economySource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/EconomyConfig.ts'), 'utf8');
@@ -166,6 +220,7 @@ async function testSynchronousShareFailureDoesNotGrant() {
 
     await testSettlementRewardedAdGrantsTrueFiveTimesTotal();
     await testSynchronousShareFailureDoesNotGrant();
+    await testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim();
     console.log('reward-share-flow.test.js passed');
 })().catch((error) => {
     console.error(error);

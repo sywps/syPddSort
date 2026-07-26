@@ -35,7 +35,13 @@ export function installGameplaySkillMagnetModule(target: any): void {
         /** 磁铁：随机选择一种未归位颜色，将该颜色所有豆豆快速全部归位。 */
         useSkillClearColor(timerAlreadyPaused: boolean = false, viewportAlreadyReset: boolean = false) {
             if (this._skillActive && !viewportAlreadyReset) return;
-            if (!viewportAlreadyReset) this._skillActive = true;
+            let skillGeneration = Math.max(0, Number(this._activeSkillUsageGeneration) || 0);
+            if (!viewportAlreadyReset) {
+                this._skillActive = true;
+                skillGeneration = this.armSkillUsageWatchdog?.('magnet') || skillGeneration;
+            } else if (!this._skillUsageWatchdog) {
+                skillGeneration = this.armSkillUsageWatchdog?.('magnet') || skillGeneration;
+            }
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             PerformanceMgr.inst.markUserActivity(8000);
             if (!viewportAlreadyReset && typeof this.resetBoardViewportToHomeForSkill === 'function') {
@@ -47,7 +53,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             const groups = this.collectUnmatchedTargetsByColor();
             if (groups.length === 0) {
                 this.showToast('关卡已完成');
-                this.finishSkillUsage();
+                this.finishSkillUsage(skillGeneration);
                 return;
             }
             const pickGroup = groups[Math.floor(Math.random() * groups.length)];
@@ -61,7 +67,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             );
             plan.maxStartDelay = 0.56;
             this.resetIdleHintTimer();
-            this.runForcedSkillPlansSequential([plan]);
+            this.runForcedSkillPlansSequential([plan], 0, undefined, skillGeneration);
         },
 
         buildSkillSourceGroups(
@@ -1106,18 +1112,23 @@ export function installGameplaySkillMagnetModule(target: any): void {
             this.playForcedSkillBatch(batch, () => this.runForcedSkillBoardCounts(groups, index + 1));
         },
 
-        runForcedSkillPlansSequential(plans: ForcedSkillPlan[], index: number = 0, onComplete?: () => void) {
+        runForcedSkillPlansSequential(
+            plans: ForcedSkillPlan[],
+            index: number = 0,
+            onComplete?: () => void,
+            skillGeneration: number = Math.max(0, Number(this._activeSkillUsageGeneration) || 0),
+        ) {
             if (index >= plans.length) {
                 this.clearForcedSkillHiddenState();
                 this.renderBoard();
                 this.compactSlotsAfterPropConsume(() => {
-                    this.finishSkillUsage();
+                    this.finishSkillUsage(skillGeneration);
                     onComplete?.();
                 });
                 return;
             }
             this.playForcedSkillPlanNearParallel(plans[index], () => {
-                this.runForcedSkillPlansSequential(plans, index + 1, onComplete);
+                this.runForcedSkillPlansSequential(plans, index + 1, onComplete, skillGeneration);
             });
         },
     });

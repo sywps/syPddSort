@@ -125,6 +125,9 @@ export class GameplaySessionController {
             runtime._wandMode = false;
             runtime._wandRectNode = null;
             runtime._wandDragStart = null;
+            runtime.clearSkillUsageWatchdog?.('gameplay-init');
+            runtime.resumeSkillTimerPause?.();
+            runtime.clearRuntimeOwners?.('timer');
             runtime._skillActive = false;
             runtime._skillAnimOnly = false;
             runtime._timerStarted = false;
@@ -325,6 +328,10 @@ export class GameplaySessionController {
         runCleanup('timer', () => runtime.unschedule?.(runtime.tickTimer));
         runCleanup('input', () => runtime.detachGameplayInputHandlers?.());
         runCleanup('placement', () => runtime.clearPlacementVisualState?.());
+        runCleanup('skill-watchdog', () => runtime.clearSkillUsageWatchdog?.('gameplay-init-failed'));
+        runCleanup('skill-timer', () => runtime.resumeSkillTimerPause?.());
+        runtime._skillActive = false;
+        runtime._skillAnimOnly = false;
         runtime._timerStarted = false;
         runtime._adTimerSuspended = false;
 

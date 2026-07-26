@@ -8,6 +8,12 @@ import {
 const PERF_TRACE_TAG = '[PDD_PERF_TRACE]';
 let perfTraceStartedAt = 0;
 let perfTraceSeq = 0;
+let lastFrameGapTraceAt = 0;
+let suppressedFrameGapCount = 0;
+let suppressedFrameGapMaxMs = 0;
+
+const FRAME_GAP_TRACE_THRESHOLD_MS = 50;
+const FRAME_GAP_TRACE_INTERVAL_MS = 1000;
 
 type PlainRecord = Record<string, unknown>;
 
@@ -36,6 +42,19 @@ function getPoolSize(runtime: any, pool: any): number {
     } catch (_) {
         return 0;
     }
+}
+
+function countFilledBoardCells(runtime: any): number {
+    const correctColors = runtime?.boardModel?.correctColors;
+    if (!Array.isArray(correctColors)) return 0;
+    let count = 0;
+    for (const row of correctColors) {
+        if (!Array.isArray(row)) continue;
+        for (const colorId of row) {
+            if ((Number(colorId) || 0) > 0) count++;
+        }
+    }
+    return count;
 }
 
 function readEarlyTraceStartedAt(): number {
@@ -120,13 +139,77 @@ export function collectDebugPerfRuntimeSnapshot(runtime: any): PlainRecord {
     } catch (_) {
         runtimeSceneName = '';
     }
+    const now = Date.now();
     const isPaused = (game as any).isPaused;
+    let runtimeOwners: any[] = [];
+    try {
+        runtimeOwners = Array.isArray(runtime.getRuntimeOwnerDiagnostics?.())
+            ? runtime.getRuntimeOwnerDiagnostics()
+            : [];
+    } catch (_) {
+        runtimeOwners = [];
+    }
+    const placementWatchdogs = runtime._placementOperationWatchdogs instanceof Map
+        ? Array.from(runtime._placementOperationWatchdogs.values()).map((watchdog: any) => ({
+            token: String(watchdog?.token || ''),
+            owner: String(watchdog?.owner || ''),
+            generation: Math.max(0, Number(watchdog?.generation) || 0),
+            ageMs: Math.max(0, now - (Number(watchdog?.startedAt) || now)),
+            deadlineRemainingMs: (Number(watchdog?.deadlineAt) || 0) - now,
+        }))
+        : [];
+    const skillWatchdogMeta = runtime._skillUsageWatchdogMeta;
+    const rewardTransaction = runtime._rewardedGrantTransaction;
     return {
         runtimeSceneName,
         enginePaused: typeof isPaused === 'function' ? !!isPaused.call(game) : false,
         activeBlockInputEvents: collectActiveBlockInputEvents(),
         adShowing: !!runtime._adShowing,
         skillActive: !!runtime._skillActive,
+        levelId: Math.max(0, Number(runtime._activeLogicalLevelId || runtime.levelData?.levelId) || 0),
+        boardWidth: Math.max(0, Number(runtime.boardModel?.width || runtime.levelData?.boardWidth) || 0),
+        boardHeight: Math.max(0, Number(runtime.boardModel?.height || runtime.levelData?.boardHeight) || 0),
+        boardFilledCellCount: countFilledBoardCells(runtime),
+        activeBoardTouchCount: getMapLikeSize(runtime.activeBoardTouches),
+        placementVisualRefs: Math.max(0, Number(runtime._placementVisualRefs) || 0),
+        placementInputRefs: Math.max(0, Number(runtime._placementInputLockRefs) || 0),
+        placementInputLocked: !!runtime._placementInputLocked,
+        placementWatchdogs,
+        activeFlyBeanCount: getMapLikeSize(runtime._activeFlyBeanNodes),
+        timerPauseRefs: Math.max(0, Number(runtime._timerPauseRefs) || 0),
+        timerLockedForProp: !!runtime._timerLockedForProp,
+        guideInputSuspended: !!runtime._guideInputSuspended,
+        skillAnimOnly: !!runtime._skillAnimOnly,
+        activeSkillUsageGeneration: Math.max(0, Number(runtime._activeSkillUsageGeneration) || 0),
+        skillWatchdog: skillWatchdogMeta ? {
+            owner: String(skillWatchdogMeta.owner || ''),
+            generation: Math.max(0, Number(skillWatchdogMeta.generation) || 0),
+            ageMs: Math.max(0, now - (Number(skillWatchdogMeta.startedAt) || now)),
+            deadlineRemainingMs: (Number(skillWatchdogMeta.deadlineAt) || 0) - now,
+        } : null,
+        lastSkillWatchdogRecovery: makeJsonSafe(runtime._lastSkillWatchdogRecovery, 1),
+        rewardedGrantTransaction: rewardTransaction ? {
+            id: Math.max(0, Number(rewardTransaction.id) || 0),
+            claimKey: String(rewardTransaction.claimKey || ''),
+            page: String(rewardTransaction.page || ''),
+            phase: String(rewardTransaction.phase || ''),
+            grantStage: String(rewardTransaction.grantStage || ''),
+            ageMs: Math.max(0, now - (Number(rewardTransaction.startedAt) || now)),
+            deadlineRemainingMs: (Number(rewardTransaction.deadlineAt) || 0) > 0
+                ? Number(rewardTransaction.deadlineAt) - now
+                : 0,
+        } : null,
+        rewardedGrantTimedOutClaims: makeJsonSafe(runtime._rewardedGrantTimedOutClaims, 1),
+        runtimeOwnerCount: runtimeOwners.length,
+        runtimeOwners: makeJsonSafe(runtimeOwners, 2),
+        activePinddSpineFxCount: Math.max(0, Number(runtime._pinddSpineFxActiveCount) || 0),
+        reservedPinddSpineFxCount: Math.max(0, Number(runtime._pinddSpineFxReservedCount) || 0),
+        pinddSpineFxPoolSize: getPoolSize(runtime, runtime._pinddSpineFxPool),
+        postPlayableWarmupRunning: !!runtime._postPlayableWarmupRunning,
+        postPlayableWarmupTask: String(runtime._postPlayableWarmupRunningTaskName || ''),
+        postPlayableWarmupQueueSize: Array.isArray(runtime._postPlayableWarmupQueue)
+            ? runtime._postPlayableWarmupQueue.length
+            : 0,
         modalFocusRefs: Math.max(0, Number(runtime._modalFocusRefs) || 0),
         noLivesModalActive: !!runtime._noLivesModal?.isValid,
         recoverVigorBusy: !!runtime._recoverVigorBusy,
@@ -180,5 +263,28 @@ export function debugPerfSnapshot(eventName: string, runtime: any, data: PlainRe
     debugPerfTrace(eventName, {
         ...collectDebugPerfRuntimeSnapshot(runtime),
         ...data,
+    });
+}
+
+export function debugPerfFrameStep(runtime: any, dtSeconds: number): void {
+    if (!isDebugPerfTraceEnabled()) return;
+    const dtMs = Math.max(0, Number(dtSeconds) || 0) * 1000;
+    if (dtMs < FRAME_GAP_TRACE_THRESHOLD_MS) return;
+    const now = Date.now();
+    if (lastFrameGapTraceAt > 0 && now - lastFrameGapTraceAt < FRAME_GAP_TRACE_INTERVAL_MS) {
+        suppressedFrameGapCount++;
+        suppressedFrameGapMaxMs = Math.max(suppressedFrameGapMaxMs, dtMs);
+        return;
+    }
+    const suppressedCount = suppressedFrameGapCount;
+    const maxSuppressedMs = suppressedFrameGapMaxMs;
+    suppressedFrameGapCount = 0;
+    suppressedFrameGapMaxMs = 0;
+    lastFrameGapTraceAt = now;
+    debugPerfSnapshot('frame.gap', runtime, {
+        dtMs: Math.round(dtMs * 10) / 10,
+        severity: dtMs >= 100 ? 'severe' : 'jank',
+        suppressedCount,
+        maxSuppressedMs: Math.round(maxSuppressedMs * 10) / 10,
     });
 }

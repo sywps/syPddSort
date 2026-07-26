@@ -244,7 +244,9 @@ export class GameplaySkillUiController {
         }
         const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;
         if (skill.preCheck && !skill.preCheck()) {
-            if (timerPausedForFinalSecond) runtime.resumeTimerForProp();
+            if (timerPausedForFinalSecond) {
+                runtime.resumeSkillTimerPause?.();
+            }
             return false;
         }
         runtime.markDynamicCountdownAssisted?.();
@@ -360,11 +362,11 @@ export class GameplaySkillUiController {
                 const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;
                 if (preCheck && !preCheck()) {
                     runtime.showToast('暂存槽没有豆豆');
-                    if (timerPausedForFinalSecond) runtime.resumeTimerForProp();
+                    if (timerPausedForFinalSecond) runtime.resumeSkillTimerPause?.();
                     return;
                 }
                 if (!runtime.consumePropCount(skill.kind)) {
-                    if (timerPausedForFinalSecond) runtime.resumeTimerForProp();
+                    if (timerPausedForFinalSecond) runtime.resumeSkillTimerPause?.();
                     this.rebuildSkillButtonsUI();
                     return;
                 }

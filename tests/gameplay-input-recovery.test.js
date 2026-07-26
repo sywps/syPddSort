@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
 
@@ -32,6 +33,20 @@ assert.ok(performanceMgr.includes('game.resume();'), 'EVENT_SHOW must resume a s
 assert.ok(!debugPerfTrace.includes('enginePaused: !!(game as any).isPaused'), 'engine pause diagnostics must not treat the isPaused method object as true');
 assert.ok(debugPerfTrace.includes("typeof isPaused === 'function' ? !!isPaused.call(game) : false"), 'engine pause diagnostics must invoke game.isPaused()');
 assert.ok(debugPerfTrace.includes('activeBlockInputEvents: collectActiveBlockInputEvents()'), 'debug snapshots must list active BlockInputEvents nodes');
+for (const diagnosticField of [
+    'timerPauseRefs',
+    'guideInputSuspended',
+    'placementInputRefs',
+    'placementWatchdogs',
+    'skillWatchdog',
+    'rewardedGrantTransaction',
+    'runtimeOwners',
+]) {
+    assert.ok(
+        debugPerfTrace.includes(`${diagnosticField}:`) || debugPerfTrace.includes(`${diagnosticField},`),
+        `debug snapshots must expose ${diagnosticField}`,
+    );
+}
 
 assert.ok(userMgr.includes('activeUserInfoButtonCleanups'), 'native user-info buttons must be tracked by an owner cleanup set');
 assert.ok(userMgr.includes('destroyUserInfoButtons(): void'), 'native user-info buttons must expose scene teardown cleanup');
@@ -81,7 +96,10 @@ const freezeMethod = extractObjectMethod(
     gameplaySkillWand,
     'useSkillFreeze(timerAlreadyPaused: boolean = false)',
 ).replace('timerAlreadyPaused: boolean', 'timerAlreadyPaused');
-const finishSkillMethod = extractObjectMethod(settlementHud, 'finishSkillUsage()');
+const finishSkillMethod = extractObjectMethod(
+    settlementHud,
+    'finishSkillUsage(expectedGeneration: number = 0) {',
+).replace('expectedGeneration: number = 0', 'expectedGeneration = 0');
 const skillMethods = vm.runInNewContext(`({${freezeMethod},${finishSkillMethod}})`, {
     AudioMgr: { inst: { play() {} } },
     FREEZE_PROP_SECONDS: 180,
@@ -176,5 +194,113 @@ assert.strictEqual(completedFreeze.scheduled.length, 1);
 completedFreeze.scheduled[0]();
 assert.strictEqual(completedFreeze.runtime._skillActive, false);
 assert.strictEqual(completedFreeze.getResumeCount(), 1, 'normal freeze activation must release the timer exactly once');
+
+const skillTimers = [];
+const settlementModule = { exports: {} };
+const settlementOutput = ts.transpileModule(settlementHud, {
+    compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+    },
+}).outputText;
+vm.runInNewContext(settlementOutput, {
+    module: settlementModule,
+    exports: settlementModule.exports,
+    require(id) {
+        if (id === '../GameCtrlShared') {
+            return new Proxy({}, {
+                get() {
+                    return class RuntimeStub {};
+                },
+            });
+        }
+        if (id === 'cc') return { Widget: class Widget {} };
+        if (id === '../RuntimeLog') return { runtimeWarn() {} };
+        if (id === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
+        throw new Error(`unexpected require: ${id}`);
+    },
+    console,
+    setTimeout(callback, delay) {
+        const timer = { callback, delay, cleared: false };
+        skillTimers.push(timer);
+        return timer;
+    },
+    clearTimeout(timer) {
+        if (timer) timer.cleared = true;
+    },
+}, { filename: 'SettlementHudModule.ts' });
+
+const skillRecoveryEvents = [];
+let skillTimerReleaseCount = 0;
+const skillWatchdogRuntime = {
+    _skillActive: true,
+    _skillAnimOnly: false,
+    _skillUsageGeneration: 0,
+    _skillUsageWatchdog: null,
+    _skillUsageWatchdogMeta: null,
+    _skillTimerPauseToken: 'timer:skill:1',
+    _timerPauseRefs: 1,
+    _timerLockedForProp: true,
+    _flyingTargetRefs: new Map([['0,0', 1]]),
+    _hiddenSlotIndexRefs: new Map([[0, 1]]),
+    _flyingTargets: new Set(['0,0']),
+    _hiddenSlotIndices: new Set([0]),
+    boardModel: { isAllLocked: () => false },
+    cleanupWandMode: () => skillRecoveryEvents.push('cleanup-wand'),
+    clearActiveFlyBeanNodes: () => skillRecoveryEvents.push('clear-fly'),
+    clearForcedSkillHiddenState: () => skillRecoveryEvents.push('clear-hidden'),
+    resumeSkillTimerPause() {
+        skillTimerReleaseCount += 1;
+        this._skillTimerPauseToken = '';
+        this._timerPauseRefs = 0;
+    },
+    resetIdleHintTimer: () => skillRecoveryEvents.push('idle-reset'),
+    renderBoard: () => skillRecoveryEvents.push('render-board'),
+    renderSlots: () => skillRecoveryEvents.push('render-slots'),
+    checkColorCompletion: () => skillRecoveryEvents.push('check-color'),
+    flushPendingColorCompleteEffects: () => skillRecoveryEvents.push('flush-color'),
+    checkGuideStepComplete: () => skillRecoveryEvents.push('check-guide'),
+    refreshEndgameHints: () => skillRecoveryEvents.push('refresh-hints'),
+};
+settlementModule.exports.installSettlementHudModule(skillWatchdogRuntime);
+const recoveredSkillGeneration = skillWatchdogRuntime.armSkillUsageWatchdog('brush', 1000);
+const skillDeadline = skillTimers.find((timer) => timer.delay === 1000 && !timer.cleared);
+assert.ok(skillDeadline, 'skill usage must own a bounded watchdog');
+skillDeadline.callback();
+assert.strictEqual(skillWatchdogRuntime._skillActive, false, 'skill timeout must restore board input');
+assert.strictEqual(skillWatchdogRuntime._timerLockedForProp, false, 'skill timeout must release only its timer lease');
+assert.strictEqual(skillTimerReleaseCount, 1);
+assert.deepStrictEqual(skillRecoveryEvents, [
+    'cleanup-wand',
+    'clear-fly',
+    'clear-hidden',
+    'render-board',
+    'render-slots',
+    'check-color',
+    'flush-color',
+    'check-guide',
+    'refresh-hints',
+]);
+assert.strictEqual(
+    skillWatchdogRuntime.finishSkillUsage(recoveredSkillGeneration),
+    false,
+    'late skill completion must be idempotent',
+);
+assert.strictEqual(skillTimerReleaseCount, 1, 'late completion must not release a newer timer owner');
+
+skillWatchdogRuntime._skillActive = true;
+skillWatchdogRuntime._skillTimerPauseToken = 'timer:skill:2';
+skillWatchdogRuntime._timerPauseRefs = 1;
+const newerSkillGeneration = skillWatchdogRuntime.armSkillUsageWatchdog('magnet', 1000);
+assert.strictEqual(
+    skillWatchdogRuntime.finishSkillUsage(recoveredSkillGeneration),
+    false,
+    'an older completion must not finish a newer active skill',
+);
+assert.strictEqual(skillWatchdogRuntime._skillActive, true);
+assert.strictEqual(skillTimerReleaseCount, 1);
+assert.strictEqual(skillWatchdogRuntime.finishSkillUsage(newerSkillGeneration), true);
+assert.strictEqual(skillWatchdogRuntime._skillActive, false);
+assert.strictEqual(skillTimerReleaseCount, 2);
 
 console.log('gameplay-input-recovery.test.js passed');

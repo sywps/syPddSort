@@ -50,6 +50,7 @@ const MAX_CONCURRENT_SPRITE_FRAME_LOADS = 2;
 const POST_PLAYABLE_MAX_CONCURRENT_SPRITE_FRAME_LOADS = 1;
 const RENDER_RESOURCE_DIAGNOSTIC_INTERVAL_SECONDS = 1.0;
 const RENDER_RESOURCE_DIAGNOSTIC_SAMPLE_LIMIT = 12;
+const PANEL_TEXTURE_ENSURE_TIMEOUT_MS = 8000;
 
 type RuntimeRendererSpriteFrameOwner = {
     renderer: any;
@@ -1710,8 +1711,11 @@ export function installAssetBootstrapModule(target: any): void {
             });
         },
 
-        _ensureSpriteFramesByName(names: string[], callback: () => void) {
-            if (!this._isRuntimeAliveForAsyncCallback()) return;
+        _ensureSpriteFramesByName(names: string[], callback: (error?: Error) => void) {
+            if (!this._isRuntimeAliveForAsyncCallback()) {
+                callback(new Error('[assets] runtime invalid before SpriteFrame ensure'));
+                return;
+            }
             const uniqueNames = Array.from(new Set(names));
             const missingNames = uniqueNames.filter((name) => !this.getSF(name));
             if (missingNames.length === 0) {
@@ -1725,14 +1729,20 @@ export function installAssetBootstrapModule(target: any): void {
                 if (remaining > 0) return;
                 const stillMissing = uniqueNames.filter((name) => !this.getSF(name));
                 if (stillMissing.length > 0) {
-                    throw new Error(`[assets] missing required SpriteFrames: ${stillMissing.join(', ')}`);
+                    callback(new Error(`[assets] missing required SpriteFrames: ${stillMissing.join(', ')}`));
+                    return;
                 }
                 callback();
             };
             for (const name of missingNames) {
-                this._loadSpriteFrameByName(name, () => {
-                    finishOne();
-                });
+                try {
+                    this._loadSpriteFrameByName(name, () => {
+                        finishOne();
+                    });
+                } catch (error) {
+                    callback(error instanceof Error ? error : new Error(String(error)));
+                    return;
+                }
             }
         },
 
@@ -1827,29 +1837,69 @@ export function installAssetBootstrapModule(target: any): void {
             textureNames: string[],
             isAlreadyOpen: () => boolean,
             open: () => void,
-        ) {
-            if (!this._isRuntimeAliveForAsyncCallback()) return;
-            if (isAlreadyOpen() || this._panelOpenInFlight.has(panelKey)) return;
+            onError?: (error: Error) => void,
+        ): boolean {
+            if (!this._isRuntimeAliveForAsyncCallback()) {
+                onError?.(new Error(`[panel-texture] runtime invalid before loading ${panelKey}`));
+                return false;
+            }
+            if (isAlreadyOpen() || this._panelOpenInFlight.has(panelKey)) return false;
             this._panelOpenInFlight.add(panelKey);
             const uniqueNames = Array.from(new Set(textureNames));
             const missingNames = uniqueNames.filter((name) => !this.getSF(name));
+            let settled = false;
+            let timeout: any = null;
+            const finish = (error?: Error) => {
+                if (settled) return;
+                settled = true;
+                if (timeout) {
+                    clearTimeout(timeout);
+                    timeout = null;
+                }
+                this._panelOpenInFlight.delete(panelKey);
+                if (error) {
+                    debugPerfSnapshot('panel.texture.ensure.failed', this, {
+                        panelKey,
+                        requestedNames: uniqueNames.length,
+                        missingNames: uniqueNames.filter((name) => !this.getSF(name)).length,
+                        error: error.message,
+                    });
+                    console.error(`[panel-texture] ${panelKey} failed:`, error);
+                    onError?.(error);
+                    return;
+                }
+                if (!this._isRuntimeAliveForAsyncCallback()) {
+                    onError?.(new Error(`[panel-texture] runtime invalid after loading ${panelKey}`));
+                    return;
+                }
+                if (isAlreadyOpen()) {
+                    onError?.(new Error(`[panel-texture] ${panelKey} open superseded`));
+                    return;
+                }
+                debugPerfSnapshot('panel.texture.ensure.ready', this, {
+                    panelKey,
+                    requestedNames: uniqueNames.length,
+                    missingNames: uniqueNames.filter((name) => !this.getSF(name)).length,
+                });
+                try {
+                    open();
+                } catch (openError) {
+                    const normalized = openError instanceof Error ? openError : new Error(String(openError));
+                    console.error(`[panel-texture] ${panelKey} open failed:`, normalized);
+                    onError?.(normalized);
+                }
+            };
             debugPerfSnapshot('panel.texture.ensure.start', this, {
                 panelKey,
                 requestedNames: uniqueNames.length,
                 missingNames: missingNames.length,
                 missingNameSample: missingNames.slice(0, 8),
             });
-            this._ensureSpriteFramesByName(textureNames, () => {
-                if (!this._isRuntimeAliveForAsyncCallback()) return;
-                this._panelOpenInFlight.delete(panelKey);
-                if (isAlreadyOpen()) return;
-                debugPerfSnapshot('panel.texture.ensure.ready', this, {
-                    panelKey,
-                    requestedNames: uniqueNames.length,
-                    missingNames: uniqueNames.filter((name) => !this.getSF(name)).length,
-                });
-                open();
-            });
+            timeout = setTimeout(() => {
+                finish(new Error(`[panel-texture] ${panelKey} timed out after ${PANEL_TEXTURE_ENSURE_TIMEOUT_MS}ms`));
+            }, PANEL_TEXTURE_ENSURE_TIMEOUT_MS);
+            this._ensureSpriteFramesByName(textureNames, finish);
+            return true;
         },
 
         _getRendererSpriteFrameForRuntimeScan(renderer: any): SpriteFrame | null {
@@ -2417,6 +2467,9 @@ export function installAssetBootstrapModule(target: any): void {
         acquireFlyBeanNode(name: string, size: number, spriteFrame: SpriteFrame | null): Node {
             PerformanceMgr.inst.markUserActivity();
             const bean = this._flyBeanPool.get() ?? new Node('PooledFlyBean');
+            const activeFlyBeans: Set<Node> = this._activeFlyBeanNodes
+                || (this._activeFlyBeanNodes = new Set<Node>());
+            activeFlyBeans.add(bean);
             bean.name = name;
             bean.layer = Layers.Enum.UI_2D;
             let transform = bean.getComponent(UITransform);
@@ -2462,6 +2515,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         recycleFlyBeanNode(bean: Node) {
+            this._activeFlyBeanNodes?.delete?.(bean);
             Tween.stopAllByTarget(bean);
             const sprite = bean.getComponent(Sprite);
             if (sprite) sprite.spriteFrame = null;
@@ -2471,6 +2525,20 @@ export function installAssetBootstrapModule(target: any): void {
                 return;
             }
             this._flyBeanPool.put(bean);
+        },
+
+        clearActiveFlyBeanNodes(reason: string = 'clear'): void {
+            const activeFlyBeans: Set<Node> = this._activeFlyBeanNodes
+                || (this._activeFlyBeanNodes = new Set<Node>());
+            if (activeFlyBeans.size > 0) {
+                console.warn(`[fly-bean] recycling ${activeFlyBeans.size} active nodes: ${reason}`);
+            }
+            for (const bean of Array.from(activeFlyBeans)) {
+                activeFlyBeans.delete(bean);
+                if (bean?.isValid) {
+                    this.recycleFlyBeanNode(bean);
+                }
+            }
         },
 
         acquireEffectNode(pool: NodePool, name: string, size: number): { node: Node; sprite: Sprite; opacity: UIOpacity } {
@@ -2515,6 +2583,7 @@ export function installAssetBootstrapModule(target: any): void {
             debugPerfSnapshot('effectPools.clear.before', this);
             this.clearBeanSettleMatchFx?.();
             this.clearFreezeSpineFx?.();
+            this.clearActiveFlyBeanNodes?.('effect-pools-clear');
             this._flyBeanPool.clear();
             this._brightFlashPool.clear();
             this._activeBrightFlashCount = 0;
