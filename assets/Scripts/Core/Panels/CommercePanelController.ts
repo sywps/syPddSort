@@ -39,6 +39,7 @@ type ResourceAcquireOptions = {
 };
 
 const ACQUIRE_RESOURCE_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/AcquireResourcePanel';
+const RESOURCE_ACQUIRE_PREFAB_LOAD_TIMEOUT_MS = 8000;
 
 function syncPrefabPopupTitle(box: Node, title: string): void {
     const badge = box.getChildByName('PopupTitleBadge');
@@ -156,18 +157,86 @@ export class CommercePanelController {
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
         const isAlreadyOpen = () => !!popupRoot.getChildByName(options.overlayName);
         if (RESOURCE_ACQUIRE_TEXTURE_NAMES.some((name: string) => !runtime.getSF(name))) {
-            runtime._openPanelAfterTextures(options.panelKey, RESOURCE_ACQUIRE_TEXTURE_NAMES, isAlreadyOpen, () => {
-                this.openResourceAcquirePanel(options);
-            });
-            return true;
+            return runtime._openPanelAfterTextures(
+                options.panelKey,
+                RESOURCE_ACQUIRE_TEXTURE_NAMES,
+                isAlreadyOpen,
+                () => {
+                    if (this.openResourceAcquirePanel(options)) return;
+                    if (options.resumeTimerOnClose) {
+                        runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
+                    }
+                },
+                (error: Error) => {
+                    if (options.resumeTimerOnClose) {
+                        runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
+                    }
+                    runtime.showToast?.('资源加载失败，请重试');
+                    console.error('[resource-acquire] texture preparation failed:', error);
+                },
+            );
         }
         if (isAlreadyOpen()) return false;
         const prefabLoadKey = `${options.panelKey}-prefab`;
         if (runtime._panelOpenInFlight.has(prefabLoadKey)) return false;
         runtime._panelOpenInFlight.add(prefabLoadKey);
-        runtime._retainPanelTextureOwner(options.panelKey, RESOURCE_ACQUIRE_TEXTURE_NAMES);
         let modalFocusActive = false;
         let modalFocusToken = '';
+        let timerPauseActive = !!options.resumeTimerOnClose;
+        let textureOwnerActive = false;
+        let openAttemptFinished = false;
+        let prefabLoadTimeout: any = null;
+
+        try {
+            runtime._retainPanelTextureOwner(options.panelKey, RESOURCE_ACQUIRE_TEXTURE_NAMES);
+            textureOwnerActive = true;
+        } catch (error) {
+            runtime._panelOpenInFlight.delete(prefabLoadKey);
+            if (timerPauseActive) {
+                timerPauseActive = false;
+                try {
+                    runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
+                } catch (timerError) {
+                    console.error('[resource-acquire] timer rollback failed:', timerError);
+                }
+            }
+            console.error('[resource-acquire] texture owner acquisition failed:', error);
+            return false;
+        }
+
+        const clearPrefabLoadTimeout = () => {
+            if (!prefabLoadTimeout) return;
+            clearTimeout(prefabLoadTimeout);
+            prefabLoadTimeout = null;
+        };
+
+        const finishOpenAttempt = (): boolean => {
+            if (openAttemptFinished) return false;
+            openAttemptFinished = true;
+            clearPrefabLoadTimeout();
+            runtime._panelOpenInFlight.delete(prefabLoadKey);
+            return true;
+        };
+
+        const resumeAcquireTimer = () => {
+            if (!timerPauseActive) return;
+            timerPauseActive = false;
+            try {
+                runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
+            } catch (error) {
+                console.error('[resource-acquire] timer release failed:', error);
+            }
+        };
+
+        const releaseTextureOwnerNow = (reason: string) => {
+            if (!textureOwnerActive) return;
+            textureOwnerActive = false;
+            try {
+                runtime._releasePanelTextureOwner(options.panelKey, reason);
+            } catch (error) {
+                console.error(`[resource-acquire] texture owner release failed: ${reason}`, error);
+            }
+        };
 
         const beginAcquireModalFocus = () => {
             if (modalFocusActive) return;
@@ -178,48 +247,64 @@ export class CommercePanelController {
         const endAcquireModalFocus = () => {
             if (!modalFocusActive) return;
             modalFocusActive = false;
-            runtime.endModalFocus?.(modalFocusToken || 'resource-acquire');
+            try {
+                runtime.endModalFocus?.(modalFocusToken || 'resource-acquire');
+            } catch (error) {
+                console.error('[resource-acquire] modal release failed:', error);
+            }
             modalFocusToken = '';
         };
 
         const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
         const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
         const cancelStaleOpen = () => {
-            if (!isRuntimeAlive()) return;
-            runtime._panelOpenInFlight.delete(prefabLoadKey);
+            if (!finishOpenAttempt()) return;
             endAcquireModalFocus();
-            if (options.resumeTimerOnClose) {
-                runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
-            }
-            runtime._releasePanelTextureOwner(options.panelKey, 'resource-acquire-open-stale');
+            resumeAcquireTimer();
+            releaseTextureOwnerNow('resource-acquire-open-stale');
         };
 
         const failOpen = (message: string, overlay?: Node | null) => {
-            runtime._panelOpenInFlight.delete(prefabLoadKey);
+            if (!finishOpenAttempt()) return;
             if (overlay?.isValid) {
-                runtime._clearSpriteFramesBeforeDestroy(overlay);
-                runtime._destroyDetachedNodeNextFrame(overlay);
+                overlay.active = false;
+                const blocker = overlay.getComponent(BlockInputEvents);
+                if (blocker) blocker.enabled = false;
             }
             endAcquireModalFocus();
-            if (options.resumeTimerOnClose) {
-                runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
+            resumeAcquireTimer();
+            if (overlay?.isValid) {
+                try {
+                    runtime._closePanelWithTextureOwner(overlay, options.panelKey, 'resource-acquire-open-failed');
+                    textureOwnerActive = false;
+                } catch (error) {
+                    console.error('[resource-acquire] failed-open teardown failed:', error);
+                    releaseTextureOwnerNow('resource-acquire-open-failed-fallback');
+                }
+            } else {
+                releaseTextureOwnerNow('resource-acquire-open-failed');
             }
-            runtime._releasePanelTextureOwner(options.panelKey, 'resource-acquire-open-failed');
             console.error(message);
         };
 
-        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+        prefabLoadTimeout = setTimeout(() => {
+            failOpen(`[resource-acquire-prefab] load timed out after ${RESOURCE_ACQUIRE_PREFAB_LOAD_TIMEOUT_MS}ms`);
+        }, RESOURCE_ACQUIRE_PREFAB_LOAD_TIMEOUT_MS);
+
+        const loadAcquirePrefab = () => runtime._withGameAssetsBundle((bundle: Bundle | null) => {
+            if (openAttemptFinished) return;
             if (!isOpenTargetAlive()) {
                 cancelStaleOpen();
                 return;
             }
             if (!bundle) { failOpen('[resource-acquire-prefab] gameAssets bundle unavailable'); return; }
-            bundle.load(ACQUIRE_RESOURCE_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+            try {
+                bundle.load(ACQUIRE_RESOURCE_PANEL_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
+                if (openAttemptFinished) return;
                 if (!isOpenTargetAlive()) {
                     cancelStaleOpen();
                     return;
                 }
-                runtime._panelOpenInFlight.delete(prefabLoadKey);
                 if (err || !prefab) { failOpen(`[resource-acquire-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
                 let overlay: Node | null = null;
                 let closed = false;
@@ -227,14 +312,35 @@ export class CommercePanelController {
                 const closePanel = (resumeTimer = !!options.resumeTimerOnClose, playSound = true) => {
                     if (closed) return;
                     closed = true;
-                    stopAdSpinner();
-                    if (playSound) AudioMgr.inst.play('button');
                     if (overlay?.isValid) {
-                        runtime._closePanelWithTextureOwner(overlay, options.panelKey, 'resource-acquire');
+                        overlay.active = false;
+                        const blocker = overlay.getComponent(BlockInputEvents);
+                        if (blocker) blocker.enabled = false;
                     }
                     endAcquireModalFocus();
-                    if (resumeTimer) {
-                        runtime.resumeTimerForProp?.(options.timerPauseToken || 'resource-acquire');
+                    if (resumeTimer) resumeAcquireTimer();
+                    try {
+                        stopAdSpinner();
+                    } catch (error) {
+                        console.warn('[resource-acquire] spinner cleanup failed:', error);
+                    }
+                    if (playSound) {
+                        try {
+                            AudioMgr.inst.play('button');
+                        } catch (error) {
+                            console.warn('[resource-acquire] close sound failed:', error);
+                        }
+                    }
+                    if (overlay?.isValid) {
+                        try {
+                            runtime._closePanelWithTextureOwner(overlay, options.panelKey, 'resource-acquire');
+                            textureOwnerActive = false;
+                        } catch (error) {
+                            console.error('[resource-acquire] close teardown failed:', error);
+                            releaseTextureOwnerNow('resource-acquire-close-fallback');
+                        }
+                    } else {
+                        releaseTextureOwnerNow('resource-acquire-close');
                     }
                 };
 
@@ -260,7 +366,8 @@ export class CommercePanelController {
                             return;
                         }
                         if (transaction?.phase === 'grant') {
-                            runtime.showToast?.('奖励发放中，请稍后');
+                            runtime.cancelRewardedGrantInteraction?.('resource-acquire-grant-cancel');
+                            closePanel();
                             return;
                         }
                         if (transaction) {
@@ -425,11 +532,20 @@ export class CommercePanelController {
                     });
 
                     runtime.playPopupOpenAnim?.(overlay, box);
+                    finishOpenAttempt();
                 } catch (error: any) {
                     failOpen(error?.message || '[resource-acquire-prefab] build failed', overlay);
                 }
-            });
+                });
+            } catch (error: any) {
+                failOpen(error?.message || '[resource-acquire-prefab] bundle load threw');
+            }
         });
+        try {
+            loadAcquirePrefab();
+        } catch (error: any) {
+            failOpen(error?.message || '[resource-acquire-prefab] load threw');
+        }
         return true;
     }
 

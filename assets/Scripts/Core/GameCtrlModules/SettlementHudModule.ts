@@ -103,14 +103,147 @@ function getSpriteFrameFromNode(node?: Node | null): SpriteFrame | null {
     return null;
 }
 
+const SKILL_USAGE_TIMEOUT_MS = 10000;
+const WAND_SELECTION_TIMEOUT_MS = 30000;
+
 export function installSettlementHudModule(target: any): void {
     Object.assign(target, {
-        finishSkillUsage() {
+        clearSkillUsageWatchdog(_reason: string = 'clear'): void {
+            if (this._skillUsageWatchdog) {
+                clearTimeout(this._skillUsageWatchdog);
+                this._skillUsageWatchdog = null;
+            }
+            this._skillUsageWatchdogMeta = null;
+            this._skillUsageWatchdogRecovery = null;
+            this._activeSkillUsageGeneration = 0;
+            this._skillUsageGeneration = Math.max(
+                0,
+                Math.floor(Number(this._skillUsageGeneration) || 0),
+            ) + 1;
+        },
+
+        armSkillUsageWatchdog(
+            owner: string,
+            timeoutMs: number = SKILL_USAGE_TIMEOUT_MS,
+        ): number {
+            this.clearSkillUsageWatchdog?.('rearm');
+            const generation = Math.max(
+                0,
+                Math.floor(Number(this._skillUsageGeneration) || 0),
+            ) + 1;
+            this._skillUsageGeneration = generation;
+            this._activeSkillUsageGeneration = generation;
+            const normalizedTimeout = Math.max(1000, Math.floor(Number(timeoutMs) || SKILL_USAGE_TIMEOUT_MS));
+            const startedAt = Date.now();
+            this._skillUsageWatchdogMeta = {
+                owner: String(owner || 'skill'),
+                generation,
+                startedAt,
+                deadlineAt: startedAt + normalizedTimeout,
+            };
+            let watchdog: any = null;
+            const recoverWatchdog = (source: string = 'timeout') => {
+                if (this._skillUsageWatchdog !== watchdog
+                    || generation !== Math.max(0, Math.floor(Number(this._skillUsageGeneration) || 0))
+                    || !this._skillActive) return false;
+                clearTimeout(watchdog);
+                this._skillUsageWatchdog = null;
+                this._skillUsageWatchdogMeta = null;
+                this._skillUsageWatchdogRecovery = null;
+                if (owner === 'wand-selection' && this._wandMode && this._wandRectNode?.isValid) {
+                    console.warn('[Skill] wand selection remains interactive; extending watchdog');
+                    this.armWandSelectionWatchdog?.();
+                    return true;
+                }
+                this._lastSkillWatchdogRecovery = {
+                    owner: String(owner || 'skill'),
+                    recoveredAt: Date.now(),
+                    source,
+                };
+                console.error(`[Skill] ${owner} recovered after ${normalizedTimeout}ms: ${source}`);
+                const recover = (label: string, callback: () => void) => {
+                    try {
+                        callback();
+                    } catch (error) {
+                        console.error(`[Skill] ${owner} recovery step failed: ${label}`, error);
+                    }
+                };
+                recover('wand', () => this.cleanupWandMode?.());
+                recover('fly-beans', () => this.clearActiveFlyBeanNodes?.(`skill-timeout:${owner}`));
+                recover('hidden-state', () => this.clearForcedSkillHiddenState?.());
+                recover('targets', () => {
+                    this._flyingTargetRefs?.clear?.();
+                    this._hiddenSlotIndexRefs?.clear?.();
+                    this._flyingTargets?.clear?.();
+                    this._hiddenSlotIndices?.clear?.();
+                });
+                this.finishSkillUsage(generation);
+                recover('board-render', () => this.renderBoard?.());
+                recover('slot-render', () => this.renderSlots?.());
+                recover('completion', () => {
+                    this.checkColorCompletion?.();
+                    const boardComplete = !!this.boardModel?.isAllLocked?.();
+                    if (!boardComplete) {
+                        this.flushPendingColorCompleteEffects?.();
+                    }
+                    this.checkGuideStepComplete?.();
+                    if (boardComplete) {
+                        this.playPatternCompleteThenWin?.();
+                    } else {
+                        this.refreshEndgameHints?.('skill-watchdog-recovery');
+                    }
+                });
+                return true;
+            };
+            watchdog = setTimeout(() => {
+                recoverWatchdog('timeout');
+            }, normalizedTimeout);
+            this._skillUsageWatchdog = watchdog;
+            this._skillUsageWatchdogRecovery = recoverWatchdog;
+            return generation;
+        },
+
+        recoverSkillUsageAfterForeground(): boolean {
+            const deadlineAt = Number(this._skillUsageWatchdogMeta?.deadlineAt) || 0;
+            if (!this._skillActive || deadlineAt <= 0 || deadlineAt > Date.now()) return false;
+            return this._skillUsageWatchdogRecovery?.('foreground') === true;
+        },
+
+        armWandSelectionWatchdog(): number {
+            return this.armSkillUsageWatchdog('wand-selection', WAND_SELECTION_TIMEOUT_MS);
+        },
+
+        finishSkillUsage(expectedGeneration: number = 0) {
+            const normalizedExpectedGeneration = Math.max(0, Math.floor(Number(expectedGeneration) || 0));
+            const activeGeneration = Math.max(0, Math.floor(Number(this._activeSkillUsageGeneration) || 0));
+            if (normalizedExpectedGeneration > 0 && normalizedExpectedGeneration !== activeGeneration) {
+                return false;
+            }
+            const shouldFinish = !!this._skillActive
+                || !!this._skillAnimOnly
+                || !!this._skillUsageWatchdog
+                || !!this._skillTimerPauseToken;
+            this.clearSkillUsageWatchdog?.('finish');
+            if (!shouldFinish) return false;
             this._skillActive = false;
             this._skillAnimOnly = false;
-            this._timerLockedForProp = false;
-            this.resumeTimerForProp();
-            this.resetIdleHintTimer();
+            this._activeSkillUsageGeneration = 0;
+            try {
+                if (typeof this.resumeSkillTimerPause === 'function') {
+                    this.resumeSkillTimerPause();
+                } else {
+                    this.resumeTimerForProp();
+                }
+            } catch (error) {
+                console.error('[Skill] timer release failed', error);
+            }
+            this._timerLockedForProp = (Number(this._timerPauseRefs) || 0) > 0;
+            try {
+                this.resetIdleHintTimer();
+            } catch (error) {
+                console.error('[Skill] idle hint reset failed', error);
+            }
+            return true;
         },
 
         formatTime(sec: number): string {
@@ -577,7 +710,7 @@ export function installSettlementHudModule(target: any): void {
                 return false;
             }
             this.closePinchGuide?.();
-            if (!this.ensureGameplayResultPanelsCreated?.()) return false;
+            if (!this.ensureGameplayResultPanelsCreated?.('win')) return false;
             this._settlementRevealState = 'revealing';
             try {
                 const panel = this.panelWin as Node | null;
@@ -681,7 +814,7 @@ export function installSettlementHudModule(target: any): void {
             this._settlementRevealToken = revealToken;
             this._settlementRevealState = 'waiting';
             this.addGold(this._pendingWinGoldReward);
-            this.ensureGameplayResultPanelsCreated?.();
+            this.ensureGameplayResultPanelsCreated?.('win');
             this.updateWinRewardLabel(this._pendingWinGoldReward);
 
             const revealSettlement = () => {
@@ -791,10 +924,10 @@ export function installSettlementHudModule(target: any): void {
                 }
                 this.showLosePanel();
             };
-            if (!this.ensureGameplayResultPanelsCreated?.()) {
+            if (!this.ensureGameplayResultPanelsCreated?.('lose-flow')) {
                 this._ensureGameplayResultPanelPrefabsReady?.(() => {
                     if (!this.isValid || !this.isGameEnd) return;
-                    this.ensureGameplayResultPanelsCreated?.();
+                    this.ensureGameplayResultPanelsCreated?.('lose-flow');
                     showLoseResult();
                 });
                 return;

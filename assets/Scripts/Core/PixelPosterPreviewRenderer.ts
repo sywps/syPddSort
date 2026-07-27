@@ -26,6 +26,9 @@ type GridBounds = {
     maxCol: number;
 };
 
+const PIXEL_PREVIEW_BATCH_CELL_LIMIT = 256;
+const PIXEL_PREVIEW_HIGHLIGHT_COLOR = new Color(255, 255, 255, 26);
+
 function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
@@ -76,7 +79,7 @@ function drawRoundedCell(g: Graphics, x: number, y: number, size: number, color:
 
     if (size < 7) return;
 
-    g.fillColor = new Color(255, 255, 255, 26);
+    g.fillColor = PIXEL_PREVIEW_HIGHLIGHT_COLOR;
     g.roundRect(
         x + size * 0.18,
         y + size * 0.16,
@@ -85,6 +88,53 @@ function drawRoundedCell(g: Graphics, x: number, y: number, size: number, color:
         radius,
     );
     g.fill();
+}
+
+function drawTinyCellBatches(
+    g: Graphics,
+    grid: number[][],
+    bounds: GridBounds,
+    cellSize: number,
+    gap: number,
+    contentW: number,
+    contentH: number,
+    resolveColor: (colorId: number) => Color,
+): void {
+    const batches = new Map<number, number[]>();
+    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+        const row = grid[r] || [];
+        for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+            const colorId = row[c] || 0;
+            if (!colorId) continue;
+            const localCol = c - bounds.minCol;
+            const localRow = r - bounds.minRow;
+            const coords = batches.get(colorId) || [];
+            coords.push(
+                -contentW / 2 + localCol * (cellSize + gap),
+                contentH / 2 - (localRow + 1) * cellSize - localRow * gap,
+            );
+            batches.set(colorId, coords);
+        }
+    }
+
+    const radius = Math.max(0.5, cellSize * 0.04);
+    const seamBleed = 0.35;
+    for (const [colorId, coords] of batches) {
+        for (let start = 0; start < coords.length; start += PIXEL_PREVIEW_BATCH_CELL_LIMIT * 2) {
+            const end = Math.min(coords.length, start + PIXEL_PREVIEW_BATCH_CELL_LIMIT * 2);
+            g.fillColor = resolveColor(colorId);
+            for (let index = start; index < end; index += 2) {
+                g.roundRect(
+                    coords[index],
+                    coords[index + 1],
+                    cellSize + seamBleed,
+                    cellSize + seamBleed,
+                    radius,
+                );
+            }
+            g.fill();
+        }
+    }
 }
 
 export function releasePixelPosterPreviewTree(root: Node | null): void {
@@ -135,16 +185,29 @@ export function renderPixelPosterPreview(
         g.fill();
     }
 
-    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-        const row = correctArr[r] || [];
-        for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-            const colorId = row[c] || 0;
-            if (!colorId) continue;
-            const localCol = c - bounds.minCol;
-            const localRow = r - bounds.minRow;
-            const x = -contentW / 2 + localCol * (cellSize + gap);
-            const y = contentH / 2 - (localRow + 1) * cellSize - localRow * gap;
-            drawRoundedCell(g, x, y, cellSize, getBaseColor(colorId, !!options.grayscale), mode);
+    const colorCache = new Map<number, Color>();
+    const resolveColor = (colorId: number): Color => {
+        let color = colorCache.get(colorId);
+        if (!color) {
+            color = getBaseColor(colorId, !!options.grayscale);
+            colorCache.set(colorId, color);
+        }
+        return color;
+    };
+    if (cellSize < 7) {
+        drawTinyCellBatches(g, correctArr, bounds, cellSize, gap, contentW, contentH, resolveColor);
+    } else {
+        for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+            const row = correctArr[r] || [];
+            for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+                const colorId = row[c] || 0;
+                if (!colorId) continue;
+                const localCol = c - bounds.minCol;
+                const localRow = r - bounds.minRow;
+                const x = -contentW / 2 + localCol * (cellSize + gap);
+                const y = contentH / 2 - (localRow + 1) * cellSize - localRow * gap;
+                drawRoundedCell(g, x, y, cellSize, resolveColor(colorId), mode);
+            }
         }
     }
 

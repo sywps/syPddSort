@@ -324,7 +324,12 @@ export function ensureBoardOutlineLayer(
     let transform = layer.getComponent(UITransform);
     if (!transform) transform = layer.addComponent(UITransform);
     transform.setContentSize(width, height);
-    clearChildrenExcept(layer, []);
+    const keepNames = name === BOARD_OUTLINE_LAYER_NAME
+        ? [BOARD_OUTLINE_SHADOW_NAME, BOARD_OUTLINE_OUTER_NAME, BOARD_OUTLINE_MAIN_NAME]
+        : (name === BOARD_OUTLINE_TOP_LAYER_NAME
+            ? [BOARD_OUTLINE_INNER_NAME, BOARD_OUTLINE_HIGHLIGHT_NAME]
+            : []);
+    clearChildrenExcept(layer, keepNames);
     return layer;
 }
 

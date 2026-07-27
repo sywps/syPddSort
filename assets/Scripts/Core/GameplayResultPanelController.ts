@@ -114,13 +114,18 @@ export class GameplayResultPanelController {
         }
         const activeCache = this.getPrefabCache(`loadPrefabs:${sourceLabel}`);
         const missingKinds = RESULT_PANEL_KINDS.filter((kind) => !activeCache.get(kind));
-        let remaining = missingKinds.length;
         let failed = false;
-        if (remaining === 0) {
+        if (missingKinds.length === 0) {
             onDone();
             return;
         }
-        for (const kind of missingKinds) {
+        const loadNext = (index: number): void => {
+            if (failed || !this.isCurrentPrefabLoad(loadSeq)) return;
+            const kind = missingKinds[index];
+            if (!kind) {
+                onDone();
+                return;
+            }
             bundle.load(RESULT_PANEL_PREFAB_PATHS[kind], Prefab, (err: Error | null, prefab: Prefab | null) => {
                 if (failed || !this.isCurrentPrefabLoad(loadSeq)) return;
                 if (err || !prefab) {
@@ -129,12 +134,10 @@ export class GameplayResultPanelController {
                     return;
                 }
                 this.getPrefabCache(`loadPrefab:${sourceLabel}:${kind}`).set(kind, prefab);
-                remaining -= 1;
-                if (remaining === 0) {
-                    onDone();
-                }
+                loadNext(index + 1);
             });
-        }
+        };
+        loadNext(0);
     }
 
     private loadBrowserPreviewSourcePrefabs(
@@ -224,7 +227,11 @@ export class GameplayResultPanelController {
             throw new Error(`[result-panel] prefab "${kind}" is not ready`);
         }
         const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
-        popupRoot.getChildByName(name)?.destroy();
+        const previous = popupRoot.getChildByName(name);
+        if (previous?.isValid) {
+            previous.removeFromParent();
+            previous.destroy();
+        }
         const overlay = instantiate(prefab);
         overlay.name = name;
         popupRoot.addChild(overlay);

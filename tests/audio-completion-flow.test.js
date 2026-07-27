@@ -8,6 +8,21 @@ function read(relPath) {
     return fs.readFileSync(path.join(root, relPath), 'utf8');
 }
 
+function extractObjectMethod(source, signature) {
+    const signatureIndex = source.indexOf(signature);
+    assert.ok(signatureIndex >= 0, `missing method signature: ${signature}`);
+    const bodyStart = source.indexOf('{', signatureIndex);
+    assert.ok(bodyStart >= 0, `missing method body: ${signature}`);
+    let depth = 0;
+    for (let index = bodyStart; index < source.length; index += 1) {
+        if (source[index] === '{') depth += 1;
+        if (source[index] !== '}') continue;
+        depth -= 1;
+        if (depth === 0) return source.slice(signatureIndex, index + 1);
+    }
+    throw new Error(`unterminated method body: ${signature}`);
+}
+
 const manifest = read('assets/Scripts/Core/AudioManifest.ts');
 assert.ok(manifest.includes("winAll: 'Audio/winColor'"), 'level-complete winAll must reuse the single-color completion audio');
 assert.ok(manifest.includes("winSettlement: 'Audio/winSettlement'"), 'win settlement must have a dedicated audio key');
@@ -24,6 +39,7 @@ const revealSettlementIndex = settlement.indexOf('revealWinSettlementPanel(logic
 const requestSettlementIndex = settlement.indexOf('requestWinSettlementReveal(logicalLevelId: number, revealToken: number)');
 const patternCompleteFxCallIndex = settlement.indexOf('this.playPatternCompleteMatchFx();', playPatternFxIndex);
 const scheduleSettlementIndex = settlement.indexOf('showSettlement();', patternCompleteFxCallIndex);
+const patternCompleteWinMethod = extractObjectMethod(settlement, 'playPatternCompleteThenWin(delaySeconds: number = 0)');
 assert.ok(levelCompleteIndex > playPatternFxIndex && levelCompleteIndex < playBoardShrinkIndex, 'level-complete cue must play when full-board c1 starts');
 assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < requestSettlementIndex, 'settlement cue must play only inside the guarded panel reveal');
 
@@ -50,7 +66,11 @@ assert.ok(colorFx.includes("settle: 'a1_1'"), 'bean settle FX must map to the Pi
 assert.ok(colorFx.includes("colorComplete: 'b1_1'"), 'single-color completion FX must map to the Pindd b1_1 Spine animation');
 assert.ok(colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion FX must map to the Pindd c1_1 Spine animation');
 assert.ok(colorFx.includes('playPinddSpineFxOnBeansSameFrame'), 'single-color completion FX must have a same-frame playback path');
-assert.ok(colorFx.includes('this.playPinddSpineFxOnBeansSameFrame(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);'), 'single-color completion FX must start all same-color beans together');
+assert.ok(colorFx.includes('PINDD_SPINE_COLOR_COMPLETE_MAX_NODES = 24'), 'single-color completion FX must cap same-frame Spine instances at 24');
+assert.ok(colorFx.includes('{ maxNodes: PINDD_SPINE_COLOR_COMPLETE_MAX_NODES }'), 'single-color completion FX must uniformly sample into its same-frame cap');
+assert.ok(colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 48'), 'whole-pattern completion FX must cap same-frame Spine instances at 48');
+assert.ok(colorFx.includes('PINDD_SPINE_FX_ACTIVE_LIMIT = 48'), 'all completion FX must share a hard 48-node active cap');
+assert.ok(colorFx.includes('PINDD_SPINE_FX_POOL_LIMIT = 48'), 'the recyclable Spine pool must not retain more than the active cap');
 assert.ok(!colorFx.includes('this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);'), 'single-color completion FX must not use the batched queue');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_SCALE_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation scale tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_OPACITY_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation opacity tuning');
@@ -114,7 +134,7 @@ assert.ok(/playFeedback\('slot', move\.feedbackIndex\);[\s\S]*?revealSlotIdx\(mo
 assert.ok(/playForcedSkillPlan\([\s\S]*?for \(const move of boardMoves\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\.recycleFlyBeanNode\(bean\);[\s\S]*?finish\(\);[\s\S]*?for \(const move of slotMoves\)/.test(skillMagnet), 'sequential forced skill board moves must use board target settle audio');
 assert.ok(skillWand.includes('nextDumpBoardSettleSoundAtMs = playAtMs + STAGGER * 1000'), 'clear-slot prop board settle audio must keep the ordinary multi-target rhythm');
 assert.ok(skillWand.includes('scheduleDumpBoardSettleSound();'), 'clear-slot dump must enqueue board settle sounds instead of playing dense one-shots immediately');
-assert.ok(/dumpRemainingSlotBeans\(\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\._flyingTargets\.delete/.test(skillWand), 'clear-slot dump fallback must keep board target settle audio');
+assert.ok(/dumpRemainingSlotBeans\([^)]*\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\._flyingTargets\.delete/.test(skillWand), 'clear-slot dump fallback must keep board target settle audio');
 assert.ok(placement.includes('this.playBrightFlashAt(worldPos, slotSize * 1.55, 135);'), 'placement light must use the pooled authored bright texture');
 assert.ok(placement.includes("throw new Error('[placement-fx] missing required SpriteFrame: block_bright_pindd')"), 'placement light must fail fast when the bright texture is missing');
 assert.ok(placement.includes('this.playLandingEffectsThen(targets, () =>'), 'color-complete effect must wait for landing effects to finish');
@@ -152,7 +172,7 @@ assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/bl
 assert.ok(settlement.includes('playPatternCompleteThenWin(delaySeconds: number = 0)'), 'final completion must route through a pattern-complete win wrapper');
 assert.ok(settlement.includes('this._pendingColorCompleteEffects.clear();'), 'final pattern win must drop the queued final color-complete FX');
 assert.ok(!settlement.includes('FINAL_COLOR_COMPLETE_FX_HOLD'), 'final pattern win must not wait for a separate final-color FX');
-assert.ok(!settlement.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must not flush queued final-color FX before c1');
+assert.ok(!patternCompleteWinMethod.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must not flush queued final-color FX before c1');
 assert.ok(patternCompleteFxCallIndex >= 0 && scheduleSettlementIndex > patternCompleteFxCallIndex, 'settlement must be scheduled after full-board c1 starts without waiting for its completion callback');
 assert.ok(!settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'full-board c1 completion must not block settlement reveal');
 assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0'), 'pattern-complete shrink must start without an extra pre-FX wait');

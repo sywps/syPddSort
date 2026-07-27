@@ -6,6 +6,8 @@ import {
     type MiniGameBuildPlatform,
 } from '../Core/MiniGamePlatform';
 
+const REWARDED_AD_UNUSED_READY_TTL_MS = 45000;
+
 export type RewardedAdHooks = {
     onShow?: (attemptId: number) => void;
     onClose?: (result: unknown, attemptId: number) => void;
@@ -74,6 +76,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     private adErrorListener: ((error: unknown) => void) | null = null;
     private loadWaitTimer: any = null;
     private showEstablishTimer: any = null;
+    private readyExpiryTimer: any = null;
     private stateChangedAt = Date.now();
     private stateReason = 'init';
     private readonly stateListeners = new Set<RewardedAdStateListener>();
@@ -133,6 +136,9 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.currentCallback = callback;
         this.currentHooks = hooks;
         this.currentRecoverableNotified = false;
+        if (this.status === 'ready') {
+            this.clearReadyExpiryTimer();
+        }
         const loadPromise = this.status === 'ready'
             ? Promise.resolve(true)
             : this.startLoad('show');
@@ -204,6 +210,9 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     protected abstract getSystemInfo(api: any): any;
 
     private setStatus(status: RewardedAdStatus, reason: string): void {
+        if (status !== 'ready') {
+            this.clearReadyExpiryTimer();
+        }
         const previousStatus = this.status;
         const now = Date.now();
         const durationMs = Math.max(0, now - this.stateChangedAt);
@@ -289,6 +298,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
                 const isCurrentAd = loaded && this.ad === ad && this.currentAdGeneration === generation;
                 if (isCurrentAd && this.status === 'loading') {
                     this.setStatus('ready', reason);
+                    this.scheduleReadyExpiry(ad, generation, reason);
                     console.log(`[AdConfig] ${this.platform} rewarded ad preloaded:`, reason);
                 }
                 return isCurrentAd;
@@ -388,8 +398,31 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.showEstablishTimer = null;
     }
 
+    private clearReadyExpiryTimer(): void {
+        if (!this.readyExpiryTimer) return;
+        clearTimeout(this.readyExpiryTimer);
+        this.readyExpiryTimer = null;
+    }
+
+    private scheduleReadyExpiry(ad: any, generation: number, reason: string): void {
+        this.clearReadyExpiryTimer();
+        this.readyExpiryTimer = setTimeout(() => {
+            this.readyExpiryTimer = null;
+            if (this.ad !== ad
+                || this.currentAdGeneration !== generation
+                || this.status !== 'ready'
+                || this.currentCallback) {
+                return;
+            }
+            this.setStatus('idle', `ready-expired:${reason}`);
+            this.loadPromise = null;
+            this.cleanupAd(ad);
+        }, REWARDED_AD_UNUSED_READY_TTL_MS);
+    }
+
     private cleanupAd(ad: any): void {
         if (!ad || this.ad !== ad) return;
+        this.clearReadyExpiryTimer();
         const closeListener = this.adCloseListener;
         const errorListener = this.adErrorListener;
         this.ad = null;

@@ -4,7 +4,7 @@
  * 资源规约：音频源文件放在 GameAssetsBundle/Audio/ 下；构建时会抽取核心 BGM/SFX 到 bootstrap。
  */
 
-import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, director } from 'cc';
+import { _decorator, AudioClip, AudioSource, Node, sys, assetManager, director, isValid } from 'cc';
 import type { AssetManager } from 'cc';
 import {
     AUDIO_BGM_RESOURCE_PATH,
@@ -90,18 +90,9 @@ export class AudioMgr {
         const audioHost = this.getOrCreateAudioRoot(host);
         if (this.host === audioHost
             && this.host?.isValid
-            && this.sfxSources.length === SFX_CHANNEL_COUNT
-            && this.sfxSources.every((source) => source?.isValid)
-            && this.bgmSrc?.isValid) return;
-        this.stopSfx();
-        try {
-            this.bgmSrc?.stop();
-        } catch (_) { /* ignore */ }
+            && this.hasExactAudioSourceLayout(audioHost)) return;
+        this.disposeAudioSources(audioHost);
         this.host = audioHost;
-        audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
-        this.sfxSources = [];
-        this.busySfxSources.clear();
-        this.sfxSourceCursor = 0;
         for (let i = 0; i < SFX_CHANNEL_COUNT; i++) {
             const source = audioHost.addComponent(AudioSource);
             source.playOnAwake = false;
@@ -135,6 +126,44 @@ export class AudioMgr {
         }
         this.audioRoot = root;
         return root;
+    }
+
+    private hasExactAudioSourceLayout(audioHost: Node): boolean {
+        if (this.sfxSources.length !== SFX_CHANNEL_COUNT || !isValid(this.bgmSrc, true)) {
+            return false;
+        }
+        const trackedSources = [...this.sfxSources, this.bgmSrc];
+        if (trackedSources.some((source) => !isValid(source, true))) {
+            return false;
+        }
+        const trackedSourceSet = new Set(trackedSources);
+        if (trackedSourceSet.size !== SFX_CHANNEL_COUNT + 1) {
+            return false;
+        }
+        const liveRootSources = audioHost.getComponents(AudioSource).filter((source) => isValid(source, true));
+        return liveRootSources.length === SFX_CHANNEL_COUNT + 1
+            && liveRootSources.every((source) => trackedSourceSet.has(source));
+    }
+
+    private disposeAudioSources(audioHost: Node): void {
+        audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
+        this.pendingAutoplaySfx.clear();
+        this.busySfxSources.clear();
+        this.sfxSourceCursor = 0;
+        for (const source of audioHost.getComponents(AudioSource)) {
+            if (!isValid(source, true)) continue;
+            try {
+                source.stop();
+            } catch (_) { /* ignore */ }
+            try {
+                source.clip = null;
+            } catch (_) { /* ignore */ }
+            try {
+                source.destroy();
+            } catch (_) { /* ignore */ }
+        }
+        this.sfxSources = [];
+        this.bgmSrc = null;
     }
 
     private _handleSfxSourceEnded(source: AudioSource) {
@@ -382,6 +411,7 @@ export class AudioMgr {
         if (!this.bgmEnabled || this.suspended || this.externalInterruptionRefs > 0 || !this.bgmSrc || !this.bgmClip) {
             return;
         }
+        this.stopUnexpectedLoopSources();
         try {
             this.bgmSrc.clip = this.bgmClip;
             if (!this.bgmSrc.playing) this.bgmSrc.play();
@@ -394,6 +424,7 @@ export class AudioMgr {
         if (!this.bgmEnabled || this.suspended || this.externalInterruptionRefs > 0 || !this.bgmSrc || !this.bgmClip) {
             return;
         }
+        this.stopUnexpectedLoopSources();
         try {
             this.bgmSrc.stop();
             this.bgmSrc.clip = this.bgmClip;
@@ -402,6 +433,20 @@ export class AudioMgr {
             this.bgmSrc.play();
         } catch (e) {
             // WeChat innerAudioContext may throw if audio not ready
+        }
+    }
+
+    private stopUnexpectedLoopSources(): void {
+        if (!this.audioRoot?.isValid) return;
+        for (const source of this.audioRoot.getComponents(AudioSource)) {
+            if (source === this.bgmSrc || !isValid(source, true) || !source.loop) continue;
+            try {
+                source.stop();
+            } catch (_) { /* ignore */ }
+            try {
+                source.loop = false;
+                source.clip = null;
+            } catch (_) { /* ignore */ }
         }
     }
 
@@ -739,6 +784,7 @@ export class AudioMgr {
             this.ensureBgmPlaying('setting-on');
         } else {
             this.pendingBgmRestartAfterExternalInterruption = false;
+            this.stopUnexpectedLoopSources();
             this.bgmSrc.stop();
         }
     }
@@ -771,6 +817,9 @@ export class AudioMgr {
     }
 
     getBgmDebugState(): Record<string, unknown> {
+        const liveRootSources = this.audioRoot?.isValid
+            ? this.audioRoot.getComponents(AudioSource).filter((source) => isValid(source, true))
+            : [];
         return {
             enabled: this.bgmEnabled,
             autoplayRequested: this.bgmAutoplayRequested,
@@ -783,6 +832,8 @@ export class AudioMgr {
             playing: !!this.bgmSrc?.playing,
             hostValid: !!this.host?.isValid,
             audioRootValid: !!this.audioRoot?.isValid,
+            liveRootAudioSourceCount: liveRootSources.length,
+            playingLoopSourceCount: liveRootSources.filter((source) => source.loop && source.playing).length,
         };
     }
 

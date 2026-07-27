@@ -33,6 +33,8 @@ function scheduleWarmup(runtime: any, callback: () => void, delaySeconds: number
 function shouldPauseWarmupTask(runtime: any, task: QueuedWarmupTask): boolean {
     if (!task.pauseWhenBusy) return false;
     if (runtime._adShowing || runtime._skillActive || runtime._settlementNextTransitioning) return true;
+    if (runtime._placementInputLocked || runtime.isSelected) return true;
+    if (runtime.activeBoardTouches instanceof Map && runtime.activeBoardTouches.size > 0) return true;
     if ((Number(runtime._placementVisualRefs) || 0) > 0) return true;
     if (runtime._panelOpenInFlight instanceof Set && runtime._panelOpenInFlight.size > 0) return true;
     if ((Number(runtime._spriteFrameLoadInFlight) || 0) > 0) return true;
@@ -121,6 +123,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'gameplay-audio',
                     minDelaySeconds: 0,
+                    pauseWhenBusy: true,
                     run: (done) => {
                         AudioMgr.inst.preloadGameplayAudioSet();
                         AudioMgr.inst.playGameBgm();
@@ -130,6 +133,7 @@ export function installPostPlayableWarmupModule(target: any): void {
                 {
                     name: 'result-panels',
                     minDelaySeconds: 0.08,
+                    pauseWhenBusy: true,
                     run: (done) => {
                         this._ensureGameplayResultPanelPrefabsReady?.(() => {
                             if (!isWarmupStillCurrent(this, seq, initSeq)) return;

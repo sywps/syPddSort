@@ -14,6 +14,9 @@ const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 const audioMgr = read('assets/Scripts/Core/AudioMgr.ts');
 const audioManifest = read('assets/Scripts/Core/AudioManifest.ts');
 const resultPanels = read('assets/Scripts/Core/GameplayResultPanelController.ts');
+const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
+const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
+const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 const commerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
@@ -59,13 +62,24 @@ assert.ok(warmup.includes('_spriteFrameLoadInFlight'), 'post-playable warmup mus
 assert.ok(warmup.includes('_spriteFrameApplyPending'), 'post-playable warmup must wait for pending SpriteFrame applies before starting more optional work');
 assert.ok(!warmup.includes('for (const task of tasks)'), 'post-playable warmup tasks must not all be scheduled independently');
 assert.ok(!warmup.includes('ensureGameplayResultPanelsCreated?.()'), 'post-playable warmup must preload result prefabs without instantiating hidden panels');
+const gameplayAudioTaskIndex = warmup.indexOf("name: 'gameplay-audio'");
 const resultPanelsTaskIndex = warmup.indexOf("name: 'result-panels'");
+assert.ok(gameplayAudioTaskIndex >= 0, 'gameplay audio warmup task must exist');
 assert.ok(resultPanelsTaskIndex >= 0, 'result panel warmup task must exist');
+assert.ok(
+    warmup.slice(gameplayAudioTaskIndex, resultPanelsTaskIndex).includes('pauseWhenBusy: true'),
+    'gameplay audio warmup must pause while placement/input/resource work is active',
+);
 const nextResultPanelsTaskIndex = warmup.indexOf('name: ', resultPanelsTaskIndex + 1);
 assert.ok(
     nextResultPanelsTaskIndex < 0 || warmup.indexOf("name: 'rewarded-ad'") === nextResultPanelsTaskIndex,
     'result panels must be followed only by the delayed rewarded-ad warmup',
 );
+assert.ok(
+    warmup.slice(resultPanelsTaskIndex, nextResultPanelsTaskIndex).includes('pauseWhenBusy: true'),
+    'result-panel warmup must pause while placement/input/resource work is active',
+);
+assert.ok(warmup.includes('runtime.activeBoardTouches instanceof Map'), 'warmup busy detection must include active board touches');
 assert.ok(warmup.includes('REWARDED_AD_WARMUP_DELAY_SECONDS = 2.0'), 'rewarded-ad warmup must be delayed away from first playable in every build');
 assert.ok(!warmup.includes("name: 'freeze-spine'"), 'freeze Spine must not run as a fixed post-playable warmup task');
 assert.ok(!warmup.includes("name: 'pindd-spine'"), 'pindd Spine must not run as a fixed post-playable warmup task');
@@ -74,7 +88,7 @@ assert.ok(colorFx.includes('ensurePinddSpineFxSkeletonData'), 'pindd Spine must 
 assert.ok(!settingsPanel.includes('ensureSpriteFramesReady'), 'settings preload must not batch-load all settings SpriteFrames during Game rendering');
 assert.ok(!settingsPanel.includes('runtime._loadSpriteFrameByName(name'), 'settings preload must rely on prefab ownership instead of SpriteFrame burst loads');
 assert.ok(settingsPanel.includes('loadPrefab();'), 'settings preload must still load the prefab itself');
-assert.ok(settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'opening gameplay settings must prefetch Home only after explicit user intent');
+assert.ok(!settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'opening Settings must not create a competing speculative Home scene load');
 
 assert.ok(audioMgr.includes('preloadGameplayAudioSet(): void'), 'AudioMgr must expose a gameplay audio warmup method');
 assert.ok(audioMgr.includes('this._loadFromBootstrapBundleAuto((bundle)'), 'BGM must try bootstrap before gameAssets');
@@ -89,6 +103,21 @@ assert.ok(resultPanels.includes('isMiniGameRuntime'), 'result panel preview sour
 assert.ok(resultPanels.includes('GAME_ASSETS_BUNDLE_NAME'), 'Browser preview may load source prefabs from the gameAssets bundle');
 assert.ok(resultPanels.includes('if (isMiniGameRuntime())'), 'minigame result panels must remain bootstrap-strict');
 assert.ok(resultPanels.includes('preview-source'), 'browser preview source load errors must be clearly labeled');
+assert.ok(resultPanels.includes('const loadNext = (index: number): void =>'), 'missing result prefabs must load through one sequential owner');
+assert.ok(resultPanels.includes('loadNext(index + 1);'), 'result-prefab loading must advance only after the previous prefab completes');
+assert.ok(!resultPanels.includes('for (const kind of missingKinds)'), 'result prefabs must not allocate/parse in a three-request burst');
+assert.ok(resultPanels.includes('previous.removeFromParent();'), 'replacing a result overlay must synchronously detach the old blocker before deferred destruction');
+assert.ok(!gameplayView.includes('runtime.ensureGameplayResultPanelsCreated?.();'), 'level UI rebuild must not eagerly instantiate all hidden result panels');
+const ensureResultPanelsStart = homeAdFlow.indexOf('ensureGameplayResultPanelsCreated(');
+const ensureResultPanelsEnd = homeAdFlow.indexOf('instantiateResultOverlay(', ensureResultPanelsStart);
+const ensureResultPanelsSource = homeAdFlow.slice(ensureResultPanelsStart, ensureResultPanelsEnd);
+assert.ok(ensureResultPanelsStart >= 0 && ensureResultPanelsEnd > ensureResultPanelsStart, 'result panel creation method must remain inspectable');
+assert.ok(ensureResultPanelsSource.includes("const needsWin = target === 'win' || target === 'all';"), 'result panel creation must support win-only instances');
+assert.ok(ensureResultPanelsSource.includes("const needsRevive = target === 'revive' || target === 'lose-flow' || target === 'all';"), 'loss flow must create its revive instance on demand');
+assert.ok(ensureResultPanelsSource.includes("const needsLose = target === 'lose' || target === 'lose-flow' || target === 'all';"), 'loss flow must create its final lose instance on demand');
+assert.ok(!ensureResultPanelsSource.includes('this.destroyGameplayResultOverlays();'), 'creating one result kind must not destroy unrelated valid result instances');
+assert.ok(settlement.includes("ensureGameplayResultPanelsCreated?.('win')"), 'win settlement must request only its own panel instance');
+assert.ok(settlement.includes("ensureGameplayResultPanelsCreated?.('lose-flow')"), 'loss settlement must request only revive and final-lose instances');
 
 assert.ok(postbuildWechat.includes('const debugLevelDataBundle = false;'), 'WeChat debug must not add a debug-only levelData bundle');
 assert.ok(!postbuildWechat.includes("const debugLevelDataBundle = buildMode === 'debug';"), 'WeChat build package layout must not branch on debug/release');
@@ -161,10 +190,11 @@ assert.ok(postbuildWechat.includes('patchSpineWasmVirtualChunk'), 'WeChat postbu
 
 assert.ok(colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME'), 'pattern-complete Spine FX must render from a dedicated FX root');
 assert.ok(colorFx.includes('playPinddSpineFxAtWorldPosition'), 'pattern-complete Spine FX must play from captured world positions');
-assert.ok(colorFx.includes('beanWorldPositions.length > PINDD_SPINE_FX_ACTIVE_LIMIT'), 'pattern-complete Spine FX must fail fast if all-board playback exceeds the active limit');
-assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES'), 'pattern-complete Spine FX must not sample a partial board');
+assert.ok(colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 48'), 'pattern-complete Spine FX must sample at most 48 representative beans');
+assert.ok(colorFx.includes('selectPinddSpineFxBatchNodes('), 'completion Spine caps must use deterministic uniform selection');
+assert.ok(!colorFx.includes('beanWorldPositions.length > PINDD_SPINE_FX_ACTIVE_LIMIT'), 'large boards must be sampled instead of throwing at settlement');
 assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_WAIT_SECONDS'), 'pattern-complete Spine FX must not use a fixed settlement timeout');
-assert.ok(!colorFx.includes('waitForAll: false'), 'the optional pattern-complete callback must still represent all full-board c1 callbacks');
+assert.ok(!colorFx.includes('waitForAll: false'), 'the optional pattern-complete callback must still represent all selected c1 callbacks');
 
 assert.ok(commerce.includes('preloadAcquireResourcePanel'), 'commerce module must expose acquire panel preload');
 assert.ok(commerceController.includes('preloadAcquireResourcePanel(): void'), 'commerce controller must preload acquire panel prefab');

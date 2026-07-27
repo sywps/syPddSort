@@ -9,5 +9,10 @@ export function installSettingsPanelModule(target: any): void {
         openSettingsPanel() {
             return ensureSettingsPanelController(this).open();
         },
+
+        disposeSettingsPanel() {
+            this._settingsPanelController?.dispose?.();
+            this._settingsPanelController = null;
+        },
     });
 }

@@ -10,6 +10,7 @@ const scanRoots = [
     ['homeAssets', path.join(projectDir, 'assets', 'HomeAssetsBundle')],
     ['gameAssets', path.join(projectDir, 'assets', 'GameAssetsBundle')],
     ['main', path.join(projectDir, 'assets', 'Textures')],
+    ['levelData', path.join(projectDir, 'assets', 'LevelData')],
 ];
 
 const args = new Map();

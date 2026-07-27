@@ -42,7 +42,9 @@ export function installGameplaySkillWandModule(target: any): void {
             this._freezeTimeTotal = freezeSeconds;
             this._skillActive = true;
             this._skillAnimOnly = true;
-            const finish = () => this.finishSkillUsage();
+            const skillGeneration = this.armSkillUsageWatchdog?.('freeze')
+                || Math.max(0, Number(this._activeSkillUsageGeneration) || 0);
+            const finish = () => this.finishSkillUsage(skillGeneration);
             try {
                 this.scheduleOnce(finish, 0.05);
                 AudioMgr.inst.play('propFreeze');
@@ -63,6 +65,7 @@ export function installGameplaySkillWandModule(target: any): void {
             PerformanceMgr.inst.markUserActivity(8000);
             AudioMgr.inst.play('propWand');
             this._skillActive = true;
+            this.armSkillUsageWatchdog?.('wand-setup');
             this.resetIdleHintTimer();
             if (this.normalizeSlotBlocksForProps()) this.renderSlots();
             this.prepareSkillMoveAnimation();
@@ -211,6 +214,7 @@ export function installGameplaySkillWandModule(target: any): void {
         
             this.attachWandHandle(node, frameW, frameH);
             this._wandRectNode = node;
+            this.armWandSelectionWatchdog?.();
         
             // 提示用户移动魔方框
             this.showToast('拖动魔方框到目标位置，松手生效', 2.5);
@@ -330,6 +334,8 @@ export function installGameplaySkillWandModule(target: any): void {
         },
 
         executeWandAtCurrentPos() {
+            const skillGeneration = this.armSkillUsageWatchdog?.('wand-cast')
+                || Math.max(0, Number(this._activeSkillUsageGeneration) || 0);
             const { minR, maxR, minC, maxC } = this.getWandBoardRect();
             const candidateCells: { row: number; col: number }[] = [];
             for (let r = minR; r <= maxR; r++) {
@@ -341,13 +347,13 @@ export function installGameplaySkillWandModule(target: any): void {
         
             if (plan.immediateLockTargets.length === 0 && plan.steps.length === 0) {
                 this.showToast('没有可还原的格子');
-                this.finishSkillUsage();
+                this.finishSkillUsage(skillGeneration);
                 return;
             }
         
             this.playWandCastEffect();
             this.playForcedSkillPlanNearParallel(plan, () => {
-                this.finishWandSequence();
+                this.finishWandSequence(skillGeneration);
             });
         },
 
@@ -359,11 +365,11 @@ export function installGameplaySkillWandModule(target: any): void {
             this.playBrightFlashAt(centerWorld, this.cellSize * 3.2, 230);
         },
 
-        finishWandSequence() {
+        finishWandSequence(skillGeneration: number = 0) {
             this.clearForcedSkillHiddenState();
             this.renderBoard();
             this.compactSlotsAfterPropConsume(() => {
-                this.finishSkillUsage();
+                this.finishSkillUsage(skillGeneration);
                 this.checkColorCompletion();
                 const boardComplete = this.boardModel.isAllLocked();
                 if (!boardComplete) {
@@ -512,9 +518,10 @@ export function installGameplaySkillWandModule(target: any): void {
         runWandGroupsSequential(
             groups: Array<{ colorId: number; targets: { row: number; col: number }[] }>,
             index: number = 0,
+            skillGeneration: number = Math.max(0, Number(this._activeSkillUsageGeneration) || 0),
         ) {
             if (index >= groups.length) {
-                this.finishWandSequence();
+                this.finishWandSequence(skillGeneration);
                 return;
             }
         
@@ -526,7 +533,7 @@ export function installGameplaySkillWandModule(target: any): void {
                 group.targets,
             );
             this.playForcedSkillPlanNearParallel(plan, () => {
-                this.runWandGroupsSequential(groups, index + 1);
+                this.runWandGroupsSequential(groups, index + 1, skillGeneration);
             });
         },
 
@@ -615,10 +622,14 @@ export function installGameplaySkillWandModule(target: any): void {
             }
             if (slotMovable.length === 0) {
                 this.showToast('暂存槽没有豆豆');
-                this.resumeTimerForProp();
+                this.resumeSkillTimerPause?.();
                 return;
             }
             this._skillActive = true;
+            let skillGeneration = Math.max(0, Number(this._activeSkillUsageGeneration) || 0);
+            if (!viewportAlreadyReset || !this._skillUsageWatchdog) {
+                skillGeneration = this.armSkillUsageWatchdog?.('brush') || skillGeneration;
+            }
             this.resetIdleHintTimer();
             if (!viewportAlreadyReset && typeof this.resetBoardViewportToHomeForSkill === 'function') {
                 this.resetBoardViewportToHomeForSkill(() => this.useSkillClearSlot(true, true));
@@ -626,7 +637,7 @@ export function installGameplaySkillWandModule(target: any): void {
             }
             const plan = this.buildBrushClearSlotPlan(slotMovable);
             this.playForcedSkillPlanNearParallel(plan, () => {
-                this.finishClearSlot();
+                this.finishClearSlot(skillGeneration);
             });
         },
 
@@ -750,14 +761,17 @@ export function installGameplaySkillWandModule(target: any): void {
             return { immediateLockTargets, steps };
         },
 
-        runForcedSkillPlansForBrush(groups: SkillSourceGroup[]) {
+        runForcedSkillPlansForBrush(
+            groups: SkillSourceGroup[],
+            skillGeneration: number = Math.max(0, Number(this._activeSkillUsageGeneration) || 0),
+        ) {
             const plans: ForcedSkillPlan[] = [];
             for (let i = 0; i < groups.length; i++) {
                 const group = groups[i];
                 plans.push(this.buildForcedSkillPlan(group.colorId, group.boardSources, group.slotSources));
             }
             this.runForcedSkillPlansSequentialNoFinish(plans, 0, () => {
-                this.dumpRemainingSlotBeans();
+                this.dumpRemainingSlotBeans(skillGeneration);
             });
         },
 
@@ -834,7 +848,9 @@ export function installGameplaySkillWandModule(target: any): void {
         },
 
         /** 把暂存槽剩余的豆豆全部飞到棋盘空位（刷子最后一步）。优先放匹配颜色的空位，无匹配则放任意空位但不锁定。 */
-        dumpRemainingSlotBeans() {
+        dumpRemainingSlotBeans(
+            skillGeneration: number = Math.max(0, Number(this._activeSkillUsageGeneration) || 0),
+        ) {
             const bm = this.boardModel;
             const slots = this.slotModel.getAll();
             const moves: { slotIdx: number; targetRow: number; targetCol: number; colorId: number; doLock: boolean }[] = [];
@@ -886,7 +902,7 @@ export function installGameplaySkillWandModule(target: any): void {
                 for (let i = 0; i < slots.length; i++) {
                     if (slots[i]) this.slotModel.take(i);
                 }
-                this.finishClearSlot();
+                this.finishClearSlot(skillGeneration);
                 return;
             }
         
@@ -968,7 +984,7 @@ export function installGameplaySkillWandModule(target: any): void {
                         const finishMove = () => {
                             remaining--;
                             if (remaining <= 0) {
-                                this.finishClearSlot();
+                                this.finishClearSlot(skillGeneration);
                             }
                         };
                         if (move.doLock) {
@@ -982,7 +998,7 @@ export function installGameplaySkillWandModule(target: any): void {
         },
 
         /** 刷子归位完成后的清理 */
-        finishClearSlot() {
+        finishClearSlot(skillGeneration: number = 0) {
             this.clearForcedSkillHiddenState();
             this._flyingTargets.clear();
             this.renderBoard();
@@ -996,7 +1012,7 @@ export function installGameplaySkillWandModule(target: any): void {
             if (boardComplete) {
                 this.playPatternCompleteThenWin();
             } else {
-                this.finishSkillUsage();
+                this.finishSkillUsage(skillGeneration);
             }
         },
 

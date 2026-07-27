@@ -38,6 +38,15 @@ import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/
 
 type RewardedGrantToast = string | (() => string);
 type RewardedGrantResult = boolean | void | Promise<boolean | void>;
+const DEFAULT_GRANT_TIMEOUT_MS = 10000;
+const DEFAULT_AFTER_GRANT_TIMEOUT_MS = 15000;
+const GRANT_TIMEOUT_TOAST = '奖励处理超时，请稍后查看到账结果';
+
+function resolveGrantTimeoutMs(value: number | undefined, fallback: number): number {
+    const normalized = Math.floor(Number(value));
+    return Number.isFinite(normalized) && normalized > 0 ? normalized : fallback;
+}
+
 type RewardedGrantOptions = {
     levelId?: number;
     claimKey?: string;
@@ -56,18 +65,23 @@ type RewardedGrantOptions = {
     onInteractionStarted?: () => void;
     onInteractionReleased?: () => void;
     afterGrant?: () => RewardedGrantResult;
+    grantTimeoutMs?: number;
+    afterGrantTimeoutMs?: number;
     onFinally?: () => void;
 };
 type RewardedGrantRuntimeTransaction = {
     id: number;
     claimKey: string;
     page: string;
-    phase: 'ad' | 'recoverable' | 'recoverable_endable' | 'grant';
+    phase: 'ad' | 'recoverable' | 'recoverable_endable' | 'grant' | 'after_grant';
+    grantStage?: 'grant' | 'afterGrant';
+    deadlineAt?: number;
     startedAt: number;
     cancel: (reason: string) => void;
 };
 type ShareGrantOptions = {
     levelId?: number;
+    claimKey?: string;
     shareType?: string;
     busyFlag?: string;
     title?: RewardedGrantToast;
@@ -79,6 +93,8 @@ type ShareGrantOptions = {
     successToast?: RewardedGrantToast;
     onShareComplete?: (success: boolean) => void;
     afterGrant?: () => RewardedGrantResult;
+    grantTimeoutMs?: number;
+    afterGrantTimeoutMs?: number;
     onFinally?: () => void;
 };
 
@@ -97,6 +113,13 @@ function showRewardedGrantToast(runtime: any, toast?: RewardedGrantToast): void 
     if (text && typeof runtime.showToast === 'function') {
         runtime.showToast(text);
     }
+}
+
+function getTimedOutGrantClaims(runtime: any): Set<string> {
+    if (!(runtime._rewardedGrantTimedOutClaims instanceof Set)) {
+        runtime._rewardedGrantTimedOutClaims = new Set<string>();
+    }
+    return runtime._rewardedGrantTimedOutClaims;
 }
 
 export function installHomeAdFlowModule(target: any): void {
@@ -384,6 +407,12 @@ export function installHomeAdFlowModule(target: any): void {
             options: ShareGrantOptions = {},
         ): boolean {
             const busyFlag = options.busyFlag || '';
+            const claimKey = `share:${String(options.claimKey || `${page}:${options.levelId ?? ''}`)}`;
+            const timedOutClaims = getTimedOutGrantClaims(this);
+            if (timedOutClaims.has(claimKey)) {
+                showRewardedGrantToast(this, '该奖励仍在后台确认，请勿重复领取');
+                return false;
+            }
             if (busyFlag && this[busyFlag]) {
                 return false;
             }
@@ -397,9 +426,37 @@ export function installHomeAdFlowModule(target: any): void {
                 }
             };
             let finalized = false;
+            let grantStageTimer: any = null;
+            let grantStagePromise: Promise<boolean | void> | null = null;
+            let grantStagePending = false;
+            let quarantinedStagePromise: Promise<boolean | void> | null = null;
+            const clearGrantStage = (expected?: Promise<boolean | void>) => {
+                if (expected && grantStagePromise !== expected) return;
+                if (grantStageTimer) {
+                    clearTimeout(grantStageTimer);
+                    grantStageTimer = null;
+                }
+                grantStagePromise = null;
+                grantStagePending = false;
+            };
+            const quarantineGrantStage = () => {
+                const promise = grantStagePromise;
+                if (!grantStagePending || !promise) return;
+                timedOutClaims.add(claimKey);
+                if (quarantinedStagePromise === promise) return;
+                quarantinedStagePromise = promise;
+                const releaseQuarantine = () => {
+                    if (quarantinedStagePromise === promise) {
+                        quarantinedStagePromise = null;
+                    }
+                    timedOutClaims.delete(claimKey);
+                };
+                promise.then(releaseQuarantine, releaseQuarantine);
+            };
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
+                clearGrantStage();
                 clearBusy();
                 try {
                     options.onFinally?.();
@@ -407,6 +464,30 @@ export function installHomeAdFlowModule(target: any): void {
                     console.warn(`[ShareGrant] ${page} finally failed:`, error);
                 }
             };
+            const armGrantStage = (
+                promise: Promise<boolean | void>,
+                timeoutMs: number,
+                stage: 'grant' | 'afterGrant',
+            ) => {
+                clearGrantStage();
+                grantStagePromise = promise;
+                grantStagePending = true;
+                grantStageTimer = setTimeout(() => {
+                    if (finalized || !grantStagePending || grantStagePromise !== promise) return;
+                    quarantineGrantStage();
+                    console.error(`[ShareGrant] ${page} ${stage} timed out after ${timeoutMs}ms`);
+                    showRewardedGrantToast(
+                        this,
+                        stage === 'afterGrant'
+                            ? options.afterGrantFailToast || options.grantFailToast || GRANT_TIMEOUT_TOAST
+                            : options.grantFailToast || GRANT_TIMEOUT_TOAST,
+                    );
+                    runFinally();
+                }, timeoutMs);
+            };
+            const isGrantStageActive = (promise: Promise<boolean | void>) => (
+                !finalized && grantStagePending && grantStagePromise === promise
+            );
             const runShareFail = () => {
                 showRewardedGrantToast(this, options.shareFailToast);
                 try {
@@ -431,9 +512,16 @@ export function installHomeAdFlowModule(target: any): void {
             const imageUrl = resolveRewardedGrantToast(options.imageUrl);
 
             const runGrant = () => {
-                Promise.resolve()
-                    .then(() => grant())
+                const grantPromise = Promise.resolve().then(() => grant());
+                armGrantStage(
+                    grantPromise,
+                    resolveGrantTimeoutMs(options.grantTimeoutMs, DEFAULT_GRANT_TIMEOUT_MS),
+                    'grant',
+                );
+                grantPromise
                     .then(async (grantResult) => {
+                        if (!isGrantStageActive(grantPromise)) return;
+                        clearGrantStage(grantPromise);
                         if (grantResult === false) {
                             console.warn(`[ShareGrant] ${page} grant returned false`);
                             showRewardedGrantToast(this, options.grantFailToast);
@@ -443,18 +531,30 @@ export function installHomeAdFlowModule(target: any): void {
                         if (!options.afterGrant) {
                             return;
                         }
+                        const afterGrantPromise = Promise.resolve().then(() => options.afterGrant!());
+                        armGrantStage(
+                            afterGrantPromise,
+                            resolveGrantTimeoutMs(options.afterGrantTimeoutMs, DEFAULT_AFTER_GRANT_TIMEOUT_MS),
+                            'afterGrant',
+                        );
                         try {
-                            const afterResult = await options.afterGrant();
+                            const afterResult = await afterGrantPromise;
+                            if (!isGrantStageActive(afterGrantPromise)) return;
+                            clearGrantStage(afterGrantPromise);
                             if (afterResult === false) {
                                 console.warn(`[ShareGrant] ${page} afterGrant returned false`);
                                 showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
                             }
                         } catch (error) {
+                            if (!isGrantStageActive(afterGrantPromise)) return;
+                            clearGrantStage(afterGrantPromise);
                             console.error(`[ShareGrant] ${page} afterGrant failed:`, error);
                             showRewardedGrantToast(this, options.afterGrantFailToast || options.grantFailToast);
                         }
                     })
                     .catch((error) => {
+                        if (!isGrantStageActive(grantPromise)) return;
+                        clearGrantStage(grantPromise);
                         console.error(`[ShareGrant] ${page} grant failed:`, error);
                         showRewardedGrantToast(this, options.grantFailToast);
                     })
@@ -490,6 +590,7 @@ export function installHomeAdFlowModule(target: any): void {
         ): boolean {
             const busyFlag = options.busyFlag || '';
             const claimKey = String(options.claimKey || `${page}:${options.levelId ?? ''}`);
+            const timedOutClaims = getTimedOutGrantClaims(this);
             const activeTransaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
             if (activeTransaction) {
                 if (activeTransaction.phase === 'recoverable') {
@@ -501,6 +602,10 @@ export function installHomeAdFlowModule(target: any): void {
                         showRewardedGrantToast(this, '请先结束当前广告等待');
                     }
                 }
+                return false;
+            }
+            if (timedOutClaims.has(claimKey)) {
+                showRewardedGrantToast(this, '该奖励仍在后台确认，请勿重复领取');
                 return false;
             }
             if (busyFlag && this[busyFlag]) return false;
@@ -520,6 +625,10 @@ export function installHomeAdFlowModule(target: any): void {
             let attemptGeneration = 0;
             let releaseCurrentAttemptInteraction: (() => void) | null = null;
             let recoverableEndTimer: any = null;
+            let grantStageTimer: any = null;
+            let grantStagePromise: Promise<boolean | void> | null = null;
+            let grantStagePending = false;
+            let quarantinedStagePromise: Promise<boolean | void> | null = null;
             const adOwnerToken = this.acquireRuntimeOwner?.(
                 'ad',
                 `rewarded:${page}:${transactionId}`,
@@ -529,6 +638,29 @@ export function installHomeAdFlowModule(target: any): void {
                 clearTimeout(recoverableEndTimer);
                 recoverableEndTimer = null;
             };
+            const clearGrantStage = (expected?: Promise<boolean | void>) => {
+                if (expected && grantStagePromise !== expected) return;
+                if (grantStageTimer) {
+                    clearTimeout(grantStageTimer);
+                    grantStageTimer = null;
+                }
+                grantStagePromise = null;
+                grantStagePending = false;
+            };
+            const quarantineGrantStage = () => {
+                const promise = grantStagePromise;
+                if (!grantStagePending || !promise) return;
+                timedOutClaims.add(claimKey);
+                if (quarantinedStagePromise === promise) return;
+                quarantinedStagePromise = promise;
+                const releaseQuarantine = () => {
+                    if (quarantinedStagePromise === promise) {
+                        quarantinedStagePromise = null;
+                    }
+                    timedOutClaims.delete(claimKey);
+                };
+                promise.then(releaseQuarantine, releaseQuarantine);
+            };
             const isActive = () => {
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 return !cancelled && !!active && active.id === transactionId;
@@ -537,15 +669,24 @@ export function installHomeAdFlowModule(target: any): void {
                 if (finalized) return;
                 finalized = true;
                 clearRecoverableEndTimer();
+                clearGrantStage();
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 if (active?.id === transactionId) {
                     this._rewardedGrantTransaction = null;
                 }
                 if (!claimOptions.suppressPendingStrip) {
-                    this.clearRewardedAdPendingStrip?.();
+                    try {
+                        this.clearRewardedAdPendingStrip?.();
+                    } catch (error) {
+                        console.warn(`[RewardedGrant] ${page} pending-strip cleanup failed:`, error);
+                    }
                 }
                 if (adOwnerToken) {
-                    this.releaseRuntimeOwner?.(adOwnerToken);
+                    try {
+                        this.releaseRuntimeOwner?.(adOwnerToken);
+                    } catch (error) {
+                        console.error(`[RewardedGrant] ${page} owner release failed:`, error);
+                    }
                 }
                 clearBusy();
                 try {
@@ -556,23 +697,55 @@ export function installHomeAdFlowModule(target: any): void {
             };
             const cancelTransaction = (reason: string) => {
                 if (finalized) return;
+                quarantineGrantStage();
                 cancelled = true;
                 attemptGeneration++;
                 console.error(`[RewardedGrant] ${page} transaction cancelled: ${reason}`);
-                releaseCurrentAttemptInteraction?.();
-                releaseCurrentAttemptInteraction = null;
-                this.resumeTimerAfterAd?.();
-                runFinally();
+                try {
+                    releaseCurrentAttemptInteraction?.();
+                    releaseCurrentAttemptInteraction = null;
+                    this.resumeTimerAfterAd?.();
+                } catch (error) {
+                    console.error(`[RewardedGrant] ${page} cancellation cleanup failed:`, error);
+                } finally {
+                    runFinally();
+                }
             };
             const transaction: RewardedGrantRuntimeTransaction = {
                 id: transactionId,
                 claimKey,
                 page,
                 phase: 'ad',
+                deadlineAt: 0,
                 startedAt: Date.now(),
                 cancel: cancelTransaction,
             };
             this._rewardedGrantTransaction = transaction;
+            const armGrantStage = (
+                promise: Promise<boolean | void>,
+                timeoutMs: number,
+                stage: 'grant' | 'afterGrant',
+            ) => {
+                clearGrantStage();
+                grantStagePromise = promise;
+                grantStagePending = true;
+                transaction.grantStage = stage;
+                transaction.deadlineAt = Date.now() + timeoutMs;
+                grantStageTimer = setTimeout(() => {
+                    if (!isActive() || !grantStagePending || grantStagePromise !== promise) return;
+                    console.error(`[RewardedGrant] ${page} ${stage} timed out after ${timeoutMs}ms`);
+                    showRewardedGrantToast(
+                        this,
+                        stage === 'afterGrant'
+                            ? claimOptions.afterGrantFailToast || claimOptions.grantFailToast || GRANT_TIMEOUT_TOAST
+                            : claimOptions.grantFailToast || GRANT_TIMEOUT_TOAST,
+                    );
+                    cancelTransaction(`${stage}-timeout`);
+                }, timeoutMs);
+            };
+            const isGrantStageActive = (promise: Promise<boolean | void>) => (
+                isActive() && grantStagePending && grantStagePromise === promise
+            );
             const runAdFail = () => {
                 if (!isActive()) return;
                 showRewardedGrantToast(this, claimOptions.adFailToast);
@@ -600,9 +773,16 @@ export function installHomeAdFlowModule(target: any): void {
                     return;
                 }
 
-                Promise.resolve(grantResult)
+                const grantPromise = Promise.resolve(grantResult);
+                armGrantStage(
+                    grantPromise,
+                    resolveGrantTimeoutMs(claimOptions.grantTimeoutMs, DEFAULT_GRANT_TIMEOUT_MS),
+                    'grant',
+                );
+                grantPromise
                     .then(async (resolvedGrantResult) => {
-                        if (!isActive()) return;
+                        if (!isGrantStageActive(grantPromise)) return;
+                        clearGrantStage(grantPromise);
                         if (resolvedGrantResult === false) {
                             console.warn(`[RewardedGrant] ${page} grant returned false`);
                             showRewardedGrantToast(this, claimOptions.grantFailToast);
@@ -610,21 +790,31 @@ export function installHomeAdFlowModule(target: any): void {
                         }
                         showRewardedGrantToast(this, claimOptions.successToast);
                         if (!claimOptions.afterGrant) return;
+                        transaction.phase = 'after_grant';
+                        const afterGrantPromise = Promise.resolve().then(() => claimOptions.afterGrant!());
+                        armGrantStage(
+                            afterGrantPromise,
+                            resolveGrantTimeoutMs(claimOptions.afterGrantTimeoutMs, DEFAULT_AFTER_GRANT_TIMEOUT_MS),
+                            'afterGrant',
+                        );
                         try {
-                            const afterResult = await claimOptions.afterGrant();
-                            if (!isActive()) return;
+                            const afterResult = await afterGrantPromise;
+                            if (!isGrantStageActive(afterGrantPromise)) return;
+                            clearGrantStage(afterGrantPromise);
                             if (afterResult === false) {
                                 console.warn(`[RewardedGrant] ${page} afterGrant returned false`);
                                 showRewardedGrantToast(this, claimOptions.afterGrantFailToast || claimOptions.grantFailToast);
                             }
                         } catch (error) {
-                            if (!isActive()) return;
+                            if (!isGrantStageActive(afterGrantPromise)) return;
+                            clearGrantStage(afterGrantPromise);
                             console.error(`[RewardedGrant] ${page} afterGrant failed:`, error);
                             showRewardedGrantToast(this, claimOptions.afterGrantFailToast || claimOptions.grantFailToast);
                         }
                     })
                     .catch((error) => {
-                        if (!isActive()) return;
+                        if (!isGrantStageActive(grantPromise)) return;
+                        clearGrantStage(grantPromise);
                         console.error(`[RewardedGrant] ${page} grant failed:`, error);
                         showRewardedGrantToast(this, claimOptions.grantFailToast);
                     })
@@ -856,6 +1046,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.cancelRewardedGrantInteraction?.('home-transition');
             this.cancelRewardedAdPreload?.();
             this.clearRewardedAdPendingStrip?.();
+            this.clearSkillUsageWatchdog?.('home-transition');
             this.clearRuntimeOwners?.();
             this._modalFocusRefs = 0;
             this.unscheduleAllCallbacks();
@@ -868,11 +1059,13 @@ export function installHomeAdFlowModule(target: any): void {
             this.clearIdleHint();
             this.clearForcedSkillHiddenState();
             this.clearPlacementVisualState?.();
+            this.clearActiveFlyBeanNodes?.('home-transition');
             this._placementInputLocked = false;
             this._placementInputLockRefs = 0;
             this._placementVisualRefs = 0;
             this._skillActive = false;
             this._skillAnimOnly = false;
+            this._skillTimerPauseToken = '';
             this._timerStarted = false;
             this._timerPauseRefs = 0;
             this._timerLockedForProp = false;
@@ -1095,6 +1288,7 @@ export function installHomeAdFlowModule(target: any): void {
                         this._clearSpriteFramesBeforeDestroy(panel);
                         this._destroyDetachedNodeNextFrame(panel);
                     } else {
+                        panel.removeFromParent();
                         panel.destroy();
                     }
                 }
@@ -1180,18 +1374,27 @@ export function installHomeAdFlowModule(target: any): void {
             ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone);
         },
 
-        ensureGameplayResultPanelsCreated(): boolean {
+        ensureGameplayResultPanelsCreated(
+            target: 'win' | 'revive' | 'lose' | 'lose-flow' | 'all' = 'all',
+        ): boolean {
             if (!this._hasGameplayResultPanelPrefabsReady()) {
                 return false;
             }
-            if (this.panelWin?.isValid && this.panelLose?.isValid && this.panelTimeoutContinue?.isValid) {
-                return true;
+            const needsWin = target === 'win' || target === 'all';
+            const needsRevive = target === 'revive' || target === 'lose-flow' || target === 'all';
+            const needsLose = target === 'lose' || target === 'lose-flow' || target === 'all';
+            if (needsWin && !this.panelWin?.isValid) {
+                this.panelWin = this.createWinSettlementPanel();
             }
-            this.destroyGameplayResultOverlays();
-            this.panelWin = this.createWinSettlementPanel();
-            this.panelLose = this.createLoseSettlementPanel();
-            this.panelTimeoutContinue = this.createReviveSettlementPanel();
-            return true;
+            if (needsLose && !this.panelLose?.isValid) {
+                this.panelLose = this.createLoseSettlementPanel();
+            }
+            if (needsRevive && !this.panelTimeoutContinue?.isValid) {
+                this.panelTimeoutContinue = this.createReviveSettlementPanel();
+            }
+            return (!needsWin || !!this.panelWin?.isValid)
+                && (!needsLose || !!this.panelLose?.isValid)
+                && (!needsRevive || !!this.panelTimeoutContinue?.isValid);
         },
 
         instantiateResultOverlay(name: string): Node {

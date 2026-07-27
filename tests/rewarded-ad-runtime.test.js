@@ -170,12 +170,35 @@ async function testCompletedAdHasNoCompletionWatchdog() {
     assert.strictEqual(harness.activeTimers(60000).length, 0, 'a long WeChat ad must not fail at one minute');
     assert.strictEqual(harness.activeTimers(300000).length, 0, 'there must be no five-minute completion verdict');
     assert.strictEqual(harness.activeTimers(1800000).length, 0, 'there must be no thirty-minute completion verdict either');
+    assert.strictEqual(harness.activeTimers(45000).length, 0, 'ready expiry must clear before a native ad starts showing');
     assert.strictEqual(harness.activeTimers(10000).length, 0, 'show-establishment timer must clear once the ad is visible');
 
     harness.triggerClose({ isEnded: true });
     harness.triggerClose({ isEnded: true });
     assert.deepStrictEqual(events, ['show', 'close', 'result:verified_complete:1'], 'completed native close must settle exactly once');
     assert.strictEqual(harness.adInstances[0].destroyed, true, 'a settled attempt must release its native instance');
+}
+
+async function testUnusedReadyAdExpiresAndReloadsOnDemand() {
+    const harness = loadWechatProvider();
+    harness.provider.preload('post-playable-warmup');
+    await flushMicrotasks();
+
+    assert.deepStrictEqual(harness.adCalls, ['1:load']);
+    assert.strictEqual(harness.provider.getState().status, 'ready');
+    assert.strictEqual(harness.activeTimers(45000).length, 1, 'an unused ready native ad must have a bounded residency window');
+    harness.fireTimer(45000);
+    assert.strictEqual(harness.adInstances[0].destroyed, true, 'unused ready expiry must release the native ad instance');
+    assert.strictEqual(harness.provider.getState().status, 'idle');
+    assert.strictEqual(harness.provider.getState().reason, 'ready-expired:post-playable-warmup');
+
+    const results = [];
+    harness.provider.show((outcome) => results.push(outcome.status));
+    await flushMicrotasks();
+    assert.deepStrictEqual(harness.adCalls, ['1:load', '1:destroy', '2:load', '2:show']);
+    assert.strictEqual(harness.activeTimers(45000).length, 0, 'on-demand show must clear the replacement ready timer');
+    harness.triggerClose({ isEnded: true });
+    assert.deepStrictEqual(results, ['verified_complete'], 'reloading after unused expiry must preserve verified reward completion');
 }
 
 async function testUnresolvedShowEstablishmentRecoversWithoutReward() {
@@ -377,6 +400,7 @@ async function testThrowingCallerCannotLeaveProviderBusy() {
 
 async function main() {
     await testCompletedAdHasNoCompletionWatchdog();
+    await testUnusedReadyAdExpiresAndReloadsOnDemand();
     await testUnresolvedShowEstablishmentRecoversWithoutReward();
     await testCloseBeforeShowPromiseResolutionStillGrantsOnce();
     await testEarlyCloseStillFails();

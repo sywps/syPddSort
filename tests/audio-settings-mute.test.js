@@ -32,6 +32,10 @@ class MockNode {
         return component;
     }
 
+    getComponents(ComponentClass) {
+        return this.components.filter((component) => component instanceof ComponentClass);
+    }
+
     on(event, callback, target) {
         const listeners = this.listeners.get(event) || [];
         listeners.push({ callback, target });
@@ -64,6 +68,8 @@ class MockAudioSource {
         this.playCount = 0;
         this.stopCount = 0;
         this.pauseCount = 0;
+        this.destroyCount = 0;
+        this.destroyQueued = false;
     }
 
     play() {
@@ -81,6 +87,12 @@ class MockAudioSource {
         this.playing = false;
     }
 
+    destroy() {
+        this.destroyCount += 1;
+        this.stop();
+        this.destroyQueued = true;
+    }
+
     complete() {
         this.playing = false;
         this.node.emit(MockAudioSource.EventType.ENDED, this);
@@ -91,6 +103,7 @@ const storage = new Map();
 const scene = new MockNode('Scene');
 const audioMgrSource = read('assets/Scripts/Core/AudioMgr.ts');
 const settingsSource = read('assets/Scripts/Core/Panels/SettingsPanelController.ts');
+const gameplaySessionSource = read('assets/Scripts/Core/GameplaySessionController.ts');
 const compiledAudioMgr = ts.transpileModule(audioMgrSource, {
     compilerOptions: {
         module: ts.ModuleKind.CommonJS,
@@ -107,6 +120,7 @@ const ccMock = {
     AudioClip: class MockAudioClip {},
     AudioSource: MockAudioSource,
     Node: MockNode,
+    isValid: (value, strictMode = false) => !!value?.isValid && (!strictMode || !value.destroyQueued),
     sys: {
         isNative: false,
         localStorage: {
@@ -172,6 +186,49 @@ assert.strictEqual(audioMgr.sfxSources.length, 8, 'AudioMgr must create a bounde
 assert.ok(audioMgr.sfxSources.every((source) => source.playOnAwake === false), 'pooled SFX channels must never autoplay');
 assert.strictEqual(audioMgr.bgmSrc.playOnAwake, false, 'BGM source must remain explicitly manager-owned');
 
+const originalSources = [...audioMgr.sfxSources, audioMgr.bgmSrc];
+const staleUntrackedSource = audioMgr.audioRoot.addComponent(MockAudioSource);
+staleUntrackedSource.loop = true;
+staleUntrackedSource.play();
+audioMgr.sfxSources[0].isValid = false;
+audioMgr.init(host);
+assert.ok(
+    originalSources.every((source) => !ccMock.isValid(source, true)),
+    'reinitialization must invalidate every obsolete tracked AudioSource',
+);
+assert.strictEqual(ccMock.isValid(staleUntrackedSource, true), false, 'reinitialization must remove stale untracked AudioSources from PddAudioRoot');
+assert.strictEqual(staleUntrackedSource.playing, false, 'stale BGM-like playback must stop before replacement sources are created');
+assert.strictEqual(
+    audioMgr.audioRoot.getComponents(MockAudioSource).filter((source) => ccMock.isValid(source, true)).length,
+    9,
+    'PddAudioRoot must contain exactly eight live SFX sources and one live BGM source',
+);
+const sourceComponentCountBeforeSameFrameInit = audioMgr.audioRoot.getComponents(MockAudioSource).length;
+audioMgr.init(host);
+assert.strictEqual(
+    audioMgr.audioRoot.getComponents(MockAudioSource).length,
+    sourceComponentCountBeforeSameFrameInit,
+    'a second init in the destruction frame must not create another replacement generation',
+);
+
+const rogueLoopSource = audioMgr.audioRoot.addComponent(MockAudioSource);
+rogueLoopSource.loop = true;
+rogueLoopSource.clip = { _nativeAsset: { url: 'stale-bgm.mp3' } };
+rogueLoopSource.play();
+audioMgr.bgmClip = { _nativeAsset: { url: 'bgm.mp3' } };
+audioMgr.bgmLoadState = 'ready';
+audioMgr.playGameBgm();
+assert.strictEqual(rogueLoopSource.playing, false, 'starting BGM must stop any unexpected parallel loop source');
+assert.strictEqual(rogueLoopSource.loop, false, 'unexpected loop sources must not remain restartable');
+assert.strictEqual(
+    audioMgr.audioRoot.getComponents(MockAudioSource)
+        .filter((source) => ccMock.isValid(source, true) && source.loop && source.playing)
+        .length,
+    1,
+    'AudioMgr must leave exactly one playing loop source',
+);
+rogueLoopSource.destroy();
+
 const flyClip = { _nativeAsset: { url: 'fly.mp3' }, loadMode: 0 };
 audioMgr.sfxClips.set('fly', flyClip);
 for (let i = 0; i < 8; i++) audioMgr.play('fly');
@@ -221,5 +278,19 @@ assert.ok(
     'settings must apply the new state before optional button feedback',
 );
 assert.ok(!audioMgrSource.includes('.playOneShot('), 'AudioMgr must not use untracked one-shot playback');
+
+const audioInitIndex = gameplaySessionSource.indexOf('AudioMgr.inst.init(runtime.node);');
+const criticalButtonPreloadIndex = gameplaySessionSource.indexOf("AudioMgr.inst.preload('button');", audioInitIndex);
+const optionalWarmupGateIndex = gameplaySessionSource.indexOf('const bootstrapOnlyGameplayStartup', audioInitIndex);
+assert.ok(audioInitIndex >= 0, 'gameplay startup must initialize AudioMgr');
+assert.ok(
+    criticalButtonPreloadIndex > audioInitIndex && criticalButtonPreloadIndex < optionalWarmupGateIndex,
+    'the critical button cue must start preloading immediately after AudioMgr init and before optional gameplay warmup gates',
+);
+assert.strictEqual(
+    (gameplaySessionSource.match(/AudioMgr\.inst\.playGameBgm\(\);/g) || []).length,
+    1,
+    'gameplay startup must have one authoritative BGM start after UI readiness',
+);
 
 console.log('audio-settings-mute.test.js passed');
