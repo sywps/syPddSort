@@ -395,6 +395,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
+            this.beginSmartIdleHintInputActivity?.();
             const firstTouchUiPos = event.getUILocation();
             const firstTouchWorldPos = new Vec3(firstTouchUiPos.x, firstTouchUiPos.y, 0);
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
@@ -516,19 +517,23 @@ export function installBoardInputViewportModule(target: any): void {
         },
 
         onTouchEnd(event: EventTouch) {
-            if (this.isGameEnd) { this.resetTouchState(); return; }
-            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) { this.resetTouchState(); return; }
-            if (this._skillActive && !this._wandMode) { this.resetTouchState(); return; }
+            const finishTouch = () => {
+                this.resetTouchState();
+                this.endSmartIdleHintInputActivity?.();
+            };
+            if (this.isGameEnd) { finishTouch(); return; }
+            if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) { finishTouch(); return; }
+            if (this._skillActive && !this._wandMode) { finishTouch(); return; }
             if (this._wandMode && this._wandRectNode) {
                 // 如果魔方框没有被移动过，提醒用户先移动
                 if (Vec3.equals(this._wandRectNode.position, Vec3.ZERO)) {
                     this.showToast('拖动魔方框到目标位置，松手生效', 2);
-                    this.resetTouchState();
+                    finishTouch();
                     return;
                 }
                 this.executeWandAtCurrentPos();
                 this.cleanupWandMode();
-                this.resetTouchState();
+                finishTouch();
                 return;
             }
             // 缩放提示不阻断游戏：手势可关闭提示，普通点击关闭提示后继续执行本次点击。
@@ -536,12 +541,15 @@ export function installBoardInputViewportModule(target: any): void {
                 const touchCount = this.updateActiveBoardTouches(event, true);
                 if (this.gestureMode === 'pinching') {
                     this.transitionFromPinchToRemainingTouch();
+                    if (this.activeBoardTouches.size === 0) {
+                        this.endSmartIdleHintInputActivity?.();
+                    }
                     return;
                 }
                 if (this.suppressTap || this.totalMoveDistance > (this.constructor as any).DRAG_THRESHOLD) {
                     this.dismissZoomHint?.('board_gesture');
                     if (touchCount > 0) return;
-                    this.resetTouchState();
+                    finishTouch();
                     return;
                 }
                 if (this.gestureMode === 'tapCandidate') {
@@ -555,17 +563,20 @@ export function installBoardInputViewportModule(target: any): void {
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     this.handleGuideTap(worldPos);
                 }
-                this.resetTouchState();
+                finishTouch();
                 return;
             }
             const touchCount = this.updateActiveBoardTouches(event, true);
             if (this.gestureMode === 'pinching') {
                 this.transitionFromPinchToRemainingTouch();
+                if (this.activeBoardTouches.size === 0) {
+                    this.endSmartIdleHintInputActivity?.();
+                }
                 return;
             }
             if (this.suppressTap || this.totalMoveDistance > (this.constructor as any).DRAG_THRESHOLD) {
                 if (touchCount > 0) return;
-                this.resetTouchState();
+                finishTouch();
                 return;
             }
             if (this.gestureMode === 'tapCandidate' && !this.suppressTap) {
@@ -577,12 +588,16 @@ export function installBoardInputViewportModule(target: any): void {
                     }
                 } else {
                     // 重叠区域优先：先检测暂存槽区域，再检测棋盘区域
-                    if (!this.trySelectSlot(worldPos) && !this.isWorldPosInSlotIntentArea(worldPos)) {
-                        this.trySelectBoard(worldPos);
+                    let handled = this.trySelectSlot(worldPos);
+                    if (!handled && !this.isWorldPosInSlotIntentArea(worldPos)) {
+                        handled = this.trySelectBoard(worldPos);
+                    }
+                    if (!handled) {
+                        this.playReturnFeedback(worldPos);
                     }
                 }
             }
-            this.resetTouchState();
+            finishTouch();
         },
 
         resetTouchState() {
@@ -597,6 +612,7 @@ export function installBoardInputViewportModule(target: any): void {
 
         onTouchCancel(_event: EventTouch) {
             this.resetTouchState();
+            this.endSmartIdleHintInputActivity?.();
         },
 
         /** PC 端滚轮缩放棋盘 */
@@ -608,6 +624,7 @@ export function installBoardInputViewportModule(target: any): void {
 
             const scrollY = event.getScrollY();
             if (scrollY === 0) return;
+            this.beginSmartIdleHintInputActivity?.();
 
             const currentScale = this.boardViewScale || this.boardGroup.scale.x;
             // 滚轮向上（scrollY > 0）放大，向下缩小
@@ -628,6 +645,7 @@ export function installBoardInputViewportModule(target: any): void {
                 );
             const anchorLocal = this.uiToBoardLocal(anchorUi) || new Vec2(0, 0);
             this.zoomBoardViewportAround(anchorUi, anchorLocal, newScale);
+            this.endSmartIdleHintInputActivity?.();
         },
 
         /** 限制棋盘组位置，保证不与暂存槽重叠 */
@@ -1005,7 +1023,7 @@ export function installBoardInputViewportModule(target: any): void {
         
             const boardTarget = this.getBoardPlaceTargetFromWorldPos(worldPos, block.colorId, fromSlot);
             if (boardTarget && !slotIntentHit) {
-                return this.placeCurrentBlockOnBoard(boardTarget);
+                return this.placeCurrentBlockOnBoard(boardTarget, worldPos);
             }
         
             // 暂存槽优先：重叠区域优先检查暂存槽
@@ -1032,9 +1050,8 @@ export function installBoardInputViewportModule(target: any): void {
                             this.selectSlotBlockByIndex(slotIntent.candidate.slotIndex);
                             return true;
                         }
-                        // 同色且来自暂存槽 → 取消选中
-                        this.playReturnFeedback();
-                        this.cancelSelection();
+                        // 重复点击已选中的同色槽位只反馈，不丢失当前选择。
+                        this.playReturnFeedback(worldPos);
                         return true;
                     }
                 }
@@ -1050,8 +1067,7 @@ export function installBoardInputViewportModule(target: any): void {
                     block.cells.some((selectedCell) => selectedCell.row === cell.row && selectedCell.col === cell.col)
                 );
                 if (isSameBlock) {
-                    this.playReturnFeedback();
-                    this.cancelSelection();
+                    this.playReturnFeedback(worldPos);
                     return true;
                 }
                 this.cancelSelection();
@@ -1060,7 +1076,7 @@ export function installBoardInputViewportModule(target: any): void {
             }
 
             if (fromSlot && !this.isWorldPosInSlotIntentArea(worldPos) && this.isWorldPosNearBoardPlaceArea(worldPos, true)) {
-                this.playReturnFeedback();
+                this.playReturnFeedback(worldPos);
                 return true;
             }
         
@@ -1245,7 +1261,10 @@ export function installBoardInputViewportModule(target: any): void {
             return this.boardLocalToGrid(localPos, tolerance) !== null;
         },
 
-        placeCurrentBlockOnBoard(target: { row: number; col: number }): boolean {
+        placeCurrentBlockOnBoard(
+            target: { row: number; col: number },
+            feedbackWorldPos?: Vec3,
+        ): boolean {
             const block = this.currentBlock!;
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
                 this._firstFunnelPlaceAttemptSent = true;
@@ -1277,8 +1296,7 @@ export function installBoardInputViewportModule(target: any): void {
                 } else {
                     this.restoreBlockToSlots(selectedSlotSnapshot);
                 }
-                this.playReturnFeedback();
-                this.finishPlace();
+                this.playReturnFeedback(feedbackWorldPos);
                 return true;
             }
             if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {

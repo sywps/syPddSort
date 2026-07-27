@@ -146,6 +146,9 @@ export class GameplaySessionController {
             runtime._pendingColorCompleteEffects = new Map();
             runtime._patternCompleteWinPending = false;
             runtime._smartIdleHintShownCount = 0;
+            runtime._smartIdleHintEpisodeCycle = 0;
+            runtime._smartIdleHintInputActive = false;
+            runtime._gameplayInvalidTapFeedbackToken = (Number(runtime._gameplayInvalidTapFeedbackToken) || 0) + 1;
             runtime.clearPatternCompleteMatchFx?.();
             runtime.clearFreezeSpineFx?.();
             initStage = 'runtime_cleanup';
@@ -498,6 +501,9 @@ export class GameplaySessionController {
         runtime._smartIdleHintActive = false;
         runtime._smartIdleHintPlan = null;
         runtime._smartIdleHintShownCount = 0;
+        runtime._smartIdleHintEpisodeCycle = 0;
+        runtime._smartIdleHintInputActive = false;
+        runtime._gameplayInvalidTapFeedbackToken = (Number(runtime._gameplayInvalidTapFeedbackToken) || 0) + 1;
         runtime._guideZoomStartScale = 1;
         runtime._guideZoomLastScale = 1;
         runtime._guideZoomAccumulatedScaleDelta = 0;

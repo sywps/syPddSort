@@ -135,8 +135,9 @@ assert.ok(wxCloudMgr.includes('getEnterOptionsSync?.() || wx?.getLaunchOptionsSy
 const tutorialGuide = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 assert.ok(!tutorialGuide.toLowerCase().includes('experiment'), 'starter guide must not be gated by experiment assignment');
 assert.ok(!tutorialGuide.includes('handleTutorialRelaxedTap'), 'old treatment-only relaxed tap handler must be removed');
-assert.ok(!tutorialGuide.includes('handleStarterTutorialAutoCorrectTap'), 'starter guide must not auto-correct arbitrary taps into the prescribed action');
-assert.ok(!tutorialGuide.includes('isStarterTutorialAutoCorrectMode'), 'starter guide must not retain an auto-correct mode gate');
+assert.ok(tutorialGuide.includes('handleStarterTutorialAutoCorrectTap'), 'starter guide must auto-correct arbitrary taps into the prescribed action');
+assert.ok(tutorialGuide.includes('isStarterTutorialAutoCorrectMode'), 'starter guide must scope auto-correction to its two mandatory modes');
+assert.ok(tutorialGuide.includes("return this._guideMode === 'level_1' || this._guideMode === 'level_2';"), 'auto-correction must cover both level 1 and level 2');
 assert.ok(!tutorialGuide.includes('TutorialSkipGuidePrompt'), 'retired tutorial skip prompt runtime code must be removed');
 assert.ok(!tutorialGuide.includes('tutorial_skip_prompt'), 'retired tutorial skip prompt tracking must be removed');
 assert.ok(!tutorialGuide.includes('tutorial_skip_guide'), 'retired tutorial skip prompt click tracking must be removed');
@@ -166,6 +167,8 @@ const guideLeaderboard = read('assets/Scripts/Core/GameCtrlModules/GuideLeaderbo
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 const tutorialGuideModule = read('assets/Scripts/Core/GameCtrlModules/TutorialGuideModule.ts');
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
+const gameplayPlacementFx = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
+const playerMetaState = read('assets/Scripts/Core/GameCtrlModules/PlayerMetaStateModule.ts');
 assert.ok(session.includes('getFrontLevelExperimentAnalyticsContext'), 'mainline level analytics must attach level experiment context');
 assert.ok(session.includes("gameplayEntryMode === 'main'"), 'experiment analytics must only be attached to mainline gameplay');
 assert.ok(session.includes('this.resolveTutorialMode(data)'), 'tutorial routing must be driven by the loaded level data');
@@ -204,13 +207,50 @@ assert.ok(
 );
 assert.ok(
     settlementHud.includes("if (this._guideMode !== 'zoom')")
-        && settlementHud.includes('const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 2;')
+        && settlementHud.includes('const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 4;')
         && settlementHud.includes('const SMART_IDLE_HINT_SLOW_DELAY_SECONDS = 5;')
         && settlementHud.includes('const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;')
         && settlementHud.includes('const SMART_IDLE_HINT_MAX_LEVEL_ID = 10;')
         && settlementHud.includes('const LATER_LEVEL_IDLE_HINT_SHOW_LIMIT = 1;')
+        && settlementHud.includes('const SMART_IDLE_HINT_MAX_CYCLES_PER_EPISODE = 2;')
+        && settlementHud.includes('const SMART_IDLE_HINT_REPEAT_DELAY_SECONDS = 4;')
         && settlementHud.includes('this._smartIdleHintShownCount = Math.max('),
-    'zoom must skip dim rendering; level 3 uses five fast hints and levels 4 through 10 use one slow hint',
+    'zoom must skip dim rendering; level 3 uses bounded four-second episodes and levels 4 through 10 use one slow hint',
+);
+assert.ok(
+    settlementHud.includes('startSmartIdleHintTapSequence(')
+        && !settlementHud.includes('startSmartIdleHintHandPath(')
+        && !settlementHud.includes('.repeatForever(')
+        && settlementHud.includes('destinationOnly: true')
+        && settlementHud.includes('.call(hideWhileRunning)')
+        && settlementHud.includes('const finishHidden = () =>')
+        && settlementHud.includes('endpoints.sourceHandVisible !== false')
+        && settlementHud.includes('showSourceHand: boolean = true'),
+    'smart idle hints must use destination-only selected plans and hide the hand between one-way discrete taps',
+);
+assert.ok(
+    settlementHud.includes('this.resolveBoardTapBlock?.(world, false)')
+        && settlementHud.includes('this.getBoardPlaceTargetFromWorldPos?.(world, colorId, fromSlot)')
+        && settlementHud.includes('fixedRoot?.getComponentsInChildren?.(Button)')
+        && settlementHud.includes('const halfHand = GUIDE_HAND_BOX_SIZE / 2;')
+        && settlementHud.includes("this.getGameplayBottomHudChild?.('SkillArea')")
+        && settlementHud.includes('this.doesSmartIdleHintHandOverlapFixedNode?.(target, node)')
+        && settlementHud.includes('this.isSmartIdleHintPointCoveredByHud?.(target)')
+        && settlementHud.includes('blockers.indexOf(node) === index')
+        && settlementHud.includes('this.resolveSlotTapIntent?.(world, flow)'),
+    'smart hint endpoints must pass real board/slot routing and fixed-HUD button exclusion',
+);
+assert.ok(
+    boardInput.includes('this.beginSmartIdleHintInputActivity?.();')
+        && boardInput.includes('this.endSmartIdleHintInputActivity?.();'),
+    'touch, pan, and pinch lifecycles must interrupt and rearm smart hints',
+);
+assert.ok(
+    boardInput.includes("if (isSameBlock) {\n                    this.playReturnFeedback(worldPos);\n                    return true;")
+        && boardInput.includes("this.playReturnFeedback(worldPos);\n                        return true;")
+        && gameplayPlacementFx.includes("if (block.source === 'slot') {\n                        this.playReturnFeedback(worldPos);\n                        return;")
+        && playerMetaState.includes('this.showGameplayInvalidTapFeedback?.(worldPos);'),
+    'invalid repeat taps must show feedback while preserving the current selection',
 );
 assert.ok(
     tutorialGuideModule.includes('const block = this.findBlockOnBoard?.(colorId);')
@@ -271,23 +311,23 @@ assert.ok(!sceneRuntime.includes('syncTutorialSkipGuidePrompt'), 'retired tutori
 
 const level1GuideCopies = [
     '点击【红色豆豆】',
-    '放到【空插槽】',
+    '再点【空插槽】',
     '点击【蓝色豆豆】',
-    '放回【蓝色空位】',
+    '再点【蓝色空位】',
     '点击【槽内红豆】',
-    '放回【红色空位】',
+    '再点【红色空位】',
 ];
 const level2GuideCopies = [
     '点击【解锁按钮】',
     '点击【高亮豆子】',
-    '放到【空插槽】',
+    '再点【空插槽】',
     '点击【另一组豆子】',
-    '放回【对应空位】',
+    '再点【对应空位】',
     '点击【槽内豆子】',
-    '放回【最后空位】',
+    '再点【最后空位】',
 ];
 const level3ZoomCopies = [
-    '双指【缩放图案】',
+    '双指【缩放】',
 ];
 for (const copy of [...level1GuideCopies, ...level2GuideCopies, ...level3ZoomCopies]) {
     assert.ok(!/[上下]方/.test(copy), `the first three tutorial levels must avoid ambiguous direction copy: ${copy}`);
@@ -350,12 +390,12 @@ assert.strictEqual(unplacedContainsFilledRectangle('assets/LevelData/level_2.jso
 assert.strictEqual(unplacedContainsFilledRectangle('assets/LevelData/level_2.json', 20, 2, 8), true, 'the white tutorial block must contain a filled 2x8 area');
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_3.json'), {
-    defaultRows: 1,
+    defaultRows: 2,
     freeUnlockRows: 0,
-    adUnlockRows: 3,
-}, 'stable level 3 must use the V3 one-row start and expose three progressive rewarded unlock rows');
+    adUnlockRows: 2,
+}, 'stable level 3 must start with two rows and expose two progressive rewarded unlock rows');
 assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').mode, 'zoom', 'stable level 3 must declare the optional zoom hint');
-assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').subtitle, '也可以直接开始游戏', 'level 3 zoom copy must explicitly permit direct play');
+assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').subtitle, '点豆→空位（不用拖）', 'level 3 zoom copy must explain the two-tap alternative without implying drag');
 assert.deepStrictEqual(readTutorialGuide('assets/LevelData/level_3.json').guideCopies, level3ZoomCopies, 'stable level 3 zoom hint must remain one-step and non-blocking');
 assert.deepStrictEqual(
     [level3Data.levelId, level3Data.boardWidth, level3Data.boardHeight, level3Data.timeLimit, level3Data.slotTotalCount],

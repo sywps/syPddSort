@@ -325,11 +325,9 @@ export function installGameplayPlacementFxModule(target: any): void {
                         }
                         return;
                     }
-                    // 如果豆豆来自暂存槽且放回暂存区，直接取消
+                    // 如果豆豆来自暂存槽且又点暂存区，只反馈并保持当前选择。
                     if (block.source === 'slot') {
-                        this.playReturnFeedback();
-                        if (this._guideStep >= 0) return; // 引导期间不取消选中
-                        this.cancelSelection();
+                        this.playReturnFeedback(worldPos);
                         return;
                     }
                     // 先捕获源世界坐标
@@ -379,7 +377,7 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.checkSlotAddReminderAfterSlotChanged?.('first-full');
                         this.startFlyToSlots(block.colorId, sources.slice(0, storedSlotIdxs.length), storedSlotIdxs, block.cells, remainingSelection);
                     } else {
-                        this.playReturnFeedback();
+                        this.playReturnFeedback(worldPos);
                         if (this.slotModel && !this.slotModel.hasEmptySlot?.()) {
                             this.triggerSlotAddReminder?.('full-place-attempt');
                         }
@@ -391,12 +389,12 @@ export function installGameplayPlacementFxModule(target: any): void {
             // 尝试放到棋盘
             const target = this.getBoardPlaceTargetFromWorldPos(worldPos, block.colorId);
             if (target) {
-                this.placeCurrentBlockOnBoard(target);
+                this.placeCurrentBlockOnBoard(target, worldPos);
                 return;
             }
         
-            // 点了其他地方：保持选中状态，播放提示音
-            this.playReturnFeedback();
+            // 点了其他地方：保持选中状态，显示无效触点和安全目的地。
+            this.playReturnFeedback(worldPos);
         },
 
         /** 取得选中块的各豆源世界坐标（用于飞行起点） */

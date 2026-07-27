@@ -2,6 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { spawnSync } = require('child_process');
+const ts = require('typescript');
 
 const projectRoot = path.resolve(__dirname, '..');
 const wrapperPath = path.join(projectRoot, 'sdk', 'sysdk-wxapp.js');
@@ -30,6 +32,8 @@ function createRuntime(options = {}) {
             assert.strictEqual(sdkConfig.user_action_set_id, config.DN_DATA_SOURCE_ID);
             assert.strictEqual(sdkConfig.secret_key, config.DN_SECRET_KEY);
             assert.strictEqual(sdkConfig.appid, config.APP_ID);
+            assert.strictEqual(typeof sdkConfig.on_report_complete, 'function');
+            assert.strictEqual(typeof sdkConfig.on_report_fail, 'function');
         }
         getInitResult() { return { inited: true, initErrMsg: '' }; }
         setOpenId(openid) { events.push('sdk:setOpenId:' + openid); return { code: 0 }; }
@@ -38,6 +42,9 @@ function createRuntime(options = {}) {
     }
 
     const wx = {
+        createCanvas() {
+            return {};
+        },
         getSystemInfoSync() {
             return {
                 platform: options.platform || 'ios',
@@ -104,7 +111,109 @@ function createRuntime(options = {}) {
     return { sandbox, events, errors, instances };
 }
 
+function loadSySdkManager(sygame) {
+    const source = fs.readFileSync(
+        path.join(projectRoot, 'assets', 'Scripts', 'Core', 'SySDKMgr.ts'),
+        'utf8',
+    );
+    const output = ts.transpileModule(source, {
+        compilerOptions: {
+            module: ts.ModuleKind.CommonJS,
+            target: ts.ScriptTarget.ES2020,
+        },
+    }).outputText;
+    const module = { exports: {} };
+    const sandbox = {
+        module,
+        exports: module.exports,
+        Sygame: sygame,
+        wx: {
+            getLaunchOptionsSync() {
+                return { query: {}, scene: 1001 };
+            },
+        },
+        location: { hostname: '' },
+        require(request) {
+            if (request === './RuntimeLog') return { runtimeLog() {} };
+            throw new Error('unexpected manager require: ' + request);
+        },
+        console: { log() {}, warn() {}, error() {} },
+        Promise,
+        setTimeout,
+        clearTimeout,
+    };
+    vm.runInNewContext(output, sandbox, { filename: 'SySDKMgr.ts' });
+    return module.exports.default.inst;
+}
+
+async function testManagerLoginLifecycle() {
+    let calls = 0;
+    const successfulSdk = {
+        isOpenWxCallback: false,
+        init() {},
+        syLogin() {
+            calls += 1;
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    successfulSdk.isOpenWxCallback = true;
+                    resolve();
+                }, 5);
+            });
+        },
+    };
+    const successfulManager = loadSySdkManager(successfulSdk);
+    successfulManager.init();
+    const first = successfulManager.login();
+    const second = successfulManager.login();
+    assert.strictEqual(first, second, 'concurrent startup callers must share one login promise');
+    assert.strictEqual(await first, true);
+    assert.strictEqual(calls, 1, 'shared login must call the backend once');
+
+    let retryCalls = 0;
+    const retrySdk = {
+        isOpenWxCallback: false,
+        init() {},
+        syLogin() {
+            retryCalls += 1;
+            if (retryCalls === 1) {
+                const error = new Error('mock backend failure');
+                error.stage = 'backend_request_failed';
+                return Promise.reject(error);
+            }
+            retrySdk.isOpenWxCallback = true;
+            return Promise.resolve();
+        },
+    };
+    const retryManager = loadSySdkManager(retrySdk);
+    retryManager.init();
+    assert.strictEqual(await retryManager.login(), true, 'explicit login failure should retry once');
+    assert.strictEqual(retryCalls, 2);
+
+    let unresolvedIdentityCalls = 0;
+    const unresolvedIdentitySdk = {
+        isOpenWxCallback: false,
+        init() {},
+        syLogin() {
+            unresolvedIdentityCalls += 1;
+            return Promise.resolve();
+        },
+    };
+    const unresolvedManager = loadSySdkManager(unresolvedIdentitySdk);
+    unresolvedManager.init();
+    assert.strictEqual(
+        await unresolvedManager.login(),
+        false,
+        'resolved business login without bound identity must not be reported ready',
+    );
+    assert.strictEqual(unresolvedIdentityCalls, 1, 'resolved package/business state must not duplicate UI through retry');
+}
+
 async function main() {
+    assert.strictEqual(
+        config.SY_PACKAGE_GUIDE_ENABLED,
+        false,
+        'release package guide policy must be fixed off in local config',
+    );
     const runtime = createRuntime();
     assert.deepStrictEqual(runtime.events, ['sdk:construct'], 'SDK must initialize during wrapper evaluation');
     await runtime.sandbox.Sygame.syLogin();
@@ -116,11 +225,68 @@ async function main() {
 
     const mismatchRuntime = createRuntime({ callbackSecret: '0'.repeat(32) });
     await mismatchRuntime.sandbox.Sygame.syLogin();
-    assert.ok(!mismatchRuntime.events.some((event) => event.startsWith('sdk:setOpenId:')), 'mismatched backend config must stop DN reporting');
-    assert.ok(mismatchRuntime.errors.some((message) => message.includes('配置与本地应用配置不一致')), 'mismatched config must fail explicitly');
+    assert.ok(
+        mismatchRuntime.events.some((event) => event.startsWith('sdk:setOpenId:')),
+        'backend callback metadata must not block mandatory OpenID binding',
+    );
 
     const devtoolsRuntime = createRuntime({ platform: 'devtools' });
-    assert.strictEqual(devtoolsRuntime.instances.length, 0, 'DevTools preview must keep the existing external-SDK skip');
+    assert.strictEqual(devtoolsRuntime.instances.length, 1, 'WeChat DevTools must initialize the real SDK');
+
+    const helperPath = path.join(__dirname, 'helpers', 'dn-sdk-runtime-scenario.js');
+    const scenarios = [
+        'success',
+        'callback-off',
+        'callback-mismatch',
+        'devtools',
+        'backend-fail',
+        'wx-login-fail',
+        'missing-openid',
+        'package-cancel',
+        'package-mandatory',
+        'package-missing-openid',
+        'maintenance',
+        'package-modal-throw',
+        'jump-version',
+        'identity-throws',
+        'post-login-throw',
+        'report-fail',
+        'code-51000',
+    ];
+    for (const scenario of scenarios) {
+        const result = spawnSync(process.execPath, [helperPath, scenario], {
+            cwd: projectRoot,
+            encoding: 'utf8',
+            timeout: 10000,
+        });
+        assert.strictEqual(
+            result.status,
+            0,
+            `real SDK scenario "${scenario}" failed:\n${result.stdout}\n${result.stderr}`,
+        );
+    }
+
+    const managerSource = fs.readFileSync(
+        path.join(projectRoot, 'assets', 'Scripts', 'Core', 'SySDKMgr.ts'),
+        'utf8',
+    );
+    const adFlowSource = fs.readFileSync(
+        path.join(projectRoot, 'assets', 'Scripts', 'Core', 'GameCtrlModules', 'HomeAdFlowModule.ts'),
+        'utf8',
+    );
+    assert.ok(managerSource.includes('s.syIaaAdTrack(4, {position: pos})'), 'native visible state must map to AD_IMPRESSION');
+    assert.ok(!managerSource.includes('reportAdClick('), 'manager must not expose a game-CTA-as-native-click helper');
+    assert.ok(!adFlowSource.includes('SySDKMgr.inst.reportAdClick(page)'), 'game CTA must not report a DN ad click');
+    assert.ok(wrapperSource.includes('on_report_complete: handleDnReportOutcome'));
+    assert.ok(wrapperSource.includes('on_report_fail: handleDnReportOutcome'));
+    assert.ok(wrapperSource.includes('const SY_PACKAGE_GUIDE_ENABLED = SY_CONF.SY_PACKAGE_GUIDE_ENABLED === true;'));
+    assert.ok(wrapperSource.includes('Sygame.jumpVersion = SY_PACKAGE_GUIDE_ENABLED ? responseData.jump_version : 0;'));
+    assert.ok(wrapperSource.includes("createSyPackageGuideBlockedResult('syPackageJump')"));
+    assert.ok(wrapperSource.includes("createSyPackageGuideBlockedResult('syPackageShow')"));
+    assert.ok(wrapperSource.includes("createSyPackageGuideBlockedResult('syDealJumpData')"));
+    assert.ok(!wrapperSource.includes("platform || '').toLowerCase() === 'devtools'"));
+    assert.ok(!wrapperSource.includes('callbackData.dataSecretKey'));
+    await testManagerLoginLifecycle();
 
     console.log('dn-sdk-integration.test.js: PASS');
 }

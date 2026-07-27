@@ -360,7 +360,6 @@ export function installHomeAdFlowModule(target: any): void {
                 this.resumeTimerAfterAd();
             };
             AnalyticsMgr.inst.trackAdClick(adType, page, levelId);
-            SySDKMgr.inst.reportAdClick(page);
             this.suspendTimerForAd();
             AudioMgr.inst.beginExternalInterruption(adAudioReason);
             try {

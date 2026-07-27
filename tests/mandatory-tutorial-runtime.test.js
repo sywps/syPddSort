@@ -54,8 +54,46 @@ function loadSettlementInstaller() {
             target: ts.ScriptTarget.ES2020,
         },
     }).outputText;
+    class SettlementVec3Stub {
+        constructor(x = 0, y = 0, z = 0) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+    }
+    const tweenStub = (target) => {
+        const actions = [];
+        const chain = {
+            call(handler) {
+                actions.push({ type: 'call', handler });
+                return chain;
+            },
+            delay() {
+                actions.push({ type: 'delay' });
+                return chain;
+            },
+            to(_seconds, properties) {
+                actions.push({ type: 'to', properties });
+                return chain;
+            },
+            start() {
+                for (const action of actions) {
+                    if (Object.prototype.hasOwnProperty.call(target, 'active') && target.active === false) {
+                        break;
+                    }
+                    if (action.type === 'call') action.handler();
+                    if (action.type === 'to') Object.assign(target, action.properties);
+                }
+                return chain;
+            },
+        };
+        return chain;
+    };
     const shared = new Proxy({
         Tween: { stopAllByTarget() {} },
+        UIOpacity: class UIOpacityStub {},
+        Vec3: SettlementVec3Stub,
+        tween: tweenStub,
     }, {
         get(target, key) {
             if (key in target) return target[key];
@@ -114,6 +152,80 @@ function createTapRuntime(overrides = {}) {
     return runtime;
 }
 
+function createAutoCorrectRuntime(overrides = {}) {
+    return createTapRuntime({
+        _guideStatus: 'awaiting_action',
+        findBlockOnBoard(colorId) {
+            const cellCount = this._guideMode === 'level_2' && colorId === this._guideFirstColorId ? 48 : 1;
+            return {
+                colorId,
+                source: 'board',
+                cells: Array.from({ length: cellCount }, (_, index) => ({ row: colorId, col: index })),
+            };
+        },
+        getLevel2GuideBoardTargetCell(step) {
+            const colorId = step === 3 || step === 4 ? this._guideSecondColorId : this._guideFirstColorId;
+            return { row: colorId, col: step };
+        },
+        getGuideEmptyTargetCellsForPrompt(colorId) {
+            return [{ row: colorId, col: 99 }];
+        },
+        getBoardCellWorldPosition(row, col) {
+            return { x: row, y: col, z: 0 };
+        },
+        trySelectBoard(worldPos) {
+            const block = this.findBlockOnBoard(worldPos.x);
+            if (!block) return false;
+            this.currentBlock = block;
+            return true;
+        },
+        slotModel: {
+            getAll: () => [{ colorId: 10, source: 'slot', cells: [{ row: 0, col: 0 }] }],
+            getBlock: (index) => index === 0
+                ? { colorId: 10, source: 'slot', cells: [{ row: 0, col: 0 }] }
+                : null,
+        },
+        slotNodes: [{
+            isValid: true,
+            getComponent: () => ({
+                convertToWorldSpaceAR: () => ({ x: 10, y: 0, z: 0 }),
+            }),
+        }],
+        trySelectSlot(worldPos) {
+            this.currentBlock = {
+                colorId: worldPos.x,
+                source: 'slot',
+                cells: [{ row: 0, col: 0 }],
+            };
+            return true;
+        },
+        isWorldPosNearGuideCells: () => false,
+        isGuidePlaceTargetHit: () => false,
+        isSlotUnlockTargetHit: () => false,
+        resolveSlotTapIntent: () => ({ kind: 'miss', candidate: null }),
+        classifyFirstLevelTouchTarget: () => 'empty',
+        showGuideTapFeedback(worldPos, state) {
+            this.tapFeedbacks = this.tapFeedbacks || [];
+            this.tapFeedbacks.push({ worldPos, state });
+        },
+        showGuideTargetFeedback() {
+            this.targetReinforces = (this.targetReinforces || 0) + 1;
+        },
+        reportTutorialTapResult(worldPos, result, success, inputLayer, extra) {
+            this.tapResults = this.tapResults || [];
+            this.tapResults.push({ worldPos, result, success, inputLayer, extra });
+        },
+        executeGuideSlotUnlock() {
+            this.unlockCount = (this.unlockCount || 0) + 1;
+        },
+        executeGuidePlacement(...args) {
+            this.placements = this.placements || [];
+            this.placements.push(args);
+        },
+        ...overrides,
+    });
+}
+
 {
     const hand = {
         isValid: true,
@@ -159,11 +271,84 @@ function createTapRuntime(overrides = {}) {
 }
 
 {
-    const runtime = createTapRuntime();
-    runtime.handleGuideTap({ x: 0, y: 0, z: 0 });
-    assert.strictEqual(runtime.advanceCount || 0, 0, 'a wrong level 1 tap must not advance');
-    assert.strictEqual(runtime.currentBlock, null, 'a wrong level 1 tap must not mutate selection');
-    assert.strictEqual(runtime.wrongHints, 1, 'a wrong level 1 tap should keep the step and show guidance');
+    const cases = [
+        { name: 'L1 first board select', mode: 'level_1', total: 6, step: 0, phase: 'select', action: 'select', colorId: 10, source: 'board' },
+        { name: 'L1 slot placement', mode: 'level_1', total: 6, step: 1, phase: 'place', action: 'place-slot', colorId: 10, source: 'board' },
+        { name: 'L1 second board select', mode: 'level_1', total: 6, step: 2, phase: 'select', action: 'select', colorId: 13, source: 'board' },
+        { name: 'L1 second board placement', mode: 'level_1', total: 6, step: 3, phase: 'place', action: 'place-board', colorId: 13, source: 'board' },
+        { name: 'L1 buffered slot select', mode: 'level_1', total: 6, step: 4, phase: 'select', action: 'select', colorId: 10, source: 'slot' },
+        { name: 'L1 buffered board placement', mode: 'level_1', total: 6, step: 5, phase: 'place', action: 'place-board', colorId: 10, source: 'slot' },
+        { name: 'L2 slot unlock', mode: 'level_2', total: 7, step: 0, phase: 'unlock', action: 'unlock' },
+        { name: 'L2 first board select', mode: 'level_2', total: 7, step: 1, phase: 'select', action: 'select', colorId: 10, source: 'board' },
+        { name: 'L2 slot placement', mode: 'level_2', total: 7, step: 2, phase: 'place', action: 'place-slot', colorId: 10, source: 'board' },
+        { name: 'L2 second board select', mode: 'level_2', total: 7, step: 3, phase: 'select', action: 'select', colorId: 20, source: 'board' },
+        { name: 'L2 second board placement', mode: 'level_2', total: 7, step: 4, phase: 'place', action: 'place-board', colorId: 20, source: 'board' },
+        { name: 'L2 buffered slot select', mode: 'level_2', total: 7, step: 5, phase: 'select', action: 'select', colorId: 10, source: 'slot' },
+        { name: 'L2 buffered board placement', mode: 'level_2', total: 7, step: 6, phase: 'place', action: 'place-board', colorId: 10, source: 'slot' },
+    ];
+    for (const testCase of cases) {
+        const currentBlock = testCase.phase === 'place'
+            ? { colorId: testCase.colorId, source: testCase.source, cells: [{ row: 0, col: 0 }] }
+            : null;
+        const runtime = createAutoCorrectRuntime({
+            _guideMode: testCase.mode,
+            _guideTotalSteps: testCase.total,
+            _guideStep: testCase.step,
+            _guidePhase: testCase.phase,
+            _guideSecondColorId: testCase.mode === 'level_2' ? 20 : 13,
+            currentBlock,
+        });
+        runtime.handleGuideTap({ x: -999, y: -999, z: 0 });
+        assert.strictEqual(runtime.tapResults.length, 1, `${testCase.name} must report one tap result`);
+        assert.strictEqual(runtime.tapResults[0].result, 'auto_correct_success', `${testCase.name} must report auto-correction`);
+        assert.strictEqual(runtime.tapResults[0].success, true, `${testCase.name} must be successful`);
+        assert.strictEqual(runtime.tapResults[0].extra.rawHitResult, 'miss_empty', `${testCase.name} must preserve the raw miss`);
+        assert.strictEqual(runtime.tapResults[0].extra.autoCorrected, true, `${testCase.name} must identify the off-target correction`);
+        assert.strictEqual(runtime.tapResults[0].extra.rawTargetHit, false, `${testCase.name} must preserve that the raw target missed`);
+        assert.strictEqual(runtime.tapFeedbacks[0].state, 'wrong', `${testCase.name} must visibly acknowledge the wrong raw touch`);
+        assert.strictEqual(runtime.targetReinforces, 1, `${testCase.name} must visibly reinforce the corrected target`);
+        if (testCase.action === 'unlock') {
+            assert.strictEqual(runtime.unlockCount, 1, `${testCase.name} must execute the real unlock action`);
+        } else if (testCase.action === 'select') {
+            assert.strictEqual(runtime.advanceCount, 1, `${testCase.name} must advance exactly one guide step`);
+            assert.strictEqual(runtime.currentBlock.colorId, testCase.colorId, `${testCase.name} must select the prescribed color`);
+            assert.strictEqual(runtime.currentBlock.source, testCase.source, `${testCase.name} must select from the prescribed source`);
+            if (testCase.mode === 'level_2' && testCase.step === 1) {
+                assert.strictEqual(runtime.currentBlock.cells.length, 48, 'L2 first select must retain the complete 48-cell block');
+            }
+        } else {
+            assert.strictEqual(runtime.placements.length, 1, `${testCase.name} must execute the real placement action`);
+            if (testCase.action === 'place-slot') {
+                assert.deepStrictEqual(runtime.placements[0], [], `${testCase.name} must use the slot placement path`);
+            } else {
+                assert.strictEqual(runtime.placements[0][0], testCase.colorId, `${testCase.name} must use a correct-color board target`);
+            }
+        }
+    }
+}
+
+{
+    const runtime = createAutoCorrectRuntime({
+        isWorldPosNearGuideCells: () => true,
+    });
+    runtime.handleGuideTap({ x: 10, y: 0, z: 0 });
+    assert.strictEqual(runtime.tapResults[0].extra.autoCorrected, false, 'a raw target hit must not be mislabeled as corrected');
+    assert.strictEqual(runtime.tapResults[0].extra.rawTargetHit, true, 'a raw target hit must be preserved in analytics');
+    assert.strictEqual(runtime.tapResults[0].extra.rawHitResult, 'hit_target');
+    assert.strictEqual(runtime.tapFeedbacks[0].state, 'tap', 'a correct raw touch must use the normal tap acknowledgement');
+    assert.strictEqual(runtime.targetReinforces || 0, 0, 'a correct raw touch needs no second correction target');
+}
+
+{
+    const suspended = createAutoCorrectRuntime({ _guideInputSuspended: true });
+    suspended.handleGuideTap({ x: -999, y: -999, z: 0 });
+    assert.strictEqual(suspended.tapResults[0].result, 'ignored_suspended', 'suspended input must not auto-correct');
+    assert.strictEqual(suspended.advanceCount || 0, 0, 'suspended input must not advance');
+
+    const modal = createAutoCorrectRuntime({ tryHandleGuideSystemModalTap: () => true });
+    modal.handleGuideTap({ x: -999, y: -999, z: 0 });
+    assert.strictEqual(modal.tapResults[0].result, 'modal_consumed', 'system modal input must not auto-correct');
+    assert.strictEqual(modal.advanceCount || 0, 0, 'system modal input must not advance');
 }
 
 {
@@ -478,41 +663,6 @@ function createTapRuntime(overrides = {}) {
 
 {
     const runtime = createTapRuntime({
-        trySelectHighlightedGuideBoardBlock() {
-            this.currentBlock = { colorId: 10, source: 'board', cells: [{ row: 0, col: 0 }] };
-            return true;
-        },
-    });
-    runtime.handleGuideTap({ x: 10, y: 20, z: 0 });
-    assert.strictEqual(runtime.advanceCount, 1, 'the prescribed level 1 block tap must advance');
-    assert.strictEqual(runtime.currentBlock.colorId, 10, 'the correct selected block must remain selected for placement');
-}
-
-{
-    const runtime = createTapRuntime({
-        _guideMode: 'level_2',
-        _guideStep: 1,
-        _guideTotalSteps: 7,
-        _guidePhase: 'select',
-        _guideFirstColorId: 10,
-        _guideSecondColorId: 20,
-        trySelectHighlightedGuideBoardBlock() {
-            this.currentBlock = {
-                colorId: 10,
-                source: 'board',
-                cells: Array.from({ length: 48 }, (_, index) => ({ row: Math.floor(index / 12), col: index % 12 })),
-            };
-            return true;
-        },
-    });
-    runtime.handleGuideTap({ x: 10, y: 20, z: 0 });
-    assert.strictEqual(runtime.advanceCount, 1, 'the highlighted first level 2 block must advance to slot placement');
-    assert.strictEqual(runtime.currentBlock.colorId, 10, 'level 2 must retain the prescribed buffered red color');
-    assert.strictEqual(runtime.currentBlock.cells.length, 48, 'the prescribed level 2 block must exactly fill the unlocked slot buffer');
-}
-
-{
-    const runtime = createTapRuntime({
         _guideMode: 'level_2',
         _guideTotalSteps: 7,
         _guideFirstColorId: 10,
@@ -785,13 +935,162 @@ function createTapRuntime(overrides = {}) {
     runtime.canArmSmartIdleHint = () => true;
     runtime.resetIdleHintTimer();
     assert.strictEqual(scheduled.length, 1, 'resetting gameplay inactivity must arm one smart hint timer');
-    assert.strictEqual(scheduled[0].seconds, 2, 'the first five level-3 smart hints must appear after two idle seconds');
+    assert.strictEqual(scheduled[0].seconds, 4, 'the first five level-3 smart hints must appear after four idle seconds');
     runtime._smartIdleHintShownCount = 4;
     runtime.resetIdleHintTimer();
-    assert.strictEqual(scheduled[1].seconds, 2, 'the fifth level-3 smart hint must still use the fast delay');
+    assert.strictEqual(scheduled[1].seconds, 4, 'the fifth level-3 smart hint must still use the four-second delay');
     runtime._smartIdleHintShownCount = 5;
     runtime.resetIdleHintTimer();
     assert.strictEqual(scheduled[2].seconds, 5, 'later level-3 smart hints must wait five idle seconds');
+}
+
+{
+    const scheduled = [];
+    const runtime = {
+        _smartIdleHintTimerHandler: null,
+        _smartIdleHintToken: 0,
+        _smartIdleHintShownCount: 0,
+        _smartIdleHintEpisodeCycle: 0,
+        _smartIdleHintInputActive: false,
+        isGameEnd: false,
+        getActiveLogicalLevelId: () => 3,
+        unschedule() {},
+        scheduleOnce(handler, seconds) {
+            scheduled.push({ handler, seconds });
+        },
+    };
+    installSettlementHudModule(runtime);
+    runtime.clearSmartIdleHintVisuals = () => {
+        runtime.visualClearCount = (runtime.visualClearCount || 0) + 1;
+    };
+    runtime.canArmSmartIdleHint = () => true;
+
+    runtime.beginSmartIdleHintInputActivity();
+    assert.strictEqual(runtime._smartIdleHintInputActive, true, 'touch start must enter the smart-hint input state');
+    assert.strictEqual(runtime._smartIdleHintEpisodeCycle, 0, 'touch start must reset the idle episode');
+    runtime.resetIdleHintTimer();
+    assert.strictEqual(scheduled.length, 0, 'an active gesture must not rearm a hint timer');
+    runtime.endSmartIdleHintInputActivity();
+    assert.strictEqual(runtime._smartIdleHintInputActive, false, 'the last touch end must leave the input state');
+    assert.strictEqual(scheduled[0].seconds, 4, 'gesture end must rearm a full four-second idle window');
+
+    runtime._smartIdleHintEpisodeCycle = 1;
+    runtime.completeSmartIdleHintCycle(runtime._smartIdleHintToken);
+    assert.strictEqual(scheduled[1].seconds, 4, 'the second and final cycle must wait through a hidden four-second gap');
+    runtime._smartIdleHintEpisodeCycle = 2;
+    runtime.completeSmartIdleHintCycle(runtime._smartIdleHintToken);
+    assert.strictEqual(scheduled.length, 2, 'one idle episode must stop after two visible cycles');
+}
+
+{
+    const runtime = {};
+    installSettlementHudModule(runtime);
+    Object.assign(runtime, {
+        isSelected: true,
+        currentBlock: { colorId: 10, source: 'board', cells: [{ row: 1, col: 1 }] },
+        _selectedSlotIndices: [],
+        getEmptyTargetCellsForIdleHint: () => [{ row: 2, col: 2 }],
+        slotModel: { hasEmptySlot: () => true },
+        isMismatchedBoardBlockForIdleHint: () => true,
+    });
+    const plan = runtime.resolveSelectedSmartIdleHintPlan();
+    assert.strictEqual(plan.step, 'board_to_board');
+    assert.strictEqual(plan.destinationOnly, true, 'a selected smart hint must never replay the source tap');
+}
+
+{
+    const runtime = {};
+    installSettlementHudModule(runtime);
+    const sourcePoint = { x: 10, y: 20, z: 0 };
+    const destinationPoint = { x: 30, y: 40, z: 0 };
+    Object.assign(runtime, {
+        getSmartIdleHintSafeBoardSelectPoint: () => sourcePoint,
+        getSmartIdleHintSafeBoardPlacePoint: () => destinationPoint,
+    });
+    const unselected = runtime.resolveSmartIdleHintEndpoints({
+        step: 'board_to_board',
+        colorId: 10,
+        block: { colorId: 10, cells: [{ row: 1, col: 1 }] },
+        targetCells: [{ row: 2, col: 2 }],
+    });
+    assert.strictEqual(unselected.from, sourcePoint, 'an unselected hint must include one source tap');
+    assert.strictEqual(unselected.to, destinationPoint, 'an unselected hint must include one destination tap');
+
+    runtime.getSmartIdleHintSafeBoardSelectPoint = () => {
+        throw new Error('destination-only plans must not resolve or replay the source');
+    };
+    const selected = runtime.resolveSmartIdleHintEndpoints({
+        step: 'board_to_board',
+        colorId: 10,
+        block: { colorId: 10, cells: [{ row: 1, col: 1 }] },
+        targetCells: [{ row: 2, col: 2 }],
+        destinationOnly: true,
+    });
+    assert.strictEqual(selected.from, null, 'a selected hint must start directly at the destination');
+    assert.strictEqual(selected.to, destinationPoint);
+}
+
+{
+    const runtime = {};
+    installSettlementHudModule(runtime);
+    const sourcePoint = { x: 10, y: 20, z: 0 };
+    const destinationPoint = { x: 30, y: 40, z: 0 };
+    Object.assign(runtime, {
+        getSmartIdleHintSafeBoardSelectPoint(_block, requireHandClear) {
+            return requireHandClear ? null : sourcePoint;
+        },
+        getSmartIdleHintSafeBoardPlacePoint: () => destinationPoint,
+    });
+    const endpoints = runtime.resolveSmartIdleHintEndpoints({
+        step: 'board_to_board',
+        colorId: 10,
+        block: { colorId: 10, cells: [{ row: 1, col: 1 }] },
+        targetCells: [{ row: 2, col: 2 }],
+    });
+    assert.strictEqual(endpoints.from, sourcePoint, 'a HUD-adjacent source must fall back to its visible point-safe cell');
+    assert.strictEqual(endpoints.to, destinationPoint);
+    assert.strictEqual(endpoints.sourceHandVisible, false, 'the fallback source must use only a tap ring instead of covering HUD with the hand');
+}
+
+{
+    const runtime = {};
+    installSettlementHudModule(runtime);
+    const opacity = { opacity: 255 };
+    const visitedPositions = [];
+    const ripples = [];
+    let completed = false;
+    const hand = {
+        active: false,
+        isValid: true,
+        position: { x: 0, y: 0, z: 0 },
+        getComponent() {
+            return opacity;
+        },
+        addComponent() {
+            return opacity;
+        },
+        setScale() {},
+        setPosition(position) {
+            this.position = { x: position.x, y: position.y, z: position.z || 0 };
+            visitedPositions.push(this.position);
+        },
+    };
+    runtime.playSmartIdleHintTapRipple = (point, holdSeconds = 0) => {
+        ripples.push({ point, holdSeconds });
+    };
+    runtime.startSmartIdleHintTapSequence(
+        hand,
+        { x: 10, y: 20, z: 0 },
+        { x: 30, y: 40, z: 0 },
+        () => {
+            completed = true;
+        },
+    );
+    assert.strictEqual(completed, true, 'an initially inactive authored hand must still run the whole smart-hint tween');
+    assert.strictEqual(ripples.length, 2, 'an unselected smart hint must render one source tap and one destination tap');
+    assert.ok(visitedPositions.length >= 3, 'the hand must visit the source, move while transparent, and visit the destination');
+    assert.strictEqual(hand.active, false, 'the hand may become inactive only after the sequence has completed');
+    assert.strictEqual(opacity.opacity, 0, 'the completed hand must remain visually hidden');
 }
 
 {

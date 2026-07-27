@@ -1117,7 +1117,9 @@ export function installFirstLevelRouteModule(target: any): void {
             const run = () => {
                 if (!this.node?.isValid) return;
                 SySDKMgr.inst.init();
-                void SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
+                void SySDKMgr.inst.login().then((ready) => {
+                    if (ready) SySDKMgr.inst.reportLoadFinish();
+                });
                 AudioMgr.inst.init(this.node);
                 void AnalyticsMgr.inst.bootstrap();
                 this.scheduleOnce(() => {

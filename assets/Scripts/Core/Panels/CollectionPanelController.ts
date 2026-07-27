@@ -35,9 +35,34 @@ export class CollectionPanelController {
             return;
         }
         if (runtime._collectionOverlay) return;
+        if (runtime._collectionOpenPending) return;
+        if (!Array.isArray(runtime._collectionLevelEntries) || runtime._collectionLevelEntries.length < 1) {
+            const failCatalogLoad = (error: unknown) => {
+                runtime._collectionOpenPending = false;
+                if (!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid)) return;
+                const reason = error instanceof Error ? error.message : String(error || 'unknown error');
+                console.error('[collection-catalog] load failed:', reason);
+                runtime.showToast?.('图鉴数据加载失败，请稍后重试', 2);
+            };
+            runtime._collectionOpenPending = true;
+            try {
+                runtime.loadCollectionLevelEntries((entries: unknown, err: Error | null) => {
+                    runtime._collectionOpenPending = false;
+                    if (!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid)) return;
+                    if (err || !Array.isArray(entries) || entries.length < 1) {
+                        failCatalogLoad(err || new Error('collection entries missing'));
+                        return;
+                    }
+                    runtime._collectionLevelEntries = entries;
+                    this.open();
+                });
+            } catch (error) {
+                failCatalogLoad(error);
+            }
+            return;
+        }
         runtime._retainPanelTextureOwner('collection', COLLECTION_TEXTURE_NAMES);
 
-        runtime._collectionLevelIds = runtime.collectAllLevelIds();
         runtime._collectionTotalPages = 1;
         runtime._collectionPage = 0;
 

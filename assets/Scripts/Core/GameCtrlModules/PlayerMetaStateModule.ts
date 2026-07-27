@@ -1205,8 +1205,10 @@ export function installPlayerMetaStateModule(target: any): void {
             return mapPhysicalToLogicalLevelId(physicalLevelId);
         },
 
-        playReturnFeedback(): void {
-            return;
+        playReturnFeedback(worldPos?: Vec3): void {
+            if (worldPos) {
+                this.showGameplayInvalidTapFeedback?.(worldPos);
+            }
         },
 
         shouldUseMainlineWinSettlementUI(): boolean {

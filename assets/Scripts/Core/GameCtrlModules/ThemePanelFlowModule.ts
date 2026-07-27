@@ -88,7 +88,7 @@ function requireThemeLabelNode(
 
 export function installThemePanelFlowModule(target: any): void {
     Object.assign(target, {
-        openCollectionImageModal(levelId: number) {
+        openCollectionImageModal(levelId: number, prefix: string = 'level_') {
             this.closeCollectionImageModal();
             openCollectionShellOverlay(this, {
                 overlayName: 'CollectionImageModal',
@@ -118,7 +118,7 @@ export function installThemePanelFlowModule(target: any): void {
                         10,
                         548,
                         760,
-                        'level_',
+                        prefix,
                         {
                             drawTargetBackground: true,
                             beanScale: 0.78,
@@ -137,8 +137,9 @@ export function installThemePanelFlowModule(target: any): void {
             h: number,
             unlocked: boolean,
             savedLevel: number,
-            options?: { deferPreview?: boolean; lockedPreviewGrayscale?: boolean },
+            options?: { deferPreview?: boolean; lockedPreviewGrayscale?: boolean; prefix?: string },
         ) {
+            const prefix = options?.prefix || 'level_';
             const card = parent.getChildByName('Card') || parent.children.find((child: Node) => child.name.startsWith('Card_'));
             if (!card) {
                 throw new Error('[collection-card] missing Card template node');
@@ -186,7 +187,7 @@ export function installThemePanelFlowModule(target: any): void {
                     previewY,
                     previewW,
                     previewH,
-                    'level_',
+                    prefix,
                     { grayscale: !unlocked && !!options?.lockedPreviewGrayscale },
                 );
             }
@@ -202,7 +203,7 @@ export function installThemePanelFlowModule(target: any): void {
                         return;
                     }
                     AudioMgr.inst.play('uiPanel');
-                    this.openCollectionImageModal(levelId);
+                    this.openCollectionImageModal(levelId, prefix);
                 }, this);
             } else {
                 card.targetOff(this);
