@@ -213,6 +213,25 @@ assert.ok(
     'zoom must skip dim rendering; level 3 uses five fast hints and levels 4 through 10 use one slow hint',
 );
 assert.ok(
+    settlementHud.includes("import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';")
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_MIN_LEVEL_ID = 2;')
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_MAX_LEVEL_ID = 9;')
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_DELAY_SECONDS = 10;')
+        && settlementHud.includes('const EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS = 3;')
+        && settlementHud.includes('const EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID = 3;')
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_HAND_TIME_SCALE = 1;')
+        && settlementHud.includes("getFrontLevelExperimentAnalyticsContext(logicalLevelId, 'level_')?.abBucket === 'exp'")
+        && settlementHud.includes('if (this.isExpSmartIdleHintEnabled(logicalLevelId)) {')
+        && settlementHud.includes('return logicalLevelId <= EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID')
+        && settlementHud.includes('? EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS')
+        && settlementHud.includes(': EXP_SMART_IDLE_HINT_DELAY_SECONDS;')
+        && settlementHud.includes('if (this.isExpSmartIdleHintEnabled(logicalLevelId)) return true;')
+        && settlementHud.includes('getSmartIdleHintHandTimeScale(): number')
+        && settlementHud.includes('const s = this.getSmartIdleHintHandTimeScale?.() ?? SMART_IDLE_HINT_HAND_TIME_SCALE;')
+        && !settlementHud.includes('EXP_SMART_IDLE_HINT_SHOW_LIMIT'),
+    'EXP L2/L3 should use an unlimited three-second policy while EXP L4-L9 retain ten seconds and Base keeps the existing policy',
+);
+assert.ok(
     tutorialGuideModule.includes('const block = this.findBlockOnBoard?.(colorId);')
         && tutorialGuideModule.includes('this.getGuidePromptCellsBounds(block?.cells || [], bubble);'),
     'level 2 pick-step bright regions must cover the complete target block',

@@ -5,6 +5,22 @@ function getSygame() {
     return (globalThis as any).Sygame;
 }
 
+function loadSygame() {
+    const g = globalThis as any;
+    if (g.Sygame) return g.Sygame;
+    const loader = g.__PDD_LOAD_SYSDK__;
+    if (typeof loader !== 'function') {
+        console.error('[SySDK] deferred SDK loader is unavailable');
+        return null;
+    }
+    try {
+        return loader();
+    } catch (error) {
+        console.error('[SySDK] deferred SDK load failed:', error);
+        return null;
+    }
+}
+
 function isSySdkDebugEnabled(): boolean {
     const g: any = typeof globalThis !== 'undefined' ? globalThis : null;
     if (g?.__PDD_DEBUG_LOGS__ || g?.__PDD_SYSDK_DEBUG__) return true;
@@ -46,8 +62,6 @@ class SySDKMgr {
     }
 
     init() {
-        const sdk = getSygame();
-        sySdkDebug('[SySDK] init() called, _inited=', this._inited, 'Sygame=', typeof sdk);
         if (this._inited) return;
         if (this.shouldSkipExternalSdk()) {
             this._inited = true;
@@ -56,6 +70,8 @@ class SySDKMgr {
             sySdkDebug('[SySDK] skipped external SDK in local preview/devtools');
             return;
         }
+        const sdk = loadSygame();
+        sySdkDebug('[SySDK] init() called, _inited=', this._inited, 'Sygame=', typeof sdk);
         this._inited = true;
         this._adCount = 0;
         this._levelEnded = true;

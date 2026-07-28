@@ -32,6 +32,7 @@ import type {
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
 import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';
 
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
@@ -44,11 +45,17 @@ const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;
 const SMART_IDLE_HINT_SLOW_DELAY_SECONDS = 5;
 const SMART_IDLE_HINT_MAX_LEVEL_ID = 10;
 const LATER_LEVEL_IDLE_HINT_SHOW_LIMIT = 1;
+const EXP_SMART_IDLE_HINT_MIN_LEVEL_ID = 2;
+const EXP_SMART_IDLE_HINT_MAX_LEVEL_ID = 9;
+const EXP_SMART_IDLE_HINT_DELAY_SECONDS = 10;
+const EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS = 3;
+const EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID = 3;
 const SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS = 1.2;
 const SMART_IDLE_HINT_FINGERTIP_OFFSET_X = -31;
 const SMART_IDLE_HINT_FINGERTIP_OFFSET_Y = 43;
 const SMART_IDLE_HINT_TAP_SCALE = 0.88;
 const SMART_IDLE_HINT_HAND_TIME_SCALE = 1.25;
+const EXP_SMART_IDLE_HINT_HAND_TIME_SCALE = 1;
 
 type SmartIdleHintStep = 'board_to_slot' | 'board_to_board' | 'slot_to_board';
 type SmartIdleHintPlan = {
@@ -1077,10 +1084,33 @@ export function installSettlementHudModule(target: any): void {
             const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
                 ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
                 : Math.floor(Number(this.levelData?.levelId) || 0);
+            if (this.isExpSmartIdleHintEnabled(logicalLevelId)) {
+                return logicalLevelId <= EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID
+                    ? EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS
+                    : EXP_SMART_IDLE_HINT_DELAY_SECONDS;
+            }
             return logicalLevelId === LEVEL_3_IDLE_HINT_LEVEL_ID
                 && shownCount < LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT
                 ? LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS
                 : SMART_IDLE_HINT_SLOW_DELAY_SECONDS;
+        },
+
+        isExpSmartIdleHintEnabled(logicalLevelId: number): boolean {
+            if (logicalLevelId < EXP_SMART_IDLE_HINT_MIN_LEVEL_ID
+                || logicalLevelId > EXP_SMART_IDLE_HINT_MAX_LEVEL_ID) {
+                return false;
+            }
+            return getFrontLevelExperimentAnalyticsContext(logicalLevelId, 'level_')?.abBucket === 'exp';
+        },
+
+        getSmartIdleHintHandTimeScale(): number {
+            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
+                ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
+                : Math.floor(Number(this.levelData?.levelId) || 0);
+            return logicalLevelId <= EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID
+                && this.isExpSmartIdleHintEnabled(logicalLevelId)
+                ? EXP_SMART_IDLE_HINT_HAND_TIME_SCALE
+                : SMART_IDLE_HINT_HAND_TIME_SCALE;
         },
 
         canArmSmartIdleHint(): boolean {
@@ -1094,6 +1124,7 @@ export function installSettlementHudModule(target: any): void {
             const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
                 ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
                 : Math.floor(Number(this.levelData?.levelId) || 0);
+            if (this.isExpSmartIdleHintEnabled(logicalLevelId)) return true;
             if (logicalLevelId < LEVEL_3_IDLE_HINT_LEVEL_ID || logicalLevelId > SMART_IDLE_HINT_MAX_LEVEL_ID) {
                 return false;
             }
@@ -1617,7 +1648,7 @@ export function installSettlementHudModule(target: any): void {
             Tween.stopAllByTarget(hand);
             hand.active = true;
             hand.setScale(1, 1, 1);
-            const s = SMART_IDLE_HINT_HAND_TIME_SCALE;
+            const s = this.getSmartIdleHintHandTimeScale?.() ?? SMART_IDLE_HINT_HAND_TIME_SCALE;
             const start = this.getSmartIdleHintHandPositionForTarget?.(from) || new Vec3(from.x, from.y, 0);
             const end = this.getSmartIdleHintHandPositionForTarget?.(to) || new Vec3(to.x, to.y, 0);
             hand.setPosition(start);

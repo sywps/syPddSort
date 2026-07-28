@@ -217,6 +217,11 @@ vm.runInNewContext(settlementOutput, {
         if (id === 'cc') return { Widget: class Widget {} };
         if (id === '../RuntimeLog') return { runtimeWarn() {} };
         if (id === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
+        if (id === '../LevelExperimentService') return {
+            getFrontLevelExperimentAnalyticsContext() {
+                return { abId: '', abBucket: 'base' };
+            },
+        };
         throw new Error(`unexpected require: ${id}`);
     },
     console,
