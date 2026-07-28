@@ -21,6 +21,7 @@ export type FrontLevelExperimentAnalyticsContext = {
 
 export const FRONT_LEVEL_EXPERIMENT_ID = 'ly_0224';
 export const FRONT_LEVEL_EXPERIMENT_MIN_LEVEL = 2;
+export const FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED = false;
 export const FRONT_LEVEL_TREATMENT_CDN_BASE_URL =
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
 
@@ -244,6 +245,7 @@ function isFrontLevelExperimentAnalyticsTarget(levelId: unknown, prefix: string 
 function resolveFrontLevelExperimentAssignment(): FrontLevelExperimentAssignment | null {
     const forced = getForcedVariant();
     if (forced === 'off') return null;
+    if (!FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED) return null;
     if (!forced && !isWechatExperimentRuntime()) return null;
 
     const assigned = forced ? { variant: forced, bucketIndex: forced === 'base' ? 0 : EXPERIMENT_SPLIT_PERCENT } : assignVariant();
@@ -287,12 +289,14 @@ export function getFrontLevelExperimentAnalyticsContext(levelId: unknown, prefix
 
 export function getFrontLevelExperimentDiagnostics(): Record<string, unknown> {
     const forced = getForcedVariant();
-    const enabledForPlatform = isWechatExperimentRuntime();
+    const enabledForPlatform = FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED && isWechatExperimentRuntime();
     const assignment = sessionAssignmentResolved
         ? sessionAssignment
         : resolveFrontLevelExperimentAssignment();
     return {
         id: FRONT_LEVEL_EXPERIMENT_ID,
+        status: FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED ? 'running' : 'paused',
+        treatmentEnabled: FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED,
         levelRange: [FRONT_LEVEL_EXPERIMENT_MIN_LEVEL, null],
         levelRangeLabel: `${FRONT_LEVEL_EXPERIMENT_MIN_LEVEL}+`,
         enabledForPlatform,

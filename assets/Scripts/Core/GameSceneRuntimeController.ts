@@ -602,7 +602,9 @@ export class GameSceneRuntimeController {
             typeof this.runtime.hasReliableLocalUserStateForStartup === 'function'
             && this.runtime.hasReliableLocalUserStateForStartup();
         SySDKMgr.inst.init();
-        SySDKMgr.inst.login().then(() => SySDKMgr.inst.reportLoadFinish());
+        SySDKMgr.inst.login().then((ready) => {
+            if (ready) SySDKMgr.inst.reportLoadFinish();
+        });
         UserMgr.inst.touchSession(canAutoSaveGameState);
         void AnalyticsMgr.inst.bootstrap();
         if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {

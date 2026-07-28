@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { loadCollectionCatalog } = require('./collection-catalog-contract');
 const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
 const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
 
@@ -210,6 +211,16 @@ function buildPack(group, packLevels) {
 
 function buildOutput() {
     const levels = collectLevels();
+    let collectionCatalog;
+    try {
+        collectionCatalog = loadCollectionCatalog(
+            projectDir,
+            new Set(levels.map((level) => level.prefix + level.levelId)),
+            String(options.prefix || '').trim(),
+        );
+    } catch (error) {
+        fail(error && error.message ? error.message : String(error));
+    }
     fs.rmSync(outputDir, { recursive: true, force: true });
     fs.mkdirSync(path.join(outputDir, 'level_packs'), { recursive: true });
 
@@ -236,7 +247,11 @@ function buildOutput() {
         }
     }
 
-    const dataVersion = hashJson({ packs }).slice(0, 16);
+    const dataVersion = hashJson({
+        packs,
+        collectionCatalogVersion: collectionCatalog.version,
+        collectionEntries: collectionCatalog.entries,
+    }).slice(0, 16);
     const sourceLabel = path.relative(projectDir, sourceLevelDir).split(path.sep).join('/') || sourceLevelDir;
     const overlayLabel = overlayLevelDir
         ? (path.relative(projectDir, overlayLevelDir).split(path.sep).join('/') || overlayLevelDir)
@@ -253,6 +268,8 @@ function buildOutput() {
         packSize,
         levelCount: levels.length,
         levelCounts,
+        collectionCatalogVersion: collectionCatalog.version,
+        collectionEntries: collectionCatalog.entries,
         packs,
     };
     writeJson(path.join(outputDir, 'level_live.json'), manifest);

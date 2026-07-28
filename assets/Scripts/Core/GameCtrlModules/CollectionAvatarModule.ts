@@ -31,6 +31,7 @@ import type {
 } from '../GameCtrlShared';
 import { ensureCollectionPanelController } from '../Panels/CollectionPanelController';
 import { releasePixelPosterPreviewTree, renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import type { LevelCollectionEntry } from '../LevelDataCdnService';
 
 function getRankTextColor(rank: number): Color {
     if (rank === 1) return new Color('#D99A16');
@@ -472,13 +473,6 @@ export function installCollectionAvatarModule(target: any): void {
 
         // ==================== 图鉴 ====================
         
-        collectAllLevelIds(): number[] {
-            const ids: number[] = [];
-            for (let i = 1; i <= (this.constructor as any).COLLECTION_MAIN_LEVEL_COUNT; i++) ids.push(i);
-            for (let i = (this.constructor as any).COLLECTION_SPECIAL_LEVEL_START; i <= (this.constructor as any).COLLECTION_SPECIAL_LEVEL_END; i++) ids.push(i);
-            return ids;
-        },
-
         openCollection() {
             return ensureCollectionPanelController(this).open();
         },
@@ -532,10 +526,13 @@ export function installCollectionAvatarModule(target: any): void {
             const topPadding = Math.max(0, viewportH / 2 - topY);
             const bottomPadding = rowYs.length > 1 ? Math.max(0, viewportH / 2 + bottomY) : topPadding;
 
-            const allIds = (this._collectionLevelIds?.length ? this._collectionLevelIds : this.collectAllLevelIds()) as number[];
+            const allEntries = this._collectionLevelEntries as LevelCollectionEntry[];
+            if (!Array.isArray(allEntries) || allEntries.length < 1) {
+                throw new Error('[collection-catalog] collection entries missing');
+            }
             const savedLevel = this.getSavedLevel();
             const columnCount = Math.max(1, columnXs.length);
-            const rowCount = Math.max(1, Math.ceil(allIds.length / columnCount));
+            const rowCount = Math.max(1, Math.ceil(allEntries.length / columnCount));
             const totalH = Math.max(viewportH, topPadding + Math.max(0, rowCount - 1) * rowPitch + bottomPadding);
             const startY = totalH / 2 - topPadding;
 
@@ -552,12 +549,13 @@ export function installCollectionAvatarModule(target: any): void {
             this._collectionPreviewRowPitch = rowPitch;
             this._collectionPreviewBufferRows = 2;
 
-            for (let idx = 0; idx < allIds.length; idx++) {
+            for (let idx = 0; idx < allEntries.length; idx++) {
                 const slot = instantiate(template);
-                const levelId = allIds[idx];
+                const entry = allEntries[idx];
+                const levelId = entry.levelId;
                 const row = Math.floor(idx / columnCount);
                 const col = idx % columnCount;
-                const unlocked = levelId <= savedLevel;
+                const unlocked = entry.unlockLevel <= savedLevel;
                 slot.name = `CollectionCardSlotItem_${idx}`;
                 slot.active = true;
                 slot.layer = scrollContent.layer;
@@ -566,10 +564,12 @@ export function installCollectionAvatarModule(target: any): void {
                 const previewInfo = this.drawCollectionCard(slot, levelId, 0, 0, 0, 0, unlocked, savedLevel, {
                     deferPreview: true,
                     lockedPreviewGrayscale: true,
+                    prefix: entry.prefix,
                 });
                 this._collectionPreviewItems.push({
                     slot,
                     levelId,
+                    prefix: entry.prefix,
                     row,
                     unlocked,
                     rendered: false,
@@ -616,7 +616,7 @@ export function installCollectionAvatarModule(target: any): void {
                     item.previewY,
                     item.previewW,
                     item.previewH,
-                    'level_',
+                    item.prefix,
                     { grayscale: !!item.grayscale },
                 );
             }

@@ -129,6 +129,7 @@ function loadCdnContextResolver(experimentExports, stableBaseUrl) {
 const experimentService = readProjectFile('assets/Scripts/Core/LevelExperimentService.ts');
 assert.ok(experimentService.includes("FRONT_LEVEL_EXPERIMENT_ID = 'ly_0224'"), 'experiment id must be the fixed ly_0224 salt');
 assert.ok(experimentService.includes('FRONT_LEVEL_EXPERIMENT_MIN_LEVEL = 2'), 'experiment must start at logical level 2');
+assert.ok(experimentService.includes('FRONT_LEVEL_EXPERIMENT_TREATMENT_ENABLED = false'), 'treatment rollout must remain paused');
 assert.ok(!experimentService.includes('FRONT_LEVEL_EXPERIMENT_MAX_LEVEL'), 'experiment CDN routing must not stop at level 9');
 assert.ok(experimentService.includes('0722_levels/front10_v1/treatment/'), 'treatment CDN path must be versioned and isolated');
 assert.ok(experimentService.includes('/remote_wechat_b/0722_levels/front10_v1/treatment/'), 'treatment CDN path must use the B CDN slot outside stable levels');
@@ -172,10 +173,35 @@ assert.deepStrictEqual(
     'level 1 must remain outside remote EXP routing',
 );
 for (const levelId of [2, 9, 10, 999, 1643]) {
-    const context = resolveForcedExp(levelId);
-    assert.strictEqual(context.baseUrl, forcedExpHarness.exports.FRONT_LEVEL_TREATMENT_CDN_BASE_URL);
-    assert.strictEqual(context.namespace, 'wechat-front10:ly_0224:exp');
+    assert.deepStrictEqual(
+        JSON.parse(JSON.stringify(resolveForcedExp(levelId))),
+        { baseUrl: stableA, namespace: 'stable' },
+        'paused treatment must keep forced EXP traffic on stable Base data',
+    );
 }
+assert.strictEqual(
+    forcedExpHarness.exports.getFrontLevelExperimentAnalyticsContext(2),
+    null,
+    'paused treatment must not emit a false EXP analytics exposure',
+);
+assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(forcedExpHarness.exports.getFrontLevelExperimentDiagnostics())),
+    {
+        id: 'ly_0224',
+        status: 'paused',
+        treatmentEnabled: false,
+        levelRange: [2, null],
+        levelRangeLabel: '2+',
+        enabledForPlatform: false,
+        forcedVariant: 'exp',
+        assignedVariant: '',
+        bucketIndex: null,
+        sessionAssignmentResolved: true,
+        cachedOpenidAvailable: false,
+        localBrowserTreatmentBaseUrl: '',
+        treatmentBaseUrl: forcedExpHarness.exports.FRONT_LEVEL_TREATMENT_CDN_BASE_URL,
+    },
+);
 assert.deepStrictEqual(
     JSON.parse(JSON.stringify(resolveForcedExp(10, 'zt_level_'))),
     { baseUrl: stableA, namespace: 'stable' },
@@ -222,12 +248,18 @@ assert.strictEqual(
 
 const assignedExpHarness = loadExperimentHarness({ uid: expUid });
 const resolveAssignedExp = loadCdnContextResolver(assignedExpHarness.exports, stableB);
-assert.strictEqual(resolveAssignedExp(2).baseUrl, assignedExpHarness.exports.FRONT_LEVEL_TREATMENT_CDN_BASE_URL);
-assert.strictEqual(resolveAssignedExp(1643).baseUrl, assignedExpHarness.exports.FRONT_LEVEL_TREATMENT_CDN_BASE_URL);
+assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(resolveAssignedExp(2))),
+    { baseUrl: stableB, namespace: 'stable' },
+);
+assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(resolveAssignedExp(1643))),
+    { baseUrl: stableB, namespace: 'stable' },
+);
 assert.strictEqual(
-    assignedExpHarness.exports.getFrontLevelExperimentAnalyticsContext(1643).abBucket,
-    'exp',
-    'resource routing and analytics must share the pinned EXP assignment',
+    assignedExpHarness.exports.getFrontLevelExperimentAnalyticsContext(1643),
+    null,
+    'paused treatment must not attribute hash-assigned users to EXP',
 );
 
 const analyticsMgr = readProjectFile('assets/Scripts/Core/AnalyticsMgr.ts');

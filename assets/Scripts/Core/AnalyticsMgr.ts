@@ -1,10 +1,19 @@
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
+import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { runtimeLog } from './RuntimeLog';
+import {
+    subscribeRewardedAdLoadEvents,
+    type RewardedAdLoadEvent,
+} from '../Platform/RewardedAdProvider';
 
 const { ccclass } = _decorator;
 
 const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
+const LS_RUNTIME_CHECKPOINT = 'pdd.analytics.runtime_checkpoint.v1';
+const RUNTIME_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_RUNTIME_DIAGNOSTICS_PER_SESSION = 8;
+const MAX_RUNTIME_DIAGNOSTIC_MESSAGE_LENGTH = 240;
 
 type CloudResult = {
     ok?: boolean;
@@ -89,6 +98,16 @@ type LevelSessionState = {
 
 type LevelRecordEndReason = 'pass' | 'fail' | 'abandon';
 
+type RuntimeCheckpointState = {
+    sessionId: string;
+    checkpoint: string;
+    timestamp: number;
+    active: boolean;
+    page: string;
+    levelId: number;
+    clientBuildId: string;
+};
+
 function normalizePositiveLevelId(value: string | number | undefined): number {
     const num = Math.floor(Number(value) || 0);
     return num > 0 ? num : 0;
@@ -101,6 +120,58 @@ function resolveClientBuildIdentity(): { id: string; source: string } {
         return { id: injectedId.slice(0, 80), source: 'wechat_build_marker' };
     }
     return { id: 'browser-dev', source: 'browser_dev' };
+}
+
+function sanitizeRuntimeDiagnosticText(value: unknown): string {
+    return String(value || '')
+        .replace(/https?:\/\/[^\s]+/gi, '[url]')
+        .replace(/\b(?:openid|token|session)=[^\s&]+/gi, '[credential]')
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+        .replace(/\b1[3-9]\d{9}\b/g, '[phone]')
+        .replace(/\b[A-Za-z0-9_-]{24,}\b/g, '[token]')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, MAX_RUNTIME_DIAGNOSTIC_MESSAGE_LENGTH);
+}
+
+function resolveRuntimeDiagnosticMessage(payload: unknown): string {
+    if (typeof payload === 'string') {
+        return sanitizeRuntimeDiagnosticText(payload);
+    }
+    if (!payload || typeof payload !== 'object') {
+        return '';
+    }
+    const value: any = payload;
+    const reason = value.reason;
+    const error = value.error;
+    return sanitizeRuntimeDiagnosticText(
+        value.message
+        || (reason && typeof reason === 'object' ? reason.message : reason)
+        || (error && typeof error === 'object' ? error.message : error)
+        || '',
+    );
+}
+
+function resolveRuntimeDiagnosticCode(payload: unknown): string {
+    if (!payload || typeof payload !== 'object') return '';
+    const value: any = payload;
+    const reason = value.reason && typeof value.reason === 'object' ? value.reason : null;
+    const error = value.error && typeof value.error === 'object' ? value.error : null;
+    const code = value.errCode ?? value.errno ?? value.code
+        ?? reason?.errCode ?? reason?.errno ?? reason?.code
+        ?? error?.errCode ?? error?.errno ?? error?.code;
+    return code === undefined || code === null
+        ? ''
+        : sanitizeRuntimeDiagnosticText(code).slice(0, 64);
+}
+
+function createDiagnosticFingerprint(value: string): string {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return `00000000${(hash >>> 0).toString(16)}`.slice(-8);
 }
 
 @ccclass('AnalyticsMgr')
@@ -132,13 +203,26 @@ export class AnalyticsMgr {
     private funnelInFlight = false;
     private funnelUploadDisabled = false;
     private funnelUploadDisableWarned = false;
+    private runtimeDiagnosticsBound = false;
+    private rewardedAdLoadTelemetryBound = false;
+    private runtimeDiagnosticCount = 0;
+    private readonly runtimeDiagnosticFingerprints = new Set<string>();
+    private lastRuntimeCheckpoint = 'analytics_created';
+    private lastRuntimeCheckpointAt = this.appLaunchTime;
     private constructor() {
         this.openid = this.readCachedOpenid();
+        this.recoverPreviousRuntimeCheckpoint();
+        this.markRuntimeCheckpoint('analytics_created', true, 'app', 0);
+        this.bindRuntimeDiagnostics();
+        this.bindRewardedAdLoadTelemetry();
+        this.bindLifecycle();
     }
 
     async bootstrap(): Promise<boolean> {
         this.bindGlobalReporter();
         this.bindLifecycle();
+        this.bindRuntimeDiagnostics();
+        this.markRuntimeCheckpoint('analytics_bootstrap', true, 'app', 0);
         if (this.bootstrapped) {
             return this.ensureReady();
         }
@@ -285,6 +369,12 @@ export class AnalyticsMgr {
 
     markFirstLevelReady(context?: Partial<Pick<FunnelEventOptions, 'levelId' | 'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'page' | 'source'>>): void {
         this.firstLevelReadyTime = Date.now();
+        this.markRuntimeCheckpoint(
+            'first_level_ui_ready',
+            true,
+            context?.page || 'game',
+            normalizePositiveLevelId(context?.logicalLevelId ?? context?.levelId),
+        );
         this.trackFunnelEvent({
             eventName: 'first_level_ui_ready',
             page: context?.page || 'game',
@@ -396,6 +486,7 @@ export class AnalyticsMgr {
             };
         }
 
+        this.markRuntimeCheckpoint('level_begin', true, normalizedPage, normalizedLevelId);
         void this.wxReportData({
             eventName: 'enter_level',
             levelId: normalizedLevelId,
@@ -449,6 +540,7 @@ export class AnalyticsMgr {
         if (session && !session.finalized) {
             session.pendingFailure = true;
         }
+        this.markRuntimeCheckpoint('level_fail', true, currentPage, levelId);
         void this.wxReportData({
             eventName: 'level_fail',
             levelId,
@@ -462,6 +554,7 @@ export class AnalyticsMgr {
         const levelId = session?.levelId ?? normalizePositiveLevelId(levelIdFallback);
         const currentPage = page || session?.page || 'game';
         const smartHintShownCount = this.getSmartHintShownCount();
+        this.markRuntimeCheckpoint('level_pass', true, currentPage, levelId);
         void this.wxReportData({
             eventName: 'level_pass',
             levelId,
@@ -601,6 +694,188 @@ export class AnalyticsMgr {
         game.on(Game.EVENT_SHOW, this.handleShow, this);
     }
 
+    private bindRuntimeDiagnostics(): void {
+        if (this.runtimeDiagnosticsBound) return;
+        const api = getWeChatMiniGameRuntime();
+        if (!api) return;
+        this.runtimeDiagnosticsBound = true;
+        const bind = (name: string, listener: (payload: unknown) => void) => {
+            try {
+                const register = api[name];
+                if (typeof register === 'function') {
+                    register.call(api, listener);
+                }
+            } catch (error) {
+                console.warn(`[AnalyticsMgr] ${name} binding failed:`, error);
+            }
+        };
+        bind('onError', (payload) => {
+            this.reportRuntimeDiagnostic('runtime_error', payload);
+        });
+        bind('onUnhandledRejection', (payload) => {
+            this.reportRuntimeDiagnostic('runtime_unhandled_rejection', payload);
+        });
+        bind('onMemoryWarning', (payload) => {
+            this.reportRuntimeDiagnostic('runtime_memory_warning', payload);
+        });
+    }
+
+    private bindRewardedAdLoadTelemetry(): void {
+        if (this.rewardedAdLoadTelemetryBound) return;
+        this.rewardedAdLoadTelemetryBound = true;
+        subscribeRewardedAdLoadEvents((event: RewardedAdLoadEvent) => {
+            const eventName = event.stage === 'start'
+                ? 'rewarded_ad_load_start'
+                : event.stage === 'success'
+                    ? 'rewarded_ad_load_success'
+                    : 'rewarded_ad_load_fail';
+            const levelId = this.levelSession?.levelId
+                ?? normalizePositiveLevelId(this.levelContext.logicalLevelId);
+            this.trackFunnelEvent({
+                eventName,
+                page: this.levelSession?.page || 'app',
+                levelId,
+                source: 'rewarded_ad_native_load',
+                success: event.stage !== 'fail',
+                errorCode: event.stage === 'fail' ? event.errorCode : '',
+                duration: event.durationMs,
+                extra: {
+                    platform: event.platform,
+                    loadId: event.loadId,
+                    attemptId: event.requestId,
+                    generation: event.generation,
+                    loadReason: event.reason,
+                    durationMs: event.durationMs,
+                },
+            });
+            if (event.stage !== 'start') {
+                this.flushFunnelEvents();
+            }
+        });
+    }
+
+    private reportRuntimeDiagnostic(
+        eventName: 'runtime_error' | 'runtime_unhandled_rejection' | 'runtime_memory_warning',
+        payload: unknown,
+    ): void {
+        if (this.runtimeDiagnosticCount >= MAX_RUNTIME_DIAGNOSTICS_PER_SESSION) return;
+        const message = resolveRuntimeDiagnosticMessage(payload);
+        const errorCode = resolveRuntimeDiagnosticCode(payload);
+        const memoryWarningLevel = eventName === 'runtime_memory_warning'
+            ? Math.max(0, Math.floor(Number((payload as any)?.level) || 0))
+            : 0;
+        const fingerprint = createDiagnosticFingerprint(
+            `${eventName}|${errorCode}|${message}|${memoryWarningLevel}`,
+        );
+        if (this.runtimeDiagnosticFingerprints.has(fingerprint)) return;
+        this.runtimeDiagnosticFingerprints.add(fingerprint);
+        this.runtimeDiagnosticCount += 1;
+
+        const levelId = this.levelSession?.levelId
+            ?? normalizePositiveLevelId(this.levelContext.logicalLevelId);
+        try {
+            this.trackFunnelEvent({
+                eventName,
+                page: this.levelSession?.page || (levelId > 0 ? 'level_game' : 'app'),
+                levelId,
+                source: 'wechat_runtime',
+                success: false,
+                errorCode: errorCode || eventName,
+                errorMessage: message,
+                extra: {
+                    diagnosticFingerprint: fingerprint,
+                    checkpoint: this.lastRuntimeCheckpoint,
+                    checkpointAgeMs: Math.max(0, Date.now() - this.lastRuntimeCheckpointAt),
+                    memoryWarningLevel,
+                    diagnosticIndex: this.runtimeDiagnosticCount,
+                },
+            });
+            this.flushFunnelEvents();
+        } catch (error) {
+            console.warn('[AnalyticsMgr] runtime diagnostic reporting failed:', error);
+        }
+    }
+
+    private recoverPreviousRuntimeCheckpoint(): void {
+        const previous = this.readRuntimeCheckpoint();
+        if (!previous || !previous.active || previous.sessionId === this.funnelSessionId) return;
+        const ageMs = Date.now() - previous.timestamp;
+        if (ageMs < 0 || ageMs > RUNTIME_CHECKPOINT_MAX_AGE_MS) return;
+        try {
+            this.trackFunnelEvent({
+                eventName: 'previous_session_unclean_exit',
+                page: previous.page || 'app',
+                levelId: previous.levelId,
+                source: 'runtime_checkpoint',
+                success: false,
+                errorCode: 'foreground_session_not_closed',
+                errorMessage: 'Previous foreground session ended without app_hide',
+                extra: {
+                    checkpoint: previous.checkpoint,
+                    checkpointAgeMs: ageMs,
+                    previousClientBuildId: previous.clientBuildId,
+                },
+            });
+        } catch (error) {
+            console.warn('[AnalyticsMgr] previous runtime checkpoint reporting failed:', error);
+        }
+    }
+
+    private markRuntimeCheckpoint(
+        checkpoint: string,
+        active: boolean,
+        page?: string,
+        levelId?: number,
+    ): void {
+        const now = Date.now();
+        const normalizedCheckpoint = String(checkpoint || 'unknown').trim().slice(0, 80) || 'unknown';
+        const normalizedLevelId = Math.max(
+            0,
+            Math.floor(Number(levelId ?? this.levelSession?.levelId ?? this.levelContext.logicalLevelId) || 0),
+        );
+        const normalizedPage = String(page || this.levelSession?.page || 'app').trim().slice(0, 64) || 'app';
+        const clientBuild = resolveClientBuildIdentity();
+        this.lastRuntimeCheckpoint = normalizedCheckpoint;
+        this.lastRuntimeCheckpointAt = now;
+        const state: RuntimeCheckpointState = {
+            sessionId: this.funnelSessionId,
+            checkpoint: normalizedCheckpoint,
+            timestamp: now,
+            active,
+            page: normalizedPage,
+            levelId: normalizedLevelId,
+            clientBuildId: clientBuild.id,
+        };
+        try {
+            sys.localStorage.setItem(LS_RUNTIME_CHECKPOINT, JSON.stringify(state));
+        } catch (_) {
+            // Runtime reporting must not change game behavior when storage is unavailable.
+        }
+    }
+
+    private readRuntimeCheckpoint(): RuntimeCheckpointState | null {
+        try {
+            const raw = sys.localStorage.getItem(LS_RUNTIME_CHECKPOINT);
+            if (!raw) return null;
+            const value = JSON.parse(raw);
+            const timestamp = Math.floor(Number(value?.timestamp) || 0);
+            const sessionId = String(value?.sessionId || '').trim().slice(0, 96);
+            const checkpoint = String(value?.checkpoint || '').trim().slice(0, 80);
+            if (!sessionId || !checkpoint || timestamp <= 0) return null;
+            return {
+                sessionId,
+                checkpoint,
+                timestamp,
+                active: value?.active === true,
+                page: String(value?.page || 'app').trim().slice(0, 64) || 'app',
+                levelId: Math.max(0, Math.floor(Number(value?.levelId) || 0)),
+                clientBuildId: String(value?.clientBuildId || '').trim().slice(0, 80),
+            };
+        } catch (_) {
+            return null;
+        }
+    }
+
     private async finalizeActiveLevel(passStatus: boolean, endReason: LevelRecordEndReason): Promise<void> {
         const session = this.levelSession;
         if (!session || session.finalized) {
@@ -642,6 +917,12 @@ export class AnalyticsMgr {
             return;
         }
         this.exitReported = true;
+        this.markRuntimeCheckpoint(
+            'app_hide',
+            false,
+            this.levelSession?.page || 'app',
+            this.levelSession?.levelId || 0,
+        );
         this.trackFunnelEvent({
             eventName: 'app_hide',
             page: 'app',
@@ -662,6 +943,12 @@ export class AnalyticsMgr {
         }
         this.exitReported = false;
         this.gameSessionStartTime = Date.now();
+        this.markRuntimeCheckpoint(
+            'app_show',
+            true,
+            this.levelSession?.page || 'app',
+            this.levelSession?.levelId || 0,
+        );
         this.trackFunnelEvent({
             eventName: 'app_show',
             page: 'app',

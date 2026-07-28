@@ -986,7 +986,10 @@ export function installGuideLeaderboardModule(target: any): void {
             return step % 2 === 0 ? 'select' : 'place';
         },
 
-        endTutorial() {
+        endTutorial(): boolean {
+            if (this._guideStep < 0 && this._guideMode === 'none') {
+                return false;
+            }
             this.clearGuideTransitionWatchdog?.();
             const completedGuideMode = this._guideMode;
             if (completedGuideMode === 'level_1') {
@@ -1053,6 +1056,7 @@ export function installGuideLeaderboardModule(target: any): void {
                 this.resetFirstLevelReleaseDiagnostics?.();
                 this.unbindFirstLevelReleaseTouchObserver?.();
             }
+            return true;
         },
 
         // ==================== 工具方法 ====================

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "ranges": [
+    {
+      "prefix": "level_",
+      "from": 1,
+      "to": 300,
+      "unlockLevelFrom": 1
+    }
+  ]
+}

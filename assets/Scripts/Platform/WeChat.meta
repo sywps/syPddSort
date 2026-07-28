@@ -1,15 +1,9 @@
 {
-    "ver":  "1.2.0",
-    "importer":  "directory",
-    "imported":  true,
-    "uuid":  "50cb6055-3dd2-41a0-87b6-663ba82bf036",
-    "files":  [
-
-              ],
-    "subMetas":  {
-
-                 },
-    "userData":  {
-
-                 }
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "50cb6055-3dd2-41a0-87b6-663ba82bf036",
+  "files": [],
+  "subMetas": {},
+  "userData": {}
 }
