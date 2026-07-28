@@ -130,7 +130,9 @@ function assertWechatPackage(projectDir) {
     const gameJson = readJson(gameJsonPath);
 
     const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [];
-    const requiredSubpackages = ['main', 'bootstrap', 'homeAssets', 'gameAssets'];
+    const localMainDir = path.join(minigameRoot, 'assets', 'main');
+    assertDir(localMainDir, '本地 bundle main root');
+    const requiredSubpackages = ['bootstrap', 'homeAssets', 'gameAssets'];
     for (const name of requiredSubpackages) {
         const entry = subpackages.find((item) => item && item.name === name);
         if (!entry) fail('game.json 缺少分包: ' + name);

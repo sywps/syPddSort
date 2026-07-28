@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const warmup = require('../scripts/warm-cocos-assetdb.js');
+const buildCommon = require('../scripts/minigame-build-common.js');
 
 const root = path.resolve(__dirname, '..');
 
@@ -24,6 +25,10 @@ assert.deepStrictEqual(
     warmup.parseProcessTable('  10   1\n  11  10\ninvalid\n'),
     [{ pid: 10, ppid: 1 }, { pid: 11, ppid: 10 }],
     'warmup process tracking must parse only exact pid/ppid pairs',
+);
+assert.ok(
+    buildCommon.getCocosCliCandidates('win32').includes('C:\\ProgramData\\cocos\\editors\\Creator\\3.8.8\\CocosCreator.exe'),
+    'Windows release builds must discover the Cocos Creator installation path used by this workspace',
 );
 
 const buildWechat = read('scripts/build-wechat.js');

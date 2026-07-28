@@ -818,14 +818,13 @@ function ensureLocalBundleIndexFile(bundleDir, bundleName) {
     console.log('[4.2/6] 已为 assets/' + bundleName + ' 生成本地 index.js ✓');
 }
 
-function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
-    var bundleName = 'internal';
+function normalizeWechatBundleAsLocal(runtimeRoot, settingsFilePath, bundleName) {
     var subpackageDir = path.join(runtimeRoot, 'subpackages', bundleName);
     var localBundleDir = path.join(runtimeRoot, 'assets', bundleName);
     if (fs.existsSync(subpackageDir)) {
         movePathSync(subpackageDir, localBundleDir);
         ensureLocalBundleIndexFile(localBundleDir, bundleName);
-        console.log('[4.2/6] internal 已从微信分包归回本地 bundle ✓');
+        console.log('[4.2/6] ' + bundleName + ' 已从微信分包归回本地 bundle ✓');
     } else if (fs.existsSync(localBundleDir)) {
         ensureLocalBundleIndexFile(localBundleDir, bundleName);
     }
@@ -841,7 +840,7 @@ function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
         if (filtered.length !== subpackages.length) {
             gameJson.subpackages = filtered;
             writeJsonFile(gameJsonPath, gameJson);
-            console.log('[4.2/6] 已从 game.json.subpackages 移除 internal ✓');
+            console.log('[4.2/6] 已从 game.json.subpackages 移除 ' + bundleName + ' ✓');
         }
     }
 
@@ -856,13 +855,48 @@ function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
             assets.subpackages = nextSubpackages;
             settings.assets = assets;
             writeJsonFile(settingsFilePath, settings);
-            console.log('[4.2/6] 已从 settings.assets.subpackages 移除 internal ✓');
+            console.log('[4.2/6] 已从 settings.assets.subpackages 移除 ' + bundleName + ' ✓');
         }
     }
 }
 
+function normalizeInternalBundleAsLocal(runtimeRoot, settingsFilePath) {
+    normalizeWechatBundleAsLocal(runtimeRoot, settingsFilePath, 'internal');
+}
+
+function pruneConvertedMainBundleEntrypoints(runtimeRoot, settingsFilePath) {
+    var bundleName = 'main';
+    var bundleDir = path.join(runtimeRoot, 'assets', bundleName);
+    var version = getBundleVersionFromSettings(settingsFilePath, bundleName);
+    var versionedIndexPath = path.join(bundleDir, 'index.' + version + '.js');
+    if (!version || !fs.existsSync(versionedIndexPath)) {
+        console.error('[4.2/6] 本地 main 缺少版本入口，不能删除分包入口副本: ' + versionedIndexPath);
+        process.exit(1);
+    }
+    var versionedContent = fs.readFileSync(versionedIndexPath);
+    var redundantNames = ['game.js', 'index.js'];
+    for (var i = 0; i < redundantNames.length; i++) {
+        var redundantPath = path.join(bundleDir, redundantNames[i]);
+        if (!fs.existsSync(redundantPath)) continue;
+        var redundantContent = fs.readFileSync(redundantPath);
+        if (redundantContent.length !== versionedContent.length
+            || crypto.createHash('sha1').update(redundantContent).digest('hex')
+                !== crypto.createHash('sha1').update(versionedContent).digest('hex')) {
+            console.error('[4.2/6] 本地 main 入口副本内容不一致，拒绝删除: ' + redundantPath);
+            process.exit(1);
+        }
+        fs.rmSync(redundantPath, { force: true });
+    }
+    console.log('[4.2/6] 已删除 main 分包遗留入口副本，保留 index.' + version + '.js ✓');
+}
+
+function normalizeMainBundleAsLocal(runtimeRoot, settingsFilePath) {
+    normalizeWechatBundleAsLocal(runtimeRoot, settingsFilePath, 'main');
+    pruneConvertedMainBundleEntrypoints(runtimeRoot, settingsFilePath);
+}
+
 function ensureWechatSubpackageStableConfigs(runtimeRoot) {
-    var bundleNames = ['main', BOOTSTRAP_BUNDLE_NAME, HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
+    var bundleNames = [BOOTSTRAP_BUNDLE_NAME, HOME_ASSETS_BUNDLE_NAME, BUNDLE_NAME];
     if (debugLevelDataBundle) bundleNames.push(LEVEL_DATA_BUNDLE_NAME);
     for (var i = 0; i < bundleNames.length; i++) {
         var bundleName = bundleNames[i];
@@ -961,7 +995,8 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var clientBuildIdMarker = 'globalThis.__PDD_CLIENT_BUILD_ID__=' + JSON.stringify(clientBuildId) + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
-    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=3;';
+    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=4;';
+    var releaseLogGateBlockPattern = /\(function installPddReleaseLogGate\(\)\{\r?\n[\s\S]*?globalThis\.__PDD_RELEASE_LOG_GATE_VERSION__=\d+;\r?\n\}\)\(\);\r?\n?/g;
     var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
@@ -994,6 +1029,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (clientBuildIdPattern.test(content)) {
         content = content.replace(clientBuildIdPattern, clientBuildIdMarker);
     }
+    content = content.replace(releaseLogGateBlockPattern, '');
     var missingLines = [];
     if (content.indexOf(platformMarker) === -1) missingLines.push(platformMarker);
     if (content.indexOf(marker) === -1) missingLines.push(marker);
@@ -1018,7 +1054,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
             '(function installPddReleaseLogGate(){',
             'if(' + JSON.stringify(buildMode) + '!=="release")return;',
             'var g=typeof globalThis!=="undefined"?globalThis:{};',
-            'if(Number(g.__PDD_RELEASE_LOG_GATE_VERSION__||0)>=3)return;',
+            'if(Number(g.__PDD_RELEASE_LOG_GATE_VERSION__||0)>=4)return;',
+            'var wxRef=typeof wx!=="undefined"?wx:null;',
+            'try{if(wxRef&&typeof wxRef.getSystemInfoSync==="function"&&String((wxRef.getSystemInfoSync()||{}).platform||"").toLowerCase()==="devtools")return;}catch(_){ }',
             'var c=typeof console!=="undefined"?console:null;if(!c)return;',
             'if(!c.__pddLogGateInstalled){c.__pddOriginalLog=c.log;c.__pddOriginalInfo=c.info;c.__pddOriginalDebug=c.debug;c.__pddOriginalWarn=c.warn;}',
             'if(!c.__pddOriginalTime)c.__pddOriginalTime=c.time;if(!c.__pddOriginalTimeEnd)c.__pddOriginalTimeEnd=c.timeEnd;',
@@ -1511,6 +1549,7 @@ if (debugLevelDataBundle) {
     console.log('[4.1/6] levelData debug 分包已就绪 ✓');
 }
 normalizeInternalBundleAsLocal(resolveRuntimeRoot(), resolveSettingsPath());
+normalizeMainBundleAsLocal(resolveRuntimeRoot(), resolveSettingsPath());
 
 // 4.6 移除本地主包里的 resources bundle。
 // 小游戏环境的音频、主题、纹理优先走 gameAssets/bootstrap；resources 是历史兜底包。
