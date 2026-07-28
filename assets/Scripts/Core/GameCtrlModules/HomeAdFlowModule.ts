@@ -1169,6 +1169,10 @@ export function installHomeAdFlowModule(target: any): void {
             const topHudWidgets = this.syncTopHud(topBarGroup, 'home');
             if (!topHudWidgets) {
                 this.drawTopRightBtns(topBarGroup);
+                const goldGroup = this.requireUiChild(topBarGroup, 'GoldGroup', 'TopBarGroup/GoldGroup');
+                const vigorGroup = this.requireUiChild(topBarGroup, 'VigorGroup', 'TopBarGroup/VigorGroup');
+                this.drawGoldBanner(goldGroup);
+                this.drawLivesBanner(vigorGroup);
             }
             this.drawStartButton(primaryActionLayer, curLevel);
             this.drawThemeChallengeButton(primaryActionLayer);

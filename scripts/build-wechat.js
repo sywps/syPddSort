@@ -582,7 +582,24 @@ function assertRuntimeCoreConfig(runtimeDir, gameJson, settings) {
     if (launchScene !== startSceneUrl) {
         fail('settings.launch.launchScene 不正确: ' + (launchScene || '<empty>'));
     }
-    const preloadBundles = getPreloadBundleNames(settings.assets || {});
+    const assets = settings.assets || {};
+    const preloadBundles = getPreloadBundleNames(assets);
+    const subpackages = Array.isArray(gameJson.subpackages) ? gameJson.subpackages : [];
+    const mainIsSubpackage = subpackages.some((item) => item && item.name === 'main');
+    if (mainIsSubpackage || (Array.isArray(assets.subpackages) && assets.subpackages.includes('main'))) {
+        fail('main 必须保留为本地 assets/main bundle，不能走微信分包加载');
+    }
+    if (!preloadBundles.includes('main')) {
+        fail('启动 preloadBundles 必须包含本地 main bundle');
+    }
+    const localMainDir = path.join(runtimeDir, 'assets', 'main');
+    if (!fs.existsSync(localMainDir)) {
+        fail('本地 main bundle 目录缺失: assets/main');
+    }
+    const mainVersion = String(assets.bundleVers && assets.bundleVers.main || '');
+    if (!/^[0-9a-f]+$/i.test(mainVersion) || !fs.existsSync(path.join(localMainDir, 'index.' + mainVersion + '.js'))) {
+        fail('本地 main bundle 缺少版本入口 index.<hash>.js');
+    }
     for (const forbidden of ['bootstrap', 'homeAssets', 'gameAssets']) {
         if (preloadBundles.includes(forbidden)) {
             fail('启动 preloadBundles 不应包含 ' + forbidden + ': ' + preloadBundles.join(', '));

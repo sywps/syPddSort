@@ -1317,6 +1317,20 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         /** 初始化微信/抖音分享菜单 + 被动分享回调（被动转发：右上角胶囊点"转发"） */
+        disposeShareMenu() {
+            const wx: any = this._shareAppMessageWx;
+            const handler = this._shareAppMessageHandler;
+            if (wx && handler && typeof wx.offShareAppMessage === 'function') {
+                try {
+                    wx.offShareAppMessage(handler);
+                } catch (error) {
+                    console.warn('[disposeShareMenu] wx error', error);
+                }
+            }
+            this._shareAppMessageWx = null;
+            this._shareAppMessageHandler = null;
+        },
+
         setupShareMenu() {
             const wx: any = this.getWeChatRuntime();
             if (wx) {
@@ -1324,8 +1338,11 @@ export function installFirstLevelRouteModule(target: any): void {
                     if (typeof wx.showShareMenu === 'function') {
                         wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage', 'shareTimeline'] });
                     }
-                    if (typeof wx.onShareAppMessage === 'function') {
-                        wx.onShareAppMessage(() => {
+                    if (this._shareAppMessageWx && this._shareAppMessageWx !== wx) {
+                        this.disposeShareMenu();
+                    }
+                    if (typeof wx.onShareAppMessage === 'function' && !this._shareAppMessageHandler) {
+                        const handler = () => {
                             const lv = this._isThemeLevel ? this._currentThemeLevelId : this.getSavedLevel();
                             const themeName = this._isThemeLevel ? this.findThemeNameByLevelId(lv) : '';
                             return {
@@ -1335,7 +1352,10 @@ export function installFirstLevelRouteModule(target: any): void {
                                 query: this._isThemeLevel ? `level=${lv}&theme=1` : '',
                                 imageUrl: '',
                             };
-                        });
+                        };
+                        wx.onShareAppMessage(handler);
+                        this._shareAppMessageWx = wx;
+                        this._shareAppMessageHandler = handler;
                     }
                 } catch (e) {
                     console.warn('[setupShareMenu] wx error', e);

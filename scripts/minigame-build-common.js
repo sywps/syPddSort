@@ -216,18 +216,23 @@ function readAssetUuid(projectDir, assetUrl, label) {
     return uuid;
 }
 
-function resolveCocosCli() {
-    if (process.env.COCOS_CLI) return process.env.COCOS_CLI;
-    const candidates = process.platform === 'win32'
+function getCocosCliCandidates(platform = process.platform) {
+    return platform === 'win32'
         ? [
             'C:\\Program Files\\Cocos\\Creator\\3.8.8\\CocosCreator.exe',
             'C:\\Program Files\\CocosCreator\\CocosCreator.exe',
+            'C:\\ProgramData\\cocos\\editors\\Creator\\3.8.8\\CocosCreator.exe',
         ]
         : [
             '/Applications/Cocos/Creator/3.8.8/CocosCreator.app/Contents/MacOS/CocosCreator',
             '/Applications/CocosCreator/3.8.8/CocosCreator.app/Contents/MacOS/CocosCreator',
             '/Applications/CocosCreator.app/Contents/MacOS/CocosCreator',
         ];
+}
+
+function resolveCocosCli() {
+    if (process.env.COCOS_CLI) return process.env.COCOS_CLI;
+    const candidates = getCocosCliCandidates();
     return candidates.find((candidate) => fs.existsSync(candidate)) || '';
 }
 
@@ -294,6 +299,7 @@ module.exports = {
     findActiveCocosPreviewPorts,
     findSettingsPath,
     formatMB,
+    getCocosCliCandidates,
     guardCocosPreviewOrFail,
     hasNoPopulatedCocosSceneScriptStats,
     hasOnlyEmptyCocosAssetStats,

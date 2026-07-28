@@ -728,11 +728,19 @@ export class CommercePanelController {
                         if (!status.canClaim) { runtime.showToast('今天已经签到过了'); return; }
                         const reward = rewards[status.nextClaimIndex];
                         if (!reward) return;
-                        const rewardSummary = runtime.grantDailySignInReward(reward);
+                        let rewardSummary = '';
+                        try {
+                            rewardSummary = runtime.grantDailySignInReward(reward);
+                        } catch (error) {
+                            console.warn('[daily-signin] reward grant failed:', error);
+                            runtime.showToast('签到奖励发放失败，请重试');
+                            return;
+                        }
                         runtime.setDailySignInClaimedCount(status.nextClaimIndex + 1);
                         runtime.setDailySignInLastClaimDateKey(runtime.getTodayDateKey());
+                        runtime._suppressHomeStartUntil = Date.now() + 350;
                         runtime._closePanelWithTextureOwner(overlay!, 'daily-signin', 'daily-signin-claim');
-                        runtime.showMainMenu();
+                        runtime.refreshGoldUI();
                         runtime.showDailySignInRewardReceipt(reward);
                         runtime.showToast(`签到成功，获得${rewardSummary}`, 2);
                     });

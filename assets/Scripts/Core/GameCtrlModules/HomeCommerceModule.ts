@@ -136,6 +136,7 @@ export function installHomeCommerceModule(target: any): void {
                 this.loadLevel(level);
             };
             btn.on(Button.EventType.CLICK, () => {
+                if ((Number(this._suppressHomeStartUntil) || 0) > Date.now()) return;
                 AudioMgr.inst.play('button');
                 if (!this.costVigorForLevel(level, 'main')) {
                     this.showNoLivesAdModal({

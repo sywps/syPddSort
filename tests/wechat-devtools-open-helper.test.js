@@ -19,7 +19,8 @@ assert.ok(helper.includes("openPort: process.env.WECHAT_DEVTOOLS_OPEN_PORT || ''
 assert.ok(helper.includes("'--trust-project'"), 'auto mode must trust the generated project explicitly');
 assert.ok(helper.includes("path.resolve(args.project)"), 'helper must resolve the package project to an absolute path');
 assert.ok(helper.includes("compileType !== 'game'"), 'helper must reject non-game project configs');
-assert.ok(helper.includes("game.json 缺少分包"), 'helper must validate required subpackages before opening DevTools');
+assert.ok(helper.includes("'assets', 'main'"), 'helper must validate the local startup main bundle before opening DevTools');
+assert.ok(helper.includes("['bootstrap', 'homeAssets', 'gameAssets']"), 'helper must validate gameplay bundles as WeChat subpackages before opening DevTools');
 
 assert.ok(buildWechat.includes("scripts', 'open-wechat-devtools.js'"), 'wechat build auto-open must reuse the CLI helper');
 assert.ok(!buildWechat.includes("Contents/MacOS/wechatwebdevtools';"), 'wechat build auto-open must not use the old app executable path');

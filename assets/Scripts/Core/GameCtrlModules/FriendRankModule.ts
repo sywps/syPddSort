@@ -113,6 +113,7 @@ export function installFriendRankModule(target: any): void {
             }
             hideLeaderboardRowTemplate(listNode);
             const viewport = listNode.getChildByName('LeaderboardViewport');
+            this.clearLeaderboardScroll(viewport);
             if (viewport) {
                 viewport.active = false;
             }
@@ -299,7 +300,23 @@ export function installFriendRankModule(target: any): void {
         },
 
         /** 设置排行榜滚动 */
+        clearLeaderboardScroll(viewport: Node | null = this._leaderboardScrollViewport || null) {
+            if (viewport?.isValid) {
+                viewport.targetOff(this);
+            }
+            const inertiaStep = this._leaderboardScrollInertiaStep as ((dt: number) => void) | null;
+            if (inertiaStep) {
+                this.unschedule(inertiaStep);
+            }
+            this._leaderboardScrollInertiaStep = null;
+            if (!viewport || this._leaderboardScrollViewport === viewport) {
+                this._leaderboardScrollViewport = null;
+            }
+        },
+
         setupLeaderboardScroll(viewport: Node, content: Node, viewH: number, totalH: number) {
+            this.clearLeaderboardScroll(viewport);
+            this._leaderboardScrollViewport = viewport;
             if (totalH <= viewH) {
                 content.setPosition(content.position.x, 0);
                 return;
@@ -318,6 +335,9 @@ export function installFriendRankModule(target: any): void {
             const stopInertia = () => {
                 if (inertiaStep) {
                     this.unschedule(inertiaStep);
+                    if (this._leaderboardScrollInertiaStep === inertiaStep) {
+                        this._leaderboardScrollInertiaStep = null;
+                    }
                     inertiaStep = null;
                 }
                 velocity = 0;
@@ -368,6 +388,7 @@ export function installFriendRankModule(target: any): void {
                         stopInertia();
                     }
                 };
+                this._leaderboardScrollInertiaStep = inertiaStep;
                 this.schedule(inertiaStep, 0);
             };
             viewport.on(Node.EventType.TOUCH_END, endDrag, this);
