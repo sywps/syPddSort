@@ -22,9 +22,9 @@ const expectedTutorialContracts = {
     3: {
         mode: 'zoom',
         stepCount: 1,
-        title: '双指【缩放图案】',
-        subtitle: '也可以直接开始游戏',
-        guideCopies: ['双指【缩放图案】'],
+        title: '双指【缩放】',
+        subtitle: '点豆→空位（不用拖）',
+        guideCopies: ['双指【缩放】'],
     },
 };
 const expectedCdnUrl =
@@ -135,9 +135,9 @@ assert.deepStrictEqual(
     treatmentLevel3.tutorialGuide,
     {
         mode: 'zoom',
-        title: '双指【缩放图案】',
-        subtitle: '也可以直接开始游戏',
-        guideCopies: ['双指【缩放图案】'],
+        title: '双指【缩放】',
+        subtitle: '点豆→空位（不用拖）',
+        guideCopies: ['双指【缩放】'],
     },
     'experiment level 3 must keep the one-step non-blocking zoom guide contract',
 );

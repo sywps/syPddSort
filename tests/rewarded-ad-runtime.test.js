@@ -16,7 +16,10 @@ function transpile(relPath) {
     }).outputText;
 }
 
-function loadWechatProvider(behavior = {}) {
+function loadWechatProvider(behavior = {}, unitIds = {
+    douyin: 'douyin-test-ad',
+    wechat: 'wechat-test-ad',
+}) {
     const timers = [];
     const adCalls = [];
     const adInstances = [];
@@ -49,7 +52,9 @@ function loadWechatProvider(behavior = {}) {
                 },
                 load() {
                     adCalls.push(`${id}:load`);
-                    return Promise.resolve();
+                    return typeof behavior.load === 'function'
+                        ? behavior.load(ad)
+                        : Promise.resolve();
                 },
                 show() {
                     adCalls.push(`${id}:show`);
@@ -117,10 +122,8 @@ function loadWechatProvider(behavior = {}) {
         filename: 'RewardedAdProvider.ts',
     });
     return {
-        provider: module.exports.getRewardedAdProvider({
-            douyin: 'douyin-test-ad',
-            wechat: 'wechat-test-ad',
-        }),
+        provider: module.exports.getRewardedAdProvider(unitIds),
+        subscribeLoadEvents: module.exports.subscribeRewardedAdLoadEvents,
         adCalls,
         adInstances,
         currentAd() {
@@ -177,6 +180,69 @@ async function testCompletedAdHasNoCompletionWatchdog() {
     harness.triggerClose({ isEnded: true });
     assert.deepStrictEqual(events, ['show', 'close', 'result:verified_complete:1'], 'completed native close must settle exactly once');
     assert.strictEqual(harness.adInstances[0].destroyed, true, 'a settled attempt must release its native instance');
+}
+
+async function testNativeLoadLifecycleSuccessHasLatency() {
+    const harness = loadWechatProvider();
+    const loadEvents = [];
+    harness.subscribeLoadEvents((event) => loadEvents.push(event));
+    harness.provider.show(() => {});
+    await flushMicrotasks();
+
+    assert.deepStrictEqual(
+        loadEvents.map((event) => `${event.stage}:${event.reason}:${event.requestId}`),
+        ['start:show:1', 'success:show:1'],
+        'native load success must emit one ordered start/success pair for the ad attempt',
+    );
+    assert.strictEqual(loadEvents[0].loadId, loadEvents[1].loadId);
+    assert.strictEqual(loadEvents[1].platform, 'wechat');
+    assert.ok(
+        Number.isFinite(loadEvents[1].durationMs) && loadEvents[1].durationMs >= 0,
+        'native load success must carry a bounded load latency',
+    );
+}
+
+async function testNativeLoadLifecycleFailureHasCodeAndNoDuplicate() {
+    const harness = loadWechatProvider({
+        load() {
+            return Promise.reject({ errCode: 1004, errMsg: 'network failed' });
+        },
+    });
+    const loadEvents = [];
+    const outcomes = [];
+    harness.subscribeLoadEvents((event) => loadEvents.push(event));
+    harness.provider.show((outcome) => outcomes.push(`${outcome.status}:${outcome.reason}`));
+    await flushMicrotasks();
+
+    assert.deepStrictEqual(
+        loadEvents.map((event) => event.stage),
+        ['start', 'fail'],
+        'native load rejection must emit exactly one start/fail pair',
+    );
+    assert.strictEqual(loadEvents[0].loadId, loadEvents[1].loadId);
+    assert.strictEqual(loadEvents[1].errorCode, '1004');
+    assert.ok(loadEvents[1].durationMs >= 0);
+    assert.deepStrictEqual(outcomes, ['technical_error:load-failed']);
+}
+
+async function testNativeLoadUnavailableEmitsSyntheticFailure() {
+    const harness = loadWechatProvider({}, {
+        douyin: 'douyin-test-ad',
+        wechat: '',
+    });
+    const loadEvents = [];
+    const outcomes = [];
+    harness.subscribeLoadEvents((event) => loadEvents.push(event));
+    harness.provider.show((outcome) => outcomes.push(`${outcome.status}:${outcome.reason}`));
+
+    assert.deepStrictEqual(
+        loadEvents.map((event) => `${event.stage}:${event.errorCode}`),
+        ['start:', 'fail:api-unavailable'],
+        'a missing native API/ad unit must remain observable even though load() cannot be called',
+    );
+    assert.strictEqual(loadEvents[0].loadId, loadEvents[1].loadId);
+    assert.strictEqual(loadEvents[1].durationMs, 0);
+    assert.deepStrictEqual(outcomes, ['technical_error:api-unavailable']);
 }
 
 async function testUnusedReadyAdExpiresAndReloadsOnDemand() {
@@ -400,6 +466,9 @@ async function testThrowingCallerCannotLeaveProviderBusy() {
 
 async function main() {
     await testCompletedAdHasNoCompletionWatchdog();
+    await testNativeLoadLifecycleSuccessHasLatency();
+    await testNativeLoadLifecycleFailureHasCodeAndNoDuplicate();
+    await testNativeLoadUnavailableEmitsSyntheticFailure();
     await testUnusedReadyAdExpiresAndReloadsOnDemand();
     await testUnresolvedShowEstablishmentRecoversWithoutReward();
     await testCloseBeforeShowPromiseResolutionStillGrantsOnce();

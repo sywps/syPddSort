@@ -29,9 +29,9 @@ const LY_0224_TUTORIAL_CONTRACTS = Object.freeze({
     3: {
         mode: 'zoom',
         stepCount: 1,
-        title: '双指【缩放图案】',
-        subtitle: '也可以直接开始游戏',
-        guideCopies: ['双指【缩放图案】'],
+        title: '双指【缩放】',
+        subtitle: '点豆→空位（不用拖）',
+        guideCopies: ['双指【缩放】'],
     },
 });
 const LY_0224_TREATMENT_CDN_URL =

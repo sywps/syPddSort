@@ -42,6 +42,46 @@ export type RewardedAdStateSnapshot = {
 };
 type RewardedAdStateListener = (snapshot: RewardedAdStateSnapshot) => void;
 
+export type RewardedAdLoadStage = 'start' | 'success' | 'fail';
+export type RewardedAdLoadEvent = {
+    stage: RewardedAdLoadStage;
+    platform: MiniGameBuildPlatform;
+    loadId: number;
+    requestId: number;
+    generation: number;
+    reason: string;
+    durationMs: number;
+    errorCode: string;
+};
+type RewardedAdLoadListener = (event: RewardedAdLoadEvent) => void;
+
+const rewardedAdLoadListeners = new Set<RewardedAdLoadListener>();
+
+export function subscribeRewardedAdLoadEvents(listener: RewardedAdLoadListener): () => void {
+    rewardedAdLoadListeners.add(listener);
+    return () => rewardedAdLoadListeners.delete(listener);
+}
+
+function emitRewardedAdLoadEvent(event: RewardedAdLoadEvent): void {
+    for (const listener of [...rewardedAdLoadListeners]) {
+        try {
+            listener(event);
+        } catch (error) {
+            console.warn('[AdConfig] rewarded ad load listener failed:', error);
+        }
+    }
+}
+
+function resolveRewardedAdErrorCode(error: unknown): string {
+    if (error && typeof error === 'object') {
+        const candidate = (error as any).errCode ?? (error as any).errno ?? (error as any).code;
+        if (candidate !== undefined && candidate !== null && candidate !== '') {
+            return String(candidate).slice(0, 80);
+        }
+    }
+    return '';
+}
+
 export type RewardedAdUnitIds = {
     douyin: string;
     wechat: string;
@@ -79,6 +119,10 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     private readyExpiryTimer: any = null;
     private stateChangedAt = Date.now();
     private stateReason = 'init';
+    private loadSeq = 0;
+    private activeLoadId = 0;
+    private activeLoadRequestId = 0;
+    private activeLoadStartedAt = 0;
     private readonly stateListeners = new Set<RewardedAdStateListener>();
 
     constructor(private readonly adUnitId: string) {}
@@ -108,7 +152,10 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     }
 
     preload(reason: string = 'manual'): void {
-        if (!this.hasNativeAdWindow()) return;
+        if (!this.hasNativeAdWindow()) {
+            this.emitSyntheticLoadFailure(reason, 'api-unavailable', 0);
+            return;
+        }
         void this.startLoad(reason);
     }
 
@@ -116,6 +163,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         const requestId = ++this.requestSeq;
         if (!this.hasNativeAdWindow()) {
             console.warn(`[AdConfig] ${this.platform} rewarded ad API unavailable`);
+            this.emitSyntheticLoadFailure('show', 'api-unavailable', requestId);
             callback({
                 attemptId: requestId,
                 status: 'technical_error',
@@ -209,7 +257,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     protected abstract getRuntimeApi(): any;
     protected abstract getSystemInfo(api: any): any;
 
-    private setStatus(status: RewardedAdStatus, reason: string): void {
+    private setStatus(status: RewardedAdStatus, reason: string, loadErrorCode: string = ''): void {
         if (status !== 'ready') {
             this.clearReadyExpiryTimer();
         }
@@ -219,6 +267,28 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.status = status;
         this.stateChangedAt = now;
         this.stateReason = String(reason || '');
+        if (status === 'loading' && previousStatus !== 'loading') {
+            this.activeLoadId = ++this.loadSeq;
+            this.activeLoadRequestId = this.currentCallback ? this.currentRequestId : 0;
+            this.activeLoadStartedAt = now;
+            emitRewardedAdLoadEvent({
+                stage: 'start',
+                platform: this.platform,
+                loadId: this.activeLoadId,
+                requestId: this.activeLoadRequestId,
+                generation: this.currentAdGeneration,
+                reason: this.stateReason,
+                durationMs: 0,
+                errorCode: '',
+            });
+        } else if (previousStatus === 'loading' && status !== 'loading') {
+            this.finishLoadTelemetry(
+                status === 'ready' ? 'success' : 'fail',
+                this.stateReason,
+                Math.max(0, now - this.activeLoadStartedAt),
+                loadErrorCode,
+            );
+        }
         const snapshot: RewardedAdStateSnapshot = {
             status,
             previousStatus,
@@ -269,7 +339,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
                 this.resolveCurrent({ status: 'technical_error', reason: 'native-error', error });
                 return;
             }
-            this.setStatus('idle', 'native-error-idle');
+            this.setStatus('idle', 'native-error-idle', resolveRewardedAdErrorCode(error));
             this.loadPromise = null;
             this.cleanupAd(ad);
         };
@@ -285,8 +355,26 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         }
         if (this.status === 'loading' && this.loadPromise) return this.loadPromise;
 
-        const ad = this.ensureAd();
-        if (!ad || typeof ad.load !== 'function') return Promise.resolve(false);
+        let ad: any = null;
+        try {
+            ad = this.ensureAd();
+        } catch (error) {
+            console.warn(`[AdConfig] ${this.platform} rewarded ad create failed:`, error);
+            this.emitSyntheticLoadFailure(
+                reason,
+                resolveRewardedAdErrorCode(error) || 'create-failed',
+                this.currentCallback ? this.currentRequestId : 0,
+            );
+            return Promise.resolve(false);
+        }
+        if (!ad || typeof ad.load !== 'function') {
+            this.emitSyntheticLoadFailure(
+                reason,
+                'load-unavailable',
+                this.currentCallback ? this.currentRequestId : 0,
+            );
+            return Promise.resolve(false);
+        }
         const generation = this.currentAdGeneration;
         this.setStatus('loading', reason);
         const loadPromise = Promise.resolve()
@@ -306,7 +394,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
             .catch((err) => {
                 console.warn(`[AdConfig] ${this.platform} rewarded ad preload failed:`, err);
                 if (this.ad === ad && this.currentAdGeneration === generation) {
-                    this.setStatus('idle', `load-failed:${reason}`);
+                    this.setStatus('idle', `load-failed:${reason}`, resolveRewardedAdErrorCode(err));
                     this.cleanupAd(ad);
                 }
                 return false;
@@ -362,7 +450,11 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         this.currentCallback = null;
         this.currentHooks = null;
         this.currentRecoverableNotified = false;
-        this.setStatus('idle', `outcome:${outcome.status}:${outcome.reason || ''}`);
+        this.setStatus(
+            'idle',
+            `outcome:${outcome.status}:${outcome.reason || ''}`,
+            resolveRewardedAdErrorCode(outcome.error) || String(outcome.reason || '').slice(0, 80),
+        );
         this.loadPromise = null;
         this.cleanupAd(ad);
         try {
@@ -402,6 +494,56 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         if (!this.readyExpiryTimer) return;
         clearTimeout(this.readyExpiryTimer);
         this.readyExpiryTimer = null;
+    }
+
+    private finishLoadTelemetry(
+        stage: Exclude<RewardedAdLoadStage, 'start'>,
+        reason: string,
+        durationMs: number,
+        errorCode: string,
+    ): void {
+        const loadId = this.activeLoadId;
+        if (loadId <= 0) return;
+        emitRewardedAdLoadEvent({
+            stage,
+            platform: this.platform,
+            loadId,
+            requestId: this.activeLoadRequestId,
+            generation: this.currentAdGeneration,
+            reason: String(reason || '').slice(0, 120),
+            durationMs: Math.max(0, Math.floor(Number(durationMs) || 0)),
+            errorCode: stage === 'fail'
+                ? String(errorCode || reason || 'load-failed').slice(0, 80)
+                : '',
+        });
+        this.activeLoadId = 0;
+        this.activeLoadRequestId = 0;
+        this.activeLoadStartedAt = 0;
+    }
+
+    private emitSyntheticLoadFailure(reason: string, errorCode: string, requestId: number): void {
+        const loadId = ++this.loadSeq;
+        const normalizedReason = String(reason || 'unknown').slice(0, 120);
+        emitRewardedAdLoadEvent({
+            stage: 'start',
+            platform: this.platform,
+            loadId,
+            requestId,
+            generation: this.currentAdGeneration,
+            reason: normalizedReason,
+            durationMs: 0,
+            errorCode: '',
+        });
+        emitRewardedAdLoadEvent({
+            stage: 'fail',
+            platform: this.platform,
+            loadId,
+            requestId,
+            generation: this.currentAdGeneration,
+            reason: normalizedReason,
+            durationMs: 0,
+            errorCode: String(errorCode || 'load-unavailable').slice(0, 80),
+        });
     }
 
     private scheduleReadyExpiry(ad: any, generation: number, reason: string): void {

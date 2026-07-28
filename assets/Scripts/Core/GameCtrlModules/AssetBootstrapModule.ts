@@ -32,7 +32,8 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
-import { LevelDataCdnService } from '../LevelDataCdnService';
+import { LevelDataCdnService, normalizeLevelCollectionEntries } from '../LevelDataCdnService';
+import type { LevelCollectionEntry } from '../LevelDataCdnService';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
@@ -1440,6 +1441,54 @@ export function installAssetBootstrapModule(target: any): void {
                 for (const done of callbacks) {
                     done(bundle || null);
                 }
+            });
+        },
+
+        loadCollectionLevelEntries(callback: (entries: LevelCollectionEntry[] | null, err: Error | null) => void) {
+            if (!shouldUseLocalLevelDataMirror()) {
+                LevelDataCdnService.inst.loadCollectionEntries().then((entries) => {
+                    callback(entries, null);
+                }).catch((error) => {
+                    callback(null, error instanceof Error ? error : new Error(String(error)));
+                });
+                return;
+            }
+            this._withLevelDataBundle((bundle) => {
+                if (!bundle) {
+                    callback(null, new Error('levelData bundle unavailable'));
+                    return;
+                }
+                bundle.load('level-manifest', JsonAsset, (err, jsonAsset) => {
+                    if (err || !jsonAsset) {
+                        callback(null, err || new Error('level-manifest missing'));
+                        return;
+                    }
+                    try {
+                        const manifest = jsonAsset.json as any;
+                        if (Number(manifest?.collectionCatalogVersion) !== 1) {
+                            throw new Error('level-manifest collectionCatalogVersion unsupported');
+                        }
+                        if (!Array.isArray(manifest?.entries)) {
+                            throw new Error('level-manifest entries missing');
+                        }
+                        const availableKeys = new Set<string>(manifest.entries.map((entry: any) => {
+                            const prefix = String(entry?.prefix || 'level_');
+                            return prefix + Number(entry?.levelId);
+                        }));
+                        const entries = normalizeLevelCollectionEntries(
+                            manifest.collectionEntries,
+                            'level-manifest collectionEntries',
+                        );
+                        for (const entry of entries) {
+                            if (!availableKeys.has(entry.prefix + entry.levelId)) {
+                                throw new Error('level-manifest collection entry missing level: ' + entry.prefix + entry.levelId);
+                            }
+                        }
+                        callback(entries, null);
+                    } catch (error) {
+                        callback(null, error instanceof Error ? error : new Error(String(error)));
+                    }
+                });
             });
         },
 

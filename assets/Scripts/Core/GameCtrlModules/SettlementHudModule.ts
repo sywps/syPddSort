@@ -40,7 +40,7 @@ const PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.2;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
-const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 2;
+const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 4;
 const LEVEL_3_IDLE_HINT_FAST_SHOW_LIMIT = 5;
 const SMART_IDLE_HINT_SLOW_DELAY_SECONDS = 5;
 const SMART_IDLE_HINT_MAX_LEVEL_ID = 10;
@@ -51,11 +51,13 @@ const EXP_SMART_IDLE_HINT_DELAY_SECONDS = 10;
 const EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS = 3;
 const EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID = 3;
 const SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS = 1.2;
+const SMART_IDLE_HINT_REPEAT_DELAY_SECONDS = 4;
+const SMART_IDLE_HINT_MAX_CYCLES_PER_EPISODE = 2;
+const SMART_IDLE_HINT_FINAL_HOLD_SECONDS = 1;
 const SMART_IDLE_HINT_FINGERTIP_OFFSET_X = -31;
 const SMART_IDLE_HINT_FINGERTIP_OFFSET_Y = 43;
 const SMART_IDLE_HINT_TAP_SCALE = 0.88;
-const SMART_IDLE_HINT_HAND_TIME_SCALE = 1.25;
-const EXP_SMART_IDLE_HINT_HAND_TIME_SCALE = 1;
+const SMART_IDLE_HINT_BUTTON_GAP = 10;
 
 type SmartIdleHintStep = 'board_to_slot' | 'board_to_board' | 'slot_to_board';
 type SmartIdleHintPlan = {
@@ -64,6 +66,12 @@ type SmartIdleHintPlan = {
     block?: BeanBlockInfo;
     targetCells?: { row: number; col: number }[];
     slotIndices?: number[];
+    destinationOnly?: boolean;
+};
+type SmartIdleHintEndpoints = {
+    from: Vec3 | null;
+    to: Vec3;
+    sourceHandVisible?: boolean;
 };
 
 const GOLD_TEXTURE_NAME = '\u91d1\u5e01';
@@ -1059,6 +1067,8 @@ export function installSettlementHudModule(target: any): void {
         resetIdleHintTimer() {
             this.stopIdleHintTimer();
             this.clearSmartIdleHintVisuals?.();
+            this._smartIdleHintEpisodeCycle = 0;
+            if (this._smartIdleHintInputActive) return;
             if (!this.canArmSmartIdleHint?.()) return;
             this.armSmartIdleHintTimer?.(this.getSmartIdleHintDelaySeconds?.() ?? LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS);
         },
@@ -1066,9 +1076,25 @@ export function installSettlementHudModule(target: any): void {
         clearIdleHint() {
             this.stopIdleHintTimer();
             this.clearSmartIdleHintVisuals?.();
+            this._smartIdleHintEpisodeCycle = 0;
+            this._smartIdleHintInputActive = false;
+        },
+
+        beginSmartIdleHintInputActivity() {
+            this._smartIdleHintInputActive = true;
+            this._smartIdleHintEpisodeCycle = 0;
+            this.stopIdleHintTimer();
+            this.clearSmartIdleHintVisuals?.();
+        },
+
+        endSmartIdleHintInputActivity() {
+            if (!this._smartIdleHintInputActive) return;
+            this._smartIdleHintInputActive = false;
+            this.resetIdleHintTimer?.();
         },
 
         armSmartIdleHintTimer(delaySeconds: number) {
+            if (this._smartIdleHintInputActive) return;
             const existingHandler = this._smartIdleHintTimerHandler as (() => void) | null;
             if (existingHandler) {
                 this.unschedule(existingHandler);
@@ -1103,16 +1129,6 @@ export function installSettlementHudModule(target: any): void {
             return getFrontLevelExperimentAnalyticsContext(logicalLevelId, 'level_')?.abBucket === 'exp';
         },
 
-        getSmartIdleHintHandTimeScale(): number {
-            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
-                ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
-                : Math.floor(Number(this.levelData?.levelId) || 0);
-            return logicalLevelId <= EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID
-                && this.isExpSmartIdleHintEnabled(logicalLevelId)
-                ? EXP_SMART_IDLE_HINT_HAND_TIME_SCALE
-                : SMART_IDLE_HINT_HAND_TIME_SCALE;
-        },
-
         canArmSmartIdleHint(): boolean {
             if (this.isGameEnd) return false;
             if (!this.boardModel || !this.slotModel || !this.levelData) return false;
@@ -1144,6 +1160,7 @@ export function installSettlementHudModule(target: any): void {
             if ((Number(this._modalFocusRefs) || 0) > 0) return false;
             if (this._guideInputSuspended) return false;
             if (this._skillActive) return false;
+            if (this._smartIdleHintInputActive) return false;
             if (this.isPlacementVisualActive?.()) return false;
             return true;
         },
@@ -1167,48 +1184,53 @@ export function installSettlementHudModule(target: any): void {
             }
             this.clearSmartIdleHintVisuals?.();
             if (!this.ensureSmartIdleHintLayer?.()) return;
+            const endpoints = this.resolveSmartIdleHintEndpoints?.(plan) as SmartIdleHintEndpoints | null;
+            if (!endpoints) {
+                this._smartIdleHintActive = true;
+                this._smartIdleHintPlan = plan;
+                this.clearSmartIdleHintVisuals?.();
+                if (this.canArmSmartIdleHint?.()) {
+                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
+                }
+                return;
+            }
             this._smartIdleHintActive = true;
             this._smartIdleHintPlan = plan;
             this._guideReminderVisible = true;
             this._guideLayer!.active = true;
 
             const hand = this._guideHand as Node | null;
-            if (!hand?.isValid) return;
-
-            // 成功展示后手指路径会自己循环；不要再挂下一轮计时器打断当前 tween。
-            if (plan.step === 'board_to_slot' && plan.block) {
-                const from = this.getSmartIdleHintBlockTapPoint?.(plan.block);
-                const to = this.getSmartIdleHintFirstEmptySlotCenter?.();
-                if (from && to) {
-                    this.startSmartIdleHintHandPath?.(hand, from, to);
-                    this.trackSmartIdleHintShown?.(plan);
-                } else if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
-                }
+            if (!hand?.isValid) {
+                this.clearSmartIdleHintVisuals?.();
                 return;
             }
 
-            if (plan.step === 'board_to_board' && plan.block && plan.targetCells?.length) {
-                const from = this.getSmartIdleHintBlockTapPoint?.(plan.block);
-                const to = this.getSmartIdleHintCellsTapPoint?.(plan.targetCells);
-                if (from && to) {
-                    this.startSmartIdleHintHandPath?.(hand, from, to);
-                    this.trackSmartIdleHintShown?.(plan);
-                } else if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
-                }
-                return;
-            }
+            const cycleToken = Number(this._smartIdleHintToken) || 0;
+            this._smartIdleHintEpisodeCycle = Math.max(
+                0,
+                Math.floor(Number(this._smartIdleHintEpisodeCycle) || 0),
+            ) + 1;
+            this.startSmartIdleHintTapSequence?.(
+                hand,
+                endpoints.from,
+                endpoints.to,
+                () => this.completeSmartIdleHintCycle?.(cycleToken),
+                endpoints.sourceHandVisible !== false,
+            );
+            this.trackSmartIdleHintShown?.(plan);
+        },
 
-            if (plan.step === 'slot_to_board' && plan.targetCells?.length) {
-                const from = this.getSmartIdleHintFirstSlotIndexCenter?.(plan.slotIndices || []);
-                const to = this.getSmartIdleHintCellsTapPoint?.(plan.targetCells);
-                if (from && to) {
-                    this.startSmartIdleHintHandPath?.(hand, from, to);
-                    this.trackSmartIdleHintShown?.(plan);
-                } else if (this.canArmSmartIdleHint?.()) {
-                    this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_FOLLOWUP_DELAY_SECONDS);
-                }
+        completeSmartIdleHintCycle(token: number) {
+            if (token !== (Number(this._smartIdleHintToken) || 0)) return;
+            this.clearSmartIdleHintVisuals?.();
+            if (this._smartIdleHintInputActive || !this.canArmSmartIdleHint?.()) return;
+            const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
+                ? Math.floor(Number(this.getActiveLogicalLevelId()) || 0)
+                : Math.floor(Number(this.levelData?.levelId) || 0);
+            const episodeCycle = Math.max(0, Math.floor(Number(this._smartIdleHintEpisodeCycle) || 0));
+            if (logicalLevelId === LEVEL_3_IDLE_HINT_LEVEL_ID
+                && episodeCycle < SMART_IDLE_HINT_MAX_CYCLES_PER_EPISODE) {
+                this.armSmartIdleHintTimer?.(SMART_IDLE_HINT_REPEAT_DELAY_SECONDS);
             }
         },
 
@@ -1238,6 +1260,11 @@ export function installSettlementHudModule(target: any): void {
             this._guideReminderVisible = false;
             if (this._guideHand?.isValid) {
                 Tween.stopAllByTarget(this._guideHand);
+                const handOpacity = this._guideHand.getComponent(UIOpacity);
+                if (handOpacity) {
+                    Tween.stopAllByTarget(handOpacity);
+                    handOpacity.opacity = 255;
+                }
                 this._guideHand.setScale(1, 1, 1);
                 this._guideHand.active = false;
             }
@@ -1294,6 +1321,7 @@ export function installSettlementHudModule(target: any): void {
                     colorId,
                     targetCells,
                     slotIndices: Array.isArray(this._selectedSlotIndices) ? [...this._selectedSlotIndices] : [],
+                    destinationOnly: true,
                 };
             }
 
@@ -1303,6 +1331,7 @@ export function installSettlementHudModule(target: any): void {
                     colorId,
                     block,
                     targetCells,
+                    destinationOnly: true,
                 };
             }
 
@@ -1311,6 +1340,7 @@ export function installSettlementHudModule(target: any): void {
                     step: 'board_to_slot',
                     colorId,
                     block,
+                    destinationOnly: true,
                 };
             }
             return null;
@@ -1537,35 +1567,202 @@ export function installSettlementHudModule(target: any): void {
             return new Vec3(bounds.centerX, bounds.centerY, 0);
         },
 
-        pickSmartIdleHintCell(cells: { row: number; col: number }[]): { row: number; col: number } | null {
-            if (!cells?.length) return null;
+        orderSmartIdleHintCells(cells: { row: number; col: number }[]): { row: number; col: number }[] {
+            if (!cells?.length) return [];
             const center = cells.reduce(
                 (sum, cell) => ({ row: sum.row + cell.row, col: sum.col + cell.col }),
                 { row: 0, col: 0 },
             );
             const centerRow = center.row / cells.length;
             const centerCol = center.col / cells.length;
-            let best = cells[0];
-            let bestDist = Infinity;
-            for (const cell of cells) {
-                const rowDelta = cell.row - centerRow;
-                const colDelta = cell.col - centerCol;
-                const dist = rowDelta * rowDelta + colDelta * colDelta;
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = cell;
-                }
+            return [...cells].sort((left, right) => {
+                const leftRow = left.row - centerRow;
+                const leftCol = left.col - centerCol;
+                const rightRow = right.row - centerRow;
+                const rightCol = right.col - centerCol;
+                return leftRow * leftRow + leftCol * leftCol
+                    - (rightRow * rightRow + rightCol * rightCol);
+            });
+        },
+
+        getSmartIdleHintPointWorld(target: Vec3): Vec3 | null {
+            const layerUT = this._guideLayer?.getComponent(UITransform) || null;
+            return layerUT ? layerUT.convertToWorldSpaceAR(new Vec3(target.x, target.y, 0)) : null;
+        },
+
+        getSmartIdleHintHandCorners(target: Vec3): Vec3[] {
+            const handCenter = this.getSmartIdleHintHandPositionForTarget?.(target) || null;
+            if (!handCenter) return [];
+            const halfHand = GUIDE_HAND_BOX_SIZE / 2;
+            return [
+                new Vec3(handCenter.x - halfHand, handCenter.y - halfHand, 0),
+                new Vec3(handCenter.x - halfHand, handCenter.y + halfHand, 0),
+                new Vec3(handCenter.x + halfHand, handCenter.y - halfHand, 0),
+                new Vec3(handCenter.x + halfHand, handCenter.y + halfHand, 0),
+            ];
+        },
+
+        getSmartIdleHintHandBoundsInFixedRoot(
+            target: Vec3,
+        ): { left: number; right: number; bottom: number; top: number } | null {
+            const fixedRoot = this.getGameplayFixedRoot?.() || null;
+            const fixedUi = fixedRoot?.getComponent(UITransform) || null;
+            const handCorners = this.getSmartIdleHintHandCorners?.(target) || [];
+            if (!fixedUi || handCorners.length !== 4) return null;
+            const fixedCorners = handCorners.map((corner) => {
+                const world = this.getSmartIdleHintPointWorld?.(corner) || null;
+                return world ? fixedUi.convertToNodeSpaceAR(world) : null;
+            });
+            if (fixedCorners.some((corner) => !corner)) return null;
+            const corners = fixedCorners as Vec3[];
+            return {
+                left: Math.min(...corners.map((corner) => corner.x)),
+                right: Math.max(...corners.map((corner) => corner.x)),
+                bottom: Math.min(...corners.map((corner) => corner.y)),
+                top: Math.max(...corners.map((corner) => corner.y)),
+            };
+        },
+
+        doesSmartIdleHintHandOverlapFixedNode(target: Vec3, node: Node | null): boolean {
+            const handBounds = this.getSmartIdleHintHandBoundsInFixedRoot?.(target) || null;
+            const nodeBounds = this.getGameplayNodeBoundsInFixedRoot?.(node) || null;
+            if (!handBounds) return true;
+            if (!nodeBounds) return false;
+            return handBounds.right >= nodeBounds.left - SMART_IDLE_HINT_BUTTON_GAP
+                && handBounds.left <= nodeBounds.right + SMART_IDLE_HINT_BUTTON_GAP
+                && handBounds.top >= nodeBounds.bottom - SMART_IDLE_HINT_BUTTON_GAP
+                && handBounds.bottom <= nodeBounds.top + SMART_IDLE_HINT_BUTTON_GAP;
+        },
+
+        getSmartIdleHintHudBlockerNodes(): Node[] {
+            const fixedRoot = this.getGameplayFixedRoot?.() || null;
+            const buttonNodes = (fixedRoot?.getComponentsInChildren?.(Button) || [])
+                .filter((button: Button) => (
+                    button?.enabled
+                    && button.interactable !== false
+                    && button.node?.isValid
+                    && button.node.activeInHierarchy
+                ))
+                .map((button: Button) => button.node);
+            const topBar = this.getGameplayFixedGroup?.('TopBarGroup') || null;
+            const skillRoot = this.getGameplayBottomHudChild?.('SkillArea') || null;
+            const topBarBlockers = (topBar?.children || []).flatMap((child: Node) => (
+                child.name === 'TopHud' ? child.children : [child]
+            ));
+            const blockers = [
+                ...buttonNodes,
+                ...topBarBlockers,
+                ...(skillRoot?.children || []),
+            ];
+            return blockers.filter((node: Node, index: number) => (
+                blockers.indexOf(node) === index
+                && node?.isValid
+                && node.activeInHierarchy
+            ));
+        },
+
+        isSmartIdleHintPointVisible(target: Vec3, margin: number = 48): boolean {
+            const layerUT = this._guideLayer?.getComponent(UITransform) || null;
+            if (!layerUT) return false;
+            const anchor = layerUT.anchorPoint || new Vec2(0.5, 0.5);
+            const left = -layerUT.contentSize.width * anchor.x + margin;
+            const right = layerUT.contentSize.width * (1 - anchor.x) - margin;
+            const bottom = -layerUT.contentSize.height * anchor.y + margin;
+            const top = layerUT.contentSize.height * (1 - anchor.y) - margin;
+            return target.x >= left && target.x <= right && target.y >= bottom && target.y <= top;
+        },
+
+        isSmartIdleHintPointBlockedByButton(target: Vec3): boolean {
+            const world = this.getSmartIdleHintPointWorld?.(target);
+            if (!world) return true;
+            try {
+                return (this.getSmartIdleHintHudBlockerNodes?.() || []).some((node: Node) => (
+                    this.doesSmartIdleHintHandOverlapFixedNode?.(target, node) !== false
+                ));
+            } catch {
+                return true;
             }
-            return best;
         },
 
-        getSmartIdleHintCellsTapPoint(cells: { row: number; col: number }[]): Vec3 | null {
-            const cell = this.pickSmartIdleHintCell?.(cells);
-            return cell ? this.getSmartIdleHintCellsCenter?.([cell]) || null : null;
+        isSmartIdleHintPointCoveredByHud(target: Vec3): boolean {
+            const world = this.getSmartIdleHintPointWorld?.(target);
+            const fixedRoot = this.getGameplayFixedRoot?.() || null;
+            const fixedUi = fixedRoot?.getComponent(UITransform) || null;
+            if (!world || !fixedUi) return true;
+            const local = fixedUi.convertToNodeSpaceAR(world);
+            try {
+                return (this.getSmartIdleHintHudBlockerNodes?.() || []).some((node: Node) => {
+                    const bounds = this.getGameplayNodeBoundsInFixedRoot?.(node) || null;
+                    if (!bounds) return false;
+                    return local.x >= bounds.left - SMART_IDLE_HINT_BUTTON_GAP
+                        && local.x <= bounds.right + SMART_IDLE_HINT_BUTTON_GAP
+                        && local.y >= bounds.bottom - SMART_IDLE_HINT_BUTTON_GAP
+                        && local.y <= bounds.top + SMART_IDLE_HINT_BUTTON_GAP;
+                });
+            } catch {
+                return true;
+            }
         },
 
-        getSmartIdleHintBlockTapPoint(block: BeanBlockInfo): Vec3 | null {
-            return this.getSmartIdleHintCellsTapPoint?.(block?.cells || []) || null;
+        isSmartIdleHintBoardPointSafe(target: Vec3, requireHandClear: boolean = true): boolean {
+            const hudBlocked = requireHandClear
+                ? this.isSmartIdleHintPointBlockedByButton?.(target)
+                : this.isSmartIdleHintPointCoveredByHud?.(target);
+            if (!this.isSmartIdleHintPointVisible?.(target) || hudBlocked) {
+                return false;
+            }
+            const world = this.getSmartIdleHintPointWorld?.(target);
+            if (!world) return false;
+            try {
+                const fixedRoot = this.getGameplayFixedRoot?.() || null;
+                const fixedUT = fixedRoot?.getComponent(UITransform) || null;
+                const safeRect = this.getBoardSafeViewportRect?.() || null;
+                if (!fixedUT || !safeRect) return false;
+                const margin = 8;
+                const local = fixedUT.convertToNodeSpaceAR(world);
+                return local.x >= safeRect.left + margin
+                    && local.x <= safeRect.right - margin
+                    && local.y >= safeRect.bottom + margin
+                    && local.y <= safeRect.top - margin;
+            } catch {
+                return false;
+            }
+        },
+
+        doesSmartIdleHintBlockMatch(actual: BeanBlockInfo | null, expected: BeanBlockInfo): boolean {
+            if (!actual || !expected) return false;
+            if (actual === expected) return true;
+            if (actual.colorId !== expected.colorId) return false;
+            const expectedCells = new Set((expected.cells || []).map((cell) => `${cell.row}:${cell.col}`));
+            return (actual.cells || []).some((cell) => expectedCells.has(`${cell.row}:${cell.col}`));
+        },
+
+        isSmartIdleHintBoardSelectPointSafe(
+            target: Vec3,
+            block: BeanBlockInfo,
+            requireHandClear: boolean = true,
+        ): boolean {
+            if (!this.isSmartIdleHintBoardPointSafe?.(target, requireHandClear)) return false;
+            const world = this.getSmartIdleHintPointWorld?.(target);
+            if (!world) return false;
+            const slotIntent = this.resolveSlotTapIntent?.(world, 'none');
+            if (slotIntent && slotIntent.kind !== 'miss') return false;
+            const resolution = this.resolveBoardTapBlock?.(world, false);
+            return this.doesSmartIdleHintBlockMatch?.(resolution?.block || null, block) === true;
+        },
+
+        isSmartIdleHintBoardPlacePointSafe(
+            target: Vec3,
+            colorId: number,
+            fromSlot: boolean,
+        ): boolean {
+            if (!this.isSmartIdleHintBoardPointSafe?.(target)) return false;
+            const world = this.getSmartIdleHintPointWorld?.(target);
+            if (!world) return false;
+            const flow = fromSlot ? 'slotSelected' : 'boardSelected';
+            const slotIntent = this.resolveSlotTapIntent?.(world, flow);
+            if (slotIntent && slotIntent.kind !== 'miss') return false;
+            return this.getBoardPlaceTargetFromWorldPos?.(world, colorId, fromSlot) != null;
         },
 
         getSmartIdleHintSlotIndexCenter(slotIndex: number): Vec3 | null {
@@ -1575,18 +1772,106 @@ export function installSettlementHudModule(target: any): void {
             return bounds ? new Vec3(bounds.centerX, bounds.centerY, 0) : null;
         },
 
-        getSmartIdleHintFirstSlotIndexCenter(slotIndices: number[]): Vec3 | null {
-            for (const slotIndex of slotIndices || []) {
-                const center = this.getSmartIdleHintSlotIndexCenter?.(slotIndex);
-                if (center) return center;
+        isSmartIdleHintSlotPointSafe(
+            target: Vec3,
+            slotIndex: number,
+            expectedKind: 'occupiedSlot' | 'emptyUnlockedSlot',
+            colorId: number = 0,
+        ): boolean {
+            if (!this.isSmartIdleHintPointVisible?.(target, 36)
+                || this.isSmartIdleHintPointBlockedByButton?.(target)) return false;
+            const world = this.getSmartIdleHintPointWorld?.(target);
+            if (!world) return false;
+            const flow = expectedKind === 'emptyUnlockedSlot' ? 'boardSelected' : 'none';
+            const intent = this.resolveSlotTapIntent?.(world, flow);
+            if (!intent || intent.kind !== expectedKind || intent.candidate?.slotIndex !== slotIndex) return false;
+            if (expectedKind === 'occupiedSlot' && colorId > 0) {
+                return this.slotModel?.getBlock?.(slotIndex)?.colorId === colorId;
+            }
+            return true;
+        },
+
+        getSmartIdleHintSafeBoardSelectPoint(
+            block: BeanBlockInfo,
+            requireHandClear: boolean = true,
+        ): Vec3 | null {
+            for (const cell of this.orderSmartIdleHintCells?.(block?.cells || []) || []) {
+                const point = this.getSmartIdleHintCellsCenter?.([cell]) || null;
+                if (point && this.isSmartIdleHintBoardSelectPointSafe?.(point, block, requireHandClear)) {
+                    return point;
+                }
             }
             return null;
         },
 
-        getSmartIdleHintFirstEmptySlotCenter(): Vec3 | null {
+        getSmartIdleHintSafeBoardPlacePoint(
+            cells: { row: number; col: number }[],
+            colorId: number,
+            fromSlot: boolean,
+        ): Vec3 | null {
+            for (const cell of this.orderSmartIdleHintCells?.(cells || []) || []) {
+                const point = this.getSmartIdleHintCellsCenter?.([cell]) || null;
+                if (point && this.isSmartIdleHintBoardPlacePointSafe?.(point, colorId, fromSlot)) return point;
+            }
+            return null;
+        },
+
+        getSmartIdleHintSafeSlotSourcePoint(slotIndices: number[], colorId: number): Vec3 | null {
+            for (const slotIndex of slotIndices || []) {
+                const center = this.getSmartIdleHintSlotIndexCenter?.(slotIndex);
+                if (center && this.isSmartIdleHintSlotPointSafe?.(center, slotIndex, 'occupiedSlot', colorId)) {
+                    return center;
+                }
+            }
+            return null;
+        },
+
+        getSmartIdleHintSafeEmptySlotPoint(): Vec3 | null {
             const entries = this.getUsableSlotEntriesForIdleHint?.() || [];
-            const empty = entries.find((entry: { index: number; block: BeanBlockInfo | null }) => !entry.block);
-            return empty ? this.getSmartIdleHintSlotIndexCenter?.(empty.index) || null : null;
+            for (const entry of entries as { index: number; block: BeanBlockInfo | null }[]) {
+                if (entry.block) continue;
+                const center = this.getSmartIdleHintSlotIndexCenter?.(entry.index) || null;
+                if (center && this.isSmartIdleHintSlotPointSafe?.(center, entry.index, 'emptyUnlockedSlot')) {
+                    return center;
+                }
+            }
+            return null;
+        },
+
+        resolveSmartIdleHintEndpoints(plan: SmartIdleHintPlan): SmartIdleHintEndpoints | null {
+            const destinationOnly = plan.destinationOnly === true;
+            if (plan.step === 'board_to_slot' && plan.block) {
+                const to = this.getSmartIdleHintSafeEmptySlotPoint?.() || null;
+                let from = destinationOnly
+                    ? null
+                    : this.getSmartIdleHintSafeBoardSelectPoint?.(plan.block, true) || null;
+                let sourceHandVisible = true;
+                if (!destinationOnly && !from) {
+                    from = this.getSmartIdleHintSafeBoardSelectPoint?.(plan.block, false) || null;
+                    sourceHandVisible = false;
+                }
+                return to && (destinationOnly || from) ? { from, to, sourceHandVisible } : null;
+            }
+            if (plan.step === 'board_to_board' && plan.block && plan.targetCells?.length) {
+                const to = this.getSmartIdleHintSafeBoardPlacePoint?.(plan.targetCells, plan.colorId, false) || null;
+                let from = destinationOnly
+                    ? null
+                    : this.getSmartIdleHintSafeBoardSelectPoint?.(plan.block, true) || null;
+                let sourceHandVisible = true;
+                if (!destinationOnly && !from) {
+                    from = this.getSmartIdleHintSafeBoardSelectPoint?.(plan.block, false) || null;
+                    sourceHandVisible = false;
+                }
+                return to && (destinationOnly || from) ? { from, to, sourceHandVisible } : null;
+            }
+            if (plan.step === 'slot_to_board' && plan.targetCells?.length) {
+                const to = this.getSmartIdleHintSafeBoardPlacePoint?.(plan.targetCells, plan.colorId, true) || null;
+                const from = destinationOnly
+                    ? null
+                    : this.getSmartIdleHintSafeSlotSourcePoint?.(plan.slotIndices || [], plan.colorId) || null;
+                return to && (destinationOnly || from) ? { from, to } : null;
+            }
+            return null;
         },
 
         getSmartIdleHintHandPositionForTarget(target: Vec3): Vec3 {
@@ -1597,7 +1882,7 @@ export function installSettlementHudModule(target: any): void {
             );
         },
 
-        playSmartIdleHintTapRipple(target: Vec3) {
+        playSmartIdleHintTapRipple(target: Vec3, selectedHoldSeconds: number = 0) {
             const layer = this._guideLayer as Node | null;
             if (!layer?.isValid) return;
 
@@ -1623,14 +1908,18 @@ export function installSettlementHudModule(target: any): void {
             g.circle(0, 0, 18);
             g.stroke();
 
+            const holdSeconds = Math.max(0, Number(selectedHoldSeconds) || 0);
             tween(ring)
-                .to(0.42, { scale: new Vec3(1.7, 1.7, 1) }, { easing: 'sineOut' })
+                .to(0.24, { scale: new Vec3(holdSeconds > 0 ? 1.25 : 1.45, holdSeconds > 0 ? 1.25 : 1.45, 1) }, { easing: 'sineOut' })
+                .delay(holdSeconds)
+                .to(0.18, { scale: new Vec3(1.7, 1.7, 1) }, { easing: 'sineOut' })
                 .call(() => {
                     if (ring.isValid) ring.destroy();
                 })
                 .start();
             tween(opacity)
-                .to(0.42, { opacity: 0 }, { easing: 'quadIn' })
+                .delay(0.24 + holdSeconds)
+                .to(0.18, { opacity: 0 }, { easing: 'quadIn' })
                 .start();
         },
 
@@ -1640,38 +1929,114 @@ export function installSettlementHudModule(target: any): void {
             const toRemove = layer.children.filter((child: Node) => child.name === 'GuideTapRing');
             for (const child of toRemove) {
                 Tween.stopAllByTarget(child);
+                const opacity = child.getComponent(UIOpacity);
+                if (opacity) Tween.stopAllByTarget(opacity);
                 child.destroy();
             }
         },
 
-        startSmartIdleHintHandPath(hand: Node, from: Vec3, to: Vec3) {
+        startSmartIdleHintTapSequence(
+            hand: Node,
+            from: Vec3 | null,
+            to: Vec3,
+            onComplete?: () => void,
+            showSourceHand: boolean = true,
+        ) {
             Tween.stopAllByTarget(hand);
+            const handOpacity = hand.getComponent(UIOpacity) || hand.addComponent(UIOpacity);
+            Tween.stopAllByTarget(handOpacity);
             hand.active = true;
+            handOpacity.opacity = 0;
             hand.setScale(1, 1, 1);
-            const s = this.getSmartIdleHintHandTimeScale?.() ?? SMART_IDLE_HINT_HAND_TIME_SCALE;
-            const start = this.getSmartIdleHintHandPositionForTarget?.(from) || new Vec3(from.x, from.y, 0);
+            const start = from
+                ? this.getSmartIdleHintHandPositionForTarget?.(from) || new Vec3(from.x, from.y, 0)
+                : null;
             const end = this.getSmartIdleHintHandPositionForTarget?.(to) || new Vec3(to.x, to.y, 0);
-            hand.setPosition(start);
-            tween(hand)
-                .repeatForever(
-                    tween(hand)
-                        .call(() => {
-                            hand.setPosition(start);
-                            hand.setScale(1, 1, 1);
-                        })
-                        .delay(0.08 * s)
-                        .to(0.10 * s, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
-                        .call(() => this.playSmartIdleHintTapRipple?.(from))
-                        .to(0.12 * s, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
-                        .delay(0.16 * s)
-                        .to(0.55 * s, { position: end }, { easing: 'sineInOut' })
-                        .delay(0.08 * s)
-                        .to(0.10 * s, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
-                        .call(() => this.playSmartIdleHintTapRipple?.(to))
-                        .to(0.12 * s, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
-                        .delay(0.45 * s)
-                )
+            const showAt = (position: Vec3) => {
+                if (!hand.isValid) return;
+                hand.setPosition(position);
+                hand.setScale(1, 1, 1);
+                handOpacity.opacity = 255;
+                hand.active = true;
+            };
+            const hideWhileRunning = () => {
+                if (!hand.isValid) return;
+                handOpacity.opacity = 0;
+                hand.setPosition(end);
+                hand.setScale(1, 1, 1);
+            };
+            const finishHidden = () => {
+                if (!hand.isValid) return;
+                handOpacity.opacity = 0;
+                hand.active = false;
+                hand.setPosition(end);
+                hand.setScale(1, 1, 1);
+            };
+
+            let sequence = tween(hand);
+            if (from && start) {
+                sequence = showSourceHand
+                    ? sequence
+                        .call(() => showAt(start))
+                        .delay(0.10)
+                        .to(0.12, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
+                        .call(() => this.playSmartIdleHintTapRipple?.(from, 0.75))
+                        .to(0.14, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
+                        .delay(0.22)
+                        .call(hideWhileRunning)
+                        .delay(0.32)
+                    : sequence
+                        .delay(0.22)
+                        .call(() => this.playSmartIdleHintTapRipple?.(from, 0.75))
+                        .delay(0.36)
+                        .call(hideWhileRunning)
+                        .delay(0.32);
+            }
+            sequence
+                .call(() => showAt(end))
+                .delay(0.10)
+                .to(0.12, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
+                .call(() => this.playSmartIdleHintTapRipple?.(to))
+                .to(0.14, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
+                .delay(SMART_IDLE_HINT_FINAL_HOLD_SECONDS)
+                .call(() => {
+                    Tween.stopAllByTarget(handOpacity);
+                    tween(handOpacity).to(0.18, { opacity: 0 }, { easing: 'quadIn' }).start();
+                })
+                .delay(0.18)
+                .call(() => {
+                    finishHidden();
+                    onComplete?.();
+                })
                 .start();
+        },
+
+        showGameplayInvalidTapFeedback(worldPos: Vec3): void {
+            if (this.isGameEnd || this._guideStep >= 0) return;
+            if (!this.ensureSmartIdleHintLayer?.()) return;
+            this._guideLayer!.active = true;
+            this.showGuideTapFeedback?.(worldPos, 'wrong');
+
+            if (this.isSelected && this.currentBlock) {
+                const selectedPlan = this.resolveSelectedSmartIdleHintPlan?.() as SmartIdleHintPlan | null;
+                const endpoints = selectedPlan
+                    ? this.resolveSmartIdleHintEndpoints?.(selectedPlan) as SmartIdleHintEndpoints | null
+                    : null;
+                if (endpoints?.to) {
+                    this.playSmartIdleHintTapRipple?.(endpoints.to);
+                }
+            }
+
+            const feedbackToken = Math.max(
+                0,
+                Math.floor(Number(this._gameplayInvalidTapFeedbackToken) || 0),
+            ) + 1;
+            this._gameplayInvalidTapFeedbackToken = feedbackToken;
+            this.scheduleOnce?.(() => {
+                if (feedbackToken !== (Number(this._gameplayInvalidTapFeedbackToken) || 0)) return;
+                if (this._guideStep >= 0 || this._smartIdleHintActive) return;
+                if (this._guideLayer?.isValid) this._guideLayer.active = false;
+            }, 0.5);
         },
 
         // ==================== 新手引导 ====================

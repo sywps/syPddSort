@@ -30,12 +30,20 @@ type LevelPackEntry = {
     levelKeys?: string[];
 };
 
+export type LevelCollectionEntry = {
+    levelId: number;
+    prefix: string;
+    unlockLevel: number;
+};
+
 type LevelLiveManifest = {
     manifestVersion: number;
     dataVersion: string;
     schemaVersion: number;
     minClientBuild: number;
     levelCount: number;
+    collectionCatalogVersion?: number;
+    collectionEntries?: unknown;
     packs: LevelPackEntry[];
 };
 
@@ -83,6 +91,8 @@ const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
 const LEVEL_DATA_CLIENT_BUILD = 2;
 const LEVEL_DATA_SCHEMA_VERSION = 2;
 const LEVEL_DATA_COMPAT_SCHEMA_VERSION = 1;
+const COLLECTION_CATALOG_VERSION = 1;
+const LEGACY_COLLECTION_CATALOG_MAIN_LEVEL_COUNT = 300;
 const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
 const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
@@ -141,6 +151,63 @@ function normalizeLevelPrefix(prefix: string): string {
     return '';
 }
 
+export function normalizeLevelCollectionEntries(value: unknown, label: string = 'collectionEntries'): LevelCollectionEntry[] {
+    if (!Array.isArray(value) || value.length < 1) {
+        throw new Error(label + ' missing');
+    }
+    const entries: LevelCollectionEntry[] = [];
+    const seenKeys = new Set<string>();
+    for (let index = 0; index < value.length; index++) {
+        const raw = value[index] as Record<string, unknown> | null;
+        const levelId = Number(raw?.levelId);
+        const rawPrefix = String(raw?.prefix || '');
+        const prefix = rawPrefix ? normalizeLevelPrefix(rawPrefix) : '';
+        const unlockLevel = Number(raw?.unlockLevel);
+        if (!Number.isInteger(levelId) || levelId < 1) {
+            throw new Error(`${label}[${index}].levelId invalid`);
+        }
+        if (!prefix) {
+            throw new Error(`${label}[${index}].prefix invalid`);
+        }
+        if (!Number.isInteger(unlockLevel) || unlockLevel < 1) {
+            throw new Error(`${label}[${index}].unlockLevel invalid`);
+        }
+        const key = prefix + levelId;
+        if (seenKeys.has(key)) {
+            throw new Error(label + ' duplicate level key: ' + key);
+        }
+        seenKeys.add(key);
+        entries.push({ levelId, prefix, unlockLevel });
+    }
+    return entries;
+}
+
+function hasCollectionCatalogField(manifest: LevelLiveManifest, key: 'collectionCatalogVersion' | 'collectionEntries'): boolean {
+    return Object.prototype.hasOwnProperty.call(manifest, key);
+}
+
+export function resolveLevelCollectionEntries(manifest: LevelLiveManifest): LevelCollectionEntry[] {
+    const hasVersion = hasCollectionCatalogField(manifest, 'collectionCatalogVersion');
+    const hasEntries = hasCollectionCatalogField(manifest, 'collectionEntries');
+    if (!hasVersion && !hasEntries) {
+        return Array.from({ length: LEGACY_COLLECTION_CATALOG_MAIN_LEVEL_COUNT }, (_, index) => ({
+            levelId: index + 1,
+            prefix: DEFAULT_LEVEL_PREFIX,
+            unlockLevel: index + 1,
+        }));
+    }
+    if (!hasVersion || !hasEntries) {
+        throw new Error('level_live.json collection catalog incomplete');
+    }
+    if (Number(manifest.collectionCatalogVersion) !== COLLECTION_CATALOG_VERSION) {
+        throw new Error('level_live.json collectionCatalogVersion unsupported');
+    }
+    return normalizeLevelCollectionEntries(
+        manifest.collectionEntries,
+        'level_live.json collectionEntries',
+    );
+}
+
 export class LevelDataCdnService {
     static readonly inst = new LevelDataCdnService();
 
@@ -177,6 +244,38 @@ export class LevelDataCdnService {
         const context = this.resolveCdnContext(normalizedLevelId, normalizedPrefix);
         this.lastFailure = null;
         return this.loadLevelFromContext(context, normalizedLevelId, normalizedPrefix, true);
+    }
+
+    async loadCollectionEntries(): Promise<LevelCollectionEntry[]> {
+        const context: LevelDataCdnContext = {
+            baseUrl: runtimeLevelDataBaseUrl(),
+            namespace: 'stable',
+        };
+        this.lastFailure = null;
+        const manifest = await this.getLiveManifest(context, true);
+        if (!manifest) {
+            const reason = this.describeManifestUnavailable(context);
+            this.recordLoadFailure(context, 0, DEFAULT_LEVEL_PREFIX, 'collection_manifest', reason);
+            throw new Error('collection catalog unavailable: ' + reason);
+        }
+        try {
+            const usesLegacyCatalog = !hasCollectionCatalogField(manifest, 'collectionCatalogVersion')
+                && !hasCollectionCatalogField(manifest, 'collectionEntries');
+            const entries = resolveLevelCollectionEntries(manifest);
+            if (usesLegacyCatalog) {
+                runtimeWarn('[collection-catalog] legacy level_live.json detected; using v0 mainline compatibility catalog');
+            }
+            for (const entry of entries) {
+                if (!this.findPack(manifest, entry.levelId, entry.prefix)) {
+                    throw new Error('level_live.json collection entry missing pack: ' + entry.prefix + entry.levelId);
+                }
+            }
+            return entries;
+        } catch (error) {
+            const reason = this.formatErrorReason(error);
+            this.recordLoadFailure(context, 0, DEFAULT_LEVEL_PREFIX, 'collection_manifest', reason);
+            throw error;
+        }
     }
 
     private async loadLevelFromContext(

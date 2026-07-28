@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { loadCollectionCatalog } = require('./collection-catalog-contract');
 
 const projectDir = path.resolve(__dirname, '..');
 const levelDir = path.join(projectDir, 'assets', 'LevelData');
@@ -62,11 +63,22 @@ function createManifest() {
             };
         })
         .sort((a, b) => a.levelId - b.levelId);
+    let collectionCatalog;
+    try {
+        collectionCatalog = loadCollectionCatalog(
+            projectDir,
+            new Set(entries.map((entry) => 'level_' + entry.levelId)),
+        );
+    } catch (error) {
+        fail(error && error.message ? error.message : String(error));
+    }
 
     return {
         version: 1,
         generatedAt: new Date(0).toISOString(),
         levelCount: entries.length,
+        collectionCatalogVersion: collectionCatalog.version,
+        collectionEntries: collectionCatalog.entries,
         entries,
     };
 }

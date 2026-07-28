@@ -8,9 +8,6 @@ export class GameRuntimeHost extends Component {
     [key: string]: any;
 
     protected static readonly REWARDED_CONTINUE_SECONDS = ECONOMY_NUMERIC_TABLE.revive.continueSeconds;
-    protected static readonly COLLECTION_MAIN_LEVEL_COUNT = 300;
-    protected static readonly COLLECTION_SPECIAL_LEVEL_START = 100001;
-    protected static readonly COLLECTION_SPECIAL_LEVEL_END = 100017;
     protected static readonly WAND_GRID_SIZE = 6;
     protected static readonly VIGOR_CEILING = 10;
     protected static readonly VIGOR_RESTORE_SECONDS = 300;

@@ -146,6 +146,9 @@ export class GameplaySessionController {
             runtime._pendingColorCompleteEffects = new Map();
             runtime._patternCompleteWinPending = false;
             runtime._smartIdleHintShownCount = 0;
+            runtime._smartIdleHintEpisodeCycle = 0;
+            runtime._smartIdleHintInputActive = false;
+            runtime._gameplayInvalidTapFeedbackToken = (Number(runtime._gameplayInvalidTapFeedbackToken) || 0) + 1;
             runtime.clearPatternCompleteMatchFx?.();
             runtime.clearFreezeSpineFx?.();
             initStage = 'runtime_cleanup';
@@ -409,7 +412,9 @@ export class GameplaySessionController {
     ): void {
         if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 3) return;
         const blockers = collectActiveBlockInputEvents();
-        const expectedGuideBlocker = tutorialMode === 'level_1' || tutorialMode === 'level_2';
+        const expectedGuideBlocker = tutorialMode === 'level_1'
+            || tutorialMode === 'level_2'
+            || tutorialMode === 'slot_intro';
         const modalFocusActive = (Number(runtime._modalFocusRefs) || 0) > 0;
         const expectedModalBlockers = modalFocusActive
             ? blockers.filter((entry) => runtime.isExpectedModalBlockerPath?.(String(entry.path || '')))
@@ -498,6 +503,9 @@ export class GameplaySessionController {
         runtime._smartIdleHintActive = false;
         runtime._smartIdleHintPlan = null;
         runtime._smartIdleHintShownCount = 0;
+        runtime._smartIdleHintEpisodeCycle = 0;
+        runtime._smartIdleHintInputActive = false;
+        runtime._gameplayInvalidTapFeedbackToken = (Number(runtime._gameplayInvalidTapFeedbackToken) || 0) + 1;
         runtime._guideZoomStartScale = 1;
         runtime._guideZoomLastScale = 1;
         runtime._guideZoomAccumulatedScaleDelta = 0;

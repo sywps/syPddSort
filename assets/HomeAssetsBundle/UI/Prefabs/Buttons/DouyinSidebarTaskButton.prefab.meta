@@ -1,15 +1,13 @@
 {
-    "ver":  "1.1.50",
-    "importer":  "prefab",
-    "imported":  true,
-    "uuid":  "27f63807-4efd-45de-ac68-bbd7d6ab95f0",
-    "files":  [
-                  ".json"
-              ],
-    "subMetas":  {
-
-                 },
-    "userData":  {
-                     "syncNodeName":  "DouyinSidebarTaskButton"
-                 }
+  "ver": "1.1.50",
+  "importer": "prefab",
+  "imported": true,
+  "uuid": "27f63807-4efd-45de-ac68-bbd7d6ab95f0",
+  "files": [
+    ".json"
+  ],
+  "subMetas": {},
+  "userData": {
+    "syncNodeName": "DouyinSidebarTaskButton"
+  }
 }
