@@ -1,5 +1,10 @@
 # ly_0224 EXP level overrides
 
+Runtime rollout is currently paused. `LevelExperimentService` keeps all normal
+and forced EXP traffic on the build-selected stable Base CDN and emits no new
+EXP exposure while the treatment is paused. The files in this directory are
+retained only as the isolated historical treatment source.
+
 This directory owns only the `exp` bucket overrides for mainline levels 2-9.
 It is intentionally separate from `assets/LevelData`, which remains the stable
 source selected by the WeChat build's A/B CDN slot.

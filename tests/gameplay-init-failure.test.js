@@ -6,7 +6,7 @@ const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
 
-function loadControllerHarness() {
+function loadControllerHarness(activeBlockers = []) {
     const source = fs.readFileSync(
         path.join(root, 'assets/Scripts/Core/GameplaySessionController.ts'),
         'utf8',
@@ -74,7 +74,7 @@ function loadControllerHarness() {
                 return { AppRoot: { tryGet: () => appRoot } };
             }
             if (request === './DebugPerfTrace') {
-                return { collectActiveBlockInputEvents: () => [] };
+                return { collectActiveBlockInputEvents: () => activeBlockers };
             }
             if (request === './LevelExperimentService') {
                 return { getFrontLevelExperimentAnalyticsContext: () => null };
@@ -280,5 +280,31 @@ assert.strictEqual(
 );
 assert.strictEqual(laterLevelFailure.runtime._guideLayer, null);
 assert.strictEqual(laterLevelFailure.runtime._guideBubble, null);
+
+{
+    const harness = loadControllerHarness([
+        { path: 'Game/Canvas/ScreenRoot/OverlayRoot/GuideLayer', width: 720, height: 1280 },
+    ]);
+    const runtime = {
+        _modalFocusRefs: 0,
+        _guideMode: 'slot_intro',
+        _guideStep: 0,
+        _guidePhase: 'unlock',
+        activeBoardTouches: new Map(),
+        gestureMode: 'idle',
+        slotUnlockedRows: 1,
+        slotRowCount: 2,
+        getAnalyticsPage: () => 'level_game',
+        getRuntimeRemoteHash: () => 'test-data-version',
+        isExpectedModalBlockerPath: () => false,
+    };
+    const controller = new harness.GameplaySessionController(runtime);
+    controller.reportLevelInteractionReady(runtime, 2, 2, 'main', 'slot_intro');
+    const readiness = harness.analyticsEvents.at(-1);
+    assert.strictEqual(readiness.eventName, 'level_interaction_ready');
+    assert.strictEqual(readiness.success, true, 'slot_intro GuideLayer must be treated as an expected tutorial blocker');
+    assert.strictEqual(readiness.errorCode, '', 'slot_intro must not emit unexpected_input_blocker');
+    assert.strictEqual(readiness.extra.unexpectedBlockers, '');
+}
 
 console.log('gameplay-init-failure.test.js passed');

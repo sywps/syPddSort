@@ -1166,14 +1166,9 @@ function assertDnSdkIntegration(sdkRoot, label) {
     });
     delete require.cache[require.resolve(configPath)];
     var config = require(configPath);
-    var dataSourceId = Number(config.DN_DATA_SOURCE_ID);
-    var secretKey = String(config.DN_SECRET_KEY || '');
-    if (!Number.isInteger(dataSourceId) || dataSourceId <= 0) {
-        console.error('[DN SDK] ' + label + ' DN_DATA_SOURCE_ID 必须为正整数');
-        process.exit(1);
-    }
-    if (secretKey.length !== 32) {
-        console.error('[DN SDK] ' + label + ' DN_SECRET_KEY 必须为 32 位字符串');
+    if (Object.prototype.hasOwnProperty.call(config, 'DN_DATA_SOURCE_ID')
+        || Object.prototype.hasOwnProperty.call(config, 'DN_SECRET_KEY')) {
+        console.error('[DN SDK] ' + label + ' 禁止在客户端配置中硬编码数据源ID或密钥');
         process.exit(1);
     }
     if (config.APP_ID !== 'wxbb6160c828f380ca') {
@@ -1207,9 +1202,12 @@ function assertDnSdkIntegration(sdkRoot, label) {
     }
     var constructorMatches = wrapperContent.match(/new SDK\s*\(/g) || [];
     var constructorIndex = wrapperContent.indexOf('new SDK(');
-    var firstLoginIndex = wrapperContent.indexOf('wx.login(');
-    if (constructorMatches.length !== 1 || constructorIndex < 0 || firstLoginIndex < 0 || constructorIndex > firstLoginIndex) {
-        console.error('[DN SDK] ' + label + ' 必须且只能初始化一次，并早于首次 wx.login');
+    var dynamicInitStart = wrapperContent.indexOf('function initializeDnSdkFromLogin(callbackData)');
+    var dynamicInitEnd = wrapperContent.indexOf('function isDnRuntimeReady()', dynamicInitStart);
+    if (constructorMatches.length !== 1
+        || constructorIndex < dynamicInitStart
+        || constructorIndex >= dynamicInitEnd) {
+        console.error('[DN SDK] ' + label + ' 必须且只能在登录动态配置路径初始化一次');
         process.exit(1);
     }
     if (wrapperContent.indexOf('on_report_complete: handleDnReportOutcome') === -1
@@ -1221,16 +1219,21 @@ function assertDnSdkIntegration(sdkRoot, label) {
         console.error('[DN SDK] ' + label + ' 禁止在微信 DevTools 静默跳过 SDK');
         process.exit(1);
     }
-    if (wrapperContent.indexOf('callbackData.dataSecretKey') !== -1) {
-        console.error('[DN SDK] ' + label + ' 禁止由登录接口回显密钥控制基础身份绑定');
+    if (wrapperContent.indexOf('callbackData.dataSourceId') === -1
+        || wrapperContent.indexOf('callbackData.dataSecretKey') === -1
+        || wrapperContent.indexOf('SY_CONF.DN_DATA_SOURCE_ID') !== -1
+        || wrapperContent.indexOf('SY_CONF.DN_SECRET_KEY') !== -1) {
+        console.error('[DN SDK] ' + label + ' 必须仅使用登录接口返回的动态数据源配置');
         process.exit(1);
     }
-    if (wrapperContent.indexOf("stage: 'local_queue'") === -1
+    if (wrapperContent.indexOf('const DN_PENDING_ACTION_LIMIT = 100;') === -1
+        || wrapperContent.indexOf('flushDnPendingActions();') === -1
+        || wrapperContent.indexOf("stage: 'local_queue'") === -1
         || wrapperContent.indexOf("stage: 'remote_response'") === -1) {
-        console.error('[DN SDK] ' + label + ' 必须区分本地入队与远端接收状态');
+        console.error('[DN SDK] ' + label + ' 必须保留有界等待队列并区分本地入队与远端接收状态');
         process.exit(1);
     }
-    console.log('[DN SDK] ' + label + ' v1.5.11 / 单实例 / 身份队列 / 远端回执 / 导包关闭校验通过，数据源ID=' + dataSourceId + ' ✓');
+    console.log('[DN SDK] ' + label + ' v1.5.11 / 服务端动态配置 / 单实例 / 有界队列 / 远端回执 / 导包关闭校验通过 ✓');
 }
 
 function assertDnSdkGameEntry(runtimeRoot) {

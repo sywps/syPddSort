@@ -146,6 +146,7 @@ function createTapRuntime(overrides = {}) {
             this.endCount = (this.endCount || 0) + 1;
             this._guideStep = -1;
             this._guideMode = 'none';
+            this._guideStatus = 'done';
         },
         ...overrides,
     });
@@ -758,9 +759,12 @@ function createAutoCorrectRuntime(overrides = {}) {
             this.winStarts = (this.winStarts || 0) + 1;
         },
     });
-    runtime.checkGuideStepComplete();
+    assert.strictEqual(runtime.checkGuideStepComplete(), true);
     assert.strictEqual(runtime.endCount, 1, 'the seventh accepted action must end the guide');
     assert.strictEqual(runtime.winStarts, 1, 'the seventh accepted action must enter the normal win flow');
+    assert.strictEqual(runtime.checkGuideStepComplete(), false, 'a finalized guide must ignore duplicate completion checks');
+    assert.strictEqual(runtime.endCount, 1, 'duplicate completion checks must not duplicate tutorial completion');
+    assert.strictEqual(runtime.winStarts, 1, 'duplicate completion checks must not duplicate Win');
 }
 
 {

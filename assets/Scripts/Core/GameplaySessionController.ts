@@ -412,7 +412,9 @@ export class GameplaySessionController {
     ): void {
         if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 3) return;
         const blockers = collectActiveBlockInputEvents();
-        const expectedGuideBlocker = tutorialMode === 'level_1' || tutorialMode === 'level_2';
+        const expectedGuideBlocker = tutorialMode === 'level_1'
+            || tutorialMode === 'level_2'
+            || tutorialMode === 'slot_intro';
         const modalFocusActive = (Number(runtime._modalFocusRefs) || 0) > 0;
         const expectedModalBlockers = modalFocusActive
             ? blockers.filter((entry) => runtime.isExpectedModalBlockerPath?.(String(entry.path || '')))

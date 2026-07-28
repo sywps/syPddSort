@@ -1854,8 +1854,8 @@ export function installTutorialGuideModule(target: any): void {
                         releasedPlacementOwner: true,
                     },
                 });
-                this.checkGuideStepComplete?.();
-                if (this._guideStatus === 'transitioning') {
+                const stateRecognized = this.checkGuideStepComplete?.() === true;
+                if (!stateRecognized) {
                     this.trackFirstLevelFunnel?.('tutorial_transition_force_complete_failed', {
                         stepId: step,
                         stepName: `${mode}:${step}:${this._guidePhase || ''}`,
@@ -1977,10 +1977,10 @@ export function installTutorialGuideModule(target: any): void {
             return hasTargetColor;
         },
 
-        checkGuideStepComplete() {
-            if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) return;
-            if (this._guideInputSuspended) return;
-            if (this._guidePhase !== 'place') return;
+        checkGuideStepComplete(): boolean {
+            if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) return false;
+            if (this._guideInputSuspended) return false;
+            if (this._guidePhase !== 'place') return false;
         
             const step = this._guideStep;
             let done = false;
@@ -2020,23 +2020,26 @@ export function installTutorialGuideModule(target: any): void {
             }
         
             if (done) {
+                const isFinalStep = step === this._guideTotalSteps - 1;
+                if (isFinalStep) {
+                    // 先同步释放引导，再保留延迟 Win 作为 watchdog 等无直接 Win 调用方的兜底。
+                    this.endTutorial();
+                    this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.3);
+                    return true;
+                }
                 const hasEarlyPreview = (this._guideMode === 'level_1' || this._guideMode === 'level_2')
                     && this._guideStatus === 'transitioning'
                     && this._guidePreviewStep === step + 1;
                 this.scheduleOnce(() => {
                     if (this._guideStep < 0) return;
-                    if (step === this._guideTotalSteps - 1) {
-                        // 最后一步完成，结束引导并通关
-                        this.endTutorial();
-                        this.scheduleOnce(() => this.playPatternCompleteThenWin(), 0.3);
-                    } else {
-                        this.advanceTutorial();
-                    }
+                    this.advanceTutorial();
                 }, hasEarlyPreview ? 0 : 0.2);
+                return true;
             } else {
                 // 没有正确放置，重置到当前放置步骤重新操作。
                 this._guidePhase = 'place';
                 this.showGuideStep(step);
+                return false;
             }
         },
 

@@ -254,19 +254,12 @@ export function installHomeAdFlowModule(target: any): void {
                     if (snapshot.previousStatus === snapshot.status) return;
                     let eventName = '';
                     let success = true;
-                    if (snapshot.status === 'loading') {
-                        eventName = 'rewarded_ad_load_start';
-                    } else if (snapshot.status === 'ready' && snapshot.previousStatus === 'loading') {
-                        eventName = 'rewarded_ad_load_success';
-                    } else if (snapshot.status === 'establishing') {
+                    if (snapshot.status === 'establishing') {
                         eventName = 'rewarded_ad_show_start';
                     } else if (snapshot.status === 'visible') {
                         eventName = 'rewarded_ad_show_success';
                     } else if (snapshot.status === 'recoverable') {
                         eventName = 'rewarded_ad_wait_shown';
-                    } else if (snapshot.status === 'idle' && snapshot.previousStatus === 'loading') {
-                        eventName = 'rewarded_ad_load_fail';
-                        success = false;
                     } else if (snapshot.status === 'idle' && snapshot.previousStatus === 'establishing') {
                         eventName = 'rewarded_ad_show_fail';
                         success = false;

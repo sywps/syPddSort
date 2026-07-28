@@ -3,11 +3,10 @@ let confArr = ['./sysdk-conf', 'APP_ID', 'https://docater1.cn/index.php?g=Wap&m=
 const SY_CONF = require(confArr[0]);
 const { SDK } = require('./wxsdk/index.js');
 const SY_PACKAGE_GUIDE_ENABLED = SY_CONF.SY_PACKAGE_GUIDE_ENABLED === true;
-
-function shouldSkipWxSdkBootstrap() {
-  const wxRef = typeof wx !== 'undefined' ? wx : globalThis.wx;
-  return !wxRef;
-}
+const DN_PENDING_ACTION_LIMIT = 100;
+const dnPendingActions = [];
+let dnSdkConfigIdentity = null;
+let dnSdkConstructionAttempted = false;
 
 function createSyLoginError(stage, message, code) {
   const error = new Error('[SySDK login][' + stage + '] ' + message);
@@ -31,8 +30,8 @@ function bindDnIdentitySafely(data) {
   try {
     return sygame.wxSdkCallbackBusiness('login', data) === true;
   } catch (error) {
-    const message = sanitizeDnText(error && error.message || 'DataNexus identity binding failed', 160);
-    console.error('[DN SDK] 身份绑定异常:', message);
+    const message = 'DataNexus identity binding failed';
+    console.error('[DN SDK] 身份绑定异常');
     if (typeof sygame.reportWxClientCallbackLog === 'function') {
       sygame.reportWxClientCallbackLog(
         'setOpenId',
@@ -123,47 +122,219 @@ function handleDnReportOutcome(response, requestData) {
   }
 }
 
-function getWxSdkConfig() {
-  const dataSourceId = Number(SY_CONF.DN_DATA_SOURCE_ID);
-  const secretKey = String(SY_CONF.DN_SECRET_KEY || '');
+function getWxSdkConfigFromLogin(callbackData) {
+  const dataSourceId = Number(callbackData && callbackData.dataSourceId);
+  const secretKey = String(callbackData && callbackData.dataSecretKey || '');
+  const appid = String(Sygame.appid || SY_CONF.APP_ID || '');
   if (!Number.isInteger(dataSourceId) || dataSourceId <= 0) {
-    throw new Error('[DN SDK] DN_DATA_SOURCE_ID 必须为正整数');
+    throw new Error('[DN SDK] 登录响应缺少有效数据源ID');
   }
   if (secretKey.length !== 32) {
-    throw new Error('[DN SDK] DN_SECRET_KEY 必须为 32 位字符串');
+    throw new Error('[DN SDK] 登录响应缺少有效数据源密钥');
   }
-  if (typeof SY_CONF.APP_ID !== 'string' || !/^wx[0-9a-f]{16}$/i.test(SY_CONF.APP_ID)) {
+  if (!/^wx[0-9a-f]{16}$/i.test(appid)) {
     throw new Error('[DN SDK] APP_ID 格式无效');
   }
   return {
-    user_action_set_id: dataSourceId,
-    secret_key: secretKey,
-    appid: SY_CONF.APP_ID,
-    on_report_complete: handleDnReportOutcome,
-    on_report_fail: handleDnReportOutcome,
+    sdkConfig: {
+      user_action_set_id: dataSourceId,
+      secret_key: secretKey,
+      appid: appid,
+      on_report_complete: handleDnReportOutcome,
+      on_report_fail: handleDnReportOutcome,
+    },
+    identity: {
+      dataSourceId: dataSourceId,
+      secretKey: secretKey,
+      appid: appid,
+    },
   };
 }
 
-function bootstrapWxSdk() {
-  if (shouldSkipWxSdkBootstrap()) {
-    return { sdk: '', initResult: null };
-  }
-  const wxRef = typeof wx !== 'undefined' ? wx : globalThis.wx;
-  const requiredApis = ['request', 'login', 'createCanvas'];
-  const missingApis = requiredApis.filter((api) => typeof wxRef[api] !== 'function');
-  if (missingApis.length) {
-    throw new Error('[DN SDK] 微信运行时缺少必要 API: ' + missingApis.join(', '));
-  }
-  const sdk = new SDK(getWxSdkConfig());
-  const initResult = sdk.getInitResult();
-  if (!initResult || initResult.inited !== true) {
-    const detail = initResult && initResult.initErrMsg ? ': ' + initResult.initErrMsg : '';
-    throw new Error('[DN SDK] 初始化失败' + detail);
-  }
-  return { sdk, initResult };
+function isSameDnSdkConfig(left, right) {
+  return !!(
+    left
+    && right
+    && left.dataSourceId === right.dataSourceId
+    && left.secretKey === right.secretKey
+    && left.appid === right.appid
+  );
 }
 
-const wxSdkBootstrap = bootstrapWxSdk();
+function initializeDnSdkFromLogin(callbackData) {
+  let dynamicConfig;
+  try {
+    dynamicConfig = getWxSdkConfigFromLogin(callbackData);
+  } catch (error) {
+    Sygame.isOpenWxCallback = false;
+    Sygame.dnReportingState = 'failed';
+    console.error('[DN SDK] 服务端动态配置无效');
+    Sygame.reportWxClientCallbackLog(
+      'initWxSdk',
+      { stage: 'server_config', succeeded: false, code: 102, message: '服务端动态配置无效' },
+      { includeOpenId: false },
+    );
+    return false;
+  }
+
+  if (Sygame.wxSdk) {
+    if (!isSameDnSdkConfig(dnSdkConfigIdentity, dynamicConfig.identity)) {
+      Sygame.isOpenWxCallback = false;
+      Sygame.dnReportingState = 'failed';
+      console.error('[DN SDK] 登录响应的数据源配置与当前实例不一致');
+      Sygame.reportWxClientCallbackLog(
+        'initWxSdk',
+        { stage: 'server_config', succeeded: false, code: 103, message: '动态配置发生变化，拒绝复用或重建 SDK' },
+        { includeOpenId: false },
+      );
+      return false;
+    }
+    return !!(Sygame.wxSdkInitResult && Sygame.wxSdkInitResult.inited === true);
+  }
+  if (dnSdkConstructionAttempted) {
+    Sygame.isOpenWxCallback = false;
+    Sygame.dnReportingState = 'failed';
+    Sygame.reportWxClientCallbackLog(
+      'initWxSdk',
+      { stage: 'local_init', succeeded: false, code: 107, message: 'SDK 单实例初始化已失败，拒绝重复构造' },
+      { includeOpenId: false },
+    );
+    return false;
+  }
+
+  dnSdkConstructionAttempted = true;
+  dnSdkConfigIdentity = dynamicConfig.identity;
+  try {
+    const sdk = new SDK(dynamicConfig.sdkConfig);
+    const initResult = sdk.getInitResult();
+    Sygame.wxSdk = sdk;
+    Sygame.wxSdkInitResult = initResult;
+    if (!initResult || initResult.inited !== true) {
+      Sygame.isOpenWxCallback = false;
+      Sygame.dnReportingState = 'failed';
+      console.error('[DN SDK] 1.5.11 动态初始化失败');
+      Sygame.reportWxClientCallbackLog(
+        'initWxSdk',
+        { stage: 'local_init', succeeded: false, code: 104, message: 'SDK 1.5.11 初始化失败' },
+        { includeOpenId: false },
+      );
+      return false;
+    }
+    return true;
+  } catch (error) {
+    Sygame.isOpenWxCallback = false;
+    Sygame.dnReportingState = 'failed';
+    console.error('[DN SDK] 1.5.11 动态初始化异常');
+    Sygame.reportWxClientCallbackLog(
+      'initWxSdk',
+      { stage: 'local_init', succeeded: false, code: -999, message: 'SDK 1.5.11 初始化异常' },
+      { includeOpenId: false },
+    );
+    return false;
+  }
+}
+
+function isDnRuntimeReady() {
+  return !!(
+    Sygame.wxSdk
+    && Sygame.wxSdkInitResult
+    && Sygame.wxSdkInitResult.inited === true
+    && Sygame.isOpenWxCallback === true
+  );
+}
+
+function bufferDnAction(label, method, actionType, actionParam) {
+  if (Sygame.dnReportingState === 'disabled') {
+    return false;
+  }
+  if (dnPendingActions.length >= DN_PENDING_ACTION_LIMIT) {
+    Sygame.reportWxClientCallbackLog(
+      'dnClientBufferOverflow',
+      {
+        stage: 'client_buffer',
+        buffered: false,
+        code: 105,
+        message: '客户端等待队列已满',
+        limit: DN_PENDING_ACTION_LIMIT,
+      },
+      { includeOpenId: false },
+    );
+    return { code: 105, message: 'DataNexus 客户端等待队列已满', buffered: false };
+  }
+  dnPendingActions.push({
+    label: label,
+    method: method,
+    actionType: actionType,
+    actionParam: actionParam && typeof actionParam === 'object'
+      ? Object.assign({}, actionParam)
+      : {},
+  });
+  return { code: 0, message: '等待 DataNexus SDK 初始化', buffered: true };
+}
+
+function executeDnAction(entry) {
+  if (entry.method === 'onTutorialFinish') {
+    return Sygame.wxSdk.onTutorialFinish();
+  }
+  return Sygame.wxSdk.track(entry.actionType, entry.actionParam);
+}
+
+function reportOrBufferDnAction(label, method, actionType, actionParam) {
+  if (!isDnRuntimeReady()) {
+    return bufferDnAction(label, method, actionType, actionParam);
+  }
+  try {
+    const result = executeDnAction({
+      method: method,
+      actionType: actionType,
+      actionParam: actionParam || {},
+    });
+    Sygame.reportDnQueueResult(label, result);
+    return result;
+  } catch (error) {
+    const result = {
+      stage: 'local_queue',
+      queued: false,
+      code: -999,
+      message: 'DataNexus 行为入队异常',
+    };
+    console.error('[DN SDK] 行为入队异常:', label);
+    Sygame.reportWxClientCallbackLog(label, result, { includeOpenId: false });
+    return { code: -999, message: result.message };
+  }
+}
+
+function flushDnPendingActions() {
+  if (!isDnRuntimeReady() || dnPendingActions.length === 0) {
+    return { flushed: 0, failed: 0, remaining: dnPendingActions.length };
+  }
+  let flushed = 0;
+  let failed = 0;
+  while (dnPendingActions.length > 0 && isDnRuntimeReady()) {
+    const entry = dnPendingActions.shift();
+    const result = reportOrBufferDnAction(
+      entry.label,
+      entry.method,
+      entry.actionType,
+      entry.actionParam,
+    );
+    if (Number(result && result.code) === 0) {
+      flushed += 1;
+    } else {
+      failed += 1;
+    }
+  }
+  const summary = {
+    stage: 'client_buffer',
+    flushed: flushed,
+    failed: failed,
+    remaining: dnPendingActions.length,
+    code: failed === 0 ? 0 : 106,
+    message: failed === 0 ? '客户端等待队列释放完成' : '客户端等待队列存在入队失败',
+  };
+  Sygame.reportWxClientCallbackLog('dnClientBufferFlush', summary, { includeOpenId: false });
+  return summary;
+}
 
 const Sygame = {
   // 初始化
@@ -191,9 +362,10 @@ const Sygame = {
   isGetSpecifyShareData: 0,//是否获取指定分享数据
   adunitid: '', // 激励视频广告ID
   rewardVideo: null, // 激励视频广告
-  wxSdk: wxSdkBootstrap.sdk,
-  wxSdkInitResult: wxSdkBootstrap.initResult,
+  wxSdk: null,
+  wxSdkInitResult: null,
   isOpenWxCallback: false,
+  dnReportingState: 'pending',
   dnOrderPollingStarted: false,
   dnFavoritesListenerStarted: false,
   shareListenersStarted: false,
@@ -1075,21 +1247,15 @@ const Sygame = {
         imageUrlId: shareData.imageUrlId,
         query: shareData.query,
       };
-      if (Sygame.isDnQueueReady()) {
-        console.log('监听到分享行为并上报回传');
-        const shareResult = Sygame.wxSdk.track('SHARE', {target: 'APP_MESSAGE'});
-        Sygame.reportDnQueueResult('share1', shareResult);
-      }
+      console.log('监听到分享行为并上报回传');
+      reportOrBufferDnAction('share1', 'track', 'SHARE', {target: 'APP_MESSAGE'});
       return data;
     });
 
     // 2、分享到朋友圈
     wx.onShareTimeline(() => {
-      if (Sygame.isDnQueueReady()) {
-        console.log('监听到右上角分享朋友圈行为并上报回传');
-        const shareResult = Sygame.wxSdk.track('SHARE', {target: 'TIME_LINE'});
-        Sygame.reportDnQueueResult('share2', shareResult);
-      }
+      console.log('监听到右上角分享朋友圈行为并上报回传');
+      reportOrBufferDnAction('share2', 'track', 'SHARE', {target: 'TIME_LINE'});
     });
   },
   
@@ -1849,23 +2015,36 @@ const Sygame = {
         );
         return false;
       }
-      if (!Sygame.wxSdk || !Sygame.wxSdkInitResult || Sygame.wxSdkInitResult.inited !== true) {
-        const initErrorResult = {
-          stage: 'local_init',
-          succeeded: false,
-          code: 100,
-          message: 'DataNexus SDK 未在 wx.login 前完成初始化',
-        };
-        console.error('[DN SDK] SDK 未在 wx.login 前完成初始化');
-        Sygame.reportWxClientCallbackLog('initWxSdk', initErrorResult, { includeOpenId: false });
+      if (callbackData.isOpenWxSdkCallback !== true) {
+        Sygame.isOpenWxCallback = false;
+        Sygame.dnReportingState = 'disabled';
+        dnPendingActions.length = 0;
+        console.log('服务端未开启 DataNexus 客户端回传');
+        Sygame.reportWxClientCallbackLog(
+          'initWxSdk',
+          { stage: 'server_config', succeeded: false, code: 101, message: '服务端未开启客户端回传' },
+          { includeOpenId: false },
+        );
+        return false;
+      }
+      Sygame.dnReportingState = 'initializing';
+      if (!initializeDnSdkFromLogin(callbackData)) {
         return false;
       }
       Sygame.reportWxClientCallbackLog(
         'initWxSdk',
-        { stage: 'local_init', succeeded: true, code: 0, message: 'SDK constructor ready' },
+        { stage: 'local_init', succeeded: true, code: 0, message: 'SDK 1.5.11 动态初始化完成' },
         { includeOpenId: false },
       );
-      const setOpenIdResult = Sygame.wxSdk.setOpenId(openid);
+      Sygame.isOpenWxCallback = false;
+      Sygame.dnReportingState = 'binding';
+      let setOpenIdResult;
+      try {
+        setOpenIdResult = Sygame.wxSdk.setOpenId(openid);
+      } catch (error) {
+        Sygame.dnReportingState = 'failed';
+        throw error;
+      }
       const setOpenIdCode = Number(setOpenIdResult && setOpenIdResult.code);
       Sygame.reportWxClientCallbackLog(
         'setOpenId',
@@ -1879,16 +2058,14 @@ const Sygame = {
       );
       if (setOpenIdCode !== 0) {
         Sygame.isOpenWxCallback = false;
+        Sygame.dnReportingState = 'failed';
         console.error('[DN SDK] setOpenId 失败');
         return false;
       }
       Sygame.isOpenWxCallback = true;
+      Sygame.dnReportingState = 'ready';
       console.log('DataNexus 用户身份已绑定');
-
-      if (callbackData.isOpenWxSdkCallback !== true) {
-        console.log('DataNexus 附加注册/支付回传未开启，基础行为上报继续启用');
-        return true;
-      }
+      flushDnPendingActions();
       console.log('当前游戏已开启客户端附加回传');
       //上报注册或回流行为
       let loginResult = '';
@@ -1995,19 +2172,15 @@ const Sygame = {
       Sygame.dnFavoritesListenerStarted = true;
       wx.onAddToFavorites(() => {
         console.log('监听到收藏行为并上报回传');
-        const addToWishlist = Sygame.wxSdk.track('ADD_TO_WISHLIST', {type: 'default'});
-        Sygame.reportDnQueueResult('share4', addToWishlist);
+        reportOrBufferDnAction('share4', 'track', 'ADD_TO_WISHLIST', {type: 'default'});
       });
     }
   },
 
   //游戏内主动拉起转发
   syInGameUseShareAppMessage: () => new Promise(function(reslove, reject) {
-    if (Sygame.isDnQueueReady()) {
-      console.log('主动拉起转发，进入选择通讯录界面');
-      const shareResult = Sygame.wxSdk.track('SHARE', {target: 'APP_MESSAGE'});
-      Sygame.reportDnQueueResult('share3', shareResult);
-    }
+    console.log('主动拉起转发，进入选择通讯录界面');
+    reportOrBufferDnAction('share3', 'track', 'SHARE', {target: 'APP_MESSAGE'});
     reslove({code: 0});
   }),
 
@@ -2128,29 +2301,19 @@ const Sygame = {
   // ==================== 腾讯广告IAA采集行为上报 ====================
 
   isDnQueueReady() {
-    return !!(Sygame.wxSdk && Sygame.wxSdkInitResult && Sygame.wxSdkInitResult.inited === true);
+    return isDnRuntimeReady();
   },
 
   // 完成加载（进入游戏第一帧）
   syIaaLoadFinish() {
-    if (!Sygame.isDnQueueReady()) {
-      console.log('DataNexus SDK 未初始化，syIaaLoadFinish上报跳过');
-      return false;
-    }
-    const result = Sygame.wxSdk.track('LOAD_FINISH', {});
-    Sygame.reportDnQueueResult('iaaLoadFinish', result);
+    const result = reportOrBufferDnAction('iaaLoadFinish', 'track', 'LOAD_FINISH', {});
     console.log('LOAD_FINISH上报结果:', result);
     return result;
   },
 
   // 订阅
   syIaaSubscribe() {
-    if (!Sygame.isDnQueueReady()) {
-      console.log('DataNexus SDK 未初始化，syIaaSubscribe上报跳过');
-      return false;
-    }
-    const result = Sygame.wxSdk.track('SUBSCRIBE', {});
-    Sygame.reportDnQueueResult('iaaSubscribe', result);
+    const result = reportOrBufferDnAction('iaaSubscribe', 'track', 'SUBSCRIBE', {});
     console.log('SUBSCRIBE上报结果:', result);
     return result;
   },
@@ -2160,10 +2323,6 @@ const Sygame = {
    * @param {number} type 上报类型：1-新手引导开始 2-完成新手指引
    */
   syIaaTutorialTrack(type) {
-    if (!Sygame.isDnQueueReady()) {
-      console.log('DataNexus SDK 未初始化，syIaaTutorialTrack上报跳过');
-      return false;
-    }
     const typeMap = {1: ['TUTORIAL_START', 'track'], 2: ['TUTORIAL_FINISH', 'onTutorialFinish']};
     const config = typeMap[type];
     if (!config) {
@@ -2171,8 +2330,7 @@ const Sygame = {
       return false;
     }
     const [eventName, method] = config;
-    const result = method === 'track' ? Sygame.wxSdk.track(eventName, {}) : Sygame.wxSdk.onTutorialFinish();
-    Sygame.reportDnQueueResult('iaaTutorialTrack_' + type, result);
+    const result = reportOrBufferDnAction('iaaTutorialTrack_' + type, method, eventName, {});
     console.log(eventName + '上报结果:', result);
     return result;
   },
@@ -2183,18 +2341,13 @@ const Sygame = {
    * @param {object} data 上报数据
    */
   syIaaLevelTrack(type, data) {
-    if (!Sygame.isDnQueueReady()) {
-      console.log('DataNexus SDK 未初始化，syIaaLevelTrack上报跳过');
-      return false;
-    }
     const typeMap = {1: 'LEVEL_ENTER', 2: 'LEVEL_EXIT', 3: 'LEVEL_LOSE', 4: 'LEVEL_PASS'};
     const eventName = typeMap[type];
     if (!eventName) {
       console.log('syIaaLevelTrack type参数无效，type:', type);
       return false;
     }
-    const result = Sygame.wxSdk.track(eventName, data || {});
-    Sygame.reportDnQueueResult('iaaLevelTrack_' + type, result);
+    const result = reportOrBufferDnAction('iaaLevelTrack_' + type, 'track', eventName, data || {});
     console.log(eventName + '上报结果:', result);
     return result;
   },
@@ -2205,18 +2358,13 @@ const Sygame = {
    * @param {object} data 上报数据
    */
   syIaaAdTrack(type, data) {
-    if (!Sygame.isDnQueueReady()) {
-      console.log('DataNexus SDK 未初始化，syIaaAdTrack上报跳过');
-      return false;
-    }
     const typeMap = {1: 'AD_PLACEMENT_SHOW', 2: 'AD_CLICK', 3: 'AD_VIDEO_FINISH', 4: 'AD_IMPRESSION'};
     const eventName = typeMap[type];
     if (!eventName) {
       console.log('syIaaAdTrack type参数无效，type:', type);
       return false;
     }
-    const result = Sygame.wxSdk.track(eventName, data || {});
-    Sygame.reportDnQueueResult('iaaAdTrack_' + type, result);
+    const result = reportOrBufferDnAction('iaaAdTrack_' + type, 'track', eventName, data || {});
     console.log(eventName + '上报结果:', result);
     return result;
   },

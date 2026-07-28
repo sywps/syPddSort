@@ -5,6 +5,8 @@ const projectRoot = path.resolve(__dirname, '../..');
 const config = require(path.join(projectRoot, 'sdk', 'sysdk-conf.js'));
 const scenario = process.argv[2] || 'success';
 const OPENID = 'o'.repeat(28);
+const TEST_DATA_SOURCE_ID = 987654321;
+const TEST_SECRET_KEY = 'd'.repeat(32);
 
 function wait(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,6 +27,7 @@ function createRuntime() {
         previewImage: 0,
     };
     const reportCode = scenario === 'code-51000' ? 51000 : 0;
+    let loginRequestCount = 0;
 
     const wx = {
         createCanvas() {
@@ -154,6 +157,8 @@ function createRuntime() {
                     : scenario === 'maintenance'
                         ? 5001
                         : 1001;
+                const currentLoginRequest = loginRequestCount;
+                loginRequestCount += 1;
                 setTimeout(() => options.success({
                     statusCode: 200,
                     data: {
@@ -171,10 +176,12 @@ function createRuntime() {
                         },
                         wxSdkCallbackData: {
                             isOpenWxSdkCallback: scenario !== 'callback-off',
-                            dataSourceId: config.DN_DATA_SOURCE_ID,
-                            dataSecretKey: scenario === 'callback-mismatch'
-                                ? '0'.repeat(32)
-                                : config.DN_SECRET_KEY,
+                            dataSourceId: TEST_DATA_SOURCE_ID,
+                            dataSecretKey: scenario === 'invalid-config'
+                                ? 'short'
+                                : scenario === 'config-change' && currentLoginRequest > 0
+                                    ? 'e'.repeat(32)
+                                    : TEST_SECRET_KEY,
                             callbackUser: 0,
                             deviceUa: 'android',
                         },
@@ -286,20 +293,17 @@ async function assertPackageGuideApisBlocked(runtime) {
 async function run() {
     const runtime = createRuntime();
     global.wx = runtime.wx;
-    require(path.join(projectRoot, 'sdk', 'sysdk-wxapp.js'));
-
-    assert.ok(global.Sygame.wxSdk, 'real vendor SDK instance must exist');
-    assert.deepStrictEqual(
-        global.Sygame.wxSdkInitResult,
-        { inited: true, initErrMsg: '' },
-        'real vendor SDK must initialize successfully',
-    );
-    global.Sygame.init({ query: {}, scene: 1001 });
     if (scenario === 'identity-throws') {
-        global.Sygame.wxSdk.setOpenId = () => {
+        const VendorSDK = require(path.join(projectRoot, 'sdk', 'wxsdk', 'index.js')).SDK;
+        VendorSDK.prototype.setOpenId = () => {
             throw new Error('mock setOpenId failure');
         };
     }
+    require(path.join(projectRoot, 'sdk', 'sysdk-wxapp.js'));
+
+    assert.strictEqual(global.Sygame.wxSdk, null, 'wrapper load must wait for the server-owned config');
+    assert.strictEqual(global.Sygame.wxSdkInitResult, null);
+    global.Sygame.init({ query: {}, scene: 1001 });
     if (scenario === 'post-login-throw') {
         global.Sygame.syGetPhoneNumber = () => {
             throw new Error('mock optional post-login failure');
@@ -308,9 +312,9 @@ async function run() {
 
     const preIdentityLevel = global.Sygame.syIaaLevelTrack(1, { level_id: 1 });
     const preIdentityTutorial = global.Sygame.syIaaTutorialTrack(1);
-    assert.strictEqual(preIdentityLevel.code, 0, 'pre-identity level event must enter vendor queue');
-    assert.strictEqual(preIdentityTutorial.code, 0, 'pre-identity tutorial event must enter vendor queue');
-    assert.strictEqual(runtime.reportRequests.length, 0, 'vendor must wait for identity before network delivery');
+    assert.strictEqual(preIdentityLevel.buffered, true, 'pre-login level event must enter the client FIFO');
+    assert.strictEqual(preIdentityTutorial.buffered, true, 'pre-login tutorial event must enter the client FIFO');
+    assert.strictEqual(runtime.reportRequests.length, 0, 'client FIFO must wait for dynamic config and identity');
 
     let loginState = 'resolved';
     let loginResult = null;
@@ -357,11 +361,34 @@ async function run() {
         assert.ok(findDiagnostics(runtime, 'setOpenId').length > 0);
         return;
     }
+    if (scenario === 'callback-off' || scenario === 'invalid-config') {
+        assert.strictEqual(global.Sygame.isOpenWxCallback, false);
+        assert.strictEqual(global.Sygame.wxSdk, null);
+        assert.strictEqual(runtime.reportRequests.length, 0);
+        assert.ok(findDiagnostics(runtime, 'initWxSdk').length > 0);
+        return;
+    }
     assert.strictEqual(
         global.Sygame.isOpenWxCallback,
         true,
-        'valid OpenID must enable base reporting independent of optional callback metadata',
+        'valid server config and OpenID must enable DataNexus reporting',
     );
+    assert.ok(global.Sygame.wxSdk, 'real vendor SDK must be constructed from the login response');
+    assert.deepStrictEqual(
+        global.Sygame.wxSdkInitResult,
+        { inited: true, initErrMsg: '' },
+        'real vendor SDK must initialize successfully',
+    );
+    if (scenario === 'config-change') {
+        const firstSdk = global.Sygame.wxSdk;
+        await global.Sygame.syLogin();
+        assert.strictEqual(global.Sygame.wxSdk, firstSdk, 'changed server config must not reconstruct the SDK');
+        assert.strictEqual(global.Sygame.isOpenWxCallback, false, 'changed server config must block a second identity release');
+        assert.ok(findDiagnostics(runtime, 'initWxSdk').some(
+            (item) => item.result && item.result.code === 103,
+        ));
+        return;
+    }
     global.Sygame.syIaaLoadFinish();
     global.Sygame.syIaaAdTrack(4, { position: 'test' });
     await wait(1400);
@@ -389,7 +416,7 @@ async function run() {
     }
 
     const diagnosticsText = JSON.stringify(runtime.diagnosticRequests);
-    assert.ok(!diagnosticsText.includes(config.DN_SECRET_KEY), 'diagnostics must not expose the DN secret');
+    assert.ok(!diagnosticsText.includes(TEST_SECRET_KEY), 'diagnostics must not expose the DN secret');
     assert.ok(!diagnosticsText.includes(OPENID), 'DN diagnostics must not expose OpenID');
     assert.ok(!diagnosticsText.includes('level_id'), 'remote diagnostics must not expose raw action parameters');
 }

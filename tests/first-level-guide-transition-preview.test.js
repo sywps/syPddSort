@@ -289,15 +289,26 @@ const installGuideLeaderboardModule = loadInstaller(
         scheduleOnce(_handler, delay) {
             scheduledDelays.push(delay);
         },
+        endTutorial() {
+            this.endCount = (this.endCount || 0) + 1;
+            this._guideStep = -1;
+            this._guideMode = 'none';
+            this._guideStatus = 'done';
+        },
+        playPatternCompleteThenWin() {},
     });
-    runtime.checkGuideStepComplete();
+    assert.strictEqual(runtime.checkGuideStepComplete(), true);
     assert.strictEqual(scheduledDelays.pop(), 0, 'visible preview must become interactive without another 0.2-second pause');
 
     runtime._guideStep = 5;
+    runtime._guideMode = 'level_1';
+    runtime._guideStatus = 'transitioning';
     runtime._guidePreviewStep = -1;
     runtime.boardModel = { isAllLocked: () => true };
-    runtime.checkGuideStepComplete();
-    assert.strictEqual(scheduledDelays.pop(), 0.2, 'final completion timing must remain unchanged');
+    assert.strictEqual(runtime.checkGuideStepComplete(), true);
+    assert.strictEqual(runtime.endCount, 1, 'final completion must release the guide synchronously');
+    assert.strictEqual(runtime._guideStatus, 'done', 'final completion must commit a non-transitioning state before Win');
+    assert.strictEqual(scheduledDelays.pop(), 0.3, 'final completion must retain only the delayed Win fallback');
 }
 
 {
@@ -317,15 +328,26 @@ const installGuideLeaderboardModule = loadInstaller(
         scheduleOnce(_handler, delay) {
             scheduledDelays.push(delay);
         },
+        endTutorial() {
+            this.endCount = (this.endCount || 0) + 1;
+            this._guideStep = -1;
+            this._guideMode = 'none';
+            this._guideStatus = 'done';
+        },
+        playPatternCompleteThenWin() {},
     });
-    runtime.checkGuideStepComplete();
+    assert.strictEqual(runtime.checkGuideStepComplete(), true);
     assert.strictEqual(scheduledDelays.pop(), 0, 'level 2 preview must become interactive without another 0.2-second pause');
 
     runtime._guideStep = 6;
+    runtime._guideMode = 'level_2';
+    runtime._guideStatus = 'transitioning';
     runtime._guidePreviewStep = -1;
     runtime.boardModel = { isAllLocked: () => true };
-    runtime.checkGuideStepComplete();
-    assert.strictEqual(scheduledDelays.pop(), 0.2, 'level 2 final completion timing must remain unchanged');
+    assert.strictEqual(runtime.checkGuideStepComplete(), true);
+    assert.strictEqual(runtime.endCount, 1, 'level 2 final completion must release the guide synchronously');
+    assert.strictEqual(runtime._guideStatus, 'done');
+    assert.strictEqual(scheduledDelays.pop(), 0.3, 'level 2 final completion must retain only the delayed Win fallback');
 }
 
 const placementSource = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
