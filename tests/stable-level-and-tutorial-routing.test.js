@@ -5,7 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 
 function read(relPath) {
-    return fs.readFileSync(path.join(root, relPath), 'utf8');
+    return fs.readFileSync(path.join(root, relPath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function readJson(relPath) {
@@ -251,6 +251,22 @@ assert.ok(
         && gameplayPlacementFx.includes("if (block.source === 'slot') {\n                        this.playReturnFeedback(worldPos);\n                        return;")
         && playerMetaState.includes('this.showGameplayInvalidTapFeedback?.(worldPos);'),
     'invalid repeat taps must show feedback while preserving the current selection',
+);
+assert.ok(
+    settlementHud.includes("import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';")
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_MIN_LEVEL_ID = 2;')
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_MAX_LEVEL_ID = 9;')
+        && settlementHud.includes('const EXP_SMART_IDLE_HINT_DELAY_SECONDS = 10;')
+        && settlementHud.includes('const EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS = 3;')
+        && settlementHud.includes('const EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID = 3;')
+        && settlementHud.includes("getFrontLevelExperimentAnalyticsContext(logicalLevelId, 'level_')?.abBucket === 'exp'")
+        && settlementHud.includes('if (this.isExpSmartIdleHintEnabled(logicalLevelId)) {')
+        && settlementHud.includes('return logicalLevelId <= EXP_EARLY_SMART_IDLE_HINT_MAX_LEVEL_ID')
+        && settlementHud.includes('? EXP_EARLY_SMART_IDLE_HINT_DELAY_SECONDS')
+        && settlementHud.includes(': EXP_SMART_IDLE_HINT_DELAY_SECONDS;')
+        && settlementHud.includes('if (this.isExpSmartIdleHintEnabled(logicalLevelId)) return true;')
+        && !settlementHud.includes('EXP_SMART_IDLE_HINT_SHOW_LIMIT'),
+    'EXP L2/L3 should use an unlimited three-second policy while EXP L4-L9 retain ten seconds and Base keeps the existing policy',
 );
 assert.ok(
     tutorialGuideModule.includes('const block = this.findBlockOnBoard?.(colorId);')

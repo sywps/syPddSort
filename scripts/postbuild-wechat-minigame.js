@@ -995,7 +995,8 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var clientBuildIdMarker = 'globalThis.__PDD_CLIENT_BUILD_ID__=' + JSON.stringify(clientBuildId) + ';';
     var domCtorMarker = 'globalThis.__PDD_DOM_CTORS_READY__=true;';
     var releaseLogGateMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_INSTALLED__=true;';
-    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=4;';
+    var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=5;';
+    var releaseLogGateActivationMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_ACTIVATED_AFTER_START__=true;';
     var releaseLogGateBlockPattern = /\(function installPddReleaseLogGate\(\)\{\r?\n[\s\S]*?globalThis\.__PDD_RELEASE_LOG_GATE_VERSION__=\d+;\r?\n\}\)\(\);\r?\n?/g;
     var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
@@ -1030,6 +1031,24 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
         content = content.replace(clientBuildIdPattern, clientBuildIdMarker);
     }
     content = content.replace(releaseLogGateBlockPattern, '');
+    if (content.indexOf(releaseLogGateActivationMarker) === -1) {
+        var startupReturn = 'return firstScreen.end().then(() => application.start());';
+        var deferredStartupReturn = [
+            'return firstScreen.end().then(() => application.start()).then((result) => {',
+            '    try {',
+            '        var enableReleaseLogGate = globalThis.__PDD_ENABLE_RELEASE_LOG_GATE__;',
+            '        if (typeof enableReleaseLogGate === "function") enableReleaseLogGate();',
+            '        ' + releaseLogGateActivationMarker,
+            '    } catch (_) {}',
+            '    return result;',
+            '});',
+        ].join('\n');
+        if (content.indexOf(startupReturn) === -1) {
+            console.error('[3.2/7] 未找到 application.start() 完成点，不能延后 Release 日志静默');
+            process.exit(1);
+        }
+        content = content.replace(startupReturn, deferredStartupReturn);
+    }
     var missingLines = [];
     if (content.indexOf(platformMarker) === -1) missingLines.push(platformMarker);
     if (content.indexOf(marker) === -1) missingLines.push(marker);
@@ -1054,7 +1073,9 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
             '(function installPddReleaseLogGate(){',
             'if(' + JSON.stringify(buildMode) + '!=="release")return;',
             'var g=typeof globalThis!=="undefined"?globalThis:{};',
-            'if(Number(g.__PDD_RELEASE_LOG_GATE_VERSION__||0)>=4)return;',
+            'if(typeof g.__PDD_ENABLE_RELEASE_LOG_GATE__==="function")return;',
+            'g.__PDD_ENABLE_RELEASE_LOG_GATE__=function(){',
+            'if(Number(g.__PDD_RELEASE_LOG_GATE_VERSION__||0)>=5)return;',
             'var wxRef=typeof wx!=="undefined"?wx:null;',
             'try{if(wxRef&&typeof wxRef.getSystemInfoSync==="function"&&String((wxRef.getSystemInfoSync()||{}).platform||"").toLowerCase()==="devtools")return;}catch(_){ }',
             'var c=typeof console!=="undefined"?console:null;if(!c)return;',
@@ -1063,6 +1084,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
             'var noop=function(){};c.log=noop;c.info=noop;c.debug=noop;c.warn=noop;c.time=noop;c.timeEnd=noop;c.__pddLogGateInstalled=true;',
             releaseLogGateMarker,
             releaseLogGateVersionMarker,
+            '};',
             '})();'
         );
     }
@@ -1282,14 +1304,37 @@ function assertDnSdkGameEntry(runtimeRoot) {
     }
     var gameEntry = fs.readFileSync(gameEntryPath, 'utf8');
     var sdkRequire = "require('./sdk/sysdk-wxapp')";
+    var lazyLoaderMarker = 'globalThis.__PDD_LOAD_SYSDK__=function(){';
     var requireMatches = gameEntry.match(/require\('\.\/sdk\/sysdk-wxapp'\)/g) || [];
-    var requireIndex = gameEntry.indexOf(sdkRequire);
+    var lazyLoaderIndex = gameEntry.indexOf(lazyLoaderMarker);
     var appInitIndex = gameEntry.indexOf('function __initApp');
-    if (requireMatches.length !== 1 || requireIndex < 0 || appInitIndex < 0 || requireIndex > appInitIndex) {
-        console.error('[DN SDK] SDK wrapper 必须在微信 game.js 中且早于 Cocos __initApp 加载一次');
+    var hasEagerSdkRequire = /(?:^|\r?\n)require\('\.\/sdk\/sysdk-wxapp'\);/.test(gameEntry);
+    if (requireMatches.length !== 1 || lazyLoaderIndex < 0 || appInitIndex < 0 || lazyLoaderIndex > appInitIndex || hasEagerSdkRequire) {
+        console.error('[DN SDK] 微信 game.js 必须预先注册延迟 SDK loader，且不能在 Cocos 首屏前同步执行 SDK');
         process.exit(1);
     }
-    console.log('[DN SDK] 微信 game.js 在 Cocos __initApp 前加载 SDK wrapper ✓');
+    console.log('[DN SDK] 微信 game.js 已注册延迟 SDK loader，首屏前不会同步执行 SDK ✓');
+}
+
+function installDnSdkLazyLoader(gameEntry) {
+    var lazyLoaderMarker = 'globalThis.__PDD_LOAD_SYSDK__=function(){';
+    if (gameEntry.indexOf(lazyLoaderMarker) !== -1) return gameEntry;
+    var withoutEagerRequire = gameEntry.replace(/(?:^|\r?\n)require\('\.\/sdk\/sysdk-wxapp'\);\r?\n?/, '\n');
+    var lazyLoader = [
+        '(function installPddDnSdkLazyLoader(){',
+        'if(typeof globalThis.__PDD_LOAD_SYSDK__==="function")return;',
+        'var loaded=false;',
+        'var loadFailed=false;',
+        'globalThis.__PDD_LOAD_SYSDK__=function(){',
+        'if(loaded)return globalThis.Sygame||null;',
+        'if(loadFailed)return null;',
+        'try{require(\'./sdk/sysdk-wxapp\');loaded=true;return globalThis.Sygame||null;}',
+        'catch(error){loadFailed=true;try{console.error("[DN SDK] deferred load failed",error);}catch(_){ }return null;}',
+        '};',
+        '})();',
+        '',
+    ].join('\n');
+    return lazyLoader + withoutEagerRequire;
 }
 
 // 1. 创建 src/bundle-scripts/gameAssets/index.js
@@ -1387,13 +1432,14 @@ if (fs.existsSync(gameJsPath)) {
     } else {
         console.log('[3.2/7] __rawWx 已存在' + (screenAdaptDebug ? '，屏幕诊断已开启' : '，屏幕诊断关闭') + ' ✓');
     }
-    // 注入 SDK 外部脚本 require
-    if (patchedGame.indexOf("require('./sdk/sysdk-wxapp')") === -1) {
-        patchedGame = "require('./sdk/sysdk-wxapp');\n" + patchedGame;
+    // 注册 SDK 延迟加载器；第三方 SDK 不能阻塞 Cocos 首屏。
+    var lazySdkGame = installDnSdkLazyLoader(patchedGame);
+    if (lazySdkGame !== patchedGame) {
+        patchedGame = lazySdkGame;
         fs.writeFileSync(gameJsPath, patchedGame);
-        console.log('[3.2b/7] 已注入 SDK 外部脚本 require ✓');
+        console.log('[3.2b/7] 已注册 SDK 延迟加载器 ✓');
     } else {
-        console.log('[3.2b/7] SDK require 已存在 ✓');
+        console.log('[3.2b/7] SDK 延迟加载器已存在 ✓');
     }
 }
 ensureWechatRuntimeMarker(resolveRuntimeRoot());

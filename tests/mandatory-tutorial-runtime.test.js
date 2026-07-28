@@ -5,6 +5,7 @@ const vm = require('vm');
 const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
+let front10ExperimentBucket = null;
 
 function loadTutorialInstaller() {
     const source = fs.readFileSync(
@@ -107,6 +108,16 @@ function loadSettlementInstaller() {
             if (request === '../GameCtrlShared') return shared;
             if (request === '../RuntimeLog') return { runtimeWarn() {} };
             if (request === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
+            if (request === '../LevelExperimentService') {
+                return {
+                    getFrontLevelExperimentAnalyticsContext(levelId, prefix) {
+                        if (front10ExperimentBucket !== 'exp' || prefix !== 'level_' || Number(levelId) < 2) {
+                            return null;
+                        }
+                        return { abId: 'ly_0224', abBucket: 'exp' };
+                    },
+                };
+            }
             return {};
         },
         console,
@@ -1123,6 +1134,49 @@ function createAutoCorrectRuntime(overrides = {}) {
     assert.strictEqual(runtime.canArmSmartIdleHint(), true, 'level 10 must retain the one-shot smart hint');
     runtime.levelData.levelId = 11;
     assert.strictEqual(runtime.canArmSmartIdleHint(), false, 'level 11 and later must not arm the smart hint');
+}
+
+{
+    const scheduled = [];
+    const runtime = {
+        _smartIdleHintTimerHandler: null,
+        _smartIdleHintToken: 0,
+        _smartIdleHintShownCount: 99,
+        isGameEnd: false,
+        boardModel: {},
+        slotModel: {},
+        levelData: { levelId: 2 },
+        getActiveGameplayEntryMode: () => 'main',
+        isExternalLevelPreviewActive: () => false,
+        getActiveLogicalLevelId() {
+            return this.levelData.levelId;
+        },
+        unschedule() {},
+        scheduleOnce(handler, seconds) {
+            scheduled.push({ handler, seconds });
+        },
+    };
+    installSettlementHudModule(runtime);
+    runtime.clearSmartIdleHintVisuals = () => {};
+    front10ExperimentBucket = 'exp';
+    assert.strictEqual(runtime.canArmSmartIdleHint(), true, 'EXP level 2 must arm the post-guide smart hint');
+    assert.strictEqual(runtime.getSmartIdleHintDelaySeconds(), 3, 'EXP level 2 must wait three seconds before showing help');
+    runtime.resetIdleHintTimer();
+    assert.strictEqual(scheduled[0].seconds, 3, 'EXP level 2 reset must schedule the three-second timer');
+    runtime.levelData.levelId = 3;
+    assert.strictEqual(runtime.canArmSmartIdleHint(), true, 'EXP level 3 must continue to arm after prior hints');
+    assert.strictEqual(runtime.getSmartIdleHintDelaySeconds(), 3, 'EXP level 3 must keep the three-second delay without a show cap');
+    runtime.levelData.levelId = 4;
+    assert.strictEqual(runtime.canArmSmartIdleHint(), true, 'EXP level 4 must ignore the old one-show cap');
+    assert.strictEqual(runtime.getSmartIdleHintDelaySeconds(), 10, 'EXP level 4 must use the ten-second delay');
+    runtime.levelData.levelId = 9;
+    assert.strictEqual(runtime.canArmSmartIdleHint(), true, 'EXP level 9 must remain eligible after prior hints');
+    assert.strictEqual(runtime.getSmartIdleHintDelaySeconds(), 10, 'EXP level 9 must use the ten-second delay without a show cap');
+    front10ExperimentBucket = null;
+    runtime.levelData.levelId = 2;
+    assert.strictEqual(runtime.canArmSmartIdleHint(), false, 'Base level 2 must retain the current no-idle-hint behavior');
+    runtime.levelData.levelId = 4;
+    assert.strictEqual(runtime.canArmSmartIdleHint(), false, 'Base level 4 must retain the existing one-show cap');
 }
 
 {
