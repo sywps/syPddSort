@@ -18,6 +18,12 @@ function createRuntime() {
     const reportRequests = [];
     const diagnosticRequests = [];
     const listeners = {};
+    const passiveShareEffects = {
+        showMenu: 0,
+        hideMenu: 0,
+        shareAppListeners: 0,
+        shareTimelineListeners: 0,
+    };
     const externalEffects = {
         modal: 0,
         touchStart: 0,
@@ -87,9 +93,11 @@ function createRuntime() {
             listeners.favorite = callback;
         },
         onShareAppMessage(callback) {
+            passiveShareEffects.shareAppListeners += 1;
             listeners.shareApp = callback;
         },
         onShareTimeline(callback) {
+            passiveShareEffects.shareTimelineListeners += 1;
             listeners.shareTimeline = callback;
         },
         onDirectAdStatusChange(callback) {
@@ -105,7 +113,12 @@ function createRuntime() {
             }
             setTimeout(() => callbacks.success({ cancel: true, confirm: false }), 0);
         },
-        showShareMenu() {},
+        showShareMenu() {
+            passiveShareEffects.showMenu += 1;
+        },
+        hideShareMenu() {
+            passiveShareEffects.hideMenu += 1;
+        },
         onTouchStart(callback) {
             externalEffects.touchStart += 1;
             listeners.touchStart = callback;
@@ -241,7 +254,7 @@ function createRuntime() {
         },
     };
 
-    return { wx, requests, reportRequests, diagnosticRequests, externalEffects };
+    return { wx, requests, reportRequests, diagnosticRequests, passiveShareEffects, externalEffects };
 }
 
 function findDiagnostics(runtime, actionType) {
@@ -266,6 +279,20 @@ function assertNoPackageGuideSideEffects(runtime) {
         0,
         'disabled package guide must not request package destination data',
     );
+}
+
+function assertPassiveShareDisabled(runtime) {
+    assert.deepStrictEqual(
+        runtime.passiveShareEffects,
+        {
+            showMenu: 0,
+            hideMenu: 1,
+            shareAppListeners: 0,
+            shareTimelineListeners: 0,
+        },
+        'fixed startup policy must hide the passive share menu without registering share listeners',
+    );
+    assert.strictEqual(global.Sygame.passiveShareEnabled, false);
 }
 
 async function assertPackageGuideApisBlocked(runtime) {
@@ -304,6 +331,7 @@ async function run() {
     assert.strictEqual(global.Sygame.wxSdk, null, 'wrapper load must wait for the server-owned config');
     assert.strictEqual(global.Sygame.wxSdkInitResult, null);
     global.Sygame.init({ query: {}, scene: 1001 });
+    assertPassiveShareDisabled(runtime);
     if (scenario === 'post-login-throw') {
         global.Sygame.syGetPhoneNumber = () => {
             throw new Error('mock optional post-login failure');
@@ -323,6 +351,7 @@ async function run() {
     } catch (error) {
         loginState = `rejected:${error && error.stage}`;
     }
+    assertPassiveShareDisabled(runtime);
 
     if ([
         'backend-fail',

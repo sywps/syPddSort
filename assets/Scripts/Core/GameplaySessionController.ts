@@ -209,6 +209,7 @@ export class GameplaySessionController {
             });
             AnalyticsMgr.inst.flushFunnelEvents();
             initStage = 'startup_services';
+            runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0);
             runtime.onGameplayUiReadyForStartupServices?.();
             runtime.startPostPlayableWarmup?.('gameplay-ready');
 

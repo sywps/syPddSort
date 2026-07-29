@@ -1609,16 +1609,17 @@
     ],
     "levelId": 3,
     "slotPolicy": {
-        "defaultRows": 2,
+        "defaultRows": 1,
         "freeUnlockRows": 0,
-        "adUnlockRows": 2
+        "adUnlockRows": 2,
+        "unlockAllRowsAtOnce": true
     },
     "tutorialGuide": {
         "mode": "zoom",
-        "title": "双指【缩放】",
-        "subtitle": "点豆→空位（不用拖）",
+        "title": "试试放大或缩小",
+        "subtitle": "",
         "guideCopies": [
-            "双指【缩放】"
+            "试试放大或缩小"
         ]
     }
 }

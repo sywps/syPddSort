@@ -186,10 +186,6 @@ export function resolveStartupCloudRestorePending(runtime: any, status: UserStat
     if (status === 'cloud_progress_gt_1') {
         runtime._deferredCloudGameStateSync = false;
         runtime._deferredLeaderboardProgress = 0;
-        const restoredLevel = typeof runtime.getSavedLevel === 'function' ? runtime.getSavedLevel() : 0;
-        if (restoredLevel > 1 && !runtime._startupCloudSaveBlockedForSession) {
-            void LeaderboardMgr.inst.submitProgress(restoredLevel, UserMgr.inst.getProfile());
-        }
         return;
     }
     runtime._deferredCloudGameStateSync = false;

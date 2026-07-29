@@ -1248,7 +1248,6 @@ export function installSettlementHudModule(target: any): void {
                 this._guideHand.setScale(1, 1, 1);
                 this._guideHand.active = false;
             }
-            this.clearSmartIdleHintTapRipples?.();
             this.clearGuideHighlight?.();
             const guideStep = Number.isFinite(Number(this._guideStep))
                 ? Math.floor(Number(this._guideStep))
@@ -1862,59 +1861,6 @@ export function installSettlementHudModule(target: any): void {
             );
         },
 
-        playSmartIdleHintTapRipple(target: Vec3, selectedHoldSeconds: number = 0) {
-            const layer = this._guideLayer as Node | null;
-            if (!layer?.isValid) return;
-
-            const ring = new Node('GuideTapRing');
-            layer.addChild(ring);
-            ring.layer = layer.layer;
-            ring.addComponent(UITransform).setContentSize(112, 112);
-            ring.setPosition(target.x, target.y, 0);
-            ring.setScale(0.68, 0.68, 1);
-
-            const opacity = ring.addComponent(UIOpacity);
-            opacity.opacity = 220;
-            const g = ring.addComponent(Graphics);
-            g.fillColor = new Color(94, 148, 255, 42);
-            g.circle(0, 0, 30);
-            g.fill();
-            g.strokeColor = new Color(86, 142, 255, 210);
-            g.lineWidth = 6;
-            g.circle(0, 0, 30);
-            g.stroke();
-            g.strokeColor = new Color(255, 255, 255, 190);
-            g.lineWidth = 3;
-            g.circle(0, 0, 18);
-            g.stroke();
-
-            const holdSeconds = Math.max(0, Number(selectedHoldSeconds) || 0);
-            tween(ring)
-                .to(0.24, { scale: new Vec3(holdSeconds > 0 ? 1.25 : 1.45, holdSeconds > 0 ? 1.25 : 1.45, 1) }, { easing: 'sineOut' })
-                .delay(holdSeconds)
-                .to(0.18, { scale: new Vec3(1.7, 1.7, 1) }, { easing: 'sineOut' })
-                .call(() => {
-                    if (ring.isValid) ring.destroy();
-                })
-                .start();
-            tween(opacity)
-                .delay(0.24 + holdSeconds)
-                .to(0.18, { opacity: 0 }, { easing: 'quadIn' })
-                .start();
-        },
-
-        clearSmartIdleHintTapRipples() {
-            const layer = this._guideLayer as Node | null;
-            if (!layer?.isValid) return;
-            const toRemove = layer.children.filter((child: Node) => child.name === 'GuideTapRing');
-            for (const child of toRemove) {
-                Tween.stopAllByTarget(child);
-                const opacity = child.getComponent(UIOpacity);
-                if (opacity) Tween.stopAllByTarget(opacity);
-                child.destroy();
-            }
-        },
-
         startSmartIdleHintTapSequence(
             hand: Node,
             from: Vec3 | null,
@@ -1954,29 +1900,20 @@ export function installSettlementHudModule(target: any): void {
             };
 
             let sequence = tween(hand);
-            if (from && start) {
-                sequence = showSourceHand
-                    ? sequence
-                        .call(() => showAt(start))
-                        .delay(0.10)
-                        .to(0.12, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
-                        .call(() => this.playSmartIdleHintTapRipple?.(from, 0.75))
-                        .to(0.14, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
-                        .delay(0.22)
-                        .call(hideWhileRunning)
-                        .delay(0.32)
-                    : sequence
-                        .delay(0.22)
-                        .call(() => this.playSmartIdleHintTapRipple?.(from, 0.75))
-                        .delay(0.36)
-                        .call(hideWhileRunning)
-                        .delay(0.32);
+            if (from && start && showSourceHand) {
+                sequence = sequence
+                    .call(() => showAt(start))
+                    .delay(0.10)
+                    .to(0.12, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
+                    .to(0.14, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
+                    .delay(0.22)
+                    .call(hideWhileRunning)
+                    .delay(0.32);
             }
             sequence
                 .call(() => showAt(end))
                 .delay(0.10)
                 .to(0.12, { scale: new Vec3(SMART_IDLE_HINT_TAP_SCALE, SMART_IDLE_HINT_TAP_SCALE, 1) }, { easing: 'quadOut' })
-                .call(() => this.playSmartIdleHintTapRipple?.(to))
                 .to(0.14, { scale: new Vec3(1, 1, 1) }, { easing: 'quadIn' })
                 .delay(SMART_IDLE_HINT_FINAL_HOLD_SECONDS)
                 .call(() => {
@@ -1991,21 +1928,10 @@ export function installSettlementHudModule(target: any): void {
                 .start();
         },
 
-        showGameplayInvalidTapFeedback(worldPos: Vec3): void {
+        showGameplayInvalidTapFeedback(_worldPos: Vec3): void {
             if (this.isGameEnd || this._guideStep >= 0) return;
             if (!this.ensureSmartIdleHintLayer?.()) return;
             this._guideLayer!.active = true;
-            this.showGuideTapFeedback?.(worldPos, 'wrong');
-
-            if (this.isSelected && this.currentBlock) {
-                const selectedPlan = this.resolveSelectedSmartIdleHintPlan?.() as SmartIdleHintPlan | null;
-                const endpoints = selectedPlan
-                    ? this.resolveSmartIdleHintEndpoints?.(selectedPlan) as SmartIdleHintEndpoints | null
-                    : null;
-                if (endpoints?.to) {
-                    this.playSmartIdleHintTapRipple?.(endpoints.to);
-                }
-            }
 
             const feedbackToken = Math.max(
                 0,

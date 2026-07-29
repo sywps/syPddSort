@@ -38,16 +38,28 @@ const writeSkinCdn = read('scripts/write-skin-data-cdn.js');
 
 assert.ok(installModules.includes('installPostPlayableWarmupModule'), 'post-playable warmup module must be installed with GameCtrl modules');
 assert.ok(session.includes('runtime.startPostPlayableWarmup?.('), 'Game must start the warmup queue after UI ready');
+assert.ok(session.includes("runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0);"), 'Game must dispatch rewarded-ad preload at first playable');
 assert.ok(!session.includes('runtime.preloadSettingsPanel?.();'), 'settings preload must not remain as a one-off Session side effect');
 assert.ok(!session.includes("router.preloadHomeScene('gameplay-ready')"), 'Home preload must not be an unconditional Session side effect');
 
 for (const method of [
     'preloadGameplayAudioSet',
     '_ensureGameplayResultPanelPrefabsReady',
-    'scheduleRewardedAdPreload',
 ]) {
     assert.ok(warmup.includes(method), `warmup queue must cover ${method}`);
 }
+assert.ok(!warmup.includes('scheduleRewardedAdPreload'), 'rewarded-ad preload must not wait in the serial optional-resource queue');
+assert.ok(!warmup.includes("name: 'rewarded-ad'"), 'rewarded-ad must not remain a busy-paused warmup task');
+const firstPlayableIndex = session.indexOf("markStartupTrace('startup_first_playable_ready'");
+const rewardedAdPreloadIndex = session.indexOf("runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0);");
+const startupServicesIndex = session.indexOf('runtime.onGameplayUiReadyForStartupServices?.();');
+const warmupStartIndex = session.indexOf("runtime.startPostPlayableWarmup?.('gameplay-ready');");
+assert.ok(firstPlayableIndex >= 0 && rewardedAdPreloadIndex > firstPlayableIndex, 'rewarded-ad preload must start only after first-playable readiness');
+assert.ok(startupServicesIndex > rewardedAdPreloadIndex, 'rewarded-ad preload must be the first post-playable background dispatch');
+assert.ok(warmupStartIndex > rewardedAdPreloadIndex, 'optional audio/prefab warmup must not gate rewarded-ad preload');
+assert.ok(homeAdFlow.includes('const safeDelay = Math.max(0, Number(delaySeconds) || 0);'), 'zero-delay rewarded-ad preload must not be forced to wait one second');
+assert.ok(homeAdFlow.includes('if (safeDelay <= 0)'), 'zero-delay rewarded-ad preload must dispatch inline');
+assert.ok(!homeAdFlow.includes('广告准备中'), 'pre-ad loading must not add a custom preparation prompt');
 for (const optionalTask of ['gameAssets-bundle', 'home-scene', 'top-hud-prefab', 'settings-panel', 'acquire-resource-panel', 'skin-panel']) {
     assert.ok(!warmup.includes(`name: '${optionalTask}'`), `post-playable warmup must not retain optional route resource: ${optionalTask}`);
 }
@@ -72,15 +84,15 @@ assert.ok(
 );
 const nextResultPanelsTaskIndex = warmup.indexOf('name: ', resultPanelsTaskIndex + 1);
 assert.ok(
-    nextResultPanelsTaskIndex < 0 || warmup.indexOf("name: 'rewarded-ad'") === nextResultPanelsTaskIndex,
-    'result panels must be followed only by the delayed rewarded-ad warmup',
+    nextResultPanelsTaskIndex < 0,
+    'result panels must be the final task in the optional-resource warmup queue',
 );
 assert.ok(
     warmup.slice(resultPanelsTaskIndex, nextResultPanelsTaskIndex).includes('pauseWhenBusy: true'),
     'result-panel warmup must pause while placement/input/resource work is active',
 );
 assert.ok(warmup.includes('runtime.activeBoardTouches instanceof Map'), 'warmup busy detection must include active board touches');
-assert.ok(warmup.includes('REWARDED_AD_WARMUP_DELAY_SECONDS = 2.0'), 'rewarded-ad warmup must be delayed away from first playable in every build');
+assert.ok(!warmup.includes('REWARDED_AD_WARMUP_DELAY_SECONDS'), 'the removed rewarded-ad warmup delay must not remain');
 assert.ok(!warmup.includes("name: 'freeze-spine'"), 'freeze Spine must not run as a fixed post-playable warmup task');
 assert.ok(!warmup.includes("name: 'pindd-spine'"), 'pindd Spine must not run as a fixed post-playable warmup task');
 assert.ok(freezeFx.includes('ensureFreezeSpineFxSkeletonData'), 'freeze Spine must remain available for first-use loading');

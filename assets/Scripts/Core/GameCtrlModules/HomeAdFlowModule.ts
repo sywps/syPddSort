@@ -294,7 +294,7 @@ export function installHomeAdFlowModule(target: any): void {
                 runtimeLog(`[AdConfig] skip rewarded ad preload schedule: ${reason}`);
                 return;
             }
-            const safeDelay = Math.max(1, Number(delaySeconds) || 0);
+            const safeDelay = Math.max(0, Number(delaySeconds) || 0);
             const preload = () => {
                 if (!this.isValid) return;
                 this._pendingRewardedAdPreload = null;
@@ -311,6 +311,10 @@ export function installHomeAdFlowModule(target: any): void {
                 this._rewardedAdTelemetryLevelId = this.getAnalyticsLevelId?.() || 0;
                 AdConfig.preloadRewardedAd(reason);
             };
+            if (safeDelay <= 0) {
+                preload();
+                return;
+            }
             this._pendingRewardedAdPreload = preload;
             this.scheduleOnce(preload, safeDelay);
         },

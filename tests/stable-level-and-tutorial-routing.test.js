@@ -81,42 +81,6 @@ function mismatchPairSummary(relPath) {
     return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-function unplacedRowWidths(relPath, colorId) {
-    const data = readJson(relPath);
-    const widths = [];
-    for (let row = 0; row < data.boardHeight; row++) {
-        let count = 0;
-        for (let col = 0; col < data.boardWidth; col++) {
-            if (data.initRandomColorArr[row]?.[col] === colorId
-                && data.correctColorArr[row]?.[col] !== colorId) {
-                count += 1;
-            }
-        }
-        if (count > 0) widths.push([row, count]);
-    }
-    return widths;
-}
-
-function unplacedContainsFilledRectangle(relPath, colorId, height, width) {
-    const data = readJson(relPath);
-    for (let top = 0; top <= data.boardHeight - height; top++) {
-        for (let left = 0; left <= data.boardWidth - width; left++) {
-            let filled = true;
-            for (let row = top; row < top + height && filled; row++) {
-                for (let col = left; col < left + width; col++) {
-                    if (data.initRandomColorArr[row]?.[col] !== colorId
-                        || data.correctColorArr[row]?.[col] === colorId) {
-                        filled = false;
-                        break;
-                    }
-                }
-            }
-            if (filled) return true;
-        }
-    }
-    return false;
-}
-
 const bootstrapLevel1Path = 'assets/BootstrapBundle/LevelData/level_1.json';
 
 const cocosSpec = read('docs/cocos-ai-code-ai-collaboration-spec-v1.md');
@@ -173,7 +137,8 @@ assert.ok(session.includes('getFrontLevelExperimentAnalyticsContext'), 'mainline
 assert.ok(session.includes("gameplayEntryMode === 'main'"), 'experiment analytics must only be attached to mainline gameplay');
 assert.ok(session.includes('this.resolveTutorialMode(data)'), 'tutorial routing must be driven by the loaded level data');
 assert.ok(session.includes("case 'level_1_red_blue': return 'level_1'"), 'level 1 data must resolve to the mandatory core tutorial');
-assert.ok(session.includes("case 'slot_expand_all': return 'level_2'"), 'slot expansion data must resolve to the mandatory seven-step level 2 tutorial');
+assert.ok(session.includes("case 'slot_expand_all': return 'level_2'"), 'slot expansion data must remain compatible with the shared seven-step level 2 tutorial runtime');
+assert.ok(session.includes("default: return 'none'"), 'level data without tutorialGuide must resolve to no tutorial');
 assert.ok(session.includes("case 'zoom': return 'zoom'"), 'zoom data must resolve to the optional zoom hint');
 assert.ok(!session.includes('applyGuideSlotPolicy'), 'client code must not rewrite the validated slotPolicy by level number');
 assert.ok(session.includes('slotPolicy.unlockedRows < slotPolicy.rowCount ? 1 : 0'), 'every progressive row policy must render only the next locked preview row');
@@ -220,6 +185,8 @@ assert.ok(
 assert.ok(
     settlementHud.includes('startSmartIdleHintTapSequence(')
         && !settlementHud.includes('startSmartIdleHintHandPath(')
+        && !settlementHud.includes("new Node('GuideTapRing')")
+        && !settlementHud.includes('playSmartIdleHintTapRipple')
         && !settlementHud.includes('.repeatForever(')
         && settlementHud.includes('destinationOnly: true')
         && settlementHud.includes('.call(hideWhileRunning)')
@@ -227,6 +194,16 @@ assert.ok(
         && settlementHud.includes('endpoints.sourceHandVisible !== false')
         && settlementHud.includes('showSourceHand: boolean = true'),
     'smart idle hints must use destination-only selected plans and hide the hand between one-way discrete taps',
+);
+assert.ok(
+    !guideLeaderboard.includes('GuideTapRing')
+        && !guideLeaderboard.includes('GuideTapFeedback')
+        && !guideLeaderboard.includes('createGuideFeedbackRing')
+        && !guideLeaderboard.includes('showGuideTapFeedback')
+        && !guideLeaderboard.includes('playGuideHandTapRipple')
+        && !tutorialGuideModule.includes('showGuideTapFeedback')
+        && !settlementHud.includes('showGuideTapFeedback'),
+    'gameplay and tutorial taps must not create any click halo in any level',
 );
 assert.ok(
     settlementHud.includes('this.resolveBoardTapBlock?.(world, false)')
@@ -258,7 +235,7 @@ assert.ok(
     'level 2 pick-step bright regions must cover the complete target block',
 );
 assert.ok(
-    !tutorialGuideModule.includes("this.showGuideTapFeedback?.(worldPos, 'wrong')")
+    !tutorialGuideModule.includes('showGuideTapFeedback')
         && tutorialGuideModule.includes('this.startGuideWrongTargetHandPulse?.(this._guideHand);')
         && guideLeaderboard.includes('startGuideWrongTargetHandPulse(hand: Node'),
     'wrong tutorial taps must accelerate the correct hand without drawing a ripple at the wrong position',
@@ -317,7 +294,7 @@ const level1GuideCopies = [
     '点击【槽内红豆】',
     '再点【红色空位】',
 ];
-const level2GuideCopies = [
+const dormantLevel2GuideCopies = [
     '点击【解锁按钮】',
     '点击【高亮豆子】',
     '再点【空插槽】',
@@ -327,10 +304,10 @@ const level2GuideCopies = [
     '再点【最后空位】',
 ];
 const level3ZoomCopies = [
-    '双指【缩放】',
+    '试试放大或缩小',
 ];
-for (const copy of [...level1GuideCopies, ...level2GuideCopies, ...level3ZoomCopies]) {
-    assert.ok(!/[上下]方/.test(copy), `the first three tutorial levels must avoid ambiguous direction copy: ${copy}`);
+for (const copy of [...level1GuideCopies, ...dormantLevel2GuideCopies, ...level3ZoomCopies]) {
+    assert.ok(!/[上下]方/.test(copy), `retained guide copy contracts must avoid ambiguous direction copy: ${copy}`);
 }
 for (const relPath of [
     'assets/LevelData/level_1.json',
@@ -369,33 +346,37 @@ assert.deepStrictEqual(readTutorialGuide(bootstrapLevel1Path).guideCopies, level
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_2.json'), {
     defaultRows: 1,
-    freeUnlockRows: 3,
-    adUnlockRows: 0,
-    unlockAllRowsAtOnce: true,
-}, 'stable level 2 must unlock the remaining three rows with one free action');
-assert.strictEqual(readTutorialGuide('assets/LevelData/level_2.json').mode, 'slot_expand_all', 'stable level 2 must declare mandatory all-row expansion');
-assert.deepStrictEqual(readTutorialGuide('assets/LevelData/level_2.json').guideCopies, level2GuideCopies, 'stable level 2 must guide all seven accepted actions');
+    freeUnlockRows: 0,
+    adUnlockRows: 1,
+}, 'stable level 2 must start with one ready row plus one optional rewarded unlock row');
+assert.strictEqual(readTutorialGuide('assets/LevelData/level_2.json'), undefined, 'stable level 2 must not declare a tutorial');
 assert.deepStrictEqual(
     [level2Data.levelId, level2Data.boardWidth, level2Data.boardHeight, level2Data.timeLimit, level2Data.slotTotalCount],
-    [2, 29, 23, 300, 440],
-    'logical level 2 must own the complete former level 3 gameplay and settlement payload',
+    [2, 12, 12, 600, 96],
+    'logical level 2 must use the normalized historical no-guide payload',
 );
-assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'correctColorArr'), [[9, 96], [10, 93], [15, 136], [20, 115]], 'stable level 2 correct data must use exactly four approved colors');
-assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'initRandomColorArr'), [[9, 96], [10, 93], [15, 136], [20, 115]], 'stable level 2 initial data must use the same four-color population');
-assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json'), [[10, 48], [20, 48]], 'stable level 2 must contain exactly one red/white 48-bean swap pair');
-assert.deepStrictEqual(mismatchPairSummary('assets/LevelData/level_2.json'), [['10->20', 48], ['20->10', 48]], 'stable level 2 must keep green/lavender solved and reduce to the fixed red/white seven-action chain');
-assert.deepStrictEqual(unplacedRowWidths('assets/LevelData/level_2.json', 10), [[18, 17], [19, 23], [20, 8]], 'the red tutorial block must be a broad lower-body mass, not an outline chain');
-assert.deepStrictEqual(unplacedRowWidths('assets/LevelData/level_2.json', 20), [[20, 10], [21, 21], [22, 17]], 'the white tutorial block must remain a broad central-lower mass');
-assert.strictEqual(unplacedContainsFilledRectangle('assets/LevelData/level_2.json', 10, 2, 8), true, 'the red tutorial block must contain a filled 2x8 area');
-assert.strictEqual(unplacedContainsFilledRectangle('assets/LevelData/level_2.json', 20, 2, 8), true, 'the white tutorial block must contain a filled 2x8 area');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'correctColorArr'), [[4, 8], [7, 6], [10, 14], [13, 39], [16, 2], [20, 27]], 'stable level 2 correct data must retain the historical six-color population');
+assert.deepStrictEqual(colorCounts('assets/LevelData/level_2.json', 'initRandomColorArr'), [[4, 8], [7, 6], [10, 14], [13, 39], [16, 2], [20, 27]], 'stable level 2 initial data must preserve the same six-color population');
+assert.deepStrictEqual(unplacedComponentSummary('assets/LevelData/level_2.json'), [[13, 12], [20, 12]], 'stable level 2 must contain exactly two one-row swap components');
+assert.deepStrictEqual(mismatchPairSummary('assets/LevelData/level_2.json'), [['13->20', 12], ['20->13', 12]], 'stable level 2 must preserve the historical two-block swap');
 
 assert.deepStrictEqual(slotPolicy('assets/LevelData/level_3.json'), {
-    defaultRows: 2,
+    defaultRows: 1,
     freeUnlockRows: 0,
     adUnlockRows: 2,
-}, 'stable level 3 must start with two rows and expose two progressive rewarded unlock rows');
+    unlockAllRowsAtOnce: true,
+}, 'stable level 3 must start with one row and unlock two rewarded rows in one action');
 assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').mode, 'zoom', 'stable level 3 must declare the optional zoom hint');
-assert.strictEqual(readTutorialGuide('assets/LevelData/level_3.json').subtitle, '点豆→空位（不用拖）', 'level 3 zoom copy must explain the two-tap alternative without implying drag');
+assert.deepStrictEqual(
+    readTutorialGuide('assets/LevelData/level_3.json'),
+    {
+        mode: 'zoom',
+        title: '试试放大或缩小',
+        subtitle: '',
+        guideCopies: ['试试放大或缩小'],
+    },
+    'level 3 zoom guide must use one natural player-facing sentence',
+);
 assert.deepStrictEqual(readTutorialGuide('assets/LevelData/level_3.json').guideCopies, level3ZoomCopies, 'stable level 3 zoom hint must remain one-step and non-blocking');
 assert.deepStrictEqual(
     [level3Data.levelId, level3Data.boardWidth, level3Data.boardHeight, level3Data.timeLimit, level3Data.slotTotalCount],
@@ -406,8 +387,8 @@ assert.deepStrictEqual(colorCounts('assets/LevelData/level_3.json', 'correctColo
 assert.deepStrictEqual(colorCounts('assets/LevelData/level_3.json', 'initRandomColorArr'), [[1, 156], [10, 30], [15, 131], [19, 189], [20, 105]], 'stable level 3 initial data must retain the approved V3 color population');
 assert.deepStrictEqual(
     [manifestByLevel.get(2)?.boardWidth, manifestByLevel.get(2)?.boardHeight, manifestByLevel.get(2)?.timeLimit, manifestByLevel.get(2)?.slotTotalCount],
-    [29, 23, 300, 440],
-    'generated level 2 manifest metadata must follow the swapped settlement payload',
+    [12, 12, 600, 96],
+    'generated level 2 manifest metadata must follow the historical no-guide payload',
 );
 assert.deepStrictEqual(
     [manifestByLevel.get(3)?.boardWidth, manifestByLevel.get(3)?.boardHeight, manifestByLevel.get(3)?.timeLimit, manifestByLevel.get(3)?.slotTotalCount],
@@ -422,7 +403,7 @@ assert.deepStrictEqual(slotPolicy('assets/LevelData/level_8.json'), {
 }, 'stable level 8 must start with one unlocked row and expose one rewarded unlock row');
 
 const expectedEarlyLevelTimeLimits = new Map([
-    [2, 300],
+    [2, 600],
     [3, 180],
     [4, 90],
     [5, 120],

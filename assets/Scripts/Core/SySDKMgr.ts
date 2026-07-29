@@ -58,7 +58,11 @@ class SySDKMgr {
             if (wxRef && sdk?.init) {
                 const launchOptions = wxRef.getLaunchOptionsSync();
                 sySdkDebug('[SySDK] init, calling Sygame.init with:', launchOptions);
-                sdk.init({ query: launchOptions.query, scene: launchOptions.scene });
+                sdk.init({
+                    query: launchOptions.query,
+                    scene: launchOptions.scene,
+                    enablePassiveShare: false,
+                });
                 sySdkDebug('[SySDK] init done');
             }
         } catch(e) { console.warn('[SySDK] init error:', e); }

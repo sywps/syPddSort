@@ -1525,18 +1525,20 @@
     {
       "levelId": 2,
       "file": "LevelData/level_2.json",
-      "boardWidth": 29,
-      "boardHeight": 23,
+      "boardWidth": 12,
+      "boardHeight": 12,
       "filledCellCount": 0,
       "colorIds": [
-        9,
+        4,
+        7,
         10,
-        15,
+        13,
+        16,
         20
       ],
-      "colorCount": 4,
-      "slotTotalCount": 440,
-      "timeLimit": 300,
+      "colorCount": 6,
+      "slotTotalCount": 96,
+      "timeLimit": 600,
       "isMainline": true,
       "isTutorial": true
     },

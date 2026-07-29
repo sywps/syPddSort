@@ -10,7 +10,7 @@ const source = fs.readFileSync(
     'utf8',
 );
 
-function loadHelper(appRoot) {
+function loadHelper(appRoot, leaderboardCalls = []) {
     const output = ts.transpileModule(source, {
         compilerOptions: {
             module: ts.ModuleKind.CommonJS,
@@ -24,8 +24,14 @@ function loadHelper(appRoot) {
         require(id) {
             if (id === '../GameCtrlShared') {
                 return {
-                    LeaderboardMgr: { inst: { submitProgress() {} } },
-                    UserMgr: { inst: { getProfile() { return {}; } } },
+                    LeaderboardMgr: {
+                        inst: {
+                            submitProgress(levelId, profile) {
+                                leaderboardCalls.push([levelId, profile]);
+                            },
+                        },
+                    },
+                    UserMgr: { inst: { getProfile() { return { nickName: 'tester' }; } } },
                 };
             }
             if (id === '../AppRoot') return { AppRoot: { tryGet: () => appRoot } };
@@ -137,6 +143,52 @@ function loadHelper(appRoot) {
         calls.filter((call) => call[0] === 'loadLevel'),
         [['loadLevel', 6]],
         'late C-class cloud restore must immediately reload when Game UI is already ready',
+    );
+}
+
+{
+    const leaderboardCalls = [];
+    const { resolveStartupCloudRestorePending } = loadHelper(null, leaderboardCalls);
+    const runtime = {
+        _startupCloudRestorePending: true,
+        _startupCloudRestoreStatus: 'cloud_restore_pending',
+        _startupCloudSaveBlockedForSession: false,
+        _deferredCloudGameStateSync: true,
+        _deferredLeaderboardProgress: 7,
+        getSavedLevel: () => 9,
+    };
+
+    resolveStartupCloudRestorePending(runtime, 'cloud_progress_gt_1');
+    assert.deepStrictEqual(
+        leaderboardCalls,
+        [],
+        'restoring a cold-start cloud snapshot must not initialize or submit the leaderboard',
+    );
+    assert.strictEqual(runtime._deferredCloudGameStateSync, false);
+    assert.strictEqual(runtime._deferredLeaderboardProgress, 0);
+}
+
+{
+    const leaderboardCalls = [];
+    const cloudSyncCalls = [];
+    const { resolveStartupCloudRestorePending } = loadHelper(null, leaderboardCalls);
+    const runtime = {
+        _startupCloudRestorePending: true,
+        _startupCloudRestoreStatus: 'cloud_restore_pending',
+        _startupCloudSaveBlockedForSession: false,
+        _deferredCloudGameStateSync: true,
+        _deferredLeaderboardProgress: 4,
+        queueCloudGameStateSync() {
+            cloudSyncCalls.push('sync');
+        },
+    };
+
+    resolveStartupCloudRestorePending(runtime, 'local_progress_gt_1');
+    assert.deepStrictEqual(cloudSyncCalls, ['sync'], 'deferred cloud state changes must still flush after restore');
+    assert.deepStrictEqual(
+        leaderboardCalls,
+        [[4, { nickName: 'tester' }]],
+        'an actual progress change deferred during restore must still submit to the leaderboard',
     );
 }
 

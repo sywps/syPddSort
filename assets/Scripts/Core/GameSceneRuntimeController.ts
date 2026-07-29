@@ -4,7 +4,6 @@ import {
     BlockInputEvents,
     Button,
     Label,
-    LeaderboardMgr,
     Node,
     PerformanceMgr,
     Sprite,
@@ -609,18 +608,6 @@ export class GameSceneRuntimeController {
         if (canAutoSaveGameState && typeof this.runtime.queueCloudGameStateSync === 'function') {
             this.runtime.queueCloudGameStateSync();
         }
-        this.runtime.scheduleOnce(() => {
-            if (canAutoSaveGameState) {
-                const savedLevel = typeof this.runtime.getSavedLevel === 'function' ? this.runtime.getSavedLevel() : 1;
-                void LeaderboardMgr.inst.submitProgress(savedLevel, UserMgr.inst.getProfile());
-            }
-            if (typeof this.runtime._isWeChat === 'function' && this.runtime._isWeChat()) {
-                void UserMgr.inst.loginWeChat();
-            }
-            if (typeof this.runtime.setupShareMenu === 'function') {
-                this.runtime.setupShareMenu();
-            }
-        }, 0.5);
     }
 
     private readWxScreenInfo(): any {

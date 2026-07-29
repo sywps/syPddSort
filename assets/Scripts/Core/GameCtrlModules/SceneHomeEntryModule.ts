@@ -35,11 +35,16 @@ import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { getMiniGameBuildPlatform } from '../MiniGamePlatform';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
+import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
 import { markStartupTrace } from '../StartupTrace';
 
 const GAME_CIRCLE_BUTTON_NAME = 'GameCircleBtn';
 const GAME_CIRCLE_ICON_NAME = 'GameCircleIcon';
 const GAME_CIRCLE_OPENLINK = '';
+
+function getConfiguredLevelDataWatchdogSource(): 'local' | 'remote' {
+    return shouldUseLocalLevelDataMirror() ? 'local' : 'remote';
+}
 
 export function installSceneHomeEntryModule(target: any): void {
     Object.assign(target, {
@@ -585,7 +590,7 @@ export function installSceneHomeEntryModule(target: any): void {
         ) {
             if (this._levelDataLoadStopped) return;
             const levelPath = this.getLevelDataPath(levelId, prefix);
-            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, 'remote');
+            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, getConfiguredLevelDataWatchdogSource());
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath, {
                 extra: { assetMode: 'bootstrap_only_mainline' },
             });
@@ -626,7 +631,7 @@ export function installSceneHomeEntryModule(target: any): void {
             }
             if (this._levelDataLoadStopped) return;
             const levelPath = this.getLevelDataPath(levelId, prefix);
-            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, 'remote');
+            this.beginGameplayLoadingWatchdog?.(activeLevelId, levelPath, getConfiguredLevelDataWatchdogSource());
             this.reportLevelDataLoadDiagnostic(activeLevelId, 'level_data_load_start', true, levelPath);
             const loadLevelData = (bundle: Bundle) => {
                 this._loadLevelDataFromConfiguredSource(levelId, prefix, (levelData, source, err) => {
@@ -686,7 +691,7 @@ export function installSceneHomeEntryModule(target: any): void {
             this.beginGameplayLoadingWatchdog?.(
                 activeLevelId,
                 this.getLevelDataPath(levelId, prefix),
-                'remote',
+                getConfiguredLevelDataWatchdogSource(),
             );
             if (this.shouldUseBootstrapOnlyMainlineLevel(levelId, prefix)) {
                 this.loadBootstrapOnlyMainlineLevel(

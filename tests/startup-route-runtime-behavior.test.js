@@ -9,6 +9,44 @@ const source = fs.readFileSync(
     path.join(root, 'assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts'),
     'utf8',
 );
+const gameSceneRuntimeSource = fs.readFileSync(
+    path.join(root, 'assets/Scripts/Core/GameSceneRuntimeController.ts'),
+    'utf8',
+);
+const startupCloudRestoreSource = fs.readFileSync(
+    path.join(root, 'assets/Scripts/Core/GameCtrlModules/StartupCloudRestoreHelper.ts'),
+    'utf8',
+);
+const assetBootstrapSource = fs.readFileSync(
+    path.join(root, 'assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts'),
+    'utf8',
+);
+
+for (const startupOwner of [source, gameSceneRuntimeSource]) {
+    assert.ok(startupOwner.includes('SySDKMgr.inst.init();'), 'SyGame core initialization must remain in the post-playable background wave');
+    assert.ok(startupOwner.includes('AnalyticsMgr.inst.bootstrap()'), 'Analytics bootstrap must remain in the post-playable background wave');
+    assert.ok(!startupOwner.includes('UserMgr.inst.loginWeChat()'), 'the redundant standalone WeChat login must not run at startup');
+    assert.ok(!startupOwner.includes('setupShareMenu()'), 'passive share-menu setup must not run at startup');
+    assert.ok(!startupOwner.includes('LeaderboardMgr.inst.submitProgress'), 'a cold-start snapshot must not initialize or submit the leaderboard');
+}
+const cloudRestoreSnapshotStart = startupCloudRestoreSource.indexOf("if (status === 'cloud_progress_gt_1')");
+const cloudRestoreSnapshotEnd = startupCloudRestoreSource.indexOf(
+    '\n    runtime._deferredCloudGameStateSync = false;',
+    cloudRestoreSnapshotStart + 1,
+);
+assert.ok(cloudRestoreSnapshotStart >= 0 && cloudRestoreSnapshotEnd > cloudRestoreSnapshotStart, 'cloud snapshot restore branch must remain inspectable');
+assert.ok(
+    !startupCloudRestoreSource.slice(cloudRestoreSnapshotStart, cloudRestoreSnapshotEnd).includes('submitProgress'),
+    'restoring an existing cloud snapshot must not submit leaderboard progress',
+);
+assert.ok(
+    startupCloudRestoreSource.includes('LeaderboardMgr.inst.submitProgress(leaderboardProgress'),
+    'a real progress change deferred during cloud restore must still submit after restore resolves',
+);
+assert.ok(
+    assetBootstrapSource.includes('LeaderboardMgr.inst.submitProgress(nextLevel'),
+    'normal level progression must still submit leaderboard progress',
+);
 
 function loadFirstLevelRouteModule(appRoot, traceEvents) {
     const output = ts.transpileModule(source, {
