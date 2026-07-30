@@ -60,6 +60,14 @@ export class AdConfig extends Component {
         return true;
     }
 
+    public static setRewardedAdKeepReady(keepReady: boolean): void {
+        const provider = AdConfig.getProvider();
+        const enabled = !!keepReady
+            && AdConfig.getRewardedAdMode() === 'native'
+            && provider.hasNativeAdWindow();
+        provider.setKeepReady(enabled);
+    }
+
     public static hasRewardedAdWindow(): boolean {
         if (AdConfig.getRewardedAdMode() !== 'native') return false;
         return AdConfig.getProvider().hasNativeAdWindow();

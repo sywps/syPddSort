@@ -3011,6 +3011,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         unbindUserStateLifecycle(): void {
+            this.releaseRewardedAdWarmSlot?.('lifecycle-unbind');
             if (!this._userStateLifecycleBound) {
                 return;
             }
@@ -3019,7 +3020,6 @@ export function installAssetBootstrapModule(target: any): void {
             game.off(Game.EVENT_HIDE, this.handleGameHideFlushUserState, this);
             game.off(Game.EVENT_SHOW, this.handleGameShowLifecycle, this);
             this._pendingPostAdSkillAction = null;
-            this.cancelRewardedAdPreload?.();
         },
 
         handleGameHideFlushUserState(): void {
@@ -3033,6 +3033,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         handleGameShowLifecycle(): void {
             this._gameForeground = true;
+            this.ensureRewardedAdWarmSlot?.('app-foreground');
             this.resetTouchState?.();
             this.auditRuntimeOwnersAfterForeground?.();
             this.resumeGuideReminderForLifecycle?.();

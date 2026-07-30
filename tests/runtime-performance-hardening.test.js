@@ -60,6 +60,8 @@ assert.ok(
 );
 
 assert.ok(rewardedAd.includes('REWARDED_AD_UNUSED_READY_TTL_MS = 45000'), 'unused native ad residency must be bounded');
+assert.ok(rewardedAd.includes('private keepReady = false;'), 'native provider must own an explicit ready-retention lease');
+assert.ok(rewardedAd.includes('if (this.keepReady) return;'), 'eligible warm inventory must not expire into an idle hole');
 assert.ok(rewardedAd.includes("this.status !== 'ready'"), 'ready expiry must be state guarded');
 assert.ok(rewardedAd.includes('this.currentAdGeneration !== generation'), 'ready expiry must be instance-generation guarded');
 assert.ok(rewardedAd.includes('|| this.currentCallback'), 'ready expiry must not touch an active attempt');

@@ -11,6 +11,7 @@ function read(relPath) {
 const installModules = read('assets/Scripts/Core/installGameCtrlModules.ts');
 const warmup = read('assets/Scripts/Core/GameCtrlModules/PostPlayableWarmupModule.ts');
 const session = read('assets/Scripts/Core/GameplaySessionController.ts');
+const sceneHomeEntry = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
 const audioMgr = read('assets/Scripts/Core/AudioMgr.ts');
 const audioManifest = read('assets/Scripts/Core/AudioManifest.ts');
 const resultPanels = read('assets/Scripts/Core/GameplayResultPanelController.ts');
@@ -38,9 +39,32 @@ const writeSkinCdn = read('scripts/write-skin-data-cdn.js');
 
 assert.ok(installModules.includes('installPostPlayableWarmupModule'), 'post-playable warmup module must be installed with GameCtrl modules');
 assert.ok(session.includes('runtime.startPostPlayableWarmup?.('), 'Game must start the warmup queue after UI ready');
-assert.ok(session.includes("runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0);"), 'Game must dispatch rewarded-ad preload at first playable');
+assert.ok(
+    session.includes("runtime.scheduleRewardedAdPreload?.('gameplay-ready-fallback', 0);"),
+    'Game must retain an idempotent first-playable fallback for uncommon level-entry paths',
+);
 assert.ok(!session.includes('runtime.preloadSettingsPanel?.();'), 'settings preload must not remain as a one-off Session side effect');
 assert.ok(!session.includes("router.preloadHomeScene('gameplay-ready')"), 'Home preload must not be an unconditional Session side effect');
+
+for (const reason of [
+    'late-loading:local-assets-dispatched',
+    'late-loading:fast-game-assets-dispatched',
+    'late-loading:fast-bootstrap-assets-dispatched',
+    'late-loading:game-assets-dispatched',
+]) {
+    assert.ok(
+        sceneHomeEntry.includes(`scheduleRewardedAdPreload?.('${reason}', 0)`),
+        `normal level route must request a non-gating rewarded ad after required asset dispatch: ${reason}`,
+    );
+}
+assert.ok(
+    (sceneHomeEntry.match(/let requiredAssetRequestsDispatched = false;/g) || []).length >= 4,
+    'all normal route seams must latch synchronous asset callbacks until the ad request has been dispatched',
+);
+assert.ok(
+    (sceneHomeEntry.match(/if \(!requiredAssetRequestsDispatched\) return;/g) || []).length >= 4,
+    'cached assets must not complete gameplay initialization before the late-Loading ad request',
+);
 
 for (const method of [
     'preloadGameplayAudioSet',
@@ -51,14 +75,20 @@ for (const method of [
 assert.ok(!warmup.includes('scheduleRewardedAdPreload'), 'rewarded-ad preload must not wait in the serial optional-resource queue');
 assert.ok(!warmup.includes("name: 'rewarded-ad'"), 'rewarded-ad must not remain a busy-paused warmup task');
 const firstPlayableIndex = session.indexOf("markStartupTrace('startup_first_playable_ready'");
-const rewardedAdPreloadIndex = session.indexOf("runtime.scheduleRewardedAdPreload?.('gameplay-ready', 0);");
+const rewardedAdPreloadIndex = session.indexOf("runtime.scheduleRewardedAdPreload?.('gameplay-ready-fallback', 0);");
 const startupServicesIndex = session.indexOf('runtime.onGameplayUiReadyForStartupServices?.();');
 const warmupStartIndex = session.indexOf("runtime.startPostPlayableWarmup?.('gameplay-ready');");
-assert.ok(firstPlayableIndex >= 0 && rewardedAdPreloadIndex > firstPlayableIndex, 'rewarded-ad preload must start only after first-playable readiness');
-assert.ok(startupServicesIndex > rewardedAdPreloadIndex, 'rewarded-ad preload must be the first post-playable background dispatch');
-assert.ok(warmupStartIndex > rewardedAdPreloadIndex, 'optional audio/prefab warmup must not gate rewarded-ad preload');
+assert.ok(
+    firstPlayableIndex >= 0 && rewardedAdPreloadIndex > firstPlayableIndex,
+    'the fallback must remain post-first-playable even though normal routes request inventory earlier',
+);
+assert.ok(startupServicesIndex > rewardedAdPreloadIndex, 'the idempotent fallback must precede optional startup services');
+assert.ok(warmupStartIndex > rewardedAdPreloadIndex, 'optional audio/prefab warmup must not own rewarded-ad preload');
 assert.ok(homeAdFlow.includes('const safeDelay = Math.max(0, Number(delaySeconds) || 0);'), 'zero-delay rewarded-ad preload must not be forced to wait one second');
 assert.ok(homeAdFlow.includes('if (safeDelay <= 0)'), 'zero-delay rewarded-ad preload must dispatch inline');
+assert.ok(homeAdFlow.includes('REWARDED_AD_PRELOAD_RETRY_SECONDS = [2, 5, 15, 30]'), 'failed warm-slot loads must use the bounded retry schedule');
+assert.ok(homeAdFlow.includes('this.scheduleRewardedAdPreload(replenishReason, 0);'), 'post-outcome replenishment must have no fixed delay');
+assert.ok(!homeAdFlow.includes('this.scheduleRewardedAdPreload(replenishReason, 1.5);'), 'the old post-outcome inventory gap must be removed');
 assert.ok(!homeAdFlow.includes('广告准备中'), 'pre-ad loading must not add a custom preparation prompt');
 for (const optionalTask of ['gameAssets-bundle', 'home-scene', 'top-hud-prefab', 'settings-panel', 'acquire-resource-panel', 'skin-panel']) {
     assert.ok(!warmup.includes(`name: '${optionalTask}'`), `post-playable warmup must not retain optional route resource: ${optionalTask}`);

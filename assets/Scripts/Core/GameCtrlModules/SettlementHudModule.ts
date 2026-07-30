@@ -252,6 +252,7 @@ export function installSettlementHudModule(target: any): void {
             } catch (error) {
                 console.error('[Skill] idle hint reset failed', error);
             }
+            this.ensureRewardedAdWarmSlot?.('skill-finished');
             return true;
         },
 

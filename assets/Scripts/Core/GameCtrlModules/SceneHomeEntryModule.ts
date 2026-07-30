@@ -538,8 +538,10 @@ export function installSceneHomeEntryModule(target: any): void {
             let beanReady = false;
             let uiReady = false;
             let boardEffectReady = false;
+            let requiredAssetRequestsDispatched = false;
             const tryReady = () => {
                 if (this._levelDataLoadStopped || !this.isValid) return;
+                if (!requiredAssetRequestsDispatched) return;
                 if (!beanReady || !uiReady || !boardEffectReady) return;
                 onReady();
             };
@@ -580,6 +582,11 @@ export function installSceneHomeEntryModule(target: any): void {
                 boardEffectReady = true;
                 tryReady();
             });
+            if (!this._levelDataLoadStopped && this.isValid) {
+                this.scheduleRewardedAdPreload?.('late-loading:local-assets-dispatched', 0);
+            }
+            requiredAssetRequestsDispatched = true;
+            tryReady();
         },
 
         loadBootstrapOnlyMainlineLevel(
@@ -745,9 +752,11 @@ export function installSceneHomeEntryModule(target: any): void {
                 let beanAssetsDone = false;
                 let criticalUiDone = false;
                 let boardEffectDone = false;
+                let requiredAssetRequestsDispatched = false;
                 let levelData: LevelData | null = null;
                 const tryFinish = () => {
                     if (this._levelDataLoadStopped || !this.isValid) return;
+                    if (!requiredAssetRequestsDispatched) return;
                     if (levelDone && beanAssetsDone && criticalUiDone && boardEffectDone && levelData) {
                         finish(levelData);
                     }
@@ -807,6 +816,10 @@ export function installSceneHomeEntryModule(target: any): void {
                     });
                     if (!this.needsBeanFramesForLevelData(levelData)) {
                         beanAssetsDone = true;
+                        if (!this._levelDataLoadStopped && this.isValid) {
+                            this.scheduleRewardedAdPreload?.('late-loading:fast-game-assets-dispatched', 0);
+                        }
+                        requiredAssetRequestsDispatched = true;
                         tryFinish();
                         return;
                     }
@@ -818,6 +831,10 @@ export function installSceneHomeEntryModule(target: any): void {
                         beanAssetsDone = true;
                         tryFinish();
                     });
+                    if (!this._levelDataLoadStopped && this.isValid) {
+                        this.scheduleRewardedAdPreload?.('late-loading:fast-game-assets-dispatched', 0);
+                    }
+                    requiredAssetRequestsDispatched = true;
                     tryFinish();
                 };
                 this._loadLevelDataFromConfiguredSource(levelId, prefix, handleLevelData);
@@ -870,8 +887,10 @@ export function installSceneHomeEntryModule(target: any): void {
                 let uiDone = false;
                 let boardEffectDone = false;
                 let gameAssetsDone = true;
+                let requiredAssetRequestsDispatched = false;
                 const tryInit = () => {
                     if (this._levelDataLoadStopped || !this.isValid) return;
+                    if (!requiredAssetRequestsDispatched) return;
                     if (!beanDone || !uiDone || !boardEffectDone || !gameAssetsDone) return;
                     this.startGameplayWithBackgroundSkinReady(data, activeLevelId, () => {
                         const previousBootstrapOnlyGameplayStartup = !!this._bootstrapOnlyGameplayStartup;
@@ -1006,6 +1025,11 @@ export function installSceneHomeEntryModule(target: any): void {
                         );
                     }
                 });
+                if (!this._levelDataLoadStopped && this.isValid) {
+                    this.scheduleRewardedAdPreload?.('late-loading:fast-bootstrap-assets-dispatched', 0);
+                }
+                requiredAssetRequestsDispatched = true;
+                tryInit();
                 // Bootstrap levels must not block first playable UI on gameAssets.
             }, prefix);
         },
@@ -1054,8 +1078,10 @@ export function installSceneHomeEntryModule(target: any): void {
             let beanReady = false;
             let uiReady = false;
             let boardEffectReady = false;
+            let requiredAssetRequestsDispatched = false;
             const tryReady = () => {
                 if (this._levelDataLoadStopped || !this.isValid) return;
+                if (!requiredAssetRequestsDispatched) return;
                 if (!beanReady || !uiReady || !boardEffectReady) return;
                 this.startGameplayWithBackgroundSkinReady(data, activeLevelId);
             };
@@ -1110,6 +1136,11 @@ export function installSceneHomeEntryModule(target: any): void {
                 boardEffectReady = true;
                 tryReady();
             }, bundle);
+            if (!this._levelDataLoadStopped && this.isValid) {
+                this.scheduleRewardedAdPreload?.('late-loading:game-assets-dispatched', 0);
+            }
+            requiredAssetRequestsDispatched = true;
+            tryReady();
         },
 
         _stopGameplayEntryWithFatalError(levelPath: string, errorCode: string, errorMessage: string): void {

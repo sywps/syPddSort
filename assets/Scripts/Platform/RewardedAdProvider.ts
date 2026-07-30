@@ -90,6 +90,7 @@ export type RewardedAdUnitIds = {
 export interface RewardedAdProvider {
     readonly platform: MiniGameBuildPlatform;
     preload(reason?: string): void;
+    setKeepReady(keepReady: boolean): void;
     show(callback: RewardedAdCallback, hooks?: RewardedAdHooks): void;
     hasNativeAdWindow(): boolean;
     notifyGameResumed(): void;
@@ -117,6 +118,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
     private loadWaitTimer: any = null;
     private showEstablishTimer: any = null;
     private readyExpiryTimer: any = null;
+    private keepReady = false;
     private stateChangedAt = Date.now();
     private stateReason = 'init';
     private loadSeq = 0;
@@ -149,6 +151,26 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
         return () => {
             this.stateListeners.delete(listener);
         };
+    }
+
+    setKeepReady(keepReady: boolean): void {
+        const normalized = !!keepReady;
+        if (this.keepReady === normalized) return;
+        this.keepReady = normalized;
+        if (normalized) {
+            this.clearReadyExpiryTimer();
+            return;
+        }
+        if (this.ad
+            && this.currentAdGeneration > 0
+            && this.status === 'ready'
+            && !this.currentCallback) {
+            this.scheduleReadyExpiry(
+                this.ad,
+                this.currentAdGeneration,
+                'keep-ready-released',
+            );
+        }
     }
 
     preload(reason: string = 'manual'): void {
@@ -548,6 +570,7 @@ abstract class NativeRewardedAdProvider implements RewardedAdProvider {
 
     private scheduleReadyExpiry(ad: any, generation: number, reason: string): void {
         this.clearReadyExpiryTimer();
+        if (this.keepReady) return;
         this.readyExpiryTimer = setTimeout(() => {
             this.readyExpiryTimer = null;
             if (this.ad !== ad
@@ -704,6 +727,8 @@ class WebRewardedAdProvider implements RewardedAdProvider {
     private readonly listeners = new Set<RewardedAdStateListener>();
 
     preload(_reason: string = 'manual'): void {}
+
+    setKeepReady(_keepReady: boolean): void {}
 
     show(callback: RewardedAdCallback, hooks: RewardedAdHooks = {}): void {
         console.log('[AdConfig] web/preview rewarded ad simulated success');
