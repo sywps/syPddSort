@@ -516,6 +516,7 @@ export class GameSceneRuntimeController {
         this.runtime.stopRenderResourceDiagnostics?.(`runtime-destroy:${sceneName}`);
         this.runtime.resetFirstLevelReleaseDiagnostics?.();
         this.runtime.unbindFirstLevelReleaseTouchObserver?.();
+        this.runtime.disposeShareMenu?.();
         this.runtime.unbindUserStateLifecycle();
         void UserStateSyncMgr.inst.flushPendingSave();
         this.runtime.unscheduleAllCallbacks();

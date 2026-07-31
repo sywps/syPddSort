@@ -2926,7 +2926,7 @@ export function installAssetBootstrapModule(target: any): void {
                 sys.localStorage.setItem((this.constructor as any).LS_VIGOR_TIME, String(Math.max(0, Math.floor(gameState.vigorTime))));
             }
             if (typeof gameState.gold === 'number') {
-                sys.localStorage.setItem(LS_GOLD, String(Math.max(0, Math.floor(gameState.gold))));
+                this.setGold(gameState.gold, { syncCloud: false });
             }
             if (typeof gameState.expandSlotCount === 'number') {
                 sys.localStorage.setItem(LS_PROP_EXPAND, String(Math.max(0, Math.floor(gameState.expandSlotCount))));

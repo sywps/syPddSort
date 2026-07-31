@@ -62,6 +62,28 @@ try {
         /same\.meta/,
         'asset validation must reject real content differences',
     );
+
+    const syncSource = path.join(tempRoot, 'sync-source');
+    const syncTarget = path.join(tempRoot, 'sync-target');
+    fs.mkdirSync(path.join(syncSource, 'assets'), { recursive: true });
+    fs.mkdirSync(path.join(syncSource, 'build'), { recursive: true });
+    fs.writeFileSync(path.join(syncSource, 'assets', 'keep.txt'), 'keep');
+    fs.writeFileSync(path.join(syncSource, 'build', 'skip.txt'), 'skip');
+    runner.copyDirectoryContents(syncSource, syncTarget, {
+        excludedTopLevelNames: ['build'],
+    });
+    assert.strictEqual(fs.readFileSync(path.join(syncTarget, 'assets', 'keep.txt'), 'utf8'), 'keep');
+    assert.ok(!fs.existsSync(path.join(syncTarget, 'build')), 'Node source sync must exclude generated directories');
+
+    const replaceSource = path.join(tempRoot, 'replace-source');
+    const replaceTarget = path.join(tempRoot, 'replace-target');
+    fs.mkdirSync(replaceSource);
+    fs.mkdirSync(replaceTarget);
+    fs.writeFileSync(path.join(replaceSource, 'fresh.txt'), 'fresh');
+    fs.writeFileSync(path.join(replaceTarget, 'stale.txt'), 'stale');
+    runner.replaceDirectoryContents(replaceSource, replaceTarget);
+    assert.strictEqual(fs.readFileSync(path.join(replaceTarget, 'fresh.txt'), 'utf8'), 'fresh');
+    assert.ok(!fs.existsSync(path.join(replaceTarget, 'stale.txt')), 'Node output sync must remove stale artifacts');
 } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
 }
@@ -95,6 +117,10 @@ assert.ok(source.includes("'--hold', readyPath, resultPath"), 'release runner mu
 assert.ok(source.includes("COCOS_PREVIEW_PORT: process.env.COCOS_PREVIEW_PORT || '7556'"), 'held editor and batch preview guards must use separate ports');
 assert.ok(source.includes("PDD_COCOS_ASSETDB_FORCE_REFRESH: '1'"), 'fresh worker warmup must always force a new AssetDB import');
 assert.ok(source.includes('getWorkerAssetDbContractErrors'), 'worker readiness must validate imported scene contents, not only inventory counts');
+assert.ok(source.includes('function canUseRsync()'), 'release runner must detect whether rsync is available');
+assert.ok(source.includes("if (process.platform === 'win32') return false;"), 'Windows Release builds must avoid POSIX rsync path parsing');
+assert.ok(source.includes('copyDirectoryContents(projectDir, workerDir'), 'release runner must have a Node source-sync fallback');
+assert.ok(source.includes('replaceDirectoryContents(sourceDir, targetDir);'), 'release runner must have a Node output-sync fallback');
 const syncIndex = source.indexOf('syncProjectSource(workerDir);');
 const byteCheckIndex = source.indexOf('assertAssetTreesByteIdentical(workerDir);', syncIndex);
 const startHeldIndex = source.indexOf('heldAssetDb = startHeldAssetDb(workerDir);');

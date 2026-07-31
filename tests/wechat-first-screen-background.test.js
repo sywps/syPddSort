@@ -39,6 +39,34 @@ assert.ok(
     'postbuild must patch generated first-screen.js bgColor',
 );
 assert.ok(
+    !postbuild.includes('injectDevtoolsStartupGameTrace'),
+    'postbuild must not inject temporary DevTools startup tracing',
+);
+assert.ok(
+    !postbuild.includes('injectDevtoolsFirstScreenTrace'),
+    'postbuild must not inject temporary first-screen tracing',
+);
+assert.ok(
+    !postbuild.includes('injectDevtoolsApplicationTrace'),
+    'postbuild must not inject temporary application tracing',
+);
+assert.ok(
+    !postbuild.includes('[PDD_STARTUP_TRACE]'),
+    'postbuild must not emit temporary startup trace markers',
+);
+assert.ok(
+    !postbuild.includes('wx.loadSubpackage.call.'),
+    'postbuild must not wrap WeChat subpackage loading for diagnostics',
+);
+assert.ok(
+    postbuild.includes("normalizeMainBundleAsLocal(resolveRuntimeRoot(), resolveSettingsPath())"),
+    'startup main must be normalized into a local bundle before Cocos reads preloadBundles',
+);
+assert.ok(
+    postbuild.includes('pruneConvertedMainBundleEntrypoints(runtimeRoot, settingsFilePath)'),
+    'local main conversion must remove only byte-identical legacy subpackage entry copies',
+);
+assert.ok(
     postbuild.includes('normalizeWechatSplashSettings(settingsPath)'),
     'postbuild must normalize generated settings splash colors',
 );

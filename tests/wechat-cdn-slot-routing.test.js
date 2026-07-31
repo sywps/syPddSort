@@ -102,6 +102,10 @@ assert.ok(buildWechat.includes('process.env.PDD_CLIENT_BUILD_ID'), 'Release buil
 const postbuild = read('scripts/postbuild-wechat-minigame.js');
 assert.ok(postbuild.includes('__PDD_CDN_SLOT__'), 'postbuild must inject a visible CDN slot marker');
 assert.ok(postbuild.includes('__PDD_CLIENT_BUILD_ID__'), 'postbuild must inject a visible client build marker');
+assert.ok(postbuild.includes('__PDD_RELEASE_LOG_GATE_VERSION__=5'), 'postbuild must upgrade the Release log gate');
+assert.ok(postbuild.includes('__PDD_ENABLE_RELEASE_LOG_GATE__=function'), 'Release log muting must register a deferred action instead of mutating console during cold start');
+assert.ok(postbuild.includes('__PDD_RELEASE_LOG_GATE_ACTIVATED_AFTER_START__=true'), 'Release log muting must activate only after application.start resolves');
+assert.ok(postbuild.includes('String((wxRef.getSystemInfoSync()||{}).platform||"").toLowerCase()==="devtools"'), 'DevTools Release packages must keep the native console intact');
 assert.ok(!postbuild.includes("process.env.PDD_LEVEL_DATA_CDN_URL || 'https://"), 'postbuild must not silently default to A');
 
 const metaRepairDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'pdd-meta-repair-'));

@@ -101,6 +101,38 @@ function runRsync(args, label, stdio = 'inherit') {
     return run('rsync', args, { label, stdio, encoding: stdio === 'pipe' ? 'utf8' : undefined });
 }
 
+function canUseRsync() {
+    if (process.platform === 'win32') return false;
+    const result = spawnSync('rsync', ['--version'], {
+        stdio: 'ignore',
+        shell: false,
+    });
+    return !result.error && result.status === 0;
+}
+
+function copyDirectoryContents(sourceDir, targetDir, options = {}) {
+    const excludedTopLevelNames = new Set(options.excludedTopLevelNames || []);
+    fs.mkdirSync(targetDir, { recursive: true });
+    for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+        if (excludedTopLevelNames.has(entry.name)) continue;
+        fs.cpSync(
+            path.join(sourceDir, entry.name),
+            path.join(targetDir, entry.name),
+            {
+                recursive: true,
+                dereference: false,
+                force: true,
+                verbatimSymlinks: true,
+            },
+        );
+    }
+}
+
+function replaceDirectoryContents(sourceDir, targetDir, options = {}) {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    copyDirectoryContents(sourceDir, targetDir, options);
+}
+
 function collectAssetTree(rootDir) {
     const entries = new Map();
     const visit = (currentDir) => {
@@ -202,6 +234,12 @@ function getWorkerAssetDbContractErrors(workerDir) {
 }
 
 function syncProjectSource(workerDir) {
+    if (!canUseRsync()) {
+        copyDirectoryContents(projectDir, workerDir, {
+            excludedTopLevelNames: sourceSyncExcludes,
+        });
+        return;
+    }
     const args = ['-a', '--delete'];
     for (const excluded of sourceSyncExcludes) args.push('--exclude=' + excluded);
     args.push(projectDir + path.sep, workerDir + path.sep);
@@ -221,18 +259,24 @@ function linkWorkspaceDependencies(workerDir) {
 }
 
 function syncGeneratedOutputs(workerDir) {
+    const useRsync = canUseRsync();
     for (const name of generatedOutputNames) {
         const sourceDir = path.join(workerDir, 'build', name);
         const targetDir = path.join(projectDir, 'build', name);
         if (!fs.existsSync(sourceDir)) fail('Release 构建工位缺少产物: ' + sourceDir);
-        fs.mkdirSync(targetDir, { recursive: true });
-        runRsync(['-a', '--delete', sourceDir + path.sep, targetDir + path.sep], '同步 ' + name);
-        const diff = runRsync(
-            ['-ani', '--delete', sourceDir + path.sep, targetDir + path.sep],
-            '校验 ' + name,
-            'pipe',
-        );
-        if (String(diff.stdout || '').trim()) fail(name + ' 回传后仍有差异');
+        if (useRsync) {
+            fs.mkdirSync(targetDir, { recursive: true });
+            runRsync(['-a', '--delete', sourceDir + path.sep, targetDir + path.sep], '同步 ' + name);
+            const diff = runRsync(
+                ['-ani', '--delete', sourceDir + path.sep, targetDir + path.sep],
+                '校验 ' + name,
+                'pipe',
+            );
+            if (String(diff.stdout || '').trim()) fail(name + ' 回传后仍有差异');
+            continue;
+        }
+        replaceDirectoryContents(sourceDir, targetDir);
+        if (listAssetTreeContentDiff(sourceDir, targetDir)) fail(name + ' 回传后仍有差异');
     }
 }
 
@@ -439,12 +483,15 @@ if (require.main === module) {
 module.exports = {
     assertAssetTreesByteIdentical,
     cleanupFreshWorkerDir,
+    copyDirectoryContents,
     createFreshWorkerDir,
+    canUseRsync,
     freshWorkerPrefix,
     generatedOutputNames,
     heldAssetDbTimeoutMs,
     linkWorkspaceDependencies,
     listAssetTreeContentDiff,
+    replaceDirectoryContents,
     sourceSyncExcludes,
     syncGeneratedOutputs,
     syncProjectSource,

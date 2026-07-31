@@ -86,6 +86,7 @@ export class LeaderboardPanelController {
                     const closeOverlay = () => {
                         if (!overlay?.isValid) return;
                         AudioMgr.inst.play('uiPanel');
+                        runtime.clearLeaderboardScroll?.();
                         runtime.deactivateWeChatFriendRank('overlay-close');
                         runtime._closePanelWithTextureOwner(overlay, 'leaderboard', 'leaderboard');
                     };

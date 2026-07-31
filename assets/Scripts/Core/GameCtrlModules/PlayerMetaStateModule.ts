@@ -150,10 +150,12 @@ export function installPlayerMetaStateModule(target: any): void {
             return Number.isFinite(value) && value > 0 ? value : 0;
         },
 
-        setGold(value: number): void {
+        setGold(value: number, options: { syncCloud?: boolean } = {}): void {
             sys.localStorage.setItem(LS_GOLD, String(Math.max(0, Math.floor(Number(value) || 0))));
             this.refreshGoldUI();
-            this.queueCloudGameStateSync();
+            if (options.syncCloud !== false) {
+                this.queueCloudGameStateSync();
+            }
         },
 
         addGold(delta: number): number {
@@ -245,6 +247,21 @@ export function installPlayerMetaStateModule(target: any): void {
             if (this._shopGoldLbl) {
                 this._shopGoldLbl.string = text;
             }
+            this.refreshVisibleGoldCountLabels(text);
+        },
+
+        refreshVisibleGoldCountLabels(text: string): void {
+            const visit = (node: Node | null): void => {
+                if (!node || node.isValid === false || node.activeInHierarchy === false) return;
+                if (node.name === 'GoldCount') {
+                    const label = node.getComponent(Label);
+                    if (label) label.string = text;
+                }
+                for (const child of node.children) {
+                    visit(child);
+                }
+            };
+            visit(this.node?.scene || null);
         },
 
         getDailySignInClaimedCount(): number {
@@ -339,11 +356,19 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         grantDailySignInReward(reward: DailySignInReward): string {
+            this.setLocalUserStateUpdatedAt(Date.now());
             const wandReward = getDailySignInPropRewardCount(reward, 'wand');
             const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
             const brushReward = getDailySignInPropRewardCount(reward, 'brush');
             const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
-            if (reward.gold && reward.gold > 0) this.addGold(reward.gold);
+            const goldReward = Math.max(0, Math.floor(Number(reward.gold) || 0));
+            if (goldReward > 0) {
+                const expectedGold = this.getGold() + goldReward;
+                this.setGold(expectedGold);
+                if (this.getGold() !== expectedGold) {
+                    throw new Error('[daily-signin] gold write verification failed');
+                }
+            }
             if (freezeReward > 0) this.addPropCount('freeze', freezeReward);
             if (wandReward > 0) this.addPropCount('wand', wandReward);
             if (brushReward > 0) this.addPropCount('brush', brushReward);
