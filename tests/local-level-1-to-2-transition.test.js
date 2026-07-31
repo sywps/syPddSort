@@ -15,6 +15,7 @@ function readJson(relPath) {
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const levelFlow = read('assets/Scripts/Core/GameCtrlModules/GameplayLevelFlowModule.ts');
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
+const sceneHomeEntry = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
 const remoteClient = read('assets/Scripts/Core/RemoteDataCdnClient.ts');
 const shared = read('assets/Scripts/Core/GameCtrlShared.ts');
 const levelBundleMeta = readJson('assets/LevelData.meta');
@@ -53,6 +54,11 @@ assert.ok(
     'localhost must remain local unless use_cdn=true, while mini-game runtimes stay CDN-only',
 );
 assert.ok(
+    sceneHomeEntry.includes("return shouldUseLocalLevelDataMirror() ? 'local' : 'remote';")
+        && (sceneHomeEntry.match(/getConfiguredLevelDataWatchdogSource\(\)/g) || []).length >= 4,
+    'configured level routes must classify localhost mirror timeouts as local instead of remote',
+);
+assert.ok(
     shared.includes('const LOCAL_BOOTSTRAP_LEVEL_IDS = new Set<number>([1]);'),
     'bootstrap must contain only level 1 so the 1-to-2 test crosses the real levelData bundle boundary',
 );
@@ -61,9 +67,14 @@ assert.strictEqual(levelBundleMeta.userData?.bundleName, 'levelData', 'local mir
 assert.strictEqual(level2.levelId, 2, 'local level_2.json must declare physical level 2');
 assert.deepStrictEqual(
     [level2.boardWidth, level2.boardHeight, level2.timeLimit, level2.slotTotalCount],
-    [29, 23, 300, 440],
-    'level 1 settlement must enter the fully swapped former level 3 payload as logical level 2',
+    [12, 12, 600, 96],
+    'level 1 settlement must enter the historical no-guide payload as logical level 2',
 );
+assert.deepStrictEqual(level2.slotPolicy, {
+    defaultRows: 1,
+    freeUnlockRows: 0,
+    adUnlockRows: 1,
+}, 'local level 2 must start with one row and expose one optional rewarded unlock row');
 assert.match(level2Meta.uuid, /^[0-9a-f-]{36}$/i, 'local level 2 must keep a valid Cocos asset UUID');
 
 console.log('local-level-1-to-2-transition.test.js passed');

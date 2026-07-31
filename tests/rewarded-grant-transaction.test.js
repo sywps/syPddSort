@@ -18,6 +18,22 @@ function transpile(relPath) {
 
 function loadInstaller(timerApi = {}, adApi = {}) {
     const module = { exports: {} };
+    const defaultRewardedAdState = {
+        status: 'idle',
+        previousStatus: 'idle',
+        reason: 'test-idle',
+        requestId: 0,
+        generation: 0,
+        changedAt: Date.now(),
+        durationMs: 0,
+    };
+    const analyticsInst = {
+        trackAdClick() {},
+        trackAdShow() {},
+        trackAdFinish() {},
+        markAdRevive() {},
+        ...(adApi.AnalyticsMgr?.inst || {}),
+    };
     const sandbox = {
         module,
         exports: module.exports,
@@ -31,8 +47,15 @@ function loadInstaller(timerApi = {}, adApi = {}) {
                             throw new Error('showRewardedAd must be stubbed when showTrackedRewardedAd is executed');
                         }),
                         canAutoPreloadRewardedAd: adApi.canAutoPreloadRewardedAd || (() => false),
+                        preloadRewardedAd: adApi.preloadRewardedAd || (() => false),
+                        setRewardedAdKeepReady: adApi.setRewardedAdKeepReady || (() => {}),
+                        getRewardedAdState: adApi.getRewardedAdState || (() => defaultRewardedAdState),
+                        subscribeRewardedAdState: adApi.subscribeRewardedAdState || ((listener) => {
+                            listener(defaultRewardedAdState);
+                            return () => {};
+                        }),
                     },
-                    AnalyticsMgr: { inst: { trackAdClick() {}, trackAdShow() {}, trackAdFinish() {}, markAdRevive() {} } },
+                    AnalyticsMgr: { inst: analyticsInst },
                     AudioMgr: adApi.AudioMgr || { inst: { beginExternalInterruption() {}, endExternalInterruptionWithBgmRestart() {} } },
                     PerformanceMgr: { inst: { markUserActivity() {} } },
                     SySDKMgr: { inst: { reportAdClick() {}, reportAdShow() {}, reportAdFinish() {} } },
@@ -457,6 +480,165 @@ async function main() {
     await flushMicrotasks();
     assert.ok(!afterGrantRuntime._rewardedGrantTimedOutClaims.has('win-bonus:after-timeout'));
     assert.strictEqual(afterGrantFinallyCount, 1, 'late afterGrant settlement must remain inert');
+
+    const inventorySchedules = [];
+    const inventoryPreloads = [];
+    const inventoryKeepReady = [];
+    const inventoryFunnel = [];
+    const inventoryOutcomes = [];
+    let inventoryListener = null;
+    let inventoryShowAttempt = null;
+    let inventoryGeneration = 0;
+    let inventoryState = {
+        status: 'idle',
+        previousStatus: 'idle',
+        reason: 'test-idle',
+        requestId: 0,
+        generation: 0,
+        changedAt: Date.now(),
+        durationMs: 0,
+    };
+    const transitionInventory = (status, reason, generation = inventoryState.generation) => {
+        inventoryState = {
+            ...inventoryState,
+            previousStatus: inventoryState.status,
+            status,
+            reason,
+            generation,
+            changedAt: Date.now(),
+            durationMs: 0,
+        };
+        inventoryListener?.(inventoryState);
+    };
+    const installInventoryFlow = loadInstaller({}, {
+        canAutoPreloadRewardedAd: () => true,
+        setRewardedAdKeepReady(keepReady) {
+            inventoryKeepReady.push(keepReady);
+        },
+        getRewardedAdState: () => inventoryState,
+        subscribeRewardedAdState(listener) {
+            inventoryListener = listener;
+            listener(inventoryState);
+            return () => {
+                if (inventoryListener === listener) inventoryListener = null;
+            };
+        },
+        preloadRewardedAd(reason) {
+            inventoryPreloads.push(reason);
+            inventoryGeneration += 1;
+            transitionInventory('loading', reason, inventoryGeneration);
+            return true;
+        },
+        showRewardedAd(callback, hooks) {
+            inventoryShowAttempt = { callback, hooks };
+            transitionInventory('visible', 'show-resolved');
+            hooks.onShow?.();
+        },
+        AnalyticsMgr: {
+            inst: {
+                trackFunnelEvent(event) {
+                    inventoryFunnel.push(event);
+                },
+            },
+        },
+    });
+    const inventoryRuntime = {
+        _pendingRewardedAdPreload: null,
+        _rewardedAdWarmSlotDesired: false,
+        _rewardedAdWarmSlotReason: '',
+        _rewardedAdWarmSlotRetryCount: 0,
+        _rewardedAdWarmSlotBlockedReason: '',
+        _rewardedAdWarmSlotLastEnsureAt: 0,
+        _rewardedAdStateUnsubscribe: null,
+        _rewardedAdTelemetryPage: '',
+        _rewardedAdTelemetryLevelId: 0,
+        _adTimerSuspended: false,
+        _timerStarted: false,
+        _skillActive: false,
+        _gameForeground: false,
+        _isThemeLevel: false,
+        isGameEnd: false,
+        isValid: true,
+        getRuntimeSceneName: () => 'Game',
+        getActiveLogicalLevelId: () => 165,
+        scheduleOnce(callback, delay) {
+            inventorySchedules.push({ callback, delay, cancelled: false });
+        },
+        unschedule(callback) {
+            const scheduled = inventorySchedules.find((entry) => entry.callback === callback);
+            if (scheduled) scheduled.cancelled = true;
+        },
+    };
+    installInventoryFlow(inventoryRuntime);
+
+    inventoryRuntime.scheduleRewardedAdPreload('late-loading:test', 0);
+    assert.strictEqual(inventoryRuntime._rewardedAdWarmSlotDesired, true);
+    assert.deepStrictEqual(inventoryPreloads, [], 'background dispatch must preserve demand without starting a native load');
+    assert.ok(
+        inventoryFunnel.some((event) => (
+            event.eventName === 'rewarded_ad_preload_deferred'
+            && event.extra?.blockedReason === 'background'
+        )),
+        'the first blocked reason must remain observable',
+    );
+
+    inventoryRuntime._gameForeground = true;
+    assert.strictEqual(inventoryRuntime.ensureRewardedAdWarmSlot('app-foreground'), true);
+    assert.strictEqual(inventoryRuntime.ensureRewardedAdWarmSlot('duplicate-ensure'), true);
+    assert.deepStrictEqual(
+        inventoryPreloads,
+        ['app-foreground'],
+        'foreground restoration and repeated ensure calls must share one in-flight native load',
+    );
+
+    transitionInventory('idle', 'load-failed:app-foreground');
+    const firstRetry = inventorySchedules.find((entry) => entry.delay === 2 && !entry.cancelled);
+    assert.ok(firstRetry, 'a failed warm-slot load must schedule the first bounded retry');
+    inventoryRuntime._gameForeground = false;
+    firstRetry.callback();
+    assert.deepStrictEqual(
+        inventoryPreloads,
+        ['app-foreground'],
+        'a retry firing in the background must keep demand without creating an ad',
+    );
+    inventoryRuntime._gameForeground = true;
+    assert.strictEqual(inventoryRuntime.ensureRewardedAdWarmSlot('app-foreground-after-retry'), true);
+    assert.deepStrictEqual(inventoryPreloads, ['app-foreground', 'app-foreground-after-retry']);
+    transitionInventory('ready', 'app-foreground-after-retry');
+    assert.strictEqual(inventoryRuntime._rewardedAdWarmSlotRetryCount, 0, 'ready inventory must reset retry backoff');
+
+    inventoryRuntime.showTrackedRewardedAd(
+        'unlock_slot_row',
+        (outcome) => inventoryOutcomes.push(outcome.status),
+        { levelId: 165 },
+    );
+    assert.ok(inventoryShowAttempt, 'ready inventory must hand off to the existing provider immediately');
+    assert.ok(
+        inventoryFunnel.some((event) => (
+            event.eventName === 'rewarded_ad_inventory_at_click'
+            && event.success === true
+            && event.extra?.providerStatus === 'ready'
+        )),
+        'the click must record whether it hit ready inventory',
+    );
+    transitionInventory('idle', 'outcome:verified_complete:');
+    inventoryShowAttempt.callback(adOutcome('verified_complete', 9));
+    assert.deepStrictEqual(inventoryOutcomes, ['verified_complete']);
+    assert.deepStrictEqual(
+        inventoryPreloads,
+        [
+            'app-foreground',
+            'app-foreground-after-retry',
+            'after-ad-verified_complete:attempt-9',
+        ],
+        'provider settlement must request the next generation immediately without a 1.5-second gap',
+    );
+    assert.strictEqual(inventoryState.status, 'loading');
+    assert.ok(inventoryKeepReady.includes(true), 'eligible Game inventory must hold the ready-retention lease');
+    assert.ok(
+        inventoryFunnel.some((event) => event.eventName === 'rewarded_ad_replenish_requested'),
+        'post-outcome inventory replenishment must remain observable',
+    );
 
     const trackedCallbacks = [];
     let trackedAudioRefs = 0;

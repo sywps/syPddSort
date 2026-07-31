@@ -159,10 +159,12 @@ assert.ok(
     'target emphasis must use a strong cutout dim mask instead of a decorative outer ring',
 );
 assert.ok(
-    !tutorialGuide.includes("this.showGuideTapFeedback?.(worldPos, 'wrong')")
+    !tutorialGuide.includes('showGuideTapFeedback')
+        && !guideLeaderboard.includes('showGuideTapFeedback')
+        && !guideLeaderboard.includes('playGuideHandTapRipple')
         && tutorialGuide.includes('this.startGuideWrongTargetHandPulse?.(this._guideHand);')
         && guideLeaderboard.includes('startGuideWrongTargetHandPulse(hand: Node'),
-    'wrong taps must redirect attention through a faster correct-hand pulse, not a ripple at the wrong coordinate',
+    'all tutorial taps must avoid click halos while wrong taps redirect attention through the correct-hand pulse',
 );
 assert.ok(
     settlementHud.includes('function stretchRuntimeUiNodeToParent(node: Node): void')

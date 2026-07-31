@@ -696,12 +696,12 @@ export function installBoardInputViewportModule(target: any): void {
             return Math.max(0, uiPadding / this.getSlotHitWorldScale(node || null));
         },
 
-        getSlotHitExtentsLocal(): { directHalf: number; halfX: number; halfY: number } {
+        getSlotHitExtentsLocal(node?: Node | null): { directHalf: number; halfX: number; halfY: number } {
             const directHalf = Math.max(1, SLOT_SIZE / 2);
             const centerSpacing = Math.max(1, Number(this.getSlotCenterSpacing?.()) || (SLOT_SIZE + SLOT_GAP));
             const rowSpacing = Math.max(1, Number(this.getSlotRowSpacing?.()) || SLOT_ROW_SPACING);
-            const padX = this.getSlotPaddingLocal(SLOT_HIT_PADDING_X_UI);
-            const padY = this.getSlotPaddingLocal(SLOT_HIT_PADDING_Y_UI);
+            const padX = this.getSlotPaddingLocal(SLOT_HIT_PADDING_X_UI, node || null);
+            const padY = this.getSlotPaddingLocal(SLOT_HIT_PADDING_Y_UI, node || null);
             const maxHalfX = Math.max(directHalf, centerSpacing * 0.56);
             const multiUnlockedRows = Math.max(1, Math.floor(Number(this.slotUnlockedRows) || 1)) > 1;
             const maxHalfY = multiUnlockedRows
@@ -734,7 +734,6 @@ export function installBoardInputViewportModule(target: any): void {
             if (!slotUT) return [];
             const localPos = slotUT.convertToNodeSpaceAR(worldPos);
             const candidates: SlotTapCandidate[] = [];
-            const extents = this.getSlotHitExtentsLocal();
             const unlockedRows = Math.max(0, Math.floor(Number(this.slotUnlockedRows) || 0));
 
             for (let i = 0; i < this.slotNodes.length; i++) {
@@ -742,9 +741,12 @@ export function installBoardInputViewportModule(target: any): void {
                 if (row >= unlockedRows) continue;
                 const slotNode = this.slotNodes[i];
                 if (!slotNode?.isValid) continue;
-                const sp = slotNode.position;
-                const dx = localPos.x - sp.x;
-                const dy = localPos.y - sp.y;
+                const slotNodeUT = slotNode.getComponent(UITransform);
+                if (!slotNodeUT) continue;
+                const slotLocal = slotNodeUT.convertToNodeSpaceAR(worldPos);
+                const extents = this.getSlotHitExtentsLocal(slotNode);
+                const dx = slotLocal.x;
+                const dy = slotLocal.y;
                 const directHit = Math.abs(dx) <= extents.directHalf && Math.abs(dy) <= extents.directHalf;
                 if (!directHit && (Math.abs(dx) > extents.halfX || Math.abs(dy) > extents.halfY)) continue;
                 const target = this._hiddenSlotIndices?.has(i) ? null : this.slotModel.getBlock(i);
@@ -755,7 +757,7 @@ export function installBoardInputViewportModule(target: any): void {
                     colorId: target?.colorId || 0,
                     occupied: !!target,
                     directHit,
-                    distSq: this.getRectDistanceSq(localPos, sp.x, sp.y, extents.directHalf, extents.directHalf),
+                    distSq: this.getRectDistanceSq(slotLocal, 0, 0, extents.directHalf, extents.directHalf),
                     centerDistSq: dx * dx + dy * dy,
                 });
             }

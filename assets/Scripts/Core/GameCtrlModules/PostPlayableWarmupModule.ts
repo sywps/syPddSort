@@ -13,7 +13,6 @@ type QueuedWarmupTask = WarmupTask & {
     notBeforeMs: number;
 };
 
-const REWARDED_AD_WARMUP_DELAY_SECONDS = 2.0;
 const POST_PLAYABLE_WARMUP_TASK_GAP_SECONDS = 0.25;
 const POST_PLAYABLE_WARMUP_BUSY_RETRY_SECONDS = 0.5;
 
@@ -140,15 +139,6 @@ export function installPostPlayableWarmupModule(target: any): void {
                             done();
                         });
                         if (typeof this._ensureGameplayResultPanelPrefabsReady !== 'function') done();
-                    },
-                },
-                {
-                    name: 'rewarded-ad',
-                    minDelaySeconds: REWARDED_AD_WARMUP_DELAY_SECONDS,
-                    pauseWhenBusy: true,
-                    run: (done) => {
-                        this.scheduleRewardedAdPreload?.(`post-playable-warmup:${reason}`, 0);
-                        done();
                     },
                 },
             ];

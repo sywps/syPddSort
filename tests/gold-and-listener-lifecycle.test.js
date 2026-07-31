@@ -169,64 +169,6 @@ testDailySignInRequiresTheExpectedGoldReadbackBeforeGrantingProps();
 testDailySignInAddsTheRewardToTheCanonicalWalletExactlyOnce();
 testDailySignInMarksLocalStateNewerBeforeDeferredCloudSync();
 
-function loadFirstLevelRouteInstaller() {
-    const moduleRef = { exports: {} };
-    const shared = new Proxy({}, {
-        get() {
-            return class RuntimeStub {};
-        },
-    });
-    vm.runInNewContext(transpile('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts'), {
-        module: moduleRef,
-        exports: moduleRef.exports,
-        require(id) {
-            if (id === '../GameCtrlShared') return shared;
-            if (id === '../AppRoot') return { AppRoot: {} };
-            if (id === '../LevelDataCdnService') return { LevelDataCdnService: {} };
-            if (id === '../MiniGamePlatform') return {};
-            if (id === '../DebugPerfTrace') return {};
-            if (id === '../RuntimeLog') return { runtimeLog() {}, runtimeWarn() {} };
-            if (id === '../StartupTrace') return { markStartupTrace() {} };
-            if (id === './StartupCloudRestoreHelper') return { flushPendingStartupCloudGameplayRestore() {} };
-            if (id === 'cc') return { director: {}, Director: {} };
-            throw new Error(`unexpected require: ${id}`);
-        },
-        console,
-    }, { filename: 'FirstLevelRouteModule.ts' });
-    return moduleRef.exports.installFirstLevelRouteModule;
-}
-
-function testShareRegistrationIsIdempotentAndDisposable() {
-    const handlers = new Set();
-    let onCalls = 0;
-    let offCalls = 0;
-    const wx = {
-        showShareMenu() {},
-        onShareAppMessage(handler) {
-            onCalls += 1;
-            handlers.add(handler);
-        },
-        offShareAppMessage(handler) {
-            offCalls += 1;
-            handlers.delete(handler);
-        },
-    };
-    const runtime = {
-        _isThemeLevel: false,
-        getWeChatRuntime: () => wx,
-        getSavedLevel: () => 7,
-        findThemeNameByLevelId: () => '',
-    };
-    loadFirstLevelRouteInstaller()(runtime);
-    runtime.setupShareMenu();
-    runtime.setupShareMenu();
-    assert.strictEqual(onCalls, 1, 'a runtime must register only one share callback');
-    assert.strictEqual(handlers.size, 1);
-    runtime.disposeShareMenu();
-    assert.strictEqual(offCalls, 1, 'runtime teardown must unregister its share callback');
-    assert.strictEqual(handlers.size, 0);
-}
-
 function loadFriendRankInstaller() {
     const moduleRef = { exports: {} };
     const Node = {
@@ -309,7 +251,6 @@ function testLeaderboardRebindClearsOldListenersAndInertia() {
     assert.ok(unscheduled.includes(scheduled[0]), 're-render must stop the previous inertia callback');
 }
 
-testShareRegistrationIsIdempotentAndDisposable();
 testLeaderboardRebindClearsOldListenersAndInertia();
 
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
@@ -346,9 +287,8 @@ assert.ok(
     homeHudFallbackSource.includes('this.drawLivesBanner(vigorGroup);'),
     'Home must bind its scene-authored VigorGroup when the dynamic TopHud prefab is not ready',
 );
-assert.ok(firstLevelRoute.includes('disposeShareMenu()'), 'share callback cleanup must be owned by the runtime');
-assert.ok(firstLevelRoute.includes('offShareAppMessage'), 'share callback cleanup must unregister the saved callback');
-assert.ok(gameSceneRuntime.includes('this.runtime.disposeShareMenu?.();'), 'scene destruction must dispose the share callback');
+assert.ok(!firstLevelRoute.includes('setupShareMenu()'), 'dev_zhaoyao startup must not register a custom passive-share callback');
+assert.ok(!gameSceneRuntime.includes('setupShareMenu?.()'), 'scene startup must keep the dev_zhaoyao passive-share policy');
 assert.ok(friendRank.includes('clearLeaderboardScroll('), 'leaderboard must expose one scroll cleanup path');
 assert.ok(friendRank.includes('viewport.targetOff(this);'), 'leaderboard re-render must remove old viewport touch handlers');
 assert.ok(friendRank.includes('_leaderboardScrollInertiaStep'), 'leaderboard must retain and stop active inertia');

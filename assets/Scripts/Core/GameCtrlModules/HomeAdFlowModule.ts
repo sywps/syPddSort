@@ -41,6 +41,7 @@ type RewardedGrantResult = boolean | void | Promise<boolean | void>;
 const DEFAULT_GRANT_TIMEOUT_MS = 10000;
 const DEFAULT_AFTER_GRANT_TIMEOUT_MS = 15000;
 const GRANT_TIMEOUT_TOAST = '奖励处理超时，请稍后查看到账结果';
+const REWARDED_AD_PRELOAD_RETRY_SECONDS = [2, 5, 15, 30] as const;
 
 function resolveGrantTimeoutMs(value: number | undefined, fallback: number): number {
     const normalized = Math.floor(Number(value));
@@ -185,6 +186,17 @@ export function installHomeAdFlowModule(target: any): void {
             }
         },
 
+        releaseRewardedAdWarmSlot(reason: string = 'release'): void {
+            this.cancelRewardedAdPreload();
+            this._rewardedAdWarmSlotDesired = false;
+            this._rewardedAdWarmSlotReason = '';
+            this._rewardedAdWarmSlotRetryCount = 0;
+            this._rewardedAdWarmSlotBlockedReason = '';
+            this._rewardedAdWarmSlotLastEnsureAt = 0;
+            AdConfig.setRewardedAdKeepReady(false);
+            runtimeLog(`[AdConfig] release rewarded ad warm slot: ${reason}`);
+        },
+
         clearRewardedAdPendingStrip(): void {
             const strip = this._rewardedAdPendingStrip as Node | null;
             if (strip?.isValid) {
@@ -251,6 +263,7 @@ export function installHomeAdFlowModule(target: any): void {
                 || typeof AdConfig.subscribeRewardedAdState !== 'function') return;
             this._rewardedAdStateUnsubscribe = AdConfig.subscribeRewardedAdState(
                 (snapshot: RewardedAdStateSnapshot) => {
+                    this.handleRewardedAdWarmSlotState?.(snapshot);
                     if (snapshot.previousStatus === snapshot.status) return;
                     let eventName = '';
                     let success = true;
@@ -287,30 +300,114 @@ export function installHomeAdFlowModule(target: any): void {
             );
         },
 
+        handleRewardedAdWarmSlotState(snapshot: RewardedAdStateSnapshot): void {
+            if (!this._rewardedAdWarmSlotDesired) return;
+            if (snapshot.status === 'ready') {
+                this._rewardedAdWarmSlotRetryCount = 0;
+                this._rewardedAdWarmSlotBlockedReason = '';
+                return;
+            }
+            if (snapshot.status !== 'idle' || snapshot.previousStatus === snapshot.status) return;
+            const stateReason = String(snapshot.reason || '');
+            const shouldRetry = snapshot.previousStatus === 'loading'
+                || stateReason.startsWith('load-failed:')
+                || stateReason === 'native-error-idle';
+            if (!shouldRetry) return;
+            const retryCount = Math.max(0, Math.floor(Number(this._rewardedAdWarmSlotRetryCount) || 0));
+            const retryIndex = Math.min(retryCount, REWARDED_AD_PRELOAD_RETRY_SECONDS.length - 1);
+            const retryDelay = REWARDED_AD_PRELOAD_RETRY_SECONDS[retryIndex];
+            this._rewardedAdWarmSlotRetryCount = retryCount + 1;
+            this.scheduleRewardedAdPreload(
+                `retry:${stateReason || 'load-failed'}`,
+                retryDelay,
+            );
+        },
+
+        ensureRewardedAdWarmSlot(reason: string = 'ensure'): boolean {
+            if (!this.isValid || !this._rewardedAdWarmSlotDesired) return false;
+            if (!AdConfig.canAutoPreloadRewardedAd()) {
+                AdConfig.setRewardedAdKeepReady(false);
+                runtimeLog(`[AdConfig] skip rewarded ad warm slot: ${reason}`);
+                return false;
+            }
+            AdConfig.setRewardedAdKeepReady(true);
+            const snapshot = AdConfig.getRewardedAdState();
+            if (snapshot.status === 'ready' || snapshot.status === 'loading') {
+                if (snapshot.status === 'ready') {
+                    this._rewardedAdWarmSlotRetryCount = 0;
+                }
+                this._rewardedAdWarmSlotBlockedReason = '';
+                return true;
+            }
+            if (snapshot.status === 'establishing'
+                || snapshot.status === 'visible'
+                || snapshot.status === 'recoverable') {
+                return false;
+            }
+            const sceneName = typeof this.getRuntimeSceneName === 'function'
+                ? this.getRuntimeSceneName('Game')
+                : 'Game';
+            let blockedReason = '';
+            if (!this._gameForeground) {
+                blockedReason = 'background';
+            } else if (this._adTimerSuspended) {
+                blockedReason = 'ad-timer-suspended';
+            } else if (this._skillActive) {
+                blockedReason = 'skill-active';
+            } else if (sceneName === 'Game' && this.isGameEnd) {
+                blockedReason = 'game-ended';
+            }
+            if (blockedReason) {
+                if (this._rewardedAdWarmSlotBlockedReason !== blockedReason) {
+                    this._rewardedAdWarmSlotBlockedReason = blockedReason;
+                    AnalyticsMgr.inst.trackFunnelEvent?.({
+                        eventName: 'rewarded_ad_preload_deferred',
+                        page: sceneName === 'Home'
+                            ? 'home'
+                            : (this.getAnalyticsPage?.() || 'level_game'),
+                        levelId: this.getAnalyticsLevelId?.() || 0,
+                        source: reason,
+                        success: true,
+                        extra: {
+                            blockedReason,
+                            providerStatus: snapshot.status,
+                            generation: snapshot.generation,
+                        },
+                    });
+                }
+                return false;
+            }
+            this._rewardedAdWarmSlotBlockedReason = '';
+            this.ensureRewardedAdStateTelemetry();
+            this._rewardedAdTelemetryPage = sceneName === 'Home'
+                ? 'home'
+                : (this.getAnalyticsPage?.() || 'level_game');
+            this._rewardedAdTelemetryLevelId = this.getAnalyticsLevelId?.() || 0;
+            this._rewardedAdWarmSlotLastEnsureAt = Date.now();
+            return AdConfig.preloadRewardedAd(reason);
+        },
+
         scheduleRewardedAdPreload(reason: string = 'idle', delaySeconds: number = 1): void {
             if (!this.isValid) return;
             this.cancelRewardedAdPreload();
+            this._rewardedAdWarmSlotDesired = true;
+            this._rewardedAdWarmSlotReason = reason;
             if (!AdConfig.canAutoPreloadRewardedAd()) {
+                AdConfig.setRewardedAdKeepReady(false);
                 runtimeLog(`[AdConfig] skip rewarded ad preload schedule: ${reason}`);
                 return;
             }
-            const safeDelay = Math.max(1, Number(delaySeconds) || 0);
+            AdConfig.setRewardedAdKeepReady(true);
+            const safeDelay = Math.max(0, Number(delaySeconds) || 0);
             const preload = () => {
                 if (!this.isValid) return;
                 this._pendingRewardedAdPreload = null;
-                if (!AdConfig.canAutoPreloadRewardedAd()) return;
-                if (!this._gameForeground || this._adTimerSuspended || this._skillActive) return;
-                const sceneName = typeof this.getRuntimeSceneName === 'function'
-                    ? this.getRuntimeSceneName('Game')
-                    : 'Game';
-                if (sceneName === 'Game' && this.isGameEnd) return;
-                this.ensureRewardedAdStateTelemetry();
-                this._rewardedAdTelemetryPage = sceneName === 'Home'
-                    ? 'home'
-                    : (this.getAnalyticsPage?.() || 'level_game');
-                this._rewardedAdTelemetryLevelId = this.getAnalyticsLevelId?.() || 0;
-                AdConfig.preloadRewardedAd(reason);
+                this.ensureRewardedAdWarmSlot(reason);
             };
+            if (safeDelay <= 0) {
+                preload();
+                return;
+            }
             this._pendingRewardedAdPreload = preload;
             this.scheduleOnce(preload, safeDelay);
         },
@@ -346,6 +443,21 @@ export function installHomeAdFlowModule(target: any): void {
             this.ensureRewardedAdStateTelemetry();
             this._rewardedAdTelemetryPage = page;
             this._rewardedAdTelemetryLevelId = levelId;
+            const inventoryAtClick = AdConfig.getRewardedAdState();
+            AnalyticsMgr.inst.trackFunnelEvent?.({
+                eventName: 'rewarded_ad_inventory_at_click',
+                page,
+                levelId,
+                source: `rewarded_ad_${inventoryAtClick.status}`,
+                success: inventoryAtClick.status === 'ready',
+                errorCode: '',
+                extra: {
+                    providerStatus: inventoryAtClick.status,
+                    reason: inventoryAtClick.reason,
+                    generation: inventoryAtClick.generation,
+                    inventoryAgeMs: Math.max(0, Date.now() - inventoryAtClick.changedAt),
+                },
+            });
             const releaseInteraction = (reason: string) => {
                 if (interactionReleased) return;
                 interactionReleased = true;
@@ -369,11 +481,24 @@ export function installHomeAdFlowModule(target: any): void {
                     try {
                         onComplete(outcome);
                     } finally {
+                        const replenishReason = `after-ad-${outcome.status}:attempt-${outcome.attemptId}`;
+                        AnalyticsMgr.inst.trackFunnelEvent?.({
+                            eventName: 'rewarded_ad_replenish_requested',
+                            page,
+                            levelId,
+                            source: replenishReason,
+                            success: true,
+                            extra: {
+                                attemptId: outcome.attemptId,
+                                previousGeneration: inventoryAtClick.generation,
+                                outcomeStatus: outcome.status,
+                            },
+                        });
                         if (this._rewardedAdTelemetryPage === page) {
                             this._rewardedAdTelemetryPage = '';
                             this._rewardedAdTelemetryLevelId = 0;
                         }
-                        this.scheduleRewardedAdPreload(`after-ad-${outcome.status}`, 1.5);
+                        this.scheduleRewardedAdPreload(replenishReason, 0);
                     }
                 }, {
                     onShow: () => {
@@ -1212,7 +1337,7 @@ export function installHomeAdFlowModule(target: any): void {
                 }, 0.05);
             }
             this.scheduleHomeGameplayEntryWarmup?.(this.getSavedLevel(), 'level_');
-            this.scheduleRewardedAdPreload('home:visible', 1.2);
+            this.scheduleRewardedAdPreload('home:visible', 0);
             this.scheduleHomeSharedUiTextureWarmup?.();
             this.logRuntimeTrace(
                 '[SceneSplitTrace] showMainMenu:finish',

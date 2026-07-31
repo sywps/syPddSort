@@ -680,7 +680,11 @@ export class GameplaySlotUiController {
             ? Math.max(currentRows + 1, Math.floor(Number(policy.rowCount) || currentRows + 1))
             : currentRows + 1;
         runtime.slotUnlockedRows = Math.min(runtime.slotRowCount, targetRows);
-        while (this.shouldAppendLockedSlotRowAfterCurrentUnlock() && runtime.slotUnlockedRows >= runtime.slotRowCount && runtime.slotRowCount < runtime.getMaxSlotRows()) {
+        const configuredRowCount = Math.floor(Number(policy?.rowCount) || 0);
+        const rowCountLimit = configuredRowCount > 0
+            ? Math.min(runtime.getMaxSlotRows(), configuredRowCount)
+            : runtime.getMaxSlotRows();
+        while (this.shouldAppendLockedSlotRowAfterCurrentUnlock() && runtime.slotUnlockedRows >= runtime.slotRowCount && runtime.slotRowCount < rowCountLimit) {
             runtime.slotRowCount++;
             runtime.slotModel.expand(SLOTS_PER_ROW);
         }

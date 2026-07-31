@@ -369,14 +369,17 @@ const Sygame = {
   dnOrderPollingStarted: false,
   dnFavoritesListenerStarted: false,
   shareListenersStarted: false,
+  passiveShareEnabled: false,
   androidPayType: 0,//0客户端扣款、1服务端扣款
   androidPayLoopCallback: 0,
   init: (data) => {
+    const initData = data || {};
     Sygame.appid = SY_CONF[confArr[1]];
-    Sygame.query = data.query;
+    Sygame.query = initData.query || {};
     Sygame.channel = SY_CONF[confArr[6]];
     Sygame.offerId = SY_CONF['offerId'];
-    Sygame.scene = data.scene;
+    Sygame.scene = initData.scene;
+    Sygame.passiveShareEnabled = initData.enablePassiveShare === true;
     Sygame.commit_id = SY_CONF['commitId'];
     Sygame.touchNumber = 0;
     Sygame.jumpVersion = 0;
@@ -386,7 +389,7 @@ const Sygame = {
       scene: Sygame.scene,
     });
     let queryData = {
-      query: data.query
+      query: initData.query || {}
     };
     //用户通过分享卡片进入游戏上报:V3
     if (Sygame.query.sySharePicId) {
@@ -422,9 +425,22 @@ const Sygame = {
         });
       }
     });
-    //get share conf：V1
-    Sygame.getShareData();
-    wx.showShareMenu();
+    if (Sygame.passiveShareEnabled) {
+      //get share conf：V1
+      Sygame.getShareData();
+      if (typeof wx.showShareMenu === 'function') {
+        wx.showShareMenu();
+      }
+      // get the sharing card parameter info
+      Sygame.getShareCardInfo();//V2
+      Sygame.getShareCardInfoV3();//V3
+    } else if (typeof wx.hideShareMenu === 'function') {
+      try {
+        wx.hideShareMenu({menus: ['shareAppMessage', 'shareTimeline']});
+      } catch (error) {
+        console.error('[SySDK] hideShareMenu failed:', sanitizeDnText(error && error.message, 120));
+      }
+    }
     Sygame.getCommitIdStatus();
     // get phone model
     wx.getSystemInfo({
@@ -433,9 +449,6 @@ const Sygame = {
         Sygame.userBrandModel = res.model;
       }
     });
-    // get the sharing card parameter info
-    Sygame.getShareCardInfo();//V2
-    Sygame.getShareCardInfoV3();//V3
   },
   // game login
   syLogin: () =>  new Promise(function (resolve, reject) {
@@ -443,7 +456,9 @@ const Sygame = {
     wx.login({
       success(res) {
         console.log('syLoginCode:', { hasCode: !!res.code });
-        Sygame.listenShareAction();//分享
+        if (Sygame.passiveShareEnabled) {
+          Sygame.listenShareAction();//分享
+        }
         if (!res.code) {
           reject(createSyLoginError('wx_login_no_code', 'wx.login 未返回 code'));
           return;
@@ -485,8 +500,12 @@ const Sygame = {
                   Sygame.syGetPhoneNumber();
                 }
                 //获取指定分享数据
-                Sygame.isGetSpecifyShareData = responseData.isGetSpecifyShareData;
-                Sygame.getSpecifyShareData();
+                Sygame.isGetSpecifyShareData = Sygame.passiveShareEnabled
+                  ? responseData.isGetSpecifyShareData
+                  : 0;
+                if (Sygame.passiveShareEnabled) {
+                  Sygame.getSpecifyShareData();
+                }
               } catch (error) {
                 console.error(
                   '[SySDK login] 登录后附加功能初始化失败:',
@@ -1234,7 +1253,7 @@ const Sygame = {
 
   // 监听分享
   listenShareAction: () => {
-    if (Sygame.shareListenersStarted) {
+    if (!Sygame.passiveShareEnabled || Sygame.shareListenersStarted) {
       return;
     }
     Sygame.shareListenersStarted = true;
@@ -2278,7 +2297,7 @@ const Sygame = {
 
   // 获取指定分享内容
   getSpecifyShareData() {
-    if (Sygame.isGetSpecifyShareData !== 1) {
+    if (!Sygame.passiveShareEnabled || Sygame.isGetSpecifyShareData !== 1) {
       return false;
     }
     wx.request({

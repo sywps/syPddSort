@@ -22,9 +22,9 @@ const expectedTutorialContracts = {
     3: {
         mode: 'zoom',
         stepCount: 1,
-        title: '双指【缩放】',
-        subtitle: '点豆→空位（不用拖）',
-        guideCopies: ['双指【缩放】'],
+        title: '试试放大或缩小',
+        subtitle: '',
+        guideCopies: ['试试放大或缩小'],
     },
 };
 const expectedCdnUrl =
@@ -106,9 +106,14 @@ for (const levelId of expectedOverrideLevelIds) {
 const stableLevel2 = readJson('assets/LevelData/level_2.json');
 const treatmentLevel2 = readJson(`${treatmentRelDir}/level_2.json`);
 assert.deepStrictEqual(
-    [stableLevel2.boardWidth, stableLevel2.boardHeight, stableLevel2.slotTotalCount, stableLevel2.tutorialGuide.mode],
-    [29, 23, 440, 'slot_expand_all'],
-    'canonical level 2 must remain the main-lineage stable payload',
+    [stableLevel2.boardWidth, stableLevel2.boardHeight, stableLevel2.slotTotalCount, stableLevel2.tutorialGuide],
+    [12, 12, 96, undefined],
+    'canonical level 2 must remain the main-lineage stable no-guide payload',
+);
+assert.deepStrictEqual(
+    stableLevel2.slotPolicy,
+    { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 },
+    'canonical stable level 2 must expose one optional rewarded unlock row',
 );
 assert.deepStrictEqual(
     [
@@ -135,9 +140,9 @@ assert.deepStrictEqual(
     treatmentLevel3.tutorialGuide,
     {
         mode: 'zoom',
-        title: '双指【缩放】',
-        subtitle: '点豆→空位（不用拖）',
-        guideCopies: ['双指【缩放】'],
+        title: '试试放大或缩小',
+        subtitle: '',
+        guideCopies: ['试试放大或缩小'],
     },
     'experiment level 3 must keep the one-step non-blocking zoom guide contract',
 );

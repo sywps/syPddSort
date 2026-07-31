@@ -217,9 +217,12 @@ function loadSySdkManager(sygame) {
 
 async function testManagerLoginLifecycle() {
     let calls = 0;
+    let initOptions = null;
     const successfulSdk = {
         isOpenWxCallback: false,
-        init() {},
+        init(options) {
+            initOptions = options;
+        },
         syLogin() {
             calls += 1;
             return new Promise((resolve) => {
@@ -232,6 +235,7 @@ async function testManagerLoginLifecycle() {
     };
     const successfulManager = loadSySdkManager(successfulSdk);
     successfulManager.init();
+    assert.strictEqual(initOptions.enablePassiveShare, false, 'SySDK manager must use the fixed passive-share-off startup policy');
     const first = successfulManager.login();
     const second = successfulManager.login();
     assert.strictEqual(first, second, 'concurrent startup callers must share one login promise');
@@ -425,6 +429,10 @@ async function main() {
     assert.ok(!wrapperSource.includes("platform || '').toLowerCase() === 'devtools'"));
     assert.ok(wrapperSource.includes('callbackData.dataSourceId'));
     assert.ok(wrapperSource.includes('callbackData.dataSecretKey'));
+    assert.ok(wrapperSource.includes('passiveShareEnabled: false'), 'Sygame must default passive sharing off');
+    assert.ok(wrapperSource.includes("Sygame.passiveShareEnabled = initData.enablePassiveShare === true;"), 'passive sharing must require explicit opt-in');
+    assert.ok(wrapperSource.includes("wx.hideShareMenu({menus: ['shareAppMessage', 'shareTimeline']});"), 'passive-share-off startup must hide the WeChat share menu');
+    assert.ok(wrapperSource.includes('if (Sygame.passiveShareEnabled) {\n          Sygame.listenShareAction();'), 'login must not register passive share listeners while disabled');
     assert.ok(!wrapperSource.includes('SY_CONF.DN_DATA_SOURCE_ID'));
     assert.ok(!wrapperSource.includes('SY_CONF.DN_SECRET_KEY'));
     assert.ok(wrapperSource.includes('const DN_PENDING_ACTION_LIMIT = 100;'));

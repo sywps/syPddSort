@@ -29,9 +29,9 @@ const LY_0224_TUTORIAL_CONTRACTS = Object.freeze({
     3: {
         mode: 'zoom',
         stepCount: 1,
-        title: '双指【缩放】',
-        subtitle: '点豆→空位（不用拖）',
-        guideCopies: ['双指【缩放】'],
+        title: '试试放大或缩小',
+        subtitle: '',
+        guideCopies: ['试试放大或缩小'],
     },
 });
 const LY_0224_TREATMENT_CDN_URL =

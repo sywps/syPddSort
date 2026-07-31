@@ -267,6 +267,33 @@ async function testUnusedReadyAdExpiresAndReloadsOnDemand() {
     assert.deepStrictEqual(results, ['verified_complete'], 'reloading after unused expiry must preserve verified reward completion');
 }
 
+async function testKeepReadyLeaseRetainsInventoryUntilRelease() {
+    const harness = loadWechatProvider();
+    harness.provider.setKeepReady(true);
+    harness.provider.preload('late-loading:test');
+    await flushMicrotasks();
+
+    assert.deepStrictEqual(harness.adCalls, ['1:load']);
+    assert.strictEqual(harness.provider.getState().status, 'ready');
+    assert.strictEqual(
+        harness.activeTimers(45000).length,
+        0,
+        'an eligible warm-slot lease must prevent a ready ad from expiring into an empty inventory',
+    );
+
+    harness.provider.setKeepReady(false);
+    harness.provider.setKeepReady(false);
+    assert.strictEqual(
+        harness.activeTimers(45000).length,
+        1,
+        'releasing the lease must restore one bounded unused-ready expiry timer',
+    );
+    harness.fireTimer(45000);
+    assert.strictEqual(harness.adInstances[0].destroyed, true);
+    assert.strictEqual(harness.provider.getState().status, 'idle');
+    assert.strictEqual(harness.provider.getState().reason, 'ready-expired:keep-ready-released');
+}
+
 async function testUnresolvedShowEstablishmentRecoversWithoutReward() {
     let resolveShow = null;
     const harness = loadWechatProvider({
@@ -470,6 +497,7 @@ async function main() {
     await testNativeLoadLifecycleFailureHasCodeAndNoDuplicate();
     await testNativeLoadUnavailableEmitsSyntheticFailure();
     await testUnusedReadyAdExpiresAndReloadsOnDemand();
+    await testKeepReadyLeaseRetainsInventoryUntilRelease();
     await testUnresolvedShowEstablishmentRecoversWithoutReward();
     await testCloseBeforeShowPromiseResolutionStillGrantsOnce();
     await testEarlyCloseStillFails();

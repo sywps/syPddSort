@@ -277,9 +277,7 @@ export function installGuideLeaderboardModule(target: any): void {
             if (!layer?.isValid) return;
             const transientNames = new Set([
                 'GuideHighlight',
-                'GuideTapRing',
                 'GuideTargetFeedback',
-                'GuideTapFeedback',
             ]);
             for (const child of [...layer.children]) {
                 if (!transientNames.has(child.name)) continue;
@@ -356,35 +354,6 @@ export function installGuideLeaderboardModule(target: any): void {
             }
             const world = sourceUT.convertToWorldSpaceAR(point);
             return layerUT.convertToNodeSpaceAR(world);
-        },
-
-        createGuideFeedbackRing(
-            name: string,
-            center: Vec3,
-            width: number,
-            height: number,
-            color: Color,
-            opacityValue: number,
-        ): Node {
-            const ring = this.instantiateGuideAuthoredTemplate(
-                'GuideFeedbackRingTemplate',
-                name,
-            );
-            const transform = ring.getComponent(UITransform);
-            const sprite = ring.getComponent(Sprite);
-            const opacity = ring.getComponent(UIOpacity);
-            if (!transform || !sprite || !opacity) {
-                ring.destroy();
-                throw new Error('[guide-feedback] GuideFeedbackRingTemplate is incomplete');
-            }
-            ring.setPosition(center);
-            transform.setContentSize(
-                Math.max(92, Math.round(width)),
-                Math.max(92, Math.round(height)),
-            );
-            sprite.color = color;
-            opacity.opacity = Math.max(0, Math.min(255, Math.round(opacityValue)));
-            return ring;
         },
 
         showGuideTargetFeedback(
@@ -686,46 +655,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this.showGuideTargetFeedback?.('success');
         },
 
-        showGuideTapFeedback(
-            worldPos: Vec3,
-            state: 'tap' | 'wrong' | 'busy' = 'tap',
-        ): void {
-            const layer = this._guideLayer as Node | null;
-            const layerUT = layer?.getComponent(UITransform) || null;
-            if (!layer?.isValid || !layerUT) return;
-            const center = layerUT.convertToNodeSpaceAR(worldPos);
-            const color = state === 'wrong'
-                ? new Color(255, 92, 92, 255)
-                : (state === 'busy' ? new Color(115, 174, 255, 255) : new Color(255, 255, 255, 255));
-            const ring = this.createGuideFeedbackRing(
-                'GuideTapFeedback',
-                center,
-                state === 'wrong' ? 104 : 88,
-                state === 'wrong' ? 104 : 88,
-                color,
-                state === 'wrong' ? 235 : 205,
-            );
-            this._guideTransientFeedbackNodes = Array.isArray(this._guideTransientFeedbackNodes)
-                ? this._guideTransientFeedbackNodes
-                : [];
-            this._guideTransientFeedbackNodes.push(ring);
-            ring.setScale(0.52, 0.52, 1);
-            const opacity = ring.getComponent(UIOpacity)!;
-            tween(ring)
-                .to(state === 'wrong' ? 0.38 : 0.30, {
-                    scale: new Vec3(state === 'wrong' ? 1.36 : 1.18, state === 'wrong' ? 1.36 : 1.18, 1),
-                }, { easing: 'sineOut' })
-                .call(() => {
-                    this._guideTransientFeedbackNodes = (this._guideTransientFeedbackNodes || [])
-                        .filter((node: Node) => node !== ring);
-                    this.destroyGuideFeedbackNode?.(ring);
-                })
-                .start();
-            tween(opacity)
-                .to(state === 'wrong' ? 0.38 : 0.30, { opacity: 0 }, { easing: 'quadIn' })
-                .start();
-        },
-
         isGuideModalLauncherHit(node: Node | null, worldPos: Vec3, padding: number = 12): boolean {
             if (!node?.isValid || !node.active) return false;
             const ui = node.getComponent(UITransform);
@@ -759,7 +688,7 @@ export function installGuideLeaderboardModule(target: any): void {
                 this._guideMask.setSiblingIndex(nextIndex++);
             }
             for (const child of [...layer.children]) {
-                if (child.isValid && (child.name === 'GuideHighlight' || child.name === 'GuideTapRing')) {
+                if (child.isValid && child.name === 'GuideHighlight') {
                     child.setSiblingIndex(nextIndex++);
                 }
             }
@@ -831,11 +760,6 @@ export function installGuideLeaderboardModule(target: any): void {
                     position: new Vec3(base.x, base.y - 6, base.z),
                     scale: new Vec3(0.94, 0.94, 1),
                 }, { easing: 'quadIn' })
-                .call(() => {
-                    if (this._guideMode === 'level_1' || this._guideMode === 'level_2' || this._guideMode === 'zoom') {
-                        this.playGuideHandTapRipple?.(hand);
-                    }
-                })
                 .to(0.18, {
                     position: base,
                     scale: new Vec3(1, 1, 1),
@@ -883,16 +807,6 @@ export function installGuideLeaderboardModule(target: any): void {
                     hand.setScale(1, 1, 1);
                 })
                 .start();
-        },
-
-        playGuideHandTapRipple(hand: Node) {
-            const layer = this._guideLayer as Node | null;
-            const handUT = hand?.getComponent(UITransform) || null;
-            if (!layer?.isValid || !hand?.isValid || !handUT) return;
-            const fingertipWorld = handUT.convertToWorldSpaceAR(
-                new Vec3(GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, 0),
-            );
-            this.showGuideTapFeedback?.(fingertipWorld, 'tap');
         },
 
         setGuideHandTarget(hand: Node, targetX: number, targetY: number) {

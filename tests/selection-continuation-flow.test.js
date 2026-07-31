@@ -55,6 +55,17 @@ assert.ok(input.includes('const remainingSelection = result.remaining > 0'), 'bo
 assert.ok(input.includes('flyVisualOptions, remainingSelection'), 'board placement must pass remaining selection into fly placement');
 assert.ok(input.includes('this.compactSlotsAfterSelectionConsume();'), 'slot model must compact immediately after selected slot placement commit');
 assert.ok(input.includes('this._hiddenSlotIndices?.has(slotIndex)'), 'hidden in-flight slot targets must not be selectable');
+assert.ok(
+    input.includes('const slotLocal = slotNodeUT.convertToNodeSpaceAR(worldPos);')
+        && input.includes('const dx = slotLocal.x;')
+        && input.includes('const dy = slotLocal.y;'),
+    'slot taps must be resolved in each visible slot node coordinate space',
+);
+assert.ok(
+    !input.includes('const dx = localPos.x - sp.x;')
+        && !input.includes('const dy = localPos.y - sp.y;'),
+    'slot taps must not compare SlotArea-local touches with SlotPanel-local positions',
+);
 assert.ok(placement.includes('this.startFlyToSlots(block.colorId, sources.slice(0, storedSlotIdxs.length), storedSlotIdxs, block.cells, remainingSelection);'), 'board-to-slot partial placement must preserve remaining board selection');
 assert.ok(tutorial.includes('const remainingSelection = result.remaining > 0'), 'tutorial placement path must use the same remaining selection model');
 assert.ok(

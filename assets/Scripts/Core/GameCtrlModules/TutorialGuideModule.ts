@@ -763,7 +763,7 @@ export function installTutorialGuideModule(target: any): void {
             const configuredTitle = this.levelData?.tutorialGuide?.title;
             const title = typeof configuredTitle === 'string' && configuredTitle.trim().length > 0
                 ? configuredTitle.trim()
-                : '双指【缩放】';
+                : '试试放大或缩小';
             const configuredSubtitle = this.levelData?.tutorialGuide?.subtitle;
             const subtitle = typeof configuredSubtitle === 'string' ? configuredSubtitle.trim() : '';
             this.startGuidePinchReminderAnimation?.();
@@ -1121,8 +1121,7 @@ export function installTutorialGuideModule(target: any): void {
             return this.dismissZoomHint?.(source) === true;
         },
 
-        showGuideUnavailableFeedback(worldPos: Vec3, reason: 'transitioning' | 'not_ready'): void {
-            this.showGuideTapFeedback?.(worldPos, 'busy');
+        showGuideUnavailableFeedback(_worldPos: Vec3, reason: 'transitioning' | 'not_ready'): void {
             const previousRenderStep = this._guideRenderStep;
             if (this._guidePreviewVisible && this._guidePreviewStep >= 0) {
                 this._guideRenderStep = this._guidePreviewStep;
@@ -1181,13 +1180,9 @@ export function installTutorialGuideModule(target: any): void {
             return false;
         },
 
-        showStarterTutorialAutoCorrectFeedback(worldPos: Vec3, rawTargetHit: boolean): void {
-            this.showGuideTapFeedback?.(worldPos, rawTargetHit ? 'tap' : 'wrong');
+        showStarterTutorialAutoCorrectFeedback(_worldPos: Vec3, rawTargetHit: boolean): void {
             if (rawTargetHit) return;
             this.showGuideTargetFeedback?.('reinforce', 1);
-            if (this._guideHand?.isValid) {
-                this.playGuideHandTapRipple?.(this._guideHand);
-            }
         },
 
         trySelectGuideBoardColor(colorId: number, step: number = this._guideStep): boolean {

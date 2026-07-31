@@ -4,7 +4,7 @@ import {
     view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
-    PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
+    PerformanceMgr, AnalyticsMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
@@ -1095,7 +1095,6 @@ export function installFirstLevelRouteModule(target: any): void {
             }
 
             this._pendingStartupBackgroundServices = {
-                canAutoSaveGameStateOnStartup,
                 deferDelaySec: Math.max(0, Number(deferDelaySec) || 0),
             };
             this.runPendingStartupBackgroundServicesIfReady();
@@ -1122,15 +1121,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 });
                 AudioMgr.inst.init(this.node);
                 void AnalyticsMgr.inst.bootstrap();
-                this.scheduleOnce(() => {
-                    if (pending.canAutoSaveGameStateOnStartup) {
-                        void LeaderboardMgr.inst.submitProgress(this.getSavedLevel(), UserMgr.inst.getProfile());
-                    }
-                    if (this._isWeChat()) {
-                        void UserMgr.inst.loginWeChat();
-                    }
-                    this.setupShareMenu();
-                }, 0.5);
             };
 
             if (pending.deferDelaySec > 0) {
@@ -1316,58 +1306,6 @@ export function installFirstLevelRouteModule(target: any): void {
                 restoreStatus,
                 deferredStartupDelaySec,
             );
-        },
-
-        /** 初始化微信/抖音分享菜单 + 被动分享回调（被动转发：右上角胶囊点"转发"） */
-        disposeShareMenu() {
-            const wx: any = this._shareAppMessageWx;
-            const handler = this._shareAppMessageHandler;
-            if (wx && handler && typeof wx.offShareAppMessage === 'function') {
-                try {
-                    wx.offShareAppMessage(handler);
-                } catch (error) {
-                    console.warn('[disposeShareMenu] wx error', error);
-                }
-            }
-            this._shareAppMessageWx = null;
-            this._shareAppMessageHandler = null;
-        },
-
-        setupShareMenu() {
-            const wx: any = this.getWeChatRuntime();
-            if (wx) {
-                try {
-                    if (typeof wx.showShareMenu === 'function') {
-                        wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage', 'shareTimeline'] });
-                    }
-                    if (this._shareAppMessageWx && this._shareAppMessageWx !== wx) {
-                        this.disposeShareMenu();
-                    }
-                    if (typeof wx.onShareAppMessage === 'function' && !this._shareAppMessageHandler) {
-                        const handler = () => {
-                            const lv = this._isThemeLevel ? this._currentThemeLevelId : this.getSavedLevel();
-                            const themeName = this._isThemeLevel ? this.findThemeNameByLevelId(lv) : '';
-                            return {
-                                title: themeName
-                                    ? `我在拼豆豆完成了【${themeName}】主题，快来挑战！`
-                                    : '一起来玩拼豆豆，可爱又解压！',
-                                query: this._isThemeLevel ? `level=${lv}&theme=1` : '',
-                                imageUrl: '',
-                            };
-                        };
-                        wx.onShareAppMessage(handler);
-                        this._shareAppMessageWx = wx;
-                        this._shareAppMessageHandler = handler;
-                    }
-                } catch (e) {
-                    console.warn('[setupShareMenu] wx error', e);
-                }
-            }
-            const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
-                || (typeof window !== 'undefined' ? (window as any).tt : null);
-            if (tt && typeof tt.showShareMenu === 'function') {
-                try { tt.showShareMenu({ withShareTicket: false }); } catch (e) { /* ignore */ }
-            }
         },
 
         // ==================== 资源加载 ====================
