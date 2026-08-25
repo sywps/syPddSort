@@ -34,6 +34,10 @@ export function installGameplaySkillMagnetModule(target: any): void {
     Object.assign(target, {
         /** 磁铁：随机选择一种未归位颜色，将该颜色所有豆豆快速全部归位。 */
         useSkillClearColor(timerAlreadyPaused: boolean = false, viewportAlreadyReset: boolean = false) {
+            const pchController = this._pchConveyorGameplayController;
+            if (pchController?.isActive?.()) {
+                return pchController.useClearColorSkill(timerAlreadyPaused) === true;
+            }
             if (this._skillActive && !viewportAlreadyReset) return;
             let skillGeneration = Math.max(0, Number(this._activeSkillUsageGeneration) || 0);
             if (!viewportAlreadyReset) {

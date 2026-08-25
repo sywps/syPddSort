@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
 
@@ -78,5 +79,82 @@ assert.ok(controller.includes('onAdShown: hidePanelForNativeAd'), 'the panel mus
 assert.ok(controller.includes("setAdPanelState('正在确认结果…', true, true, '结束等待');"), 'a delayed native close must expose an explicit end-wait action');
 assert.ok(controller.includes("outcome?.status === 'verified_incomplete'"), 'early close and technical failure must restore distinct retry copy');
 assert.ok(!controller.includes('if (started) closePanel'), 'request acceptance alone must never close the panel');
+
+class FakeNode {}
+FakeNode.EventType = { TOUCH_END: 'touch-end' };
+class FakeButton {}
+class FakeUITransform {}
+class FakeVec2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+const controllerOutput = ts.transpileModule(controller, {
+    compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+    },
+}).outputText;
+const controllerModule = { exports: {} };
+const loadController = new Function('module', 'exports', 'require', controllerOutput);
+loadController(controllerModule, controllerModule.exports, (request) => {
+    if (request === '../GameCtrlShared') {
+        return new Proxy({
+            Button: FakeButton,
+            Node: FakeNode,
+            UITransform: FakeUITransform,
+            Vec2: FakeVec2,
+        }, {
+            get(target, key) {
+                if (key in target) return target[key];
+                return class RuntimeStub {};
+            },
+        });
+    }
+    throw new Error(`unexpected controller dependency: ${request}`);
+});
+
+let normalButtonHandler = null;
+let captureHandler = null;
+let captureEnabled = false;
+const runtime = {
+    bindPanelButton(_node, handler) {
+        normalButtonHandler = handler;
+    },
+    normalizeGameplayUiPosition(pos) {
+        return new FakeVec2(pos.x * 2, pos.y * 2);
+    },
+};
+const acquireController = new controllerModule.exports.CommercePanelController(runtime);
+const buttonState = { enabled: true, interactable: true };
+const triggerNode = {
+    getComponent(type) {
+        if (type === FakeUITransform) {
+            return { getBoundingBoxToWorld: () => ({ contains: (pos) => pos.x === 200 && pos.y === 300 }) };
+        }
+        if (type === FakeButton) return buttonState;
+        return null;
+    },
+};
+const overlay = {
+    isValid: true,
+    activeInHierarchy: true,
+    on(_eventName, handler, _target, capture) {
+        captureHandler = handler;
+        captureEnabled = capture;
+    },
+};
+let fallbackGrantCount = 0;
+acquireController.bindAcquireButtonWithScaledFallback(triggerNode, overlay, () => {
+    fallbackGrantCount += 1;
+});
+assert.strictEqual(typeof normalButtonHandler, 'function', 'the ordinary unscaled button handler must remain bound');
+assert.strictEqual(captureEnabled, true, 'the scaled fallback must run before the overlay close handler');
+const scaledEvent = { getUILocation: () => new FakeVec2(100, 150), propagationStopped: false };
+captureHandler(scaledEvent);
+assert.strictEqual(scaledEvent.propagationStopped, true, 'a scaled ad-button hit must not bubble into panel close');
+assert.strictEqual(fallbackGrantCount, 1, 'a scaled ad-button hit must enter the grant handler immediately');
 
 console.log('freeze-acquire-prefab.test.js passed');

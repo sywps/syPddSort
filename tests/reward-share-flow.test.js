@@ -58,6 +58,7 @@ function loadSettlementInstaller() {
             if (id === 'cc') return { Widget: class Widget {} };
             if (id === '../RuntimeLog') return { runtimeWarn() {} };
             if (id === '../PixelPosterPreviewRenderer') return { renderPixelPosterPreview() {} };
+            if (id === '../LevelExperimentService') return { getFrontLevelExperimentAnalyticsContext: () => ({ abBucket: 'control' }) };
             throw new Error(`unexpected require: ${id}`);
         },
         console,
@@ -173,11 +174,16 @@ function testResultPanelsInstantiateOnlyForRequestedSettlementPath() {
             created.push('revive');
             return makePanel('revive');
         },
+        createBufferFullSettlementPanel() {
+            created.push('buffer-full');
+            return makePanel('buffer-full');
+        },
     };
     const runtime = {
         panelWin: null,
         panelLose: null,
         panelTimeoutContinue: null,
+        panelBufferFullContinue: null,
     };
     loadHomeAdFlowInstaller([], {}, controller)(runtime);
 
@@ -187,9 +193,9 @@ function testResultPanelsInstantiateOnlyForRequestedSettlementPath() {
     assert.deepStrictEqual(created, ['win'], 'an existing valid result panel must be reused');
 
     assert.strictEqual(runtime.ensureGameplayResultPanelsCreated('lose-flow'), true);
-    assert.deepStrictEqual(created, ['win', 'lose', 'revive'], 'loss flow must add only lose and revive panels');
+    assert.deepStrictEqual(created, ['win', 'lose', 'revive', 'buffer-full'], 'loss flow must add all loss and continue panels');
     assert.strictEqual(runtime.ensureGameplayResultPanelsCreated('all'), true);
-    assert.deepStrictEqual(created, ['win', 'lose', 'revive'], 'all requested panels must reuse the already valid instances');
+    assert.deepStrictEqual(created, ['win', 'lose', 'revive', 'buffer-full'], 'all requested panels must reuse the already valid instances');
 }
 
 async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {

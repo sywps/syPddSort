@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const buildCommon = require('./minigame-build-common.js');
 const {
     configureWechatCdnEnvironment,
@@ -50,10 +50,6 @@ const workerAssetDbContracts = [
 
 function fail(message) {
     throw new Error(message);
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createFreshWorkerDir(tempRoot = os.tmpdir()) {
@@ -315,87 +311,26 @@ function maybeOpenWorkspaceWechatDevtools(env = process.env) {
     }
 }
 
-function startHeldAssetDb(workerDir) {
-    const readyPath = path.join(workerDir, 'temp', 'pdd-release-assetdb-held.json');
+function warmFreshWorkerAssetDb(workerDir) {
     const resultPath = path.join(workerDir, 'temp', 'pdd-release-assetdb-monitor.json');
-    fs.rmSync(readyPath, { force: true });
-    fs.rmSync(readyPath + '.tmp', { force: true });
     fs.rmSync(resultPath, { force: true });
     fs.rmSync(resultPath + '.tmp', { force: true });
-    const child = spawn(
-        process.execPath,
-        [path.join(workerDir, 'scripts', 'warm-cocos-assetdb.js'), '--hold', readyPath, resultPath],
-        {
-            cwd: workerDir,
-            env: {
-                ...process.env,
-                PDD_COCOS_ASSETDB_FORCE_REFRESH: '1',
-                WECHAT_COCOS_ASSETDB_WARM_TIMEOUT_MS:
-                    process.env.WECHAT_COCOS_ASSETDB_WARM_TIMEOUT_MS || String(heldAssetDbTimeoutMs),
-            },
-            stdio: 'inherit',
-            shell: false,
+    run(process.execPath, [path.join(workerDir, 'scripts', 'warm-cocos-assetdb.js'), resultPath], {
+        cwd: workerDir,
+        env: {
+            ...process.env,
+            PDD_COCOS_ASSETDB_FORCE_REFRESH: '1',
+            WECHAT_COCOS_ASSETDB_WARM_TIMEOUT_MS:
+                process.env.WECHAT_COCOS_ASSETDB_WARM_TIMEOUT_MS || String(heldAssetDbTimeoutMs),
         },
-    );
-    const state = { child, readyPath, workerDir, spawnError: null };
-    child.once('error', (error) => {
-        state.spawnError = error;
+        label: 'Release 构建工位 AssetDB 预热',
     });
-    return state;
-}
-
-async function waitForHeldAssetDb(state) {
-    const deadline = Date.now() + heldAssetDbTimeoutMs;
-    let lastContractErrors = [];
-    while (Date.now() < deadline) {
-        if (state.spawnError) throw state.spawnError;
-        if (fs.existsSync(state.readyPath)) {
-            const ready = JSON.parse(fs.readFileSync(state.readyPath, 'utf8'));
-            if (ready.ready === true && Number(ready.sceneCount) > 0 && Number(ready.scriptCount) > 0) {
-                lastContractErrors = getWorkerAssetDbContractErrors(state.workerDir);
-                if (lastContractErrors.length === 0) return ready;
-                await sleep(250);
-                continue;
-            }
-            fail('Release 构建工位 AssetDB 常驻清单无效: ' + JSON.stringify(ready));
-        }
-        if (state.child.exitCode !== null || state.child.signalCode !== null) {
-            fail(
-                'Release 构建工位 AssetDB 常驻进程提前退出: status=' + state.child.exitCode
-                + ', signal=' + (state.child.signalCode || ''),
-            );
-        }
-        await sleep(250);
+    const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+    const contractErrors = getWorkerAssetDbContractErrors(workerDir);
+    if (contractErrors.length > 0) {
+        fail('Release 构建工位 AssetDB 导入契约失败:\n' + contractErrors.join('\n'));
     }
-    fail(
-        '等待 Release 构建工位 AssetDB 常驻清单超时: ' + heldAssetDbTimeoutMs + 'ms'
-        + (lastContractErrors.length > 0 ? '\n' + lastContractErrors.join('\n') : ''),
-    );
-}
-
-function waitForChildExit(child, waitMs) {
-    if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
-    return new Promise((resolve) => {
-        const timer = setTimeout(() => {
-            child.removeListener('exit', onExit);
-            resolve(false);
-        }, waitMs);
-        function onExit() {
-            clearTimeout(timer);
-            resolve(true);
-        }
-        child.once('exit', onExit);
-    });
-}
-
-async function stopHeldAssetDb(state) {
-    if (!state || state.child.exitCode !== null || state.child.signalCode !== null) return;
-    state.child.kill('SIGTERM');
-    if (await waitForChildExit(state.child, 40000)) return;
-    state.child.kill('SIGKILL');
-    if (!await waitForChildExit(state.child, 5000)) {
-        fail('无法关闭 Release 构建工位 AssetDB 常驻进程 pid=' + state.child.pid);
-    }
+    return result;
 }
 
 function validateFreshWorkerDir(workerDir, tempRoot = os.tmpdir()) {
@@ -418,14 +353,12 @@ async function main(args = process.argv.slice(2)) {
         fail('未知参数: ' + parsed.remainingArgs.join(' '));
     }
     const wechatCdnTarget = configureWechatCdnEnvironment(parsed.target, process.env);
-    buildCommon.guardCocosPreviewOrFail(projectDir);
     const workerDir = createFreshWorkerDir();
     console.log('=== 微信 Release 隔离构建工位 ===');
     console.log('   CDN slot:  ' + wechatCdnTarget.slot + ' (' + wechatCdnTarget.cdnRootUrl + ')');
     console.log('   Workspace: ' + projectDir);
     console.log('   Worker:    ' + workerDir);
     let primaryError = null;
-    let heldAssetDb = null;
     try {
         console.log('   正在同步当前源码与 assets 快照...');
         syncProjectSource(workerDir);
@@ -433,26 +366,19 @@ async function main(args = process.argv.slice(2)) {
         validateFreshWorkerDir(workerDir);
         console.log('   正在校验全新工位 assets 字节一致性...');
         assertAssetTreesByteIdentical(workerDir);
-        console.log('   正在从零生成并保持 AssetDB，直至 batch 构建结束...');
-        heldAssetDb = startHeldAssetDb(workerDir);
-        const ready = await waitForHeldAssetDb(heldAssetDb);
-        console.log('   AssetDB 常驻清单: scenes=' + ready.sceneCount + ', scripts=' + ready.scriptCount);
-        console.log('   batch 构建仅使用本次刚生成的 AssetDB，不读取历史 library/temp');
+        console.log('   正在从零生成 AssetDB，并在编辑器完全退出后启动 batch 构建...');
+        const ready = warmFreshWorkerAssetDb(workerDir);
+        console.log('   AssetDB 清单: scenes=' + ready.sceneCount + ', scripts=' + ready.scriptCount);
+        console.log('   batch 构建仅使用本次刚生成的 AssetDB，不与预热编辑器并发访问工位');
         runDirectRelease(workerDir, wechatCdnTarget.slot, {
             ...process.env,
-            COCOS_PREVIEW_PORT: process.env.COCOS_PREVIEW_PORT || '7556',
-            COCOS_PREVIEW_PORT_SCAN_COUNT: process.env.COCOS_PREVIEW_PORT_SCAN_COUNT || '1',
+            COCOS_PREVIEW_PORTS: process.env.COCOS_PREVIEW_PORTS || '1',
             WECHAT_CLEAN_COCOS_CACHE: '0',
             WECHAT_OPEN_DEVTOOLS: '0',
             WECHAT_WARM_COCOS_ASSETDB: '0',
         });
     } catch (error) {
         primaryError = error;
-    }
-    try {
-        if (heldAssetDb) await stopHeldAssetDb(heldAssetDb);
-    } catch (error) {
-        if (!primaryError) primaryError = error;
     }
     if (!primaryError) {
         try {

@@ -208,6 +208,7 @@ export function collectDebugPerfRuntimeSnapshot(runtime: any): PlainRecord {
             runtime.panelWin,
             runtime.panelLose,
             runtime.panelTimeoutContinue,
+            runtime.panelBufferFullContinue,
         ]),
         activeBoardTouchCount: getMapLikeSize(runtime.activeBoardTouches),
         placementVisualRefs: Math.max(0, Number(runtime._placementVisualRefs) || 0),

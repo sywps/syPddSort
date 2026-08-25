@@ -244,6 +244,11 @@ export function installSettlementHudModule(target: any): void {
             this._skillAnimOnly = false;
             this._activeSkillUsageGeneration = 0;
             try {
+                this._pchConveyorGameplayController?.releaseActiveSkillPause?.();
+            } catch (error) {
+                console.error('[Skill] conveyor release failed', error);
+            }
+            try {
                 if (typeof this.resumeSkillTimerPause === 'function') {
                     this.resumeSkillTimerPause();
                 } else {
@@ -258,6 +263,7 @@ export function installSettlementHudModule(target: any): void {
             } catch (error) {
                 console.error('[Skill] idle hint reset failed', error);
             }
+            this.syncSkillButtonRuntimeStates?.();
             this.ensureRewardedAdWarmSlot?.('skill-finished');
             return true;
         },
@@ -434,12 +440,10 @@ export function installSettlementHudModule(target: any): void {
 
             root.active = true;
             root.setSiblingIndex(Math.max(0, panel.children.length - 1));
-            settingsBtn.targetOff(this);
-            const settingsButton = settingsBtn.getComponent(Button) || settingsBtn.addComponent(Button);
-            settingsButton.node.on(Button.EventType.CLICK, () => {
+            this.bindResultPanelButtonWithScaledFallback(settingsBtn, panel, () => {
                 AudioMgr.inst.play('uiPanel');
                 this.openSettingsPanel?.();
-            }, this);
+            });
             goldLabel.string = `${this.getGold?.() ?? 0}`;
             this._settlementGoldCountLbl = goldLabel;
             return { settingsBtn, goldBox, coinIcon: goldBox };
@@ -630,11 +634,13 @@ export function installSettlementHudModule(target: any): void {
             };
             this.syncSettlementProgressWidget(this.panelLose, failStats);
             this.syncSettlementProgressWidget(this.panelTimeoutContinue, failStats);
+            this.syncSettlementProgressWidget(this.panelBufferFullContinue, failStats);
         },
 
         showLosePanel() {
             this.recordDynamicCountdownFinalFailure?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
+            if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
             this.updateLoseProgressLabel();
             if (this.panelLose) {
                 this.panelLose.active = true;
@@ -911,7 +917,7 @@ export function installSettlementHudModule(target: any): void {
             );
         },
 
-        gameLose() {
+        gameLose(reason: 'timeout' | 'buffer-full' = 'timeout') {
             if (this.isGameEnd) return;
             if (this.boardModel?.isAllLocked?.()) {
                 this.playPatternCompleteThenWin();
@@ -922,7 +928,7 @@ export function installSettlementHudModule(target: any): void {
             this.clearAdRewardHintVisuals?.();
             this.unschedule(this.tickTimer);
             this.trackFirstLevelFunnel('level_fail', {
-                source: 'gameLose',
+                source: reason === 'buffer-full' ? 'buffer_full' : 'gameLose',
                 success: false,
             });
             const logicalLevelId = this.getAnalyticsLevelId();
@@ -932,9 +938,17 @@ export function installSettlementHudModule(target: any): void {
             AudioMgr.inst.play('lose');
             const showLoseResult = () => {
                 this.updateLoseProgressLabel();
+                if (reason === 'buffer-full' && this.panelBufferFullContinue) {
+                    this.panelBufferFullContinue.active = true;
+                    this.panelBufferFullContinue.setSiblingIndex(999);
+                    if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
+                    if (this.panelLose) this.panelLose.active = false;
+                    return;
+                }
                 if (this.panelTimeoutContinue) {
                     this.panelTimeoutContinue.active = true;
                     this.panelTimeoutContinue.setSiblingIndex(999);
+                    if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
                     return;
                 }
@@ -984,11 +998,13 @@ export function installSettlementHudModule(target: any): void {
             }
         },
 
-        /** 看广告后继续游戏：恢复交互，但计时器需等重新选中豆豆后再开始 */
-        continueAfterLose(addSeconds: number) {
+        /** 看广告后继续游戏；超时复活等待重新选豆，满槽复活立即恢复原倒计时。 */
+        continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false) {
+            const timerWasStarted = !!this._timerStarted;
             this.revokeDynamicCountdownFinalFailure?.();
             this.markDynamicCountdownAssisted?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
+            if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
             if (this.panelLose) this.panelLose.active = false;
             this.timeRemain += addSeconds;
             if (this.timerLabel) {
@@ -1017,6 +1033,10 @@ export function installSettlementHudModule(target: any): void {
             this._adTimerSuspended = false;
             this.isGameEnd = false;
             this.unschedule(this.tickTimer);
+            if (resumeTimerImmediately && timerWasStarted && !this._currentLevelUnlimitedTime) {
+                this._timerStarted = true;
+                this.schedule(this.tickTimer, 1);
+            }
             this.resetIdleHintTimer();
         },
 

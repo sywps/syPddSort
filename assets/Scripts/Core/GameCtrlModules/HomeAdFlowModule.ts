@@ -1403,7 +1403,7 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         destroyGameplayResultOverlays(releaseResources: boolean = false) {
-            for (const panel of [this.panelWin, this.panelLose, this.panelTimeoutContinue]) {
+            for (const panel of [this.panelWin, this.panelLose, this.panelTimeoutContinue, this.panelBufferFullContinue]) {
                 if (panel?.isValid) {
                     if (releaseResources) {
                         this._clearSpriteFramesBeforeDestroy(panel);
@@ -1422,6 +1422,7 @@ export function installHomeAdFlowModule(target: any): void {
             this.panelWin = null!;
             this.panelLose = null!;
             this.panelTimeoutContinue = null!;
+            this.panelBufferFullContinue = null!;
         },
 
         drawHomeLevelPixelPreview(parent: Node, levelId: number, x: number, y: number) {
@@ -1513,9 +1514,12 @@ export function installHomeAdFlowModule(target: any): void {
             if (needsRevive && !this.panelTimeoutContinue?.isValid) {
                 this.panelTimeoutContinue = this.createReviveSettlementPanel();
             }
+            if (needsRevive && !this.panelBufferFullContinue?.isValid) {
+                this.panelBufferFullContinue = this.createBufferFullSettlementPanel();
+            }
             return (!needsWin || !!this.panelWin?.isValid)
                 && (!needsLose || !!this.panelLose?.isValid)
-                && (!needsRevive || !!this.panelTimeoutContinue?.isValid);
+                && (!needsRevive || (!!this.panelTimeoutContinue?.isValid && !!this.panelBufferFullContinue?.isValid));
         },
 
         instantiateResultOverlay(name: string): Node {
@@ -1534,8 +1538,16 @@ export function installHomeAdFlowModule(target: any): void {
             return ensureGameplayResultPanelController(this).createReviveSettlementPanel();
         },
 
+        createBufferFullSettlementPanel(): Node {
+            return ensureGameplayResultPanelController(this).createBufferFullSettlementPanel();
+        },
+
         bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number) {
             ensureGameplayResultPanelController(this).bindReviveContinueAction(triggerNode, overlay, rewardedSeconds);
+        },
+
+        bindResultPanelButtonWithScaledFallback(triggerNode: Node, overlay: Node, handler: () => void) {
+            ensureGameplayResultPanelController(this).bindPanelButtonWithScaledFallback(triggerNode, overlay, handler);
         },
 
         createLoseSettlementPanel(): Node {

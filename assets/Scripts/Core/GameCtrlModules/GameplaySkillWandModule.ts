@@ -35,9 +35,14 @@ export function installGameplaySkillWandModule(target: any): void {
 
         useSkillFreeze(timerAlreadyPaused: boolean = false) {
             if (this._skillActive) return;
-            if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
+            const pchController = this._pchConveyorGameplayController;
+            if (pchController?.isActive?.()) {
+                pchController.beginSkillUsePause?.('freeze');
+            } else if (!this._skillTimerPauseToken) {
+                this._skillTimerPauseToken = this.pauseTimerForProp('skill-freeze');
+            }
             PerformanceMgr.inst.markUserActivity(3500);
-            const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 180));
+            const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 90));
             this._freezeTimeLeft = freezeSeconds;
             this._freezeTimeTotal = freezeSeconds;
             this._skillActive = true;
@@ -611,6 +616,10 @@ export function installGameplaySkillWandModule(target: any): void {
         },
 
         useSkillClearSlot(timerAlreadyPaused: boolean = false, viewportAlreadyReset: boolean = false) {
+            const pchController = this._pchConveyorGameplayController;
+            if (pchController?.isActive?.()) {
+                return pchController.useClearBufferSkill(timerAlreadyPaused) === true;
+            }
             if (this._skillActive && !viewportAlreadyReset) return;
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             PerformanceMgr.inst.markUserActivity(8000);

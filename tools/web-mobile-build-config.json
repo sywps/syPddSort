@@ -1,0 +1,19 @@
+{
+  "platform": "web-mobile",
+  "taskName": "web-mobile-pch-conveyor",
+  "buildPath": "project://build",
+  "outputName": "web-mobile",
+  "debug": false,
+  "sourceMaps": false,
+  "md5Cache": false,
+  "mainBundleIsRemote": false,
+  "mainBundleCompressionType": "merge_dep",
+  "packages": {
+    "web-mobile": {
+      "resolution": {
+        "designWidth": 720,
+        "designHeight": 1280
+      }
+    }
+  }
+}

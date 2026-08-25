@@ -1202,7 +1202,7 @@ export function installGameplayPlacementFxModule(target: any): void {
 
         refreshFreezeTimerLabel() {
             if (!this.timerLabel || this._currentLevelUnlimitedTime) return;
-            this.timerLabel.string = this.formatTime(this.timeRemain);
+            this.timerLabel.string = `\u2744 ${this.formatTime(this.timeRemain)}`;
             this.timerLabel.color = new Color('#2E8EEA');
             const ln = this.timerLabel.node;
             Tween.stopAllByTarget(ln);
@@ -1216,6 +1216,12 @@ export function installGameplayPlacementFxModule(target: any): void {
             if (this._freezeTimeLeft <= 0) {
                 this._freezeTimeTotal = 0;
                 this.stopFreezeSpineFx?.(true);
+                if (this.timerLabel) {
+                    this.timerLabel.string = this.formatTime(this.timeRemain);
+                    this.timerLabel.color = this.timeRemain <= 30
+                        ? new Color('#D73D2B')
+                        : new Color('#2E241A');
+                }
             } else {
                 this.refreshFreezeTimerLabel();
             }

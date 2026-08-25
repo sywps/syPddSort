@@ -60,11 +60,13 @@ assert.ok(slotPolicy.includes('if (!isMainlineSlotEntry(entryMode)) return true;
 assert.ok(slotPolicy.includes('return normalizeLevelId(levelId) >= normalizeLevelId(unlockLevel);'), 'mainline gameplay skill unlock must still use the configured unlock level');
 
 const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
+const gameplaySkillMagnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillMagnetModule.ts');
+const gameplaySkillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful skill use must mark assisted run');
 assert.ok(skillUi.includes('const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;'), 'skill buttons must only pause the timer in the final-second prop window');
 assert.ok(skillUi.includes('this.invokeSkillHandler(skill, timerPausedForFinalSecond);'), 'skill handlers must receive the final-second pause state through the exception-safe invocation path');
 assert.ok(skillUi.includes('import { isGameplaySkillUnlocked, shouldShowGameplaySkillArea }'), 'skill UI must import the centralized skill unlock policy');
-assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, SKILL_UNLOCK_BROOM)'), 'slot-clear runtime refresh must use entry-aware skill unlock policy');
+assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, state.unlockLevel)'), 'all prop runtime refreshes must use entry-aware skill unlock policy');
 assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, skill.unlockLevel)'), 'skill button unlock branch must use entry-aware skill unlock policy');
 assert.ok(!skillUi.includes('currentLevel < SKILL_UNLOCK_BROOM'), 'slot-clear runtime refresh must not use a raw mainline level gate');
 assert.ok(!skillUi.includes('currentLevel < skill.unlockLevel'), 'skill button unlock branch must not use a raw mainline level gate');
@@ -89,7 +91,10 @@ assert.ok(skillUi.includes('this.restoreSkillNodeVisual(shell);'), 'disabled vis
 assert.ok(skillUi.includes('opacity.opacity = 255'), 'runtime-disabled slot-clear must keep full opacity');
 assert.ok(!skillUi.includes('opacity.opacity = available ? 255 : 138'), 'runtime-disabled slot-clear must not fade through opacity');
 assert.ok(skillUi.includes('syncSkillButtonRuntimeStates()'), 'skill UI must expose a runtime state sync path for slot changes');
-assert.ok(skillUi.includes("this.applySkillRuntimeAvailability(brushShell, runtime.slotHasBeans?.() === true);"), 'slot-clear runtime state must refresh from the slot model');
+assert.ok(skillUi.includes('this.applySkillRuntimeAvailability(shell, this.isSkillRuntimeAvailable(state));'), 'all prop runtime states must refresh after the shared skill lock changes');
+assert.ok(skillUi.includes('return this.invokeSkillHandler(skill, timerPausedForFinalSecond);'), 'rewarded prop grants must preserve the concrete skill start result');
+assert.ok(gameplaySkillMagnet.includes('return pchController.useClearColorSkill(timerAlreadyPaused) === true;'), 'PCH clear-color must return whether its effect actually started');
+assert.ok(gameplaySkillWand.includes('return pchController.useClearBufferSkill(timerAlreadyPaused) === true;'), 'PCH clear-buffer must return whether its effect actually started');
 assert.ok(skillUi.includes("private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const"), 'gameplay skill shell order must be color clear, slot clear, freeze');
 assert.ok(skillUi.includes("if (kind === 'freeze') return 'SkillFreeze';"), 'freeze skill must bind to the Game.scene SkillFreeze shell');
 assert.ok(skillUi.includes("kind: 'freeze' as const"), 'gameplay skill config must include freeze instead of wand');
@@ -171,11 +176,19 @@ assert.ok(timerModule.includes('this.stopFreezeSpineFx?.(true);'), 'freeze timer
 
 const skillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 assert.ok(skillWand.includes('this.pauseTimerForFinalSecondProp();'), 'wand/brush skill entries must not pause except in final-second prop window');
+assert.ok(skillWand.includes('Number(FREEZE_PROP_SECONDS) || 90'), 'freeze skill fallback must remain 90 seconds');
 assert.ok(skillWand.includes('this._freezeTimeLeft = freezeSeconds;'), 'freeze skill must set a freeze countdown duration');
 assert.ok(skillWand.includes('this.playFreezeSpineFx?.();'), 'freeze skill must trigger the freeze Spine effect');
 
 const skillMagnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillMagnetModule.ts');
 assert.ok(skillMagnet.includes('this.pauseTimerForFinalSecondProp();'), 'magnet skill entry must not pause except in final-second prop window');
+
+const gameCtrlShared = read('assets/Scripts/Core/GameCtrlShared.ts');
+assert.ok(gameCtrlShared.includes('const FREEZE_PROP_SECONDS = 90;'), 'freeze prop duration must remain 90 seconds');
+const economyConfig = read('assets/Scripts/Core/EconomyConfig.ts');
+assert.ok(economyConfig.includes('continueSeconds: 120,'), 'timeout revive rewarded ad must add 120 seconds');
+const revivePanelPrefab = read('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab');
+assert.ok(revivePanelPrefab.includes('"_string": "+120秒"'), 'timeout revive panel must display the 120-second reward');
 
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful slot-row unlock must mark assisted run');

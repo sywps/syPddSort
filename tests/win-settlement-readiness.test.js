@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const read = (relPath) => fs.readFileSync(path.join(root, relPath), 'utf8');
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const resultPanel = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const state = read('assets/Scripts/Core/GameCtrlState.ts');
 const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 
@@ -57,6 +58,40 @@ assert.match(
 assert.ok(
     !settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'),
     'win settlement must not wait for every full-board c1 callback before revealing',
+);
+assert.match(
+    resultPanel,
+    /this\.bindPanelButtonWithScaledFallback\(adBonusBtn, overlay, \(\) => \{\s*AudioMgr\.inst\.play\('button'\);\s*runtime\.claimWinAdBonusReward\(\);/,
+    'win 5x reward must remain clickable when gameplay UI coordinates are scaled',
+);
+assert.match(
+    resultPanel,
+    /createReviveSettlementPanel\(\)[\s\S]*?for \(const node of giveUpNodes\) \{\s*this\.bindPanelButtonWithScaledFallback\(node, overlay,/,
+    'timeout revive close actions must remain clickable when gameplay UI coordinates are scaled',
+);
+assert.match(
+    resultPanel,
+    /createBufferFullSettlementPanel\(\)[\s\S]*?for \(const node of giveUpNodes\) \{\s*this\.bindPanelButtonWithScaledFallback\(node, overlay,/,
+    'buffer-full close actions must remain clickable when gameplay UI coordinates are scaled',
+);
+assert.match(
+    resultPanel,
+    /this\.bindPanelButtonWithScaledFallback\(primaryBtn, overlay, runPrimaryAction\);/,
+    'win primary action must remain clickable when gameplay UI coordinates are scaled',
+);
+assert.match(
+    resultPanel,
+    /this\.bindPanelButtonWithScaledFallback\(homeBtn, overlay,[\s\S]*?this\.bindPanelButtonWithScaledFallback\(replayBtn, overlay,/,
+    'final lose home and replay actions must remain clickable when gameplay UI coordinates are scaled',
+);
+assert.ok(
+    settlement.includes('this.bindResultPanelButtonWithScaledFallback(settingsBtn, panel, () => {'),
+    'win settlement settings must remain clickable when gameplay UI coordinates are scaled',
+);
+assert.strictEqual(
+    (resultPanel.match(/runtime\.bindPanelButton\(/g) || []).length,
+    1,
+    'all result-panel actions must route through the shared scaled fallback binder',
 );
 
 console.log('win-settlement-readiness.test.js passed');

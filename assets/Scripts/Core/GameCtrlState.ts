@@ -53,6 +53,7 @@ export function initializeGameCtrlState(runtime: any): void {
         panelWin: null,
         panelLose: null,
         panelTimeoutContinue: null,
+        panelBufferFullContinue: null,
         _gameplayInitSeq: 0,
         _postPlayableWarmupSeq: 0,
         _postPlayableWarmupInitSeq: 0,

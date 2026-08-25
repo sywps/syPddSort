@@ -35,6 +35,7 @@ const LEGACY_TOP_HUD_NAMES = new Set([
     'WinSettlementGoldBox',
 ]);
 const SETTINGS_TEXTURE_NAME = '\u8bbe\u7f6e';
+const GAMEPLAY_SETTINGS_CENTER_Y = 591.564;
 const HOME_GOLD_BANNER_TEXTURE_NAME = '\u91d1\u5e01\u6846 (2)';
 const POPUP_CURRENCY_CHIP_TEXTURE_NAME = 'popup_currency_chip';
 
@@ -255,8 +256,27 @@ export function installTopHudModule(target: any): void {
 
             const settingsBtn = requireChild(root, SETTINGS_BUTTON_NAME, `${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}`);
             const settingsButton = getOrAddButton(settingsBtn);
+            if (mode === 'game') {
+                const settingsWidget = settingsBtn.getComponent(Widget);
+                if (!settingsWidget) throw new Error(`[TopHud] missing Widget on ${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}`);
+                settingsWidget.enabled = false;
+                settingsBtn.setPosition(settingsBtn.position.x, GAMEPLAY_SETTINGS_CENTER_Y, settingsBtn.position.z);
+            }
             const settingsIcon = requireChild(settingsBtn, SETTINGS_ICON_NAME, `${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}/${SETTINGS_ICON_NAME}`);
+            const iconState = settingsIcon as Node & { __topHudBaseScale?: { x: number; y: number; z: number } };
+            if (!iconState.__topHudBaseScale) {
+                iconState.__topHudBaseScale = {
+                    x: settingsIcon.scale.x,
+                    y: settingsIcon.scale.y,
+                    z: settingsIcon.scale.z,
+                };
+            }
             const settingsSprite = requireSprite(settingsIcon, `${TOP_HUD_ROOT_NAME}/${SETTINGS_BUTTON_NAME}/${SETTINGS_ICON_NAME}`);
+            settingsIcon.setScale(
+                iconState.__topHudBaseScale.x,
+                iconState.__topHudBaseScale.y,
+                iconState.__topHudBaseScale.z,
+            );
             if (!settingsSprite.spriteFrame && settingFrame) {
                 applyFrame(settingsSprite, settingFrame, `top-hud:${mode}:settings`);
             }
@@ -265,11 +285,12 @@ export function installTopHudModule(target: any): void {
             let goldBox: Node | null = null;
             let vigorBox: Node | null = null;
 
-            settingsBtn.targetOff(this);
-            settingsButton.node.on(Button.EventType.CLICK, () => {
+            const openSettings = () => {
                 AudioMgr.inst.play(mode === 'game' ? 'button' : 'uiPanel');
                 this.openSettingsPanel?.();
-            }, this);
+            };
+            settingsBtn.targetOff(this);
+            settingsButton.node.on(Button.EventType.CLICK, openSettings, this);
 
             if (mode === 'home' || mode === 'winSettlement') {
                 goldNode.active = true;

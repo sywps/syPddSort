@@ -16,6 +16,7 @@ import {
     UITransform,
     Vec2,
     Vec3,
+    Widget,
     view,
 } from './GameCtrlShared';
 import { BOARD_SLOT_BATCH_MAX_CELLS, BoardSlotBatchRenderer } from './BoardSlotBatchRenderer';
@@ -29,6 +30,33 @@ import {
 import { debugPerfSnapshot } from './DebugPerfTrace';
 
 const ZOOM_HINT_SCALE_HEADROOM = 0.06;
+const GAMEPLAY_TIMER_SCALE = 0.82;
+const GAMEPLAY_LEVEL_TITLE_FONT_SIZE = 24;
+const GAMEPLAY_LEVEL_TITLE_LINE_HEIGHT = 30;
+const GAMEPLAY_LEVEL_TITLE_WIDTH = 180;
+const GAMEPLAY_LEVEL_TITLE_HEIGHT = 38;
+const GAMEPLAY_LEVEL_TITLE_CENTER_Y = 660;
+const GAMEPLAY_TIMER_CENTER_Y = 608;
+
+export function applyGameplayLevelTitleLayout(node: Node, label: Label): void {
+    const nodeUi = node.getComponent(UITransform);
+    const labelUi = label.node.getComponent(UITransform);
+    if (!nodeUi || !labelUi) {
+        throw new Error(`[GameplayScene] level title is missing UITransform on ${node.name}`);
+    }
+    const widget = node.getComponent(Widget);
+    if (!widget) {
+        throw new Error(`[GameplayScene] level title is missing Widget on ${node.name}`);
+    }
+    widget.enabled = false;
+    node.setPosition(node.position.x, GAMEPLAY_LEVEL_TITLE_CENTER_Y, node.position.z);
+    node.setScale(1, 1, 1);
+    nodeUi.setContentSize(GAMEPLAY_LEVEL_TITLE_WIDTH, GAMEPLAY_LEVEL_TITLE_HEIGHT);
+    labelUi.setContentSize(GAMEPLAY_LEVEL_TITLE_WIDTH, GAMEPLAY_LEVEL_TITLE_HEIGHT);
+    label.fontSize = GAMEPLAY_LEVEL_TITLE_FONT_SIZE;
+    label.lineHeight = GAMEPLAY_LEVEL_TITLE_LINE_HEIGHT;
+    label.enableWrapText = false;
+}
 
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
@@ -439,6 +467,11 @@ export class GameplayViewController {
             return;
         }
         timerWrap.active = true;
+        const timerWidget = timerWrap.getComponent(Widget);
+        if (!timerWidget) throw new Error('[GameplayScene] Game.scene is missing Widget component on TimerWrap');
+        timerWidget.enabled = false;
+        timerWrap.setPosition(timerWrap.position.x, GAMEPLAY_TIMER_CENTER_Y, timerWrap.position.z);
+        timerWrap.setScale(GAMEPLAY_TIMER_SCALE, GAMEPLAY_TIMER_SCALE, 1);
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
@@ -463,6 +496,11 @@ export class GameplayViewController {
             return;
         }
         timerWrap.active = true;
+        const timerWidget = timerWrap.getComponent(Widget);
+        if (!timerWidget) throw new Error('[GameplayScene] Game.scene is missing Widget component on TimerWrap');
+        timerWidget.enabled = false;
+        timerWrap.setPosition(timerWrap.position.x, GAMEPLAY_TIMER_CENTER_Y, timerWrap.position.z);
+        timerWrap.setScale(GAMEPLAY_TIMER_SCALE, GAMEPLAY_TIMER_SCALE, 1);
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
@@ -482,6 +520,7 @@ export class GameplayViewController {
         const labelNode = node.getChildByName('Label') || node;
         const label = labelNode.getComponent(Label);
         if (!label) throw new Error(`[GameplayScene] Game.scene is missing Label component on ${useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1/Label' : 'TopBarGroup/LevelTitle/Label'}`);
+        applyGameplayLevelTitleLayout(node, label);
         runtime.levelLabel = label;
         runtime.refreshCompletionProgressLabel();
     }
@@ -605,7 +644,9 @@ export class GameplayViewController {
 
     getTouchUiPos(touch: any): Vec2 {
         const pos = touch.getUILocation();
-        return new Vec2(pos.x, pos.y);
+        return typeof this.runtime.normalizeGameplayUiPosition === 'function'
+            ? this.runtime.normalizeGameplayUiPosition(pos)
+            : new Vec2(pos.x, pos.y);
     }
 
     updateActiveBoardTouches(event: any, removeChanged: boolean = false): number {
@@ -752,8 +793,8 @@ export class GameplayViewController {
         const targetW = targetCols * step - runtime.cellGap + padding;
         const targetH = targetRows * step - runtime.cellGap + padding;
         const maxDim = Math.max(boardWidth, boardHeight);
-        const widthFitRatio = 0.95;
-        const heightFitRatio = maxDim >= 24 ? 0.84 : 0.9;
+        const widthFitRatio = 0.985;
+        const heightFitRatio = 0.985;
         const widthScale = availableW * widthFitRatio / Math.max(1, targetW);
         const heightScale = availableH * heightFitRatio / Math.max(1, targetH);
         const rawInitScale = Math.min(widthScale, heightScale);
@@ -771,7 +812,7 @@ export class GameplayViewController {
             minScale,
             Math.min(maxScale, Number.isFinite(rawInitScale) && rawInitScale > 0 ? rawInitScale : 1),
         );
-        const starterInitialScaleMultiplier = levelId === 1 ? 0.86 : (levelId === 2 ? 1.025 : 1);
+        const starterInitialScaleMultiplier = levelId === 2 ? 1.025 : 1;
         const zoomHintScaleHeadroom = runtime._activeGameplayGuideLayoutMode === 'zoom'
             ? Math.min(ZOOM_HINT_SCALE_HEADROOM, Math.max(0, (maxScale - minScale) / 2))
             : 0;

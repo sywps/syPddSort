@@ -8,7 +8,7 @@ import {
     Button, Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, NodePool, sp,
     Prefab, instantiate,
-    Game, game,
+    Game, game, Widget,
 } from 'cc';
 import type { AssetManager, EventMouse, EventTouch, LabelOutline } from 'cc';
 import { AdConfig } from '../Platform/AdConfig';
@@ -176,7 +176,7 @@ const LS_USER_STATE_UPDATED_AT = 'pdd.user.state.updatedAt';
 const LS_THEME_COMPLETED = 'pdd.theme_completed';
 const CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS = 800;
 const NEW_USER_STARTER_PROP_COUNT = 3;
-const FREEZE_PROP_SECONDS = 180;
+const FREEZE_PROP_SECONDS = 90;
 const MAX_FLY_BEAN_POOL_SIZE = 24;
 const MAX_FRAME_FX_POOL_SIZE = 12;
 const MAX_BRIGHT_FLASH_POOL_SIZE = 12;
@@ -608,7 +608,7 @@ export {
     Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask, sp,
-    NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
+    NodePool, Game, game, Widget, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     Prefab, instantiate,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,

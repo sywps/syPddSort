@@ -50,7 +50,8 @@ const THUMB_DIM_IDLE_OPACITY = 230;
 const THUMB_DIM_ACTIVE_OPACITY = 0;
 const CONTROL_IDLE_DELAY_SECONDS = 3;
 const CONTROL_IDLE_FADE_SECONDS = 0.5;
-const BOARD_ZOOM_CONTROL_VISIBLE = true;
+// Keep zoom gesture-only so the board remains unobstructed during play.
+const BOARD_ZOOM_CONTROL_VISIBLE = false;
 const BOARD_ZOOM_STEP_PROGRESS = 1 / 5;
 
 function clamp01(value: number): number {
@@ -225,8 +226,8 @@ export function installBoardZoomControlModule(target: any): void {
             thumb.active = true;
             if (thumbDim) thumbDim.active = true;
             locate.active = true;
-            if (plusGlyph) plusGlyph.active = true;
-            if (minusGlyph) minusGlyph.active = true;
+            if (plusGlyph) plusGlyph.active = false;
+            if (minusGlyph) minusGlyph.active = false;
             thumb.setSiblingIndex(track.children.length - 1);
 
             this.bindBoardZoomControlEvents();

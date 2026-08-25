@@ -102,7 +102,7 @@ const finishSkillMethod = extractObjectMethod(
 ).replace('expectedGeneration: number = 0', 'expectedGeneration = 0');
 const skillMethods = vm.runInNewContext(`({${freezeMethod},${finishSkillMethod}})`, {
     AudioMgr: { inst: { play() {} } },
-    FREEZE_PROP_SECONDS: 180,
+    FREEZE_PROP_SECONDS: 90,
     PerformanceMgr: { inst: { markUserActivity() {} } },
 });
 
@@ -159,23 +159,35 @@ assert.strictEqual(nestedTimerLockRuntime._timerLockedForProp, false, 'an extra 
 function createFreezeRuntime(playFreezeSpineFx) {
     const scheduled = [];
     let resumeCount = 0;
+    let skillButtonSyncCount = 0;
     const runtime = {
         ...skillMethods,
         _skillActive: false,
         _skillAnimOnly: false,
+        _skillTimerPauseToken: '',
         _timerLockedForProp: true,
+        pauseTimerForProp() { return 'timer:skill-freeze'; },
         pauseTimerForFinalSecondProp() {},
         resetIdleHintTimer() {},
         refreshFreezeTimerLabel() {},
         playFreezeSpineFx,
-        resumeTimerForProp() { resumeCount += 1; },
+        syncSkillButtonRuntimeStates() { skillButtonSyncCount += 1; },
+        resumeSkillTimerPause() {
+            this._skillTimerPauseToken = '';
+            resumeCount += 1;
+        },
         scheduleOnce(callback) { scheduled.push(callback); },
         unschedule(callback) {
             const index = scheduled.indexOf(callback);
             if (index >= 0) scheduled.splice(index, 1);
         },
     };
-    return { runtime, scheduled, getResumeCount: () => resumeCount };
+    return {
+        runtime,
+        scheduled,
+        getResumeCount: () => resumeCount,
+        getSkillButtonSyncCount: () => skillButtonSyncCount,
+    };
 }
 
 const failedFreeze = createFreezeRuntime(() => {
@@ -194,6 +206,7 @@ assert.strictEqual(completedFreeze.scheduled.length, 1);
 completedFreeze.scheduled[0]();
 assert.strictEqual(completedFreeze.runtime._skillActive, false);
 assert.strictEqual(completedFreeze.getResumeCount(), 1, 'normal freeze activation must release the timer exactly once');
+assert.strictEqual(completedFreeze.getSkillButtonSyncCount(), 1, 'freeze activation completion must restore the other prop buttons');
 
 const skillTimers = [];
 const settlementModule = { exports: {} };

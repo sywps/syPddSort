@@ -16,6 +16,14 @@ const output = ts.transpileModule(source, {
     },
 }).outputText;
 const timers = [];
+class TestColor {
+    constructor(value) {
+        this.value = value;
+    }
+}
+class TestTween {
+    static stopAllByTarget() {}
+}
 const sandbox = {
     exports: {},
     module: { exports: {} },
@@ -31,7 +39,9 @@ const sandbox = {
         }
         if (request === '../GameCtrlShared') {
             return new Proxy({}, {
-                get() {
+                get(_target, key) {
+                    if (key === 'Color') return TestColor;
+                    if (key === 'Tween') return TestTween;
                     return class RuntimeStub {};
                 },
             });
@@ -115,5 +125,24 @@ const staleDeadline = timers.filter((timer) => timer.delay === 3000 && !timer.cl
 runtime.clearPlacementVisualState();
 assert.strictEqual(staleDeadline.cleared, true, 'scene/reset cleanup must cancel placement watchdog timers');
 assert.strictEqual(runtime._placementVisualRefs, 0);
+
+runtime.formatTime = (seconds) => `04:${String(seconds % 60).padStart(2, '0')}`;
+runtime.timeRemain = 240;
+runtime._currentLevelUnlimitedTime = false;
+runtime._freezeTimeLeft = 2;
+runtime._freezeTimeTotal = 2;
+runtime.timerLabel = {
+    string: '04:00',
+    color: null,
+    node: { setScale() {} },
+};
+runtime.refreshFreezeTimerLabel();
+assert.strictEqual(runtime.timerLabel.string, '\u2744 04:00', 'active freeze must show a snowflake in the timer bar');
+assert.strictEqual(runtime.timerLabel.color.value, '#2E8EEA', 'active freeze must use the frozen timer color');
+assert.strictEqual(runtime.tickFreezeTimer(), true);
+assert.strictEqual(runtime.timerLabel.string, '\u2744 04:00', 'the freeze marker must remain while frozen time remains');
+assert.strictEqual(runtime.tickFreezeTimer(), true);
+assert.strictEqual(runtime.timerLabel.string, '04:00', 'the timer bar must restore its normal text when freeze ends');
+assert.strictEqual(runtime.timerLabel.color.value, '#2E241A', 'the timer bar must restore its normal color when freeze ends');
 
 console.log('placement-fx-stagger.test.js passed');

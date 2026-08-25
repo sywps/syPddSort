@@ -113,8 +113,9 @@ assert.ok(source.includes("WECHAT_CLEAN_COCOS_CACHE: '0'"), 'batch build must pr
 assert.ok(source.includes("WECHAT_WARM_COCOS_ASSETDB: '0'"), 'batch build must reuse only the fresh same-run warmup');
 assert.ok(source.includes("WECHAT_OPEN_DEVTOOLS: '0'"), 'worker build must not open DevTools on a disposable path');
 assert.ok(source.includes('maybeOpenWorkspaceWechatDevtools();'), 'auto-open must target the returned workspace package');
-assert.ok(source.includes("'--hold', readyPath, resultPath"), 'release runner must keep the normal-editor AssetDB alive through batch build');
-assert.ok(source.includes("COCOS_PREVIEW_PORT: process.env.COCOS_PREVIEW_PORT || '7556'"), 'held editor and batch preview guards must use separate ports');
+assert.ok(source.includes('warmFreshWorkerAssetDb(workerDir)'), 'release runner must finish a fresh normal-editor warmup before batch build');
+assert.ok(!source.includes("'--hold', readyPath, resultPath"), 'release runner must not run two Cocos instances against one worker concurrently');
+assert.ok(source.includes("COCOS_PREVIEW_PORTS: process.env.COCOS_PREVIEW_PORTS || '1'"), 'isolated worker guard must not inspect unrelated workspace preview ports');
 assert.ok(source.includes("PDD_COCOS_ASSETDB_FORCE_REFRESH: '1'"), 'fresh worker warmup must always force a new AssetDB import');
 assert.ok(source.includes('getWorkerAssetDbContractErrors'), 'worker readiness must validate imported scene contents, not only inventory counts');
 assert.ok(source.includes('function canUseRsync()'), 'release runner must detect whether rsync is available');
@@ -123,20 +124,18 @@ assert.ok(source.includes('copyDirectoryContents(projectDir, workerDir'), 'relea
 assert.ok(source.includes('replaceDirectoryContents(sourceDir, targetDir);'), 'release runner must have a Node output-sync fallback');
 const syncIndex = source.indexOf('syncProjectSource(workerDir);');
 const byteCheckIndex = source.indexOf('assertAssetTreesByteIdentical(workerDir);', syncIndex);
-const startHeldIndex = source.indexOf('heldAssetDb = startHeldAssetDb(workerDir);');
-const directBuildIndex = source.indexOf('runDirectRelease(workerDir, wechatCdnTarget.slot, {', startHeldIndex);
-const stopHeldIndex = source.indexOf('await stopHeldAssetDb(heldAssetDb);', directBuildIndex);
-const cleanupIndex = source.indexOf('cleanupFreshWorkerDir(workerDir);', stopHeldIndex);
+const warmWorkerIndex = source.indexOf('const ready = warmFreshWorkerAssetDb(workerDir);');
+const directBuildIndex = source.indexOf('runDirectRelease(workerDir, wechatCdnTarget.slot, {', warmWorkerIndex);
+const cleanupIndex = source.indexOf('cleanupFreshWorkerDir(workerDir);', directBuildIndex);
 const openDevtoolsIndex = source.indexOf('maybeOpenWorkspaceWechatDevtools();', cleanupIndex);
 assert.ok(
     syncIndex >= 0
         && byteCheckIndex > syncIndex
-        && startHeldIndex > byteCheckIndex
-        && directBuildIndex > startHeldIndex
-        && stopHeldIndex > directBuildIndex
-        && cleanupIndex > stopHeldIndex
+        && warmWorkerIndex > byteCheckIndex
+        && directBuildIndex > warmWorkerIndex
+        && cleanupIndex > directBuildIndex
         && openDevtoolsIndex > cleanupIndex,
-    'fresh source sync and byte check must precede a held same-run AssetDB, batch build, and cleanup',
+    'fresh source sync and byte check must precede a completed same-run AssetDB warmup, batch build, and cleanup',
 );
 
 const buildWechat = read('scripts/build-wechat.js');

@@ -10,6 +10,7 @@ import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { collectActiveBlockInputEvents } from './DebugPerfTrace';
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
+import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
@@ -18,6 +19,7 @@ export class GameplaySessionController {
 
     initGame(data: LevelData, activeLevelId?: number) {
         const runtime = this.runtime;
+        const usePchCoreGameplay = true;
         let initStage = 'runtime_reset';
         let resolvedLevelId = Math.max(1, Math.floor(Number(activeLevelId || data?.levelId) || 1));
         let activeLogicalLevelId = resolvedLevelId;
@@ -25,6 +27,7 @@ export class GameplaySessionController {
         let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
         let tutorialMode: TutorialMode = 'none';
         try {
+            ensurePchConveyorGameplayController(runtime).stop();
             runtime.cancelRewardedGrantInteraction?.('gameplay-init');
             for (const scope of ['modal', 'timer', 'placement', 'placement-input', 'guide', 'ad']) {
                 runtime.clearRuntimeOwners?.(scope);
@@ -60,7 +63,7 @@ export class GameplaySessionController {
             activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
-            tutorialMode = gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
+            tutorialMode = !usePchCoreGameplay && gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
                 ? this.resolveTutorialMode(data)
                 : 'none';
             if (gameplayEntryMode === 'main' && activeLogicalLevelId === 1) {
@@ -174,6 +177,10 @@ export class GameplaySessionController {
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
             initStage = 'visual_readiness';
             runtime.assertGameplayVisualReadiness();
+            if (usePchCoreGameplay) {
+                initStage = 'pch_core_gameplay';
+                ensurePchConveyorGameplayController(runtime).start();
+            }
             initStage = 'loading_release';
             runtime.reportFirstLevelReleaseState?.('before_loading_hide');
             runtime.hideLoadingOverlayAfterGameplayReady?.();
@@ -184,7 +191,7 @@ export class GameplaySessionController {
                 runtime.recordMainlineLevelEntry(activeLogicalLevelId);
             }
             this.clearGameplayReadyRouteCover();
-            runtime.refreshEndgameHints('init-game');
+            if (!usePchCoreGameplay) runtime.refreshEndgameHints('init-game');
             const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
             const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
             if (runtime.isFirstLevelFunnelActive()) {
@@ -213,7 +220,7 @@ export class GameplaySessionController {
             runtime.onGameplayUiReadyForStartupServices?.();
             runtime.startPostPlayableWarmup?.('gameplay-ready');
 
-            if (runtime.needsBeanReRender()) {
+            if (!usePchCoreGameplay && runtime.needsBeanReRender()) {
                 runtime.scheduleOnce(() => {
                     runtime.renderBoard();
                 }, 0.5);
@@ -222,7 +229,7 @@ export class GameplaySessionController {
             runtime._timerStarted = false;
             runtime._adTimerSuspended = false;
 
-            runtime.resetIdleHintTimer();
+            if (!usePchCoreGameplay) runtime.resetIdleHintTimer();
             const analyticsLevelId = runtime.getAnalyticsLevelId();
             const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
             initStage = 'level_analytics';
@@ -236,7 +243,7 @@ export class GameplaySessionController {
                 abBucket: experimentAnalyticsContext?.abBucket,
             });
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
-            if (gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
+            if (!usePchCoreGameplay && gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
                 if (tutorialMode !== 'none') {
                     SySDKMgr.inst.reportTutorialStart();
                     runtime.reportFirstLevelReleaseState?.('before_tutorial');
@@ -327,6 +334,7 @@ export class GameplaySessionController {
         };
 
         runtime.isGameEnd = true;
+        runCleanup('pch-core', () => ensurePchConveyorGameplayController(runtime).stop());
         runCleanup('tutorial', () => this.clearTutorialRuntimeState(runtime));
         runCleanup('callbacks', () => runtime.unscheduleAllCallbacks?.());
         runCleanup('timer', () => runtime.unschedule?.(runtime.tickTimer));

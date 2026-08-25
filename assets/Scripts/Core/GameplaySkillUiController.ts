@@ -15,6 +15,7 @@ import {
     UIOpacity,
     UITransform,
     Vec3,
+    Widget,
 } from './GameCtrlShared';
 import { isGameplaySkillUnlocked, shouldShowGameplaySkillArea } from './SlotOnboardingPolicy';
 
@@ -25,10 +26,14 @@ type GameplaySkillConfig = {
     unlockLevel: number;
     lsKey: string;
     preCheck?: () => boolean;
-    handler: (timerAlreadyPaused?: boolean) => void;
+    handler: (timerAlreadyPaused?: boolean) => boolean | void;
 };
 
 export class GameplaySkillUiController {
+    private static readonly COMPACT_SKILL_SCALE = 0.72;
+    private static readonly COMPACT_SKILL_CENTER_Y = -575;
+    private static readonly COMPACT_SKILL_SPACING_X = 150;
+    private static readonly COMPACT_SKILL_BADGE_Y = 30;
     constructor(private readonly runtime: any) {}
 
     private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const;
@@ -143,15 +148,19 @@ export class GameplaySkillUiController {
     }
 
     private isSkillRuntimeAvailable(skill: Pick<GameplaySkillConfig, 'kind' | 'preCheck'>): boolean {
+        const pchController = this.runtime._pchConveyorGameplayController;
+        if (pchController?.isActive?.() && pchController.isSkillBusy?.()) {
+            return false;
+        }
         if (skill.kind === 'brush' && skill.preCheck && !skill.preCheck()) {
             return false;
         }
         return true;
     }
 
-    private invokeSkillHandler(skill: GameplaySkillConfig, timerAlreadyPaused: boolean): void {
+    private invokeSkillHandler(skill: GameplaySkillConfig, timerAlreadyPaused: boolean): boolean {
         try {
-            skill.handler(timerAlreadyPaused);
+            return skill.handler(timerAlreadyPaused) !== false;
         } catch (error) {
             const runtime = this.runtime;
             if (runtime._skillActive || runtime._timerLockedForProp) {
@@ -250,8 +259,7 @@ export class GameplaySkillUiController {
             return false;
         }
         runtime.markDynamicCountdownAssisted?.();
-        this.invokeSkillHandler(skill, timerPausedForFinalSecond);
-        return true;
+        return this.invokeSkillHandler(skill, timerPausedForFinalSecond);
     }
 
     syncSkillButtonRuntimeStates() {
@@ -264,10 +272,22 @@ export class GameplaySkillUiController {
         const entryMode = runtime._activeGameplayEntryMode
             || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
         if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) return;
-        if (!isGameplaySkillUnlocked(currentLevel, entryMode, SKILL_UNLOCK_BROOM)) return;
-        const brushShell = root.getChildByName('SkillBrush');
-        if (!brushShell?.isValid || !brushShell.active) return;
-        this.applySkillRuntimeAvailability(brushShell, runtime.slotHasBeans?.() === true);
+        const states: Array<{
+            kind: GameplaySkillKind;
+            shellName: string;
+            unlockLevel: number;
+            preCheck?: () => boolean;
+        }> = [
+            { kind: 'magnet', shellName: 'SkillMagnet', unlockLevel: SKILL_UNLOCK_MAGNET },
+            { kind: 'brush', shellName: 'SkillBrush', unlockLevel: SKILL_UNLOCK_BROOM, preCheck: () => runtime.slotHasBeans?.() === true },
+            { kind: 'freeze', shellName: 'SkillFreeze', unlockLevel: SKILL_UNLOCK_FREEZE },
+        ];
+        for (const state of states) {
+            if (!isGameplaySkillUnlocked(currentLevel, entryMode, state.unlockLevel)) continue;
+            const shell = root.getChildByName(state.shellName);
+            if (!shell?.isValid || !shell.active) continue;
+            this.applySkillRuntimeAvailability(shell, this.isSkillRuntimeAvailable(state));
+        }
     }
 
     buildSkillButtons(root: Node) {
@@ -295,6 +315,30 @@ export class GameplaySkillUiController {
         for (let i = 0; i < skills.length; i++) {
             const skill = skills[i];
             const shell = runtime.requireUiChild(root, this.getSkillShellName(skill.kind), `SkillArea/${this.getSkillShellName(skill.kind)}`);
+            const shellWidget = shell.getComponent(Widget);
+            if (!shellWidget) {
+                throw new Error(`[GameplayScene] Game.scene is missing Widget component on SkillArea/${shell.name}`);
+            }
+            shellWidget.enabled = false;
+            shell.setPosition(
+                (i - (skills.length - 1) / 2) * GameplaySkillUiController.COMPACT_SKILL_SPACING_X,
+                GameplaySkillUiController.COMPACT_SKILL_CENTER_Y,
+                shell.position.z,
+            );
+            shell.setScale(
+                GameplaySkillUiController.COMPACT_SKILL_SCALE,
+                GameplaySkillUiController.COMPACT_SKILL_SCALE,
+                1,
+            );
+            for (const badgeName of ['AdPlayIcon', 'CountBadge']) {
+                const badge = shell.getChildByName(badgeName);
+                if (!badge?.isValid) continue;
+                badge.setPosition(
+                    badge.position.x,
+                    GameplaySkillUiController.COMPACT_SKILL_BADGE_Y,
+                    badge.position.z,
+                );
+            }
             const shellOpacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
             this.configureSkillShell(shell);
             const button = shell.getComponent(Button) || shell.addComponent(Button);
@@ -372,7 +416,11 @@ export class GameplaySkillUiController {
                 }
                 runtime.markDynamicCountdownAssisted?.();
                 this.rebuildSkillButtonsUI();
-                this.invokeSkillHandler(skill, timerPausedForFinalSecond);
+                if (!this.invokeSkillHandler(skill, timerPausedForFinalSecond)) {
+                    runtime.addPropCount(skill.kind, 1);
+                    this.rebuildSkillButtonsUI();
+                    runtime.showToast('道具暂时无法使用，请重试');
+                }
             }, runtime);
         }
     }

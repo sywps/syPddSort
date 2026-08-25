@@ -1,0 +1,145 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const ts = require('typescript');
+
+const projectRoot = path.resolve(__dirname, '..');
+const sourcePath = path.join(projectRoot, 'assets/Scripts/Core/GameplaySkillUiController.ts');
+const source = fs.readFileSync(sourcePath, 'utf8');
+const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+    },
+    fileName: sourcePath,
+    reportDiagnostics: true,
+});
+assert.equal(
+    (compiled.diagnostics || []).length,
+    0,
+    (compiled.diagnostics || []).map((item) => item.messageText).join('\n'),
+);
+
+class FakeButton {}
+class FakeLabel {}
+class FakeSprite {}
+class FakeUIOpacity {}
+class FakeColor {
+    constructor(r = 255, g = 255, b = 255, a = 255) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
+    }
+}
+
+const loadedModule = { exports: {} };
+const load = new Function('module', 'exports', 'require', compiled.outputText);
+load(loadedModule, loadedModule.exports, (request) => {
+    if (request === './SlotOnboardingPolicy') {
+        return {
+            isGameplaySkillUnlocked: () => true,
+            shouldShowGameplaySkillArea: () => true,
+        };
+    }
+    if (request === './GameCtrlShared') {
+        return new Proxy({
+            Button: FakeButton,
+            Color: FakeColor,
+            Label: FakeLabel,
+            Sprite: FakeSprite,
+            UIOpacity: FakeUIOpacity,
+            SKILL_UNLOCK_MAGNET: 1,
+            SKILL_UNLOCK_BROOM: 1,
+            SKILL_UNLOCK_FREEZE: 1,
+        }, {
+            get(target, key) {
+                if (key in target) return target[key];
+                return class RuntimeStub {};
+            },
+        });
+    }
+    throw new Error(`unexpected skill UI dependency: ${request}`);
+});
+
+function createSkillShell(name) {
+    const button = { enabled: true };
+    const opacity = { opacity: 255 };
+    return {
+        name,
+        isValid: true,
+        active: true,
+        children: [],
+        button,
+        getChildByName() { return null; },
+        getComponent(type) {
+            if (type === FakeButton) return button;
+            if (type === FakeUIOpacity) return opacity;
+            return null;
+        },
+        addComponent(type) {
+            if (type === FakeUIOpacity) return opacity;
+            return null;
+        },
+    };
+}
+
+const shells = new Map([
+    ['SkillMagnet', createSkillShell('SkillMagnet')],
+    ['SkillBrush', createSkillShell('SkillBrush')],
+    ['SkillFreeze', createSkillShell('SkillFreeze')],
+]);
+const root = {
+    isValid: true,
+    getChildByName(name) { return shells.get(name) || null; },
+};
+let skillBusy = true;
+let bufferHasBeans = true;
+const runtime = {
+    levelData: {},
+    isGameEnd: false,
+    _guideStep: -1,
+    _skillActive: false,
+    _activeGameplayEntryMode: 'main',
+    _pchConveyorGameplayController: {
+        isActive: () => true,
+        isSkillBusy: () => skillBusy,
+    },
+    getGameplayBottomHudChild: () => root,
+    getActiveLogicalLevelId: () => 12,
+    slotHasBeans: () => bufferHasBeans,
+    isPlacementVisualBusy: () => false,
+    pauseTimerForFinalSecondProp: () => false,
+    markDynamicCountdownAssisted() {},
+};
+const controller = new loadedModule.exports.GameplaySkillUiController(runtime);
+
+controller.syncSkillButtonRuntimeStates();
+for (const shell of shells.values()) {
+    assert.equal(shell.button.enabled, false, `${shell.name} must be disabled while a skill is applying`);
+}
+
+skillBusy = false;
+controller.syncSkillButtonRuntimeStates();
+for (const shell of shells.values()) {
+    assert.equal(shell.button.enabled, true, `${shell.name} must be restored after the skill lock is released`);
+}
+
+bufferHasBeans = false;
+controller.syncSkillButtonRuntimeStates();
+assert.equal(shells.get('SkillMagnet').button.enabled, true, 'clear-color must remain available without buffered beans');
+assert.equal(shells.get('SkillFreeze').button.enabled, true, 'freeze must remain available without buffered beans');
+assert.equal(shells.get('SkillBrush').button.enabled, false, 'clear-buffer must disable only when the conveyor is empty');
+
+const rejectedGrant = controller.useSkillFromAdGrant({
+    kind: 'magnet',
+    label: '消色',
+    unlockLevel: 1,
+    lsKey: 'test',
+    handler: () => false,
+});
+assert.equal(rejectedGrant, false, 'a PCH skill that did not start must keep the rewarded grant from reporting success');
+
+console.log('gameplay-skill-runtime-state.test.js passed');

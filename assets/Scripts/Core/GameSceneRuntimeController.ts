@@ -21,6 +21,7 @@ import { markStartupTrace } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { applyGameplayLevelTitleLayout } from './GameplayViewController';
 
 let weChatUpdateManagerBound = false;
 
@@ -470,6 +471,7 @@ export class GameSceneRuntimeController {
         if (!label) {
             throw new Error(`[GameScene] pending startup title is missing Label component on ${useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1/Label' : 'TopBarGroup/LevelTitle/Label'}`);
         }
+        applyGameplayLevelTitleLayout(titleNode, label);
         label.string = `第${levelId}关`;
         this.runtime.levelLabel = label;
         const timerWrap = topBar.getChildByName('TimerWrap');
@@ -497,6 +499,7 @@ export class GameSceneRuntimeController {
     update(dt: number): void {
         debugPerfFrameStep(this.runtime, dt);
         this.runtime.vigorTick(dt);
+        this.runtime._pchConveyorGameplayController?.update?.(dt);
     }
 
     destroy(): void {
@@ -523,6 +526,7 @@ export class GameSceneRuntimeController {
         this.runtime.stopPulseTweens();
         this.runtime.clearBeanSettleMatchFx?.();
         this.runtime.clearPatternCompleteMatchFx?.();
+        this.runtime._pchConveyorGameplayController?.stop?.();
         this.runtime.clearIdleHint();
         this.runtime.clearSelectionOverlay();
         this.runtime.clearDragNodes();

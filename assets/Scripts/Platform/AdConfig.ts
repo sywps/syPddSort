@@ -96,6 +96,9 @@ export class AdConfig extends Component {
     }
 
     public static getRewardedAdMode(): RewardedAdMode {
+        if (AdConfig.isLocalBrowserRuntime()) {
+            return AdConfig.getRewardedAdMockOverride() || 'mock-success';
+        }
         if (getMiniGameBuildPlatform() !== 'wechat') return 'native';
         const mockOverride = AdConfig.getRewardedAdMockOverride();
         if (mockOverride && AdConfig.canUseRewardedAdMockOverride()) return mockOverride;
@@ -120,7 +123,20 @@ export class AdConfig extends Component {
     }
 
     private static canUseRewardedAdMockOverride(): boolean {
-        return AdConfig.isWeChatDeveloperToolRuntime() || getMiniGameBuildMode() !== 'release';
+        return AdConfig.isLocalBrowserRuntime()
+            || AdConfig.isWeChatDeveloperToolRuntime()
+            || getMiniGameBuildMode() !== 'release';
+    }
+
+    private static isLocalBrowserRuntime(): boolean {
+        try {
+            const scope = typeof globalThis !== 'undefined' ? (globalThis as any) : null;
+            const location = scope?.location || scope?.window?.location;
+            const hostname = String(location?.hostname || '').toLowerCase();
+            return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+        } catch {
+            return false;
+        }
     }
 
     private static getLaunchQueryValue(name: string): string {
