@@ -2,16 +2,14 @@ import {
     AnalyticsMgr,
     AudioMgr,
     BoardModel,
-    SLOTS_PER_ROW,
-    SlotModel,
     SySDKMgr,
 } from './GameCtrlShared';
 import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { collectActiveBlockInputEvents } from './DebugPerfTrace';
+import { validateConveyorCapacity } from './LevelConfig';
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
-import { resolveSlotOnboardingTimeLimit, resolveSlotRowPolicy } from './SlotOnboardingPolicy';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
 export class GameplaySessionController {
@@ -19,7 +17,6 @@ export class GameplaySessionController {
 
     initGame(data: LevelData, activeLevelId?: number) {
         const runtime = this.runtime;
-        const usePchCoreGameplay = true;
         let initStage = 'runtime_reset';
         let resolvedLevelId = Math.max(1, Math.floor(Number(activeLevelId || data?.levelId) || 1));
         let activeLogicalLevelId = resolvedLevelId;
@@ -63,9 +60,6 @@ export class GameplaySessionController {
             activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
-            tutorialMode = !usePchCoreGameplay && gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()
-                ? this.resolveTutorialMode(data)
-                : 'none';
             if (gameplayEntryMode === 'main' && activeLogicalLevelId === 1) {
                 runtime.beginFirstLevelReleaseDiagnostics?.();
             }
@@ -83,33 +77,14 @@ export class GameplaySessionController {
             runtime._firstLevelGuideLayerTouchCounts = {};
             runtime._pendingTutorialInteractiveReadyStep = -1;
             runtime._interactionTouchAttemptCount = 0;
+            initStage = 'conveyor_capacity';
+            validateConveyorCapacity(data.conveyorCapacity, `level ${resolvedLevelId}`);
             initStage = 'model_build';
             runtime.boardModel = new BoardModel(data);
-            initStage = 'slot_policy';
-            const maxSlotRows = runtime.getMaxSlotRows();
-            const slotPolicy = resolveSlotRowPolicy({
-                levelId: activeLogicalLevelId,
-                entryMode: gameplayEntryMode,
-                maxRows: maxSlotRows,
-                configuredSlotPolicy: data.slotPolicy,
-            });
-            runtime._activeSlotRowPolicy = slotPolicy;
-            runtime.slotUnlockedRows = slotPolicy.unlockedRows;
-            const initialVisibleSlotRows = Math.min(
-                slotPolicy.rowCount,
-                Math.max(1, slotPolicy.unlockedRows) + (slotPolicy.unlockedRows < slotPolicy.rowCount ? 1 : 0),
-            );
-            runtime.slotRowCount = initialVisibleSlotRows;
-            runtime.initialSlotRowCount = runtime.slotRowCount;
-            initStage = 'slot_model';
-            runtime.slotModel = new SlotModel(SLOTS_PER_ROW * runtime.slotRowCount);
-            runtime.slotModel.unlockedCount = SLOTS_PER_ROW * runtime.slotUnlockedRows;
+            runtime.slotModel = null;
+            runtime._activeSlotRowPolicy = null;
             initStage = 'time_policy';
-            const resolvedTimeLimit = resolveSlotOnboardingTimeLimit({
-                levelId: activeLogicalLevelId,
-                entryMode: gameplayEntryMode,
-                configuredTimeLimit: data.timeLimit,
-            });
+            const resolvedTimeLimit = Math.max(0, Math.floor(Number(data.timeLimit) || 0));
             const resolvedDynamicTimeLimit = typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
                 ? runtime.resolveDynamicCountdownTimeLimit({
                     levelId: activeLogicalLevelId,
@@ -172,18 +147,16 @@ export class GameplaySessionController {
             runtime.buildUI();
             initStage = 'board_render';
             runtime.renderBoard();
-            initStage = 'slot_render';
-            runtime.renderSlots();
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
+            initStage = 'pch_core_gameplay';
+            ensurePchConveyorGameplayController(runtime).start();
             initStage = 'visual_readiness';
             runtime.assertGameplayVisualReadiness();
-            if (usePchCoreGameplay) {
-                initStage = 'pch_core_gameplay';
-                ensurePchConveyorGameplayController(runtime).start();
-            }
             initStage = 'loading_release';
             runtime.reportFirstLevelReleaseState?.('before_loading_hide');
             runtime.hideLoadingOverlayAfterGameplayReady?.();
+            initStage = 'opening_pattern_transition';
+            ensurePchConveyorGameplayController(runtime).playOpeningPatternShuffle();
             runtime.reportFirstLevelReleaseState?.('after_loading_hide');
             AudioMgr.inst.playGameBgm();
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
@@ -191,7 +164,6 @@ export class GameplaySessionController {
                 runtime.recordMainlineLevelEntry(activeLogicalLevelId);
             }
             this.clearGameplayReadyRouteCover();
-            if (!usePchCoreGameplay) runtime.refreshEndgameHints('init-game');
             const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
             const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
             if (runtime.isFirstLevelFunnelActive()) {
@@ -220,16 +192,10 @@ export class GameplaySessionController {
             runtime.onGameplayUiReadyForStartupServices?.();
             runtime.startPostPlayableWarmup?.('gameplay-ready');
 
-            if (!usePchCoreGameplay && runtime.needsBeanReRender()) {
-                runtime.scheduleOnce(() => {
-                    runtime.renderBoard();
-                }, 0.5);
-            }
             runtime.unschedule(runtime.tickTimer);
             runtime._timerStarted = false;
             runtime._adTimerSuspended = false;
 
-            if (!usePchCoreGameplay) runtime.resetIdleHintTimer();
             const analyticsLevelId = runtime.getAnalyticsLevelId();
             const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
             initStage = 'level_analytics';
@@ -243,19 +209,6 @@ export class GameplaySessionController {
                 abBucket: experimentAnalyticsContext?.abBucket,
             });
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
-            if (!usePchCoreGameplay && gameplayEntryMode === 'main' && !runtime.isExternalLevelPreviewActive()) {
-                if (tutorialMode !== 'none') {
-                    SySDKMgr.inst.reportTutorialStart();
-                    runtime.reportFirstLevelReleaseState?.('before_tutorial');
-                    initStage = 'tutorial_start';
-                    runtime.startTutorial(tutorialMode);
-                    runtime.reportFirstLevelReleaseState?.('after_tutorial');
-                } else if (slotPolicy.showSlotUnlockGuide) {
-                    runtime.scheduleOnce(() => runtime.showExpandSlotGuide(), 0.15);
-                } else if (activeLogicalLevelId === 1) {
-                    runtime.reportFirstLevelReleaseState?.('tutorial_missing');
-                }
-            }
             initStage = 'interaction_ready';
             this.reportLevelInteractionReady(
                 runtime,
@@ -284,21 +237,6 @@ export class GameplaySessionController {
         const appRoot = AppRoot.tryGet();
         if (!appRoot) return;
         appRoot.clearRouteCover('gameplay-ready');
-    }
-
-    private resolveTutorialMode(data?: LevelData): TutorialMode {
-        switch (this.getLevelTutorialGuideMode(data)) {
-            case 'level_1_red_blue': return 'level_1';
-            case 'slot_expand_all': return 'level_2';
-            case 'slot_intro': return 'slot_intro';
-            case 'zoom': return 'zoom';
-            default: return 'none';
-        }
-    }
-
-    private getLevelTutorialGuideMode(data?: LevelData): string {
-        const mode = data?.tutorialGuide?.mode;
-        return typeof mode === 'string' ? mode : '';
     }
 
     private failGameplayInitialization(
@@ -421,16 +359,12 @@ export class GameplaySessionController {
     ): void {
         if (entryMode !== 'main' || logicalLevelId < 1 || logicalLevelId > 3) return;
         const blockers = collectActiveBlockInputEvents();
-        const expectedGuideBlocker = tutorialMode === 'level_1'
-            || tutorialMode === 'level_2'
-            || tutorialMode === 'slot_intro';
         const modalFocusActive = (Number(runtime._modalFocusRefs) || 0) > 0;
         const expectedModalBlockers = modalFocusActive
             ? blockers.filter((entry) => runtime.isExpectedModalBlockerPath?.(String(entry.path || '')))
             : [];
         const unexpectedBlockers = blockers.filter((entry) => {
             const path = String(entry.path || '');
-            if (expectedGuideBlocker && path.includes('/GuideLayer')) return false;
             if (modalFocusActive && runtime.isExpectedModalBlockerPath?.(path)) return false;
             return true;
         });
@@ -454,8 +388,7 @@ export class GameplaySessionController {
                 modalFocusRefs: Math.max(0, Number(runtime._modalFocusRefs) || 0),
                 activeTouchCount: Math.max(0, Number(runtime.activeBoardTouches?.size) || 0),
                 gestureMode: runtime.gestureMode || 'idle',
-                slotUnlockedRows: Math.max(0, Number(runtime.slotUnlockedRows) || 0),
-                slotRowCount: Math.max(0, Number(runtime.slotRowCount) || 0),
+                conveyorCapacity: Math.max(0, Number(runtime.levelData?.conveyorCapacity) || 0),
                 dataVersion: runtime.getRuntimeRemoteHash?.() || '',
                 activeBlockers: blockers.map((entry) => String(entry.path || '')).join('|'),
                 blockerClassification: expectedModalBlockers.length > 0 ? 'expected_modal' : 'normal',

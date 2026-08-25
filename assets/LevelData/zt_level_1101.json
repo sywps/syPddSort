@@ -1,14 +1,10 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
     "levelId": 1101,
     "boardWidth": 49,
     "boardHeight": 70,
     "timeLimit": 600,
     "slotTotalCount": 2379,
+    "conveyorCapacity": 60,
     "filledCellCount": 2379,
     "colorCount": 12,
     "colorStats": {

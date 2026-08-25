@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
     "sourceGame": "PinDouJieJieYa",
     "sourcePackage": "C:/Users/EDY/workspaces/拼豆解解压",
     "sourceFile": "output/competitor_pindou_jiejieya/reports/extracted_remote_levels_0/text_assets/lv_29_-5242181046576661953.json",
@@ -40,6 +35,7 @@
     "boardHeight": 30,
     "timeLimit": 300,
     "slotTotalCount": 0,
+    "conveyorCapacity": 60,
     "correctColorArr": [
         [
             0,

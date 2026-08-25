@@ -105,10 +105,9 @@ function loadCdnContextResolver(experimentExports, stableBaseUrl) {
                 };
             }
             if (request === './RuntimeLog') return { runtimeWarn() {} };
-            if (request === './SlotOnboardingPolicy') {
+            if (request === './LevelConfig') {
                 return {
-                    LEVEL_DATA_SLOT_POLICY_MAX_ROWS: 4,
-                    validateSlotPolicyConfig() {},
+                    validateConveyorCapacity: () => 60,
                 };
             }
             return {};

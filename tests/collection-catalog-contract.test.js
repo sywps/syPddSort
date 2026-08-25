@@ -68,10 +68,9 @@ function loadClientCollectionCatalogContract(liveManifest = null) {
             if (id === './RuntimeLog') {
                 return { runtimeWarn: () => {} };
             }
-            if (id === './SlotOnboardingPolicy') {
+            if (id === './LevelConfig') {
                 return {
-                    LEVEL_DATA_SLOT_POLICY_MAX_ROWS: 4,
-                    validateSlotPolicyConfig: () => {},
+                    validateConveyorCapacity: () => 60,
                 };
             }
             throw new Error(`unexpected require: ${id}`);
@@ -98,18 +97,18 @@ assert.ok(catalog.entries.every((entry) => availableLevelKeys.has(entry.prefix +
 assert.ok(!catalog.entries.some((entry) => entry.levelId >= 100001), 'removed special ids must not return');
 
 const clientCatalogContract = loadClientCollectionCatalogContract();
-const legacyCatalog = clientCatalogContract.resolveLevelCollectionEntries({
+const manifestCatalog = clientCatalogContract.resolveLevelCollectionEntries({
     manifestVersion: 1,
     dataVersion: 'legacy-v0',
-    schemaVersion: 2,
-    minClientBuild: 2,
+    schemaVersion: 3,
+    minClientBuild: 3,
     levelCount: 1691,
     packs: [],
 });
 assert.deepStrictEqual(
-    JSON.parse(JSON.stringify(legacyCatalog)),
+    JSON.parse(JSON.stringify(manifestCatalog)),
     catalog.entries,
-    'new client must map a legacy manifest with both catalog fields absent to the frozen mainline 1..300 contract',
+    'the v3 client must map a manifest with both catalog fields absent to the frozen mainline 1..300 contract',
 );
 assert.deepStrictEqual(
     JSON.parse(JSON.stringify(clientCatalogContract.resolveLevelCollectionEntries({
@@ -135,30 +134,30 @@ assert.throws(
     'an explicit future catalog version must fail fast',
 );
 
-async function assertLegacyManifestLoadsEndToEnd() {
+async function assertV3ManifestLoadsEndToEnd() {
     const levelKeys = catalog.entries.map((entry) => entry.prefix + entry.levelId);
-    const legacyManifest = {
+    const v3Manifest = {
         manifestVersion: 1,
-        dataVersion: 'legacy-v0',
-        schemaVersion: 2,
-        minClientBuild: 2,
+        dataVersion: 'v3-without-catalog',
+        schemaVersion: 3,
+        minClientBuild: 3,
         levelCount: 1691,
         packs: [{
             id: 'level_1_300',
             prefix: 'level_',
             url: 'level_packs/level_1_300.json',
-            hash: 'legacy-pack-hash',
+            hash: 'v3-pack-hash',
             levelRange: [1, 300],
             levelCount: 300,
             levelKeys,
         }],
     };
-    const runtimeContract = loadClientCollectionCatalogContract(legacyManifest);
+    const runtimeContract = loadClientCollectionCatalogContract(v3Manifest);
     const entries = await new runtimeContract.LevelDataCdnService().loadCollectionEntries();
     assert.deepStrictEqual(
         JSON.parse(JSON.stringify(entries)),
         catalog.entries,
-        'the real service path must accept a deployed legacy manifest when all 1..300 packs are indexed',
+        'the real service path must accept a v3 manifest when all 1..300 packs are indexed',
     );
 }
 
@@ -231,7 +230,7 @@ assert.ok(flow.includes('openCollectionImageModal(levelId, prefix)'), 'collectio
 assert.ok(!cloudFunction.includes('collection-catalog'), 'syncUserState must not load the collection catalog');
 assert.ok(!cloudFunction.includes('level_live.json'), 'syncUserState must not load the level manifest');
 
-assertLegacyManifestLoadsEndToEnd().then(() => {
+assertV3ManifestLoadsEndToEnd().then(() => {
     console.log('collection-catalog-contract.test.js passed');
 }).catch((error) => {
     console.error(error);

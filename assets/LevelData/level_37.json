@@ -2,13 +2,9 @@
   "levelId": 37,
   "boardWidth": 21,
   "boardHeight": 26,
-  "timeLimit": 210,
+  "timeLimit": 126,
   "slotTotalCount": 438,
-  "slotPolicy": {
-    "defaultRows": 1,
-    "freeUnlockRows": 0,
-    "adUnlockRows": 1
-  },
+  "conveyorCapacity": 60,
   "correctColorArr": [
     [
       0,

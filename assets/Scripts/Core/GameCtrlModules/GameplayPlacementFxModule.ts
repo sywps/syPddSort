@@ -59,16 +59,12 @@ type FlyBeanFollowOptions = {
 };
 
 const DEFAULT_BEAN_FLY_STAGGER_SECONDS = 0.028;
-const MAX_BEAN_FLY_STAGGER_WINDOW_SECONDS = 0.35;
 const PLACEMENT_OPERATION_TIMEOUT_MS = 3000;
 
 export function getBeanFlyStaggerDelay(beanCount: number): number {
     const normalizedCount = Math.max(0, Math.floor(Number(beanCount) || 0));
     if (normalizedCount <= 1) return 0;
-    return Math.min(
-        DEFAULT_BEAN_FLY_STAGGER_SECONDS,
-        MAX_BEAN_FLY_STAGGER_WINDOW_SECONDS / (normalizedCount - 1),
-    );
+    return DEFAULT_BEAN_FLY_STAGGER_SECONDS;
 }
 
 export function installGameplayPlacementFxModule(target: any): void {
@@ -262,7 +258,7 @@ export function installGameplayPlacementFxModule(target: any): void {
         },
 
         playBeanFlySound(): void {
-            AudioMgr.inst.play('fly');
+            // 飞行音效暂不使用；保留现有调用入口，便于后续按需恢复。
         },
 
         createBoardRemainingSelection(block: BeanBlockInfo, remainingCount: number): PendingRemainingSelection | null {

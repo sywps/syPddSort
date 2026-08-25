@@ -30,34 +30,6 @@ import {
 import { debugPerfSnapshot } from './DebugPerfTrace';
 
 const ZOOM_HINT_SCALE_HEADROOM = 0.06;
-const GAMEPLAY_TIMER_SCALE = 0.82;
-const GAMEPLAY_LEVEL_TITLE_FONT_SIZE = 24;
-const GAMEPLAY_LEVEL_TITLE_LINE_HEIGHT = 30;
-const GAMEPLAY_LEVEL_TITLE_WIDTH = 180;
-const GAMEPLAY_LEVEL_TITLE_HEIGHT = 38;
-const GAMEPLAY_LEVEL_TITLE_CENTER_Y = 660;
-const GAMEPLAY_TIMER_CENTER_Y = 608;
-
-export function applyGameplayLevelTitleLayout(node: Node, label: Label): void {
-    const nodeUi = node.getComponent(UITransform);
-    const labelUi = label.node.getComponent(UITransform);
-    if (!nodeUi || !labelUi) {
-        throw new Error(`[GameplayScene] level title is missing UITransform on ${node.name}`);
-    }
-    const widget = node.getComponent(Widget);
-    if (!widget) {
-        throw new Error(`[GameplayScene] level title is missing Widget on ${node.name}`);
-    }
-    widget.enabled = false;
-    node.setPosition(node.position.x, GAMEPLAY_LEVEL_TITLE_CENTER_Y, node.position.z);
-    node.setScale(1, 1, 1);
-    nodeUi.setContentSize(GAMEPLAY_LEVEL_TITLE_WIDTH, GAMEPLAY_LEVEL_TITLE_HEIGHT);
-    labelUi.setContentSize(GAMEPLAY_LEVEL_TITLE_WIDTH, GAMEPLAY_LEVEL_TITLE_HEIGHT);
-    label.fontSize = GAMEPLAY_LEVEL_TITLE_FONT_SIZE;
-    label.lineHeight = GAMEPLAY_LEVEL_TITLE_LINE_HEIGHT;
-    label.enableWrapText = false;
-}
-
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
 
@@ -131,29 +103,17 @@ export class GameplayViewController {
 
     assertGameplayVisualReadiness() {
         const runtime = this.runtime;
-        if (!runtime.levelData || !runtime.boardModel || !runtime.slotModel) {
+        if (!runtime.levelData || !runtime.boardModel) {
             throw new Error('[GameplayVisual] model not ready after buildUI');
         }
         if (!runtime.boardGroup?.isValid || !runtime.boardNode?.isValid) {
             throw new Error('[GameplayVisual] board root missing after buildBoard');
         }
-        if (!runtime.slotAreaNode?.isValid) {
-            throw new Error('[GameplayVisual] slot area missing after buildSlotArea');
+        if (!runtime._pchConveyorGameplayController?.isActive?.()) {
+            throw new Error('[GameplayVisual] PCH conveyor missing after gameplay start');
         }
         if (runtime.cellNodes.length === 0 || runtime.boardSlotBgNodes.length === 0) {
             throw new Error('[GameplayVisual] board cell nodes missing after buildBoard');
-        }
-        if (runtime.slotNodes.length === 0 || runtime.slotMarkerNodes.length === 0) {
-            throw new Error('[GameplayVisual] slot nodes missing after buildSlotArea');
-        }
-        const slotPanel = runtime.slotAreaNode.getChildByName('SlotPanel');
-        if (!slotPanel?.isValid) {
-            throw new Error('[GameplayVisual] SlotPanel missing after buildSlotArea');
-        }
-        const panelSprite = slotPanel.getComponent(Sprite);
-        const panelGraphics = slotPanel.getComponent(Graphics);
-        if (!panelSprite?.spriteFrame && !panelGraphics) {
-            throw new Error('[GameplayVisual] SlotPanel has no sprite or placeholder graphics');
         }
         let sampleCorrectId = 0;
         outer:
@@ -169,14 +129,6 @@ export class GameplayViewController {
         if (sampleCorrectId > 0 && !runtime.getSlotSpriteFrame(sampleCorrectId)) {
             throw new Error(`[GameplayVisual] board slot sprite missing for color ${sampleCorrectId}`);
         }
-        const sampleMarker = runtime.slotMarkerNodes.find((node: Node) => node?.isValid) || null;
-        if (sampleMarker) {
-            const markerSprite = sampleMarker.getComponent(Sprite);
-            const markerGraphics = sampleMarker.getComponent(Graphics);
-            if (markerSprite && !markerSprite.spriteFrame && !markerGraphics) {
-                throw new Error(`[GameplayVisual] slot groove sprite missing: ${MAINLINE_SLOT_GROOVE_TEXTURE}`);
-            }
-        }
         let visibleBoardSlots = 0;
         for (const row of runtime.boardSlotBgNodes) {
             for (const node of row) {
@@ -189,19 +141,6 @@ export class GameplayViewController {
         const batchedBoardSlots = this.countBoardSlotBatchCells();
         if (visibleBoardSlots + batchedBoardSlots === 0) {
             throw new Error('[GameplayVisual] board slot sprites all hidden after render');
-        }
-        let visibleSlotMarkers = 0;
-        for (const marker of runtime.slotMarkerNodes) {
-            if (!marker?.isValid || !marker.active) continue;
-            const sp = marker.getComponent(Sprite);
-            const g = marker.getComponent(Graphics);
-            if ((sp && sp.enabled && sp.spriteFrame) || (g && g.enabled)) {
-                visibleSlotMarkers++;
-            }
-        }
-        const hasAnySlotBean = runtime.slotModel.getAll().some((block: any) => !!block);
-        if (!hasAnySlotBean && visibleSlotMarkers === 0) {
-            throw new Error('[GameplayVisual] slot markers all hidden after render');
         }
     }
 
@@ -394,15 +333,14 @@ export class GameplayViewController {
 
     buildUI() {
         const runtime = this.runtime;
-        const fixedRoot = this.getGameplayFixedRoot();
         this.requireGameplayBackgroundShell();
         runtime.refreshEquippedGameplayBackground?.(false);
         const runtimeRoot = this.getGameplayRuntimeRoot();
         const backgroundRoot = this.getGameplayRuntimeGroup('BackgroundRuntime');
         const topBarRoot = this.getGameplayFixedGroup('TopBarGroup');
         const boardRoot = this.getGameplayFixedGroup('BoardArea');
+        const conveyorRoot = this.getGameplayFixedGroup('PchConveyorRoot');
         const bottomHudRoot = this.getGameplayBottomHudGroup();
-        const slotRoot = this.getGameplayBottomHudChild('SlotAreaGroup');
         const skillRoot = this.getGameplayBottomHudChild('SkillArea');
         const dragRoot = this.getGameplayRuntimeGroup('DragRuntime');
         runtime.clearToastNodes?.();
@@ -412,7 +350,7 @@ export class GameplayViewController {
         dragRoot.active = true;
         boardRoot.active = true;
         bottomHudRoot.active = true;
-        slotRoot.active = true;
+        conveyorRoot.active = false;
         skillRoot.active = true;
         runtimeRoot.active = true;
         runtime.timerLabel = null!;
@@ -421,14 +359,15 @@ export class GameplayViewController {
         runtime._vigorCountLbl = null;
         runtime._goldCountLbl = null;
         runtime._shopGoldLbl = null;
+        runtime.slotAreaNode = null;
+        runtime.slotNodes = [];
+        runtime.slotMarkerNodes = [];
 
         runtime._sceneInputRoot = this.getGameplayScreenRoot();
         this.buildTopBar(topBarRoot);
-        runtime.buildSlotArea(slotRoot);
         this.buildBoard(boardRoot);
         runtime.setupBoardZoomControl?.();
         runtime.buildSkillButtons(skillRoot);
-        topBarRoot.setSiblingIndex(Math.max(0, fixedRoot.children.length - 1));
 
         this.prepareDragLayer(dragRoot);
 
@@ -454,58 +393,42 @@ export class GameplayViewController {
             this.buildLightweightTopBar(root);
             return;
         }
-        if (typeof runtime.syncTopHud !== 'function') {
-            throw new Error('[TopHud] runtime missing syncTopHud() for Gameplay scene');
-        }
-        runtime.syncTopHud(root, 'game');
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
         this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
+        if (!timerWrap.getComponent(UITransform)) throw new Error('[GameplayScene] Game.scene is missing UITransform component on TimerWrap');
+        if (!timerWrap.getComponent(Widget)) throw new Error('[GameplayScene] Game.scene is missing Widget component on TimerWrap');
+        const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
+        const timerLabel = timerNode.getComponent(Label);
+        if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
         if (Number(runtime.levelData?.levelId) === 1) {
             timerWrap.active = false;
             runtime.timerLabel = null;
             return;
         }
         timerWrap.active = true;
-        const timerWidget = timerWrap.getComponent(Widget);
-        if (!timerWidget) throw new Error('[GameplayScene] Game.scene is missing Widget component on TimerWrap');
-        timerWidget.enabled = false;
-        timerWrap.setPosition(timerWrap.position.x, GAMEPLAY_TIMER_CENTER_Y, timerWrap.position.z);
-        timerWrap.setScale(GAMEPLAY_TIMER_SCALE, GAMEPLAY_TIMER_SCALE, 1);
-        const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
-        const timerLabel = timerNode.getComponent(Label);
-        if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
         timerLabel.string = runtime.formatCurrentTimerText();
-        timerLabel.enableWrapText = false;
         runtime.timerLabel = timerLabel;
     }
 
     buildLightweightTopBar(root: Node) {
         const runtime = this.runtime;
         root.active = true;
-        if (typeof runtime.syncTopHud !== 'function') {
-            throw new Error('[TopHud] runtime missing syncTopHud() for lightweight Gameplay scene');
-        }
-        runtime.syncTopHud(root, 'game');
         this.drawLevelTitleLabel(root);
         const timerWrap = runtime.requireUiChild(root, 'TimerWrap', 'TopBarGroup/TimerWrap');
         this.requireSceneSpriteFrame(timerWrap, 'TimerWrap');
+        if (!timerWrap.getComponent(UITransform)) throw new Error('[GameplayScene] Game.scene is missing UITransform component on TimerWrap');
+        if (!timerWrap.getComponent(Widget)) throw new Error('[GameplayScene] Game.scene is missing Widget component on TimerWrap');
+        const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
+        const timerLabel = timerNode.getComponent(Label);
+        if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
         if (Number(runtime.levelData?.levelId) === 1) {
             timerWrap.active = false;
             runtime.timerLabel = null;
             return;
         }
         timerWrap.active = true;
-        const timerWidget = timerWrap.getComponent(Widget);
-        if (!timerWidget) throw new Error('[GameplayScene] Game.scene is missing Widget component on TimerWrap');
-        timerWidget.enabled = false;
-        timerWrap.setPosition(timerWrap.position.x, GAMEPLAY_TIMER_CENTER_Y, timerWrap.position.z);
-        timerWrap.setScale(GAMEPLAY_TIMER_SCALE, GAMEPLAY_TIMER_SCALE, 1);
-        const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
-        const timerLabel = timerNode.getComponent(Label);
-        if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
         timerLabel.string = runtime.formatCurrentTimerText();
-        timerLabel.enableWrapText = false;
         runtime.timerLabel = timerLabel;
     }
 
@@ -517,10 +440,14 @@ export class GameplayViewController {
         normalNode.active = !useLevel1Variant;
         level1Node.active = useLevel1Variant;
         const node = useLevel1Variant ? level1Node : normalNode;
-        const labelNode = node.getChildByName('Label') || node;
+        const titlePath = useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1' : 'TopBarGroup/LevelTitle';
+        const labelNode = runtime.requireUiChild(node, 'Label', `${titlePath}/Label`);
         const label = labelNode.getComponent(Label);
-        if (!label) throw new Error(`[GameplayScene] Game.scene is missing Label component on ${useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1/Label' : 'TopBarGroup/LevelTitle/Label'}`);
-        applyGameplayLevelTitleLayout(node, label);
+        if (!node.getComponent(UITransform) || !labelNode.getComponent(UITransform)) {
+            throw new Error(`[GameplayScene] Game.scene is missing UITransform component on ${titlePath}`);
+        }
+        if (!node.getComponent(Widget)) throw new Error(`[GameplayScene] Game.scene is missing Widget component on ${titlePath}`);
+        if (!label) throw new Error(`[GameplayScene] Game.scene is missing Label component on ${titlePath}/Label`);
         runtime.levelLabel = label;
         runtime.refreshCompletionProgressLabel();
     }

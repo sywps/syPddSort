@@ -4,6 +4,7 @@
     "boardHeight": 12,
     "timeLimit": 600,
     "slotTotalCount": 24,
+    "conveyorCapacity": 60,
     "correctColorArr": [
         [
             0,
@@ -416,11 +417,6 @@
     },
     "sourceImportedAt": "2026-06-05",
     "initShuffleSeed": 0,
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 0
-    },
     "tutorialGuide": {
         "mode": "level_1_red_blue",
         "guideCopies": [

@@ -709,13 +709,13 @@ export class AudioMgr {
         this.busySfxSources.clear();
     }
 
-    /** 触发短震动（默认 30ms），用于点击/放置等触觉反馈 */
-    legacyVibrate(ms: number = 30) {
+    /** 触发轻震动（Web 最多 12ms），用于点击/放置等触觉反馈 */
+    legacyVibrate(ms: number = 12) {
         if (this.suspended || !this.vibrateEnabled) return;
         try {
             // 微信小游戏
             if (typeof wx !== 'undefined' && typeof wx.vibrateShort === 'function') {
-                wx.vibrateShort({});
+                wx.vibrateShort({ type: 'light' });
                 return;
             }
             // 抖音小游戏
@@ -726,21 +726,16 @@ export class AudioMgr {
             }
             // Web
             if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-                navigator.vibrate(ms);
+                navigator.vibrate(Math.min(ms, 12));
             }
         } catch (_) { /* ignore */ }
     }
 
-    private triggerVibratePattern(kind: 'select' | 'place') {
+    private triggerVibratePattern() {
         if (this.suspended || !this.vibrateEnabled) return;
         try {
             if (typeof wx !== 'undefined' && typeof wx.vibrateShort === 'function') {
-                const option: any = kind === 'select' ? { type: 'medium' } : { type: 'light' };
-                try {
-                    wx.vibrateShort(option);
-                } catch (_) {
-                    wx.vibrateShort({});
-                }
+                wx.vibrateShort({ type: 'light' });
                 return;
             }
             const w: any = typeof window !== 'undefined' ? window : null;
@@ -749,21 +744,21 @@ export class AudioMgr {
                 return;
             }
             if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-                navigator.vibrate(kind === 'select' ? 24 : 12);
+                navigator.vibrate(12);
             }
         } catch (_) { /* ignore */ }
     }
 
     vibrateSelect() {
-        this.triggerVibratePattern('select');
+        this.triggerVibratePattern();
     }
 
     vibratePlace() {
-        this.triggerVibratePattern('place');
+        this.triggerVibratePattern();
     }
 
-    vibrate(ms: number = 30) {
-        this.triggerVibratePattern(ms <= 20 ? 'select' : 'place');
+    vibrate(_ms: number = 12) {
+        this.triggerVibratePattern();
     }
 
     isSfxEnabled() { return this.sfxEnabled; }

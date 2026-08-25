@@ -200,7 +200,8 @@ assert.ok(slotUi.includes('if (!unlocked) return false;'), 'slot-row rewarded ad
 assert.ok(slotUi.includes("runtime.pauseTimerForProp('slot-unlock-ad')"), 'slot-row ad wait must acquire an explicit timer owner');
 assert.ok(slotUi.includes("runtime.resumeTimerForProp(timerToken || 'slot-unlock-ad')"), 'slot-row timer must release the exact ad interaction token');
 assert.ok(!slotUi.includes('onAdComplete: () => runtime.resumeTimerForProp()'), 'slot-row timer must not resume before the rewarded grant runs');
-assert.ok(slotUi.includes('this.runtime.slotModel.getAll().some((s: any) => s !== null)'), 'slot-clear availability must read the real slot model occupancy');
+const slotSkill = read('assets/Scripts/Core/GameCtrlModules/GameplaySlotSkillModule.ts');
+assert.ok(slotSkill.includes('return ensurePchConveyorGameplayController(this).hasStoredBeans();'), 'slot-clear availability must read the active PCH conveyor occupancy');
 
 const commerce = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 assert.ok(commerce.includes('onAdGrant?: () => boolean | void | Promise<boolean | void>;'), 'tool acquire panel must allow gameplay to override ad grants');

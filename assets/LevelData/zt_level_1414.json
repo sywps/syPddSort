@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
   "levelId": 1414,
   "theme": "给阿嬷的情书",
   "levelName": "榕树石磨",
@@ -2768,6 +2763,7 @@
     ]
   ],
   "slotTotalCount": 1835,
+  "conveyorCapacity": 60,
   "filledCellCount": 1835,
   "colorCount": 8,
   "colorStats": {

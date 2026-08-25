@@ -5,7 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 
 function read(relPath) {
-    return fs.readFileSync(path.join(root, relPath), 'utf8');
+    return fs.readFileSync(path.join(root, relPath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function readJson(relPath) {
@@ -70,11 +70,8 @@ assert.deepStrictEqual(
     [12, 12, 600, 96],
     'level 1 settlement must enter the historical no-guide payload as logical level 2',
 );
-assert.deepStrictEqual(level2.slotPolicy, {
-    defaultRows: 1,
-    freeUnlockRows: 0,
-    adUnlockRows: 1,
-}, 'local level 2 must start with one row and expose one optional rewarded unlock row');
+assert.strictEqual(level2.conveyorCapacity, 60, 'local level 2 must start with the configured new-conveyor capacity');
+assert.strictEqual(Object.hasOwn(level2, 'slotPolicy'), false, 'local level 2 must not retain row-based slot data');
 assert.match(level2Meta.uuid, /^[0-9a-f-]{36}$/i, 'local level 2 must keep a valid Cocos asset UUID');
 
 console.log('local-level-1-to-2-transition.test.js passed');

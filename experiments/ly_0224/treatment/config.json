@@ -4,26 +4,9 @@
   "bucket": "exp",
   "levelPrefix": "level_",
   "runtimeMinimumLevelId": 2,
-  "levelDataContract": "v2",
+  "levelDataContract": "v3",
   "packSize": 100,
-  "tutorialContracts": {
-    "2": {
-      "mode": "slot_intro",
-      "stepCount": 1,
-      "guideCopies": [
-        "点击【解锁按钮】"
-      ]
-    },
-    "3": {
-      "mode": "zoom",
-      "stepCount": 1,
-      "title": "试试放大或缩小",
-      "subtitle": "",
-      "guideCopies": [
-        "试试放大或缩小"
-      ]
-    }
-  },
+  "tutorialContracts": {},
   "stableSourceDir": "assets/LevelData",
   "sourceMode": "stable_full_plus_overrides",
   "outputDir": "build/level-experiment-cdn/ly_0224/treatment",

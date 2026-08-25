@@ -3,11 +3,7 @@
   "boardHeight": 14,
   "timeLimit": 327,
   "slotTotalCount": 88,
-  "slotPolicy": {
-    "defaultRows": 2,
-    "freeUnlockRows": 0,
-    "adUnlockRows": 2
-  },
+  "conveyorCapacity": 60,
   "tutorialGuide": {
     "mode": "zoom",
     "title": "试试放大或缩小",

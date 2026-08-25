@@ -1,5 +1,9 @@
 import type { BoardModel } from './BoardModel';
-import type { BeanBlockInfo } from './LevelConfig';
+import {
+    CONVEYOR_STACK_DEPTH,
+    validateConveyorCapacity,
+    type BeanBlockInfo,
+} from './LevelConfig';
 
 export type PchCarrierMove = {
     moved: number;
@@ -55,13 +59,15 @@ export type PchSkillResult = {
 
 export class PchConveyorRules {
     public readonly moveLimit = 12;
-    public readonly initialCarrierCount = 20;
-    public readonly stackDepth = 3;
+    public readonly initialCarrierCount: number;
+    public readonly stackDepth = CONVEYOR_STACK_DEPTH;
     public readonly carriers: number[][];
     private readonly queuedColorIds: number[] = [];
     private readyQueuedCount = 0;
 
-    constructor(public readonly board: BoardModel) {
+    constructor(public readonly board: BoardModel, conveyorCapacity: unknown) {
+        const capacity = validateConveyorCapacity(conveyorCapacity, 'PchConveyorRules');
+        this.initialCarrierCount = capacity / this.stackDepth;
         this.carriers = Array.from({ length: this.initialCarrierCount }, () => []);
     }
 

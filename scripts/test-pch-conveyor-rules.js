@@ -22,8 +22,29 @@ const diagnostics = compiled.diagnostics || [];
 assert.equal(diagnostics.length, 0, diagnostics.map((item) => item.messageText).join('\n'));
 const loadedModule = { exports: {} };
 const load = new Function('module', 'exports', 'require', compiled.outputText);
-load(loadedModule, loadedModule.exports, require);
-const { PchConveyorRules } = loadedModule.exports;
+load(loadedModule, loadedModule.exports, (request) => {
+    if (request === './LevelConfig') {
+        return {
+            CONVEYOR_STACK_DEPTH: 3,
+            validateConveyorCapacity(value, label) {
+                if (!Number.isInteger(value) || value <= 0) {
+                    throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
+                }
+                if (value % 3 !== 0) {
+                    throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a multiple of 3: ${value}`);
+                }
+                return value;
+            },
+        };
+    }
+    return require(request);
+});
+const { PchConveyorRules: RequiredCapacityPchConveyorRules } = loadedModule.exports;
+class PchConveyorRules extends RequiredCapacityPchConveyorRules {
+    constructor(board, conveyorCapacity = 60) {
+        super(board, conveyorCapacity);
+    }
+}
 
 class FakeBoard {
     constructor(width, height, correctColors, currentColors) {
@@ -61,6 +82,21 @@ class FakeBoard {
         return true;
     }
 }
+
+const capacityBoard = new FakeBoard(1, 1, [[1]], [[0]]);
+assert.throws(
+    () => new RequiredCapacityPchConveyorRules(capacityBoard),
+    /positive integer/,
+    'missing per-level conveyor capacity must fail fast',
+);
+assert.throws(
+    () => new RequiredCapacityPchConveyorRules(capacityBoard, 25),
+    /multiple of 3/,
+    'capacity must align to the three-bean carrier depth',
+);
+const compactCapacityRules = new RequiredCapacityPchConveyorRules(capacityBoard, 24);
+assert.equal(compactCapacityRules.carrierCount, 8, 'per-level capacity must determine carrier count');
+assert.equal(compactCapacityRules.bufferCapacity, 24, 'rules must preserve the requested bean capacity');
 
 const sourceColors = [Array.from({ length: 15 }, () => 1)];
 const targetColors = [Array.from({ length: 15 }, () => 2)];
@@ -248,6 +284,14 @@ class FakeVec3 {
     }
 }
 
+class FakeVec2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+class FakeButton {}
 class FakeUITransform {}
 
 function fakeTween() {
@@ -270,11 +314,19 @@ const controllerModule = { exports: {} };
 const loadController = new Function('module', 'exports', 'require', controllerCompiled.outputText);
 loadController(controllerModule, controllerModule.exports, (request) => {
     if (request === './PchConveyorRules') return { PchConveyorRules };
+    if (request === './OpeningPatternTransition') {
+        return {
+            buildOpeningPatternMoves() { return []; },
+            getOpeningPatternStaggerDelay() { return 0; },
+        };
+    }
     if (request === './GameCtrlShared') {
         return new Proxy({
             AudioMgr: { inst: { play() {}, vibratePlace() {} } },
+            Button: FakeButton,
             Tween: { stopAllByTarget() {} },
             UITransform: FakeUITransform,
+            Vec2: FakeVec2,
             Vec3: FakeVec3,
             tween: fakeTween,
         }, {
@@ -346,6 +398,63 @@ const boardTapEvent = {
 boardInputController.onRootTouchEnd(boardTapEvent);
 assert.deepEqual(selectedBoardCell, { row: 0, col: 0 }, 'PCH board selection must reuse the authoritative board-tap intent resolver');
 assert.equal(boardTapEvent.propagationStopped, true, 'a matched PCH board tap must stop propagation');
+
+let scaledCapacityFallbackCount = 0;
+const routingInputRoot = {
+    isValid: true,
+    parent: null,
+    getComponent() { return null; },
+};
+const skillButtonNode = {
+    isValid: true,
+    parent: routingInputRoot,
+    getComponent(type) { return type === FakeButton ? {} : null; },
+};
+const skillPlusNode = {
+    isValid: true,
+    parent: skillButtonNode,
+    getComponent() { return null; },
+};
+const capacityButtonState = { enabled: true, interactable: true };
+const capacityAdNode = {
+    isValid: true,
+    activeInHierarchy: true,
+    getComponent(type) {
+        if (type === FakeButton) return capacityButtonState;
+        if (type === FakeUITransform) {
+            return { getBoundingBoxToWorld: () => ({ contains: (pos) => pos.x === 500 && pos.y === 600 }) };
+        }
+        return null;
+    },
+};
+const routingRuntime = {
+    isGameEnd: false,
+    normalizeGameplayUiPosition: () => new FakeVec2(500, 600),
+    onTouchCancel() {},
+    getGameplayFixedGroup: () => null,
+    scheduleOnce(callback) { callback(); },
+};
+const routingController = new PchConveyorGameplayController(routingRuntime);
+routingController.rules = { cells: [] };
+routingController.inputRoot = routingInputRoot;
+routingController.adButton = capacityAdNode;
+routingController.onCapacityAdTap = () => { scaledCapacityFallbackCount += 1; };
+const directSkillEvent = {
+    target: skillPlusNode,
+    propagationStopped: false,
+    getUILocation: () => new FakeVec2(100, 120),
+};
+routingController.onRootTouchEnd(directSkillEvent);
+assert.equal(scaledCapacityFallbackCount, 0, 'a native skill-button target must never be remapped to the capacity grant');
+assert.equal(directSkillEvent.propagationStopped, false, 'the native skill-button event must continue to its real target');
+const missedNativeEvent = {
+    target: routingInputRoot,
+    propagationStopped: false,
+    getUILocation: () => new FakeVec2(100, 120),
+};
+routingController.onRootTouchEnd(missedNativeEvent);
+assert.equal(scaledCapacityFallbackCount, 1, 'the scaled capacity fallback must remain available after native hit testing misses');
+assert.equal(missedNativeEvent.propagationStopped, true, 'a scaled fallback match must stop the root touch event');
 
 function createSkillController(rules) {
     const pauses = [];

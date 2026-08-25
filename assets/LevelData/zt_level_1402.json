@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
   "levelId": 1402,
   "theme": "给阿嬷的情书",
   "levelName": "灯下家书",
@@ -2364,6 +2359,7 @@
     ]
   ],
   "slotTotalCount": 1795,
+  "conveyorCapacity": 60,
   "filledCellCount": 1795,
   "colorCount": 7,
   "colorStats": {
