@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { loadCollectionCatalog } = require('./collection-catalog-contract');
-const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateSlotPolicy } = require('./slot-policy-contract');
+const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateConveyorCapacity } = require('./conveyor-capacity-contract');
 const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
@@ -114,7 +114,7 @@ function collectLevels() {
             fail('关卡文件名与 levelId 不一致: ' + name + ' levelId=' + dataLevelId);
         }
         try {
-            validateSlotPolicy(data, name);
+            validateConveyorCapacity(data, name);
         } catch (err) {
             fail(err && err.message ? err.message : String(err));
         }

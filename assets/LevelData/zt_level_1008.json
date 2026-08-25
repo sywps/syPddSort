@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
     "levelId": 1008,
     "animal": "bunny_scooter",
     "seed": 2026042301,
@@ -11,6 +6,7 @@
     "boardHeight": 75,
     "timeLimit": 600,
     "slotTotalCount": 2115,
+    "conveyorCapacity": 60,
     "colorCount": 8,
     "filledCellCount": 2115,
     "displacementRatio": 0.8983,

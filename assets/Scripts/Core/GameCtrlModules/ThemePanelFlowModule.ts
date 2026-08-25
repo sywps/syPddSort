@@ -378,6 +378,7 @@ export function installThemePanelFlowModule(target: any): void {
                 boardHeight: 8,
                 timeLimit: 180,
                 slotTotalCount: 12,
+                conveyorCapacity: 60,
                 correctColorArr: [
                     [1,1,1,1,2,2,2,2],[1,1,1,1,2,2,2,2],
                     [1,1,1,1,2,2,2,2],[1,1,1,1,2,2,2,2],

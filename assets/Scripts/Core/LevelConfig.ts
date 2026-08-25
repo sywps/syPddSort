@@ -103,12 +103,18 @@ export const COLOR_HEX_LOCKED: Record<number, string> = {
     20: '#AFA99F',
 };
 
-/** 底部暂存槽行数策略 */
-export interface LevelSlotPolicy {
-    defaultRows: number;
-    freeUnlockRows: number;
-    adUnlockRows: number;
-    unlockAllRowsAtOnce?: boolean;
+/** 新版传送带每个载具可堆叠的豆豆数量。 */
+export const CONVEYOR_STACK_DEPTH = 3;
+
+/** 校验关卡配置的新版传送带容量（单位：豆豆颗数）。 */
+export function validateConveyorCapacity(value: unknown, label: string = 'level data'): number {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
+    }
+    if (value % CONVEYOR_STACK_DEPTH !== 0) {
+        throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a multiple of ${CONVEYOR_STACK_DEPTH}: ${value}`);
+    }
+    return value;
 }
 
 export interface LevelTutorialGuideConfig {
@@ -125,8 +131,8 @@ export interface LevelData {
     boardHeight: number;
     timeLimit: number;
     slotTotalCount: number;
-    initialSlotUnlockedRows?: number;
-    slotPolicy?: LevelSlotPolicy;
+    /** 新版传送带可暂存的豆豆总数，不是行数。 */
+    conveyorCapacity: number;
     tutorialGuide?: LevelTutorialGuideConfig;
     /** 每格正确颜色 [row][col] */
     correctColorArr: number[][];

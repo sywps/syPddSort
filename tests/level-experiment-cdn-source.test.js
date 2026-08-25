@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { validateSlotPolicy } = require('../scripts/slot-policy-contract');
+const { validateConveyorCapacity } = require('../scripts/conveyor-capacity-contract');
 
 const root = path.resolve(__dirname, '..');
 const experimentId = 'ly_0224';
@@ -13,20 +13,7 @@ const treatmentDir = path.join(root, treatmentRelDir);
 const stableRelDir = 'assets/LevelData';
 const stableDir = path.join(root, stableRelDir);
 const expectedOverrideLevelIds = [2, 3, 4, 5, 6, 7, 8, 9];
-const expectedTutorialContracts = {
-    2: {
-        mode: 'slot_intro',
-        stepCount: 1,
-        guideCopies: ['点击【解锁按钮】'],
-    },
-    3: {
-        mode: 'zoom',
-        stepCount: 1,
-        title: '试试放大或缩小',
-        subtitle: '',
-        guideCopies: ['试试放大或缩小'],
-    },
-};
+const expectedTutorialContracts = {};
 const expectedCdnUrl =
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
 const expectedOssPath =
@@ -77,7 +64,7 @@ assert.deepStrictEqual(config, {
     bucket: 'exp',
     levelPrefix: 'level_',
     runtimeMinimumLevelId: 2,
-    levelDataContract: 'v2',
+    levelDataContract: 'v3',
     packSize: 100,
     tutorialContracts: expectedTutorialContracts,
     stableSourceDir: stableRelDir,
@@ -100,7 +87,8 @@ assert.deepStrictEqual(
 for (const levelId of expectedOverrideLevelIds) {
     const level = readJson(`${treatmentRelDir}/level_${levelId}.json`);
     assert.strictEqual(level.levelId, levelId, `treatment level_${levelId}.json must retain its physical level id`);
-    validateSlotPolicy(level, `${treatmentRelDir}/level_${levelId}.json`);
+    assert.strictEqual(validateConveyorCapacity(level, `${treatmentRelDir}/level_${levelId}.json`), 60);
+    assert.strictEqual(Object.hasOwn(level, 'slotPolicy'), false);
 }
 
 const stableLevel2 = readJson('assets/LevelData/level_2.json');
@@ -110,25 +98,18 @@ assert.deepStrictEqual(
     [12, 12, 96, undefined],
     'canonical level 2 must remain the main-lineage stable no-guide payload',
 );
-assert.deepStrictEqual(
-    stableLevel2.slotPolicy,
-    { defaultRows: 1, freeUnlockRows: 0, adUnlockRows: 1 },
-    'canonical stable level 2 must expose one optional rewarded unlock row',
-);
+assert.strictEqual(stableLevel2.conveyorCapacity, 60, 'canonical stable level 2 must use the new conveyor');
+assert.strictEqual(Object.hasOwn(stableLevel2, 'slotPolicy'), false, 'stable level 2 must not retain row data');
 assert.deepStrictEqual(
     [
         treatmentLevel2.boardWidth,
         treatmentLevel2.boardHeight,
         treatmentLevel2.slotTotalCount,
-        treatmentLevel2.tutorialGuide.mode,
+        treatmentLevel2.conveyorCapacity,
+        treatmentLevel2.tutorialGuide,
     ],
-    [14, 13, 112, 'slot_intro'],
-    'experiment level 2 must remain the isolated starfish slot-intro payload',
-);
-assert.deepStrictEqual(
-    treatmentLevel2.tutorialGuide.guideCopies,
-    ['点击【解锁按钮】'],
-    'experiment level 2 must keep the deployed one-step guide',
+    [14, 13, 112, 60, undefined],
+    'experiment level 2 must keep its isolated layout on the new conveyor without the retired slot guide',
 );
 assert.notDeepStrictEqual(
     stableLevel2.correctColorArr,
@@ -144,7 +125,7 @@ assert.deepStrictEqual(
         subtitle: '',
         guideCopies: ['试试放大或缩小'],
     },
-    'experiment level 3 must keep the one-step non-blocking zoom guide contract',
+    'experiment level 3 may retain its non-slot zoom metadata',
 );
 
 const experimentService = read('assets/Scripts/Core/LevelExperimentService.ts');
@@ -161,7 +142,7 @@ assert.ok(syncScript.includes("generatorArgs.push('--overlay-source', levelExper
 assert.ok(syncScript.includes("generatorEnv.PDD_WECHAT_CDN_SLOT = ''"));
 assert.ok(syncScript.includes('assertLevelExperimentManifest'));
 assert.ok(syncScript.includes('assertExperimentTutorialContracts'));
-assert.ok(syncScript.includes('assertExperimentTutorialRuntimeSupport'));
+assert.ok(!syncScript.includes('assertExperimentTutorialRuntimeSupport'));
 assert.ok(syncScript.includes('runOssutil(['), 'treatment publishing must reuse the shared pack-first uploader');
 const generator = read('scripts/write-level-data-cdn.js');
 assert.ok(generator.includes("'--overlay-source'"), 'shared generator must support explicit source overlays');
@@ -204,7 +185,7 @@ try {
         env: {
             ...process.env,
             PDD_LEVEL_DATA_CDN_DIR: outputDir,
-            PDD_LEVEL_DATA_CONTRACT: 'v2',
+            PDD_LEVEL_DATA_CONTRACT: 'v3',
             PDD_WECHAT_CDN_SLOT: 'A',
         },
     });

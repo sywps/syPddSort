@@ -79,14 +79,29 @@ function loadControllerHarness(activeBlockers = []) {
             if (request === './LevelExperimentService') {
                 return { getFrontLevelExperimentAnalyticsContext: () => null };
             }
-            if (request === './SlotOnboardingPolicy') {
+            if (request === './LevelConfig') {
                 return {
-                    resolveSlotOnboardingTimeLimit: ({ configuredTimeLimit }) => Number(configuredTimeLimit) || 0,
-                    resolveSlotRowPolicy: () => ({
-                        rowCount: 2,
-                        unlockedRows: 1,
-                        showSlotUnlockGuide: false,
-                    }),
+                    validateConveyorCapacity(value) {
+                        if (!Number.isInteger(value) || value <= 0 || value % 3 !== 0) {
+                            throw new Error('invalid conveyor capacity');
+                        }
+                        return value;
+                    },
+                };
+            }
+            if (request === './PchConveyorGameplayController') {
+                return {
+                    ensurePchConveyorGameplayController(runtime) {
+                        return {
+                            stop() {
+                                runtime._testCalls.pchStops += 1;
+                            },
+                            start() {
+                                if (runtime._testFailAt === 'pch') throw new Error('PCH conveyor start failed');
+                            },
+                            playOpeningPatternShuffle() {},
+                        };
+                    },
                 };
             }
             if (request === './StartupTrace') {
@@ -122,9 +137,12 @@ function createRuntime(levelId, failAt) {
         inputCleanup: 0,
         placementCleanup: 0,
         callbackCleanup: 0,
+        pchStops: 0,
     };
     const runtime = {
         node: {},
+        _testCalls: calls,
+        _testFailAt: failAt,
         _isThemeLevel: false,
         _currentExternalLevelFilePath: '',
         _bootstrapOnlyGameplayStartup: false,
@@ -240,10 +258,8 @@ function runFailureCase(levelId, failAt, expectedStage, expectedMessage) {
         boardWidth: 2,
         boardHeight: 2,
         timeLimit: 60,
+        conveyorCapacity: 60,
         failAt,
-        tutorialGuide: {
-            mode: levelId === 1 ? 'level_1_red_blue' : 'slot_expand_all',
-        },
     };
 
     assert.throws(
@@ -272,14 +288,8 @@ function runFailureCase(levelId, failAt, expectedStage, expectedMessage) {
 }
 
 runFailureCase(1, 'model', 'model_build', 'board model construction failed');
-const laterLevelFailure = runFailureCase(2, 'tutorial', 'tutorial_start', 'tutorial construction failed');
-assert.strictEqual(
-    laterLevelFailure.calls.tutorialCleanup,
-    1,
-    'a non-L1 tutorial exception must destroy its partial full-screen GuideLayer',
-);
-assert.strictEqual(laterLevelFailure.runtime._guideLayer, null);
-assert.strictEqual(laterLevelFailure.runtime._guideBubble, null);
+const pchFailure = runFailureCase(2, 'pch', 'pch_core_gameplay', 'PCH conveyor start failed');
+assert.ok(pchFailure.calls.pchStops >= 2, 'PCH cleanup must run before initialization and after a start failure');
 
 {
     const harness = loadControllerHarness([
@@ -287,24 +297,24 @@ assert.strictEqual(laterLevelFailure.runtime._guideBubble, null);
     ]);
     const runtime = {
         _modalFocusRefs: 0,
-        _guideMode: 'slot_intro',
-        _guideStep: 0,
-        _guidePhase: 'unlock',
+        _guideMode: 'none',
+        _guideStep: -1,
+        _guidePhase: '',
         activeBoardTouches: new Map(),
         gestureMode: 'idle',
-        slotUnlockedRows: 1,
-        slotRowCount: 2,
+        levelData: { conveyorCapacity: 60 },
         getAnalyticsPage: () => 'level_game',
         getRuntimeRemoteHash: () => 'test-data-version',
         isExpectedModalBlockerPath: () => false,
     };
     const controller = new harness.GameplaySessionController(runtime);
-    controller.reportLevelInteractionReady(runtime, 2, 2, 'main', 'slot_intro');
+    controller.reportLevelInteractionReady(runtime, 2, 2, 'main', 'none');
     const readiness = harness.analyticsEvents.at(-1);
     assert.strictEqual(readiness.eventName, 'level_interaction_ready');
-    assert.strictEqual(readiness.success, true, 'slot_intro GuideLayer must be treated as an expected tutorial blocker');
-    assert.strictEqual(readiness.errorCode, '', 'slot_intro must not emit unexpected_input_blocker');
-    assert.strictEqual(readiness.extra.unexpectedBlockers, '');
+    assert.strictEqual(readiness.success, false, 'new-only gameplay must reject a stale GuideLayer blocker');
+    assert.strictEqual(readiness.errorCode, 'unexpected_input_blocker');
+    assert.match(readiness.extra.unexpectedBlockers, /GuideLayer/);
+    assert.strictEqual(readiness.extra.conveyorCapacity, 60);
 }
 
 console.log('gameplay-init-failure.test.js passed');

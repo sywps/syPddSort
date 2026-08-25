@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
   "levelId": 1401,
   "theme": "给阿嬷的情书",
   "levelName": "青绿邮筒",
@@ -852,6 +847,7 @@
     ]
   ],
   "slotTotalCount": 495,
+  "conveyorCapacity": 60,
   "filledCellCount": 495,
   "colorCount": 4,
   "colorStats": {

@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
     "levelId": 1407,
     "levelName": "南洋旧小楼",
     "patternKey": "movie_letter_nanyang_house",
@@ -11,6 +6,7 @@
     "boardHeight": 78,
     "timeLimit": 600,
     "slotTotalCount": 2184,
+    "conveyorCapacity": 60,
     "filledCellCount": 2184,
     "colorCount": 9,
     "colorStats": {

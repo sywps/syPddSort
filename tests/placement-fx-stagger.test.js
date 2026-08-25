@@ -65,11 +65,10 @@ const { getBeanFlyStaggerDelay } = sandbox.module.exports;
 assert.strictEqual(getBeanFlyStaggerDelay(0), 0, 'empty transfers must not stagger');
 assert.strictEqual(getBeanFlyStaggerDelay(1), 0, 'single-bean transfers must start immediately');
 assert.strictEqual(getBeanFlyStaggerDelay(12), 0.028, 'the existing 12-bean L1 animation cadence must stay unchanged');
-
-const fortyEightDelay = getBeanFlyStaggerDelay(48);
-assert.ok(fortyEightDelay > 0, 'large transfers must retain a visible stagger');
-assert.ok(Math.abs(fortyEightDelay * 47 - 0.35) < 1e-9, 'the last bean in a 48-bean transfer must start within the 0.35-second cap');
-assert.ok(getBeanFlyStaggerDelay(96) * 95 <= 0.35 + Number.EPSILON, 'the cap must remain generic for larger blocks');
+assert.strictEqual(getBeanFlyStaggerDelay(48), 0.028, '48-bean transfers must keep the fixed reference stagger');
+assert.strictEqual(getBeanFlyStaggerDelay(96), 0.028, 'larger transfers must not compress the reference stagger');
+const fortyEightTotalDuration = getBeanFlyStaggerDelay(48) * 47 + 0.2;
+assert.ok(Math.abs(fortyEightTotalDuration - 1.516) < 1e-9, '48 beans must finish in the reference 1.516-second cadence');
 
 const runtimeOwners = new Map();
 let ownerSeq = 0;

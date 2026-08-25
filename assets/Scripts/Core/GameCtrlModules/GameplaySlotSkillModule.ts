@@ -31,6 +31,7 @@ import type {
 } from '../GameCtrlShared';
 import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { ensureGameplaySlotUiController } from '../GameplaySlotUiController';
+import { ensurePchConveyorGameplayController } from '../PchConveyorGameplayController';
 
 export function installGameplaySlotSkillModule(target: any): void {
     Object.assign(target, {
@@ -61,9 +62,9 @@ export function installGameplaySlotSkillModule(target: any): void {
             return ensureGameplaySlotUiController(this).tryUnlockSlotRow();
         },
 
-        /** 判断暂存槽是否有豆豆 */
+        /** 判断传送带暂存区是否有豆豆 */
         slotHasBeans(): boolean {
-            return ensureGameplaySlotUiController(this).slotHasBeans();
+            return ensurePchConveyorGameplayController(this).hasStoredBeans();
         },
 
         showExpandSlotGuide() {

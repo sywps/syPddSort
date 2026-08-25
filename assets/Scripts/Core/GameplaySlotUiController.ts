@@ -733,14 +733,6 @@ export class GameplaySlotUiController {
         });
     }
 
-    slotHasBeans(): boolean {
-        const pchController = this.runtime._pchConveyorGameplayController;
-        if (pchController?.isActive?.()) {
-            return pchController.hasStoredBeans?.() === true;
-        }
-        return this.runtime.slotModel.getAll().some((s: any) => s !== null);
-    }
-
     clearExpandSlotGuide() {
         const runtime = this.runtime;
         const overlay = runtime._slotUnlockGuideLayer;

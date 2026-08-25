@@ -9,10 +9,18 @@ import {
     Sprite,
     Tween,
     UITransform,
+    UIOpacity,
     Vec2,
     Vec3,
+    Widget,
+    instantiate,
     tween,
 } from './GameCtrlShared';
+import {
+    buildOpeningPatternMoves,
+    getOpeningPatternStaggerDelay,
+    type OpeningPatternMove,
+} from './OpeningPatternTransition';
 import {
     PchConveyorRules,
     type PchSkillBeanSource,
@@ -22,22 +30,44 @@ import {
 const BELT_STEP_SECONDS = 0.28;
 const PCH_TRANSFER_SECONDS = 0.16;
 const PCH_ENTRY_STAGGER_SECONDS = 0.012;
-const PCH_RETURN_STAGGER_SECONDS = 0.035;
+const PCH_RETURN_TRANSFER_SECONDS = 0.2;
+const PCH_RETURN_STAGGER_SECONDS = 0.028;
 const PCH_RETURN_PULSE_UP_SECONDS = 0.08;
 const PCH_RETURN_PULSE_SETTLE_SECONDS = 0.15;
-const PCH_SKILL_STAGGER_SECONDS = 0.025;
-const PCH_SKILL_TRANSFER_SECONDS = 0.18;
+const PCH_SKILL_STAGGER_SECONDS = 0.028;
+const PCH_SKILL_TRANSFER_SECONDS = 0.2;
 const PCH_EXPAND_CAPACITY = 12;
 const PCH_ENTRANCE_SNAP_PROGRESS = 0.032;
-const PCH_BELT_DEFAULT_Y = -415;
-const PCH_BELT_WITH_SKILLS_Y = -382;
-const PCH_BELT_WITH_SKILLS_SCALE = 0.72;
-const PCH_SPEED_BUTTON_FALLBACK_SIZE = 85;
-const PCH_TOP_BUTTON_GAP = 24;
+const OPENING_PATTERN_HOLD_SECONDS = 0.26;
+const OPENING_PATTERN_MOVE_SECONDS = 0.54;
+const INBOUND_SPARK_COUNT = 3;
+
+interface OpeningPatternVisual {
+    move: OpeningPatternMove;
+    node: Node;
+    homePosition: Vec3;
+    targetPosition: Vec3;
+}
+
+interface ConveyorLayoutBindings {
+    node: Node;
+    carrierLayer: Node;
+    carrierTemplate: Node;
+    entranceNode: Node;
+    exitNode: Node;
+    capacityBadge: Node;
+    countLabel: Label;
+    entryCountLabel: Label;
+    adButton: Node;
+}
 
 export class PchConveyorGameplayController {
     private root: Node | null = null;
     private belt: Node | null = null;
+    private normalLayout: Node | null = null;
+    private compactLayout: Node | null = null;
+    private carrierLayer: Node | null = null;
+    private carrierTemplate: Node | null = null;
     private inputRoot: Node | null = null;
     private statusLabel: Label | null = null;
     private countLabel: Label | null = null;
@@ -47,9 +77,11 @@ export class PchConveyorGameplayController {
     private exitNode: Node | null = null;
     private adButton: Node | null = null;
     private speedButton: Node | null = null;
+    private speedInactiveState: Node | null = null;
+    private speedActiveState: Node | null = null;
+    private speedBadgeLabel: Label | null = null;
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
-    private flowArrowNodes: Node[] = [];
     private activeFlyBeans = new Set<Node>();
     private activePulseNodes = new Set<Node>();
     private activeReturnAnimations = 0;
@@ -62,9 +94,9 @@ export class PchConveyorGameplayController {
     private inputLocked = false;
     private skillMovementPaused = false;
     private skillTimerPauseToken = '';
-    private compactLayoutActive: boolean | null = null;
-    private legacySlotArea: Node | null = null;
-    private legacySlotAreaActive = false;
+    private openingPatternVisuals: OpeningPatternVisual[] = [];
+    private openingPatternState: 'idle' | 'ready' | 'running' | 'done' = 'idle';
+    private openingPatternGeneration = 0;
 
     constructor(private readonly runtime: any) {
         this.prepareBeltPath();
@@ -72,31 +104,56 @@ export class PchConveyorGameplayController {
 
     start(): void {
         this.stop();
-        if (!this.runtime.boardModel || typeof this.runtime.renderBoardCells !== 'function') {
+        if (!this.runtime.boardModel
+            || typeof this.runtime.renderBoard !== 'function'
+            || typeof this.runtime.renderBoardCells !== 'function') {
             throw new Error('[pch-core] original board renderer is unavailable');
         }
         if (typeof this.runtime.getBeanSpriteFrame !== 'function'
+            || typeof this.runtime.requireRenderReadySpriteFrame !== 'function'
+            || typeof this.runtime.requireBrightSpriteFrame !== 'function'
+            || typeof this.runtime.attachBrightOverlay !== 'function'
             || typeof this.runtime.renderBoardCell !== 'function'
             || typeof this.runtime.getBoardCellWorldPosition !== 'function'
             || typeof this.runtime.gameLose !== 'function') {
             throw new Error('[pch-core] original bean sprite or placement feedback is unavailable');
         }
-        this.rules = new PchConveyorRules(this.runtime.boardModel);
+        this.runtime.requireBrightSpriteFrame();
+        this.rules = new PchConveyorRules(
+            this.runtime.boardModel,
+            this.runtime.levelData?.conveyorCapacity,
+        );
         this.beltTravel = 0;
-        this.inputLocked = false;
+        this.inputLocked = true;
         this.activeReturnAnimations = 0;
         this.runtime.detachGameplayInputHandlers?.();
 
         const fixedRoot = this.runtime.getGameplayFixedRoot();
-        this.legacySlotArea = this.runtime.getGameplayBottomHudChild('SlotAreaGroup');
-        this.legacySlotAreaActive = !!this.legacySlotArea.active;
-        this.legacySlotArea.active = false;
-
-        this.root = this.makeNode('PchCoreGameplay', fixedRoot, 720, 1280, 0, 0);
-        this.belt = this.makeNode('PchLoopingConveyor', this.root, 688, 400, 0, PCH_BELT_DEFAULT_Y);
-        this.drawConveyorTrack();
-        const bottomHud = this.runtime.getGameplayBottomHudGroup();
-        this.root.setSiblingIndex(Math.max(0, fixedRoot.children.indexOf(bottomHud)));
+        this.root = this.requireConveyorNode(fixedRoot, 'PchConveyorRoot', 'GameplayFixedRoot/PchConveyorRoot');
+        const normalLayout = this.bindConveyorLayout(this.root, 'NormalLayout');
+        const compactLayout = this.bindConveyorLayout(this.root, 'CompactLayout');
+        this.clearConveyorLayoutRuntime(normalLayout.node);
+        this.clearConveyorLayoutRuntime(compactLayout.node);
+        const skillRoot = this.runtime.getGameplayBottomHudChild('SkillArea');
+        const useCompactLayout = ['SkillMagnet', 'SkillBrush', 'SkillFreeze']
+            .some((name) => skillRoot.getChildByName(name)?.activeInHierarchy);
+        normalLayout.node.active = !useCompactLayout;
+        compactLayout.node.active = useCompactLayout;
+        const activeLayout = useCompactLayout ? compactLayout : normalLayout;
+        this.normalLayout = normalLayout.node;
+        this.compactLayout = compactLayout.node;
+        this.belt = activeLayout.node;
+        this.carrierLayer = activeLayout.carrierLayer;
+        this.carrierTemplate = activeLayout.carrierTemplate;
+        this.entranceNode = activeLayout.entranceNode;
+        this.exitNode = activeLayout.exitNode;
+        this.capacityBadge = activeLayout.capacityBadge;
+        this.countLabel = activeLayout.countLabel;
+        this.entryCountLabel = activeLayout.entryCountLabel;
+        this.adButton = activeLayout.adButton;
+        this.adButton.off(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
+        this.adButton.on(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
+        this.root.active = true;
         this.inputRoot = this.runtime._sceneInputRoot?.isValid ? this.runtime._sceneInputRoot : fixedRoot;
         this.inputRoot.on(Node.EventType.TOUCH_START, this.onRootTouchStart, this);
         this.inputRoot.on(Node.EventType.TOUCH_MOVE, this.onRootTouchMove, this);
@@ -104,16 +161,146 @@ export class PchConveyorGameplayController {
         this.inputRoot.on(Node.EventType.TOUCH_CANCEL, this.onRootTouchCancel, this);
         this.inputRoot.on(Node.EventType.MOUSE_WHEEL, this.onRootMouseWheel, this);
         this.renderGame();
-        this.refreshConveyorLayout();
         this.runtime.refitBoardViewportToSafeRect?.();
 
         const topBar = this.runtime.getGameplayFixedGroup('TopBarGroup');
-        const topHud = topBar.getChildByName('TopHud') || topBar;
-        this.buildSpeedButton(topHud);
-        topBar.setSiblingIndex(Math.max(0, fixedRoot.children.length - 1));
+        this.bindSpeedButton(topBar);
+        this.prepareOpeningPatternShuffle();
+    }
+
+    playOpeningPatternShuffle(): void {
+        if (this.openingPatternState !== 'ready') {
+            throw new Error(`[pch-opening] transition is not ready: ${this.openingPatternState}`);
+        }
+        if (!this.root?.isValid || !this.rules) {
+            throw new Error('[pch-opening] gameplay root is unavailable');
+        }
+        const visuals = this.openingPatternVisuals;
+        if (visuals.length === 0) throw new Error('[pch-opening] transition has no visual beans');
+        const generation = this.openingPatternGeneration;
+        const stagger = getOpeningPatternStaggerDelay(visuals.length);
+        const firstDuration = OPENING_PATTERN_MOVE_SECONDS * 0.46;
+        const secondDuration = OPENING_PATTERN_MOVE_SECONDS - firstDuration;
+        let remaining = visuals.length;
+        this.openingPatternState = 'running';
+
+        visuals.forEach((visual, index) => {
+            const spin = this.getOpeningPatternSpin(visual.move);
+            const midpoint = this.getOpeningPatternArcMidpoint(visual, index);
+            tween(visual.node)
+                .delay(OPENING_PATTERN_HOLD_SECONDS + index * stagger)
+                .to(firstDuration, {
+                    position: midpoint,
+                    scale: new Vec3(0.84, 1.06, 1),
+                    angle: spin * 0.56,
+                }, { easing: 'quadIn' })
+                .to(secondDuration, {
+                    position: visual.targetPosition,
+                    scale: new Vec3(1, 1, 1),
+                    angle: spin,
+                }, { easing: 'quadOut' })
+                .call(() => {
+                    if (generation !== this.openingPatternGeneration || this.openingPatternState !== 'running') return;
+                    remaining -= 1;
+                    if (remaining <= 0) this.completeOpeningPatternShuffle(generation);
+                })
+                .start();
+        });
+    }
+
+    private prepareOpeningPatternShuffle(): void {
+        const board = this.runtime.boardModel;
+        const moves = buildOpeningPatternMoves(board.correctColors, board.currentColors);
+        const visuals = moves.map((move): OpeningPatternVisual => {
+            const node = this.runtime.cellNodes?.[move.source.row]?.[move.source.col] || null;
+            const targetNode = this.runtime.cellNodes?.[move.target.row]?.[move.target.col] || null;
+            const sprite = node?.getComponent(Sprite) || null;
+            if (!node?.isValid || !targetNode?.isValid || !sprite) {
+                throw new Error(
+                    `[pch-opening] missing cell visual ${move.source.row},${move.source.col}`
+                    + ` -> ${move.target.row},${move.target.col}`,
+                );
+            }
+            return {
+                move,
+                node,
+                homePosition: node.position.clone(),
+                targetPosition: targetNode.position.clone(),
+            };
+        });
+
+        this.openingPatternGeneration += 1;
+        this.openingPatternVisuals = visuals;
+        this.openingPatternState = 'ready';
+        this.inputLocked = true;
+        for (const visual of visuals) {
+            const sprite = visual.node.getComponent(Sprite)!;
+            Tween.stopAllByTarget(visual.node);
+            visual.node.active = true;
+            visual.node.setPosition(visual.homePosition);
+            visual.node.setScale(1, 1, 1);
+            visual.node.angle = 0;
+            sprite.enabled = true;
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            sprite.spriteFrame = this.runtime.requireRenderReadySpriteFrame(
+                this.runtime.getBeanSpriteFrame(visual.move.colorId, false),
+                `pch-opening:${visual.move.source.row},${visual.move.source.col}:color:${visual.move.colorId}`,
+            );
+        }
+    }
+
+    private completeOpeningPatternShuffle(generation: number): void {
+        if (generation !== this.openingPatternGeneration || this.openingPatternState !== 'running') return;
+        this.openingPatternState = 'done';
+        this.restoreOpeningPatternVisuals(false, true);
+        this.inputLocked = false;
+    }
+
+    private cancelOpeningPatternShuffle(restoreBoard: boolean): void {
+        const hadVisuals = this.openingPatternVisuals.length > 0;
+        this.openingPatternGeneration += 1;
+        this.openingPatternState = 'idle';
+        this.restoreOpeningPatternVisuals(true, restoreBoard && hadVisuals);
+    }
+
+    private restoreOpeningPatternVisuals(stopTweens: boolean, renderBoard: boolean): void {
+        for (const visual of this.openingPatternVisuals) {
+            if (!visual.node?.isValid) continue;
+            if (stopTweens) Tween.stopAllByTarget(visual.node);
+            visual.node.setPosition(visual.homePosition);
+            visual.node.setScale(1, 1, 1);
+            visual.node.angle = 0;
+        }
+        this.openingPatternVisuals = [];
+        if (renderBoard && this.runtime.boardModel) this.runtime.renderBoard();
+    }
+
+    private getOpeningPatternArcMidpoint(visual: OpeningPatternVisual, index: number): Vec3 {
+        const dx = visual.targetPosition.x - visual.homePosition.x;
+        const dy = visual.targetPosition.y - visual.homePosition.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 0.001) return visual.homePosition.clone();
+        const arc = Math.min(Math.max(4, Number(this.runtime.cellSize) * 0.72 || 4), distance * 0.18);
+        const sign = ((index + visual.move.colorId) & 1) === 0 ? 1 : -1;
+        return new Vec3(
+            visual.homePosition.x + dx * 0.5 - dy / distance * arc * sign,
+            visual.homePosition.y + dy * 0.5 + dx / distance * arc * sign,
+            visual.homePosition.z,
+        );
+    }
+
+    private getOpeningPatternSpin(move: OpeningPatternMove): number {
+        const hash = (
+            ((move.source.row + 1) * 73856093)
+            ^ ((move.source.col + 1) * 19349663)
+            ^ (move.colorId * 83492791)
+        ) >>> 0;
+        const direction = (hash & 1) === 0 ? 1 : -1;
+        return direction * (140 + hash % 181);
     }
 
     stop(): void {
+        this.cancelOpeningPatternShuffle(true);
         this.releaseActiveSkillPause();
         if (this.inputRoot?.isValid) {
             this.inputRoot.off(Node.EventType.TOUCH_START, this.onRootTouchStart, this);
@@ -124,20 +311,36 @@ export class PchConveyorGameplayController {
         }
         for (const bean of this.activeFlyBeans) {
             if (!bean?.isValid) continue;
-            Tween.stopAllByTarget(bean);
+            this.stopNodeTreeTweens(bean);
             bean.destroy();
         }
         for (const node of this.activePulseNodes) {
-            if (node?.isValid) Tween.stopAllByTarget(node);
+            if (!node?.isValid) continue;
+            Tween.stopAllByTarget(node);
+            node.setScale(1, 1, 1);
         }
         if (this.root?.isValid) {
             Tween.stopAllByTarget(this.root);
-            this.root.destroy();
+            for (const layout of [this.normalLayout, this.compactLayout]) {
+                if (layout?.isValid) this.clearConveyorLayoutRuntime(layout);
+            }
+            if (this.normalLayout?.isValid) this.normalLayout.active = true;
+            if (this.compactLayout?.isValid) this.compactLayout.active = false;
+            this.root.active = false;
         }
-        if (this.speedButton?.isValid) this.speedButton.destroy();
-        if (this.legacySlotArea?.isValid) this.legacySlotArea.active = this.legacySlotAreaActive;
+        if (this.adButton?.isValid) {
+            this.adButton.off(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
+        }
+        if (this.speedButton?.isValid) {
+            this.speedButton.off(Node.EventType.TOUCH_END, this.onSpeedButtonTap, this);
+            this.speedButton.active = false;
+        }
         this.root = null;
         this.belt = null;
+        this.normalLayout = null;
+        this.compactLayout = null;
+        this.carrierLayer = null;
+        this.carrierTemplate = null;
         this.inputRoot = null;
         this.statusLabel = null;
         this.countLabel = null;
@@ -147,22 +350,21 @@ export class PchConveyorGameplayController {
         this.exitNode = null;
         this.adButton = null;
         this.speedButton = null;
+        this.speedInactiveState = null;
+        this.speedActiveState = null;
+        this.speedBadgeLabel = null;
         this.rules = null;
         this.carrierNodes = [];
-        this.flowArrowNodes = [];
         this.activeFlyBeans.clear();
         this.activePulseNodes.clear();
         this.activeReturnAnimations = 0;
+        this.inputLocked = false;
         this.skillMovementPaused = false;
         this.skillTimerPauseToken = '';
-        this.compactLayoutActive = null;
-        this.legacySlotArea = null;
-        this.legacySlotAreaActive = false;
     }
 
     update(deltaTime: number): void {
         if (!this.rules || this.runtime.isGameEnd) return;
-        this.refreshConveyorLayout();
         if (this.skillMovementPaused || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) return;
         const previousTravel = this.beltTravel;
         const speedMultiplier = Math.max(this.manualSpeedMultiplier, this.rules.conveyorSpeedMultiplier);
@@ -177,19 +379,6 @@ export class PchConveyorGameplayController {
         }
         if (this.checkBufferDeadlock()) return;
         this.updateBeltPositions();
-        this.updateFlowArrowPositions();
-    }
-
-    private refreshConveyorLayout(): void {
-        if (!this.belt?.isValid) return;
-        const skillRoot = this.runtime.getGameplayBottomHudChild('SkillArea');
-        const compact = ['SkillMagnet', 'SkillBrush', 'SkillFreeze']
-            .some((name) => skillRoot.getChildByName(name)?.activeInHierarchy);
-        if (this.compactLayoutActive === compact) return;
-        this.compactLayoutActive = compact;
-        this.belt.setPosition(0, compact ? PCH_BELT_WITH_SKILLS_Y : PCH_BELT_DEFAULT_Y, 0);
-        const scale = compact ? PCH_BELT_WITH_SKILLS_SCALE : 1;
-        this.belt.setScale(scale, scale, 1);
     }
 
     getAvoidTopY(): number | null {
@@ -282,6 +471,7 @@ export class PchConveyorGameplayController {
             event.propagationStopped = true;
             return;
         }
+        if (this.hasDirectButtonTarget(event)) return;
         const rawPos = event?.getUILocation?.();
         if (!rawPos) return;
         const uiPos = typeof this.runtime.normalizeGameplayUiPosition === 'function'
@@ -318,10 +508,19 @@ export class PchConveyorGameplayController {
         this.handleBoardTap(cell.row, cell.col);
     }
 
+    private hasDirectButtonTarget(event: any): boolean {
+        let node = event?.target as Node | null;
+        while (node?.isValid && node !== this.inputRoot) {
+            if (node.getComponent(Button)) return true;
+            node = node.parent;
+        }
+        return false;
+    }
+
     private handleScaledSettingsButtonTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean {
         if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
         const topBar = this.runtime.getGameplayFixedGroup?.('TopBarGroup') || null;
-        const node = topBar?.getChildByName('TopHud')?.getChildByName('SettingsButton') || null;
+        const node = topBar?.getChildByName('Settings') || null;
         const transform = node?.getComponent(UITransform);
         const button = node?.getComponent(Button);
         if (!node?.isValid || !node.activeInHierarchy || !transform || !button?.enabled || !button.interactable) return false;
@@ -409,7 +608,6 @@ export class PchConveyorGameplayController {
             if (!sourceWorld) throw new Error(`[pch-core] board bean ${index} has no fly source`);
             this.animateBeanIntoConveyor(block.colorId, sourceWorld, index);
         });
-        this.runtime.scheduleOnce(() => AudioMgr.inst.play('fly'), 0.08);
         if (result.moved < block.cells.length) {
             if (this.statusLabel) this.statusLabel.string = '空间不足，剩余豆豆保留在棋盘';
         }
@@ -524,8 +722,10 @@ export class PchConveyorGameplayController {
         const entranceWorld = this.belt.getComponent(UITransform)!.convertToWorldSpaceAR(this.beltPath[0]);
         const targetLocal = rootTransform.convertToNodeSpaceAR(entranceWorld);
         const targetScale = 31 / sourceBeanSize;
+        const flightDelay = staggerIndex * PCH_ENTRY_STAGGER_SECONDS;
+        this.attachInboundStarlight(bean, sourceBeanSize, bean.position.clone(), targetLocal, flightDelay);
         tween(bean)
-            .delay(staggerIndex * PCH_ENTRY_STAGGER_SECONDS)
+            .delay(flightDelay)
             .to(PCH_TRANSFER_SECONDS, {
                 position: targetLocal,
                 scale: new Vec3(targetScale, targetScale, 1),
@@ -557,11 +757,10 @@ export class PchConveyorGameplayController {
         this.activeReturnAnimations += 1;
         tween(bean)
             .delay(staggerIndex * PCH_RETURN_STAGGER_SECONDS)
-            .call(() => AudioMgr.inst.play('fly'))
-            .to(PCH_TRANSFER_SECONDS, {
+            .to(PCH_RETURN_TRANSFER_SECONDS, {
                 position: targetLocal,
                 scale: new Vec3(targetScale, targetScale, 1),
-            }, { easing: 'quadIn' })
+            }, { easing: 'sineOut' })
             .call(() => {
                 this.destroyFlyBean(bean);
                 AudioMgr.inst.play('place');
@@ -619,10 +818,108 @@ export class PchConveyorGameplayController {
         return bean;
     }
 
+    private attachInboundStarlight(
+        bean: Node,
+        size: number,
+        sourceLocal: Vec3,
+        targetLocal: Vec3,
+        flightDelaySeconds: number,
+    ): void {
+        const halo = this.runtime.attachBrightOverlay(bean, size * 1.5, 132, 1.08) as Node;
+        const haloOpacity = halo?.getComponent(UIOpacity) || null;
+        if (!halo?.isValid || !haloOpacity) {
+            throw new Error('[pch-starlight] inbound halo is missing UIOpacity');
+        }
+        halo.name = 'PchInboundHalo';
+        halo.setSiblingIndex(0);
+        tween(haloOpacity)
+            .delay(flightDelaySeconds)
+            .to(0.055, { opacity: 225 }, { easing: 'sineOut' })
+            .to(0.105, { opacity: 118 }, { easing: 'sineIn' })
+            .start();
+
+        const dx = targetLocal.x - sourceLocal.x;
+        const dy = targetLocal.y - sourceLocal.y;
+        const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy));
+        const directionX = dx / distance;
+        const directionY = dy / distance;
+        const sideX = -directionY;
+        const sideY = directionX;
+        const sparkleSize = Math.max(7, size * 0.52);
+        const lateralOffsets = [-0.42, 0.36, -0.12];
+
+        for (let index = 0; index < INBOUND_SPARK_COUNT; index += 1) {
+            const trailDistance = size * (0.72 + index * 0.52);
+            const lateral = size * lateralOffsets[index];
+            const startX = -directionX * trailDistance + sideX * lateral;
+            const startY = -directionY * trailDistance + sideY * lateral;
+            const sparkle = this.makeNode(
+                `PchInboundSpark-${index}`,
+                bean,
+                sparkleSize,
+                sparkleSize,
+                startX,
+                startY,
+            );
+            const graphics = sparkle.addComponent(Graphics);
+            this.drawInboundSparkle(graphics, sparkleSize * 0.48, index);
+            const opacity = sparkle.addComponent(UIOpacity);
+            opacity.opacity = 160;
+            const startScale = 0.82 + index * 0.08;
+            sparkle.setScale(startScale, startScale, 1);
+            const delay = flightDelaySeconds + index * 0.012;
+            const drift = size * (0.24 + index * 0.05);
+            tween(sparkle)
+                .delay(delay)
+                .to(0.13, {
+                    position: new Vec3(
+                        startX - directionX * drift,
+                        startY - directionY * drift,
+                        0,
+                    ),
+                    scale: new Vec3(0.32, 0.32, 1),
+                    angle: (index % 2 === 0 ? 1 : -1) * (38 + index * 19),
+                }, { easing: 'sineOut' })
+                .start();
+            tween(opacity)
+                .delay(delay)
+                .to(0.04, { opacity: 255 }, { easing: 'sineOut' })
+                .to(0.12, { opacity: 0 }, { easing: 'quadIn' })
+                .start();
+        }
+    }
+
+    private drawInboundSparkle(graphics: Graphics, radius: number, index: number): void {
+        const innerRadius = radius * 0.22;
+        graphics.fillColor = index === 1
+            ? new Color(255, 255, 255, 255)
+            : new Color(255, 224, 72, 255);
+        for (let point = 0; point < 8; point += 1) {
+            const angle = Math.PI / 2 - point * Math.PI / 4;
+            const pointRadius = point % 2 === 0 ? radius : innerRadius;
+            const x = Math.cos(angle) * pointRadius;
+            const y = Math.sin(angle) * pointRadius;
+            if (point === 0) graphics.moveTo(x, y);
+            else graphics.lineTo(x, y);
+        }
+        graphics.close();
+        graphics.fill();
+        graphics.fillColor = Color.WHITE;
+        graphics.circle(0, 0, Math.max(0.8, radius * 0.13));
+        graphics.fill();
+    }
+
+    private stopNodeTreeTweens(node: Node): void {
+        for (const child of [...node.children]) this.stopNodeTreeTweens(child);
+        const opacity = node.getComponent(UIOpacity);
+        if (opacity) Tween.stopAllByTarget(opacity);
+        Tween.stopAllByTarget(node);
+    }
+
     private destroyFlyBean(bean: Node): void {
         this.activeFlyBeans.delete(bean);
         if (!bean?.isValid) return;
-        Tween.stopAllByTarget(bean);
+        this.stopNodeTreeTweens(bean);
         bean.destroy();
     }
 
@@ -724,10 +1021,6 @@ export class PchConveyorGameplayController {
         }
 
         let remaining = visualMoves.length;
-        const skillStaggerSeconds = Math.min(
-            PCH_SKILL_STAGGER_SECONDS,
-            0.56 / Math.max(1, visualMoves.length - 1),
-        );
         visualMoves.forEach(({ move, source }, index) => {
             const bean = this.createFlyBean(
                 `PchSkill-${kind}-${index}`,
@@ -739,13 +1032,11 @@ export class PchConveyorGameplayController {
             const targetLocal = this.root!.getComponent(UITransform)!.convertToNodeSpaceAR(targetWorld);
             const targetSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || source.size);
             tween(bean)
-                .delay(index * skillStaggerSeconds)
-                .to(0.07, { scale: new Vec3(1.18, 1.18, 1) }, { easing: 'sineOut' })
-                .call(() => AudioMgr.inst.play('fly'))
+                .delay(index * PCH_SKILL_STAGGER_SECONDS)
                 .to(PCH_SKILL_TRANSFER_SECONDS, {
                     position: targetLocal,
                     scale: new Vec3(targetSize / source.size, targetSize / source.size, 1),
-                }, { easing: 'circOut' })
+                }, { easing: 'sineOut' })
                 .call(() => {
                     this.destroyFlyBean(bean);
                     this.runtime._flyingTargets?.delete?.(`${move.target.row},${move.target.col}`);
@@ -810,19 +1101,16 @@ export class PchConveyorGameplayController {
     }
 
     private renderConveyor(): void {
-        if (!this.rules || !this.belt) return;
-        this.belt.children.filter((node) => node.name.startsWith('PchCarrier-')).forEach((node) => node.destroy());
+        if (!this.rules || !this.belt || !this.carrierLayer || !this.carrierTemplate) return;
+        this.carrierLayer.children
+            .filter((node) => node.name.startsWith('PchCarrier-'))
+            .forEach((node) => node.destroy());
         this.carrierNodes = [];
         this.rules.carriers.forEach((stack, carrierIndex) => {
-            const carrier = this.makeNode(`PchCarrier-${carrierIndex}`, this.belt!, 36, 92, 0, 0);
-            const groove = carrier.addComponent(Graphics);
-            groove.fillColor = new Color(54, 42, 103, 150);
-            groove.roundRect(-18, -18, 36, 36, 10);
-            groove.fill();
-            groove.lineWidth = 2;
-            groove.strokeColor = new Color(255, 255, 255, 90);
-            groove.roundRect(-18, -18, 36, 36, 10);
-            groove.stroke();
+            const carrier = instantiate(this.carrierTemplate!);
+            carrier.name = `PchCarrier-${carrierIndex}`;
+            carrier.active = true;
+            this.carrierLayer!.addChild(carrier);
             stack.forEach((colorId, layer) => {
                 const bean = this.makeNode(`PchStackBean-${carrierIndex}-${layer}`, carrier, 33, 33, 0, layer * 8);
                 const sprite = bean.addComponent(Sprite);
@@ -839,10 +1127,6 @@ export class PchConveyorGameplayController {
             this.carrierNodes[carrierIndex] = carrier;
         });
         this.updateBeltPositions();
-        this.updateFlowArrowPositions();
-        for (const overlay of [this.entranceNode, this.exitNode, this.capacityBadge, this.adButton]) {
-            if (overlay?.isValid) overlay.setSiblingIndex(Math.max(0, this.belt.children.length - 1));
-        }
     }
 
     private renderEntranceQueue(): void {
@@ -860,10 +1144,9 @@ export class PchConveyorGameplayController {
                 `pch-entry:${layer}:color:${colorId}`,
             );
             sprite.color = new Color(255, 255, 255, layer === visibleColors.length - 1 ? 255 : 190);
+            const labelIndex = this.entryCountLabel?.node?.getSiblingIndex() ?? 1;
+            bean.setSiblingIndex(Math.max(1, labelIndex));
         });
-        if (this.entryCountLabel?.node?.isValid) {
-            this.entryCountLabel.node.setSiblingIndex(Math.max(0, this.entranceNode.children.length - 1));
-        }
     }
 
     private prepareBeltPath(): void {
@@ -887,228 +1170,164 @@ export class PchConveyorGameplayController {
         this.exitPathProgress = this.beltPathDistances[exitIndex] / this.beltPathLength;
     }
 
-    private drawConveyorTrack(): void {
-        if (!this.belt) return;
-        const track = this.makeNode('PchMovingTrack', this.belt, 688, 300, 0, 0);
-        const graphics = track.addComponent(Graphics);
-        graphics.lineJoin = Graphics.LineJoin.ROUND;
-        graphics.lineCap = Graphics.LineCap.ROUND;
-        for (const [width, color, offsetY] of [
-            [78, new Color(66, 54, 108, 95), -6],
-            [72, new Color(255, 255, 255, 255), 0],
-            [66, new Color(178, 183, 198, 255), 0],
-            [61, new Color(242, 245, 250, 255), 0],
-            [53, new Color(105, 92, 161, 255), 0],
-        ] as Array<[number, Color, number]>) {
-            this.strokeBeltPath(graphics, width, color, offsetY);
+    private requireConveyorNode(parent: Node, name: string, path: string): Node {
+        const node = parent.getChildByName(name);
+        if (!node?.isValid || !node.getComponent(UITransform)) {
+            throw new Error(`[pch-core] Game.scene must provide UITransform on ${path}`);
         }
-        graphics.lineWidth = 5;
-        graphics.strokeColor = new Color(190, 177, 237, 105);
-        this.traceArrow(graphics, -110, -112, 0);
-        this.traceArrow(graphics, 62, -112, 0);
-        this.traceArrow(graphics, 236, -112, 0);
-        this.traceArrow(graphics, 300, 7, Math.PI / 2);
-        this.traceArrow(graphics, 92, 52, Math.PI);
-        this.traceArrow(graphics, -64, 52, Math.PI);
-        this.traceArrow(graphics, -300, 8, -Math.PI / 2);
-        this.traceArrow(graphics, -243, 128, 0);
-        graphics.stroke();
-        this.buildEntranceUi();
-        this.buildExitUi();
-        this.buildCapacityUi();
+        return node;
     }
 
-    private buildEntranceUi(): void {
-        if (!this.belt) return;
-        this.entranceNode = this.makeNode('PchEntrance', this.belt, 72, 88, -230, -102);
-        const graphics = this.entranceNode.addComponent(Graphics);
-        graphics.fillColor = new Color(91, 77, 143, 110);
-        graphics.roundRect(-32, -39, 64, 82, 12);
-        graphics.fill();
-        graphics.lineWidth = 7;
-        graphics.strokeColor = new Color(255, 255, 255, 255);
-        graphics.roundRect(-32, -43, 64, 86, 12);
-        graphics.stroke();
-        graphics.lineWidth = 3;
-        graphics.strokeColor = new Color(176, 180, 194, 255);
-        graphics.roundRect(-24, -35, 48, 46, 8);
-        graphics.stroke();
-        graphics.fillColor = new Color(245, 247, 252, 230);
-        graphics.roundRect(-20, -31, 40, 38, 6);
-        graphics.fill();
-        graphics.lineWidth = 2;
-        graphics.strokeColor = new Color(146, 148, 163, 255);
-        graphics.moveTo(0, -29);
-        graphics.lineTo(0, 5);
-        graphics.stroke();
-        this.entryCountLabel = this.makeLabel(this.entranceNode, '', 12, new Color(255, 230, 72), 19, 36, 26);
+    private requireConveyorSprite(parent: Node, name: string, path: string): Node {
+        const node = this.requireConveyorNode(parent, name, path);
+        const sprite = node.getComponent(Sprite);
+        if (!sprite?.spriteFrame) {
+            throw new Error(`[pch-core] Game.scene must provide SpriteFrame on ${path}`);
+        }
+        return node;
     }
 
-    private buildExitUi(): void {
-        if (!this.belt) return;
-        this.exitNode = this.makeNode('PchExit', this.belt, 126, 102, 0, 98);
-        const graphics = this.exitNode.addComponent(Graphics);
-        graphics.fillColor = new Color(151, 178, 239, 80);
-        graphics.roundRect(-63, -51, 126, 102, 10);
-        graphics.fill();
-        graphics.lineWidth = 7;
-        graphics.lineCap = Graphics.LineCap.ROUND;
-        graphics.lineJoin = Graphics.LineJoin.ROUND;
-        graphics.strokeColor = new Color(143, 216, 249, 205);
-        this.traceArrow(graphics, -28, 9, Math.PI / 2, 13);
-        this.traceArrow(graphics, 28, 9, Math.PI / 2, 13);
-        graphics.stroke();
+    private requireConveyorLabel(parent: Node, name: string, path: string): Label {
+        const node = this.requireConveyorNode(parent, name, path);
+        const label = node.getComponent(Label);
+        if (!label) throw new Error(`[pch-core] Game.scene must provide Label on ${path}`);
+        return label;
     }
 
-    private buildCapacityUi(): void {
-        if (!this.belt) return;
-        this.capacityBadge = this.makeNode('PchCapacityBadge', this.belt, 124, 64, -70, -30);
-        const badgeGraphics = this.capacityBadge.addComponent(Graphics);
-        badgeGraphics.fillColor = new Color(69, 58, 123, 245);
-        badgeGraphics.roundRect(-62, -32, 124, 64, 16);
-        badgeGraphics.fill();
-        badgeGraphics.lineWidth = 4;
-        badgeGraphics.strokeColor = new Color(229, 226, 255, 255);
-        badgeGraphics.roundRect(-60, -30, 120, 60, 14);
-        badgeGraphics.stroke();
-        this.countLabel = this.makeLabel(this.capacityBadge, '0 / 60', 21, new Color(255, 236, 82), 0, 0, 112);
-
-        this.adButton = this.makeNode('PchCapacityAdButton', this.belt, 132, 64, 72, -30);
-        const graphics = this.adButton.addComponent(Graphics);
-        graphics.fillColor = new Color(21, 176, 73, 255);
-        graphics.roundRect(-66, -32, 132, 64, 16);
-        graphics.fill();
-        graphics.lineWidth = 4;
-        graphics.strokeColor = new Color(183, 255, 194, 255);
-        graphics.roundRect(-64, -30, 128, 60, 14);
-        graphics.stroke();
-        graphics.fillColor = new Color(73, 74, 151, 255);
-        graphics.roundRect(-55, -23, 50, 46, 11);
-        graphics.fill();
-        graphics.fillColor = new Color(102, 89, 166, 255);
-        graphics.roundRect(2, -23, 53, 46, 10);
-        graphics.fill();
-        this.makeLabel(this.adButton, 'AD', 19, Color.WHITE, -30, 0, 48);
-        this.makeLabel(this.adButton, '+12', 18, Color.WHITE, 29, 5, 52);
-        this.makeLabel(this.adButton, '≫', 16, new Color(183, 233, 255), 29, -12, 52);
-        const button = this.adButton.addComponent(Button);
-        button.transition = Button.Transition.SCALE;
-        button.zoomScale = 0.94;
-        this.adButton.on(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
+    private bindConveyorLayout(root: Node, name: 'NormalLayout' | 'CompactLayout'): ConveyorLayoutBindings {
+        const basePath = `GameplayFixedRoot/PchConveyorRoot/${name}`;
+        const node = this.requireConveyorNode(root, name, basePath);
+        this.requireConveyorSprite(node, 'PchMovingTrack', `${basePath}/PchMovingTrack`);
+        const carrierLayer = this.requireConveyorNode(node, 'CarrierLayer', `${basePath}/CarrierLayer`);
+        const carrierTemplate = this.requireConveyorNode(
+            carrierLayer,
+            'PchCarrierTemplate',
+            `${basePath}/CarrierLayer/PchCarrierTemplate`,
+        );
+        if (carrierTemplate.active) {
+            throw new Error(`[pch-core] Game.scene carrier template must be inactive on ${basePath}`);
+        }
+        this.requireConveyorSprite(
+            carrierTemplate,
+            'Groove',
+            `${basePath}/CarrierLayer/PchCarrierTemplate/Groove`,
+        );
+        const entranceNode = this.requireConveyorNode(node, 'PchEntrance', `${basePath}/PchEntrance`);
+        this.requireConveyorSprite(entranceNode, 'Visual', `${basePath}/PchEntrance/Visual`);
+        const entryCountLabel = this.requireConveyorLabel(
+            entranceNode,
+            'EntryCount',
+            `${basePath}/PchEntrance/EntryCount`,
+        );
+        const exitNode = this.requireConveyorNode(node, 'PchExit', `${basePath}/PchExit`);
+        this.requireConveyorSprite(exitNode, 'Visual', `${basePath}/PchExit/Visual`);
+        const capacityBadge = this.requireConveyorNode(node, 'PchCapacityBadge', `${basePath}/PchCapacityBadge`);
+        this.requireConveyorSprite(capacityBadge, 'Visual', `${basePath}/PchCapacityBadge/Visual`);
+        const countLabel = this.requireConveyorLabel(
+            capacityBadge,
+            'CapacityCount',
+            `${basePath}/PchCapacityBadge/CapacityCount`,
+        );
+        const adButton = this.requireConveyorNode(node, 'PchCapacityAdButton', `${basePath}/PchCapacityAdButton`);
+        if (!adButton.getComponent(Button)) {
+            throw new Error(`[pch-core] Game.scene must provide Button on ${basePath}/PchCapacityAdButton`);
+        }
+        this.requireConveyorSprite(adButton, 'Visual', `${basePath}/PchCapacityAdButton/Visual`);
+        for (const labelName of ['AdLabel', 'ExpandLabel', 'ExpandArrow']) {
+            this.requireConveyorLabel(adButton, labelName, `${basePath}/PchCapacityAdButton/${labelName}`);
+        }
+        return {
+            node,
+            carrierLayer,
+            carrierTemplate,
+            entranceNode,
+            exitNode,
+            capacityBadge,
+            countLabel,
+            entryCountLabel,
+            adButton,
+        };
     }
 
-    private buildSpeedButton(parent: Node): void {
-        parent.getChildByName('PchSpeedButton')?.destroy();
-        const settingsButton = parent.getChildByName('SettingsButton') || parent.getChildByName('Settings');
-        const settingsButtonSize = settingsButton?.getComponent(UITransform)?.contentSize.width;
-        const buttonSize = Math.max(1, Number(settingsButtonSize) || PCH_SPEED_BUTTON_FALLBACK_SIZE);
-        const buttonX = settingsButton
-            ? settingsButton.position.x + buttonSize + PCH_TOP_BUTTON_GAP
-            : -214;
-        const buttonY = settingsButton?.position.y ?? 568;
-        this.speedButton = this.makeNode('PchSpeedButton', parent, buttonSize, buttonSize, buttonX, buttonY);
-        const button = this.speedButton.addComponent(Button);
-        button.transition = Button.Transition.SCALE;
-        button.zoomScale = 0.92;
-        this.speedButton.on(Node.EventType.TOUCH_END, this.onSpeedButtonTap, this);
-        this.speedButton.setSiblingIndex(Math.max(0, parent.children.length - 1));
-        this.drawSpeedButton();
+    private clearConveyorLayoutRuntime(layout: Node): void {
+        const carrierLayer = layout.getChildByName('CarrierLayer');
+        carrierLayer?.children
+            .filter((node) => node.name.startsWith('PchCarrier-'))
+            .forEach((node) => node.destroy());
+        const entrance = layout.getChildByName('PchEntrance');
+        entrance?.children
+            .filter((node) => node.name.startsWith('PchEntryBean-'))
+            .forEach((node) => node.destroy());
+        layout.children
+            .filter((node) => node.name.startsWith('PchLabel-+'))
+            .forEach((node) => node.destroy());
+    }
+
+    private bindSpeedButton(parent: Node): void {
+        const speedButton = parent.getChildByName('PchSpeedButton');
+        if (!speedButton?.isValid) {
+            throw new Error('[pch-core] Game.scene is missing TopBarGroup/PchSpeedButton');
+        }
+        if (!speedButton.getComponent(UITransform)) {
+            throw new Error('[pch-core] Game.scene is missing UITransform on TopBarGroup/PchSpeedButton');
+        }
+        if (!speedButton.getComponent(Widget)) {
+            throw new Error('[pch-core] Game.scene is missing Widget on TopBarGroup/PchSpeedButton');
+        }
+        if (!speedButton.getComponent(Button)) {
+            throw new Error('[pch-core] Game.scene is missing Button on TopBarGroup/PchSpeedButton');
+        }
+        const inactiveState = speedButton.getChildByName('InactiveState');
+        const activeState = speedButton.getChildByName('ActiveState');
+        const badgeNode = speedButton.getChildByName('PchSpeedBadge');
+        const inactiveSprite = inactiveState?.getComponent(Sprite);
+        const activeSprite = activeState?.getComponent(Sprite);
+        const badgeLabel = badgeNode?.getComponent(Label);
+        if (!inactiveState?.isValid || !inactiveState.getComponent(UITransform) || !inactiveSprite?.spriteFrame) {
+            throw new Error('[pch-core] Game.scene must provide UITransform and SpriteFrame on TopBarGroup/PchSpeedButton/InactiveState');
+        }
+        if (!activeState?.isValid || !activeState.getComponent(UITransform) || !activeSprite?.spriteFrame) {
+            throw new Error('[pch-core] Game.scene must provide UITransform and SpriteFrame on TopBarGroup/PchSpeedButton/ActiveState');
+        }
+        if (!badgeNode?.isValid || !badgeNode.getComponent(UITransform) || !badgeLabel) {
+            throw new Error('[pch-core] Game.scene must provide UITransform and Label on TopBarGroup/PchSpeedButton/PchSpeedBadge');
+        }
+        speedButton.off(Node.EventType.TOUCH_END, this.onSpeedButtonTap, this);
+        speedButton.on(Node.EventType.TOUCH_END, this.onSpeedButtonTap, this);
+        this.speedButton = speedButton;
+        this.speedInactiveState = inactiveState;
+        this.speedActiveState = activeState;
+        this.speedBadgeLabel = badgeLabel;
+        speedButton.active = true;
+        this.refreshSpeedButtonState();
     }
 
     private onSpeedButtonTap(event: any): void {
         event.propagationStopped = true;
-        if (!this.rules || this.runtime.isGameEnd) return;
+        if (!this.rules || this.inputLocked || this.runtime.isGameEnd) return;
         this.manualSpeedMultiplier = this.manualSpeedMultiplier === 1 ? 2 : 1;
         AudioMgr.inst.play('button');
-        this.drawSpeedButton();
+        this.refreshSpeedButtonState();
         if (this.statusLabel) {
             this.statusLabel.string = this.manualSpeedMultiplier === 2 ? '2 倍速度已开启' : '已恢复正常速度';
         }
     }
 
-    private drawSpeedButton(): void {
-        if (!this.speedButton?.isValid) return;
-        this.speedButton.children.forEach((child) => child.destroy());
-        const graphics = this.speedButton.getComponent(Graphics) || this.speedButton.addComponent(Graphics);
-        graphics.clear();
+    private refreshSpeedButtonState(): void {
+        if (!this.speedButton?.isValid
+            || !this.speedInactiveState?.isValid
+            || !this.speedActiveState?.isValid
+            || !this.speedBadgeLabel?.isValid) return;
         const active = this.manualSpeedMultiplier === 2;
-        const buttonSize = this.speedButton.getComponent(UITransform)?.contentSize.width || 85;
-        const scale = buttonSize / 72;
-        graphics.fillColor = new Color(52, 45, 136, 255);
-        graphics.circle(0, -3 * scale, buttonSize / 2);
-        graphics.fill();
-        graphics.fillColor = active ? new Color(119, 105, 255, 255) : new Color(99, 91, 220, 255);
-        graphics.circle(0, scale, buttonSize / 2 - 2.5);
-        graphics.fill();
-        graphics.lineWidth = active ? 5 : 3;
-        graphics.strokeColor = active ? new Color(255, 237, 86, 255) : new Color(166, 181, 255, 255);
-        graphics.circle(0, scale, buttonSize / 2 - 5);
-        graphics.stroke();
-        graphics.fillColor = Color.WHITE;
-        for (const offsetX of [-9, 6]) {
-            graphics.moveTo((offsetX - 7) * scale, 15 * scale);
-            graphics.lineTo((offsetX + 3) * scale, scale);
-            graphics.lineTo((offsetX - 7) * scale, -13 * scale);
-            graphics.lineTo(offsetX * scale, -13 * scale);
-            graphics.lineTo((offsetX + 11) * scale, scale);
-            graphics.lineTo(offsetX * scale, 15 * scale);
-            graphics.close();
-        }
-        graphics.fill();
-        const badge = this.makeLabel(
-            this.speedButton,
-            active ? '2X' : '1X',
-            Math.round(18 * scale),
-            Color.WHITE,
-            30 * scale,
-            -28 * scale,
-            52 * scale,
-        );
-        badge.node.name = 'PchSpeedBadge';
-        (badge as Label & { isBold?: boolean }).isBold = true;
-    }
-
-    private strokeBeltPath(graphics: Graphics, width: number, color: Color, offsetY = 0): void {
-        graphics.lineWidth = width;
-        graphics.strokeColor = color;
-        graphics.moveTo(this.beltPath[0].x, this.beltPath[0].y + offsetY);
-        for (let i = 1; i < this.beltPath.length; i += 1) {
-            graphics.lineTo(this.beltPath[i].x, this.beltPath[i].y + offsetY);
-        }
-        graphics.close();
-        graphics.stroke();
-    }
-
-    private traceArrow(graphics: Graphics, x: number, y: number, angle: number, size = 10): void {
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        graphics.moveTo(x - cos * size + sin * size * 0.72, y - sin * size - cos * size * 0.72);
-        graphics.lineTo(x, y);
-        graphics.lineTo(x - cos * size - sin * size * 0.72, y - sin * size + cos * size * 0.72);
+        this.speedInactiveState.active = !active;
+        this.speedActiveState.active = active;
+        this.speedBadgeLabel.string = active ? '2X' : '1X';
     }
 
     private updateBeltPositions(): void {
         if (!this.rules) return;
         this.carrierNodes.forEach((node, carrierIndex) => {
             node.setPosition(this.pointOnBeltPath(this.wrap01((carrierIndex + this.beltTravel) / this.rules!.carrierCount)));
-        });
-    }
-
-    private updateFlowArrowPositions(): void {
-        if (this.flowArrowNodes.length === 0) return;
-        const normalizedTravel = this.rules && this.rules.carrierCount > 0
-            ? this.beltTravel / this.rules.carrierCount
-            : 0;
-        this.flowArrowNodes.forEach((node, index) => {
-            const progress = this.wrap01(index / this.flowArrowNodes.length + normalizedTravel);
-            const position = this.pointOnBeltPath(progress);
-            const before = this.pointOnBeltPath(this.wrap01(progress - 0.004));
-            const after = this.pointOnBeltPath(this.wrap01(progress + 0.004));
-            const angleDegrees = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI;
-            node.setPosition(position);
-            node.setRotationFromEuler(0, 0, angleDegrees);
-            const pulse = 0.9 + 0.12 * Math.sin((normalizedTravel + index / this.flowArrowNodes.length) * Math.PI * 2);
-            node.setScale(pulse, pulse, 1);
         });
     }
 

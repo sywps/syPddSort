@@ -3,18 +3,7 @@
   "boardHeight": 13,
   "timeLimit": 300,
   "slotTotalCount": 112,
-  "slotPolicy": {
-    "defaultRows": 1,
-    "freeUnlockRows": 3,
-    "adUnlockRows": 0,
-    "unlockAllRowsAtOnce": true
-  },
-  "tutorialGuide": {
-    "mode": "slot_intro",
-    "guideCopies": [
-      "点击【解锁按钮】"
-    ]
-  },
+  "conveyorCapacity": 60,
   "correctColorArr": [
     [
       0,

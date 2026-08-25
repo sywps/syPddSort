@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { loadCollectionCatalog } = require('./collection-catalog-contract');
+const { validateConveyorCapacity } = require('./conveyor-capacity-contract');
 
 const projectDir = path.resolve(__dirname, '..');
 const levelDir = path.join(projectDir, 'assets', 'LevelData');
@@ -45,6 +46,7 @@ function createManifest() {
             const filePath = path.join(levelDir, name);
             const data = readJson(filePath);
             const levelId = Math.max(1, Math.floor(Number(data.levelId || name.match(/\d+/)[0]) || 1));
+            const conveyorCapacity = validateConveyorCapacity(data, name);
             const colors = new Set();
             visitColors(data.correctColorArr, colors);
             visitColors(data.initRandomColorArr, colors);
@@ -57,6 +59,7 @@ function createManifest() {
                 colorIds: [...colors].sort((a, b) => a - b),
                 colorCount: colors.size,
                 slotTotalCount: Math.max(0, Math.floor(Number(data.slotTotalCount) || 0)),
+                conveyorCapacity,
                 timeLimit: Math.max(0, Math.floor(Number(data.timeLimit) || 0)),
                 isMainline: true,
                 isTutorial: levelId <= 2,

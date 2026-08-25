@@ -8,8 +8,8 @@ const {
     LEVEL_DATA_CLIENT_BUILD,
     LEVEL_DATA_CONTRACT,
     LEVEL_DATA_SCHEMA_VERSION,
-    validateSlotPolicy,
-} = require('./slot-policy-contract');
+    validateConveyorCapacity,
+} = require('./conveyor-capacity-contract');
 const {
     configureWechatCdnEnvironment,
     resolveWechatCdnSlot,
@@ -20,20 +20,7 @@ const LY_0224_EXPERIMENT_ID = 'ly_0224';
 const LY_0224_RUNTIME_MINIMUM_LEVEL_ID = 2;
 const LY_0224_OVERRIDE_LEVEL_IDS = Object.freeze([2, 3, 4, 5, 6, 7, 8, 9]);
 const LY_0224_STABLE_SOURCE_DIR = 'assets/LevelData';
-const LY_0224_TUTORIAL_CONTRACTS = Object.freeze({
-    2: {
-        mode: 'slot_intro',
-        stepCount: 1,
-        guideCopies: ['点击【解锁按钮】'],
-    },
-    3: {
-        mode: 'zoom',
-        stepCount: 1,
-        title: '试试放大或缩小',
-        subtitle: '',
-        guideCopies: ['试试放大或缩小'],
-    },
-});
+const LY_0224_TUTORIAL_CONTRACTS = Object.freeze({});
 const LY_0224_TREATMENT_CDN_URL =
     'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat_b/0722_levels/front10_v1/treatment/';
 const LY_0224_TREATMENT_OSS_PATH =
@@ -163,10 +150,10 @@ function resolveLevelExperimentTarget(experimentId) {
     if (Number(config.runtimeMinimumLevelId) !== LY_0224_RUNTIME_MINIMUM_LEVEL_ID) {
         fail('ly_0224 treatment 运行时实验范围必须从第 2 关开始');
     }
-    if (config.levelDataContract !== 'v2') fail('ly_0224 treatment 必须使用 v2 关卡协议');
+    if (config.levelDataContract !== 'v3') fail('ly_0224 treatment 必须使用 v3 关卡协议');
     if (Number(config.packSize) !== 100) fail('ly_0224 treatment packSize 必须是 100');
     if (JSON.stringify(config.tutorialContracts) !== JSON.stringify(LY_0224_TUTORIAL_CONTRACTS)) {
-        fail('ly_0224 treatment L2/L3 引导合同不正确');
+        fail('ly_0224 treatment 引导合同不正确');
     }
     if (config.stableSourceDir !== LY_0224_STABLE_SOURCE_DIR || config.sourceMode !== 'stable_full_plus_overrides') {
         fail('ly_0224 treatment 必须由完整稳定关卡真源叠加显式覆盖生成');
@@ -207,7 +194,6 @@ function resolveLevelExperimentTarget(experimentId) {
         assertFile(stableFile, 'ly_0224 稳定关卡');
     }
     assertExperimentTutorialContracts(overrideDir, config.tutorialContracts);
-    assertExperimentTutorialRuntimeSupport();
     return Object.freeze({
         experimentId: config.experimentId,
         bucket: config.bucket,
@@ -259,26 +245,6 @@ function assertExperimentTutorialContracts(sourceDir, contracts) {
                 fail('ly_0224 EXP 第 ' + levelId + ' 关引导 ' + key + ' 不匹配');
             }
         }
-    }
-}
-
-function assertExperimentTutorialRuntimeSupport() {
-    const sessionSource = fs.readFileSync(
-        path.join(projectDir, 'assets', 'Scripts', 'Core', 'GameplaySessionController.ts'),
-        'utf8',
-    );
-    const hudSource = fs.readFileSync(
-        path.join(projectDir, 'assets', 'Scripts', 'Core', 'GameCtrlModules', 'SettlementHudModule.ts'),
-        'utf8',
-    );
-    if (!sessionSource.includes("case 'slot_intro': return 'slot_intro';")) {
-        fail('当前客户端不支持 EXP 第 2 关 slot_intro 引导');
-    }
-    if (!sessionSource.includes("case 'zoom': return 'zoom';")) {
-        fail('当前客户端不支持 EXP 第 3 关 zoom 引导');
-    }
-    if (!hudSource.includes("(mode === 'zoom' || mode === 'slot_intro') ? 1 : 0")) {
-        fail('当前客户端的 EXP 第 2/3 关引导步骤数不是 1');
     }
 }
 
@@ -437,7 +403,7 @@ function validateLevelDataPackage() {
             packPayloadKeys.push(key);
             cdnPrefixCounts[entryPrefix] = (cdnPrefixCounts[entryPrefix] || 0) + 1;
             try {
-                validateSlotPolicy(entry && entry.data, pack.url + ' ' + key);
+                validateConveyorCapacity(entry && entry.data, pack.url + ' ' + key);
             } catch (err) {
                 fail(err && err.message ? err.message : String(err));
             }

@@ -935,6 +935,7 @@ export function installGameplaySkillWandModule(target: any): void {
         
             const layerUT = this.dragLayer.getComponent(UITransform)!;
             const nodeWorldPos = (node: Node): Vec3 => node.getComponent(UITransform)!.convertToWorldSpaceAR(new Vec3(0, 0, 0));
+            const FLY_DURATION = 0.2;
             const STAGGER = 0.028;
             let remaining = moves.length;
             let nextDumpBoardSettleSoundAtMs = 0;
@@ -980,11 +981,10 @@ export function installGameplaySkillWandModule(target: any): void {
         
                 tween(bean)
                     .delay(i * STAGGER)
-                    .to(0.1, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
-                    .to(0.1, {
+                    .to(FLY_DURATION, {
                         position: new Vec3(targetLocal.x, targetLocal.y, 0),
                         scale: new Vec3(1, 1, 1),
-                    }, { easing: 'circOut' })
+                    }, { easing: 'sineOut' })
                     .call(() => {
                         scheduleDumpBoardSettleSound();
                         this.recycleFlyBeanNode(bean);

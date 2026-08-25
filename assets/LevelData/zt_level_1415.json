@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
   "levelId": 1415,
   "theme": "给阿嬷的情书",
   "levelName": "侨批文化馆",
@@ -1992,6 +1987,7 @@
     ]
   ],
   "slotTotalCount": 1369,
+  "conveyorCapacity": 60,
   "filledCellCount": 1369,
   "colorCount": 7,
   "colorStats": {

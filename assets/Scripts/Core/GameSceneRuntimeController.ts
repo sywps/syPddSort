@@ -21,7 +21,6 @@ import { markStartupTrace } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
-import { applyGameplayLevelTitleLayout } from './GameplayViewController';
 
 let weChatUpdateManagerBound = false;
 
@@ -250,20 +249,20 @@ export class GameSceneRuntimeController {
 
     private bindEarlyGameSettingsButton(): void {
         const screenRoot = this.runtime.requireCanvasUiRoot('ScreenRoot');
-        const topBar = screenRoot
-            .getChildByName('GameplayRoot')
-            ?.getChildByName('GameplayFixedRoot')
-            ?.getChildByName('TopBarGroup') || null;
-        if (topBar?.isValid && typeof this.runtime.syncTopHud === 'function') {
-            this.runtime.syncTopHud(topBar, 'game');
+        const gameplayRoot = this.runtime.requireUiChild(screenRoot, 'GameplayRoot', 'ScreenRoot/GameplayRoot');
+        const fixedRoot = this.runtime.requireUiChild(gameplayRoot, 'GameplayFixedRoot', 'GameplayRoot/GameplayFixedRoot');
+        const topBar = this.runtime.requireUiChild(fixedRoot, 'TopBarGroup', 'GameplayFixedRoot/TopBarGroup');
+        const settingsButton = this.runtime.requireUiChild(topBar, 'Settings', 'TopBarGroup/Settings');
+        if (!settingsButton.getComponent(UITransform)) {
+            throw new Error('[GameScene] Game.scene is missing UITransform on TopBarGroup/Settings');
         }
-        const settingsButton = topBar
-            ?.getChildByName('TopHud')
-            ?.getChildByName('SettingsButton')
-            || topBar?.getChildByName('Settings')
-            || null;
-        if (!settingsButton?.isValid) return;
-        settingsButton.getComponent(Button) || settingsButton.addComponent(Button);
+        const settingsIcon = this.runtime.requireUiChild(settingsButton, 'SettingsIcon', 'TopBarGroup/Settings/SettingsIcon');
+        const settingsSprite = settingsIcon.getComponent(Sprite);
+        if (!settingsSprite?.spriteFrame) {
+            throw new Error('[GameScene] Game.scene must provide SpriteFrame on TopBarGroup/Settings/SettingsIcon');
+        }
+        const button = settingsButton.getComponent(Button);
+        if (!button) throw new Error('[GameScene] Game.scene is missing Button on TopBarGroup/Settings');
         settingsButton.targetOff(this.runtime);
         settingsButton.on(Button.EventType.CLICK, () => {
             AudioMgr.inst.play('button');
@@ -466,18 +465,16 @@ export class GameSceneRuntimeController {
         normalNode.active = !useLevel1Variant;
         level1Node.active = useLevel1Variant;
         const titleNode = useLevel1Variant ? level1Node : normalNode;
-        const labelNode = titleNode.getChildByName('Label') || titleNode;
+        const titlePath = useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1' : 'TopBarGroup/LevelTitle';
+        const labelNode = this.runtime.requireUiChild(titleNode, 'Label', `${titlePath}/Label`);
         const label = labelNode.getComponent(Label);
         if (!label) {
-            throw new Error(`[GameScene] pending startup title is missing Label component on ${useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1/Label' : 'TopBarGroup/LevelTitle/Label'}`);
+            throw new Error(`[GameScene] pending startup title is missing Label component on ${titlePath}/Label`);
         }
-        applyGameplayLevelTitleLayout(titleNode, label);
         label.string = `第${levelId}关`;
         this.runtime.levelLabel = label;
-        const timerWrap = topBar.getChildByName('TimerWrap');
-        if (timerWrap?.isValid) {
-            timerWrap.active = false;
-        }
+        const timerWrap = this.runtime.requireUiChild(topBar, 'TimerWrap', 'TopBarGroup/TimerWrap');
+        timerWrap.active = false;
         markStartupTrace('startup_game_shell_primed', {
             levelId,
             entryMode: pending.entryMode,

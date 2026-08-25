@@ -69,7 +69,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                 slotSources,
                 pickGroup.targets,
             );
-            plan.maxStartDelay = 0.56;
             this.resetIdleHintTimer();
             this.runForcedSkillPlansSequential([plan], 0, undefined, skillGeneration);
         },

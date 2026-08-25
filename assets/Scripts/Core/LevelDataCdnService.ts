@@ -1,4 +1,4 @@
-import type { LevelData } from './LevelConfig';
+import { validateConveyorCapacity, type LevelData } from './LevelConfig';
 import { getFrontLevelExperimentDiagnostics, resolveFrontLevelExperimentContext } from './LevelExperimentService';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
@@ -16,7 +16,6 @@ import {
     writeCdnStorageObject,
 } from './RemoteDataCdnClient';
 import { runtimeWarn } from './RuntimeLog';
-import { LEVEL_DATA_SLOT_POLICY_MAX_ROWS, validateSlotPolicyConfig } from './SlotOnboardingPolicy';
 
 type LevelPackEntry = {
     id: string;
@@ -88,9 +87,8 @@ type LevelDataLastFailure = {
 const MAX_CACHED_LEVEL_PACKS = 1;
 const MAX_PERSISTED_LEVEL_PACKS = 3;
 const LIVE_MANIFEST_FAILURE_COOLDOWN_MS = 30000;
-const LEVEL_DATA_CLIENT_BUILD = 2;
-const LEVEL_DATA_SCHEMA_VERSION = 2;
-const LEVEL_DATA_COMPAT_SCHEMA_VERSION = 1;
+const LEVEL_DATA_CLIENT_BUILD = 3;
+const LEVEL_DATA_SCHEMA_VERSION = 3;
 const COLLECTION_CATALOG_VERSION = 1;
 const LEGACY_COLLECTION_CATALOG_MAIN_LEVEL_COUNT = 300;
 const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
@@ -426,8 +424,7 @@ export class LevelDataCdnService {
         if (!manifest || !Array.isArray(manifest.packs)) {
             throw new Error('level_live.json packs missing');
         }
-        if (manifest.manifestVersion !== 1
-            || (manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION && manifest.schemaVersion !== LEVEL_DATA_COMPAT_SCHEMA_VERSION)) {
+        if (manifest.manifestVersion !== 1 || manifest.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) {
             throw new Error('level_live.json schema unsupported');
         }
         if (!manifest.dataVersion || typeof manifest.dataVersion !== 'string') {
@@ -558,7 +555,7 @@ export class LevelDataCdnService {
         if (pack.id !== packEntry.id) {
             throw new Error('pack id mismatch: ' + pack.id + ' != ' + packEntry.id);
         }
-        if (pack.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION && pack.schemaVersion !== LEVEL_DATA_COMPAT_SCHEMA_VERSION) {
+        if (pack.schemaVersion !== LEVEL_DATA_SCHEMA_VERSION) {
             throw new Error('pack schema unsupported: ' + pack.schemaVersion);
         }
         const expectedPrefix = this.getPackPrefix(packEntry);
@@ -584,7 +581,7 @@ export class LevelDataCdnService {
             if (Math.max(1, Math.floor(Number(entry.data.levelId) || 1)) !== entryLevelId) {
                 throw new Error('pack level data id mismatch: ' + key);
             }
-            validateSlotPolicyConfig(entry.data.slotPolicy, LEVEL_DATA_SLOT_POLICY_MAX_ROWS);
+            validateConveyorCapacity(entry.data.conveyorCapacity, key);
         }
         return pack;
     }

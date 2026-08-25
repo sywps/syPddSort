@@ -1,9 +1,4 @@
 {
-    "slotPolicy": {
-        "defaultRows": 1,
-        "freeUnlockRows": 0,
-        "adUnlockRows": 1
-    },
   "levelId": 1409,
   "theme": "给阿嬷的情书",
   "levelName": "雨巷阿嬷",
@@ -2664,6 +2659,7 @@
     ]
   ],
   "slotTotalCount": 1074,
+  "conveyorCapacity": 60,
   "filledCellCount": 1074,
   "colorCount": 6,
   "colorStats": {

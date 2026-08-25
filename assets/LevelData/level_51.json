@@ -1,13 +1,9 @@
 {
   "boardWidth": 27,
   "boardHeight": 27,
-  "timeLimit": 210,
+  "timeLimit": 126,
   "slotTotalCount": 531,
-  "slotPolicy": {
-    "defaultRows": 1,
-    "freeUnlockRows": 0,
-    "adUnlockRows": 1
-  },
+  "conveyorCapacity": 60,
   "correctColorArr": [
     [
       0,
