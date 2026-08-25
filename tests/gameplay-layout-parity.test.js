@@ -42,9 +42,11 @@ assert.ok(
 );
 assert.ok(
     conveyor.includes('handleScaledSettingsButtonTap(rawPos, uiPos, event)')
-        && conveyor.includes("getChildByName('TopHud')?.getChildByName('SettingsButton')")
+        && conveyor.includes("const topHud = topBar?.getChildByName('TopHud') || topBar")
+        && conveyor.includes("topHud?.getChildByName('SettingsButton')")
+        && conveyor.includes("topBar?.getChildByName('Settings')")
         && conveyor.includes('this.runtime.openSettingsPanel?.()'),
-    'compact gameplay settings must retain a normalized scaled-preview hit path',
+    'compact gameplay settings must retain a normalized scaled-preview hit path for prefab and legacy top-bar hierarchies',
 );
 assert.ok(
     gameplayView.match(/timerWrap\.setScale\(GAMEPLAY_TIMER_SCALE, GAMEPLAY_TIMER_SCALE, 1\)/g)?.length === 2,

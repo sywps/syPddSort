@@ -11,6 +11,7 @@ import {
     UITransform,
     Vec2,
     Vec3,
+    instantiate,
     tween,
 } from './GameCtrlShared';
 import {
@@ -47,6 +48,10 @@ export class PchConveyorGameplayController {
     private exitNode: Node | null = null;
     private adButton: Node | null = null;
     private speedButton: Node | null = null;
+    private openingGuide: Node | null = null;
+    private openingGuideTarget: Node | null = null;
+    private openingGuideLevelOneCells: Array<{ row: number; col: number }> = [];
+    private openingGuideLevelOneStep = -1;
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
     private flowArrowNodes: Node[] = [];
@@ -111,6 +116,7 @@ export class PchConveyorGameplayController {
         const topHud = topBar.getChildByName('TopHud') || topBar;
         this.buildSpeedButton(topHud);
         topBar.setSiblingIndex(Math.max(0, fixedRoot.children.length - 1));
+        this.showOpeningFeatureGuide(fixedRoot);
     }
 
     stop(): void {
@@ -135,6 +141,8 @@ export class PchConveyorGameplayController {
             this.root.destroy();
         }
         if (this.speedButton?.isValid) this.speedButton.destroy();
+        if (this.openingGuide?.isValid) this.openingGuide.destroy();
+        if (this.openingGuideTarget?.isValid) this.openingGuideTarget.destroy();
         if (this.legacySlotArea?.isValid) this.legacySlotArea.active = this.legacySlotAreaActive;
         this.root = null;
         this.belt = null;
@@ -147,6 +155,10 @@ export class PchConveyorGameplayController {
         this.exitNode = null;
         this.adButton = null;
         this.speedButton = null;
+        this.openingGuide = null;
+        this.openingGuideTarget = null;
+        this.openingGuideLevelOneCells = [];
+        this.openingGuideLevelOneStep = -1;
         this.rules = null;
         this.carrierNodes = [];
         this.flowArrowNodes = [];
@@ -161,7 +173,7 @@ export class PchConveyorGameplayController {
     }
 
     update(deltaTime: number): void {
-        if (!this.rules || this.runtime.isGameEnd) return;
+        if (!this.rules || this.runtime.isGameEnd || this.openingGuide?.isValid) return;
         this.refreshConveyorLayout();
         if (this.skillMovementPaused || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) return;
         const previousTravel = this.beltTravel;
@@ -273,7 +285,11 @@ export class PchConveyorGameplayController {
     }
 
     private onRootTouchEnd(event: any): void {
-        if (!this.rules || this.inputLocked || this.runtime.isGameEnd) return;
+        if (!this.rules || this.runtime.isGameEnd) return;
+        if (this.inputLocked) {
+            this.handleOpeningGuideRootTap(event);
+            return;
+        }
         const wasViewportGesture = this.runtime.gestureMode === 'pinching'
             || this.runtime.gestureMode === 'panning'
             || !!this.runtime.suppressTap;
@@ -318,12 +334,66 @@ export class PchConveyorGameplayController {
         this.handleBoardTap(cell.row, cell.col);
     }
 
+    private handleOpeningGuideRootTap(event: any): boolean {
+        if (this.handleLevelOneOpeningGuideRootTap(event)) return true;
+        const rawPos = event?.getUILocation?.();
+        if (!rawPos) return false;
+        const uiPos = typeof this.runtime.normalizeGameplayUiPosition === 'function'
+            ? this.runtime.normalizeGameplayUiPosition(rawPos)
+            : new Vec2(rawPos.x, rawPos.y);
+        const hitPositions = [rawPos];
+        if (Math.abs(uiPos.x - rawPos.x) >= 0.5 || Math.abs(uiPos.y - rawPos.y) >= 0.5) {
+            hitPositions.push(uiPos);
+        }
+        const guideName = this.openingGuide?.name || '';
+        const target = guideName === 'PchLevelTwoSpeedGuide'
+            ? this.speedButton
+            : (guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null);
+        const bounds = target?.getComponent(UITransform)?.getBoundingBoxToWorld();
+        if (!bounds || !hitPositions.some((position) => bounds.contains(position))) return false;
+        event.propagationStopped = true;
+        if (guideName === 'PchLevelTwoSpeedGuide') {
+            this.onOpeningGuideDoubleSpeed(event);
+        } else {
+            this.onOpeningGuideFreeCapacity(event);
+        }
+        return true;
+    }
+
+    private handleLevelOneOpeningGuideRootTap(event: any): boolean {
+        if (!this.rules || this.openingGuideLevelOneStep < 0) return false;
+        const guideCell = this.openingGuideLevelOneCells[this.openingGuideLevelOneStep];
+        const targetColor = guideCell ? this.rules.board.currentColors[guideCell.row]?.[guideCell.col] || 0 : 0;
+        const rawPos = event?.getUILocation?.();
+        if (targetColor <= 0 || !rawPos) return false;
+        const uiPos = typeof this.runtime.normalizeGameplayUiPosition === 'function'
+            ? this.runtime.normalizeGameplayUiPosition(rawPos)
+            : new Vec2(rawPos.x, rawPos.y);
+        const hitPositions = [rawPos];
+        if (Math.abs(uiPos.x - rawPos.x) >= 0.5 || Math.abs(uiPos.y - rawPos.y) >= 0.5) {
+            hitPositions.push(uiPos);
+        }
+        const hitTargetColor = this.rules.cells.some((cell) => {
+            if (cell.locked || cell.current !== targetColor) return false;
+            const node = this.runtime.cellNodes?.[cell.row]?.[cell.col] || null;
+            const bounds = node?.getComponent(UITransform)?.getBoundingBoxToWorld();
+            return !!bounds && hitPositions.some((position) => bounds.contains(position));
+        });
+        if (!hitTargetColor) return false;
+        event.propagationStopped = true;
+        this.onOpeningGuideLevelOneTap(event);
+        return true;
+    }
+
     private handleScaledSettingsButtonTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean {
-        if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
         const topBar = this.runtime.getGameplayFixedGroup?.('TopBarGroup') || null;
-        const node = topBar?.getChildByName('TopHud')?.getChildByName('SettingsButton') || null;
+        const topHud = topBar?.getChildByName('TopHud') || topBar;
+        const node = topHud?.getChildByName('SettingsButton')
+            || topBar?.getChildByName('Settings')
+            || null;
         const transform = node?.getComponent(UITransform);
         const button = node?.getComponent(Button);
+        if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
         if (!node?.isValid || !node.activeInHierarchy || !transform || !button?.enabled || !button.interactable) return false;
         if (!transform.getBoundingBoxToWorld().contains(uiPos)) return false;
         event.propagationStopped = true;
@@ -997,6 +1067,195 @@ export class PchConveyorGameplayController {
         this.adButton.on(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
     }
 
+    private showOpeningFeatureGuide(parent: Node): void {
+        const logicalLevelId = Math.max(1, Math.floor(Number(this.runtime.getActiveLogicalLevelId?.()) || 1));
+        if (this.runtime._activeGameplayEntryMode !== 'main') return;
+        if (logicalLevelId === 1) {
+            this.showLevelOneBoardGuide(parent);
+        } else if (logicalLevelId === 2 && this.speedButton?.isValid) {
+            this.showOpeningTargetGuide(parent, this.speedButton, 'PchLevelTwoSpeedGuide', '点击开启两倍速', this.onOpeningGuideDoubleSpeed);
+        } else if (logicalLevelId === 3 && this.adButton?.isValid) {
+            this.showOpeningTargetGuide(parent, this.adButton, 'PchLevelThreeCapacityGuide', '点击广告按钮增加 12 个空位', this.onOpeningGuideFreeCapacity);
+        }
+    }
+
+    private showLevelOneBoardGuide(parent: Node): void {
+        if (!this.rules) return;
+        const colors = new Set<number>();
+        this.openingGuideLevelOneCells = [];
+        for (const cell of this.rules.cells) {
+            if (cell.locked || cell.current <= 0 || colors.has(cell.current)) continue;
+            colors.add(cell.current);
+            this.openingGuideLevelOneCells.push({ row: cell.row, col: cell.col });
+            if (this.openingGuideLevelOneCells.length >= 2) break;
+        }
+        if (this.openingGuideLevelOneCells.length < 2) {
+            throw new Error('[pch-core] level 1 requires two playable guide colors');
+        }
+        this.openingGuideLevelOneStep = 0;
+        this.showLevelOneBoardGuideStep(parent);
+    }
+
+    private showLevelOneBoardGuideStep(parent: Node): void {
+        const cell = this.openingGuideLevelOneCells[this.openingGuideLevelOneStep];
+        if (!cell) throw new Error('[pch-core] level 1 guide cell is unavailable');
+        const parentTransform = parent.getComponent(UITransform);
+        if (!parentTransform) throw new Error('[pch-core] opening guide parent transform is unavailable');
+        const targetColor = this.rules?.board.currentColors[cell.row]?.[cell.col] || 0;
+        const targetCells = this.rules?.cells.filter((item) => !item.locked && item.current === targetColor) || [];
+        let minX = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
+        for (const targetCell of targetCells) {
+            const node = this.runtime.cellNodes?.[targetCell.row]?.[targetCell.col] || null;
+            const bounds = node?.getComponent(UITransform)?.getBoundingBoxToWorld();
+            if (!bounds) throw new Error('[pch-core] level 1 guide bean bounds are unavailable');
+            minX = Math.min(minX, bounds.xMin);
+            maxX = Math.max(maxX, bounds.xMax);
+            minY = Math.min(minY, bounds.yMin);
+            maxY = Math.max(maxY, bounds.yMax);
+        }
+        if (targetColor <= 0 || targetCells.length === 0 || !Number.isFinite(minX + maxX + minY + maxY)) {
+            throw new Error('[pch-core] level 1 guide color bounds are unavailable');
+        }
+        const bottomLeft = parentTransform.convertToNodeSpaceAR(new Vec3(minX, minY, 0));
+        const topRight = parentTransform.convertToNodeSpaceAR(new Vec3(maxX, maxY, 0));
+        const targetLocal = new Vec3((bottomLeft.x + topRight.x) / 2, (bottomLeft.y + topRight.y) / 2, 0);
+        const targetWidth = Math.abs(topRight.x - bottomLeft.x);
+        const targetHeight = Math.abs(topRight.y - bottomLeft.y);
+        const copy = this.openingGuideLevelOneStep === 0 ? '点击红色豆豆' : '再点蓝色豆豆';
+        this.showOpeningTargetGuideAt(
+            parent,
+            targetLocal,
+            targetWidth,
+            targetHeight,
+            `PchLevelOneGuideStep${this.openingGuideLevelOneStep + 1}`,
+            copy,
+            this.onOpeningGuideLevelOneTap,
+        );
+    }
+
+    private showOpeningTargetGuide(
+        parent: Node,
+        target: Node,
+        guideName: string,
+        copy: string,
+        onTargetTap: (event: any) => void,
+    ): void {
+        const parentTransform = parent.getComponent(UITransform);
+        const targetTransform = target.getComponent(UITransform);
+        if (!parentTransform || !targetTransform) {
+            throw new Error('[pch-core] opening guide target transform is unavailable');
+        }
+        const targetLocal = parentTransform.convertToNodeSpaceAR(targetTransform.convertToWorldSpaceAR(new Vec3()));
+        const targetWidth = targetTransform.contentSize.width * Math.abs(target.worldScale.x || 1);
+        const targetHeight = targetTransform.contentSize.height * Math.abs(target.worldScale.y || 1);
+        this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap);
+    }
+
+    private showOpeningTargetGuideAt(
+        parent: Node,
+        targetLocal: Vec3,
+        targetWidth: number,
+        targetHeight: number,
+        guideName: string,
+        copy: string,
+        onTargetTap: (event: any) => void,
+    ): void {
+        this.inputLocked = true;
+        this.openingGuide = this.makeNode(guideName, parent, 720, 1280, 0, 0);
+        this.openingGuide.setSiblingIndex(Math.max(0, parent.children.length - 1));
+        this.openingGuideTarget = this.makeNode('OpeningGuideTapTarget', parent, targetWidth + 24, targetHeight + 24, targetLocal.x, targetLocal.y);
+        this.openingGuideTarget.setSiblingIndex(Math.max(0, parent.children.length - 1));
+        const ring = this.openingGuideTarget.addComponent(Graphics);
+        ring.lineWidth = 6;
+        ring.strokeColor = new Color(255, 236, 82, 255);
+        ring.roundRect(-(targetWidth + 20) / 2, -(targetHeight + 20) / 2, targetWidth + 20, targetHeight + 20, 22);
+        ring.stroke();
+        const button = this.openingGuideTarget.addComponent(Button);
+        button.transition = Button.Transition.SCALE;
+        button.zoomScale = 0.92;
+        this.openingGuideTarget.on(Node.EventType.TOUCH_END, onTargetTap, this);
+
+        const promptY = Math.max(-520, targetLocal.y - targetHeight / 2 - 72);
+        const promptX = Math.max(-100, Math.min(100, targetLocal.x));
+        const prompt = this.makeNode('OpeningGuidePrompt', this.openingGuide, 500, 64, promptX, promptY);
+        const promptGraphics = prompt.addComponent(Graphics);
+        promptGraphics.fillColor = new Color(53, 43, 117, 245);
+        promptGraphics.roundRect(-250, -32, 500, 64, 20);
+        promptGraphics.fill();
+        this.makeLabel(prompt, copy, 25, Color.WHITE, 0, 0, 470);
+
+        const overlayRoot = this.runtime.requireCanvasUiRoot?.('OverlayRoot') || null;
+        const sourceHand = overlayRoot?.getChildByName('TutorialGuideHands')?.getChildByName('GuideHandSingle') || null;
+        if (!sourceHand?.getComponent(Sprite)) {
+            throw new Error('[pch-core] original GuideHandSingle is unavailable');
+        }
+        const hand = instantiate(sourceHand);
+        hand.name = 'OpeningGuideHand';
+        this.openingGuide.addChild(hand);
+        hand.active = true;
+        hand.setPosition(targetLocal.x + 42, targetLocal.y - 76, 0);
+        hand.setScale(0.92, 0.92, 1);
+        tween(hand)
+            .repeatForever(
+                tween()
+                    .to(0.42, { position: new Vec3(targetLocal.x + 42, targetLocal.y - 60, 0), scale: new Vec3(1.08, 1.08, 1) }, { easing: 'sineInOut' })
+                    .to(0.42, { position: new Vec3(targetLocal.x + 42, targetLocal.y - 76, 0), scale: new Vec3(0.92, 0.92, 1) }, { easing: 'sineInOut' }),
+            )
+            .start();
+    }
+
+    private onOpeningGuideLevelOneTap(event: any): void {
+        event.propagationStopped = true;
+        const cell = this.openingGuideLevelOneCells[this.openingGuideLevelOneStep];
+        if (!cell || !this.rules || this.runtime.isGameEnd) return;
+        this.handleBoardTap(cell.row, cell.col);
+        if (this.openingGuideLevelOneStep >= 1) {
+            this.dismissOpeningGuide();
+            return;
+        }
+        this.clearOpeningGuideNodes();
+        this.openingGuideLevelOneStep += 1;
+        const parent = this.runtime.getGameplayFixedRoot();
+        this.showLevelOneBoardGuideStep(parent);
+    }
+
+    private onOpeningGuideDoubleSpeed(event: any): void {
+        event.propagationStopped = true;
+        if (!this.rules || this.runtime.isGameEnd) return;
+        this.manualSpeedMultiplier = 2;
+        AudioMgr.inst.play('button');
+        this.drawSpeedButton();
+        if (this.statusLabel) this.statusLabel.string = '2 倍速度已开启';
+        this.dismissOpeningGuide();
+    }
+
+    private onOpeningGuideFreeCapacity(event: any): void {
+        event.propagationStopped = true;
+        if (!this.rules || this.runtime.isGameEnd) return;
+        AudioMgr.inst.play('button');
+        const expanded = this.expandCapacity();
+        if (!expanded) return;
+        this.runtime.markDynamicCountdownAssisted?.();
+        this.dismissOpeningGuide();
+    }
+
+    private dismissOpeningGuide(): void {
+        this.clearOpeningGuideNodes();
+        this.openingGuideLevelOneCells = [];
+        this.openingGuideLevelOneStep = -1;
+        this.inputLocked = false;
+    }
+
+    private clearOpeningGuideNodes(): void {
+        if (this.openingGuide?.isValid) this.openingGuide.destroy();
+        if (this.openingGuideTarget?.isValid) this.openingGuideTarget.destroy();
+        this.openingGuide = null;
+        this.openingGuideTarget = null;
+    }
+
     private buildSpeedButton(parent: Node): void {
         parent.getChildByName('PchSpeedButton')?.destroy();
         const settingsButton = parent.getChildByName('SettingsButton') || parent.getChildByName('Settings');
@@ -1143,6 +1402,11 @@ export class PchConveyorGameplayController {
     private onCapacityAdTap(event: any): void {
         event.propagationStopped = true;
         if (!this.rules || this.inputLocked || this.runtime.isGameEnd || this.runtime._adShowing) return;
+        this.requestCapacityExpansion();
+    }
+
+    private requestCapacityExpansion(afterExpanded?: () => void): void {
+        if (!this.rules || this.runtime.isGameEnd || this.runtime._adShowing) return;
         if (typeof this.runtime.runRewardedGrant !== 'function') {
             throw new Error('[pch-core] rewarded capacity grant is unavailable');
         }
@@ -1151,6 +1415,7 @@ export class PchConveyorGameplayController {
         this.runtime.runRewardedGrant('pch_conveyor_expand', () => {
             const expanded = this.expandCapacity();
             if (expanded) this.runtime.markDynamicCountdownAssisted?.();
+            if (expanded) afterExpanded?.();
             return expanded;
         }, {
             claimKey: `pch_conveyor_expand:${this.runtime.getActiveLogicalLevelId?.() || 0}:${this.rules.bufferCapacity}`,

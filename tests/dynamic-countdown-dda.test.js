@@ -91,7 +91,7 @@ assert.ok(skillUi.includes('this.restoreSkillNodeVisual(shell);'), 'disabled vis
 assert.ok(skillUi.includes('opacity.opacity = 255'), 'runtime-disabled slot-clear must keep full opacity');
 assert.ok(!skillUi.includes('opacity.opacity = available ? 255 : 138'), 'runtime-disabled slot-clear must not fade through opacity');
 assert.ok(skillUi.includes('syncSkillButtonRuntimeStates()'), 'skill UI must expose a runtime state sync path for slot changes');
-assert.ok(skillUi.includes('this.applySkillRuntimeAvailability(shell, this.isSkillRuntimeAvailable(state));'), 'all prop runtime states must refresh after the shared skill lock changes');
+assert.ok(skillUi.includes('this.isSkillRuntimeVisuallyAvailable(state)'), 'shared skill locks must refresh interaction without changing prop colors');
 assert.ok(skillUi.includes('return this.invokeSkillHandler(skill, timerPausedForFinalSecond);'), 'rewarded prop grants must preserve the concrete skill start result');
 assert.ok(gameplaySkillMagnet.includes('return pchController.useClearColorSkill(timerAlreadyPaused) === true;'), 'PCH clear-color must return whether its effect actually started');
 assert.ok(gameplaySkillWand.includes('return pchController.useClearBufferSkill(timerAlreadyPaused) === true;'), 'PCH clear-buffer must return whether its effect actually started');

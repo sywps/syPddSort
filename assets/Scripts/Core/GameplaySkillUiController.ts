@@ -152,6 +152,10 @@ export class GameplaySkillUiController {
         if (pchController?.isActive?.() && pchController.isSkillBusy?.()) {
             return false;
         }
+        return this.isSkillRuntimeVisuallyAvailable(skill);
+    }
+
+    private isSkillRuntimeVisuallyAvailable(skill: Pick<GameplaySkillConfig, 'kind' | 'preCheck'>): boolean {
         if (skill.kind === 'brush' && skill.preCheck && !skill.preCheck()) {
             return false;
         }
@@ -233,10 +237,10 @@ export class GameplaySkillUiController {
         }
     }
 
-    private applySkillRuntimeAvailability(shell: Node, available: boolean): void {
+    private applySkillRuntimeAvailability(shell: Node, available: boolean, visuallyAvailable: boolean): void {
         const opacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
         opacity.opacity = 255;
-        this.applySkillDisabledVisual(shell, !available);
+        this.applySkillDisabledVisual(shell, !visuallyAvailable);
         const button = shell.getComponent(Button);
         if (button) {
             button.enabled = available;
@@ -286,7 +290,11 @@ export class GameplaySkillUiController {
             if (!isGameplaySkillUnlocked(currentLevel, entryMode, state.unlockLevel)) continue;
             const shell = root.getChildByName(state.shellName);
             if (!shell?.isValid || !shell.active) continue;
-            this.applySkillRuntimeAvailability(shell, this.isSkillRuntimeAvailable(state));
+            this.applySkillRuntimeAvailability(
+                shell,
+                this.isSkillRuntimeAvailable(state),
+                this.isSkillRuntimeVisuallyAvailable(state),
+            );
         }
     }
 
@@ -364,7 +372,7 @@ export class GameplaySkillUiController {
             const handler = skill.handler;
             const preCheck = skill.preCheck;
             button.enabled = runtimeAvailable;
-            this.applySkillRuntimeAvailability(shell, runtimeAvailable);
+            this.applySkillRuntimeAvailability(shell, runtimeAvailable, this.isSkillRuntimeVisuallyAvailable(skill));
             shell.on(Button.EventType.CLICK, () => {
                 if (runtime._guideStep >= 0) return;
                 if (!this.isSkillRuntimeAvailable(skill)) return;

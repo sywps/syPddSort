@@ -67,6 +67,7 @@ load(loadedModule, loadedModule.exports, (request) => {
 function createSkillShell(name) {
     const button = { enabled: true };
     const opacity = { opacity: 255 };
+    const sprite = { color: new FakeColor(210, 180, 150, 255), grayscale: false };
     return {
         name,
         isValid: true,
@@ -77,6 +78,7 @@ function createSkillShell(name) {
         getComponent(type) {
             if (type === FakeButton) return button;
             if (type === FakeUIOpacity) return opacity;
+            if (type === FakeSprite) return sprite;
             return null;
         },
         addComponent(type) {
@@ -119,6 +121,11 @@ const controller = new loadedModule.exports.GameplaySkillUiController(runtime);
 controller.syncSkillButtonRuntimeStates();
 for (const shell of shells.values()) {
     assert.equal(shell.button.enabled, false, `${shell.name} must be disabled while a skill is applying`);
+    assert.deepEqual(
+        shell.getComponent(FakeSprite).color,
+        new FakeColor(210, 180, 150, 255),
+        `${shell.name} must keep its normal color while beans are flying`,
+    );
 }
 
 skillBusy = false;
@@ -132,6 +139,11 @@ controller.syncSkillButtonRuntimeStates();
 assert.equal(shells.get('SkillMagnet').button.enabled, true, 'clear-color must remain available without buffered beans');
 assert.equal(shells.get('SkillFreeze').button.enabled, true, 'freeze must remain available without buffered beans');
 assert.equal(shells.get('SkillBrush').button.enabled, false, 'clear-buffer must disable only when the conveyor is empty');
+assert.deepEqual(
+    shells.get('SkillBrush').getComponent(FakeSprite).color,
+    new FakeColor(143, 122, 102, 255),
+    'clear-buffer may still dim when its own empty-buffer precondition fails',
+);
 
 const rejectedGrant = controller.useSkillFromAdGrant({
     kind: 'magnet',
