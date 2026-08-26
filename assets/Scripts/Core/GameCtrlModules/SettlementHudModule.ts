@@ -945,13 +945,6 @@ export function installSettlementHudModule(target: any): void {
                     if (this.panelLose) this.panelLose.active = false;
                     return;
                 }
-                if (this.panelTimeoutContinue) {
-                    this.panelTimeoutContinue.active = true;
-                    this.panelTimeoutContinue.setSiblingIndex(999);
-                    if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
-                    if (this.panelLose) this.panelLose.active = false;
-                    return;
-                }
                 this.showLosePanel();
             };
             if (!this.ensureGameplayResultPanelsCreated?.('lose-flow')) {

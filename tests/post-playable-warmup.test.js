@@ -182,15 +182,29 @@ for (const bootstrapPath of [
     assert.ok(extractBootstrap.includes(bootstrapPath), `bootstrap extraction must include ${bootstrapPath}`);
     assert.ok(patchBootstrap.includes(bootstrapPath), `runtime bootstrap patch must include ${bootstrapPath}`);
 }
-for (const bootstrapImagePath of [
-    'GameUI/board_zoom_fill',
-    'GameUI/board_zoom_locate',
-    'GameUI/board_zoom_minus',
-    'GameUI/board_zoom_plus',
-    'GameUI/board_zoom_thumb',
-    'GameUI/board_zoom_track',
+const bootstrapImageRoot = path.join(root, 'assets/BootstrapBundle');
+const collectBootstrapImagePaths = (directory) => fs.readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+        const fullPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) return collectBootstrapImagePaths(fullPath);
+        if (!/\.(png|jpe?g)$/i.test(entry.name)) return [];
+        return [path.relative(bootstrapImageRoot, fullPath).replace(/\\/g, '/').replace(/\.(png|jpe?g)$/i, '')];
+    });
+const missingBootstrapImagePaths = collectBootstrapImagePaths(bootstrapImageRoot)
+    .filter((assetPath) => !patchBootstrap.includes(`'${assetPath}'`))
+    .sort();
+assert.deepStrictEqual(missingBootstrapImagePaths, [], 'every BootstrapBundle image must be explicitly allowlisted');
+for (const obsoleteImageName of [
+    'pch_conveyor_capacity',
+    'pch_conveyor_capacity_ad',
+    'pch_conveyor_carrier',
+    'pch_conveyor_entrance',
+    'pch_conveyor_exit',
+    'pch_conveyor_track',
 ]) {
-    assert.ok(patchBootstrap.includes(bootstrapImagePath), `bootstrap image allowlist must include ${bootstrapImagePath}`);
+    const obsoleteImagePath = path.join(bootstrapImageRoot, 'GameUI', `${obsoleteImageName}.png`);
+    assert.ok(!fs.existsSync(obsoleteImagePath), `${obsoleteImageName} must not be repacked after the RainbowConveyor migration`);
+    assert.ok(!fs.existsSync(`${obsoleteImagePath}.meta`), `${obsoleteImageName} metadata must not remain without a live asset`);
 }
 assert.ok(patchBootstrap.includes('criticalGameAssetsPathMap'), 'bootstrap runtime patch must merge critical gameAssets entries');
 assert.ok(patchBootstrap.includes("homeAssetsBundleName = 'homeAssets'"), 'bootstrap critical dependency scan must also inspect homeAssets references');

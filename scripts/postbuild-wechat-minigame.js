@@ -1166,6 +1166,76 @@ function injectScreenAdaptGameJsLog(content) {
     );
 }
 
+function patchWechatBootstrapSystemInfo(content) {
+    var helperMarker = 'function __pddReadWechatBootstrapSystemInfo(){';
+    var orientationSource = 'const info = wx.getSystemInfoSync();';
+    var platformSource = 'var sysInfo = wx.getSystemInfoSync();';
+    var orientationTarget = 'const info = __pddReadWechatBootstrapSystemInfo();';
+    var platformTarget = 'var sysInfo = __pddReadWechatBootstrapSystemInfo();';
+    var initAppPattern = /function __initApp\s*\(\s*\)\s*\{/;
+    if (content.indexOf(helperMarker) !== -1) {
+        if (content.indexOf(orientationTarget) === -1
+            || content.indexOf(platformTarget) === -1
+            || content.indexOf(orientationSource) !== -1
+            || content.indexOf(platformSource) !== -1
+            || content.indexOf(helperMarker) > content.search(initAppPattern)) {
+            throw new Error('[3.2/7] 微信启动系统信息补丁处于不完整状态');
+        }
+        return content;
+    }
+    var orientationCount = content.split(orientationSource).length - 1;
+    var platformCount = content.split(platformSource).length - 1;
+    var initAppCount = (content.match(/function __initApp\s*\(\s*\)\s*\{/g) || []).length;
+    if (orientationCount !== 1 || platformCount !== 1 || initAppCount !== 1) {
+        throw new Error('[3.2/7] 微信启动系统信息调用数量异常: orientation=' + orientationCount + ', platform=' + platformCount + ', initApp=' + initAppCount);
+    }
+    var helper = [
+        'function __pddReadWechatBootstrapSystemInfo(){',
+        '    var wxApi=typeof wx!=="undefined"?wx:null;',
+        '    if(!wxApi)throw new Error("[PDD] WeChat bootstrap API unavailable");',
+        '    var result={};',
+        '    var merge=function(source){',
+        '        if(!source||typeof source!=="object")return;',
+        '        for(var key in source){',
+        '            if(!Object.prototype.hasOwnProperty.call(source,key)||typeof source[key]==="undefined")continue;',
+        '            result[key]=source[key];',
+        '        }',
+        '    };',
+        '    try{if(typeof wxApi.getDeviceInfo==="function")merge(wxApi.getDeviceInfo());}catch(_deviceError){}',
+        '    try{if(typeof wxApi.getWindowInfo==="function")merge(wxApi.getWindowInfo());}catch(_windowError){}',
+        '    var platform=String(result.platform||"");',
+        '    var screenWidth=Number(result.screenWidth);',
+        '    var screenHeight=Number(result.screenHeight);',
+        '    if(!platform||!isFinite(screenWidth)||screenWidth<=0||!isFinite(screenHeight)||screenHeight<=0){',
+        '        try{if(typeof wxApi.getSystemInfoSync==="function")merge(wxApi.getSystemInfoSync());}catch(_legacyError){}',
+        '        platform=String(result.platform||"");',
+        '        screenWidth=Number(result.screenWidth);',
+        '        screenHeight=Number(result.screenHeight);',
+        '    }',
+        '    var missing=[];',
+        '    if(!platform)missing.push("platform");',
+        '    if(!isFinite(screenWidth)||screenWidth<=0)missing.push("screenWidth");',
+        '    if(!isFinite(screenHeight)||screenHeight<=0)missing.push("screenHeight");',
+        '    if(missing.length)throw new Error("[PDD] WeChat bootstrap system info missing: "+missing.join(","));',
+        '    result.platform=platform;',
+        '    result.screenWidth=screenWidth;',
+        '    result.screenHeight=screenHeight;',
+        '    return result;',
+        '}',
+    ].join('\n');
+    var patched = content.replace(initAppPattern, helper + '\n$&');
+    patched = patched.replace(orientationSource, orientationTarget);
+    patched = patched.replace(platformSource, platformTarget);
+    if (patched.indexOf(orientationSource) !== -1
+        || patched.indexOf(platformSource) !== -1
+        || patched.indexOf(orientationTarget) === -1
+        || patched.indexOf(platformTarget) === -1
+        || patched.indexOf(helperMarker) > patched.search(initAppPattern)) {
+        throw new Error('[3.2/7] 微信启动系统信息补丁验证失败');
+    }
+    return patched;
+}
+
 function ensureStableGameAssetsBundleScriptLoader(runtimeRoot) {
     var engineAdapterPath = path.join(runtimeRoot, 'engine-adapter.js');
     if (!fs.existsSync(engineAdapterPath)) return;
@@ -1426,11 +1496,12 @@ if (fs.existsSync(gameJsPath)) {
     if (screenAdaptDebug) {
         patchedGame = injectScreenAdaptGameJsLog(patchedGame);
     }
+    patchedGame = patchWechatBootstrapSystemInfo(patchedGame);
     if (patchedGame !== gameJs) {
         fs.writeFileSync(gameJsPath, patchedGame);
-        console.log('[3.2/7] 已保存原始 wx 到 __rawWx + 移除 DPR 乘法' + (screenAdaptDebug ? ' + 注入屏幕诊断日志' : '，屏幕诊断关闭') + ' ✓');
+        console.log('[3.2/7] 已保存原始 wx + 安全系统信息读取 + 移除 DPR 乘法' + (screenAdaptDebug ? ' + 注入屏幕诊断日志' : '，屏幕诊断关闭') + ' ✓');
     } else {
-        console.log('[3.2/7] __rawWx 已存在' + (screenAdaptDebug ? '，屏幕诊断已开启' : '，屏幕诊断关闭') + ' ✓');
+        console.log('[3.2/7] __rawWx 与安全系统信息读取已存在' + (screenAdaptDebug ? '，屏幕诊断已开启' : '，屏幕诊断关闭') + ' ✓');
     }
     // 注册 SDK 延迟加载器；第三方 SDK 不能阻塞 Cocos 首屏。
     var lazySdkGame = installDnSdkLazyLoader(patchedGame);

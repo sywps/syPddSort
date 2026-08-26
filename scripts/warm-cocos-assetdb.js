@@ -7,6 +7,7 @@ const buildCommon = require('./minigame-build-common.js');
 
 const projectDir = path.resolve(__dirname, '..');
 const defaultResultPath = path.join(projectDir, 'temp', 'pdd-assetdb-warm.json');
+const warmupRequestFileName = 'pdd-assetdb-warm-request.json';
 const pollIntervalMs = 250;
 const cacheSettleMs = 3000;
 const processExitSettleMs = 3000;
@@ -22,6 +23,21 @@ function readResult(resultPath) {
     } catch (_) {
         return null;
     }
+}
+
+function writeWarmupRequest(resultPath) {
+    const requestPath = path.join(projectDir, 'temp', warmupRequestFileName);
+    writeJsonAtomically(requestPath, {
+        version: 1,
+        createdAtMs: Date.now(),
+        resultPath: path.resolve(resultPath),
+        projectPath: projectDir,
+        nodePath: process.execPath,
+        metaRepairScript: path.join(projectDir, 'scripts', 'repair-cocos-meta.js'),
+        forceRefresh: process.env.PDD_COCOS_ASSETDB_FORCE_REFRESH === '1',
+        timeoutMs,
+    });
+    return requestPath;
 }
 
 function assertHealthyWarmResult(result) {
@@ -125,19 +141,26 @@ async function launchWarmEditor(resultPath) {
     }
     fs.rmSync(resultPath, { force: true });
     fs.rmSync(resultPath + '.tmp', { force: true });
+    const requestPath = writeWarmupRequest(resultPath);
 
-    const child = spawn(cocosCli, ['--project', projectDir], {
-        cwd: projectDir,
-        env: {
-            ...process.env,
-            PDD_COCOS_ASSETDB_WARM_MONITOR_FILE: resultPath,
-            PDD_COCOS_NODE_PATH: process.execPath,
-            PDD_COCOS_META_REPAIR_SCRIPT: path.join(projectDir, 'scripts', 'repair-cocos-meta.js'),
-            PDD_COCOS_PROJECT_DIR: projectDir,
-        },
-        stdio: 'inherit',
-        shell: false,
-    });
+    let child;
+    try {
+        child = spawn(cocosCli, ['--project', projectDir], {
+            cwd: projectDir,
+            env: {
+                ...process.env,
+                PDD_COCOS_ASSETDB_WARM_MONITOR_FILE: resultPath,
+                PDD_COCOS_NODE_PATH: process.execPath,
+                PDD_COCOS_META_REPAIR_SCRIPT: path.join(projectDir, 'scripts', 'repair-cocos-meta.js'),
+                PDD_COCOS_PROJECT_DIR: projectDir,
+            },
+            stdio: 'inherit',
+            shell: false,
+        });
+    } catch (error) {
+        fs.rmSync(requestPath, { force: true });
+        throw error;
+    }
     let spawnError = null;
     child.once('error', (error) => {
         spawnError = error;
@@ -177,8 +200,10 @@ async function launchWarmEditor(resultPath) {
         } catch (_) {
             // Preserve the inventory failure as the primary diagnostic.
         }
+        fs.rmSync(requestPath, { force: true });
         throw primaryError;
     }
+    fs.rmSync(requestPath, { force: true });
     return { child, result };
 }
 
@@ -267,4 +292,6 @@ module.exports = {
     readResult,
     runWarmup,
     stopEditor,
+    warmupRequestFileName,
+    writeWarmupRequest,
 };

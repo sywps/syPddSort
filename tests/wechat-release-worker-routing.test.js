@@ -122,6 +122,8 @@ assert.ok(source.includes('function canUseRsync()'), 'release runner must detect
 assert.ok(source.includes("if (process.platform === 'win32') return false;"), 'Windows Release builds must avoid POSIX rsync path parsing');
 assert.ok(source.includes('copyDirectoryContents(projectDir, workerDir'), 'release runner must have a Node source-sync fallback');
 assert.ok(source.includes('replaceDirectoryContents(sourceDir, targetDir);'), 'release runner must have a Node output-sync fallback');
+assert.ok(source.includes('maxRetries: 20'), 'fresh-worker cleanup must retry transient Windows handle-release failures');
+assert.ok(source.includes('retryDelay: 250'), 'fresh-worker cleanup retries must stay bounded and observable');
 const syncIndex = source.indexOf('syncProjectSource(workerDir);');
 const byteCheckIndex = source.indexOf('assertAssetTreesByteIdentical(workerDir);', syncIndex);
 const warmWorkerIndex = source.indexOf('const ready = warmFreshWorkerAssetDb(workerDir);');

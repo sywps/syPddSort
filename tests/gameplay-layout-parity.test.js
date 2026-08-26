@@ -14,6 +14,10 @@ const gameRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const gameScene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
+const rainbowFrame = (name) => JSON.parse(
+    read(`assets/BootstrapBundle/GameUI/RainbowConveyor/${name}.meta`),
+).subMetas.f9941.uuid;
+const near = (actual, expected) => Math.abs(actual - expected) < 1e-6;
 const findSceneNode = (name) => gameScene.find((entry) => entry?.__type__ === 'cc.Node' && entry._name === name);
 const sceneComponent = (node, type) => (node?._components || [])
     .map((ref) => gameScene[ref.__id__])
@@ -65,62 +69,186 @@ const settingsBindEnd = gameRuntime.indexOf('private bindExistingGameLoadingOver
 const settingsBind = gameRuntime.slice(settingsBindStart, settingsBindEnd);
 
 assert.deepStrictEqual(
-    sceneChildren(fixedRoot).map((node) => node._name),
-    ['BackgroundLayer', 'BoardArea', 'BoardZoomControl', 'PchConveyorRoot', 'BottomHudGroup', 'TopBarGroup'],
-    'Game.scene must own the complete gameplay fixed-root child order',
-);
-assert.deepStrictEqual(
     sceneChildren(bottomHud).map((node) => node._name),
     ['SkillArea'],
     'the conveyor must replace the old SlotAreaGroup instead of overlaying it',
 );
 assert.strictEqual(findSceneNode('SlotAreaGroup'), undefined, 'legacy SlotAreaGroup must be absent from Game.scene');
 assert.ok(
-    conveyorRoot?._active === false
+    conveyorRoot?._active === true
         && sceneComponent(conveyorRoot, 'cc.UITransform')?._contentSize.width === 720
         && sceneComponent(conveyorRoot, 'cc.UITransform')?._contentSize.height === 1280
-        && normalConveyor?._lpos.y === -415
+        && normalConveyor?._active === true
+        && normalConveyor?._lpos.y === -355.636
         && normalConveyor?._lscale.x === 1
-        && compactConveyor?._lpos.y === -382
+        && compactConveyor?._lpos.y === -365.169
         && compactConveyor?._lscale.x === 0.72,
     'Game.scene must own the conveyor root and both complete layout transforms',
 );
-const validateConveyorLayout = (layout) => {
+const typeTwoParts = [
+    ['BottomStraight', 686.94, 107, 3.47, -102, 'conveyor_4.png', 1],
+    ['BottomLeftCorner', 96, 107, -388, -102, 'conveyor_3.png', 1],
+    ['TopLeftCorner', 96, 107, -388, 101, 'conveyor_1.png', 1],
+    ['LeftSide', 96, 96, -388, -0.5, 'conveyor_2.png', 1],
+    ['BottomRightCorner', 96, 107, 395, -102, 'conveyor_3.png', -1],
+    ['TopRightCorner', 96, 107, 395, 101, 'conveyor_1.png', -1],
+    ['RightSide', 96, 96, 395, -0.5, 'conveyor_2.png', -1],
+    ['TopStraight', 686.94, 107, 3.47, 101, 'conveyor_4.png', 1],
+];
+const typeThreeParts = [
+    ['BottomStraight', 806, 107, -2, -161.58, 'conveyor_4.png', 1],
+    ['BottomLeftCorner', 96, 107, -451.6, -161.58, 'conveyor_3.png', 1],
+    ['LeftSide', 96, 212.4, -450.5, -2.28, 'conveyor_2.png', 1],
+    ['TopLeftOuterCorner', 96, 107, -450.5, 156.42, 'conveyor_1.png', 1],
+    ['TopLeftStraight', 85, 107, -362, 156.42, 'conveyor_4.png', 1],
+    ['TopLeftInnerCorner', 96, 107, -281, 156.42, 'conveyor_1.png', -1],
+    ['MiddleLeftInnerCorner', 97, 107, -281.6, 49.71, 'conveyor_5.png', 1],
+    ['MiddleStraight', 451.9, 107, -7.1525, 49.6, 'conveyor_4.png', 1],
+    ['MiddleRightInnerCorner', 97, 108.42, 267.3, 49.71, 'conveyor_5.png', -1],
+    ['TopRightInnerCorner', 96, 107, 267, 156.42, 'conveyor_1.png', 1],
+    ['TopRightStraight', 85, 107, 356, 156.42, 'conveyor_4.png', 1],
+    ['TopRightOuterCorner', 96, 107, 446.3, 156.42, 'conveyor_1.png', -1],
+    ['RightSide', 96, 212.4, 446.4, -2.28, 'conveyor_2.png', -1],
+    ['BottomRightCorner', 96, 107, 447, -161.58, 'conveyor_3.png', -1],
+];
+const validateConveyorLayout = (layout, tableType) => {
+    const parts = tableType === 2 ? typeTwoParts : typeThreeParts;
     const track = sceneChild(layout, 'PchMovingTrack');
     const carrierLayer = sceneChild(layout, 'CarrierLayer');
     const carrierTemplate = sceneChild(carrierLayer, 'PchCarrierTemplate');
-    const groove = sceneChild(carrierTemplate, 'Groove');
+    const direction = sceneChild(carrierTemplate, 'Direction');
+    const carriers = sceneChildren(carrierLayer).filter((node) => /^PchCarrier-\d+$/.test(node._name));
+    const tableEntry = sceneChild(layout, 'TableEntryItem');
     const entrance = sceneChild(layout, 'PchEntrance');
     const exit = sceneChild(layout, 'PchExit');
     const capacity = sceneChild(layout, 'PchCapacityBadge');
     const adButton = sceneChild(layout, 'PchCapacityAdButton');
-    return sceneChildren(layout).map((node) => node._name).join(',')
-            === 'PchMovingTrack,CarrierLayer,PchEntrance,PchExit,PchCapacityBadge,PchCapacityAdButton'
-        && sceneComponent(track, 'cc.UITransform')?._contentSize.width === 688
-        && sceneComponent(track, 'cc.Sprite')?._spriteFrame
-        && carrierTemplate?._active === false
-        && sceneComponent(groove, 'cc.Sprite')?._spriteFrame
-        && entrance?._lpos.x === -230
-        && entrance?._lpos.y === -102
-        && sceneComponent(sceneChild(entrance, 'Visual'), 'cc.Sprite')?._spriteFrame
-        && sceneComponent(sceneChild(entrance, 'EntryCount'), 'cc.Label')
-        && exit?._lpos.y === 98
-        && sceneComponent(sceneChild(exit, 'Visual'), 'cc.Sprite')?._spriteFrame
-        && capacity?._lpos.x === -70
-        && capacity?._lpos.y === -30
-        && sceneComponent(sceneChild(capacity, 'CapacityCount'), 'cc.Label')?._string === '0 / 60'
-        && adButton?._lpos.x === 72
-        && adButton?._lpos.y === -30
-        && sceneComponent(adButton, 'cc.Button')
-        && sceneComponent(sceneChild(adButton, 'AdLabel'), 'cc.Label')?._string === 'AD'
-        && sceneComponent(sceneChild(adButton, 'ExpandLabel'), 'cc.Label')?._string === '+12'
-        && sceneComponent(sceneChild(adButton, 'ExpandArrow'), 'cc.Label')?._string === '≫';
+    const entry = tableType === 2 ? [-219 * 0.6, -99 * 0.6] : [-327 * 0.6, -159 * 0.6];
+    const tableEntryPosition = tableType === 2
+        ? entry
+        : [-488.20001220703125 * 0.6, -213.20001220703125 * 0.6];
+
+    assert.deepStrictEqual(
+        sceneChildren(layout).map((node) => node._name),
+        ['PchMovingTrack', 'PchExit', 'TableEntryItem', 'CarrierLayer', 'PchEntrance', 'PchCapacityBadge', 'PchCapacityAdButton'],
+        `table ${tableType} fixed hierarchy`,
+    );
+    assert.ok(
+        sceneComponent(track, 'cc.UITransform')?._contentSize.width === 950
+            && sceneComponent(track, 'cc.UITransform')?._contentSize.height === (tableType === 2 ? 310 : 436)
+            && track?._lscale.x === 0.6
+            && sceneComponent(track, 'cc.Sprite') === undefined,
+        `table ${tableType} track root`,
+    );
+    assert.deepStrictEqual(sceneChildren(track).map((node) => node._name), parts.map((part) => part[0]));
+    parts.forEach(([name, width, height, x, y, assetName, scaleX]) => {
+        const part = sceneChild(track, name);
+        const ui = sceneComponent(part, 'cc.UITransform');
+        assert.ok(
+            near(part?._lpos.x, x)
+                && near(part?._lpos.y, y)
+                && near(part?._lscale.x, scaleX)
+                && ui?._contentSize.width === width
+                && ui?._contentSize.height === height
+                && sceneComponent(part, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame(assetName),
+            `table ${tableType} ${name} source transform and frame`,
+        );
+    });
+    assert.ok(
+        carrierTemplate?._active === false
+            && sceneComponent(direction, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('conveyor_0.png'),
+        `table ${tableType} serialized empty-carrier Direction`,
+    );
+    assert.deepStrictEqual(
+        carriers.map((carrier) => carrier._name),
+        Array.from({ length: 20 }, (_unused, index) => `PchCarrier-${index}`),
+        `table ${tableType} authored initial carrier names`,
+    );
+    assert.ok(
+        carriers.every((carrier) => carrier._active === true
+            && sceneComponent(carrier, 'cc.UITransform')
+            && sceneComponent(sceneChild(carrier, 'Direction'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('conveyor_0.png')),
+        `table ${tableType} authored initial carrier arrows`,
+    );
+    const tableEntryNode = sceneChild(tableEntry, 'Node');
+    const tableEntryPieces = sceneChild(tableEntry, 'Pieces');
+    const leftEntryDoor = sceneChild(tableEntryPieces, 'L');
+    const rightEntryDoor = sceneChild(tableEntryPieces, 'R');
+    assert.ok(
+        near(tableEntry?._lpos.x, tableEntryPosition[0])
+            && near(tableEntry?._lpos.y, tableEntryPosition[1])
+            && near(tableEntry?._lscale.x, 0.6)
+            && sceneComponent(sceneChild(tableEntryNode, '1'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1.png')
+            && sceneComponent(sceneChild(tableEntryNode, '2'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_2.png')
+            && sceneComponent(leftEntryDoor, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1_3.png')
+            && sceneComponent(leftEntryDoor, 'cc.UITransform')?._contentSize.width === 35
+            && sceneComponent(leftEntryDoor, 'cc.UITransform')?._contentSize.height === 68
+            && sceneComponent(rightEntryDoor, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1_4.png')
+            && sceneComponent(rightEntryDoor, 'cc.UITransform')?._contentSize.width === 35
+            && sceneComponent(rightEntryDoor, 'cc.UITransform')?._contentSize.height === 68
+            && sceneComponent(sceneChild(tableEntryPieces, 'Img'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1_2.png')
+            && sceneChild(sceneChild(tableEntry, 'Root'), 'SphereNode'),
+        `table ${tableType} full source TableEntryItem building`,
+    );
+    assert.ok(
+        near(entrance?._lpos.x, entry[0])
+            && near(entrance?._lpos.y, entry[1])
+            && sceneChildren(entrance).map((node) => node._name).join(',') === 'EntryCount'
+            && sceneComponent(sceneChild(entrance, 'EntryCount'), 'cc.Label'),
+        `table ${tableType} source entrance`,
+    );
+    const arrow = sceneChild(exit, 'Arrow');
+    const arrowSprites = ['Pos01', 'Pos02'].flatMap((positionName) => sceneChildren(sceneChild(arrow, positionName)));
+    assert.ok(
+        sceneComponent(sceneChild(exit, 'Visual'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('conveyor_7a.png')
+            && arrowSprites.length === 4
+            && arrowSprites.every((node) => sceneComponent(node, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('conveyor_7b.png')),
+        `table ${tableType} source bridge hierarchy`,
+    );
+    assert.ok(
+        near(capacity?._lpos.x, entry[0])
+            && near(capacity?._lpos.y, entry[1] - 22.26)
+            && sceneComponent(sceneChild(capacity, 'CapacityCount'), 'cc.Label')?._string === '0/60',
+        `table ${tableType} source capacity label`,
+    );
+    assert.ok(
+        near(adButton?._lpos.x, entry[0] - 0.8600000143051147 * 0.6)
+            && near(adButton?._lpos.y, entry[1] - 105 * 0.6)
+            && near(adButton?._lscale.x, 0.9)
+            && sceneComponent(adButton, 'cc.Button')
+            && sceneComponent(sceneChild(adButton, 'Visual'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('wf_base_14.png')
+            && sceneComponent(sceneChild(adButton, 'AdIcon'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('ADIcon.png')
+            && sceneComponent(sceneChild(adButton, 'ExpandIcon'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('gameProp_2007.png')
+            && sceneChildren(adButton).map((node) => node._name).join(',') === 'Visual,AdIcon,ExpandIcon',
+        `table ${tableType} source expansion button`,
+    );
 };
+validateConveyorLayout(normalConveyor, 2);
+validateConveyorLayout(compactConveyor, 3);
 assert.ok(
-    validateConveyorLayout(normalConveyor)
-        && validateConveyorLayout(compactConveyor)
-        && sceneDescendants(conveyorRoot).every((node) => !sceneComponent(node, 'cc.Graphics')),
+    sceneDescendants(conveyorRoot).every((node) => !sceneComponent(node, 'cc.Graphics')),
     'both conveyor layouts must provide complete fixed Sprite/Label/Button nodes without serialized Graphics fallbacks',
+);
+assert.ok(
+    conveyor.includes('const PCH_ENTRY_DOOR_OPEN_WIDTH = 0;')
+        && conveyor.includes('const PCH_ENTRY_DOOR_CLOSED_WIDTH = 35;')
+        && conveyor.includes('const PCH_ENTRY_DOOR_HEIGHT = 68;')
+        && conveyor.includes('const PCH_ENTRY_DOOR_TWEEN_SECONDS = 0.3;')
+        && conveyor.includes('entryDoors: { left: leftDoor, right: rightDoor }')
+        && conveyor.includes('this.activeEntryDoors = activeLayout.entryDoors;')
+        && conveyor.includes("const nextState = open ? 'open' : 'closed';")
+        && conveyor.includes('if (this.entryDoorState === nextState) return;')
+        && conveyor.includes("easing: 'quadOut'")
+        && conveyor.includes('this.syncTableEntryDoors(this.rules.entryCount > 0);')
+        && conveyor.includes('this.resetTableEntryDoorAnimation();')
+        && conveyor.includes('doors.left.setContentSize(width, PCH_ENTRY_DOOR_HEIGHT);')
+        && conveyor.includes('doors.right.setContentSize(width, PCH_ENTRY_DOOR_HEIGHT);'),
+    'TableEntryItem doors must bind scene nodes and reproduce the source open/close tween lifecycle',
+);
+assert.deepStrictEqual(
+    sceneChildren(fixedRoot).map((node) => node._name),
+    ['BackgroundLayer', 'BoardArea', 'BoardZoomControl', 'PchConveyorRoot', 'BottomHudGroup', 'TopBarGroup'],
+    'Game.scene must own the complete gameplay fixed-root child order',
 );
 assert.ok(
     gameplayView.includes("this.getGameplayFixedGroup('PchConveyorRoot')")
@@ -128,6 +256,9 @@ assert.ok(
         && conveyor.includes("this.requireConveyorNode(fixedRoot, 'PchConveyorRoot'")
         && conveyor.includes('const normalLayout = this.bindConveyorLayout')
         && conveyor.includes('const compactLayout = this.bindConveyorLayout')
+        && conveyor.includes('const availableCarriers = this.getOrderedConveyorCarriers(this.carrierLayer)')
+        && conveyor.includes('let carrier = availableCarriers[carrierIndex]')
+        && conveyor.includes('this.resetConveyorCarrier(carrier)')
         && conveyor.includes('instantiate(this.carrierTemplate!)')
         && !conveyor.includes('drawConveyorTrack')
         && !conveyor.includes('PCH_BELT_DEFAULT_Y')
@@ -226,11 +357,18 @@ assert.ok(
     'the speed control must not render level-specific availability text',
 );
 assert.ok(
-    conveyor.includes('new Vec3(300, 86)')
-        && conveyor.includes('new Vec3(-300, -78)')
-        && normalConveyor?._lpos.y === -415
-        && compactConveyor?._lpos.y === -382,
-    'the scene-owned conveyor states must retain the wider symmetric path and proven vertical layouts',
+    conveyor.includes('[-219, -99], [390, -96], [390, 104.2], [152, 104.2]')
+        && conveyor.includes('[-327, -159], [447, -162], [447, 161], [263, 161], [264, 50]')
+        && conveyor.includes('normalLayout.node.active = true;')
+        && conveyor.includes('compactLayout.node.active = false;')
+        && conveyor.includes('const activeLayout = normalLayout;')
+        && conveyor.includes('this.prepareBeltPath(2);')
+        && !conveyor.includes('useCompactLayout')
+        && conveyor.includes('direction.active = stack.length === 0')
+        && conveyor.includes('direction.angle = sample.angle')
+        && normalConveyor?._lpos.y === -355.636
+        && compactConveyor?._lpos.y === -365.169,
+    'the scene-owned conveyor states must use the exact source paths, empty directions, and proven vertical layouts',
 );
 assert.ok(
     skillUi.includes('COMPACT_SKILL_SCALE = 0.72')

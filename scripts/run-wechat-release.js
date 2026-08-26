@@ -77,7 +77,12 @@ function assertSafeFreshWorkerPath(workerDir, tempRoot = os.tmpdir()) {
 function cleanupFreshWorkerDir(workerDir, tempRoot = os.tmpdir()) {
     assertSafeFreshWorkerPath(workerDir, tempRoot);
     if (!fs.existsSync(workerDir)) return;
-    fs.rmSync(workerDir, { recursive: true, force: false });
+    fs.rmSync(workerDir, {
+        recursive: true,
+        force: false,
+        maxRetries: 20,
+        retryDelay: 250,
+    });
 }
 
 function run(command, args, options = {}) {

@@ -299,6 +299,7 @@ function fakeTween() {
     return {
         delay() { return this; },
         to() { return this; },
+        parallel() { return this; },
         call(callback) {
             callbacks.push(callback);
             return this;
@@ -516,6 +517,7 @@ function createSkillController(rules) {
     skillController.resolveSkillSourceVisual = () => ({ world: new FakeVec3(), size: 31 });
     skillController.createFlyBean = () => ({});
     skillController.destroyFlyBean = () => {};
+    skillController.attachSphereFlyEffect = () => {};
     skillController.getBoardCellWorldPosition = () => new FakeVec3();
     skillController.renderConveyor = () => {};
     skillController.renderEntranceQueue = () => {};

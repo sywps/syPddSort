@@ -92,6 +92,11 @@ assert.match(view, /PCH conveyor missing after gameplay start/);
 const controller = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 assert.match(controller, /this\.runtime\.levelData\?\.conveyorCapacity/);
 assert.match(controller, /const PCH_EXPAND_CAPACITY = 12;/);
+assert.match(controller, /normalLayout\.node\.active = true;/);
+assert.match(controller, /compactLayout\.node\.active = false;/);
+assert.match(controller, /const activeLayout = normalLayout;/);
+assert.match(controller, /this\.prepareBeltPath\(2\);/);
+assert.doesNotMatch(controller, /useCompactLayout/);
 
 const rules = read('assets/Scripts/Core/PchConveyorRules.ts');
 assert.match(rules, /this\.initialCarrierCount = capacity \/ this\.stackDepth;/);

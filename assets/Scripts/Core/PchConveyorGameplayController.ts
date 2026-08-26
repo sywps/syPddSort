@@ -6,6 +6,7 @@ import {
     Label,
     Layers,
     Node,
+    NodePool,
     Sprite,
     Tween,
     UITransform,
@@ -31,17 +32,66 @@ import { AppRoot } from './AppRoot';
 const BELT_STEP_SECONDS = 0.28;
 const PCH_TRANSFER_SECONDS = 0.16;
 const PCH_ENTRY_STAGGER_SECONDS = 0.012;
-const PCH_RETURN_TRANSFER_SECONDS = 0.2;
-const PCH_RETURN_STAGGER_SECONDS = 0.028;
-const PCH_RETURN_PULSE_UP_SECONDS = 0.08;
-const PCH_RETURN_PULSE_SETTLE_SECONDS = 0.15;
+const PCH_RETURN_TRANSFER_SECONDS = 0.3;
+const PCH_RETURN_STAGGER_SECONDS = 0.05;
+const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;
 const PCH_SKILL_STAGGER_SECONDS = 0.028;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
 const PCH_EXPAND_CAPACITY = 12;
 const PCH_ENTRANCE_SNAP_PROGRESS = 0.032;
+const PCH_ENTRY_DOOR_OPEN_WIDTH = 0;
+const PCH_ENTRY_DOOR_CLOSED_WIDTH = 35;
+const PCH_ENTRY_DOOR_HEIGHT = 68;
+const PCH_ENTRY_DOOR_TWEEN_SECONDS = 0.3;
+const RAINBOW_CONVEYOR_SOURCE_SCALE = 0.6;
 const OPENING_PATTERN_HOLD_SECONDS = 0.26;
 const OPENING_PATTERN_MOVE_SECONDS = 0.54;
-const INBOUND_SPARK_COUNT = 3;
+const ORIGINAL_SPHERE_VISUAL_WIDTH = 0.55 * 0.22619998455047607;
+const SPHERE_FLY_STAR_MIN_SIZE_RATIO = 0.1 / ORIGINAL_SPHERE_VISUAL_WIDTH;
+const SPHERE_FLY_STAR_MAX_SIZE_RATIO = 0.2 / ORIGINAL_SPHERE_VISUAL_WIDTH;
+const SPHERE_FLY_STAR_RING_RADIUS_RATIO = 0.15 / ORIGINAL_SPHERE_VISUAL_WIDTH;
+const SPHERE_FLY_STAR_EMISSION_SPACING_RATIO = 0.25 / ORIGINAL_SPHERE_VISUAL_WIDTH;
+const SPHERE_FLY_TRAIL_WIDTH_RATIO = 0.3 / ORIGINAL_SPHERE_VISUAL_WIDTH;
+const SPHERE_FLY_TRAIL_WIDTH_OVER_TRAIL = 0.8;
+const SPHERE_FLY_STAR_MIN_LIFETIME_SECONDS = 0.1;
+const SPHERE_FLY_STAR_MAX_LIFETIME_SECONDS = 0.3;
+const SPHERE_FLY_STAR_SIZE_PEAK_TIME = 0.17615890502929688;
+const SPHERE_FLY_TRAIL_LIFETIME_SECONDS = 1;
+const SPHERE_FLY_TRAIL_HEAD_ANCHOR_X = 0.25;
+const SPHERE_FLY_TRAIL_ALPHA_MID_TIME = 26719 / 65535;
+const SPHERE_FLY_TRAIL_ALPHA_MID_VALUE = 0.37266355752944946;
+const SPHERE_FLY_TRAIL_SEGMENT_COUNT = 4;
+const SPHERE_FLY_MAX_STARS_PER_EFFECT = 60;
+const MAX_POOLED_SPHERE_FLY_EFFECTS = 24;
+const MAX_POOLED_SPHERE_FLY_STARS = 240;
+
+type RainbowConveyorTableType = 2 | 3;
+
+const RAINBOW_CONVEYOR_PATHS: Record<
+    RainbowConveyorTableType,
+    ReadonlyArray<readonly [number, number]>
+> = {
+    2: [
+        [-219, -99], [390, -96], [390, 104.2], [152, 104.2], [-396, 104.2], [-390, -92],
+    ],
+    3: [
+        [-327, -159], [447, -162], [447, 161], [263, 161], [264, 50],
+        [163, 50], [-279, 47], [-279, 166.3], [-452, 166.3], [-452, -159],
+    ],
+};
+const RAINBOW_CONVEYOR_EXIT_POINT_INDEX: Record<RainbowConveyorTableType, number> = { 2: 3, 3: 5 };
+const RAINBOW_CONVEYOR_TRACK_PARTS: Record<'NormalLayout' | 'CompactLayout', readonly string[]> = {
+    NormalLayout: [
+        'BottomStraight', 'BottomLeftCorner', 'TopLeftCorner', 'LeftSide',
+        'BottomRightCorner', 'TopRightCorner', 'RightSide', 'TopStraight',
+    ],
+    CompactLayout: [
+        'BottomStraight', 'BottomLeftCorner', 'LeftSide', 'TopLeftOuterCorner',
+        'TopLeftStraight', 'TopLeftInnerCorner', 'MiddleLeftInnerCorner', 'MiddleStraight',
+        'MiddleRightInnerCorner', 'TopRightInnerCorner', 'TopRightStraight',
+        'TopRightOuterCorner', 'RightSide', 'BottomRightCorner',
+    ],
+};
 
 interface OpeningPatternVisual {
     move: OpeningPatternMove;
@@ -50,16 +100,50 @@ interface OpeningPatternVisual {
     targetPosition: Vec3;
 }
 
+interface SphereFlyStarParticle {
+    node: Node;
+    ageSeconds: number;
+    lifetimeSeconds: number;
+}
+
+interface SphereFlyTrailSegment {
+    node: Node;
+    transform: UITransform;
+    opacity: UIOpacity;
+}
+
+interface SphereFlyEffectInstance {
+    node: Node;
+    bean: Node;
+    trail: Node;
+    trailSegments: SphereFlyTrailSegment[];
+    beanSize: number;
+    delayRemainingSeconds: number;
+    activeAgeSeconds: number;
+    previousEmitterPosition: Vec3;
+    trailOrigin: Vec3;
+    distanceSinceLastStar: number;
+    emittedStarCount: number;
+    stars: SphereFlyStarParticle[];
+}
+
 interface ConveyorLayoutBindings {
     node: Node;
     carrierLayer: Node;
     carrierTemplate: Node;
+    authoredCarrierNodes: Node[];
     entranceNode: Node;
     exitNode: Node;
     capacityBadge: Node;
     countLabel: Label;
     entryCountLabel: Label;
+    entryDoors: ConveyorEntryDoorBindings;
     adButton: Node;
+}
+
+interface ConveyorEntryDoorBindings {
+    left: UITransform;
+    right: UITransform;
 }
 
 export class PchConveyorGameplayController {
@@ -74,6 +158,11 @@ export class PchConveyorGameplayController {
     private countLabel: Label | null = null;
     private capacityBadge: Node | null = null;
     private entryCountLabel: Label | null = null;
+    private normalEntryDoors: ConveyorEntryDoorBindings | null = null;
+    private compactEntryDoors: ConveyorEntryDoorBindings | null = null;
+    private activeEntryDoors: ConveyorEntryDoorBindings | null = null;
+    private entryDoorState: 'none' | 'open' | 'closed' = 'none';
+    private entryDoorTween: Tween<{ width: number }> | null = null;
     private entranceNode: Node | null = null;
     private exitNode: Node | null = null;
     private adButton: Node | null = null;
@@ -88,6 +177,9 @@ export class PchConveyorGameplayController {
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
     private activeFlyBeans = new Set<Node>();
+    private readonly sphereFlyEffectPool = new NodePool();
+    private readonly sphereFlyStarPool = new NodePool();
+    private readonly activeSphereFlyEffects = new Map<Node, SphereFlyEffectInstance>();
     private activePulseNodes = new Set<Node>();
     private activeReturnAnimations = 0;
     private beltPath: Vec3[] = [];
@@ -103,9 +195,7 @@ export class PchConveyorGameplayController {
     private openingPatternState: 'idle' | 'ready' | 'running' | 'done' = 'idle';
     private openingPatternGeneration = 0;
 
-    constructor(private readonly runtime: any) {
-        this.prepareBeltPath();
-    }
+    constructor(private readonly runtime: any) {}
 
     start(): void {
         this.stop();
@@ -117,14 +207,15 @@ export class PchConveyorGameplayController {
         }
         if (typeof this.runtime.getBeanSpriteFrame !== 'function'
             || typeof this.runtime.requireRenderReadySpriteFrame !== 'function'
-            || typeof this.runtime.requireBrightSpriteFrame !== 'function'
-            || typeof this.runtime.attachBrightOverlay !== 'function'
+            || typeof this.runtime.requireSphereFlyStarSpriteFrame !== 'function'
+            || typeof this.runtime.requireSphereFlyTrailSpriteFrame !== 'function'
             || typeof this.runtime.renderBoardCell !== 'function'
             || typeof this.runtime.getBoardCellWorldPosition !== 'function'
             || typeof this.runtime.gameLose !== 'function') {
-            throw new Error('[pch-core] original bean sprite or placement feedback is unavailable');
+            throw new Error('[pch-core] original bean sprite or sphere flight effect is unavailable');
         }
-        this.runtime.requireBrightSpriteFrame();
+        this.runtime.requireSphereFlyStarSpriteFrame();
+        this.runtime.requireSphereFlyTrailSpriteFrame();
         this.rules = new PchConveyorRules(
             this.runtime.boardModel,
             this.runtime.levelData?.conveyorCapacity,
@@ -140,14 +231,16 @@ export class PchConveyorGameplayController {
         const compactLayout = this.bindConveyorLayout(this.root, 'CompactLayout');
         this.clearConveyorLayoutRuntime(normalLayout.node);
         this.clearConveyorLayoutRuntime(compactLayout.node);
-        const skillRoot = this.runtime.getGameplayBottomHudChild('SkillArea');
-        const useCompactLayout = ['SkillMagnet', 'SkillBrush', 'SkillFreeze']
-            .some((name) => skillRoot.getChildByName(name)?.activeInHierarchy);
-        normalLayout.node.active = !useCompactLayout;
-        compactLayout.node.active = useCompactLayout;
-        const activeLayout = useCompactLayout ? compactLayout : normalLayout;
+        normalLayout.node.active = true;
+        compactLayout.node.active = false;
+        const activeLayout = normalLayout;
+        this.prepareBeltPath(2);
         this.normalLayout = normalLayout.node;
         this.compactLayout = compactLayout.node;
+        this.normalEntryDoors = normalLayout.entryDoors;
+        this.compactEntryDoors = compactLayout.entryDoors;
+        this.activeEntryDoors = activeLayout.entryDoors;
+        this.resetTableEntryDoorAnimation();
         this.belt = activeLayout.node;
         this.carrierLayer = activeLayout.carrierLayer;
         this.carrierTemplate = activeLayout.carrierTemplate;
@@ -316,6 +409,7 @@ export class PchConveyorGameplayController {
     stop(): void {
         this.cancelOpeningPatternShuffle(true);
         this.releaseActiveSkillPause();
+        this.resetTableEntryDoorAnimation();
         if (this.inputRoot?.isValid) {
             this.inputRoot.off(Node.EventType.TOUCH_START, this.onRootTouchStart, this);
             this.inputRoot.off(Node.EventType.TOUCH_MOVE, this.onRootTouchMove, this);
@@ -323,11 +417,10 @@ export class PchConveyorGameplayController {
             this.inputRoot.off(Node.EventType.TOUCH_CANCEL, this.onRootTouchCancel, this);
             this.inputRoot.off(Node.EventType.MOUSE_WHEEL, this.onRootMouseWheel, this);
         }
-        for (const bean of this.activeFlyBeans) {
-            if (!bean?.isValid) continue;
-            this.stopNodeTreeTweens(bean);
-            bean.destroy();
-        }
+        for (const bean of Array.from(this.activeFlyBeans)) this.destroyFlyBean(bean);
+        this.recycleAllSphereFlyEffects();
+        this.sphereFlyEffectPool.clear();
+        this.sphereFlyStarPool.clear();
         for (const node of this.activePulseNodes) {
             if (!node?.isValid) continue;
             Tween.stopAllByTarget(node);
@@ -361,6 +454,9 @@ export class PchConveyorGameplayController {
         this.countLabel = null;
         this.capacityBadge = null;
         this.entryCountLabel = null;
+        this.normalEntryDoors = null;
+        this.compactEntryDoors = null;
+        this.activeEntryDoors = null;
         this.entranceNode = null;
         this.exitNode = null;
         this.adButton = null;
@@ -373,6 +469,7 @@ export class PchConveyorGameplayController {
         this.rules = null;
         this.carrierNodes = [];
         this.activeFlyBeans.clear();
+        this.activeSphereFlyEffects.clear();
         this.activePulseNodes.clear();
         this.activeReturnAnimations = 0;
         this.inputLocked = false;
@@ -381,6 +478,7 @@ export class PchConveyorGameplayController {
     }
 
     update(deltaTime: number): void {
+        this.updateSphereFlyEffects(deltaTime);
         if (!this.rules || this.runtime.isGameEnd || this.openingGuide?.isValid) return;
         if (this.skillMovementPaused || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) return;
         const previousTravel = this.beltTravel;
@@ -795,7 +893,7 @@ export class PchConveyorGameplayController {
         const targetLocal = rootTransform.convertToNodeSpaceAR(entranceWorld);
         const targetScale = 31 / sourceBeanSize;
         const flightDelay = staggerIndex * PCH_ENTRY_STAGGER_SECONDS;
-        this.attachInboundStarlight(bean, sourceBeanSize, bean.position.clone(), targetLocal, flightDelay);
+        this.attachSphereFlyEffect(bean, sourceBeanSize, flightDelay);
         tween(bean)
             .delay(flightDelay)
             .to(PCH_TRANSFER_SECONDS, {
@@ -826,36 +924,31 @@ export class PchConveyorGameplayController {
         const targetBeanSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || sourceBeanSize);
         const bean = this.createFlyBean(`PchReturnBean-${target.row}-${target.col}`, colorId, sourceBeanSize, sourceWorld);
         const targetScale = targetBeanSize / sourceBeanSize;
+        const flightDelay = staggerIndex * PCH_RETURN_STAGGER_SECONDS;
+        this.attachSphereFlyEffect(bean, sourceBeanSize, flightDelay);
         this.activeReturnAnimations += 1;
+        const completeReturn = () => {
+            this.destroyFlyBean(bean);
+            this.finishReturnAnimation(target);
+        };
         tween(bean)
-            .delay(staggerIndex * PCH_RETURN_STAGGER_SECONDS)
-            .to(PCH_RETURN_TRANSFER_SECONDS, {
-                position: targetLocal,
-                scale: new Vec3(targetScale, targetScale, 1),
-            }, { easing: 'sineOut' })
+            .delay(flightDelay)
+            .parallel(
+                tween().to(PCH_RETURN_TRANSFER_SECONDS, {
+                    position: targetLocal,
+                    scale: new Vec3(targetScale, targetScale, 1),
+                }, { easing: 'quadOut' }),
+                tween().to(PCH_RETURN_TRANSFER_SECONDS, {
+                    eulerAngles: new Vec3(0, 360, 0),
+                }, { easing: 'linear' }),
+            )
             .call(() => {
-                this.destroyFlyBean(bean);
+                bean.active = false;
                 AudioMgr.inst.play('place');
                 AudioMgr.inst.vibratePlace();
                 this.runtime.renderBoardCell(target.row, target.col);
-                this.playReturnTargetPulse(target);
-                this.finishReturnAnimation(target);
-            })
-            .start();
-    }
-
-    private playReturnTargetPulse(target: { row: number; col: number }): void {
-        const targetNode = this.runtime.cellNodes?.[target.row]?.[target.col] || null;
-        if (!targetNode?.isValid) return;
-        Tween.stopAllByTarget(targetNode);
-        targetNode.setScale(1, 1, 1);
-        this.activePulseNodes.add(targetNode);
-        tween(targetNode)
-            .to(PCH_RETURN_PULSE_UP_SECONDS, { scale: new Vec3(1.24, 1.24, 1) })
-            .call(() => this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col))
-            .to(PCH_RETURN_PULSE_SETTLE_SECONDS, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' })
-            .call(() => {
-                this.activePulseNodes.delete(targetNode);
+                this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);
+                this.runtime.scheduleOnce(completeReturn, PCH_RETURN_COMPLETE_DELAY_SECONDS);
             })
             .start();
     }
@@ -890,95 +983,286 @@ export class PchConveyorGameplayController {
         return bean;
     }
 
-    private attachInboundStarlight(
-        bean: Node,
-        size: number,
-        sourceLocal: Vec3,
-        targetLocal: Vec3,
-        flightDelaySeconds: number,
-    ): void {
-        const halo = this.runtime.attachBrightOverlay(bean, size * 1.5, 132, 1.08) as Node;
-        const haloOpacity = halo?.getComponent(UIOpacity) || null;
-        if (!halo?.isValid || !haloOpacity) {
-            throw new Error('[pch-starlight] inbound halo is missing UIOpacity');
+    private attachSphereFlyEffect(bean: Node, beanSize: number, flightDelaySeconds: number): void {
+        if (!this.root) throw new Error('[pch-sphere-fly] effect root is unavailable');
+        if (this.activeSphereFlyEffects.has(bean)) return;
+
+        const effectNode = this.sphereFlyEffectPool.get() ?? this.createSphereFlyEffectNode();
+        effectNode.name = `SphereFlyEft-${bean.name}`;
+        effectNode.layer = Layers.Enum.UI_2D;
+        effectNode.active = true;
+        effectNode.setPosition(0, 0, 0);
+        effectNode.setScale(1, 1, 1);
+        effectNode.angle = 0;
+        this.root.addChild(effectNode);
+        effectNode.setSiblingIndex(Math.max(0, bean.getSiblingIndex()));
+
+        const trail = effectNode.getChildByName('SphereFlyEft-02-Trail');
+        if (!trail?.isValid || trail.children.length !== SPHERE_FLY_TRAIL_SEGMENT_COUNT) {
+            throw new Error('[pch-sphere-fly] pooled effect is missing its Trail layer');
         }
-        halo.name = 'PchInboundHalo';
-        halo.setSiblingIndex(0);
-        tween(haloOpacity)
-            .delay(flightDelaySeconds)
-            .to(0.055, { opacity: 225 }, { easing: 'sineOut' })
-            .to(0.105, { opacity: 118 }, { easing: 'sineIn' })
-            .start();
+        const trailSpriteFrame = this.runtime.requireSphereFlyTrailSpriteFrame();
+        const trailSegments: SphereFlyTrailSegment[] = [];
+        for (let index = 0; index < SPHERE_FLY_TRAIL_SEGMENT_COUNT; index += 1) {
+            const segment = trail.children[index];
+            const transform = segment.getComponent(UITransform);
+            const sprite = segment.getComponent(Sprite);
+            const opacity = segment.getComponent(UIOpacity);
+            if (!transform || !sprite || !opacity) {
+                throw new Error(`[pch-sphere-fly] Trail segment ${index} is incomplete`);
+            }
+            transform.setAnchorPoint(SPHERE_FLY_TRAIL_HEAD_ANCHOR_X, 0.5);
+            transform.setContentSize(1, beanSize * SPHERE_FLY_TRAIL_WIDTH_RATIO);
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            sprite.spriteFrame = trailSpriteFrame;
+            sprite.type = Sprite.Type.FILLED;
+            sprite.fillType = Sprite.FillType.HORIZONTAL;
+            sprite.fillStart = index / SPHERE_FLY_TRAIL_SEGMENT_COUNT;
+            sprite.fillRange = 1 / SPHERE_FLY_TRAIL_SEGMENT_COUNT;
+            sprite.color = new Color(255, 238, 161, 255);
+            opacity.opacity = Math.round(255 * this.getSphereFlyTrailAlpha(
+                (index + 0.5) / SPHERE_FLY_TRAIL_SEGMENT_COUNT,
+            ));
+            segment.setPosition(0, 0, 0);
+            segment.setScale(1, 1, 1);
+            segment.angle = 0;
+            segment.active = true;
+            trailSegments.push({ node: segment, transform, opacity });
+        }
+        trail.setPosition(bean.position);
+        trail.setScale(1, 1, 1);
+        trail.angle = 0;
+        trail.active = false;
 
-        const dx = targetLocal.x - sourceLocal.x;
-        const dy = targetLocal.y - sourceLocal.y;
-        const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy));
-        const directionX = dx / distance;
-        const directionY = dy / distance;
-        const sideX = -directionY;
-        const sideY = directionX;
-        const sparkleSize = Math.max(7, size * 0.52);
-        const lateralOffsets = [-0.42, 0.36, -0.12];
+        const emitterPosition = bean.position.clone();
+        this.activeSphereFlyEffects.set(bean, {
+            node: effectNode,
+            bean,
+            trail,
+            trailSegments,
+            beanSize,
+            delayRemainingSeconds: Math.max(0, flightDelaySeconds),
+            activeAgeSeconds: 0,
+            previousEmitterPosition: emitterPosition.clone(),
+            trailOrigin: emitterPosition,
+            distanceSinceLastStar: 0,
+            emittedStarCount: 0,
+            stars: [],
+        });
+    }
 
-        for (let index = 0; index < INBOUND_SPARK_COUNT; index += 1) {
-            const trailDistance = size * (0.72 + index * 0.52);
-            const lateral = size * lateralOffsets[index];
-            const startX = -directionX * trailDistance + sideX * lateral;
-            const startY = -directionY * trailDistance + sideY * lateral;
-            const sparkle = this.makeNode(
-                `PchInboundSpark-${index}`,
-                bean,
-                sparkleSize,
-                sparkleSize,
-                startX,
-                startY,
-            );
-            const graphics = sparkle.addComponent(Graphics);
-            this.drawInboundSparkle(graphics, sparkleSize * 0.48, index);
-            const opacity = sparkle.addComponent(UIOpacity);
-            opacity.opacity = 160;
-            const startScale = 0.82 + index * 0.08;
-            sparkle.setScale(startScale, startScale, 1);
-            const delay = flightDelaySeconds + index * 0.012;
-            const drift = size * (0.24 + index * 0.05);
-            tween(sparkle)
-                .delay(delay)
-                .to(0.13, {
-                    position: new Vec3(
-                        startX - directionX * drift,
-                        startY - directionY * drift,
-                        0,
-                    ),
-                    scale: new Vec3(0.32, 0.32, 1),
-                    angle: (index % 2 === 0 ? 1 : -1) * (38 + index * 19),
-                }, { easing: 'sineOut' })
-                .start();
-            tween(opacity)
-                .delay(delay)
-                .to(0.04, { opacity: 255 }, { easing: 'sineOut' })
-                .to(0.12, { opacity: 0 }, { easing: 'quadIn' })
-                .start();
+    private createSphereFlyEffectNode(): Node {
+        const effect = new Node('SphereFlyEft');
+        effect.layer = Layers.Enum.UI_2D;
+        effect.addComponent(UITransform).setContentSize(0, 0);
+
+        const trail = new Node('SphereFlyEft-02-Trail');
+        trail.layer = Layers.Enum.UI_2D;
+        trail.addComponent(UITransform).setContentSize(0, 0);
+        for (let index = 0; index < SPHERE_FLY_TRAIL_SEGMENT_COUNT; index += 1) {
+            const segment = new Node(`SphereFlyEft-02-TrailSegment-${index}`);
+            segment.layer = Layers.Enum.UI_2D;
+            segment.addComponent(UITransform).setAnchorPoint(SPHERE_FLY_TRAIL_HEAD_ANCHOR_X, 0.5);
+            const sprite = segment.addComponent(Sprite);
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            segment.addComponent(UIOpacity);
+            trail.addChild(segment);
+        }
+        effect.addChild(trail);
+        return effect;
+    }
+
+    private getSphereFlyTrailAlpha(normalizedDistance: number): number {
+        const t = Math.max(0, Math.min(1, normalizedDistance));
+        if (t <= SPHERE_FLY_TRAIL_ALPHA_MID_TIME) {
+            return 1 + (SPHERE_FLY_TRAIL_ALPHA_MID_VALUE - 1)
+                * (t / SPHERE_FLY_TRAIL_ALPHA_MID_TIME);
+        }
+        return SPHERE_FLY_TRAIL_ALPHA_MID_VALUE
+            * (1 - (t - SPHERE_FLY_TRAIL_ALPHA_MID_TIME) / (1 - SPHERE_FLY_TRAIL_ALPHA_MID_TIME));
+    }
+
+    private updateSphereFlyEffects(deltaTime: number): void {
+        const frameSeconds = Math.max(0, Number(deltaTime) || 0);
+        for (const state of Array.from(this.activeSphereFlyEffects.values())) {
+            if (!state.bean?.isValid || !state.node?.isValid) {
+                this.recycleSphereFlyEffect(state.bean);
+                continue;
+            }
+            const currentEmitterPosition = state.bean.position.clone();
+            let activeDelta = frameSeconds;
+            if (state.delayRemainingSeconds > 0) {
+                const delayBeforeFrame = state.delayRemainingSeconds;
+                state.delayRemainingSeconds = Math.max(0, delayBeforeFrame - frameSeconds);
+                state.previousEmitterPosition = currentEmitterPosition;
+                if (state.delayRemainingSeconds > 0) continue;
+                activeDelta = Math.max(0, frameSeconds - delayBeforeFrame);
+            }
+
+            state.activeAgeSeconds += activeDelta;
+            this.updateSphereFlyStarParticles(state, activeDelta);
+            this.emitSphereFlyStarsAlongSegment(state, state.previousEmitterPosition, currentEmitterPosition);
+            this.updateSphereFlyTrail(state, currentEmitterPosition);
+            state.previousEmitterPosition = currentEmitterPosition;
         }
     }
 
-    private drawInboundSparkle(graphics: Graphics, radius: number, index: number): void {
-        const innerRadius = radius * 0.22;
-        graphics.fillColor = index === 1
-            ? new Color(255, 255, 255, 255)
-            : new Color(255, 224, 72, 255);
-        for (let point = 0; point < 8; point += 1) {
-            const angle = Math.PI / 2 - point * Math.PI / 4;
-            const pointRadius = point % 2 === 0 ? radius : innerRadius;
-            const x = Math.cos(angle) * pointRadius;
-            const y = Math.sin(angle) * pointRadius;
-            if (point === 0) graphics.moveTo(x, y);
-            else graphics.lineTo(x, y);
+    private updateSphereFlyTrail(state: SphereFlyEffectInstance, emitterPosition: Vec3): void {
+        const backwardX = state.trailOrigin.x - emitterPosition.x;
+        const backwardY = state.trailOrigin.y - emitterPosition.y;
+        const trailDistance = Math.sqrt(backwardX * backwardX + backwardY * backwardY);
+        const normalizedAge = Math.max(0, Math.min(
+            1,
+            state.activeAgeSeconds / SPHERE_FLY_TRAIL_LIFETIME_SECONDS,
+        ));
+        const particleSizeScale = 1 - 3 * normalizedAge * normalizedAge
+            + 2 * normalizedAge * normalizedAge * normalizedAge;
+        if (trailDistance < 0.5 || particleSizeScale <= 0) {
+            state.trail.active = false;
+            return;
         }
-        graphics.close();
-        graphics.fill();
-        graphics.fillColor = Color.WHITE;
-        graphics.circle(0, 0, Math.max(0.8, radius * 0.13));
-        graphics.fill();
+        const beanScale = Math.max(0.001, Math.abs(state.bean.scale.x));
+        const trailWidth = state.beanSize * beanScale * SPHERE_FLY_TRAIL_WIDTH_RATIO
+            * SPHERE_FLY_TRAIL_WIDTH_OVER_TRAIL * particleSizeScale;
+        const textureLength = trailDistance / (1 - SPHERE_FLY_TRAIL_HEAD_ANCHOR_X);
+        for (const segment of state.trailSegments) {
+            segment.transform.setContentSize(Math.max(1, textureLength), Math.max(1, trailWidth));
+        }
+        state.trail.setPosition(emitterPosition);
+        state.trail.angle = Math.atan2(backwardY, backwardX) * 180 / Math.PI;
+        state.trail.active = true;
+    }
+
+    private emitSphereFlyStarsAlongSegment(
+        state: SphereFlyEffectInstance,
+        from: Vec3,
+        to: Vec3,
+    ): void {
+        if (state.emittedStarCount >= SPHERE_FLY_MAX_STARS_PER_EFFECT) return;
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const segmentDistance = Math.sqrt(dx * dx + dy * dy);
+        if (segmentDistance < 0.001) return;
+
+        const spacing = Math.max(1, state.beanSize * SPHERE_FLY_STAR_EMISSION_SPACING_RATIO);
+        let nextDistance = spacing - state.distanceSinceLastStar;
+        while (nextDistance <= segmentDistance
+            && state.emittedStarCount < SPHERE_FLY_MAX_STARS_PER_EFFECT) {
+            const t = nextDistance / segmentDistance;
+            this.spawnSphereFlyStar(state, new Vec3(from.x + dx * t, from.y + dy * t, 0));
+            nextDistance += spacing;
+        }
+        state.distanceSinceLastStar = (state.distanceSinceLastStar + segmentDistance) % spacing;
+    }
+
+    private spawnSphereFlyStar(state: SphereFlyEffectInstance, emitterPosition: Vec3): void {
+        const star = this.sphereFlyStarPool.get() ?? this.createSphereFlyStarNode();
+        const transform = star.getComponent(UITransform);
+        const sprite = star.getComponent(Sprite);
+        const opacity = star.getComponent(UIOpacity);
+        if (!transform || !sprite || !opacity) {
+            throw new Error('[pch-sphere-fly] pooled Star particle is incomplete');
+        }
+
+        const beanScale = Math.max(0.001, Math.abs(state.bean.scale.x));
+        const displayBeanSize = state.beanSize * beanScale;
+        const shapeAngle = Math.random() * Math.PI * 2;
+        const shapeRadius = displayBeanSize * SPHERE_FLY_STAR_RING_RADIUS_RATIO;
+        const sizeRatio = SPHERE_FLY_STAR_MIN_SIZE_RATIO
+            + Math.random() * (SPHERE_FLY_STAR_MAX_SIZE_RATIO - SPHERE_FLY_STAR_MIN_SIZE_RATIO);
+        const starSize = displayBeanSize * sizeRatio;
+        const lifetimeSeconds = SPHERE_FLY_STAR_MIN_LIFETIME_SECONDS
+            + Math.random() * (SPHERE_FLY_STAR_MAX_LIFETIME_SECONDS - SPHERE_FLY_STAR_MIN_LIFETIME_SECONDS);
+
+        state.node.addChild(star);
+        star.name = `SphereFlyEft-01-Star-${state.emittedStarCount}`;
+        star.layer = Layers.Enum.UI_2D;
+        star.active = true;
+        star.setPosition(
+            emitterPosition.x + Math.cos(shapeAngle) * shapeRadius,
+            emitterPosition.y + Math.sin(shapeAngle) * shapeRadius,
+            0,
+        );
+        star.setScale(0, 0, 1);
+        star.angle = 0;
+        transform.setAnchorPoint(0.5, 0.5);
+        transform.setContentSize(starSize, starSize);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        sprite.spriteFrame = this.runtime.requireSphereFlyStarSpriteFrame();
+        sprite.color = Color.WHITE;
+        opacity.opacity = 255;
+        state.stars.push({ node: star, ageSeconds: 0, lifetimeSeconds });
+        state.emittedStarCount += 1;
+    }
+
+    private createSphereFlyStarNode(): Node {
+        const star = new Node('SphereFlyEft-01-Star');
+        star.layer = Layers.Enum.UI_2D;
+        star.addComponent(UITransform);
+        const sprite = star.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        star.addComponent(UIOpacity);
+        return star;
+    }
+
+    private updateSphereFlyStarParticles(state: SphereFlyEffectInstance, deltaTime: number): void {
+        for (let index = state.stars.length - 1; index >= 0; index -= 1) {
+            const particle = state.stars[index];
+            particle.ageSeconds += deltaTime;
+            if (!particle.node?.isValid || particle.ageSeconds >= particle.lifetimeSeconds) {
+                state.stars.splice(index, 1);
+                this.recycleSphereFlyStar(particle.node);
+                continue;
+            }
+            const normalizedAge = particle.ageSeconds / particle.lifetimeSeconds;
+            const sizeScale = normalizedAge <= SPHERE_FLY_STAR_SIZE_PEAK_TIME
+                ? normalizedAge / SPHERE_FLY_STAR_SIZE_PEAK_TIME
+                : (1 - normalizedAge) / (1 - SPHERE_FLY_STAR_SIZE_PEAK_TIME);
+            particle.node.setScale(Math.max(0, sizeScale), Math.max(0, sizeScale), 1);
+        }
+    }
+
+    private recycleSphereFlyEffect(bean: Node): void {
+        const state = this.activeSphereFlyEffects.get(bean);
+        if (!state) return;
+        this.activeSphereFlyEffects.delete(bean);
+        for (const particle of state.stars) this.recycleSphereFlyStar(particle.node);
+        state.stars.length = 0;
+        if (!state.node?.isValid) return;
+        state.trail.active = false;
+        state.trail.setPosition(0, 0, 0);
+        state.trail.setScale(1, 1, 1);
+        state.trail.angle = 0;
+        state.node.active = false;
+        if (this.getSphereFlyPoolSize(this.sphereFlyEffectPool) >= MAX_POOLED_SPHERE_FLY_EFFECTS) {
+            state.node.destroy();
+            return;
+        }
+        this.sphereFlyEffectPool.put(state.node);
+    }
+
+    private recycleAllSphereFlyEffects(): void {
+        for (const bean of Array.from(this.activeSphereFlyEffects.keys())) {
+            this.recycleSphereFlyEffect(bean);
+        }
+    }
+
+    private recycleSphereFlyStar(star: Node): void {
+        if (!star?.isValid) return;
+        star.active = false;
+        star.setPosition(0, 0, 0);
+        star.setScale(1, 1, 1);
+        star.angle = 0;
+        if (this.getSphereFlyPoolSize(this.sphereFlyStarPool) >= MAX_POOLED_SPHERE_FLY_STARS) {
+            star.destroy();
+            return;
+        }
+        this.sphereFlyStarPool.put(star);
+    }
+
+    private getSphereFlyPoolSize(pool: NodePool): number {
+        const size = (pool as any).size;
+        return typeof size === 'function' ? Math.max(0, Number(size.call(pool)) || 0) : 0;
     }
 
     private stopNodeTreeTweens(node: Node): void {
@@ -989,6 +1273,7 @@ export class PchConveyorGameplayController {
     }
 
     private destroyFlyBean(bean: Node): void {
+        this.recycleSphereFlyEffect(bean);
         this.activeFlyBeans.delete(bean);
         if (!bean?.isValid) return;
         this.stopNodeTreeTweens(bean);
@@ -1018,8 +1303,8 @@ export class PchConveyorGameplayController {
             this.statusLabel.color = isFull ? new Color(202, 56, 82) : new Color(79, 65, 126);
         }
         if (this.countLabel) {
-            this.countLabel.string = `${this.rules.bufferCount} / ${this.rules.bufferCapacity}`;
-            this.countLabel.color = isFull ? new Color(255, 92, 103) : new Color(255, 237, 74);
+            this.countLabel.string = `${this.rules.bufferCount}/${this.rules.bufferCapacity}`;
+            this.countLabel.color = isFull ? new Color(255, 92, 103) : Color.WHITE;
         }
         if (this.entryCountLabel) {
             this.entryCountLabel.string = this.rules.entryCount > 0 ? `${this.rules.entryCount}` : '';
@@ -1174,15 +1459,26 @@ export class PchConveyorGameplayController {
 
     private renderConveyor(): void {
         if (!this.rules || !this.belt || !this.carrierLayer || !this.carrierTemplate) return;
-        this.carrierLayer.children
-            .filter((node) => node.name.startsWith('PchCarrier-'))
-            .forEach((node) => node.destroy());
+        const availableCarriers = this.getOrderedConveyorCarriers(this.carrierLayer);
+        availableCarriers.forEach((carrier) => {
+            this.resetConveyorCarrier(carrier);
+            carrier.active = false;
+        });
         this.carrierNodes = [];
         this.rules.carriers.forEach((stack, carrierIndex) => {
-            const carrier = instantiate(this.carrierTemplate!);
-            carrier.name = `PchCarrier-${carrierIndex}`;
+            let carrier = availableCarriers[carrierIndex];
+            if (!carrier) {
+                carrier = instantiate(this.carrierTemplate!);
+                carrier.name = `PchCarrier-${carrierIndex}`;
+                this.carrierLayer!.addChild(carrier);
+                availableCarriers[carrierIndex] = carrier;
+            }
             carrier.active = true;
-            this.carrierLayer!.addChild(carrier);
+            const direction = carrier.getChildByName('Direction');
+            if (!direction?.isValid || !direction.getComponent(Sprite)?.spriteFrame) {
+                throw new Error(`[pch-core] carrier ${carrierIndex} is missing its scene-authored Direction`);
+            }
+            direction.active = stack.length === 0;
             stack.forEach((colorId, layer) => {
                 const bean = this.makeNode(`PchStackBean-${carrierIndex}-${layer}`, carrier, 33, 33, 0, layer * 8);
                 const sprite = bean.addComponent(Sprite);
@@ -1219,18 +1515,60 @@ export class PchConveyorGameplayController {
             const labelIndex = this.entryCountLabel?.node?.getSiblingIndex() ?? 1;
             bean.setSiblingIndex(Math.max(1, labelIndex));
         });
+        this.syncTableEntryDoors(this.rules.entryCount > 0);
     }
 
-    private prepareBeltPath(): void {
-        this.beltPath = [
-            new Vec3(-230, -112), new Vec3(-148, -112), new Vec3(30, -112), new Vec3(213, -112),
-            new Vec3(266, -112), new Vec3(290, -99), new Vec3(300, -72), new Vec3(300, 86),
-            new Vec3(290, 113), new Vec3(266, 128), new Vec3(196, 128), new Vec3(196, 83),
-            new Vec3(187, 64), new Vec3(166, 52), new Vec3(0, 52), new Vec3(-166, 52),
-            new Vec3(-187, 64), new Vec3(-196, 83), new Vec3(-196, 128), new Vec3(-258, 128),
-            new Vec3(-283, 118), new Vec3(-300, 94), new Vec3(-300, -78), new Vec3(-290, -100),
-            new Vec3(-266, -112),
-        ];
+    private syncTableEntryDoors(open: boolean): void {
+        const doors = this.activeEntryDoors;
+        if (!doors) return;
+        const nextState = open ? 'open' : 'closed';
+        if (this.entryDoorState === nextState) return;
+        this.entryDoorState = nextState;
+        if (this.entryDoorTween) {
+            this.entryDoorTween.stop();
+            this.entryDoorTween = null;
+        }
+        const targetWidth = open ? PCH_ENTRY_DOOR_OPEN_WIDTH : PCH_ENTRY_DOOR_CLOSED_WIDTH;
+        const currentWidth = doors.left.contentSize.width;
+        if (Math.abs(currentWidth - targetWidth) < 0.000001) {
+            this.setTableEntryDoorWidth(doors, targetWidth);
+            return;
+        }
+        const state = { width: currentWidth };
+        this.entryDoorTween = tween(state)
+            .to(PCH_ENTRY_DOOR_TWEEN_SECONDS, { width: targetWidth }, {
+                easing: 'quadOut',
+                onUpdate: (target: { width: number }) => {
+                    this.setTableEntryDoorWidth(doors, target.width);
+                },
+            })
+            .call(() => {
+                this.setTableEntryDoorWidth(doors, targetWidth);
+                this.entryDoorTween = null;
+            })
+            .start();
+    }
+
+    private resetTableEntryDoorAnimation(): void {
+        if (this.entryDoorTween) {
+            this.entryDoorTween.stop();
+            this.entryDoorTween = null;
+        }
+        this.entryDoorState = 'none';
+        for (const doors of [this.normalEntryDoors, this.compactEntryDoors]) {
+            if (doors) this.setTableEntryDoorWidth(doors, PCH_ENTRY_DOOR_CLOSED_WIDTH);
+        }
+    }
+
+    private setTableEntryDoorWidth(doors: ConveyorEntryDoorBindings, width: number): void {
+        if (!doors.left.node?.isValid || !doors.right.node?.isValid) return;
+        doors.left.setContentSize(width, PCH_ENTRY_DOOR_HEIGHT);
+        doors.right.setContentSize(width, PCH_ENTRY_DOOR_HEIGHT);
+    }
+
+    private prepareBeltPath(tableType: RainbowConveyorTableType): void {
+        this.beltPath = RAINBOW_CONVEYOR_PATHS[tableType]
+            .map(([x, y]) => new Vec3(x * RAINBOW_CONVEYOR_SOURCE_SCALE, y * RAINBOW_CONVEYOR_SOURCE_SCALE));
         this.beltPathDistances = [0];
         this.beltPathLength = 0;
         for (let i = 0; i < this.beltPath.length; i += 1) {
@@ -1238,7 +1576,10 @@ export class PchConveyorGameplayController {
             this.beltPathLength += Vec3.distance(this.beltPath[i], next);
             if (i < this.beltPath.length - 1) this.beltPathDistances.push(this.beltPathLength);
         }
-        const exitIndex = this.beltPath.findIndex((point) => point.x === 0 && point.y === 52);
+        const exitIndex = RAINBOW_CONVEYOR_EXIT_POINT_INDEX[tableType];
+        if (exitIndex <= 0 || exitIndex >= this.beltPathDistances.length || this.beltPathLength <= 0) {
+            throw new Error(`[pch-core] invalid original-package conveyor path for table type ${tableType}`);
+        }
         this.exitPathProgress = this.beltPathDistances[exitIndex] / this.beltPathLength;
     }
 
@@ -1269,7 +1610,15 @@ export class PchConveyorGameplayController {
     private bindConveyorLayout(root: Node, name: 'NormalLayout' | 'CompactLayout'): ConveyorLayoutBindings {
         const basePath = `GameplayFixedRoot/PchConveyorRoot/${name}`;
         const node = this.requireConveyorNode(root, name, basePath);
-        this.requireConveyorSprite(node, 'PchMovingTrack', `${basePath}/PchMovingTrack`);
+        const track = this.requireConveyorNode(node, 'PchMovingTrack', `${basePath}/PchMovingTrack`);
+        const trackPartNames = RAINBOW_CONVEYOR_TRACK_PARTS[name];
+        if (track.children.length !== trackPartNames.length
+            || track.children.some((part, index) => part.name !== trackPartNames[index])) {
+            throw new Error(`[pch-core] Game.scene has an invalid original-package track hierarchy on ${basePath}`);
+        }
+        for (const partName of trackPartNames) {
+            this.requireConveyorSprite(track, partName, `${basePath}/PchMovingTrack/${partName}`);
+        }
         const carrierLayer = this.requireConveyorNode(node, 'CarrierLayer', `${basePath}/CarrierLayer`);
         const carrierTemplate = this.requireConveyorNode(
             carrierLayer,
@@ -1281,11 +1630,47 @@ export class PchConveyorGameplayController {
         }
         this.requireConveyorSprite(
             carrierTemplate,
-            'Groove',
-            `${basePath}/CarrierLayer/PchCarrierTemplate/Groove`,
+            'Direction',
+            `${basePath}/CarrierLayer/PchCarrierTemplate/Direction`,
         );
+        const authoredCarrierNodes = this.getOrderedConveyorCarriers(carrierLayer);
+        if (!this.rules || authoredCarrierNodes.length < this.rules.initialCarrierCount) {
+            throw new Error(
+                `[pch-core] Game.scene must provide ${this.rules?.initialCarrierCount || 0} authored carriers on ${basePath}`,
+            );
+        }
+        authoredCarrierNodes.forEach((carrier, carrierIndex) => {
+            this.requireConveyorSprite(
+                carrier,
+                'Direction',
+                `${basePath}/CarrierLayer/PchCarrier-${carrierIndex}/Direction`,
+            );
+        });
+        const tableEntry = this.requireConveyorNode(node, 'TableEntryItem', `${basePath}/TableEntryItem`);
+        const tableEntryVisual = this.requireConveyorNode(tableEntry, 'Node', `${basePath}/TableEntryItem/Node`);
+        for (const shellName of ['1', '2']) {
+            const shell = this.requireConveyorSprite(
+                tableEntryVisual,
+                shellName,
+                `${basePath}/TableEntryItem/Node/${shellName}`,
+            );
+            this.requireConveyorNode(shell, 'Point', `${basePath}/TableEntryItem/Node/${shellName}/Point`);
+        }
+        const pieces = this.requireConveyorNode(tableEntry, 'Pieces', `${basePath}/TableEntryItem/Pieces`);
+        const leftDoor = this.requireConveyorSprite(
+            pieces,
+            'L',
+            `${basePath}/TableEntryItem/Pieces/L`,
+        ).getComponent(UITransform)!;
+        const rightDoor = this.requireConveyorSprite(
+            pieces,
+            'R',
+            `${basePath}/TableEntryItem/Pieces/R`,
+        ).getComponent(UITransform)!;
+        this.requireConveyorSprite(pieces, 'Img', `${basePath}/TableEntryItem/Pieces/Img`);
+        const tableEntryRoot = this.requireConveyorNode(tableEntry, 'Root', `${basePath}/TableEntryItem/Root`);
+        this.requireConveyorNode(tableEntryRoot, 'SphereNode', `${basePath}/TableEntryItem/Root/SphereNode`);
         const entranceNode = this.requireConveyorNode(node, 'PchEntrance', `${basePath}/PchEntrance`);
-        this.requireConveyorSprite(entranceNode, 'Visual', `${basePath}/PchEntrance/Visual`);
         const entryCountLabel = this.requireConveyorLabel(
             entranceNode,
             'EntryCount',
@@ -1293,8 +1678,17 @@ export class PchConveyorGameplayController {
         );
         const exitNode = this.requireConveyorNode(node, 'PchExit', `${basePath}/PchExit`);
         this.requireConveyorSprite(exitNode, 'Visual', `${basePath}/PchExit/Visual`);
+        const arrow = this.requireConveyorNode(exitNode, 'Arrow', `${basePath}/PchExit/Arrow`);
+        for (const [positionName, arrowNames] of [
+            ['Pos01', ['Jt_02', 'Jt_04']],
+            ['Pos02', ['Jt_01', 'Jt_03']],
+        ] as const) {
+            const position = this.requireConveyorNode(arrow, positionName, `${basePath}/PchExit/Arrow/${positionName}`);
+            for (const arrowName of arrowNames) {
+                this.requireConveyorSprite(position, arrowName, `${basePath}/PchExit/Arrow/${positionName}/${arrowName}`);
+            }
+        }
         const capacityBadge = this.requireConveyorNode(node, 'PchCapacityBadge', `${basePath}/PchCapacityBadge`);
-        this.requireConveyorSprite(capacityBadge, 'Visual', `${basePath}/PchCapacityBadge/Visual`);
         const countLabel = this.requireConveyorLabel(
             capacityBadge,
             'CapacityCount',
@@ -1305,27 +1699,57 @@ export class PchConveyorGameplayController {
             throw new Error(`[pch-core] Game.scene must provide Button on ${basePath}/PchCapacityAdButton`);
         }
         this.requireConveyorSprite(adButton, 'Visual', `${basePath}/PchCapacityAdButton/Visual`);
-        for (const labelName of ['AdLabel', 'ExpandLabel', 'ExpandArrow']) {
-            this.requireConveyorLabel(adButton, labelName, `${basePath}/PchCapacityAdButton/${labelName}`);
-        }
+        this.requireConveyorSprite(adButton, 'AdIcon', `${basePath}/PchCapacityAdButton/AdIcon`);
+        this.requireConveyorSprite(adButton, 'ExpandIcon', `${basePath}/PchCapacityAdButton/ExpandIcon`);
         return {
             node,
             carrierLayer,
             carrierTemplate,
+            authoredCarrierNodes,
             entranceNode,
             exitNode,
             capacityBadge,
             countLabel,
             entryCountLabel,
+            entryDoors: { left: leftDoor, right: rightDoor },
             adButton,
         };
     }
 
+    private getOrderedConveyorCarriers(carrierLayer: Node): Node[] {
+        const carriers = carrierLayer.children
+            .filter((node) => /^PchCarrier-\d+$/.test(node.name))
+            .sort((left, right) => Number(left.name.slice('PchCarrier-'.length))
+                - Number(right.name.slice('PchCarrier-'.length)));
+        carriers.forEach((carrier, index) => {
+            if (carrier.name !== `PchCarrier-${index}`) {
+                throw new Error(`[pch-core] carrier hierarchy must be consecutive at ${carrierLayer.name}/PchCarrier-${index}`);
+            }
+        });
+        return carriers;
+    }
+
+    private resetConveyorCarrier(carrier: Node): void {
+        Tween.stopAllByTarget(carrier);
+        carrier.setScale(1, 1, 1);
+        carrier.children
+            .filter((node) => node.name !== 'Direction')
+            .forEach((node) => node.destroy());
+        const direction = carrier.getChildByName('Direction');
+        if (!direction?.isValid || !direction.getComponent(Sprite)?.spriteFrame) {
+            throw new Error(`[pch-core] ${carrier.name} lost its hierarchy-owned Direction`);
+        }
+        direction.active = true;
+    }
+
     private clearConveyorLayoutRuntime(layout: Node): void {
         const carrierLayer = layout.getChildByName('CarrierLayer');
-        carrierLayer?.children
-            .filter((node) => node.name.startsWith('PchCarrier-'))
-            .forEach((node) => node.destroy());
+        if (carrierLayer) {
+            this.getOrderedConveyorCarriers(carrierLayer).forEach((carrier) => {
+                this.resetConveyorCarrier(carrier);
+                carrier.active = false;
+            });
+        }
         const entrance = layout.getChildByName('PchEntrance');
         entrance?.children
             .filter((node) => node.name.startsWith('PchEntryBean-'))
@@ -1590,11 +2014,18 @@ export class PchConveyorGameplayController {
     private updateBeltPositions(): void {
         if (!this.rules) return;
         this.carrierNodes.forEach((node, carrierIndex) => {
-            node.setPosition(this.pointOnBeltPath(this.wrap01((carrierIndex + this.beltTravel) / this.rules!.carrierCount)));
+            const progress = this.wrap01((carrierIndex + this.beltTravel) / this.rules!.carrierCount);
+            const sample = this.sampleBeltPath(progress);
+            node.setPosition(sample.position);
+            const direction = node.getChildByName('Direction');
+            if (!direction?.isValid) {
+                throw new Error(`[pch-core] carrier ${carrierIndex} lost its scene-authored Direction`);
+            }
+            direction.angle = sample.angle;
         });
     }
 
-    private pointOnBeltPath(progress: number): Vec3 {
+    private sampleBeltPath(progress: number): { position: Vec3; angle: number } {
         const distance = this.wrap01(progress) * this.beltPathLength;
         for (let i = 0; i < this.beltPath.length; i += 1) {
             const startDistance = this.beltPathDistances[i];
@@ -1603,9 +2034,12 @@ export class PchConveyorGameplayController {
             const start = this.beltPath[i];
             const end = this.beltPath[(i + 1) % this.beltPath.length];
             const ratio = endDistance === startDistance ? 0 : (distance - startDistance) / (endDistance - startDistance);
-            return new Vec3(start.x + (end.x - start.x) * ratio, start.y + (end.y - start.y) * ratio, 0);
+            return {
+                position: new Vec3(start.x + (end.x - start.x) * ratio, start.y + (end.y - start.y) * ratio, 0),
+                angle: Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI,
+            };
         }
-        return this.beltPath[0].clone();
+        throw new Error('[pch-core] failed to sample the original-package conveyor path');
     }
 
     private getEntranceCarrierIndex(): number {

@@ -2483,6 +2483,26 @@ export function installAssetBootstrapModule(target: any): void {
             return bright;
         },
 
+        getSphereFlyStarSpriteFrame(): SpriteFrame | null {
+            return this.getSF('pdpx_eff_Star_01');
+        },
+
+        requireSphereFlyStarSpriteFrame(): SpriteFrame {
+            const star = this.getSphereFlyStarSpriteFrame();
+            if (!star) throw new Error('[assets] missing required SpriteFrame: pdpx_eff_Star_01');
+            return star;
+        },
+
+        getSphereFlyTrailSpriteFrame(): SpriteFrame | null {
+            return this.getSF('pdpx_eff_Trail_02');
+        },
+
+        requireSphereFlyTrailSpriteFrame(): SpriteFrame {
+            const trail = this.getSphereFlyTrailSpriteFrame();
+            if (!trail) throw new Error('[assets] missing required SpriteFrame: pdpx_eff_Trail_02');
+            return trail;
+        },
+
         shouldUseLocalBootstrapBundle(levelId: number, prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX): boolean {
             return LOCAL_BOOTSTRAP_LEVEL_IDS.has(levelId) && prefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX;
         },

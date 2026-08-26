@@ -162,16 +162,26 @@ function imageMeta(meta, assetPath) {
     };
 }
 
+function isValidOpaqueMeta(meta, ext) {
+    return ext === '.zip'
+        && meta.imported === true
+        && typeof meta.uuid === 'string'
+        && meta.uuid.length > 0
+        && Array.isArray(meta.files)
+        && meta.files.includes(ext);
+}
+
 function repair(metaPath) {
     const assetPath = metaPath.slice(0, -5);
     const meta = readJson(metaPath);
     if (meta.importer !== '*') return false;
+    const ext = fs.existsSync(assetPath) && fs.statSync(assetPath).isDirectory() ? '<dir>' : path.extname(assetPath).toLowerCase();
+    if (isValidOpaqueMeta(meta, ext)) return false;
     const trackedMeta = readTrackedMeta(metaPath);
     if (trackedMeta) {
         fs.writeFileSync(metaPath, trackedMeta.endsWith('\n') ? trackedMeta : trackedMeta + '\n');
         return true;
     }
-    const ext = fs.existsSync(assetPath) && fs.statSync(assetPath).isDirectory() ? '<dir>' : path.extname(assetPath).toLowerCase();
     let next = null;
     if (ext === '<dir>') next = { ver: '1.2.0', importer: 'directory', imported: true, uuid: meta.uuid, files: [], subMetas: {}, userData: meta.userData || {} };
     else if (ext === '.json') next = { ver: '2.0.1', importer: 'json', imported: true, uuid: meta.uuid, files: ['.json'], subMetas: {}, userData: meta.userData || {} };

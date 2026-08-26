@@ -1,6 +1,6 @@
 {
   "package_version": 2,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "pdd-assetdb-warm-monitor",
   "title": "PDD AssetDB Warm Monitor",
   "description": "Waits for a non-empty normal-editor AssetDB inventory before command-line builds.",
