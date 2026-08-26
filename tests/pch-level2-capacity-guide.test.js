@@ -50,7 +50,7 @@ assert.ok(
 );
 assert.ok(
     source.includes('this.manualSpeedMultiplier = 2;')
-        && source.includes('this.drawSpeedButton();')
+        && source.includes('this.refreshSpeedButtonState();')
         && source.includes('this.dismissOpeningGuide();'),
     'the level-2 target tap must deterministically enable 2x speed before gameplay starts',
 );

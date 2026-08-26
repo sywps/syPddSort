@@ -100,6 +100,15 @@ assert.ok(
     'runtime speed logic must bind the required hierarchy and only update state',
 );
 assert.ok(
+    source.includes("this.runtime._activeGameplayEntryMode === 'main'")
+        && source.includes("Math.floor(Number(this.runtime.levelData?.levelId) || 0) === 1")
+        && source.includes("const settingsButton = topBar.getChildByName('Settings')")
+        && source.includes('settingsButton.active = !hideFirstLevelControls;')
+        && source.includes('this.bindSpeedButton(topBar, !hideFirstLevelControls);')
+        && source.includes('speedButton.active = visible;'),
+    'mainline level 1 must hide Settings and PchSpeedButton while later levels restore them',
+);
+assert.ok(
     !source.includes("this.makeNode('PchSpeedButton'")
         && !source.includes('private buildSpeedButton(')
         && !source.includes('private drawSpeedButton(')
