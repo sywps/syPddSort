@@ -1,0 +1,72 @@
+{
+    "levelId": 1,
+    "boardWidth": 4,
+    "boardHeight": 5,
+    "timeLimit": 300,
+    "slotTotalCount": 20,
+    "conveyorCapacity": 60,
+    "correctColorArr": [
+        [
+            2,
+            2,
+            6,
+            6
+        ],
+        [
+            2,
+            2,
+            6,
+            6
+        ],
+        [
+            2,
+            2,
+            6,
+            6
+        ],
+        [
+            2,
+            2,
+            6,
+            6
+        ],
+        [
+            2,
+            2,
+            6,
+            6
+        ]
+    ],
+    "initRandomColorArr": [
+        [
+            6,
+            6,
+            2,
+            2
+        ],
+        [
+            6,
+            6,
+            2,
+            2
+        ],
+        [
+            6,
+            6,
+            2,
+            2
+        ],
+        [
+            6,
+            6,
+            2,
+            2
+        ],
+        [
+            6,
+            6,
+            2,
+            2
+        ]
+    ]
+}

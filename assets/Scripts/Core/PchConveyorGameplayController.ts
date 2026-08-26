@@ -26,6 +26,7 @@ import {
     type PchSkillBeanSource,
     type PchSkillResult,
 } from './PchConveyorRules';
+import { AppRoot } from './AppRoot';
 
 const BELT_STEP_SECONDS = 0.28;
 const PCH_TRANSFER_SECONDS = 0.16;
@@ -108,6 +109,7 @@ export class PchConveyorGameplayController {
 
     start(): void {
         this.stop();
+        this.manualSpeedMultiplier = AppRoot.tryGet()?.session.pchSpeedMultiplier === 2 ? 2 : 1;
         if (!this.runtime.boardModel
             || typeof this.runtime.renderBoard !== 'function'
             || typeof this.runtime.renderBoardCells !== 'function') {
@@ -1488,7 +1490,7 @@ export class PchConveyorGameplayController {
     private onOpeningGuideDoubleSpeed(event: any): void {
         event.propagationStopped = true;
         if (!this.rules || this.runtime.isGameEnd) return;
-        this.manualSpeedMultiplier = 2;
+        this.setManualSpeedMultiplier(2);
         AudioMgr.inst.play('button');
         this.refreshSpeedButtonState();
         if (this.statusLabel) this.statusLabel.string = '2 倍速度已开启';
@@ -1561,7 +1563,7 @@ export class PchConveyorGameplayController {
     private onSpeedButtonTap(event: any): void {
         event.propagationStopped = true;
         if (!this.rules || this.inputLocked || this.runtime.isGameEnd) return;
-        this.manualSpeedMultiplier = this.manualSpeedMultiplier === 1 ? 2 : 1;
+        this.setManualSpeedMultiplier(this.manualSpeedMultiplier === 1 ? 2 : 1);
         AudioMgr.inst.play('button');
         this.refreshSpeedButtonState();
         if (this.statusLabel) {
@@ -1578,6 +1580,11 @@ export class PchConveyorGameplayController {
         this.speedInactiveState.active = !active;
         this.speedActiveState.active = active;
         this.speedBadgeLabel.string = active ? '2X' : '1X';
+    }
+
+    private setManualSpeedMultiplier(multiplier: 1 | 2): void {
+        this.manualSpeedMultiplier = multiplier;
+        AppRoot.tryGet()?.session.setPchSpeedMultiplier(multiplier);
     }
 
     private updateBeltPositions(): void {

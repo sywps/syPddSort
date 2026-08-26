@@ -314,6 +314,7 @@ const controllerModule = { exports: {} };
 const loadController = new Function('module', 'exports', 'require', controllerCompiled.outputText);
 loadController(controllerModule, controllerModule.exports, (request) => {
     if (request === './PchConveyorRules') return { PchConveyorRules };
+    if (request === './AppRoot') return { AppRoot: { tryGet() { return null; } } };
     if (request === './OpeningPatternTransition') {
         return {
             buildOpeningPatternMoves() { return []; },

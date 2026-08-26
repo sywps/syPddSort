@@ -36,6 +36,7 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
+    private _pchSpeedMultiplier: 1 | 2 = 1;
     private readonly _routedBundles = new Map<string, Bundle>();
 
     get currentSceneName(): AppSceneName {
@@ -56,6 +57,14 @@ export class AppSession {
 
     get activeGameplayContext(): ActiveGameplayContext | null {
         return this._activeGameplayContext;
+    }
+
+    get pchSpeedMultiplier(): 1 | 2 {
+        return this._pchSpeedMultiplier;
+    }
+
+    setPchSpeedMultiplier(multiplier: number): void {
+        this._pchSpeedMultiplier = multiplier === 2 ? 2 : 1;
     }
 
     setCurrentSceneName(sceneName: AppSceneName): void {

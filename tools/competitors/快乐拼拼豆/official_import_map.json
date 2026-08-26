@@ -1,18 +1,1 @@
-{
-  "tools/competitors/快乐拼拼豆/levels/main/lv_003.json": {
-    "sourcePath": "tools/competitors/快乐拼拼豆/levels/main/lv_003.json",
-    "targets": {
-      "online": {
-        "targetLevelId": 3,
-        "targetPath": "assets/LevelData/level_3.json",
-        "targetType": "online",
-        "importedAt": "2026-07-04T16:55:05",
-        "fingerprintVersion": 1,
-        "contentFingerprint": "40584bdbfff53ea8f5d8d7db5be4070c5e43a6defb5aad1b974e122983699257",
-        "targetDuplicateCount": 2
-      }
-    },
-    "updatedAt": "2026-07-04T16:55:05",
-    "importedAt": "2026-07-04T16:55:05"
-  }
-}
+{}

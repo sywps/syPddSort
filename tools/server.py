@@ -35,6 +35,7 @@ ONLINE_LEVEL_KEYS = (
     'boardHeight',
     'timeLimit',
     'slotTotalCount',
+    'conveyorCapacity',
     'correctColorArr',
     'initRandomColorArr',
 )

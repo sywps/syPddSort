@@ -5,6 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const read = (relPath) => fs.readFileSync(path.join(root, relPath), 'utf8');
 const source = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
+const appSession = read('assets/Scripts/Core/AppSession.ts');
 const scene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
 const inactiveMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_inactive.png.meta'));
 const activeMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_active.png.meta'));
@@ -43,6 +44,14 @@ const badgeLabel = component(badgeNode, 'cc.Label');
 assert.ok(
     !source.includes('this.manualSpeedMultiplier = 1;'),
     'starting the next level must not reset the selected speed',
+);
+assert.ok(
+    appSession.includes('private _pchSpeedMultiplier: 1 | 2 = 1;')
+        && appSession.includes('get pchSpeedMultiplier(): 1 | 2')
+        && appSession.includes('setPchSpeedMultiplier(multiplier: number): void')
+        && source.includes('this.manualSpeedMultiplier = AppRoot.tryGet()?.session.pchSpeedMultiplier === 2 ? 2 : 1;')
+        && source.includes('AppRoot.tryGet()?.session.setPchSpeedMultiplier(multiplier);'),
+    'the selected speed must survive controller and scene replacement through AppSession',
 );
 assert.ok(
     topBar.entry._children.some((ref) => ref.__id__ === speed.index),

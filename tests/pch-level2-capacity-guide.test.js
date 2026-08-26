@@ -49,7 +49,7 @@ assert.ok(
     'mainline level 2 must guide the 2x-speed button instead of capacity expansion',
 );
 assert.ok(
-    source.includes('this.manualSpeedMultiplier = 2;')
+    source.includes('this.setManualSpeedMultiplier(2);')
         && source.includes('this.refreshSpeedButtonState();')
         && source.includes('this.dismissOpeningGuide();'),
     'the level-2 target tap must deterministically enable 2x speed before gameplay starts',
