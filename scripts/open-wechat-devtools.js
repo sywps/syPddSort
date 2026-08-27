@@ -148,6 +148,22 @@ function assertWechatPackage(projectDir) {
     }
 }
 
+function clearForcedGameLaunchCondition(projectDir) {
+    const projectConfigPath = path.join(projectDir, 'project.config.json');
+    const projectConfig = readJson(projectConfigPath);
+    const gameCondition = projectConfig.condition?.game;
+    if (!gameCondition) return;
+    const hasForcedLaunch = gameCondition.current !== -1
+        || gameCondition.currentL !== -1
+        || (Array.isArray(gameCondition.list) && gameCondition.list.length > 0);
+    if (!hasForcedLaunch) return;
+    gameCondition.current = -1;
+    gameCondition.currentL = -1;
+    gameCondition.list = [];
+    fs.writeFileSync(projectConfigPath, JSON.stringify(projectConfig, null, 2) + '\n');
+    console.log('[wechat-devtools] 已清除强制启动关卡，将从本地当前关卡进入');
+}
+
 function commandFor(args, command) {
     const port = command === 'auto' ? args.autoPort : args.openPort;
     const cliArgs = [command, '--project', args.project];
@@ -183,6 +199,7 @@ function main() {
     }
     assertFile(args.cli, '微信开发者工具 CLI');
     assertWechatPackage(args.project);
+    if (!args.dryRun) clearForcedGameLaunchCondition(args.project);
 
     if (args.mode === 'open' || args.mode === 'both') runCli(args, 'open');
     if (args.mode === 'auto' || args.mode === 'both') runCli(args, 'auto');
