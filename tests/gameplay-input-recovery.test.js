@@ -18,6 +18,7 @@ const gameplaySession = read('assets/Scripts/Core/GameplaySessionController.ts')
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
 const boardInput = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
+const gameRuntimeHost = read('assets/Scripts/Core/GameRuntimeHost.ts');
 const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
 const gameplaySkillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const gameplaySkillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
@@ -77,6 +78,18 @@ assert.ok(boardInput.includes('this.scheduleOnce(fallback, 0.6);'), 'skill viewp
 assert.ok(boardInput.includes('.call(complete)'), 'skill viewport tween and fallback must converge on one idempotent completion path');
 assert.ok(!gameplayView.includes('Node.EventType.TOUCH_CANCEL, runtime.onTouchEnd'), 'touch cancel must never execute normal touch-end gameplay');
 assert.ok(gameplayView.includes('Node.EventType.TOUCH_CANCEL, runtime.onTouchCancel'), 'input root must bind the reset-only touch-cancel handler');
+assert.ok(
+    boardInput.includes('normalizeGameplayUiPosition(uiPos: { x: number; y: number }): Vec2 {')
+        && boardInput.includes('if (isMiniGameRuntime()) return new Vec2(rawX, rawY);')
+        && boardInput.includes('return new Vec2(rawX * scaleX, rawY * scaleY);'),
+    'mini-game input must keep native Cocos UI coordinates while scaled web previews map once into visible space',
+);
+assert.ok(
+    boardInput.includes('if (!boardResolution?.candidate && this.activeBoardTouches.size === 0)')
+        && boardInput.includes('this.resetTouchState();'),
+    'a blank root touch must not start a board pan gesture',
+);
+assert.ok(gameRuntimeHost.includes('protected static readonly DRAG_THRESHOLD = 18;'), 'rapid taps must retain an 18-unit movement slop before board panning');
 
 function extractObjectMethod(source, signature) {
     const start = source.indexOf(signature);

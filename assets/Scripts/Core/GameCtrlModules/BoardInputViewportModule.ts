@@ -31,6 +31,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
+import { isMiniGameRuntime } from '../MiniGamePlatform';
 
 type BoardTapCandidate = {
     row: number;
@@ -400,15 +401,14 @@ export function installBoardInputViewportModule(target: any): void {
         normalizeGameplayUiPosition(uiPos: { x: number; y: number }): Vec2 {
             const rawX = Number(uiPos?.x) || 0;
             const rawY = Number(uiPos?.y) || 0;
+            if (isMiniGameRuntime()) return new Vec2(rawX, rawY);
             const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
             const documentScope: any = globalScope?.document || null;
             const canvas = documentScope?.getElementById?.('GameCanvas')
                 || documentScope?.querySelector?.('canvas')
                 || null;
             const rect = canvas?.getBoundingClientRect?.() || null;
-            if (!rect || rect.width <= 0 || rect.height <= 0) {
-                return new Vec2(rawX, rawY);
-            }
+            if (!rect || rect.width <= 0 || rect.height <= 0) return new Vec2(rawX, rawY);
             const visibleSize = view.getVisibleSize();
             const scaleX = Number(visibleSize.width) / Number(rect.width);
             const scaleY = Number(visibleSize.height) / Number(rect.height);
@@ -470,6 +470,13 @@ export function installBoardInputViewportModule(target: any): void {
                 return;
             }
             const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
+            const boardResolution = typeof this.resolveBoardTapBlock === 'function'
+                ? this.resolveBoardTapBlock(new Vec3(uiPos.x, uiPos.y, 0), false)
+                : null;
+            if (!boardResolution?.candidate && this.activeBoardTouches.size === 0) {
+                this.resetTouchState();
+                return;
+            }
             this.suppressTap = false;
             this.pinchTouchIds = null;
             this.totalMoveDistance = 0;
