@@ -172,20 +172,26 @@ export class AudioMgr {
     }
 
     private _acquireSfxSource(): AudioSource | null {
-        const sources = this.sfxSources.filter((source) => source?.isValid);
-        if (sources.length === 0) return null;
-        for (let offset = 0; offset < sources.length; offset++) {
-            const index = (this.sfxSourceCursor + offset) % sources.length;
-            const source = sources[index];
+        const sourceCount = this.sfxSources.length;
+        if (sourceCount === 0) return null;
+        let firstValidSource: AudioSource | null = null;
+        let firstValidIndex = -1;
+        for (let offset = 0; offset < sourceCount; offset++) {
+            const index = (this.sfxSourceCursor + offset) % sourceCount;
+            const source = this.sfxSources[index];
+            if (!source?.isValid) continue;
+            if (!firstValidSource) {
+                firstValidSource = source;
+                firstValidIndex = index;
+            }
             if (this.busySfxSources.has(source)) continue;
-            this.sfxSourceCursor = (index + 1) % sources.length;
+            this.sfxSourceCursor = (index + 1) % sourceCount;
             return source;
         }
-        const index = this.sfxSourceCursor % sources.length;
-        const source = sources[index];
-        this.sfxSourceCursor = (index + 1) % sources.length;
-        this.busySfxSources.delete(source);
-        return source;
+        if (!firstValidSource) return null;
+        this.sfxSourceCursor = (firstValidIndex + 1) % sourceCount;
+        this.busySfxSources.delete(firstValidSource);
+        return firstValidSource;
     }
 
     private _clearBgmWarmupTimer() {

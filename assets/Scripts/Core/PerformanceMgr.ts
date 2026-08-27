@@ -27,6 +27,7 @@ export class PerformanceMgr {
     private _renderScaleApplied = false;
     private _currentFps = 0;
     private _activeFpsTimer: ReturnType<typeof setTimeout> | null = null;
+    private _activeFpsDeadlineAt = 0;
 
     private constructor() {}
 
@@ -87,19 +88,28 @@ export class PerformanceMgr {
     }
 
     private scheduleIdleFrameRate(holdMs: number): void {
-        this.clearActiveFrameRateTimer();
+        this._activeFpsDeadlineAt = Date.now() + Math.max(0, holdMs);
+        if (this._activeFpsTimer) return;
+        this.armIdleFrameRateTimer(Math.max(0, holdMs));
+    }
+
+    private armIdleFrameRateTimer(delayMs: number): void {
         this._activeFpsTimer = setTimeout(() => {
             this._activeFpsTimer = null;
-            if (!this._hidden) {
-                this.applyFrameRate(IDLE_FPS);
+            const remainingMs = this._activeFpsDeadlineAt - Date.now();
+            if (remainingMs > 0) {
+                this.armIdleFrameRateTimer(remainingMs);
+                return;
             }
-        }, Math.max(0, holdMs));
+            this._activeFpsDeadlineAt = 0;
+            if (!this._hidden) this.applyFrameRate(IDLE_FPS);
+        }, Math.max(0, delayMs));
     }
 
     private clearActiveFrameRateTimer(): void {
-        if (!this._activeFpsTimer) return;
-        clearTimeout(this._activeFpsTimer);
+        if (this._activeFpsTimer) clearTimeout(this._activeFpsTimer);
         this._activeFpsTimer = null;
+        this._activeFpsDeadlineAt = 0;
     }
 
     private shouldManageRuntimePerformance(): boolean {

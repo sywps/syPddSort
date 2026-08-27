@@ -25,6 +25,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .control-btn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.28); border-radius: 6px; background: rgba(255,255,255,.18); color: #fff; font-size: 13px; cursor: pointer; transition: background .15s, opacity .15s; }
 .control-btn:hover { background: rgba(255,255,255,.26); }
 .control-btn:disabled { opacity: .65; cursor: wait; }
+.compare-btn { background: #f1b84b; border-color: rgba(255,255,255,.55); color: #2f2618; font-weight: 700; }
+.shuffle-summary { display: none; max-width: 1400px; margin: 18px auto 0; padding: 0 20px; scroll-margin-top: 150px; }
+.shuffle-summary.active { display: block; }
+.shuffle-summary-panel { background: #fff; border: 1px solid #eadfce; border-radius: 14px; padding: 14px 16px; box-shadow: 0 2px 10px rgba(72,55,32,.08); }
+.shuffle-summary-title { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 10px; }
+.shuffle-summary-title strong { font-size: 16px; }
+.shuffle-summary-title span { color: #827563; font-size: 12px; }
+.shuffle-metrics { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; }
+.shuffle-metric { background: #f8f4ed; border-radius: 9px; padding: 9px 10px; }
+.shuffle-metric b { display: block; font-size: 12px; color: #776b5c; margin-bottom: 5px; }
+.shuffle-metric span { font-size: 13px; font-variant-numeric: tabular-nums; }
+.shuffle-metric .next { color: #23785c; font-weight: 700; }
+.metric-row { margin-top: 14px; display: grid; grid-template-columns: repeat(7, minmax(92px, 1fr)); gap: 7px; }
+.metric-chip { background: #f8f4ed; border-radius: 8px; padding: 7px 8px; font-size: 11px; color: #766a59; }
+.metric-chip strong { display: block; color: #3a3020; font-size: 13px; margin-top: 3px; }
 .import-status { font-size: 12px; opacity: .92; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .import-status.error { color: #ffd3d3; }
 .import-status.success { color: #d7ffd8; }
@@ -144,6 +159,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     .header-top { grid-template-columns: 1fr; }
     .controls { justify-content: flex-start; }
     .dir-control input { min-width: 180px; }
+    .shuffle-metrics, .metric-row { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
 }
 </style>
 </head>
@@ -203,9 +219,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <span id="batchStatus" class="batch-status">已选 0 关</span>
         </div>
         <button id="imageImportBtn" class="control-btn" type="button">上传图片生成关卡</button>
+        <button id="shuffleCompareBtn" class="control-btn compare-btn" type="button">🧪 新旧乱序对比</button>
         <span id="importStatus" class="import-status">默认追加到最后一关</span>
     </div>
 </div>
+
+<section class="shuffle-summary" id="shuffleSummary"></section>
 
 <div class="grid" id="grid"></div>
 
@@ -237,6 +256,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div class="loading" id="loading">正在加载关卡数据...</div>
 
+<script src="shuffle-comparison.js"></script>
 <script>
 const COLOR_HEX = {
     1: '#ED5090', 2: '#4EEAEA', 3: '#F8C811', 4: '#FE8B10', 5: '#F4BD9E',
@@ -1566,6 +1586,9 @@ function renderCard(data) {
     const colorCount = Object.keys(colors).length;
     const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
     const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+    const nextDispRate = shuffleComparisonReady
+        ? getDisplacementRate(data.correctColorArr, getNextShuffle(data))
+        : null;
     const specialMeta = getSpecialMeta(data);
 
     // Preview: show target only
@@ -1605,7 +1628,7 @@ function renderCard(data) {
             <span>🎨 ${colorCount}色</span>
             <span>🔢 ${beanCount}豆</span><br>
             <span>⏱ ${data.timeLimit}s</span>
-            <span>🔀 ${dispRate}%</span>
+            <span title="${nextDispRate === null ? '原乱序' : '原数据 → 学习生成'}">🔀 ${dispRate}%${nextDispRate === null ? '' : ` → ${nextDispRate}%`}</span>
             ${statusHtml}
             <span>${colorDots}</span>
         </div>
@@ -1650,6 +1673,9 @@ function showDetail(data) {
     const colorCount = Object.keys(colors).length;
     const beanCount = Object.values(colors).reduce((a, b) => a + b, 0);
     const dispRate = getDisplacementRate(data.correctColorArr, data.initRandomColorArr);
+    const nextShuffle = getNextShuffle(data);
+    const oldMetrics = ControlledShuffle.metrics(data.correctColorArr, data.initRandomColorArr);
+    const nextMetrics = ControlledShuffle.metrics(data.correctColorArr, nextShuffle);
     const maxDim = Math.max(data.boardWidth, data.boardHeight);
     const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
     const specialMeta = getSpecialMeta(data);
@@ -1669,9 +1695,22 @@ function showDetail(data) {
                 <canvas id="detailTarget"></canvas>
             </div>
             <div class="col">
-                <h3>🔀 初始乱序</h3>
-                <canvas id="detailShuffle"></canvas>
+                <h3>🔀 原乱序</h3>
+                <canvas id="detailOldShuffle"></canvas>
             </div>
+            <div class="col">
+                <h3>🧪 新乱序</h3>
+                <canvas id="detailNewShuffle"></canvas>
+            </div>
+        </div>
+        <div class="metric-row">
+            ${renderMetricChip('位移率', oldMetrics.displacement, nextMetrics.displacement, 'percent')}
+            ${renderMetricChip('轮廓保留率', oldMetrics.outlineRetention, nextMetrics.outlineRetention, 'percent')}
+            ${renderMetricChip('近等量换色率', oldMetrics.similarCountSwapRatio, nextMetrics.similarCountSwapRatio, 'percent')}
+            ${renderMetricChip('同色邻接率', oldMetrics.sameNeighborRatio, nextMetrics.sameNeighborRatio, 'percent')}
+            ${renderMetricChip('孤立豆比例', oldMetrics.singletonRatio, nextMetrics.singletonRatio, 'percent')}
+            ${renderMetricChip('每色连通块', oldMetrics.componentsPerColor, nextMetrics.componentsPerColor)}
+            ${renderMetricChip('最大色块', oldMetrics.largestCluster, nextMetrics.largestCluster)}
         </div>
         <div class="detail-meta">
             <strong>棋盘:</strong> ${data.boardWidth}×${data.boardHeight} &nbsp;
@@ -1679,43 +1718,89 @@ function showDetail(data) {
             <strong>颜色数:</strong> ${colorCount} &nbsp;
             <strong>时限:</strong> ${data.timeLimit}s &nbsp;
             <strong>暂存槽:</strong> ${data.slotTotalCount} &nbsp;
-            <strong>位移率:</strong> ${dispRate}%<br>
+            <strong>原位移率:</strong> ${dispRate}% &nbsp;
+            <strong>新位移率:</strong> ${Math.round(nextMetrics.displacement * 100)}%<br>
             <strong>文件:</strong> ${getLevelFilePath(data)}<br>
             <strong>颜色分布:</strong> ${colorDetails}
         </div>
         <div class="detail-actions">
             <a class="btn-play" href="${buildPlayUrl(data)}" target="_blank">▶ 开始游戏</a>
             <a class="btn-edit" href="${buildRefineUrl(data)}" target="_blank">✏️ 微调本关</a>
-            <a class="btn-shuffle" href="javascript:void(0)" onclick="event.stopPropagation(); toggleDetailView(this, ${data.levelId})">🔄 切换视图</a>
         </div>
     `;
 
     drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-    drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
+    drawGrid(document.getElementById('detailOldShuffle'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
+    drawGrid(document.getElementById('detailNewShuffle'), nextShuffle, cellSize, { specialMeta, specialMode: 'detail' });
 
     document.getElementById('modalOverlay').classList.add('active');
 }
 
-function toggleDetailView(btn, levelId) {
-    const data = levels.find(l => l.levelId === levelId);
-    if (!data) return;
-    const targetLabel = document.querySelector('#detailTarget').previousElementSibling;
-    const shuffleLabel = document.querySelector('#detailShuffle').parentElement.querySelector('h3');
-    const maxDim = Math.max(data.boardWidth, data.boardHeight);
-    const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
-    const specialMeta = getSpecialMeta(data);
-    const isShowingTarget = targetLabel.textContent.includes('目标');
-    if (isShowingTarget) {
-        drawGrid(document.getElementById('detailTarget'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-        targetLabel.textContent = '初始';
-        drawGrid(document.getElementById('detailShuffle'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-        shuffleLabel.textContent = '🎯 目标图案';
-    } else {
-        drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-        targetLabel.textContent = '目标';
-        drawGrid(document.getElementById('detailShuffle'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-        shuffleLabel.textContent = '🔀 初始乱序';
+const nextShuffleCache = new Map();
+let shuffleLearningProfile = null;
+let shuffleComparisonReady = false;
+
+function getNextShuffle(data) {
+    const key = `${LEVEL_DIR_KEY}:${data.levelId}`;
+    if (!nextShuffleCache.has(key)) {
+        if (!shuffleLearningProfile) shuffleLearningProfile = ControlledShuffle.learnProfile(levels);
+        nextShuffleCache.set(key, ControlledShuffle.generate(data.correctColorArr, {
+            levelId: data.levelId,
+            profile: shuffleLearningProfile,
+            outlineGrid: data.initRandomColorArr,
+        }));
     }
+    return nextShuffleCache.get(key);
+}
+
+function formatMetric(value, format) {
+    if (format === 'percent') return `${(value * 100).toFixed(1)}%`;
+    return Number(value).toFixed(1);
+}
+
+function renderMetricChip(label, oldValue, nextValue, format) {
+    return `<div class="metric-chip">${label}<strong>${formatMetric(oldValue, format)} → ${formatMetric(nextValue, format)}</strong></div>`;
+}
+
+function averageMetric(items, key) {
+    return items.length ? items.reduce((sum, item) => sum + item[key], 0) / items.length : 0;
+}
+
+function renderShuffleSummary() {
+    const summary = document.getElementById('shuffleSummary');
+    if (!levels.length) return;
+    const oldMetrics = levels.map(data => ControlledShuffle.metrics(data.correctColorArr, data.initRandomColorArr));
+    const nextMetrics = levels.map(data => ControlledShuffle.metrics(data.correctColorArr, getNextShuffle(data)));
+    const metric = (label, key, format) => `
+        <div class="shuffle-metric"><b>${label}</b><span>${formatMetric(averageMetric(oldMetrics, key), format)} → <span class="next">${formatMetric(averageMetric(nextMetrics, key), format)}</span></span></div>`;
+    summary.innerHTML = `
+        <div class="shuffle-summary-panel">
+            <div class="shuffle-summary-title"><strong>182 关数据拟合乱序</strong><span>已加载 ${levels.length}/${levelIds.length} 关 · 原数据 → 学习生成</span></div>
+            <div class="shuffle-metrics">
+                ${metric('位移率', 'displacement', 'percent')}
+                ${metric('轮廓保留率', 'outlineRetention', 'percent')}
+                ${metric('近等量换色率', 'similarCountSwapRatio', 'percent')}
+                ${metric('同色邻接率', 'sameNeighborRatio', 'percent')}
+                ${metric('孤立豆比例', 'singletonRatio', 'percent')}
+                ${metric('平均最大色块', 'largestCluster')}
+            </div>
+        </div>`;
+    summary.classList.add('active');
+}
+
+async function runFullShuffleComparison() {
+    const button = document.getElementById('shuffleCompareBtn');
+    button.disabled = true;
+    button.textContent = '正在分析全部关卡…';
+    while (loadedUpTo < levelIds.length) await loadMoreLevels();
+    shuffleLearningProfile = ControlledShuffle.learnProfile(levels);
+    nextShuffleCache.clear();
+    shuffleComparisonReady = true;
+    renderShuffleSummary();
+    renderAll();
+    button.textContent = '✅ 已完成新旧对比';
+    button.disabled = false;
+    document.getElementById('shuffleSummary').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeModal() {
@@ -1807,6 +1892,7 @@ document.getElementById('imageImportInput').addEventListener('change', event => 
     const file = event.target.files && event.target.files[0];
     if (file) importImageLevel(file);
 });
+document.getElementById('shuffleCompareBtn').addEventListener('click', runFullShuffleComparison);
 
 let scrollTimeout;
 window.addEventListener('scroll', () => {

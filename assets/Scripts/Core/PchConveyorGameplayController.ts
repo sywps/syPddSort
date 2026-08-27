@@ -64,6 +64,7 @@ const SPHERE_FLY_TRAIL_SEGMENT_COUNT = 4;
 const SPHERE_FLY_MAX_STARS_PER_EFFECT = 60;
 const MAX_POOLED_SPHERE_FLY_EFFECTS = 24;
 const MAX_POOLED_SPHERE_FLY_STARS = 240;
+const SPHERE_FLY_TRAIL_COLOR = new Color(255, 238, 161, 255);
 
 type RainbowConveyorTableType = 2 | 3;
 
@@ -121,6 +122,7 @@ interface SphereFlyEffectInstance {
     delayRemainingSeconds: number;
     activeAgeSeconds: number;
     previousEmitterPosition: Vec3;
+    currentEmitterPosition: Vec3;
     trailOrigin: Vec3;
     distanceSinceLastStar: number;
     emittedStarCount: number;
@@ -178,6 +180,8 @@ export class PchConveyorGameplayController {
     private openingGuideLevelOneStep = -1;
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
+    private carrierDirectionNodes: Node[] = [];
+    private readonly beltSamplePosition = new Vec3();
     private activeFlyBeans = new Set<Node>();
     private readonly sphereFlyEffectPool = new NodePool();
     private readonly sphereFlyStarPool = new NodePool();
@@ -472,6 +476,7 @@ export class PchConveyorGameplayController {
         this.openingGuideLevelOneStep = -1;
         this.rules = null;
         this.carrierNodes = [];
+        this.carrierDirectionNodes = [];
         this.activeFlyBeans.clear();
         this.activeSphereFlyEffects.clear();
         this.activePulseNodes.clear();
@@ -792,7 +797,7 @@ export class PchConveyorGameplayController {
         const result = this.rules.transferReadyBeansToCarrier(carrierIndex);
         if (result.moved <= 0) return false;
         AudioMgr.inst.play('slot');
-        this.renderConveyor();
+        this.renderConveyorCarrier(carrierIndex);
         this.renderEntranceQueue();
         this.refreshStatus();
         this.playEntranceTransferPulse(result.carrierIndex);
@@ -842,7 +847,7 @@ export class PchConveyorGameplayController {
         }).reverse();
         const result = this.rules.autoPlaceAvailableTop(carrierIndex);
         if (result.moved <= 0) return false;
-        this.renderConveyor();
+        this.renderConveyorCarrier(carrierIndex);
         this.refreshStatus();
         result.boardCells.forEach((target, index) => {
             const source = sourceLayers[index];
@@ -1006,15 +1011,10 @@ export class PchConveyorGameplayController {
             throw new Error('[pch-sphere-fly] pooled effect is missing its Trail layer');
         }
         const trailSpriteFrame = this.runtime.requireSphereFlyTrailSpriteFrame();
-        const trailSegments: SphereFlyTrailSegment[] = [];
+        const trailSegments = this.getSphereFlyTrailSegments(effectNode, trail);
         for (let index = 0; index < SPHERE_FLY_TRAIL_SEGMENT_COUNT; index += 1) {
-            const segment = trail.children[index];
-            const transform = segment.getComponent(UITransform);
-            const sprite = segment.getComponent(Sprite);
-            const opacity = segment.getComponent(UIOpacity);
-            if (!transform || !sprite || !opacity) {
-                throw new Error(`[pch-sphere-fly] Trail segment ${index} is incomplete`);
-            }
+            const { node: segment, transform, opacity } = trailSegments[index];
+            const sprite = segment.getComponent(Sprite)!;
             transform.setAnchorPoint(SPHERE_FLY_TRAIL_HEAD_ANCHOR_X, 0.5);
             transform.setContentSize(1, beanSize * SPHERE_FLY_TRAIL_WIDTH_RATIO);
             sprite.sizeMode = Sprite.SizeMode.CUSTOM;
@@ -1023,7 +1023,7 @@ export class PchConveyorGameplayController {
             sprite.fillType = Sprite.FillType.HORIZONTAL;
             sprite.fillStart = index / SPHERE_FLY_TRAIL_SEGMENT_COUNT;
             sprite.fillRange = 1 / SPHERE_FLY_TRAIL_SEGMENT_COUNT;
-            sprite.color = new Color(255, 238, 161, 255);
+            sprite.color = SPHERE_FLY_TRAIL_COLOR;
             opacity.opacity = Math.round(255 * this.getSphereFlyTrailAlpha(
                 (index + 0.5) / SPHERE_FLY_TRAIL_SEGMENT_COUNT,
             ));
@@ -1031,14 +1031,13 @@ export class PchConveyorGameplayController {
             segment.setScale(1, 1, 1);
             segment.angle = 0;
             segment.active = true;
-            trailSegments.push({ node: segment, transform, opacity });
         }
         trail.setPosition(bean.position);
         trail.setScale(1, 1, 1);
         trail.angle = 0;
         trail.active = false;
 
-        const emitterPosition = bean.position.clone();
+        const emitterPosition = bean.getPosition(new Vec3());
         this.activeSphereFlyEffects.set(bean, {
             node: effectNode,
             bean,
@@ -1047,8 +1046,9 @@ export class PchConveyorGameplayController {
             beanSize,
             delayRemainingSeconds: Math.max(0, flightDelaySeconds),
             activeAgeSeconds: 0,
-            previousEmitterPosition: emitterPosition.clone(),
-            trailOrigin: emitterPosition,
+            previousEmitterPosition: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
+            currentEmitterPosition: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
+            trailOrigin: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
             distanceSinceLastStar: 0,
             emittedStarCount: 0,
             stars: [],
@@ -1076,6 +1076,27 @@ export class PchConveyorGameplayController {
         return effect;
     }
 
+    private getSphereFlyTrailSegments(effectNode: Node, trail: Node): SphereFlyTrailSegment[] {
+        const cached = (effectNode as any).__pddSphereFlyTrailSegments as SphereFlyTrailSegment[] | undefined;
+        if (cached?.length === SPHERE_FLY_TRAIL_SEGMENT_COUNT
+            && cached.every((segment) => segment.node?.isValid && segment.transform?.isValid && segment.opacity?.isValid)) {
+            return cached;
+        }
+        const segments: SphereFlyTrailSegment[] = [];
+        for (let index = 0; index < SPHERE_FLY_TRAIL_SEGMENT_COUNT; index += 1) {
+            const node = trail.children[index];
+            const transform = node?.getComponent(UITransform) || null;
+            const opacity = node?.getComponent(UIOpacity) || null;
+            const sprite = node?.getComponent(Sprite) || null;
+            if (!node || !transform || !sprite || !opacity) {
+                throw new Error(`[pch-sphere-fly] Trail segment ${index} is incomplete`);
+            }
+            segments.push({ node, transform, opacity });
+        }
+        (effectNode as any).__pddSphereFlyTrailSegments = segments;
+        return segments;
+    }
+
     private getSphereFlyTrailAlpha(normalizedDistance: number): number {
         const t = Math.max(0, Math.min(1, normalizedDistance));
         if (t <= SPHERE_FLY_TRAIL_ALPHA_MID_TIME) {
@@ -1088,17 +1109,17 @@ export class PchConveyorGameplayController {
 
     private updateSphereFlyEffects(deltaTime: number): void {
         const frameSeconds = Math.max(0, Number(deltaTime) || 0);
-        for (const state of Array.from(this.activeSphereFlyEffects.values())) {
+        for (const state of this.activeSphereFlyEffects.values()) {
             if (!state.bean?.isValid || !state.node?.isValid) {
                 this.recycleSphereFlyEffect(state.bean);
                 continue;
             }
-            const currentEmitterPosition = state.bean.position.clone();
+            const currentEmitterPosition = state.bean.getPosition(state.currentEmitterPosition);
             let activeDelta = frameSeconds;
             if (state.delayRemainingSeconds > 0) {
                 const delayBeforeFrame = state.delayRemainingSeconds;
                 state.delayRemainingSeconds = Math.max(0, delayBeforeFrame - frameSeconds);
-                state.previousEmitterPosition = currentEmitterPosition;
+                state.previousEmitterPosition.set(currentEmitterPosition);
                 if (state.delayRemainingSeconds > 0) continue;
                 activeDelta = Math.max(0, frameSeconds - delayBeforeFrame);
             }
@@ -1107,7 +1128,7 @@ export class PchConveyorGameplayController {
             this.updateSphereFlyStarParticles(state, activeDelta);
             this.emitSphereFlyStarsAlongSegment(state, state.previousEmitterPosition, currentEmitterPosition);
             this.updateSphereFlyTrail(state, currentEmitterPosition);
-            state.previousEmitterPosition = currentEmitterPosition;
+            state.previousEmitterPosition.set(currentEmitterPosition);
         }
     }
 
@@ -1153,13 +1174,13 @@ export class PchConveyorGameplayController {
         while (nextDistance <= segmentDistance
             && state.emittedStarCount < SPHERE_FLY_MAX_STARS_PER_EFFECT) {
             const t = nextDistance / segmentDistance;
-            this.spawnSphereFlyStar(state, new Vec3(from.x + dx * t, from.y + dy * t, 0));
+            this.spawnSphereFlyStar(state, from.x + dx * t, from.y + dy * t);
             nextDistance += spacing;
         }
         state.distanceSinceLastStar = (state.distanceSinceLastStar + segmentDistance) % spacing;
     }
 
-    private spawnSphereFlyStar(state: SphereFlyEffectInstance, emitterPosition: Vec3): void {
+    private spawnSphereFlyStar(state: SphereFlyEffectInstance, emitterX: number, emitterY: number): void {
         const star = this.sphereFlyStarPool.get() ?? this.createSphereFlyStarNode();
         const transform = star.getComponent(UITransform);
         const sprite = star.getComponent(Sprite);
@@ -1183,8 +1204,8 @@ export class PchConveyorGameplayController {
         star.layer = Layers.Enum.UI_2D;
         star.active = true;
         star.setPosition(
-            emitterPosition.x + Math.cos(shapeAngle) * shapeRadius,
-            emitterPosition.y + Math.sin(shapeAngle) * shapeRadius,
+            emitterX + Math.cos(shapeAngle) * shapeRadius,
+            emitterY + Math.sin(shapeAngle) * shapeRadius,
             0,
         );
         star.setScale(0, 0, 1);
@@ -1469,6 +1490,7 @@ export class PchConveyorGameplayController {
             carrier.active = false;
         });
         this.carrierNodes = [];
+        this.carrierDirectionNodes = [];
         this.rules.carriers.forEach((stack, carrierIndex) => {
             let carrier = availableCarriers[carrierIndex];
             if (!carrier) {
@@ -1477,25 +1499,42 @@ export class PchConveyorGameplayController {
                 this.carrierLayer!.addChild(carrier);
                 availableCarriers[carrierIndex] = carrier;
             }
-            carrier.active = true;
-            const direction = carrier.getChildByName('Direction');
-            if (!direction?.isValid || !direction.getComponent(Sprite)?.spriteFrame) {
-                throw new Error(`[pch-core] carrier ${carrierIndex} is missing its scene-authored Direction`);
-            }
-            direction.active = stack.length === 0;
-            stack.forEach((colorId, layer) => {
-                const bean = this.makeNode(`PchStackBean-${carrierIndex}-${layer}`, carrier, 33, 33, 0, layer * 8);
-                const sprite = bean.addComponent(Sprite);
-                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-                sprite.spriteFrame = this.runtime.requireRenderReadySpriteFrame(
-                    this.runtime.getBeanSpriteFrame(colorId, false),
-                    `pch-carrier:${carrierIndex}:layer:${layer}:color:${colorId}`,
-                );
-                sprite.color = new Color(255, 255, 255, layer === stack.length - 1 ? 255 : 184);
-            });
             this.carrierNodes[carrierIndex] = carrier;
+            this.renderConveyorCarrierVisual(carrier, stack, carrierIndex);
         });
         this.updateBeltPositions();
+    }
+
+    private renderConveyorCarrier(carrierIndex: number): void {
+        if (!this.rules) return;
+        const carrier = this.carrierNodes[carrierIndex];
+        const stack = this.rules.carriers[carrierIndex];
+        if (!carrier?.isValid || !stack) {
+            throw new Error(`[pch-core] carrier ${carrierIndex} is unavailable for incremental render`);
+        }
+        this.resetConveyorCarrier(carrier);
+        this.renderConveyorCarrierVisual(carrier, stack, carrierIndex);
+    }
+
+    private renderConveyorCarrierVisual(carrier: Node, stack: number[], carrierIndex: number): void {
+        carrier.active = true;
+        const direction = carrier.getChildByName('Direction');
+        if (!direction?.isValid || !direction.getComponent(Sprite)?.spriteFrame) {
+            throw new Error(`[pch-core] carrier ${carrierIndex} is missing its scene-authored Direction`);
+        }
+        direction.active = stack.length === 0;
+        for (let layer = 0; layer < stack.length; layer += 1) {
+            const colorId = stack[layer];
+            const bean = this.makeNode(`PchStackBean-${carrierIndex}-${layer}`, carrier, 33, 33, 0, layer * 8);
+            const sprite = bean.addComponent(Sprite);
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            sprite.spriteFrame = this.runtime.requireRenderReadySpriteFrame(
+                this.runtime.getBeanSpriteFrame(colorId, false),
+                `pch-carrier:${carrierIndex}:layer:${layer}:color:${colorId}`,
+            );
+            sprite.color = new Color(255, 255, 255, layer === stack.length - 1 ? 255 : 184);
+        }
+        this.carrierDirectionNodes[carrierIndex] = direction;
     }
 
     private renderEntranceQueue(): void {
@@ -2038,19 +2077,20 @@ export class PchConveyorGameplayController {
 
     private updateBeltPositions(): void {
         if (!this.rules) return;
-        this.carrierNodes.forEach((node, carrierIndex) => {
+        for (let carrierIndex = 0; carrierIndex < this.carrierNodes.length; carrierIndex += 1) {
+            const node = this.carrierNodes[carrierIndex];
             const progress = this.wrap01((carrierIndex + this.beltTravel) / this.rules!.carrierCount);
-            const sample = this.sampleBeltPath(progress);
-            node.setPosition(sample.position);
-            const direction = node.getChildByName('Direction');
+            const angle = this.sampleBeltPath(progress, this.beltSamplePosition);
+            node.setPosition(this.beltSamplePosition);
+            const direction = this.carrierDirectionNodes[carrierIndex];
             if (!direction?.isValid) {
                 throw new Error(`[pch-core] carrier ${carrierIndex} lost its scene-authored Direction`);
             }
-            direction.angle = sample.angle;
-        });
+            direction.angle = angle;
+        }
     }
 
-    private sampleBeltPath(progress: number): { position: Vec3; angle: number } {
+    private sampleBeltPath(progress: number, outPosition: Vec3): number {
         const distance = this.wrap01(progress) * this.beltPathLength;
         for (let i = 0; i < this.beltPath.length; i += 1) {
             const startDistance = this.beltPathDistances[i];
@@ -2059,10 +2099,8 @@ export class PchConveyorGameplayController {
             const start = this.beltPath[i];
             const end = this.beltPath[(i + 1) % this.beltPath.length];
             const ratio = endDistance === startDistance ? 0 : (distance - startDistance) / (endDistance - startDistance);
-            return {
-                position: new Vec3(start.x + (end.x - start.x) * ratio, start.y + (end.y - start.y) * ratio, 0),
-                angle: Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI,
-            };
+            outPosition.set(start.x + (end.x - start.x) * ratio, start.y + (end.y - start.y) * ratio, 0);
+            return Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI;
         }
         throw new Error('[pch-core] failed to sample the original-package conveyor path');
     }
