@@ -132,6 +132,7 @@ interface ConveyorLayoutBindings {
     carrierLayer: Node;
     carrierTemplate: Node;
     authoredCarrierNodes: Node[];
+    entryFlyAnchor: Node;
     entranceNode: Node;
     exitNode: Node;
     capacityBadge: Node;
@@ -163,6 +164,7 @@ export class PchConveyorGameplayController {
     private activeEntryDoors: ConveyorEntryDoorBindings | null = null;
     private entryDoorState: 'none' | 'open' | 'closed' = 'none';
     private entryDoorTween: Tween<{ width: number }> | null = null;
+    private entryFlyAnchor: Node | null = null;
     private entranceNode: Node | null = null;
     private exitNode: Node | null = null;
     private adButton: Node | null = null;
@@ -244,6 +246,7 @@ export class PchConveyorGameplayController {
         this.belt = activeLayout.node;
         this.carrierLayer = activeLayout.carrierLayer;
         this.carrierTemplate = activeLayout.carrierTemplate;
+        this.entryFlyAnchor = activeLayout.entryFlyAnchor;
         this.entranceNode = activeLayout.entranceNode;
         this.exitNode = activeLayout.exitNode;
         this.capacityBadge = activeLayout.capacityBadge;
@@ -457,6 +460,7 @@ export class PchConveyorGameplayController {
         this.normalEntryDoors = null;
         this.compactEntryDoors = null;
         this.activeEntryDoors = null;
+        this.entryFlyAnchor = null;
         this.entranceNode = null;
         this.exitNode = null;
         this.adButton = null;
@@ -885,11 +889,11 @@ export class PchConveyorGameplayController {
         sourceWorld: Vec3,
         staggerIndex: number,
     ): void {
-        if (!this.root || !this.belt) throw new Error('[pch-core] conveyor entry visual root is unavailable');
+        if (!this.root || !this.entryFlyAnchor) throw new Error('[pch-core] conveyor entry visual anchor is unavailable');
         const sourceBeanSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || 31);
         const bean = this.createFlyBean(`PchInboundBean-${staggerIndex}`, colorId, sourceBeanSize, sourceWorld);
         const rootTransform = this.root.getComponent(UITransform)!;
-        const entranceWorld = this.belt.getComponent(UITransform)!.convertToWorldSpaceAR(this.beltPath[0]);
+        const entranceWorld = this.entryFlyAnchor.getWorldPosition(new Vec3());
         const targetLocal = rootTransform.convertToNodeSpaceAR(entranceWorld);
         const targetScale = 31 / sourceBeanSize;
         const flightDelay = staggerIndex * PCH_ENTRY_STAGGER_SECONDS;
@@ -1489,9 +1493,6 @@ export class PchConveyorGameplayController {
                 );
                 sprite.color = new Color(255, 255, 255, layer === stack.length - 1 ? 255 : 184);
             });
-            if (stack.length > 1) {
-                this.makeLabel(carrier, `×${stack.length}`, 13, Color.WHITE, 0, -30, 42);
-            }
             this.carrierNodes[carrierIndex] = carrier;
         });
         this.updateBeltPositions();
@@ -1499,19 +1500,34 @@ export class PchConveyorGameplayController {
 
     private renderEntranceQueue(): void {
         if (!this.rules || !this.entranceNode) return;
+        if (!this.entryFlyAnchor?.isValid) {
+            throw new Error('[pch-core] conveyor entry visual anchor is unavailable');
+        }
+        const entranceTransform = this.entranceNode.getComponent(UITransform);
+        if (!entranceTransform) throw new Error('[pch-core] conveyor entrance visual root is unavailable');
+        const queueOrigin = entranceTransform.convertToNodeSpaceAR(
+            this.entryFlyAnchor.getWorldPosition(new Vec3()),
+        );
         this.entranceNode.children
             .filter((node) => node.name.startsWith('PchEntryBean-'))
             .forEach((node) => node.destroy());
         const visibleColors = this.rules.entryColors.slice(0, Math.min(3, this.rules.readyEntryCount));
         visibleColors.forEach((colorId, layer) => {
-            const bean = this.makeNode(`PchEntryBean-${layer}`, this.entranceNode!, 30, 30, 0, 6 + layer * 7);
+            const bean = this.makeNode(
+                `PchEntryBean-${layer}`,
+                this.entranceNode!,
+                30,
+                30,
+                queueOrigin.x,
+                queueOrigin.y + layer * 7,
+            );
             const sprite = bean.addComponent(Sprite);
             sprite.sizeMode = Sprite.SizeMode.CUSTOM;
             sprite.spriteFrame = this.runtime.requireRenderReadySpriteFrame(
                 this.runtime.getBeanSpriteFrame(colorId, false),
                 `pch-entry:${layer}:color:${colorId}`,
             );
-            sprite.color = new Color(255, 255, 255, layer === visibleColors.length - 1 ? 255 : 190);
+            sprite.color = new Color(255, 255, 255, layer === 0 ? 255 : 190);
             const labelIndex = this.entryCountLabel?.node?.getSiblingIndex() ?? 1;
             bean.setSiblingIndex(Math.max(1, labelIndex));
         });
@@ -1667,9 +1683,17 @@ export class PchConveyorGameplayController {
             'R',
             `${basePath}/TableEntryItem/Pieces/R`,
         ).getComponent(UITransform)!;
-        this.requireConveyorSprite(pieces, 'Img', `${basePath}/TableEntryItem/Pieces/Img`);
-        const tableEntryRoot = this.requireConveyorNode(tableEntry, 'Root', `${basePath}/TableEntryItem/Root`);
-        this.requireConveyorNode(tableEntryRoot, 'SphereNode', `${basePath}/TableEntryItem/Root/SphereNode`);
+        const tableEntryImage = this.requireConveyorSprite(
+            pieces,
+            'Img',
+            `${basePath}/TableEntryItem/Pieces/Img`,
+        );
+        const entryFlyAnchor = tableEntryImage.getChildByName('EntranceFlyAnchor');
+        if (!entryFlyAnchor?.isValid) {
+            throw new Error(
+                `[pch-core] Game.scene must provide Node on ${basePath}/TableEntryItem/Pieces/Img/EntranceFlyAnchor`,
+            );
+        }
         const entranceNode = this.requireConveyorNode(node, 'PchEntrance', `${basePath}/PchEntrance`);
         const entryCountLabel = this.requireConveyorLabel(
             entranceNode,
@@ -1706,6 +1730,7 @@ export class PchConveyorGameplayController {
             carrierLayer,
             carrierTemplate,
             authoredCarrierNodes,
+            entryFlyAnchor,
             entranceNode,
             exitNode,
             capacityBadge,

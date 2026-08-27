@@ -32,6 +32,7 @@ const LS_SFX = 'pdd.setting.sfx';
 const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
 const SFX_CHANNEL_COUNT = 8;
+const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>(['place', 'button']);
 
 const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);
 
@@ -321,8 +322,13 @@ export class AudioMgr {
         });
     }
 
+    private _isSfxAllowedInCurrentScene(name: SfxName): boolean {
+        const sceneName = String(director.getScene()?.name || '').trim();
+        return sceneName !== 'Game' || GAME_SCENE_SFX_ALLOWLIST.has(name);
+    }
+
     private _playLoadedClip(name: SfxName, clip: AudioClip) {
-        if (this.suspended || !this.sfxEnabled) return;
+        if (this.suspended || !this.sfxEnabled || !this._isSfxAllowedInCurrentScene(name)) return;
         const source = this._acquireSfxSource();
         if (!source) return;
         try {
@@ -688,7 +694,7 @@ export class AudioMgr {
 
     play(name: SfxName) {
         this._retryRequestedBgmPlayback();
-        if (this.suspended || !this.sfxEnabled || this.sfxSources.length === 0) return;
+        if (this.suspended || !this.sfxEnabled || this.sfxSources.length === 0 || !this._isSfxAllowedInCurrentScene(name)) return;
         const clip = this.sfxClips.get(name);
         if (clip) {
             this._playLoadedClip(name, clip);

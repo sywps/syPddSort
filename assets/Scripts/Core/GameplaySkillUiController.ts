@@ -30,10 +30,6 @@ type GameplaySkillConfig = {
 };
 
 export class GameplaySkillUiController {
-    private static readonly COMPACT_SKILL_SCALE = 0.72;
-    private static readonly COMPACT_SKILL_CENTER_Y = -575;
-    private static readonly COMPACT_SKILL_SPACING_X = 150;
-    private static readonly COMPACT_SKILL_BADGE_Y = 30;
     constructor(private readonly runtime: any) {}
 
     private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const;
@@ -320,32 +316,11 @@ export class GameplaySkillUiController {
             return;
         }
 
-        for (let i = 0; i < skills.length; i++) {
-            const skill = skills[i];
+        for (const skill of skills) {
             const shell = runtime.requireUiChild(root, this.getSkillShellName(skill.kind), `SkillArea/${this.getSkillShellName(skill.kind)}`);
             const shellWidget = shell.getComponent(Widget);
             if (!shellWidget) {
                 throw new Error(`[GameplayScene] Game.scene is missing Widget component on SkillArea/${shell.name}`);
-            }
-            shellWidget.enabled = false;
-            shell.setPosition(
-                (i - (skills.length - 1) / 2) * GameplaySkillUiController.COMPACT_SKILL_SPACING_X,
-                GameplaySkillUiController.COMPACT_SKILL_CENTER_Y,
-                shell.position.z,
-            );
-            shell.setScale(
-                GameplaySkillUiController.COMPACT_SKILL_SCALE,
-                GameplaySkillUiController.COMPACT_SKILL_SCALE,
-                1,
-            );
-            for (const badgeName of ['AdPlayIcon', 'CountBadge']) {
-                const badge = shell.getChildByName(badgeName);
-                if (!badge?.isValid) continue;
-                badge.setPosition(
-                    badge.position.x,
-                    GameplaySkillUiController.COMPACT_SKILL_BADGE_Y,
-                    badge.position.z,
-                );
             }
             const shellOpacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
             this.configureSkillShell(shell);

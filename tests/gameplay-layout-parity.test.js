@@ -12,7 +12,6 @@ const boardInput = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportM
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
 const gameRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
-const skillUi = read('assets/Scripts/Core/GameplaySkillUiController.ts');
 const gameScene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
 const rainbowFrame = (name) => JSON.parse(
     read(`assets/BootstrapBundle/GameUI/RainbowConveyor/${name}.meta`),
@@ -174,6 +173,8 @@ const validateConveyorLayout = (layout, tableType) => {
     const tableEntryPieces = sceneChild(tableEntry, 'Pieces');
     const leftEntryDoor = sceneChild(tableEntryPieces, 'L');
     const rightEntryDoor = sceneChild(tableEntryPieces, 'R');
+    const tableEntryImage = sceneChild(tableEntryPieces, 'Img');
+    const entranceFlyAnchor = sceneChild(tableEntryImage, 'EntranceFlyAnchor');
     assert.ok(
         near(tableEntry?._lpos.x, tableEntryPosition[0])
             && near(tableEntry?._lpos.y, tableEntryPosition[1])
@@ -186,9 +187,13 @@ const validateConveyorLayout = (layout, tableType) => {
             && sceneComponent(rightEntryDoor, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1_4.png')
             && sceneComponent(rightEntryDoor, 'cc.UITransform')?._contentSize.width === 35
             && sceneComponent(rightEntryDoor, 'cc.UITransform')?._contentSize.height === 68
-            && sceneComponent(sceneChild(tableEntryPieces, 'Img'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1_2.png')
-            && sceneChild(sceneChild(tableEntry, 'Root'), 'SphereNode'),
-        `table ${tableType} full source TableEntryItem building`,
+            && sceneComponent(tableEntryImage, 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('exit_1_2.png')
+            && near(entranceFlyAnchor?._lpos.x, 0)
+            && near(entranceFlyAnchor?._lpos.y, 0)
+            && sceneComponent(entranceFlyAnchor, 'cc.UITransform')?._contentSize.width === 31
+            && sceneComponent(entranceFlyAnchor, 'cc.UITransform')?._contentSize.height === 31
+            && !sceneChildren(tableEntry).some((child) => child._name === 'Root'),
+        `table ${tableType} complete TableEntryItem building with explicit visual entrance anchor`,
     );
     assert.ok(
         near(entrance?._lpos.x, entry[0])
@@ -370,26 +375,4 @@ assert.ok(
         && compactConveyor?._lpos.y === -365.169,
     'the scene-owned conveyor states must use the exact source paths, empty directions, and proven vertical layouts',
 );
-assert.ok(
-    skillUi.includes('COMPACT_SKILL_SCALE = 0.72')
-        && skillUi.includes('COMPACT_SKILL_CENTER_Y = -575')
-        && skillUi.includes('COMPACT_SKILL_SPACING_X = 150')
-        && skillUi.includes('COMPACT_SKILL_BADGE_Y = 30'),
-    'the three bottom props must use the smaller compact layout with extra conveyor clearance',
-);
-assert.ok(
-    skillUi.includes('(i - (skills.length - 1) / 2) * GameplaySkillUiController.COMPACT_SKILL_SPACING_X'),
-    'the compact prop buttons must stay evenly centered with clear horizontal spacing',
-);
-assert.match(
-    skillUi,
-    /const shellWidget = shell\.getComponent\(Widget\);[\s\S]*?shellWidget\.enabled = false;[\s\S]*?shell\.setPosition\(/,
-    'skill button widgets should be disabled before applying compact runtime positions',
-);
-assert.ok(
-    skillUi.includes("for (const badgeName of ['AdPlayIcon', 'CountBadge'])")
-        && skillUi.includes('GameplaySkillUiController.COMPACT_SKILL_BADGE_Y'),
-    'the prop badges must sit lower so they no longer crowd the conveyor edge',
-);
-
 console.log('gameplay-layout-parity.test.js passed');

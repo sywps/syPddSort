@@ -100,6 +100,7 @@ class MockAudioSource {
 }
 
 const storage = new Map();
+const vibrationDurations = [];
 const scene = new MockNode('Scene');
 const audioMgrSource = read('assets/Scripts/Core/AudioMgr.ts');
 const settingsSource = read('assets/Scripts/Core/Panels/SettingsPanelController.ts');
@@ -145,13 +146,15 @@ const audioManifestMock = {
     AUDIO_GAME_BGM_VOLUME: 0.29,
     AUDIO_HOME_BGM_RESOURCE_PATH: 'Audio/bgm',
     AUDIO_HOME_BGM_VOLUME: 0.35,
-    AUDIO_BOOTSTRAP_SFX_NAMES: ['button', 'fly', 'tick'],
+    AUDIO_BOOTSTRAP_SFX_NAMES: ['button', 'place', 'uiPanel', 'fly', 'tick'],
     AUDIO_SFX_RESOURCE_PATH: {
         button: 'Audio/ui',
+        place: 'Audio/place',
+        uiPanel: 'Audio/ui',
         fly: 'Audio/fly',
         tick: 'Audio/tick',
     },
-    AUDIO_SFX_VOLUME: { button: 0.52, fly: 0.4, tick: 0.4 },
+    AUDIO_SFX_VOLUME: { button: 0.52, place: 0.72, uiPanel: 0.48, fly: 0.4, tick: 0.4 },
     AUDIO_SFX_VOLUME_VARIANCE: {},
 };
 
@@ -172,6 +175,7 @@ vm.runInNewContext(compiledAudioMgr, {
     console,
     setTimeout,
     clearTimeout,
+    navigator: { vibrate: (duration) => vibrationDurations.push(duration) },
     Math,
     Map,
     Set,
@@ -181,6 +185,14 @@ const { AudioMgr } = moduleRecord.exports;
 const audioMgr = AudioMgr.inst;
 const host = new MockNode('Host');
 audioMgr.init(host);
+
+const gameSceneAllowlistMatch = audioMgrSource.match(/const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>\(\[([^\]]*)\]\);/);
+assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene SFX allowlist');
+assert.deepStrictEqual(
+    [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
+    ['place', 'button'],
+    'Game-scene SFX allowlist must contain exactly place and button',
+);
 
 assert.strictEqual(audioMgr.sfxSources.length, 8, 'AudioMgr must create a bounded eight-channel SFX pool');
 assert.ok(audioMgr.sfxSources.every((source) => source.playOnAwake === false), 'pooled SFX channels must never autoplay');
@@ -291,6 +303,62 @@ assert.strictEqual(
     (gameplaySessionSource.match(/AudioMgr\.inst\.playGameBgm\(\);/g) || []).length,
     1,
     'gameplay startup must have one authoritative BGM start after UI readiness',
+);
+
+const getTotalSfxPlayCount = () => audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0);
+audioMgr.sfxClips.set('place', { _nativeAsset: { url: 'place.mp3' } });
+audioMgr.sfxClips.set('button', { _nativeAsset: { url: 'button.mp3' } });
+audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
+
+scene.name = 'Game';
+audioMgr.stopSfx();
+const gameSfxPlayCountBefore = getTotalSfxPlayCount();
+audioMgr.play('place');
+audioMgr.play('button');
+audioMgr.play('uiPanel');
+audioMgr.play('fly');
+assert.strictEqual(
+    getTotalSfxPlayCount() - gameSfxPlayCountBefore,
+    2,
+    'Game scene must play only place and button cues',
+);
+
+const loadedBoundaryPlayCountBefore = getTotalSfxPlayCount();
+audioMgr._playLoadedClip('fly', flyClip);
+assert.strictEqual(
+    getTotalSfxPlayCount(),
+    loadedBoundaryPlayCountBefore,
+    'the loaded-clip boundary must block a disallowed cue that finishes loading in Game',
+);
+
+audioMgr.sfxClips.delete('tick');
+const ensuredPreloads = [];
+const originalEnsureSfxLoaded = audioMgr._ensureSfxLoaded;
+audioMgr._ensureSfxLoaded = (name) => ensuredPreloads.push(name);
+audioMgr.play('tick');
+assert.deepStrictEqual(ensuredPreloads, [], 'blocked Game SFX must not create an autoplay load request');
+audioMgr.preload('tick');
+audioMgr._ensureSfxLoaded = originalEnsureSfxLoaded;
+assert.deepStrictEqual(ensuredPreloads, ['tick'], 'Game allowlist must not suppress resource preloading');
+
+const gameBgmPlayCountBefore = audioMgr.bgmSrc.playCount;
+audioMgr.bgmSrc.stop();
+audioMgr.playGameBgm();
+assert.strictEqual(audioMgr.bgmSrc.playCount, gameBgmPlayCountBefore + 1, 'Game BGM must remain outside the SFX allowlist');
+
+const vibrationCountBefore = vibrationDurations.length;
+audioMgr.vibratePlace();
+assert.deepStrictEqual(vibrationDurations.slice(vibrationCountBefore), [12], 'Game vibration must remain outside the SFX allowlist');
+
+scene.name = 'Home';
+audioMgr.stopSfx();
+const homeSfxPlayCountBefore = getTotalSfxPlayCount();
+audioMgr.play('uiPanel');
+audioMgr.play('fly');
+assert.strictEqual(
+    getTotalSfxPlayCount() - homeSfxPlayCountBefore,
+    2,
+    'non-Game scenes must keep their existing SFX behavior',
 );
 
 console.log('audio-settings-mute.test.js passed');

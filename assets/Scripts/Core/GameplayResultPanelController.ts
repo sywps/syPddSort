@@ -541,6 +541,12 @@ export class GameplayResultPanelController {
             AudioMgr.inst.play('button');
             runtime.claimWinAdBonusReward();
         });
+        const settlementTopHud = runtime.requirePanelChild(overlay, 'SettlementTopHud');
+        const collectionBtn = runtime.requirePanelChild(settlementTopHud, 'CollectionBtn');
+        this.bindPanelButtonWithScaledFallback(collectionBtn, overlay, () => {
+            AudioMgr.inst.play('uiPanel');
+            runtime.openCollection();
+        });
         const primaryBtn = runtime.requirePanelChild(box, 'PrimaryBtn');
         const runPrimaryAction = () => {
             AudioMgr.inst.play('button');
