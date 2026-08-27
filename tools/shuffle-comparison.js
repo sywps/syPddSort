@@ -1,0 +1,389 @@
+(function (root, factory) {
+    const api = factory();
+    if (typeof module === 'object' && module.exports) module.exports = api;
+    root.ControlledShuffle = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+    'use strict';
+
+    const DIRS4 = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const DIRS8 = [...DIRS4, [-1, -1], [-1, 1], [1, -1], [1, 1]];
+
+    function createRng(seed) {
+        let state = (Number(seed) || 1) >>> 0;
+        return function () {
+            state += 0x6D2B79F5;
+            let value = state;
+            value = Math.imul(value ^ value >>> 15, value | 1);
+            value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+            return ((value ^ value >>> 14) >>> 0) / 4294967296;
+        };
+    }
+
+    function hashCell(seed, row, col) {
+        let value = (seed ^ Math.imul(row + 1, 73856093) ^ Math.imul(col + 1, 19349663)) >>> 0;
+        value = Math.imul(value ^ value >>> 16, 2246822519) >>> 0;
+        return (value ^ value >>> 13) >>> 0;
+    }
+
+    function activeCells(grid) {
+        const cells = [];
+        grid.forEach((line, row) => line.forEach((color, col) => {
+            if (color > 0) cells.push([row, col]);
+        }));
+        return cells;
+    }
+
+    function colorInventory(grid) {
+        const counts = new Map();
+        activeCells(grid).forEach(([row, col]) => {
+            const color = grid[row][col];
+            counts.set(color, (counts.get(color) || 0) + 1);
+        });
+        return counts;
+    }
+
+    function assertOutline(reference, grid) {
+        if (reference.length !== grid.length || reference.some((row, index) => row.length !== grid[index]?.length)) {
+            throw new Error('shuffle dimensions differ from the reference outline');
+        }
+        for (let row = 0; row < reference.length; row += 1) {
+            for (let col = 0; col < reference[row].length; col += 1) {
+                if ((reference[row][col] > 0) !== (grid[row][col] > 0)) {
+                    throw new Error(`shuffle outline changed at row ${row}, col ${col}`);
+                }
+            }
+        }
+    }
+
+    function generateInterleaved(target, options = {}) {
+        if (!Array.isArray(target) || !target.length || !Array.isArray(target[0])) {
+            throw new Error('target grid must be a non-empty 2D array');
+        }
+        const width = target[0].length;
+        if (!width || target.some(row => !Array.isArray(row) || row.length !== width)) {
+            throw new Error('target grid rows must have equal width');
+        }
+        const levelId = Number(options.levelId) || 0;
+        const seed = Number.isFinite(options.seed) ? Number(options.seed) : 20260827 + levelId * 7919;
+        const rng = createRng(seed);
+        const cells = activeCells(target);
+        const remaining = colorInventory(target);
+        const totals = new Map(remaining);
+        const result = target.map(row => row.map(value => value > 0 ? -1 : value));
+        const lastPlaced = new Map();
+
+        cells.sort((a, b) => {
+            const parityA = (a[0] + a[1]) & 1;
+            const parityB = (b[0] + b[1]) & 1;
+            if (parityA !== parityB) return parityA - parityB;
+            return hashCell(seed, a[0], a[1]) - hashCell(seed, b[0], b[1]);
+        });
+
+        cells.forEach(([row, col], step) => {
+            let bestColor = null;
+            let bestScore = -Infinity;
+            for (const [color, count] of remaining) {
+                if (count <= 0) continue;
+                let sameNeighbors = 0;
+                let placedNeighbors = 0;
+                for (const [dr, dc] of DIRS4) {
+                    const nr = row + dr;
+                    const nc = col + dc;
+                    if (nr < 0 || nc < 0 || nr >= result.length || nc >= width) continue;
+                    if (result[nr][nc] <= 0) continue;
+                    placedNeighbors += 1;
+                    if (result[nr][nc] === color) sameNeighbors += 1;
+                }
+                const quotaPressure = count / totals.get(color);
+                const mismatchReward = target[row][col] === color ? -8.5 : 5.5;
+                const neighborScore = sameNeighbors === 0 ? -0.45 : sameNeighbors === 1 ? 4.2 : sameNeighbors === 2 ? 1.8 : -5.0;
+                const isolationPenalty = placedNeighbors >= 2 && sameNeighbors === 0 ? -2.0 : 0;
+                const previous = lastPlaced.get(color);
+                const repeatPenalty = previous === step - 1 ? -2.5 : 0;
+                const jitter = rng() * 0.2;
+                const score = mismatchReward + quotaPressure * 3.2 + neighborScore + isolationPenalty + repeatPenalty + jitter;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestColor = color;
+                }
+            }
+            if (bestColor === null) throw new Error('shuffle inventory exhausted before grid assignment');
+            result[row][col] = bestColor;
+            remaining.set(bestColor, remaining.get(bestColor) - 1);
+            lastPlaced.set(bestColor, step);
+        });
+
+        repairMatches(target, result, cells, seed);
+        assertOutline(target, result);
+        return result;
+    }
+
+    function cohortKey(colorCount) {
+        if (colorCount <= 5) return 'low';
+        if (colorCount <= 9) return 'mid';
+        return 'high';
+    }
+
+    function learnProfile(levels) {
+        const cohorts = { low: [], mid: [], high: [] };
+        for (const level of levels || []) {
+            if (!level?.correctColorArr || !level?.initRandomColorArr) continue;
+            const colors = colorInventory(level.correctColorArr).size;
+            cohorts[cohortKey(colors)].push(metrics(level.correctColorArr, level.initRandomColorArr));
+        }
+        const fallback = Object.values(cohorts).flat();
+        const average = items => {
+            const source = items.length ? items : fallback;
+            const keys = ['displacement', 'sameNeighborRatio', 'singletonRatio', 'componentsPerColor', 'largestCluster'];
+            return Object.fromEntries(keys.map(key => [key, source.reduce((sum, item) => sum + item[key], 0) / Math.max(1, source.length)]));
+        };
+        return {
+            count: fallback.length,
+            cohorts: Object.fromEntries(Object.entries(cohorts).map(([key, items]) => [key, { count: items.length, ...average(items) }])),
+        };
+    }
+
+    function splitQuota(total, groups) {
+        const base = Math.floor(total / groups);
+        return Array.from({ length: groups }, (_, index) => base + (index < total % groups ? 1 : 0));
+    }
+
+    function buildSwapPartners(inventory) {
+        const colors = [...inventory.keys()].sort((left, right) => inventory.get(left) - inventory.get(right) || left - right);
+        const partners = new Map();
+        for (let index = 0; index + 1 < colors.length; index += 2) {
+            partners.set(colors[index], colors[index + 1]);
+            partners.set(colors[index + 1], colors[index]);
+        }
+        if (colors.length % 2 === 1 && colors.length > 1) {
+            const color = colors.at(-1);
+            const candidates = colors.slice(0, -1);
+            const partner = candidates.reduce((best, candidate) => (
+                Math.abs(inventory.get(candidate) - inventory.get(color)) < Math.abs(inventory.get(best) - inventory.get(color))
+                    ? candidate : best
+            ));
+            partners.set(color, partner);
+        }
+        return partners;
+    }
+
+    function generateClusteredCandidate(target, seed, maxGroups) {
+        const cells = activeCells(target);
+        const inventory = colorInventory(target);
+        const swapPartners = buildSwapPartners(inventory);
+        const unassigned = new Set(cells.map(([row, col]) => `${row},${col}`));
+        const groups = [];
+        const taken = new Set();
+        const parse = key => key.split(',').map(Number);
+        const distance = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+
+        for (const [color, total] of [...inventory].sort((a, b) => b[1] - a[1] || a[0] - b[0])) {
+            const partnerColor = swapPartners.get(color);
+            const groupCount = Math.max(1, Math.min(maxGroups, total < 24 ? 1 : total < 80 ? 2 : 3));
+            const quotas = splitQuota(total, groupCount);
+            const targetCells = cells.filter(([row, col]) => target[row][col] === color);
+            const centroid = [
+                targetCells.reduce((sum, cell) => sum + cell[0], 0) / targetCells.length,
+                targetCells.reduce((sum, cell) => sum + cell[1], 0) / targetCells.length,
+            ];
+            const colorSeeds = [];
+            for (const quota of quotas) {
+                const candidates = cells.filter(([row, col]) => !taken.has(`${row},${col}`));
+                candidates.sort((a, b) => {
+                    const score = cell => {
+                        const targetColor = target[cell[0]][cell[1]];
+                        const wrong = targetColor === color ? 0 : targetColor === partnerColor ? 24 : 8;
+                        const spread = colorSeeds.length ? Math.min(...colorSeeds.map(seedCell => distance(cell, seedCell))) * 1.3 : 0;
+                        return wrong + distance(cell, centroid) * 0.7 + spread
+                            + hashCell(seed ^ color, cell[0], cell[1]) / 4294967296 * 0.01;
+                    };
+                    return score(b) - score(a);
+                });
+                const seedCell = candidates[0];
+                const key = `${seedCell[0]},${seedCell[1]}`;
+                taken.add(key);
+                unassigned.delete(key);
+                colorSeeds.push(seedCell);
+                groups.push({ color, quota, cells: [seedCell], frontier: new Set(), seed: seedCell });
+            }
+        }
+
+        const addFrontier = (group, cell) => {
+            for (const [dr, dc] of DIRS8) {
+                const key = `${cell[0] + dr},${cell[1] + dc}`;
+                if (unassigned.has(key)) group.frontier.add(key);
+            }
+        };
+        groups.forEach(group => addFrontier(group, group.seed));
+        while (unassigned.size) {
+            let progressed = false;
+            for (const group of groups.slice().sort((a, b) => (b.quota - b.cells.length) - (a.quota - a.cells.length))) {
+                if (group.cells.length >= group.quota) continue;
+                const frontier = [...group.frontier].filter(key => unassigned.has(key));
+                let chosenKey;
+                if (frontier.length) {
+                    chosenKey = frontier.reduce((best, key) => {
+                        const cell = parse(key);
+                        const bestCell = parse(best);
+                        const score = value => distance(value, group.seed)
+                            + (target[value[0]][value[1]] === group.color ? 18 : 0)
+                            + hashCell(seed ^ group.color, value[0], value[1]) / 4294967296 * 0.01;
+                        return score(cell) < score(bestCell) ? key : best;
+                    });
+                } else {
+                    chosenKey = unassigned.values().next().value;
+                }
+                const chosen = parse(chosenKey);
+                group.cells.push(chosen);
+                group.frontier.delete(chosenKey);
+                unassigned.delete(chosenKey);
+                addFrontier(group, chosen);
+                progressed = true;
+                if (!unassigned.size) break;
+            }
+            if (!progressed) break;
+        }
+
+        const result = target.map(row => row.map(value => value > 0 ? -1 : value));
+        groups.forEach(group => group.cells.forEach(([row, col]) => { result[row][col] = group.color; }));
+        if (activeCells(result).length !== cells.length) throw new Error('clustered shuffle did not fill every active cell');
+        return result;
+    }
+
+    function profileDistance(actual, target) {
+        const largestScale = Math.max(12, target.largestCluster);
+        return Math.abs(actual.displacement - target.displacement) * 8
+            + Math.abs(actual.sameNeighborRatio - target.sameNeighborRatio) * 10
+            + Math.abs(actual.singletonRatio - target.singletonRatio) * 6
+            + Math.abs(actual.componentsPerColor - target.componentsPerColor) / Math.max(3, target.componentsPerColor) * 2
+            + Math.abs(actual.largestCluster - target.largestCluster) / largestScale * 3;
+    }
+
+    function generate(target, options = {}) {
+        if (!options.profile?.cohorts) return generateInterleaved(target, options);
+        const colors = colorInventory(target).size;
+        const learned = options.profile.cohorts[cohortKey(colors)];
+        const levelId = Number(options.levelId) || 0;
+        const baseSeed = Number.isFinite(options.seed) ? Number(options.seed) : 20260827 + levelId * 7919;
+        let best = null;
+        for (let maxGroups = 1; maxGroups <= 3; maxGroups += 1) {
+            for (let attempt = 0; attempt < 1; attempt += 1) {
+                const candidate = generateClusteredCandidate(target, baseSeed + maxGroups * 131 + attempt * 9973, maxGroups);
+                const candidateMetrics = metrics(target, candidate);
+                const displacementFloorPenalty = Math.max(0, 0.9 - candidateMetrics.displacement) * 24;
+                const cohesionBias = -candidateMetrics.sameNeighborRatio * 4
+                    + candidateMetrics.singletonRatio * 7
+                    + candidateMetrics.componentsPerColor / Math.max(3, learned.componentsPerColor)
+                    - candidateMetrics.largestCluster / Math.max(12, learned.largestCluster) * 2
+                    - candidateMetrics.similarCountSwapRatio * 12;
+                const score = profileDistance(candidateMetrics, learned) + displacementFloorPenalty + cohesionBias;
+                if (!best || score < best.score) best = { grid: candidate, score };
+            }
+        }
+        assertOutline(options.outlineGrid || target, best.grid);
+        return best.grid;
+    }
+
+    function repairMatches(target, grid, cells, seed) {
+        const matched = cells.filter(([row, col]) => grid[row][col] === target[row][col]);
+        matched.sort((a, b) => hashCell(seed ^ 0x9E3779B9, a[0], a[1]) - hashCell(seed ^ 0x9E3779B9, b[0], b[1]));
+        for (const [rowA, colA] of matched) {
+            if (grid[rowA][colA] !== target[rowA][colA]) continue;
+            let swapCell = null;
+            let bestPenalty = Infinity;
+            for (const [rowB, colB] of cells) {
+                if (rowA === rowB && colA === colB) continue;
+                const colorA = grid[rowA][colA];
+                const colorB = grid[rowB][colB];
+                if (colorA === colorB || colorB === target[rowA][colA] || colorA === target[rowB][colB]) continue;
+                const penalty = sameNeighborCount(grid, rowA, colA, colorB) + sameNeighborCount(grid, rowB, colB, colorA);
+                if (penalty < bestPenalty) {
+                    bestPenalty = penalty;
+                    swapCell = [rowB, colB];
+                }
+            }
+            if (swapCell) {
+                const [rowB, colB] = swapCell;
+                [grid[rowA][colA], grid[rowB][colB]] = [grid[rowB][colB], grid[rowA][colA]];
+            }
+        }
+    }
+
+    function sameNeighborCount(grid, row, col, color) {
+        let count = 0;
+        for (const [dr, dc] of DIRS4) {
+            const nr = row + dr;
+            const nc = col + dc;
+            if (nr >= 0 && nc >= 0 && nr < grid.length && nc < grid[0].length && grid[nr][nc] === color) count += 1;
+        }
+        return count;
+    }
+
+    function metrics(target, grid) {
+        const cells = activeCells(target);
+        const inventory = colorInventory(target);
+        const swapPartners = buildSwapPartners(inventory);
+        let outlineMatches = 0;
+        let outlineCells = 0;
+        let partnerPlacements = 0;
+        let displaced = 0;
+        let edges = 0;
+        let sameEdges = 0;
+        let singletons = 0;
+        const visited = new Set();
+        const components = new Map();
+        const largest = new Map();
+        for (let row = 0; row < target.length; row += 1) {
+            for (let col = 0; col < target[row].length; col += 1) {
+                outlineCells += 1;
+                if ((target[row][col] > 0) === (grid[row]?.[col] > 0)) outlineMatches += 1;
+            }
+        }
+        cells.forEach(([row, col]) => {
+            if (target[row][col] !== grid[row][col]) displaced += 1;
+            if (swapPartners.get(grid[row][col]) === target[row][col]) partnerPlacements += 1;
+            if (col + 1 < grid[0].length && target[row][col + 1] > 0) {
+                edges += 1;
+                if (grid[row][col] === grid[row][col + 1]) sameEdges += 1;
+            }
+            if (row + 1 < grid.length && target[row + 1][col] > 0) {
+                edges += 1;
+                if (grid[row][col] === grid[row + 1][col]) sameEdges += 1;
+            }
+            if (sameNeighborCount(grid, row, col, grid[row][col]) === 0) singletons += 1;
+            const key = row + ',' + col;
+            if (visited.has(key)) return;
+            const color = grid[row][col];
+            const queue = [[row, col]];
+            visited.add(key);
+            let size = 0;
+            while (queue.length) {
+                const [cr, cc] = queue.pop();
+                size += 1;
+                for (const [dr, dc] of DIRS4) {
+                    const nr = cr + dr;
+                    const nc = cc + dc;
+                    const nextKey = nr + ',' + nc;
+                    if (nr < 0 || nc < 0 || nr >= grid.length || nc >= grid[0].length || visited.has(nextKey)) continue;
+                    if (target[nr][nc] <= 0 || grid[nr][nc] !== color) continue;
+                    visited.add(nextKey);
+                    queue.push([nr, nc]);
+                }
+            }
+            components.set(color, (components.get(color) || 0) + 1);
+            largest.set(color, Math.max(largest.get(color) || 0, size));
+        });
+        const colorCount = colorInventory(target).size || 1;
+        return {
+            displacement: cells.length ? displaced / cells.length : 0,
+            outlineRetention: outlineCells ? outlineMatches / outlineCells : 1,
+            similarCountSwapRatio: cells.length ? partnerPlacements / cells.length : 0,
+            sameNeighborRatio: edges ? sameEdges / edges : 0,
+            singletonRatio: cells.length ? singletons / cells.length : 0,
+            componentsPerColor: [...components.values()].reduce((sum, value) => sum + value, 0) / colorCount,
+            largestCluster: Math.max(0, ...largest.values()),
+        };
+    }
+
+    return { generate, generateInterleaved, learnProfile, metrics, colorInventory, assertOutline, buildSwapPartners };
+});
