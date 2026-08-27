@@ -959,7 +959,7 @@ export function installBoardInputViewportModule(target: any): void {
                 });
             }
             if (options.playFeedback !== false) {
-                AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
+                AudioMgr.inst.vibrateSelect();
             }
             if (options.preserveVisual === true) {
                 this.clearDragNodes();
@@ -1021,7 +1021,7 @@ export function installBoardInputViewportModule(target: any): void {
                 });
             }
             if (options.playFeedback !== false) {
-                AudioMgr.inst.play('select'); AudioMgr.inst.vibrateSelect();
+                AudioMgr.inst.vibrateSelect();
             }
         
             // 选中效果：豆豆保持在暂存槽原位，显示高亮选中环

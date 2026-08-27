@@ -67,8 +67,8 @@ assert.strictEqual(levelBundleMeta.userData?.bundleName, 'levelData', 'local mir
 assert.strictEqual(level2.levelId, 2, 'local level_2.json must declare physical level 2');
 assert.deepStrictEqual(
     [level2.boardWidth, level2.boardHeight, level2.timeLimit, level2.slotTotalCount],
-    [12, 12, 600, 96],
-    'level 1 settlement must enter the historical no-guide payload as logical level 2',
+    [14, 17, 300, 131],
+    'level 1 settlement must enter the promoted selected payload as logical level 2',
 );
 assert.strictEqual(level2.conveyorCapacity, 60, 'local level 2 must start with the configured new-conveyor capacity');
 assert.strictEqual(Object.hasOwn(level2, 'slotPolicy'), false, 'local level 2 must not retain row-based slot data');

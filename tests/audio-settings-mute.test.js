@@ -103,6 +103,9 @@ const storage = new Map();
 const vibrationDurations = [];
 const scene = new MockNode('Scene');
 const audioMgrSource = read('assets/Scripts/Core/AudioMgr.ts');
+const audioManifestSource = read('assets/Scripts/Core/AudioManifest.ts');
+const boardInputViewportSource = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
+const pchConveyorSource = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const settingsSource = read('assets/Scripts/Core/Panels/SettingsPanelController.ts');
 const gameplaySessionSource = read('assets/Scripts/Core/GameplaySessionController.ts');
 const compiledAudioMgr = ts.transpileModule(audioMgrSource, {
@@ -192,6 +195,26 @@ assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
     ['place', 'button'],
     'Game-scene SFX allowlist must contain exactly place and button',
+);
+assert.strictEqual(
+    (boardInputViewportSource.match(/AudioMgr\.inst\.play\('select'\)/g) || []).length
+        + (pchConveyorSource.match(/AudioMgr\.inst\.play\('select'\)/g) || []).length,
+    0,
+    'bean selection owners must not request the hidden select cue',
+);
+assert.strictEqual(
+    (boardInputViewportSource.match(/AudioMgr\.inst\.vibrateSelect\(\)/g) || []).length,
+    2,
+    'legacy board and slot selection must retain their vibration feedback',
+);
+assert.strictEqual(
+    (pchConveyorSource.match(/AudioMgr\.inst\.vibrateSelect\(\)/g) || []).length,
+    1,
+    'PCH board selection must retain its vibration feedback',
+);
+assert.ok(
+    audioManifestSource.includes("select: 'Audio/pindd/bean_pickup'"),
+    'the disabled select cue resource mapping must remain available for future restoration',
 );
 
 assert.strictEqual(audioMgr.sfxSources.length, 8, 'AudioMgr must create a bounded eight-channel SFX pool');

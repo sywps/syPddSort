@@ -95,8 +95,8 @@ const stableLevel2 = readJson('assets/LevelData/level_2.json');
 const treatmentLevel2 = readJson(`${treatmentRelDir}/level_2.json`);
 assert.deepStrictEqual(
     [stableLevel2.boardWidth, stableLevel2.boardHeight, stableLevel2.slotTotalCount, stableLevel2.tutorialGuide],
-    [12, 12, 96, undefined],
-    'canonical level 2 must remain the main-lineage stable no-guide payload',
+    [14, 17, 131, undefined],
+    'canonical level 2 must match the promoted 300-level stable payload',
 );
 assert.strictEqual(stableLevel2.conveyorCapacity, 60, 'canonical stable level 2 must use the new conveyor');
 assert.strictEqual(Object.hasOwn(stableLevel2, 'slotPolicy'), false, 'stable level 2 must not retain row data');
@@ -168,9 +168,9 @@ const expectedLevelCounts = expectedStableEntries.reduce((counts, entry) => {
 }, {});
 const expectedPackCount = Object.values(expectedLevelCounts)
     .reduce((total, count) => total + Math.ceil(count / config.packSize), 0);
-assert.strictEqual(expectedLevelKeys.length, 1691, 'stable A/B and EXP must share the same 1,691 level keys');
-assert.deepStrictEqual(expectedLevelCounts, { level_: 1643, zt_level_: 48 });
-assert.strictEqual(expectedPackCount, 18);
+assert.strictEqual(expectedLevelKeys.length, 348, 'stable A/B and EXP must share the same 348 level keys');
+assert.deepStrictEqual(expectedLevelCounts, { level_: 300, zt_level_: 48 });
+assert.strictEqual(expectedPackCount, 4);
 const stableDigestBefore = stableSourceDigest();
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdd-ly-0224-cdn-'));
 try {
@@ -204,7 +204,7 @@ try {
     const mainlinePacks = manifest.packs.filter((entry) => entry.prefix === 'level_');
     const themePacks = manifest.packs.filter((entry) => entry.prefix === 'zt_level_');
     assert.strictEqual(mainlinePacks[0].levelRange[0], 1);
-    assert.strictEqual(mainlinePacks[mainlinePacks.length - 1].levelRange[1], 1643);
+    assert.strictEqual(mainlinePacks[mainlinePacks.length - 1].levelRange[1], 300);
     assert.strictEqual(themePacks.length, 1);
 
     const actualLevelKeys = [];

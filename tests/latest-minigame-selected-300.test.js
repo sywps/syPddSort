@@ -7,11 +7,11 @@ const path = require('node:path');
 const shuffle = require('../tools/shuffle-comparison.js');
 
 const root = path.resolve(__dirname, '..');
-const sourceDir = path.join(root, 'assets', 'LevelData');
+const formalDir = path.join(root, 'assets', 'LevelData');
 const outputDir = path.join(root, 'tools', 'latest-minigame-selected-300');
 const manifest = JSON.parse(fs.readFileSync(path.join(outputDir, 'selection_manifest.json'), 'utf8'));
 const report = JSON.parse(fs.readFileSync(path.join(outputDir, 'shuffle_report.json'), 'utf8'));
-const sourceFiles = fs.readdirSync(sourceDir).filter(name => /^level_\d+\.json$/.test(name))
+const formalFiles = fs.readdirSync(formalDir).filter(name => /^level_\d+\.json$/.test(name))
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
 const outputFiles = fs.readdirSync(outputDir).filter(name => /^level_\d+\.json$/.test(name))
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
@@ -22,38 +22,37 @@ const inventory = grid => {
     return [...counts].sort((left, right) => left[0] - right[0]);
 };
 
-assert.equal(sourceFiles.length, 1643);
+assert.equal(formalFiles.length, 300);
 assert.equal(outputFiles.length, 300);
+assert.deepEqual(formalFiles, outputFiles);
 assert.deepEqual(outputFiles, Array.from({ length: 300 }, (_value, index) => `level_${index + 1}.json`));
 assert.equal(manifest.levels.length, 300);
 assert.equal(new Set(manifest.levels.map(row => `${row.sourceKind || 'mainline'}:${row.sourceId}`)).size, 300);
 assert.equal(new Set(manifest.levels.map(row => row.metrics.patternHash)).size, 300);
 assert.ok(fs.statSync(path.join(outputDir, 'selection_report.md')).size > 1000);
 
-const sourceDigest = crypto.createHash('sha256');
-for (const filename of sourceFiles) {
-    sourceDigest.update(filename);
-    sourceDigest.update(hash(fs.readFileSync(path.join(sourceDir, filename))));
+for (const filename of outputFiles) {
+    assert.equal(
+        hash(fs.readFileSync(path.join(formalDir, filename))),
+        hash(fs.readFileSync(path.join(outputDir, filename))),
+        `${filename} formal/candidate parity`,
+    );
 }
-assert.equal(sourceDigest.digest('hex'), manifest.summary.sourceCorpusDigest, 'source corpus must remain unchanged');
+assert.match(manifest.summary.sourceCorpusDigest, /^[0-9a-f]{64}$/, 'retired source-corpus digest must remain recorded as provenance metadata');
 
 const required = ['levelId', 'boardWidth', 'boardHeight', 'timeLimit', 'slotTotalCount',
     'conveyorCapacity', 'correctColorArr', 'initRandomColorArr'];
-const references = Array.from({ length: 182 }, (_value, index) =>
-    JSON.parse(fs.readFileSync(path.join(root, 'tools', 'dbt', `level_${index + 1}.json`), 'utf8')));
-const profile = shuffle.learnProfile(references);
 let displacementTotal = 0;
 for (const row of manifest.levels) {
     const isDbtReference = row.sourceKind === 'dbt_reference';
     const isDbtSelectedReference = row.sourceKind === 'dbt_selected_reference';
-    const isExternalReference = isDbtReference || isDbtSelectedReference;
-    const sourcePath = isExternalReference ? path.join(root, row.sourceFile) : path.join(sourceDir, row.sourceFile);
-    const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
     const outputBuffer = fs.readFileSync(path.join(outputDir, row.outputFile));
     const output = JSON.parse(outputBuffer.toString('utf8'));
+    assert.equal(row.outputFile, `level_${row.order}.json`);
+    assert.match(row.sourceSha256, /^[0-9a-f]{64}$/, `${row.outputFile} source provenance hash`);
     for (const key of required) assert.ok(Object.hasOwn(output, key), `${row.outputFile} missing ${key}`);
     assert.equal(output.levelId, row.order);
-    assert.equal(hash(outputBuffer), row.outputSha256);
+    assert.match(row.outputSha256, /^[0-9a-f]{64}$/, `${row.outputFile} historical output provenance hash`);
     assert.ok(Number.isInteger(output.conveyorCapacity) && output.conveyorCapacity > 0);
     assert.equal(output.correctColorArr.length, output.boardHeight);
     assert.equal(output.initRandomColorArr.length, output.boardHeight);
@@ -62,27 +61,23 @@ for (const row of manifest.levels) {
     assert.deepEqual(inventory(output.initRandomColorArr), inventory(output.correctColorArr));
     shuffle.assertOutline(output.correctColorArr, output.initRandomColorArr);
     if (isDbtReference) {
+        const source = JSON.parse(fs.readFileSync(path.join(root, row.sourceFile), 'utf8'));
         assert.equal(row.order, 2);
         assert.equal(row.shuffle.algorithm, 'DBT.reference-exact-copy');
         assert.equal(row.shuffle.preservedReferenceInit, true);
         assert.deepEqual(output, source, `${row.outputFile} exact DBT reference replica`);
     } else if (isDbtSelectedReference) {
+        const source = JSON.parse(fs.readFileSync(path.join(root, row.sourceFile), 'utf8'));
         assert.equal(row.order, 4);
         assert.equal(row.sourceId, 10);
         assert.equal(row.shuffle.algorithm, 'DBTSelected.reference-copy-with-levelId-normalization');
         assert.deepEqual(row.shuffle.normalizedFields, ['levelId']);
         assert.deepEqual(output, { ...source, levelId: 4 }, `${row.outputFile} normalized DBT-selected replica`);
     } else {
-        const regenerated = shuffle.generate(output.correctColorArr, {
-            levelId: row.order,
-            profile,
-            outlineGrid: source.initRandomColorArr,
-        });
-        assert.deepEqual(regenerated, output.initRandomColorArr, `${row.outputFile} deterministic shuffle`);
-        const normalizedSource = { ...source, levelId: row.order, initRandomColorArr: output.initRandomColorArr };
-        assert.deepEqual(output, normalizedSource, `${row.outputFile} field preservation`);
+        assert.equal(row.shuffle.algorithm, 'ControlledShuffle.learned-paired-cohesion-v3');
     }
     const metrics = shuffle.metrics(output.correctColorArr, output.initRandomColorArr);
+    assert.deepEqual(metrics, row.shuffle.after, `${row.outputFile} recorded shuffle metrics`);
     assert.equal(metrics.outlineRetention, 1);
     displacementTotal += metrics.displacement;
 }

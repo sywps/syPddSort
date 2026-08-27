@@ -11,7 +11,7 @@ source selected by the WeChat build's A/B CDN slot.
 
 The EXP package mirrors the complete stable level-data key set, including the
 stable Level 1 data and theme levels, then replaces only mainline levels
-2-9 with the files in this directory. The resulting 1,691-level manifest is
+2-9 with the files in this directory. The resulting 348-level manifest is
 published to one fixed CDN root and never inherits the build's A/B slot.
 
 Runtime routing remains narrower than package ownership: Level 1 still starts

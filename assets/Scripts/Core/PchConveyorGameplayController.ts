@@ -777,7 +777,6 @@ export class PchConveyorGameplayController {
             return;
         }
         this.runtime.ensureTimerStarted?.();
-        AudioMgr.inst.play('select');
         AudioMgr.inst.vibrateSelect();
         this.runtime.renderBoardCells(result.boardCells);
         this.renderEntranceQueue();

@@ -244,7 +244,10 @@ export function installSceneHomeEntryModule(target: any): void {
                 this.loadExternalLevelFile(this._currentExternalLevelFilePath, prefix);
                 return;
             }
-            const resolvedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const resolvedLevelId = prefix === 'level_'
+                ? mapLogicalToPhysicalLevelId(normalizedLevelId)
+                : normalizedLevelId;
             this.syncAppSessionForGameplayRequest(resolvedLevelId, prefix, false);
             this.clearCurrentExternalLevelFile();
             if (this.shouldUseLocalBootstrapBundle(resolvedLevelId, prefix)) {
@@ -694,6 +697,10 @@ export function installSceneHomeEntryModule(target: any): void {
          */
         startGameAssetsLevelFast(levelId: number, prefix: string = 'level_', activeLevelId: number = levelId) {
             if (this._levelDataLoadStopped) return;
+            if (prefix === 'level_') {
+                levelId = mapLogicalToPhysicalLevelId(levelId);
+                activeLevelId = mapLogicalToPhysicalLevelId(activeLevelId);
+            }
             this.syncAppSessionForGameplayRequest(activeLevelId, prefix, false);
             this.beginGameplayLoadingWatchdog?.(
                 activeLevelId,

@@ -39,7 +39,7 @@ function validateDirectory(relDir, expectedCount) {
     }
 }
 
-validateDirectory('assets/LevelData', 1691);
+validateDirectory('assets/LevelData', 348);
 validateDirectory('assets/BootstrapBundle/LevelData', 1);
 validateDirectory('experiments/ly_0224/treatment', 8);
 const treatmentLevel2 = JSON.parse(fs.readFileSync(path.join(root, 'experiments/ly_0224/treatment/level_2.json'), 'utf8'));
@@ -90,8 +90,8 @@ assert.match(cdnService, /validateConveyorCapacity\(entry\.data\.conveyorCapacit
 assert.doesNotMatch(cdnService, /LEVEL_DATA_COMPAT_SCHEMA_VERSION|validateSlotPolicy/, 'runtime must not accept the old data contract');
 
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'assets/LevelData/level-manifest.json'), 'utf8'));
-assert.equal(manifest.levelCount, 1643);
-assert.equal(manifest.entries.length, 1643);
+assert.equal(manifest.levelCount, 300);
+assert.equal(manifest.entries.length, 300);
 assert.equal(manifest.entries.every((entry) => entry.conveyorCapacity === 60), true, 'manifest capacities must all be 60');
 
 console.log('level-conveyor-capacity-contract.test.js passed');
