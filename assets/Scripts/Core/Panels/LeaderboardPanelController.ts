@@ -85,7 +85,7 @@ export class LeaderboardPanelController {
 
                     const closeOverlay = () => {
                         if (!overlay?.isValid) return;
-                        AudioMgr.inst.play('uiPanel');
+                        AudioMgr.inst.play('button');
                         runtime.clearLeaderboardScroll?.();
                         runtime.deactivateWeChatFriendRank('overlay-close');
                         runtime._closePanelWithTextureOwner(overlay, 'leaderboard', 'leaderboard');
@@ -132,14 +132,14 @@ export class LeaderboardPanelController {
                         leftHotspot.setSiblingIndex(tabWrap.children.length - 1);
                         rightHotspot.setSiblingIndex(tabWrap.children.length - 1);
                         runtime.bindPanelButton(leftHotspot, () => {
-                            AudioMgr.inst.play('uiPanel');
+                            AudioMgr.inst.play('button');
                             if (activeTab === 'global') return;
                             activeTab = 'global';
                             updateTabStyle();
                             void runtime.switchLeaderboardTab(box, hintAnchor, activeTab);
                         });
                         runtime.bindPanelButton(rightHotspot, () => {
-                            AudioMgr.inst.play('uiPanel');
+                            AudioMgr.inst.play('button');
                             if (activeTab === 'friend') return;
                             activeTab = 'friend';
                             updateTabStyle();

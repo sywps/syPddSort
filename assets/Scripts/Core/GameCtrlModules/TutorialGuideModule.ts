@@ -1016,17 +1016,6 @@ export function installTutorialGuideModule(target: any): void {
             } else if (reminderStage === 2) {
                 this.showGuideDimMask?.(184, true);
             }
-            this.trackFirstLevelFunnel?.('tutorial_reminder_shown', {
-                stepId: this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source: 'tutorial',
-                success: true,
-                extra: {
-                    reminderStage,
-                    actionEnabled: this._guideStatus === 'awaiting_action',
-                    elapsedSinceReadyMs: Math.max(0, Date.now() - (Number(this._guideActionEnabledAt) || Date.now())),
-                },
-            });
         },
 
         startGuidePinchReminderAnimation(): void {
@@ -1134,17 +1123,6 @@ export function installTutorialGuideModule(target: any): void {
                 reason === 'transitioning' ? '豆豆正在移动，马上就好' : '正在准备操作，请稍候',
                 0.8,
             );
-            this.trackFirstLevelFunnel?.('tutorial_unavailable_feedback_shown', {
-                stepId: this._guidePreviewVisible ? this._guidePreviewStep : this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source: reason,
-                success: true,
-                extra: {
-                    actionEnabled: false,
-                    previewVisible: this._guidePreviewVisible === true,
-                    transitionElapsedMs: Math.max(0, Date.now() - (Number(this._guideTransitionStartedAt) || Date.now())),
-                },
-            });
         },
 
         isStarterTutorialAutoCorrectMode(): boolean {
@@ -1220,20 +1198,8 @@ export function installTutorialGuideModule(target: any): void {
             if (!this.isStarterTutorialAutoCorrectMode()) return false;
             const step = this._guideStep;
             const rawTargetHit = this.isStarterTutorialRawTapOnTarget?.(worldPos) === true;
-            const rawHitResult = rawTargetHit
-                ? 'hit_target'
-                : this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
-            const rawTouchTarget = this.classifyFirstLevelTouchTarget?.(worldPos) || '';
             const reportSuccess = () => {
                 this.showStarterTutorialAutoCorrectFeedback?.(worldPos, rawTargetHit);
-                this.reportTutorialTapResult?.(worldPos, 'auto_correct_success', true, 'guide_layer', {
-                    autoCorrected: !rawTargetHit,
-                    rawTargetHit,
-                    rawHitResult,
-                    rawTouchTarget,
-                    selectedSource: this.currentBlock?.source || '',
-                    colorId: this.currentBlock?.colorId || 0,
-                });
             };
 
             if (this._guideMode === 'level_2' && step === 0 && this._guidePhase === 'unlock') {
@@ -1276,22 +1242,16 @@ export function installTutorialGuideModule(target: any): void {
         /** 引导期间触摸处理 */
         handleGuideTap(worldPos: Vec3) {
             if (this._guideInputSuspended) {
-                this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
                 return;
             }
             if (this.tryHandleGuideSystemModalTap?.(worldPos)) {
-                this.reportTutorialTapResult?.(worldPos, 'modal_consumed', false, 'guide_layer');
                 return;
             }
             if (this._guideStatus === 'transitioning') {
-                this.reportTutorialTapResult?.(worldPos, 'ignored_transitioning', false, 'guide_layer', {
-                    ignoreReason: 'placement_committed',
-                });
                 this.showGuideUnavailableFeedback?.(worldPos, 'transitioning');
                 return;
             }
             if (this._guideStep < 0 || this._guideStep >= this._guideTotalSteps) {
-                this.reportTutorialTapResult?.(worldPos, 'ignored_invalid_step', false, 'guide_layer');
                 return;
             }
         
@@ -1299,11 +1259,6 @@ export function installTutorialGuideModule(target: any): void {
 
             if (this.isStarterTutorialAutoCorrectMode()) {
                 if (!this.handleStarterTutorialAutoCorrectTap(worldPos)) {
-                    this.reportTutorialTapResult?.(worldPos, 'auto_correct_failed', false, 'guide_layer', {
-                        autoCorrected: false,
-                        rawHitResult: this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown',
-                        rawTouchTarget: this.classifyFirstLevelTouchTarget?.(worldPos) || '',
-                    });
                     this.showGuideWrongTargetHint(worldPos, false);
                 }
                 return;
@@ -1311,7 +1266,6 @@ export function installTutorialGuideModule(target: any): void {
 
             if ((this._guideMode === 'level_2' || this._guideMode === 'slot_intro') && step === 0) {
                 if (this.isSlotUnlockTargetHit(worldPos)) {
-                    this.reportTutorialTapResult?.(worldPos, 'hit_target', true, 'guide_layer');
                     this.executeGuideSlotUnlock();
                 } else {
                     this.showGuideWrongTargetHint(worldPos);
@@ -1333,58 +1287,24 @@ export function installTutorialGuideModule(target: any): void {
                     }
                     if (selected && this.currentBlock) {
                         if (this.isCorrectBlockForStep(step, this.currentBlock)) {
-                            this.reportTutorialTapResult?.(
-                                worldPos,
-                                this.getTutorialSelectHitResult?.(worldPos, step) || 'hit_target',
-                                true,
-                                'guide_layer',
-                                {
-                                    selectedSource: this.currentBlock.source,
-                                    colorId: this.currentBlock.colorId,
-                                },
-                            );
                             this._guidePhase = 'place';
                             this.advanceTutorial();
                         } else {
-                            this.reportTutorialTapResult?.(
-                                worldPos,
-                                'miss_wrong_block',
-                                false,
-                                'guide_layer',
-                                {
-                                    selectedSource: this.currentBlock.source,
-                                    colorId: this.currentBlock.colorId,
-                                },
-                            );
                             this.showGuideWrongTargetHint(worldPos, false);
                             this.cancelSelection();
                         }
                     } else {
-                        this.reportTutorialTapResult?.(worldPos, this.getTutorialMissHitResult?.(worldPos) || 'miss_empty', false, 'guide_layer');
                         this.showGuideWrongTargetHint(worldPos, false);
                     }
                 }
             } else if (this._guidePhase === 'place') {
                 // 放置阶段
                 if (!this.currentBlock) {
-                    this.reportTutorialTapResult?.(worldPos, 'ignored_not_ready', false, 'guide_layer', {
-                        ignoreReason: 'no_current_block',
-                    });
                     this.showGuideUnavailableFeedback?.(worldPos, 'not_ready');
                     return;
                 }
                 if (this.isGuideSlotPlaceStep(step)) {
                     if (this.isGuidePlaceTargetHit(worldPos)) {
-                        this.reportTutorialTapResult?.(
-                            worldPos,
-                            'hit_target',
-                            true,
-                            'guide_layer',
-                            {
-                                selectedSource: this.currentBlock.source,
-                                colorId: this.currentBlock.colorId,
-                            },
-                        );
                         this.executeGuidePlacement();
                     } else {
                         this.showGuideWrongTargetHint(worldPos);
@@ -1396,22 +1316,10 @@ export function installTutorialGuideModule(target: any): void {
                     ? this.getFirstLevelGuideBoardPlaceTarget(worldPos, this.getGuidePlaceTargetColor(step))
                     : this.getBoardPlaceTargetFromWorldPos(worldPos, this.getGuidePlaceTargetColor(step));
                 if (target) {
-                    this.reportTutorialTapResult?.(
-                        worldPos,
-                        this._guideMode === 'level_1' && this.classifyFirstLevelTouchTarget(worldPos) !== 'board' ? 'hit_tolerant_area' : 'hit_target',
-                        true,
-                        'guide_layer',
-                        {
-                            selectedSource: this.currentBlock.source,
-                            colorId: this.currentBlock.colorId,
-                        },
-                    );
                     this.executeGuidePlacement(target.row, target.col);
                 } else {
                     this.showGuideWrongTargetHint(worldPos);
                 }
-            } else {
-                this.reportTutorialTapResult?.(worldPos, 'ignored_invalid_phase', false, 'guide_layer');
             }
         },
 
@@ -1564,27 +1472,13 @@ export function installTutorialGuideModule(target: any): void {
             this._guidePulseTweens.push(ht);
         },
 
-        showGuideWrongTargetHint(worldPos?: Vec3, shouldReport: boolean = true) {
-            const hitResult = this.getTutorialMissHitResult?.(worldPos) || 'miss_unknown';
-            if (shouldReport) {
-                this.reportTutorialTapResult?.(worldPos, hitResult, false, 'guide_layer');
-            }
+        showGuideWrongTargetHint(_worldPos?: Vec3, _shouldReport: boolean = true) {
             this._guideWrongAttemptCount = Math.max(0, Number(this._guideWrongAttemptCount) || 0) + 1;
             this.showGuideTargetFeedback?.('reinforce');
             if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
                 && this._guideHand?.isValid) {
                 this.startGuideWrongTargetHandPulse?.(this._guideHand);
             }
-            this.trackFirstLevelFunnel?.('tutorial_wrong_feedback_shown', {
-                stepId: this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source: hitResult,
-                success: true,
-                extra: {
-                    wrongAttemptCount: this._guideWrongAttemptCount,
-                    targetReinforced: this._guideDimMaskNode?.isValid === true,
-                },
-            });
         },
 
         /** 引导期间自动执行放置动作 */
@@ -1598,20 +1492,6 @@ export function installTutorialGuideModule(target: any): void {
                     this._guideLevel2SlotPlacementSucceeded = false;
                 }
                 const sources = this.collectSourceWorldPositions(block);
-                if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
-                    this._firstFunnelPlaceAttemptSent = true;
-                    this.trackFirstLevelFunnel('first_place_attempt', {
-                        touchTarget: 'slot',
-                        source: 'tutorial',
-                        extra: {
-                            colorId: block.colorId,
-                            sourceBlock: block.source,
-                            guideMode: this._guideMode,
-                            guideStep: step,
-                            guidePhase: this._guidePhase,
-                        },
-                    });
-                }
                 this.boardModel.removeBlock(block);
                 const storedIdxs: number[] = [];
                 for (const cell of block.cells) {
@@ -1637,22 +1517,6 @@ export function installTutorialGuideModule(target: any): void {
                     if (this._guideMode === 'level_2' && step === 2) {
                         this._guideLevel2SlotPlacementSucceeded = true;
                     }
-                    if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {
-                        this._firstFunnelPlaceSuccessSent = true;
-                        this.trackFirstLevelFunnel('first_place_success', {
-                            touchTarget: 'slot',
-                            source: 'tutorial',
-                            success: true,
-                            extra: {
-                                colorId: block.colorId,
-                                placedCount: storedIdxs.length,
-                                sourceBlock: block.source,
-                                guideMode: this._guideMode,
-                                guideStep: step,
-                                guidePhase: this._guidePhase,
-                            },
-                        });
-                    }
                     this.beginGuidePlacementTransition();
                     this.startFlyToSlots(
                         block.colorId,
@@ -1675,20 +1539,6 @@ export function installTutorialGuideModule(target: any): void {
                 const selectedSlotSnapshot = block.source === 'slot'
                     ? this.captureSelectedSlotSnapshot()
                     : [];
-                if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
-                    this._firstFunnelPlaceAttemptSent = true;
-                    this.trackFirstLevelFunnel('first_place_attempt', {
-                        touchTarget: 'board',
-                        source: 'tutorial',
-                        extra: {
-                            colorId: block.colorId,
-                            sourceBlock: block.source,
-                            guideMode: this._guideMode,
-                            guideStep: step,
-                            guidePhase: this._guidePhase,
-                        },
-                    });
-                }
                 if (block.source === 'board') {
                     this.boardModel.removeBlock(block);
                 } else {
@@ -1697,22 +1547,6 @@ export function installTutorialGuideModule(target: any): void {
                 const result = this.boardModel.placeBlockMaximize(block, nearRow, nearCol);
                 this._lastPlacedCells = result.placed;
                 if (result.placed.length > 0) {
-                    if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {
-                        this._firstFunnelPlaceSuccessSent = true;
-                        this.trackFirstLevelFunnel('first_place_success', {
-                            touchTarget: 'board',
-                            source: 'tutorial',
-                            success: true,
-                            extra: {
-                                colorId: block.colorId,
-                                placedCount: result.placed.length,
-                                sourceBlock: block.source,
-                                guideMode: this._guideMode,
-                                guideStep: step,
-                                guidePhase: this._guidePhase,
-                            },
-                        });
-                    }
                     this.beginGuidePlacementTransition();
                     const remainingSelection = result.remaining > 0
                         ? (block.source === 'board'
@@ -1774,11 +1608,8 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         clearGuideTransitionWatchdog(invalidate: boolean = true): void {
-            const slowHandler = this._guideTransitionSlowHandler as (() => void) | null;
             const hardHandler = this._guideTransitionHardHandler as (() => void) | null;
-            if (slowHandler) this.unschedule?.(slowHandler);
             if (hardHandler) this.unschedule?.(hardHandler);
-            this._guideTransitionSlowHandler = null;
             this._guideTransitionHardHandler = null;
             if (invalidate) {
                 this._guideTransitionWatchdogToken = Math.max(
@@ -1798,31 +1629,13 @@ export function installTutorialGuideModule(target: any): void {
             this._guideTransitionWatchdogToken = token;
             const step = Math.floor(Number(this._guideStep) || 0);
             const mode = String(this._guideMode || 'none');
-            const startedAt = Number(this._guideTransitionStartedAt) || Date.now();
             const isCurrent = () => this._guideTransitionWatchdogToken === token
                 && this._guideStatus === 'transitioning'
                 && this._guideStep === step
                 && this._guideMode === mode;
-            const slowHandler = () => {
-                this._guideTransitionSlowHandler = null;
-                if (!isCurrent()) return;
-                this.trackFirstLevelFunnel?.('tutorial_transition_slow', {
-                    stepId: step,
-                    stepName: `${mode}:${step}:${this._guidePhase || ''}`,
-                    source: 'tutorial_transition_watchdog',
-                    success: false,
-                    errorCode: 'transition_over_1200ms',
-                    duration: Math.max(0, Date.now() - startedAt),
-                    extra: {
-                        previewVisible: this._guidePreviewVisible === true,
-                        placementVisualRefs: Math.max(0, Number(this._placementVisualRefs) || 0),
-                    },
-                });
-            };
             const hardHandler = () => {
                 this._guideTransitionHardHandler = null;
                 if (!isCurrent()) return;
-                const duration = Math.max(0, Date.now() - startedAt);
                 this._placementAnimationGeneration = Math.max(
                     0,
                     Math.floor(Number(this._placementAnimationGeneration) || 0),
@@ -1838,33 +1651,12 @@ export function installTutorialGuideModule(target: any): void {
                 this.resetSlotPositions?.();
                 this.renderBoard?.();
                 this.renderSlots?.();
-                this.trackFirstLevelFunnel?.('tutorial_transition_force_complete', {
-                    stepId: step,
-                    stepName: `${mode}:${step}:${this._guidePhase || ''}`,
-                    source: 'tutorial_transition_watchdog',
-                    success: true,
-                    duration,
-                    extra: {
-                        stateCommitted: true,
-                        releasedPlacementOwner: true,
-                    },
-                });
                 const stateRecognized = this.checkGuideStepComplete?.() === true;
                 if (!stateRecognized) {
-                    this.trackFirstLevelFunnel?.('tutorial_transition_force_complete_failed', {
-                        stepId: step,
-                        stepName: `${mode}:${step}:${this._guidePhase || ''}`,
-                        source: 'tutorial_transition_watchdog',
-                        success: false,
-                        errorCode: 'committed_state_not_recognized',
-                        duration,
-                    });
                     this.showToast?.('本步未完成，请重试', 1.2);
                 }
             };
-            this._guideTransitionSlowHandler = slowHandler;
             this._guideTransitionHardHandler = hardHandler;
-            this.scheduleOnce(slowHandler, 1.2);
             this.scheduleOnce(hardHandler, 3);
         },
 

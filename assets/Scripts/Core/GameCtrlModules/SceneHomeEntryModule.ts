@@ -193,7 +193,7 @@ export function installSceneHomeEntryModule(target: any): void {
 
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('uiPanel');
+                AudioMgr.inst.play('button');
                 void this.openLeaderboard();
             }, this);
             const iconNode = this.requireUiChild(btn, 'LeaderboardIcon', 'LeaderboardBtn/LeaderboardIcon');
@@ -208,7 +208,7 @@ export function installSceneHomeEntryModule(target: any): void {
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('uiPanel');
+                AudioMgr.inst.play('button');
                 this.openCollection();
             }, this);
             const iconNode = this.requireUiChild(btn, 'CollectionIcon', 'CollectionBtn/CollectionIcon');
@@ -230,7 +230,7 @@ export function installSceneHomeEntryModule(target: any): void {
 
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('uiPanel');
+                AudioMgr.inst.play('button');
                 void this.openGameCircle();
             }, this);
         },

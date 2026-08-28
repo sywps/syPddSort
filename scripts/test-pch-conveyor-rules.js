@@ -35,14 +35,21 @@ load(loadedModule, loadedModule.exports, (request) => {
                 }
                 return value;
             },
+            validatePchSingleSelectionLimit(value, label) {
+                if (value === undefined || value === null) return 12;
+                if (!Number.isInteger(value) || value <= 0) {
+                    throw new Error(`[SingleSelectionLimit] ${label}.singleSelectionLimit must be a positive integer: ${value}`);
+                }
+                return value;
+            },
         };
     }
     return require(request);
 });
 const { PchConveyorRules: RequiredCapacityPchConveyorRules } = loadedModule.exports;
 class PchConveyorRules extends RequiredCapacityPchConveyorRules {
-    constructor(board, conveyorCapacity = 60) {
-        super(board, conveyorCapacity);
+    constructor(board, conveyorCapacity = 60, singleSelectionLimit) {
+        super(board, conveyorCapacity, singleSelectionLimit);
     }
 }
 
@@ -57,7 +64,8 @@ class FakeBoard {
         )));
     }
 
-    getConnectedBlock(row, col) {
+    getConnectedBlock(row, col, preferredCorrectColor) {
+        this.lastPreferredCorrectColor = preferredCorrectColor;
         const colorId = this.currentColors[row][col];
         if (!colorId || this.locked[row][col]) return null;
         const cells = [];
@@ -65,6 +73,13 @@ class FakeBoard {
             if (this.currentColors[row][currentCol] === colorId && !this.locked[row][currentCol]) {
                 cells.push({ row, col: currentCol });
             }
+        }
+        if (preferredCorrectColor) {
+            cells.sort((left, right) => {
+                const leftPriority = this.correctColors[left.row][left.col] === preferredCorrectColor ? 0 : 1;
+                const rightPriority = this.correctColors[right.row][right.col] === preferredCorrectColor ? 0 : 1;
+                return leftPriority - rightPriority;
+            });
         }
         return { colorId, cells, isLocked: false, source: 'board' };
     }
@@ -97,14 +112,45 @@ assert.throws(
 const compactCapacityRules = new RequiredCapacityPchConveyorRules(capacityBoard, 24);
 assert.equal(compactCapacityRules.carrierCount, 8, 'per-level capacity must determine carrier count');
 assert.equal(compactCapacityRules.bufferCapacity, 24, 'rules must preserve the requested bean capacity');
+assert.throws(
+    () => new RequiredCapacityPchConveyorRules(capacityBoard, 60, 0),
+    /positive integer/,
+    'configured single-selection limits must fail fast when invalid',
+);
 
 const sourceColors = [Array.from({ length: 15 }, () => 1)];
-const targetColors = [Array.from({ length: 15 }, () => 2)];
+const targetColors = [[
+    ...Array.from({ length: 3 }, () => 2),
+    ...Array.from({ length: 12 }, () => 4),
+]];
 const queueBoard = new FakeBoard(15, 1, targetColors, sourceColors);
 const queueRules = new PchConveyorRules(queueBoard);
-const selected = queueRules.selectBoard(0, 0);
+const selected = queueRules.selectBoard(0, 14);
 assert.ok(selected);
+assert.equal(queueBoard.lastPreferredCorrectColor, 4, 'selection must use the clicked position target color');
 assert.equal(selected.cells.length, 12, 'single board pickup must stop at 12 beans');
+assert.equal(
+    selected.cells.every((cell) => targetColors[cell.row][cell.col] === 4),
+    true,
+    'default-limit selection must prioritize beans above the clicked target-cell color',
+);
+
+const configuredSourceColors = [Array.from({ length: 20 }, () => 1)];
+const configuredTargetColors = [[
+    ...Array.from({ length: 2 }, () => 2),
+    ...Array.from({ length: 18 }, () => 4),
+]];
+const configuredQueueBoard = new FakeBoard(20, 1, configuredTargetColors, configuredSourceColors);
+const configuredQueueRules = new PchConveyorRules(configuredQueueBoard, 60, 18);
+const configuredSelected = configuredQueueRules.selectBoard(0, 19);
+assert.ok(configuredSelected);
+assert.equal(configuredQueueBoard.lastPreferredCorrectColor, 4, 'configured selection must use the clicked position target color');
+assert.equal(configuredSelected.cells.length, 18, 'a level-specific pickup limit must override the default 12');
+assert.equal(
+    configuredSelected.cells.every((cell) => configuredTargetColors[cell.row][cell.col] === 4),
+    true,
+    'configured-limit selection must prioritize beans above the clicked target-cell color',
+);
 
 const queued = queueRules.storeBlock(selected, 0);
 assert.equal(queued.moved, 12);
@@ -175,7 +221,7 @@ const pendingRules = new PchConveyorRules(pendingBoard);
 const pendingBlock = pendingRules.selectBoard(0, 0);
 assert.ok(pendingBlock);
 assert.equal(pendingRules.storeBlock(pendingBlock, 0).moved, 1);
-assert.equal(pendingRules.conveyorSpeedMultiplier, 2, 'the conveyor must switch to pch 2x speed when no board bean remains selectable');
+assert.equal(pendingRules.conveyorSpeedMultiplier, 1, 'beans still flying through Entry must block before-win acceleration');
 pendingRules.carriers.slice(0, 19).forEach((stack) => stack.push(1, 1, 1));
 pendingRules.carriers[19].push(1, 1);
 assert.equal(pendingRules.bufferCount, pendingRules.bufferCapacity);
@@ -191,9 +237,16 @@ const selectableRules = new PchConveyorRules(selectableBoard);
 selectableRules.carriers[0].push(2);
 assert.equal(selectableRules.conveyorSpeedMultiplier, 1, 'a selectable board bean must keep the conveyor at normal speed');
 selectableBoard.currentColors[0][0] = 0;
-assert.equal(selectableRules.conveyorSpeedMultiplier, 2, 'stored beans with no selectable board bean must use pch 2x speed');
+assert.equal(selectableRules.conveyorSpeedMultiplier, 5, 'all unfinished beans committed to carriers must enable package-aligned 5x speed');
 selectableRules.autoPlaceTop(0);
 assert.equal(selectableRules.conveyorSpeedMultiplier, 1, 'an empty conveyor must return to normal speed after settlement');
+
+const incompleteSpeedBoard = new FakeBoard(2, 1, [[1, 2]], [[0, 0]]);
+const incompleteSpeedRules = new PchConveyorRules(incompleteSpeedBoard);
+incompleteSpeedRules.carriers[0].push(1);
+assert.equal(incompleteSpeedRules.conveyorSpeedMultiplier, 1, 'missing unfinished colors must block before-win acceleration');
+incompleteSpeedRules.carriers[1].push(2);
+assert.equal(incompleteSpeedRules.conveyorSpeedMultiplier, 5, 'matching per-color carrier inventory with a returnable top must enable 5x speed');
 
 const clearColorBoard = new FakeBoard(4, 1, [[1, 1, 2, 2]], [[2, 0, 1, 0]]);
 const clearColorRules = new PchConveyorRules(clearColorBoard);
@@ -253,6 +306,13 @@ assert.equal(clearAllStoredBoard.isAllLocked(), true);
 
 const controllerSourcePath = path.join(projectRoot, 'assets/Scripts/Core/PchConveyorGameplayController.ts');
 const controllerSource = fs.readFileSync(controllerSourcePath, 'utf8');
+assert.ok(
+    controllerSource.includes('private beforeWinSpeedActive = false;')
+        && (controllerSource.match(/this\.beforeWinSpeedActive = false;/g) || []).length >= 2
+        && controllerSource.includes('return this.beforeWinSpeedActive ? 5 : this.manualSpeedMultiplier;')
+        && !controllerSource.includes('setPchSpeedMultiplier(5'),
+    'before-win 5x must reset each round without overwriting the persisted manual 1x/2x choice',
+);
 const controllerCompiled = ts.transpileModule(controllerSource, {
     compilerOptions: {
         module: ts.ModuleKind.CommonJS,
@@ -311,6 +371,8 @@ function fakeTween() {
     };
 }
 
+const pausedTweenTargets = [];
+const resumedTweenTargets = [];
 const controllerModule = { exports: {} };
 const loadController = new Function('module', 'exports', 'require', controllerCompiled.outputText);
 loadController(controllerModule, controllerModule.exports, (request) => {
@@ -326,7 +388,11 @@ loadController(controllerModule, controllerModule.exports, (request) => {
         return new Proxy({
             AudioMgr: { inst: { play() {}, vibratePlace() {} } },
             Button: FakeButton,
-            Tween: { stopAllByTarget() {} },
+            Tween: {
+                stopAllByTarget() {},
+                pauseAllByTarget(target) { pausedTweenTargets.push(target); },
+                resumeAllByTarget(target) { resumedTweenTargets.push(target); },
+            },
             UITransform: FakeUITransform,
             Vec2: FakeVec2,
             Vec3: FakeVec3,
@@ -357,6 +423,14 @@ const controllerRuntime = {
 };
 const controller = new PchConveyorGameplayController(controllerRuntime);
 controller.rules = { carrierCount: 20, conveyorSpeedMultiplier: 1 };
+controller.manualSpeedMultiplier = 2;
+assert.equal(controller.getEffectiveBeltSpeedMultiplier(), 2, 'manual 2x must remain active before the finish condition');
+controller.rules.conveyorSpeedMultiplier = 5;
+assert.equal(controller.getEffectiveBeltSpeedMultiplier(), 5, 'the package-aligned before-win condition must override manual speed with 5x');
+controller.rules.conveyorSpeedMultiplier = 1;
+assert.equal(controller.getEffectiveBeltSpeedMultiplier(), 5, 'before-win 5x must remain latched for the rest of the round');
+controller.beforeWinSpeedActive = false;
+assert.equal(controller.getEffectiveBeltSpeedMultiplier(), 2, 'a new-round reset must return to the selected manual speed');
 controller.beginSkillUsePause('brush');
 controller.update(1);
 assert.deepEqual(pauseOwners, ['pch-skill-brush'], 'skill activation must acquire a dedicated timer pause');
@@ -372,19 +446,69 @@ controllerRuntime._rewardedGrantTransaction = { phase: 'grant' };
 controller.update(1);
 assert.equal(controller.beltTravel, 0, 'the conveyor must remain paused during the rewarded grant transaction');
 
+const scheduledReturnCompletions = [];
+const unscheduledReturnCompletions = [];
+const settlementRuntime = {
+    isGameEnd: true,
+    scheduleOnce(callback, delay) { scheduledReturnCompletions.push({ callback, delay }); },
+    unschedule(callback) { unscheduledReturnCompletions.push(callback); },
+};
+const settlementController = new PchConveyorGameplayController(settlementRuntime);
+settlementController.rules = {};
+settlementController.root = { isValid: true };
+const movingReturnBean = { isValid: true };
+const pendingReturnBean = { isValid: true };
+const pendingCompletion = () => {};
+settlementController.activeReturnBeans.add(movingReturnBean);
+settlementController.activeReturnBeans.add(pendingReturnBean);
+settlementController.pendingReturnCompletions.set(pendingReturnBean, pendingCompletion);
+settlementController.beforeWinSpeedActive = true;
+settlementController.pauseForSettlement();
+const pausedBeltTravel = settlementController.beltTravel;
+settlementController.update(1);
+assert.equal(settlementController.beltTravel, pausedBeltTravel, 'timeout settlement must stop the conveyor track');
+assert.ok(pausedTweenTargets.includes(movingReturnBean), 'timeout must pause an in-flight return tween');
+assert.ok(pausedTweenTargets.includes(pendingReturnBean), 'timeout must pause every registered return target');
+assert.deepEqual(unscheduledReturnCompletions, [pendingCompletion], 'timeout must suspend the registered 0.01-second completion callback');
+assert.equal(settlementController.beforeWinSpeedActive, true, 'settlement pause must retain the round-scoped 5x latch');
+settlementController.resumeAfterSettlement();
+assert.ok(resumedTweenTargets.includes(movingReturnBean), 'revive must resume an in-flight return tween');
+assert.deepEqual(
+    scheduledReturnCompletions,
+    [{ callback: pendingCompletion, delay: 0.01 }],
+    'revive must resume the registered completion callback without accelerating its delay',
+);
+
+let committedWinCount = 0;
+const finishRuntime = {
+    isGameEnd: false,
+    clearEndgameHints() {},
+    playPatternCompleteThenWin() {
+        committedWinCount += 1;
+        this.isGameEnd = true;
+    },
+};
+const finishController = new PchConveyorGameplayController(finishRuntime);
+finishController.commitFinish();
+finishController.commitFinish();
+assert.equal(finishController.isFinishCommitted(), true, 'finish callback first must commit the PCH win');
+assert.equal(committedWinCount, 1, 'finish commit must be idempotent');
+const timeoutFirstController = new PchConveyorGameplayController({
+    isGameEnd: true,
+    playPatternCompleteThenWin() { committedWinCount += 1; },
+});
+timeoutFirstController.commitFinish();
+assert.equal(timeoutFirstController.isFinishCommitted(), false, 'timer-first settlement must prevent a later return callback from committing win');
+assert.equal(committedWinCount, 1, 'timer-first settlement must not be overwritten by a late finish callback');
+
 let selectedBoardCell = null;
 const rawBoardTap = { x: 120, y: 240 };
-const remappedBoardTap = { x: 960, y: 1080 };
 const boardInputRuntime = {
     isGameEnd: false,
     resolveBoardTapBlock(position) {
-        if (position.x === remappedBoardTap.x && position.y === remappedBoardTap.y) {
-            return { candidate: { row: 0, col: 0 } };
-        }
-        if (position.x === rawBoardTap.x && position.y === rawBoardTap.y) {
-            return { candidate: { row: 0, col: 1 } };
-        }
-        return { candidate: null };
+        return position.x === rawBoardTap.x && position.y === rawBoardTap.y
+            ? { candidate: { row: 0, col: 0 } }
+            : { candidate: null };
     },
     cellNodes: [[{
         getComponent(type) {
@@ -392,18 +516,18 @@ const boardInputRuntime = {
             return { getBoundingBoxToWorld: () => ({ contains: () => false }) };
         },
     }]],
-    normalizeGameplayUiPosition: () => remappedBoardTap,
+    normalizeGameplayUiPosition: () => ({ x: 960, y: 1080 }),
     onTouchCancel() {},
 };
 const boardInputController = new PchConveyorGameplayController(boardInputRuntime);
-boardInputController.rules = { cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] };
+boardInputController.rules = { cells: [{ row: 0, col: 0 }] };
 boardInputController.handleBoardTap = (row, col) => { selectedBoardCell = { row, col }; };
 const boardTapEvent = {
     propagationStopped: false,
     getUILocation: () => rawBoardTap,
 };
 boardInputController.onRootTouchEnd(boardTapEvent);
-assert.deepEqual(selectedBoardCell, { row: 0, col: 0 }, 'PCH selection must use only the normalized Cocos UI coordinate without trying the raw display point first');
+assert.deepEqual(selectedBoardCell, { row: 0, col: 0 }, 'PCH board selection must reuse the authoritative board-tap intent resolver');
 assert.equal(boardTapEvent.propagationStopped, true, 'a matched PCH board tap must stop propagation');
 
 let scaledCapacityFallbackCount = 0;
@@ -460,34 +584,8 @@ const missedNativeEvent = {
     getUILocation: () => new FakeVec2(100, 120),
 };
 routingController.onRootTouchEnd(missedNativeEvent);
-assert.equal(scaledCapacityFallbackCount, 0, 'a blank root touch must never be remapped into the capacity button');
-assert.equal(missedNativeEvent.propagationStopped, false, 'a blank root touch must remain unhandled');
-
-let scaledOpeningGuideTapCount = 0;
-const guideSpeedNode = {
-    isValid: true,
-    getComponent(type) {
-        if (type !== FakeUITransform) return null;
-        return { getBoundingBoxToWorld: () => ({ contains: (pos) => pos.x === 500 && pos.y === 600 }) };
-    },
-};
-const guideRuntime = {
-    isGameEnd: false,
-    normalizeGameplayUiPosition: () => new FakeVec2(500, 600),
-};
-const guideController = new PchConveyorGameplayController(guideRuntime);
-guideController.rules = { cells: [] };
-guideController.inputLocked = true;
-guideController.openingGuide = { isValid: true, name: 'PchLevelTwoSpeedGuide' };
-guideController.speedButton = guideSpeedNode;
-guideController.onOpeningGuideDoubleSpeed = () => { scaledOpeningGuideTapCount += 1; };
-const scaledGuideEvent = {
-    propagationStopped: false,
-    getUILocation: () => new FakeVec2(100, 120),
-};
-guideController.onRootTouchEnd(scaledGuideEvent);
-assert.equal(scaledOpeningGuideTapCount, 1, 'the locked opening guide must accept its isolated scaled-preview proxy coordinate');
-assert.equal(scaledGuideEvent.propagationStopped, true, 'the accepted opening-guide proxy tap must stop propagation');
+assert.equal(scaledCapacityFallbackCount, 1, 'the scaled capacity fallback must remain available after native hit testing misses');
+assert.equal(missedNativeEvent.propagationStopped, true, 'a scaled fallback match must stop the root touch event');
 
 function createSkillController(rules) {
     const pauses = [];

@@ -52,10 +52,10 @@ export function installGameplaySkillWandModule(target: any): void {
             const finish = () => this.finishSkillUsage(skillGeneration);
             try {
                 this.scheduleOnce(finish, 0.05);
-                AudioMgr.inst.play('propFreeze');
                 this.resetIdleHintTimer();
                 this.refreshFreezeTimerLabel?.();
                 this.playFreezeSpineFx?.();
+                pchController?.recordFreezeUse?.();
             } catch (error) {
                 this.unschedule?.(finish);
                 finish();
@@ -68,7 +68,6 @@ export function installGameplaySkillWandModule(target: any): void {
             if (this._skillActive) return; // 防止上次动画未结束时重复触发
             if (!timerAlreadyPaused) this.pauseTimerForFinalSecondProp();
             PerformanceMgr.inst.markUserActivity(8000);
-            AudioMgr.inst.play('propWand');
             this._skillActive = true;
             this.armSkillUsageWatchdog?.('wand-setup');
             this.resetIdleHintTimer();
@@ -366,7 +365,6 @@ export function installGameplaySkillWandModule(target: any): void {
             if (!this._wandRectNode) return;
             const centerWorld = this._wandRectNode.getComponent(UITransform)?.convertToWorldSpaceAR(new Vec3(0, 0, 0));
             if (!centerWorld) return;
-            AudioMgr.inst.play('propWand');
             this.playBrightFlashAt(centerWorld, this.cellSize * 3.2, 230);
         },
 

@@ -49,8 +49,8 @@ assert.ok(methodBody(analytics, 'trackSmartHintShow').includes("eventName: 'smar
 assert.ok(methodBody(analytics, 'trackSmartHintShow').includes('this.trackFunnelEvent'), 'smart idle hints must also emit funnel events');
 assert.ok(methodBody(analytics, 'markLevelPassed').includes('smartHintShownCount'), 'level_pass behavior event must carry smartHintShownCount');
 
-assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId)'), 'gameWin must pass the runtime logical level id');
-assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId)'), 'gameLose must pass the runtime logical level id');
+assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {'), 'gameWin must pass the runtime logical level id and PCH snapshot');
+assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId, {'), 'gameLose must pass the runtime logical level id and PCH failure snapshot');
 assert.ok(settlement.includes('const smartHintShownCount = AnalyticsMgr.inst.getSmartHintShownCount()'), 'gameWin funnel event must include smart hint attribution count');
 assert.ok(settlement.includes('this.trackSmartIdleHintShown?.(plan)'), 'smart idle hint visual show must be counted only after a path is started');
 

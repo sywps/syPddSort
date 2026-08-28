@@ -13,7 +13,7 @@ export class GameRuntimeHost extends Component {
     protected static readonly VIGOR_RESTORE_SECONDS = 300;
     protected static readonly LS_VIGOR = 'pdd.vigor';
     protected static readonly LS_VIGOR_TIME = 'pdd.vigorTime';
-    protected static readonly DRAG_THRESHOLD = 18;
+    protected static readonly DRAG_THRESHOLD = 10;
     protected static readonly BOARD_PAN_SENSITIVITY = 0.8;
     protected static readonly MIN_SCALE = 0.8;
     protected static readonly MAX_SCALE = 2.2;

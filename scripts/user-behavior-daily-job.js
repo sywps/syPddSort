@@ -56,46 +56,24 @@ const COLLECTION_CONFIGS = {
     queryField: "timestamp",
     queryMode: "range",
     outputSlug: "first-level-funnel",
-    title: "First Level Funnel Daily Report",
+    title: "PCH First Three Levels Funnel Daily Report",
     apiKeyExportMode: "database",
     analyze: analyzeFirstLevelFunnelFile,
   },
 };
 
-const FIRST_LEVEL_FUNNEL_STEPS = [
-  "app_launch",
-  "bootstrap_level_start",
-  "first_level_json_loaded",
-  "first_level_json_failed",
-  "first_level_ui_ready",
-  "tutorial_step_interactive_ready",
-  "first_level_any_touch",
-  "tutorial_tap_result",
-  "tutorial_fast_tap_ignored",
-  "first_touch",
-  "first_valid_select",
-  "timer_started",
-  "first_place_attempt",
-  "first_place_success",
-  "tutorial_step_show",
-  "tutorial_step_done",
-  "tutorial_done",
-  "level_pass",
-  "level_fail",
-  "app_hide",
+const PCH_ONBOARDING_LEVEL_IDS = [1, 2, 3];
+const PCH_FUNNEL_STEPS = [
+  "pch_first_store_success",
+  "pch_first_return_success",
+  "pch_guide_step_shown",
+  "pch_guide_tap_result",
+  "pch_guide_step_done",
 ];
 
-const FIRST_LEVEL_REPORT_STEPS = [
-  ["App启动", "app_launch"],
-  ["首关JSON加载", "first_level_json_loaded"],
-  ["UI ready", "first_level_ui_ready"],
-  ["教程可交互", "tutorial_step_interactive_ready"],
-  ["任意首触达", "first_level_any_touch"],
-  ["教程点击有结果", "tutorial_tap_result"],
-  ["首次有效选择", "first_valid_select"],
-  ["首次放置成功", "first_place_success"],
-  ["教程完成", "tutorial_done"],
-  ["L1通过", "level_pass"],
+const PCH_MILESTONE_REPORT_STEPS = [
+  ["首次存入传送带成功", "pch_first_store_success"],
+  ["首次从传送带归位成功", "pch_first_return_success"],
 ];
 
 const EXPERIMENT_GROUP_SPECS = [
@@ -867,8 +845,6 @@ function topDetailEntries(map, limit = 20) {
     }));
 }
 
-const FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID = 1;
-
 function getFunnelRecordLevelId(record) {
   const candidates = [
     record.logicalLevelId,
@@ -918,20 +894,24 @@ function summarizeFunnelRawTotals(records) {
   };
 }
 
-function scopedFunnelRecords(records, levelId) {
-  if (!levelId) {
+function scopedFunnelRecords(records, levelIds) {
+  const normalizedLevelIds = (Array.isArray(levelIds) ? levelIds : [levelIds])
+    .map((value) => Math.floor(Number(value) || 0))
+    .filter((value) => value > 0);
+  if (!normalizedLevelIds.length) {
     return records.slice().sort(compareFunnelRecordsByTime);
   }
+  const levelIdSet = new Set(normalizedLevelIds);
   const scopedSessionKeys = new Set();
   for (const record of records) {
-    if (getFunnelRecordLevelId(record) !== levelId) continue;
+    if (!levelIdSet.has(getFunnelRecordLevelId(record))) continue;
     const sessionKey = getSessionKey(record);
     if (sessionKey) scopedSessionKeys.add(sessionKey);
   }
   return records
     .filter((record) => {
       const recordLevelId = getFunnelRecordLevelId(record);
-      if (recordLevelId === levelId) return true;
+      if (levelIdSet.has(recordLevelId)) return true;
       if (recordLevelId !== 0) return false;
       const sessionKey = getSessionKey(record);
       return !!sessionKey && scopedSessionKeys.has(sessionKey);
@@ -946,18 +926,21 @@ function buildFirstLevelFunnelSummary({
   collection,
   envId,
   inputPath,
-  levelId,
+  levelIds = PCH_ONBOARDING_LEVEL_IDS,
 }) {
-  const scopedRecords = scopedFunnelRecords(records, levelId);
-  const scopeLabel = levelId ? `level=${levelId}` : "all_levels";
+  const normalizedLevelIds = (Array.isArray(levelIds) ? levelIds : [levelIds])
+    .map((value) => Math.floor(Number(value) || 0))
+    .filter((value) => value > 0);
+  const scopedRecords = scopedFunnelRecords(records, normalizedLevelIds)
+    .filter((record) => PCH_FUNNEL_STEPS.includes(record.eventName || ""));
+  const scopeLabel = `logical_levels=${normalizedLevelIds.join(",")}`;
   const eventStats = new Map();
   const sourceStats = new Map();
   const errorStats = new Map();
-  const touchTargetStats = new Map();
-  const tapResultStats = new Map();
-  const tapResultStepStats = new Map();
-  const tapResultDetails = new Map();
-  const tapResultStepDetails = new Map();
+  const guideTapResultStats = new Map();
+  const guideTapResultStepStats = new Map();
+  const guideTapResultDetails = new Map();
+  const guideTapResultStepDetails = new Map();
   const eventStepStats = new Map();
   const sessions = new Map();
   const users = new Set();
@@ -1005,17 +988,15 @@ function buildFirstLevelFunnelSummary({
     if (record.errorCode) {
       errorStats.set(record.errorCode, (errorStats.get(record.errorCode) || 0) + 1);
     }
-    if (eventName === "first_touch" && record.touchTarget) {
-      touchTargetStats.set(record.touchTarget, (touchTargetStats.get(record.touchTarget) || 0) + 1);
-    }
-    if (eventName === "tutorial_tap_result") {
-      const result = record.errorCode || (record.success ? "success" : "unknown");
-      const resultKey = `${result}|${record.touchTarget || "unknown"}`;
-      const stepKey = `${record.stepName || String(record.stepId || "unknown")}|${result}|${record.touchTarget || "unknown"}`;
-      tapResultStats.set(resultKey, (tapResultStats.get(resultKey) || 0) + 1);
-      tapResultStepStats.set(stepKey, (tapResultStepStats.get(stepKey) || 0) + 1);
-      addDetailStat(tapResultDetails, resultKey, sessionKey, userKey);
-      addDetailStat(tapResultStepDetails, stepKey, sessionKey, userKey);
+    if (eventName === "pch_guide_tap_result") {
+      const guideId = String(record.extra?.guideId || "unknown");
+      const result = String(record.extra?.result || record.errorCode || (record.success ? "success" : "unknown"));
+      const resultKey = `${guideId}|${result}`;
+      const stepKey = `L${getFunnelRecordLevelId(record)}|${record.stepName || String(record.stepId || "unknown")}|${result}`;
+      guideTapResultStats.set(resultKey, (guideTapResultStats.get(resultKey) || 0) + 1);
+      guideTapResultStepStats.set(stepKey, (guideTapResultStepStats.get(stepKey) || 0) + 1);
+      addDetailStat(guideTapResultDetails, resultKey, sessionKey, userKey);
+      addDetailStat(guideTapResultStepDetails, stepKey, sessionKey, userKey);
     }
     if (record.stepName) {
       const key = `${eventName}|${record.stepName}`;
@@ -1023,7 +1004,7 @@ function buildFirstLevelFunnelSummary({
     }
   }
 
-  const steps = FIRST_LEVEL_FUNNEL_STEPS.map((eventName) => {
+  const steps = PCH_FUNNEL_STEPS.map((eventName) => {
     const stat = eventStats.get(eventName);
     return {
       eventName,
@@ -1033,45 +1014,13 @@ function buildFirstLevelFunnelSummary({
     };
   });
   const eventMap = Object.fromEntries(steps.map((row) => [row.eventName, row]));
-  const durationFromLaunchToJsonLoaded = [];
-  const durationFromLaunchToUiReady = [];
-  const durationFromJsonLoadedToUiReady = [];
-  const durationFromUiReadyToAnyTouch = [];
-  const durationFromUiReadyToFirstTouch = [];
-  const durationFromUiReadyToPass = [];
-  const durationFromUiReadyToHide = [];
+  const durationFromFirstStoreToFirstReturn = [];
 
   for (const session of sessions.values()) {
-    const launch = session.events.get("app_launch") || 0;
-    const jsonLoaded = session.events.get("first_level_json_loaded") || 0;
-    const uiReady = session.events.get("first_level_ui_ready") || 0;
-    if (launch > 0 && jsonLoaded > launch) {
-      durationFromLaunchToJsonLoaded.push(jsonLoaded - launch);
-    }
-    if (launch > 0 && uiReady > launch) {
-      durationFromLaunchToUiReady.push(uiReady - launch);
-    }
-    if (jsonLoaded > 0 && uiReady > jsonLoaded) {
-      durationFromJsonLoadedToUiReady.push(uiReady - jsonLoaded);
-    }
-    if (!uiReady) {
-      continue;
-    }
-    const anyTouch = session.events.get("first_level_any_touch") || 0;
-    const firstTouch = session.events.get("first_touch") || 0;
-    const pass = session.events.get("level_pass") || 0;
-    const hide = session.events.get("app_hide") || 0;
-    if (anyTouch > uiReady) {
-      durationFromUiReadyToAnyTouch.push(anyTouch - uiReady);
-    }
-    if (firstTouch > uiReady) {
-      durationFromUiReadyToFirstTouch.push(firstTouch - uiReady);
-    }
-    if (pass > uiReady) {
-      durationFromUiReadyToPass.push(pass - uiReady);
-    }
-    if (hide > uiReady) {
-      durationFromUiReadyToHide.push(hide - uiReady);
+    const firstStore = session.events.get("pch_first_store_success") || 0;
+    const firstReturn = session.events.get("pch_first_return_success") || 0;
+    if (firstStore > 0 && firstReturn > firstStore) {
+      durationFromFirstStoreToFirstReturn.push(firstReturn - firstStore);
     }
   }
 
@@ -1082,11 +1031,8 @@ function buildFirstLevelFunnelSummary({
     inputPath,
     scope: {
       label: scopeLabel,
-      levelId: levelId || null,
-      defaultLevelOnly: levelId === FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID,
-      note: levelId
-        ? "Includes level-0 session events only when the same session has scoped level records."
-        : "Includes every first_level_funnel record.",
+      levelIds: normalizedLevelIds,
+      note: "Only the current PCH milestone and guide events from logical levels 1-3 are included.",
     },
     rawTotals,
     totalRecords: scopedRecords.length,
@@ -1094,32 +1040,19 @@ function buildFirstLevelFunnelSummary({
     totalUsers: users.size,
     steps,
     keyRates: {
-      jsonLoadedToUiReady: ratio(eventMap.first_level_ui_ready?.sessions, eventMap.first_level_json_loaded?.sessions),
-      uiReadyToAnyTouch: ratio(eventMap.first_level_any_touch?.sessions, eventMap.first_level_ui_ready?.sessions),
-      uiReadyToTutorialTapResult: ratio(eventMap.tutorial_tap_result?.sessions, eventMap.first_level_ui_ready?.sessions),
-      anyTouchToTutorialTapResult: ratio(eventMap.tutorial_tap_result?.sessions, eventMap.first_level_any_touch?.sessions),
-      anyTouchToFirstValidSelect: ratio(eventMap.first_valid_select?.sessions, eventMap.first_level_any_touch?.sessions),
-      firstValidSelectToFirstPlaceSuccess: ratio(eventMap.first_place_success?.sessions, eventMap.first_valid_select?.sessions),
-      tutorialDoneToPass: ratio(eventMap.level_pass?.sessions, eventMap.tutorial_done?.sessions),
-      uiReadyToPass: ratio(eventMap.level_pass?.sessions, eventMap.first_level_ui_ready?.sessions),
-      uiReadyToHide: ratio(eventMap.app_hide?.sessions, eventMap.first_level_ui_ready?.sessions),
+      firstStoreToFirstReturn: ratio(eventMap.pch_first_return_success?.sessions, eventMap.pch_first_store_success?.sessions),
+      guideShownToTap: ratio(eventMap.pch_guide_tap_result?.sessions, eventMap.pch_guide_step_shown?.sessions),
+      guideTapToDone: ratio(eventMap.pch_guide_step_done?.sessions, eventMap.pch_guide_tap_result?.sessions),
     },
     durationSeconds: {
-      launchToJsonLoaded: quantileSeconds(durationFromLaunchToJsonLoaded),
-      launchToUiReady: quantileSeconds(durationFromLaunchToUiReady),
-      jsonLoadedToUiReady: quantileSeconds(durationFromJsonLoadedToUiReady),
-      uiReadyToAnyTouch: quantileSeconds(durationFromUiReadyToAnyTouch),
-      uiReadyToFirstTouch: quantileSeconds(durationFromUiReadyToFirstTouch),
-      uiReadyToPass: quantileSeconds(durationFromUiReadyToPass),
-      uiReadyToHide: quantileSeconds(durationFromUiReadyToHide),
+      firstStoreToFirstReturn: quantileSeconds(durationFromFirstStoreToFirstReturn),
     },
     topSources: topMapEntries(sourceStats, 20),
-    touchTargets: topMapEntries(touchTargetStats, 20),
-    tapResults: topMapEntries(tapResultStats, 40),
-    tapResultSteps: topMapEntries(tapResultStepStats, 80),
-    tapResultDetails: topDetailEntries(tapResultDetails, 40),
-    tapResultStepDetails: topDetailEntries(tapResultStepDetails, 80),
-    adjacentStepDurationsMs: buildAdjacentStepDurationsMs(sessions, FIRST_LEVEL_REPORT_STEPS),
+    guideTapResults: topMapEntries(guideTapResultStats, 40),
+    guideTapResultSteps: topMapEntries(guideTapResultStepStats, 80),
+    guideTapResultDetails: topDetailEntries(guideTapResultDetails, 40),
+    guideTapResultStepDetails: topDetailEntries(guideTapResultStepDetails, 80),
+    adjacentStepDurationsMs: buildAdjacentStepDurationsMs(sessions, PCH_MILESTONE_REPORT_STEPS),
     eventSteps: topMapEntries(eventStepStats, 80),
     errorCodes: topMapEntries(errorStats, 20),
   };
@@ -1271,7 +1204,7 @@ function buildAdEventBreakdown(records) {
       clickNum: stat.clickNum,
       finishNum: stat.finishNum,
       userNum: stat.userSet.size,
-      clickRate: stat.showNum ? Number((stat.clickNum / stat.showNum).toFixed(4)) : 0,
+      showRate: stat.clickNum ? Number((stat.showNum / stat.clickNum).toFixed(4)) : 0,
       finishRate: stat.showNum ? Number((stat.finishNum / stat.showNum).toFixed(4)) : 0,
       finishPerClickRate: stat.clickNum
         ? Number((stat.finishNum / stat.clickNum).toFixed(4))
@@ -1285,6 +1218,64 @@ function buildAdEventBreakdown(records) {
     });
 
   return rows;
+}
+
+function getBehaviorRecordLevelId(record) {
+  const candidates = [record?.logicalLevelId, record?.levelId, record?.physicalLevelId];
+  for (const value of candidates) {
+    const levelId = Math.floor(Number(value) || 0);
+    if (levelId > 0) return levelId;
+  }
+  return 0;
+}
+
+function buildReviveAdFunnel(records) {
+  const revivePages = new Set(["level_revive", "pch_buffer_full_revive"]);
+  const eventNames = new Set(["revive_panel_show", "ad_click", "ad_show", "ad_finish", "revive_success"]);
+  const statMap = new Map();
+  for (const record of Array.isArray(records) ? records : []) {
+    const page = typeof record.page === "string" ? record.page.trim() : "";
+    const eventName = record.eventName || "";
+    if (!revivePages.has(page) || !eventNames.has(eventName)) continue;
+    const levelId = getBehaviorRecordLevelId(record);
+    if (!levelId) continue;
+    const key = `${levelId}|${page}`;
+    if (!statMap.has(key)) {
+      statMap.set(key, {
+        levelId,
+        page,
+        panelShowNum: 0,
+        clickNum: 0,
+        showNum: 0,
+        finishNum: 0,
+        reviveSuccessNum: 0,
+        users: new Set(),
+      });
+    }
+    const stat = statMap.get(key);
+    if (eventName === "revive_panel_show") stat.panelShowNum += 1;
+    if (eventName === "ad_click") stat.clickNum += 1;
+    if (eventName === "ad_show") stat.showNum += 1;
+    if (eventName === "ad_finish") stat.finishNum += 1;
+    if (eventName === "revive_success") stat.reviveSuccessNum += 1;
+    if (record.openid) stat.users.add(record.openid);
+  }
+  return [...statMap.values()]
+    .map((stat) => ({
+      levelId: stat.levelId,
+      page: stat.page,
+      panelShowNum: stat.panelShowNum,
+      clickNum: stat.clickNum,
+      showNum: stat.showNum,
+      finishNum: stat.finishNum,
+      reviveSuccessNum: stat.reviveSuccessNum,
+      userNum: stat.users.size,
+      panelClickRate: ratio(stat.clickNum, stat.panelShowNum),
+      adShowRate: ratio(stat.showNum, stat.clickNum),
+      adFinishRate: ratio(stat.finishNum, stat.showNum),
+      reviveSuccessRate: ratio(stat.reviveSuccessNum, stat.finishNum),
+    }))
+    .sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
 }
 
 function getAdDisplayLabel(row) {
@@ -1464,6 +1455,7 @@ function analyzeUserBehaviorFile({
     eventCounts: eventCountObject,
     pageCounts: pageCountObject,
     adEventBreakdown,
+    reviveAdFunnel: buildReviveAdFunnel(records),
     levelRows,
     lowPassLevels,
     topEnteredLevels,
@@ -1585,6 +1577,7 @@ function analyzeLevelRecordFile({
   let totalTryCount = 0;
   let totalDurationSeconds = 0;
   let durationCount = 0;
+  const totalSkillUses = { magnetUses: 0, brushUses: 0, freezeUses: 0 };
 
   for (const record of records) {
     const openid = record.openid || "";
@@ -1600,6 +1593,20 @@ function analyzeLevelRecordFile({
       startTime > 0 && endTime > startTime
         ? (endTime - startTime) / 1000
         : null;
+    const gameplayStats = record.gameplayMode === "pch_conveyor"
+      && Number(record.gameplaySchemaVersion) === 1
+      && record.gameplayStats
+      && typeof record.gameplayStats === "object"
+      ? record.gameplayStats
+      : null;
+    const skillUses = {
+      magnetUses: Math.max(0, Math.floor(Number(gameplayStats?.magnetUses) || 0)),
+      brushUses: Math.max(0, Math.floor(Number(gameplayStats?.brushUses) || 0)),
+      freezeUses: Math.max(0, Math.floor(Number(gameplayStats?.freezeUses) || 0)),
+    };
+    totalSkillUses.magnetUses += skillUses.magnetUses;
+    totalSkillUses.brushUses += skillUses.brushUses;
+    totalSkillUses.freezeUses += skillUses.freezeUses;
 
     if (openid) {
       uniqueUsers.add(openid);
@@ -1660,10 +1667,16 @@ function analyzeLevelRecordFile({
         durationSecondsSum: 0,
         durationCount: 0,
         durationSecondsList: [],
+        magnetUses: 0,
+        brushUses: 0,
+        freezeUses: 0,
       });
     }
 
     const row = levelStats.get(levelId);
+    row.magnetUses += skillUses.magnetUses;
+    row.brushUses += skillUses.brushUses;
+    row.freezeUses += skillUses.freezeUses;
     if (abandonedRecord) {
       row.abandonedCount += 1;
       if (openid) {
@@ -1712,6 +1725,9 @@ function analyzeLevelRecordFile({
       medianDurationSeconds: row.durationCount
         ? fixedNumber(quantileValue(row.durationSecondsList, 0.5), 2)
         : 0,
+      magnetUses: row.magnetUses,
+      brushUses: row.brushUses,
+      freezeUses: row.freezeUses,
     }))
     .sort((a, b) => a.levelId - b.levelId);
 
@@ -1783,6 +1799,7 @@ function analyzeLevelRecordFile({
     lowPassLevels,
     topRetryLevels,
     topAdReviveLevels,
+    skillUses: totalSkillUses,
   };
 
   const jsonPath = path.join(outputDir, "summary.json");
@@ -1811,6 +1828,7 @@ function analyzeLevelRecordFile({
     `- Share revive users: ${summary.shareReviveUsers}`,
     `- Avg try count: ${summary.avgTryCount.toFixed(2)}`,
     `- Avg duration: ${summary.avgDurationSeconds.toFixed(2)}s`,
+    `- Skill uses: magnet ${summary.skillUses.magnetUses}, brush ${summary.skillUses.brushUses}, freeze ${summary.skillUses.freezeUses}`,
     ``,
     `## Level 1`,
     ``,
@@ -1858,6 +1876,9 @@ function analyzeLevelRecordFile({
       "shareReviveCount",
       "avgTryCount",
       "avgDurationSeconds",
+      "magnetUses",
+      "brushUses",
+      "freezeUses",
     ],
     levelRows.map((row) => [
       row.levelId,
@@ -1871,6 +1892,9 @@ function analyzeLevelRecordFile({
       row.shareReviveCount,
       row.avgTryCount.toFixed(4),
       row.avgDurationSeconds.toFixed(2),
+      row.magnetUses,
+      row.brushUses,
+      row.freezeUses,
     ]),
   );
 
@@ -1900,17 +1924,17 @@ function analyzeFirstLevelFunnelFile({
     collection,
     envId,
     inputPath,
-    levelId: FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID,
+    levelIds: PCH_ONBOARDING_LEVEL_IDS,
   });
-  summary.allLevels = buildFirstLevelFunnelSummary({
+  summary.levels = PCH_ONBOARDING_LEVEL_IDS.map((levelId) => buildFirstLevelFunnelSummary({
     records,
     rawTotals,
     dateLabel,
     collection,
     envId,
     inputPath,
-    levelId: null,
-  });
+    levelIds: [levelId],
+  }));
 
   const jsonPath = path.join(outputDir, "summary.json");
   const markdownPath = path.join(outputDir, "report.md");
@@ -1925,14 +1949,13 @@ function analyzeFirstLevelFunnelFile({
       `- Environment: ${envId || "unknown"}`,
       `- Collection: ${collection}`,
       `- Source file: ${inputPath}`,
-      `- Default scope: ${summary.scope?.label || "level=1"}; all-level view is saved in summary.allLevels.`,
+      `- Scope: ${summary.scope?.label || "logical_levels=1,2,3"}; per-level views are saved in summary.levels.`,
       ``,
       `## Key Rates`,
       ``,
-      `- UI ready -> 任意首触达: ${percentText(summary.keyRates.uiReadyToAnyTouch)}`,
-      `- 任意首触达 -> 教程点击有结果: ${percentText(summary.keyRates.anyTouchToTutorialTapResult)}`,
-      `- 任意首触达 -> 首次有效选择: ${percentText(summary.keyRates.anyTouchToFirstValidSelect)}`,
-      `- UI ready -> L1通过: ${percentText(summary.keyRates.uiReadyToPass)}`,
+      `- 首次存入 -> 首次归位: ${percentText(summary.keyRates.firstStoreToFirstReturn)}`,
+      `- 引导曝光 -> 引导点击结果: ${percentText(summary.keyRates.guideShownToTap)}`,
+      `- 引导点击结果 -> 引导完成: ${percentText(summary.keyRates.guideTapToDone)}`,
       ``,
       `## Steps`,
       ``,
@@ -1981,7 +2004,7 @@ function analyzeAdStatFile({
       clickNum,
       finishNum,
       userNum,
-      clickRate: showNum ? clickNum / showNum : 0,
+      showRate: clickNum ? showNum / clickNum : 0,
       finishRate: showNum ? finishNum / showNum : 0,
       finishPerClickRate: clickNum ? finishNum / clickNum : 0,
     };
@@ -2017,7 +2040,7 @@ function analyzeAdStatFile({
     totalClickNum: totals.clickNum,
     totalFinishNum: totals.finishNum,
     totalUserNum: totals.userNum,
-    clickRate: totals.showNum ? Number((totals.clickNum / totals.showNum).toFixed(4)) : 0,
+    showRate: totals.clickNum ? Number((totals.showNum / totals.clickNum).toFixed(4)) : 0,
     finishRate: totals.showNum ? Number((totals.finishNum / totals.showNum).toFixed(4)) : 0,
     finishPerClickRate: totals.clickNum
       ? Number((totals.finishNum / totals.clickNum).toFixed(4))
@@ -2047,7 +2070,7 @@ function analyzeAdStatFile({
     `- Total click: ${summary.totalClickNum}`,
     `- Total finish: ${summary.totalFinishNum}`,
     `- Total user num sum: ${summary.totalUserNum}`,
-    `- Click rate: ${(summary.clickRate * 100).toFixed(1)}%`,
+    `- Show after click rate: ${(summary.showRate * 100).toFixed(1)}%`,
     `- Finish rate: ${(summary.finishRate * 100).toFixed(1)}%`,
     `- Finish per click: ${(summary.finishPerClickRate * 100).toFixed(1)}%`,
     ``,
@@ -2078,7 +2101,7 @@ function analyzeAdStatFile({
       "clickNum",
       "finishNum",
       "userNum",
-      "clickRate",
+      "showRate",
       "finishRate",
       "finishPerClickRate",
     ],
@@ -2089,7 +2112,7 @@ function analyzeAdStatFile({
       row.clickNum,
       row.finishNum,
       row.userNum,
-      row.clickRate.toFixed(4),
+      row.showRate.toFixed(4),
       row.finishRate.toFixed(4),
       row.finishPerClickRate.toFixed(4),
     ]),
@@ -2253,7 +2276,7 @@ function buildEffectiveAdStat({
   const totalShowNum = Number(userBehaviorSummary?.eventCounts?.ad_show) || 0;
   const totalClickNum = Number(userBehaviorSummary?.eventCounts?.ad_click) || 0;
   const totalFinishNum = Number(userBehaviorSummary?.eventCounts?.ad_finish) || 0;
-  const clickRate = totalShowNum ? totalClickNum / totalShowNum : 0;
+  const showRate = totalClickNum ? totalShowNum / totalClickNum : 0;
   const finishRate = totalShowNum ? totalFinishNum / totalShowNum : 0;
   const finishPerClickRate = totalClickNum ? totalFinishNum / totalClickNum : 0;
   const breakdownRows = Array.isArray(userBehaviorSummary?.adEventBreakdown)
@@ -2268,7 +2291,7 @@ function buildEffectiveAdStat({
     clickNum: totalClickNum,
     finishNum: totalFinishNum,
     userNum: Number(userBehaviorSummary?.adUsers) || 0,
-    clickRate,
+    showRate,
     finishRate,
     finishPerClickRate,
   };
@@ -2286,7 +2309,7 @@ function buildEffectiveAdStat({
     totalClickNum,
     totalFinishNum,
     totalUserNum: Number(userBehaviorSummary?.adUsers) || 0,
-    clickRate: Number(clickRate.toFixed(4)),
+    showRate: Number(showRate.toFixed(4)),
     finishRate: Number(finishRate.toFixed(4)),
     finishPerClickRate: Number(finishPerClickRate.toFixed(4)),
     topByShow: breakdownRows.length ? breakdownRows : (totalShowNum > 0 ? [aggregateRow] : []),
@@ -2561,23 +2584,16 @@ function classifyBottleneck(row) {
   return "观察";
 }
 
-function buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary }) {
+function buildFirstLevelFunnelRows({ funnelSummary }) {
   const stepMap = firstLevelStepMap(funnelSummary);
   const latencyByFromEvent = new Map(
     (Array.isArray(funnelSummary?.adjacentStepDurationsMs) ? funnelSummary.adjacentStepDurationsMs : [])
       .map((row) => [row.fromEventName, row]),
   );
-  const startSessions =
-    stepMap.app_launch?.sessions ||
-    stepMap.first_level_ui_ready?.sessions ||
-    0;
-  const startUsers =
-    stepMap.app_launch?.users ||
-    stepMap.first_level_ui_ready?.users ||
-    Number(userBehaviorSummary?.levelOneEnterUv) ||
-    0;
+  const startSessions = stepMap.pch_first_store_success?.sessions || 0;
+  const startUsers = stepMap.pch_first_store_success?.users || 0;
   let previousSessions = 0;
-  return FIRST_LEVEL_REPORT_STEPS.map(([label, eventName]) => {
+  return PCH_MILESTONE_REPORT_STEPS.map(([label, eventName]) => {
     const stat = stepMap[eventName] || { records: 0, sessions: 0, users: 0 };
     const row = {
       label,
@@ -2628,6 +2644,9 @@ function buildFirst20Levels({ userBehaviorSummary, levelRecordSummary }) {
       avgDurationSeconds: fixedNumber(record.avgDurationSeconds, 2),
       medianDurationSeconds: fixedNumber(record.medianDurationSeconds, 2),
       adReviveCount: numberValue(record.adReviveCount),
+      magnetUses: numberValue(record.magnetUses),
+      brushUses: numberValue(record.brushUses),
+      freezeUses: numberValue(record.freezeUses),
       diagnosis: classifyBottleneck({
         enterUv,
         failUv,
@@ -2795,16 +2814,10 @@ function unionSets(...sets) {
 }
 
 function collectFirstLevelStartUsers(funnelRecords) {
-  const scopedRecords = scopedFunnelRecords(funnelRecords || [], FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID);
+  const scopedRecords = scopedFunnelRecords(funnelRecords || [], PCH_ONBOARDING_LEVEL_IDS);
   const startUsers = new Set();
   for (const record of scopedRecords) {
-    if (record.eventName === "app_launch" && record.openid) {
-      startUsers.add(record.openid);
-    }
-  }
-  if (startUsers.size) return startUsers;
-  for (const record of scopedRecords) {
-    if (record.eventName === "first_level_ui_ready" && record.openid) {
+    if (record.eventName === "pch_first_store_success" && record.openid) {
       startUsers.add(record.openid);
     }
   }
@@ -3101,7 +3114,7 @@ function buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels,
   const l1 = first20Levels[0] || {};
   const l1NotPass = numberValue(l1.enterNotPassUv);
   if (!funnelSummary || numberValue(funnelSummary.totalRecords) === 0) {
-    warnings.push("缺少 first_level_funnel 数据，首关细分漏斗不可用。");
+    warnings.push("缺少 first_level_funnel 中的 PCH 前三关事件，PCH 里程碑漏斗不可用。");
   }
   if (!Array.isArray(userBehaviorSummary?.levelRows)) {
     warnings.push("user_behavior summary 缺少完整 levelRows，前20关只能部分回填。");
@@ -3115,16 +3128,11 @@ function buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels,
   if (l1NotPass > 0 && numberValue(l1.failUv) <= Math.max(2, l1NotPass * 0.05)) {
     warnings.push("L1 进入未通过用户几乎没有显式 level_fail，需按中途退出/卡住/日志缺口解释。");
   }
-  if (funnelSummary?.rawTotals?.records > funnelSummary?.totalRecords) {
-    warnings.push("first_level_funnel 默认只展示 level=1；HTML 勾选“显示全部 level”可查看未过滤数据。");
-  }
   return {
-    firstLevelFunnelRecords: numberValue(funnelSummary?.totalRecords),
-    firstLevelFunnelSessions: numberValue(funnelSummary?.totalSessions),
-    firstLevelFunnelScope: funnelSummary?.scope?.label || "legacy",
-    firstLevelFunnelRawRecords: numberValue(funnelSummary?.rawTotals?.records || funnelSummary?.allLevels?.totalRecords),
-    firstLevelFunnelAllLevelRecords: numberValue(funnelSummary?.allLevels?.totalRecords),
-    firstLevelFunnelAllLevelSessions: numberValue(funnelSummary?.allLevels?.totalSessions),
+    pchFunnelRecords: numberValue(funnelSummary?.totalRecords),
+    pchFunnelSessions: numberValue(funnelSummary?.totalSessions),
+    pchFunnelScope: funnelSummary?.scope?.label || "logical_levels=1,2,3",
+    pchFunnelRawRecords: numberValue(funnelSummary?.rawTotals?.records),
     adStatSource: combinedSummary.effectiveAdStat?.source || "unknown",
     dailyCoreSource: combinedSummary.effectiveDailyCore?.source || "unknown",
     l1FailCoverageRate: ratio(l1.failUv, l1NotPass),
@@ -3216,8 +3224,7 @@ function normalizeChurnAction(record, source) {
     "first_level_json_loaded",
     "first_level_json_failed",
     "first_level_ui_ready",
-    "tutorial_step_interactive_ready",
-    "tutorial_step_show",
+    "pch_guide_step_shown",
     "timer_started",
     "game_start",
     "enter_level",
@@ -3227,36 +3234,18 @@ function normalizeChurnAction(record, source) {
   ]);
   if (!eventName || passiveEvents.has(eventName)) return null;
 
-  if (eventName === "tutorial_tap_result") {
-    const result = record.errorCode || (record.success ? "success" : "unknown");
-    const target = record.touchTarget || "unknown";
+  if (eventName === "pch_guide_tap_result") {
+    const result = String(record.extra?.result || record.errorCode || (record.success ? "success" : "unknown"));
+    const guideId = String(record.extra?.guideId || "unknown");
     const step = guideStepKey(record);
     return {
-      key: `${step}|${result}|${target}`,
-      meaning: `步骤 ${step}：${describeTapResult(result, target)}`,
+      key: `${guideId}|${step}|${result}`,
+      meaning: `PCH 引导 ${guideId} / ${step}：${result}`,
     };
   }
-
-  if (eventName === "first_touch") {
-    return { key: `first_touch|${record.touchTarget || "unknown"}`, meaning: `旧首触达：${record.touchTarget || "unknown"}` };
-  }
-  if (eventName === "first_valid_select") {
-    const target = record.touchTarget || "board";
-    return { key: `first_valid_select|${target}`, meaning: `首次有效选中豆子（${target}）` };
-  }
-  if (eventName === "first_place_attempt") {
-    const target = record.touchTarget || "slot";
-    return { key: `first_place_attempt|${target}`, meaning: `首次尝试放入槽位（${target}）` };
-  }
-  if (eventName === "first_place_success") {
-    return { key: "first_place_success", meaning: "首次成功放入槽位" };
-  }
-  if (eventName === "tutorial_fast_tap_ignored") {
-    return { key: "tutorial_fast_tap_ignored", meaning: "点击过快被教程忽略" };
-  }
-  if (eventName === "tutorial_done") {
-    return { key: "tutorial_done", meaning: "教程完成" };
-  }
+  if (eventName === "pch_guide_step_done") return { key: eventName, meaning: "PCH 引导步骤完成" };
+  if (eventName === "pch_first_store_success") return { key: eventName, meaning: "PCH 首次存入传送带成功" };
+  if (eventName === "pch_first_return_success") return { key: eventName, meaning: "PCH 首次从传送带归位成功" };
 
   if (["level_pass", "level_fail"].includes(eventName) && Number.isFinite(levelId) && levelId > 0) {
     const label = { level_pass: "通过关卡", level_fail: "关卡失败" }[eventName];
@@ -3575,7 +3564,7 @@ function buildExperimentAdPerformance(behaviorRecords) {
       clickNum,
       finishNum,
       userNum: adUsers.size,
-      clickRate: ratio(clickNum, showNum),
+      showRate: ratio(showNum, clickNum),
       finishRate: ratio(finishNum, showNum),
       finishPerClickRate: ratio(finishNum, clickNum),
     },
@@ -3620,7 +3609,7 @@ function buildDailyExperimentBreakdowns(combinedSummary, preloaded = {}) {
       collection: "first_level_funnel",
       envId: combinedSummary.envId,
       inputPath: getCollectionExportPath(combinedSummary, "first_level_funnel"),
-      levelId: FIRST_LEVEL_FUNNEL_DEFAULT_LEVEL_ID,
+      levelIds: PCH_ONBOARDING_LEVEL_IDS,
     });
     return buildFirstLevelFunnelRows({
       funnelSummary,
@@ -3843,43 +3832,34 @@ function buildLevelNetValue({ combinedSummary, userBehaviorSummary, levelRecordS
   };
 }
 
-function buildRecommendations({ coreMetrics, funnelRows, tutorialTapBreakdown, mainlineBottlenecks, highRetryLevels, adPerformance, levelAdRelationship, levelNetValue }) {
+function buildRecommendations({ coreMetrics, funnelRows, guideTapBreakdown, mainlineBottlenecks, highRetryLevels, adPerformance, levelAdRelationship, levelNetValue }) {
   const recommendations = [];
-  const uiReady = funnelRows.find((row) => row.eventName === "first_level_ui_ready");
-  const anyTouch = funnelRows.find((row) => row.eventName === "first_level_any_touch");
-  const validSelect = funnelRows.find((row) => row.eventName === "first_valid_select");
-  const topTapMiss = tutorialTapBreakdown.find((row) => !String(row.key || "").startsWith("success"));
+  const firstStore = funnelRows.find((row) => row.eventName === "pch_first_store_success");
+  const firstReturn = funnelRows.find((row) => row.eventName === "pch_first_return_success");
+  const topTapMiss = guideTapBreakdown.find((row) => !String(row.key || "").endsWith("|completed"));
 
   if (coreMetrics.l1UvPassRate < 0.3) {
     recommendations.push({
       priority: "P0",
       topic: "首关漏斗通过率",
       finding: `App启动到L1通过UV率 ${percentText(coreMetrics.l1UvPassRate)}，低于 30%。`,
-      action: "优先评审首关教程、可点击范围、第一步目标表达和第二步放置节奏。",
+      action: "优先评审首关 PCH 引导、可点击范围、首次存入和首次归位节奏。",
     });
   }
-  if (uiReady && anyTouch && ratio(anyTouch.sessions, uiReady.sessions) < 0.7) {
+  if (firstStore && firstReturn && ratio(firstReturn.sessions, firstStore.sessions) < 0.6) {
     recommendations.push({
       priority: "P0",
-      topic: "首关首触达",
-      finding: `UI ready 后任意首触达率 ${percentText(ratio(anyTouch.sessions, uiReady.sessions))}。`,
-      action: "继续优化首屏视觉焦点、手势引导和文案位置，并检查是否存在加载后无响应/遮罩误拦截。",
-    });
-  }
-  if (anyTouch && validSelect && ratio(validSelect.sessions, anyTouch.sessions) < 0.6) {
-    recommendations.push({
-      priority: "P0",
-      topic: "教程点击有效性",
-      finding: `任意首触达到首次有效选择转化 ${percentText(ratio(validSelect.sessions, anyTouch.sessions))}。`,
-      action: "放宽教程期合法点击、强化目标区域高亮，并按 tutorial_tap_result 的错误类型做专项修复。",
+      topic: "PCH 首次归位",
+      finding: `前三关首次存入到首次归位转化 ${percentText(ratio(firstReturn.sessions, firstStore.sessions))}。`,
+      action: "检查传送带入口、出口归位节奏和首次操作引导是否让玩家理解等待与归位规则。",
     });
   }
   if (topTapMiss) {
     recommendations.push({
       priority: "P1",
-      topic: "误点类型",
-      finding: `最高频非成功点击为 ${topTapMiss.key}，PV ${topTapMiss.records}。`,
-      action: "优先复查这个点击类型对应的引导步骤、目标判定和视觉暗示。",
+      topic: "PCH 引导结果",
+      finding: `最高频引导点击结果为 ${topTapMiss.key}，PV ${topTapMiss.records}。`,
+      action: "优先复查对应关卡的引导步骤、目标判定和视觉暗示。",
     });
   }
   if (mainlineBottlenecks[0]) {
@@ -3935,32 +3915,19 @@ function buildDailyDiagnosis(combinedSummary) {
   const userBehaviorSummary = collectionSummary(combinedSummary, "user_behavior");
   const levelRecordSummary = collectionSummary(combinedSummary, "level_record");
   const funnelSummary = collectionSummary(combinedSummary, "first_level_funnel");
-  const allLevelsFunnelSummary = funnelSummary?.allLevels || null;
   const first20Levels = buildFirst20Levels({ userBehaviorSummary, levelRecordSummary });
-  const firstLevelFunnel = buildFirstLevelFunnelRows({ funnelSummary, userBehaviorSummary });
-  const firstLevelFunnelAllLevels = buildFirstLevelFunnelRows({
-    funnelSummary: allLevelsFunnelSummary,
-    userBehaviorSummary,
-  });
+  const firstLevelFunnel = buildFirstLevelFunnelRows({ funnelSummary });
   const mainlineBottlenecks = buildMainlineBottlenecks(first20Levels);
   const highRetryLevels = buildHighRetryLevels(levelRecordSummary);
-  const tutorialTapBreakdown = Array.isArray(funnelSummary?.tapResultDetails)
-    ? funnelSummary.tapResultDetails
+  const guideTapBreakdown = Array.isArray(funnelSummary?.guideTapResultDetails)
+    ? funnelSummary.guideTapResultDetails
     : [];
-  const tutorialTapByStep = Array.isArray(funnelSummary?.tapResultStepDetails)
-    ? funnelSummary.tapResultStepDetails
-    : [];
-  const tutorialTapBreakdownAllLevels = Array.isArray(allLevelsFunnelSummary?.tapResultDetails)
-    ? allLevelsFunnelSummary.tapResultDetails
-    : [];
-  const tutorialTapByStepAllLevels = Array.isArray(allLevelsFunnelSummary?.tapResultStepDetails)
-    ? allLevelsFunnelSummary.tapResultStepDetails
+  const guideTapByStep = Array.isArray(funnelSummary?.guideTapResultStepDetails)
+    ? funnelSummary.guideTapResultStepDetails
     : [];
   const ad = combinedSummary.effectiveAdStat || {};
-  const funnelStart = firstLevelFunnel.find((row) => row.eventName === "app_launch")
-    || firstLevelFunnel.find((row) => row.eventName === "first_level_ui_ready")
-    || {};
-  const funnelPass = firstLevelFunnel.find((row) => row.eventName === "level_pass") || {};
+  const firstStore = firstLevelFunnel.find((row) => row.eventName === "pch_first_store_success") || {};
+  const firstReturn = firstLevelFunnel.find((row) => row.eventName === "pch_first_return_success") || {};
   const l1LevelEnterUv = numberValue(userBehaviorSummary?.levelOneEnterUv);
   const l1LevelPassUv = numberValue(userBehaviorSummary?.levelOnePassUv);
   const coreMetrics = {
@@ -3970,25 +3937,18 @@ function buildDailyDiagnosis(combinedSummary) {
     gameStartUsers: numberValue(userBehaviorSummary?.startUsers),
     enterLevelUsers: numberValue(userBehaviorSummary?.enterUsers),
     passUsers: numberValue(userBehaviorSummary?.passUsers),
-    l1EnterUv: numberValue(funnelStart.users),
-    l1PassUv: numberValue(funnelPass.users),
+    l1EnterUv: l1LevelEnterUv,
+    l1PassUv: l1LevelPassUv,
     l1FailUv: numberValue(userBehaviorSummary?.levelOneFailUv),
-    l1EnterNotPassUv: Math.max(0, numberValue(funnelStart.users) - numberValue(funnelPass.users)),
-    l1UvPassRate: ratio(funnelPass.users, funnelStart.users),
-    l1PassRateDenominator: "first_level_funnel.app_launch.users",
-    l1FunnelStartEvent: funnelStart.eventName || "app_launch",
-    l1FunnelStartUv: numberValue(funnelStart.users),
-    l1FunnelPassUv: numberValue(funnelPass.users),
-    l1FunnelUvPassRate: ratio(funnelPass.users, funnelStart.users),
+    l1EnterNotPassUv: Math.max(0, l1LevelEnterUv - l1LevelPassUv),
+    l1UvPassRate: ratio(l1LevelPassUv, l1LevelEnterUv),
+    l1PassRateDenominator: "user_behavior.enter_level.users",
     l1LevelEnterUv,
     l1LevelPassUv,
     l1LevelEnterPassRate: ratio(l1LevelPassUv, l1LevelEnterUv),
-    firstLevelUiReadySessions: numberValue(firstLevelFunnel.find((row) => row.eventName === "first_level_ui_ready")?.sessions),
-    firstLevelAnyTouchSessions: numberValue(firstLevelFunnel.find((row) => row.eventName === "first_level_any_touch")?.sessions),
-    firstLevelAnyTouchRate: ratio(
-      firstLevelFunnel.find((row) => row.eventName === "first_level_any_touch")?.sessions,
-      firstLevelFunnel.find((row) => row.eventName === "first_level_ui_ready")?.sessions,
-    ),
+    pchFirstStoreSessions: numberValue(firstStore.sessions),
+    pchFirstReturnSessions: numberValue(firstReturn.sessions),
+    pchFirstStoreToReturnRate: ratio(firstReturn.sessions, firstStore.sessions),
     adShowPv: numberValue(ad.totalShowNum),
     adClickPv: numberValue(ad.totalClickNum),
     adFinishPv: numberValue(ad.totalFinishNum),
@@ -4002,7 +3962,7 @@ function buildDailyDiagnosis(combinedSummary) {
       clickNum: numberValue(ad.totalClickNum),
       finishNum: numberValue(ad.totalFinishNum),
       userNum: numberValue(ad.totalUserNum),
-      clickRate: numberValue(ad.clickRate),
+      showRate: numberValue(ad.showRate),
       finishRate: numberValue(ad.finishRate),
       finishPerClickRate: numberValue(ad.finishPerClickRate),
     },
@@ -4020,17 +3980,14 @@ function buildDailyDiagnosis(combinedSummary) {
   });
 
   return {
-    schemaVersion: 9,
+    schemaVersion: 10,
     generatedAt: new Date().toISOString(),
     coreMetrics,
     firstLevelFunnel,
-    firstLevelFunnelAllLevels,
-    firstLevelFunnelScope: funnelSummary?.scope || null,
-    firstLevelFunnelAllLevelsScope: allLevelsFunnelSummary?.scope || null,
-    tutorialTapBreakdown,
-    tutorialTapByStep,
-    tutorialTapBreakdownAllLevels,
-    tutorialTapByStepAllLevels,
+    pchFunnelScope: funnelSummary?.scope || null,
+    guideTapBreakdown,
+    guideTapByStep,
+    reviveAdFunnel: Array.isArray(userBehaviorSummary?.reviveAdFunnel) ? userBehaviorSummary.reviveAdFunnel : [],
     first20Levels,
     mainlineBottlenecks,
     highRetryLevels,
@@ -4043,7 +4000,7 @@ function buildDailyDiagnosis(combinedSummary) {
     recommendations: buildRecommendations({
       coreMetrics,
       funnelRows: firstLevelFunnel,
-      tutorialTapBreakdown,
+      guideTapBreakdown,
       mainlineBottlenecks,
       highRetryLevels,
       adPerformance,
@@ -4135,19 +4092,21 @@ function writeCombinedOutputs({
         ["game_start UV", integerText(core.gameStartUsers), "user_behavior"],
         ["enter_level UV", integerText(core.enterLevelUsers), "user_behavior"],
         ["任意通关 UV", integerText(core.passUsers), "user_behavior"],
-        ["首关漏斗起点UV", integerText(core.l1EnterUv), `first_level_funnel ${core.l1FunnelStartEvent || "app_launch"}`],
-        ["L1通过UV", integerText(core.l1PassUv), "first_level_funnel level_pass"],
-        ["首关漏斗UV通过率", percentText(core.l1UvPassRate), "level_pass UV / app_launch UV"],
+        ["L1进入UV", integerText(core.l1EnterUv), "user_behavior enter_level"],
+        ["L1通过UV", integerText(core.l1PassUv), "user_behavior level_pass"],
+        ["L1进入后UV通过率", percentText(core.l1UvPassRate), "level_pass UV / enter_level UV"],
         ["L1进入后UV通过率", percentText(core.l1LevelEnterPassRate), "user_behavior level_pass UV / level_enter UV"],
-        ["UI ready 后任意首触达率", percentText(core.firstLevelAnyTouchRate), "first_level_funnel session口径"],
+        ["前三关首次存入Session", integerText(core.pchFirstStoreSessions), "first_level_funnel PCH事件"],
+        ["前三关首次归位Session", integerText(core.pchFirstReturnSessions), "first_level_funnel PCH事件"],
+        ["首次存入到首次归位", percentText(core.pchFirstStoreToReturnRate), "Session口径"],
         ["广告完成率", percentText(core.adFinishRate), `source=${diagnosis.adPerformance.source}`],
       ],
     ),
     ``,
-    `## 首关/教程漏斗`,
+    `## 前三关 PCH 里程碑`,
     ``,
     markdownTable(
-      ["步骤", "事件", "UV", "UV占App启动", "Session", "Session占App启动", "上一步转化", "PV/records"],
+      ["步骤", "事件", "UV", "UV占首次存入", "Session", "Session占首次存入", "上一步转化", "PV/records"],
       diagnosis.firstLevelFunnel.map((row) => [
         row.label,
         row.eventName,
@@ -4160,16 +4119,35 @@ function writeCombinedOutputs({
       ]),
     ),
     ``,
-    `## 教程点击结果分布`,
+    `## PCH 引导点击结果分布`,
     ``,
     markdownTable(
       ["类型", "PV", "Session", "UV", "PV占比"],
-      diagnosis.tutorialTapBreakdown.map((row) => [
+      diagnosis.guideTapBreakdown.map((row) => [
         row.key,
         integerText(row.records),
         integerText(row.sessions),
         integerText(row.users),
-        percentText(ratio(row.records, diagnosis.tutorialTapBreakdown.reduce((sum, item) => sum + numberValue(item.records), 0))),
+        percentText(ratio(row.records, diagnosis.guideTapBreakdown.reduce((sum, item) => sum + numberValue(item.records), 0))),
+      ]),
+    ),
+    ``,
+    `## 分关卡复活广告漏斗`,
+    ``,
+    markdownTable(
+      ["关卡", "入口", "面板曝光", "广告点击", "广告展示", "广告完成", "复活成功", "点击/面板", "展示/点击", "完成/展示", "复活/完成"],
+      diagnosis.reviveAdFunnel.map((row) => [
+        `L${row.levelId}`,
+        row.page,
+        integerText(row.panelShowNum),
+        integerText(row.clickNum),
+        integerText(row.showNum),
+        integerText(row.finishNum),
+        integerText(row.reviveSuccessNum),
+        percentText(row.panelClickRate),
+        percentText(row.adShowRate),
+        percentText(row.adFinishRate),
+        percentText(row.reviveSuccessRate),
       ]),
     ),
     ``,
@@ -4183,7 +4161,7 @@ function writeCombinedOutputs({
     `## 前20关全量表现`,
     ``,
     markdownTable(
-      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "通过/进入UV", "记录局数", "平均尝试", "平均时长", "广告续关", "判断"],
+      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "通过/进入UV", "记录局数", "平均尝试", "平均时长", "广告续关", "磁铁", "刷子", "冻结", "判断"],
       diagnosis.first20Levels.map((row) => [
         `L${row.levelId}`,
         integerText(row.enterUv),
@@ -4195,6 +4173,9 @@ function writeCombinedOutputs({
         row.avgTryCount.toFixed(2),
         `${row.avgDurationSeconds.toFixed(1)}s`,
         integerText(row.adReviveCount),
+        integerText(row.magnetUses),
+        integerText(row.brushUses),
+        integerText(row.freezeUses),
         row.diagnosis,
       ]),
     ),
@@ -4288,14 +4269,14 @@ function writeCombinedOutputs({
     `## 广告表现`,
     ``,
     markdownTable(
-      ["广告位", "展示PV", "点击PV", "完成PV", "触达UV", "点击率", "完成率", "点击后完成率"],
+      ["广告位", "展示PV", "点击PV", "完成PV", "触达UV", "点击后展示率", "展示后完成率", "点击后完成率"],
       diagnosis.adPerformance.topByShow.map((row) => [
         getAdDisplayLabel(row),
         integerText(row.showNum),
         integerText(row.clickNum),
         integerText(row.finishNum),
         integerText(row.userNum),
-        percentText(row.clickRate),
+        percentText(row.showRate),
         percentText(row.finishRate),
         percentText(row.finishPerClickRate),
       ]),
@@ -4306,11 +4287,9 @@ function writeCombinedOutputs({
     markdownTable(
       ["检查项", "结果"],
       [
-        ["first_level_funnel scope", diagnosis.dataQuality.firstLevelFunnelScope || "legacy"],
-        ["first_level_funnel records", integerText(diagnosis.dataQuality.firstLevelFunnelRecords)],
-        ["first_level_funnel sessions", integerText(diagnosis.dataQuality.firstLevelFunnelSessions)],
-        ["first_level_funnel all-level records", integerText(diagnosis.dataQuality.firstLevelFunnelAllLevelRecords)],
-        ["first_level_funnel all-level sessions", integerText(diagnosis.dataQuality.firstLevelFunnelAllLevelSessions)],
+        ["PCH funnel scope", diagnosis.dataQuality.pchFunnelScope || "logical_levels=1,2,3"],
+        ["PCH funnel records", integerText(diagnosis.dataQuality.pchFunnelRecords)],
+        ["PCH funnel sessions", integerText(diagnosis.dataQuality.pchFunnelSessions)],
         ["daily core source", diagnosis.dataQuality.dailyCoreSource],
         ["ad source", diagnosis.dataQuality.adStatSource],
         ["L1 fail覆盖率", percentText(diagnosis.dataQuality.l1FailCoverageRate)],

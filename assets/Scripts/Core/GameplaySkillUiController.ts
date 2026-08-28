@@ -158,6 +158,27 @@ export class GameplaySkillUiController {
         return true;
     }
 
+    private isSkillAcquireRuntimeAvailable(): boolean {
+        const runtime = this.runtime;
+        return !runtime.isGameEnd
+            && !runtime._skillActive
+            && !(runtime._guideStep >= 0);
+    }
+
+    private resolveSkillButtonAvailability(
+        skill: Pick<GameplaySkillConfig, 'kind' | 'preCheck'>,
+        inventoryCount: number,
+    ): { available: boolean; visuallyAvailable: boolean } {
+        if (inventoryCount <= 0) {
+            const available = this.isSkillAcquireRuntimeAvailable();
+            return { available, visuallyAvailable: available };
+        }
+        return {
+            available: this.isSkillRuntimeAvailable(skill),
+            visuallyAvailable: this.isSkillRuntimeVisuallyAvailable(skill),
+        };
+    }
+
     private invokeSkillHandler(skill: GameplaySkillConfig, timerAlreadyPaused: boolean): boolean {
         try {
             return skill.handler(timerAlreadyPaused) !== false;
@@ -168,6 +189,14 @@ export class GameplaySkillUiController {
             }
             throw error;
         }
+    }
+
+    private useFreezeFromAdGrant(): boolean {
+        const runtime = this.runtime;
+        if (runtime.isGameEnd || runtime._skillActive) return false;
+        runtime.markDynamicCountdownAssisted?.();
+        runtime.useSkillFreeze(true);
+        return runtime._skillActive === true;
     }
 
     private cloneColor(color: Color): Color {
@@ -243,25 +272,6 @@ export class GameplaySkillUiController {
         }
     }
 
-    private useSkillFromAdGrant(skill: GameplaySkillConfig): boolean {
-        const runtime = this.runtime;
-        if (!this.isSkillRuntimeAvailable(skill)) return false;
-        if (runtime.isPlacementVisualBusy?.()) return false;
-        if (runtime.isGameEnd || runtime._skillActive || runtime._guideStep >= 0) return false;
-        if (runtime.isSelected || runtime.currentBlock) {
-            runtime.cancelSelection();
-        }
-        const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;
-        if (skill.preCheck && !skill.preCheck()) {
-            if (timerPausedForFinalSecond) {
-                runtime.resumeSkillTimerPause?.();
-            }
-            return false;
-        }
-        runtime.markDynamicCountdownAssisted?.();
-        return this.invokeSkillHandler(skill, timerPausedForFinalSecond);
-    }
-
     syncSkillButtonRuntimeStates() {
         const runtime = this.runtime;
         if (!runtime.levelData || runtime.isGameEnd) return;
@@ -286,10 +296,12 @@ export class GameplaySkillUiController {
             if (!isGameplaySkillUnlocked(currentLevel, entryMode, state.unlockLevel)) continue;
             const shell = root.getChildByName(state.shellName);
             if (!shell?.isValid || !shell.active) continue;
+            const inventoryCount = runtime.getPropCount(state.kind);
+            const availability = this.resolveSkillButtonAvailability(state, inventoryCount);
             this.applySkillRuntimeAvailability(
                 shell,
-                this.isSkillRuntimeAvailable(state),
-                this.isSkillRuntimeVisuallyAvailable(state),
+                availability.available,
+                availability.visuallyAvailable,
             );
         }
     }
@@ -339,45 +351,44 @@ export class GameplaySkillUiController {
                 continue;
             }
 
-            const runtimeAvailable = this.isSkillRuntimeAvailable(skill);
             shellOpacity.opacity = 255;
             const inventoryCount = runtime.getPropCount(skill.kind);
             this.updateCountBadge(shell, inventoryCount, true);
+            const availability = this.resolveSkillButtonAvailability(skill, inventoryCount);
 
             const handler = skill.handler;
             const preCheck = skill.preCheck;
-            button.enabled = runtimeAvailable;
-            this.applySkillRuntimeAvailability(shell, runtimeAvailable, this.isSkillRuntimeVisuallyAvailable(skill));
+            button.enabled = availability.available;
+            this.applySkillRuntimeAvailability(shell, availability.available, availability.visuallyAvailable);
             shell.on(Button.EventType.CLICK, () => {
                 if (runtime._guideStep >= 0) return;
-                if (!this.isSkillRuntimeAvailable(skill)) return;
-                AudioMgr.inst.play('button');
-                if (runtime.isPlacementVisualBusy?.()) return;
-                if (runtime.isGameEnd || runtime._skillActive) return;
-                if (runtime.isSelected || runtime.currentBlock) {
-                    runtime.cancelSelection();
-                }
                 const inventoryCount = runtime.getPropCount(skill.kind);
-                if (inventoryCount <= 0 && (runtime._adShowing || runtime._rewardedGrantTransaction)) {
-                    runtime.showToast('广告加载中，请稍后');
-                    return;
-                }
-                if (skill.kind === 'freeze'
-                    && inventoryCount <= 0
-                    && runtime.tryUseAdRewardFreezeRescue?.(() => this.rebuildSkillButtonsUI())) {
-                    return;
-                }
-                if (skill.kind === 'freeze') {
-                    runtime.markAdRewardFreezeEntryClicked?.();
-                }
                 if (inventoryCount <= 0) {
+                    if (!this.isSkillAcquireRuntimeAvailable()) return;
+                    AudioMgr.inst.play('button');
+                    if (runtime._adShowing || runtime._rewardedGrantTransaction) {
+                        runtime.showToast('广告加载中，请稍后');
+                        return;
+                    }
+                    if (skill.kind === 'freeze'
+                        && runtime.tryUseAdRewardFreezeRescue?.(() => this.rebuildSkillButtonsUI())) {
+                        return;
+                    }
+                    if (skill.kind === 'freeze') {
+                        runtime.markAdRewardFreezeEntryClicked?.();
+                    }
+                    if (runtime.isSelected || runtime.currentBlock) {
+                        runtime.cancelSelection();
+                    }
                     const resourceAcquireTimerToken = runtime.pauseTimerForProp('resource-acquire');
                     const opened = typeof runtime.openToolAcquirePanel === 'function'
                         ? runtime.openToolAcquirePanel(skill.kind, {
                             resumeTimerOnClose: true,
                             timerPauseToken: resourceAcquireTimerToken,
                             onInventoryChanged: () => this.rebuildSkillButtonsUI(),
-                            onAdGrant: () => this.useSkillFromAdGrant(skill),
+                            onAdGrant: skill.kind === 'freeze'
+                                ? () => this.useFreezeFromAdGrant()
+                                : undefined,
                         })
                         : false;
                     if (!opened) {
@@ -385,6 +396,16 @@ export class GameplaySkillUiController {
                         runtime.showToast(`${skill.label}不足`);
                     }
                     return;
+                }
+                if (!this.isSkillRuntimeAvailable(skill)) return;
+                AudioMgr.inst.play('button');
+                if (runtime.isPlacementVisualBusy?.()) return;
+                if (runtime.isGameEnd || runtime._skillActive) return;
+                if (runtime.isSelected || runtime.currentBlock) {
+                    runtime.cancelSelection();
+                }
+                if (skill.kind === 'freeze') {
+                    runtime.markAdRewardFreezeEntryClicked?.();
                 }
                 const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;
                 if (preCheck && !preCheck()) {

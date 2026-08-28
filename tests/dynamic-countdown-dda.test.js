@@ -52,7 +52,9 @@ assert.ok(settlement.includes('this.recordDynamicCountdownFinalFailure?.();'), '
 assert.ok(settlement.includes('this.revokeDynamicCountdownFinalFailure?.();'), 'revive continuation must undo a recorded final fail');
 assert.ok(settlement.includes('this.markDynamicCountdownAssisted?.();'), 'revive continuation must mark assisted run');
 assert.ok(settlement.includes('completePercent: Math.min(98'), 'fail/revive settlement progress must cap displayed completion below 100%');
-assert.ok(settlement.includes('this.boardModel?.isAllLocked?.()'), 'gameLose must prefer win when the board is already complete');
+assert.ok(settlement.includes('isBoardCompletionCommittedForSettlement(): boolean'), 'settlement must centralize the committed-completion boundary');
+assert.ok(settlement.includes('if (!this.boardModel?.isAllLocked?.()) return false;'), 'non-complete boards must never bypass timeout');
+assert.ok(settlement.includes('return conveyor.isFinishCommitted?.() === true;'), 'active PCH gameplay must wait for its final return callback before win can beat timeout');
 
 const slotPolicy = read('assets/Scripts/Core/SlotOnboardingPolicy.ts');
 assert.ok(slotPolicy.includes('export function isGameplaySkillUnlocked'), 'skill unlock policy must be centralized');
@@ -64,18 +66,27 @@ const gameplaySkillMagnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySk
 const gameplaySkillWand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 assert.ok(skillUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful skill use must mark assisted run');
 assert.ok(skillUi.includes('const timerPausedForFinalSecond = runtime.pauseTimerForFinalSecondProp?.() === true;'), 'skill buttons must only pause the timer in the final-second prop window');
-assert.ok(skillUi.includes('this.invokeSkillHandler(skill, timerPausedForFinalSecond);'), 'skill handlers must receive the final-second pause state through the exception-safe invocation path');
+assert.ok(skillUi.includes('this.invokeSkillHandler(skill, timerPausedForFinalSecond)'), 'skill handlers must receive the final-second pause state through the exception-safe invocation path');
 assert.ok(skillUi.includes('import { isGameplaySkillUnlocked, shouldShowGameplaySkillArea }'), 'skill UI must import the centralized skill unlock policy');
 assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, state.unlockLevel)'), 'all prop runtime refreshes must use entry-aware skill unlock policy');
 assert.ok(skillUi.includes('!isGameplaySkillUnlocked(currentLevel, entryMode, skill.unlockLevel)'), 'skill button unlock branch must use entry-aware skill unlock policy');
 assert.ok(!skillUi.includes('currentLevel < SKILL_UNLOCK_BROOM'), 'slot-clear runtime refresh must not use a raw mainline level gate');
 assert.ok(!skillUi.includes('currentLevel < skill.unlockLevel'), 'skill button unlock branch must not use a raw mainline level gate');
-assert.ok(skillUi.includes('private useSkillFromAdGrant(skill: GameplaySkillConfig): boolean'), 'gameplay prop ads must directly invoke the skill effect after the ad completes');
-assert.ok(skillUi.includes('onAdGrant: () => this.useSkillFromAdGrant(skill)'), 'gameplay prop acquire panel must use the prop immediately after rewarded ad completion');
+assert.ok(skillUi.includes('private useFreezeFromAdGrant(): boolean'), 'rewarded freeze must have a dedicated immediate-use path');
+assert.ok(skillUi.includes("onAdGrant: skill.kind === 'freeze'"), 'only rewarded freeze may override the default inventory grant');
+assert.ok(skillUi.includes('? () => this.useFreezeFromAdGrant()'), 'rewarded freeze must activate immediately after the ad completes');
+assert.ok(skillUi.includes(': undefined,'), 'magnet and brush ads must leave the override empty and use the default inventory grant');
+assert.ok(!skillUi.includes('private useSkillFromAdGrant'), 'magnet and brush ads must not directly invoke their skill effects');
 assert.ok(skillUi.includes('private isSkillRuntimeAvailable'), 'gameplay skills must expose a runtime availability guard');
+assert.ok(skillUi.includes('private isSkillAcquireRuntimeAvailable'), 'zero-inventory acquire entries must use a separate runtime guard');
+assert.ok(skillUi.includes('this.resolveSkillButtonAvailability(skill, inventoryCount)'), 'button state must branch on the current inventory count');
 assert.ok(skillUi.includes("skill.kind === 'brush' && skill.preCheck && !skill.preCheck()"), 'slot-clear runtime availability must depend on slot occupancy');
-assert.ok(skillUi.includes('button.enabled = runtimeAvailable'), 'disabled slot-clear must not be clickable');
+assert.ok(skillUi.includes('button.enabled = availability.available'), 'button interaction must use the inventory-aware availability result');
 assert.ok(skillUi.includes('if (!this.isSkillRuntimeAvailable(skill)) return;'), 'disabled slot-clear click handler must be guarded before playing feedback or opening ads');
+const skillClickStart = skillUi.indexOf('shell.on(Button.EventType.CLICK', skillUi.indexOf('const handler = skill.handler;'));
+const inventoryReadIndex = skillUi.indexOf('const inventoryCount = runtime.getPropCount(skill.kind);', skillClickStart);
+const skillUseGuardIndex = skillUi.indexOf('if (!this.isSkillRuntimeAvailable(skill)) return;', skillClickStart);
+assert.ok(skillClickStart >= 0 && inventoryReadIndex > skillClickStart && skillUseGuardIndex > inventoryReadIndex, 'zero inventory must enter acquisition before the skill-use busy guard');
 assert.ok(skillUi.includes('private readonly skillDisabledDimRatio = 0.68'), 'disabled slot-clear dim strength must be explicit');
 assert.ok(skillUi.includes('private dimSkillColor(color: Color): Color'), 'disabled slot-clear must use dimmed original colors');
 assert.ok(skillUi.includes("const spriteTargets = [shell, shell.getChildByName('ToolIcon')]"), 'slot-clear disabled visual must only dim the button body and icon sprites');
@@ -91,8 +102,9 @@ assert.ok(skillUi.includes('this.restoreSkillNodeVisual(shell);'), 'disabled vis
 assert.ok(skillUi.includes('opacity.opacity = 255'), 'runtime-disabled slot-clear must keep full opacity');
 assert.ok(!skillUi.includes('opacity.opacity = available ? 255 : 138'), 'runtime-disabled slot-clear must not fade through opacity');
 assert.ok(skillUi.includes('syncSkillButtonRuntimeStates()'), 'skill UI must expose a runtime state sync path for slot changes');
-assert.ok(skillUi.includes('this.isSkillRuntimeVisuallyAvailable(state)'), 'shared skill locks must refresh interaction without changing prop colors');
-assert.ok(skillUi.includes('return this.invokeSkillHandler(skill, timerPausedForFinalSecond);'), 'rewarded prop grants must preserve the concrete skill start result');
+assert.ok(skillUi.includes('this.resolveSkillButtonAvailability(state, inventoryCount)'), 'runtime refresh must use the same inventory-aware availability path');
+assert.ok(skillUi.includes('runtime.useSkillFreeze(true);'), 'rewarded freeze must start without requiring another click');
+assert.ok(skillUi.includes('return runtime._skillActive === true;'), 'rewarded freeze grant success must reflect the actual active state');
 assert.ok(gameplaySkillMagnet.includes('return pchController.useClearColorSkill(timerAlreadyPaused) === true;'), 'PCH clear-color must return whether its effect actually started');
 assert.ok(gameplaySkillWand.includes('return pchController.useClearBufferSkill(timerAlreadyPaused) === true;'), 'PCH clear-buffer must return whether its effect actually started');
 assert.ok(skillUi.includes("private readonly skillShellKinds = ['magnet', 'brush', 'freeze'] as const"), 'gameplay skill shell order must be color clear, slot clear, freeze');
@@ -170,7 +182,7 @@ assert.deepStrictEqual(
 const timerModule = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
 assert.ok(timerModule.includes('shouldPauseTimerForFinalSecondProp'), 'timer module must expose a final-second prop pause guard');
 assert.ok(timerModule.includes('remaining > 0 && remaining <= 1'), 'final-second prop pause guard must be limited to the last-second window');
-assert.ok(timerModule.includes('if (this.boardModel?.isAllLocked?.())'), 'timer tick must check completion before timing out');
+assert.ok(timerModule.includes('if (this.isBoardCompletionCommittedForSettlement())'), 'timer tick must check committed completion before timing out');
 assert.ok(timerModule.includes('if (this.tickFreezeTimer()) return;'), 'timer tick must skip countdown while freeze is active');
 assert.ok(timerModule.includes('this.stopFreezeSpineFx?.(true);'), 'freeze timer expiry must stop the freeze Spine effect');
 

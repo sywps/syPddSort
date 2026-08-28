@@ -138,12 +138,12 @@ export class CollectionPanelController {
                         const uiPos = e.getUILocation();
                         const point = new Vec3(uiPos.x, uiPos.y, 0);
                         if (isInsideNode(box, point)) return;
-                        AudioMgr.inst.play('uiPanel');
+                        AudioMgr.inst.play('button');
                         runtime.closeCollection();
                     }, runtime);
 
                     runtime.bindPanelButton(runtime.requirePanelChild(box, 'XBtn'), () => {
-                        AudioMgr.inst.play('uiPanel');
+                        AudioMgr.inst.play('button');
                         runtime.closeCollection();
                     });
 

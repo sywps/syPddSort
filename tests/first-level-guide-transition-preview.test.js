@@ -133,9 +133,6 @@ const installGuideLeaderboardModule = loadInstaller(
             this.reminderArmed = true;
             this._guideStatus = 'awaiting_action';
         },
-        playGuideVoiceForCurrentStep(step) {
-            this.voiceStep = step;
-        },
         showGuideTargetFeedback(state) {
             targetFeedback.push(state);
             this._guideDimMaskNode = { isValid: true };

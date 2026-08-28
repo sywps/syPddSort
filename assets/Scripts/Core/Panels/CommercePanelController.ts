@@ -13,7 +13,6 @@ import {
     RESOURCE_ACQUIRE_TEXTURE_NAMES,
     Tween,
     UITransform,
-    Vec2,
     Vec3,
     instantiate,
     tween,
@@ -69,29 +68,8 @@ function syncRequiredPrefabLabel(parent: Node, childName: string, text: string, 
 export class CommercePanelController {
     constructor(private readonly runtime: any) {}
 
-    private normalizeAcquireUiPosition(rawPos: { x: number; y: number }): Vec2 {
-        const normalize = this.runtime.normalizeGameplayUiPosition;
-        const normalizedPos = typeof normalize === 'function'
-            ? normalize.call(this.runtime, rawPos)
-            : rawPos;
-        return new Vec2(Number(normalizedPos?.x) || 0, Number(normalizedPos?.y) || 0);
-    }
-
-    private bindAcquireButtonWithScaledFallback(triggerNode: Node, overlay: Node, handler: () => void): void {
-        const runtime = this.runtime;
-        runtime.bindPanelButton(triggerNode, handler);
-        overlay.on(Node.EventType.TOUCH_END, (event: any) => {
-            const rawPos = event?.getUILocation?.();
-            if (!rawPos || typeof runtime.normalizeGameplayUiPosition !== 'function') return;
-            const normalizedPos = this.normalizeAcquireUiPosition(rawPos);
-            if (Math.abs(normalizedPos.x - rawPos.x) < 0.5 && Math.abs(normalizedPos.y - rawPos.y) < 0.5) return;
-            const triggerUi = triggerNode.getComponent(UITransform);
-            if (!triggerUi?.getBoundingBoxToWorld().contains(new Vec2(normalizedPos.x, normalizedPos.y))) return;
-            event.propagationStopped = true;
-            const button = triggerNode.getComponent(Button);
-            if (!overlay.isValid || !overlay.activeInHierarchy || !button?.enabled || !button.interactable) return;
-            handler();
-        }, runtime, true);
+    private bindAcquireButton(triggerNode: Node, handler: () => void): void {
+        this.runtime.bindPanelButton(triggerNode, handler);
     }
 
     preloadAcquireResourcePanel(): void {
@@ -404,7 +382,7 @@ export class CommercePanelController {
                     overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
                         const boxUT = box.getComponent(UITransform);
                         if (!boxUT) return;
-                        const uiPos = this.normalizeAcquireUiPosition(e.getUILocation());
+                        const uiPos = e.getUILocation();
                         const local = boxUT.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
                         const size = boxUT.contentSize;
                         if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) {
@@ -504,7 +482,7 @@ export class CommercePanelController {
                         setAdPanelState(adFailureLabel, false, false);
                     });
 
-                    this.bindAcquireButtonWithScaledFallback(activeAdBtn, overlay, () => {
+                    this.bindAcquireButton(activeAdBtn, () => {
                         if (runtime._adShowing || panelTransaction()) return;
                         AudioMgr.inst.play('button');
                         adGrantSucceeded = false;

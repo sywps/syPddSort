@@ -1,7 +1,6 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const shuffle = require('../tools/shuffle-comparison.js');
@@ -15,7 +14,6 @@ const formalFiles = fs.readdirSync(formalDir).filter(name => /^level_\d+\.json$/
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
 const outputFiles = fs.readdirSync(outputDir).filter(name => /^level_\d+\.json$/.test(name))
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
-const hash = buffer => crypto.createHash('sha256').update(buffer).digest('hex');
 const inventory = grid => {
     const counts = new Map();
     for (const row of grid) for (const color of row) if (color > 0) counts.set(color, (counts.get(color) || 0) + 1);
@@ -35,14 +33,15 @@ for (const filename of outputFiles) {
     const levelId = Number(filename.match(/\d+/)[0]);
     const formal = JSON.parse(fs.readFileSync(path.join(formalDir, filename), 'utf8'));
     const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, filename), 'utf8'));
-    if (levelId < 5) {
-        assert.deepEqual(formal, candidate, `${filename} onboarding formal/candidate parity`);
-    } else {
-        assert.deepEqual(
-            { ...formal, timeLimit: candidate.timeLimit },
-            candidate,
-            `${filename} formal may differ from candidate only by DBT-rule timeLimit`,
-        );
+    const comparableFormal = { ...formal };
+    if (levelId === 2) delete comparableFormal.singleSelectionLimit;
+    if (levelId >= 5) comparableFormal.timeLimit = candidate.timeLimit;
+    assert.deepEqual(
+        comparableFormal,
+        candidate,
+        `${filename} formal may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
+    );
+    if (levelId >= 5) {
         const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
         assert.equal(formal.timeLimit, expectedTime);
     }

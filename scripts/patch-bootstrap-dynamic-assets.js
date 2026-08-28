@@ -81,6 +81,7 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/guide_level1_place_2', 'Audio/guide_level1_place_2'],
     ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
     ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
+    ['UI/Prefabs/Panels/BufferFullRevivePanel', 'UI/Prefabs/Panels/BufferFullRevivePanel'],
     ['UI/Prefabs/Panels/LosePanel', 'UI/Prefabs/Panels/LosePanel'],
 ]);
 
@@ -488,6 +489,88 @@ function ensureStableBootstrapPackImportFiles(config) {
     return { copied, versionEntriesRemoved };
 }
 
+function isCconBinary(filePath) {
+    const file = fs.openSync(filePath, 'r');
+    try {
+        const header = Buffer.alloc(4);
+        return fs.readSync(file, header, 0, header.length, 0) === header.length
+            && header.toString('ascii') === 'CCON';
+    } finally {
+        fs.closeSync(file);
+    }
+}
+
+function listCconImportFiles(bundleRoot) {
+    const importRoot = path.join(bundleRoot, 'import');
+    if (!fs.existsSync(importRoot)) return [];
+    const files = [];
+    const visit = (directory) => {
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+            const fullPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                visit(fullPath);
+            } else if (entry.isFile() && entry.name.endsWith('.bin') && isCconBinary(fullPath)) {
+                files.push(fullPath);
+            }
+        }
+    };
+    visit(importRoot);
+    return files.sort();
+}
+
+function resolveExtensionMappedUuid(config, reference) {
+    const uuids = Array.isArray(config.uuids) ? config.uuids : [];
+    if (typeof reference === 'number') return decodeUuid(uuids[reference] || '');
+    if (typeof reference !== 'string') return '';
+    if (/^\d+$/.test(reference) && uuids[Number(reference)]) {
+        return decodeUuid(uuids[Number(reference)]);
+    }
+    return decodeUuid(reference);
+}
+
+function ensureStandaloneCconExtensionMap(bundleRoot, config, configPath = '') {
+    const uuids = Array.isArray(config.uuids) ? config.uuids : [];
+    const importVersions = buildVersionHashByIndex(config, 'import');
+    const records = [];
+    for (let index = 0; index < uuids.length; index += 1) {
+        const storedUuid = uuids[index];
+        if (typeof storedUuid !== 'string' || !storedUuid) continue;
+        const decodedUuid = decodeUuid(storedUuid);
+        const version = importVersions.get(index)
+            || importVersions.get(storedUuid)
+            || importVersions.get(decodedUuid)
+            || '';
+        const fileName = `${decodedUuid}${version ? `.${version}` : ''}.bin`;
+        const filePath = path.join(bundleRoot, config.importBase || 'import', decodedUuid.slice(0, 2), fileName);
+        if (!fs.existsSync(filePath) || !isCconBinary(filePath)) continue;
+        records.push({ index, storedUuid, decodedUuid, filePath });
+    }
+
+    const expectedFiles = new Set(records.map((record) => path.resolve(record.filePath)));
+    const orphanFiles = listCconImportFiles(bundleRoot)
+        .filter((filePath) => !expectedFiles.has(path.resolve(filePath)));
+    if (orphanFiles.length > 0) {
+        const label = configPath ? path.basename(configPath) : 'config';
+        throw new Error(`bootstrap CCON import 无法映射到 ${label} uuid/version: ${orphanFiles.map((filePath) => path.relative(bundleRoot, filePath)).join(', ')}`);
+    }
+
+    if (!config.extensionMap || typeof config.extensionMap !== 'object') config.extensionMap = {};
+    if (config.extensionMap['.cconb'] !== undefined && !Array.isArray(config.extensionMap['.cconb'])) {
+        throw new Error('bootstrap extensionMap[.cconb] 必须是数组');
+    }
+    const extensionEntries = config.extensionMap['.cconb'] || (config.extensionMap['.cconb'] = []);
+    const mappedUuids = new Set(extensionEntries.map((reference) => resolveExtensionMappedUuid(config, reference)));
+    const useUuidReferences = usesUuidPathKeys(config);
+    let added = 0;
+    for (const record of records) {
+        if (mappedUuids.has(record.decodedUuid)) continue;
+        extensionEntries.push(useUuidReferences ? record.storedUuid : record.index);
+        mappedUuids.add(record.decodedUuid);
+        added += 1;
+    }
+    return { imports: records.length, added };
+}
+
 function findArtifactByDecodedUuid(bundleRoot, kind, decodedUuid) {
     const artifacts = findArtifactsByDecodedUuid(bundleRoot, kind, decodedUuid);
     if (kind === 'import') {
@@ -772,6 +855,7 @@ function collectAssets() {
     return assets;
 }
 
+function main() {
 if (!fs.existsSync(bootstrapOutputRoot)) fail('未找到 bootstrap bundle: ' + bootstrapOutputRoot);
 const configPaths = fs.readdirSync(bootstrapOutputRoot)
     .filter((name) => /^config(?:\.[0-9a-f]+)?\.json$/i.test(name))
@@ -826,6 +910,8 @@ let addedCriticalEntries = 0;
 let normalizedPackEntries = 0;
 let stablePackImportsCopied = 0;
 let stablePackImportVersionsRemoved = 0;
+let cconImportsVerified = 0;
+let cconMappingsAdded = 0;
 for (const { configPath, config } of configRecords) {
     for (const asset of assets) {
         if (appendAssetEntry(config, asset.uuid, asset.assetPath, asset.typeName)) addedEntries += 1;
@@ -851,6 +937,9 @@ for (const { configPath, config } of configRecords) {
     const stablePackResult = ensureStableBootstrapPackImportFiles(config);
     stablePackImportsCopied += stablePackResult.copied;
     stablePackImportVersionsRemoved += stablePackResult.versionEntriesRemoved;
+    const cconResult = ensureStandaloneCconExtensionMap(bootstrapOutputRoot, config, configPath);
+    cconImportsVerified += cconResult.imports;
+    cconMappingsAdded += cconResult.added;
     writeJson(configPath, config);
 }
 
@@ -875,4 +964,11 @@ function verifyCriticalBootstrapArtifacts(entries) {
 
 const verifiedCritical = verifyCriticalBootstrapArtifacts(criticalGameAssets.entries);
 
-console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, verifiedCriticalImports=${verifiedCritical.verifiedImports}, verifiedCriticalNative=${verifiedCritical.verifiedNative}, normalizedPackEntries=${normalizedPackEntries}, stablePackImports=${stablePackImportsCopied}, stablePackImportVersionsRemoved=${stablePackImportVersionsRemoved}, configs=${configPaths.length}`);
+console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, verifiedCriticalImports=${verifiedCritical.verifiedImports}, verifiedCriticalNative=${verifiedCritical.verifiedNative}, normalizedPackEntries=${normalizedPackEntries}, stablePackImports=${stablePackImportsCopied}, stablePackImportVersionsRemoved=${stablePackImportVersionsRemoved}, cconImports=${cconImportsVerified}, cconMappingsAdded=${cconMappingsAdded}, configs=${configPaths.length}`);
+}
+
+if (require.main === module) main();
+
+module.exports = {
+    ensureStandaloneCconExtensionMap,
+};

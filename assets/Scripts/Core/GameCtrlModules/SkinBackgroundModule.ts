@@ -1600,7 +1600,7 @@ export function installSkinBackgroundModule(target: any): void {
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('uiPanel');
+                AudioMgr.inst.play('button');
                 this.openBackgroundSkinPanel();
             }, this);
         },

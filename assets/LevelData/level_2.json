@@ -5,6 +5,7 @@
     "timeLimit": 300,
     "slotTotalCount": 131,
     "conveyorCapacity": 60,
+    "singleSelectionLimit": 18,
     "correctColorArr": [
         [
             0,

@@ -431,7 +431,6 @@ export function installHomeAdFlowModule(target: any): void {
             onComplete: (outcome: RewardedAdOutcome) => void,
             options: {
                 levelId?: number;
-                markLevelRevive?: boolean;
                 onShow?: () => void;
                 onRecoverable?: () => void;
             } = {},
@@ -474,9 +473,6 @@ export function installHomeAdFlowModule(target: any): void {
                     if (success) {
                         AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
                         SySDKMgr.inst.reportAdFinish(page);
-                        if (options.markLevelRevive) {
-                            AnalyticsMgr.inst.markAdRevive();
-                        }
                     }
                     try {
                         onComplete(outcome);
@@ -905,6 +901,10 @@ export function installHomeAdFlowModule(target: any): void {
                             showRewardedGrantToast(this, claimOptions.grantFailToast);
                             return;
                         }
+                        if (claimOptions.markLevelRevive) {
+                            AnalyticsMgr.inst.markAdRevive();
+                            AnalyticsMgr.inst.trackReviveSuccess(page, claimOptions.levelId ?? this.getAnalyticsLevelId());
+                        }
                         showRewardedGrantToast(this, claimOptions.successToast);
                         if (!claimOptions.afterGrant) return;
                         transaction.phase = 'after_grant';
@@ -1034,7 +1034,6 @@ export function installHomeAdFlowModule(target: any): void {
                         beginGrant();
                     }, {
                         levelId: claimOptions.levelId,
-                        markLevelRevive: claimOptions.markLevelRevive,
                         onShow: () => {
                             if (!claimOptions.suppressPendingStrip) {
                                 this.clearRewardedAdPendingStrip?.();
@@ -1220,7 +1219,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._guideMode = 'none';
             this._guideTotalSteps = 0;
             this._guidePhase = 'select';
-            this._lastGuideVoiceToken = '';
             this.destroyGameplayRuntimeView();
         },
 
@@ -1483,7 +1481,7 @@ export function installHomeAdFlowModule(target: any): void {
             gear.targetOff(this);
             gear.getComponent(Button) || gear.addComponent(Button);
             gear.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('uiPanel');
+                AudioMgr.inst.play('button');
                 this.openSettingsPanel();
             }, this);
         },
@@ -1546,8 +1544,8 @@ export function installHomeAdFlowModule(target: any): void {
             ensureGameplayResultPanelController(this).bindReviveContinueAction(triggerNode, overlay, rewardedSeconds);
         },
 
-        bindResultPanelButtonWithScaledFallback(triggerNode: Node, overlay: Node, handler: () => void) {
-            ensureGameplayResultPanelController(this).bindPanelButtonWithScaledFallback(triggerNode, overlay, handler);
+        bindResultPanelButton(triggerNode: Node, handler: () => void) {
+            ensureGameplayResultPanelController(this).bindPanelButton(triggerNode, handler);
         },
 
         createLoseSettlementPanel(): Node {

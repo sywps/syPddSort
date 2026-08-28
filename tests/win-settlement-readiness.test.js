@@ -61,37 +61,37 @@ assert.ok(
 );
 assert.match(
     resultPanel,
-    /this\.bindPanelButtonWithScaledFallback\(adBonusBtn, overlay, \(\) => \{\s*AudioMgr\.inst\.play\('button'\);\s*runtime\.claimWinAdBonusReward\(\);/,
-    'win 5x reward must remain clickable when gameplay UI coordinates are scaled',
+    /this\.bindPanelButton\(adBonusBtn, \(\) => \{\s*AudioMgr\.inst\.play\('button'\);\s*runtime\.claimWinAdBonusReward\(\);/,
+    'win 5x reward must remain bound to its real Cocos Button',
 );
 assert.match(
     resultPanel,
-    /createReviveSettlementPanel\(\)[\s\S]*?for \(const node of giveUpNodes\) \{\s*this\.bindPanelButtonWithScaledFallback\(node, overlay,/,
-    'timeout revive close actions must remain clickable when gameplay UI coordinates are scaled',
+    /createReviveSettlementPanel\(\)[\s\S]*?for \(const node of giveUpNodes\) \{\s*this\.bindPanelButton\(node,/,
+    'timeout revive close actions must remain bound to their real Cocos Buttons',
 );
 assert.match(
     resultPanel,
-    /createBufferFullSettlementPanel\(\)[\s\S]*?for \(const node of giveUpNodes\) \{\s*this\.bindPanelButtonWithScaledFallback\(node, overlay,/,
-    'buffer-full close actions must remain clickable when gameplay UI coordinates are scaled',
+    /createBufferFullSettlementPanel\(\)[\s\S]*?for \(const node of giveUpNodes\) \{\s*this\.bindPanelButton\(node,/,
+    'buffer-full close actions must remain bound to their real Cocos Buttons',
 );
 assert.match(
     resultPanel,
-    /this\.bindPanelButtonWithScaledFallback\(primaryBtn, overlay, runPrimaryAction\);/,
-    'win primary action must remain clickable when gameplay UI coordinates are scaled',
+    /this\.bindPanelButton\(primaryBtn, runPrimaryAction\);/,
+    'win primary action must remain bound to its real Cocos Button',
 );
 assert.match(
     resultPanel,
-    /this\.bindPanelButtonWithScaledFallback\(homeBtn, overlay,[\s\S]*?this\.bindPanelButtonWithScaledFallback\(replayBtn, overlay,/,
-    'final lose home and replay actions must remain clickable when gameplay UI coordinates are scaled',
+    /this\.bindPanelButton\(homeBtn,[\s\S]*?this\.bindPanelButton\(replayBtn,/,
+    'final lose home and replay actions must remain bound to their real Cocos Buttons',
 );
 assert.ok(
-    settlement.includes('this.bindResultPanelButtonWithScaledFallback(settingsBtn, panel, () => {'),
-    'win settlement settings must remain clickable when gameplay UI coordinates are scaled',
+    settlement.includes('this.bindResultPanelButton(settingsBtn, () => {'),
+    'win settlement settings must remain bound to its real Cocos Button',
 );
 assert.strictEqual(
     (resultPanel.match(/runtime\.bindPanelButton\(/g) || []).length,
     1,
-    'all result-panel actions must route through the shared scaled fallback binder',
+    'all result-panel actions must route through the shared direct Button binder',
 );
 
 console.log('win-settlement-readiness.test.js passed');

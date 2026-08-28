@@ -509,7 +509,9 @@ export class GameSceneRuntimeController {
             sceneName,
         });
         if (sceneName === 'Game') {
-            AnalyticsMgr.inst.abandonActiveLevel();
+            AnalyticsMgr.inst.abandonActiveLevel({
+                gameplayStats: this.runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
+            });
             SySDKMgr.inst.reportLevelExit(this.runtime.getAnalyticsLevelId());
         }
         this.runtime.scanRenderSpriteFrameHealth?.(`runtime.destroy.before:${sceneName}`, null, { always: true });

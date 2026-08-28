@@ -32,6 +32,7 @@ function loadInstaller(timerApi = {}, adApi = {}) {
         trackAdShow() {},
         trackAdFinish() {},
         markAdRevive() {},
+        trackReviveSuccess() {},
         ...(adApi.AnalyticsMgr?.inst || {}),
     };
     const sandbox = {
@@ -170,6 +171,42 @@ async function main() {
         'an ad success followed by a no-op grant must be reported as grant failure',
     );
     assert.strictEqual(noopRuntime._skillActive, false, 'no-op grant finalization must release the busy flag');
+
+    const reviveEvents = [];
+    const installReviveFlow = loadInstaller({}, {
+        AnalyticsMgr: {
+            inst: {
+                markAdRevive() { reviveEvents.push('mark'); },
+                trackReviveSuccess(page, levelId) { reviveEvents.push(`success:${page}:${levelId}`); },
+            },
+        },
+    });
+    const reviveRuntime = { _adShowing: false };
+    installReviveFlow(reviveRuntime);
+    reviveRuntime.showRewardedAdPendingStrip = () => {};
+    reviveRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('verified_complete'));
+    reviveRuntime.runRewardedGrant('level_revive', () => false, {
+        claimKey: 'level_revive:3:false',
+        levelId: 3,
+        busyFlag: '_adShowing',
+        markLevelRevive: true,
+    });
+    await flushMicrotasks();
+    assert.deepStrictEqual(reviveEvents, [], 'completed video plus failed gameplay grant must not count as a revive');
+
+    reviveRuntime.runRewardedGrant('level_revive', () => Promise.resolve(true), {
+        claimKey: 'level_revive:3:true',
+        levelId: 3,
+        busyFlag: '_adShowing',
+        markLevelRevive: true,
+    });
+    assert.deepStrictEqual(reviveEvents, [], 'revive analytics must wait for the gameplay grant promise');
+    await flushMicrotasks();
+    assert.deepStrictEqual(
+        reviveEvents,
+        ['mark', 'success:level_revive:3'],
+        'resolved gameplay grant must mark and report one successful revive',
+    );
 
     const cancelledEvents = [];
     let delayedAdComplete = null;

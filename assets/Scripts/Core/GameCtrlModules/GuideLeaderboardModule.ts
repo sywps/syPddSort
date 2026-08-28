@@ -7,7 +7,7 @@ import {
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
-    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
@@ -215,10 +215,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this._modalFocusRefs = this.getRuntimeOwnerCount('modal');
             if (this._modalFocusRefs === 0) {
                 this.resumeGuideAfterModal(tokenOrReason);
-                const pendingReadyStep = Math.floor(Number(this._pendingTutorialInteractiveReadyStep));
-                if (pendingReadyStep >= 0) {
-                    this.markTutorialStepInteractiveReadyForFunnel?.(pendingReadyStep);
-                }
             }
         },
 
@@ -529,13 +525,6 @@ export function installGuideLeaderboardModule(target: any): void {
                     this.destroyGuideFeedbackNode?.(path);
                 })
                 .start();
-            this.trackFirstLevelFunnel?.('tutorial_path_hint_shown', {
-                stepId: this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source,
-                success: true,
-                extra: { dotCount, durationMs: 700, delayMs: Math.round(delaySeconds * 1000) },
-            });
         },
 
         isGuideDemoTouchTarget(target: Node | null): boolean {
@@ -635,12 +624,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this.showGuideTargetFeedback?.('reinforce', 1);
             this.startGuideHandPulse?.(this._guideHand, 1);
             this.playGuidePathHint?.(1, 'demo');
-            this.trackFirstLevelFunnel?.('tutorial_demo_requested', {
-                stepId: this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source: 'demo_button',
-                success: true,
-            });
             this.scheduleOnce?.(() => {
                 if (!this.isGuideVisualTokenCurrent?.(token)) return;
                 if (!button?.isValid || !label?.isValid) return;
@@ -867,12 +850,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideStatus = 'settling';
             this.clearGuideReminderTimer?.();
             if (!hasVisiblePreview) this.hideGuideReminderVisuals?.();
-            this.trackFirstLevelFunnel('tutorial_step_done', {
-                stepId: completedStep,
-                stepName: `${this._guideMode}:${completedStep}:${this._guidePhase}`,
-                source: 'tutorial',
-                success: true,
-            });
             if (nextStep >= this._guideTotalSteps) {
                 this.endTutorial();
                 if (this.boardModel.isAllLocked()) {
@@ -909,11 +886,6 @@ export function installGuideLeaderboardModule(target: any): void {
             if (completedGuideMode === 'level_1') {
                 this.reportFirstLevelReleaseState?.('tutorial_done_before_cleanup');
             }
-            this.trackFirstLevelFunnel('tutorial_done', {
-                source: 'tutorial',
-                success: true,
-            });
-            SySDKMgr.inst.reportTutorialFinish();
             this.clearGuideReminderTimer?.();
             this.hideGuideReminderVisuals?.();
             this._guideInputSuspended = false;
@@ -932,10 +904,8 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideReminderStage = 0;
             this._guideReminderDueAt = 0;
             this._guideReminderRemainingMs = 0;
-            this._guideReminderVoicePlayed = false;
             this._guideLevel2SlotPlacementSucceeded = false;
             this._guideReminderPausedForLifecycle = false;
-            this._lastGuideVoiceToken = '';
             this.clearGuideFeedbackVisuals?.();
             this.clearGuideHighlight();
             if (this._guideBubble?.isValid) {

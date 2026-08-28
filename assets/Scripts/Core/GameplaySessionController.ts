@@ -10,6 +10,7 @@ import { collectActiveBlockInputEvents } from './DebugPerfTrace';
 import { validateConveyorCapacity } from './LevelConfig';
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
+import { PCH_GAMEPLAY_MODE, PCH_GAMEPLAY_SCHEMA_VERSION } from './AnalyticsMgr';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
 export class GameplaySessionController {
@@ -64,18 +65,11 @@ export class GameplaySessionController {
                 runtime.beginFirstLevelReleaseDiagnostics?.();
             }
             runtime._activeGameplayGuideLayoutMode = tutorialMode;
-            runtime._firstFunnelTouchSent = false;
             runtime._firstLevelAnyTouchSent = false;
-            runtime._firstFunnelSelectSent = false;
-            runtime._firstFunnelPlaceAttemptSent = false;
-            runtime._firstFunnelPlaceSuccessSent = false;
             runtime._firstLevelLastTouchAt = 0;
             runtime._firstLevelLastTouchIntervalMs = 0;
-            runtime._firstLevelGuideStepShowAt = {};
-            runtime._firstLevelGuideStepReadyAt = {};
             runtime._firstLevelGuideStepFirstTouchSent = {};
             runtime._firstLevelGuideLayerTouchCounts = {};
-            runtime._pendingTutorialInteractiveReadyStep = -1;
             runtime._interactionTouchAttemptCount = 0;
             initStage = 'conveyor_capacity';
             validateConveyorCapacity(data.conveyorCapacity, `level ${resolvedLevelId}`);
@@ -149,14 +143,21 @@ export class GameplaySessionController {
             runtime.renderBoard();
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
             initStage = 'pch_core_gameplay';
-            ensurePchConveyorGameplayController(runtime).start();
+            const pchController = ensurePchConveyorGameplayController(runtime);
+            pchController.start();
+            AnalyticsMgr.inst.setLevelContext({
+                logicalLevelId: activeLogicalLevelId,
+                physicalLevelId: resolvedLevelId,
+                gameplayMode: PCH_GAMEPLAY_MODE,
+                gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
+            });
             initStage = 'visual_readiness';
             runtime.assertGameplayVisualReadiness();
             initStage = 'loading_release';
             runtime.reportFirstLevelReleaseState?.('before_loading_hide');
             runtime.hideLoadingOverlayAfterGameplayReady?.();
             initStage = 'opening_pattern_transition';
-            ensurePchConveyorGameplayController(runtime).playOpeningPatternShuffle();
+            pchController.playOpeningPatternShuffle();
             runtime.reportFirstLevelReleaseState?.('after_loading_hide');
             AudioMgr.inst.playGameBgm();
             const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
@@ -207,7 +208,9 @@ export class GameplaySessionController {
                 physicalLevelId: analyticsPhysicalLevelId,
                 abId: experimentAnalyticsContext?.abId,
                 abBucket: experimentAnalyticsContext?.abBucket,
-            });
+                gameplayMode: PCH_GAMEPLAY_MODE,
+                gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
+            }, pchController.getAnalyticsSnapshot());
             SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
             initStage = 'interaction_ready';
             this.reportLevelInteractionReady(
@@ -453,7 +456,6 @@ export class GameplaySessionController {
         runtime._guideZoomAccumulatedScaleDelta = 0;
         runtime._guideZoomLastSource = '';
         runtime._interactionTouchAttemptCount = 0;
-        runtime._lastGuideVoiceToken = '';
     }
 
 }

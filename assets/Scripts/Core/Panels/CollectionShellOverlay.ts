@@ -111,7 +111,7 @@ export function openCollectionShellOverlay(runtime: any, options: CollectionShel
             const rightArrow = resolveShellActionNode(overlay, 'ArrowRight', requireActionNodes);
             const close = () => {
                 if (!overlay.isValid) return;
-                AudioMgr.inst.play('uiPanel');
+                AudioMgr.inst.play('button');
                 options.onClose?.();
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
                 runtime._destroyDetachedNodeNextFrame(overlay);

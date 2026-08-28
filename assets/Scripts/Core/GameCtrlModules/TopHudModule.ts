@@ -286,7 +286,7 @@ export function installTopHudModule(target: any): void {
             let vigorBox: Node | null = null;
 
             const openSettings = () => {
-                AudioMgr.inst.play(mode === 'game' ? 'button' : 'uiPanel');
+                AudioMgr.inst.play('button');
                 this.openSettingsPanel?.();
             };
             settingsBtn.targetOff(this);

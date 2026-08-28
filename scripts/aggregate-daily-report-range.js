@@ -5,6 +5,36 @@ const fs = require("fs");
 const path = require("path");
 
 const REPORT_ROOT = path.join(process.cwd(), "artifacts", "cloudbase-daily-report");
+const PCH_FUNNEL_EVENT_NAMES = new Set([
+  "pch_first_store_success",
+  "pch_first_return_success",
+  "pch_guide_step_shown",
+  "pch_guide_tap_result",
+  "pch_guide_step_done",
+]);
+const RETIRED_PCH_STAT_FIELDS = [
+  "selectionAttempts",
+  "selectionSuccesses",
+  "selectionInvalid",
+  "selectionCapacityBlocked",
+  "selectionPartial",
+  "storedBeanCount",
+  "autoReturnedBeanCount",
+  "maxBufferOccupancy",
+  "bufferFullEpisodes",
+  "bufferFullReviveSuccesses",
+  "capacityAddedProactiveAd",
+  "capacityAddedBufferFullRevive",
+  "capacityAddedGuideFree",
+  "initialBufferCapacity",
+  "finalBufferCapacity",
+  "singleSelectionLimit",
+  "magnetMovedBeans",
+  "brushMovedBeans",
+  "manual2xUsed",
+  "manual3xUsed",
+  "auto5xUsed",
+];
 
 function parseArgs(argv) {
   const args = {};
@@ -141,7 +171,8 @@ function aggregateLevelRows(rows) {
   for (const [key, group] of groupBy(rows, levelKey)) {
     const first = clone(group[0] || {});
     const row = { ...first };
-    for (const field of ["enterUv", "enterPv", "passUv", "passPv", "failUv", "failPv", "enterNotPassUv", "silentDropUv", "recordCount", "uniqueUsers", "adReviveCount", "adShowPv", "adFinishPv"]) {
+    for (const field of RETIRED_PCH_STAT_FIELDS) delete row[field];
+    for (const field of ["enterUv", "enterPv", "passUv", "passPv", "failUv", "failPv", "enterNotPassUv", "silentDropUv", "recordCount", "uniqueUsers", "adReviveCount", "adShowPv", "adFinishPv", "magnetUses", "brushUses", "freezeUses"]) {
       row[field] = sum(group, field);
     }
     row.isTotal = key === "__all__" || !!first.isTotal;
@@ -163,7 +194,8 @@ function aggregateAdPerformanceRows(rows) {
   for (const [, group] of groupBy(rows, (row) => `${row?.adType || ""}|${row?.page || ""}|${row?.label || ""}|${row?.isTotal ? "total" : ""}`)) {
     const row = { ...clone(group[0] || {}) };
     for (const field of ["showNum", "clickNum", "finishNum", "userNum"]) row[field] = sum(group, field);
-    row.clickRate = ratio(row.clickNum, row.showNum);
+    delete row.clickRate;
+    row.showRate = ratio(row.showNum, row.clickNum);
     row.finishRate = ratio(row.finishNum, row.showNum);
     row.finishPerClickRate = ratio(row.finishNum, row.clickNum);
     out.push(row);
@@ -204,9 +236,10 @@ function aggregateLatency(rows) {
 }
 
 function aggregateFunnelRows(rows) {
+  const pchRows = (rows || []).filter((row) => PCH_FUNNEL_EVENT_NAMES.has(row?.eventName));
   const order = [];
-  const grouped = groupBy(rows, (row) => row?.eventName || row?.label || "");
-  for (const row of rows || []) {
+  const grouped = groupBy(pchRows, (row) => row?.eventName || row?.label || "");
+  for (const row of pchRows) {
     const key = row?.eventName || row?.label || "";
     if (key && !order.includes(key)) order.push(key);
   }
@@ -236,15 +269,53 @@ function aggregateTapRows(rows) {
   return out.sort((a, b) => num(b.records) - num(a.records));
 }
 
+function aggregateReviveAdFunnel(rows) {
+  const out = [];
+  for (const [, group] of groupBy(rows, (row) => `${row?.levelId ?? row?.logicalLevelId ?? ""}|${row?.page || ""}`)) {
+    const first = clone(group[0] || {});
+    const levelId = num(first.levelId || first.logicalLevelId);
+    if (!levelId || !first.page) continue;
+    const row = {
+      levelId,
+      page: first.page,
+      panelShowNum: sum(group, "panelShowNum"),
+      clickNum: sum(group, "clickNum"),
+      showNum: sum(group, "showNum"),
+      finishNum: sum(group, "finishNum"),
+      reviveSuccessNum: sum(group, "reviveSuccessNum"),
+      userNum: sum(group, "userNum"),
+    };
+    row.panelClickRate = ratio(row.clickNum, row.panelShowNum);
+    row.adShowRate = ratio(row.showNum, row.clickNum);
+    row.adFinishRate = ratio(row.finishNum, row.showNum);
+    row.reviveSuccessRate = ratio(row.reviveSuccessNum, row.finishNum);
+    out.push(row);
+  }
+  return out.sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
+}
+
 function aggregateCoreMetrics(items, targetDate) {
   const out = { ...clone(items[0] || {}), date: targetDate };
   for (const field of Object.keys(out)) {
     if (typeof out[field] === "number" && !/rate/i.test(field)) out[field] = sum(items, field);
   }
+  for (const field of ["l1FunnelStartUv", "l1FunnelPassUv", "l1FunnelUvPassRate", "firstLevelUiReadySessions", "firstLevelAnyTouchSessions", "firstLevelAnyTouchRate"]) {
+    delete out[field];
+  }
+  out.l1EnterUv = sum(items, "l1EnterUv");
+  out.l1PassUv = sum(items, "l1PassUv");
+  out.l1FailUv = sum(items, "l1FailUv");
+  out.l1EnterNotPassUv = sum(items, "l1EnterNotPassUv");
   out.l1UvPassRate = ratio(out.l1PassUv, out.l1EnterUv);
-  out.l1FunnelUvPassRate = ratio(out.l1FunnelPassUv, out.l1FunnelStartUv);
+  out.l1LevelEnterUv = sum(items, "l1LevelEnterUv");
+  out.l1LevelPassUv = sum(items, "l1LevelPassUv");
   out.l1LevelEnterPassRate = ratio(out.l1LevelPassUv, out.l1LevelEnterUv);
-  out.firstLevelAnyTouchRate = ratio(out.firstLevelAnyTouchSessions, out.firstLevelUiReadySessions);
+  out.pchFirstStoreSessions = sum(items, "pchFirstStoreSessions");
+  out.pchFirstReturnSessions = sum(items, "pchFirstReturnSessions");
+  out.pchFirstStoreToReturnRate = ratio(out.pchFirstReturnSessions, out.pchFirstStoreSessions);
+  out.adShowPv = sum(items, "adShowPv");
+  out.adClickPv = sum(items, "adClickPv");
+  out.adFinishPv = sum(items, "adFinishPv");
   out.adFinishRate = ratio(out.adFinishPv, out.adShowPv);
   return out;
 }
@@ -319,15 +390,26 @@ function aggregateLevelNetValue(levelNetValues) {
 
 function aggregateDataQuality(items) {
   const out = { ...clone(items[0] || {}) };
+  for (const field of ["firstLevelFunnelScope", "firstLevelFunnelRecords", "firstLevelFunnelSessions", "firstLevelFunnelAllLevelRecords", "firstLevelFunnelAllLevelSessions"]) {
+    delete out[field];
+  }
   for (const key of Object.keys(out)) {
     if (typeof out[key] === "number") out[key] = sum(items, key);
   }
+  out.pchFunnelScope = "logical_levels=1,2,3";
+  out.pchFunnelRecords = sum(items, "pchFunnelRecords");
+  out.pchFunnelSessions = sum(items, "pchFunnelSessions");
+  out.pchFunnelRawRecords = sum(items, "pchFunnelRawRecords");
   return out;
 }
 
 function aggregateDailyDiagnosis(summaries, targetDate, sourceDates) {
   const diags = summaries.map((item) => item.dailyDiagnosis || {});
   const first = clone(diags[0] || {});
+  const pchFunnelScope = first.pchFunnelScope || { levelIds: [1, 2, 3], label: "logical_levels=1,2,3" };
+  for (const field of ["firstLevelFunnelAllLevels", "firstLevelFunnelScope", "firstLevelFunnelAllLevelsScope", "tutorialTapBreakdown", "tutorialTapByStep", "tutorialTapBreakdownAllLevels", "tutorialTapByStepAllLevels"]) {
+    delete first[field];
+  }
   const first20 = aggregateLevelRows(diags.flatMap((item) => item.first20Levels || []));
   const adRows = aggregateAdPerformanceRows(diags.flatMap((item) => item.adPerformance?.topByShow || []));
   const adOverall = aggregateAdPerformanceRows(diags.map((item) => ({ ...(item.adPerformance?.overall || {}), adType: "all", page: "all", label: "all", isTotal: true })))[0] || {};
@@ -338,7 +420,7 @@ function aggregateDailyDiagnosis(summaries, targetDate, sourceDates) {
   }
   return {
     ...first,
-    schemaVersion: `${first.schemaVersion || "dailyDiagnosis"}+synthetic-daily-sum`,
+    schemaVersion: "10+synthetic-daily-sum",
     generatedAt: new Date().toISOString(),
     synthetic: {
       type: "daily_sum",
@@ -347,13 +429,10 @@ function aggregateDailyDiagnosis(summaries, targetDate, sourceDates) {
     },
     coreMetrics: aggregateCoreMetrics(diags.map((item) => item.coreMetrics || {}), targetDate),
     firstLevelFunnel: aggregateFunnelRows(diags.flatMap((item) => item.firstLevelFunnel || [])),
-    firstLevelFunnelAllLevels: aggregateFunnelRows(diags.flatMap((item) => item.firstLevelFunnelAllLevels || [])),
-    firstLevelFunnelScope: { ...(first.firstLevelFunnelScope || {}), label: `synthetic daily sum ${sourceDates[0]}..${sourceDates[sourceDates.length - 1]}` },
-    firstLevelFunnelAllLevelsScope: { ...(first.firstLevelFunnelAllLevelsScope || {}), label: `synthetic all-level daily sum ${sourceDates[0]}..${sourceDates[sourceDates.length - 1]}` },
-    tutorialTapBreakdown: aggregateTapRows(diags.flatMap((item) => item.tutorialTapBreakdown || [])),
-    tutorialTapByStep: aggregateTapRows(diags.flatMap((item) => item.tutorialTapByStep || [])),
-    tutorialTapBreakdownAllLevels: aggregateTapRows(diags.flatMap((item) => item.tutorialTapBreakdownAllLevels || [])),
-    tutorialTapByStepAllLevels: aggregateTapRows(diags.flatMap((item) => item.tutorialTapByStepAllLevels || [])),
+    pchFunnelScope: { ...pchFunnelScope, label: `logical_levels=1,2,3; synthetic daily sum ${sourceDates[0]}..${sourceDates[sourceDates.length - 1]}` },
+    guideTapBreakdown: aggregateTapRows(diags.flatMap((item) => item.guideTapBreakdown || [])),
+    guideTapByStep: aggregateTapRows(diags.flatMap((item) => item.guideTapByStep || [])),
+    reviveAdFunnel: aggregateReviveAdFunnel(diags.flatMap((item) => item.reviveAdFunnel || [])),
     first20Levels: first20,
     mainlineBottlenecks: first20.filter((row) => !row.isTotal).sort((a, b) => num(b.enterNotPassUv) - num(a.enterNotPassUv)).slice(0, 10),
     highRetryLevels: first20.filter((row) => !row.isTotal && num(row.avgTryCount) > 1).sort((a, b) => num(b.avgTryCount) - num(a.avgTryCount)).slice(0, 10),
@@ -389,7 +468,8 @@ function aggregateCollections(summaries, targetDate) {
     if (summary.topByShow) summary.topByShow = aggregateAdPerformanceRows(entries.flatMap((item) => item.summary?.topByShow || []));
     summary.levelOneUvPassRate = ratio(summary.levelOnePassUv, summary.levelOneEnterUv);
     summary.passRate = ratio(summary.passRounds, num(summary.passRounds) + num(summary.failRounds));
-    summary.clickRate = ratio(summary.totalClickNum, summary.totalShowNum);
+    delete summary.clickRate;
+    summary.showRate = ratio(summary.totalShowNum, summary.totalClickNum);
     summary.finishRate = ratio(summary.totalFinishNum, summary.totalShowNum);
     summary.finishPerClickRate = ratio(summary.totalFinishNum, summary.totalClickNum);
     first.exportInfo = { ...(first.exportInfo || {}), totalRecords: sum(entries.map((item) => item.exportInfo || {}), "totalRecords"), synthetic: true };
@@ -422,8 +502,11 @@ function buildMarkdown(summary) {
     `| 指标 | 值 |`,
     `| --- | --- |`,
     `| DAU(日UV加总) | ${core.dau || 0} |`,
-    `| L1起点UV(日UV加总) | ${core.l1FunnelStartUv || 0} |`,
-    `| L1通过UV(日UV加总) | ${core.l1FunnelPassUv || 0} |`,
+    `| L1进入UV(日UV加总) | ${core.l1EnterUv || 0} |`,
+    `| L1通过UV(日UV加总) | ${core.l1PassUv || 0} |`,
+    `| 前三关首次存入Session | ${core.pchFirstStoreSessions || 0} |`,
+    `| 前三关首次归位Session | ${core.pchFirstReturnSessions || 0} |`,
+    `| 首次存入到首次归位 | ${(num(core.pchFirstStoreToReturnRate) * 100).toFixed(1)}% |`,
     `| 广告曝光PV | ${core.adShowPv || 0} |`,
     `| 广告完成PV | ${core.adFinishPv || 0} |`,
     ``,

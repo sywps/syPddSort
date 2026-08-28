@@ -153,7 +153,7 @@ export class GameCirclePanelController {
                 const enterBtn = runtime.requirePanelChild(box, 'EnterBtn');
                 const style = resolveNativeButtonStyle(enterBtn);
                 const result = createWeChatGameCircleButton(openlink, style, () => {
-                    AudioMgr.inst.play('uiPanel');
+                    AudioMgr.inst.play('button');
                 });
                 runtime._gameCircleNativeButton = result.button;
                 runtimeLog('[GameCircle] native button ready:', result.style, result.sdkVersion || '', result.platform || '', result.openlink ? 'openlink' : 'home');
