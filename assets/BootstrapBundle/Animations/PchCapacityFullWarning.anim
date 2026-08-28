@@ -1,0 +1,193 @@
+{
+  "__type__": "cc.AnimationClip",
+  "_name": "PchCapacityFullWarning",
+  "_objFlags": 0,
+  "__editorExtras__": {},
+  "_native": "",
+  "sample": 60,
+  "speed": 1,
+  "wrapMode": 2,
+  "enableTrsBlending": false,
+  "_duration": 2,
+  "_hash": 0,
+  "_tracks": [
+    {
+      "__type__": "cc.animation.ColorTrack",
+      "_binding": {
+        "__type__": "cc.animation.TrackBinding",
+        "path": {
+          "__type__": "cc.animation.TrackPath",
+          "_paths": [
+            {
+              "__type__": "cc.animation.ComponentPath",
+              "component": "cc.Label"
+            },
+            "color"
+          ]
+        },
+        "proxy": null
+      },
+      "_channels": [
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        },
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        },
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 1, "interpolationMode": 1 },
+              { "value": 1, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 1, "interpolationMode": 1 },
+              { "value": 1, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        },
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        }
+      ]
+    },
+    {
+      "__type__": "cc.animation.ColorTrack",
+      "_binding": {
+        "__type__": "cc.animation.TrackBinding",
+        "path": {
+          "__type__": "cc.animation.TrackPath",
+          "_paths": [
+            {
+              "__type__": "cc.animation.ComponentPath",
+              "component": "cc.Label"
+            },
+            "outlineColor"
+          ]
+        },
+        "proxy": null
+      },
+      "_channels": [
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        },
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        },
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 },
+              { "value": 0, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        },
+        {
+          "__type__": "cc.animation.Channel",
+          "_curve": {
+            "__type__": "cc.RealCurve",
+            "_times": [0, 0.48333333333333334, 0.5, 1.5, 1.5166666666666666, 2],
+            "_values": [
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 },
+              { "value": 255, "interpolationMode": 1 }
+            ],
+            "preExtrapolation": 1,
+            "postExtrapolation": 1
+          }
+        }
+      ]
+    }
+  ],
+  "_exoticAnimation": null,
+  "_events": [],
+  "_embeddedPlayers": [],
+  "_auxiliaryCurveEntries": []
+}

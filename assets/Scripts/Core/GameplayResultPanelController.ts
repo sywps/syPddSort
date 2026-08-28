@@ -541,8 +541,12 @@ export class GameplayResultPanelController {
             AudioMgr.inst.play('button');
             runtime.claimWinAdBonusReward();
         });
-        const settlementTopHud = runtime.requirePanelChild(overlay, 'SettlementTopHud');
-        const collectionBtn = runtime.requirePanelChild(settlementTopHud, 'CollectionBtn');
+        const collectionBtn = runtime.requirePanelChild(box, 'CollectionBtn');
+        const collectionTitlePlate = runtime.requirePanelChild(collectionBtn, '标题底板');
+        const collectionTitleLabel = runtime.requirePanelChild(collectionTitlePlate, 'Label');
+        if (!collectionTitleLabel.getComponent(Label)) {
+            throw new Error('[result-panel] WinPanel collection title is missing Label');
+        }
         this.bindPanelButtonWithScaledFallback(collectionBtn, overlay, () => {
             AudioMgr.inst.play('uiPanel');
             runtime.openCollection();
@@ -747,6 +751,11 @@ export class GameplayResultPanelController {
         if (this.scaledFallbackOverlays.get(triggerNode) === overlay) return;
         this.scaledFallbackOverlays.set(triggerNode, overlay);
         overlay.on(Node.EventType.TOUCH_END, (event: any) => {
+            let nativeTarget = event?.target as Node | null;
+            while (nativeTarget?.isValid && nativeTarget !== overlay) {
+                if (nativeTarget.getComponent(Button)) return;
+                nativeTarget = nativeTarget.parent;
+            }
             const rawPos = event?.getUILocation?.();
             if (!rawPos || typeof runtime.normalizeGameplayUiPosition !== 'function') return;
             const normalizedPos = runtime.normalizeGameplayUiPosition(rawPos);
@@ -794,7 +803,9 @@ export class GameplayResultPanelController {
         this.bindReviveContinueAction(reviveBtn, overlay);
         this.bindPanelButtonWithScaledFallback(homeBtn, overlay, () => {
             AudioMgr.inst.play('button');
-            AnalyticsMgr.inst.finalizePendingFailedLevel();
+            AnalyticsMgr.inst.finalizePendingFailedLevel({
+                gameplayStats: runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
+            });
             overlay.active = false;
             runtime.showMainMenu();
         });

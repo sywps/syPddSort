@@ -215,10 +215,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this._modalFocusRefs = this.getRuntimeOwnerCount('modal');
             if (this._modalFocusRefs === 0) {
                 this.resumeGuideAfterModal(tokenOrReason);
-                const pendingReadyStep = Math.floor(Number(this._pendingTutorialInteractiveReadyStep));
-                if (pendingReadyStep >= 0) {
-                    this.markTutorialStepInteractiveReadyForFunnel?.(pendingReadyStep);
-                }
             }
         },
 
@@ -867,12 +863,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideStatus = 'settling';
             this.clearGuideReminderTimer?.();
             if (!hasVisiblePreview) this.hideGuideReminderVisuals?.();
-            this.trackFirstLevelFunnel('tutorial_step_done', {
-                stepId: completedStep,
-                stepName: `${this._guideMode}:${completedStep}:${this._guidePhase}`,
-                source: 'tutorial',
-                success: true,
-            });
             if (nextStep >= this._guideTotalSteps) {
                 this.endTutorial();
                 if (this.boardModel.isAllLocked()) {
@@ -909,11 +899,6 @@ export function installGuideLeaderboardModule(target: any): void {
             if (completedGuideMode === 'level_1') {
                 this.reportFirstLevelReleaseState?.('tutorial_done_before_cleanup');
             }
-            this.trackFirstLevelFunnel('tutorial_done', {
-                source: 'tutorial',
-                success: true,
-            });
-            SySDKMgr.inst.reportTutorialFinish();
             this.clearGuideReminderTimer?.();
             this.hideGuideReminderVisuals?.();
             this._guideInputSuspended = false;

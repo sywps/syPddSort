@@ -3,10 +3,9 @@ import {
 } from '../GameCtrlShared';
 
 const ENDGAME_HINT_PREFAB_PATH = 'UI/Prefabs/Fx/EndgameHintCell';
-const ENDGAME_HINT_THRESHOLD = 5;
+const ENDGAME_HINT_THRESHOLD = 3;
 const ENDGAME_HINT_POOL_LIMIT = 12;
 const ENDGAME_BOARD_HINT_EXTRA_SIZE = 8;
-const ENDGAME_SLOT_HINT_EXTRA_SIZE = 8;
 const ENDGAME_HINT_STAR_FRAME_NAME = 'block_match-animation_16';
 const ENDGAME_HINT_STAR_FRAME_PATH = `Textures/UI/${ENDGAME_HINT_STAR_FRAME_NAME}`;
 const ENDGAME_HINT_STAR_VISIBLE_DURATION = 1.4;
@@ -39,26 +38,17 @@ function getNodeVisualCenterLocal(node: Node): Vec3 {
     );
 }
 
-function resolveSlotHintParent(slotNode: Node | null): Node | null {
-    if (!slotNode || !slotNode.isValid) return null;
-    const beanNode = slotNode.getChildByName('Bean');
-    const beanSprite = beanNode?.getComponent(Sprite) || null;
-    if (beanNode?.isValid && (!beanSprite || beanSprite.enabled)) {
-        return beanNode;
-    }
-    return slotNode;
-}
-
 export function installEndgameHintModule(target: any): void {
     Object.assign(target, {
-        collectEndgameIncompleteCells(): Array<{ row: number; col: number; colorId: number }> {
+        collectEndgameBoardBeans(): Array<{ row: number; col: number; colorId: number }> {
             const cells: Array<{ row: number; col: number; colorId: number }> = [];
             const boardModel = this.boardModel;
             if (!boardModel) return cells;
             for (let r = 0; r < boardModel.height; r++) {
                 for (let c = 0; c < boardModel.width; c++) {
-                    const colorId = boardModel.correctColors[r]?.[c] || 0;
-                    if (colorId === 0 || boardModel.locked[r]?.[c]) continue;
+                    const isPatternCell = (boardModel.correctColors[r]?.[c] || 0) > 0;
+                    const colorId = boardModel.currentColors[r]?.[c] || 0;
+                    if (!isPatternCell || colorId === 0 || boardModel.locked[r]?.[c]) continue;
                     cells.push({ row: r, col: c, colorId });
                 }
             }
@@ -66,7 +56,7 @@ export function installEndgameHintModule(target: any): void {
         },
 
         refreshEndgameHints(reason: string = 'state-change'): void {
-            if (!this.boardModel || !this.slotModel || !this.cellNodes || !this.slotNodes) return;
+            if (!this.boardModel || !this.cellNodes) return;
             if (this.isGameEnd || this._skillActive) {
                 this.clearEndgameHints(false);
                 return;
@@ -77,8 +67,8 @@ export function installEndgameHintModule(target: any): void {
                 return;
             }
 
-            const incompleteCells = this.collectEndgameIncompleteCells();
-            if (incompleteCells.length === 0 || incompleteCells.length > ENDGAME_HINT_THRESHOLD) {
+            const boardBeans = this.collectEndgameBoardBeans();
+            if (boardBeans.length === 0 || boardBeans.length > ENDGAME_HINT_THRESHOLD) {
                 this.clearEndgameHints(false);
                 return;
             }
@@ -92,7 +82,7 @@ export function installEndgameHintModule(target: any): void {
                         this.clearEndgameHints(false);
                         return;
                     }
-                    const latestCells = this.collectEndgameIncompleteCells();
+                    const latestCells = this.collectEndgameBoardBeans();
                     if (latestCells.length === 0 || latestCells.length > ENDGAME_HINT_THRESHOLD) {
                         this.clearEndgameHints(false);
                         return;
@@ -248,31 +238,15 @@ export function installEndgameHintModule(target: any): void {
 
         buildEndgameHintTargets(cells: Array<{ row: number; col: number; colorId: number }>): EndgameHintTarget[] {
             const targets: EndgameHintTarget[] = [];
-            const neededColors = new Set<number>();
             const seen = new Set<string>();
             const boardSize = Math.max(24, (this.cellSize || 44) + ENDGAME_BOARD_HINT_EXTRA_SIZE);
             for (const cell of cells) {
                 const parent = this.cellNodes[cell.row]?.[cell.col] || null;
                 if (!parent || !parent.isValid) continue;
-                neededColors.add(cell.colorId);
                 const key = `board:${cell.row},${cell.col}`;
                 if (seen.has(key)) continue;
                 seen.add(key);
                 targets.push({ key, parent, size: boardSize });
-            }
-
-            const slots = this.slotModel.getAll ? this.slotModel.getAll() : [];
-            const slotSize = Math.max(24, this.getSlotBeanVisualSize ? this.getSlotBeanVisualSize() + ENDGAME_SLOT_HINT_EXTRA_SIZE : this.cellSize || 44);
-            for (let i = 0; i < slots.length; i++) {
-                const block = slots[i];
-                if (!block || !neededColors.has(block.colorId)) continue;
-                if (this._hiddenSlotIndices?.has(i)) continue;
-                const parent = resolveSlotHintParent(this.slotNodes[i] || null);
-                if (!parent || !parent.isValid) continue;
-                const key = `slot:${i}`;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                targets.push({ key, parent, size: slotSize });
             }
             return targets;
         },

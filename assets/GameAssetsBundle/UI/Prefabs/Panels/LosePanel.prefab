@@ -1894,8 +1894,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 25,
-      "y": 2.976,
+      "x": 26.683,
+      "y": 0,
       "z": 0
     },
     "_lrot": {
@@ -1971,11 +1971,11 @@
       "b": 255,
       "a": 255
     },
-    "_string": "继续游戏",
+    "_string": "复活",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 38,
-    "_fontSize": 38,
+    "_actualFontSize": 48,
+    "_fontSize": 48,
     "_fontFamily": "Arial",
     "_lineHeight": 48,
     "_overflow": 2,
@@ -1991,9 +1991,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 74,
-      "g": 99,
-      "b": 182,
+      "r": 4,
+      "g": 94,
+      "b": 0,
       "a": 255
     },
     "_outlineWidth": 2,
@@ -2071,8 +2071,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -81.533,
-      "y": 2.976,
+      "x": -53.546,
+      "y": 0,
       "z": 0
     },
     "_lrot": {
@@ -2112,8 +2112,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 50,
-      "height": 42
+      "width": 55,
+      "height": 40
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2447,9 +2447,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 7,
-      "g": 156,
-      "b": 214,
+      "r": 0,
+      "g": 103,
+      "b": 143,
       "a": 255
     },
     "_outlineWidth": 4,
@@ -2767,9 +2767,9 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 7,
-      "g": 156,
-      "b": 214,
+      "r": 0,
+      "g": 103,
+      "b": 143,
       "a": 255
     },
     "_outlineWidth": 4,

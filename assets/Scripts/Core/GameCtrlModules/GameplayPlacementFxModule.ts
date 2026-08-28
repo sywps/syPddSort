@@ -328,14 +328,6 @@ export function installGameplayPlacementFxModule(target: any): void {
                     }
                     // 先捕获源世界坐标
                     const sources = this.collectSourceWorldPositions(block);
-                    if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
-                        this._firstFunnelPlaceAttemptSent = true;
-                        this.trackFirstLevelFunnel('first_place_attempt', {
-                            touchTarget: 'slot',
-                            source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                            extra: { colorId: block.colorId, sourceBlock: block.source },
-                        });
-                    }
         
                     // 从棋盘移除
                     this.boardModel.removeBlock(block);
@@ -361,15 +353,6 @@ export function installGameplayPlacementFxModule(target: any): void {
                         this.boardModel.restoreBlock(remaining);
                     }
                     if (storedSlotIdxs.length > 0) {
-                        if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {
-                            this._firstFunnelPlaceSuccessSent = true;
-                            this.trackFirstLevelFunnel('first_place_success', {
-                                touchTarget: 'slot',
-                                source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                                success: true,
-                                extra: { colorId: block.colorId, placedCount: storedSlotIdxs.length, sourceBlock: block.source },
-                            });
-                        }
                         this.checkSlotAddReminderAfterSlotChanged?.('first-full');
                         this.startFlyToSlots(block.colorId, sources.slice(0, storedSlotIdxs.length), storedSlotIdxs, block.cells, remainingSelection);
                     } else {
@@ -1250,7 +1233,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             this.checkAdRewardTimedHints?.();
             if (this.timeRemain > 0 && this.timeRemain <= 5) AudioMgr.inst.play('tick');
             if (this.timeRemain <= 0) {
-                if (this.boardModel?.isAllLocked?.()) {
+                if (this.isBoardCompletionCommittedForSettlement()) {
                     this.playPatternCompleteThenWin();
                     return;
                 }

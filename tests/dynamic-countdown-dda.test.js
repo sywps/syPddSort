@@ -52,7 +52,9 @@ assert.ok(settlement.includes('this.recordDynamicCountdownFinalFailure?.();'), '
 assert.ok(settlement.includes('this.revokeDynamicCountdownFinalFailure?.();'), 'revive continuation must undo a recorded final fail');
 assert.ok(settlement.includes('this.markDynamicCountdownAssisted?.();'), 'revive continuation must mark assisted run');
 assert.ok(settlement.includes('completePercent: Math.min(98'), 'fail/revive settlement progress must cap displayed completion below 100%');
-assert.ok(settlement.includes('this.boardModel?.isAllLocked?.()'), 'gameLose must prefer win when the board is already complete');
+assert.ok(settlement.includes('isBoardCompletionCommittedForSettlement(): boolean'), 'settlement must centralize the committed-completion boundary');
+assert.ok(settlement.includes('if (!this.boardModel?.isAllLocked?.()) return false;'), 'non-complete boards must never bypass timeout');
+assert.ok(settlement.includes('return conveyor.isFinishCommitted?.() === true;'), 'active PCH gameplay must wait for its final return callback before win can beat timeout');
 
 const slotPolicy = read('assets/Scripts/Core/SlotOnboardingPolicy.ts');
 assert.ok(slotPolicy.includes('export function isGameplaySkillUnlocked'), 'skill unlock policy must be centralized');
@@ -170,7 +172,7 @@ assert.deepStrictEqual(
 const timerModule = read('assets/Scripts/Core/GameCtrlModules/GameplayPlacementFxModule.ts');
 assert.ok(timerModule.includes('shouldPauseTimerForFinalSecondProp'), 'timer module must expose a final-second prop pause guard');
 assert.ok(timerModule.includes('remaining > 0 && remaining <= 1'), 'final-second prop pause guard must be limited to the last-second window');
-assert.ok(timerModule.includes('if (this.boardModel?.isAllLocked?.())'), 'timer tick must check completion before timing out');
+assert.ok(timerModule.includes('if (this.isBoardCompletionCommittedForSettlement())'), 'timer tick must check committed completion before timing out');
 assert.ok(timerModule.includes('if (this.tickFreezeTimer()) return;'), 'timer tick must skip countdown while freeze is active');
 assert.ok(timerModule.includes('this.stopFreezeSpineFx?.(true);'), 'freeze timer expiry must stop the freeze Spine effect');
 

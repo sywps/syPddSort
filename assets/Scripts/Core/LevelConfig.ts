@@ -106,6 +106,18 @@ export const COLOR_HEX_LOCKED: Record<number, string> = {
 /** 新版传送带每个载具可堆叠的豆豆数量。 */
 export const CONVEYOR_STACK_DEPTH = 3;
 
+/** 新版传送带单次从棋盘选取豆豆的默认数量上限。 */
+export const DEFAULT_PCH_SINGLE_SELECTION_LIMIT = 12;
+
+/** 校验关卡配置的单次选取数量；未配置时沿用默认值。 */
+export function validatePchSingleSelectionLimit(value: unknown, label: string = 'level data'): number {
+    if (value === undefined || value === null) return DEFAULT_PCH_SINGLE_SELECTION_LIMIT;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new Error(`[SingleSelectionLimit] ${label}.singleSelectionLimit must be a positive integer: ${value}`);
+    }
+    return value;
+}
+
 /** 校验关卡配置的新版传送带容量（单位：豆豆颗数）。 */
 export function validateConveyorCapacity(value: unknown, label: string = 'level data'): number {
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
@@ -133,6 +145,8 @@ export interface LevelData {
     slotTotalCount: number;
     /** 新版传送带可暂存的豆豆总数，不是行数。 */
     conveyorCapacity: number;
+    /** 新版传送带单次从棋盘选取豆豆的数量上限；未配置时为 12。 */
+    singleSelectionLimit?: number;
     tutorialGuide?: LevelTutorialGuideConfig;
     /** 每格正确颜色 [row][col] */
     correctColorArr: number[][];

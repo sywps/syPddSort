@@ -32,8 +32,20 @@ const manifestByLevel = new Map(manifest.entries.map((entry) => [entry.levelId, 
 for (let levelId = 1; levelId <= 300; levelId += 1) {
     const formalBuffer = fs.readFileSync(path.join(root, `assets/LevelData/level_${levelId}.json`));
     const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${levelId}.json`));
-    assert.equal(formalBuffer.equals(candidateBuffer), true, `formal level ${levelId} must match the selected candidate byte-for-byte`);
+    const comparableFormalBuffer = levelId === 2
+        ? Buffer.from(formalBuffer.toString('utf8').replace(/^[\t ]*"singleSelectionLimit": 18,\r?\n/m, ''))
+        : formalBuffer;
+    assert.equal(
+        comparableFormalBuffer.equals(candidateBuffer),
+        true,
+        `formal level ${levelId} must match the selected candidate apart from approved runtime metadata`,
+    );
     const level = readJson(`assets/LevelData/level_${levelId}.json`);
+    assert.equal(
+        level.singleSelectionLimit,
+        levelId === 2 ? 18 : undefined,
+        `only formal level 2 may override the single-selection limit`,
+    );
     assert.deepEqual(
         [level.levelId, level.conveyorCapacity],
         [levelId, 60],

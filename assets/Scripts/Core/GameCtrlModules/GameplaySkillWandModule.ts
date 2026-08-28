@@ -56,6 +56,7 @@ export function installGameplaySkillWandModule(target: any): void {
                 this.resetIdleHintTimer();
                 this.refreshFreezeTimerLabel?.();
                 this.playFreezeSpineFx?.();
+                pchController?.recordFreezeUse?.();
             } catch (error) {
                 this.unschedule?.(finish);
                 finish();

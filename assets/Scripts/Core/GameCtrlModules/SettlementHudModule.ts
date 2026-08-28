@@ -298,6 +298,13 @@ export function installSettlementHudModule(target: any): void {
             return { total, locked, remainPercent, completePercent };
         },
 
+        isBoardCompletionCommittedForSettlement(): boolean {
+            if (!this.boardModel?.isAllLocked?.()) return false;
+            const conveyor = this._pchConveyorGameplayController;
+            if (!conveyor?.isActive?.()) return true;
+            return conveyor.isFinishCommitted?.() === true;
+        },
+
         refreshCompletionProgressLabel() {
             if (this.levelLabel) {
                 const activeLevel = this.getActiveLogicalLevelId();
@@ -817,7 +824,9 @@ export function installSettlementHudModule(target: any): void {
                     smartHintShownCount,
                 },
             });
-            AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId);
+            AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {
+                gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
+            });
             SySDKMgr.inst.reportLevelPass(logicalLevelId);
             this.recordDynamicCountdownWin?.();
             if (this._isThemeLevel) {
@@ -919,11 +928,12 @@ export function installSettlementHudModule(target: any): void {
 
         gameLose(reason: 'timeout' | 'buffer-full' = 'timeout') {
             if (this.isGameEnd) return;
-            if (this.boardModel?.isAllLocked?.()) {
+            if (this.isBoardCompletionCommittedForSettlement()) {
                 this.playPatternCompleteThenWin();
                 return;
             }
             this.isGameEnd = true;
+            this._pchConveyorGameplayController?.pauseForSettlement?.();
             this.clearIdleHint();
             this.clearAdRewardHintVisuals?.();
             this.unschedule(this.tickTimer);
@@ -932,7 +942,10 @@ export function installSettlementHudModule(target: any): void {
                 success: false,
             });
             const logicalLevelId = this.getAnalyticsLevelId();
-            AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId);
+            AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId, {
+                failureReason: reason === 'buffer-full' ? 'buffer_full' : 'timeout',
+                gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
+            });
             SySDKMgr.inst.reportLevelFail(logicalLevelId);
             PerformanceMgr.inst.markUserActivity(6000);
             AudioMgr.inst.play('lose');
@@ -978,7 +991,9 @@ export function installSettlementHudModule(target: any): void {
         },
 
         doRestart() {
-            AnalyticsMgr.inst.finalizePendingFailedLevel();
+            AnalyticsMgr.inst.finalizePendingFailedLevel({
+                gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
+            });
             this.isGameEnd = true;
             this.unschedule(this.tickTimer);
             this.unscheduleAllCallbacks();
@@ -991,9 +1006,11 @@ export function installSettlementHudModule(target: any): void {
             }
         },
 
-        /** 看广告后继续游戏；超时复活等待重新选豆，满槽复活立即恢复原倒计时。 */
+        /** 看广告后继续游戏；普通超时等待重新选豆，PCH 与满槽复活立即恢复原倒计时。 */
         continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false) {
             const timerWasStarted = !!this._timerStarted;
+            const conveyor = this._pchConveyorGameplayController;
+            const shouldResumePchTimer = conveyor?.isActive?.() === true;
             this.revokeDynamicCountdownFinalFailure?.();
             this.markDynamicCountdownAssisted?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
@@ -1025,8 +1042,11 @@ export function installSettlementHudModule(target: any): void {
             this.clearFreezeSpineFx?.();
             this._adTimerSuspended = false;
             this.isGameEnd = false;
+            conveyor?.resumeAfterSettlement?.();
             this.unschedule(this.tickTimer);
-            if (resumeTimerImmediately && timerWasStarted && !this._currentLevelUnlimitedTime) {
+            if ((resumeTimerImmediately || shouldResumePchTimer)
+                && timerWasStarted
+                && !this._currentLevelUnlimitedTime) {
                 this._timerStarted = true;
                 this.schedule(this.tickTimer, 1);
             }
@@ -2152,7 +2172,6 @@ export function installSettlementHudModule(target: any): void {
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     this.markFirstLevelTouchTiming?.();
                     if (this._guideInputSuspended) {
-                        this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
                         return;
                     }
                     this.reportFirstLevelAnyTouch?.(worldPos, 'guide_layer', 'tutorial');
@@ -2167,11 +2186,9 @@ export function installSettlementHudModule(target: any): void {
                     const uiPos = event.getUILocation();
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     if (this._guideInputSuspended) {
-                        this.reportTutorialTapResult?.(worldPos, 'ignored_suspended', false, 'guide_layer');
                         return;
                     }
                     if (this.isGameEnd || this._guideStep < 0) {
-                        this.reportTutorialTapResult?.(worldPos, 'ignored_invalid_step', false, 'guide_layer');
                         return;
                     }
                     this.handleGuideTap(worldPos);
@@ -2298,17 +2315,6 @@ export function installSettlementHudModule(target: any): void {
                 this._guidePreviewVisible = true;
                 this._guideVisualShownAt = Date.now();
                 this._guideStatus = 'transitioning';
-                this.trackFirstLevelFunnel('tutorial_transition_feedback_shown', {
-                    stepId: step,
-                    stepName: `${this._guideMode}:${step}:${renderPhase}`,
-                    source: 'tutorial_preview',
-                    success: true,
-                    extra: {
-                        previewOnly: true,
-                        actionEnabled: false,
-                        transitionElapsedMs: Math.max(0, Date.now() - (Number(this._guideTransitionStartedAt) || Date.now())),
-                    },
-                });
                 return true;
             }
             const previousRenderStep = this._guideRenderStep;
@@ -2376,20 +2382,6 @@ export function installSettlementHudModule(target: any): void {
             if ((this._guideMode === 'level_1' || this._guideMode === 'level_2')
                 && (!bubble.active || !hand.active)) {
                 throw new Error(`[guide] actionable step is missing visible bubble/hand: ${this._guideMode}:${step}:${renderPhase}`);
-            }
-            if (!resumeOnly) {
-                this.markTutorialStepShownForFunnel?.(step, renderPhase);
-                this.trackFirstLevelFunnel('tutorial_step_show', {
-                    stepId: step,
-                    stepName: `${this._guideMode}:${step}:${renderPhase}`,
-                    source: 'tutorial',
-                    success: true,
-                    extra: {
-                        actionEnabled: true,
-                        visualToActionMs: 0,
-                    },
-                });
-                this.markTutorialStepInteractiveReadyForFunnel?.(step);
             }
             this.armGuideReminder?.();
             if (!resumeOnly && this.shouldPlayInitialGuidePathForStep?.(step)) {

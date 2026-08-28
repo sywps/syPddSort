@@ -20,6 +20,12 @@ function extractMethod(source, signature) {
     throw new Error(`unterminated method body: ${signature}`);
 }
 
+function compileExtractedMethod(source, signature, argumentNames = []) {
+    const method = extractMethod(source, signature);
+    const open = method.indexOf('{');
+    return new Function(...argumentNames, method.slice(open + 1, -1));
+}
+
 function refId(ref) {
     return ref && typeof ref.__id__ === 'number' ? ref.__id__ : null;
 }
@@ -45,6 +51,36 @@ const losePrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/LosePanel
 const adIconMeta = readJson('assets/BootstrapBundle/GameUI/popup_ad_play_icon.png.meta');
 
 const gameLose = extractMethod(settlement, "gameLose(reason: 'timeout' | 'buffer-full' = 'timeout')");
+const isCompletionCommitted = compileExtractedMethod(
+    settlement,
+    'isBoardCompletionCommittedForSettlement(): boolean',
+);
+assert.equal(
+    isCompletionCommitted.call({ boardModel: { isAllLocked: () => true }, _pchConveyorGameplayController: null }),
+    true,
+    'a completed non-PCH board must keep the existing win-before-timeout behavior',
+);
+assert.equal(
+    isCompletionCommitted.call({
+        boardModel: { isAllLocked: () => true },
+        _pchConveyorGameplayController: { isActive: () => true, isFinishCommitted: () => false },
+    }),
+    false,
+    'PCH locked model data must not beat timeout before the final return callback commits',
+);
+assert.equal(
+    isCompletionCommitted.call({
+        boardModel: { isAllLocked: () => true },
+        _pchConveyorGameplayController: { isActive: () => true, isFinishCommitted: () => true },
+    }),
+    true,
+    'PCH final return callback must lock the win before a later timer tick',
+);
+assert.ok(
+    gameLose.includes('if (this.isBoardCompletionCommittedForSettlement())')
+        && gameLose.indexOf('this.isGameEnd = true;') < gameLose.indexOf('this._pchConveyorGameplayController?.pauseForSettlement?.();'),
+    'timeout must commit the result before pausing PCH return animation, while finish-first still wins',
+);
 assert.match(
     gameLose,
     /reason === 'buffer-full' && this\.panelBufferFullContinue/,
@@ -56,6 +92,68 @@ assert.doesNotMatch(
     /if \(this\.panelTimeoutContinue\) \{\s*this\.panelTimeoutContinue\.active = true/,
     'ordinary timeout must not route through the intermediate revive panel',
 );
+const continueAfterLose = extractMethod(settlement, 'continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false)');
+assert.ok(
+    continueAfterLose.includes('const shouldResumePchTimer = conveyor?.isActive?.() === true;')
+        && continueAfterLose.includes('conveyor?.resumeAfterSettlement?.();')
+        && continueAfterLose.includes('(resumeTimerImmediately || shouldResumePchTimer)'),
+    'PCH revive must resume registered return animation and the already-started countdown immediately',
+);
+const runContinueAfterLose = compileExtractedMethod(
+    settlement,
+    'continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false)',
+    ['addSeconds', 'resumeTimerImmediately'],
+);
+let resumedReturnCount = 0;
+let scheduledTimerCount = 0;
+const continueRuntime = {
+    _timerStarted: true,
+    _currentLevelUnlimitedTime: false,
+    _pchConveyorGameplayController: {
+        isActive: () => true,
+        resumeAfterSettlement: () => { resumedReturnCount += 1; },
+    },
+    panelTimeoutContinue: null,
+    panelBufferFullContinue: null,
+    panelLose: null,
+    timeRemain: 0,
+    timerLabel: null,
+    isSelected: false,
+    currentBlock: null,
+    _guideStep: -1,
+    _guidePhase: '',
+    _timerPauseRefs: 0,
+    _timerLockedForProp: false,
+    _freezeTimeLeft: 0,
+    _freezeTimeTotal: 0,
+    _adTimerSuspended: false,
+    isGameEnd: true,
+    tickTimer() {},
+    revokeDynamicCountdownFinalFailure() {},
+    markDynamicCountdownAssisted() {},
+    resetTouchState() {},
+    clearFreezeSpineFx() {},
+    unschedule() {},
+    schedule() { scheduledTimerCount += 1; },
+    resetIdleHintTimer() {},
+};
+runContinueAfterLose.call(continueRuntime, 120, false);
+assert.equal(continueRuntime.timeRemain, 120, 'PCH rewarded revive must add the configured time');
+assert.equal(continueRuntime.isGameEnd, false, 'PCH rewarded revive must return to Running');
+assert.equal(resumedReturnCount, 1, 'PCH rewarded revive must resume registered return animation once');
+assert.equal(scheduledTimerCount, 1, 'PCH rewarded revive must resume the already-started timer without another board tap');
+let nonPchScheduledTimerCount = 0;
+const nonPchContinueRuntime = {
+    ...continueRuntime,
+    _pchConveyorGameplayController: null,
+    _timerStarted: true,
+    timeRemain: 0,
+    isGameEnd: true,
+    schedule() { nonPchScheduledTimerCount += 1; },
+};
+runContinueAfterLose.call(nonPchContinueRuntime, 120, false);
+assert.equal(nonPchScheduledTimerCount, 0, 'non-PCH timeout revive must keep its existing wait-for-next-selection timer behavior');
+assert.equal(nonPchContinueRuntime._timerStarted, false, 'non-PCH timeout revive must not silently broaden the PCH timer policy');
 
 const createLosePanel = extractMethod(resultPanel, 'createLoseSettlementPanel(): Node');
 assert.ok(

@@ -440,14 +440,6 @@ export function installBoardInputViewportModule(target: any): void {
             this.markFirstLevelTouchTiming?.();
             this.reportInteractionTouchAttempt?.(firstTouchWorldPos, 'board_input', 'delivered');
             this.reportFirstLevelAnyTouch?.(firstTouchWorldPos, 'board_input', this._guideStep >= 0 ? 'tutorial' : 'free_play');
-            if (this.isFirstLevelFunnelActive() && !this._firstFunnelTouchSent) {
-                this._firstFunnelTouchSent = true;
-                this.trackFirstLevelFunnel('first_touch', {
-                    touchTarget: this.classifyFirstLevelTouchTarget(firstTouchWorldPos),
-                    source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                    extra: this.buildFirstLevelTouchPositionExtra?.(firstTouchWorldPos) || {},
-                });
-            }
             if (this._wandMode) {
                 const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
                 this._wandDragStart = new Vec2(uiPos.x, uiPos.y);
@@ -949,16 +941,8 @@ export function installBoardInputViewportModule(target: any): void {
             this.isSelected = true;
             this.resetIdleHintTimer();
             this.ensureTimerStarted();
-            if (this.isFirstLevelFunnelActive() && !this._firstFunnelSelectSent) {
-                this._firstFunnelSelectSent = true;
-                this.trackFirstLevelFunnel('first_valid_select', {
-                    touchTarget: 'board',
-                    source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                    success: true,
-                    extra: { colorId: block.colorId, cellCount: block.cells.length },
-                });
-            }
             if (options.playFeedback !== false) {
+                AudioMgr.inst.play('select');
                 AudioMgr.inst.vibrateSelect();
             }
             if (options.preserveVisual === true) {
@@ -1011,16 +995,8 @@ export function installBoardInputViewportModule(target: any): void {
             this.isSelected = true;
             this.resetIdleHintTimer();
             this.ensureTimerStarted();
-            if (this.isFirstLevelFunnelActive() && !this._firstFunnelSelectSent) {
-                this._firstFunnelSelectSent = true;
-                this.trackFirstLevelFunnel('first_valid_select', {
-                    touchTarget: 'slot',
-                    source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                    success: true,
-                    extra: { colorId, cellCount: allCells.length },
-                });
-            }
             if (options.playFeedback !== false) {
+                AudioMgr.inst.play('select');
                 AudioMgr.inst.vibrateSelect();
             }
         
@@ -1293,14 +1269,6 @@ export function installBoardInputViewportModule(target: any): void {
             feedbackWorldPos?: Vec3,
         ): boolean {
             const block = this.currentBlock!;
-            if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceAttemptSent) {
-                this._firstFunnelPlaceAttemptSent = true;
-                this.trackFirstLevelFunnel('first_place_attempt', {
-                    touchTarget: 'board',
-                    source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                    extra: { colorId: block.colorId, sourceBlock: block.source },
-                });
-            }
             const sources = this.collectSourceWorldPositions(block);
             const dirtyBoardCells = block.source === 'board'
                 ? block.cells.map((cell) => ({ row: cell.row, col: cell.col }))
@@ -1325,15 +1293,6 @@ export function installBoardInputViewportModule(target: any): void {
                 }
                 this.playReturnFeedback(feedbackWorldPos);
                 return true;
-            }
-            if (this.isFirstLevelFunnelActive() && !this._firstFunnelPlaceSuccessSent) {
-                this._firstFunnelPlaceSuccessSent = true;
-                this.trackFirstLevelFunnel('first_place_success', {
-                    touchTarget: 'board',
-                    source: this._guideStep >= 0 ? 'tutorial' : 'free_play',
-                    success: true,
-                    extra: { colorId: block.colorId, placedCount: result.placed.length, sourceBlock: block.source },
-                });
             }
             const remainingSelection = result.remaining > 0
                 ? (block.source === 'board'

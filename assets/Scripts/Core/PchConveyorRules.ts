@@ -2,6 +2,7 @@ import type { BoardModel } from './BoardModel';
 import {
     CONVEYOR_STACK_DEPTH,
     validateConveyorCapacity,
+    validatePchSingleSelectionLimit,
     type BeanBlockInfo,
 } from './LevelConfig';
 
@@ -58,21 +59,27 @@ export type PchSkillResult = {
 };
 
 export class PchConveyorRules {
-    public readonly moveLimit = 12;
+    public readonly moveLimit: number;
     public readonly initialCarrierCount: number;
     public readonly stackDepth = CONVEYOR_STACK_DEPTH;
     public readonly carriers: number[][];
     private readonly queuedColorIds: number[] = [];
     private readyQueuedCount = 0;
 
-    constructor(public readonly board: BoardModel, conveyorCapacity: unknown) {
+    constructor(
+        public readonly board: BoardModel,
+        conveyorCapacity: unknown,
+        singleSelectionLimit?: unknown,
+    ) {
         const capacity = validateConveyorCapacity(conveyorCapacity, 'PchConveyorRules');
+        this.moveLimit = validatePchSingleSelectionLimit(singleSelectionLimit, 'PchConveyorRules');
         this.initialCarrierCount = capacity / this.stackDepth;
         this.carriers = Array.from({ length: this.initialCarrierCount }, () => []);
     }
 
     selectBoard(row: number, col: number): BeanBlockInfo | null {
-        const block = this.board.getConnectedBlock(row, col);
+        const preferredCorrectColor = this.board.correctColors[row]?.[col];
+        const block = this.board.getConnectedBlock(row, col, preferredCorrectColor);
         if (!block) return null;
         return {
             ...block,
@@ -382,14 +389,38 @@ export class PchConveyorRules {
         return this.queuedColorIds;
     }
 
-    get conveyorSpeedMultiplier(): 1 | 2 {
-        if (this.bufferCount <= 0) return 1;
+    get conveyorSpeedMultiplier(): 1 | 5 {
+        if (this.entryCount > 0) return 1;
+        const pendingTargetCounts = new Map<number, number>();
         for (let row = 0; row < this.board.height; row += 1) {
             for (let col = 0; col < this.board.width; col += 1) {
-                if (this.board.currentColors[row][col] > 0 && !this.board.locked[row][col]) return 1;
+                if (this.board.locked[row][col]) continue;
+                if (this.board.currentColors[row][col] > 0) return 1;
+                const colorId = this.board.correctColors[row][col];
+                if (colorId > 0) {
+                    pendingTargetCounts.set(colorId, (pendingTargetCounts.get(colorId) || 0) + 1);
+                }
             }
         }
-        return 2;
+        if (pendingTargetCounts.size === 0) return 1;
+
+        const storedCounts = new Map<number, number>();
+        const returnableTopColors = new Set<number>();
+        for (const stack of this.carriers) {
+            for (const colorId of stack) {
+                if (colorId > 0) storedCounts.set(colorId, (storedCounts.get(colorId) || 0) + 1);
+            }
+            const topColorId = stack[stack.length - 1] || 0;
+            if (topColorId > 0) returnableTopColors.add(topColorId);
+        }
+        if (storedCounts.size !== pendingTargetCounts.size) return 1;
+        for (const [colorId, pendingCount] of pendingTargetCounts) {
+            if (storedCounts.get(colorId) !== pendingCount) return 1;
+        }
+        for (const colorId of returnableTopColors) {
+            if (pendingTargetCounts.has(colorId)) return 5;
+        }
+        return 1;
     }
 
     isBufferDeadlocked(): boolean {
