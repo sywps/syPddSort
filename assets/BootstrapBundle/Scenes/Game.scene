@@ -2299,8 +2299,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -291.216,
-      "y": 560,
+      "x": -291.5,
+      "y": 559.5,
       "z": 0
     },
     "_lrot": {
@@ -2465,13 +2465,13 @@
     "node": {
       "__id__": 60
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
     "_alignFlags": 9,
     "_target": null,
-    "_left": 26.283999999999992,
+    "_left": 26,
     "_right": 0,
-    "_top": 25.93599999999998,
+    "_top": 38,
     "_bottom": 1135.8780000000002,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -2568,7 +2568,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 560,
+      "y": 560.2,
       "z": 0
     },
     "_lrot": {
@@ -2795,13 +2795,13 @@
     "node": {
       "__id__": 67
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
     "_alignFlags": 17,
     "_target": null,
     "_left": 279.607,
     "_right": 279.60699999999997,
-    "_top": 47.664999999999964,
+    "_top": 47,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -2843,7 +2843,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 615.399,
+      "y": 615,
       "z": 0
     },
     "_lrot": {
@@ -3031,13 +3031,13 @@
     "node": {
       "__id__": 74
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
-    "_alignFlags": 33,
+    "_alignFlags": 17,
     "_target": null,
     "_left": 572.7852908653847,
     "_right": 336.49040625,
-    "_top": -8.387720000000044,
+    "_top": 6,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
@@ -3323,8 +3323,8 @@
     "_prefab": null,
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -182.216,
-      "y": 560,
+      "x": -182.5,
+      "y": 559.5,
       "z": 0
     },
     "_lrot": {
@@ -3730,13 +3730,13 @@
     "node": {
       "__id__": 86
     },
-    "_enabled": false,
+    "_enabled": true,
     "__prefab": null,
     "_alignFlags": 9,
     "_target": null,
-    "_left": 135.284,
+    "_left": 135,
     "_right": 0,
-    "_top": 5.9360000000000355,
+    "_top": 38,
     "_bottom": 0,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,

@@ -121,7 +121,7 @@ const config = {
             cleanupImageCache: 'on',
         },
         includeModules: {
-            animation: 'off',
+            animation: 'on',
             physics: 'inherit-project-setting',
             'physics-2d': 'inherit-project-setting',
             'gfx-webgl2': 'off',
