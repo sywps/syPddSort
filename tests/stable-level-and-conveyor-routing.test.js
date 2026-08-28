@@ -32,14 +32,20 @@ const manifestByLevel = new Map(manifest.entries.map((entry) => [entry.levelId, 
 for (let levelId = 1; levelId <= 300; levelId += 1) {
     const formalBuffer = fs.readFileSync(path.join(root, `assets/LevelData/level_${levelId}.json`));
     const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${levelId}.json`));
-    const comparableFormalBuffer = levelId === 2
-        ? Buffer.from(formalBuffer.toString('utf8').replace(/^[\t ]*"singleSelectionLimit": 18,\r?\n/m, ''))
-        : formalBuffer;
-    assert.equal(
-        comparableFormalBuffer.equals(candidateBuffer),
-        true,
-        `formal level ${levelId} must match the selected candidate apart from approved runtime metadata`,
+    const formalPayload = JSON.parse(formalBuffer.toString('utf8'));
+    const candidatePayload = JSON.parse(candidateBuffer.toString('utf8'));
+    const comparableFormalPayload = { ...formalPayload };
+    if (levelId === 2) delete comparableFormalPayload.singleSelectionLimit;
+    if (levelId >= 5) comparableFormalPayload.timeLimit = candidatePayload.timeLimit;
+    assert.deepEqual(
+        comparableFormalPayload,
+        candidatePayload,
+        `formal level ${levelId} may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
     );
+    if (levelId >= 5) {
+        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
+        assert.equal(formalPayload.timeLimit, expectedTime);
+    }
     const level = readJson(`assets/LevelData/level_${levelId}.json`);
     assert.equal(
         level.singleSelectionLimit,
@@ -74,7 +80,8 @@ assert.deepEqual(
 
 const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 assert.match(session, /validateConveyorCapacity\(data\.conveyorCapacity/);
-assert.match(session, /ensurePchConveyorGameplayController\(runtime\)\.start\(\)/);
+assert.match(session, /const pchController = ensurePchConveyorGameplayController\(runtime\);/);
+assert.match(session, /pchController\.start\(\);/);
 assert.doesNotMatch(session, /usePchCoreGameplay|resolveSlotRowPolicy|new SlotModel|runtime\.renderSlots\(\)/);
 
 const view = read('assets/Scripts/Core/GameplayViewController.ts');

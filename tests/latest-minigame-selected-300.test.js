@@ -1,7 +1,6 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const shuffle = require('../tools/shuffle-comparison.js');
@@ -15,7 +14,6 @@ const formalFiles = fs.readdirSync(formalDir).filter(name => /^level_\d+\.json$/
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
 const outputFiles = fs.readdirSync(outputDir).filter(name => /^level_\d+\.json$/.test(name))
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
-const hash = buffer => crypto.createHash('sha256').update(buffer).digest('hex');
 const inventory = grid => {
     const counts = new Map();
     for (const row of grid) for (const color of row) if (color > 0) counts.set(color, (counts.get(color) || 0) + 1);
@@ -32,15 +30,21 @@ assert.equal(new Set(manifest.levels.map(row => row.metrics.patternHash)).size, 
 assert.ok(fs.statSync(path.join(outputDir, 'selection_report.md')).size > 1000);
 
 for (const filename of outputFiles) {
-    const formalBuffer = fs.readFileSync(path.join(formalDir, filename));
-    const comparableFormalBuffer = filename === 'level_2.json'
-        ? Buffer.from(formalBuffer.toString('utf8').replace(/^[\t ]*"singleSelectionLimit": 18,\r?\n/m, ''))
-        : formalBuffer;
-    assert.equal(
-        hash(comparableFormalBuffer),
-        hash(fs.readFileSync(path.join(outputDir, filename))),
-        `${filename} formal/candidate parity apart from approved runtime metadata`,
+    const levelId = Number(filename.match(/\d+/)[0]);
+    const formal = JSON.parse(fs.readFileSync(path.join(formalDir, filename), 'utf8'));
+    const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, filename), 'utf8'));
+    const comparableFormal = { ...formal };
+    if (levelId === 2) delete comparableFormal.singleSelectionLimit;
+    if (levelId >= 5) comparableFormal.timeLimit = candidate.timeLimit;
+    assert.deepEqual(
+        comparableFormal,
+        candidate,
+        `${filename} formal may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
     );
+    if (levelId >= 5) {
+        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
+        assert.equal(formal.timeLimit, expectedTime);
+    }
 }
 assert.match(manifest.summary.sourceCorpusDigest, /^[0-9a-f]{64}$/, 'retired source-corpus digest must remain recorded as provenance metadata');
 

@@ -1600,7 +1600,7 @@
       "colorCount": 5,
       "slotTotalCount": 547,
       "conveyorCapacity": 60,
-      "timeLimit": 132,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1619,7 +1619,7 @@
       "colorCount": 4,
       "slotTotalCount": 508,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1638,7 +1638,7 @@
       "colorCount": 4,
       "slotTotalCount": 614,
       "conveyorCapacity": 60,
-      "timeLimit": 138,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1657,7 +1657,7 @@
       "colorCount": 4,
       "slotTotalCount": 616,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1676,7 +1676,7 @@
       "colorCount": 4,
       "slotTotalCount": 544,
       "conveyorCapacity": 60,
-      "timeLimit": 132,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1696,7 +1696,7 @@
       "colorCount": 5,
       "slotTotalCount": 552,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1717,7 +1717,7 @@
       "colorCount": 6,
       "slotTotalCount": 756,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1738,7 +1738,7 @@
       "colorCount": 6,
       "slotTotalCount": 642,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1759,7 +1759,7 @@
       "colorCount": 6,
       "slotTotalCount": 646,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1780,7 +1780,7 @@
       "colorCount": 6,
       "slotTotalCount": 728,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1801,7 +1801,7 @@
       "colorCount": 6,
       "slotTotalCount": 857,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1842,7 +1842,7 @@
       "colorCount": 5,
       "slotTotalCount": 629,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1863,7 +1863,7 @@
       "colorCount": 6,
       "slotTotalCount": 674,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1904,7 +1904,7 @@
       "colorCount": 6,
       "slotTotalCount": 694,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1925,7 +1925,7 @@
       "colorCount": 6,
       "slotTotalCount": 607,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1946,7 +1946,7 @@
       "colorCount": 6,
       "slotTotalCount": 1536,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1967,7 +1967,7 @@
       "colorCount": 6,
       "slotTotalCount": 529,
       "conveyorCapacity": 60,
-      "timeLimit": 108,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1988,7 +1988,7 @@
       "colorCount": 6,
       "slotTotalCount": 900,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2009,7 +2009,7 @@
       "colorCount": 6,
       "slotTotalCount": 611,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2030,7 +2030,7 @@
       "colorCount": 6,
       "slotTotalCount": 643,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2052,7 +2052,7 @@
       "colorCount": 7,
       "slotTotalCount": 658,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2075,7 +2075,7 @@
       "colorCount": 8,
       "slotTotalCount": 1968,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2094,7 +2094,7 @@
       "colorCount": 4,
       "slotTotalCount": 188,
       "conveyorCapacity": 60,
-      "timeLimit": 330,
+      "timeLimit": 30,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2115,7 +2115,7 @@
       "colorCount": 6,
       "slotTotalCount": 599,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2159,7 +2159,7 @@
       "colorCount": 7,
       "slotTotalCount": 742,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2180,7 +2180,7 @@
       "colorCount": 6,
       "slotTotalCount": 584,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2200,7 +2200,7 @@
       "colorCount": 5,
       "slotTotalCount": 613,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2221,7 +2221,7 @@
       "colorCount": 6,
       "slotTotalCount": 529,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2242,7 +2242,7 @@
       "colorCount": 6,
       "slotTotalCount": 703,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2265,7 +2265,7 @@
       "colorCount": 8,
       "slotTotalCount": 1591,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2287,7 +2287,7 @@
       "colorCount": 7,
       "slotTotalCount": 198,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 30,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2309,7 +2309,7 @@
       "colorCount": 7,
       "slotTotalCount": 751,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2331,7 +2331,7 @@
       "colorCount": 7,
       "slotTotalCount": 841,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2353,7 +2353,7 @@
       "colorCount": 7,
       "slotTotalCount": 1024,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2375,7 +2375,7 @@
       "colorCount": 7,
       "slotTotalCount": 918,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2398,7 +2398,7 @@
       "colorCount": 8,
       "slotTotalCount": 841,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2444,7 +2444,7 @@
       "colorCount": 8,
       "slotTotalCount": 1204,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2465,7 +2465,7 @@
       "colorCount": 6,
       "slotTotalCount": 1480,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2486,7 +2486,7 @@
       "colorCount": 6,
       "slotTotalCount": 217,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 60,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2508,7 +2508,7 @@
       "colorCount": 7,
       "slotTotalCount": 841,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2530,7 +2530,7 @@
       "colorCount": 7,
       "slotTotalCount": 783,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2552,7 +2552,7 @@
       "colorCount": 7,
       "slotTotalCount": 967,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2573,7 +2573,7 @@
       "colorCount": 6,
       "slotTotalCount": 964,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2594,7 +2594,7 @@
       "colorCount": 6,
       "slotTotalCount": 771,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2616,7 +2616,7 @@
       "colorCount": 7,
       "slotTotalCount": 756,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2638,7 +2638,7 @@
       "colorCount": 7,
       "slotTotalCount": 875,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2661,7 +2661,7 @@
       "colorCount": 8,
       "slotTotalCount": 745,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2683,7 +2683,7 @@
       "colorCount": 7,
       "slotTotalCount": 1332,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2725,7 +2725,7 @@
       "colorCount": 7,
       "slotTotalCount": 713,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2749,7 +2749,7 @@
       "colorCount": 9,
       "slotTotalCount": 1120,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2773,7 +2773,7 @@
       "colorCount": 9,
       "slotTotalCount": 1024,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2794,7 +2794,7 @@
       "colorCount": 6,
       "slotTotalCount": 707,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2815,7 +2815,7 @@
       "colorCount": 6,
       "slotTotalCount": 768,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2837,7 +2837,7 @@
       "colorCount": 7,
       "slotTotalCount": 812,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2884,7 +2884,7 @@
       "colorCount": 7,
       "slotTotalCount": 1156,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2904,7 +2904,7 @@
       "colorCount": 5,
       "slotTotalCount": 452,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2925,7 +2925,7 @@
       "colorCount": 6,
       "slotTotalCount": 1156,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2947,7 +2947,7 @@
       "colorCount": 7,
       "slotTotalCount": 938,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2969,7 +2969,7 @@
       "colorCount": 7,
       "slotTotalCount": 871,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -2991,7 +2991,7 @@
       "colorCount": 7,
       "slotTotalCount": 859,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3012,7 +3012,7 @@
       "colorCount": 6,
       "slotTotalCount": 1435,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3033,7 +3033,7 @@
       "colorCount": 6,
       "slotTotalCount": 625,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3054,7 +3054,7 @@
       "colorCount": 6,
       "slotTotalCount": 570,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3077,7 +3077,7 @@
       "colorCount": 8,
       "slotTotalCount": 1545,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3097,7 +3097,7 @@
       "colorCount": 5,
       "slotTotalCount": 485,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3119,7 +3119,7 @@
       "colorCount": 7,
       "slotTotalCount": 780,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3142,7 +3142,7 @@
       "colorCount": 8,
       "slotTotalCount": 741,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3164,7 +3164,7 @@
       "colorCount": 7,
       "slotTotalCount": 834,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3187,7 +3187,7 @@
       "colorCount": 8,
       "slotTotalCount": 757,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3208,7 +3208,7 @@
       "colorCount": 6,
       "slotTotalCount": 793,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3230,7 +3230,7 @@
       "colorCount": 7,
       "slotTotalCount": 1085,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3252,7 +3252,7 @@
       "colorCount": 7,
       "slotTotalCount": 704,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3276,7 +3276,7 @@
       "colorCount": 9,
       "slotTotalCount": 1296,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3297,7 +3297,7 @@
       "colorCount": 6,
       "slotTotalCount": 664,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3318,7 +3318,7 @@
       "colorCount": 6,
       "slotTotalCount": 812,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3341,7 +3341,7 @@
       "colorCount": 8,
       "slotTotalCount": 1680,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3364,7 +3364,7 @@
       "colorCount": 8,
       "slotTotalCount": 919,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3410,7 +3410,7 @@
       "colorCount": 7,
       "slotTotalCount": 714,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3432,7 +3432,7 @@
       "colorCount": 7,
       "slotTotalCount": 694,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3454,7 +3454,7 @@
       "colorCount": 7,
       "slotTotalCount": 946,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3479,7 +3479,7 @@
       "colorCount": 10,
       "slotTotalCount": 1935,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3500,7 +3500,7 @@
       "colorCount": 6,
       "slotTotalCount": 692,
       "conveyorCapacity": 60,
-      "timeLimit": 210,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3524,7 +3524,7 @@
       "colorCount": 9,
       "slotTotalCount": 2208,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3547,7 +3547,7 @@
       "colorCount": 8,
       "slotTotalCount": 1348,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3570,7 +3570,7 @@
       "colorCount": 8,
       "slotTotalCount": 977,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3593,7 +3593,7 @@
       "colorCount": 8,
       "slotTotalCount": 940,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3616,7 +3616,7 @@
       "colorCount": 8,
       "slotTotalCount": 957,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3640,7 +3640,7 @@
       "colorCount": 9,
       "slotTotalCount": 911,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3662,7 +3662,7 @@
       "colorCount": 7,
       "slotTotalCount": 1098,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3683,7 +3683,7 @@
       "colorCount": 6,
       "slotTotalCount": 704,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3708,7 +3708,7 @@
       "colorCount": 10,
       "slotTotalCount": 1994,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3729,7 +3729,7 @@
       "colorCount": 6,
       "slotTotalCount": 665,
       "conveyorCapacity": 60,
-      "timeLimit": 210,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3752,7 +3752,7 @@
       "colorCount": 8,
       "slotTotalCount": 880,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3775,7 +3775,7 @@
       "colorCount": 8,
       "slotTotalCount": 846,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3797,7 +3797,7 @@
       "colorCount": 7,
       "slotTotalCount": 682,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3819,7 +3819,7 @@
       "colorCount": 7,
       "slotTotalCount": 864,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3840,7 +3840,7 @@
       "colorCount": 6,
       "slotTotalCount": 964,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3862,7 +3862,7 @@
       "colorCount": 7,
       "slotTotalCount": 1166,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3884,7 +3884,7 @@
       "colorCount": 7,
       "slotTotalCount": 1149,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3910,7 +3910,7 @@
       "colorCount": 11,
       "slotTotalCount": 2700,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3932,7 +3932,7 @@
       "colorCount": 7,
       "slotTotalCount": 697,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3956,7 +3956,7 @@
       "colorCount": 9,
       "slotTotalCount": 1190,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -3979,7 +3979,7 @@
       "colorCount": 8,
       "slotTotalCount": 925,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4001,7 +4001,7 @@
       "colorCount": 7,
       "slotTotalCount": 870,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4026,7 +4026,7 @@
       "colorCount": 10,
       "slotTotalCount": 884,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4050,7 +4050,7 @@
       "colorCount": 9,
       "slotTotalCount": 825,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4075,7 +4075,7 @@
       "colorCount": 10,
       "slotTotalCount": 1024,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4099,7 +4099,7 @@
       "colorCount": 9,
       "slotTotalCount": 1103,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4119,7 +4119,7 @@
       "colorCount": 5,
       "slotTotalCount": 1652,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4140,7 +4140,7 @@
       "colorCount": 6,
       "slotTotalCount": 702,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4163,7 +4163,7 @@
       "colorCount": 8,
       "slotTotalCount": 1027,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4184,7 +4184,7 @@
       "colorCount": 6,
       "slotTotalCount": 784,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4206,7 +4206,7 @@
       "colorCount": 7,
       "slotTotalCount": 696,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4230,7 +4230,7 @@
       "colorCount": 9,
       "slotTotalCount": 1369,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4254,7 +4254,7 @@
       "colorCount": 9,
       "slotTotalCount": 1550,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4277,7 +4277,7 @@
       "colorCount": 8,
       "slotTotalCount": 905,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4299,7 +4299,7 @@
       "colorCount": 7,
       "slotTotalCount": 961,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4321,7 +4321,7 @@
       "colorCount": 7,
       "slotTotalCount": 2448,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4341,7 +4341,7 @@
       "colorCount": 5,
       "slotTotalCount": 729,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4364,7 +4364,7 @@
       "colorCount": 8,
       "slotTotalCount": 969,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4388,7 +4388,7 @@
       "colorCount": 9,
       "slotTotalCount": 1574,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4413,7 +4413,7 @@
       "colorCount": 10,
       "slotTotalCount": 1452,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4435,7 +4435,7 @@
       "colorCount": 7,
       "slotTotalCount": 927,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4457,7 +4457,7 @@
       "colorCount": 7,
       "slotTotalCount": 1129,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4479,7 +4479,7 @@
       "colorCount": 7,
       "slotTotalCount": 1142,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4502,7 +4502,7 @@
       "colorCount": 8,
       "slotTotalCount": 1444,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4526,7 +4526,7 @@
       "colorCount": 9,
       "slotTotalCount": 2000,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4548,7 +4548,7 @@
       "colorCount": 7,
       "slotTotalCount": 600,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 90,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4571,7 +4571,7 @@
       "colorCount": 8,
       "slotTotalCount": 1386,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4593,7 +4593,7 @@
       "colorCount": 7,
       "slotTotalCount": 846,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4615,7 +4615,7 @@
       "colorCount": 7,
       "slotTotalCount": 1089,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4636,7 +4636,7 @@
       "colorCount": 6,
       "slotTotalCount": 1116,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4659,7 +4659,7 @@
       "colorCount": 8,
       "slotTotalCount": 2221,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4682,7 +4682,7 @@
       "colorCount": 8,
       "slotTotalCount": 2000,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4706,7 +4706,7 @@
       "colorCount": 9,
       "slotTotalCount": 837,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4728,7 +4728,7 @@
       "colorCount": 7,
       "slotTotalCount": 913,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4753,7 +4753,7 @@
       "colorCount": 10,
       "slotTotalCount": 2756,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4774,7 +4774,7 @@
       "colorCount": 6,
       "slotTotalCount": 676,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4796,7 +4796,7 @@
       "colorCount": 7,
       "slotTotalCount": 917,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4820,7 +4820,7 @@
       "colorCount": 9,
       "slotTotalCount": 1363,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4845,7 +4845,7 @@
       "colorCount": 10,
       "slotTotalCount": 1701,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4868,7 +4868,7 @@
       "colorCount": 8,
       "slotTotalCount": 825,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4892,7 +4892,7 @@
       "colorCount": 9,
       "slotTotalCount": 1280,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4916,7 +4916,7 @@
       "colorCount": 9,
       "slotTotalCount": 1132,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4938,7 +4938,7 @@
       "colorCount": 7,
       "slotTotalCount": 819,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4965,7 +4965,7 @@
       "colorCount": 12,
       "slotTotalCount": 1409,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -4987,7 +4987,7 @@
       "colorCount": 7,
       "slotTotalCount": 637,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5008,7 +5008,7 @@
       "colorCount": 6,
       "slotTotalCount": 1073,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5031,7 +5031,7 @@
       "colorCount": 8,
       "slotTotalCount": 1838,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5054,7 +5054,7 @@
       "colorCount": 8,
       "slotTotalCount": 756,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5076,7 +5076,7 @@
       "colorCount": 7,
       "slotTotalCount": 804,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5101,7 +5101,7 @@
       "colorCount": 10,
       "slotTotalCount": 1296,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5125,7 +5125,7 @@
       "colorCount": 9,
       "slotTotalCount": 1240,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5147,7 +5147,7 @@
       "colorCount": 7,
       "slotTotalCount": 2115,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5174,7 +5174,7 @@
       "colorCount": 12,
       "slotTotalCount": 1490,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5195,7 +5195,7 @@
       "colorCount": 6,
       "slotTotalCount": 840,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5217,7 +5217,7 @@
       "colorCount": 7,
       "slotTotalCount": 621,
       "conveyorCapacity": 60,
-      "timeLimit": 144,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5239,7 +5239,7 @@
       "colorCount": 7,
       "slotTotalCount": 868,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5265,7 +5265,7 @@
       "colorCount": 11,
       "slotTotalCount": 1089,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5289,7 +5289,7 @@
       "colorCount": 9,
       "slotTotalCount": 1472,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5310,7 +5310,7 @@
       "colorCount": 6,
       "slotTotalCount": 2100,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5334,7 +5334,7 @@
       "colorCount": 9,
       "slotTotalCount": 1116,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5358,7 +5358,7 @@
       "colorCount": 9,
       "slotTotalCount": 1024,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5385,7 +5385,7 @@
       "colorCount": 12,
       "slotTotalCount": 1270,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5408,7 +5408,7 @@
       "colorCount": 8,
       "slotTotalCount": 696,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5436,7 +5436,7 @@
       "colorCount": 13,
       "slotTotalCount": 1308,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5458,7 +5458,7 @@
       "colorCount": 7,
       "slotTotalCount": 2100,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5479,7 +5479,7 @@
       "colorCount": 6,
       "slotTotalCount": 1822,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5502,7 +5502,7 @@
       "colorCount": 8,
       "slotTotalCount": 814,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5525,7 +5525,7 @@
       "colorCount": 8,
       "slotTotalCount": 744,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5550,7 +5550,7 @@
       "colorCount": 10,
       "slotTotalCount": 1110,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5574,7 +5574,7 @@
       "colorCount": 9,
       "slotTotalCount": 992,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5598,7 +5598,7 @@
       "colorCount": 9,
       "slotTotalCount": 986,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5619,7 +5619,7 @@
       "colorCount": 6,
       "slotTotalCount": 2704,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5641,7 +5641,7 @@
       "colorCount": 7,
       "slotTotalCount": 908,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5664,7 +5664,7 @@
       "colorCount": 8,
       "slotTotalCount": 1321,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5686,7 +5686,7 @@
       "colorCount": 7,
       "slotTotalCount": 1496,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5709,7 +5709,7 @@
       "colorCount": 8,
       "slotTotalCount": 1330,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5732,7 +5732,7 @@
       "colorCount": 8,
       "slotTotalCount": 1260,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5756,7 +5756,7 @@
       "colorCount": 9,
       "slotTotalCount": 1050,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5777,7 +5777,7 @@
       "colorCount": 6,
       "slotTotalCount": 1184,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5802,7 +5802,7 @@
       "colorCount": 10,
       "slotTotalCount": 768,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5824,7 +5824,7 @@
       "colorCount": 7,
       "slotTotalCount": 2085,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5846,7 +5846,7 @@
       "colorCount": 7,
       "slotTotalCount": 898,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5870,7 +5870,7 @@
       "colorCount": 9,
       "slotTotalCount": 1188,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5892,7 +5892,7 @@
       "colorCount": 7,
       "slotTotalCount": 1457,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5914,7 +5914,7 @@
       "colorCount": 7,
       "slotTotalCount": 1445,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5938,7 +5938,7 @@
       "colorCount": 9,
       "slotTotalCount": 800,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -5982,7 +5982,7 @@
       "colorCount": 5,
       "slotTotalCount": 900,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6003,7 +6003,7 @@
       "colorCount": 6,
       "slotTotalCount": 765,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6026,7 +6026,7 @@
       "colorCount": 8,
       "slotTotalCount": 1620,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6049,7 +6049,7 @@
       "colorCount": 8,
       "slotTotalCount": 672,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6074,7 +6074,7 @@
       "colorCount": 10,
       "slotTotalCount": 699,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6099,7 +6099,7 @@
       "colorCount": 10,
       "slotTotalCount": 1225,
       "conveyorCapacity": 60,
-      "timeLimit": 342,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6121,7 +6121,7 @@
       "colorCount": 7,
       "slotTotalCount": 1314,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6143,7 +6143,7 @@
       "colorCount": 7,
       "slotTotalCount": 883,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6165,7 +6165,7 @@
       "colorCount": 7,
       "slotTotalCount": 867,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6187,7 +6187,7 @@
       "colorCount": 7,
       "slotTotalCount": 1280,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6208,7 +6208,7 @@
       "colorCount": 6,
       "slotTotalCount": 844,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6229,7 +6229,7 @@
       "colorCount": 6,
       "slotTotalCount": 2084,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6251,7 +6251,7 @@
       "colorCount": 7,
       "slotTotalCount": 683,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6272,7 +6272,7 @@
       "colorCount": 6,
       "slotTotalCount": 841,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6293,7 +6293,7 @@
       "colorCount": 6,
       "slotTotalCount": 1599,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6314,7 +6314,7 @@
       "colorCount": 6,
       "slotTotalCount": 1600,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6336,7 +6336,7 @@
       "colorCount": 7,
       "slotTotalCount": 736,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6358,7 +6358,7 @@
       "colorCount": 7,
       "slotTotalCount": 892,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6381,7 +6381,7 @@
       "colorCount": 8,
       "slotTotalCount": 851,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6403,7 +6403,7 @@
       "colorCount": 7,
       "slotTotalCount": 1209,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6430,7 +6430,7 @@
       "colorCount": 12,
       "slotTotalCount": 2376,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6450,7 +6450,7 @@
       "colorCount": 5,
       "slotTotalCount": 930,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6473,7 +6473,7 @@
       "colorCount": 8,
       "slotTotalCount": 1227,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6495,7 +6495,7 @@
       "colorCount": 7,
       "slotTotalCount": 708,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6516,7 +6516,7 @@
       "colorCount": 6,
       "slotTotalCount": 850,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6539,7 +6539,7 @@
       "colorCount": 8,
       "slotTotalCount": 1217,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6562,7 +6562,7 @@
       "colorCount": 8,
       "slotTotalCount": 1201,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6585,7 +6585,7 @@
       "colorCount": 8,
       "slotTotalCount": 1028,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6607,7 +6607,7 @@
       "colorCount": 7,
       "slotTotalCount": 851,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6630,7 +6630,7 @@
       "colorCount": 8,
       "slotTotalCount": 1005,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6656,7 +6656,7 @@
       "colorCount": 11,
       "slotTotalCount": 2283,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6676,7 +6676,7 @@
       "colorCount": 5,
       "slotTotalCount": 862,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6698,7 +6698,7 @@
       "colorCount": 7,
       "slotTotalCount": 1186,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6720,7 +6720,7 @@
       "colorCount": 7,
       "slotTotalCount": 1225,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6742,7 +6742,7 @@
       "colorCount": 7,
       "slotTotalCount": 1324,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6764,7 +6764,7 @@
       "colorCount": 7,
       "slotTotalCount": 1544,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6787,7 +6787,7 @@
       "colorCount": 8,
       "slotTotalCount": 1736,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6809,7 +6809,7 @@
       "colorCount": 7,
       "slotTotalCount": 1096,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6831,7 +6831,7 @@
       "colorCount": 7,
       "slotTotalCount": 1094,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6853,7 +6853,7 @@
       "colorCount": 7,
       "slotTotalCount": 1600,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6877,7 +6877,7 @@
       "colorCount": 9,
       "slotTotalCount": 758,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6899,7 +6899,7 @@
       "colorCount": 7,
       "slotTotalCount": 1272,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6921,7 +6921,7 @@
       "colorCount": 7,
       "slotTotalCount": 1325,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6942,7 +6942,7 @@
       "colorCount": 6,
       "slotTotalCount": 1333,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6963,7 +6963,7 @@
       "colorCount": 6,
       "slotTotalCount": 1539,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -6985,7 +6985,7 @@
       "colorCount": 7,
       "slotTotalCount": 1282,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7009,7 +7009,7 @@
       "colorCount": 9,
       "slotTotalCount": 942,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7034,7 +7034,7 @@
       "colorCount": 10,
       "slotTotalCount": 775,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7055,7 +7055,7 @@
       "colorCount": 6,
       "slotTotalCount": 1850,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7079,7 +7079,7 @@
       "colorCount": 9,
       "slotTotalCount": 702,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7105,7 +7105,7 @@
       "colorCount": 11,
       "slotTotalCount": 746,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7127,7 +7127,7 @@
       "colorCount": 7,
       "slotTotalCount": 1206,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7150,7 +7150,7 @@
       "colorCount": 8,
       "slotTotalCount": 817,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7173,7 +7173,7 @@
       "colorCount": 8,
       "slotTotalCount": 871,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7194,7 +7194,7 @@
       "colorCount": 6,
       "slotTotalCount": 1419,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7215,7 +7215,7 @@
       "colorCount": 6,
       "slotTotalCount": 1301,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7239,7 +7239,7 @@
       "colorCount": 9,
       "slotTotalCount": 684,
       "conveyorCapacity": 60,
-      "timeLimit": 162,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7260,7 +7260,7 @@
       "colorCount": 6,
       "slotTotalCount": 1950,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7283,7 +7283,7 @@
       "colorCount": 8,
       "slotTotalCount": 714,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7307,7 +7307,7 @@
       "colorCount": 9,
       "slotTotalCount": 711,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7331,7 +7331,7 @@
       "colorCount": 9,
       "slotTotalCount": 756,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7352,7 +7352,7 @@
       "colorCount": 6,
       "slotTotalCount": 1411,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7374,7 +7374,7 @@
       "colorCount": 7,
       "slotTotalCount": 1630,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7395,7 +7395,7 @@
       "colorCount": 6,
       "slotTotalCount": 1548,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7419,7 +7419,7 @@
       "colorCount": 9,
       "slotTotalCount": 960,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7440,7 +7440,7 @@
       "colorCount": 6,
       "slotTotalCount": 1272,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7460,7 +7460,7 @@
       "colorCount": 5,
       "slotTotalCount": 2484,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7482,7 +7482,7 @@
       "colorCount": 7,
       "slotTotalCount": 952,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7503,7 +7503,7 @@
       "colorCount": 6,
       "slotTotalCount": 1216,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7527,7 +7527,7 @@
       "colorCount": 9,
       "slotTotalCount": 928,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7551,7 +7551,7 @@
       "colorCount": 9,
       "slotTotalCount": 840,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7574,7 +7574,7 @@
       "colorCount": 8,
       "slotTotalCount": 815,
       "conveyorCapacity": 60,
-      "timeLimit": 192,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7595,7 +7595,7 @@
       "colorCount": 6,
       "slotTotalCount": 1133,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7619,7 +7619,7 @@
       "colorCount": 9,
       "slotTotalCount": 870,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7643,7 +7643,7 @@
       "colorCount": 9,
       "slotTotalCount": 737,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7667,7 +7667,7 @@
       "colorCount": 9,
       "slotTotalCount": 943,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7687,7 +7687,7 @@
       "colorCount": 5,
       "slotTotalCount": 2068,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7708,7 +7708,7 @@
       "colorCount": 6,
       "slotTotalCount": 995,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7729,7 +7729,7 @@
       "colorCount": 6,
       "slotTotalCount": 1745,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7750,7 +7750,7 @@
       "colorCount": 6,
       "slotTotalCount": 1364,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7772,7 +7772,7 @@
       "colorCount": 7,
       "slotTotalCount": 1026,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7796,7 +7796,7 @@
       "colorCount": 9,
       "slotTotalCount": 723,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7819,7 +7819,7 @@
       "colorCount": 8,
       "slotTotalCount": 1154,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7840,7 +7840,7 @@
       "colorCount": 6,
       "slotTotalCount": 1851,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7861,7 +7861,7 @@
       "colorCount": 6,
       "slotTotalCount": 1519,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7889,7 +7889,7 @@
       "colorCount": 13,
       "slotTotalCount": 1062,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7910,7 +7910,7 @@
       "colorCount": 6,
       "slotTotalCount": 1085,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7931,7 +7931,7 @@
       "colorCount": 6,
       "slotTotalCount": 1080,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7952,7 +7952,7 @@
       "colorCount": 6,
       "slotTotalCount": 1134,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7973,7 +7973,7 @@
       "colorCount": 6,
       "slotTotalCount": 1296,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -7997,7 +7997,7 @@
       "colorCount": 9,
       "slotTotalCount": 700,
       "conveyorCapacity": 60,
-      "timeLimit": 180,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8022,7 +8022,7 @@
       "colorCount": 10,
       "slotTotalCount": 1036,
       "conveyorCapacity": 60,
-      "timeLimit": 294,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8047,7 +8047,7 @@
       "colorCount": 10,
       "slotTotalCount": 1170,
       "conveyorCapacity": 60,
-      "timeLimit": 330,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8067,7 +8067,7 @@
       "colorCount": 5,
       "slotTotalCount": 2070,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8087,7 +8087,7 @@
       "colorCount": 5,
       "slotTotalCount": 2285,
       "conveyorCapacity": 60,
-      "timeLimit": 288,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8109,7 +8109,7 @@
       "colorCount": 7,
       "slotTotalCount": 1164,
       "conveyorCapacity": 60,
-      "timeLimit": 252,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8129,7 +8129,7 @@
       "colorCount": 5,
       "slotTotalCount": 1614,
       "conveyorCapacity": 60,
-      "timeLimit": 234,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8153,7 +8153,7 @@
       "colorCount": 9,
       "slotTotalCount": 1440,
       "conveyorCapacity": 60,
-      "timeLimit": 378,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8177,7 +8177,7 @@
       "colorCount": 9,
       "slotTotalCount": 1296,
       "conveyorCapacity": 60,
-      "timeLimit": 366,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -8205,7 +8205,7 @@
       "colorCount": 13,
       "slotTotalCount": 1102,
       "conveyorCapacity": 60,
-      "timeLimit": 216,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     }
