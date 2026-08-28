@@ -28,6 +28,7 @@ import {
     type PchSkillResult,
 } from './PchConveyorRules';
 import { AppRoot } from './AppRoot';
+import type { PchSpeedMultiplier } from './AppSession';
 
 const BELT_STEP_SECONDS = 0.28;
 const PCH_TRANSFER_SECONDS = 0.16;
@@ -193,7 +194,7 @@ export class PchConveyorGameplayController {
     private beltPathLength = 0;
     private exitPathProgress = 0;
     private beltTravel = 0;
-    private manualSpeedMultiplier: 1 | 2 = 1;
+    private manualSpeedMultiplier: PchSpeedMultiplier = 1;
     private inputLocked = false;
     private skillMovementPaused = false;
     private skillTimerPauseToken = '';
@@ -205,7 +206,7 @@ export class PchConveyorGameplayController {
 
     start(): void {
         this.stop();
-        this.manualSpeedMultiplier = AppRoot.tryGet()?.session.pchSpeedMultiplier === 2 ? 2 : 1;
+        this.manualSpeedMultiplier = AppRoot.tryGet()?.session.pchSpeedMultiplier ?? 1;
         if (!this.runtime.boardModel
             || typeof this.runtime.renderBoard !== 'function'
             || typeof this.runtime.renderBoardCells !== 'function') {
@@ -605,6 +606,8 @@ export class PchConveyorGameplayController {
         const position = typeof this.runtime.normalizeGameplayUiPosition === 'function'
             ? this.runtime.normalizeGameplayUiPosition(rawPos)
             : rawPos;
+        if (this.handleScaledTopBarTap(rawPos, position, event)) return;
+        if (this.openingGuide?.isValid && this.handleOpeningGuideRootTap(event)) return;
         let cell: { row: number; col: number } | null = null;
         if (typeof this.runtime.resolveBoardTapBlock === 'function') {
             const resolution = this.runtime.resolveBoardTapBlock(new Vec3(position.x, position.y, 0), false);
@@ -624,6 +627,35 @@ export class PchConveyorGameplayController {
         if (!cell) return;
         event.propagationStopped = true;
         this.handleBoardTap(cell.row, cell.col);
+    }
+
+    private handleScaledTopBarTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean {
+        if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
+        const settingsButton = this.speedButton?.parent?.getChildByName('Settings') || null;
+        const hitButton = (node: Node | null): boolean => {
+            const button = node?.getComponent(Button) || null;
+            const bounds = node?.getComponent(UITransform)?.getBoundingBoxToWorld() || null;
+            return !!node?.activeInHierarchy
+                && !!button?.enabled
+                && button.interactable
+                && !!bounds?.contains(uiPos);
+        };
+        if (hitButton(settingsButton)) {
+            event.propagationStopped = true;
+            this.runtime.scheduleOnce(() => {
+                if (!hitButton(settingsButton)) return;
+                AudioMgr.inst.play('button');
+                this.runtime.openSettingsPanel();
+            }, 0);
+            return true;
+        }
+        if (!hitButton(this.speedButton)) return false;
+        this.runtime.scheduleOnce(() => {
+            if (!hitButton(this.speedButton)) return;
+            this.onSpeedButtonTap({ propagationStopped: false });
+        }, 0);
+        event.propagationStopped = true;
+        return true;
     }
 
     private handleOpeningGuideRootTap(event: any): boolean {
@@ -1968,11 +2000,16 @@ export class PchConveyorGameplayController {
             return;
         }
         if (!this.rules || this.inputLocked || this.runtime.isGameEnd) return;
-        this.setManualSpeedMultiplier(this.manualSpeedMultiplier === 1 ? 2 : 1);
+        const nextMultiplier: PchSpeedMultiplier = this.manualSpeedMultiplier === 1
+            ? 2
+            : this.manualSpeedMultiplier === 2 ? 3 : 1;
+        this.setManualSpeedMultiplier(nextMultiplier);
         AudioMgr.inst.play('button');
         this.refreshSpeedButtonState();
         if (this.statusLabel) {
-            this.statusLabel.string = this.manualSpeedMultiplier === 2 ? '2 倍速度已开启' : '已恢复正常速度';
+            this.statusLabel.string = this.manualSpeedMultiplier === 1
+                ? '已恢复正常速度'
+                : `${this.manualSpeedMultiplier} 倍速度已开启`;
         }
     }
 
@@ -1981,13 +2018,13 @@ export class PchConveyorGameplayController {
             || !this.speedInactiveState?.isValid
             || !this.speedActiveState?.isValid
             || !this.speedBadgeLabel?.isValid) return;
-        const active = this.manualSpeedMultiplier === 2;
+        const active = this.manualSpeedMultiplier > 1;
         this.speedInactiveState.active = !active;
         this.speedActiveState.active = active;
-        this.speedBadgeLabel.string = active ? '2X' : '1X';
+        this.speedBadgeLabel.string = `${this.manualSpeedMultiplier}X`;
     }
 
-    private setManualSpeedMultiplier(multiplier: 1 | 2): void {
+    private setManualSpeedMultiplier(multiplier: PchSpeedMultiplier): void {
         this.manualSpeedMultiplier = multiplier;
         AppRoot.tryGet()?.session.setPchSpeedMultiplier(multiplier);
     }

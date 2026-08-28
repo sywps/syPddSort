@@ -1,6 +1,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
+const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
 const read = (relPath) => fs.readFileSync(path.join(root, relPath), 'utf8');
@@ -14,6 +16,13 @@ const pngDimensions = (relPath) => {
     assert.ok(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), `${relPath} must be a PNG`);
     return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 };
+const appSessionModule = { exports: {} };
+vm.runInNewContext(
+    ts.transpileModule(appSession, {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    }).outputText,
+    { module: appSessionModule, exports: appSessionModule.exports },
+);
 
 const findNode = (name) => {
     const matches = scene
@@ -46,20 +55,31 @@ assert.ok(
     'starting the next level must not reset the selected speed',
 );
 assert.ok(
-    appSession.includes('private _pchSpeedMultiplier: 1 | 2 = 1;')
-        && appSession.includes('get pchSpeedMultiplier(): 1 | 2')
+    appSession.includes('export type PchSpeedMultiplier = 1 | 2 | 3;')
+        && appSession.includes('private _pchSpeedMultiplier: PchSpeedMultiplier = 1;')
+        && appSession.includes('get pchSpeedMultiplier(): PchSpeedMultiplier')
         && appSession.includes('setPchSpeedMultiplier(multiplier: number): void')
-        && source.includes('this.manualSpeedMultiplier = AppRoot.tryGet()?.session.pchSpeedMultiplier === 2 ? 2 : 1;')
+        && appSession.includes('multiplier === 3 ? 3 : multiplier === 2 ? 2 : 1')
+        && source.includes('private manualSpeedMultiplier: PchSpeedMultiplier = 1;')
+        && source.includes('this.manualSpeedMultiplier = AppRoot.tryGet()?.session.pchSpeedMultiplier ?? 1;')
         && source.includes('AppRoot.tryGet()?.session.setPchSpeedMultiplier(multiplier);'),
-    'the selected speed must survive controller and scene replacement through AppSession',
+    'the selected 1X/2X/3X speed must survive controller and scene replacement through AppSession',
 );
+const session = new appSessionModule.exports.AppSession();
+assert.strictEqual(session.pchSpeedMultiplier, 1, 'a new app session must default to 1X');
+session.setPchSpeedMultiplier(2);
+assert.strictEqual(session.pchSpeedMultiplier, 2, 'AppSession must retain 2X across controller replacement');
+session.setPchSpeedMultiplier(3);
+assert.strictEqual(session.pchSpeedMultiplier, 3, 'AppSession must retain 3X across controller replacement');
+session.setPchSpeedMultiplier(99);
+assert.strictEqual(session.pchSpeedMultiplier, 1, 'unsupported speed values must normalize to 1X');
 assert.ok(
     topBar.entry._children.some((ref) => ref.__id__ === speed.index),
     'TopBarGroup must serialize PchSpeedButton as a direct child',
 );
 assert.deepStrictEqual(
     { active: speed.entry._active, x: speed.entry._lpos.x, y: speed.entry._lpos.y, scale: speed.entry._lscale.x },
-    { active: false, x: -182.216, y: 591.564, scale: 1 },
+    { active: true, x: -182.216, y: 601.571, scale: 1 },
     'the scene must own the speed root default visibility and final gameplay transform',
 );
 assert.deepStrictEqual(
@@ -105,8 +125,28 @@ assert.ok(
         && source.includes("speedButton.getChildByName('InactiveState')")
         && source.includes("speedButton.getChildByName('ActiveState')")
         && source.includes("speedButton.getChildByName('PchSpeedBadge')")
-        && source.includes("this.speedBadgeLabel.string = active ? '2X' : '1X'"),
+        && source.includes('const active = this.manualSpeedMultiplier > 1;')
+        && source.includes('this.speedBadgeLabel.string = `${this.manualSpeedMultiplier}X`;'),
     'runtime speed logic must bind the required hierarchy and only update state',
+);
+assert.ok(
+    source.includes('this.manualSpeedMultiplier === 1')
+        && source.includes('? 2')
+        && source.includes('this.manualSpeedMultiplier === 2 ? 3 : 1')
+        && source.includes('`${this.manualSpeedMultiplier} 倍速度已开启`'),
+    'ordinary speed-button taps must cycle 1X to 2X to 3X to 1X with matching status copy',
+);
+assert.ok(
+    source.includes('if (this.handleScaledTopBarTap(rawPos, position, event)) return;')
+        && source.includes('Math.abs(uiPos.x - rawPos.x) < 0.5')
+        && source.includes("this.speedButton?.parent?.getChildByName('Settings')")
+        && source.includes('!!node?.activeInHierarchy')
+        && source.includes('button.interactable')
+        && source.includes('!!bounds?.contains(uiPos)')
+        && source.includes('this.runtime.scheduleOnce(() => {')
+        && source.includes('this.runtime.openSettingsPanel();')
+        && source.includes('this.onSpeedButtonTap({ propagationStopped: false });'),
+    'scaled gameplay input must fall back to normalized Settings and speed-button hit testing',
 );
 assert.ok(
     source.includes("this.runtime._activeGameplayEntryMode === 'main'")

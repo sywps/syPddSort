@@ -301,11 +301,11 @@ assert.ok(
     'Game startup must bind the required scene Settings Button without prefab mounting or fallback creation',
 );
 assert.ok(
-    !conveyor.includes('handleScaledSettingsButtonTap')
-        && !conveyor.includes('handleScaledSpeedButtonTap')
+    conveyor.includes('if (this.handleScaledTopBarTap(rawPos, position, event)) return;')
+        && conveyor.includes('private handleScaledTopBarTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean')
         && !conveyor.includes('handleScaledCapacityAdTap')
         && !conveyor.includes('handleScaledSkillTap'),
-    'scene-owned buttons must rely on their native Button targets without a duplicate root-coordinate hit path',
+    'scene-owned top buttons must keep native targets plus one normalized full-gameplay fallback',
 );
 assert.ok(
     timerWrap?._lpos.y === 608
