@@ -1173,8 +1173,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         getUrlLevel(): number {
             try {
-                const p = new URLSearchParams(window.location.search);
-                const v = parseInt(p.get('level') || '');
+                const v = parseInt(this.getRuntimeQueryParam('level') || '');
                 return v > 0 ? v : 0;
             } catch (_) { return 0; }
         },

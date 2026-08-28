@@ -7,6 +7,7 @@ export type AppVisualState = 'boot' | 'home' | 'game';
 export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
 export type AppRouteCoverMode = 'auto' | 'cover' | 'none';
 export type AppGameplayEntryCoverMode = AppRouteCoverMode;
+export type PchSpeedMultiplier = 1 | 2 | 3;
 
 export interface PendingGameplayRequest {
     levelId: number;
@@ -36,7 +37,7 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
-    private _pchSpeedMultiplier: 1 | 2 = 1;
+    private _pchSpeedMultiplier: PchSpeedMultiplier = 1;
     private readonly _routedBundles = new Map<string, Bundle>();
 
     get currentSceneName(): AppSceneName {
@@ -59,12 +60,12 @@ export class AppSession {
         return this._activeGameplayContext;
     }
 
-    get pchSpeedMultiplier(): 1 | 2 {
+    get pchSpeedMultiplier(): PchSpeedMultiplier {
         return this._pchSpeedMultiplier;
     }
 
     setPchSpeedMultiplier(multiplier: number): void {
-        this._pchSpeedMultiplier = multiplier === 2 ? 2 : 1;
+        this._pchSpeedMultiplier = multiplier === 3 ? 3 : multiplier === 2 ? 2 : 1;
     }
 
     setCurrentSceneName(sceneName: AppSceneName): void {

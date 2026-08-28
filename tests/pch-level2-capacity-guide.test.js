@@ -6,7 +6,13 @@ const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(
     path.join(root, 'assets/Scripts/Core/PchConveyorGameplayController.ts'),
     'utf8',
-);
+).replace(/\r\n/g, '\n');
+const openingGuideStart = source.indexOf('private showOpeningTargetGuideAt(');
+const openingGuideEnd = source.indexOf('private clearOpeningGuideNodes()', openingGuideStart);
+const openingGuideSource = source.slice(openingGuideStart, openingGuideEnd);
+const openingPatternStart = source.indexOf('private prepareOpeningPatternShuffle()');
+const openingPatternEnd = source.indexOf('private cancelOpeningPatternShuffle(', openingPatternStart);
+const openingPatternSource = source.slice(openingPatternStart, openingPatternEnd);
 
 assert.ok(
     source.includes('if (logicalLevelId === 1)')
@@ -39,7 +45,9 @@ assert.ok(
     source.includes("guideName === 'PchLevelTwoSpeedGuide'")
         && source.includes('? this.speedButton')
         && source.includes('this.onOpeningGuideDoubleSpeed(event);')
-        && source.includes("guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null"),
+        && source.includes("guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null")
+        && source.includes('this.runtime.normalizeGameplayUiPosition(rawPos)')
+        && source.includes('hitPositions.some((position) => bounds.contains(position))'),
     'locked opening-guide touches must route through the real 2X and AD +12 target bounds',
 );
 assert.ok(
@@ -61,7 +69,7 @@ assert.ok(
     'mainline level 3 must guide the capacity ad button before gameplay starts',
 );
 assert.ok(
-    source.includes('const expanded = this.expandCapacity();')
+    source.includes("const expanded = this.expandCapacity('guide_free');")
         && source.includes('if (!expanded) return;')
         && !source.includes('onOpeningGuideWatchAd'),
     'the guided level-3 capacity grant must expand directly without requesting an ad',
@@ -70,8 +78,32 @@ assert.ok(
     source.includes("this.makeNode('OpeningGuideTapTarget', parent")
         && source.includes("getChildByName('GuideHandSingle')")
         && source.includes('const hand = instantiate(sourceHand);')
-        && source.includes('this.openingGuideTarget.on(Node.EventType.TOUCH_END, onTargetTap, this)'),
-    'all opening guides must clone the original authored hand and accept input on the highlighted target',
+        && source.includes('this.openingGuideTarget.on(Node.EventType.TOUCH_START, onTargetTap, this)')
+        && !source.includes('this.openingGuide.on(Node.EventType.TOUCH_END, this.handleOpeningGuideRootTap, this)')
+        && !source.includes('this.openingGuideTarget.addComponent(Button)'),
+    'the highlighted target must accept WeChat touch-start directly without turning the full guide surface into an input blocker',
+);
+assert.ok(
+    source.includes("if (this.openingGuide?.name === 'PchLevelTwoSpeedGuide')")
+        && source.includes("if (this.openingGuide?.name === 'PchLevelThreeCapacityGuide')"),
+    'the real speed and capacity buttons must retain a direct route through their active opening guides',
+);
+assert.ok(
+    openingGuideStart >= 0
+        && openingGuideEnd > openingGuideStart
+        && openingPatternStart >= 0
+        && openingPatternEnd > openingPatternStart
+        && !openingGuideSource.includes('this.inputLocked = true;')
+        && !openingGuideSource.includes('this.inputLocked = false;')
+        && !openingPatternSource.includes('this.inputLocked = true;')
+        && !openingPatternSource.includes('this.inputLocked = false;'),
+    'opening-pattern and feature guides must not own the global gameplay input lock',
+);
+assert.ok(
+    source.includes('private onRootTouchStart(event: any): void {\n        if (this.inputLocked) return;')
+        && source.includes('private onRootTouchMove(event: any): void {\n        if (this.inputLocked) return;')
+        && source.includes('private onRootTouchCancel(event: any): void {\n        if (this.inputLocked) return;'),
+    'locked opening guides must not leak touch lifecycle events into board gesture state',
 );
 assert.ok(
     source.includes('if (!this.rules || this.runtime.isGameEnd || this.openingGuide?.isValid) return;'),
