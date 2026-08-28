@@ -32,11 +32,20 @@ assert.equal(new Set(manifest.levels.map(row => row.metrics.patternHash)).size, 
 assert.ok(fs.statSync(path.join(outputDir, 'selection_report.md')).size > 1000);
 
 for (const filename of outputFiles) {
-    assert.equal(
-        hash(fs.readFileSync(path.join(formalDir, filename))),
-        hash(fs.readFileSync(path.join(outputDir, filename))),
-        `${filename} formal/candidate parity`,
-    );
+    const levelId = Number(filename.match(/\d+/)[0]);
+    const formal = JSON.parse(fs.readFileSync(path.join(formalDir, filename), 'utf8'));
+    const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, filename), 'utf8'));
+    if (levelId < 5) {
+        assert.deepEqual(formal, candidate, `${filename} onboarding formal/candidate parity`);
+    } else {
+        assert.deepEqual(
+            { ...formal, timeLimit: candidate.timeLimit },
+            candidate,
+            `${filename} formal may differ from candidate only by DBT-rule timeLimit`,
+        );
+        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
+        assert.equal(formal.timeLimit, expectedTime);
+    }
 }
 assert.match(manifest.summary.sourceCorpusDigest, /^[0-9a-f]{64}$/, 'retired source-corpus digest must remain recorded as provenance metadata');
 

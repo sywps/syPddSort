@@ -32,7 +32,19 @@ const manifestByLevel = new Map(manifest.entries.map((entry) => [entry.levelId, 
 for (let levelId = 1; levelId <= 300; levelId += 1) {
     const formalBuffer = fs.readFileSync(path.join(root, `assets/LevelData/level_${levelId}.json`));
     const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${levelId}.json`));
-    assert.equal(formalBuffer.equals(candidateBuffer), true, `formal level ${levelId} must match the selected candidate byte-for-byte`);
+    const formalPayload = JSON.parse(formalBuffer.toString('utf8'));
+    const candidatePayload = JSON.parse(candidateBuffer.toString('utf8'));
+    if (levelId < 5) {
+        assert.deepEqual(formalPayload, candidatePayload, `formal onboarding level ${levelId} must match its candidate`);
+    } else {
+        assert.deepEqual(
+            { ...formalPayload, timeLimit: candidatePayload.timeLimit },
+            candidatePayload,
+            `formal level ${levelId} may differ from its candidate only by DBT-rule timeLimit`,
+        );
+        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
+        assert.equal(formalPayload.timeLimit, expectedTime);
+    }
     const level = readJson(`assets/LevelData/level_${levelId}.json`);
     assert.deepEqual(
         [level.levelId, level.conveyorCapacity],
