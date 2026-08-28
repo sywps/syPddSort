@@ -27,8 +27,13 @@ const manifest = read('assets/Scripts/Core/AudioManifest.ts');
 assert.ok(manifest.includes("winAll: 'Audio/winColor'"), 'level-complete winAll must reuse the single-color completion audio');
 assert.ok(manifest.includes("winSettlement: 'Audio/winSettlement'"), 'win settlement must have a dedicated audio key');
 assert.ok(manifest.includes('winSettlement: 0.62'), 'win settlement volume must be configured');
+for (const removedName of ['slot', 'uiPanel', 'propWand', 'propBrush', 'propFreeze', 'guideLevel1Pick1', 'guideLevel1Place1', 'guideLevel1Pick2', 'guideLevel1Place2']) {
+    assert.ok(!manifest.includes(`${removedName}:`), `${removedName} must be removed from the SFX manifest`);
+}
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+assert.ok(settlement.includes("AudioMgr.inst.play('coin');"), 'settlement coin landings must use the dedicated coin cue');
+assert.ok(settlement.includes("AudioMgr.inst.play('revivePop');"), 'buffer-full revive panel reveal must play revivePop');
 const levelCompleteIndex = settlement.indexOf("AudioMgr.inst.play('winAll');");
 const settlementIndex = settlement.indexOf("AudioMgr.inst.play('winSettlement');");
 assert.ok(levelCompleteIndex >= 0, 'gameWin must play the level-complete cue');
@@ -130,7 +135,9 @@ assert.ok(skillMagnet.includes('const closeForcedSkillFeedbackAudio = () =>'), '
 assert.ok(skillMagnet.includes('this.unschedule(callback);'), 'forced skill queued feedback sounds must be unscheduled when the visual flow completes');
 assert.ok(skillMagnet.includes('AudioMgr.inst.stopSfx();'), 'forced skill active one-shot SFX must stop when the visual flow completes');
 assert.ok(/playFeedback\('place', move\.feedbackIndex\);[\s\S]*?revealBoardCell\(move\.target\);/.test(skillMagnet), 'forced skill board moves must play board target settle audio');
-assert.ok(/playFeedback\('slot', move\.feedbackIndex\);[\s\S]*?revealSlotIdx\(move\.slotIdx\);/.test(skillMagnet), 'forced skill slot moves must keep slot landing audio');
+assert.ok(!skillMagnet.includes("playFeedback('slot'"), 'forced skill slot moves must not retain the removed slot cue');
+assert.ok(!skillMagnet.includes("AudioMgr.inst.play('slot')"), 'all direct skill slot landing audio must be removed');
+assert.ok(/for \(const move of slotMoves\)[\s\S]*?revealSlotIdx\(move\.slotIdx\);/.test(skillMagnet), 'forced skill slot visuals must remain after audio removal');
 assert.ok(/playForcedSkillPlan\([\s\S]*?for \(const move of boardMoves\)[\s\S]*?this\.playBoardTargetSettleSound\(\);[\s\S]*?this\.recycleFlyBeanNode\(bean\);[\s\S]*?finish\(\);[\s\S]*?for \(const move of slotMoves\)/.test(skillMagnet), 'sequential forced skill board moves must use board target settle audio');
 assert.ok(skillWand.includes('nextDumpBoardSettleSoundAtMs = playAtMs + STAGGER * 1000'), 'clear-slot prop board settle audio must keep the ordinary multi-target rhythm');
 assert.ok(skillWand.includes('scheduleDumpBoardSettleSound();'), 'clear-slot dump must enqueue board settle sounds instead of playing dense one-shots immediately');

@@ -86,21 +86,9 @@ function loadController(pchController = {}) {
 
 function createFixture() {
     const listeners = [];
-    const button = { enabled: true, interactable: true };
-    const triggerNode = {
-        getComponent(type) {
-            if (type === UITransform) {
-                return {
-                    getBoundingBoxToWorld: () => ({ contains: (point) => point.x === 100 && point.y === 200 }),
-                };
-            }
-            if (type === Button) return button;
-            return null;
-        },
-    };
+    const nativeHandlers = new Map();
+    const triggerNode = {};
     const overlay = {
-        isValid: true,
-        activeInHierarchy: true,
         on(type, listener) {
             assert.strictEqual(type, Node.EventType.TOUCH_END);
             listeners.push(listener);
@@ -108,15 +96,12 @@ function createFixture() {
     };
     const runtime = {
         bindCalls: 0,
-        bindPanelButton() {
+        bindPanelButton(node, handler) {
             this.bindCalls += 1;
-        },
-        normalizeGameplayUiPosition: () => ({ x: 100, y: 200 }),
-        scheduleOnce(callback) {
-            callback();
+            nativeHandlers.set(node, handler);
         },
     };
-    return { runtime, triggerNode, overlay, listeners, button };
+    return { runtime, triggerNode, overlay, listeners, nativeHandlers };
 }
 
 const Controller = loadController();
@@ -125,103 +110,40 @@ const controller = new Controller(fixture.runtime);
 let firstCalls = 0;
 let latestCalls = 0;
 
-controller.bindPanelButtonWithScaledFallback(fixture.triggerNode, fixture.overlay, () => {
+controller.bindPanelButton(fixture.triggerNode, () => {
     firstCalls += 1;
 });
-controller.bindPanelButtonWithScaledFallback(fixture.triggerNode, fixture.overlay, () => {
+controller.bindPanelButton(fixture.triggerNode, () => {
     latestCalls += 1;
 });
 
 assert.strictEqual(fixture.runtime.bindCalls, 2, 'normal Button binding must refresh on each bind');
-assert.strictEqual(fixture.listeners.length, 1, 'scaled overlay fallback must not accumulate listeners');
-
-const event = {
-    propagationStopped: false,
-    getUILocation: () => ({ x: 10, y: 20 }),
-};
-fixture.listeners[0](event);
-assert.strictEqual(event.propagationStopped, true, 'scaled fallback must consume a matched touch');
+assert.strictEqual(fixture.listeners.length, 0, 'direct Button binding must not install an overlay touch fallback');
+fixture.nativeHandlers.get(fixture.triggerNode)();
 assert.strictEqual(firstCalls, 0, 'a refreshed binding must not dispatch its stale handler');
-assert.strictEqual(latestCalls, 1, 'scaled fallback must dispatch the latest handler');
+assert.strictEqual(latestCalls, 1, 'the real Cocos Button must dispatch the latest handler');
 
-fixture.button.interactable = false;
-fixture.listeners[0]({
-    propagationStopped: false,
-    getUILocation: () => ({ x: 10, y: 20 }),
-});
-assert.strictEqual(latestCalls, 1, 'disabled result buttons must not dispatch through the fallback');
-
-fixture.button.interactable = true;
-fixture.runtime.normalizeGameplayUiPosition = (raw) => raw;
-fixture.listeners[0]({
-    propagationStopped: false,
-    getUILocation: () => ({ x: 100, y: 200 }),
-});
-assert.strictEqual(latestCalls, 1, 'native-size coordinates must stay on the normal Button path');
-
-const crossListeners = [];
 const nativeHandlers = new Map();
-const crossOverlay = {
-    isValid: true,
-    activeInHierarchy: true,
-    on(type, listener) {
-        assert.strictEqual(type, Node.EventType.TOUCH_END);
-        crossListeners.push(listener);
-    },
-};
-function makeCrossButtonNode(contains) {
-    const buttonState = { enabled: true, interactable: true };
-    return {
-        isValid: true,
-        parent: crossOverlay,
-        getComponent(type) {
-            if (type === UITransform) {
-                return { getBoundingBoxToWorld: () => ({ contains }) };
-            }
-            if (type === Button) return buttonState;
-            return null;
-        },
-    };
-}
-const continueNode = makeCrossButtonNode(() => false);
-const closeNode = makeCrossButtonNode((point) => point.x === 900 && point.y === 900);
+const continueNode = {};
+const closeNode = {};
 const crossRuntime = {
     bindPanelButton(node, handler) {
         nativeHandlers.set(node, handler);
-    },
-    normalizeGameplayUiPosition: () => ({ x: 900, y: 900 }),
-    scheduleOnce(callback) {
-        callback();
     },
 };
 const crossController = new Controller(crossRuntime);
 let rewardedAdStarts = 0;
 let failurePanelShows = 0;
-crossController.bindPanelButtonWithScaledFallback(continueNode, crossOverlay, () => {
+crossController.bindPanelButton(continueNode, () => {
     rewardedAdStarts += 1;
 });
-crossController.bindPanelButtonWithScaledFallback(closeNode, crossOverlay, () => {
+crossController.bindPanelButton(closeNode, () => {
     failurePanelShows += 1;
 });
 
-const reviveTouch = {
-    propagationStopped: false,
-    target: continueNode,
-    getUILocation: () => ({ x: 10, y: 20 }),
-};
-for (const listener of crossListeners) listener(reviveTouch);
-if (!reviveTouch.propagationStopped) nativeHandlers.get(continueNode)();
+nativeHandlers.get(continueNode)();
 assert.strictEqual(rewardedAdStarts, 1, 'a native ContinueBtn touch must start the rewarded ad exactly once');
-assert.strictEqual(failurePanelShows, 0, 'the close fallback must not steal a native ContinueBtn touch');
-
-const scaledCloseTouch = {
-    propagationStopped: false,
-    target: crossOverlay,
-    getUILocation: () => ({ x: 10, y: 20 }),
-};
-for (const listener of crossListeners) listener(scaledCloseTouch);
-assert.strictEqual(scaledCloseTouch.propagationStopped, true, 'a scaled miss without a native button target must still be consumed');
-assert.strictEqual(failurePanelShows, 1, 'the scaled close fallback must remain available when native hit testing misses');
+assert.strictEqual(failurePanelShows, 0, 'a ContinueBtn touch must not dispatch the separate close Button');
 
 let bufferCapacity = 60;
 let continueAfterBufferFullCalls = 0;
@@ -261,29 +183,12 @@ const bufferOverlay = {
         return name === 'Box' ? box : null;
     },
 };
-const makeLabel = () => ({
-    string: '',
-    fontSize: 0,
-    lineHeight: 0,
-    enableWrapText: false,
-    overflow: null,
-    node: {
-        active: true,
-        getComponent(type) {
-            return type === UITransform ? { setContentSize() {} } : null;
-        },
-    },
-});
-const labels = new Map([
-    ['快完成啦', makeLabel()],
-    ['加时继续游戏', makeLabel()],
-    ['120秒', makeLabel()],
-    ['+120秒', makeLabel()],
-]);
 const bufferHandlers = new Map();
 const rewardedAttempts = [];
 const pendingGrants = [];
 let losePanelCalls = 0;
+let bufferPrefabKind = null;
+let bufferOverlayName = null;
 const bufferRuntime = {
     _adShowing: false,
     requirePanelChild(parent, name) {
@@ -303,15 +208,19 @@ const bufferRuntime = {
     },
 };
 const bufferController = new BufferController(bufferRuntime);
-bufferController.instantiateGameplayOverlay = () => bufferOverlay;
+bufferController.instantiateGameplayOverlay = (kind, name) => {
+    bufferPrefabKind = kind;
+    bufferOverlayName = name;
+    return bufferOverlay;
+};
 bufferController.syncResultProgressWidget = () => {};
-bufferController.requireLabelWithText = (_root, expectedText) => labels.get(expectedText);
-bufferController.drawBufferFullConveyorIllustration = () => {};
-bufferController.bindPanelButtonWithScaledFallback = (node, _overlay, handler) => {
+bufferController.bindPanelButton = (node, handler) => {
     bufferHandlers.set(node, handler);
 };
 
 assert.strictEqual(bufferController.createBufferFullSettlementPanel(), bufferOverlay);
+assert.strictEqual(bufferPrefabKind, 'bufferFullRevive', 'buffer-full flow must instantiate its dedicated prefab');
+assert.strictEqual(bufferOverlayName, 'BufferFullSettlementOverlay');
 const runBufferContinue = bufferHandlers.get(continueButton);
 const runBufferClose = bufferHandlers.get(closeButton);
 assert.strictEqual(typeof runBufferContinue, 'function');

@@ -90,7 +90,6 @@ const MAX_POOLED_SPHERE_FLY_STARS = 240;
 const SPHERE_FLY_TRAIL_COLOR = new Color(255, 238, 161, 255);
 
 type RainbowConveyorTableType = 2 | 3;
-type PchCapacitySource = 'guide_free' | 'proactive_ad' | 'buffer_full_revive';
 type PchBoardTapOutcome = 'inactive' | 'invalid' | 'capacity_blocked' | 'partial' | 'stored';
 
 type PchOpeningGuideAnalyticsMeta = {
@@ -263,41 +262,13 @@ export class PchConveyorGameplayController {
             this.analyticsStats = null;
             return;
         }
-        const initialBufferCapacity = Math.max(0, Math.floor(Number(this.rules.bufferCapacity) || 0));
         this.analyticsStats = {
-            selectionAttempts: 0,
-            selectionSuccesses: 0,
-            selectionInvalid: 0,
-            selectionCapacityBlocked: 0,
-            selectionPartial: 0,
-            storedBeanCount: 0,
-            autoReturnedBeanCount: 0,
-            maxBufferOccupancy: Math.max(0, Math.floor(Number(this.rules.bufferCount) || 0)),
-            bufferFullEpisodes: 0,
-            bufferFullReviveSuccesses: 0,
-            capacityAddedProactiveAd: 0,
-            capacityAddedBufferFullRevive: 0,
-            capacityAddedGuideFree: 0,
-            initialBufferCapacity,
-            finalBufferCapacity: initialBufferCapacity,
-            singleSelectionLimit: Math.max(0, Math.floor(Number(this.rules.moveLimit) || 0)),
             magnetUses: 0,
-            magnetMovedBeans: 0,
             brushUses: 0,
-            brushMovedBeans: 0,
             freezeUses: 0,
-            manual2xUsed: this.manualSpeedMultiplier === 2,
-            auto5xUsed: false,
         };
         this.firstStoreEventSent = false;
         this.firstReturnEventSent = false;
-    }
-
-    private captureMaxBufferOccupancy(): void {
-        if (!this.analyticsStats || !this.rules) return;
-        const occupancy = Math.max(0, Math.floor(Number(this.rules.bufferCount) || 0));
-        this.analyticsStats.maxBufferOccupancy = Math.max(this.analyticsStats.maxBufferOccupancy, occupancy);
-        this.analyticsStats.finalBufferCapacity = Math.max(0, Math.floor(Number(this.rules.bufferCapacity) || 0));
     }
 
     private trackPchFunnelEvent(
@@ -311,10 +282,12 @@ export class PchConveyorGameplayController {
             extra?: Record<string, unknown>;
         } = {},
     ): void {
+        const logicalLevelId = Math.max(0, Math.floor(Number(this.runtime.getActiveLogicalLevelId?.()) || 0));
+        if (logicalLevelId < 1 || logicalLevelId > 3) return;
         AnalyticsMgr.inst.trackFunnelEvent({
             eventName,
             levelId: this.runtime.getAnalyticsLevelId?.() || this.runtime.getActiveLogicalLevelId?.() || 0,
-            logicalLevelId: this.runtime.getActiveLogicalLevelId?.() || 0,
+            logicalLevelId,
             physicalLevelId: this.runtime.getActivePhysicalLevelId?.() || 0,
             page: this.runtime.getAnalyticsPage?.() || 'game',
             stepId: options.stepId,
@@ -363,8 +336,6 @@ export class PchConveyorGameplayController {
             extra: {
                 guideId: meta.guideId,
                 result,
-                bufferCapacity: this.rules?.bufferCapacity || 0,
-                singleSelectionLimit: this.rules?.moveLimit || 0,
             },
         });
     }
@@ -395,6 +366,7 @@ export class PchConveyorGameplayController {
         );
         this.resetAnalyticsStats();
         this.beltTravel = 0;
+        this.inputLocked = true;
         this.activeReturnAnimations = 0;
         this.activeReturnBeans.clear();
         this.pendingReturnCompletions.clear();
@@ -523,6 +495,7 @@ export class PchConveyorGameplayController {
         this.openingPatternGeneration += 1;
         this.openingPatternVisuals = visuals;
         this.openingPatternState = 'ready';
+        this.inputLocked = true;
         for (const visual of visuals) {
             const sprite = visual.node.getComponent(Sprite)!;
             Tween.stopAllByTarget(visual.node);
@@ -543,7 +516,9 @@ export class PchConveyorGameplayController {
         if (generation !== this.openingPatternGeneration || this.openingPatternState !== 'running') return;
         this.openingPatternState = 'done';
         this.restoreOpeningPatternVisuals(false, true);
+        this.inputLocked = false;
         this.showOpeningFeatureGuide(this.runtime.getGameplayFixedRoot());
+        this.runtime.syncSkillButtonRuntimeStates?.();
     }
 
     private cancelOpeningPatternShuffle(restoreBoard: boolean): void {
@@ -708,17 +683,12 @@ export class PchConveyorGameplayController {
 
     getAnalyticsSnapshot(): PchGameplayAnalyticsSnapshot | null {
         if (!this.analyticsStats) return null;
-        if (this.rules) {
-            this.analyticsStats.finalBufferCapacity = this.rules.bufferCapacity;
-            this.captureMaxBufferOccupancy();
-        }
         return { ...this.analyticsStats };
     }
 
     recordFreezeUse(): void {
-        if (!this.analyticsStats || !this.rules) return;
+        if (!this.analyticsStats) return;
         this.analyticsStats.freezeUses += 1;
-        this.captureMaxBufferOccupancy();
     }
 
     isActive(): boolean {
@@ -758,7 +728,6 @@ export class PchConveyorGameplayController {
     private getEffectiveBeltSpeedMultiplier(): PchSpeedMultiplier | 5 {
         if (!this.beforeWinSpeedActive && this.rules?.conveyorSpeedMultiplier === 5) {
             this.beforeWinSpeedActive = true;
-            if (this.analyticsStats) this.analyticsStats.auto5xUsed = true;
         }
         return this.beforeWinSpeedActive ? 5 : this.manualSpeedMultiplier;
     }
@@ -798,8 +767,7 @@ export class PchConveyorGameplayController {
 
     continueAfterBufferFull(): boolean {
         if (!this.rules || !this.inputLocked || !this.runtime.isGameEnd) return false;
-        if (!this.expandCapacity('buffer_full_revive')) return false;
-        if (this.analyticsStats) this.analyticsStats.bufferFullReviveSuccesses += 1;
+        if (!this.expandCapacity()) return false;
         this.inputLocked = false;
         this.runtime.continueAfterLose(0, true);
         return true;
@@ -807,8 +775,6 @@ export class PchConveyorGameplayController {
 
     private checkBufferDeadlock(): boolean {
         if (!this.rules?.isBufferDeadlocked()) return false;
-        if (this.analyticsStats) this.analyticsStats.bufferFullEpisodes += 1;
-        this.captureMaxBufferOccupancy();
         this.inputLocked = true;
         if (this.statusLabel) this.statusLabel.string = '暂存槽已满，且没有豆豆可以归位';
         this.runtime.gameLose('buffer-full');
@@ -816,51 +782,59 @@ export class PchConveyorGameplayController {
     }
 
     private onRootTouchStart(event: any): void {
-        if (this.inputLocked) return;
+        if (this.inputLocked) {
+            event.propagationStopped = true;
+            return;
+        }
         this.runtime.onTouchStart?.(event);
     }
 
     private onRootTouchMove(event: any): void {
-        if (this.inputLocked) return;
+        if (this.inputLocked) {
+            event.propagationStopped = true;
+            return;
+        }
         this.runtime.onTouchMove?.(event);
     }
 
     private onRootTouchCancel(event: any): void {
-        if (this.inputLocked) return;
+        if (this.inputLocked) {
+            event.propagationStopped = true;
+            return;
+        }
         this.runtime.onTouchCancel?.(event);
     }
 
     private onRootMouseWheel(event: any): void {
+        if (this.inputLocked) {
+            event.propagationStopped = true;
+            return;
+        }
         this.runtime.onMouseWheel?.(event);
     }
 
     private onRootTouchEnd(event: any): void {
         if (!this.rules || this.runtime.isGameEnd) return;
         if (this.inputLocked) {
+            event.propagationStopped = true;
             this.handleOpeningGuideRootTap(event);
             return;
         }
         const wasViewportGesture = this.runtime.gestureMode === 'pinching'
             || this.runtime.gestureMode === 'panning'
             || !!this.runtime.suppressTap;
-        this.runtime.onTouchCancel?.(event);
         if (wasViewportGesture) {
+            this.runtime.onTouchEnd?.(event);
             event.propagationStopped = true;
             return;
         }
+        this.runtime.onTouchCancel?.(event);
         if (this.hasDirectButtonTarget(event)) return;
         const rawPos = event?.getUILocation?.();
         if (!rawPos) return;
-        const position = typeof this.runtime.normalizeGameplayUiPosition === 'function'
-            ? this.runtime.normalizeGameplayUiPosition(rawPos)
-            : rawPos;
-        if (this.handleScaledTopBarTap(rawPos, position, event)) return;
-        if (this.openingGuide?.isValid && this.handleOpeningGuideRootTap(event)) return;
-        if (this.handleScaledCapacityAdTap(rawPos, position, event)) return;
-        if (this.handleScaledSkillTap(rawPos, position, event)) return;
         let cell: { row: number; col: number } | null = null;
         if (typeof this.runtime.resolveBoardTapBlock === 'function') {
-            const resolution = this.runtime.resolveBoardTapBlock(new Vec3(position.x, position.y, 0), false);
+            const resolution = this.runtime.resolveBoardTapBlock(new Vec3(rawPos.x, rawPos.y, 0), false);
             const candidate = resolution?.candidate || null;
             if (candidate) {
                 cell = this.rules.cells.find((item) => item.row === candidate.row && item.col === candidate.col) || null;
@@ -871,7 +845,7 @@ export class PchConveyorGameplayController {
                 const node = this.runtime.cellNodes?.[item.row]?.[item.col] || null;
                 const transform = node?.getComponent(UITransform);
                 const bounds = transform?.getBoundingBoxToWorld();
-                return !!bounds && bounds.contains(position);
+                return !!bounds && bounds.contains(rawPos);
             }) || null;
         }
         if (!cell) return;
@@ -879,39 +853,10 @@ export class PchConveyorGameplayController {
         this.handleBoardTap(cell.row, cell.col);
     }
 
-    private handleScaledTopBarTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean {
-        if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
-        const settingsButton = this.speedButton?.parent?.getChildByName('Settings') || null;
-        const hitButton = (node: Node | null): boolean => {
-            const button = node?.getComponent(Button) || null;
-            const bounds = node?.getComponent(UITransform)?.getBoundingBoxToWorld() || null;
-            return !!node?.activeInHierarchy
-                && !!button?.enabled
-                && button.interactable
-                && !!bounds?.contains(uiPos);
-        };
-        if (hitButton(settingsButton)) {
-            event.propagationStopped = true;
-            this.runtime.scheduleOnce(() => {
-                if (!hitButton(settingsButton)) return;
-                AudioMgr.inst.play('button');
-                this.runtime.openSettingsPanel();
-            }, 0);
-            return true;
-        }
-        if (!hitButton(this.speedButton)) return false;
-        this.runtime.scheduleOnce(() => {
-            if (!hitButton(this.speedButton)) return;
-            this.onSpeedButtonTap({ propagationStopped: false });
-        }, 0);
-        event.propagationStopped = true;
-        return true;
-    }
-
     private handleOpeningGuideRootTap(event: any): boolean {
         if (this.handleLevelOneOpeningGuideRootTap(event)) return true;
-        const hitPositions = this.getOpeningGuideHitPositions(event);
-        if (hitPositions.length === 0) return false;
+        const rawPos = event?.getUILocation?.();
+        if (!rawPos) return false;
         const guideName = this.openingGuide?.name || '';
         if (guideName.startsWith('PchLevelOneGuideStep')) {
             this.trackOpeningGuideEvent('pch_guide_tap_result', false, 'miss_target', guideName);
@@ -921,7 +866,7 @@ export class PchConveyorGameplayController {
             ? this.speedButton
             : (guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null);
         const bounds = target?.getComponent(UITransform)?.getBoundingBoxToWorld();
-        if (!bounds || !hitPositions.some((position) => bounds.contains(position))) {
+        if (!bounds || !bounds.contains(rawPos)) {
             this.trackOpeningGuideEvent('pch_guide_tap_result', false, 'miss_target', guideName);
             return false;
         }
@@ -938,27 +883,18 @@ export class PchConveyorGameplayController {
         if (!this.rules || this.openingGuideLevelOneStep < 0) return false;
         const guideCell = this.openingGuideLevelOneCells[this.openingGuideLevelOneStep];
         const targetColor = guideCell ? this.rules.board.currentColors[guideCell.row]?.[guideCell.col] || 0 : 0;
-        const hitPositions = this.getOpeningGuideHitPositions(event);
-        if (targetColor <= 0 || hitPositions.length === 0) return false;
+        const rawPos = event?.getUILocation?.();
+        if (targetColor <= 0 || !rawPos) return false;
         const hitTargetColor = this.rules.cells.some((cell) => {
             if (cell.locked || cell.current !== targetColor) return false;
             const node = this.runtime.cellNodes?.[cell.row]?.[cell.col] || null;
             const bounds = node?.getComponent(UITransform)?.getBoundingBoxToWorld();
-            return !!bounds && hitPositions.some((position) => bounds.contains(position));
+            return !!bounds && bounds.contains(rawPos);
         });
         if (!hitTargetColor) return false;
         event.propagationStopped = true;
         this.onOpeningGuideLevelOneTap(event);
         return true;
-    }
-
-    private getOpeningGuideHitPositions(event: any): Vec2[] {
-        const rawPos = event?.getUILocation?.();
-        if (!rawPos) return [];
-        const position = typeof this.runtime.normalizeGameplayUiPosition === 'function'
-            ? this.runtime.normalizeGameplayUiPosition(rawPos)
-            : rawPos;
-        return [position];
     }
 
     private hasDirectButtonTarget(event: any): boolean {
@@ -970,75 +906,24 @@ export class PchConveyorGameplayController {
         return false;
     }
 
-    private handleScaledCapacityAdTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean {
-        if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
-        const node = this.adButton;
-        const transform = node?.getComponent(UITransform);
-        const button = node?.getComponent(Button);
-        if (!node?.isValid || !node.activeInHierarchy || !transform || !button?.enabled || !button.interactable) return false;
-        if (!transform.getBoundingBoxToWorld().contains(uiPos)) return false;
-        event.propagationStopped = true;
-        this.runtime.scheduleOnce(() => {
-            if (!node.isValid || !node.activeInHierarchy || !button.enabled || !button.interactable) return;
-            this.onCapacityAdTap({ propagationStopped: false });
-        }, 0);
-        return true;
-    }
-
-    private handleScaledSkillTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean {
-        if (Math.abs(uiPos.x - rawPos.x) < 0.5 && Math.abs(uiPos.y - rawPos.y) < 0.5) return false;
-        const skillRoot = this.runtime.getGameplayBottomHudChild?.('SkillArea');
-        if (!skillRoot?.isValid || !skillRoot.activeInHierarchy) return false;
-        for (const name of ['SkillMagnet', 'SkillBrush', 'SkillFreeze']) {
-            const node = skillRoot.getChildByName(name);
-            const transform = node?.getComponent(UITransform);
-            const button = node?.getComponent(Button);
-            if (!node?.isValid || !node.activeInHierarchy || !transform || !button?.enabled || !button.interactable) continue;
-            if (!transform.getBoundingBoxToWorld().contains(uiPos)) continue;
-            event.propagationStopped = true;
-            this.runtime.scheduleOnce(() => {
-                if (!node.isValid || !node.activeInHierarchy || !button.enabled || !button.interactable) return;
-                node.emit(Button.EventType.CLICK, button);
-            }, 0);
-            return true;
-        }
-        return false;
-    }
-
     private handleBoardTap(row: number, col: number): PchBoardTapOutcome {
         if (!this.rules) return 'inactive';
-        if (this.analyticsStats) this.analyticsStats.selectionAttempts += 1;
         const block = this.rules.selectBoard(row, col);
         if (!block) {
-            if (this.analyticsStats) this.analyticsStats.selectionInvalid += 1;
             if (this.statusLabel) this.statusLabel.string = '请选择棋盘上未归位的相连同色豆豆';
             return 'invalid';
         }
         const sourceWorldPositions = block.cells.map((cell) => this.getBoardCellWorldPosition(cell.row, cell.col));
         const result = this.rules.storeBlock(block, this.getEntranceCarrierIndex());
         if (result.moved <= 0) {
-            if (this.analyticsStats) this.analyticsStats.selectionCapacityBlocked += 1;
-            this.captureMaxBufferOccupancy();
             if (this.statusLabel) this.statusLabel.string = '传送带已满，请等待出口归位';
             return 'capacity_blocked';
         }
-        if (this.analyticsStats) {
-            this.analyticsStats.selectionSuccesses += 1;
-            this.analyticsStats.storedBeanCount += result.moved;
-            if (result.moved < block.cells.length) this.analyticsStats.selectionPartial += 1;
-        }
-        this.captureMaxBufferOccupancy();
         if (!this.firstStoreEventSent) {
             this.firstStoreEventSent = true;
             this.trackPchFunnelEvent('pch_first_store_success', {
                 source: 'board_selection',
                 success: true,
-                extra: {
-                    movedBeanCount: result.moved,
-                    bufferOccupancy: this.rules.bufferCount,
-                    bufferCapacity: this.rules.bufferCapacity,
-                    singleSelectionLimit: this.rules.moveLimit,
-                },
             });
         }
         this.runtime.ensureTimerStarted?.();
@@ -1115,18 +1000,11 @@ export class PchConveyorGameplayController {
         }).reverse();
         const result = this.rules.autoPlaceAvailableTop(carrierIndex);
         if (result.moved <= 0) return false;
-        if (this.analyticsStats) this.analyticsStats.autoReturnedBeanCount += result.moved;
-        this.captureMaxBufferOccupancy();
         if (!this.firstReturnEventSent) {
             this.firstReturnEventSent = true;
             this.trackPchFunnelEvent('pch_first_return_success', {
                 source: 'conveyor_exit',
                 success: true,
-                extra: {
-                    returnedBeanCount: result.moved,
-                    bufferOccupancy: this.rules.bufferCount,
-                    bufferCapacity: this.rules.bufferCapacity,
-                },
             });
         }
         this.renderConveyorCarrier(carrierIndex);
@@ -1728,13 +1606,10 @@ export class PchConveyorGameplayController {
         if (result.moved > 0 && this.analyticsStats) {
             if (kind === 'magnet') {
                 this.analyticsStats.magnetUses += 1;
-                this.analyticsStats.magnetMovedBeans += result.moved;
             } else {
                 this.analyticsStats.brushUses += 1;
-                this.analyticsStats.brushMovedBeans += result.moved;
             }
         }
-        this.captureMaxBufferOccupancy();
 
         const visualMoves = result.moves.map((move) => ({
             move,
@@ -1747,7 +1622,6 @@ export class PchConveyorGameplayController {
         this.renderConveyor();
         this.renderEntranceQueue();
         this.refreshStatus();
-        AudioMgr.inst.play(kind === 'brush' ? 'propBrush' : 'propWand');
         AudioMgr.inst.vibratePlace();
 
         const finish = () => {
@@ -2356,7 +2230,9 @@ export class PchConveyorGameplayController {
         const bottomLeft = parentTransform.convertToNodeSpaceAR(new Vec3(minX, minY, 0));
         const topRight = parentTransform.convertToNodeSpaceAR(new Vec3(maxX, maxY, 0));
         const targetLocal = new Vec3((bottomLeft.x + topRight.x) / 2, (bottomLeft.y + topRight.y) / 2, 0);
-        const copy = this.openingGuideLevelOneStep === 0 ? '点击红色豆豆' : '再点蓝色豆豆';
+        const copy = this.openingGuideLevelOneStep === 0
+            ? '点击一组棋子，将它们放到传送带上'
+            : '再点击另一组棋子，空出对应颜色的位置';
         this.showOpeningTargetGuideAt(
             parent,
             targetLocal,
@@ -2395,6 +2271,7 @@ export class PchConveyorGameplayController {
         copy: string,
         onTargetTap: (event: any) => void,
     ): void {
+        this.inputLocked = true;
         this.openingGuide = this.makeNode(guideName, parent, 720, 1280, 0, 0);
         this.openingGuide.setSiblingIndex(Math.max(0, parent.children.length - 1));
         this.openingGuideTarget = this.makeNode('OpeningGuideTapTarget', parent, targetWidth + 24, targetHeight + 24, targetLocal.x, targetLocal.y);
@@ -2404,7 +2281,9 @@ export class PchConveyorGameplayController {
         ring.strokeColor = new Color(255, 236, 82, 255);
         ring.roundRect(-(targetWidth + 20) / 2, -(targetHeight + 20) / 2, targetWidth + 20, targetHeight + 20, 22);
         ring.stroke();
-        this.openingGuideTarget.on(Node.EventType.TOUCH_START, onTargetTap, this);
+        const button = this.openingGuideTarget.addComponent(Button);
+        button.transition = Button.Transition.SCALE;
+        button.zoomScale = 0.92;
         this.openingGuideTarget.on(Node.EventType.TOUCH_END, onTargetTap, this);
 
         const promptY = Math.max(-520, targetLocal.y - targetHeight / 2 - 72);
@@ -2444,7 +2323,8 @@ export class PchConveyorGameplayController {
         const outcome = this.handleBoardTap(cell.row, cell.col);
         const success = outcome === 'stored' || outcome === 'partial';
         this.trackOpeningGuideEvent('pch_guide_tap_result', success, outcome);
-        if (success) this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
+        if (!success) return;
+        this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
         if (this.openingGuideLevelOneStep >= 1) {
             this.dismissOpeningGuide();
             return;
@@ -2470,7 +2350,7 @@ export class PchConveyorGameplayController {
         event.propagationStopped = true;
         if (!this.rules || this.runtime.isGameEnd) return;
         AudioMgr.inst.play('button');
-        const expanded = this.expandCapacity('guide_free');
+        const expanded = this.expandCapacity();
         this.trackOpeningGuideEvent(
             'pch_guide_tap_result',
             expanded,
@@ -2486,6 +2366,8 @@ export class PchConveyorGameplayController {
         this.clearOpeningGuideNodes();
         this.openingGuideLevelOneCells = [];
         this.openingGuideLevelOneStep = -1;
+        this.inputLocked = false;
+        this.runtime.syncSkillButtonRuntimeStates?.();
     }
 
     private clearOpeningGuideNodes(): void {
@@ -2536,10 +2418,6 @@ export class PchConveyorGameplayController {
 
     private onSpeedButtonTap(event: any): void {
         event.propagationStopped = true;
-        if (this.openingGuide?.name === 'PchLevelTwoSpeedGuide') {
-            this.onOpeningGuideDoubleSpeed(event);
-            return;
-        }
         if (!this.rules || this.inputLocked || this.runtime.isGameEnd) return;
         const nextMultiplier: PchSpeedMultiplier = this.manualSpeedMultiplier === 1
             ? 2
@@ -2562,12 +2440,11 @@ export class PchConveyorGameplayController {
         const active = this.manualSpeedMultiplier > 1;
         this.speedInactiveState.active = !active;
         this.speedActiveState.active = active;
-        this.speedBadgeLabel.string = `${this.manualSpeedMultiplier}X`;
+        this.speedBadgeLabel.string = `X${this.manualSpeedMultiplier}`;
     }
 
     private setManualSpeedMultiplier(multiplier: PchSpeedMultiplier): void {
         this.manualSpeedMultiplier = multiplier;
-        if (multiplier === 2 && this.analyticsStats) this.analyticsStats.manual2xUsed = true;
         AppRoot.tryGet()?.session.setPchSpeedMultiplier(multiplier);
     }
 
@@ -2617,10 +2494,6 @@ export class PchConveyorGameplayController {
 
     private onCapacityAdTap(event: any): void {
         event.propagationStopped = true;
-        if (this.openingGuide?.name === 'PchLevelThreeCapacityGuide') {
-            this.onOpeningGuideFreeCapacity(event);
-            return;
-        }
         if (!this.rules || this.inputLocked || this.runtime.isGameEnd || this.runtime._adShowing) return;
         if (typeof this.runtime.runRewardedGrant !== 'function') {
             throw new Error('[pch-core] rewarded capacity grant is unavailable');
@@ -2628,7 +2501,7 @@ export class PchConveyorGameplayController {
         AudioMgr.inst.play('button');
         let timerToken = '';
         this.runtime.runRewardedGrant('pch_conveyor_expand', () => {
-            const expanded = this.expandCapacity('proactive_ad');
+            const expanded = this.expandCapacity();
             if (expanded) this.runtime.markDynamicCountdownAssisted?.();
             return expanded;
         }, {
@@ -2645,17 +2518,11 @@ export class PchConveyorGameplayController {
         });
     }
 
-    private expandCapacity(source: PchCapacitySource): boolean {
+    private expandCapacity(): boolean {
         if (!this.rules) return false;
         const previousCarrierCount = this.rules.carrierCount;
         const phase = this.wrap01(this.beltTravel / previousCarrierCount);
         const added = this.rules.addBufferSlots(PCH_EXPAND_CAPACITY);
-        if (added > 0 && this.analyticsStats) {
-            if (source === 'guide_free') this.analyticsStats.capacityAddedGuideFree += added;
-            if (source === 'proactive_ad') this.analyticsStats.capacityAddedProactiveAd += added;
-            if (source === 'buffer_full_revive') this.analyticsStats.capacityAddedBufferFullRevive += added;
-        }
-        this.captureMaxBufferOccupancy();
         this.beltTravel = phase * this.rules.carrierCount;
         this.renderConveyor();
         this.renderEntranceQueue();

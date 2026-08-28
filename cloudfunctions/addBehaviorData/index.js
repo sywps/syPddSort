@@ -9,6 +9,8 @@ const _ = db.command;
 
 const USER_PROFILE_COLLECTION = 'user_profile';
 const USER_BEHAVIOR_COLLECTION = 'user_behavior';
+const PCH_GAMEPLAY_MODE = 'pch_conveyor';
+const PCH_GAMEPLAY_SCHEMA_VERSION = 1;
 
 function normalizeNonNegativeInt(value) {
   const num = Math.floor(Number(value) || 0);
@@ -69,6 +71,22 @@ function normalizeLevelId(value) {
 
 function normalizeExperimentLevelId(value) {
   return normalizeLevelId(value);
+}
+
+function normalizeGameplayMode(value) {
+  return cleanString(value, 32) === PCH_GAMEPLAY_MODE ? PCH_GAMEPLAY_MODE : '';
+}
+
+function normalizeGameplaySchemaVersion(value, gameplayMode) {
+  if (gameplayMode !== PCH_GAMEPLAY_MODE) return 0;
+  return Math.floor(Number(value) || 0) === PCH_GAMEPLAY_SCHEMA_VERSION
+    ? PCH_GAMEPLAY_SCHEMA_VERSION
+    : 0;
+}
+
+function normalizeFailureReason(value) {
+  const reason = cleanString(value, 24);
+  return reason === 'timeout' || reason === 'buffer_full' ? reason : '';
 }
 
 function isCollectionMissing(error) {
@@ -134,6 +152,7 @@ exports.main = async (event = {}) => {
   }
 
   const timestamp = Date.now();
+  const gameplayMode = normalizeGameplayMode(event.gameplayMode);
   const data = {
     openid,
     eventName: cleanString(event.eventName, 64),
@@ -148,6 +167,9 @@ exports.main = async (event = {}) => {
     logicalLevelId: normalizeExperimentLevelId(event.logicalLevelId),
     physicalLevelId: normalizeExperimentLevelId(event.physicalLevelId),
     smartHintShownCount: normalizeNonNegativeInt(event.smartHintShownCount),
+    gameplayMode,
+    gameplaySchemaVersion: normalizeGameplaySchemaVersion(event.gameplaySchemaVersion, gameplayMode),
+    failureReason: normalizeFailureReason(event.failureReason),
     timestamp,
   };
 

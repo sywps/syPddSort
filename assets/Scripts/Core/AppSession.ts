@@ -1,4 +1,4 @@
-import type { AssetManager } from 'cc';
+import { sys, type AssetManager } from 'cc';
 
 type Bundle = AssetManager.Bundle;
 
@@ -8,6 +8,22 @@ export type AppGameplayEntryMode = 'main' | 'theme' | 'external';
 export type AppRouteCoverMode = 'auto' | 'cover' | 'none';
 export type AppGameplayEntryCoverMode = AppRouteCoverMode;
 export type PchSpeedMultiplier = 1 | 2 | 3;
+
+const PCH_SPEED_STORAGE_KEY = 'pdd.setting.pchSpeed';
+
+function normalizePchSpeedMultiplier(multiplier: unknown): PchSpeedMultiplier {
+    const value = Number(multiplier);
+    return value === 3 ? 3 : value === 2 ? 2 : 1;
+}
+
+function readPersistedPchSpeedMultiplier(): PchSpeedMultiplier {
+    const raw = sys.localStorage.getItem(PCH_SPEED_STORAGE_KEY);
+    const normalized = normalizePchSpeedMultiplier(raw);
+    if (raw !== null && raw !== String(normalized)) {
+        sys.localStorage.setItem(PCH_SPEED_STORAGE_KEY, String(normalized));
+    }
+    return normalized;
+}
 
 export interface PendingGameplayRequest {
     levelId: number;
@@ -40,6 +56,10 @@ export class AppSession {
     private _pchSpeedMultiplier: PchSpeedMultiplier = 1;
     private readonly _routedBundles = new Map<string, Bundle>();
 
+    constructor() {
+        this._pchSpeedMultiplier = readPersistedPchSpeedMultiplier();
+    }
+
     get currentSceneName(): AppSceneName {
         return this._currentSceneName;
     }
@@ -65,7 +85,9 @@ export class AppSession {
     }
 
     setPchSpeedMultiplier(multiplier: number): void {
-        this._pchSpeedMultiplier = multiplier === 3 ? 3 : multiplier === 2 ? 2 : 1;
+        const normalized = normalizePchSpeedMultiplier(multiplier);
+        this._pchSpeedMultiplier = normalized;
+        sys.localStorage.setItem(PCH_SPEED_STORAGE_KEY, String(normalized));
     }
 
     setCurrentSceneName(sceneName: AppSceneName): void {

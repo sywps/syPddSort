@@ -1,7 +1,7 @@
 [
   {
     "__type__": "cc.Prefab",
-    "_name": "RevivePanel",
+    "_name": "BufferFullRevivePanel",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_native": "",
@@ -13,7 +13,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "RevivePanel",
+    "_name": "BufferFullRevivePanel",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": null,
@@ -337,7 +337,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 53.916,
+      "y": 55.786,
       "z": 0
     },
     "_lrot": {
@@ -739,7 +739,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "快完成啦",
+    "_string": "继续吗？",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 50,
@@ -1230,7 +1230,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 39.34,
+      "y": 29.153,
       "z": 0
     },
     "_lrot": {
@@ -1270,8 +1270,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 200,
-      "height": 200
+      "width": 460,
+      "height": 210
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1307,7 +1307,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "929bfe6a-0b6d-46a5-8789-727800218a29@f9941",
+      "__uuid__": "a8b11686-0609-4525-9442-40c7ee1b4c1d@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,
@@ -1370,7 +1370,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -139.772,
+      "y": -162.062,
       "z": 0
     },
     "_lrot": {
@@ -1405,7 +1405,7 @@
       "__id__": 53
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 55
@@ -1569,8 +1569,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 446.69921875,
-      "height": 50.4
+      "width": 446,
+      "height": 72
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -1605,15 +1605,15 @@
       "b": 179,
       "a": 255
     },
-    "_string": "加时               继续游戏",
+    "_string": "暂存槽已满！\n腾出12个位置继续游戏吧！",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 40,
-    "_fontSize": 40,
+    "_actualFontSize": 27,
+    "_fontSize": 26,
     "_fontFamily": "Arial",
-    "_lineHeight": 40,
+    "_lineHeight": 32,
     "_overflow": 2,
-    "_enableWrapText": false,
+    "_enableWrapText": true,
     "_font": null,
     "_isSystemFontUsed": true,
     "_spacingX": 0,
@@ -2253,7 +2253,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -390.594,
+      "y": -383.617,
       "z": 0
     },
     "_lrot": {
@@ -2302,8 +2302,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": -86.301,
-      "y": 7.759,
+      "x": -108.14,
+      "y": 7.758,
       "z": 0
     },
     "_lrot": {
@@ -2441,8 +2441,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 42.208,
-      "y": 9.214,
+      "x": 21.073,
+      "y": 9.213,
       "z": 0
     },
     "_lrot": {

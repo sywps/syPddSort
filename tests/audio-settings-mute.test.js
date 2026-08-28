@@ -149,15 +149,30 @@ const audioManifestMock = {
     AUDIO_GAME_BGM_VOLUME: 0.29,
     AUDIO_HOME_BGM_RESOURCE_PATH: 'Audio/bgm',
     AUDIO_HOME_BGM_VOLUME: 0.35,
-    AUDIO_BOOTSTRAP_SFX_NAMES: ['button', 'place', 'uiPanel', 'fly', 'tick'],
+    AUDIO_BOOTSTRAP_SFX_NAMES: [
+        'select', 'place', 'fly', 'return', 'button', 'tick', 'coin',
+        'win', 'lose', 'winColor', 'winAll', 'winSettlement', 'revivePop',
+    ],
     AUDIO_SFX_RESOURCE_PATH: {
+        select: 'Audio/select',
         button: 'Audio/ui',
         place: 'Audio/place',
-        uiPanel: 'Audio/ui',
         fly: 'Audio/fly',
+        return: 'Audio/return',
         tick: 'Audio/tick',
+        coin: 'Audio/coin',
+        win: 'Audio/win',
+        lose: 'Audio/lose',
+        winColor: 'Audio/win-color',
+        winAll: 'Audio/win-all',
+        winSettlement: 'Audio/win-settlement',
+        revivePop: 'Audio/revive-pop',
     },
-    AUDIO_SFX_VOLUME: { button: 0.52, place: 0.72, uiPanel: 0.48, fly: 0.4, tick: 0.4 },
+    AUDIO_SFX_VOLUME: {
+        select: 0.55, button: 0.52, place: 0.72, fly: 0.4, return: 0.22,
+        tick: 0.4, coin: 0.42, win: 0.52, lose: 0.44, winColor: 0.5,
+        winAll: 0.5, winSettlement: 0.62, revivePop: 0.32,
+    },
     AUDIO_SFX_VOLUME_VARIANCE: {},
 };
 
@@ -193,14 +208,14 @@ const gameSceneAllowlistMatch = audioMgrSource.match(/const GAME_SCENE_SFX_ALLOW
 assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene SFX allowlist');
 assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
-    ['place', 'button'],
-    'Game-scene SFX allowlist must contain exactly place and button',
+    ['select', 'place', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop', 'coin', 'win'],
+    'Game-scene SFX allowlist must match the approved gameplay policy',
 );
 assert.strictEqual(
     (boardInputViewportSource.match(/AudioMgr\.inst\.play\('select'\)/g) || []).length
         + (pchConveyorSource.match(/AudioMgr\.inst\.play\('select'\)/g) || []).length,
-    0,
-    'bean selection owners must not request the hidden select cue',
+    3,
+    'legacy board, legacy slot, and PCH board selection must request select feedback',
 );
 assert.strictEqual(
     (boardInputViewportSource.match(/AudioMgr\.inst\.vibrateSelect\(\)/g) || []).length,
@@ -214,7 +229,7 @@ assert.strictEqual(
 );
 assert.ok(
     audioManifestSource.includes("select: 'Audio/pindd/bean_pickup'"),
-    'the disabled select cue resource mapping must remain available for future restoration',
+    'the enabled select cue must keep its approved resource mapping',
 );
 
 assert.strictEqual(audioMgr.sfxSources.length, 8, 'AudioMgr must create a bounded eight-channel SFX pool');
@@ -332,18 +347,26 @@ const getTotalSfxPlayCount = () => audioMgr.sfxSources.reduce((sum, source) => s
 audioMgr.sfxClips.set('place', { _nativeAsset: { url: 'place.mp3' } });
 audioMgr.sfxClips.set('button', { _nativeAsset: { url: 'button.mp3' } });
 audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
+const allowedGameSfxNames = [
+    'select', 'place', 'button', 'tick', 'winColor', 'winAll',
+    'winSettlement', 'lose', 'revivePop', 'coin', 'win',
+];
+for (const name of allowedGameSfxNames) {
+    audioMgr.sfxClips.set(name, { _nativeAsset: { url: `${name}.mp3` } });
+}
 
 scene.name = 'Game';
 audioMgr.stopSfx();
 const gameSfxPlayCountBefore = getTotalSfxPlayCount();
-audioMgr.play('place');
-audioMgr.play('button');
+for (const name of allowedGameSfxNames) audioMgr.play(name);
 audioMgr.play('uiPanel');
 audioMgr.play('fly');
+audioMgr.play('return');
+audioMgr.play('slot');
 assert.strictEqual(
     getTotalSfxPlayCount() - gameSfxPlayCountBefore,
-    2,
-    'Game scene must play only place and button cues',
+    allowedGameSfxNames.length,
+    'Game scene must play every approved cue and reject removed or disabled keys',
 );
 
 const loadedBoundaryPlayCountBefore = getTotalSfxPlayCount();
@@ -354,15 +377,15 @@ assert.strictEqual(
     'the loaded-clip boundary must block a disallowed cue that finishes loading in Game',
 );
 
-audioMgr.sfxClips.delete('tick');
+audioMgr.sfxClips.delete('fly');
 const ensuredPreloads = [];
 const originalEnsureSfxLoaded = audioMgr._ensureSfxLoaded;
 audioMgr._ensureSfxLoaded = (name) => ensuredPreloads.push(name);
-audioMgr.play('tick');
+audioMgr.play('fly');
 assert.deepStrictEqual(ensuredPreloads, [], 'blocked Game SFX must not create an autoplay load request');
-audioMgr.preload('tick');
+audioMgr.preload('fly');
 audioMgr._ensureSfxLoaded = originalEnsureSfxLoaded;
-assert.deepStrictEqual(ensuredPreloads, ['tick'], 'Game allowlist must not suppress resource preloading');
+assert.deepStrictEqual(ensuredPreloads, ['fly'], 'Game allowlist must not suppress resource preloading');
 
 const gameBgmPlayCountBefore = audioMgr.bgmSrc.playCount;
 audioMgr.bgmSrc.stop();
@@ -375,9 +398,11 @@ assert.deepStrictEqual(vibrationDurations.slice(vibrationCountBefore), [12], 'Ga
 
 scene.name = 'Home';
 audioMgr.stopSfx();
+audioMgr.sfxClips.set('fly', flyClip);
+audioMgr.sfxClips.set('return', { _nativeAsset: { url: 'return.mp3' } });
 const homeSfxPlayCountBefore = getTotalSfxPlayCount();
-audioMgr.play('uiPanel');
 audioMgr.play('fly');
+audioMgr.play('return');
 assert.strictEqual(
     getTotalSfxPlayCount() - homeSfxPlayCountBefore,
     2,

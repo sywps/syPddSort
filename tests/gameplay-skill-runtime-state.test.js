@@ -99,6 +99,9 @@ const root = {
 };
 let skillBusy = true;
 let bufferHasBeans = true;
+let inventoryCount = 1;
+let assistedCount = 0;
+const freezeCalls = [];
 const runtime = {
     levelData: {},
     isGameEnd: false,
@@ -111,10 +114,15 @@ const runtime = {
     },
     getGameplayBottomHudChild: () => root,
     getActiveLogicalLevelId: () => 12,
+    getPropCount: () => inventoryCount,
     slotHasBeans: () => bufferHasBeans,
     isPlacementVisualBusy: () => false,
     pauseTimerForFinalSecondProp: () => false,
-    markDynamicCountdownAssisted() {},
+    markDynamicCountdownAssisted() { assistedCount += 1; },
+    useSkillFreeze(timerAlreadyPaused) {
+        freezeCalls.push(timerAlreadyPaused);
+        this._skillActive = true;
+    },
 };
 const controller = new loadedModule.exports.GameplaySkillUiController(runtime);
 
@@ -145,13 +153,24 @@ assert.deepEqual(
     'clear-buffer may still dim when its own empty-buffer precondition fails',
 );
 
-const rejectedGrant = controller.useSkillFromAdGrant({
-    kind: 'magnet',
-    label: '消色',
-    unlockLevel: 1,
-    lsKey: 'test',
-    handler: () => false,
-});
-assert.equal(rejectedGrant, false, 'a PCH skill that did not start must keep the rewarded grant from reporting success');
+inventoryCount = 0;
+skillBusy = true;
+controller.syncSkillButtonRuntimeStates();
+for (const shell of shells.values()) {
+    assert.equal(shell.button.enabled, true, `${shell.name} acquire entry must stay enabled during opening busy state`);
+}
+assert.deepEqual(
+    shells.get('SkillBrush').getComponent(FakeSprite).color,
+    new FakeColor(210, 180, 150, 255),
+    'zero-inventory brush acquire entry must not inherit the empty-conveyor disabled visual',
+);
+
+runtime._skillActive = false;
+const freezeGrant = controller.useFreezeFromAdGrant();
+assert.equal(freezeGrant, true, 'rewarded freeze must report success after activating immediately');
+assert.deepEqual(freezeCalls, [true], 'rewarded freeze must start with the acquire-panel timer already paused');
+assert.equal(assistedCount, 1, 'rewarded freeze must mark the run as assisted');
+assert.equal(controller.useFreezeFromAdGrant(), false, 'rewarded freeze must reject a duplicate activation');
+assert.deepEqual(freezeCalls, [true], 'duplicate rewarded freeze must not invoke the skill twice');
 
 console.log('gameplay-skill-runtime-state.test.js passed');

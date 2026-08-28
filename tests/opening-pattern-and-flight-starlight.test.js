@@ -95,6 +95,12 @@ assert.ok(opening.includes('generation !== this.openingPatternGeneration'));
 assert.ok(opening.includes('this.restoreOpeningPatternVisuals(false, true);'));
 assert.ok(opening.includes('this.inputLocked = false;'), 'only the guarded completion may release gameplay input');
 assert.ok(opening.includes('this.runtime.renderBoard();'), 'completion must reveal the authoritative shuffled model');
+const openingComplete = section(pch, '    private completeOpeningPatternShuffle(', '    private cancelOpeningPatternShuffle(');
+const guideIndex = openingComplete.indexOf('this.showOpeningFeatureGuide(');
+const openingSkillSyncIndex = openingComplete.indexOf('this.runtime.syncSkillButtonRuntimeStates?.();');
+assert.ok(guideIndex >= 0 && openingSkillSyncIndex > guideIndex, 'opening completion must refresh skill buttons after the final guide lock is known');
+const openingGuideDismiss = section(pch, '    private dismissOpeningGuide(): void {', '    private clearOpeningGuideNodes(): void {');
+assert.ok(openingGuideDismiss.includes('this.runtime.syncSkillButtonRuntimeStates?.();'), 'closing the opening guide must restore the final skill button state');
 
 const inbound = section(pch, '    private animateBeanIntoConveyor(', '    private animateBeanReturn(');
 const returning = section(pch, '    private animateBeanReturn(', '    private finishReturnAnimation(');
@@ -150,7 +156,7 @@ assert.strictEqual(sha256('assets/BootstrapBundle/GameUI/pdpx_eff_Star_01.png'),
 assert.strictEqual(sha256('assets/BootstrapBundle/GameUI/pdpx_eff_Trail_02.png'), 'ec071f6c12d4f7fcc32ca161908c129bf78cd6a381618588ff09e4c24a407f26');
 
 const hideIndex = session.indexOf('runtime.hideLoadingOverlayAfterGameplayReady?.();');
-const playIndex = session.indexOf('ensurePchConveyorGameplayController(runtime).playOpeningPatternShuffle();');
+const playIndex = session.indexOf('pchController.playOpeningPatternShuffle();');
 assert.ok(hideIndex >= 0 && playIndex > hideIndex, 'the opening motion must begin only after the loading cover is released');
 
 console.log('opening-pattern-and-flight-starlight.test.js passed');

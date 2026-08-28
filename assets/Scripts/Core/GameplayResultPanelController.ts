@@ -15,7 +15,6 @@ import {
     Tween,
     UIOpacity,
     UITransform,
-    Vec2,
     Vec3,
     assetManager,
     GAME_ASSETS_BUNDLE_NAME,
@@ -30,11 +29,12 @@ import { ensurePchConveyorGameplayController } from './PchConveyorGameplayContro
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
     revive: 'UI/Prefabs/Panels/RevivePanel',
+    bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanel',
     lose: 'UI/Prefabs/Panels/LosePanel',
 } as const;
 
 type ResultPanelKind = keyof typeof RESULT_PANEL_PREFAB_PATHS;
-const RESULT_PANEL_KINDS: ResultPanelKind[] = ['win', 'revive', 'lose'];
+const RESULT_PANEL_KINDS: ResultPanelKind[] = ['win', 'revive', 'bufferFullRevive', 'lose'];
 const WIN_BANNER_LEGACY_PART_PREFIX = 'WinBannerAnimatedPart';
 const WIN_BANNER_FX_PREFIX = 'WinBannerStableFx';
 const WIN_BANNER_ENTRANCE_Y = 34;
@@ -68,8 +68,6 @@ const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
 ];
 
 export class GameplayResultPanelController {
-    private readonly scaledFallbackHandlers = new WeakMap<Node, () => void>();
-    private readonly scaledFallbackOverlays = new WeakMap<Node, Node>();
 
     constructor(private readonly runtime: any) {}
 
@@ -537,7 +535,7 @@ export class GameplayResultPanelController {
         runtime.requirePanelChild(previewFrame, 'PatternPreview');
         const adBonusBtn = runtime.requirePanelChild(box, 'AdBonusBtn');
         adBonusBtn.getComponent(UIOpacity) || adBonusBtn.addComponent(UIOpacity);
-        this.bindPanelButtonWithScaledFallback(adBonusBtn, overlay, () => {
+        this.bindPanelButton(adBonusBtn, () => {
             AudioMgr.inst.play('button');
             runtime.claimWinAdBonusReward();
         });
@@ -547,8 +545,8 @@ export class GameplayResultPanelController {
         if (!collectionTitleLabel.getComponent(Label)) {
             throw new Error('[result-panel] WinPanel collection title is missing Label');
         }
-        this.bindPanelButtonWithScaledFallback(collectionBtn, overlay, () => {
-            AudioMgr.inst.play('uiPanel');
+        this.bindPanelButton(collectionBtn, () => {
+            AudioMgr.inst.play('button');
             runtime.openCollection();
         });
         const primaryBtn = runtime.requirePanelChild(box, 'PrimaryBtn');
@@ -556,7 +554,7 @@ export class GameplayResultPanelController {
             AudioMgr.inst.play('button');
             runtime.handleWinSettlementPrimaryAction();
         };
-        this.bindPanelButtonWithScaledFallback(primaryBtn, overlay, runPrimaryAction);
+        this.bindPanelButton(primaryBtn, runPrimaryAction);
         return overlay;
     }
 
@@ -583,7 +581,7 @@ export class GameplayResultPanelController {
             throw new Error('[result-panel] RevivePanel is missing any close/give-up action node');
         }
         for (const node of giveUpNodes) {
-            this.bindPanelButtonWithScaledFallback(node, overlay, () => {
+            this.bindPanelButton(node, () => {
                 AudioMgr.inst.play('button');
                 giveUp();
             });
@@ -593,37 +591,15 @@ export class GameplayResultPanelController {
 
     createBufferFullSettlementPanel(): Node {
         const runtime = this.runtime;
-        const overlay = this.instantiateGameplayOverlay('revive', 'BufferFullSettlementOverlay');
+        const overlay = this.instantiateGameplayOverlay('bufferFullRevive', 'BufferFullSettlementOverlay');
         const box = runtime.requirePanelChild(overlay, 'Box');
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
         this.syncResultProgressWidget(overlay, 0);
 
-        const titleLabel = this.requireLabelWithText(overlay, '快完成啦');
-        titleLabel.string = '继续吗？';
-
-        const messageLabel = this.requireLabelWithText(overlay, '加时继续游戏');
-        messageLabel.string = '暂存槽已满！\n腾出12个位置继续游戏吧！';
-        messageLabel.fontSize = 26;
-        messageLabel.lineHeight = 32;
-        messageLabel.enableWrapText = true;
-        messageLabel.overflow = Label.Overflow.SHRINK;
-        messageLabel.node.getComponent(UITransform)?.setContentSize(446, 72);
-
-        const positionLabel = this.requireLabelWithText(overlay, '120秒');
-        positionLabel.node.active = false;
-
-        const reviveButtonLabel = this.requireLabelWithText(overlay, '+120秒');
-        reviveButtonLabel.string = '复活';
-        reviveButtonLabel.fontSize = 50;
-        reviveButtonLabel.lineHeight = 56;
-
-        const infoArt = runtime.requirePanelChild(box, 'InfoArt');
-        this.drawBufferFullConveyorIllustration(infoArt);
-
         const continueBtn = runtime.requirePanelChild(box, 'ContinueBtn');
-        this.bindPanelButtonWithScaledFallback(continueBtn, overlay, () => {
+        this.bindPanelButton(continueBtn, () => {
             if (runtime._adShowing) return;
             const controller = ensurePchConveyorGameplayController(runtime);
             const capacityBeforeGrant = controller.getBufferCapacity();
@@ -632,7 +608,6 @@ export class GameplayResultPanelController {
                 const continued = controller.continueAfterBufferFull();
                 if (!continued) return false;
                 overlay.active = false;
-                AudioMgr.inst.play('revivePop');
                 return true;
             }, {
                 claimKey: `pch_buffer_full_revive:${runtime.getActiveLogicalLevelId?.() || 0}:${capacityBeforeGrant}`,
@@ -647,10 +622,10 @@ export class GameplayResultPanelController {
         const giveUpNodes = [box.getChildByName('GiveUpBtn'), box.getChildByName('CloseBtn')]
             .filter((node): node is Node => !!node);
         if (!giveUpNodes.length) {
-            throw new Error('[result-panel] buffer-full RevivePanel is missing any close/give-up action node');
+            throw new Error('[result-panel] BufferFullRevivePanel is missing any close/give-up action node');
         }
         for (const node of giveUpNodes) {
-            this.bindPanelButtonWithScaledFallback(node, overlay, () => {
+            this.bindPanelButton(node, () => {
                 AudioMgr.inst.play('button');
                 overlay.active = false;
                 runtime.showLosePanel();
@@ -659,128 +634,20 @@ export class GameplayResultPanelController {
         return overlay;
     }
 
-    private requireLabelWithText(root: Node, expectedText: string): Label {
-        const normalize = (value: string) => String(value || '').replace(/\s+/g, '');
-        const expected = normalize(expectedText);
-        const label = root.getComponentsInChildren(Label)
-            .find((item) => normalize(item.string) === expected) || null;
-        if (!label) {
-            throw new Error(`[result-panel] RevivePanel is missing label "${expectedText}"`);
-        }
-        return label;
-    }
-
-    private drawBufferFullConveyorIllustration(infoArt: Node): void {
-        const sprite = infoArt.getComponent(Sprite);
-        if (sprite) sprite.enabled = false;
-        infoArt.getChildByName('BufferFullConveyorArt')?.destroy();
-        infoArt.setPosition(0, 52, 0);
-        infoArt.getComponent(UITransform)?.setContentSize(460, 210);
-
-        const art = new Node('BufferFullConveyorArt');
-        art.layer = infoArt.layer;
-        infoArt.addChild(art);
-        art.addComponent(UITransform).setContentSize(460, 210);
-        const graphics = art.addComponent(Graphics);
-        graphics.lineJoin = Graphics.LineJoin.ROUND;
-        graphics.lineCap = Graphics.LineCap.ROUND;
-
-        graphics.fillColor = new Color(248, 252, 255, 255);
-        graphics.roundRect(-225, -100, 450, 200, 28);
-        graphics.fill();
-        graphics.lineWidth = 4;
-        graphics.strokeColor = new Color(124, 181, 225, 255);
-        graphics.roundRect(-225, -100, 450, 200, 28);
-        graphics.stroke();
-
-        graphics.fillColor = new Color(92, 77, 145, 255);
-        graphics.roundRect(-174, -56, 348, 112, 38);
-        graphics.fill();
-        graphics.lineWidth = 5;
-        graphics.strokeColor = new Color(218, 222, 237, 255);
-        graphics.roundRect(-172, -54, 344, 108, 36);
-        graphics.stroke();
-        graphics.fillColor = new Color(255, 255, 255, 255);
-        graphics.roundRect(-118, -24, 236, 48, 10);
-        graphics.fill();
-
-        graphics.lineWidth = 4;
-        graphics.strokeColor = new Color(174, 157, 222, 170);
-        for (const x of [-74, 2, 78]) {
-            graphics.moveTo(x - 10, -43);
-            graphics.lineTo(x, -35);
-            graphics.lineTo(x - 10, -27);
-        }
-        graphics.stroke();
-
-        const beanSpecs: Array<[number, number, Color]> = [
-            [-148, 31, new Color(218, 55, 57, 255)],
-            [-108, 31, new Color(245, 105, 39, 255)],
-            [-68, 31, new Color(248, 190, 47, 255)],
-            [-28, 31, new Color(131, 193, 58, 255)],
-            [12, 31, new Color(53, 92, 201, 255)],
-            [52, 31, new Color(126, 45, 220, 255)],
-            [92, 31, new Color(228, 55, 142, 255)],
-            [148, 9, new Color(31, 184, 211, 255)],
-            [-153, -10, new Color(218, 55, 57, 255)],
-            [-148, -37, new Color(218, 55, 57, 255)],
-        ];
-        graphics.lineWidth = 2;
-        for (const [x, y, color] of beanSpecs) {
-            graphics.fillColor = color;
-            graphics.circle(x, y, 16);
-            graphics.fill();
-            graphics.strokeColor = new Color(77, 47, 107, 170);
-            graphics.circle(x, y, 16);
-            graphics.stroke();
-        }
-
-        graphics.fillColor = new Color(70, 53, 119, 255);
-        graphics.roundRect(-24, -71, 48, 45, 8);
-        graphics.fill();
-        graphics.lineWidth = 4;
-        graphics.strokeColor = Color.WHITE;
-        graphics.roundRect(-24, -71, 48, 45, 8);
-        graphics.stroke();
-    }
-
-    bindPanelButtonWithScaledFallback(triggerNode: Node, overlay: Node, handler: () => void): void {
-        const runtime = this.runtime;
-        runtime.bindPanelButton(triggerNode, handler);
-        this.scaledFallbackHandlers.set(triggerNode, handler);
-        if (this.scaledFallbackOverlays.get(triggerNode) === overlay) return;
-        this.scaledFallbackOverlays.set(triggerNode, overlay);
-        overlay.on(Node.EventType.TOUCH_END, (event: any) => {
-            let nativeTarget = event?.target as Node | null;
-            while (nativeTarget?.isValid && nativeTarget !== overlay) {
-                if (nativeTarget.getComponent(Button)) return;
-                nativeTarget = nativeTarget.parent;
-            }
-            const rawPos = event?.getUILocation?.();
-            if (!rawPos || typeof runtime.normalizeGameplayUiPosition !== 'function') return;
-            const normalizedPos = runtime.normalizeGameplayUiPosition(rawPos);
-            if (Math.abs(normalizedPos.x - rawPos.x) < 0.5 && Math.abs(normalizedPos.y - rawPos.y) < 0.5) return;
-            const triggerUi = triggerNode.getComponent(UITransform);
-            if (!triggerUi?.getBoundingBoxToWorld().contains(new Vec2(normalizedPos.x, normalizedPos.y))) return;
-            event.propagationStopped = true;
-            runtime.scheduleOnce(() => {
-                const button = triggerNode.getComponent(Button);
-                if (!overlay.isValid || !overlay.activeInHierarchy || !button?.enabled || !button.interactable) return;
-                this.scaledFallbackHandlers.get(triggerNode)?.();
-            }, 0);
-        }, this, true);
+    bindPanelButton(triggerNode: Node, handler: () => void): void {
+        this.runtime.bindPanelButton(triggerNode, handler);
     }
 
     bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number) {
         const runtime = this.runtime;
         const continueSeconds = rewardedSeconds ?? runtime.constructor.REWARDED_CONTINUE_SECONDS;
-        this.bindPanelButtonWithScaledFallback(triggerNode, overlay, () => {
+        this.bindPanelButton(triggerNode, () => {
             if (runtime._adShowing) return;
             AudioMgr.inst.play('button');
             runtime.runRewardedGrant('level_revive', () => {
                 overlay.active = false;
-                AudioMgr.inst.play('revivePop');
                 runtime.continueAfterLose(continueSeconds);
+                return true;
             }, {
                 busyFlag: '_adShowing',
                 markLevelRevive: true,
@@ -801,7 +668,7 @@ export class GameplayResultPanelController {
         const homeBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846');
         const replayBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846-001');
         this.bindReviveContinueAction(reviveBtn, overlay);
-        this.bindPanelButtonWithScaledFallback(homeBtn, overlay, () => {
+        this.bindPanelButton(homeBtn, () => {
             AudioMgr.inst.play('button');
             AnalyticsMgr.inst.finalizePendingFailedLevel({
                 gameplayStats: runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
@@ -809,7 +676,7 @@ export class GameplayResultPanelController {
             overlay.active = false;
             runtime.showMainMenu();
         });
-        this.bindPanelButtonWithScaledFallback(replayBtn, overlay, () => {
+        this.bindPanelButton(replayBtn, () => {
             AudioMgr.inst.play('button');
             overlay.active = false;
             runtime.restart();

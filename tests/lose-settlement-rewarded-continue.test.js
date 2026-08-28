@@ -86,12 +86,94 @@ assert.match(
     /reason === 'buffer-full' && this\.panelBufferFullContinue/,
     'buffer-full failure must keep its dedicated rewarded expansion panel',
 );
-assert.ok(gameLose.includes('this.showLosePanel();'), 'ordinary timeout must show the failure panel');
-assert.doesNotMatch(
+assert.match(
     gameLose,
-    /if \(this\.panelTimeoutContinue\) \{\s*this\.panelTimeoutContinue\.active = true/,
-    'ordinary timeout must not route through the intermediate revive panel',
+    /reason === 'timeout' && this\.panelTimeoutContinue/,
+    'ordinary timeout must route through its dedicated rewarded revive panel',
 );
+assert.ok(gameLose.includes('this.showLosePanel();'), 'missing revive panels must retain the final failure fallback');
+
+const gameLoseBodyStart = gameLose.indexOf('{');
+const revivePanelEvents = [];
+const runGameLose = new Function(
+    'AnalyticsMgr',
+    'SySDKMgr',
+    'PerformanceMgr',
+    'AudioMgr',
+    `return function(reason = 'timeout') {${gameLose.slice(gameLoseBodyStart + 1, -1)}};`,
+)(
+    {
+        inst: {
+            markLevelFailed() {},
+            trackRevivePanelShow(page, levelId) { revivePanelEvents.push({ page, levelId }); },
+        },
+    },
+    { inst: { reportLevelFail() {} } },
+    { inst: { markUserActivity() {} } },
+    { inst: { play() {} } },
+);
+const createLoseRouteRuntime = () => {
+    const createPanel = () => ({
+        active: false,
+        siblingIndex: -1,
+        setSiblingIndex(value) { this.siblingIndex = value; },
+    });
+    return {
+        isGameEnd: false,
+        _pchConveyorGameplayController: {
+            pauseForSettlement() {},
+            getAnalyticsSnapshot: () => null,
+        },
+        panelTimeoutContinue: createPanel(),
+        panelBufferFullContinue: createPanel(),
+        panelLose: createPanel(),
+        showLosePanelCalls: 0,
+        isBoardCompletionCommittedForSettlement: () => false,
+        clearIdleHint() {},
+        unschedule() {},
+        tickTimer() {},
+        trackFirstLevelFunnel() {},
+        getAnalyticsLevelId: () => 1,
+        getAnalyticsPage: () => 'game',
+        updateLoseProgressLabel() {},
+        ensureGameplayResultPanelsCreated: () => true,
+        showLosePanel() { this.showLosePanelCalls += 1; },
+    };
+};
+
+const timeoutLoseRuntime = createLoseRouteRuntime();
+timeoutLoseRuntime.panelBufferFullContinue.active = true;
+timeoutLoseRuntime.panelLose.active = true;
+runGameLose.call(timeoutLoseRuntime, 'timeout');
+assert.equal(timeoutLoseRuntime.panelTimeoutContinue.active, true, 'timeout must display its revive panel');
+assert.equal(timeoutLoseRuntime.panelTimeoutContinue.siblingIndex, 999, 'timeout revive panel must be brought to front');
+assert.equal(timeoutLoseRuntime.panelBufferFullContinue.active, false, 'timeout must hide the buffer-full revive panel');
+assert.equal(timeoutLoseRuntime.panelLose.active, false, 'timeout must not display the final failure panel');
+assert.equal(timeoutLoseRuntime.showLosePanelCalls, 0, 'timeout must not enter final failure before give-up');
+assert.deepStrictEqual(
+    revivePanelEvents,
+    [{ page: 'level_revive', levelId: 1 }],
+    'timeout exposure must be recorded only after its revive panel becomes visible',
+);
+
+const bufferFullLoseRuntime = createLoseRouteRuntime();
+bufferFullLoseRuntime.panelTimeoutContinue.active = true;
+bufferFullLoseRuntime.panelLose.active = true;
+runGameLose.call(bufferFullLoseRuntime, 'buffer-full');
+assert.equal(bufferFullLoseRuntime.panelBufferFullContinue.active, true, 'buffer-full must display its expansion revive panel');
+assert.equal(bufferFullLoseRuntime.panelBufferFullContinue.siblingIndex, 999, 'buffer-full revive panel must be brought to front');
+assert.equal(bufferFullLoseRuntime.panelTimeoutContinue.active, false, 'buffer-full must hide the timeout revive panel');
+assert.equal(bufferFullLoseRuntime.panelLose.active, false, 'buffer-full must not display the final failure panel');
+assert.equal(bufferFullLoseRuntime.showLosePanelCalls, 0, 'buffer-full must not enter final failure before give-up');
+assert.deepStrictEqual(
+    revivePanelEvents,
+    [
+        { page: 'level_revive', levelId: 1 },
+        { page: 'pch_buffer_full_revive', levelId: 1 },
+    ],
+    'buffer-full exposure must use its distinct revive placement',
+);
+
 const continueAfterLose = extractMethod(settlement, 'continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false)');
 assert.ok(
     continueAfterLose.includes('const shouldResumePchTimer = conveyor?.isActive?.() === true;')
@@ -160,12 +242,66 @@ assert.ok(
     createLosePanel.includes('this.bindReviveContinueAction(reviveBtn, overlay);'),
     'failure Continue Game must use the shared direct rewarded-revive action',
 );
+const createRevivePanel = extractMethod(resultPanel, 'createReviveSettlementPanel(): Node');
+assert.ok(
+    createRevivePanel.includes('this.bindReviveContinueAction(continueBtn, overlay, rewardedSeconds);'),
+    'timeout revive panel must use the configured rewarded continuation action',
+);
+assert.match(
+    createRevivePanel,
+    /const giveUp = \(\) => \{[\s\S]*?runtime\.showLosePanel\(\);/,
+    'closing the timeout revive panel must enter the final failure panel',
+);
 const bindRevive = extractMethod(resultPanel, 'bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number)');
 assert.match(
     bindRevive,
     /runtime\.runRewardedGrant\('level_revive',[\s\S]*?runtime\.continueAfterLose\(continueSeconds\);/,
     'completed rewarded video must directly continue gameplay',
 );
+const runBindRevive = compileExtractedMethod(
+    resultPanel,
+    'bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number)',
+    ['triggerNode', 'overlay', 'rewardedSeconds', 'AudioMgr'],
+);
+const timeoutOverlay = { active: true };
+const timeoutTrigger = {};
+let timeoutReviveAction = null;
+let timeoutRewardedAttempts = 0;
+let pendingTimeoutGrant = null;
+let continuedSeconds = null;
+const timeoutResultController = {
+    runtime: {
+        constructor: { REWARDED_CONTINUE_SECONDS: 120 },
+        _adShowing: false,
+        runRewardedGrant(page, grant) {
+            assert.equal(page, 'level_revive', 'timeout revive must request the level-revive rewarded placement');
+            timeoutRewardedAttempts += 1;
+            if (timeoutRewardedAttempts === 2) pendingTimeoutGrant = grant;
+            return true;
+        },
+        continueAfterLose(seconds) { continuedSeconds = seconds; },
+    },
+    bindPanelButton(triggerNode, action) {
+        assert.strictEqual(triggerNode, timeoutTrigger);
+        timeoutReviveAction = action;
+    },
+};
+runBindRevive.call(
+    timeoutResultController,
+    timeoutTrigger,
+    timeoutOverlay,
+    undefined,
+    { inst: { play() {} } },
+);
+assert.equal(typeof timeoutReviveAction, 'function', 'timeout revive button must bind an action');
+timeoutReviveAction();
+assert.equal(timeoutOverlay.active, true, 'cancelled or incomplete video must keep the timeout revive panel visible');
+assert.equal(continuedSeconds, null, 'cancelled or incomplete video must not continue gameplay');
+timeoutReviveAction();
+assert.equal(typeof pendingTimeoutGrant, 'function', 'a completed ad attempt must expose its guarded grant');
+pendingTimeoutGrant();
+assert.equal(timeoutOverlay.active, false, 'completed video must close the timeout revive panel');
+assert.equal(continuedSeconds, 120, 'completed video must add 120 seconds before continuing gameplay');
 
 const continueButtonIndex = losePrefab.findIndex(
     (entry) => entry?.__type__ === 'cc.Node' && entry._name === '复活窗组件3',
@@ -182,7 +318,7 @@ assert.strictEqual(refId(iconNode._parent), continueButtonIndex, 'ad icon must b
 const label = findComponent(losePrefab, labelNode, 'cc.Label');
 const iconUi = findComponent(losePrefab, iconNode, 'cc.UITransform');
 const iconSprite = findComponent(losePrefab, iconNode, 'cc.Sprite');
-assert.strictEqual(label?.['_string'], '继续游戏', 'failure action label must read Continue Game');
+assert.strictEqual(label?.['_string'], '复活', 'failure action label must retain the current Revive text');
 assert.ok(Number(iconUi?._contentSize?.width) > 0 && Number(iconUi?._contentSize?.height) > 0, 'ad icon must have visible dimensions');
 assert.strictEqual(
     iconSprite?._spriteFrame?.__uuid__,

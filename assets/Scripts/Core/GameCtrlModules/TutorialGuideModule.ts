@@ -1016,17 +1016,6 @@ export function installTutorialGuideModule(target: any): void {
             } else if (reminderStage === 2) {
                 this.showGuideDimMask?.(184, true);
             }
-            this.trackFirstLevelFunnel?.('tutorial_reminder_shown', {
-                stepId: this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source: 'tutorial',
-                success: true,
-                extra: {
-                    reminderStage,
-                    actionEnabled: this._guideStatus === 'awaiting_action',
-                    elapsedSinceReadyMs: Math.max(0, Date.now() - (Number(this._guideActionEnabledAt) || Date.now())),
-                },
-            });
         },
 
         startGuidePinchReminderAnimation(): void {
@@ -1134,17 +1123,6 @@ export function installTutorialGuideModule(target: any): void {
                 reason === 'transitioning' ? '豆豆正在移动，马上就好' : '正在准备操作，请稍候',
                 0.8,
             );
-            this.trackFirstLevelFunnel?.('tutorial_unavailable_feedback_shown', {
-                stepId: this._guidePreviewVisible ? this._guidePreviewStep : this._guideStep,
-                stepName: this.getFirstLevelGuideStepKey?.(),
-                source: reason,
-                success: true,
-                extra: {
-                    actionEnabled: false,
-                    previewVisible: this._guidePreviewVisible === true,
-                    transitionElapsedMs: Math.max(0, Date.now() - (Number(this._guideTransitionStartedAt) || Date.now())),
-                },
-            });
         },
 
         isStarterTutorialAutoCorrectMode(): boolean {
@@ -1630,11 +1608,8 @@ export function installTutorialGuideModule(target: any): void {
         },
 
         clearGuideTransitionWatchdog(invalidate: boolean = true): void {
-            const slowHandler = this._guideTransitionSlowHandler as (() => void) | null;
             const hardHandler = this._guideTransitionHardHandler as (() => void) | null;
-            if (slowHandler) this.unschedule?.(slowHandler);
             if (hardHandler) this.unschedule?.(hardHandler);
-            this._guideTransitionSlowHandler = null;
             this._guideTransitionHardHandler = null;
             if (invalidate) {
                 this._guideTransitionWatchdogToken = Math.max(
@@ -1654,31 +1629,13 @@ export function installTutorialGuideModule(target: any): void {
             this._guideTransitionWatchdogToken = token;
             const step = Math.floor(Number(this._guideStep) || 0);
             const mode = String(this._guideMode || 'none');
-            const startedAt = Number(this._guideTransitionStartedAt) || Date.now();
             const isCurrent = () => this._guideTransitionWatchdogToken === token
                 && this._guideStatus === 'transitioning'
                 && this._guideStep === step
                 && this._guideMode === mode;
-            const slowHandler = () => {
-                this._guideTransitionSlowHandler = null;
-                if (!isCurrent()) return;
-                this.trackFirstLevelFunnel?.('tutorial_transition_slow', {
-                    stepId: step,
-                    stepName: `${mode}:${step}:${this._guidePhase || ''}`,
-                    source: 'tutorial_transition_watchdog',
-                    success: false,
-                    errorCode: 'transition_over_1200ms',
-                    duration: Math.max(0, Date.now() - startedAt),
-                    extra: {
-                        previewVisible: this._guidePreviewVisible === true,
-                        placementVisualRefs: Math.max(0, Number(this._placementVisualRefs) || 0),
-                    },
-                });
-            };
             const hardHandler = () => {
                 this._guideTransitionHardHandler = null;
                 if (!isCurrent()) return;
-                const duration = Math.max(0, Date.now() - startedAt);
                 this._placementAnimationGeneration = Math.max(
                     0,
                     Math.floor(Number(this._placementAnimationGeneration) || 0),
@@ -1694,33 +1651,12 @@ export function installTutorialGuideModule(target: any): void {
                 this.resetSlotPositions?.();
                 this.renderBoard?.();
                 this.renderSlots?.();
-                this.trackFirstLevelFunnel?.('tutorial_transition_force_complete', {
-                    stepId: step,
-                    stepName: `${mode}:${step}:${this._guidePhase || ''}`,
-                    source: 'tutorial_transition_watchdog',
-                    success: true,
-                    duration,
-                    extra: {
-                        stateCommitted: true,
-                        releasedPlacementOwner: true,
-                    },
-                });
                 const stateRecognized = this.checkGuideStepComplete?.() === true;
                 if (!stateRecognized) {
-                    this.trackFirstLevelFunnel?.('tutorial_transition_force_complete_failed', {
-                        stepId: step,
-                        stepName: `${mode}:${step}:${this._guidePhase || ''}`,
-                        source: 'tutorial_transition_watchdog',
-                        success: false,
-                        errorCode: 'committed_state_not_recognized',
-                        duration,
-                    });
                     this.showToast?.('本步未完成，请重试', 1.2);
                 }
             };
-            this._guideTransitionSlowHandler = slowHandler;
             this._guideTransitionHardHandler = hardHandler;
-            this.scheduleOnce(slowHandler, 1.2);
             this.scheduleOnce(hardHandler, 3);
         },
 

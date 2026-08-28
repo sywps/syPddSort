@@ -784,7 +784,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     })
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
-                        playFeedback('slot', move.feedbackIndex);
                         this.recycleFlyBeanNode(bean);
                         revealSlotIdx(move.slotIdx);
                         finish();
@@ -984,7 +983,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .delay(move.delay)
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
-                        AudioMgr.inst.play('slot');
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })
@@ -1083,7 +1081,6 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     .to(0.1, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .to(0.1, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1, 1, 1) }, { easing: 'circOut' })
                     .call(() => {
-                        AudioMgr.inst.play('slot');
                         this.recycleFlyBeanNode(bean);
                         finish();
                     })

@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import { Widget } from 'cc';
 import type {
-    LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
+    LevelData, BeanBlockInfo, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
     InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
@@ -447,8 +447,8 @@ export function installSettlementHudModule(target: any): void {
 
             root.active = true;
             root.setSiblingIndex(Math.max(0, panel.children.length - 1));
-            this.bindResultPanelButtonWithScaledFallback(settingsBtn, panel, () => {
-                AudioMgr.inst.play('uiPanel');
+            this.bindResultPanelButton(settingsBtn, () => {
+                AudioMgr.inst.play('button');
                 this.openSettingsPanel?.();
             });
             goldLabel.string = `${this.getGold?.() ?? 0}`;
@@ -522,7 +522,7 @@ export function installSettlementHudModule(target: any): void {
                     .to(secondLegDuration, { position: new Vec3(end.x, end.y, 0), scale: new Vec3(0.18, 0.18, 1) }, { easing: 'sineIn' })
                     .call(() => {
                         if (shouldPlayLandingSound) {
-                            AudioMgr.inst.play('place');
+                            AudioMgr.inst.play('coin');
                         }
                         coin.removeFromParent();
                         coin.destroy();
@@ -953,8 +953,18 @@ export function installSettlementHudModule(target: any): void {
                 this.updateLoseProgressLabel();
                 if (reason === 'buffer-full' && this.panelBufferFullContinue) {
                     this.panelBufferFullContinue.active = true;
+                    AnalyticsMgr.inst.trackRevivePanelShow('pch_buffer_full_revive', logicalLevelId);
                     this.panelBufferFullContinue.setSiblingIndex(999);
                     if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
+                    if (this.panelLose) this.panelLose.active = false;
+                    AudioMgr.inst.play('revivePop');
+                    return;
+                }
+                if (reason === 'timeout' && this.panelTimeoutContinue) {
+                    this.panelTimeoutContinue.active = true;
+                    AnalyticsMgr.inst.trackRevivePanelShow('level_revive', logicalLevelId);
+                    this.panelTimeoutContinue.setSiblingIndex(999);
+                    if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
                     return;
                 }
@@ -2105,7 +2115,6 @@ export function installSettlementHudModule(target: any): void {
             this._guidePhase = typeof this.getTutorialPhaseForStep === 'function'
                 ? this.getTutorialPhaseForStep(0)
                 : 'select';
-            this._lastGuideVoiceToken = '';
             this.unschedule(this.tickTimer);
             if (typeof this.clearExpandSlotGuide === 'function') {
                 this.clearExpandSlotGuide();
@@ -2267,7 +2276,6 @@ export function installSettlementHudModule(target: any): void {
                 this._guideReminderStage = 0;
                 this._guideReminderDueAt = 0;
                 this._guideReminderRemainingMs = 0;
-                this._guideReminderVoicePlayed = false;
                 this._guideStatus = 'awaiting_action';
             }
             if (this._guideInputSuspended) {
@@ -2388,44 +2396,7 @@ export function installSettlementHudModule(target: any): void {
                 this.playGuidePathHint?.(1, 'step_enter');
             }
         
-            if (!resumeOnly) this.playGuideVoiceForCurrentStep(step);
             return true;
-        },
-
-        getGuideVoiceCueForStep(step: number): SfxName | null {
-            const cueByStep: Partial<Record<number, SfxName>> = {
-                0: 'guideLevel1Pick1',
-                1: 'guideLevel1Place1',
-                2: 'guideLevel1Pick2',
-                3: 'guideLevel1Place2',
-            };
-            return cueByStep[step] || null;
-        },
-
-        playGuideVoiceForCurrentStep(step: number) {
-            if (this._guideMode !== 'level_1') return;
-            if (this.isMainlineMainLevel()) return;
-            const cue = this.getGuideVoiceCueForStep?.(step) || null;
-            if (!cue) return;
-        
-            const token = `${this._guideMode}:${step}`;
-            if (this._lastGuideVoiceToken === token) return;
-            this._lastGuideVoiceToken = token;
-        
-            this.scheduleOnce(() => {
-                if (this._guideMode === 'level_1' && this._guideStep === step) {
-                    AudioMgr.inst.play(cue);
-                }
-            }, 0.05);
-        },
-
-        playGuideReminderVoiceForCurrentStep(step: number): void {
-            if (this._guideMode !== 'level_1' || this.isMainlineMainLevel()) return;
-            if (this._guideReminderVoicePlayed) return;
-            const cue = this.getGuideVoiceCueForStep?.(step) || null;
-            if (!cue) return;
-            this._guideReminderVoicePlayed = true;
-            AudioMgr.inst.play(cue);
         },
 
         isMinimalTutorialGuide(): boolean {

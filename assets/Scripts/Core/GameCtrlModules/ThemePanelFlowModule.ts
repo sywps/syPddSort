@@ -202,7 +202,7 @@ export function installThemePanelFlowModule(target: any): void {
                         this._collectionScrollSuppressClick = false;
                         return;
                     }
-                    AudioMgr.inst.play('uiPanel');
+                    AudioMgr.inst.play('button');
                     this.openCollectionImageModal(levelId, prefix);
                 }, this);
             } else {

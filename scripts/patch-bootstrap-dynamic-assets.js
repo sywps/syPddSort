@@ -81,6 +81,7 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/guide_level1_place_2', 'Audio/guide_level1_place_2'],
     ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
     ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
+    ['UI/Prefabs/Panels/BufferFullRevivePanel', 'UI/Prefabs/Panels/BufferFullRevivePanel'],
     ['UI/Prefabs/Panels/LosePanel', 'UI/Prefabs/Panels/LosePanel'],
 ]);
 

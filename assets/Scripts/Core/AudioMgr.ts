@@ -32,7 +32,19 @@ const LS_SFX = 'pdd.setting.sfx';
 const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
 const SFX_CHANNEL_COUNT = 8;
-const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>(['select', 'place', 'button']);
+const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
+    'select',
+    'place',
+    'button',
+    'tick',
+    'winColor',
+    'winAll',
+    'winSettlement',
+    'lose',
+    'revivePop',
+    'coin',
+    'win',
+]);
 
 const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);
 

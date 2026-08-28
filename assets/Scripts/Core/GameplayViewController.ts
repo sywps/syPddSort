@@ -571,9 +571,7 @@ export class GameplayViewController {
 
     getTouchUiPos(touch: any): Vec2 {
         const pos = touch.getUILocation();
-        return typeof this.runtime.normalizeGameplayUiPosition === 'function'
-            ? this.runtime.normalizeGameplayUiPosition(pos)
-            : new Vec2(pos.x, pos.y);
+        return new Vec2(pos.x, pos.y);
     }
 
     updateActiveBoardTouches(event: any, removeChanged: boolean = false): number {

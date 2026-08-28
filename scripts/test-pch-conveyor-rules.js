@@ -503,17 +503,12 @@ assert.equal(committedWinCount, 1, 'timer-first settlement must not be overwritt
 
 let selectedBoardCell = null;
 const rawBoardTap = { x: 120, y: 240 };
-const remappedBoardTap = { x: 960, y: 1080 };
 const boardInputRuntime = {
     isGameEnd: false,
     resolveBoardTapBlock(position) {
-        if (position.x === remappedBoardTap.x && position.y === remappedBoardTap.y) {
-            return { candidate: { row: 0, col: 0 } };
-        }
-        if (position.x === rawBoardTap.x && position.y === rawBoardTap.y) {
-            return { candidate: { row: 0, col: 1 } };
-        }
-        return { candidate: null };
+        return position.x === rawBoardTap.x && position.y === rawBoardTap.y
+            ? { candidate: { row: 0, col: 0 } }
+            : { candidate: null };
     },
     cellNodes: [[{
         getComponent(type) {
@@ -521,18 +516,18 @@ const boardInputRuntime = {
             return { getBoundingBoxToWorld: () => ({ contains: () => false }) };
         },
     }]],
-    normalizeGameplayUiPosition: () => remappedBoardTap,
+    normalizeGameplayUiPosition: () => ({ x: 960, y: 1080 }),
     onTouchCancel() {},
 };
 const boardInputController = new PchConveyorGameplayController(boardInputRuntime);
-boardInputController.rules = { cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] };
+boardInputController.rules = { cells: [{ row: 0, col: 0 }] };
 boardInputController.handleBoardTap = (row, col) => { selectedBoardCell = { row, col }; };
 const boardTapEvent = {
     propagationStopped: false,
     getUILocation: () => rawBoardTap,
 };
 boardInputController.onRootTouchEnd(boardTapEvent);
-assert.deepEqual(selectedBoardCell, { row: 0, col: 0 }, 'PCH selection must use only the normalized Cocos UI coordinate without trying the raw display point first');
+assert.deepEqual(selectedBoardCell, { row: 0, col: 0 }, 'PCH board selection must reuse the authoritative board-tap intent resolver');
 assert.equal(boardTapEvent.propagationStopped, true, 'a matched PCH board tap must stop propagation');
 
 let scaledCapacityFallbackCount = 0;
@@ -589,34 +584,8 @@ const missedNativeEvent = {
     getUILocation: () => new FakeVec2(100, 120),
 };
 routingController.onRootTouchEnd(missedNativeEvent);
-assert.equal(scaledCapacityFallbackCount, 0, 'a blank root touch must never be remapped into the capacity button');
-assert.equal(missedNativeEvent.propagationStopped, false, 'a blank root touch must remain unhandled');
-
-let scaledOpeningGuideTapCount = 0;
-const guideSpeedNode = {
-    isValid: true,
-    getComponent(type) {
-        if (type !== FakeUITransform) return null;
-        return { getBoundingBoxToWorld: () => ({ contains: (pos) => pos.x === 500 && pos.y === 600 }) };
-    },
-};
-const guideRuntime = {
-    isGameEnd: false,
-    normalizeGameplayUiPosition: () => new FakeVec2(500, 600),
-};
-const guideController = new PchConveyorGameplayController(guideRuntime);
-guideController.rules = { cells: [] };
-guideController.inputLocked = true;
-guideController.openingGuide = { isValid: true, name: 'PchLevelTwoSpeedGuide' };
-guideController.speedButton = guideSpeedNode;
-guideController.onOpeningGuideDoubleSpeed = () => { scaledOpeningGuideTapCount += 1; };
-const scaledGuideEvent = {
-    propagationStopped: false,
-    getUILocation: () => new FakeVec2(100, 120),
-};
-guideController.onRootTouchEnd(scaledGuideEvent);
-assert.equal(scaledOpeningGuideTapCount, 1, 'the locked opening guide must accept its isolated scaled-preview proxy coordinate');
-assert.equal(scaledGuideEvent.propagationStopped, true, 'the accepted opening-guide proxy tap must stop propagation');
+assert.equal(scaledCapacityFallbackCount, 1, 'the scaled capacity fallback must remain available after native hit testing misses');
+assert.equal(missedNativeEvent.propagationStopped, true, 'a scaled fallback match must stop the root touch event');
 
 function createSkillController(rules) {
     const pauses = [];

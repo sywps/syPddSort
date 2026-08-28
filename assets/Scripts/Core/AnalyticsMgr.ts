@@ -21,29 +21,9 @@ export const PCH_GAMEPLAY_SCHEMA_VERSION = 1;
 export type PchFailureReason = '' | 'timeout' | 'buffer_full';
 
 export type PchGameplayAnalyticsSnapshot = {
-    selectionAttempts: number;
-    selectionSuccesses: number;
-    selectionInvalid: number;
-    selectionCapacityBlocked: number;
-    selectionPartial: number;
-    storedBeanCount: number;
-    autoReturnedBeanCount: number;
-    maxBufferOccupancy: number;
-    bufferFullEpisodes: number;
-    bufferFullReviveSuccesses: number;
-    capacityAddedProactiveAd: number;
-    capacityAddedBufferFullRevive: number;
-    capacityAddedGuideFree: number;
-    initialBufferCapacity: number;
-    finalBufferCapacity: number;
-    singleSelectionLimit: number;
     magnetUses: number;
-    magnetMovedBeans: number;
     brushUses: number;
-    brushMovedBeans: number;
     freezeUses: number;
-    manual2xUsed: boolean;
-    auto5xUsed: boolean;
 };
 
 export type LevelSessionAnalyticsUpdate = {
@@ -160,27 +140,9 @@ function normalizePositiveLevelId(value: string | number | undefined): number {
     return num > 0 ? num : 0;
 }
 
-const PCH_GAMEPLAY_INTEGER_FIELDS: ReadonlyArray<keyof Omit<PchGameplayAnalyticsSnapshot, 'manual2xUsed' | 'auto5xUsed'>> = [
-    'selectionAttempts',
-    'selectionSuccesses',
-    'selectionInvalid',
-    'selectionCapacityBlocked',
-    'selectionPartial',
-    'storedBeanCount',
-    'autoReturnedBeanCount',
-    'maxBufferOccupancy',
-    'bufferFullEpisodes',
-    'bufferFullReviveSuccesses',
-    'capacityAddedProactiveAd',
-    'capacityAddedBufferFullRevive',
-    'capacityAddedGuideFree',
-    'initialBufferCapacity',
-    'finalBufferCapacity',
-    'singleSelectionLimit',
+const PCH_GAMEPLAY_INTEGER_FIELDS: ReadonlyArray<keyof PchGameplayAnalyticsSnapshot> = [
     'magnetUses',
-    'magnetMovedBeans',
     'brushUses',
-    'brushMovedBeans',
     'freezeUses',
 ];
 
@@ -206,8 +168,6 @@ function normalizePchGameplayStats(value: unknown): PchGameplayAnalyticsSnapshot
     for (const field of PCH_GAMEPLAY_INTEGER_FIELDS) {
         normalized[field] = Math.min(1_000_000_000, Math.max(0, Math.floor(Number(source[field]) || 0)));
     }
-    normalized.manual2xUsed = source.manual2xUsed === true;
-    normalized.auto5xUsed = source.auto5xUsed === true;
     return normalized;
 }
 
@@ -770,6 +730,24 @@ export class AnalyticsMgr {
             page,
             actionType: 3,
             adType,
+        });
+    }
+
+    trackRevivePanelShow(page: string, levelId?: number): void {
+        void this.wxReportData({
+            eventName: 'revive_panel_show',
+            levelId: levelId ?? this.levelSession?.levelId ?? 0,
+            page,
+            actionType: 1,
+        });
+    }
+
+    trackReviveSuccess(page: string, levelId?: number): void {
+        void this.wxReportData({
+            eventName: 'revive_success',
+            levelId: levelId ?? this.levelSession?.levelId ?? 0,
+            page,
+            actionType: 3,
         });
     }
 

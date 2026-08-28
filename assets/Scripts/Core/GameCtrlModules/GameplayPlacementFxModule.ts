@@ -816,7 +816,6 @@ export function installGameplayPlacementFxModule(target: any): void {
                             0,
                             Math.floor(Number(this._placementAnimationGeneration) || 0),
                         )) return;
-                        AudioMgr.inst.play('slot');
                         AudioMgr.inst.vibratePlace();
                         activeFlyBeans.delete(bean);
                         this.recycleFlyBeanNode(bean);

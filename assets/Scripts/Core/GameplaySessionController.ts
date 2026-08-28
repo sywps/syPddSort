@@ -456,7 +456,6 @@ export class GameplaySessionController {
         runtime._guideZoomAccumulatedScaleDelta = 0;
         runtime._guideZoomLastSource = '';
         runtime._interactionTouchAttemptCount = 0;
-        runtime._lastGuideVoiceToken = '';
     }
 
 }

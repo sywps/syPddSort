@@ -211,7 +211,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                     this._themeScrollSuppressClick = false;
                     return;
                 }
-                AudioMgr.inst.play(isCompleted ? 'uiPanel' : 'button');
+                AudioMgr.inst.play('button');
                 if (isUnlocked) {
                     if (isCompleted) {
                         this.openThemeImageModal(levelId, levelName);
@@ -310,7 +310,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                         applyThemeSpriteFrame(this, rightArrow, 'popup_primary_button', 220, 56, new Color('#3AA8E0'));
                         syncThemeTextNode(rightArrow, 'ThemePixelStartLbl', '再玩一次', 24, Color.WHITE, 180, 32, 0, 0);
                         this.bindPanelButton(rightArrow, () => {
-                            AudioMgr.inst.play('uiPanel');
+                            AudioMgr.inst.play('button');
                             close();
                             this.startThemeLevel(levelId);
                         });

@@ -20,7 +20,7 @@ const FRONT10_EXPERIMENT_ID = 'ly_0224';
 const FRONT10_MAX_LEVEL_ID = 10;
 const FRONT10_BUCKETS = ['all', 'base', 'exp', 'unknown'];
 
-const FIRST_LEVEL_FUNNEL_STEPS = [
+const PCH_FUNNEL_STEPS = [
   { key: 'app_launch', label: '启动游戏' },
   { key: 'ab_assigned', label: 'AB 分桶完成' },
   { key: 'first_level_json_loaded', label: '首关数据加载完成' },
@@ -31,16 +31,13 @@ const FIRST_LEVEL_FUNNEL_STEPS = [
   { key: 'alive_5s_after_ui_ready', label: 'UI ready 后 5 秒仍在' },
   { key: 'alive_10s_after_ui_ready', label: 'UI ready 后 10 秒仍在' },
   { key: 'first_level_any_touch', label: '首关任意触摸' },
-  { key: 'first_touch', label: '首次触摸' },
-  { key: 'first_valid_select', label: '首次有效选中' },
   { key: 'timer_started', label: '倒计时启动' },
-  { key: 'first_place_attempt', label: '首次尝试放置' },
-  { key: 'first_place_success', label: '首次放置成功' },
-  { key: 'tutorial_done', label: '教程完成' },
+  { key: 'pch_first_store_success', label: '首次存入传送带成功' },
+  { key: 'pch_first_return_success', label: '首次从传送带归位成功' },
   { key: 'level_pass', label: '首关通过' },
 ];
 
-const FIRST_LEVEL_FUNNEL_DIAGNOSTICS = [
+const PCH_FUNNEL_DIAGNOSTICS = [
   { key: 'startup_main_loaded', label: '启动 main 脚本加载' },
   { key: 'startup_boot_start', label: 'Boot 场景启动' },
   { key: 'startup_boot_route_decided', label: 'Boot 路由决策完成' },
@@ -59,14 +56,9 @@ const FIRST_LEVEL_FUNNEL_DIAGNOSTICS = [
   { key: 'remote_config_failed', label: 'remote 加载失败' },
   { key: 'bootstrap_level_start', label: 'bootstrap 开始加载' },
   { key: 'first_level_json_failed', label: '首关数据加载失败' },
-  { key: 'tutorial_step_show', label: '教程步骤曝光' },
-  { key: 'tutorial_step_interactive_ready', label: '教程步骤可点' },
-  { key: 'tutorial_layer_touch_start', label: '教程层触摸' },
-  { key: 'tutorial_step_first_touch', label: '教程步骤首触' },
-  { key: 'tutorial_tap_result', label: '教程点击结果' },
-  { key: 'tutorial_fast_tap_ignored', label: '教程快点忽略' },
-  { key: 'tutorial_step_done', label: '教程步骤完成' },
-  { key: 'tutorial_wrong_tap', label: '教程误点' },
+  { key: 'pch_guide_step_shown', label: 'PCH 引导步骤曝光' },
+  { key: 'pch_guide_tap_result', label: 'PCH 引导点击结果' },
+  { key: 'pch_guide_step_done', label: 'PCH 引导步骤完成' },
   { key: 'level_fail', label: '首关失败' },
   { key: 'app_hide', label: '切后台/退出' },
 ];
@@ -308,11 +300,78 @@ function buildAdConversion(behaviorList) {
       clickNum: item.clickNum,
       finishNum: item.finishNum,
       userNum: item.userSet.size,
-      showRate: toPercent(item.showNum, totalShowNum),
-      clickRate: toPercent(item.clickNum, item.showNum),
+      showShare: toPercent(item.showNum, totalShowNum),
+      adShowRate: toPercent(item.showNum, item.clickNum),
       finishRate: toPercent(item.finishNum, item.showNum),
+      finishPerClickRate: toPercent(item.finishNum, item.clickNum),
     }))
     .sort((a, b) => b.showNum - a.showNum);
+}
+
+function buildReviveAdFunnel(behaviorList) {
+  const revivePages = new Set(['level_revive', 'pch_buffer_full_revive']);
+  const eventNames = new Set(['revive_panel_show', 'ad_click', 'ad_show', 'ad_finish', 'revive_success']);
+  const statMap = new Map();
+  for (const item of behaviorList) {
+    const page = typeof item.page === 'string' ? item.page.trim() : '';
+    if (!revivePages.has(page) || !eventNames.has(item.eventName)) continue;
+    const logicalLevelId = getBehaviorLogicalLevelId(item);
+    if (!logicalLevelId) continue;
+    const key = `${logicalLevelId}:${page}`;
+    if (!statMap.has(key)) {
+      statMap.set(key, {
+        logicalLevelId,
+        page,
+        panelShowNum: 0,
+        clickNum: 0,
+        showNum: 0,
+        finishNum: 0,
+        reviveSuccessNum: 0,
+        users: new Set(),
+      });
+    }
+    const stat = statMap.get(key);
+    if (item.eventName === 'revive_panel_show') stat.panelShowNum += 1;
+    if (item.eventName === 'ad_click') stat.clickNum += 1;
+    if (item.eventName === 'ad_show') stat.showNum += 1;
+    if (item.eventName === 'ad_finish') stat.finishNum += 1;
+    if (item.eventName === 'revive_success') stat.reviveSuccessNum += 1;
+    if (item.openid) stat.users.add(item.openid);
+  }
+  return Array.from(statMap.values())
+    .map((stat) => ({
+      logicalLevelId: stat.logicalLevelId,
+      page: stat.page,
+      panelShowNum: stat.panelShowNum,
+      clickNum: stat.clickNum,
+      showNum: stat.showNum,
+      finishNum: stat.finishNum,
+      reviveSuccessNum: stat.reviveSuccessNum,
+      userNum: stat.users.size,
+      panelClickRate: toPercent(stat.clickNum, stat.panelShowNum),
+      adShowRate: toPercent(stat.showNum, stat.clickNum),
+      adFinishRate: toPercent(stat.finishNum, stat.showNum),
+      reviveSuccessRate: toPercent(stat.reviveSuccessNum, stat.finishNum),
+    }))
+    .sort((a, b) => a.logicalLevelId - b.logicalLevelId || a.page.localeCompare(b.page));
+}
+
+function buildPchSkillUses(levelRecords) {
+  const levelMap = new Map();
+  for (const item of levelRecords) {
+    if (item.gameplayMode !== 'pch_conveyor' || Number(item.gameplaySchemaVersion) !== 1) continue;
+    const logicalLevelId = Math.max(0, Math.floor(Number(item.levelId) || 0));
+    if (!logicalLevelId) continue;
+    if (!levelMap.has(logicalLevelId)) {
+      levelMap.set(logicalLevelId, { logicalLevelId, magnetUses: 0, brushUses: 0, freezeUses: 0 });
+    }
+    const row = levelMap.get(logicalLevelId);
+    const stats = item.gameplayStats && typeof item.gameplayStats === 'object' ? item.gameplayStats : {};
+    row.magnetUses += normalizeNonNegativeCount(stats.magnetUses);
+    row.brushUses += normalizeNonNegativeCount(stats.brushUses);
+    row.freezeUses += normalizeNonNegativeCount(stats.freezeUses);
+  }
+  return Array.from(levelMap.values()).sort((a, b) => a.logicalLevelId - b.logicalLevelId);
 }
 
 function buildFunnel(behaviorList) {
@@ -559,13 +618,13 @@ function shouldIncludeFunnelLevelRecord(item, logicalLevelId, includeSessionEven
 }
 
 function createFirstLevelBucket(abBucket) {
-  const stepMap = new Map(FIRST_LEVEL_FUNNEL_STEPS.map((item) => [item.key, {
+  const stepMap = new Map(PCH_FUNNEL_STEPS.map((item) => [item.key, {
     key: item.key,
     label: item.label,
     users: new Set(),
     sessions: new Set(),
   }]));
-  const diagnosticMap = new Map(FIRST_LEVEL_FUNNEL_DIAGNOSTICS.map((item) => [item.key, {
+  const diagnosticMap = new Map(PCH_FUNNEL_DIAGNOSTICS.map((item) => [item.key, {
     key: item.key,
     label: item.label,
     users: new Set(),
@@ -584,7 +643,7 @@ function addFunnelRecord(target, item, sessionKey, userKey) {
 
 function serializeFirstLevelBucket(bucket) {
   let previousSessionCount = 0;
-  const steps = FIRST_LEVEL_FUNNEL_STEPS.map((item, index) => {
+  const steps = PCH_FUNNEL_STEPS.map((item, index) => {
     const step = bucket.stepMap.get(item.key);
     const sessionCount = step ? step.sessions.size : 0;
     const userCount = step ? step.users.size : 0;
@@ -602,7 +661,7 @@ function serializeFirstLevelBucket(bucket) {
     };
   });
 
-  const diagnostics = FIRST_LEVEL_FUNNEL_DIAGNOSTICS.map((item) => {
+  const diagnostics = PCH_FUNNEL_DIAGNOSTICS.map((item) => {
     const step = bucket.diagnosticMap.get(item.key);
     return {
       key: item.key,
@@ -651,16 +710,16 @@ function buildFirstLevelFunnel(records, opt = {}) {
 
   return {
     logicalLevelId,
-    stepDefinitions: FIRST_LEVEL_FUNNEL_STEPS,
-    diagnosticDefinitions: FIRST_LEVEL_FUNNEL_DIAGNOSTICS,
+    stepDefinitions: PCH_FUNNEL_STEPS,
+    diagnosticDefinitions: PCH_FUNNEL_DIAGNOSTICS,
     groups: ['all', 'bucket_a', 'bucket_b', 'unknown'].map((key) => serializeFirstLevelBucket(buckets.get(key))),
   };
 }
 
 function buildOnboardingLevelFunnel(records) {
   return {
-    stepDefinitions: FIRST_LEVEL_FUNNEL_STEPS,
-    diagnosticDefinitions: FIRST_LEVEL_FUNNEL_DIAGNOSTICS,
+    stepDefinitions: PCH_FUNNEL_STEPS,
+    diagnosticDefinitions: PCH_FUNNEL_DIAGNOSTICS,
     levels: [
       {
         logicalLevelId: 1,
@@ -671,6 +730,11 @@ function buildOnboardingLevelFunnel(records) {
         logicalLevelId: 2,
         label: '第2关',
         groups: buildFirstLevelFunnel(records, { logicalLevelId: 2 }).groups,
+      },
+      {
+        logicalLevelId: 3,
+        label: '第3关',
+        groups: buildFirstLevelFunnel(records, { logicalLevelId: 3 }).groups,
       },
     ],
   };
@@ -718,10 +782,11 @@ exports.main = async (event = {}) => {
       dailyTrend,
       levelTopLoss: buildLevelTopLoss(levelRecords, topLimit),
       adConversion: buildAdConversion(behaviorList),
+      reviveAdFunnel: buildReviveAdFunnel(behaviorList),
+      pchSkillUses: buildPchSkillUses(levelRecords),
       funnel: buildFunnel(behaviorList),
       front10ExperimentStats: buildFront10ExperimentStats(behaviorList),
-      firstLevelFunnel: buildFirstLevelFunnel(firstLevelFunnelEvents, { logicalLevelId: 1, includeSessionEvents: true }),
-      onboardingLevelFunnel: buildOnboardingLevelFunnel(firstLevelFunnelEvents),
+      pchOnboardingFunnel: buildOnboardingLevelFunnel(firstLevelFunnelEvents),
     };
   } catch (error) {
     return {

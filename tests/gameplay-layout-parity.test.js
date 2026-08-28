@@ -301,11 +301,11 @@ assert.ok(
     'Game startup must bind the required scene Settings Button without prefab mounting or fallback creation',
 );
 assert.ok(
-    conveyor.includes('if (this.handleScaledTopBarTap(rawPos, position, event)) return;')
-        && conveyor.includes('private handleScaledTopBarTap(rawPos: { x: number; y: number }, uiPos: Vec2, event: any): boolean')
-        && !conveyor.includes('handleScaledCapacityAdTap')
-        && !conveyor.includes('handleScaledSkillTap'),
-    'scene-owned top buttons must keep native targets plus one normalized full-gameplay fallback',
+    conveyor.includes('if (this.hasDirectButtonTarget(event)) return;')
+        && !conveyor.includes('handleScaledSettingsButtonTap')
+        && !conveyor.includes('normalizeGameplayUiPosition')
+        && !conveyor.includes('this.runtime.openSettingsPanel?.()'),
+    'compact gameplay settings must remain owned by the scene Button without a root-level scaled hit path',
 );
 assert.ok(
     timerWrap?._lpos.y === 608

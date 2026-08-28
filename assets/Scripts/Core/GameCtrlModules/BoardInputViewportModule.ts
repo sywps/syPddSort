@@ -31,7 +31,6 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
-import { isMiniGameRuntime } from '../MiniGamePlatform';
 
 type BoardTapCandidate = {
     row: number;
@@ -398,30 +397,10 @@ export function installBoardInputViewportModule(target: any): void {
             this.resetTouchState();
         },
 
-        normalizeGameplayUiPosition(uiPos: { x: number; y: number }): Vec2 {
-            const rawX = Number(uiPos?.x) || 0;
-            const rawY = Number(uiPos?.y) || 0;
-            if (isMiniGameRuntime()) return new Vec2(rawX, rawY);
-            const globalScope: any = typeof globalThis !== 'undefined' ? globalThis : null;
-            const documentScope: any = globalScope?.document || null;
-            const canvas = documentScope?.getElementById?.('GameCanvas')
-                || documentScope?.querySelector?.('canvas')
-                || null;
-            const rect = canvas?.getBoundingClientRect?.() || null;
-            if (!rect || rect.width <= 0 || rect.height <= 0) return new Vec2(rawX, rawY);
-            const visibleSize = view.getVisibleSize();
-            const scaleX = Number(visibleSize.width) / Number(rect.width);
-            const scaleY = Number(visibleSize.height) / Number(rect.height);
-            if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
-                return new Vec2(rawX, rawY);
-            }
-            return new Vec2(rawX * scaleX, rawY * scaleY);
-        },
-
         onTouchStart(event: EventTouch) {
             if (this.isGameEnd) return;
             this.beginSmartIdleHintInputActivity?.();
-            const firstTouchUiPos = this.normalizeGameplayUiPosition(event.getUILocation());
+            const firstTouchUiPos = event.getUILocation();
             const firstTouchWorldPos = new Vec3(firstTouchUiPos.x, firstTouchUiPos.y, 0);
             if ((Number(this._modalFocusRefs) || 0) > 0 || this._guideInputSuspended) {
                 this.reportInteractionTouchAttempt?.(
@@ -441,8 +420,7 @@ export function installBoardInputViewportModule(target: any): void {
             this.reportInteractionTouchAttempt?.(firstTouchWorldPos, 'board_input', 'delivered');
             this.reportFirstLevelAnyTouch?.(firstTouchWorldPos, 'board_input', this._guideStep >= 0 ? 'tutorial' : 'free_play');
             if (this._wandMode) {
-                const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
-                this._wandDragStart = new Vec2(uiPos.x, uiPos.y);
+                this._wandDragStart = new Vec2(firstTouchUiPos.x, firstTouchUiPos.y);
                 if (this._wandRectNode) {
                     this._wandRectStartPos.set(this._wandRectNode.position);
                 }
@@ -451,9 +429,8 @@ export function installBoardInputViewportModule(target: any): void {
             }
             // 普通引导仅允许点击；缩放引导保留棋盘手势，但由引导状态机决定是否完成。
             if (this._guideStep >= 0 && this._guideMode !== 'zoom') {
-                const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
                 this.setGestureMode('tapCandidate');
-                this.panStartPos.set(uiPos.x, uiPos.y);
+                this.panStartPos.set(firstTouchUiPos.x, firstTouchUiPos.y);
                 return;
             }
             const touchCount = this.updateActiveBoardTouches(event);
@@ -461,18 +438,10 @@ export function installBoardInputViewportModule(target: any): void {
                 this.beginPinchFromActiveTouches();
                 return;
             }
-            const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
-            const boardResolution = typeof this.resolveBoardTapBlock === 'function'
-                ? this.resolveBoardTapBlock(new Vec3(uiPos.x, uiPos.y, 0), false)
-                : null;
-            if (!boardResolution?.candidate && this.activeBoardTouches.size === 0) {
-                this.resetTouchState();
-                return;
-            }
             this.suppressTap = false;
             this.pinchTouchIds = null;
             this.totalMoveDistance = 0;
-            this.beginBoardPanFromUiPos(new Vec2(uiPos.x, uiPos.y));
+            this.beginBoardPanFromUiPos(new Vec2(firstTouchUiPos.x, firstTouchUiPos.y));
         },
 
         onTouchMove(event: EventTouch) {
@@ -487,7 +456,7 @@ export function installBoardInputViewportModule(target: any): void {
             }
             PerformanceMgr.inst.markUserActivity();
             if (this._wandMode && this._wandDragStart && this._wandRectNode) {
-                const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
+                const uiPos = event.getUILocation();
                 const startLocal = this.uiToBoardLocal(this._wandDragStart);
                 const currentLocal = this.uiToBoardLocal(uiPos);
                 if (!startLocal || !currentLocal) return;
@@ -520,7 +489,7 @@ export function installBoardInputViewportModule(target: any): void {
             if (this.suppressTap && this.gestureMode !== 'tapCandidate' && this.gestureMode !== 'panning') {
                 return;
             }
-            const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
+            const uiPos = event.getUILocation();
             const rawDx = uiPos.x - this.panStartPos.x;
             const rawDy = uiPos.y - this.panStartPos.y;
             const parentPos = this.uiToViewportParent(new Vec2(uiPos.x, uiPos.y));
@@ -583,7 +552,7 @@ export function installBoardInputViewportModule(target: any): void {
             // 其他新手引导：限制用户只能操作引导指定的区域。
             if (this._guideStep >= 0) {
                 if (this.gestureMode === 'tapCandidate') {
-                    const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
+                    const uiPos = event.getUILocation();
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     this.handleGuideTap(worldPos);
                 }
@@ -604,7 +573,7 @@ export function installBoardInputViewportModule(target: any): void {
                 return;
             }
             if (this.gestureMode === 'tapCandidate' && !this.suppressTap) {
-                const uiPos = this.normalizeGameplayUiPosition(event.getUILocation());
+                const uiPos = event.getUILocation();
                 const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                 if (this.isSelected && this.currentBlock) {
                     if (!this.tryReselectOrPlace(worldPos)) {

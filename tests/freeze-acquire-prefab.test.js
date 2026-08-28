@@ -117,44 +117,21 @@ loadController(controllerModule, controllerModule.exports, (request) => {
 });
 
 let normalButtonHandler = null;
-let captureHandler = null;
-let captureEnabled = false;
 const runtime = {
     bindPanelButton(_node, handler) {
         normalButtonHandler = handler;
     },
-    normalizeGameplayUiPosition(pos) {
-        return new FakeVec2(pos.x * 2, pos.y * 2);
-    },
 };
 const acquireController = new controllerModule.exports.CommercePanelController(runtime);
-const buttonState = { enabled: true, interactable: true };
-const triggerNode = {
-    getComponent(type) {
-        if (type === FakeUITransform) {
-            return { getBoundingBoxToWorld: () => ({ contains: (pos) => pos.x === 200 && pos.y === 300 }) };
-        }
-        if (type === FakeButton) return buttonState;
-        return null;
-    },
-};
-const overlay = {
-    isValid: true,
-    activeInHierarchy: true,
-    on(_eventName, handler, _target, capture) {
-        captureHandler = handler;
-        captureEnabled = capture;
-    },
-};
-let fallbackGrantCount = 0;
-acquireController.bindAcquireButtonWithScaledFallback(triggerNode, overlay, () => {
-    fallbackGrantCount += 1;
+const triggerNode = {};
+let directGrantCount = 0;
+acquireController.bindAcquireButton(triggerNode, () => {
+    directGrantCount += 1;
 });
-assert.strictEqual(typeof normalButtonHandler, 'function', 'the ordinary unscaled button handler must remain bound');
-assert.strictEqual(captureEnabled, true, 'the scaled fallback must run before the overlay close handler');
-const scaledEvent = { getUILocation: () => new FakeVec2(100, 150), propagationStopped: false };
-captureHandler(scaledEvent);
-assert.strictEqual(scaledEvent.propagationStopped, true, 'a scaled ad-button hit must not bubble into panel close');
-assert.strictEqual(fallbackGrantCount, 1, 'a scaled ad-button hit must enter the grant handler immediately');
+assert.strictEqual(typeof normalButtonHandler, 'function', 'the acquire action must remain bound to the real Cocos Button');
+normalButtonHandler();
+assert.strictEqual(directGrantCount, 1, 'the direct acquire Button must enter the grant handler exactly once');
+assert.ok(!controller.includes('normalizeGameplayUiPosition'), 'acquire UI input must not re-scale Cocos UI coordinates');
+assert.ok(!controller.includes('ScaledFallback'), 'acquire buttons must not install a root-level scaled hit path');
 
 console.log('freeze-acquire-prefab.test.js passed');

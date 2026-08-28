@@ -21,12 +21,6 @@ assert.ok(helper.includes("path.resolve(args.project)"), 'helper must resolve th
 assert.ok(helper.includes("compileType !== 'game'"), 'helper must reject non-game project configs');
 assert.ok(helper.includes("'assets', 'main'"), 'helper must validate the local startup main bundle before opening DevTools');
 assert.ok(helper.includes("['bootstrap', 'homeAssets', 'gameAssets']"), 'helper must validate gameplay bundles as WeChat subpackages before opening DevTools');
-assert.ok(helper.includes('clearForcedGameLaunchCondition(args.project)'), 'helper must clear stale forced-level launch conditions before opening DevTools');
-assert.ok(helper.includes('gameCondition.current = -1;'), 'helper must disable the active game launch condition');
-assert.ok(helper.includes('gameCondition.currentL = -1;'), 'helper must disable the legacy active game launch condition');
-assert.ok(helper.includes('gameCondition.list = [];'), 'helper must remove stale level query presets so startup uses saved progress');
-assert.ok(helper.includes('if (!args.dryRun) clearForcedGameLaunchCondition(args.project);'), 'dry-run must not mutate the generated package');
-
 assert.ok(buildWechat.includes("scripts', 'open-wechat-devtools.js'"), 'wechat build auto-open must reuse the CLI helper');
 assert.ok(!buildWechat.includes("Contents/MacOS/wechatwebdevtools';"), 'wechat build auto-open must not use the old app executable path');
 

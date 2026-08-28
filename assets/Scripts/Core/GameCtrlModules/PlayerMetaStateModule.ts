@@ -1074,7 +1074,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
                                 this.bindPanelButton(closeButton, () => {
                                     if (this._recoverVigorBusy) return;
-                                    AudioMgr.inst.play('uiPanel');
+                                    AudioMgr.inst.play('button');
                                     finalizeModal();
                                     emitResult('cancelled');
                                 });

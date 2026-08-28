@@ -149,8 +149,8 @@ assert.ok(createWinMethod.includes("runtime.requirePanelChild(box, 'CollectionBt
 assert.ok(createWinMethod.includes("runtime.requirePanelChild(collectionBtn, '标题底板')"), 'win factory must require the collection title plate');
 assert.ok(createWinMethod.includes("runtime.requirePanelChild(collectionTitlePlate, 'Label')"), 'win factory must require the collection title label');
 assert.ok(createWinMethod.includes('collectionTitleLabel.getComponent(Label)'), 'win factory must fail fast when the title Label component is missing');
-assert.ok(createWinMethod.includes('this.bindPanelButtonWithScaledFallback(collectionBtn, overlay'), 'collection entry must use scaled-touch fallback binding');
-assert.ok(createWinMethod.includes("AudioMgr.inst.play('uiPanel')"), 'collection entry must use the existing panel-open sound');
+assert.ok(createWinMethod.includes('this.bindPanelButton(collectionBtn,'), 'collection entry must use the direct Cocos Button binding');
+assert.ok(createWinMethod.includes("AudioMgr.inst.play('button')"), 'collection entry must use the unified button sound');
 assert.ok(createWinMethod.includes('runtime.openCollection();'), 'collection entry must reuse the existing collection opening method');
 
 console.log('win collection entry contract tests passed');
