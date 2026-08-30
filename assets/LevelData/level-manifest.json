@@ -1558,7 +1558,7 @@
       "colorCount": 4,
       "slotTotalCount": 460,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1580,7 +1580,7 @@
       "colorCount": 7,
       "slotTotalCount": 260,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1619,7 +1619,7 @@
       "colorCount": 4,
       "slotTotalCount": 508,
       "conveyorCapacity": 60,
-      "timeLimit": 90,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1676,7 +1676,7 @@
       "colorCount": 4,
       "slotTotalCount": 544,
       "conveyorCapacity": 60,
-      "timeLimit": 90,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1696,7 +1696,7 @@
       "colorCount": 5,
       "slotTotalCount": 552,
       "conveyorCapacity": 60,
-      "timeLimit": 90,
+      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1780,7 +1780,7 @@
       "colorCount": 6,
       "slotTotalCount": 728,
       "conveyorCapacity": 60,
-      "timeLimit": 120,
+      "timeLimit": 150,
       "isMainline": true,
       "isTutorial": false
     },
@@ -1808,6 +1808,26 @@
     {
       "levelId": 16,
       "file": "LevelData/level_16.json",
+      "boardWidth": 32,
+      "boardHeight": 32,
+      "filledCellCount": 0,
+      "colorIds": [
+        3,
+        4,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 5,
+      "slotTotalCount": 629,
+      "conveyorCapacity": 60,
+      "timeLimit": 120,
+      "isMainline": true,
+      "isTutorial": false
+    },
+    {
+      "levelId": 17,
+      "file": "LevelData/level_17.json",
       "boardWidth": 30,
       "boardHeight": 39,
       "filledCellCount": 0,
@@ -1823,26 +1843,6 @@
       "slotTotalCount": 821,
       "conveyorCapacity": 60,
       "timeLimit": 150,
-      "isMainline": true,
-      "isTutorial": false
-    },
-    {
-      "levelId": 17,
-      "file": "LevelData/level_17.json",
-      "boardWidth": 32,
-      "boardHeight": 32,
-      "filledCellCount": 0,
-      "colorIds": [
-        3,
-        4,
-        14,
-        19,
-        20
-      ],
-      "colorCount": 5,
-      "slotTotalCount": 629,
-      "conveyorCapacity": 60,
-      "timeLimit": 120,
       "isMainline": true,
       "isTutorial": false
     },
