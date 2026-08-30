@@ -35,6 +35,8 @@ import { ensureGameplayResultPanelController } from '../GameplayResultPanelContr
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
 import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/RewardedAdProvider';
+import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
+import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
 
 type RewardedGrantToast = string | (() => string);
 type RewardedGrantResult = boolean | void | Promise<boolean | void>;
@@ -151,6 +153,12 @@ export function installHomeAdFlowModule(target: any): void {
                 AnalyticsMgr.inst.flushFunnelEvents?.();
             }
             return providerCancelled || !!transaction;
+        },
+
+        cancelPendingShareReturn(reason: string = 'manual'): boolean {
+            const pending = this._pendingShareReturn as WeChatShareReturnHandle | null;
+            this._pendingShareReturn = null;
+            return pending?.cancel(reason) || false;
         },
 
         runAfterAdWindowClosed(onReady: () => void): void {
@@ -612,8 +620,8 @@ export function installHomeAdFlowModule(target: any): void {
             };
 
             const wx: any = typeof this.getWeChatRuntime === 'function' ? this.getWeChatRuntime() : null;
-            if (!wx || typeof wx.shareAppMessage !== 'function') {
-                console.warn(`[ShareGrant] ${page} wx.shareAppMessage unavailable`);
+            if (!wx) {
+                console.warn(`[ShareGrant] ${page} WeChat runtime unavailable`);
                 runShareFail();
                 return false;
             }
@@ -674,24 +682,52 @@ export function installHomeAdFlowModule(target: any): void {
                     .then(runFinally, runFinally);
             };
 
+            let pendingHandle: WeChatShareReturnHandle | null = null;
+            const onShareReturn = (result: { status: string; elapsedMs: number; reason?: string }) => {
+                if (this._pendingShareReturn === pendingHandle) {
+                    this._pendingShareReturn = null;
+                }
+                if (result.status === 'qualified') {
+                    try {
+                        options.onShareComplete?.(true);
+                    } catch (error) {
+                        console.warn(`[ShareGrant] ${page} share-qualified handler failed:`, error);
+                    }
+                    AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
+                    runGrant();
+                    return;
+                }
+                if (result.status === 'cancelled') {
+                    try {
+                        options.onShareComplete?.(false);
+                    } catch (error) {
+                        console.warn(`[ShareGrant] ${page} share-cancel handler failed:`, error);
+                    }
+                    runFinally();
+                    return;
+                }
+                console.warn(`[ShareGrant] ${page} share return rejected: ${result.status}`, result.reason || '');
+                runShareFail();
+            };
+
             AnalyticsMgr.inst.trackShareClick(shareType, page, levelId);
-            try {
-                wx.shareAppMessage({
+            const startResult = weChatShareReturnService.start({
+                runtime: wx,
+                payload: {
                     title,
                     query,
                     imageUrl,
-                });
-                try {
-                    options.onShareComplete?.(true);
-                } catch (error) {
-                    console.warn(`[ShareGrant] ${page} share-dispatch handler failed:`, error);
-                }
-                AnalyticsMgr.inst.trackShareSuccess(shareType, page, levelId);
-                runGrant();
-            } catch (error) {
-                console.error(`[ShareGrant] ${page} share request failed:`, error);
+                },
+                onComplete: onShareReturn,
+            });
+            if (startResult.started === false) {
+                console.warn(`[ShareGrant] ${page} share request unavailable: ${startResult.reason}`);
                 runShareFail();
                 return false;
+            }
+            pendingHandle = startResult.handle;
+            if (pendingHandle.isActive()) {
+                this._pendingShareReturn = pendingHandle;
             }
             return true;
         },
@@ -1538,6 +1574,10 @@ export function installHomeAdFlowModule(target: any): void {
 
         createBufferFullSettlementPanel(): Node {
             return ensureGameplayResultPanelController(this).createBufferFullSettlementPanel();
+        },
+
+        refreshReviveShareButtons(): void {
+            ensureGameplayResultPanelController(this).refreshReviveShareButtons();
         },
 
         bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number) {

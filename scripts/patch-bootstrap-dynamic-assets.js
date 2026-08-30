@@ -45,6 +45,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/guide_bubble_frame',
 	'GameUI/guide_prompt_button',
 	'GameUI/loading_cover',
+	'GameUI/pdpx_eff_Mask_01',
 	'GameUI/pdpx_eff_Star_01',
 	'GameUI/pdpx_eff_Trail_02',
 	'GameUI/pch_speed_active',
@@ -61,6 +62,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/popup_tool_magnet_icon',
 	'GameUI/progress_fill',
 	'GameUI/solid_white',
+	'GameUI/toast_bubble_background',
 	'GameUI/设置',
 	'GameUI/进度条',
 ]);

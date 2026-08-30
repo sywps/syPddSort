@@ -31,6 +31,71 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
+import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
+import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
+
+type WeChatDisplayShareOptions = {
+    shareType: string;
+    page: string;
+    levelId: number;
+    title: string;
+    query: string;
+    onQualified: () => void;
+    onRejected: (reason: string) => void;
+};
+
+function getWeChatShareReturnToast(reason: string): string {
+    if (reason === 'too_short' || reason === 'timeout' || reason === 'cleanup_failed') {
+        return '分享未完成，请停留1.5秒后再返回';
+    }
+    return reason === 'cancelled' ? '分享已取消' : '分享失败';
+}
+
+function startWeChatDisplayShare(runtime: any, options: WeChatDisplayShareOptions): boolean {
+    if (runtime._shareShowing) return false;
+    const wx: any = typeof runtime.getWeChatRuntime === 'function' ? runtime.getWeChatRuntime() : null;
+    if (!wx) {
+        options.onRejected('unavailable');
+        return false;
+    }
+    runtime._shareShowing = true;
+    let pendingHandle: WeChatShareReturnHandle | null = null;
+    const onComplete = (result: { status: string; reason?: string }) => {
+        if (runtime._pendingShareReturn === pendingHandle) {
+            runtime._pendingShareReturn = null;
+        }
+        runtime._shareShowing = false;
+        if (result.status === 'qualified') {
+            AnalyticsMgr.inst.trackShareSuccess(options.shareType, options.page, options.levelId);
+            options.onQualified();
+            return;
+        }
+        if (result.status === 'cancelled' && String(result.reason || '').startsWith('scene-destroy:')) {
+            return;
+        }
+        options.onRejected(result.status);
+    };
+    AnalyticsMgr.inst.trackShareClick(options.shareType, options.page, options.levelId);
+    const startResult = weChatShareReturnService.start({
+        runtime: wx,
+        payload: {
+            title: options.title,
+            query: options.query,
+            imageUrl: '',
+        },
+        onComplete,
+    });
+    if (startResult.started === false) {
+        runtime._shareShowing = false;
+        options.onRejected(startResult.reason);
+        return false;
+    }
+    pendingHandle = startResult.handle;
+    if (pendingHandle.isActive()) {
+        runtime._pendingShareReturn = pendingHandle;
+    }
+    return true;
+}
 
 function syncThemeTextNode(
     parent: Node,
@@ -385,8 +450,6 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const title = themeName
                 ? `我在拼豆豆完成了【${themeName}-${levelName || levelId}】，快来挑战！`
                 : `我在拼豆豆完成了一个图案，快来挑战！`;
-            AnalyticsMgr.inst.trackShareClick('theme_level', 'theme_share', levelId);
-        
             const wx: any = this.getWeChatRuntime();
             const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
                 || (typeof window !== 'undefined' ? (window as any).tt : null);
@@ -396,30 +459,26 @@ export function installThemeLoadingOverlayModule(target: any): void {
             };
         
             if (wx && typeof wx.shareAppMessage === 'function') {
-                try {
-                    wx.shareAppMessage({
-                        title,
-                        query: `level=${levelId}&theme=1`,
-                        imageUrl: '',
-                        success: () => {
-                            AnalyticsMgr.inst.trackShareSuccess('theme_level', 'theme_share', levelId);
-                            this.showToast('分享成功');
-                            onShared();
-                        },
-                        fail: () => {
-                            this.showToast('分享已取消');
-                            onShared();
-                        },
-                    });
-                } catch (e) {
-                    console.warn('[shareThemeLevel] wx.shareAppMessage error:', e);
-                    this.showToast('分享失败');
-                    onShared();
-                }
+                startWeChatDisplayShare(this, {
+                    shareType: 'theme_level',
+                    page: 'theme_share',
+                    levelId,
+                    title,
+                    query: `level=${levelId}&theme=1`,
+                    onQualified: () => {
+                        this.showToast('分享成功');
+                        onShared();
+                    },
+                    onRejected: (reason) => {
+                        this.showToast(getWeChatShareReturnToast(reason));
+                        onShared();
+                    },
+                });
                 return;
             }
         
             if (tt && typeof tt.shareAppMessage === 'function') {
+                AnalyticsMgr.inst.trackShareClick('theme_level', 'theme_share', levelId);
                 try {
                     tt.shareAppMessage({
                         channel: 'video',
@@ -445,34 +504,26 @@ export function installThemeLoadingOverlayModule(target: any): void {
         shareCurrentWinLevel() {
             const levelId = this.getActiveLogicalLevelId();
             const title = `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
-            AnalyticsMgr.inst.trackShareClick('level_win', 'win_share', levelId);
         
             const wx: any = this.getWeChatRuntime();
             const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
                 || (typeof window !== 'undefined' ? (window as any).tt : null);
         
             if (wx && typeof wx.shareAppMessage === 'function') {
-                try {
-                    wx.shareAppMessage({
-                        title,
-                        query: `level=${levelId}`,
-                        imageUrl: '',
-                        success: () => {
-                            AnalyticsMgr.inst.trackShareSuccess('level_win', 'win_share', levelId);
-                            this.showToast('分享成功');
-                        },
-                        fail: () => {
-                            this.showToast('分享已取消');
-                        },
-                    });
-                } catch (e) {
-                    console.warn('[shareCurrentWinLevel] wx.shareAppMessage error:', e);
-                    this.showToast('分享失败');
-                }
+                startWeChatDisplayShare(this, {
+                    shareType: 'level_win',
+                    page: 'win_share',
+                    levelId,
+                    title,
+                    query: `level=${levelId}`,
+                    onQualified: () => this.showToast('分享成功'),
+                    onRejected: (reason) => this.showToast(getWeChatShareReturnToast(reason)),
+                });
                 return;
             }
         
             if (tt && typeof tt.shareAppMessage === 'function') {
+                AnalyticsMgr.inst.trackShareClick('level_win', 'win_share', levelId);
                 try {
                     tt.shareAppMessage({
                         channel: 'video',

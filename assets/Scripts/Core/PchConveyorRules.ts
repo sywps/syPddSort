@@ -425,19 +425,31 @@ export class PchConveyorRules {
 
     isBufferDeadlocked(): boolean {
         if (this.bufferCount !== this.bufferCapacity || this.entryCount > 0) return false;
+        return !this.hasReturnableTopMatch();
+    }
+
+    shouldShowRedWarning(emptySlotThreshold: number): boolean {
+        if (!Number.isInteger(emptySlotThreshold) || emptySlotThreshold <= 0) {
+            throw new Error(`emptySlotThreshold must be a positive integer: ${emptySlotThreshold}`);
+        }
+        if (this.bufferCapacity - this.bufferCount >= emptySlotThreshold) return false;
+        return !this.hasReturnableTopMatch();
+    }
+
+    private hasReturnableTopMatch(): boolean {
         const returnableTopColors = new Set<number>();
         for (const stack of this.carriers) {
             const colorId = stack[stack.length - 1] || 0;
             if (colorId > 0) returnableTopColors.add(colorId);
         }
-        if (returnableTopColors.size === 0) return true;
+        if (returnableTopColors.size === 0) return false;
         for (let row = 0; row < this.board.height; row += 1) {
             for (let col = 0; col < this.board.width; col += 1) {
                 if (this.board.currentColors[row][col] !== 0 || this.board.locked[row][col]) continue;
-                if (returnableTopColors.has(this.board.correctColors[row][col])) return false;
+                if (returnableTopColors.has(this.board.correctColors[row][col])) return true;
             }
         }
-        return true;
+        return false;
     }
 
     get cells(): PchBoardCell[] {

@@ -62,7 +62,7 @@ assert.match(
 const session = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameplaySessionController.ts'), 'utf8');
 assert.match(session, /validateConveyorCapacity\(data\.conveyorCapacity/, 'local gameplay must validate capacity');
 assert.doesNotMatch(session, /resolveSlotRowPolicy|new SlotModel|runtime\.renderSlots\(\)/, 'active session must not initialize old row gameplay');
-assert.match(session, /ensurePchConveyorGameplayController\(runtime\)\.start\(\)/, 'active session must always start PCH gameplay');
+assert.match(session, /const pchController = ensurePchConveyorGameplayController\(runtime\);[\s\S]*?pchController\.start\(\);/, 'active session must always start PCH gameplay');
 
 const slotSkillModule = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/GameplaySlotSkillModule.ts'), 'utf8');
 assert.match(

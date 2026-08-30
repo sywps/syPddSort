@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadCollectionCatalog } = require('./collection-catalog-contract');
 const { LEVEL_DATA_CLIENT_BUILD, LEVEL_DATA_SCHEMA_VERSION, validateConveyorCapacity } = require('./conveyor-capacity-contract');
+const { validateHard } = require('./hard-level-contract');
 const { normalizeWechatCdnSlot } = require('./wechat-cdn-slot-config');
 
 const projectDir = path.resolve(__dirname, '..');
@@ -115,6 +116,7 @@ function collectLevels() {
         }
         try {
             validateConveyorCapacity(data, name);
+            validateHard(data, name);
         } catch (err) {
             fail(err && err.message ? err.message : String(err));
         }

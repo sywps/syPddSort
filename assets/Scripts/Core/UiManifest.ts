@@ -2,6 +2,7 @@ export const BOARD_EFFECT_TEXTURE_NAMES = [
     'block_bright_pindd',
     'pdpx_eff_Star_01',
     'pdpx_eff_Trail_02',
+    'pdpx_eff_Mask_01',
 ];
 
 export const BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS = BOARD_EFFECT_TEXTURE_NAMES

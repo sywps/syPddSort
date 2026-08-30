@@ -20,6 +20,7 @@ import {
     GAME_ASSETS_BUNDLE_NAME,
     LOCAL_BOOTSTRAP_BUNDLE_NAME,
     instantiate,
+    sys,
     tween,
 } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
@@ -44,6 +45,21 @@ const WIN_BANNER_IDLE_JELLY_INITIAL_DELAY = 0.5;
 const WIN_BANNER_IDLE_JELLY_REPEAT_DELAY = 1.5;
 const WIN_BANNER_LIGHT_NODE_NAME = '\u6a2a\u5e45\u5149\u6548';
 const WIN_BANNER_LIGHT_ROTATION_SECONDS = 12;
+const REVIVE_SHARE_STATE_KEY = 'pdd.revive.shareState.v1';
+const REVIVE_SHARE_DAILY_LIMIT = 1;
+const REVIVE_SHARE_MIN_LOGICAL_LEVEL = 4;
+
+type ReviveShareState = {
+    dateKey: string;
+    count: number;
+};
+
+type ReviveSharePanelKind = 'timeout' | 'buffer-full';
+
+type ReviveShareStorage = {
+    getItem: (key: string) => string | null;
+    setItem: (key: string, value: string) => void;
+};
 
 type WinBannerSparkleSpec = {
     xRatio: number;
@@ -558,6 +574,181 @@ export class GameplayResultPanelController {
         return overlay;
     }
 
+    private getReviveShareDateKey(nowMs: number = Date.now()): string {
+        const date = new Date(nowMs);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        return `${year}-${month < 10 ? '0' : ''}${month}-${day < 10 ? '0' : ''}${day}`;
+    }
+
+    private getReviveShareStorage(): ReviveShareStorage | null {
+        const storage = (sys as any)?.localStorage as ReviveShareStorage | undefined;
+        if (!storage
+            || typeof storage.getItem !== 'function'
+            || typeof storage.setItem !== 'function') {
+            return null;
+        }
+        return storage;
+    }
+
+    private readReviveShareState(nowMs: number = Date.now()): ReviveShareState | null {
+        const storage = this.getReviveShareStorage();
+        if (!storage) return null;
+        const fallback: ReviveShareState = {
+            dateKey: this.getReviveShareDateKey(nowMs),
+            count: 0,
+        };
+        try {
+            const raw = storage.getItem(REVIVE_SHARE_STATE_KEY);
+            if (!raw) return fallback;
+            const parsed = JSON.parse(raw);
+            if (!parsed || parsed.dateKey !== fallback.dateKey) return fallback;
+            return {
+                dateKey: fallback.dateKey,
+                count: Math.max(0, Math.floor(Number(parsed.count) || 0)),
+            };
+        } catch (error) {
+            console.warn('[revive-share] read daily state failed:', error);
+            return null;
+        }
+    }
+
+    private writeReviveShareState(state: ReviveShareState): boolean {
+        const storage = this.getReviveShareStorage();
+        if (!storage) return false;
+        try {
+            storage.setItem(REVIVE_SHARE_STATE_KEY, JSON.stringify(state));
+            return true;
+        } catch (error) {
+            console.warn('[revive-share] write daily state failed:', error);
+            return false;
+        }
+    }
+
+    private getReviveShareLogicalLevelId(): number {
+        const runtime = this.runtime;
+        const levelId = typeof runtime.getActiveLogicalLevelId === 'function'
+            ? runtime.getActiveLogicalLevelId()
+            : runtime.levelData?.levelId;
+        return Math.max(0, Math.floor(Number(levelId) || 0));
+    }
+
+    private hasWeChatShareReturnApi(): boolean {
+        try {
+            const wx: any = typeof this.runtime.getWeChatRuntime === 'function'
+                ? this.runtime.getWeChatRuntime()
+                : null;
+            return !!wx
+                && typeof wx.shareAppMessage === 'function'
+                && typeof wx.onShow === 'function'
+                && typeof wx.offShow === 'function';
+        } catch (error) {
+            console.warn('[revive-share] WeChat runtime check failed:', error);
+            return false;
+        }
+    }
+
+    private canUseReviveShare(): boolean {
+        const runtime = this.runtime;
+        if (runtime._isThemeLevel) return false;
+        const entryMode = typeof runtime.getActiveGameplayEntryMode === 'function'
+            ? runtime.getActiveGameplayEntryMode()
+            : (runtime._activeGameplayEntryMode || 'main');
+        if (entryMode !== 'main' || this.getReviveShareLogicalLevelId() < REVIVE_SHARE_MIN_LOGICAL_LEVEL) {
+            return false;
+        }
+        const state = this.readReviveShareState();
+        return !!state && state.count < REVIVE_SHARE_DAILY_LIMIT && this.hasWeChatShareReturnApi();
+    }
+
+    private reserveReviveShareGrant(): (() => void) | null {
+        const state = this.readReviveShareState();
+        if (!state || state.count >= REVIVE_SHARE_DAILY_LIMIT) return null;
+        const nextState: ReviveShareState = {
+            dateKey: state.dateKey,
+            count: state.count + 1,
+        };
+        if (!this.writeReviveShareState(nextState)) return null;
+        let rolledBack = false;
+        return () => {
+            if (rolledBack) return;
+            rolledBack = true;
+            this.writeReviveShareState(state);
+        };
+    }
+
+    private bindReviveShareButton(box: Node, onClick: () => void): Node {
+        const shareBtn = box.getChildByName('ShareBtn');
+        const shareIcon = shareBtn?.getChildByName('ShareIcon');
+        const label = shareBtn?.getChildByName('ShareBtnLbl')?.getComponent(Label);
+        if (!shareBtn || !shareIcon || !label) {
+            throw new Error('[result-panel] revive prefab is missing static ShareBtn/ShareIcon/ShareBtnLbl');
+        }
+        this.bindPanelButton(shareBtn, onClick);
+        return shareBtn;
+    }
+
+    private syncReviveSharePanel(overlay: Node | null | undefined): void {
+        if (!overlay?.isValid) return;
+        const box = overlay.getChildByName('Box');
+        const continueBtn = box?.getChildByName('ContinueBtn');
+        const shareBtn = box?.getChildByName('ShareBtn');
+        if (!continueBtn || !shareBtn) return;
+        const shareAvailable = this.canUseReviveShare();
+        continueBtn.active = !shareAvailable;
+        shareBtn.active = shareAvailable;
+    }
+
+    refreshReviveShareButtons(): void {
+        this.syncReviveSharePanel(this.runtime.panelTimeoutContinue);
+        this.syncReviveSharePanel(this.runtime.panelBufferFullContinue);
+    }
+
+    private runReviveShareAction(
+        kind: ReviveSharePanelKind,
+        overlay: Node,
+        continueSeconds: number = 0,
+    ): void {
+        const runtime = this.runtime;
+        if (runtime._adShowing || runtime._shareShowing || !this.canUseReviveShare()) return;
+        const levelId = this.getReviveShareLogicalLevelId();
+        const page = kind === 'buffer-full' ? 'pch_buffer_full_revive_share' : 'level_revive_share';
+        AudioMgr.inst.play('button');
+        runtime.runShareGrant(page, () => {
+            const rollbackReservation = this.reserveReviveShareGrant();
+            if (!rollbackReservation) return false;
+            try {
+                if (kind === 'buffer-full') {
+                    const continued = ensurePchConveyorGameplayController(runtime).continueAfterBufferFull();
+                    if (!continued) {
+                        rollbackReservation();
+                        return false;
+                    }
+                } else {
+                    runtime.continueAfterLose(continueSeconds);
+                }
+                overlay.active = false;
+                this.refreshReviveShareButtons();
+                return true;
+            } catch (error) {
+                rollbackReservation();
+                throw error;
+            }
+        }, {
+            claimKey: `${page}:${this.getReviveShareDateKey()}:${levelId}`,
+            busyFlag: '_shareShowing',
+            markLevelRevive: true,
+            shareType: page,
+            title: () => '我在拼豆豆遇到难关，快来一起挑战！',
+            query: () => `level=${levelId}`,
+            shareFailToast: kind === 'buffer-full' ? '分享未完成，未增加位置' : '分享未完成，未复活',
+            grantFailToast: kind === 'buffer-full' ? '传送带扩容失败，请重试' : '复活失败，请重试',
+            successToast: kind === 'buffer-full' ? '已增加12个位置' : '复活成功',
+            onFinally: () => this.refreshReviveShareButtons(),
+        });
+    }
+
     createReviveSettlementPanel(): Node {
         const runtime = this.runtime;
         const overlay = this.instantiateGameplayOverlay('revive', 'ReviveSettlementOverlay');
@@ -576,6 +767,11 @@ export class GameplayResultPanelController {
             runtime.showLosePanel();
         };
         this.bindReviveContinueAction(continueBtn, overlay, rewardedSeconds);
+        this.bindReviveShareButton(
+            box,
+            () => this.runReviveShareAction('timeout', overlay, rewardedSeconds),
+        );
+        this.syncReviveSharePanel(overlay);
         const giveUpNodes = [box.getChildByName('GiveUpBtn'), box.getChildByName('CloseBtn')].filter((node): node is Node => !!node);
         if (!giveUpNodes.length) {
             throw new Error('[result-panel] RevivePanel is missing any close/give-up action node');
@@ -599,25 +795,12 @@ export class GameplayResultPanelController {
         this.syncResultProgressWidget(overlay, 0);
 
         const continueBtn = runtime.requirePanelChild(box, 'ContinueBtn');
-        this.bindPanelButton(continueBtn, () => {
-            if (runtime._adShowing) return;
-            const controller = ensurePchConveyorGameplayController(runtime);
-            const capacityBeforeGrant = controller.getBufferCapacity();
-            AudioMgr.inst.play('button');
-            runtime.runRewardedGrant('pch_buffer_full_revive', () => {
-                const continued = controller.continueAfterBufferFull();
-                if (!continued) return false;
-                overlay.active = false;
-                return true;
-            }, {
-                claimKey: `pch_buffer_full_revive:${runtime.getActiveLogicalLevelId?.() || 0}:${capacityBeforeGrant}`,
-                busyFlag: '_adShowing',
-                markLevelRevive: true,
-                adFailToast: '广告未完成，未增加位置',
-                grantFailToast: '传送带扩容失败，请重试',
-                successToast: '已增加12个位置',
-            });
-        });
+        this.bindPanelButton(continueBtn, () => this.runBufferFullReviveAction(overlay));
+        this.bindReviveShareButton(
+            box,
+            () => this.runReviveShareAction('buffer-full', overlay),
+        );
+        this.syncReviveSharePanel(overlay);
 
         const giveUpNodes = [box.getChildByName('GiveUpBtn'), box.getChildByName('CloseBtn')]
             .filter((node): node is Node => !!node);
@@ -638,22 +821,58 @@ export class GameplayResultPanelController {
         this.runtime.bindPanelButton(triggerNode, handler);
     }
 
+    runBufferFullReviveAction(overlay: Node): void {
+        const runtime = this.runtime;
+        if (runtime._adShowing) return;
+        const controller = ensurePchConveyorGameplayController(runtime);
+        const capacityBeforeGrant = controller.getBufferCapacity();
+        AudioMgr.inst.play('button');
+        runtime.runRewardedGrant('pch_buffer_full_revive', () => {
+            const continued = controller.continueAfterBufferFull();
+            if (!continued) return false;
+            overlay.active = false;
+            return true;
+        }, {
+            claimKey: `pch_buffer_full_revive:${runtime.getActiveLogicalLevelId?.() || 0}:${capacityBeforeGrant}`,
+            busyFlag: '_adShowing',
+            markLevelRevive: true,
+            adFailToast: '广告未完成，未增加位置',
+            grantFailToast: '传送带扩容失败，请重试',
+            successToast: '已增加12个位置',
+        });
+    }
+
+    runLevelReviveAction(overlay: Node, continueSeconds: number): void {
+        const runtime = this.runtime;
+        if (runtime._adShowing) return;
+        AudioMgr.inst.play('button');
+        runtime.runRewardedGrant('level_revive', () => {
+            overlay.active = false;
+            runtime.continueAfterLose(continueSeconds);
+            return true;
+        }, {
+            busyFlag: '_adShowing',
+            markLevelRevive: true,
+            grantFailToast: '复活失败，请重试',
+        });
+    }
+
+    bindLoseReviveContinueAction(triggerNode: Node, overlay: Node): void {
+        const runtime = this.runtime;
+        const continueSeconds = runtime.constructor.REWARDED_CONTINUE_SECONDS;
+        this.bindPanelButton(triggerNode, () => {
+            if (runtime._activeLoseReason === 'buffer-full') {
+                this.runBufferFullReviveAction(overlay);
+                return;
+            }
+            this.runLevelReviveAction(overlay, continueSeconds);
+        });
+    }
+
     bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number) {
         const runtime = this.runtime;
         const continueSeconds = rewardedSeconds ?? runtime.constructor.REWARDED_CONTINUE_SECONDS;
-        this.bindPanelButton(triggerNode, () => {
-            if (runtime._adShowing) return;
-            AudioMgr.inst.play('button');
-            runtime.runRewardedGrant('level_revive', () => {
-                overlay.active = false;
-                runtime.continueAfterLose(continueSeconds);
-                return true;
-            }, {
-                busyFlag: '_adShowing',
-                markLevelRevive: true,
-                grantFailToast: '复活失败，请重试',
-            });
-        });
+        this.bindPanelButton(triggerNode, () => this.runLevelReviveAction(overlay, continueSeconds));
     }
 
     createLoseSettlementPanel(): Node {
@@ -667,7 +886,7 @@ export class GameplayResultPanelController {
         const reviveBtn = runtime.requirePanelChild(box, '\u590d\u6d3b\u7a97\u7ec4\u4ef63');
         const homeBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846');
         const replayBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846-001');
-        this.bindReviveContinueAction(reviveBtn, overlay);
+        this.bindLoseReviveContinueAction(reviveBtn, overlay);
         this.bindPanelButton(homeBtn, () => {
             AudioMgr.inst.play('button');
             AnalyticsMgr.inst.finalizePendingFailedLevel({

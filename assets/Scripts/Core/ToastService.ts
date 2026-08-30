@@ -7,12 +7,6 @@ import {
     Vec3,
     tween,
 } from './GameCtrlShared';
-import {
-    getDouyinMiniGameRuntime,
-    getWeChatMiniGameRuntime,
-    isDouyinMiniGameRuntime,
-    isWeChatMiniGameRuntime,
-} from './MiniGamePlatform';
 
 type ToastViewState = {
     host: Node | null;
@@ -26,7 +20,11 @@ const TOAST_HOST_NAME = 'ToastHost';
 const TOAST_BUBBLE_NAME = 'ToastBubble';
 const TOAST_LABEL_NAME = 'ToastLbl';
 const LEGACY_TOAST_NAME = 'Toast';
-const TOAST_HEIGHT = 72;
+const TOAST_HEIGHT = 67;
+const TOAST_MIN_WIDTH = 180;
+const TOAST_MAX_WIDTH = 610;
+const TOAST_HORIZONTAL_PADDING = 72;
+const TOAST_LABEL_HEIGHT = 44;
 const TOAST_SLOT_GAP = 18;
 const TOAST_SCREEN_MARGIN = 24;
 const warningKeys = new Set<string>();
@@ -43,65 +41,6 @@ function warnOnce(key: string, message: string, error?: unknown): void {
 
 function normalizeToastText(text: string): string {
     return String(text || '').trim();
-}
-
-function normalizeToastDurationMs(duration: number): number {
-    return Math.max(800, Math.min(4000, Math.round((Number(duration) || 1.5) * 1000)));
-}
-
-function showWeChatNativeToast(text: string, duration: number): boolean {
-    if (!isWeChatMiniGameRuntime()) return false;
-    if (!text) return true;
-    const wxRuntime = getWeChatMiniGameRuntime();
-    if (!wxRuntime?.showToast) {
-        warnOnce(
-            'wechat-toast-unavailable',
-            '[ToastService] wx.showToast unavailable; skip Cocos toast in WeChat runtime.',
-        );
-        return true;
-    }
-    try {
-        wxRuntime.showToast({
-            title: text,
-            icon: 'none',
-            duration: normalizeToastDurationMs(duration),
-            fail: (error: unknown) => warnOnce(
-                'wechat-toast-callback-failed',
-                '[ToastService] wx.showToast failed; skip Cocos toast in WeChat runtime:',
-                error,
-            ),
-        });
-    } catch (error) {
-        warnOnce(
-            'wechat-toast-failed',
-            '[ToastService] wx.showToast failed; skip Cocos toast in WeChat runtime:',
-            error,
-        );
-    }
-    return true;
-}
-
-function showDouyinNativeToast(text: string, duration: number): boolean {
-    if (!isDouyinMiniGameRuntime()) return false;
-    if (!text) return true;
-    const ttRuntime = getDouyinMiniGameRuntime();
-    if (!ttRuntime?.showToast) return false;
-    try {
-        ttRuntime.showToast({
-            title: text,
-            icon: 'none',
-            duration: normalizeToastDurationMs(duration),
-            fail: (error: unknown) => warnOnce(
-                'douyin-toast-callback-failed',
-                '[ToastService] tt.showToast failed:',
-                error,
-            ),
-        });
-        return true;
-    } catch (error) {
-        warnOnce('[ToastService] tt.showToast failed:', '[ToastService] tt.showToast failed:', error);
-        return false;
-    }
 }
 
 function getRuntimeToastState(runtime: any): ToastViewState {
@@ -183,6 +122,32 @@ function findSceneToastView(runtime: any, overlayHost: Node): ToastViewState | n
     return state;
 }
 
+function fitSceneToastToText(state: ToastViewState): void {
+    const bubbleTransform = state.bubble?.getComponent(UITransform) || null;
+    const labelTransform = state.labelNode?.getComponent(UITransform) || null;
+    if (!bubbleTransform || !labelTransform || !state.label) {
+        warnOnce(
+            'toast-scene-sizing-node-missing',
+            '[ToastService] ToastBubble/ToastLbl sizing components missing; keep scene default size.',
+        );
+        return;
+    }
+    state.label.overflow = Label.Overflow.NONE;
+    state.label.updateRenderData(true);
+    const bubbleWidth = clamp(
+        Math.ceil(labelTransform.contentSize.width + TOAST_HORIZONTAL_PADDING),
+        TOAST_MIN_WIDTH,
+        TOAST_MAX_WIDTH,
+    );
+    bubbleTransform.setContentSize(bubbleWidth, TOAST_HEIGHT);
+    labelTransform.setContentSize(
+        Math.max(1, bubbleWidth - TOAST_HORIZONTAL_PADDING),
+        TOAST_LABEL_HEIGHT,
+    );
+    state.label.overflow = Label.Overflow.CLAMP;
+    state.label.updateRenderData(true);
+}
+
 function syncSceneToastView(runtime: any, overlayHost: Node, text: string, x: number, y: number): ToastViewState | null {
     const sceneState = findSceneToastView(runtime, overlayHost);
     if (sceneState) {
@@ -191,6 +156,7 @@ function syncSceneToastView(runtime: any, overlayHost: Node, text: string, x: nu
         sceneState.labelNode!.active = true;
         sceneState.bubble!.setPosition(x, y, 0);
         sceneState.label!.string = text;
+        fitSceneToastToText(sceneState);
         if (sceneState.bubbleOpacity) sceneState.bubbleOpacity.opacity = 245;
         sceneState.host!.setSiblingIndex(Math.max(0, overlayHost.children.length - 1));
         return sceneState;
@@ -259,8 +225,6 @@ export class ToastService {
     static showAt(runtime: any, text: string, duration: number, x: number, y: number): void {
         const title = normalizeToastText(text);
         if (!title) return;
-        if (showWeChatNativeToast(title, duration)) return;
-        if (showDouyinNativeToast(title, duration)) return;
 
         ToastService.clear(runtime);
         const overlayHost = findToastOverlayHost(runtime);

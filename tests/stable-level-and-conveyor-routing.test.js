@@ -35,6 +35,7 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     const formalPayload = JSON.parse(formalBuffer.toString('utf8'));
     const candidatePayload = JSON.parse(candidateBuffer.toString('utf8'));
     const comparableFormalPayload = { ...formalPayload };
+    delete comparableFormalPayload.Hard;
     if (levelId === 2) delete comparableFormalPayload.singleSelectionLimit;
     if (levelId >= 5) comparableFormalPayload.timeLimit = candidatePayload.timeLimit;
     assert.deepEqual(
@@ -52,6 +53,7 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
         levelId === 2 ? 18 : undefined,
         `only formal level 2 may override the single-selection limit`,
     );
+    assert.equal(level.Hard, levelId === 3 ? 1 : 0, `level ${levelId} Hard flag`);
     assert.deepEqual(
         [level.levelId, level.conveyorCapacity],
         [levelId, 60],
@@ -66,8 +68,8 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     assert.equal(Object.hasOwn(level, 'slotPolicy'), false, `level ${levelId} must not retain row policy`);
     const entry = manifestByLevel.get(levelId);
     assert.deepEqual(
-        [entry?.boardWidth, entry?.boardHeight, entry?.timeLimit, entry?.slotTotalCount, entry?.conveyorCapacity],
-        [level.boardWidth, level.boardHeight, level.timeLimit, level.slotTotalCount, 60],
+        [entry?.Hard, entry?.boardWidth, entry?.boardHeight, entry?.timeLimit, entry?.slotTotalCount, entry?.conveyorCapacity],
+        [level.Hard, level.boardWidth, level.boardHeight, level.timeLimit, level.slotTotalCount, 60],
         `level ${levelId} manifest metadata`,
     );
 }

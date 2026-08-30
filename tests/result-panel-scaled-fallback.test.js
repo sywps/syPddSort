@@ -190,7 +190,9 @@ let losePanelCalls = 0;
 let bufferPrefabKind = null;
 let bufferOverlayName = null;
 const bufferRuntime = {
+    constructor: { REWARDED_CONTINUE_SECONDS: 120 },
     _adShowing: false,
+    _activeLoseReason: 'buffer-full',
     requirePanelChild(parent, name) {
         const child = parent.getChildByName(name);
         assert.ok(child, `buffer-full fixture is missing ${name}`);
@@ -206,6 +208,10 @@ const bufferRuntime = {
     showLosePanel() {
         losePanelCalls += 1;
     },
+};
+const continuedFromLoseSeconds = [];
+bufferRuntime.continueAfterLose = (seconds) => {
+    continuedFromLoseSeconds.push(seconds);
 };
 const bufferController = new BufferController(bufferRuntime);
 bufferController.instantiateGameplayOverlay = (kind, name) => {
@@ -253,5 +259,37 @@ bufferOverlay.active = true;
 runBufferClose();
 assert.strictEqual(bufferOverlay.active, false, 'the explicit close action must close the revive panel');
 assert.strictEqual(losePanelCalls, 1, 'only the explicit close action may enter the final failure panel');
+
+const finalLoseReviveButton = {};
+bufferController.bindLoseReviveContinueAction(finalLoseReviveButton, bufferOverlay);
+const runFinalLoseRevive = bufferHandlers.get(finalLoseReviveButton);
+assert.strictEqual(typeof runFinalLoseRevive, 'function');
+
+const attemptsBeforeFinalBufferRevive = rewardedAttempts.length;
+bufferRuntime._activeLoseReason = 'buffer-full';
+bufferRuntime._adShowing = false;
+bufferOverlay.active = true;
+runFinalLoseRevive();
+assert.strictEqual(rewardedAttempts.length, attemptsBeforeFinalBufferRevive + 1);
+assert.strictEqual(rewardedAttempts.at(-1).page, 'pch_buffer_full_revive', 'a buffer-full failure page must request the expansion placement');
+assert.strictEqual(bufferCapacity, 72, 'the final failure page must not expand before verified completion');
+assert.strictEqual(bufferOverlay.active, true, 'the final failure page must remain visible while its ad is pending');
+assert.strictEqual(pendingGrants.at(-1)(), true);
+assert.strictEqual(bufferCapacity, 84, 'a verified final-page buffer revive must add exactly 12 capacity');
+assert.strictEqual(continueAfterBufferFullCalls, 2, 'the final failure page must reuse the same in-game buffer recovery');
+assert.deepStrictEqual(continuedFromLoseSeconds, [], 'buffer-full final revive must not use the ordinary time-only recovery');
+assert.strictEqual(bufferOverlay.active, false, 'successful final-page buffer revive must close the failure page');
+
+const attemptsBeforeFinalTimeoutRevive = rewardedAttempts.length;
+bufferRuntime._activeLoseReason = 'timeout';
+bufferRuntime._adShowing = false;
+bufferOverlay.active = true;
+runFinalLoseRevive();
+assert.strictEqual(rewardedAttempts.length, attemptsBeforeFinalTimeoutRevive + 1);
+assert.strictEqual(rewardedAttempts.at(-1).page, 'level_revive', 'a timeout failure page must keep the ordinary level-revive placement');
+assert.strictEqual(pendingGrants.at(-1)(), true);
+assert.deepStrictEqual(continuedFromLoseSeconds, [120], 'a timeout failure page must still add the configured revive time');
+assert.strictEqual(bufferCapacity, 84, 'ordinary timeout revive must not change conveyor capacity');
+assert.strictEqual(bufferOverlay.active, false, 'successful timeout revive must close the failure page');
 
 console.log('result-panel-scaled-fallback.test.js passed');

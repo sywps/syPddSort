@@ -2221,6 +2221,7 @@
         "timeRegs": []
     },
     "levelId": 10,
+    "Hard": 0,
     "isFeatured": true,
     "sourceLevelId": 117
 }

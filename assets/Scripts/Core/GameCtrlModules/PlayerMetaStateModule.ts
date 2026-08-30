@@ -1130,8 +1130,8 @@ export function installPlayerMetaStateModule(target: any): void {
                                         if (grantedAmount <= 0) return false;
                                         this.recordRecoverVigorShareGrant();
                                     }, {
-                                        busyFlag: '_adShowing',
                                         shareType: 'vigor_recover_share',
+                                        busyFlag: '_shareShowing',
                                         title: () => `\u6211\u5728\u62fc\u8c46\u8c46\u8865\u5145\u4e86\u4f53\u529b\uff0c\u5feb\u6765\u4e00\u8d77\u6311\u6218\uff01`,
                                         query: () => `level=${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}`,
                                         shareFailToast: '\u5206\u4eab\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',

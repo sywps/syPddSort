@@ -933,6 +933,7 @@ export function installSettlementHudModule(target: any): void {
                 return;
             }
             this.isGameEnd = true;
+            this._activeLoseReason = reason;
             this._pchConveyorGameplayController?.pauseForSettlement?.();
             this.clearIdleHint();
             this.clearAdRewardHintVisuals?.();
@@ -951,6 +952,7 @@ export function installSettlementHudModule(target: any): void {
             AudioMgr.inst.play('lose');
             const showLoseResult = () => {
                 this.updateLoseProgressLabel();
+                this.refreshReviveShareButtons?.();
                 if (reason === 'buffer-full' && this.panelBufferFullContinue) {
                     this.panelBufferFullContinue.active = true;
                     AnalyticsMgr.inst.trackRevivePanelShow('pch_buffer_full_revive', logicalLevelId);
@@ -1051,6 +1053,7 @@ export function installSettlementHudModule(target: any): void {
             this._freezeTimeTotal = 0;
             this.clearFreezeSpineFx?.();
             this._adTimerSuspended = false;
+            this._activeLoseReason = null;
             this.isGameEnd = false;
             conveyor?.resumeAfterSettlement?.();
             this.unschedule(this.tickTimer);

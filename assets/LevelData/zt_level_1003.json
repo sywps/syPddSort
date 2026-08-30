@@ -3221,6 +3221,7 @@
     ],
     "source": "Saga_0564",
     "levelId": 1003,
+    "Hard": 0,
     "filledCellCount": 1831,
     "colorCount": 8,
     "colorStats": {

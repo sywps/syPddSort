@@ -2503,6 +2503,16 @@ export function installAssetBootstrapModule(target: any): void {
             return trail;
         },
 
+        getWarningMaskSpriteFrame(): SpriteFrame | null {
+            return this.getSF('pdpx_eff_Mask_01');
+        },
+
+        requireWarningMaskSpriteFrame(): SpriteFrame {
+            const mask = this.getWarningMaskSpriteFrame();
+            if (!mask) throw new Error('[assets] missing required SpriteFrame: pdpx_eff_Mask_01');
+            return mask;
+        },
+
         shouldUseLocalBootstrapBundle(levelId: number, prefix: string = LOCAL_BOOTSTRAP_LEVEL_PREFIX): boolean {
             return LOCAL_BOOTSTRAP_LEVEL_IDS.has(levelId) && prefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX;
         },

@@ -49,6 +49,24 @@ assert.ok(pch.includes('const PCH_SKILL_TRANSFER_SECONDS = 0.2;'), 'PCH prop ret
 const pchInbound = section(pch, '    private animateBeanIntoConveyor(', '    private animateBeanReturn(');
 assert.ok(pchInbound.includes('.to(PCH_TRANSFER_SECONDS,'), 'PCH inbound storage must retain its separate transfer timing');
 assert.ok(pchInbound.includes("{ easing: 'quadIn' }"), 'PCH inbound storage easing must remain unchanged');
+const pchStore = section(pch, '    private handleBoardTap(', '    private handleCarrierAtEntrance(');
+assert.ok(!pchStore.includes('AudioMgr.inst.vibrateSelect();'), 'PCH batch acceptance must not emit a single selection vibration');
+assert.ok(
+    pchStore.includes('index === result.boardCells.length - 1'),
+    'only the final inbound animation in each actually stored batch may request the batch placement sound',
+);
+const inboundAudioIndex = pchInbound.indexOf("AudioMgr.inst.play('place');");
+const inboundVibrateIndex = pchInbound.indexOf('AudioMgr.inst.vibratePlace();');
+const inboundReadyIndex = pchInbound.indexOf('this.rules?.markQueuedBeansReady(1);');
+assert.ok(
+    /if \(playBatchAudio\) \{\s*AudioMgr\.inst\.play\('place'\);\s*AudioMgr\.inst\.vibratePlace\(\);\s*\}/.test(pchInbound)
+        && inboundAudioIndex >= 0
+        && inboundAudioIndex < inboundVibrateIndex
+        && inboundVibrateIndex < inboundReadyIndex,
+    'the batch-tail sound and single vibration must precede the Ready transition',
+);
+assert.strictEqual((pchInbound.match(/AudioMgr\.inst\.play\('place'\);/g) || []).length, 1, 'inbound storage must own one conditional batch sound call');
+assert.strictEqual((pchInbound.match(/AudioMgr\.inst\.vibratePlace\(\);/g) || []).length, 1, 'inbound storage must own one conditional batch vibration call');
 
 const pchReturn = section(pch, '    private animateBeanReturn(', '    private finishReturnAnimation(');
 assert.ok(pchReturn.includes('const flightDelay = staggerIndex * PCH_RETURN_STAGGER_SECONDS;'), 'PCH automatic returns must preserve indexed launch timing');

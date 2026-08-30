@@ -33,6 +33,11 @@ import { ensureCollectionPanelController } from '../Panels/CollectionPanelContro
 import { releasePixelPosterPreviewTree, renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
 
+export function isCollectionEntryUnlocked(unlockLevel: number, savedLevel: number): boolean {
+    const completedLevel = Math.max(0, savedLevel - 1);
+    return unlockLevel <= completedLevel;
+}
+
 function getRankTextColor(rank: number): Color {
     if (rank === 1) return new Color('#D99A16');
     if (rank === 2) return new Color('#6D7F9C');
@@ -555,7 +560,7 @@ export function installCollectionAvatarModule(target: any): void {
                 const levelId = entry.levelId;
                 const row = Math.floor(idx / columnCount);
                 const col = idx % columnCount;
-                const unlocked = entry.unlockLevel <= savedLevel;
+                const unlocked = isCollectionEntryUnlocked(entry.unlockLevel, savedLevel);
                 slot.name = `CollectionCardSlotItem_${idx}`;
                 slot.active = true;
                 slot.layer = scrollContent.layer;

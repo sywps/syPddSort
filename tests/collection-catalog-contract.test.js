@@ -80,6 +80,34 @@ function loadClientCollectionCatalogContract(liveManifest = null) {
     return module.exports;
 }
 
+function loadCollectionUnlockPolicy() {
+    const source = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
+    const output = ts.transpileModule(source, {
+        compilerOptions: {
+            module: ts.ModuleKind.CommonJS,
+            target: ts.ScriptTarget.ES2019,
+        },
+    }).outputText;
+    const module = { exports: {} };
+    const sandbox = {
+        module,
+        exports: module.exports,
+        console,
+        require(id) {
+            if (
+                id === '../GameCtrlShared'
+                || id === '../Panels/CollectionPanelController'
+                || id === '../PixelPosterPreviewRenderer'
+            ) {
+                return {};
+            }
+            throw new Error(`unexpected require: ${id}`);
+        },
+    };
+    vm.runInNewContext(output, sandbox, { filename: 'CollectionAvatarModule.ts' });
+    return module.exports.isCollectionEntryUnlocked;
+}
+
 const config = readJson('config/collection-catalog.json');
 const availableLevelKeys = new Set(
     fs.readdirSync(path.join(root, 'assets', 'LevelData'))
@@ -95,6 +123,20 @@ assert.deepStrictEqual(catalog.entries[0], { levelId: 1, prefix: 'level_', unloc
 assert.deepStrictEqual(catalog.entries.at(-1), { levelId: 300, prefix: 'level_', unlockLevel: 300 });
 assert.ok(catalog.entries.every((entry) => availableLevelKeys.has(entry.prefix + entry.levelId)), 'every collection entry must resolve to a source level');
 assert.ok(!catalog.entries.some((entry) => entry.levelId >= 100001), 'removed special ids must not return');
+
+const isCollectionEntryUnlocked = loadCollectionUnlockPolicy();
+assert.strictEqual(typeof isCollectionEntryUnlocked, 'function', 'collection unlock policy must be executable in isolation');
+assert.strictEqual(
+    catalog.entries.filter((entry) => isCollectionEntryUnlocked(entry.unlockLevel, 1)).length,
+    0,
+    'a new player must not light level 1 before completing it',
+);
+const unlockedWhilePlayingLevel8 = catalog.entries.filter((entry) => isCollectionEntryUnlocked(entry.unlockLevel, 8));
+assert.strictEqual(unlockedWhilePlayingLevel8.length, 7, 'playing level 8 must only light completed levels 1..7');
+assert.strictEqual(unlockedWhilePlayingLevel8.at(-1)?.levelId, 7, 'the current unfinished level must stay locked');
+const unlockedAfterCompletingLevel8 = catalog.entries.filter((entry) => isCollectionEntryUnlocked(entry.unlockLevel, 9));
+assert.strictEqual(unlockedAfterCompletingLevel8.length, 8, 'completing level 8 must light levels 1..8');
+assert.strictEqual(unlockedAfterCompletingLevel8.at(-1)?.levelId, 8, 'the next unfinished level must stay locked');
 
 const clientCatalogContract = loadClientCollectionCatalogContract();
 const manifestCatalog = clientCatalogContract.resolveLevelCollectionEntries({
@@ -224,7 +266,8 @@ assert.ok(!host.includes('COLLECTION_MAIN_LEVEL_COUNT'), 'runtime must not own t
 assert.ok(!host.includes('COLLECTION_SPECIAL_LEVEL_'), 'runtime must not own synthetic special ids');
 assert.ok(!collection.includes('collectAllLevelIds'), 'collection rendering must not rebuild a hardcoded catalog');
 assert.ok(panel.includes('loadCollectionLevelEntries'), 'collection open must load manifest entries');
-assert.ok(collection.includes('entry.unlockLevel <= savedLevel'), 'unlock state must consume the manifest contract');
+assert.ok(collection.includes('isCollectionEntryUnlocked(entry.unlockLevel, savedLevel)'), 'unlock state must use completed progress with the manifest contract');
+assert.ok(!collection.includes('entry.unlockLevel <= savedLevel'), 'unlock state must not treat the current playable level as completed');
 assert.ok(collection.includes('prefix: entry.prefix'), 'lazy preview state must retain the manifest prefix');
 assert.ok(flow.includes('openCollectionImageModal(levelId, prefix)'), 'collection detail must retain the manifest prefix');
 assert.ok(!cloudFunction.includes('collection-catalog'), 'syncUserState must not load the collection catalog');

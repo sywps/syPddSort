@@ -34,13 +34,15 @@ for (const filename of outputFiles) {
     const formal = JSON.parse(fs.readFileSync(path.join(formalDir, filename), 'utf8'));
     const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, filename), 'utf8'));
     const comparableFormal = { ...formal };
+    delete comparableFormal.Hard;
     if (levelId === 2) delete comparableFormal.singleSelectionLimit;
     if (levelId >= 5) comparableFormal.timeLimit = candidate.timeLimit;
     assert.deepEqual(
         comparableFormal,
         candidate,
-        `${filename} formal may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
+        `${filename} formal may differ only by approved Hard/Level-2 runtime metadata and DBT-rule timeLimit`,
     );
+    assert.equal(formal.Hard, levelId === 3 ? 1 : 0, `${filename} Hard flag`);
     if (levelId >= 5) {
         const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
         assert.equal(formal.timeLimit, expectedTime);

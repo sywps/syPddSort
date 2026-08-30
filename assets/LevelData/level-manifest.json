@@ -1508,6 +1508,7 @@
   "entries": [
     {
       "levelId": 1,
+      "Hard": 0,
       "file": "LevelData/level_1.json",
       "boardWidth": 14,
       "boardHeight": 12,
@@ -1525,6 +1526,7 @@
     },
     {
       "levelId": 2,
+      "Hard": 0,
       "file": "LevelData/level_2.json",
       "boardWidth": 14,
       "boardHeight": 17,
@@ -1545,6 +1547,7 @@
     },
     {
       "levelId": 3,
+      "Hard": 1,
       "file": "LevelData/level_3.json",
       "boardWidth": 20,
       "boardHeight": 23,
@@ -1564,6 +1567,7 @@
     },
     {
       "levelId": 4,
+      "Hard": 0,
       "file": "LevelData/level_4.json",
       "boardWidth": 22,
       "boardHeight": 21,
@@ -1586,6 +1590,7 @@
     },
     {
       "levelId": 5,
+      "Hard": 0,
       "file": "LevelData/level_5.json",
       "boardWidth": 26,
       "boardHeight": 26,
@@ -1606,6 +1611,7 @@
     },
     {
       "levelId": 6,
+      "Hard": 0,
       "file": "LevelData/level_6.json",
       "boardWidth": 28,
       "boardHeight": 30,
@@ -1625,6 +1631,7 @@
     },
     {
       "levelId": 7,
+      "Hard": 0,
       "file": "LevelData/level_7.json",
       "boardWidth": 24,
       "boardHeight": 35,
@@ -1644,6 +1651,7 @@
     },
     {
       "levelId": 8,
+      "Hard": 0,
       "file": "LevelData/level_8.json",
       "boardWidth": 30,
       "boardHeight": 29,
@@ -1663,6 +1671,7 @@
     },
     {
       "levelId": 9,
+      "Hard": 0,
       "file": "LevelData/level_9.json",
       "boardWidth": 28,
       "boardHeight": 26,
@@ -1682,6 +1691,7 @@
     },
     {
       "levelId": 10,
+      "Hard": 0,
       "file": "LevelData/level_10.json",
       "boardWidth": 24,
       "boardHeight": 30,
@@ -1702,6 +1712,7 @@
     },
     {
       "levelId": 11,
+      "Hard": 0,
       "file": "LevelData/level_11.json",
       "boardWidth": 27,
       "boardHeight": 28,
@@ -1723,6 +1734,7 @@
     },
     {
       "levelId": 12,
+      "Hard": 0,
       "file": "LevelData/level_12.json",
       "boardWidth": 25,
       "boardHeight": 29,
@@ -1744,6 +1756,7 @@
     },
     {
       "levelId": 13,
+      "Hard": 0,
       "file": "LevelData/level_13.json",
       "boardWidth": 34,
       "boardHeight": 28,
@@ -1765,6 +1778,7 @@
     },
     {
       "levelId": 14,
+      "Hard": 0,
       "file": "LevelData/level_14.json",
       "boardWidth": 26,
       "boardHeight": 28,
@@ -1786,6 +1800,7 @@
     },
     {
       "levelId": 15,
+      "Hard": 0,
       "file": "LevelData/level_15.json",
       "boardWidth": 33,
       "boardHeight": 35,
@@ -1807,6 +1822,7 @@
     },
     {
       "levelId": 16,
+      "Hard": 0,
       "file": "LevelData/level_16.json",
       "boardWidth": 30,
       "boardHeight": 39,
@@ -1828,6 +1844,7 @@
     },
     {
       "levelId": 17,
+      "Hard": 0,
       "file": "LevelData/level_17.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -1848,6 +1865,7 @@
     },
     {
       "levelId": 18,
+      "Hard": 0,
       "file": "LevelData/level_18.json",
       "boardWidth": 32,
       "boardHeight": 40,
@@ -1869,6 +1887,7 @@
     },
     {
       "levelId": 19,
+      "Hard": 0,
       "file": "LevelData/level_19.json",
       "boardWidth": 30,
       "boardHeight": 37,
@@ -1889,6 +1908,7 @@
     },
     {
       "levelId": 20,
+      "Hard": 0,
       "file": "LevelData/level_20.json",
       "boardWidth": 33,
       "boardHeight": 32,
@@ -1910,6 +1930,7 @@
     },
     {
       "levelId": 21,
+      "Hard": 0,
       "file": "LevelData/level_21.json",
       "boardWidth": 32,
       "boardHeight": 33,
@@ -1931,6 +1952,7 @@
     },
     {
       "levelId": 22,
+      "Hard": 0,
       "file": "LevelData/level_22.json",
       "boardWidth": 32,
       "boardHeight": 48,
@@ -1952,6 +1974,7 @@
     },
     {
       "levelId": 23,
+      "Hard": 0,
       "file": "LevelData/level_23.json",
       "boardWidth": 23,
       "boardHeight": 23,
@@ -1973,6 +1996,7 @@
     },
     {
       "levelId": 24,
+      "Hard": 0,
       "file": "LevelData/level_24.json",
       "boardWidth": 30,
       "boardHeight": 30,
@@ -1994,6 +2018,7 @@
     },
     {
       "levelId": 25,
+      "Hard": 0,
       "file": "LevelData/level_25.json",
       "boardWidth": 34,
       "boardHeight": 29,
@@ -2015,6 +2040,7 @@
     },
     {
       "levelId": 26,
+      "Hard": 0,
       "file": "LevelData/level_26.json",
       "boardWidth": 31,
       "boardHeight": 29,
@@ -2036,6 +2062,7 @@
     },
     {
       "levelId": 27,
+      "Hard": 0,
       "file": "LevelData/level_27.json",
       "boardWidth": 31,
       "boardHeight": 33,
@@ -2058,6 +2085,7 @@
     },
     {
       "levelId": 28,
+      "Hard": 0,
       "file": "LevelData/level_28.json",
       "boardWidth": 48,
       "boardHeight": 41,
@@ -2081,6 +2109,7 @@
     },
     {
       "levelId": 29,
+      "Hard": 0,
       "file": "LevelData/level_29.json",
       "boardWidth": 16,
       "boardHeight": 15,
@@ -2100,6 +2129,7 @@
     },
     {
       "levelId": 30,
+      "Hard": 0,
       "file": "LevelData/level_30.json",
       "boardWidth": 28,
       "boardHeight": 32,
@@ -2121,6 +2151,7 @@
     },
     {
       "levelId": 31,
+      "Hard": 0,
       "file": "LevelData/level_31.json",
       "boardWidth": 37,
       "boardHeight": 32,
@@ -2143,6 +2174,7 @@
     },
     {
       "levelId": 32,
+      "Hard": 0,
       "file": "LevelData/level_32.json",
       "boardWidth": 37,
       "boardHeight": 27,
@@ -2165,6 +2197,7 @@
     },
     {
       "levelId": 33,
+      "Hard": 0,
       "file": "LevelData/level_33.json",
       "boardWidth": 31,
       "boardHeight": 29,
@@ -2186,6 +2219,7 @@
     },
     {
       "levelId": 34,
+      "Hard": 0,
       "file": "LevelData/level_34.json",
       "boardWidth": 30,
       "boardHeight": 29,
@@ -2206,6 +2240,7 @@
     },
     {
       "levelId": 35,
+      "Hard": 0,
       "file": "LevelData/level_35.json",
       "boardWidth": 34,
       "boardHeight": 29,
@@ -2227,6 +2262,7 @@
     },
     {
       "levelId": 36,
+      "Hard": 0,
       "file": "LevelData/level_36.json",
       "boardWidth": 33,
       "boardHeight": 33,
@@ -2248,6 +2284,7 @@
     },
     {
       "levelId": 37,
+      "Hard": 0,
       "file": "LevelData/level_37.json",
       "boardWidth": 43,
       "boardHeight": 37,
@@ -2271,6 +2308,7 @@
     },
     {
       "levelId": 38,
+      "Hard": 0,
       "file": "LevelData/level_38.json",
       "boardWidth": 16,
       "boardHeight": 19,
@@ -2293,6 +2331,7 @@
     },
     {
       "levelId": 39,
+      "Hard": 0,
       "file": "LevelData/level_39.json",
       "boardWidth": 37,
       "boardHeight": 29,
@@ -2315,6 +2354,7 @@
     },
     {
       "levelId": 40,
+      "Hard": 0,
       "file": "LevelData/level_40.json",
       "boardWidth": 29,
       "boardHeight": 29,
@@ -2337,6 +2377,7 @@
     },
     {
       "levelId": 41,
+      "Hard": 0,
       "file": "LevelData/level_41.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -2359,6 +2400,7 @@
     },
     {
       "levelId": 42,
+      "Hard": 0,
       "file": "LevelData/level_42.json",
       "boardWidth": 27,
       "boardHeight": 34,
@@ -2381,6 +2423,7 @@
     },
     {
       "levelId": 43,
+      "Hard": 0,
       "file": "LevelData/level_43.json",
       "boardWidth": 29,
       "boardHeight": 29,
@@ -2404,6 +2447,7 @@
     },
     {
       "levelId": 44,
+      "Hard": 0,
       "file": "LevelData/level_44.json",
       "boardWidth": 37,
       "boardHeight": 40,
@@ -2427,6 +2471,7 @@
     },
     {
       "levelId": 45,
+      "Hard": 0,
       "file": "LevelData/level_45.json",
       "boardWidth": 28,
       "boardHeight": 43,
@@ -2450,6 +2495,7 @@
     },
     {
       "levelId": 46,
+      "Hard": 0,
       "file": "LevelData/level_46.json",
       "boardWidth": 37,
       "boardHeight": 40,
@@ -2471,6 +2517,7 @@
     },
     {
       "levelId": 47,
+      "Hard": 0,
       "file": "LevelData/level_47.json",
       "boardWidth": 14,
       "boardHeight": 21,
@@ -2492,6 +2539,7 @@
     },
     {
       "levelId": 48,
+      "Hard": 0,
       "file": "LevelData/level_48.json",
       "boardWidth": 29,
       "boardHeight": 29,
@@ -2514,6 +2562,7 @@
     },
     {
       "levelId": 49,
+      "Hard": 0,
       "file": "LevelData/level_49.json",
       "boardWidth": 33,
       "boardHeight": 35,
@@ -2536,6 +2585,7 @@
     },
     {
       "levelId": 50,
+      "Hard": 0,
       "file": "LevelData/level_50.json",
       "boardWidth": 37,
       "boardHeight": 36,
@@ -2558,6 +2608,7 @@
     },
     {
       "levelId": 51,
+      "Hard": 0,
       "file": "LevelData/level_51.json",
       "boardWidth": 37,
       "boardHeight": 32,
@@ -2579,6 +2630,7 @@
     },
     {
       "levelId": 52,
+      "Hard": 0,
       "file": "LevelData/level_52.json",
       "boardWidth": 33,
       "boardHeight": 30,
@@ -2600,6 +2652,7 @@
     },
     {
       "levelId": 53,
+      "Hard": 0,
       "file": "LevelData/level_53.json",
       "boardWidth": 27,
       "boardHeight": 28,
@@ -2622,6 +2675,7 @@
     },
     {
       "levelId": 54,
+      "Hard": 0,
       "file": "LevelData/level_54.json",
       "boardWidth": 31,
       "boardHeight": 29,
@@ -2644,6 +2698,7 @@
     },
     {
       "levelId": 55,
+      "Hard": 0,
       "file": "LevelData/level_55.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -2667,6 +2722,7 @@
     },
     {
       "levelId": 56,
+      "Hard": 0,
       "file": "LevelData/level_56.json",
       "boardWidth": 36,
       "boardHeight": 37,
@@ -2689,6 +2745,7 @@
     },
     {
       "levelId": 57,
+      "Hard": 0,
       "file": "LevelData/level_57.json",
       "boardWidth": 28,
       "boardHeight": 32,
@@ -2709,6 +2766,7 @@
     },
     {
       "levelId": 58,
+      "Hard": 0,
       "file": "LevelData/level_58.json",
       "boardWidth": 23,
       "boardHeight": 31,
@@ -2731,6 +2789,7 @@
     },
     {
       "levelId": 59,
+      "Hard": 0,
       "file": "LevelData/level_59.json",
       "boardWidth": 32,
       "boardHeight": 35,
@@ -2755,6 +2814,7 @@
     },
     {
       "levelId": 60,
+      "Hard": 0,
       "file": "LevelData/level_60.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -2779,6 +2839,7 @@
     },
     {
       "levelId": 61,
+      "Hard": 0,
       "file": "LevelData/level_61.json",
       "boardWidth": 29,
       "boardHeight": 34,
@@ -2800,6 +2861,7 @@
     },
     {
       "levelId": 62,
+      "Hard": 0,
       "file": "LevelData/level_62.json",
       "boardWidth": 24,
       "boardHeight": 32,
@@ -2821,6 +2883,7 @@
     },
     {
       "levelId": 63,
+      "Hard": 0,
       "file": "LevelData/level_63.json",
       "boardWidth": 29,
       "boardHeight": 28,
@@ -2843,6 +2906,7 @@
     },
     {
       "levelId": 64,
+      "Hard": 0,
       "file": "LevelData/level_64.json",
       "boardWidth": 35,
       "boardHeight": 35,
@@ -2868,6 +2932,7 @@
     },
     {
       "levelId": 65,
+      "Hard": 0,
       "file": "LevelData/level_65.json",
       "boardWidth": 34,
       "boardHeight": 34,
@@ -2890,6 +2955,7 @@
     },
     {
       "levelId": 66,
+      "Hard": 0,
       "file": "LevelData/level_66.json",
       "boardWidth": 24,
       "boardHeight": 24,
@@ -2910,6 +2976,7 @@
     },
     {
       "levelId": 67,
+      "Hard": 0,
       "file": "LevelData/level_67.json",
       "boardWidth": 34,
       "boardHeight": 34,
@@ -2931,6 +2998,7 @@
     },
     {
       "levelId": 68,
+      "Hard": 0,
       "file": "LevelData/level_68.json",
       "boardWidth": 32,
       "boardHeight": 40,
@@ -2953,6 +3021,7 @@
     },
     {
       "levelId": 69,
+      "Hard": 0,
       "file": "LevelData/level_69.json",
       "boardWidth": 34,
       "boardHeight": 33,
@@ -2975,6 +3044,7 @@
     },
     {
       "levelId": 70,
+      "Hard": 0,
       "file": "LevelData/level_70.json",
       "boardWidth": 32,
       "boardHeight": 43,
@@ -2997,6 +3067,7 @@
     },
     {
       "levelId": 71,
+      "Hard": 0,
       "file": "LevelData/level_71.json",
       "boardWidth": 41,
       "boardHeight": 35,
@@ -3018,6 +3089,7 @@
     },
     {
       "levelId": 72,
+      "Hard": 0,
       "file": "LevelData/level_72.json",
       "boardWidth": 25,
       "boardHeight": 25,
@@ -3039,6 +3111,7 @@
     },
     {
       "levelId": 73,
+      "Hard": 0,
       "file": "LevelData/level_73.json",
       "boardWidth": 28,
       "boardHeight": 28,
@@ -3060,6 +3133,7 @@
     },
     {
       "levelId": 74,
+      "Hard": 0,
       "file": "LevelData/level_74.json",
       "boardWidth": 45,
       "boardHeight": 53,
@@ -3083,6 +3157,7 @@
     },
     {
       "levelId": 75,
+      "Hard": 0,
       "file": "LevelData/level_75.json",
       "boardWidth": 25,
       "boardHeight": 25,
@@ -3103,6 +3178,7 @@
     },
     {
       "levelId": 76,
+      "Hard": 0,
       "file": "LevelData/level_76.json",
       "boardWidth": 30,
       "boardHeight": 26,
@@ -3125,6 +3201,7 @@
     },
     {
       "levelId": 77,
+      "Hard": 0,
       "file": "LevelData/level_77.json",
       "boardWidth": 27,
       "boardHeight": 38,
@@ -3148,6 +3225,7 @@
     },
     {
       "levelId": 78,
+      "Hard": 0,
       "file": "LevelData/level_78.json",
       "boardWidth": 39,
       "boardHeight": 36,
@@ -3170,6 +3248,7 @@
     },
     {
       "levelId": 79,
+      "Hard": 0,
       "file": "LevelData/level_79.json",
       "boardWidth": 33,
       "boardHeight": 28,
@@ -3193,6 +3272,7 @@
     },
     {
       "levelId": 80,
+      "Hard": 0,
       "file": "LevelData/level_80.json",
       "boardWidth": 30,
       "boardHeight": 32,
@@ -3214,6 +3294,7 @@
     },
     {
       "levelId": 81,
+      "Hard": 0,
       "file": "LevelData/level_81.json",
       "boardWidth": 40,
       "boardHeight": 35,
@@ -3236,6 +3317,7 @@
     },
     {
       "levelId": 82,
+      "Hard": 0,
       "file": "LevelData/level_82.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -3258,6 +3340,7 @@
     },
     {
       "levelId": 83,
+      "Hard": 0,
       "file": "LevelData/level_83.json",
       "boardWidth": 36,
       "boardHeight": 36,
@@ -3282,6 +3365,7 @@
     },
     {
       "levelId": 84,
+      "Hard": 0,
       "file": "LevelData/level_84.json",
       "boardWidth": 30,
       "boardHeight": 29,
@@ -3303,6 +3387,7 @@
     },
     {
       "levelId": 85,
+      "Hard": 0,
       "file": "LevelData/level_85.json",
       "boardWidth": 29,
       "boardHeight": 30,
@@ -3324,6 +3409,7 @@
     },
     {
       "levelId": 86,
+      "Hard": 0,
       "file": "LevelData/level_86.json",
       "boardWidth": 42,
       "boardHeight": 40,
@@ -3347,6 +3433,7 @@
     },
     {
       "levelId": 87,
+      "Hard": 0,
       "file": "LevelData/level_87.json",
       "boardWidth": 35,
       "boardHeight": 33,
@@ -3370,6 +3457,7 @@
     },
     {
       "levelId": 88,
+      "Hard": 0,
       "file": "LevelData/level_88.json",
       "boardWidth": 34,
       "boardHeight": 40,
@@ -3394,6 +3482,7 @@
     },
     {
       "levelId": 89,
+      "Hard": 0,
       "file": "LevelData/level_89.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -3416,6 +3505,7 @@
     },
     {
       "levelId": 90,
+      "Hard": 0,
       "file": "LevelData/level_90.json",
       "boardWidth": 31,
       "boardHeight": 33,
@@ -3438,6 +3528,7 @@
     },
     {
       "levelId": 91,
+      "Hard": 0,
       "file": "LevelData/level_91.json",
       "boardWidth": 37,
       "boardHeight": 36,
@@ -3460,6 +3551,7 @@
     },
     {
       "levelId": 92,
+      "Hard": 0,
       "file": "LevelData/level_92.json",
       "boardWidth": 45,
       "boardHeight": 43,
@@ -3485,6 +3577,7 @@
     },
     {
       "levelId": 93,
+      "Hard": 0,
       "file": "LevelData/level_93.json",
       "boardWidth": 30,
       "boardHeight": 30,
@@ -3506,6 +3599,7 @@
     },
     {
       "levelId": 94,
+      "Hard": 0,
       "file": "LevelData/level_94.json",
       "boardWidth": 48,
       "boardHeight": 46,
@@ -3530,6 +3624,7 @@
     },
     {
       "levelId": 95,
+      "Hard": 0,
       "file": "LevelData/level_95.json",
       "boardWidth": 57,
       "boardHeight": 45,
@@ -3553,6 +3648,7 @@
     },
     {
       "levelId": 96,
+      "Hard": 0,
       "file": "LevelData/level_96.json",
       "boardWidth": 33,
       "boardHeight": 39,
@@ -3576,6 +3672,7 @@
     },
     {
       "levelId": 97,
+      "Hard": 0,
       "file": "LevelData/level_97.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -3599,6 +3696,7 @@
     },
     {
       "levelId": 98,
+      "Hard": 0,
       "file": "LevelData/level_98.json",
       "boardWidth": 31,
       "boardHeight": 44,
@@ -3622,6 +3720,7 @@
     },
     {
       "levelId": 99,
+      "Hard": 0,
       "file": "LevelData/level_99.json",
       "boardWidth": 30,
       "boardHeight": 46,
@@ -3646,6 +3745,7 @@
     },
     {
       "levelId": 100,
+      "Hard": 0,
       "file": "LevelData/level_100.json",
       "boardWidth": 37,
       "boardHeight": 38,
@@ -3668,6 +3768,7 @@
     },
     {
       "levelId": 101,
+      "Hard": 0,
       "file": "LevelData/level_101.json",
       "boardWidth": 33,
       "boardHeight": 39,
@@ -3689,6 +3790,7 @@
     },
     {
       "levelId": 102,
+      "Hard": 0,
       "file": "LevelData/level_102.json",
       "boardWidth": 54,
       "boardHeight": 52,
@@ -3714,6 +3816,7 @@
     },
     {
       "levelId": 103,
+      "Hard": 0,
       "file": "LevelData/level_103.json",
       "boardWidth": 27,
       "boardHeight": 28,
@@ -3735,6 +3838,7 @@
     },
     {
       "levelId": 104,
+      "Hard": 0,
       "file": "LevelData/level_104.json",
       "boardWidth": 27,
       "boardHeight": 38,
@@ -3758,6 +3862,7 @@
     },
     {
       "levelId": 105,
+      "Hard": 0,
       "file": "LevelData/level_105.json",
       "boardWidth": 33,
       "boardHeight": 33,
@@ -3781,6 +3886,7 @@
     },
     {
       "levelId": 106,
+      "Hard": 0,
       "file": "LevelData/level_106.json",
       "boardWidth": 32,
       "boardHeight": 31,
@@ -3803,6 +3909,7 @@
     },
     {
       "levelId": 107,
+      "Hard": 0,
       "file": "LevelData/level_107.json",
       "boardWidth": 24,
       "boardHeight": 36,
@@ -3825,6 +3932,7 @@
     },
     {
       "levelId": 108,
+      "Hard": 0,
       "file": "LevelData/level_108.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -3846,6 +3954,7 @@
     },
     {
       "levelId": 109,
+      "Hard": 0,
       "file": "LevelData/level_109.json",
       "boardWidth": 35,
       "boardHeight": 46,
@@ -3868,6 +3977,7 @@
     },
     {
       "levelId": 110,
+      "Hard": 0,
       "file": "LevelData/level_110.json",
       "boardWidth": 35,
       "boardHeight": 51,
@@ -3890,6 +4000,7 @@
     },
     {
       "levelId": 111,
+      "Hard": 0,
       "file": "LevelData/level_111.json",
       "boardWidth": 45,
       "boardHeight": 60,
@@ -3916,6 +4027,7 @@
     },
     {
       "levelId": 112,
+      "Hard": 0,
       "file": "LevelData/level_112.json",
       "boardWidth": 28,
       "boardHeight": 33,
@@ -3938,6 +4050,7 @@
     },
     {
       "levelId": 113,
+      "Hard": 0,
       "file": "LevelData/level_113.json",
       "boardWidth": 34,
       "boardHeight": 35,
@@ -3962,6 +4075,7 @@
     },
     {
       "levelId": 114,
+      "Hard": 0,
       "file": "LevelData/level_114.json",
       "boardWidth": 31,
       "boardHeight": 31,
@@ -3985,6 +4099,7 @@
     },
     {
       "levelId": 115,
+      "Hard": 0,
       "file": "LevelData/level_115.json",
       "boardWidth": 27,
       "boardHeight": 43,
@@ -4007,6 +4122,7 @@
     },
     {
       "levelId": 116,
+      "Hard": 0,
       "file": "LevelData/level_116.json",
       "boardWidth": 26,
       "boardHeight": 34,
@@ -4032,6 +4148,7 @@
     },
     {
       "levelId": 117,
+      "Hard": 0,
       "file": "LevelData/level_117.json",
       "boardWidth": 25,
       "boardHeight": 33,
@@ -4056,6 +4173,7 @@
     },
     {
       "levelId": 118,
+      "Hard": 0,
       "file": "LevelData/level_118.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -4081,6 +4199,7 @@
     },
     {
       "levelId": 119,
+      "Hard": 0,
       "file": "LevelData/level_119.json",
       "boardWidth": 45,
       "boardHeight": 34,
@@ -4105,6 +4224,7 @@
     },
     {
       "levelId": 120,
+      "Hard": 0,
       "file": "LevelData/level_120.json",
       "boardWidth": 45,
       "boardHeight": 49,
@@ -4125,6 +4245,7 @@
     },
     {
       "levelId": 121,
+      "Hard": 0,
       "file": "LevelData/level_121.json",
       "boardWidth": 27,
       "boardHeight": 26,
@@ -4146,6 +4267,7 @@
     },
     {
       "levelId": 122,
+      "Hard": 0,
       "file": "LevelData/level_122.json",
       "boardWidth": 35,
       "boardHeight": 40,
@@ -4169,6 +4291,7 @@
     },
     {
       "levelId": 123,
+      "Hard": 0,
       "file": "LevelData/level_123.json",
       "boardWidth": 28,
       "boardHeight": 28,
@@ -4190,6 +4313,7 @@
     },
     {
       "levelId": 124,
+      "Hard": 0,
       "file": "LevelData/level_124.json",
       "boardWidth": 29,
       "boardHeight": 33,
@@ -4212,6 +4336,7 @@
     },
     {
       "levelId": 125,
+      "Hard": 0,
       "file": "LevelData/level_125.json",
       "boardWidth": 37,
       "boardHeight": 37,
@@ -4236,6 +4361,7 @@
     },
     {
       "levelId": 126,
+      "Hard": 0,
       "file": "LevelData/level_126.json",
       "boardWidth": 43,
       "boardHeight": 46,
@@ -4260,6 +4386,7 @@
     },
     {
       "levelId": 127,
+      "Hard": 0,
       "file": "LevelData/level_127.json",
       "boardWidth": 30,
       "boardHeight": 37,
@@ -4283,6 +4410,7 @@
     },
     {
       "levelId": 128,
+      "Hard": 0,
       "file": "LevelData/level_128.json",
       "boardWidth": 31,
       "boardHeight": 31,
@@ -4305,6 +4433,7 @@
     },
     {
       "levelId": 129,
+      "Hard": 0,
       "file": "LevelData/level_129.json",
       "boardWidth": 48,
       "boardHeight": 51,
@@ -4327,6 +4456,7 @@
     },
     {
       "levelId": 130,
+      "Hard": 0,
       "file": "LevelData/level_130.json",
       "boardWidth": 27,
       "boardHeight": 27,
@@ -4347,6 +4477,7 @@
     },
     {
       "levelId": 131,
+      "Hard": 0,
       "file": "LevelData/level_131.json",
       "boardWidth": 27,
       "boardHeight": 41,
@@ -4370,6 +4501,7 @@
     },
     {
       "levelId": 132,
+      "Hard": 0,
       "file": "LevelData/level_132.json",
       "boardWidth": 53,
       "boardHeight": 42,
@@ -4394,6 +4526,7 @@
     },
     {
       "levelId": 133,
+      "Hard": 0,
       "file": "LevelData/level_133.json",
       "boardWidth": 33,
       "boardHeight": 44,
@@ -4419,6 +4552,7 @@
     },
     {
       "levelId": 134,
+      "Hard": 0,
       "file": "LevelData/level_134.json",
       "boardWidth": 39,
       "boardHeight": 35,
@@ -4441,6 +4575,7 @@
     },
     {
       "levelId": 135,
+      "Hard": 0,
       "file": "LevelData/level_135.json",
       "boardWidth": 48,
       "boardHeight": 35,
@@ -4463,6 +4598,7 @@
     },
     {
       "levelId": 136,
+      "Hard": 0,
       "file": "LevelData/level_136.json",
       "boardWidth": 45,
       "boardHeight": 41,
@@ -4485,6 +4621,7 @@
     },
     {
       "levelId": 137,
+      "Hard": 0,
       "file": "LevelData/level_137.json",
       "boardWidth": 38,
       "boardHeight": 38,
@@ -4508,6 +4645,7 @@
     },
     {
       "levelId": 138,
+      "Hard": 0,
       "file": "LevelData/level_138.json",
       "boardWidth": 40,
       "boardHeight": 50,
@@ -4532,6 +4670,7 @@
     },
     {
       "levelId": 139,
+      "Hard": 0,
       "file": "LevelData/level_139.json",
       "boardWidth": 25,
       "boardHeight": 24,
@@ -4554,6 +4693,7 @@
     },
     {
       "levelId": 140,
+      "Hard": 0,
       "file": "LevelData/level_140.json",
       "boardWidth": 33,
       "boardHeight": 42,
@@ -4577,6 +4717,7 @@
     },
     {
       "levelId": 141,
+      "Hard": 0,
       "file": "LevelData/level_141.json",
       "boardWidth": 42,
       "boardHeight": 32,
@@ -4599,6 +4740,7 @@
     },
     {
       "levelId": 142,
+      "Hard": 0,
       "file": "LevelData/level_142.json",
       "boardWidth": 33,
       "boardHeight": 33,
@@ -4621,6 +4763,7 @@
     },
     {
       "levelId": 143,
+      "Hard": 0,
       "file": "LevelData/level_143.json",
       "boardWidth": 31,
       "boardHeight": 36,
@@ -4642,6 +4785,7 @@
     },
     {
       "levelId": 144,
+      "Hard": 0,
       "file": "LevelData/level_144.json",
       "boardWidth": 56,
       "boardHeight": 58,
@@ -4665,6 +4809,7 @@
     },
     {
       "levelId": 145,
+      "Hard": 0,
       "file": "LevelData/level_145.json",
       "boardWidth": 50,
       "boardHeight": 50,
@@ -4688,6 +4833,7 @@
     },
     {
       "levelId": 146,
+      "Hard": 0,
       "file": "LevelData/level_146.json",
       "boardWidth": 31,
       "boardHeight": 33,
@@ -4712,6 +4858,7 @@
     },
     {
       "levelId": 147,
+      "Hard": 0,
       "file": "LevelData/level_147.json",
       "boardWidth": 38,
       "boardHeight": 38,
@@ -4734,6 +4881,7 @@
     },
     {
       "levelId": 148,
+      "Hard": 0,
       "file": "LevelData/level_148.json",
       "boardWidth": 53,
       "boardHeight": 52,
@@ -4759,6 +4907,7 @@
     },
     {
       "levelId": 149,
+      "Hard": 0,
       "file": "LevelData/level_149.json",
       "boardWidth": 27,
       "boardHeight": 33,
@@ -4780,6 +4929,7 @@
     },
     {
       "levelId": 150,
+      "Hard": 0,
       "file": "LevelData/level_150.json",
       "boardWidth": 36,
       "boardHeight": 42,
@@ -4802,6 +4952,7 @@
     },
     {
       "levelId": 151,
+      "Hard": 0,
       "file": "LevelData/level_151.json",
       "boardWidth": 43,
       "boardHeight": 42,
@@ -4826,6 +4977,7 @@
     },
     {
       "levelId": 152,
+      "Hard": 0,
       "file": "LevelData/level_152.json",
       "boardWidth": 43,
       "boardHeight": 50,
@@ -4851,6 +5003,7 @@
     },
     {
       "levelId": 153,
+      "Hard": 0,
       "file": "LevelData/level_153.json",
       "boardWidth": 34,
       "boardHeight": 33,
@@ -4874,6 +5027,7 @@
     },
     {
       "levelId": 154,
+      "Hard": 0,
       "file": "LevelData/level_154.json",
       "boardWidth": 44,
       "boardHeight": 40,
@@ -4898,6 +5052,7 @@
     },
     {
       "levelId": 155,
+      "Hard": 0,
       "file": "LevelData/level_155.json",
       "boardWidth": 43,
       "boardHeight": 45,
@@ -4922,6 +5077,7 @@
     },
     {
       "levelId": 156,
+      "Hard": 0,
       "file": "LevelData/level_156.json",
       "boardWidth": 37,
       "boardHeight": 33,
@@ -4944,6 +5100,7 @@
     },
     {
       "levelId": 157,
+      "Hard": 0,
       "file": "LevelData/level_157.json",
       "boardWidth": 37,
       "boardHeight": 54,
@@ -4971,6 +5128,7 @@
     },
     {
       "levelId": 158,
+      "Hard": 0,
       "file": "LevelData/level_158.json",
       "boardWidth": 23,
       "boardHeight": 37,
@@ -4993,6 +5151,7 @@
     },
     {
       "levelId": 159,
+      "Hard": 0,
       "file": "LevelData/level_159.json",
       "boardWidth": 29,
       "boardHeight": 37,
@@ -5014,6 +5173,7 @@
     },
     {
       "levelId": 160,
+      "Hard": 0,
       "file": "LevelData/level_160.json",
       "boardWidth": 47,
       "boardHeight": 44,
@@ -5037,6 +5197,7 @@
     },
     {
       "levelId": 161,
+      "Hard": 0,
       "file": "LevelData/level_161.json",
       "boardWidth": 28,
       "boardHeight": 32,
@@ -5060,6 +5221,7 @@
     },
     {
       "levelId": 162,
+      "Hard": 0,
       "file": "LevelData/level_162.json",
       "boardWidth": 33,
       "boardHeight": 40,
@@ -5082,6 +5244,7 @@
     },
     {
       "levelId": 163,
+      "Hard": 0,
       "file": "LevelData/level_163.json",
       "boardWidth": 36,
       "boardHeight": 47,
@@ -5107,6 +5270,7 @@
     },
     {
       "levelId": 164,
+      "Hard": 0,
       "file": "LevelData/level_164.json",
       "boardWidth": 31,
       "boardHeight": 40,
@@ -5131,6 +5295,7 @@
     },
     {
       "levelId": 165,
+      "Hard": 0,
       "file": "LevelData/level_165.json",
       "boardWidth": 45,
       "boardHeight": 47,
@@ -5153,6 +5318,7 @@
     },
     {
       "levelId": 166,
+      "Hard": 0,
       "file": "LevelData/level_166.json",
       "boardWidth": 46,
       "boardHeight": 51,
@@ -5180,6 +5346,7 @@
     },
     {
       "levelId": 167,
+      "Hard": 0,
       "file": "LevelData/level_167.json",
       "boardWidth": 28,
       "boardHeight": 30,
@@ -5201,6 +5368,7 @@
     },
     {
       "levelId": 168,
+      "Hard": 0,
       "file": "LevelData/level_168.json",
       "boardWidth": 23,
       "boardHeight": 27,
@@ -5223,6 +5391,7 @@
     },
     {
       "levelId": 169,
+      "Hard": 0,
       "file": "LevelData/level_169.json",
       "boardWidth": 31,
       "boardHeight": 28,
@@ -5245,6 +5414,7 @@
     },
     {
       "levelId": 170,
+      "Hard": 0,
       "file": "LevelData/level_170.json",
       "boardWidth": 33,
       "boardHeight": 33,
@@ -5271,6 +5441,7 @@
     },
     {
       "levelId": 171,
+      "Hard": 0,
       "file": "LevelData/level_171.json",
       "boardWidth": 42,
       "boardHeight": 62,
@@ -5295,6 +5466,7 @@
     },
     {
       "levelId": 172,
+      "Hard": 0,
       "file": "LevelData/level_172.json",
       "boardWidth": 42,
       "boardHeight": 50,
@@ -5316,6 +5488,7 @@
     },
     {
       "levelId": 173,
+      "Hard": 0,
       "file": "LevelData/level_173.json",
       "boardWidth": 31,
       "boardHeight": 36,
@@ -5340,6 +5513,7 @@
     },
     {
       "levelId": 174,
+      "Hard": 0,
       "file": "LevelData/level_174.json",
       "boardWidth": 32,
       "boardHeight": 32,
@@ -5364,6 +5538,7 @@
     },
     {
       "levelId": 175,
+      "Hard": 0,
       "file": "LevelData/level_175.json",
       "boardWidth": 43,
       "boardHeight": 43,
@@ -5391,6 +5566,7 @@
     },
     {
       "levelId": 176,
+      "Hard": 0,
       "file": "LevelData/level_176.json",
       "boardWidth": 30,
       "boardHeight": 30,
@@ -5414,6 +5590,7 @@
     },
     {
       "levelId": 177,
+      "Hard": 0,
       "file": "LevelData/level_177.json",
       "boardWidth": 38,
       "boardHeight": 47,
@@ -5442,6 +5619,7 @@
     },
     {
       "levelId": 178,
+      "Hard": 0,
       "file": "LevelData/level_178.json",
       "boardWidth": 50,
       "boardHeight": 42,
@@ -5464,6 +5642,7 @@
     },
     {
       "levelId": 179,
+      "Hard": 0,
       "file": "LevelData/level_179.json",
       "boardWidth": 48,
       "boardHeight": 48,
@@ -5485,6 +5664,7 @@
     },
     {
       "levelId": 180,
+      "Hard": 0,
       "file": "LevelData/level_180.json",
       "boardWidth": 22,
       "boardHeight": 37,
@@ -5508,6 +5688,7 @@
     },
     {
       "levelId": 181,
+      "Hard": 0,
       "file": "LevelData/level_181.json",
       "boardWidth": 24,
       "boardHeight": 31,
@@ -5531,6 +5712,7 @@
     },
     {
       "levelId": 182,
+      "Hard": 0,
       "file": "LevelData/level_182.json",
       "boardWidth": 30,
       "boardHeight": 37,
@@ -5556,6 +5738,7 @@
     },
     {
       "levelId": 183,
+      "Hard": 0,
       "file": "LevelData/level_183.json",
       "boardWidth": 32,
       "boardHeight": 31,
@@ -5580,6 +5763,7 @@
     },
     {
       "levelId": 184,
+      "Hard": 0,
       "file": "LevelData/level_184.json",
       "boardWidth": 29,
       "boardHeight": 34,
@@ -5604,6 +5788,7 @@
     },
     {
       "levelId": 185,
+      "Hard": 0,
       "file": "LevelData/level_185.json",
       "boardWidth": 52,
       "boardHeight": 52,
@@ -5625,6 +5810,7 @@
     },
     {
       "levelId": 186,
+      "Hard": 0,
       "file": "LevelData/level_186.json",
       "boardWidth": 31,
       "boardHeight": 40,
@@ -5647,6 +5833,7 @@
     },
     {
       "levelId": 187,
+      "Hard": 0,
       "file": "LevelData/level_187.json",
       "boardWidth": 42,
       "boardHeight": 39,
@@ -5670,6 +5857,7 @@
     },
     {
       "levelId": 188,
+      "Hard": 0,
       "file": "LevelData/level_188.json",
       "boardWidth": 34,
       "boardHeight": 44,
@@ -5692,6 +5880,7 @@
     },
     {
       "levelId": 189,
+      "Hard": 0,
       "file": "LevelData/level_189.json",
       "boardWidth": 43,
       "boardHeight": 47,
@@ -5715,6 +5904,7 @@
     },
     {
       "levelId": 190,
+      "Hard": 0,
       "file": "LevelData/level_190.json",
       "boardWidth": 39,
       "boardHeight": 39,
@@ -5738,6 +5928,7 @@
     },
     {
       "levelId": 191,
+      "Hard": 0,
       "file": "LevelData/level_191.json",
       "boardWidth": 32,
       "boardHeight": 44,
@@ -5762,6 +5953,7 @@
     },
     {
       "levelId": 192,
+      "Hard": 0,
       "file": "LevelData/level_192.json",
       "boardWidth": 32,
       "boardHeight": 37,
@@ -5783,6 +5975,7 @@
     },
     {
       "levelId": 193,
+      "Hard": 0,
       "file": "LevelData/level_193.json",
       "boardWidth": 30,
       "boardHeight": 27,
@@ -5808,6 +6001,7 @@
     },
     {
       "levelId": 194,
+      "Hard": 0,
       "file": "LevelData/level_194.json",
       "boardWidth": 43,
       "boardHeight": 64,
@@ -5830,6 +6024,7 @@
     },
     {
       "levelId": 195,
+      "Hard": 0,
       "file": "LevelData/level_195.json",
       "boardWidth": 34,
       "boardHeight": 38,
@@ -5852,6 +6047,7 @@
     },
     {
       "levelId": 196,
+      "Hard": 0,
       "file": "LevelData/level_196.json",
       "boardWidth": 36,
       "boardHeight": 51,
@@ -5876,6 +6072,7 @@
     },
     {
       "levelId": 197,
+      "Hard": 0,
       "file": "LevelData/level_197.json",
       "boardWidth": 39,
       "boardHeight": 49,
@@ -5898,6 +6095,7 @@
     },
     {
       "levelId": 198,
+      "Hard": 0,
       "file": "LevelData/level_198.json",
       "boardWidth": 36,
       "boardHeight": 42,
@@ -5920,6 +6118,7 @@
     },
     {
       "levelId": 199,
+      "Hard": 0,
       "file": "LevelData/level_199.json",
       "boardWidth": 25,
       "boardHeight": 32,
@@ -5944,6 +6143,7 @@
     },
     {
       "levelId": 200,
+      "Hard": 0,
       "file": "LevelData/level_200.json",
       "boardWidth": 29,
       "boardHeight": 29,
@@ -5968,6 +6168,7 @@
     },
     {
       "levelId": 201,
+      "Hard": 0,
       "file": "LevelData/level_201.json",
       "boardWidth": 30,
       "boardHeight": 30,
@@ -5988,6 +6189,7 @@
     },
     {
       "levelId": 202,
+      "Hard": 0,
       "file": "LevelData/level_202.json",
       "boardWidth": 31,
       "boardHeight": 30,
@@ -6009,6 +6211,7 @@
     },
     {
       "levelId": 203,
+      "Hard": 0,
       "file": "LevelData/level_203.json",
       "boardWidth": 30,
       "boardHeight": 54,
@@ -6032,6 +6235,7 @@
     },
     {
       "levelId": 204,
+      "Hard": 0,
       "file": "LevelData/level_204.json",
       "boardWidth": 28,
       "boardHeight": 24,
@@ -6055,6 +6259,7 @@
     },
     {
       "levelId": 205,
+      "Hard": 0,
       "file": "LevelData/level_205.json",
       "boardWidth": 31,
       "boardHeight": 29,
@@ -6080,6 +6285,7 @@
     },
     {
       "levelId": 206,
+      "Hard": 0,
       "file": "LevelData/level_206.json",
       "boardWidth": 35,
       "boardHeight": 35,
@@ -6105,6 +6311,7 @@
     },
     {
       "levelId": 207,
+      "Hard": 0,
       "file": "LevelData/level_207.json",
       "boardWidth": 44,
       "boardHeight": 41,
@@ -6127,6 +6334,7 @@
     },
     {
       "levelId": 208,
+      "Hard": 0,
       "file": "LevelData/level_208.json",
       "boardWidth": 38,
       "boardHeight": 36,
@@ -6149,6 +6357,7 @@
     },
     {
       "levelId": 209,
+      "Hard": 0,
       "file": "LevelData/level_209.json",
       "boardWidth": 36,
       "boardHeight": 34,
@@ -6171,6 +6380,7 @@
     },
     {
       "levelId": 210,
+      "Hard": 0,
       "file": "LevelData/level_210.json",
       "boardWidth": 32,
       "boardHeight": 40,
@@ -6193,6 +6403,7 @@
     },
     {
       "levelId": 211,
+      "Hard": 0,
       "file": "LevelData/level_211.json",
       "boardWidth": 34,
       "boardHeight": 35,
@@ -6214,6 +6425,7 @@
     },
     {
       "levelId": 212,
+      "Hard": 0,
       "file": "LevelData/level_212.json",
       "boardWidth": 61,
       "boardHeight": 57,
@@ -6235,6 +6447,7 @@
     },
     {
       "levelId": 213,
+      "Hard": 0,
       "file": "LevelData/level_213.json",
       "boardWidth": 34,
       "boardHeight": 36,
@@ -6257,6 +6470,7 @@
     },
     {
       "levelId": 214,
+      "Hard": 0,
       "file": "LevelData/level_214.json",
       "boardWidth": 36,
       "boardHeight": 40,
@@ -6278,6 +6492,7 @@
     },
     {
       "levelId": 215,
+      "Hard": 0,
       "file": "LevelData/level_215.json",
       "boardWidth": 41,
       "boardHeight": 39,
@@ -6299,6 +6514,7 @@
     },
     {
       "levelId": 216,
+      "Hard": 0,
       "file": "LevelData/level_216.json",
       "boardWidth": 40,
       "boardHeight": 40,
@@ -6320,6 +6536,7 @@
     },
     {
       "levelId": 217,
+      "Hard": 0,
       "file": "LevelData/level_217.json",
       "boardWidth": 23,
       "boardHeight": 32,
@@ -6342,6 +6559,7 @@
     },
     {
       "levelId": 218,
+      "Hard": 0,
       "file": "LevelData/level_218.json",
       "boardWidth": 26,
       "boardHeight": 41,
@@ -6364,6 +6582,7 @@
     },
     {
       "levelId": 219,
+      "Hard": 0,
       "file": "LevelData/level_219.json",
       "boardWidth": 35,
       "boardHeight": 33,
@@ -6387,6 +6606,7 @@
     },
     {
       "levelId": 220,
+      "Hard": 0,
       "file": "LevelData/level_220.json",
       "boardWidth": 31,
       "boardHeight": 39,
@@ -6409,6 +6629,7 @@
     },
     {
       "levelId": 221,
+      "Hard": 0,
       "file": "LevelData/level_221.json",
       "boardWidth": 44,
       "boardHeight": 54,
@@ -6436,6 +6657,7 @@
     },
     {
       "levelId": 222,
+      "Hard": 0,
       "file": "LevelData/level_222.json",
       "boardWidth": 30,
       "boardHeight": 31,
@@ -6456,6 +6678,7 @@
     },
     {
       "levelId": 223,
+      "Hard": 0,
       "file": "LevelData/level_223.json",
       "boardWidth": 36,
       "boardHeight": 51,
@@ -6479,6 +6702,7 @@
     },
     {
       "levelId": 224,
+      "Hard": 0,
       "file": "LevelData/level_224.json",
       "boardWidth": 29,
       "boardHeight": 45,
@@ -6501,6 +6725,7 @@
     },
     {
       "levelId": 225,
+      "Hard": 0,
       "file": "LevelData/level_225.json",
       "boardWidth": 36,
       "boardHeight": 43,
@@ -6522,6 +6747,7 @@
     },
     {
       "levelId": 226,
+      "Hard": 0,
       "file": "LevelData/level_226.json",
       "boardWidth": 42,
       "boardHeight": 49,
@@ -6545,6 +6771,7 @@
     },
     {
       "levelId": 227,
+      "Hard": 0,
       "file": "LevelData/level_227.json",
       "boardWidth": 45,
       "boardHeight": 45,
@@ -6568,6 +6795,7 @@
     },
     {
       "levelId": 228,
+      "Hard": 0,
       "file": "LevelData/level_228.json",
       "boardWidth": 40,
       "boardHeight": 43,
@@ -6591,6 +6819,7 @@
     },
     {
       "levelId": 229,
+      "Hard": 0,
       "file": "LevelData/level_229.json",
       "boardWidth": 35,
       "boardHeight": 39,
@@ -6613,6 +6842,7 @@
     },
     {
       "levelId": 230,
+      "Hard": 0,
       "file": "LevelData/level_230.json",
       "boardWidth": 36,
       "boardHeight": 44,
@@ -6636,6 +6866,7 @@
     },
     {
       "levelId": 231,
+      "Hard": 0,
       "file": "LevelData/level_231.json",
       "boardWidth": 60,
       "boardHeight": 70,
@@ -6662,6 +6893,7 @@
     },
     {
       "levelId": 232,
+      "Hard": 0,
       "file": "LevelData/level_232.json",
       "boardWidth": 37,
       "boardHeight": 34,
@@ -6682,6 +6914,7 @@
     },
     {
       "levelId": 233,
+      "Hard": 0,
       "file": "LevelData/level_233.json",
       "boardWidth": 37,
       "boardHeight": 42,
@@ -6704,6 +6937,7 @@
     },
     {
       "levelId": 234,
+      "Hard": 0,
       "file": "LevelData/level_234.json",
       "boardWidth": 35,
       "boardHeight": 35,
@@ -6726,6 +6960,7 @@
     },
     {
       "levelId": 235,
+      "Hard": 0,
       "file": "LevelData/level_235.json",
       "boardWidth": 40,
       "boardHeight": 43,
@@ -6748,6 +6983,7 @@
     },
     {
       "levelId": 236,
+      "Hard": 0,
       "file": "LevelData/level_236.json",
       "boardWidth": 41,
       "boardHeight": 52,
@@ -6770,6 +7006,7 @@
     },
     {
       "levelId": 237,
+      "Hard": 0,
       "file": "LevelData/level_237.json",
       "boardWidth": 44,
       "boardHeight": 67,
@@ -6793,6 +7030,7 @@
     },
     {
       "levelId": 238,
+      "Hard": 0,
       "file": "LevelData/level_238.json",
       "boardWidth": 45,
       "boardHeight": 36,
@@ -6815,6 +7053,7 @@
     },
     {
       "levelId": 239,
+      "Hard": 0,
       "file": "LevelData/level_239.json",
       "boardWidth": 41,
       "boardHeight": 44,
@@ -6837,6 +7076,7 @@
     },
     {
       "levelId": 240,
+      "Hard": 0,
       "file": "LevelData/level_240.json",
       "boardWidth": 44,
       "boardHeight": 49,
@@ -6859,6 +7099,7 @@
     },
     {
       "levelId": 241,
+      "Hard": 0,
       "file": "LevelData/level_241.json",
       "boardWidth": 33,
       "boardHeight": 28,
@@ -6883,6 +7124,7 @@
     },
     {
       "levelId": 242,
+      "Hard": 0,
       "file": "LevelData/level_242.json",
       "boardWidth": 44,
       "boardHeight": 47,
@@ -6905,6 +7147,7 @@
     },
     {
       "levelId": 243,
+      "Hard": 0,
       "file": "LevelData/level_243.json",
       "boardWidth": 43,
       "boardHeight": 48,
@@ -6927,6 +7170,7 @@
     },
     {
       "levelId": 244,
+      "Hard": 0,
       "file": "LevelData/level_244.json",
       "boardWidth": 31,
       "boardHeight": 43,
@@ -6948,6 +7192,7 @@
     },
     {
       "levelId": 245,
+      "Hard": 0,
       "file": "LevelData/level_245.json",
       "boardWidth": 43,
       "boardHeight": 48,
@@ -6969,6 +7214,7 @@
     },
     {
       "levelId": 246,
+      "Hard": 0,
       "file": "LevelData/level_246.json",
       "boardWidth": 34,
       "boardHeight": 58,
@@ -6991,6 +7237,7 @@
     },
     {
       "levelId": 247,
+      "Hard": 0,
       "file": "LevelData/level_247.json",
       "boardWidth": 40,
       "boardHeight": 45,
@@ -7015,6 +7262,7 @@
     },
     {
       "levelId": 248,
+      "Hard": 0,
       "file": "LevelData/level_248.json",
       "boardWidth": 25,
       "boardHeight": 32,
@@ -7040,6 +7288,7 @@
     },
     {
       "levelId": 249,
+      "Hard": 0,
       "file": "LevelData/level_249.json",
       "boardWidth": 37,
       "boardHeight": 50,
@@ -7061,6 +7310,7 @@
     },
     {
       "levelId": 250,
+      "Hard": 0,
       "file": "LevelData/level_250.json",
       "boardWidth": 26,
       "boardHeight": 27,
@@ -7085,6 +7335,7 @@
     },
     {
       "levelId": 251,
+      "Hard": 0,
       "file": "LevelData/level_251.json",
       "boardWidth": 29,
       "boardHeight": 29,
@@ -7111,6 +7362,7 @@
     },
     {
       "levelId": 252,
+      "Hard": 0,
       "file": "LevelData/level_252.json",
       "boardWidth": 46,
       "boardHeight": 39,
@@ -7133,6 +7385,7 @@
     },
     {
       "levelId": 253,
+      "Hard": 0,
       "file": "LevelData/level_253.json",
       "boardWidth": 27,
       "boardHeight": 35,
@@ -7156,6 +7409,7 @@
     },
     {
       "levelId": 254,
+      "Hard": 0,
       "file": "LevelData/level_254.json",
       "boardWidth": 33,
       "boardHeight": 36,
@@ -7179,6 +7433,7 @@
     },
     {
       "levelId": 255,
+      "Hard": 0,
       "file": "LevelData/level_255.json",
       "boardWidth": 42,
       "boardHeight": 43,
@@ -7200,6 +7455,7 @@
     },
     {
       "levelId": 256,
+      "Hard": 0,
       "file": "LevelData/level_256.json",
       "boardWidth": 39,
       "boardHeight": 44,
@@ -7221,6 +7477,7 @@
     },
     {
       "levelId": 257,
+      "Hard": 0,
       "file": "LevelData/level_257.json",
       "boardWidth": 27,
       "boardHeight": 31,
@@ -7245,6 +7502,7 @@
     },
     {
       "levelId": 258,
+      "Hard": 0,
       "file": "LevelData/level_258.json",
       "boardWidth": 30,
       "boardHeight": 65,
@@ -7266,6 +7524,7 @@
     },
     {
       "levelId": 259,
+      "Hard": 0,
       "file": "LevelData/level_259.json",
       "boardWidth": 30,
       "boardHeight": 36,
@@ -7289,6 +7548,7 @@
     },
     {
       "levelId": 260,
+      "Hard": 0,
       "file": "LevelData/level_260.json",
       "boardWidth": 26,
       "boardHeight": 36,
@@ -7313,6 +7573,7 @@
     },
     {
       "levelId": 261,
+      "Hard": 0,
       "file": "LevelData/level_261.json",
       "boardWidth": 27,
       "boardHeight": 28,
@@ -7337,6 +7598,7 @@
     },
     {
       "levelId": 262,
+      "Hard": 0,
       "file": "LevelData/level_262.json",
       "boardWidth": 45,
       "boardHeight": 43,
@@ -7358,6 +7620,7 @@
     },
     {
       "levelId": 263,
+      "Hard": 0,
       "file": "LevelData/level_263.json",
       "boardWidth": 50,
       "boardHeight": 48,
@@ -7380,6 +7643,7 @@
     },
     {
       "levelId": 264,
+      "Hard": 0,
       "file": "LevelData/level_264.json",
       "boardWidth": 46,
       "boardHeight": 48,
@@ -7401,6 +7665,7 @@
     },
     {
       "levelId": 265,
+      "Hard": 0,
       "file": "LevelData/level_265.json",
       "boardWidth": 31,
       "boardHeight": 50,
@@ -7425,6 +7690,7 @@
     },
     {
       "levelId": 266,
+      "Hard": 0,
       "file": "LevelData/level_266.json",
       "boardWidth": 49,
       "boardHeight": 41,
@@ -7446,6 +7712,7 @@
     },
     {
       "levelId": 267,
+      "Hard": 0,
       "file": "LevelData/level_267.json",
       "boardWidth": 46,
       "boardHeight": 54,
@@ -7466,6 +7733,7 @@
     },
     {
       "levelId": 268,
+      "Hard": 0,
       "file": "LevelData/level_268.json",
       "boardWidth": 34,
       "boardHeight": 28,
@@ -7488,6 +7756,7 @@
     },
     {
       "levelId": 269,
+      "Hard": 0,
       "file": "LevelData/level_269.json",
       "boardWidth": 40,
       "boardHeight": 45,
@@ -7509,6 +7778,7 @@
     },
     {
       "levelId": 270,
+      "Hard": 0,
       "file": "LevelData/level_270.json",
       "boardWidth": 29,
       "boardHeight": 32,
@@ -7533,6 +7803,7 @@
     },
     {
       "levelId": 271,
+      "Hard": 0,
       "file": "LevelData/level_271.json",
       "boardWidth": 28,
       "boardHeight": 33,
@@ -7557,6 +7828,7 @@
     },
     {
       "levelId": 272,
+      "Hard": 0,
       "file": "LevelData/level_272.json",
       "boardWidth": 35,
       "boardHeight": 44,
@@ -7580,6 +7852,7 @@
     },
     {
       "levelId": 273,
+      "Hard": 0,
       "file": "LevelData/level_273.json",
       "boardWidth": 37,
       "boardHeight": 44,
@@ -7601,6 +7874,7 @@
     },
     {
       "levelId": 274,
+      "Hard": 0,
       "file": "LevelData/level_274.json",
       "boardWidth": 31,
       "boardHeight": 38,
@@ -7625,6 +7899,7 @@
     },
     {
       "levelId": 275,
+      "Hard": 0,
       "file": "LevelData/level_275.json",
       "boardWidth": 33,
       "boardHeight": 32,
@@ -7649,6 +7924,7 @@
     },
     {
       "levelId": 276,
+      "Hard": 0,
       "file": "LevelData/level_276.json",
       "boardWidth": 34,
       "boardHeight": 38,
@@ -7673,6 +7949,7 @@
     },
     {
       "levelId": 277,
+      "Hard": 0,
       "file": "LevelData/level_277.json",
       "boardWidth": 47,
       "boardHeight": 44,
@@ -7693,6 +7970,7 @@
     },
     {
       "levelId": 278,
+      "Hard": 0,
       "file": "LevelData/level_278.json",
       "boardWidth": 36,
       "boardHeight": 40,
@@ -7714,6 +7992,7 @@
     },
     {
       "levelId": 279,
+      "Hard": 0,
       "file": "LevelData/level_279.json",
       "boardWidth": 47,
       "boardHeight": 50,
@@ -7735,6 +8014,7 @@
     },
     {
       "levelId": 280,
+      "Hard": 0,
       "file": "LevelData/level_280.json",
       "boardWidth": 49,
       "boardHeight": 48,
@@ -7756,6 +8036,7 @@
     },
     {
       "levelId": 281,
+      "Hard": 0,
       "file": "LevelData/level_281.json",
       "boardWidth": 45,
       "boardHeight": 35,
@@ -7778,6 +8059,7 @@
     },
     {
       "levelId": 282,
+      "Hard": 0,
       "file": "LevelData/level_282.json",
       "boardWidth": 30,
       "boardHeight": 34,
@@ -7802,6 +8084,7 @@
     },
     {
       "levelId": 283,
+      "Hard": 0,
       "file": "LevelData/level_283.json",
       "boardWidth": 41,
       "boardHeight": 40,
@@ -7825,6 +8108,7 @@
     },
     {
       "levelId": 284,
+      "Hard": 0,
       "file": "LevelData/level_284.json",
       "boardWidth": 51,
       "boardHeight": 51,
@@ -7846,6 +8130,7 @@
     },
     {
       "levelId": 285,
+      "Hard": 0,
       "file": "LevelData/level_285.json",
       "boardWidth": 45,
       "boardHeight": 47,
@@ -7867,6 +8152,7 @@
     },
     {
       "levelId": 286,
+      "Hard": 0,
       "file": "LevelData/level_286.json",
       "boardWidth": 39,
       "boardHeight": 46,
@@ -7895,6 +8181,7 @@
     },
     {
       "levelId": 287,
+      "Hard": 0,
       "file": "LevelData/level_287.json",
       "boardWidth": 31,
       "boardHeight": 35,
@@ -7916,6 +8203,7 @@
     },
     {
       "levelId": 288,
+      "Hard": 0,
       "file": "LevelData/level_288.json",
       "boardWidth": 30,
       "boardHeight": 36,
@@ -7937,6 +8225,7 @@
     },
     {
       "levelId": 289,
+      "Hard": 0,
       "file": "LevelData/level_289.json",
       "boardWidth": 36,
       "boardHeight": 38,
@@ -7958,6 +8247,7 @@
     },
     {
       "levelId": 290,
+      "Hard": 0,
       "file": "LevelData/level_290.json",
       "boardWidth": 46,
       "boardHeight": 40,
@@ -7979,6 +8269,7 @@
     },
     {
       "levelId": 291,
+      "Hard": 0,
       "file": "LevelData/level_291.json",
       "boardWidth": 25,
       "boardHeight": 28,
@@ -8003,6 +8294,7 @@
     },
     {
       "levelId": 292,
+      "Hard": 0,
       "file": "LevelData/level_292.json",
       "boardWidth": 28,
       "boardHeight": 37,
@@ -8028,6 +8320,7 @@
     },
     {
       "levelId": 293,
+      "Hard": 0,
       "file": "LevelData/level_293.json",
       "boardWidth": 30,
       "boardHeight": 39,
@@ -8053,6 +8346,7 @@
     },
     {
       "levelId": 294,
+      "Hard": 0,
       "file": "LevelData/level_294.json",
       "boardWidth": 46,
       "boardHeight": 45,
@@ -8073,6 +8367,7 @@
     },
     {
       "levelId": 295,
+      "Hard": 0,
       "file": "LevelData/level_295.json",
       "boardWidth": 54,
       "boardHeight": 65,
@@ -8093,6 +8388,7 @@
     },
     {
       "levelId": 296,
+      "Hard": 0,
       "file": "LevelData/level_296.json",
       "boardWidth": 41,
       "boardHeight": 38,
@@ -8115,6 +8411,7 @@
     },
     {
       "levelId": 297,
+      "Hard": 0,
       "file": "LevelData/level_297.json",
       "boardWidth": 42,
       "boardHeight": 56,
@@ -8135,6 +8432,7 @@
     },
     {
       "levelId": 298,
+      "Hard": 0,
       "file": "LevelData/level_298.json",
       "boardWidth": 36,
       "boardHeight": 40,
@@ -8159,6 +8457,7 @@
     },
     {
       "levelId": 299,
+      "Hard": 0,
       "file": "LevelData/level_299.json",
       "boardWidth": 36,
       "boardHeight": 36,
@@ -8183,6 +8482,7 @@
     },
     {
       "levelId": 300,
+      "Hard": 0,
       "file": "LevelData/level_300.json",
       "boardWidth": 29,
       "boardHeight": 38,

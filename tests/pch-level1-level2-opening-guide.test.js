@@ -73,10 +73,31 @@ touchEnd.handleOpeningGuideRootTap = () => {
     guideTapCount += 1;
     return false;
 };
+touchEnd.isOpeningGuideTargetEvent = () => true;
+const lockedGuideTargetEvent = { propagationStopped: false };
+touchEnd.onRootTouchEnd(lockedGuideTargetEvent);
+assert.strictEqual(guideTapCount, 0, 'the current guide target must own its touch-end instead of using the root fallback');
+assert.strictEqual(lockedGuideTargetEvent.propagationStopped, false, 'capture must not stop the current guide target touch-end');
+
+touchEnd.isOpeningGuideTargetEvent = () => false;
 const lockedMissEvent = { propagationStopped: false };
 touchEnd.onRootTouchEnd(lockedMissEvent);
 assert.strictEqual(guideTapCount, 1, 'locked touch-end must still attempt the active guide target');
 assert.strictEqual(lockedMissEvent.propagationStopped, true, 'a locked guide miss must not reach unrelated controls');
+
+const targetOwnership = createHarness(['private isOpeningGuideTargetEvent(event: any): boolean']);
+const inputRoot = { isValid: true, parent: null };
+const openingGuideTarget = { isValid: true, parent: inputRoot };
+const openingGuideTargetChild = { isValid: true, parent: openingGuideTarget };
+const unrelatedTarget = { isValid: true, parent: inputRoot };
+targetOwnership.inputRoot = inputRoot;
+targetOwnership.openingGuideTarget = openingGuideTarget;
+assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGuideTarget }), true);
+assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGuideTargetChild }), true);
+assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: unrelatedTarget }), false);
+assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: null }), false);
+openingGuideTarget.isValid = false;
+assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGuideTarget }), false);
 
 function runLevelOneOutcome(outcome, step) {
     const guide = createHarness(['private onOpeningGuideLevelOneTap(event: any): void']);
@@ -162,6 +183,7 @@ function routeGuide(levelId, entryMode) {
     guide.runtime = {
         _activeGameplayEntryMode: entryMode,
         getActiveLogicalLevelId() { return levelId; },
+        getSF(name) { return name === 'guide_bubble_frame' ? {} : null; },
     };
     guide.speedButton = { isValid: true };
     guide.adButton = { isValid: true };
@@ -175,16 +197,91 @@ function routeGuide(levelId, entryMode) {
 
 assert.deepStrictEqual(routeGuide(1, 'theme'), [], 'non-mainline level 1 must not show the opening guide');
 assert.deepStrictEqual(routeGuide(1, 'main'), [['level1', 'fixed-root']]);
+const deferredLevelOne = createHarness(['private showOpeningFeatureGuide(parent: Node): void']);
+let guideBubbleLoaded = false;
+let ensureGuideBubble = null;
+let deferredLevelOneShows = 0;
+deferredLevelOne.rules = {};
+deferredLevelOne.runtime = {
+    _activeGameplayEntryMode: 'main',
+    isGameEnd: false,
+    getActiveLogicalLevelId() { return 1; },
+    getSF(name) { return name === 'guide_bubble_frame' && guideBubbleLoaded ? {} : null; },
+    _ensureSpriteFramesByName(names, callback) {
+        assert.deepStrictEqual(names, ['guide_bubble_frame']);
+        ensureGuideBubble = callback;
+    },
+};
+deferredLevelOne.showLevelOneBoardGuide = () => { deferredLevelOneShows += 1; };
+const deferredGuideParent = { isValid: true };
+deferredLevelOne.showOpeningFeatureGuide(deferredGuideParent);
+assert.strictEqual(deferredLevelOne.inputLocked, true, 'level 1 input must stay locked while its bubble frame loads');
+assert.strictEqual(deferredLevelOneShows, 0, 'level 1 guide must wait for the selected bubble frame');
+assert.strictEqual(typeof ensureGuideBubble, 'function');
+guideBubbleLoaded = true;
+ensureGuideBubble();
+assert.strictEqual(deferredLevelOneShows, 1, 'level 1 guide must resume after its bubble frame is ready');
+
+for (const levelId of [1, 2, 3]) {
+    const missingBubbleLoader = createHarness(['private showOpeningFeatureGuide(parent: Node): void']);
+    missingBubbleLoader.speedButton = { isValid: true };
+    missingBubbleLoader.adButton = { isValid: true };
+    missingBubbleLoader.runtime = {
+        _activeGameplayEntryMode: 'main',
+        getActiveLogicalLevelId() { return levelId; },
+        getSF() { return null; },
+    };
+    assert.throws(
+        () => missingBubbleLoader.showOpeningFeatureGuide({ isValid: true }),
+        /opening guide bubble frame loader is unavailable/,
+        `level ${levelId} must fail fast instead of falling back to the old purple prompt`,
+    );
+}
 assert.ok(
     source.includes("? '点击一组棋子，将它们放到传送带上'")
         && source.includes(": '再点击另一组棋子，空出对应颜色的位置';"),
     'level 1 must use the original package Guide_table1 and Guide_table2 copy',
 );
 assert.ok(!source.includes('点击红色豆豆') && !source.includes('再点蓝色豆豆'));
+const levelOneGuideStepSource = extractMethod('private showLevelOneBoardGuideStep(parent: Node): void');
+const sharedTargetGuideSource = extractMethod('private showOpeningTargetGuide(');
+const sharedTargetGuideAtSource = extractMethod('private showOpeningTargetGuideAt(');
+assert.ok(
+    levelOneGuideStepSource.includes('this.onOpeningGuideLevelOneTap,\n            true,\n        );'),
+    'level 1 must request the selected frame without a vertical override',
+);
+assert.ok(
+    sharedTargetGuideAtSource.includes('useGuideBubbleFrame = false')
+        && sharedTargetGuideAtSource.includes("getSF?.('guide_bubble_frame')")
+        && sharedTargetGuideAtSource.includes('Sprite.Type.SLICED')
+        && sharedTargetGuideAtSource.includes("new Color('#7162A2')")
+        && sharedTargetGuideAtSource.includes('copy, 28,')
+        && sharedTargetGuideAtSource.includes('0, 22, promptWidth - 48')
+        && sharedTargetGuideAtSource.includes('.isBold = true')
+        && sharedTargetGuideAtSource.includes('const promptXLimit = useGuideBubbleFrame ? 80 : 100;'),
+    'all opening-guide bubbles must use the authored frame with 28px bold text',
+);
+assert.ok(
+    sharedTargetGuideSource.includes('promptYOverride?: number')
+        && sharedTargetGuideSource.includes('this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap, true, promptYOverride);'),
+    'level 2 and level 3 must explicitly request the selected guide bubble frame',
+);
 const levelTwoRoute = routeGuide(2, 'main');
 assert.strictEqual(levelTwoRoute.length, 1);
 assert.strictEqual(levelTwoRoute[0][3], 'PchLevelTwoSpeedGuide');
 assert.strictEqual(levelTwoRoute[0][4], '点击开启两倍速');
+assert.strictEqual(levelTwoRoute[0][6], undefined, 'level 2 must retain its existing vertical placement');
+const levelThreeRoute = routeGuide(3, 'main');
+assert.strictEqual(levelThreeRoute.length, 1);
+assert.strictEqual(levelThreeRoute[0][3], 'PchLevelThreeCapacityGuide');
+assert.strictEqual(levelThreeRoute[0][4], '点击广告按钮增加 12 个空位');
+assert.strictEqual(levelThreeRoute[0][6], -365, 'level 3 prompt must move into the board-to-conveyor gap');
+assert.ok(
+    sharedTargetGuideAtSource.includes('promptYOverride?: number')
+        && sharedTargetGuideAtSource.includes('const promptY = promptYOverride ?? Math.max(-520,'),
+    'only callers with an explicit override may replace the shared prompt Y calculation',
+);
+assert.deepStrictEqual(routeGuide(4, 'main'), []);
 
 const levelDir = path.join(root, 'assets/LevelData');
 const levelOneData = JSON.parse(fs.readFileSync(path.join(levelDir, 'level_1.json'), 'utf8'));

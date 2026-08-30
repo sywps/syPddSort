@@ -8,7 +8,8 @@ const root = path.resolve(__dirname, '..');
 const read = (relPath) => fs.readFileSync(path.join(root, relPath), 'utf8');
 const source = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const appSession = read('assets/Scripts/Core/AppSession.ts');
-const scene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
+const sceneSource = read('assets/BootstrapBundle/Scenes/Game.scene');
+const scene = JSON.parse(sceneSource);
 const inactiveMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_inactive.png.meta'));
 const activeMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_active.png.meta'));
 const pngDimensions = (relPath) => {
@@ -138,8 +139,9 @@ assert.ok(
     inactiveState?._active === true
         && activeState?._active === false
         && inactiveSprite?._spriteFrame?.__uuid__ === inactiveMeta.subMetas.f9941.uuid
-        && activeSprite?._spriteFrame?.__uuid__ === activeMeta.subMetas.f9941.uuid,
-    'the scene must serialize inactive/active SpriteFrame state nodes',
+        && activeSprite?._spriteFrame?.__uuid__ === inactiveMeta.subMetas.f9941.uuid
+        && !sceneSource.includes(activeMeta.subMetas.f9941.uuid),
+    'both serialized speed states must use only pch_speed_inactive',
 );
 assert.deepStrictEqual(
     {
@@ -151,17 +153,13 @@ assert.deepStrictEqual(
     'the scene must serialize the bold white X1 badge default',
 );
 assert.ok(
-    fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/pch_speed_inactive.png'))
-        && fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/pch_speed_active.png')),
-    'both hierarchy-owned speed state images must exist in BootstrapBundle',
+    fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/pch_speed_inactive.png')),
+    'the hierarchy-owned speed image must exist in BootstrapBundle',
 );
 assert.deepStrictEqual(
-    [
-        pngDimensions('assets/BootstrapBundle/GameUI/pch_speed_inactive.png'),
-        pngDimensions('assets/BootstrapBundle/GameUI/pch_speed_active.png'),
-    ],
-    [{ width: 96, height: 96 }, { width: 96, height: 96 }],
-    'both speed state images must retain their hierarchy-authored 96x96 canvas',
+    pngDimensions('assets/BootstrapBundle/GameUI/pch_speed_inactive.png'),
+    { width: 96, height: 96 },
+    'the single speed image must retain its hierarchy-authored 96x96 canvas',
 );
 assert.ok(
     source.includes("const speedButton = parent.getChildByName('PchSpeedButton')")

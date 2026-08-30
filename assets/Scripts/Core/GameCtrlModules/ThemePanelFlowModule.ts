@@ -374,6 +374,7 @@ export function installThemePanelFlowModule(target: any): void {
         getBuiltinLevel(): LevelData {
             return {
                 levelId: 1,
+                Hard: 0,
                 boardWidth: 8,
                 boardHeight: 8,
                 timeLimit: 180,
