@@ -9,6 +9,9 @@ const levelDir = path.join(root, 'assets', 'LevelData');
 const manifest = JSON.parse(fs.readFileSync(path.join(levelDir, 'level-manifest.json'), 'utf8'));
 const manifestById = new Map(manifest.entries.map(entry => [entry.levelId, entry]));
 const expectedTime = filled => Math.min(150, Math.ceil(filled / 200) * 30);
+const authoredTimeOverrides = new Map([
+    [3, 150], [4, 150], [6, 120], [9, 120], [10, 120], [14, 150],
+]);
 const dbtLevels = [];
 
 assert.equal(manifest.levelCount, 300);
@@ -18,7 +21,9 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     assert.equal(level.levelId, levelId);
     assert.equal(manifestById.get(levelId)?.timeLimit, level.timeLimit, `level ${levelId} manifest time`);
     if (levelId >= 5) dbtLevels.push(level);
-    if (levelId === 5) {
+    if (authoredTimeOverrides.has(levelId)) {
+        assert.equal(level.timeLimit, authoredTimeOverrides.get(levelId), `level ${levelId} authored timer override`);
+    } else if (levelId === 5) {
         assert.equal(level.timeLimit, 120, 'level 5 authored timer override');
     } else if (levelId >= 6) {
         assert.equal(level.timeLimit, expectedTime(level.slotTotalCount), `level ${levelId} DBT time rule`);
@@ -34,7 +39,7 @@ assert.deepEqual(
 
 assert.deepEqual(
     [1, 2, 3, 4].map(levelId => JSON.parse(fs.readFileSync(path.join(levelDir, `level_${levelId}.json`), 'utf8')).timeLimit),
-    [600, 300, 120, 120],
+    [600, 300, 150, 150],
     'levels 1-4 must preserve their authored onboarding times',
 );
 
