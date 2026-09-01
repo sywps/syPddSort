@@ -11,7 +11,7 @@ function read(relPath) {
 function extractObjectMethod(source, signature) {
     const signatureIndex = source.indexOf(signature);
     assert.ok(signatureIndex >= 0, `missing method signature: ${signature}`);
-    const bodyStart = source.indexOf('{', signatureIndex);
+    const bodyStart = source.indexOf('{', signatureIndex + signature.length);
     assert.ok(bodyStart >= 0, `missing method body: ${signature}`);
     let depth = 0;
     for (let index = bodyStart; index < source.length; index += 1) {
@@ -42,8 +42,7 @@ const playPatternFxIndex = settlement.indexOf('const playPatternCompleteFx = () 
 const playBoardShrinkIndex = settlement.indexOf('const playBoardCompleteShrink = () =>');
 const revealSettlementIndex = settlement.indexOf('revealWinSettlementPanel(logicalLevelId: number, revealToken: number)');
 const requestSettlementIndex = settlement.indexOf('requestWinSettlementReveal(logicalLevelId: number, revealToken: number)');
-const patternCompleteFxCallIndex = settlement.indexOf('this.playPatternCompleteMatchFx();', playPatternFxIndex);
-const scheduleSettlementIndex = settlement.indexOf('showSettlement();', patternCompleteFxCallIndex);
+const patternCompleteFxCallIndex = settlement.indexOf('this.playPatternCompleteMatchFx(showSettlement);', playPatternFxIndex);
 const patternCompleteWinMethod = extractObjectMethod(settlement, 'playPatternCompleteThenWin(delaySeconds: number = 0)');
 assert.ok(levelCompleteIndex > playPatternFxIndex && levelCompleteIndex < playBoardShrinkIndex, 'level-complete cue must play when full-board c1 starts');
 assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < requestSettlementIndex, 'settlement cue must play only inside the guarded panel reveal');
@@ -52,7 +51,7 @@ const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteF
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 const engineSettings = JSON.parse(read('settings/v2/packages/engine.json'));
 const wechatBuildConfig = read('scripts/write-wechat-build-config.js');
-assert.ok(colorFx.includes('playColorCompleteEffect(colorId: number, playSound: boolean = true)'), 'color-complete effect must allow sound suppression');
+assert.ok(colorFx.includes('playColorCompleteEffect(colorId: number, playSound: boolean = true, onDone?: () => void): void'), 'color-complete effect must allow sound suppression and report completion');
 assert.ok(colorFx.includes("if (playSound) AudioMgr.inst.play('winColor');"), 'color-complete audio must be conditional');
 assert.ok(colorFx.includes('playPatternCompleteMatchFx(onDone?: () => void): void'), 'pattern-complete FX must expose a completion callback');
 assert.ok(colorFx.includes("PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi'"), 'completion FX must use the authorized Pindd Spine resource');
@@ -69,14 +68,39 @@ assert.ok(freezeFx.includes("SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm'"), 'Freeze
 assert.ok(freezeFx.includes('wxApi.loadSubpackage'), 'Freeze Spine FX must explicitly load the WeChat wasm subpackage');
 assert.ok(colorFx.includes("settle: 'a1_1'"), 'bean settle FX must map to the Pindd a1_1 Spine animation');
 assert.ok(colorFx.includes("colorComplete: 'b1_1'"), 'single-color completion FX must map to the Pindd b1_1 Spine animation');
-assert.ok(colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion FX must map to the Pindd c1_1 Spine animation');
-assert.ok(colorFx.includes('playPinddSpineFxOnBeansSameFrame'), 'single-color completion FX must have a same-frame playback path');
-assert.ok(colorFx.includes('PINDD_SPINE_COLOR_COMPLETE_MAX_NODES = 24'), 'single-color completion FX must cap same-frame Spine instances at 24');
-assert.ok(colorFx.includes('{ maxNodes: PINDD_SPINE_COLOR_COMPLETE_MAX_NODES }'), 'single-color completion FX must uniformly sample into its same-frame cap');
-assert.ok(colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 48'), 'whole-pattern completion FX must cap same-frame Spine instances at 48');
-assert.ok(colorFx.includes('PINDD_SPINE_FX_ACTIVE_LIMIT = 48'), 'all completion FX must share a hard 48-node active cap');
+const colorCompleteMatchMethod = extractObjectMethod(colorFx, 'playColorCompleteMatchFxForColor(colorId: number, onDone?: () => void): void');
+const patternCompleteMatchMethod = extractObjectMethod(colorFx, 'playPatternCompleteMatchFx(onDone?: () => void): void');
+const patternCompleteRootMethod = extractObjectMethod(colorFx, 'getPatternCompleteMatchFxRoot(): Node');
+const patternCompleteMaskMethod = extractObjectMethod(colorFx, 'drawPatternCompleteMatchFxMask(graphics: Graphics): void');
+const sameFrameFxMethod = extractObjectMethod(colorFx, `playPinddSpineFxOnBeansSameFrame(
+            beanNodes: Node[],
+            animationName: PinddSpineFxAnimationName,
+            onDone?: () => void,
+            options: PinddSpineFxSameFrameOptions = {},
+        ): void`);
+assert.ok(colorCompleteMatchMethod.includes('this.playPinddSpineFxOnBeansSameFrame('), 'single-color completion must start every matching bean in the same frame');
+assert.ok(!colorCompleteMatchMethod.includes('maxNodes'), 'single-color completion must not sample away matching beans');
+assert.ok(colorCompleteMatchMethod.includes('allowActiveLimitOverride: true'), 'single-color completion must explicitly bypass the active cap for one same-frame flash');
+assert.ok(!colorCompleteMatchMethod.includes('this.playPinddSpineFxOnBeans('), 'single-color completion must not queue matching beans in batches');
+assert.ok(sameFrameFxMethod.includes('allowActiveLimitOverride'), 'same-frame playback must receive the explicit active-limit override');
+assert.ok(sameFrameFxMethod.includes('this.playPinddSpineFxOnBean(beanNode, animationName, finishOne, {'), 'same-frame playback must forward its options to each bean effect');
+assert.ok(colorFx.includes('acquirePinddSpineFxNode(allowActiveLimitOverride: boolean = false)'), 'node acquisition must receive the narrowly scoped active-limit override');
+assert.ok(patternCompleteMatchMethod.includes("new Node('PatternCompleteDiagonalSweepFx')"), 'whole-pattern completion must create one diagonal sweep root');
+assert.ok(patternCompleteMatchMethod.includes('sweep.angle = -45;'), 'whole-pattern Shader light band must be / while it travels from upper-left to lower-right');
+assert.ok(patternCompleteMatchMethod.includes('const bandSpecs = ['), 'whole-pattern completion must use the configured soft-edge sweep bands');
+assert.ok(patternCompleteMatchMethod.includes("tween(sweep)"), 'whole-pattern completion must animate the single sweep node');
+assert.ok(colorFx.includes('PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1.25'), 'whole-pattern Shader sweep must use the slower visible duration');
+assert.ok(patternCompleteRootMethod.includes('mask.type = Mask.Type.GRAPHICS_STENCIL;'), 'whole-pattern sweep must use a dynamic stencil rather than a rectangular board mask');
+assert.ok(patternCompleteRootMethod.includes('this.drawPatternCompleteMatchFxMask(graphics);'), 'whole-pattern sweep must refresh the stencil for the current level pattern');
+assert.ok(patternCompleteMaskMethod.includes('boardModel.correctColors[row]?.[col]'), 'whole-pattern stencil must include only actual pattern cells');
+assert.ok(patternCompleteMaskMethod.includes('this.getBoardCellCenterLocal(row, col);'), 'whole-pattern stencil must use the board-owned cell coordinates');
+assert.ok(patternCompleteMaskMethod.includes('graphics.rect(') && patternCompleteMaskMethod.includes('graphics.fill();'), 'whole-pattern stencil must draw each valid cell into one graphics mask');
+assert.ok(!colorFx.includes('mask.type = Mask.Type.GRAPHICS_RECT'), 'whole-pattern sweep must not retain the rectangular board mask');
+assert.ok(!colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion must not create per-bean c1 Spine effects');
+assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES'), 'whole-pattern completion must not retain the old per-bean cap');
+assert.ok(colorFx.includes('PINDD_SPINE_FX_ACTIVE_LIMIT = 48'), 'ordinary Pindd Spine effects must retain the 48-node active cap');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_POOL_LIMIT = 48'), 'the recyclable Spine pool must not retain more than the active cap');
-assert.ok(!colorFx.includes('this.playPinddSpineFxOnBeans(beanNodes, PINDD_SPINE_FX_ANIMATION.colorComplete);'), 'single-color completion FX must not use the batched queue');
+assert.ok(!colorFx.includes('playPinddSpineFxAtWorldPosition'), 'whole-pattern completion must not create a Spine effect at every bean world position');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_SCALE_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation scale tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_OPACITY_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation opacity tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_BATCH_CONCURRENCY'), 'Pindd Spine FX batch playback must limit concurrent active nodes');
@@ -126,6 +150,7 @@ assert.ok(placement.includes('this.enqueueColorCompleteEffect(cid, !skipColorCom
 assert.ok(placement.includes('playLandEffect(row: number, col: number, onComplete?: () => void)'), 'bean landing effect must expose a completion callback');
 assert.ok(placement.includes('playLandingLightAtCell(row: number, col: number): void'), 'bean landing effect must restore a subtle placement light');
 assert.ok(placement.includes('playBoardTargetSettleSound(): void'), 'board target settle sound must have a shared helper');
+assert.ok(placement.includes("playBoardTargetSettleSound(): void {\n            AudioMgr.inst.play('settle');"), 'board target settle sound must use the dedicated settlement cue');
 assert.ok(placement.includes('this.playBoardTargetSettleSound();\n                        AudioMgr.inst.vibratePlace();'), 'normal board placement must use the shared board settle sound before placement vibration');
 assert.ok(skillMagnet.includes('nextForcedSkillFeedbackSoundAtMs = playAtMs + SKILL_MOVE_STAGGER * 1000'), 'color-clear prop feedback audio must keep the ordinary multi-target rhythm even when visual starts are compressed');
 assert.ok(skillMagnet.includes('scheduleForcedSkillFeedbackSound(sfx);'), 'forced skill feedback must enqueue prop sounds instead of playing dense one-shots immediately');
@@ -177,16 +202,21 @@ assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/bl
 assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/block_bright_pindd.png.meta')), 'landing light texture meta must not live in GameAssetsBundle');
 
 assert.ok(settlement.includes('playPatternCompleteThenWin(delaySeconds: number = 0)'), 'final completion must route through a pattern-complete win wrapper');
-assert.ok(settlement.includes('this._pendingColorCompleteEffects.clear();'), 'final pattern win must drop the queued final color-complete FX');
-assert.ok(!settlement.includes('FINAL_COLOR_COMPLETE_FX_HOLD'), 'final pattern win must not wait for a separate final-color FX');
-assert.ok(!patternCompleteWinMethod.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must not flush queued final-color FX before c1');
-assert.ok(patternCompleteFxCallIndex >= 0 && scheduleSettlementIndex > patternCompleteFxCallIndex, 'settlement must be scheduled after full-board c1 starts without waiting for its completion callback');
-assert.ok(!settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'full-board c1 completion must not block settlement reveal');
+const finalColorSequenceMethod = extractObjectMethod(colorFx, 'flushPendingColorCompleteEffectsSequentially(onDone?: () => void, gapSeconds: number = 0.12): void');
+assert.ok(!patternCompleteWinMethod.includes('this._pendingColorCompleteEffects.clear();'), 'final pattern win must retain the queued final color-complete FX');
+assert.ok(!patternCompleteWinMethod.includes('this.flushPendingColorCompleteEffects?.();'), 'final pattern win must not use the ordinary simultaneous color-effect flush');
+assert.ok(finalColorSequenceMethod.includes('const entries = Array.from(pending.entries());'), 'final color sequence must consume the real completed-color queue in insertion order');
+assert.ok(finalColorSequenceMethod.includes('this.playColorCompleteEffect(colorId, true, () => {'), 'each final color must play its own completion audio and wait for all matching b1 effects');
+assert.ok(finalColorSequenceMethod.includes('this.scheduleOnce(playNext, gap);'), 'final colors must play sequentially with a short visible gap');
+assert.ok(patternCompleteFxCallIndex >= 0, 'settlement must wait until the complete Shader sweep callback before scheduling panel reveal');
+assert.ok(settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'), 'full-board Shader completion must gate settlement reveal');
 assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0'), 'pattern-complete shrink must start without an extra pre-FX wait');
 assert.ok(settlement.includes('PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8'), 'pattern-complete shrink must match the Happy Pindou board scale');
 assert.ok(settlement.includes('.call(playPatternCompleteFx)'), 'pattern-complete c1 must start after the shrink tween finishes');
 assert.ok(!settlement.includes('PATTERN_COMPLETE_FX_START_DELAY'), 'pattern-complete c1 must not use a separate fixed start delay');
-assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.2'), 'settlement must keep only the approved short overlap hold');
+assert.ok(!settlement.includes('PATTERN_COMPLETE_COLOR_HOLD'), 'final color b1 must gate board shrink by its real completion callback instead of a fixed whole-board replay hold');
+assert.ok(settlement.includes('this.flushPendingColorCompleteEffectsSequentially(scheduleBoardCompleteShrink);'), 'final pattern win must play only the queued completed colors before board shrink');
+assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5'), 'settlement must keep the fixed post-Shader overlap hold');
 
 assert.ok(firstLevelRoute.includes("this.requireUiChild(overlayTemplates, 'RemoteLoadFatalError'"), 'level-data fatal overlay must use the authored RemoteLoadFatalError template');
 assert.ok(!firstLevelRoute.includes('ensureLevelDataLoadFatalLayer'), 'level-data fatal overlay must not create a runtime layer fallback');

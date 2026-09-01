@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const read = (relPath) => fs.readFileSync(path.join(root, relPath), 'utf8');
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
+const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
 const resultPanel = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const state = read('assets/Scripts/Core/GameCtrlState.ts');
 const session = read('assets/Scripts/Core/GameplaySessionController.ts');
@@ -47,17 +48,29 @@ assert.ok(
     'the scheduled completion callback must enter the guarded reveal path',
 );
 assert.ok(
-    settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.2'),
-    'win settlement must use the approved short overlap hold',
+    !settlement.includes('PATTERN_COMPLETE_COLOR_HOLD')
+        && settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5'),
+    'final colors must gate the next stage by b1 completion while the Shader keeps its fixed presentation hold',
+);
+assert.ok(
+    colorFx.includes('flushPendingColorCompleteEffectsSequentially(onDone?: () => void, gapSeconds: number = 0.12): void')
+        && colorFx.includes('const entries = Array.from(pending.entries());')
+        && colorFx.includes('this.playColorCompleteEffect(colorId, true, () => {'),
+    'global completion must play the actual queued colors serially, with one audio cue per color',
 );
 assert.match(
     settlement,
-    /this\.playPatternCompleteMatchFx\(\);\s*showSettlement\(\);/,
-    'win settlement must start full-board c1 before scheduling the overlapping panel reveal',
+    /this\.flushPendingColorCompleteEffectsSequentially\(scheduleBoardCompleteShrink\);/,
+    'board shrink must wait for the final queued b1 sequence to finish',
+);
+assert.match(
+    settlement,
+    /this\.playPatternCompleteMatchFx\(showSettlement\);/,
+    'win settlement must wait for the complete Shader sweep before scheduling panel reveal',
 );
 assert.ok(
-    !settlement.includes('this.playPatternCompleteMatchFx(showSettlement);'),
-    'win settlement must not wait for every full-board c1 callback before revealing',
+    !settlement.includes('this.playPatternCompleteMatchFx();'),
+    'win settlement must not schedule the panel while the Shader sweep is still playing',
 );
 assert.match(
     resultPanel,

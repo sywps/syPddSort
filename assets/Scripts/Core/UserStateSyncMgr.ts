@@ -34,8 +34,6 @@ export type CloudGameState = {
     freezeCount: number;
     brushCount: number;
     magnetCount: number;
-    dailySignInClaimedCount: number;
-    dailySignInLastClaimDateKey: number;
     themeUnlockedIds: number[];
     themeCompletedIds: number[];
     backgroundSkinOwnedIds?: number[];

@@ -6,6 +6,10 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const candidateDir = path.join(root, 'tools/latest-minigame-selected-300');
+const authoredTimeOverrides = new Map([
+    [3, 150], [4, 150], [6, 120], [9, 120], [10, 120], [14, 150],
+]);
+const formalCandidateLevelIds = new Map([[16, 17], [17, 16]]);
 
 function read(relPath) {
     return fs.readFileSync(path.join(root, relPath), 'utf8').replace(/\r\n/g, '\n');
@@ -30,19 +34,26 @@ assert.equal(manifest.levelCount, 300);
 assert.equal(manifest.entries.length, 300);
 const manifestByLevel = new Map(manifest.entries.map((entry) => [entry.levelId, entry]));
 for (let levelId = 1; levelId <= 300; levelId += 1) {
+    const candidateLevelId = formalCandidateLevelIds.get(levelId) || levelId;
     const formalBuffer = fs.readFileSync(path.join(root, `assets/LevelData/level_${levelId}.json`));
-    const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${levelId}.json`));
+    const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${candidateLevelId}.json`));
     const formalPayload = JSON.parse(formalBuffer.toString('utf8'));
     const candidatePayload = JSON.parse(candidateBuffer.toString('utf8'));
+    const comparableCandidatePayload = candidateLevelId === levelId
+        ? candidatePayload
+        : { ...candidatePayload, levelId };
     const comparableFormalPayload = { ...formalPayload };
+    delete comparableFormalPayload.Hard;
     if (levelId === 2) delete comparableFormalPayload.singleSelectionLimit;
-    if (levelId >= 5) comparableFormalPayload.timeLimit = candidatePayload.timeLimit;
+    if (levelId >= 5 || authoredTimeOverrides.has(levelId)) comparableFormalPayload.timeLimit = comparableCandidatePayload.timeLimit;
     assert.deepEqual(
         comparableFormalPayload,
-        candidatePayload,
-        `formal level ${levelId} may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
+        comparableCandidatePayload,
+        `formal level ${levelId} may differ only by approved metadata, timer policy, and L16/L17 order`,
     );
-    if (levelId >= 5) {
+    if (authoredTimeOverrides.has(levelId)) {
+        assert.equal(formalPayload.timeLimit, authoredTimeOverrides.get(levelId), `level ${levelId} authored timer override`);
+    } else if (levelId >= 5) {
         const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
         assert.equal(formalPayload.timeLimit, expectedTime);
     }
@@ -52,6 +63,7 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
         levelId === 2 ? 18 : undefined,
         `only formal level 2 may override the single-selection limit`,
     );
+    assert.equal(level.Hard, levelId === 3 ? 1 : 0, `level ${levelId} Hard flag`);
     assert.deepEqual(
         [level.levelId, level.conveyorCapacity],
         [levelId, 60],
@@ -66,8 +78,8 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     assert.equal(Object.hasOwn(level, 'slotPolicy'), false, `level ${levelId} must not retain row policy`);
     const entry = manifestByLevel.get(levelId);
     assert.deepEqual(
-        [entry?.boardWidth, entry?.boardHeight, entry?.timeLimit, entry?.slotTotalCount, entry?.conveyorCapacity],
-        [level.boardWidth, level.boardHeight, level.timeLimit, level.slotTotalCount, 60],
+        [entry?.Hard, entry?.boardWidth, entry?.boardHeight, entry?.timeLimit, entry?.slotTotalCount, entry?.conveyorCapacity],
+        [level.Hard, level.boardWidth, level.boardHeight, level.timeLimit, level.slotTotalCount, 60],
         `level ${levelId} manifest metadata`,
     );
 }

@@ -77,7 +77,7 @@ class SySDKMgr {
                 sdk.init({
                     query: launchOptions.query,
                     scene: launchOptions.scene,
-                    enablePassiveShare: false,
+                    enablePassiveShare: true,
                 });
                 sySdkDebug('[SySDK] init done');
             }

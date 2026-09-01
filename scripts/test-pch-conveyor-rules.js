@@ -177,9 +177,10 @@ assert.equal(queueRules.bufferCapacity, 72);
 const returnBoard = new FakeBoard(2, 1, [[2, 1]], [[0, 0]]);
 const returnRules = new PchConveyorRules(returnBoard);
 returnRules.carriers[0].push(1, 2);
-const returnBatch = returnRules.autoPlaceAvailableTop(0);
-assert.equal(returnBatch.moved, 2, 'one exit event must return every currently placeable top bean');
+const returnBatch = returnRules.autoPlaceAvailableLayers(0);
+assert.equal(returnBatch.moved, 2, 'one exit event must return every matching stored bean');
 assert.deepEqual(returnBatch.colorIds, [2, 1], 'the batch must preserve top-to-bottom LIFO order');
+assert.deepEqual(returnBatch.sourceLayerIndices, [1, 0], 'the batch must preserve each original visual source layer');
 assert.deepEqual(returnBatch.boardCells, [{ row: 0, col: 0 }, { row: 0, col: 1 }]);
 assert.equal(returnRules.carriers[0].length, 0);
 assert.equal(returnBoard.isAllLocked(), true);
@@ -187,25 +188,28 @@ assert.equal(returnBoard.isAllLocked(), true);
 const sameColorBoard = new FakeBoard(3, 1, [[1, 1, 1]], [[0, 0, 0]]);
 const sameColorRules = new PchConveyorRules(sameColorBoard);
 sameColorRules.carriers[0].push(1, 1, 1);
-assert.equal(sameColorRules.autoPlaceAvailableTop(0).moved, 3, 'a three-layer stack must clear in one round');
+assert.equal(sameColorRules.autoPlaceAvailableLayers(0).moved, 3, 'a three-layer stack must clear in one round');
 assert.equal(sameColorRules.carriers[0].length, 0);
 
 const blockedBoard = new FakeBoard(1, 1, [[1]], [[0]]);
 const blockedRules = new PchConveyorRules(blockedBoard);
 blockedRules.carriers[0].push(1, 2);
-assert.equal(blockedRules.autoPlaceAvailableTop(0).moved, 0, 'an unplaceable top bean must block lower layers');
-assert.deepEqual(blockedRules.carriers[0], [1, 2]);
+const buriedReturnBatch = blockedRules.autoPlaceAvailableLayers(0);
+assert.equal(buriedReturnBatch.moved, 1, 'a matching lower-layer bean must return despite an unplaceable upper layer');
+assert.deepEqual(buriedReturnBatch.colorIds, [1]);
+assert.deepEqual(buriedReturnBatch.sourceLayerIndices, [0]);
+assert.deepEqual(blockedRules.carriers[0], [2]);
 
 const partialBoard = new FakeBoard(1, 1, [[2]], [[0]]);
 const partialRules = new PchConveyorRules(partialBoard);
 partialRules.carriers[0].push(1, 2);
-assert.equal(partialRules.autoPlaceAvailableTop(0).moved, 1, 'the batch must stop when the new top becomes blocked');
+assert.equal(partialRules.autoPlaceAvailableLayers(0).moved, 1, 'the batch must return its matching layer and retain unmatched layers');
 assert.deepEqual(partialRules.carriers[0], [1]);
 
 const deadlockBoard = new FakeBoard(1, 1, [[2]], [[0]]);
 const deadlockRules = new PchConveyorRules(deadlockBoard);
 deadlockRules.carriers.forEach((stack) => stack.push(1, 1, 1));
-assert.equal(deadlockRules.isBufferDeadlocked(), true, 'a full conveyor with no returnable top must fail');
+assert.equal(deadlockRules.isBufferDeadlocked(), true, 'a full conveyor with no returnable stored bean must fail');
 assert.equal(deadlockRules.addBufferSlots(12), 12, 'buffer-full revive must add exactly 12 positions');
 assert.equal(deadlockRules.bufferCapacity, 72, 'buffer-full revive increases capacity from 60 to 72');
 assert.equal(deadlockRules.isBufferDeadlocked(), false, 'the added 12 positions must immediately clear the deadlock');
@@ -213,8 +217,8 @@ assert.equal(deadlockRules.isBufferDeadlocked(), false, 'the added 12 positions 
 const returnableFullBoard = new FakeBoard(1, 1, [[2]], [[0]]);
 const returnableFullRules = new PchConveyorRules(returnableFullBoard);
 returnableFullRules.carriers.forEach((stack) => stack.push(1, 1, 1));
-returnableFullRules.carriers[7][2] = 2;
-assert.equal(returnableFullRules.isBufferDeadlocked(), false, 'one returnable carrier top prevents failure');
+returnableFullRules.carriers[7][0] = 2;
+assert.equal(returnableFullRules.isBufferDeadlocked(), false, 'one returnable lower carrier layer prevents failure');
 
 const pendingBoard = new FakeBoard(1, 1, [[2]], [[1]]);
 const pendingRules = new PchConveyorRules(pendingBoard);
@@ -246,7 +250,7 @@ const incompleteSpeedRules = new PchConveyorRules(incompleteSpeedBoard);
 incompleteSpeedRules.carriers[0].push(1);
 assert.equal(incompleteSpeedRules.conveyorSpeedMultiplier, 1, 'missing unfinished colors must block before-win acceleration');
 incompleteSpeedRules.carriers[1].push(2);
-assert.equal(incompleteSpeedRules.conveyorSpeedMultiplier, 5, 'matching per-color carrier inventory with a returnable top must enable 5x speed');
+assert.equal(incompleteSpeedRules.conveyorSpeedMultiplier, 5, 'matching per-color carrier inventory with a returnable stored bean must enable 5x speed');
 
 const clearColorBoard = new FakeBoard(4, 1, [[1, 1, 2, 2]], [[2, 0, 1, 0]]);
 const clearColorRules = new PchConveyorRules(clearColorBoard);
@@ -306,6 +310,11 @@ assert.equal(clearAllStoredBoard.isAllLocked(), true);
 
 const controllerSourcePath = path.join(projectRoot, 'assets/Scripts/Core/PchConveyorGameplayController.ts');
 const controllerSource = fs.readFileSync(controllerSourcePath, 'utf8');
+assert.ok(
+    controllerSource.includes('this.rules.autoPlaceAvailableLayers(carrierIndex)')
+        && controllerSource.includes('sourceLayers[result.sourceLayerIndices[index]]'),
+    'exit returns must use every matching carrier layer and its original visual source',
+);
 assert.ok(
     controllerSource.includes('private beforeWinSpeedActive = false;')
         && (controllerSource.match(/this\.beforeWinSpeedActive = false;/g) || []).length >= 2
@@ -378,6 +387,7 @@ const loadController = new Function('module', 'exports', 'require', controllerCo
 loadController(controllerModule, controllerModule.exports, (request) => {
     if (request === './PchConveyorRules') return { PchConveyorRules };
     if (request === './AppRoot') return { AppRoot: { tryGet() { return null; } } };
+    if (request === './AnalyticsMgr') return { AnalyticsMgr: { inst: { trackFunnelEvent() {} } } };
     if (request === './OpeningPatternTransition') {
         return {
             buildOpeningPatternMoves() { return []; },

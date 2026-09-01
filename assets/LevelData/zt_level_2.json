@@ -1966,5 +1966,6 @@
     },
     "isFeatured": true,
     "levelId": 2,
+    "Hard": 0,
     "sourceLevelId": 29
 }

@@ -3,7 +3,6 @@ import {
     BlockInputEvents,
     Button,
     Bundle,
-    DAILY_SIGNIN_TEXTURE_NAMES,
     ECONOMY_NUMERIC_TABLE,
     EventTouch,
     FREEZE_PROP_SECONDS,
@@ -17,7 +16,7 @@ import {
     instantiate,
     tween,
 } from '../GameCtrlShared';
-import type { DailySignInReward, InventoryPropKind } from '../GameCtrlShared';
+import type { InventoryPropKind } from '../GameCtrlShared';
 
 type ToolAcquireKind = Exclude<InventoryPropKind, 'expand'>;
 type ResourceAcquireVariant = ToolAcquireKind | 'gold';
@@ -624,137 +623,6 @@ export class CommercePanelController {
         return this.openGoldAcquirePanel();
     }
 
-    openDailySignInPanel() {
-        const runtime = this.runtime;
-        const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
-        if (DAILY_SIGNIN_TEXTURE_NAMES.some((name: string) => !runtime.getSF(name))) {
-            runtime._openPanelAfterTextures('daily-signin', DAILY_SIGNIN_TEXTURE_NAMES, () => !!popupRoot.getChildByName('DailySignInOverlay'), () => this.openDailySignInPanel());
-            return;
-        }
-        if (popupRoot.getChildByName('DailySignInOverlay')) return;
-        runtime._retainPanelTextureOwner('daily-signin', DAILY_SIGNIN_TEXTURE_NAMES);
-
-        const prefabPath = 'UI/Prefabs/Panels/DailySignInPanel';
-        const status = runtime.getDailySignInStatus();
-        const rewards = ECONOMY_NUMERIC_TABLE.dailySignIn.rewards;
-        const isRuntimeAlive = () => !!(runtime._isRuntimeAliveForAsyncCallback?.() ?? runtime.isValid);
-        const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
-        const cancelStaleOpen = () => {
-            if (!isRuntimeAlive()) return;
-            runtime._releasePanelTextureOwner('daily-signin', 'daily-signin-open-stale');
-        };
-
-        const formatDailyExtraReward = (reward: DailySignInReward): string => {
-            const rewardProps = reward as DailySignInReward & { wand?: number; freeze?: number; brush?: number; magnet?: number };
-            if (rewardProps.freeze && rewardProps.freeze > 0) return `\u51bb\u7ed3x${rewardProps.freeze}`;
-            if (rewardProps.wand && rewardProps.wand > 0) return `魔法棒x${rewardProps.wand}`;
-            if (rewardProps.brush && rewardProps.brush > 0) return `刷子x${rewardProps.brush}`;
-            if (rewardProps.magnet && rewardProps.magnet > 0) return `磁铁x${rewardProps.magnet}`;
-            return '';
-        };
-
-        const syncDailyRewardCard = (card: Node, reward: DailySignInReward, cardState: 'available' | 'claimed' | 'locked') => {
-            const goldTextNode = runtime.requirePanelChild(card, 'GoldText');
-            const goldTextLabel = goldTextNode.getComponent(Label);
-            if (!goldTextLabel) throw new Error('[daily-signin-prefab] missing Label component on GoldText');
-            const goldReward = reward.gold && reward.gold > 0 ? `x${reward.gold}` : '';
-            const extraReward = formatDailyExtraReward(reward);
-            goldTextLabel.string = [goldReward, extraReward].filter(Boolean).join('\n');
-            const claimedBadge = runtime.requirePanelChild(card, 'ClaimedBadge');
-            claimedBadge.active = cardState === 'claimed';
-        };
-
-        const failOpen = (message: string, overlay?: Node | null) => {
-            if (overlay?.isValid) {
-                runtime._clearSpriteFramesBeforeDestroy(overlay);
-                runtime._destroyDetachedNodeNextFrame(overlay);
-            }
-            runtime._releasePanelTextureOwner('daily-signin', 'daily-signin-open-failed');
-            console.error(message);
-        };
-
-        runtime._withGameAssetsBundle((bundle: Bundle | null) => {
-            if (!isOpenTargetAlive()) {
-                cancelStaleOpen();
-                return;
-            }
-            if (!bundle) { failOpen('[daily-signin-prefab] gameAssets bundle unavailable'); return; }
-            bundle.load(prefabPath, Prefab, (err: Error | null, prefab: Prefab | null) => {
-                if (!isOpenTargetAlive()) {
-                    cancelStaleOpen();
-                    return;
-                }
-                if (err || !prefab) { failOpen(`[daily-signin-prefab] load failed: ${err?.message || 'prefab missing'}`); return; }
-                let overlay: Node | null = null;
-                try {
-                    overlay = instantiate(prefab);
-                    overlay.name = 'DailySignInOverlay';
-                    popupRoot.addChild(overlay);
-                    overlay.setSiblingIndex(999);
-                    if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
-
-                    const closePanel = () => {
-                        if (!overlay?.isValid) return;
-                        AudioMgr.inst.play('button');
-                        runtime._closePanelWithTextureOwner(overlay, 'daily-signin', 'daily-signin');
-                    };
-
-                    const box = runtime.requirePanelChild(overlay, 'Box');
-                    syncPrefabPopupTitle(box, '签到');
-                    if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
-                    overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
-                        const boxUT = box.getComponent(UITransform);
-                        if (!boxUT) return;
-                        const uiPos = e.getUILocation();
-                        const local = boxUT.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
-                        const size = boxUT.contentSize;
-                        if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) return;
-                        closePanel();
-                    }, runtime);
-                    runtime.bindPanelButton(runtime.requirePanelChild(box, 'CloseButton'), closePanel);
-
-                    const gridRoot = runtime.requirePanelChild(box, 'GridRoot');
-                    for (let i = 0; i < rewards.length; i++) {
-                        const reward = rewards[i];
-                        const card = runtime.requirePanelChild(gridRoot, `PreviewCard${i}`);
-                        card.active = true;
-                        const cardState = status.canClaim && i === status.nextClaimIndex ? 'available' : i < status.displayClaimedCount ? 'claimed' : 'locked';
-                        syncDailyRewardCard(card, reward, cardState);
-                    }
-
-                    const claimButton = runtime.requirePanelChild(box, 'ClaimButton');
-                    const claimButtonText = runtime.requirePanelChild(claimButton, 'ClaimButtonText');
-                    const claimButtonLabel = claimButtonText.getComponent(Label);
-                    if (!claimButtonLabel) throw new Error('[daily-signin-prefab] missing Label component on ClaimButton/ClaimButtonText');
-                    claimButtonLabel.string = status.canClaim ? '签到领取' : '今日已领取';
-                    runtime.bindPanelButton(claimButton, () => {
-                        AudioMgr.inst.play('button');
-                        if (!status.canClaim) { runtime.showToast('今天已经签到过了'); return; }
-                        const reward = rewards[status.nextClaimIndex];
-                        if (!reward) return;
-                        let rewardSummary = '';
-                        try {
-                            rewardSummary = runtime.grantDailySignInReward(reward);
-                        } catch (error) {
-                            console.warn('[daily-signin] reward grant failed:', error);
-                            runtime.showToast('签到奖励发放失败，请重试');
-                            return;
-                        }
-                        runtime.setDailySignInClaimedCount(status.nextClaimIndex + 1);
-                        runtime.setDailySignInLastClaimDateKey(runtime.getTodayDateKey());
-                        runtime._suppressHomeStartUntil = Date.now() + 350;
-                        runtime._closePanelWithTextureOwner(overlay!, 'daily-signin', 'daily-signin-claim');
-                        runtime.refreshGoldUI();
-                        runtime.showDailySignInRewardReceipt(reward);
-                        runtime.showToast(`签到成功，获得${rewardSummary}`, 2);
-                    });
-                    runtime.playPopupOpenAnim?.(overlay, box);
-                } catch (error: any) {
-                    failOpen(error?.message || '[daily-signin-prefab] build failed', overlay);
-                }
-            });
-        });
-    }
 }
 
 export function ensureCommercePanelController(runtime: any): CommercePanelController {

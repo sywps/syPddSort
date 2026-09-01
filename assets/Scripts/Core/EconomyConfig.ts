@@ -24,15 +24,4 @@ export const ECONOMY_NUMERIC_TABLE = {
         goldShopReward: 30,
         winTotalMultiplier: 5,
     },
-    dailySignIn: {
-        rewards: [
-            { gold: 50 },
-            { gold: 80 },
-            { gold: 100, freeze: 1 },
-            { gold: 120 },
-            { gold: 150, brush: 1 },
-            { gold: 180 },
-            { gold: 260, magnet: 1 },
-        ],
-    },
 } as const;

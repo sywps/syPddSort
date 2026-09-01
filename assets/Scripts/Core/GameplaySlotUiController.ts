@@ -6,19 +6,11 @@ import {
     Label,
     Layers,
     LS_EXPAND_USED,
-    MAINLINE_SLOT_GROOVE_TEXTURE,
-    MAINLINE_SLOT_LOCK_DASH_TEXTURE,
-    MAINLINE_SLOT_LOCK_MASK_HEIGHT,
-    MAINLINE_SLOT_LOCK_MASK_TEXTURE,
-    MAINLINE_SLOT_LOCK_MASK_WIDTH,
-    MAINLINE_SLOT_LOCK_ROW_HEIGHT,
-    MAINLINE_SLOT_LOCK_ROW_WIDTH,
     MAINLINE_SLOT_MARKER_HEIGHT,
     MAINLINE_SLOT_MARKER_LOCKED_OPACITY,
     MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY,
     MAINLINE_SLOT_MARKER_WIDTH,
     MAINLINE_SLOT_PANEL_EXTRA_HEIGHT,
-    MAINLINE_SLOT_PANEL_TEXTURE,
     Node,
     PerformanceMgr,
     SLOT_AREA_CENTER_Y,
@@ -526,15 +518,6 @@ export class GameplaySlotUiController {
         panel.getComponent(UITransform)?.setContentSize(panelWidth, this.getSlotPanelLayoutHeight(rowCount));
         panel.setPosition(panelLocalX, panelLocalY, panelLocalZ);
         panel.layer = Layers.Enum.UI_2D;
-        const panelSprite = panel.getComponent(Sprite);
-        if (!panelSprite) {
-            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotPanel');
-        }
-        const panelFrame = runtime.getSF(MAINLINE_SLOT_PANEL_TEXTURE);
-        if (panelFrame) {
-            panelSprite.spriteFrame = panelFrame;
-        }
-        panelSprite.type = Sprite.Type.SLICED;
         const hasPendingAllRowsUnlock = this.hasPendingAllRowsUnlock();
         const lockedPreviewRow = runtime.slotUnlockedRows < rowCount
             ? rowCount - 1
@@ -555,12 +538,6 @@ export class GameplaySlotUiController {
                 const shellWidth = Number.isFinite(shellLayout?.width) ? shellLayout!.width : MAINLINE_SLOT_MARKER_WIDTH;
                 const shellHeight = Number.isFinite(shellLayout?.height) ? shellLayout!.height : MAINLINE_SLOT_MARKER_HEIGHT;
                 shell.getComponent(UITransform)?.setContentSize(shellWidth, shellHeight);
-                const shellSprite = shell.getComponent(Sprite);
-                if (!shellSprite) {
-                    throw new Error(`[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotPanel/${this.getSlotShellName(idx)}`);
-                }
-                shellSprite.sizeMode = Sprite.SizeMode.CUSTOM;
-                shellSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_GROOVE_TEXTURE) || shellSprite.spriteFrame;
                 const shellOpacity = shell.getComponent(UIOpacity) || shell.addComponent(UIOpacity);
                 const row = Math.floor(idx / SLOTS_PER_ROW);
                 shellOpacity.opacity = row >= runtime.slotUnlockedRows
@@ -587,32 +564,6 @@ export class GameplaySlotUiController {
         const lockedRowLayoutRowCount = Math.max(rowCount, lockedPreviewRow + 1);
         const lockedRowAnchor = lockedPreviewRow >= 0 ? this.getSlotLocalPosition(lockedPreviewRow * SLOTS_PER_ROW, lockedRowLayoutRowCount) : new Vec3(0, 0, 0);
         const lockRowCenterY = lockedPreviewRow >= 0 ? panel.position.y + lockedRowAnchor.y : 0;
-        const lockMask = this.getOrCreateSlotAreaSpriteChild('SlotRowLockMask');
-        lockMask.layer = Layers.Enum.UI_2D;
-        lockMask.active = lockedPreviewRow >= 0;
-        this.applyMainlineLockLayout(lockMask, runtime._slotAreaSceneLockMaskLayout, lockRowCenterY, MAINLINE_SLOT_LOCK_MASK_WIDTH, MAINLINE_SLOT_LOCK_MASK_HEIGHT);
-        const lockMaskSprite = lockMask.getComponent(Sprite);
-        if (!lockMaskSprite) {
-            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockMask');
-        }
-        lockMaskSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_LOCK_MASK_TEXTURE) || lockMaskSprite.spriteFrame;
-        lockMaskSprite.type = Sprite.Type.SIMPLE;
-        const lockMaskOpacity = lockMask.getComponent(UIOpacity) || lockMask.addComponent(UIOpacity);
-        lockMaskOpacity.opacity = 255;
-
-        const lockDash = this.getOrCreateSlotAreaSpriteChild('SlotRowLockDash');
-        lockDash.layer = Layers.Enum.UI_2D;
-        lockDash.active = lockedPreviewRow >= 0;
-        this.applyMainlineLockLayout(lockDash, runtime._slotAreaSceneLockDashLayout, lockRowCenterY, MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT);
-        const lockDashSprite = lockDash.getComponent(Sprite);
-        if (!lockDashSprite) {
-            throw new Error('[GameplayScene] Game.scene is missing Sprite component on SlotArea/SlotRowLockDash');
-        }
-        lockDashSprite.spriteFrame = runtime.getSF(MAINLINE_SLOT_LOCK_DASH_TEXTURE) || lockDashSprite.spriteFrame;
-        lockDashSprite.type = Sprite.Type.SIMPLE;
-        const lockDashOpacity = lockDash.getComponent(UIOpacity) || lockDash.addComponent(UIOpacity);
-        lockDashOpacity.opacity = 255;
-
         const lockBtn = this.getOrCreateSlotAreaSpriteChild('SlotRowLockedBtn');
         lockBtn.layer = Layers.Enum.UI_2D;
         lockBtn.active = lockedPreviewRow >= 0;
@@ -636,8 +587,6 @@ export class GameplaySlotUiController {
         }, runtime);
         this.syncSlotUnlockButtonModeIcon(lockBtn);
         this.hideCountBadge(lockBtn);
-        lockMask.setSiblingIndex(1);
-        lockDash.setSiblingIndex(2);
         lockBtn.setSiblingIndex(3);
     }
 

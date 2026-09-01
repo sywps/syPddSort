@@ -502,6 +502,7 @@ export class GameSceneRuntimeController {
     destroy(): void {
         const sceneName = this.getRuntimeSceneName();
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
+        this.runtime.cancelPendingShareReturn?.(`scene-destroy:${sceneName}`);
         this.runtime.disposeSettingsPanel?.();
         this.runtime._rewardedAdStateUnsubscribe?.();
         this.runtime._rewardedAdStateUnsubscribe = null;

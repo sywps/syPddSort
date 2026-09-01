@@ -129,6 +129,17 @@ export function validateConveyorCapacity(value: unknown, label: string = 'level 
     return value;
 }
 
+/** 关卡入场难度标记：0 为普通关，1 为困难关。 */
+export type HardLevelFlag = 0 | 1;
+
+/** 校验关卡入场难度标记；缺失或非法值必须显性失败。 */
+export function validateHard(value: unknown, label: string = 'level data'): HardLevelFlag {
+    if (value !== 0 && value !== 1) {
+        throw new Error(`[Hard] ${label}.Hard must be 0 or 1: ${value}`);
+    }
+    return value;
+}
+
 export interface LevelTutorialGuideConfig {
     mode?: string;
     guideCopies?: string[];
@@ -139,6 +150,8 @@ export interface LevelTutorialGuideConfig {
 /** 关卡数据 */
 export interface LevelData {
     levelId: number;
+    /** 0 为普通关，1 为困难关。 */
+    Hard: HardLevelFlag;
     boardWidth: number;
     boardHeight: number;
     timeLimit: number;

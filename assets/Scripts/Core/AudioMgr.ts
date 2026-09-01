@@ -33,8 +33,8 @@ const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
 const SFX_CHANNEL_COUNT = 8;
 const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
-    'select',
     'place',
+    'settle',
     'button',
     'tick',
     'winColor',
@@ -62,6 +62,7 @@ export class AudioMgr {
     private audioRoot: Node | null = null;
     private sfxSources: AudioSource[] = [];
     private busySfxSources: Set<AudioSource> = new Set();
+    private placeOneShotSources: Set<AudioSource> = new Set();
     private sfxSourceCursor = 0;
     private bgmSrc: AudioSource | null = null;
     private gameAssetsBundle: Bundle | null = null;
@@ -159,6 +160,7 @@ export class AudioMgr {
     }
 
     private disposeAudioSources(audioHost: Node): void {
+        this._releaseAllPlaceOneShotSources(true);
         audioHost.off(AudioSource.EventType.ENDED, this._handleSfxSourceEnded, this);
         this.pendingAutoplaySfx.clear();
         this.busySfxSources.clear();
@@ -181,6 +183,67 @@ export class AudioMgr {
 
     private _handleSfxSourceEnded(source: AudioSource) {
         this.busySfxSources.delete(source);
+    }
+
+    private _handlePlaceOneShotEnded(source: AudioSource) {
+        this._releasePlaceOneShotSource(source, false);
+    }
+
+    private _releasePlaceOneShotSource(source: AudioSource, stopPlayback: boolean): void {
+        if (!this.placeOneShotSources.delete(source)) return;
+        const sourceNode = source.node;
+        try {
+            sourceNode?.off(AudioSource.EventType.ENDED, this._handlePlaceOneShotEnded, this);
+        } catch (_) { /* ignore */ }
+        if (stopPlayback) {
+            try {
+                source.stop();
+            } catch (_) { /* ignore */ }
+        }
+        try {
+            source.clip = null;
+        } catch (_) { /* ignore */ }
+        try {
+            source.destroy();
+        } catch (_) { /* ignore */ }
+        if (sourceNode?.isValid) {
+            try {
+                sourceNode.destroy();
+            } catch (_) { /* ignore */ }
+        }
+    }
+
+    private _releaseAllPlaceOneShotSources(stopPlayback: boolean): void {
+        for (const source of [...this.placeOneShotSources]) {
+            this._releasePlaceOneShotSource(source, stopPlayback);
+        }
+    }
+
+    private _playPlaceOneShot(clip: AudioClip, volume: number): void {
+        const audioRoot = this.audioRoot;
+        if (!audioRoot?.isValid) return;
+        let source: AudioSource | null = null;
+        let sourceNode: Node | null = null;
+        try {
+            sourceNode = new Node('PddPlaceOneShot');
+            audioRoot.addChild(sourceNode);
+            source = sourceNode.addComponent(AudioSource);
+            source.playOnAwake = false;
+            source.loop = false;
+            source.clip = clip;
+            source.volume = volume;
+            this.placeOneShotSources.add(source);
+            sourceNode.on(AudioSource.EventType.ENDED, this._handlePlaceOneShotEnded, this);
+            source.play();
+        } catch (_) {
+            if (source) {
+                this._releasePlaceOneShotSource(source, true);
+            } else if (sourceNode?.isValid) {
+                try {
+                    sourceNode.destroy();
+                } catch (_) { /* ignore */ }
+            }
+        }
     }
 
     private _acquireSfxSource(): AudioSource | null {
@@ -347,13 +410,18 @@ export class AudioMgr {
 
     private _playLoadedClip(name: SfxName, clip: AudioClip) {
         if (this.suspended || !this.sfxEnabled || !this._isSfxAllowedInCurrentScene(name)) return;
-        const source = this._acquireSfxSource();
-        if (!source) return;
+        let source: AudioSource | null = null;
         try {
             const baseVolume = AUDIO_SFX_VOLUME[name] ?? 0.7;
             const variance = AUDIO_SFX_VOLUME_VARIANCE[name] ?? 0;
             const jitter = variance > 0 ? (Math.random() * 2 - 1) * variance : 0;
             const volume = Math.max(0, Math.min(1, baseVolume * (1 + jitter)));
+            if (name === 'place' || name === 'settle') {
+                this._playPlaceOneShot(clip, volume);
+                return;
+            }
+            source = this._acquireSfxSource();
+            if (!source) return;
             source.stop();
             source.playOnAwake = false;
             source.loop = false;
@@ -362,7 +430,7 @@ export class AudioMgr {
             this.busySfxSources.add(source);
             source.play();
         } catch (e) {
-            this.busySfxSources.delete(source);
+            if (source) this.busySfxSources.delete(source);
             // WeChat innerAudioContext may throw if audio not ready
         }
     }
@@ -724,6 +792,7 @@ export class AudioMgr {
 
     stopSfx(): void {
         this.pendingAutoplaySfx.clear();
+        this._releaseAllPlaceOneShotSources(true);
         for (const source of this.sfxSources) {
             if (!source?.isValid) continue;
             try {

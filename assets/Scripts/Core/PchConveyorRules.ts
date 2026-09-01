@@ -28,6 +28,7 @@ export type PchEntryTransfer = {
 
 export type PchCarrierReturnBatch = PchCarrierMove & {
     colorIds: number[];
+    sourceLayerIndices: number[];
 };
 
 export type PchSkillBeanSource = {
@@ -141,42 +142,52 @@ export class PchConveyorRules {
         const colorId = stack?.[stack.length - 1] || 0;
         if (colorId <= 0) return this.emptyResult();
 
-        for (let row = 0; row < this.board.height; row += 1) {
-            for (let col = 0; col < this.board.width; col += 1) {
-                if (this.board.currentColors[row][col] !== 0
-                    || this.board.locked[row][col]
-                    || this.board.correctColors[row][col] !== colorId) continue;
-                stack.pop();
-                this.board.currentColors[row][col] = colorId;
-                this.board.setLocked(row, col, true);
-                return {
-                    moved: 1,
-                    boardCells: [{ row, col }],
-                    carrierIndices: [carrierIndex],
-                };
-            }
-        }
-        return this.emptyResult();
+        const target = this.findReturnTarget(colorId);
+        if (!target) return this.emptyResult();
+        stack.pop();
+        this.board.currentColors[target.row][target.col] = colorId;
+        this.board.setLocked(target.row, target.col, true);
+        return {
+            moved: 1,
+            boardCells: [target],
+            carrierIndices: [carrierIndex],
+        };
     }
 
-    autoPlaceAvailableTop(carrierIndex: number): PchCarrierReturnBatch {
+    autoPlaceAvailableLayers(carrierIndex: number): PchCarrierReturnBatch {
+        const stack = this.carriers[carrierIndex];
         const boardCells: Array<{ row: number; col: number }> = [];
         const carrierIndices: number[] = [];
         const colorIds: number[] = [];
-        while (true) {
-            const colorId = this.topColor(carrierIndex);
-            if (colorId <= 0) break;
-            const result = this.autoPlaceTop(carrierIndex);
-            if (result.moved <= 0) break;
-            boardCells.push(...result.boardCells);
-            carrierIndices.push(...result.carrierIndices);
+        const sourceLayerIndices: number[] = [];
+        if (!stack) {
+            return {
+                moved: 0,
+                boardCells,
+                carrierIndices,
+                colorIds,
+                sourceLayerIndices,
+            };
+        }
+        for (let layerIndex = stack.length - 1; layerIndex >= 0; layerIndex -= 1) {
+            const colorId = stack[layerIndex] || 0;
+            if (colorId <= 0) continue;
+            const target = this.findReturnTarget(colorId);
+            if (!target) continue;
+            stack.splice(layerIndex, 1);
+            this.board.currentColors[target.row][target.col] = colorId;
+            this.board.setLocked(target.row, target.col, true);
+            boardCells.push(target);
+            carrierIndices.push(carrierIndex);
             colorIds.push(colorId);
+            sourceLayerIndices.push(layerIndex);
         }
         return {
             moved: boardCells.length,
             boardCells,
             carrierIndices,
             colorIds,
+            sourceLayerIndices,
         };
     }
 
@@ -405,19 +416,19 @@ export class PchConveyorRules {
         if (pendingTargetCounts.size === 0) return 1;
 
         const storedCounts = new Map<number, number>();
-        const returnableTopColors = new Set<number>();
+        const returnableCarrierColors = new Set<number>();
         for (const stack of this.carriers) {
             for (const colorId of stack) {
-                if (colorId > 0) storedCounts.set(colorId, (storedCounts.get(colorId) || 0) + 1);
+                if (colorId <= 0) continue;
+                storedCounts.set(colorId, (storedCounts.get(colorId) || 0) + 1);
+                returnableCarrierColors.add(colorId);
             }
-            const topColorId = stack[stack.length - 1] || 0;
-            if (topColorId > 0) returnableTopColors.add(topColorId);
         }
         if (storedCounts.size !== pendingTargetCounts.size) return 1;
         for (const [colorId, pendingCount] of pendingTargetCounts) {
             if (storedCounts.get(colorId) !== pendingCount) return 1;
         }
-        for (const colorId of returnableTopColors) {
+        for (const colorId of returnableCarrierColors) {
             if (pendingTargetCounts.has(colorId)) return 5;
         }
         return 1;
@@ -425,19 +436,32 @@ export class PchConveyorRules {
 
     isBufferDeadlocked(): boolean {
         if (this.bufferCount !== this.bufferCapacity || this.entryCount > 0) return false;
-        const returnableTopColors = new Set<number>();
-        for (const stack of this.carriers) {
-            const colorId = stack[stack.length - 1] || 0;
-            if (colorId > 0) returnableTopColors.add(colorId);
+        return !this.hasReturnableCarrierMatch();
+    }
+
+    shouldShowRedWarning(emptySlotThreshold: number): boolean {
+        if (!Number.isInteger(emptySlotThreshold) || emptySlotThreshold <= 0) {
+            throw new Error(`emptySlotThreshold must be a positive integer: ${emptySlotThreshold}`);
         }
-        if (returnableTopColors.size === 0) return true;
+        if (this.bufferCapacity - this.bufferCount >= emptySlotThreshold) return false;
+        return !this.hasReturnableCarrierMatch();
+    }
+
+    private hasReturnableCarrierMatch(): boolean {
+        const returnableCarrierColors = new Set<number>();
+        for (const stack of this.carriers) {
+            for (const colorId of stack) {
+                if (colorId > 0) returnableCarrierColors.add(colorId);
+            }
+        }
+        if (returnableCarrierColors.size === 0) return false;
         for (let row = 0; row < this.board.height; row += 1) {
             for (let col = 0; col < this.board.width; col += 1) {
                 if (this.board.currentColors[row][col] !== 0 || this.board.locked[row][col]) continue;
-                if (returnableTopColors.has(this.board.correctColors[row][col])) return false;
+                if (returnableCarrierColors.has(this.board.correctColors[row][col])) return true;
             }
         }
-        return true;
+        return false;
     }
 
     get cells(): PchBoardCell[] {
@@ -503,6 +527,19 @@ export class PchConveyorRules {
             }
         }
         return cells;
+    }
+
+    private findReturnTarget(colorId: number): { row: number; col: number } | null {
+        for (let row = 0; row < this.board.height; row += 1) {
+            for (let col = 0; col < this.board.width; col += 1) {
+                if (this.board.currentColors[row][col] === 0
+                    && !this.board.locked[row][col]
+                    && this.board.correctColors[row][col] === colorId) {
+                    return { row, col };
+                }
+            }
+        }
+        return null;
     }
 
     private emptySkillResult(): PchSkillResult {

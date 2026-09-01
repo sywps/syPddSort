@@ -9,7 +9,6 @@ import {
     Graphics,
     Label,
     Layers,
-    MAINLINE_SLOT_GROOVE_TEXTURE,
     Node,
     Sprite,
     Tween,

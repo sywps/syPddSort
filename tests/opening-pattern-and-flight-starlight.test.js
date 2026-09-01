@@ -88,13 +88,19 @@ const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 const pchStart = section(pch, '    start(): void {', '    playOpeningPatternShuffle(): void {');
 assert.ok(pchStart.includes('this.inputLocked = true;'), 'input must be gated before PCH handlers become usable');
 assert.ok(pchStart.includes('this.prepareOpeningPatternShuffle();'), 'completed-pattern visuals must be prepared before loading release');
+assert.ok(pchStart.includes("typeof this.runtime.acquireFlyBeanNode !== 'function'"), 'PCH must fail fast when the shared FlyBean pool acquire contract is absent');
+assert.ok(pchStart.includes("typeof this.runtime.recycleFlyBeanNode !== 'function'"), 'PCH must fail fast when the shared FlyBean pool recycle contract is absent');
 
 const opening = section(pch, '    playOpeningPatternShuffle(): void {', '    stop(): void {');
+const openingMotion = section(pch, '    playOpeningPatternShuffle(): void {', '    private prepareOpeningPatternShuffle(): void {');
 assert.ok(opening.includes("this.openingPatternState = 'running';"));
 assert.ok(opening.includes('generation !== this.openingPatternGeneration'));
 assert.ok(opening.includes('this.restoreOpeningPatternVisuals(false, true);'));
 assert.ok(opening.includes('this.inputLocked = false;'), 'only the guarded completion may release gameplay input');
 assert.ok(opening.includes('this.runtime.renderBoard();'), 'completion must reveal the authoritative shuffled model');
+assert.ok(!openingMotion.includes('angle:'), 'opening shuffle must not rotate beans');
+assert.ok(!openingMotion.includes('getOpeningPatternSpin'), 'opening shuffle must not calculate a bean spin');
+assert.ok(!pch.includes('private getOpeningPatternSpin('), 'unused opening-spin helper must be removed');
 const openingComplete = section(pch, '    private completeOpeningPatternShuffle(', '    private cancelOpeningPatternShuffle(');
 const guideIndex = openingComplete.indexOf('this.showOpeningFeatureGuide(');
 const openingSkillSyncIndex = openingComplete.indexOf('this.runtime.syncSkillButtonRuntimeStates?.();');
@@ -105,6 +111,7 @@ assert.ok(openingGuideDismiss.includes('this.runtime.syncSkillButtonRuntimeState
 const inbound = section(pch, '    private animateBeanIntoConveyor(', '    private animateBeanReturn(');
 const returning = section(pch, '    private animateBeanReturn(', '    private finishReturnAnimation(');
 const skills = section(pch, '    private runConveyorSkill(', '    private resolveSkillSourceVisual(');
+const flyCreate = section(pch, '    private createFlyBean(', '    private attachSphereFlyEffect(');
 const flyDestroy = section(pch, '    private destroyFlyBean(', '    private getBoardCellWorldPosition(');
 const flyEffectAttach = section(pch, '    private attachSphereFlyEffect(', '    private createSphereFlyEffectNode(');
 const uiManifest = read('assets/Scripts/Core/UiManifest.ts');
@@ -120,6 +127,11 @@ assert.ok(!pch.includes('PchInboundHalo'), 'the rejected local halo approximatio
 assert.ok(!pch.includes('PchInboundSpark-'), 'the rejected code-drawn four-point stars must be removed');
 assert.ok(!pch.includes('drawInboundSparkle'), 'Graphics-based sparkle drawing must be removed');
 assert.ok(!pch.includes('attachBrightOverlay'), 'normal inbound flight must use the original package textures');
+assert.ok(flyCreate.includes('this.runtime.acquireFlyBeanNode(name, size, spriteFrame)'), 'PCH FlyBean bodies must reuse the shared node pool');
+assert.ok(flyCreate.includes("bean.getChildByName('BrightOverlay')"), 'PCH must locate the shared pool glow explicitly');
+assert.ok(flyCreate.includes('brightOverlay.active = false;'), 'the shared local glow must stay hidden under the package Star/Trail effect');
+assert.ok(!flyCreate.includes('this.makeNode('), 'PCH FlyBean bodies must not allocate a fresh node per flight');
+assert.ok(!flyCreate.includes('bean.addComponent(Sprite)'), 'pooled FlyBeans must reuse their Sprite component');
 
 assert.ok(pch.includes('private readonly sphereFlyEffectPool = new NodePool();'), 'the competitor effect wrapper must have a dedicated pool');
 assert.ok(pch.includes('private readonly sphereFlyStarPool = new NodePool();'), 'distance-emitted stars must be recycled instead of recreated indefinitely');
@@ -127,7 +139,8 @@ assert.ok(pch.includes('this.sphereFlyEffectPool.get() ?? this.createSphereFlyEf
 assert.ok(pch.includes('this.sphereFlyEffectPool.put(state.node);'));
 assert.ok(pch.includes('this.sphereFlyStarPool.get() ?? this.createSphereFlyStarNode()'));
 assert.ok(pch.includes('this.sphereFlyStarPool.put(star);'));
-assert.ok(flyDestroy.indexOf('this.recycleSphereFlyEffect(bean);') < flyDestroy.indexOf('bean.destroy();'), 'arrival cleanup must recycle the effect before destroying the fly bean');
+assert.ok(flyDestroy.indexOf('this.recycleSphereFlyEffect(bean);') < flyDestroy.indexOf('this.runtime.recycleFlyBeanNode(bean);'), 'arrival cleanup must recycle the package effect before returning the FlyBean body to the shared pool');
+assert.ok(!flyDestroy.includes('bean.destroy();'), 'normal PCH cleanup must not destroy a reusable FlyBean body');
 assert.ok(pch.includes('this.recycleAllSphereFlyEffects();'), 'controller stop must force-recycle any attached effects');
 assert.ok(pch.includes('this.updateSphereFlyEffects(deltaTime);'), 'the existing gameplay update must drive distance emission and trail history');
 

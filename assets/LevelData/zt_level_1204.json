@@ -1,5 +1,6 @@
 {
     "levelId": 1204,
+    "Hard": 0,
     "boardWidth": 60,
     "boardHeight": 60,
     "timeLimit": 600,

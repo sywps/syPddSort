@@ -7,12 +7,6 @@ import {
     Vec3,
     tween,
 } from './GameCtrlShared';
-import {
-    getDouyinMiniGameRuntime,
-    getWeChatMiniGameRuntime,
-    isDouyinMiniGameRuntime,
-    isWeChatMiniGameRuntime,
-} from './MiniGamePlatform';
 
 type ToastViewState = {
     host: Node | null;
@@ -26,9 +20,17 @@ const TOAST_HOST_NAME = 'ToastHost';
 const TOAST_BUBBLE_NAME = 'ToastBubble';
 const TOAST_LABEL_NAME = 'ToastLbl';
 const LEGACY_TOAST_NAME = 'Toast';
-const TOAST_HEIGHT = 72;
-const TOAST_SLOT_GAP = 18;
+const TOAST_HEIGHT = 67;
+const TOAST_MIN_WIDTH = 630;
+const TOAST_MAX_WIDTH = 630;
+const TOAST_HORIZONTAL_PADDING = 72;
+const TOAST_LABEL_HEIGHT = 44;
 const TOAST_SCREEN_MARGIN = 24;
+const TOAST_DEFAULT_HOLD_SECONDS = 1;
+const TOAST_EXIT_RISE_SECONDS = 1;
+const TOAST_EXIT_RISE_DISTANCE = 100;
+const TOAST_MIDDLE_UPPER_Y_RATIO = 0.237;
+const TOAST_VISIBLE_OPACITY = 255;
 const warningKeys = new Set<string>();
 
 function warnOnce(key: string, message: string, error?: unknown): void {
@@ -43,65 +45,6 @@ function warnOnce(key: string, message: string, error?: unknown): void {
 
 function normalizeToastText(text: string): string {
     return String(text || '').trim();
-}
-
-function normalizeToastDurationMs(duration: number): number {
-    return Math.max(800, Math.min(4000, Math.round((Number(duration) || 1.5) * 1000)));
-}
-
-function showWeChatNativeToast(text: string, duration: number): boolean {
-    if (!isWeChatMiniGameRuntime()) return false;
-    if (!text) return true;
-    const wxRuntime = getWeChatMiniGameRuntime();
-    if (!wxRuntime?.showToast) {
-        warnOnce(
-            'wechat-toast-unavailable',
-            '[ToastService] wx.showToast unavailable; skip Cocos toast in WeChat runtime.',
-        );
-        return true;
-    }
-    try {
-        wxRuntime.showToast({
-            title: text,
-            icon: 'none',
-            duration: normalizeToastDurationMs(duration),
-            fail: (error: unknown) => warnOnce(
-                'wechat-toast-callback-failed',
-                '[ToastService] wx.showToast failed; skip Cocos toast in WeChat runtime:',
-                error,
-            ),
-        });
-    } catch (error) {
-        warnOnce(
-            'wechat-toast-failed',
-            '[ToastService] wx.showToast failed; skip Cocos toast in WeChat runtime:',
-            error,
-        );
-    }
-    return true;
-}
-
-function showDouyinNativeToast(text: string, duration: number): boolean {
-    if (!isDouyinMiniGameRuntime()) return false;
-    if (!text) return true;
-    const ttRuntime = getDouyinMiniGameRuntime();
-    if (!ttRuntime?.showToast) return false;
-    try {
-        ttRuntime.showToast({
-            title: text,
-            icon: 'none',
-            duration: normalizeToastDurationMs(duration),
-            fail: (error: unknown) => warnOnce(
-                'douyin-toast-callback-failed',
-                '[ToastService] tt.showToast failed:',
-                error,
-            ),
-        });
-        return true;
-    } catch (error) {
-        warnOnce('[ToastService] tt.showToast failed:', '[ToastService] tt.showToast failed:', error);
-        return false;
-    }
 }
 
 function getRuntimeToastState(runtime: any): ToastViewState {
@@ -130,22 +73,12 @@ function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
 
-function hasGameplaySlotArea(runtime: any): boolean {
-    return !!runtime?.slotAreaNode?.isValid && runtime.slotAreaNode.activeInHierarchy !== false;
-}
-
-function getSlotAreaToastPosition(runtime: any, overlayHost: Node): Vec3 | null {
-    if (!hasGameplaySlotArea(runtime)) return null;
-    const slotUi = runtime.slotAreaNode.getComponent(UITransform);
-    const hostUi = overlayHost.getComponent(UITransform);
-    if (!slotUi || !hostUi) return null;
-    const topWorld = slotUi.convertToWorldSpaceAR(new Vec3(0, slotUi.contentSize.height / 2, 0));
-    const topLocal = hostUi.convertToNodeSpaceAR(topWorld);
+function getMiddleUpperToastPosition(overlayHost: Node): Vec3 {
     const hostSize = getHostSize(overlayHost);
     const halfHeight = TOAST_HEIGHT / 2;
     const minY = -hostSize.height / 2 + halfHeight + TOAST_SCREEN_MARGIN;
     const maxY = hostSize.height / 2 - halfHeight - TOAST_SCREEN_MARGIN;
-    const y = clamp(topLocal.y + halfHeight + TOAST_SLOT_GAP, minY, maxY);
+    const y = clamp(hostSize.height * TOAST_MIDDLE_UPPER_Y_RATIO, minY, maxY);
     return new Vec3(0, y, 0);
 }
 
@@ -183,6 +116,32 @@ function findSceneToastView(runtime: any, overlayHost: Node): ToastViewState | n
     return state;
 }
 
+function fitSceneToastToText(state: ToastViewState): void {
+    const bubbleTransform = state.bubble?.getComponent(UITransform) || null;
+    const labelTransform = state.labelNode?.getComponent(UITransform) || null;
+    if (!bubbleTransform || !labelTransform || !state.label) {
+        warnOnce(
+            'toast-scene-sizing-node-missing',
+            '[ToastService] ToastBubble/ToastLbl sizing components missing; keep scene default size.',
+        );
+        return;
+    }
+    state.label.overflow = Label.Overflow.NONE;
+    state.label.updateRenderData(true);
+    const bubbleWidth = clamp(
+        Math.ceil(labelTransform.contentSize.width + TOAST_HORIZONTAL_PADDING),
+        TOAST_MIN_WIDTH,
+        TOAST_MAX_WIDTH,
+    );
+    bubbleTransform.setContentSize(bubbleWidth, TOAST_HEIGHT);
+    labelTransform.setContentSize(
+        Math.max(1, bubbleWidth - TOAST_HORIZONTAL_PADDING),
+        TOAST_LABEL_HEIGHT,
+    );
+    state.label.overflow = Label.Overflow.CLAMP;
+    state.label.updateRenderData(true);
+}
+
 function syncSceneToastView(runtime: any, overlayHost: Node, text: string, x: number, y: number): ToastViewState | null {
     const sceneState = findSceneToastView(runtime, overlayHost);
     if (sceneState) {
@@ -191,7 +150,8 @@ function syncSceneToastView(runtime: any, overlayHost: Node, text: string, x: nu
         sceneState.labelNode!.active = true;
         sceneState.bubble!.setPosition(x, y, 0);
         sceneState.label!.string = text;
-        if (sceneState.bubbleOpacity) sceneState.bubbleOpacity.opacity = 245;
+        fitSceneToastToText(sceneState);
+        if (sceneState.bubbleOpacity) sceneState.bubbleOpacity.opacity = TOAST_VISIBLE_OPACITY;
         sceneState.host!.setSiblingIndex(Math.max(0, overlayHost.children.length - 1));
         return sceneState;
     }
@@ -234,7 +194,7 @@ export class ToastService {
             state.bubble.setScale(1, 1, 1);
         }
         if (state.bubbleOpacity) {
-            state.bubbleOpacity.opacity = 245;
+            state.bubbleOpacity.opacity = TOAST_VISIBLE_OPACITY;
         }
 
         const tracked = Array.isArray(runtime._toastNodes) ? [...runtime._toastNodes] : [];
@@ -259,21 +219,17 @@ export class ToastService {
     static showAt(runtime: any, text: string, duration: number, x: number, y: number): void {
         const title = normalizeToastText(text);
         if (!title) return;
-        if (showWeChatNativeToast(title, duration)) return;
-        if (showDouyinNativeToast(title, duration)) return;
 
         ToastService.clear(runtime);
         const overlayHost = findToastOverlayHost(runtime);
         const state = syncSceneToastView(runtime, overlayHost, title, x, y);
         if (!state) return;
-        const host = state.host!;
         const bubble = state.bubble!;
-        const bubbleOpacity = state.bubbleOpacity!;
-
-        tween(bubble)
-            .set({ scale: new Vec3(0.5, 0.5, 1) })
-            .to(0.15, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
-            .start();
+        const holdSeconds = Math.max(
+            TOAST_DEFAULT_HOLD_SECONDS,
+            Number(duration) || TOAST_DEFAULT_HOLD_SECONDS,
+        );
+        bubble.setScale(1, 1, 1);
 
         let closing = false;
         const hideToast = () => {
@@ -285,55 +241,28 @@ export class ToastService {
                 state.bubble.active = false;
                 state.bubble.setScale(1, 1, 1);
             }
-            if (state.bubbleOpacity) state.bubbleOpacity.opacity = 245;
+            if (state.bubbleOpacity) state.bubbleOpacity.opacity = TOAST_VISIBLE_OPACITY;
         };
-        const startDismiss = () => {
-            if (!host.isValid || !bubble.isValid) {
-                hideToast();
-                return;
-            }
-            Tween.stopAllByTarget(bubble);
-            Tween.stopAllByTarget(bubbleOpacity);
-            tween(bubbleOpacity)
-                .to(0.2, { opacity: 0 }, { easing: 'sineIn' })
-                .call(hideToast)
-                .start();
-            tween(bubble)
-                .to(0.2, { scale: new Vec3(0.8, 0.8, 1) }, { easing: 'sineIn' })
-                .call(hideToast)
-                .start();
-        };
-        tween(host)
-            .delay(Math.max(0, Number(duration) || 1.5))
-            .call(startDismiss)
-            .delay(0.35)
+        tween(bubble)
+            .delay(holdSeconds)
+            .by(
+                TOAST_EXIT_RISE_SECONDS,
+                { position: new Vec3(0, TOAST_EXIT_RISE_DISTANCE, 0) },
+                { easing: 'linear' },
+            )
             .call(hideToast)
             .start();
     }
 
-    static show(runtime: any, text: string, duration: number = 1.5): void {
+    static show(runtime: any, text: string, duration: number = TOAST_DEFAULT_HOLD_SECONDS): void {
         const host = findToastOverlayHost(runtime);
-        const slotPos = getSlotAreaToastPosition(runtime, host);
-        ToastService.showAt(runtime, text, duration, slotPos?.x ?? 0, slotPos?.y ?? 0);
+        const position = getMiddleUpperToastPosition(host);
+        ToastService.showAt(runtime, text, duration, position.x, position.y);
     }
 
-    static showBelowTimer(runtime: any, text: string, duration: number = 1.5): void {
+    static showBelowTimer(runtime: any, text: string, duration: number = TOAST_DEFAULT_HOLD_SECONDS): void {
         const host = findToastOverlayHost(runtime);
-        const slotPos = getSlotAreaToastPosition(runtime, host);
-        if (slotPos) {
-            ToastService.showAt(runtime, text, duration, slotPos.x, slotPos.y);
-            return;
-        }
-        const timerNode = runtime.timerLabel?.node;
-        const timerWrap = timerNode?.parent;
-        const timerUT = timerWrap?.getComponent(UITransform);
-        const hostUT = host?.getComponent(UITransform);
-        if (!timerWrap || !timerUT || !hostUT) {
-            ToastService.show(runtime, text, duration);
-            return;
-        }
-        const worldPos = timerUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-        const localPos = hostUT.convertToNodeSpaceAR(worldPos);
-        ToastService.showAt(runtime, text, duration, localPos.x, localPos.y - 72);
+        const position = getMiddleUpperToastPosition(host);
+        ToastService.showAt(runtime, text, duration, position.x, position.y);
     }
 }

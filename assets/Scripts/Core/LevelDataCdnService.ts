@@ -1,4 +1,4 @@
-import { validateConveyorCapacity, type LevelData } from './LevelConfig';
+import { validateConveyorCapacity, validateHard, type LevelData } from './LevelConfig';
 import { getFrontLevelExperimentDiagnostics, resolveFrontLevelExperimentContext } from './LevelExperimentService';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
@@ -582,6 +582,7 @@ export class LevelDataCdnService {
                 throw new Error('pack level data id mismatch: ' + key);
             }
             validateConveyorCapacity(entry.data.conveyorCapacity, key);
+            validateHard(entry.data.Hard, key);
         }
         return pack;
     }

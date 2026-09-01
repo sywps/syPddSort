@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadCollectionCatalog } = require('./collection-catalog-contract');
 const { validateConveyorCapacity } = require('./conveyor-capacity-contract');
+const { validateHard } = require('./hard-level-contract');
 
 const projectDir = path.resolve(__dirname, '..');
 const levelDir = path.join(projectDir, 'assets', 'LevelData');
@@ -47,11 +48,13 @@ function createManifest() {
             const data = readJson(filePath);
             const levelId = Math.max(1, Math.floor(Number(data.levelId || name.match(/\d+/)[0]) || 1));
             const conveyorCapacity = validateConveyorCapacity(data, name);
+            const Hard = validateHard(data, name);
             const colors = new Set();
             visitColors(data.correctColorArr, colors);
             visitColors(data.initRandomColorArr, colors);
             return {
                 levelId,
+                Hard,
                 file: 'LevelData/' + name,
                 boardWidth: Math.max(0, Math.floor(Number(data.boardWidth) || 0)),
                 boardHeight: Math.max(0, Math.floor(Number(data.boardHeight) || 0)),

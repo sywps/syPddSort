@@ -1,5 +1,4 @@
 import {
-    MAINLINE_SLOT_GROOVE_TEXTURE,
     Node,
     Sprite,
     SLOTS_PER_ROW,
@@ -166,7 +165,6 @@ export function installGameplaySlotCompactionMethods(target: any): void {
                 const markerSprite = marker?.getComponent(Sprite) || null;
                 if (markerSprite) {
                     markerSprite.enabled = true;
-                    markerSprite.spriteFrame = this.getSF(MAINLINE_SLOT_GROOVE_TEXTURE) || markerSprite.spriteFrame;
                 }
                 const markerOpacity = marker?.getComponent(UIOpacity) || null;
                 if (markerOpacity) {

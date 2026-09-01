@@ -70,6 +70,9 @@ function loadInstaller(timerApi = {}, adApi = {}) {
                 return { releasePixelPosterPreviewTree() {} };
             }
             if (id === '../RuntimeLog') return { runtimeLog() {} };
+            if (id === '../../Platform/WeChatShareReturnService') {
+                return { weChatShareReturnService: { start: () => ({ started: false, reason: 'unavailable' }) } };
+            }
             throw new Error(`unexpected require: ${id}`);
         },
         console,
