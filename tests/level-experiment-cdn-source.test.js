@@ -28,7 +28,7 @@ function readJson(relPath) {
 }
 
 function parseLevelFileName(name) {
-    const match = /^(level_)(\d+)\.json$/.exec(name);
+    const match = /^(level_|zt_level_)(\d+)\.json$/.exec(name);
     if (!match) return null;
     return {
         name,
@@ -137,7 +137,7 @@ assert.ok(experimentService.includes(expectedCdnUrl));
 const syncScript = read('scripts/sync-level-data-cdn-wechat.js');
 assert.ok(syncScript.includes("if (levelExperimentTarget)"));
 assert.ok(!syncScript.includes("generatorArgs.push('--prefix'"), 'EXP generation must keep the complete stable key set');
-assert.ok(!syncScript.includes("generatorArgs.push('--min-level'"), 'EXP generation must not exclude Level 1');
+assert.ok(!syncScript.includes("generatorArgs.push('--min-level'"), 'EXP generation must not exclude Level 1 or theme levels');
 assert.ok(syncScript.includes("generatorArgs.push('--overlay-source', levelExperimentTarget.overrideDir)"));
 assert.ok(syncScript.includes("generatorEnv.PDD_WECHAT_CDN_SLOT = ''"));
 assert.ok(syncScript.includes('assertLevelExperimentManifest'));
@@ -168,9 +168,9 @@ const expectedLevelCounts = expectedStableEntries.reduce((counts, entry) => {
 }, {});
 const expectedPackCount = Object.values(expectedLevelCounts)
     .reduce((total, count) => total + Math.ceil(count / config.packSize), 0);
-assert.strictEqual(expectedLevelKeys.length, 300, 'stable A/B and EXP must share the same 300 level keys');
-assert.deepStrictEqual(expectedLevelCounts, { level_: 300 });
-assert.strictEqual(expectedPackCount, 3);
+assert.strictEqual(expectedLevelKeys.length, 348, 'stable A/B and EXP must share the same 348 level keys');
+assert.deepStrictEqual(expectedLevelCounts, { level_: 300, zt_level_: 48 });
+assert.strictEqual(expectedPackCount, 4);
 const stableDigestBefore = stableSourceDigest();
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdd-ly-0224-cdn-'));
 try {
@@ -202,13 +202,15 @@ try {
     assert.deepStrictEqual(manifest.levelCounts, expectedLevelCounts);
     assert.strictEqual(manifest.packs.length, expectedPackCount);
     const mainlinePacks = manifest.packs.filter((entry) => entry.prefix === 'level_');
+    const themePacks = manifest.packs.filter((entry) => entry.prefix === 'zt_level_');
     assert.strictEqual(mainlinePacks[0].levelRange[0], 1);
     assert.strictEqual(mainlinePacks[mainlinePacks.length - 1].levelRange[1], 300);
+    assert.strictEqual(themePacks.length, 1);
 
     const actualLevelKeys = [];
     const changedFromStableKeys = [];
     for (const packEntry of manifest.packs) {
-        assert.strictEqual(packEntry.prefix, 'level_');
+        assert.ok(packEntry.prefix === 'level_' || packEntry.prefix === 'zt_level_');
         const pack = JSON.parse(fs.readFileSync(path.join(outputDir, packEntry.url), 'utf8'));
         for (const entry of pack.levels) {
             const prefix = entry.prefix || packEntry.prefix;
@@ -224,6 +226,7 @@ try {
     }
     assert.deepStrictEqual(actualLevelKeys, expectedLevelKeys);
     assert.ok(actualLevelKeys.includes('level_1'), 'EXP must mirror the bundled Level 1 key');
+    assert.ok(actualLevelKeys.includes('zt_level_1'), 'EXP must mirror stable theme-level keys');
     assert.deepStrictEqual(
         changedFromStableKeys,
         expectedOverrideLevelIds.map((levelId) => `level_${levelId}`),

@@ -1,0 +1,264 @@
+{
+  "methodVersion": 1,
+  "writeMode": true,
+  "timerOverrides": {
+    "3": 150,
+    "4": 150,
+    "6": 120,
+    "9": 120,
+    "10": 120,
+    "14": 150,
+    "16": 120,
+    "17": 150
+  },
+  "contentSourceByLevel": {
+    "16": 17,
+    "17": 16
+  },
+  "before": {
+    "3": {
+      "boardWidth": 20,
+      "boardHeight": 23,
+      "colorIds": [
+        1,
+        6,
+        15,
+        19
+      ],
+      "colorCount": 4,
+      "slotTotalCount": 460,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    },
+    "4": {
+      "boardWidth": 22,
+      "boardHeight": 21,
+      "colorIds": [
+        3,
+        4,
+        7,
+        9,
+        10,
+        13,
+        17
+      ],
+      "colorCount": 7,
+      "slotTotalCount": 260,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    },
+    "6": {
+      "boardWidth": 28,
+      "boardHeight": 30,
+      "colorIds": [
+        15,
+        18,
+        19,
+        20
+      ],
+      "colorCount": 4,
+      "slotTotalCount": 508,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "9": {
+      "boardWidth": 28,
+      "boardHeight": 26,
+      "colorIds": [
+        5,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 4,
+      "slotTotalCount": 544,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "10": {
+      "boardWidth": 24,
+      "boardHeight": 30,
+      "colorIds": [
+        4,
+        6,
+        14,
+        17,
+        20
+      ],
+      "colorCount": 5,
+      "slotTotalCount": 552,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "14": {
+      "boardWidth": 26,
+      "boardHeight": 28,
+      "colorIds": [
+        6,
+        14,
+        15,
+        18,
+        19,
+        20
+      ],
+      "colorCount": 6,
+      "slotTotalCount": 728,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    },
+    "16": {
+      "boardWidth": 32,
+      "boardHeight": 32,
+      "colorIds": [
+        3,
+        4,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 5,
+      "slotTotalCount": 629,
+      "conveyorCapacity": 60,
+      "timeLimit": 144
+    },
+    "17": {
+      "boardWidth": 30,
+      "boardHeight": 39,
+      "colorIds": [
+        5,
+        10,
+        13,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 6,
+      "slotTotalCount": 821,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    }
+  },
+  "after": {
+    "3": {
+      "boardWidth": 20,
+      "boardHeight": 23,
+      "colorIds": [
+        1,
+        6,
+        15,
+        19
+      ],
+      "colorCount": 4,
+      "slotTotalCount": 460,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    },
+    "4": {
+      "boardWidth": 22,
+      "boardHeight": 21,
+      "colorIds": [
+        3,
+        4,
+        7,
+        9,
+        10,
+        13,
+        17
+      ],
+      "colorCount": 7,
+      "slotTotalCount": 260,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    },
+    "6": {
+      "boardWidth": 28,
+      "boardHeight": 30,
+      "colorIds": [
+        15,
+        18,
+        19,
+        20
+      ],
+      "colorCount": 4,
+      "slotTotalCount": 508,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "9": {
+      "boardWidth": 28,
+      "boardHeight": 26,
+      "colorIds": [
+        5,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 4,
+      "slotTotalCount": 544,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "10": {
+      "boardWidth": 24,
+      "boardHeight": 30,
+      "colorIds": [
+        4,
+        6,
+        14,
+        17,
+        20
+      ],
+      "colorCount": 5,
+      "slotTotalCount": 552,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "14": {
+      "boardWidth": 26,
+      "boardHeight": 28,
+      "colorIds": [
+        6,
+        14,
+        15,
+        18,
+        19,
+        20
+      ],
+      "colorCount": 6,
+      "slotTotalCount": 728,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    },
+    "16": {
+      "boardWidth": 32,
+      "boardHeight": 32,
+      "colorIds": [
+        3,
+        4,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 5,
+      "slotTotalCount": 629,
+      "conveyorCapacity": 60,
+      "timeLimit": 120
+    },
+    "17": {
+      "boardWidth": 30,
+      "boardHeight": 39,
+      "colorIds": [
+        5,
+        10,
+        13,
+        14,
+        19,
+        20
+      ],
+      "colorCount": 6,
+      "slotTotalCount": 821,
+      "conveyorCapacity": 60,
+      "timeLimit": 150
+    }
+  }
+}

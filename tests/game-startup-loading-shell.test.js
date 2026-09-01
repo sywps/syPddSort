@@ -5,7 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 
 function read(relPath) {
-    return fs.readFileSync(path.join(root, relPath), 'utf8');
+    return fs.readFileSync(path.join(root, relPath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function readScene(relPath) {

@@ -448,6 +448,12 @@ export class GameSceneRuntimeController {
             this.runtime._activePhysicalLevelId = levelId;
             this.runtime._activeLogicalLevelId = levelId;
             this.runtime._activeGameplayEntryMode = 'main';
+        } else if (pending.entryMode === 'theme') {
+            this.runtime._isThemeLevel = true;
+            this.runtime._currentThemeLevelId = levelId;
+            this.runtime._activePhysicalLevelId = levelId;
+            this.runtime._activeLogicalLevelId = levelId;
+            this.runtime._activeGameplayEntryMode = 'theme';
         }
         const screenRoot = this.runtime.requireCanvasUiRoot('ScreenRoot');
         const gameplayRoot = this.runtime.requireUiChild(screenRoot, 'GameplayRoot', 'ScreenRoot/GameplayRoot');

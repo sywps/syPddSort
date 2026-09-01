@@ -16,6 +16,7 @@ export const ECONOMY_NUMERIC_TABLE = {
         levelBonusEvery: 10,
         levelBonusStep: 1,
         levelBonusMax: 10,
+        themeWinGoldBonus: 8,
         largePlacementBeanThreshold: 20,
         largePlacementGoldBonus: 5,
     },

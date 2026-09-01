@@ -15,7 +15,7 @@ const formalFiles = fs.readdirSync(formalDir).filter(name => /^level_\d+\.json$/
 const outputFiles = fs.readdirSync(outputDir).filter(name => /^level_\d+\.json$/.test(name))
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
 const authoredTimeOverrides = new Map([
-    [3, 150], [4, 150], [6, 120], [9, 120], [10, 120], [14, 150],
+    [3, 150], [4, 150], [5, 120], [6, 120], [9, 120], [10, 120], [14, 150], [15, 120],
 ]);
 const formalCandidateLevelIds = new Map([[16, 17], [17, 16]]);
 const inventory = grid => {
@@ -23,7 +23,6 @@ const inventory = grid => {
     for (const row of grid) for (const color of row) if (color > 0) counts.set(color, (counts.get(color) || 0) + 1);
     return [...counts].sort((left, right) => left[0] - right[0]);
 };
-
 assert.equal(formalFiles.length, 300);
 assert.equal(outputFiles.length, 300);
 assert.deepEqual(formalFiles, outputFiles);
@@ -52,7 +51,7 @@ for (const filename of outputFiles) {
     if (authoredTimeOverrides.has(levelId)) {
         assert.equal(formal.timeLimit, authoredTimeOverrides.get(levelId), `${filename} authored timer override`);
     } else if (levelId >= 5) {
-        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
+        const expectedTime = Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
         assert.equal(formal.timeLimit, expectedTime);
     }
 }

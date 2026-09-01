@@ -10,6 +10,7 @@ function normalizePositiveLevel(value: unknown): number {
 }
 
 function getRuntimeActiveMainLevel(runtime: any): number {
+    if (runtime?._isThemeLevel) return 0;
     try {
         return normalizePositiveLevel(runtime?.getActiveLogicalLevelId?.());
     } catch (_) {

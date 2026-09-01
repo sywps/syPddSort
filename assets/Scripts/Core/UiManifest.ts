@@ -80,6 +80,12 @@ export const COLLECTION_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
 ];
 
+export const THEME_PANEL_TEXTURE_NAMES = [
+    ...POPUP_UI_TEXTURE_NAMES,
+];
+
+export const THEME_PANEL_RELEASE_TEXTURE_NAMES = [...THEME_PANEL_TEXTURE_NAMES];
+
 export const HOME_MENU_TEXTURE_NAMES = [
     'bg_game',
     'collection_card_unlocked',

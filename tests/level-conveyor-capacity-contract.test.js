@@ -29,7 +29,7 @@ assert.equal(validateConveyorCapacity({ conveyorCapacity: 60 }, 'valid'), 60);
 
 function validateDirectory(relDir, expectedCount) {
     const absDir = path.join(root, relDir);
-    const files = fs.readdirSync(absDir).filter((name) => /^level_\d+\.json$/.test(name));
+    const files = fs.readdirSync(absDir).filter((name) => /^(?:level_|zt_level_)\d+\.json$/.test(name));
     assert.equal(files.length, expectedCount, `${relDir} playable level count`);
     for (const name of files) {
         const data = JSON.parse(fs.readFileSync(path.join(absDir, name), 'utf8'));
@@ -39,7 +39,7 @@ function validateDirectory(relDir, expectedCount) {
     }
 }
 
-validateDirectory('assets/LevelData', 300);
+validateDirectory('assets/LevelData', 348);
 validateDirectory('assets/BootstrapBundle/LevelData', 1);
 validateDirectory('experiments/ly_0224/treatment', 8);
 const treatmentLevel2 = JSON.parse(fs.readFileSync(path.join(root, 'experiments/ly_0224/treatment/level_2.json'), 'utf8'));

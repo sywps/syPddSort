@@ -194,6 +194,7 @@ const scheduledHandlers = [];
 const runtime = {
     node: { scene },
     _activeGameplayEntryMode: 'main',
+    _isThemeLevel: false,
     _gameForeground: true,
     _guideMode: 'level_1',
     _guideStep: 0,

@@ -52,6 +52,7 @@ const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max(
 );
 const PCH_SKILL_STAGGER_SECONDS = 0.028;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
+const PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT = true;
 const PCH_EXPAND_CAPACITY = 12;
 const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
@@ -61,6 +62,7 @@ const PCH_RED_WARNING_MAX_OPACITY = 102;
 const PCH_CAPACITY_TEXT_COLOR = new Color(43, 43, 43, 255);
 const PCH_CAPACITY_OUTLINE_COLOR = new Color(255, 221, 35, 255);
 const PCH_ENTRANCE_SNAP_PROGRESS = 0.032;
+const PCH_ENTRY_PICKUP_LEAD_STEP_RATIO = 0.2;
 const PCH_ENTRY_DOOR_OPEN_WIDTH = 0;
 const PCH_ENTRY_DOOR_CLOSED_WIDTH = 35;
 const PCH_ENTRY_DOOR_HEIGHT = 68;
@@ -684,8 +686,14 @@ export class PchConveyorGameplayController {
         const previousTravel = this.beltTravel;
         const speedMultiplier = this.getEffectiveBeltSpeedMultiplier();
         this.beltTravel += (Math.max(0, deltaTime) * speedMultiplier) / BELT_STEP_SECONDS;
+        const entrancePickupProgress = 1 - PCH_ENTRY_PICKUP_LEAD_STEP_RATIO / this.rules.carrierCount;
         for (let carrierIndex = 0; carrierIndex < this.rules.carrierCount; carrierIndex += 1) {
-            if (this.didCarrierCrossProgress(carrierIndex, previousTravel, this.beltTravel, 0)) {
+            if (this.didCarrierCrossProgress(
+                carrierIndex,
+                previousTravel,
+                this.beltTravel,
+                entrancePickupProgress,
+            ) || this.didCarrierCrossProgress(carrierIndex, previousTravel, this.beltTravel, 0)) {
                 this.handleCarrierAtEntrance(carrierIndex);
             }
             if (this.didCarrierCrossProgress(carrierIndex, previousTravel, this.beltTravel, this.exitPathProgress)) {
@@ -719,6 +727,13 @@ export class PchConveyorGameplayController {
 
     isActive(): boolean {
         return !!this.rules && !!this.root?.isValid;
+    }
+
+    shouldRenderSettledPixelBlock(row: number, col: number): boolean {
+        return PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT
+            && this.runtime._activeGameplayEntryMode === 'theme'
+            && this.isActive()
+            && this.rules?.board.locked?.[row]?.[col] === true;
     }
 
     isFinishCommitted(): boolean {

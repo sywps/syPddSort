@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -48,9 +48,9 @@ function getConfiguredLevelDataWatchdogSource(): 'local' | 'remote' {
 
 export function installSceneHomeEntryModule(target: any): void {
     Object.assign(target, {
-        getGameplayEntryMode(_prefix: string = 'level_', external: boolean = false): 'main' | 'external' {
+        getGameplayEntryMode(prefix: string = 'level_', external: boolean = false): 'main' | 'theme' | 'external' {
             if (external) return 'external';
-            return 'main';
+            return prefix === 'zt_level_' ? 'theme' : 'main';
         },
 
         syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'auto'): void {
@@ -261,7 +261,15 @@ export function installSceneHomeEntryModule(target: any): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             if (this.shouldUseLocalBootstrapBundle(normalizedLevelId, prefix)) return false;
             return prefix === LOCAL_BOOTSTRAP_LEVEL_PREFIX
+                && !this._isThemeLevel
                 && !this._currentExternalLevelFilePath;
+        },
+
+        /** 加载像素拼图关卡（zt_level_*.json） */
+        loadThemeLevel(levelId: number) {
+            this._isThemeLevel = true;
+            this._currentThemeLevelId = levelId;
+            this.loadLevel(levelId, 'zt_level_', false);
         },
 
         normalizeExternalLevelFilePath(rawPath: string): string {
@@ -270,8 +278,12 @@ export function installSceneHomeEntryModule(target: any): void {
             return normalized;
         },
 
+        isThemeLevelFile(filePath: string): boolean {
+            return /(^|\/)zt_level_\d+\.json$/i.test(filePath);
+        },
+
         parseExternalLevelId(filePath: string): number {
-            const match = /(?:^|\/)level_(\d+)\.json$/i.exec(filePath);
+            const match = /(?:^|\/)(?:zt_)?level_(\d+)\.json$/i.exec(filePath);
             if (!match) return 0;
             const levelId = parseInt(match[1], 10);
             return Number.isFinite(levelId) && levelId > 0 ? levelId : 0;
@@ -457,9 +469,12 @@ export function installSceneHomeEntryModule(target: any): void {
                         ? data.levelId
                         : (inferredLevelId > 0 ? inferredLevelId : 1);
                     data.levelId = normalizedLevelId;
+                    const isThemeLevel = prefix === 'zt_level_' || this.isThemeLevelFile(normalizedPath);
+                    this._isThemeLevel = isThemeLevel;
+                    this._currentThemeLevelId = isThemeLevel ? normalizedLevelId : 0;
                     this._currentExternalLevelFilePath = normalizedPath;
                     this._currentExternalLevelId = normalizedLevelId;
-                    this._currentExternalLevelPrefix = 'level_';
+                    this._currentExternalLevelPrefix = isThemeLevel ? 'zt_level_' : 'level_';
                     this.openLocalLevelWithAssets(data, onInitialized);
                 })
                 .catch((err) => {

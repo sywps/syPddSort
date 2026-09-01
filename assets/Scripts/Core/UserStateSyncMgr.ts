@@ -34,6 +34,8 @@ export type CloudGameState = {
     freezeCount: number;
     brushCount: number;
     magnetCount: number;
+    themeUnlockedIds: number[];
+    themeCompletedIds: number[];
     backgroundSkinOwnedIds?: number[];
     ownedBackgroundSkinIds: number[];
     backgroundSkinAdProgress: Record<string, number>;
@@ -397,6 +399,8 @@ export class UserStateSyncMgr {
                 problems.lastLevelIdMirror = { expectedAtLeast: expectedProgress, returned: returnedProfileLevel || null };
             }
         }
+        this.collectArrayAcknowledgementProblem(problems, 'themeUnlockedIds', patchGameState?.themeUnlockedIds, returnedGameState?.themeUnlockedIds);
+        this.collectArrayAcknowledgementProblem(problems, 'themeCompletedIds', patchGameState?.themeCompletedIds, returnedGameState?.themeCompletedIds);
         this.collectArrayAcknowledgementProblem(problems, 'ownedBackgroundSkinIds', patchGameState?.ownedBackgroundSkinIds, returnedGameState?.ownedBackgroundSkinIds);
 
         const expected = getEquippedBackgroundSkinPair(patch.gameState);
@@ -430,7 +434,7 @@ export class UserStateSyncMgr {
 
     private collectArrayAcknowledgementProblem(
         problems: Record<string, unknown>,
-        key: 'ownedBackgroundSkinIds',
+        key: 'themeUnlockedIds' | 'themeCompletedIds' | 'ownedBackgroundSkinIds',
         expectedValue: unknown,
         returnedValue: unknown,
     ): void {

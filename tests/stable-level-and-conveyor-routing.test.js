@@ -7,7 +7,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const candidateDir = path.join(root, 'tools/latest-minigame-selected-300');
 const authoredTimeOverrides = new Map([
-    [3, 150], [4, 150], [6, 120], [9, 120], [10, 120], [14, 150],
+    [3, 150], [4, 150], [5, 120], [6, 120], [9, 120], [10, 120], [14, 150], [15, 120],
 ]);
 const formalCandidateLevelIds = new Map([[16, 17], [17, 16]]);
 
@@ -54,7 +54,7 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     if (authoredTimeOverrides.has(levelId)) {
         assert.equal(formalPayload.timeLimit, authoredTimeOverrides.get(levelId), `level ${levelId} authored timer override`);
     } else if (levelId >= 5) {
-        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
+        const expectedTime = Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
         assert.equal(formalPayload.timeLimit, expectedTime);
     }
     const level = readJson(`assets/LevelData/level_${levelId}.json`);

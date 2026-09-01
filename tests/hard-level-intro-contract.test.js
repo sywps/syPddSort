@@ -42,11 +42,17 @@ assert.throws(() => levelConfig.validateHard('1', 'string'), /Hard must be 0 or 
 
 const levelDir = path.join(root, 'assets', 'LevelData');
 const mainFiles = fs.readdirSync(levelDir).filter((name) => /^level_\d+\.json$/.test(name));
+const themeFiles = fs.readdirSync(levelDir).filter((name) => /^zt_level_\d+\.json$/.test(name));
 const hardMainLevelIds = new Set([3, 10]);
 assert.strictEqual(mainFiles.length, 300);
+assert.strictEqual(themeFiles.length, 48);
 for (const name of mainFiles) {
     const level = JSON.parse(fs.readFileSync(path.join(levelDir, name), 'utf8'));
     assert.strictEqual(level.Hard, hardMainLevelIds.has(level.levelId) ? 1 : 0, `${name} Hard mismatch`);
+}
+for (const name of themeFiles) {
+    const level = JSON.parse(fs.readFileSync(path.join(levelDir, name), 'utf8'));
+    assert.strictEqual(level.Hard, 0, `${name} must be a normal level`);
 }
 assert.strictEqual(readJson('assets/BootstrapBundle/LevelData/level_1.json').Hard, 0);
 const experimentDir = path.join(root, 'experiments', 'ly_0224', 'treatment');

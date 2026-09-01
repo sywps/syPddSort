@@ -131,6 +131,7 @@ function makeRuntime() {
     const runtime = {
         _adShowing: false,
         _shareShowing: false,
+        _isThemeLevel: false,
         isGameEnd: true,
         _activeGameplayEntryMode: 'main',
         panelTimeoutContinue: null,
@@ -233,6 +234,9 @@ function testDailyStateAndEligibility() {
 
     runtime.getActiveLogicalLevelId = () => 3;
     assert.strictEqual(controller.canUseReviveShare(), false, 'level 1-3 must keep the original ad revive');
+    runtime.getActiveLogicalLevelId = () => 4;
+    runtime._isThemeLevel = true;
+    assert.strictEqual(controller.canUseReviveShare(), false, 'theme levels must not consume the main-line daily share');
 }
 
 function testBothReviveActionsConsumeOneSharedClaim() {

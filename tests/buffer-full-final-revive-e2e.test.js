@@ -212,7 +212,11 @@ async function main() {
     );
     const runContinueAfterBufferFull = compileMethod(pchSource, 'continueAfterBufferFull(): boolean');
     const runCheckBufferDeadlock = compileMethod(pchSource, 'private checkBufferDeadlock(): boolean');
-    const runUpdate = compileMethod(pchSource, 'update(deltaTime: number): void', ['deltaTime', 'BELT_STEP_SECONDS']);
+    const runUpdate = compileMethod(
+        pchSource,
+        'update(deltaTime: number): void',
+        ['deltaTime', 'BELT_STEP_SECONDS', 'PCH_ENTRY_PICKUP_LEAD_STEP_RATIO'],
+    );
     const runContinueAfterLose = compileMethod(
         settlementSource,
         'continueAfterLose(addSeconds: number, resumeTimerImmediately: boolean = false)',
@@ -297,7 +301,7 @@ async function main() {
         },
         continueAfterBufferFull() { return runContinueAfterBufferFull.call(this); },
         checkBufferDeadlock() { return runCheckBufferDeadlock.call(this); },
-        update(deltaTime) { return runUpdate.call(this, deltaTime, 0.25); },
+        update(deltaTime) { return runUpdate.call(this, deltaTime, 0.25, 0.2); },
     };
     runtime._pchConveyorGameplayController = pchController;
     runtime.continueAfterLose = (addSeconds, resumeTimerImmediately) => {

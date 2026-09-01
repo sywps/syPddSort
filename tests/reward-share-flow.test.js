@@ -95,6 +95,7 @@ async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
     const shareCalls = [];
     const events = [];
     const runtime = {
+        _isThemeLevel: false,
         _winAdRewardClaimed: false,
         _pendingWinAdBonusReward: 80,
         _pendingWinGoldReward: 20,

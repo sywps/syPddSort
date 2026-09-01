@@ -364,7 +364,7 @@ export class GameplaySlotUiController {
     private getActiveGameplayEntryMode(): string {
         const runtime = this.runtime;
         return runtime._activeGameplayEntryMode
-            || (runtime._currentExternalLevelFilePath ? 'external' : 'main');
+            || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
     }
 
     private getCurrentSlotUnlockMode(): SlotUnlockMode {

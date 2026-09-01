@@ -5,7 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 
 function read(relPath) {
-    return fs.readFileSync(path.join(root, relPath), 'utf8');
+    return fs.readFileSync(path.join(root, relPath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 const appRoot = read('assets/Scripts/Core/AppRoot.ts');
@@ -59,9 +59,8 @@ assert.ok(
 assert.ok(!settingsPanel.includes("requestHomeRoute('settings', 'cover')"), 'settings Home button must not request a cover');
 assert.ok(settingsPanel.includes("requestHomeRoute('settings', 'none')"), 'settings Home button must route Home without cover');
 assert.ok(
-    settingsPanel.indexOf('routePromise = requestHomeRouteFromSettings();')
-        < settingsPanel.indexOf("finalizeSettings('settings-home', true);"),
-    'settings Home must establish route dispatch before releasing the panel',
+    !settingsPanel.includes("finalizeSettings('settings-home', true);"),
+    'settings Home must leave modal teardown to the successful scene transition',
 );
 assert.ok(!homeAdFlow.includes("requestHomeRoute('runtime', 'cover')"), 'runtime Home route must not request a cover');
 assert.ok(homeAdFlow.includes("requestHomeRoute('runtime', 'none')"), 'runtime Home route must explicitly route Home without cover');

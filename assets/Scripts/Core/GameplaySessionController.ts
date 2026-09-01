@@ -23,7 +23,7 @@ export class GameplaySessionController {
         let resolvedLevelId = Math.max(1, Math.floor(Number(activeLevelId || data?.levelId) || 1));
         let activeLogicalLevelId = resolvedLevelId;
         let gameplayPrefix = 'level_';
-        let gameplayEntryMode: 'main' | 'external' = 'main';
+        let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
         let tutorialMode: TutorialMode = 'none';
         try {
             ensureHardLevelIntroController(runtime).stop();
@@ -48,13 +48,15 @@ export class GameplaySessionController {
             }
             runtime.levelData = data;
             initStage = 'route_context';
-            resolvedLevelId = Math.max(1, Math.floor(Number(activeLevelId || data.levelId) || 1));
+            resolvedLevelId = runtime._isThemeLevel
+                ? Math.max(1, Math.floor(Number(runtime._currentThemeLevelId || data.levelId) || 1))
+                : Math.max(1, Math.floor(Number(activeLevelId || data.levelId) || 1));
             gameplayPrefix = runtime._currentExternalLevelFilePath
                 ? runtime._currentExternalLevelPrefix
-                : 'level_';
+                : (runtime._isThemeLevel ? 'zt_level_' : 'level_');
             gameplayEntryMode = runtime._currentExternalLevelFilePath
                 ? 'external'
-                : 'main';
+                : (runtime._isThemeLevel ? 'theme' : 'main');
             AppRoot.tryGet()?.markGameActive(resolvedLevelId, gameplayPrefix, gameplayEntryMode, 'Game');
             runtime._activePhysicalLevelId = resolvedLevelId;
             runtime._activeLogicalLevelId = resolvedLevelId;

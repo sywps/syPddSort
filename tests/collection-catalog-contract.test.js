@@ -111,7 +111,7 @@ function loadCollectionUnlockPolicy() {
 const config = readJson('config/collection-catalog.json');
 const availableLevelKeys = new Set(
     fs.readdirSync(path.join(root, 'assets', 'LevelData'))
-        .map((name) => /^(level_)(\d+)\.json$/.exec(name))
+        .map((name) => /^(level_|zt_level_)(\d+)\.json$/.exec(name))
         .filter(Boolean)
         .map((match) => match[1] + Number(match[2])),
 );
@@ -155,9 +155,9 @@ assert.deepStrictEqual(
 assert.deepStrictEqual(
     JSON.parse(JSON.stringify(clientCatalogContract.resolveLevelCollectionEntries({
         collectionCatalogVersion: 1,
-        collectionEntries: [{ levelId: 7, prefix: 'level_', unlockLevel: 9 }],
+        collectionEntries: [{ levelId: 7, prefix: 'zt_level_', unlockLevel: 9 }],
     }))),
-    [{ levelId: 7, prefix: 'level_', unlockLevel: 9 }],
+    [{ levelId: 7, prefix: 'zt_level_', unlockLevel: 9 }],
     'explicit catalog v1 must remain authoritative',
 );
 assert.throws(

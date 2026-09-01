@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -32,6 +32,18 @@ import type {
 import { AppRoot } from '../AppRoot';
 import { ensureHomeStartButtonFx } from '../HomeStartButtonFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
+import { Widget } from 'cc';
+
+const HOME_START_BUTTON_BOTTOM = 295;
+const HOME_PIXEL_PUZZLE_BUTTON_BOTTOM = 135;
+
+function alignHomePrimaryButton(node: Node, bottom: number, path: string): void {
+    const widget = node.getComponent(Widget);
+    if (!widget) throw new Error(`[HomeScene] ${path} is missing Widget`);
+    widget.bottom = bottom;
+    widget.horizontalCenter = 0;
+    widget.updateAlignment();
+}
 
 export function installHomeCommerceModule(target: any): void {
     Object.assign(target, {
@@ -114,6 +126,8 @@ export function installHomeCommerceModule(target: any): void {
 
         drawStartButton(parent: Node, level: number) {
             const btn = this.requireUiChild(parent, 'StartBtn', 'PrimaryActionLayer/StartBtn');
+            btn.active = true;
+            alignHomePrimaryButton(btn, HOME_START_BUTTON_BOTTOM, 'PrimaryActionLayer/StartBtn');
             this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/StartBtn');
             const btnSubNode = this.requireUiChild(btn, 'BtnSub', 'StartBtn/BtnSub');
             const btnSubLabel = btnSubNode.getComponent(Label);
@@ -152,6 +166,34 @@ export function installHomeCommerceModule(target: any): void {
         
             // 结算横幅风格动效
             ensureHomeStartButtonFx(btn);
+        },
+
+        /** 像素拼图按钮（黄色胶囊，开始游戏按钮下方） */
+        drawThemeChallengeButton(parent: Node) {
+            const btn = this.requireUiChild(parent, 'ThemeBtn', 'PrimaryActionLayer/ThemeBtn');
+            btn.active = true;
+            alignHomePrimaryButton(btn, HOME_PIXEL_PUZZLE_BUTTON_BOTTOM, 'PrimaryActionLayer/ThemeBtn');
+            this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/ThemeBtn');
+            const titleNode = this.requireUiChild(btn, 'ThemeTitle', 'ThemeBtn/ThemeTitle');
+            const titleLabel = titleNode.getComponent(Label);
+            if (!titleLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeTitle');
+            titleLabel.string = '像素拼图';
+            const subText = '全部关卡已开放';
+            const subNode = this.requireUiChild(btn, 'ThemeSub', 'ThemeBtn/ThemeSub');
+            const subLabel = subNode.getComponent(Label);
+            if (!subLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeSub');
+            subLabel.string = subText;
+            subLabel.color = new Color('#EAF7E6');
+
+            btn.targetOff(this);
+            btn.getComponent(Button) || btn.addComponent(Button);
+            btn.on(Button.EventType.CLICK, () => {
+                AudioMgr.inst.play('button');
+                this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));
+            }, this);
+
+            // 呼吸动画
+            this.startHomeSceneScalePulse(btn, 1.02, 1.1);
         },
 
         // ==================== 图鉴入口 ====================

@@ -1,0 +1,2422 @@
+{
+  "methodVersion": 1,
+  "formula": "min(150, ceil(slotTotalCount / 200) * 30)",
+  "authoredOverrides": {
+    "5": 120,
+    "6": 120,
+    "9": 120,
+    "10": 120,
+    "14": 150
+  },
+  "range": [
+    5,
+    300
+  ],
+  "writeMode": true,
+  "count": 296,
+  "changedCount": 0,
+  "unchangedCount": 296,
+  "newTimeCounts": {
+    "30": 2,
+    "60": 1,
+    "90": 8,
+    "120": 72,
+    "150": 213
+  },
+  "belowVerifiedProductionRange": [
+    {
+      "levelId": 29,
+      "filled": 188,
+      "oldTimeLimit": 30,
+      "newTimeLimit": 30,
+      "changed": false,
+      "belowVerifiedProductionRange": true
+    },
+    {
+      "levelId": 38,
+      "filled": 198,
+      "oldTimeLimit": 30,
+      "newTimeLimit": 30,
+      "changed": false,
+      "belowVerifiedProductionRange": true
+    },
+    {
+      "levelId": 47,
+      "filled": 217,
+      "oldTimeLimit": 60,
+      "newTimeLimit": 60,
+      "changed": false,
+      "belowVerifiedProductionRange": true
+    }
+  ],
+  "levels": [
+    {
+      "levelId": 5,
+      "filled": 547,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 6,
+      "filled": 508,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 7,
+      "filled": 614,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 8,
+      "filled": 616,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 9,
+      "filled": 544,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 10,
+      "filled": 552,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 11,
+      "filled": 756,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 12,
+      "filled": 642,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 13,
+      "filled": 646,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 14,
+      "filled": 728,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 15,
+      "filled": 857,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 16,
+      "filled": 629,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 17,
+      "filled": 821,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 18,
+      "filled": 674,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 19,
+      "filled": 808,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 20,
+      "filled": 694,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 21,
+      "filled": 607,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 22,
+      "filled": 1536,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 23,
+      "filled": 529,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 24,
+      "filled": 900,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 25,
+      "filled": 611,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 26,
+      "filled": 643,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 27,
+      "filled": 658,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 28,
+      "filled": 1968,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 29,
+      "filled": 188,
+      "oldTimeLimit": 30,
+      "newTimeLimit": 30,
+      "changed": false,
+      "belowVerifiedProductionRange": true
+    },
+    {
+      "levelId": 30,
+      "filled": 599,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 31,
+      "filled": 850,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 32,
+      "filled": 742,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 33,
+      "filled": 584,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 34,
+      "filled": 613,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 35,
+      "filled": 529,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 36,
+      "filled": 703,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 37,
+      "filled": 1591,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 38,
+      "filled": 198,
+      "oldTimeLimit": 30,
+      "newTimeLimit": 30,
+      "changed": false,
+      "belowVerifiedProductionRange": true
+    },
+    {
+      "levelId": 39,
+      "filled": 751,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 40,
+      "filled": 841,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 41,
+      "filled": 1024,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 42,
+      "filled": 918,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 43,
+      "filled": 841,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 44,
+      "filled": 960,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 45,
+      "filled": 1204,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 46,
+      "filled": 1480,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 47,
+      "filled": 217,
+      "oldTimeLimit": 60,
+      "newTimeLimit": 60,
+      "changed": false,
+      "belowVerifiedProductionRange": true
+    },
+    {
+      "levelId": 48,
+      "filled": 841,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 49,
+      "filled": 783,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 50,
+      "filled": 967,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 51,
+      "filled": 964,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 52,
+      "filled": 771,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 53,
+      "filled": 756,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 54,
+      "filled": 875,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 55,
+      "filled": 745,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 56,
+      "filled": 1332,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 57,
+      "filled": 618,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 58,
+      "filled": 713,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 59,
+      "filled": 1120,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 60,
+      "filled": 1024,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 61,
+      "filled": 707,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 62,
+      "filled": 768,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 63,
+      "filled": 812,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 64,
+      "filled": 755,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 65,
+      "filled": 1156,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 66,
+      "filled": 452,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 67,
+      "filled": 1156,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 68,
+      "filled": 938,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 69,
+      "filled": 871,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 70,
+      "filled": 859,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 71,
+      "filled": 1435,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 72,
+      "filled": 625,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 73,
+      "filled": 570,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 74,
+      "filled": 1545,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 75,
+      "filled": 485,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 76,
+      "filled": 780,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 77,
+      "filled": 741,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 78,
+      "filled": 834,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 79,
+      "filled": 757,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 80,
+      "filled": 793,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 81,
+      "filled": 1085,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 82,
+      "filled": 704,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 83,
+      "filled": 1296,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 84,
+      "filled": 664,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 85,
+      "filled": 812,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 86,
+      "filled": 1680,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 87,
+      "filled": 919,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 88,
+      "filled": 888,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 89,
+      "filled": 714,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 90,
+      "filled": 694,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 91,
+      "filled": 946,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 92,
+      "filled": 1935,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 93,
+      "filled": 692,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 94,
+      "filled": 2208,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 95,
+      "filled": 1348,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 96,
+      "filled": 977,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 97,
+      "filled": 940,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 98,
+      "filled": 957,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 99,
+      "filled": 911,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 100,
+      "filled": 1098,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 101,
+      "filled": 704,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 102,
+      "filled": 1994,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 103,
+      "filled": 665,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 104,
+      "filled": 880,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 105,
+      "filled": 846,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 106,
+      "filled": 682,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 107,
+      "filled": 864,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 108,
+      "filled": 964,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 109,
+      "filled": 1166,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 110,
+      "filled": 1149,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 111,
+      "filled": 2700,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 112,
+      "filled": 697,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 113,
+      "filled": 1190,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 114,
+      "filled": 925,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 115,
+      "filled": 870,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 116,
+      "filled": 884,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 117,
+      "filled": 825,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 118,
+      "filled": 1024,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 119,
+      "filled": 1103,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 120,
+      "filled": 1652,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 121,
+      "filled": 702,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 122,
+      "filled": 1027,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 123,
+      "filled": 784,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 124,
+      "filled": 696,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 125,
+      "filled": 1369,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 126,
+      "filled": 1550,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 127,
+      "filled": 905,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 128,
+      "filled": 961,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 129,
+      "filled": 2448,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 130,
+      "filled": 729,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 131,
+      "filled": 969,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 132,
+      "filled": 1574,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 133,
+      "filled": 1452,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 134,
+      "filled": 927,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 135,
+      "filled": 1129,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 136,
+      "filled": 1142,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 137,
+      "filled": 1444,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 138,
+      "filled": 2000,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 139,
+      "filled": 600,
+      "oldTimeLimit": 90,
+      "newTimeLimit": 90,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 140,
+      "filled": 1386,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 141,
+      "filled": 846,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 142,
+      "filled": 1089,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 143,
+      "filled": 1116,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 144,
+      "filled": 2221,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 145,
+      "filled": 2000,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 146,
+      "filled": 837,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 147,
+      "filled": 913,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 148,
+      "filled": 2756,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 149,
+      "filled": 676,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 150,
+      "filled": 917,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 151,
+      "filled": 1363,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 152,
+      "filled": 1701,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 153,
+      "filled": 825,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 154,
+      "filled": 1280,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 155,
+      "filled": 1132,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 156,
+      "filled": 819,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 157,
+      "filled": 1409,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 158,
+      "filled": 637,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 159,
+      "filled": 1073,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 160,
+      "filled": 1838,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 161,
+      "filled": 756,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 162,
+      "filled": 804,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 163,
+      "filled": 1296,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 164,
+      "filled": 1240,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 165,
+      "filled": 2115,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 166,
+      "filled": 1490,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 167,
+      "filled": 840,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 168,
+      "filled": 621,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 169,
+      "filled": 868,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 170,
+      "filled": 1089,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 171,
+      "filled": 1472,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 172,
+      "filled": 2100,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 173,
+      "filled": 1116,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 174,
+      "filled": 1024,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 175,
+      "filled": 1270,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 176,
+      "filled": 696,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 177,
+      "filled": 1308,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 178,
+      "filled": 2100,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 179,
+      "filled": 1822,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 180,
+      "filled": 814,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 181,
+      "filled": 744,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 182,
+      "filled": 1110,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 183,
+      "filled": 992,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 184,
+      "filled": 986,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 185,
+      "filled": 2704,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 186,
+      "filled": 908,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 187,
+      "filled": 1321,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 188,
+      "filled": 1496,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 189,
+      "filled": 1330,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 190,
+      "filled": 1260,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 191,
+      "filled": 1050,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 192,
+      "filled": 1184,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 193,
+      "filled": 768,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 194,
+      "filled": 2085,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 195,
+      "filled": 898,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 196,
+      "filled": 1188,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 197,
+      "filled": 1457,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 198,
+      "filled": 1445,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 199,
+      "filled": 800,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 200,
+      "filled": 841,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 201,
+      "filled": 900,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 202,
+      "filled": 765,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 203,
+      "filled": 1620,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 204,
+      "filled": 672,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 205,
+      "filled": 699,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 206,
+      "filled": 1225,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 207,
+      "filled": 1314,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 208,
+      "filled": 883,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 209,
+      "filled": 867,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 210,
+      "filled": 1280,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 211,
+      "filled": 844,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 212,
+      "filled": 2084,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 213,
+      "filled": 683,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 214,
+      "filled": 841,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 215,
+      "filled": 1599,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 216,
+      "filled": 1600,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 217,
+      "filled": 736,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 218,
+      "filled": 892,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 219,
+      "filled": 851,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 220,
+      "filled": 1209,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 221,
+      "filled": 2376,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 222,
+      "filled": 930,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 223,
+      "filled": 1227,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 224,
+      "filled": 708,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 225,
+      "filled": 850,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 226,
+      "filled": 1217,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 227,
+      "filled": 1201,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 228,
+      "filled": 1028,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 229,
+      "filled": 851,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 230,
+      "filled": 1005,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 231,
+      "filled": 2283,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 232,
+      "filled": 862,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 233,
+      "filled": 1186,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 234,
+      "filled": 1225,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 235,
+      "filled": 1324,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 236,
+      "filled": 1544,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 237,
+      "filled": 1736,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 238,
+      "filled": 1096,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 239,
+      "filled": 1094,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 240,
+      "filled": 1600,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 241,
+      "filled": 758,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 242,
+      "filled": 1272,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 243,
+      "filled": 1325,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 244,
+      "filled": 1333,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 245,
+      "filled": 1539,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 246,
+      "filled": 1282,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 247,
+      "filled": 942,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 248,
+      "filled": 775,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 249,
+      "filled": 1850,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 250,
+      "filled": 702,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 251,
+      "filled": 746,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 252,
+      "filled": 1206,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 253,
+      "filled": 817,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 254,
+      "filled": 871,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 255,
+      "filled": 1419,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 256,
+      "filled": 1301,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 257,
+      "filled": 684,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 258,
+      "filled": 1950,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 259,
+      "filled": 714,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 260,
+      "filled": 711,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 261,
+      "filled": 756,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 262,
+      "filled": 1411,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 263,
+      "filled": 1630,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 264,
+      "filled": 1548,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 265,
+      "filled": 960,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 266,
+      "filled": 1272,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 267,
+      "filled": 2484,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 268,
+      "filled": 952,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 269,
+      "filled": 1216,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 270,
+      "filled": 928,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 271,
+      "filled": 840,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 272,
+      "filled": 815,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 273,
+      "filled": 1133,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 274,
+      "filled": 870,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 275,
+      "filled": 737,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 276,
+      "filled": 943,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 277,
+      "filled": 2068,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 278,
+      "filled": 995,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 279,
+      "filled": 1745,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 280,
+      "filled": 1364,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 281,
+      "filled": 1026,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 282,
+      "filled": 723,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 283,
+      "filled": 1154,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 284,
+      "filled": 1851,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 285,
+      "filled": 1519,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 286,
+      "filled": 1062,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 287,
+      "filled": 1085,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 288,
+      "filled": 1080,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 289,
+      "filled": 1134,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 290,
+      "filled": 1296,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 291,
+      "filled": 700,
+      "oldTimeLimit": 120,
+      "newTimeLimit": 120,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 292,
+      "filled": 1036,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 293,
+      "filled": 1170,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 294,
+      "filled": 2070,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 295,
+      "filled": 2285,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 296,
+      "filled": 1164,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 297,
+      "filled": 1614,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 298,
+      "filled": 1440,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 299,
+      "filled": 1296,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    },
+    {
+      "levelId": 300,
+      "filled": 1102,
+      "oldTimeLimit": 150,
+      "newTimeLimit": 150,
+      "changed": false,
+      "belowVerifiedProductionRange": false
+    }
+  ]
+}

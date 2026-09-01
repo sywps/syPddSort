@@ -3,14 +3,77 @@ import {
     BlockInputEvents,
     Bundle,
     COLLECTION_TEXTURE_NAMES,
+    Color,
     EventTouch,
+    Graphics,
     Label,
+    Layers,
     Node,
     Prefab,
     UITransform,
     Vec3,
     instantiate,
 } from '../GameCtrlShared';
+
+type CollectionTab = 'main' | 'theme';
+
+function createCollectionTabs(box: Node, runtime: any): void {
+    const root = new Node('CollectionTabs');
+    root.layer = box.layer || Layers.Enum.UI_2D;
+    root.setPosition(0, 420, 0);
+    root.addComponent(UITransform).setContentSize(500, 64);
+    box.addChild(root);
+
+    const tabs: Array<{ key: CollectionTab; text: string }> = [
+        { key: 'main', text: '主线' },
+        { key: 'theme', text: '像素拼图' },
+    ];
+    const redraw = () => {
+        for (const tab of tabs) {
+            const node = root.getChildByName(`CollectionTab_${tab.key}`);
+            if (!node) continue;
+            const active = runtime._collectionActiveTab === tab.key;
+            const graphics = node.getComponent(Graphics);
+            const label = node.getChildByName('Label')?.getComponent(Label);
+            if (!graphics || !label) continue;
+            graphics.clear();
+            graphics.fillColor = active ? new Color('#7E68E8') : new Color('#E9E4FF');
+            graphics.roundRect(-112, -27, 224, 54, 27);
+            graphics.fill();
+            label.color = active ? new Color('#FFFFFF') : new Color('#6655A7');
+        }
+    };
+
+    tabs.forEach((tab, index) => {
+        const node = new Node(`CollectionTab_${tab.key}`);
+        node.layer = root.layer;
+        node.setPosition(index === 0 ? -118 : 118, 0, 0);
+        node.addComponent(UITransform).setContentSize(224, 54);
+        node.addComponent(Graphics);
+        root.addChild(node);
+
+        const labelNode = new Node('Label');
+        labelNode.layer = root.layer;
+        labelNode.addComponent(UITransform).setContentSize(200, 48);
+        const label = labelNode.addComponent(Label);
+        label.string = tab.text;
+        label.fontSize = 25;
+        label.lineHeight = 32;
+        label.horizontalAlign = Label.HorizontalAlign.CENTER;
+        label.verticalAlign = Label.VerticalAlign.CENTER;
+        label.enableWrapText = false;
+        node.addChild(labelNode);
+
+        node.on(Node.EventType.TOUCH_END, () => {
+            if (runtime._collectionActiveTab === tab.key) return;
+            AudioMgr.inst.play('button');
+            runtime._collectionActiveTab = tab.key;
+            redraw();
+            runtime.renderCollectionScroll(runtime._collectionContentNode);
+        }, runtime);
+    });
+    redraw();
+}
 
 function syncPrefabPopupTitle(box: Node, title: string): void {
     const badge = box.getChildByName('PopupTitleBadge');
@@ -149,6 +212,8 @@ export class CollectionPanelController {
 
                     const content = runtime.requirePanelChild(box, 'CollContent');
                     runtime._collectionContentNode = content;
+                    runtime._collectionActiveTab = runtime._collectionActiveTab === 'theme' ? 'theme' : 'main';
+                    createCollectionTabs(box, runtime);
 
                     runtime._collectionPageIndicator = box.getChildByName('PageIndicator');
                     if (runtime._collectionPageIndicator) runtime._collectionPageIndicator.active = false;

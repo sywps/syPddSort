@@ -157,6 +157,7 @@ function createRuntime(levelId, failAt) {
         node: {},
         _testCalls: calls,
         _testFailAt: failAt,
+        _isThemeLevel: false,
         _currentExternalLevelFilePath: '',
         _bootstrapOnlyGameplayStartup: false,
         _gameplayInitSeq: 0,

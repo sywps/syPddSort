@@ -596,6 +596,7 @@ async function main() {
         _timerStarted: false,
         _skillActive: false,
         _gameForeground: false,
+        _isThemeLevel: false,
         isGameEnd: false,
         isValid: true,
         getRuntimeSceneName: () => 'Game',

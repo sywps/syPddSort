@@ -737,6 +737,7 @@ export class GameplayResultPanelController {
 
     private canUseReviveShare(): boolean {
         const runtime = this.runtime;
+        if (runtime._isThemeLevel) return false;
         const entryMode = typeof runtime.getActiveGameplayEntryMode === 'function'
             ? runtime.getActiveGameplayEntryMode()
             : (runtime._activeGameplayEntryMode || 'main');

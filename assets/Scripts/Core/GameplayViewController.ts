@@ -267,6 +267,27 @@ export class GameplayViewController {
         return renderers.length > 0;
     }
 
+    private syncSettledPixelBlock(row: number, col: number): boolean {
+        const settled = this.runtime._pchConveyorGameplayController?.shouldRenderSettledPixelBlock?.(row, col) === true;
+        const renderers = this.getBoardSlotBatchRenderers();
+        if (settled && renderers.length === 0) {
+            throw new Error('[pch-settled-pixel] board slot batch renderer is unavailable');
+        }
+        for (const renderer of renderers) renderer.setCellSettled(row, col, settled);
+        return settled;
+    }
+
+    private syncAllSettledPixelBlocks(): void {
+        const runtime = this.runtime;
+        for (let row = 0; row < runtime.boardModel.height; row++) {
+            for (let col = 0; col < runtime.boardModel.width; col++) {
+                if (runtime.boardModel.correctColors[row]?.[col] > 0) {
+                    this.syncSettledPixelBlock(row, col);
+                }
+            }
+        }
+    }
+
     private prepareBoardSlotBatchRenderer(parent: Node, width: number, height: number, index: number): BoardSlotBatchRenderer {
         const runtime = this.runtime;
         const existingRenderer = Array.isArray(runtime._boardSlotBatchRenderers)
@@ -454,6 +475,7 @@ export class GameplayViewController {
 
     renderBoardSlots() {
         const runtime = this.runtime;
+        this.syncAllSettledPixelBlocks();
         if (this.markBoardSlotBatchRenderersForUpdate()) {
             return;
         }
@@ -466,6 +488,7 @@ export class GameplayViewController {
 
     renderBoard() {
         const runtime = this.runtime;
+        this.syncAllSettledPixelBlocks();
         const hasBatchedSlots = this.markBoardSlotBatchRenderersForUpdate();
         for (let r = 0; r < runtime.boardModel.height; r++) {
             for (let c = 0; c < runtime.boardModel.width; c++) {
@@ -479,6 +502,7 @@ export class GameplayViewController {
     }
 
     renderBoardCell(row: number, col: number) {
+        this.syncSettledPixelBlock(row, col);
         if (!this.markBoardSlotBatchRenderersForUpdate()) {
             this.renderLegacyBoardSlotCell(row, col);
         }
@@ -497,6 +521,7 @@ export class GameplayViewController {
             const key = `${cell.row},${cell.col}`;
             if (seen.has(key)) continue;
             seen.add(key);
+            this.syncSettledPixelBlock(cell.row, cell.col);
             if (!hasBatchedSlots) {
                 this.renderLegacyBoardSlotCell(cell.row, cell.col);
             }
@@ -523,6 +548,7 @@ export class GameplayViewController {
             sp.enabled = false;
             return;
         }
+        this.syncSettledPixelBlock(row, col);
         runtime.setNodeSquareSize(node, runtime.getBoardSlotVisualSize());
         sp.enabled = true;
         sp.spriteFrame = runtime.requireRenderReadySpriteFrame(
@@ -545,8 +571,10 @@ export class GameplayViewController {
             return;
         }
         const cellKey = `${row},${col}`;
-        const isFlyingTarget = runtime._flyingTargets.has(cellKey) || runtime._hiddenBoardCells.has(cellKey);
-        const colorId = isFlyingTarget ? 0 : colorIdRaw;
+        const shouldHideBean = runtime._flyingTargets.has(cellKey)
+            || runtime._hiddenBoardCells.has(cellKey)
+            || runtime._pchConveyorGameplayController?.shouldRenderSettledPixelBlock?.(row, col) === true;
+        const colorId = shouldHideBean ? 0 : colorIdRaw;
         runtime.setNodeSquareSize(node, runtime.getBoardBeanVisualSize());
         if (colorId === 0) {
             sp.enabled = false;
@@ -845,6 +873,8 @@ export class GameplayViewController {
                     `board-slot-batch:${r},${c}:color:${correctId}`,
                 );
                 slotBatchCells.push({
+                    row: r,
+                    col: c,
                     x,
                     y,
                     size: runtime.getBoardSlotVisualSize(),
