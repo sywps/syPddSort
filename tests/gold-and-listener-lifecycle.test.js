@@ -132,42 +132,8 @@ function testCloudRestoreCanRefreshGoldWithoutQueuingAnotherSave() {
     assert.strictEqual(runtime.queueCalls, 0, 'restored gold must not immediately queue a conflicting cloud save');
 }
 
-function testDailySignInRequiresTheExpectedGoldReadbackBeforeGrantingProps() {
-    class Label {}
-    const storage = makeStorage({ 'pdd.gold': '61' });
-    const runtime = createGoldRuntime(storage, Label, new Label());
-    storage.ignoreGoldWrites(true);
-    assert.throws(
-        () => runtime.grantDailySignInReward({ gold: 50, freeze: 1 }),
-        /daily-signin.*gold/i,
-        'a failed gold write must fail the claim instead of silently marking it complete',
-    );
-    assert.deepStrictEqual(runtime.propGrants, [], 'props must not be granted after an unconfirmed gold write');
-}
-
-function testDailySignInAddsTheRewardToTheCanonicalWalletExactlyOnce() {
-    class Label {}
-    const runtime = createGoldRuntime(makeStorage({ 'pdd.gold': '61' }), Label, new Label());
-    runtime.grantDailySignInReward({ gold: 50 });
-    assert.strictEqual(runtime.getGold(), 111, '61 gold plus a 50-gold daily reward must equal 111');
-}
-
-function testDailySignInMarksLocalStateNewerBeforeDeferredCloudSync() {
-    class Label {}
-    const runtime = createGoldRuntime(makeStorage({ 'pdd.gold': '61' }), Label, new Label());
-    runtime._startupCloudRestorePending = true;
-    runtime.grantDailySignInReward({ gold: 50 });
-    assert.ok(
-        runtime.localUserStateUpdatedAt > 0,
-        'daily sign-in must mark local state newer before a pending startup cloud restore can return stale gold',
-    );
-}
-
 testWalletRefreshesEveryVisibleGoldLabel();
 testCloudRestoreCanRefreshGoldWithoutQueuingAnotherSave();
-testDailySignInRequiresTheExpectedGoldReadbackBeforeGrantingProps();
-testDailySignInAddsTheRewardToTheCanonicalWalletExactlyOnce();
-testDailySignInMarksLocalStateNewerBeforeDeferredCloudSync();
 
 function loadFriendRankInstaller() {
     const moduleRef = { exports: {} };
@@ -254,15 +220,11 @@ function testLeaderboardRebindClearsOldListenersAndInertia() {
 testLeaderboardRebindClearsOldListenersAndInertia();
 
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
-const commerce = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 const homeAdFlow = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
 const gameSceneRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const friendRank = read('assets/Scripts/Core/GameCtrlModules/FriendRankModule.ts');
 const leaderboardPanel = read('assets/Scripts/Core/Panels/LeaderboardPanelController.ts');
-const dailyClaimStart = commerce.indexOf('const claimButton =');
-const dailyClaimEnd = commerce.indexOf('runtime.playPopupOpenAnim', dailyClaimStart);
-const dailyClaimSource = commerce.slice(dailyClaimStart, dailyClaimEnd);
 const homeHudFallbackStart = homeAdFlow.indexOf('if (!topHudWidgets) {');
 const homeHudFallbackEnd = homeAdFlow.indexOf('this.drawStartButton', homeHudFallbackStart);
 const homeHudFallbackSource = homeAdFlow.slice(homeHudFallbackStart, homeHudFallbackEnd);
@@ -270,14 +232,6 @@ const homeHudFallbackSource = homeAdFlow.slice(homeHudFallbackStart, homeHudFall
 assert.ok(
     assetBootstrap.includes('this.setGold(gameState.gold, { syncCloud: false });'),
     'cloud gold restore must use the wallet setter so the UI stays in sync',
-);
-assert.ok(
-    !dailyClaimSource.includes('runtime.showMainMenu();'),
-    'daily-sign-in click must not rebuild Home during the same touch',
-);
-assert.ok(
-    dailyClaimSource.includes('runtime._suppressHomeStartUntil'),
-    'daily-sign-in click must suppress a same-touch Home start',
 );
 assert.ok(
     homeHudFallbackSource.includes('this.drawGoldBanner(goldGroup);'),

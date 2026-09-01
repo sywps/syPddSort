@@ -474,7 +474,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 374.119,
+      "y": 288.149,
       "z": 0
     },
     "_lrot": {
@@ -938,7 +938,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": 36.992,
+      "y": 80.341,
       "z": 0
     },
     "_lrot": {
@@ -1468,10 +1468,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "917deb07-2522-49b9-b14f-29819cb98860@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,
@@ -1528,7 +1525,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -139.263,
+      "y": -74.057,
       "z": 0
     },
     "_lrot": {
@@ -1659,8 +1656,6 @@
       "__id__": 0
     },
     "fileId": "RecoverVigorPanel-RecoverVigorTip-node",
-    "instance": null,
-    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -1691,7 +1686,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -251.035,
+      "y": -185.829,
       "z": 0
     },
     "_lrot": {
@@ -1872,8 +1867,6 @@
       "__id__": 0
     },
     "fileId": "RecoverVigorPanel-RecoverBtnLabel-node",
-    "instance": null,
-    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -1977,7 +1970,7 @@
     "_contentSize": {
       "__type__": "cc.Size",
       "width": 568.268,
-      "height": 770.879
+      "height": 600
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -2044,8 +2037,6 @@
       "__id__": 0
     },
     "fileId": "recover-box-node",
-    "instance": null,
-    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {

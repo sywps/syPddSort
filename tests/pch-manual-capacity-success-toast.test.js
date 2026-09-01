@@ -24,7 +24,7 @@ function extractMethod(sourceText, signature) {
 const onCapacityAdTap = extractMethod(source, 'private onCapacityAdTap(event: any): void');
 assert.match(
     onCapacityAdTap,
-    /runRewardedGrant\('pch_conveyor_expand',[\s\S]*?grantFailToast: '传送带扩容失败，请重试',[\s\S]*?successToast: '已增加12个位置'/,
+    /runRewardedGrant\('pch_conveyor_expand',[\s\S]*?grantFailToast: '传送带扩容失败，请重试',[\s\S]*?successToast: '传送带已扩容 \+12'/,
     'manual conveyor expansion must show the same +12 success toast after a verified rewarded grant',
 );
 

@@ -34,6 +34,7 @@ const LS_VIB = 'pdd.setting.vib';
 const SFX_CHANNEL_COUNT = 8;
 const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
     'place',
+    'settle',
     'button',
     'tick',
     'winColor',
@@ -415,7 +416,7 @@ export class AudioMgr {
             const variance = AUDIO_SFX_VOLUME_VARIANCE[name] ?? 0;
             const jitter = variance > 0 ? (Math.random() * 2 - 1) * variance : 0;
             const volume = Math.max(0, Math.min(1, baseVolume * (1 + jitter)));
-            if (name === 'place') {
+            if (name === 'place' || name === 'settle') {
                 this._playPlaceOneShot(clip, volume);
                 return;
             }

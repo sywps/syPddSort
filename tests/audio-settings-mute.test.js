@@ -155,13 +155,14 @@ const audioManifestMock = {
     AUDIO_HOME_BGM_RESOURCE_PATH: 'Audio/bgm',
     AUDIO_HOME_BGM_VOLUME: 0.35,
     AUDIO_BOOTSTRAP_SFX_NAMES: [
-        'select', 'place', 'fly', 'return', 'button', 'tick', 'coin',
+        'select', 'place', 'settle', 'fly', 'return', 'button', 'tick', 'coin',
         'win', 'lose', 'winColor', 'winAll', 'winSettlement', 'revivePop',
     ],
     AUDIO_SFX_RESOURCE_PATH: {
         select: 'Audio/select',
         button: 'Audio/ui',
         place: 'Audio/place',
+        settle: 'Audio/settle',
         fly: 'Audio/fly',
         return: 'Audio/return',
         tick: 'Audio/tick',
@@ -174,7 +175,7 @@ const audioManifestMock = {
         revivePop: 'Audio/revive-pop',
     },
     AUDIO_SFX_VOLUME: {
-        select: 0.55, button: 0.52, place: 0.72, fly: 0.4, return: 0.22,
+        select: 0.55, button: 0.52, place: 0.72, settle: 0.72, fly: 0.4, return: 0.22,
         tick: 0.4, coin: 0.42, win: 0.52, lose: 0.44, winColor: 0.5,
         winAll: 0.5, winSettlement: 0.62, revivePop: 0.32,
     },
@@ -213,7 +214,7 @@ const gameSceneAllowlistMatch = audioMgrSource.match(/const GAME_SCENE_SFX_ALLOW
 assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene SFX allowlist');
 assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
-    ['place', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop', 'coin', 'win'],
+    ['place', 'settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop', 'coin', 'win'],
     'Game-scene SFX allowlist must match the approved gameplay policy',
 );
 assert.strictEqual(
@@ -235,6 +236,10 @@ assert.strictEqual(
 assert.ok(
     audioManifestSource.includes("select: 'Audio/pindd/bean_pickup'"),
     'the disabled select cue must keep its approved resource mapping for restoration',
+);
+assert.ok(
+    audioManifestSource.includes("settle: 'Audio/pindd/bean_return_settle'"),
+    'the PCH return settlement cue must keep its dedicated resource mapping',
 );
 
 assert.strictEqual(audioMgr.sfxSources.length, 8, 'AudioMgr must create a bounded eight-channel SFX pool');
@@ -351,6 +356,14 @@ audioMgr.stopSfx();
 assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'explicit SFX shutdown must release every active place one-shot');
 assert.ok(remainingPlaceSources.every((source) => !ccMock.isValid(source, true)), 'explicit SFX shutdown must destroy active place one-shot sources');
 
+const settleClip = { _nativeAsset: { url: 'settle.mp3' } };
+audioMgr.sfxClips.set('settle', settleClip);
+for (let i = 0; i < 9; i++) audioMgr.play('settle');
+const settleSources = [...audioMgr.placeOneShotSources];
+assert.strictEqual(settleSources.length, 9, 'nine overlapping settlement cues must each receive an independent one-shot source');
+assert.ok(settleSources.every((source) => source.playing), 'every overlapping settlement one-shot must continue playing');
+audioMgr.stopSfx();
+
 const toggleHandler = settingsSource.match(/toggle\.on\(Button\.EventType\.CLICK, \(\) => \{([\s\S]*?)\n    \}, runtime\);/);
 assert.ok(toggleHandler, 'settings toggle click handler must remain discoverable');
 assert.ok(
@@ -362,11 +375,13 @@ assert.ok(!audioMgrSource.includes('.playOneShot('), 'AudioMgr must not use untr
 const audioInitIndex = gameplaySessionSource.indexOf('AudioMgr.inst.init(runtime.node);');
 const criticalButtonPreloadIndex = gameplaySessionSource.indexOf("AudioMgr.inst.preload('button');", audioInitIndex);
 const optionalWarmupGateIndex = gameplaySessionSource.indexOf('const bootstrapOnlyGameplayStartup', audioInitIndex);
+const settlePreloadIndex = gameplaySessionSource.indexOf("AudioMgr.inst.preload('settle');", optionalWarmupGateIndex);
 assert.ok(audioInitIndex >= 0, 'gameplay startup must initialize AudioMgr');
 assert.ok(
     criticalButtonPreloadIndex > audioInitIndex && criticalButtonPreloadIndex < optionalWarmupGateIndex,
     'the critical button cue must start preloading immediately after AudioMgr init and before optional gameplay warmup gates',
 );
+assert.ok(settlePreloadIndex > optionalWarmupGateIndex, 'the PCH settlement cue must preload during normal gameplay startup');
 assert.strictEqual(
     (gameplaySessionSource.match(/AudioMgr\.inst\.playGameBgm\(\);/g) || []).length,
     1,
@@ -379,7 +394,7 @@ audioMgr.sfxClips.set('place', placeClip);
 audioMgr.sfxClips.set('button', { _nativeAsset: { url: 'button.mp3' } });
 audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
 const allowedGameSfxNames = [
-    'place', 'button', 'tick', 'winColor', 'winAll',
+    'place', 'settle', 'button', 'tick', 'winColor', 'winAll',
     'winSettlement', 'lose', 'revivePop', 'coin', 'win',
 ];
 for (const name of allowedGameSfxNames) {

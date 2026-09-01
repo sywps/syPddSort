@@ -22,6 +22,7 @@ function extractMethod(signature) {
 
 const playedAudio = [];
 const fakeAudioMgr = { inst: { play(name) { playedAudio.push(name); } } };
+const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 
 function createHarness(signatures) {
     const methods = signatures.map(extractMethod).join('\n');
@@ -32,8 +33,8 @@ function createHarness(signatures) {
         },
     }).outputText;
     const testModule = { exports: {} };
-    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'Vec3', compiled);
-    load(testModule, testModule.exports, require, fakeAudioMgr, class FakeVec3 {});
+    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', compiled);
+    load(testModule, testModule.exports, require, fakeAudioMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS);
     return new testModule.exports.Harness();
 }
 
@@ -98,6 +99,75 @@ assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: unrelated
 assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: null }), false);
 openingGuideTarget.isValid = false;
 assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGuideTarget }), false);
+
+{
+    const guide = createHarness([
+        'private maybeShowOpeningGuideWrongTapToast(): void',
+        'private handleOpeningGuideRootTap(event: any): boolean',
+    ]);
+    const toasts = [];
+    const tapResults = [];
+    let now = 10000;
+    const originalDateNow = Date.now;
+    guide.runtime = {
+        showToast(text) {
+            toasts.push(text);
+        },
+    };
+    guide.openingGuide = { name: 'PchLevelOneGuideStep1' };
+    guide.handleLevelOneOpeningGuideRootTap = () => false;
+    guide.trackOpeningGuideEvent = (...args) => tapResults.push(args);
+    const missEvent = {
+        propagationStopped: false,
+        getUILocation: () => ({ x: 10, y: 20 }),
+    };
+    try {
+        Date.now = () => now;
+        guide.handleOpeningGuideRootTap(missEvent);
+        assert.deepStrictEqual(toasts, ['请跟随指示完成引导'], 'the first wrong opening-guide tap must show the requested reminder');
+        now += 1499;
+        guide.handleOpeningGuideRootTap(missEvent);
+        assert.strictEqual(toasts.length, 1, 'wrong opening-guide taps inside the 1.5-second cooldown must not repeat the toast');
+        now += 1;
+        guide.handleOpeningGuideRootTap(missEvent);
+        assert.strictEqual(toasts.length, 2, 'the reminder must be eligible again at the 1.5-second cooldown boundary');
+
+        guide.openingGuide.name = 'PchLevelTwoSpeedGuide';
+        guide.speedButton = {
+            getComponent() {
+                return { getBoundingBoxToWorld: () => ({ contains: () => false }) };
+            },
+        };
+        now += 1500;
+        guide.handleOpeningGuideRootTap(missEvent);
+        assert.strictEqual(toasts.length, 3, 'a wrong level-2 speed-guide tap must use the shared reminder');
+
+        guide.openingGuide.name = 'PchLevelThreeCapacityGuide';
+        guide.adButton = {
+            getComponent() {
+                return { getBoundingBoxToWorld: () => ({ contains: () => false }) };
+            },
+        };
+        now += 1500;
+        guide.handleOpeningGuideRootTap(missEvent);
+        assert.strictEqual(toasts.length, 4, 'a wrong level-3 capacity-guide tap must use the shared reminder');
+
+        let speedGuideRuns = 0;
+        guide.openingGuide.name = 'PchLevelTwoSpeedGuide';
+        guide.speedButton = {
+            getComponent() {
+                return { getBoundingBoxToWorld: () => ({ contains: () => true }) };
+            },
+        };
+        guide.onOpeningGuideDoubleSpeed = () => { speedGuideRuns += 1; };
+        assert.strictEqual(guide.handleOpeningGuideRootTap(missEvent), true, 'a correct guide target must retain its original success route');
+        assert.strictEqual(speedGuideRuns, 1, 'a correct level-2 guide target must still execute exactly once');
+        assert.strictEqual(toasts.length, 4, 'a correct guide target must not show the wrong-tap reminder');
+    } finally {
+        Date.now = originalDateNow;
+    }
+    assert.strictEqual(tapResults.length, 5, 'each wrong guide tap must retain its existing analytics result');
+}
 
 function runLevelOneOutcome(outcome, step) {
     const guide = createHarness(['private onOpeningGuideLevelOneTap(event: any): void']);
@@ -175,6 +245,61 @@ assert.deepStrictEqual(levelTwoAnalytics, [
     ['pch_guide_tap_result', true, 'enabled_2x'],
     ['pch_guide_step_done', true, 'completed'],
 ]);
+assert.deepStrictEqual(playedAudio, ['button']);
+
+playedAudio.length = 0;
+const levelThree = createHarness(['private onOpeningGuideFreeCapacity(event: any): void']);
+const levelThreeAnalytics = [];
+const levelThreeCalls = [];
+const levelThreeToasts = [];
+levelThree.rules = {};
+levelThree.runtime = {
+    isGameEnd: false,
+    markDynamicCountdownAssisted() { levelThreeCalls.push('assist'); },
+    showToast(text) {
+        levelThreeCalls.push('toast');
+        levelThreeToasts.push(text);
+    },
+};
+levelThree.expandCapacity = () => {
+    levelThreeCalls.push('expand');
+    return true;
+};
+levelThree.trackOpeningGuideEvent = (...args) => levelThreeAnalytics.push(args);
+levelThree.dismissOpeningGuide = () => { levelThreeCalls.push('dismiss'); };
+const capacityEvent = { propagationStopped: false };
+levelThree.onOpeningGuideFreeCapacity(capacityEvent);
+assert.strictEqual(capacityEvent.propagationStopped, true);
+assert.deepStrictEqual(levelThreeAnalytics, [
+    ['pch_guide_tap_result', true, 'capacity_expanded'],
+    ['pch_guide_step_done', true, 'completed'],
+]);
+assert.deepStrictEqual(levelThreeCalls, ['expand', 'assist', 'dismiss', 'toast']);
+assert.deepStrictEqual(levelThreeToasts, ['传送带已扩容 +12']);
+assert.deepStrictEqual(playedAudio, ['button']);
+
+playedAudio.length = 0;
+const failedLevelThree = createHarness(['private onOpeningGuideFreeCapacity(event: any): void']);
+const failedLevelThreeAnalytics = [];
+const failedLevelThreeToasts = [];
+let failedLevelThreeDismisses = 0;
+let failedLevelThreeAssists = 0;
+failedLevelThree.rules = {};
+failedLevelThree.runtime = {
+    isGameEnd: false,
+    markDynamicCountdownAssisted() { failedLevelThreeAssists += 1; },
+    showToast(text) { failedLevelThreeToasts.push(text); },
+};
+failedLevelThree.expandCapacity = () => false;
+failedLevelThree.trackOpeningGuideEvent = (...args) => failedLevelThreeAnalytics.push(args);
+failedLevelThree.dismissOpeningGuide = () => { failedLevelThreeDismisses += 1; };
+failedLevelThree.onOpeningGuideFreeCapacity({ propagationStopped: false });
+assert.deepStrictEqual(failedLevelThreeAnalytics, [
+    ['pch_guide_tap_result', false, 'capacity_expand_failed'],
+]);
+assert.strictEqual(failedLevelThreeAssists, 0, 'failed capacity expansion must not mark countdown assistance');
+assert.strictEqual(failedLevelThreeDismisses, 0, 'failed capacity expansion must retain the guide');
+assert.deepStrictEqual(failedLevelThreeToasts, [], 'failed capacity expansion must not show the success Toast');
 assert.deepStrictEqual(playedAudio, ['button']);
 
 function routeGuide(levelId, entryMode) {

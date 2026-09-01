@@ -43,11 +43,12 @@ assert.throws(() => levelConfig.validateHard('1', 'string'), /Hard must be 0 or 
 const levelDir = path.join(root, 'assets', 'LevelData');
 const mainFiles = fs.readdirSync(levelDir).filter((name) => /^level_\d+\.json$/.test(name));
 const themeFiles = fs.readdirSync(levelDir).filter((name) => /^zt_level_\d+\.json$/.test(name));
+const hardMainLevelIds = new Set([3, 10]);
 assert.strictEqual(mainFiles.length, 300);
 assert.strictEqual(themeFiles.length, 48);
 for (const name of mainFiles) {
     const level = JSON.parse(fs.readFileSync(path.join(levelDir, name), 'utf8'));
-    assert.strictEqual(level.Hard, level.levelId === 3 ? 1 : 0, `${name} Hard mismatch`);
+    assert.strictEqual(level.Hard, hardMainLevelIds.has(level.levelId) ? 1 : 0, `${name} Hard mismatch`);
 }
 for (const name of themeFiles) {
     const level = JSON.parse(fs.readFileSync(path.join(levelDir, name), 'utf8'));
@@ -65,9 +66,10 @@ for (const name of experimentFiles) {
 
 const manifest = readJson('assets/LevelData/level-manifest.json');
 assert.strictEqual(manifest.entries.length, 300);
-assert.strictEqual(manifest.entries.filter((entry) => entry.Hard === 1).length, 1);
+assert.strictEqual(manifest.entries.filter((entry) => entry.Hard === 1).length, hardMainLevelIds.size);
 assert.strictEqual(manifest.entries.find((entry) => entry.levelId === 3).Hard, 1);
-assert.strictEqual(manifest.entries.every((entry) => entry.Hard === (entry.levelId === 3 ? 1 : 0)), true);
+assert.strictEqual(manifest.entries.find((entry) => entry.levelId === 10).Hard, 1);
+assert.strictEqual(manifest.entries.every((entry) => entry.Hard === (hardMainLevelIds.has(entry.levelId) ? 1 : 0)), true);
 
 const prefabPath = 'assets/GameAssetsBundle/UI/Prefabs/Fx/HardLevelIntro.prefab';
 const prefab = readJson(prefabPath);

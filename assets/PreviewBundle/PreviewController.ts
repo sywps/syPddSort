@@ -124,7 +124,6 @@ export class PreviewController extends GameRuntimeHost {
             [
                 { label: '设置面板', onClick: () => this.openPanelPreview(() => { (this as any).openSettingsPanel(); }) },
                 { label: '排行榜', onClick: () => this.openPanelPreview(() => { void (this as any).openLeaderboard(); }) },
-                { label: '签到面板', onClick: () => this.openPanelPreview(() => { (this as any).openDailySignInPanel(); }) },
                 { label: '获取金币', onClick: () => this.openPanelPreview(() => { (this as any).openGoldAcquirePanel(); }) },
                 { label: '图鉴面板', onClick: () => this.openPanelPreview(() => { (this as any).openCollection(); }) },
             ],

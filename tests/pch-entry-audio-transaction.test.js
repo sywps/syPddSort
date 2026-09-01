@@ -7,6 +7,7 @@ const source = fs.readFileSync(
     path.join(root, 'assets/Scripts/Core/PchConveyorGameplayController.ts'),
     'utf8',
 );
+assert.match(source, /const BELT_STEP_SECONDS = 0\.25;/, 'conveyor cadence must match the competitor 0.25-second step');
 
 function methodBody(marker) {
     const start = source.indexOf(marker);
@@ -82,7 +83,7 @@ vibrationCalls.length = 0;
 const emptyCarrier = makeController([{ moved: 3 }]);
 emptyCarrier.controller.beltTravel = 11.98;
 assert.equal(handleCarrierAtEntrance.call(emptyCarrier.controller, 0), true);
-assert.deepEqual(audioCalls, ['place'], 'an empty carrier loading three beans must play once');
+assert.deepEqual(audioCalls, ['settle'], 'an empty carrier loading three beans must play once');
 assert.deepEqual(vibrationCalls, ['place'], 'an empty carrier loading three beans must vibrate once');
 
 audioCalls.length = 0;
@@ -90,7 +91,7 @@ vibrationCalls.length = 0;
 const partlyFilledCarrier = makeController([{ moved: 2 }]);
 partlyFilledCarrier.controller.beltTravel = 11.98;
 assert.equal(handleCarrierAtEntrance.call(partlyFilledCarrier.controller, 0), true);
-assert.deepEqual(audioCalls, ['place'], 'a carrier loading its remaining two beans must play once');
+assert.deepEqual(audioCalls, ['settle'], 'a carrier loading its remaining two beans must play once');
 assert.deepEqual(vibrationCalls, ['place'], 'a carrier loading its remaining two beans must vibrate once');
 
 audioCalls.length = 0;
@@ -117,23 +118,28 @@ assert.equal(handleCarrierAtEntrance.call(repeatedVisit.controller, 0), true);
 repeatedVisit.controller.beltTravel = 12.02;
 assert.equal(getEntranceVisitOrdinal.call(repeatedVisit.controller, 0), 1, 'post-snap visit must remain on loop one');
 assert.equal(handleCarrierAtEntrance.call(repeatedVisit.controller, 0), true);
-assert.deepEqual(audioCalls, ['place'], 'repeated successful transfers in one entrance visit must play once');
+assert.deepEqual(audioCalls, ['settle'], 'repeated successful transfers in one entrance visit must play once');
 assert.deepEqual(vibrationCalls, ['place'], 'repeated successful transfers in one entrance visit must vibrate once');
 
 assert.equal(handleCarrierAtEntrance.call(repeatedVisit.controller, 1), true);
-assert.deepEqual(audioCalls, ['place', 'place'], 'an interleaved carrier must keep an independent visit transaction');
+assert.deepEqual(audioCalls, ['settle', 'settle'], 'an interleaved carrier must keep an independent visit transaction');
 assert.deepEqual(vibrationCalls, ['place', 'place'], 'an interleaved carrier must keep an independent vibration transaction');
 repeatedVisit.controller.beltTravel = 12.01;
 assert.equal(handleCarrierAtEntrance.call(repeatedVisit.controller, 0), true);
-assert.deepEqual(audioCalls, ['place', 'place'], 'returning to the first carrier in the same visit must remain deduplicated');
+assert.deepEqual(audioCalls, ['settle', 'settle'], 'returning to the first carrier in the same visit must remain deduplicated');
 assert.deepEqual(vibrationCalls, ['place', 'place'], 'returning to the first carrier in the same visit must not add vibration');
 
 repeatedVisit.controller.rules.transferReadyBeansToCarrier = (carrierIndex) => ({ carrierIndex, moved: 3 });
 repeatedVisit.controller.beltTravel = 23.98;
 assert.equal(getEntranceVisitOrdinal.call(repeatedVisit.controller, 0), 2, 'the next loop must produce the next visit ordinal');
 assert.equal(handleCarrierAtEntrance.call(repeatedVisit.controller, 0), true);
-assert.deepEqual(audioCalls, ['place', 'place', 'place'], 'the same carrier may play again on its next successful loop');
+assert.deepEqual(audioCalls, ['settle', 'settle', 'settle'], 'the same carrier may play again on its next successful loop');
 assert.deepEqual(vibrationCalls, ['place', 'place', 'place'], 'the same carrier may vibrate again on its next successful loop');
+assert.deepEqual(
+    repeatedVisit.visualCalls.filter((call) => call.startsWith('pulse:')),
+    ['pulse:0', 'pulse:1', 'pulse:0'],
+    'entrance pulse must run once per carrier visit and become available again on the next loop',
+);
 
 const stopBody = methodBody('stop(): void');
 const expandBody = methodBody('private expandCapacity(');

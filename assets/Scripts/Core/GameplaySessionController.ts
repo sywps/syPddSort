@@ -44,6 +44,7 @@ export class GameplaySessionController {
             const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
             if (!bootstrapOnlyGameplayStartup) {
                 AudioMgr.inst.preload('place');
+                AudioMgr.inst.preload('settle');
             }
             runtime.levelData = data;
             initStage = 'route_context';
@@ -94,6 +95,7 @@ export class GameplaySessionController {
             initStage = 'state_reset';
             runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
             runtime.timeRemain = dynamicTimeLimit;
+            runtime._countdownWarningTickSecondsPlayed = new Set<number>();
             runtime.isGameEnd = false;
             runtime._activeLoseReason = null;
             runtime.isSelected = false;

@@ -297,7 +297,7 @@ async function main() {
         },
         continueAfterBufferFull() { return runContinueAfterBufferFull.call(this); },
         checkBufferDeadlock() { return runCheckBufferDeadlock.call(this); },
-        update(deltaTime) { return runUpdate.call(this, deltaTime, 0.28); },
+        update(deltaTime) { return runUpdate.call(this, deltaTime, 0.25); },
     };
     runtime._pchConveyorGameplayController = pchController;
     runtime.continueAfterLose = (addSeconds, resumeTimerImmediately) => {

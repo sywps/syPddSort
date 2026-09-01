@@ -13,6 +13,7 @@ const homeAssetsBundleName = 'homeAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
 	'GameUI/RainbowConveyor/ADIcon',
+	'GameUI/RainbowConveyor/compact_conveyor_track',
 	'GameUI/RainbowConveyor/conveyor_0',
 	'GameUI/RainbowConveyor/conveyor_1',
 	'GameUI/RainbowConveyor/conveyor_2',
@@ -36,10 +37,6 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/board_zoom_thumb',
 	'GameUI/board_zoom_track',
 	'GameUI/block_bright_pindd',
-	'GameUI/slot_groove_b_ui',
-	'GameUI/slot_panel_shell_b_ui',
-	'GameUI/slot_row_lock_dash_ui',
-	'GameUI/slot_row_lock_mask_ui',
 	'GameUI/倒计时',
 	'GameUI/guide_hand',
 	'GameUI/guide_bubble_frame',

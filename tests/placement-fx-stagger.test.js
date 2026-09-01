@@ -16,6 +16,7 @@ const output = ts.transpileModule(source, {
     },
 }).outputText;
 const timers = [];
+const playedSfx = [];
 class TestColor {
     constructor(value) {
         this.value = value;
@@ -24,6 +25,13 @@ class TestColor {
 class TestTween {
     static stopAllByTarget() {}
 }
+const TestAudioMgr = {
+    inst: {
+        play(sfx) {
+            playedSfx.push(sfx);
+        },
+    },
+};
 const sandbox = {
     exports: {},
     module: { exports: {} },
@@ -42,6 +50,7 @@ const sandbox = {
                 get(_target, key) {
                     if (key === 'Color') return TestColor;
                     if (key === 'Tween') return TestTween;
+                    if (key === 'AudioMgr') return TestAudioMgr;
                     return class RuntimeStub {};
                 },
             });
@@ -143,5 +152,40 @@ assert.strictEqual(runtime.timerLabel.string, '\u2744 04:00', 'the freeze marker
 assert.strictEqual(runtime.tickFreezeTimer(), true);
 assert.strictEqual(runtime.timerLabel.string, '04:00', 'the timer bar must restore its normal text when freeze ends');
 assert.strictEqual(runtime.timerLabel.color.value, '#2E241A', 'the timer bar must restore its normal color when freeze ends');
+
+runtime.timeRemain = 34;
+runtime.isGameEnd = false;
+runtime._timerPauseRefs = 0;
+runtime._countdownWarningTickSecondsPlayed = new Set();
+playedSfx.length = 0;
+runtime.tickTimer();
+runtime.tickTimer();
+runtime.tickTimer();
+assert.deepStrictEqual(playedSfx, ['tick', 'tick', 'tick'], 'the 33/32/31 second countdown warning must play tick exactly once per second');
+
+runtime.timeRemain = 34;
+runtime.tickTimer();
+runtime.tickTimer();
+runtime.tickTimer();
+assert.deepStrictEqual(playedSfx, ['tick', 'tick', 'tick'], 'countdown warning seconds must not replay after time is extended in the same level');
+
+runtime.timeRemain = 34;
+runtime._timerPauseRefs = 1;
+runtime.tickTimer();
+assert.strictEqual(runtime.timeRemain, 34, 'paused timers must not advance into countdown warning audio');
+assert.deepStrictEqual(playedSfx, ['tick', 'tick', 'tick'], 'paused timers must not play countdown warning audio');
+
+runtime._timerPauseRefs = 0;
+runtime.isGameEnd = true;
+runtime.timeRemain = 34;
+runtime._countdownWarningTickSecondsPlayed = new Set();
+runtime.tickTimer();
+assert.strictEqual(runtime.timeRemain, 34, 'ended timers must not advance into countdown warning audio');
+assert.deepStrictEqual(playedSfx, ['tick', 'tick', 'tick'], 'ended timers must not play countdown warning audio');
+
+const gameCtrlState = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlState.ts'), 'utf8');
+const gameplaySession = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameplaySessionController.ts'), 'utf8');
+assert.ok(gameCtrlState.includes('_countdownWarningTickSecondsPlayed: new Set<number>()'), 'initial game state must provide a fresh countdown warning record');
+assert.ok(gameplaySession.includes('runtime._countdownWarningTickSecondsPlayed = new Set<number>();'), 'each new level must clear its countdown warning record');
 
 console.log('placement-fx-stagger.test.js passed');

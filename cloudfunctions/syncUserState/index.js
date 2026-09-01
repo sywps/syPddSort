@@ -288,8 +288,6 @@ function extractGameState(doc, effectiveProgress = 0) {
   if (typeof doc?.freezeCount === 'number') state.freezeCount = normalizeNonNegativeInt(doc.freezeCount, 0);
   if (typeof doc?.brushCount === 'number') state.brushCount = normalizeNonNegativeInt(doc.brushCount, 0);
   if (typeof doc?.magnetCount === 'number') state.magnetCount = normalizeNonNegativeInt(doc.magnetCount, 0);
-  if (typeof doc?.dailySignInClaimedCount === 'number') state.dailySignInClaimedCount = normalizeNonNegativeInt(doc.dailySignInClaimedCount, 0);
-  if (typeof doc?.dailySignInLastClaimDateKey === 'number') state.dailySignInLastClaimDateKey = normalizeNonNegativeInt(doc.dailySignInLastClaimDateKey, 0);
   if (Array.isArray(doc?.themeUnlockedIds)) state.themeUnlockedIds = normalizeThemeUnlockedIds(doc.themeUnlockedIds);
   if (Array.isArray(doc?.themeCompletedIds)) state.themeCompletedIds = normalizeThemeCompletedIds(doc.themeCompletedIds);
   const ownedBackgroundSkinIds = mergeBackgroundSkinIds(doc?.ownedBackgroundSkinIds, doc?.backgroundSkinOwnedIds);
@@ -376,10 +374,6 @@ function buildGameStatePatch(source = {}, current = {}) {
   const sourceBrushCount = normalizeNonNegativeInt(source.brushCount, currentBrushCount);
   const currentMagnetCount = normalizeNonNegativeInt(current.magnetCount, 0);
   const sourceMagnetCount = normalizeNonNegativeInt(source.magnetCount, currentMagnetCount);
-  const currentDailySignInClaimedCount = normalizeNonNegativeInt(current.dailySignInClaimedCount, 0);
-  const sourceDailySignInClaimedCount = normalizeNonNegativeInt(source.dailySignInClaimedCount, currentDailySignInClaimedCount);
-  const currentDailySignInLastClaimDateKey = normalizeNonNegativeInt(current.dailySignInLastClaimDateKey, 0);
-  const sourceDailySignInLastClaimDateKey = normalizeNonNegativeInt(source.dailySignInLastClaimDateKey, currentDailySignInLastClaimDateKey);
   const mergedThemeUnlockedIds = mergeThemeUnlockedIds(current.themeUnlockedIds, source.themeUnlockedIds);
   const mergedThemeCompletedIds = mergeThemeCompletedIds(current.themeCompletedIds, source.themeCompletedIds);
   const currentBackgroundSkinIds = mergeBackgroundSkinIds(current.ownedBackgroundSkinIds, current.backgroundSkinOwnedIds);
@@ -439,8 +433,6 @@ function buildGameStatePatch(source = {}, current = {}) {
     freezeCount: shouldPreserveCurrentVolatileState ? currentFreezeCount : sourceFreezeCount,
     brushCount: shouldPreserveCurrentVolatileState ? currentBrushCount : sourceBrushCount,
     magnetCount: shouldPreserveCurrentVolatileState ? currentMagnetCount : sourceMagnetCount,
-    dailySignInClaimedCount: shouldPreserveCurrentVolatileState ? currentDailySignInClaimedCount : sourceDailySignInClaimedCount,
-    dailySignInLastClaimDateKey: shouldPreserveCurrentVolatileState ? currentDailySignInLastClaimDateKey : sourceDailySignInLastClaimDateKey,
     themeUnlockedIds: mergedThemeUnlockedIds,
     themeCompletedIds: mergedThemeCompletedIds,
     ownedBackgroundSkinIds: mergedBackgroundSkinIds,

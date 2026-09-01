@@ -103,6 +103,7 @@ export function initializeGameCtrlState(runtime: any): void {
         currentBlock: null,
         isSelected: false,
         timeRemain: 0,
+        _countdownWarningTickSecondsPlayed: new Set<number>(),
         _dynamicCountdownEnabled: false,
         _dynamicCountdownLevelId: 0,
         _dynamicCountdownEntryMode: '',

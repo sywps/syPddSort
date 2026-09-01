@@ -39,15 +39,21 @@ import {
 } from './AnalyticsMgr';
 import type { PchSpeedMultiplier } from './AppSession';
 
-const BELT_STEP_SECONDS = 0.28;
+const BELT_STEP_SECONDS = 0.25;
 const PCH_TRANSFER_SECONDS = 0.16;
 const PCH_ENTRY_STAGGER_SECONDS = 0.012;
 const PCH_RETURN_TRANSFER_SECONDS = 0.3;
 const PCH_RETURN_STAGGER_SECONDS = 0.05;
 const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;
+const PCH_RETURN_SETTLE_FX_DURATION_SECONDS = 0.7;
+const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max(
+    0,
+    PCH_RETURN_SETTLE_FX_DURATION_SECONDS - PCH_RETURN_COMPLETE_DELAY_SECONDS,
+);
 const PCH_SKILL_STAGGER_SECONDS = 0.028;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
 const PCH_EXPAND_CAPACITY = 12;
+const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
 const PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD = 3;
 const PCH_RED_WARNING_PULSE_SECONDS = 0.5;
@@ -230,6 +236,7 @@ export class PchConveyorGameplayController {
     private openingGuideTarget: Node | null = null;
     private openingGuideLevelOneCells: Array<{ row: number; col: number }> = [];
     private openingGuideLevelOneStep = -1;
+    private openingGuideWrongTapToastLastShownAt = 0;
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
     private carrierDirectionNodes: Node[] = [];
@@ -242,6 +249,10 @@ export class PchConveyorGameplayController {
     private activeReturnAnimations = 0;
     private readonly activeReturnBeans = new Set<Node>();
     private readonly pendingReturnCompletions = new Map<Node, () => void>();
+    private readonly pendingPchColorCompleteStarts = new Set<() => void>();
+    private readonly queuedPchColorCompleteIds: number[] = [];
+    private pchColorCompleteEffectActive = false;
+    private pchColorCompleteSequenceGeneration = 0;
     private readonly lastEntranceAudioVisitByCarrier = new Map<number, number>();
     private beltPath: Vec3[] = [];
     private beltPathDistances: number[] = [];
@@ -362,6 +373,8 @@ export class PchConveyorGameplayController {
             || typeof this.runtime.requireWarningMaskSpriteFrame !== 'function'
             || typeof this.runtime.renderBoardCell !== 'function'
             || typeof this.runtime.getBoardCellWorldPosition !== 'function'
+            || typeof this.runtime.acquireFlyBeanNode !== 'function'
+            || typeof this.runtime.recycleFlyBeanNode !== 'function'
             || typeof this.runtime.gameLose !== 'function') {
             throw new Error('[pch-core] original bean sprite or sphere flight effect is unavailable');
         }
@@ -379,6 +392,7 @@ export class PchConveyorGameplayController {
         this.activeReturnAnimations = 0;
         this.activeReturnBeans.clear();
         this.pendingReturnCompletions.clear();
+        this.clearPchColorCompleteSequence();
         this.beforeWinSpeedActive = false;
         this.finishCommitted = false;
         this.settlementPaused = false;
@@ -458,19 +472,16 @@ export class PchConveyorGameplayController {
         this.openingPatternState = 'running';
 
         visuals.forEach((visual, index) => {
-            const spin = this.getOpeningPatternSpin(visual.move);
             const midpoint = this.getOpeningPatternArcMidpoint(visual, index);
             tween(visual.node)
                 .delay(OPENING_PATTERN_HOLD_SECONDS + index * stagger)
                 .to(firstDuration, {
                     position: midpoint,
                     scale: new Vec3(0.84, 1.06, 1),
-                    angle: spin * 0.56,
                 }, { easing: 'quadIn' })
                 .to(secondDuration, {
                     position: visual.targetPosition,
                     scale: new Vec3(1, 1, 1),
-                    angle: spin,
                 }, { easing: 'quadOut' })
                 .call(() => {
                     if (generation !== this.openingPatternGeneration || this.openingPatternState !== 'running') return;
@@ -564,16 +575,6 @@ export class PchConveyorGameplayController {
         );
     }
 
-    private getOpeningPatternSpin(move: OpeningPatternMove): number {
-        const hash = (
-            ((move.source.row + 1) * 73856093)
-            ^ ((move.source.col + 1) * 19349663)
-            ^ (move.colorId * 83492791)
-        ) >>> 0;
-        const direction = (hash & 1) === 0 ? 1 : -1;
-        return direction * (140 + hash % 181);
-    }
-
     stop(): void {
         this.cancelOpeningPatternShuffle(true);
         this.releaseActiveSkillPause();
@@ -584,6 +585,7 @@ export class PchConveyorGameplayController {
             this.runtime.unschedule?.(callback);
         }
         this.pendingReturnCompletions.clear();
+        this.clearPchColorCompleteSequence();
         this.lastEntranceAudioVisitByCarrier.clear();
         if (this.inputRoot?.isValid) {
             this.inputRoot.off(Node.EventType.TOUCH_START, this.onRootTouchStart, this);
@@ -646,6 +648,7 @@ export class PchConveyorGameplayController {
         this.speedBadgeLabel = null;
         this.openingGuideLevelOneCells = [];
         this.openingGuideLevelOneStep = -1;
+        this.openingGuideWrongTapToastLastShownAt = 0;
         this.rules = null;
         this.carrierNodes = [];
         this.carrierDirectionNodes = [];
@@ -875,6 +878,7 @@ export class PchConveyorGameplayController {
         const guideName = this.openingGuide?.name || '';
         if (guideName.startsWith('PchLevelOneGuideStep')) {
             this.trackOpeningGuideEvent('pch_guide_tap_result', false, 'miss_target', guideName);
+            this.maybeShowOpeningGuideWrongTapToast();
             return false;
         }
         const target = guideName === 'PchLevelTwoSpeedGuide'
@@ -883,6 +887,7 @@ export class PchConveyorGameplayController {
         const bounds = target?.getComponent(UITransform)?.getBoundingBoxToWorld();
         if (!bounds || !bounds.contains(rawPos)) {
             this.trackOpeningGuideEvent('pch_guide_tap_result', false, 'miss_target', guideName);
+            this.maybeShowOpeningGuideWrongTapToast();
             return false;
         }
         event.propagationStopped = true;
@@ -892,6 +897,24 @@ export class PchConveyorGameplayController {
             this.onOpeningGuideFreeCapacity(event);
         }
         return true;
+    }
+
+    private maybeShowOpeningGuideWrongTapToast(): void {
+        const guideName = this.openingGuide?.name || '';
+        const isStarterGuide = guideName.startsWith('PchLevelOneGuideStep')
+            || guideName === 'PchLevelTwoSpeedGuide'
+            || guideName === 'PchLevelThreeCapacityGuide';
+        if (!isStarterGuide) return;
+        const now = Date.now();
+        const lastShownAt = Math.max(0, Number(this.openingGuideWrongTapToastLastShownAt) || 0);
+        if (lastShownAt > 0 && now >= lastShownAt && now - lastShownAt < OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS) {
+            return;
+        }
+        if (typeof this.runtime.showToast !== 'function') {
+            throw new Error('[pch-core] opening guide wrong-tap Toast is unavailable');
+        }
+        this.openingGuideWrongTapToastLastShownAt = now;
+        this.runtime.showToast('请跟随指示完成引导');
     }
 
     private handleLevelOneOpeningGuideRootTap(event: any): boolean {
@@ -980,15 +1003,16 @@ export class PchConveyorGameplayController {
         const result = this.rules.transferReadyBeansToCarrier(carrierIndex);
         if (result.moved <= 0) return false;
         const visitOrdinal = this.getEntranceVisitOrdinal(carrierIndex);
-        if (this.lastEntranceAudioVisitByCarrier.get(carrierIndex) !== visitOrdinal) {
+        const shouldPlayVisitFeedback = this.lastEntranceAudioVisitByCarrier.get(carrierIndex) !== visitOrdinal;
+        if (shouldPlayVisitFeedback) {
             this.lastEntranceAudioVisitByCarrier.set(carrierIndex, visitOrdinal);
-            AudioMgr.inst.play('place');
+            AudioMgr.inst.play('settle');
             AudioMgr.inst.vibratePlace();
         }
         this.renderConveyorCarrier(carrierIndex);
         this.renderEntranceQueue();
         this.refreshStatus();
-        this.playEntranceTransferPulse(result.carrierIndex);
+        if (shouldPlayVisitFeedback) this.playEntranceTransferPulse(result.carrierIndex);
         return true;
     }
 
@@ -1038,8 +1062,8 @@ export class PchConveyorGameplayController {
                 world: beanTransform.convertToWorldSpaceAR(new Vec3()),
                 size: Math.max(1, 31 * (this.runtime.getNodeScaleInLayer?.(beanNode, this.root) || 1)),
             };
-        }).reverse();
-        const result = this.rules.autoPlaceAvailableTop(carrierIndex);
+        });
+        const result = this.rules.autoPlaceAvailableLayers(carrierIndex);
         if (result.moved <= 0) return false;
         if (!this.firstReturnEventSent) {
             this.firstReturnEventSent = true;
@@ -1051,7 +1075,7 @@ export class PchConveyorGameplayController {
         this.renderConveyorCarrier(carrierIndex);
         this.refreshStatus();
         result.boardCells.forEach((target, index) => {
-            const source = sourceLayers[index];
+            const source = sourceLayers[result.sourceLayerIndices[index]];
             const colorId = result.colorIds[index];
             if (!source || colorId <= 0) {
                 throw new Error(`[pch-core] return batch ${carrierIndex}:${index} has no source bean`);
@@ -1167,7 +1191,7 @@ export class PchConveyorGameplayController {
             .call(() => {
                 this.destroyFlyBean(bean);
                 if (playBatchAudio) {
-                    AudioMgr.inst.play('place');
+                    AudioMgr.inst.play('settle');
                     AudioMgr.inst.vibratePlace();
                 }
                 this.rules?.markQueuedBeansReady(1);
@@ -1204,18 +1228,13 @@ export class PchConveyorGameplayController {
         };
         tween(bean)
             .delay(flightDelay)
-            .parallel(
-                tween().to(PCH_RETURN_TRANSFER_SECONDS, {
-                    position: targetLocal,
-                    scale: new Vec3(targetScale, targetScale, 1),
-                }, { easing: 'quadOut' }),
-                tween().to(PCH_RETURN_TRANSFER_SECONDS, {
-                    eulerAngles: new Vec3(0, 360, 0),
-                }, { easing: 'linear' }),
-            )
+            .to(PCH_RETURN_TRANSFER_SECONDS, {
+                position: targetLocal,
+                scale: new Vec3(targetScale, targetScale, 1),
+            }, { easing: 'quadOut' })
             .call(() => {
                 bean.active = false;
-                AudioMgr.inst.play('place');
+                AudioMgr.inst.play('settle');
                 AudioMgr.inst.vibratePlace();
                 this.runtime.renderBoardCell(target.row, target.col);
                 this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);
@@ -1230,15 +1249,86 @@ export class PchConveyorGameplayController {
     private finishReturnAnimation(target: { row: number; col: number }): void {
         this.activeReturnAnimations = Math.max(0, this.activeReturnAnimations - 1);
         this.runtime.syncSkillButtonRuntimeStates?.();
+        const pendingColorIdsBeforeCompletion = this.getPendingColorCompleteEffectIds();
         this.runtime.checkColorCompletion?.();
+        for (const colorId of this.takeNewPendingColorCompleteEffectIds(pendingColorIdsBeforeCompletion)) {
+            this.schedulePchColorCompleteAfterSettleFx(colorId);
+        }
         const boardComplete = this.rules?.board.isAllLocked() === true;
-        if (!boardComplete) this.runtime.flushPendingColorCompleteEffects?.();
+        const allReturnAnimationsFinished = this.activeReturnAnimations === 0;
+        if (!boardComplete && allReturnAnimationsFinished) this.runtime.flushPendingColorCompleteEffects?.();
         this.runtime.checkGuideStepComplete?.();
-        if (boardComplete && this.activeReturnAnimations === 0) {
-            this.commitFinish();
-        } else if (!boardComplete) {
+        if (boardComplete) {
+            this.tryCommitFinishAfterPchColorCompleteEffects();
+        } else {
             this.runtime.refreshEndgameHints?.(`pch-return-${target.row}-${target.col}`);
         }
+    }
+
+    private getPendingColorCompleteEffectIds(): Set<number> {
+        const pending = this.runtime._pendingColorCompleteEffects;
+        return pending instanceof Map ? new Set<number>(pending.keys()) : new Set<number>();
+    }
+
+    private takeNewPendingColorCompleteEffectIds(previousColorIds: ReadonlySet<number>): number[] {
+        const pending = this.runtime._pendingColorCompleteEffects;
+        if (!(pending instanceof Map)) return [];
+        const colorIds: number[] = [];
+        for (const colorId of pending.keys()) {
+            if (previousColorIds.has(colorId)) continue;
+            pending.delete(colorId);
+            colorIds.push(colorId);
+        }
+        return colorIds;
+    }
+
+    private schedulePchColorCompleteAfterSettleFx(colorId: number): void {
+        const generation = this.pchColorCompleteSequenceGeneration;
+        const beginColorCompleteEffect = () => {
+            this.pendingPchColorCompleteStarts.delete(beginColorCompleteEffect);
+            if (generation !== this.pchColorCompleteSequenceGeneration || this.runtime.isGameEnd) return;
+            this.queuedPchColorCompleteIds.push(colorId);
+            this.playNextPchColorCompleteEffect();
+        };
+        this.pendingPchColorCompleteStarts.add(beginColorCompleteEffect);
+        this.runtime.scheduleOnce(beginColorCompleteEffect, PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS);
+    }
+
+    private playNextPchColorCompleteEffect(): void {
+        if (this.pchColorCompleteEffectActive) return;
+        const colorId = this.queuedPchColorCompleteIds.shift();
+        if (colorId === undefined) {
+            this.tryCommitFinishAfterPchColorCompleteEffects();
+            return;
+        }
+        const generation = this.pchColorCompleteSequenceGeneration;
+        this.pchColorCompleteEffectActive = true;
+        this.runtime.playColorCompleteEffect(colorId, true, () => {
+            if (generation !== this.pchColorCompleteSequenceGeneration) return;
+            this.pchColorCompleteEffectActive = false;
+            this.playNextPchColorCompleteEffect();
+        });
+    }
+
+    private tryCommitFinishAfterPchColorCompleteEffects(): void {
+        if (this.rules?.board.isAllLocked() !== true
+            || this.activeReturnAnimations > 0
+            || this.pendingPchColorCompleteStarts.size > 0
+            || this.queuedPchColorCompleteIds.length > 0
+            || this.pchColorCompleteEffectActive) {
+            return;
+        }
+        this.commitFinish();
+    }
+
+    private clearPchColorCompleteSequence(): void {
+        this.pchColorCompleteSequenceGeneration += 1;
+        for (const callback of this.pendingPchColorCompleteStarts) {
+            this.runtime.unschedule?.(callback);
+        }
+        this.pendingPchColorCompleteStarts.clear();
+        this.queuedPchColorCompleteIds.length = 0;
+        this.pchColorCompleteEffectActive = false;
     }
 
     private commitFinish(): void {
@@ -1253,13 +1343,18 @@ export class PchConveyorGameplayController {
         if (!this.root) throw new Error('[pch-core] fly bean root is unavailable');
         const rootTransform = this.root.getComponent(UITransform)!;
         const localPosition = rootTransform.convertToNodeSpaceAR(worldPosition);
-        const bean = this.makeNode(name, this.root, size, size, localPosition.x, localPosition.y);
-        const sprite = bean.addComponent(Sprite);
-        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-        sprite.spriteFrame = this.runtime.requireRenderReadySpriteFrame(
+        const spriteFrame = this.runtime.requireRenderReadySpriteFrame(
             this.runtime.getBeanSpriteFrame(colorId, false),
             `${name}:color:${colorId}`,
         );
+        const bean = this.runtime.acquireFlyBeanNode(name, size, spriteFrame) as Node;
+        if (!bean?.isValid) throw new Error('[pch-core] pooled fly bean is unavailable');
+        const brightOverlay = bean.getChildByName('BrightOverlay');
+        if (!brightOverlay?.isValid) throw new Error('[pch-core] pooled fly bean is missing BrightOverlay');
+        brightOverlay.active = false;
+        this.root.addChild(bean);
+        bean.setPosition(localPosition.x, localPosition.y, 0);
+        bean.setScale(1, 1, 1);
         this.activeFlyBeans.add(bean);
         return bean;
     }
@@ -1575,7 +1670,7 @@ export class PchConveyorGameplayController {
         this.activeFlyBeans.delete(bean);
         if (!bean?.isValid) return;
         this.stopNodeTreeTweens(bean);
-        bean.destroy();
+        this.runtime.recycleFlyBeanNode(bean);
     }
 
     private getBoardCellWorldPosition(row: number, col: number): Vec3 {
@@ -1786,7 +1881,7 @@ export class PchConveyorGameplayController {
                     this.destroyFlyBean(bean);
                     this.runtime._flyingTargets?.delete?.(`${move.target.row},${move.target.col}`);
                     this.runtime.renderBoardCell?.(move.target.row, move.target.col);
-                    AudioMgr.inst.play('place');
+                    AudioMgr.inst.play('settle');
                     this.playSkillTargetPulse(move.target, () => {});
                     remaining -= 1;
                     if (remaining <= 0) finish();
@@ -1891,23 +1986,28 @@ export class PchConveyorGameplayController {
         direction.active = stack.length === 0;
         for (let layer = 0; layer < stack.length; layer += 1) {
             const colorId = stack[layer];
-            const bean = this.makeNode(
-                `PchStackBean-${carrierIndex}-${layer}`,
-                carrier,
-                PCH_STACK_BEAN_SIZE,
-                PCH_STACK_BEAN_SIZE,
-                0,
-                layer * PCH_STACK_LAYER_OFFSET,
-            );
-            bean.addComponent(Sprite);
+            const beanName = `PchStackBean-${carrierIndex}-${layer}`;
+            let bean = carrier.getChildByName(beanName);
+            if (!bean) {
+                bean = this.makeNode(
+                    beanName,
+                    carrier,
+                    PCH_STACK_BEAN_SIZE,
+                    PCH_STACK_BEAN_SIZE,
+                    0,
+                    layer * PCH_STACK_LAYER_OFFSET,
+                );
+                bean.addComponent(Sprite);
+            }
             this.configureStackBean(
                 bean,
-                `PchStackBean-${carrierIndex}-${layer}`,
+                beanName,
                 colorId,
                 layer,
                 stack.length,
                 `pch-carrier:${carrierIndex}:layer:${layer}:color:${colorId}`,
             );
+            bean.setSiblingIndex(layer + 1);
         }
         this.carrierDirectionNodes[carrierIndex] = direction;
     }
@@ -2259,7 +2359,15 @@ export class PchConveyorGameplayController {
         carrier.setScale(1, 1, 1);
         carrier.children
             .filter((node) => node.name !== 'Direction')
-            .forEach((node) => node.destroy());
+            .forEach((node) => {
+                if (/^PchStackBean-\d+-\d+$/.test(node.name)) {
+                    this.stopNodeTreeTweens(node);
+                    node.active = false;
+                    node.setScale(1, 1, 1);
+                    return;
+                }
+                node.destroy();
+            });
         const direction = carrier.getChildByName('Direction');
         if (!direction?.isValid || !direction.getComponent(Sprite)?.spriteFrame) {
             throw new Error(`[pch-core] ${carrier.name} lost its hierarchy-owned Direction`);
@@ -2508,6 +2616,7 @@ export class PchConveyorGameplayController {
         this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
         this.runtime.markDynamicCountdownAssisted?.();
         this.dismissOpeningGuide();
+        this.runtime.showToast('传送带已扩容 +12');
     }
 
     private dismissOpeningGuide(): void {
@@ -2663,7 +2772,7 @@ export class PchConveyorGameplayController {
                 timerToken = '';
             },
             grantFailToast: '传送带扩容失败，请重试',
-            successToast: '已增加12个位置',
+            successToast: '传送带已扩容 +12',
         });
     }
 

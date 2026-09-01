@@ -83,15 +83,6 @@ export const RESULT_PANEL_TEXTURE_NAMES = [
     'progress_fill',
 ];
 
-export const DAILY_SIGNIN_TEXTURE_NAMES = [
-    ...POPUP_UI_TEXTURE_NAMES,
-    '金币',
-    'popup_tool_wand_icon',
-    'popup_tool_freeze_icon',
-    'popup_tool_brush_icon',
-    'popup_tool_magnet_icon',
-];
-
 export const SETTINGS_PANEL_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
     ...POPUP_SETTINGS_TEXTURE_NAMES,
@@ -118,8 +109,6 @@ export const HOME_MENU_TEXTURE_NAMES = [
 
 export const GAMEPLAY_SLOT_TEXTURE_NAMES = [
     '倒计时',
-    'slot_row_lock_mask_ui',
-    'slot_row_lock_dash_ui',
     'popup_ad_play_icon',
     'guide_hand',
     'popup_guide_highlight_ring',
@@ -139,7 +128,6 @@ export const RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES = [...RESOURCE_ACQUIRE_TEXTU
 
 export const RECOVER_VIGOR_RELEASE_TEXTURE_NAMES = [...RECOVER_VIGOR_TEXTURE_NAMES];
 export const REWARD_RESULT_RELEASE_TEXTURE_NAMES = [...REWARD_RESULT_TEXTURE_NAMES];
-export const DAILY_SIGNIN_RELEASE_TEXTURE_NAMES = [...DAILY_SIGNIN_TEXTURE_NAMES];
 export const SETTINGS_PANEL_RELEASE_TEXTURE_NAMES = [...SETTINGS_PANEL_TEXTURE_NAMES];
 export const LEADERBOARD_RELEASE_TEXTURE_NAMES = [...LEADERBOARD_TEXTURE_NAMES];
 export const COLLECTION_RELEASE_TEXTURE_NAMES = [...COLLECTION_TEXTURE_NAMES];

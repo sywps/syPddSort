@@ -11,18 +11,6 @@ const BOOTSTRAP_PATH_MAP = (() => {
     const map = new Map();
     map.set('LevelData/level_1', 'LevelData/level_1');
 
-    const commonUiNames = [
-        'slot_panel_shell_b_ui',
-        'slot_groove_b_ui',
-    ];
-    for (const uiName of commonUiNames) {
-        const gameAssetsBase = `Textures/UI/${uiName}`;
-        const bootstrapBase = `UI/${uiName}`;
-        map.set(`${gameAssetsBase}/texture`, `${bootstrapBase}/texture`);
-        map.set(gameAssetsBase, bootstrapBase);
-        map.set(`${gameAssetsBase}/spriteFrame`, `${bootstrapBase}/spriteFrame`);
-    }
-
     for (const audioPath of [
         'Audio/bgm',
         'Audio/pindd/select',
