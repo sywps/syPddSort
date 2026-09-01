@@ -696,31 +696,6 @@ export function installSettlementHudModule(target: any): void {
             }, 0.08);
         },
 
-        getFirstThemeLevelId(): number {
-            return this.getThemeLevelOrder()[0] || 0;
-        },
-
-        shouldPromptFirstThemeUnlockOnWin(): boolean {
-            if (this._isThemeLevel || this.getActiveLogicalLevelId() !== this.getThemePanelOpenRequirementLevel()) {
-                return false;
-            }
-            const firstThemeLevelId = this.getFirstThemeLevelId();
-            if (firstThemeLevelId <= 0) {
-                return false;
-            }
-            const unlocked = this.getThemeUnlockedSet();
-            const completed = this.getThemeCompletedSet();
-            return !unlocked.has(firstThemeLevelId) && !completed.has(firstThemeLevelId);
-        },
-
-        continueToFirstThemeUnlockPrompt() {
-            this.showToast('已解锁主题挑战第一关资格，快去看看', 1.8);
-            this.scheduleOnce(() => {
-                this.showMainMenu();
-                this.scheduleOnce(() => this.openThemePanel(), 0.08);
-            }, 0.95);
-        },
-
         failWinSettlementReveal(error: unknown, revealToken: number): void {
             if (revealToken !== this._settlementRevealToken || this._settlementRevealState === 'failed') return;
             this._settlementRevealState = 'failed';
@@ -1069,9 +1044,17 @@ export function installSettlementHudModule(target: any): void {
             this.unscheduleAllCallbacks();
             this.stopPulseTweens();
             this.clearDragNodes();
-            // 主题关卡通关 → 回主菜单并打开主题面板
+            // 像素拼图关卡通关 → 按主题展示顺序进入下一关
             if (this._isThemeLevel) {
-                this.returnToThemePanel();
+                const currentThemeLevelId = this._currentThemeLevelId || this.levelData.levelId;
+                const nextThemeLevelId = this.getNextThemeLevelId(currentThemeLevelId);
+                if (nextThemeLevelId > 0) {
+                    this.startThemeLevel(nextThemeLevelId);
+                } else {
+                    this._isThemeLevel = false;
+                    this._currentThemeLevelId = 0;
+                    this.showMainMenu();
+                }
                 return;
             }
             const nextId = this.getActiveLogicalLevelId() + 1;

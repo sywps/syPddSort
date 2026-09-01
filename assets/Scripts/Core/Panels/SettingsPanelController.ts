@@ -403,7 +403,6 @@ export class SettingsPanelController {
                             reportHomeRouteFailure(error);
                             return;
                         }
-                        finalizeSettings('settings-home', true);
                         void routePromise.catch(reportHomeRouteFailure);
                     });
                 }

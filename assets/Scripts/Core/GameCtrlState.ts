@@ -283,6 +283,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _collectionPage: 0,
         _collectionTotalPages: 0,
         _collectionLevelIds: [],
+        _collectionActiveTab: 'main' as 'main' | 'theme',
         _themeOverlay: null,
         _isThemeLevel: false,
         _currentThemeLevelId: 0,

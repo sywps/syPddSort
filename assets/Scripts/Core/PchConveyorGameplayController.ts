@@ -47,6 +47,7 @@ const PCH_RETURN_STAGGER_SECONDS = 0.05;
 const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;
 const PCH_SKILL_STAGGER_SECONDS = 0.028;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
+const PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT = true;
 const PCH_EXPAND_CAPACITY = 12;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
 const PCH_CAPACITY_TEXT_COLOR = new Color(43, 43, 43, 255);
@@ -693,6 +694,13 @@ export class PchConveyorGameplayController {
 
     isActive(): boolean {
         return !!this.rules && !!this.root?.isValid;
+    }
+
+    shouldRenderSettledPixelBlock(row: number, col: number): boolean {
+        return PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT
+            && this.runtime._activeGameplayEntryMode === 'theme'
+            && this.isActive()
+            && this.rules?.board.locked?.[row]?.[col] === true;
     }
 
     isFinishCommitted(): boolean {

@@ -316,8 +316,8 @@ const routeIndex = homeEvents.indexOf('route:settings:none');
 const homeResumeIndex = homeEvents.indexOf('resume:timer:1:settings');
 const homeVisualIndex = homeEvents.indexOf('visual-close:settings:settings-home');
 assert.ok(routeIndex >= 0, 'Settings Home must dispatch the Home route');
-assert.ok(routeIndex < homeResumeIndex, 'Home route dispatch must be established before Settings lease release');
-assert.ok(routeIndex < homeVisualIndex, 'Home route dispatch must precede fallible Settings visual teardown');
+assert.strictEqual(homeResumeIndex, -1, 'Settings lease must stay active until the Home scene owns teardown');
+assert.strictEqual(homeVisualIndex, -1, 'Settings visual must not disappear before the Home route succeeds');
 assert.strictEqual(
     homeEvents.filter((event) => event === 'route:settings:none').length,
     1,

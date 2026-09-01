@@ -249,7 +249,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const onFail = (error: unknown): false => {
                 console.error('[theme_unlock] start theme level failed:', { levelId: normalizedLevelId, error });
                 if (!options.suppressFailureToast) {
-                    this.showToast('主题关启动失败，请重试');
+                    this.showToast('像素关启动失败，请重试');
                 }
                 this.scheduleOnce(() => {
                     if (!this.isValid) return;
@@ -281,7 +281,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
 
         openThemeImageModal(levelId: number, levelName: string = '') {
             this.closeThemeImageModal();
-            const title = levelName || this.findThemeLevelName(levelId) || `主题关 ${levelId}`;
+            const title = levelName || this.findThemeLevelName(levelId) || `像素关 ${levelId}`;
             openCollectionShellOverlay(this, {
                 overlayName: 'ThemeImageModal',
                 prefabPath: 'UI/Prefabs/Panels/ThemePanel',
@@ -346,7 +346,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 adFailToast: '广告未完成，未解锁',
                 grantFailToast: '解锁保存失败，请重试',
                 successToast: '解锁成功',
-                afterGrantFailToast: '主题关启动失败，请重试',
+                afterGrantFailToast: '像素关启动失败，请重试',
                 afterGrant: () => this.startThemeLevel(levelId, { suppressFailureToast: true }),
             });
         },
@@ -369,11 +369,10 @@ export function installThemeLoadingOverlayModule(target: any): void {
             this._isThemeLevel = false;
             this._currentThemeLevelId = 0;
             this.showMainMenu();
-            this.scheduleOnce(() => this.openThemePanel(), 0.05);
         },
 
         /**
-         * 主题关卡通关后分享：
+         * 像素拼图关卡通关后分享：
          *   - 微信小游戏：调用 wx.shareAppMessage 转发到聊天
          *   - 抖音小游戏：调用 tt.shareAppMessage 分享
          *   - 其它环境：toast 提示并回到主题面板

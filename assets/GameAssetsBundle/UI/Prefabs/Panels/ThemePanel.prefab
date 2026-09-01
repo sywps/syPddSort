@@ -455,7 +455,7 @@
       "b": 179,
       "a": 255
     },
-    "_string": "主题挑战",
+    "_string": "像素拼图",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 38,
@@ -1345,7 +1345,7 @@
       "b": 58,
       "a": 255
     },
-    "_string": "主题关",
+    "_string": "像素关",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 18,

@@ -1445,9 +1445,22 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         loadCollectionLevelEntries(callback: (entries: LevelCollectionEntry[] | null, err: Error | null) => void) {
+            const completeWithThemeEntries = (entries: LevelCollectionEntry[]) => {
+                this.loadThemeConfig(() => {
+                    const merged = entries.slice();
+                    const existing = new Set(merged.map((entry) => `${entry.prefix}${entry.levelId}`));
+                    for (const levelId of this.getThemeLevelOrder()) {
+                        const key = `zt_level_${levelId}`;
+                        if (existing.has(key)) continue;
+                        merged.push({ levelId, prefix: 'zt_level_', unlockLevel: 1 });
+                        existing.add(key);
+                    }
+                    callback(merged, null);
+                });
+            };
             if (!shouldUseLocalLevelDataMirror()) {
                 LevelDataCdnService.inst.loadCollectionEntries().then((entries) => {
-                    callback(entries, null);
+                    completeWithThemeEntries(entries);
                 }).catch((error) => {
                     callback(null, error instanceof Error ? error : new Error(String(error)));
                 });
@@ -1484,7 +1497,7 @@ export function installAssetBootstrapModule(target: any): void {
                                 throw new Error('level-manifest collection entry missing level: ' + entry.prefix + entry.levelId);
                             }
                         }
-                        callback(entries, null);
+                        completeWithThemeEntries(entries);
                     } catch (error) {
                         callback(null, error instanceof Error ? error : new Error(String(error)));
                     }
@@ -2396,7 +2409,7 @@ export function installAssetBootstrapModule(target: any): void {
         getBoardBeanVisualSize(): number {
             const slotSize = this.getBoardSlotVisualSize();
             const targetSize = Math.max(6, Math.round(slotSize * PINDD_BEAN_TO_SLOT_RATIO));
-            // 主题挑战大图案会把 cell 压得很小；这里必须保证豆豆永远不大于格子，避免彼此重叠。
+            // 像素拼图大图案会把 cell 压得很小；这里必须保证豆豆永远不大于格子，避免彼此重叠。
             const maxSafeSize = slotSize <= 10 ? Math.max(4, slotSize - 1) : slotSize;
             return Math.max(4, Math.min(targetSize, maxSafeSize));
         },

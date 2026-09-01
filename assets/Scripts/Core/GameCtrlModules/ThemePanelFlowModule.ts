@@ -90,9 +90,10 @@ export function installThemePanelFlowModule(target: any): void {
     Object.assign(target, {
         openCollectionImageModal(levelId: number, prefix: string = 'level_') {
             this.closeCollectionImageModal();
+            const displayLevelId = prefix === 'zt_level_' ? this.getThemeLevelDisplayNumber(levelId) : levelId;
             openCollectionShellOverlay(this, {
                 overlayName: 'CollectionImageModal',
-                title: `第${levelId}关`,
+                title: `第${displayLevelId}关`,
                 siblingIndex: 1001,
                 onClose: () => {
                     this._collectionImageModal = null;
@@ -106,7 +107,7 @@ export function installThemePanelFlowModule(target: any): void {
                         requireThemeLabelNode(
                             pageIndicator,
                             'PageIndicatorLabel',
-                            `第${levelId}关`,
+                            `第${displayLevelId}关`,
                             0,
                             0,
                         );
@@ -397,24 +398,29 @@ export function installThemePanelFlowModule(target: any): void {
         getDefaultThemeGroups(): { name: string; levelIds: number[]; levelNames?: string[] }[] {
             return [
                 {
-                    name: '主题关卡',
+                    name: '像素拼图',
                     levelIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                     levelNames: ['第1关', '第2关', '第3关', '第4关', '第5关', '第6关', '第7关', '第8关', '第9关', '第10关'],
                 },
                 {
                     name: '给阿嬷的情书',
-                    levelIds: [1401, 1402, 1403, 1404, 1405, 1406, 1407, 1408, 1409, 1410, 1411, 1412, 1413, 1414, 1415],
+                    levelIds: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
                     levelNames: ['青绿邮筒', '灯下家书', '阿嬷笑颜', '侨批木箱', '望海阿嬷', '归家邮差', '平安侨批', '红印封缄', '雨巷阿嬷', '纸短情长', '煤油灯', '老花镜', '南洋木船', '榕树石磨', '侨批文化馆'],
                 },
-                { name: '动物', levelIds: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008] },
-                { name: '人物', levelIds: [1101, 1102, 1103, 1104] },
-                { name: '动漫', levelIds: [1201, 1202, 1203, 1204] },
-                { name: '其他', levelIds: [1301, 1302, 1303, 1304, 1305] },
+                { name: '动物', levelIds: [26, 27, 28, 29, 30, 31, 32, 33] },
+                { name: '人物', levelIds: [34, 35, 36, 37, 38, 39] },
+                { name: '动漫', levelIds: [40, 41, 42, 43] },
+                { name: '其他', levelIds: [44, 45, 46, 47, 48] },
             ];
         },
 
         getThemeGroups(): { name: string; levelIds: number[]; levelNames?: string[] }[] {
-            return this._themeGroupsCache || this.getDefaultThemeGroups();
+            const groups = this._themeGroupsCache || this.getDefaultThemeGroups();
+            let displayNumber = 0;
+            return groups.map((group) => ({
+                ...group,
+                levelNames: group.levelIds.map(() => `第${++displayNumber}关`),
+            }));
         },
 
         /**
@@ -514,14 +520,11 @@ export function installThemePanelFlowModule(target: any): void {
         },
 
         canOpenThemePanel(mainLevel: number = this.getSavedLevel()): boolean {
-            return mainLevel >= this.getThemePanelOpenRequirementLevel();
+            return true;
         },
 
         getThemeUnlockQuota(mainLevel: number = this.getSavedLevel()): number {
-            if (!this.canOpenThemePanel(mainLevel)) {
-                return 0;
-            }
-            return Math.max(0, Math.floor(mainLevel / this.getThemeUnlockStepLevel()));
+            return this.getThemeLevelOrder().length;
         },
 
         getThemeLevelOrder(): number[] {
@@ -546,7 +549,25 @@ export function installThemePanelFlowModule(target: any): void {
         },
 
         canUnlockThemeLevelByMainProgress(levelId: number, mainLevel: number = this.getSavedLevel()): boolean {
-            return mainLevel >= this.getThemeUnlockRequirementLevel(levelId);
+            return this.getThemeLevelOrder().includes(levelId);
+        },
+
+        getThemeDirectPlayLevelId(): number {
+            const ordered = this.getThemeLevelOrder();
+            if (ordered.length === 0) return 1;
+            const completed = this.getThemeCompletedSet();
+            return ordered.find((levelId) => !completed.has(levelId)) || ordered[0];
+        },
+
+        getThemeLevelDisplayNumber(levelId: number): number {
+            const index = this.getThemeLevelOrder().indexOf(levelId);
+            return index >= 0 ? index + 1 : 1;
+        },
+
+        getNextThemeLevelId(levelId: number): number {
+            const ordered = this.getThemeLevelOrder();
+            const index = ordered.indexOf(levelId);
+            return index >= 0 && index + 1 < ordered.length ? ordered[index + 1] : 0;
         },
 
         getThemeCompletedSet(): Set<number> {
@@ -591,9 +612,12 @@ export function installThemePanelFlowModule(target: any): void {
                 for (const levelId of this.getThemeCompletedSet()) {
                     set.add(levelId);
                 }
+                for (const levelId of this.getThemeLevelOrder()) {
+                    set.add(levelId);
+                }
                 return set;
             } catch {
-                return new Set<number>(this.getThemeCompletedSet());
+                return new Set<number>(this.getThemeLevelOrder());
             }
         },
 
@@ -635,9 +659,7 @@ export function installThemePanelFlowModule(target: any): void {
 
         renderThemePanelContent(content: Node, contentW: number, scrollH: number) {
             const groups = this.getThemeGroups();
-            const unlocked = this.getThemeUnlockedSet();
             const completed = this.getThemeCompletedSet();
-            const mainLevel = this.getSavedLevel();
 
             const headerTemplate = content.getChildByName('ThemeHeaderTemplate');
             const cardTemplate = content.getChildByName('ThemeCardTemplate');
@@ -707,8 +729,8 @@ export function installThemePanelFlowModule(target: any): void {
                         const lvId = grp.levelIds[idx];
                         const lvName = grp.levelNames && grp.levelNames[idx] ? grp.levelNames[idx] : '';
                         const isCompleted = completed.has(lvId);
-                        const isUnlocked = isCompleted || unlocked.has(lvId);
-                        const canUnlock = !isUnlocked && this.canUnlockThemeLevelByMainProgress(lvId, mainLevel);
+                        const isUnlocked = true;
+                        const canUnlock = false;
                         const unlockRequirementLevel = this.getThemeUnlockRequirementLevel(lvId);
                         const cx = c === 0 ? leftX : rightX;
                         const cy = cursorY - cardH / 2 - r * (cardH + gapY);

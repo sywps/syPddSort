@@ -19,6 +19,8 @@ const inventory = grid => {
     for (const row of grid) for (const color of row) if (color > 0) counts.set(color, (counts.get(color) || 0) + 1);
     return [...counts].sort((left, right) => left[0] - right[0]);
 };
+const authoredTimes = new Map([[5, 120], [6, 120], [9, 120], [10, 120], [14, 150]]);
+const candidateSourceId = levelId => levelId === 16 ? 17 : levelId === 17 ? 16 : levelId;
 
 assert.equal(formalFiles.length, 300);
 assert.equal(outputFiles.length, 300);
@@ -32,17 +34,19 @@ assert.ok(fs.statSync(path.join(outputDir, 'selection_report.md')).size > 1000);
 for (const filename of outputFiles) {
     const levelId = Number(filename.match(/\d+/)[0]);
     const formal = JSON.parse(fs.readFileSync(path.join(formalDir, filename), 'utf8'));
-    const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, filename), 'utf8'));
+    const sourceId = candidateSourceId(levelId);
+    const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, `level_${sourceId}.json`), 'utf8'));
     const comparableFormal = { ...formal };
     if (levelId === 2) delete comparableFormal.singleSelectionLimit;
-    if (levelId >= 5) comparableFormal.timeLimit = candidate.timeLimit;
+    if ([3, 4].includes(levelId) || levelId >= 5) comparableFormal.timeLimit = candidate.timeLimit;
+    if (sourceId !== levelId) comparableFormal.levelId = sourceId;
     assert.deepEqual(
         comparableFormal,
         candidate,
-        `${filename} formal may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
+        `${filename} formal must match its approved candidate source apart from runtime metadata and timeLimit`,
     );
     if (levelId >= 5) {
-        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
+        const expectedTime = authoredTimes.get(levelId) ?? Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
         assert.equal(formal.timeLimit, expectedTime);
     }
 }

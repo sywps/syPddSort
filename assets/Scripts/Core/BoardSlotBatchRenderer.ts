@@ -15,6 +15,8 @@ const COCOS_DEFAULT_BATCHER2D_MAX_VERTICES = 4096;
 export const BOARD_SLOT_BATCH_MAX_CELLS = Math.floor(COCOS_DEFAULT_BATCHER2D_MAX_VERTICES / 4);
 
 export type BoardSlotBatchCell = {
+    row: number;
+    col: number;
     x: number;
     y: number;
     size: number;
@@ -22,6 +24,9 @@ export type BoardSlotBatchCell = {
 };
 
 type PreparedBoardSlotCell = {
+    row: number;
+    col: number;
+    settled: boolean;
     x: number;
     y: number;
     size: number;
@@ -107,6 +112,7 @@ const boardSlotBatchAssembler: IAssembler = {
 @ccclass('BoardSlotBatchRenderer')
 export class BoardSlotBatchRenderer extends UIRenderer {
     private _cells: PreparedBoardSlotCell[] = [];
+    private _cellByKey = new Map<string, PreparedBoardSlotCell>();
     private _textureFrame: SpriteFrame | null = null;
     lastTransformVersion = -1;
 
@@ -125,6 +131,7 @@ export class BoardSlotBatchRenderer extends UIRenderer {
         const textureFrame = cells[0]?.spriteFrame || null;
         const texture = getRenderableTexture(textureFrame);
         const prepared: PreparedBoardSlotCell[] = [];
+        const cellByKey = new Map<string, PreparedBoardSlotCell>();
         for (const cell of cells) {
             const cellTexture = getRenderableTexture(cell.spriteFrame);
             if (!cellTexture) {
@@ -133,15 +140,21 @@ export class BoardSlotBatchRenderer extends UIRenderer {
             if (texture && cellTexture !== texture) {
                 throw new Error('[BoardSlotBatch] slot sprite frames must share one atlas texture');
             }
-            prepared.push({
+            const preparedCell = {
+                row: cell.row,
+                col: cell.col,
+                settled: false,
                 x: cell.x,
                 y: cell.y,
                 size: cell.size,
                 uv: cell.spriteFrame.uv.slice(0, 8),
-            });
+            };
+            prepared.push(preparedCell);
+            cellByKey.set(`${cell.row},${cell.col}`, preparedCell);
         }
         const vertexCountChanged = (this.renderData as RenderData | null)?.dataLength !== prepared.length * 4;
         this._cells = prepared;
+        this._cellByKey = cellByKey;
         this._textureFrame = textureFrame;
         this.lastTransformVersion = -1;
         if (vertexCountChanged) {
@@ -153,6 +166,7 @@ export class BoardSlotBatchRenderer extends UIRenderer {
 
     clear(): void {
         this._cells = [];
+        this._cellByKey.clear();
         this._textureFrame = null;
         this.lastTransformVersion = -1;
         this.destroyRenderData();
@@ -161,6 +175,13 @@ export class BoardSlotBatchRenderer extends UIRenderer {
 
     getPreparedCells(): PreparedBoardSlotCell[] {
         return this._cells;
+    }
+
+    setCellSettled(row: number, col: number, settled: boolean): void {
+        const cell = this._cellByKey.get(`${row},${col}`);
+        if (!cell || cell.settled === settled) return;
+        cell.settled = settled;
+        this.markForUpdateRenderData();
     }
 
     isTextureFrameRenderable(): boolean {
@@ -271,11 +292,13 @@ function updateUVs(batch: BoardSlotBatchRenderer, renderData: RenderData): void 
     const stride = renderData.floatStride;
     let vertexIndex = 0;
     for (const cell of cells) {
+        const settledSampleU = cell.uv[0] * 0.8 + cell.uv[6] * 0.2;
+        const settledSampleV = cell.uv[1] * 0.8 + cell.uv[7] * 0.2;
         for (let i = 0; i < 4; i++) {
             const offset = vertexIndex * stride + 3;
             const uvIndex = i * 2;
-            vData[offset] = cell.uv[uvIndex];
-            vData[offset + 1] = cell.uv[uvIndex + 1];
+            vData[offset] = cell.settled ? settledSampleU : cell.uv[uvIndex];
+            vData[offset + 1] = cell.settled ? settledSampleV : cell.uv[uvIndex + 1];
             vertexIndex++;
         }
     }

@@ -526,9 +526,16 @@ export function installCollectionAvatarModule(target: any): void {
             const topPadding = Math.max(0, viewportH / 2 - topY);
             const bottomPadding = rowYs.length > 1 ? Math.max(0, viewportH / 2 + bottomY) : topPadding;
 
-            const allEntries = this._collectionLevelEntries as LevelCollectionEntry[];
-            if (!Array.isArray(allEntries) || allEntries.length < 1) {
+            const catalogEntries = this._collectionLevelEntries as LevelCollectionEntry[];
+            if (!Array.isArray(catalogEntries) || catalogEntries.length < 1) {
                 throw new Error('[collection-catalog] collection entries missing');
+            }
+            const activeTab = this._collectionActiveTab === 'theme' ? 'theme' : 'main';
+            const allEntries = catalogEntries.filter((entry) => activeTab === 'theme'
+                ? entry.prefix === 'zt_level_'
+                : entry.prefix !== 'zt_level_');
+            if (allEntries.length < 1) {
+                throw new Error(`[collection-catalog] ${activeTab} entries missing`);
             }
             const savedLevel = this.getSavedLevel();
             const columnCount = Math.max(1, columnXs.length);

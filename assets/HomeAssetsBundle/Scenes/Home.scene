@@ -2647,7 +2647,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -439.5049999999999,
+      "y": -380,
       "z": 0
     },
     "_lrot": {
@@ -2881,7 +2881,7 @@
     "_left": 223.652308,
     "_right": 223.652308,
     "_top": 0,
-    "_bottom": 125.49500000000006,
+    "_bottom": 295,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,
@@ -2912,7 +2912,7 @@
         "__id__": 80
       }
     ],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 83
@@ -2928,7 +2928,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -456.91099999999994,
+      "y": -540,
       "z": 0
     },
     "_lrot": {
@@ -3044,7 +3044,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "主题挑战",
+    "_string": "像素拼图",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 50,
@@ -3294,7 +3294,7 @@
     "_left": 0,
     "_right": 0,
     "_top": 0,
-    "_bottom": 108.08900000000003,
+    "_bottom": 135,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,

@@ -265,7 +265,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 && !this._currentExternalLevelFilePath;
         },
 
-        /** 加载主题关卡（zt_level_*.json） */
+        /** 加载像素拼图关卡（zt_level_*.json） */
         loadThemeLevel(levelId: number) {
             this._isThemeLevel = true;
             this._currentThemeLevelId = levelId;

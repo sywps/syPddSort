@@ -35,7 +35,7 @@ export class ThemePanelController {
         openCollectionShellOverlay(runtime, {
             overlayName: 'ThemeOverlay',
             prefabPath: 'UI/Prefabs/Panels/ThemePanel',
-            title: '主题挑战',
+            title: '像素拼图',
             siblingIndex: 999,
             requireActionNodes: false,
             onClose: () => {
@@ -65,7 +65,7 @@ export class ThemePanelController {
                 const ruleLabel = ruleNode?.getComponent(Label);
                 if (ruleNode && ruleLabel) {
                     ruleNode.active = true;
-                    ruleLabel.string = `主线第${runtime.getThemePanelOpenRequirementLevel()}关解锁第1关，每过${runtime.getThemeUnlockStepLevel()}关可解锁1个主题关`;
+                    ruleLabel.string = '全部像素关均已开放，可自由游玩';
                 }
 
                 const scrollContent = runtime.requirePanelChild(content, 'ThemeScrollContent');

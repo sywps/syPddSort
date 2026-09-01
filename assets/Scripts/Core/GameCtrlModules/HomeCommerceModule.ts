@@ -33,6 +33,18 @@ import { AppRoot } from '../AppRoot';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { ensureHomeStartButtonFx } from '../HomeStartButtonFx';
 import { ensureCommercePanelController } from '../Panels/CommercePanelController';
+import { Widget } from 'cc';
+
+const HOME_START_BUTTON_BOTTOM = 295;
+const HOME_PIXEL_PUZZLE_BUTTON_BOTTOM = 135;
+
+function alignHomePrimaryButton(node: Node, bottom: number, path: string): void {
+    const widget = node.getComponent(Widget);
+    if (!widget) throw new Error(`[HomeScene] ${path} is missing Widget`);
+    widget.bottom = bottom;
+    widget.horizontalCenter = 0;
+    widget.updateAlignment();
+}
 
 export function installHomeCommerceModule(target: any): void {
     Object.assign(target, {
@@ -119,6 +131,8 @@ export function installHomeCommerceModule(target: any): void {
 
         drawStartButton(parent: Node, level: number) {
             const btn = this.requireUiChild(parent, 'StartBtn', 'PrimaryActionLayer/StartBtn');
+            btn.active = true;
+            alignHomePrimaryButton(btn, HOME_START_BUTTON_BOTTOM, 'PrimaryActionLayer/StartBtn');
             this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/StartBtn');
             const btnSubNode = this.requireUiChild(btn, 'BtnSub', 'StartBtn/BtnSub');
             const btnSubLabel = btnSubNode.getComponent(Label);
@@ -159,30 +173,28 @@ export function installHomeCommerceModule(target: any): void {
             ensureHomeStartButtonFx(btn);
         },
 
-        /** 主题挑战按钮（黄色胶囊，开始游戏按钮下方） */
+        /** 像素拼图按钮（黄色胶囊，开始游戏按钮下方） */
         drawThemeChallengeButton(parent: Node) {
-            const mainLevel = this.getSavedLevel();
-            const isOpen = this.canOpenThemePanel(mainLevel);
-            const unlockQuota = this.getThemeUnlockQuota(mainLevel);
             const btn = this.requireUiChild(parent, 'ThemeBtn', 'PrimaryActionLayer/ThemeBtn');
+            btn.active = true;
+            alignHomePrimaryButton(btn, HOME_PIXEL_PUZZLE_BUTTON_BOTTOM, 'PrimaryActionLayer/ThemeBtn');
             this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/ThemeBtn');
             const titleNode = this.requireUiChild(btn, 'ThemeTitle', 'ThemeBtn/ThemeTitle');
             const titleLabel = titleNode.getComponent(Label);
             if (!titleLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeTitle');
-            const subText = isOpen
-                ? `当前进度可解锁前 ${unlockQuota} 关`
-                : `主线第${this.getThemePanelOpenRequirementLevel()}关解锁第1关`;
+            titleLabel.string = '像素拼图';
+            const subText = '全部关卡已开放';
             const subNode = this.requireUiChild(btn, 'ThemeSub', 'ThemeBtn/ThemeSub');
             const subLabel = subNode.getComponent(Label);
             if (!subLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeSub');
             subLabel.string = subText;
-            subLabel.color = isOpen ? new Color('#EAF7E6') : new Color('#F6EEE5');
+            subLabel.color = new Color('#EAF7E6');
 
             btn.targetOff(this);
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
-                this.openThemePanel();
+                this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));
             }, this);
         
             // 呼吸动画

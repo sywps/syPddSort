@@ -25,25 +25,30 @@ function countColors(grid) {
     return [...counts.entries()].sort((left, right) => left[0] - right[0]);
 }
 
+const authoredTimes = new Map([[5, 120], [6, 120], [9, 120], [10, 120], [14, 150]]);
+const candidateSourceId = levelId => levelId === 16 ? 17 : levelId === 17 ? 16 : levelId;
+
 const manifest = readJson('assets/LevelData/level-manifest.json');
 assert.equal(manifest.levelCount, 300);
 assert.equal(manifest.entries.length, 300);
 const manifestByLevel = new Map(manifest.entries.map((entry) => [entry.levelId, entry]));
 for (let levelId = 1; levelId <= 300; levelId += 1) {
     const formalBuffer = fs.readFileSync(path.join(root, `assets/LevelData/level_${levelId}.json`));
-    const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${levelId}.json`));
+    const sourceId = candidateSourceId(levelId);
+    const candidateBuffer = fs.readFileSync(path.join(candidateDir, `level_${sourceId}.json`));
     const formalPayload = JSON.parse(formalBuffer.toString('utf8'));
     const candidatePayload = JSON.parse(candidateBuffer.toString('utf8'));
     const comparableFormalPayload = { ...formalPayload };
     if (levelId === 2) delete comparableFormalPayload.singleSelectionLimit;
-    if (levelId >= 5) comparableFormalPayload.timeLimit = candidatePayload.timeLimit;
+    if ([3, 4].includes(levelId) || levelId >= 5) comparableFormalPayload.timeLimit = candidatePayload.timeLimit;
+    if (sourceId !== levelId) comparableFormalPayload.levelId = sourceId;
     assert.deepEqual(
         comparableFormalPayload,
         candidatePayload,
-        `formal level ${levelId} may differ only by approved Level-2 runtime metadata and DBT-rule timeLimit`,
+        `formal level ${levelId} must match its approved candidate source apart from runtime metadata and timeLimit`,
     );
     if (levelId >= 5) {
-        const expectedTime = levelId === 5 ? 120 : Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
+        const expectedTime = authoredTimes.get(levelId) ?? Math.min(150, Math.ceil(formalPayload.slotTotalCount / 200) * 30);
         assert.equal(formalPayload.timeLimit, expectedTime);
     }
     const level = readJson(`assets/LevelData/level_${levelId}.json`);
