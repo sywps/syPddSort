@@ -14,14 +14,15 @@ const formalFiles = fs.readdirSync(formalDir).filter(name => /^level_\d+\.json$/
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
 const outputFiles = fs.readdirSync(outputDir).filter(name => /^level_\d+\.json$/.test(name))
     .sort((left, right) => Number(left.match(/\d+/)[0]) - Number(right.match(/\d+/)[0]));
+const authoredTimeOverrides = new Map([
+    [3, 150], [4, 150], [5, 120], [6, 120], [9, 120], [10, 120], [14, 150], [15, 120],
+]);
+const formalCandidateLevelIds = new Map([[16, 17], [17, 16]]);
 const inventory = grid => {
     const counts = new Map();
     for (const row of grid) for (const color of row) if (color > 0) counts.set(color, (counts.get(color) || 0) + 1);
     return [...counts].sort((left, right) => left[0] - right[0]);
 };
-const authoredTimes = new Map([[5, 120], [6, 120], [9, 120], [10, 120], [14, 150]]);
-const candidateSourceId = levelId => levelId === 16 ? 17 : levelId === 17 ? 16 : levelId;
-
 assert.equal(formalFiles.length, 300);
 assert.equal(outputFiles.length, 300);
 assert.deepEqual(formalFiles, outputFiles);
@@ -33,20 +34,24 @@ assert.ok(fs.statSync(path.join(outputDir, 'selection_report.md')).size > 1000);
 
 for (const filename of outputFiles) {
     const levelId = Number(filename.match(/\d+/)[0]);
+    const candidateLevelId = formalCandidateLevelIds.get(levelId) || levelId;
     const formal = JSON.parse(fs.readFileSync(path.join(formalDir, filename), 'utf8'));
-    const sourceId = candidateSourceId(levelId);
-    const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, `level_${sourceId}.json`), 'utf8'));
+    const candidate = JSON.parse(fs.readFileSync(path.join(outputDir, `level_${candidateLevelId}.json`), 'utf8'));
+    const comparableCandidate = candidateLevelId === levelId ? candidate : { ...candidate, levelId };
     const comparableFormal = { ...formal };
+    delete comparableFormal.Hard;
     if (levelId === 2) delete comparableFormal.singleSelectionLimit;
-    if ([3, 4].includes(levelId) || levelId >= 5) comparableFormal.timeLimit = candidate.timeLimit;
-    if (sourceId !== levelId) comparableFormal.levelId = sourceId;
+    if (levelId >= 5 || authoredTimeOverrides.has(levelId)) comparableFormal.timeLimit = comparableCandidate.timeLimit;
     assert.deepEqual(
         comparableFormal,
-        candidate,
-        `${filename} formal must match its approved candidate source apart from runtime metadata and timeLimit`,
+        comparableCandidate,
+        `${filename} formal may differ only by approved metadata, timer policy, and L16/L17 order`,
     );
-    if (levelId >= 5) {
-        const expectedTime = authoredTimes.get(levelId) ?? Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
+    assert.equal(formal.Hard, levelId === 3 ? 1 : 0, `${filename} Hard flag`);
+    if (authoredTimeOverrides.has(levelId)) {
+        assert.equal(formal.timeLimit, authoredTimeOverrides.get(levelId), `${filename} authored timer override`);
+    } else if (levelId >= 5) {
+        const expectedTime = Math.min(150, Math.ceil(formal.slotTotalCount / 200) * 30);
         assert.equal(formal.timeLimit, expectedTime);
     }
 }

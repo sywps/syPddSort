@@ -9,7 +9,9 @@ const levelDir = path.join(root, 'assets', 'LevelData');
 const manifest = JSON.parse(fs.readFileSync(path.join(levelDir, 'level-manifest.json'), 'utf8'));
 const manifestById = new Map(manifest.entries.map(entry => [entry.levelId, entry]));
 const expectedTime = filled => Math.min(150, Math.ceil(filled / 200) * 30);
-const authoredOverrides = new Map([[5, 120], [6, 120], [9, 120], [10, 120], [14, 150]]);
+const authoredTimeOverrides = new Map([
+    [3, 150], [4, 150], [5, 120], [6, 120], [9, 120], [10, 120], [14, 150], [15, 120],
+]);
 const dbtLevels = [];
 
 assert.equal(manifest.levelCount, 300);
@@ -19,8 +21,8 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     assert.equal(level.levelId, levelId);
     assert.equal(manifestById.get(levelId)?.timeLimit, level.timeLimit, `level ${levelId} manifest time`);
     if (levelId >= 5) dbtLevels.push(level);
-    if (authoredOverrides.has(levelId)) {
-        assert.equal(level.timeLimit, authoredOverrides.get(levelId), `level ${levelId} authored timer override`);
+    if (authoredTimeOverrides.has(levelId)) {
+        assert.equal(level.timeLimit, authoredTimeOverrides.get(levelId), `level ${levelId} authored timer override`);
     } else if (levelId >= 5) {
         assert.equal(level.timeLimit, expectedTime(level.slotTotalCount), `level ${levelId} DBT time rule`);
     }

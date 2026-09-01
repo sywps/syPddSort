@@ -53,5 +53,6 @@
   "dependencies": {
     "@cloudbase/manager-node": "^5.5.0",
     "pngjs": "^7.0.0"
-  }
+  },
+  "version": "3.8.8"
 }

@@ -16,7 +16,21 @@ function transpile(relPath) {
     }).outputText;
 }
 
-function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelController = {}) {
+function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelController = {}, shareReturnService = null) {
+    const defaultShareReturnService = {
+        start({ runtime, payload, onComplete }) {
+            try {
+                runtime.shareAppMessage(payload);
+            } catch (_) {
+                return { started: false, reason: 'dispatch_failed' };
+            }
+            onComplete({ status: 'qualified', elapsedMs: 1501 });
+            return {
+                started: true,
+                handle: { cancel: () => false, isActive: () => false },
+            };
+        },
+    };
     const module = { exports: {} };
     vm.runInNewContext(transpile('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts'), {
         module,
@@ -38,6 +52,9 @@ function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelCont
             if (id === '../GameplayResultPanelController') return { ensureGameplayResultPanelController: () => resultPanelController };
             if (id === '../PixelPosterPreviewRenderer') return { releasePixelPosterPreviewTree() {} };
             if (id === '../RuntimeLog') return { runtimeLog() {} };
+            if (id === '../../Platform/WeChatShareReturnService') {
+                return { weChatShareReturnService: shareReturnService || defaultShareReturnService };
+            }
             throw new Error(`unexpected require: ${id}`);
         },
         console,
@@ -157,6 +174,46 @@ async function testSynchronousShareFailureDoesNotGrant() {
     assert.strictEqual(runtime._shareShowing, false);
 }
 
+async function testShareGrantWaitsForQualifiedReturn() {
+    const analyticsEvents = [];
+    let completeShareReturn = null;
+    const shareReturnService = {
+        start({ runtime, payload, onComplete }) {
+            runtime.shareAppMessage(payload);
+            completeShareReturn = onComplete;
+            return {
+                started: true,
+                handle: { cancel: () => false, isActive: () => true },
+            };
+        },
+    };
+    const runtime = {
+        _shareShowing: false,
+        getActiveLogicalLevelId: () => 4,
+        getWeChatRuntime: () => ({ shareAppMessage() {} }),
+        showToast() {},
+    };
+    loadHomeAdFlowInstaller(analyticsEvents, {}, {}, shareReturnService)(runtime);
+    let grants = 0;
+    assert.strictEqual(runtime.runShareGrant('test', () => { grants += 1; }, {
+        busyFlag: '_shareShowing',
+    }), true);
+    assert.strictEqual(grants, 0, 'share dispatch alone must not grant');
+    completeShareReturn({ status: 'too_short', elapsedMs: 1500 });
+    await flushMicrotasks();
+    assert.strictEqual(grants, 0, 'a 1.5-second return must not grant');
+    assert.strictEqual(runtime._shareShowing, false);
+
+    assert.strictEqual(runtime.runShareGrant('test', () => { grants += 1; }, {
+        busyFlag: '_shareShowing',
+    }), true);
+    assert.strictEqual(grants, 0, 'grant must still wait for the new return callback');
+    completeShareReturn({ status: 'qualified', elapsedMs: 1501 });
+    await flushMicrotasks();
+    assert.strictEqual(grants, 1, 'only a qualified return may grant');
+    assert.strictEqual(analyticsEvents.filter((event) => event[0] === 'success').length, 1);
+}
+
 function testResultPanelsInstantiateOnlyForRequestedSettlementPath() {
     const created = [];
     const makePanel = (kind) => ({ isValid: true, kind });
@@ -262,6 +319,7 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
 
     await testSettlementRewardedAdGrantsTrueFiveTimesTotal();
     await testSynchronousShareFailureDoesNotGrant();
+    await testShareGrantWaitsForQualifiedReturn();
     testResultPanelsInstantiateOnlyForRequestedSettlementPath();
     await testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim();
     console.log('reward-share-flow.test.js passed');

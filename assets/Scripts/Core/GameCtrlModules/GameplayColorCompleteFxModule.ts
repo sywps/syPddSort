@@ -2,14 +2,20 @@ import {
     assetManager,
     AudioMgr,
     Bundle,
+    Color,
     GAME_ASSETS_BUNDLE_NAME,
+    Graphics,
     Layers,
+    Mask,
     Node,
     sp,
+    Sprite,
+    SpriteFrame,
+    tween,
     UIOpacity,
     UITransform,
     Vec3,
-    view,
+    createSingleColorSpriteFrame,
 } from '../GameCtrlShared';
 import { debugPerfTrace } from '../DebugPerfTrace';
 
@@ -24,40 +30,49 @@ const PINDD_SPINE_FX_POOL_LIMIT = 48;
 const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
 const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
 const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
-const PINDD_SPINE_COLOR_COMPLETE_MAX_NODES = 24;
-const PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES = 48;
+const PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1.25;
+const PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION = 0.12;
+const PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION = 0.26;
 const PINDD_SPINE_FX_ANIMATION = {
     settle: 'a1_1',
     colorComplete: 'b1_1',
-    patternComplete: 'c1_1',
 } as const;
 const PINDD_SPINE_FX_DURATION: Record<PinddSpineFxAnimationName, number> = {
     a1_1: 0.7,
     b1_1: 0.8333,
-    c1_1: 0.6667,
 };
 
 type PinddSpineFxAnimationName = typeof PINDD_SPINE_FX_ANIMATION[keyof typeof PINDD_SPINE_FX_ANIMATION];
 type PinddSpineFxPlayOptions = {
     retryOnActiveLimit?: boolean;
     batchSeq?: number;
+    allowActiveLimitOverride?: boolean;
 };
 type PinddSpineFxBatchOptions = {
     maxNodes?: number;
     maxWaitSeconds?: number;
     waitForAll?: boolean;
 };
+type PinddSpineFxSameFrameOptions = Pick<PinddSpineFxBatchOptions, 'maxNodes'>
+    & Pick<PinddSpineFxPlayOptions, 'allowActiveLimitOverride'>;
 
 const PINDD_SPINE_FX_SCALE_BY_ANIMATION: Record<PinddSpineFxAnimationName, number> = {
     a1_1: 1,
     b1_1: 1,
-    c1_1: 1,
 };
 const PINDD_SPINE_FX_OPACITY_BY_ANIMATION: Record<PinddSpineFxAnimationName, number> = {
     a1_1: 230,
     b1_1: 245,
-    c1_1: 255,
 };
+
+let patternCompleteSweepFrame: SpriteFrame | null = null;
+
+function getPatternCompleteSweepFrame(): SpriteFrame {
+    if (!patternCompleteSweepFrame) {
+        patternCompleteSweepFrame = createSingleColorSpriteFrame(new Color(255, 255, 255, 255), 2, 2);
+    }
+    return patternCompleteSweepFrame;
+}
 
 function setFxLayerDeep(node: Node, layer: number): void {
     node.layer = layer;
@@ -217,12 +232,12 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             });
         },
 
-        acquirePinddSpineFxNode(): { node: Node; skeleton: sp.Skeleton } {
+        acquirePinddSpineFxNode(allowActiveLimitOverride: boolean = false): { node: Node; skeleton: sp.Skeleton } {
             const skeletonCtor = (sp as any)?.Skeleton;
             if (!skeletonCtor) {
                 throw createPinddSpineFxError('Spine component is disabled or unavailable');
             }
-            if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
+            if (!allowActiveLimitOverride && (Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
                 throw createPinddSpineFxError(`active effect limit exceeded: ${PINDD_SPINE_FX_ACTIVE_LIMIT}`);
             }
             const pool = this._pinddSpineFxPool;
@@ -328,6 +343,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 return;
             }
             const retryOnActiveLimit = options?.retryOnActiveLimit === true;
+            const allowActiveLimitOverride = options?.allowActiveLimitOverride === true;
             const batchSeq = Number(options?.batchSeq);
             const isBatchStillCurrent = () => !retryOnActiveLimit
                 || !Number.isFinite(batchSeq)
@@ -346,7 +362,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     if (typeof onDone === 'function') onDone();
                     return;
                 }
-                if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
+                if (!allowActiveLimitOverride && (Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
                     if (retryOnActiveLimit) {
                         retryLater();
                     } else if (typeof onDone === 'function') {
@@ -354,7 +370,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     }
                     return;
                 }
-                const acquired = this.acquirePinddSpineFxNode();
+                const acquired = this.acquirePinddSpineFxNode(allowActiveLimitOverride);
                 const { node, skeleton } = acquired;
                 const seq = ((node as any).__pinddSpineFxSeq || 0) + 1;
                 (node as any).__pinddSpineFxSeq = seq;
@@ -500,10 +516,11 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             beanNodes: Node[],
             animationName: PinddSpineFxAnimationName,
             onDone?: () => void,
-            options: Pick<PinddSpineFxBatchOptions, 'maxNodes'> = {},
+            options: PinddSpineFxSameFrameOptions = {},
         ): void {
             const requestedCount = (beanNodes || []).filter((node) => node?.isValid).length;
             const nodes = selectPinddSpineFxBatchNodes(beanNodes, options.maxNodes);
+            const allowActiveLimitOverride = options.allowActiveLimitOverride === true;
             const total = nodes.length;
             if (total === 0) {
                 onDone?.();
@@ -514,6 +531,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 requestedCount,
                 selectedCount: total,
                 activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
+                allowActiveLimitOverride,
             });
             this.ensurePinddSpineFxSkeletonData(() => {
                 let remaining = total;
@@ -527,22 +545,23 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     }
                 };
                 for (const beanNode of nodes) {
-                    this.playPinddSpineFxOnBean(beanNode, animationName, finishOne);
+                    this.playPinddSpineFxOnBean(beanNode, animationName, finishOne, {
+                        allowActiveLimitOverride,
+                    });
                 }
             });
         },
 
         getPatternCompleteMatchFxRoot(): Node {
-            const fxRoot = typeof this.requireCanvasUiRoot === 'function'
-                ? this.requireCanvasUiRoot('FxRoot')
-                : null;
-            if (!fxRoot?.isValid) {
-                throw createPinddSpineFxError('FxRoot unavailable for pattern-complete effect');
+            const boardNode = this.boardNode?.isValid ? this.boardNode : null;
+            const boardTransform = boardNode?.getComponent(UITransform);
+            if (!boardNode || !boardTransform) {
+                throw createPinddSpineFxError('board UITransform unavailable for pattern-complete sweep');
             }
             let root = this._patternCompleteMatchFxRoot;
-            if (!root?.isValid || root.parent !== fxRoot) {
-                root = fxRoot.getChildByName(PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME) || new Node(PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME);
-                if (!root.parent) fxRoot.addChild(root);
+            if (!root?.isValid || root.parent !== boardNode) {
+                root = boardNode.getChildByName(PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME) || new Node(PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME);
+                if (!root.parent) boardNode.addChild(root);
                 this._patternCompleteMatchFxRoot = root;
             }
             root.active = true;
@@ -551,67 +570,46 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             root.setScale(1, 1, 1);
             root.angle = 0;
             const transform = root.getComponent(UITransform) || root.addComponent(UITransform);
-            const parentTransform = fxRoot.getComponent(UITransform);
-            const fallbackSize = view.getVisibleSize();
             transform.setContentSize(
-                Math.max(1, Number(parentTransform?.contentSize.width || fallbackSize.width || 1)),
-                Math.max(1, Number(parentTransform?.contentSize.height || fallbackSize.height || 1)),
+                Math.max(1, Number(boardTransform.contentSize.width || 1)),
+                Math.max(1, Number(boardTransform.contentSize.height || 1)),
             );
+            const mask = root.getComponent(Mask) || root.addComponent(Mask);
+            const graphics = root.getComponent(Graphics) || root.addComponent(Graphics);
+            this.drawPatternCompleteMatchFxMask(graphics);
+            mask.type = Mask.Type.GRAPHICS_STENCIL;
             setFxLayerDeep(root, Layers.Enum.UI_2D);
-            root.setSiblingIndex(Math.max(0, fxRoot.children.length - 1));
+            root.setSiblingIndex(Math.max(0, boardNode.children.length - 1));
             return root;
         },
 
-        playPinddSpineFxAtWorldPosition(
-            fxRoot: Node,
-            fxRootTransform: UITransform,
-            skeletonData: sp.SkeletonData,
-            worldPos: Vec3,
-            animationName: PinddSpineFxAnimationName,
-            onDone?: () => void,
-        ): void {
-            if (!fxRoot?.isValid || !fxRootTransform || !worldPos) {
-                onDone?.();
-                return;
+        drawPatternCompleteMatchFxMask(graphics: Graphics): void {
+            const boardModel = this.boardModel;
+            const boardWidth = Math.max(0, Number(this.levelData?.boardWidth || boardModel?.width) || 0);
+            const boardHeight = Math.max(0, Number(this.levelData?.boardHeight || boardModel?.height) || 0);
+            const cellSize = Number(this.getBoardSlotVisualSize?.() || this.cellSize);
+            if (!boardModel?.correctColors || boardWidth <= 0 || boardHeight <= 0 || !Number.isFinite(cellSize) || cellSize <= 0) {
+                throw createPinddSpineFxError('board pattern data unavailable for pattern-complete sweep mask');
             }
-            if ((Number(this._pinddSpineFxActiveCount) || 0) >= PINDD_SPINE_FX_ACTIVE_LIMIT) {
-                onDone?.();
-                return;
+            if (typeof this.getBoardCellCenterLocal !== 'function') {
+                throw createPinddSpineFxError('board cell center API unavailable for pattern-complete sweep mask');
             }
-            const acquired = this.acquirePinddSpineFxNode();
-            const { node, skeleton } = acquired;
-            const seq = ((node as any).__pinddSpineFxSeq || 0) + 1;
-            (node as any).__pinddSpineFxSeq = seq;
-            fxRoot.addChild(node);
-            setFxLayerDeep(node, Layers.Enum.UI_2D);
-            const localPos = fxRootTransform.convertToNodeSpaceAR(worldPos);
-            node.setPosition(localPos.x - 1, localPos.y - 1, 0);
-            node.setScale(1, 1, 1);
-            const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
-            opacity.opacity = 255;
-
-            let completed = false;
-            const completeOnce = () => {
-                if (completed || !node?.isValid || (node as any).__pinddSpineFxSeq !== seq) return;
-                completed = true;
-                this.recyclePinddSpineFxNode(node);
-                onDone?.();
-            };
-            try {
-                skeleton.skeletonData = skeletonData;
-                skeleton.setCompleteListener(() => {
-                    completeOnce();
-                });
-                skeleton.setAnimation(0, animationName, false);
-                if (typeof this.scheduleOnce === 'function') {
-                    this.scheduleOnce(completeOnce, (PINDD_SPINE_FX_DURATION[animationName] || 0.8) + 0.12);
-                } else {
-                    setTimeout(completeOnce, ((PINDD_SPINE_FX_DURATION[animationName] || 0.8) + 0.12) * 1000);
+            graphics.clear();
+            const halfCellSize = cellSize / 2;
+            let patternCellCount = 0;
+            for (let row = 0; row < boardHeight; row++) {
+                for (let col = 0; col < boardWidth; col++) {
+                    if (Number(boardModel.correctColors[row]?.[col]) <= 0) continue;
+                    const center = this.getBoardCellCenterLocal(row, col);
+                    graphics.rect(center.x - halfCellSize, center.y - halfCellSize, cellSize, cellSize);
+                    patternCellCount++;
                 }
-            } catch (err) {
-                this.recyclePinddSpineFxNode(node);
-                throw createPinddSpineFxError(`play failed for ${animationName}: ${err instanceof Error ? err.message : String(err)}`);
             }
+            if (patternCellCount <= 0) {
+                throw createPinddSpineFxError('board has no pattern cells for pattern-complete sweep mask');
+            }
+            graphics.fill();
+            debugPerfTrace('pinddSweepFx.patternMask', { patternCellCount, boardWidth, boardHeight });
         },
 
         clearPatternCompleteMatchFx(): void {
@@ -649,7 +647,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             this.playBeanSettleMatchFxOnBean(beanNode);
         },
 
-        playColorCompleteMatchFxForColor(colorId: number): void {
+        playColorCompleteMatchFxForColor(colorId: number, onDone?: () => void): void {
             const bm = this.boardModel;
             const bw = this.levelData.boardWidth;
             const bh = this.levelData.boardHeight;
@@ -661,30 +659,22 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                     if (beanNode?.isValid) beanNodes.push(beanNode);
                 }
             }
-            if (beanNodes.length === 0) return;
+            if (beanNodes.length === 0) {
+                onDone?.();
+                return;
+            }
 
+            debugPerfTrace('pinddSpineFx.colorComplete', {
+                requestedCount: beanNodes.length,
+                activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
+                allowActiveLimitOverride: true,
+            });
             this.playPinddSpineFxOnBeansSameFrame(
                 beanNodes,
                 PINDD_SPINE_FX_ANIMATION.colorComplete,
-                undefined,
-                { maxNodes: PINDD_SPINE_COLOR_COMPLETE_MAX_NODES },
+                onDone,
+                { allowActiveLimitOverride: true },
             );
-        },
-
-        collectPatternCompleteMatchBeanNodes(): Node[] {
-            const bm = this.boardModel;
-            const bw = this.levelData?.boardWidth || bm?.width || 0;
-            const bh = this.levelData?.boardHeight || bm?.height || 0;
-            const beanNodes: Node[] = [];
-            for (let r = 0; r < bh; r++) {
-                for (let c = 0; c < bw; c++) {
-                    if (bm.correctColors[r]?.[c] <= 0) continue;
-                    if (!bm.locked[r]?.[c]) continue;
-                    const beanNode = this.cellNodes[r]?.[c];
-                    if (beanNode?.isValid) beanNodes.push(beanNode);
-                }
-            }
-            return beanNodes;
         },
 
         playPatternCompleteMatchFx(onDone?: () => void): void {
@@ -692,62 +682,67 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                 if (typeof onDone === 'function') onDone();
             };
             const boardNode = this.boardNode?.isValid ? this.boardNode : null;
-            if (!boardNode) {
+            const boardTransform = boardNode?.getComponent(UITransform);
+            if (!boardNode || !boardTransform) {
                 finish();
                 return;
             }
-            const beanNodes = this.collectPatternCompleteMatchBeanNodes();
-            const selectedBeanNodes = selectPinddSpineFxBatchNodes(
-                beanNodes,
-                PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES,
-            );
-            const beanWorldPositions: Vec3[] = [];
-            for (const beanNode of selectedBeanNodes) {
-                const transform = beanNode.getComponent(UITransform);
-                if (!transform) continue;
-                beanWorldPositions.push(transform.convertToWorldSpaceAR(new Vec3(0, 0, 0)));
-            }
-            if (beanWorldPositions.length === 0) {
-                finish();
-                return;
-            }
-            debugPerfTrace('pinddSpineFx.patternComplete', {
-                requestedCount: beanNodes.length,
-                selectedCount: beanWorldPositions.length,
-                activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
-            });
             this.clearPatternCompleteMatchFx();
             const fxRoot = this.getPatternCompleteMatchFxRoot();
-            const fxRootTransform = fxRoot.getComponent(UITransform);
-            if (!fxRootTransform) {
-                throw createPinddSpineFxError('PatternCompleteMatchFxRoot is missing UITransform');
+            const boardWidth = Math.max(1, Number(boardTransform.contentSize.width || 1));
+            const boardHeight = Math.max(1, Number(boardTransform.contentSize.height || 1));
+            const diagonal = Math.sqrt(boardWidth * boardWidth + boardHeight * boardHeight);
+            const bandLength = Math.max(1, diagonal * 1.5);
+            const baseBandWidth = Math.max(24, diagonal * 0.12);
+            const travel = Math.max(1, (boardWidth + boardHeight) / 4 + baseBandWidth);
+            const sweep = new Node('PatternCompleteDiagonalSweepFx');
+            fxRoot.addChild(sweep);
+            sweep.layer = Layers.Enum.UI_2D;
+            sweep.angle = -45;
+            sweep.setPosition(-travel, travel, 0);
+            const sweepOpacity = sweep.addComponent(UIOpacity);
+            sweepOpacity.opacity = 0;
+            const frame = getPatternCompleteSweepFrame();
+            const bandSpecs = [
+                { name: 'Outer', width: baseBandWidth * 2.1, opacity: 34 },
+                { name: 'Middle', width: baseBandWidth * 1.25, opacity: 82 },
+                { name: 'Core', width: baseBandWidth * 0.52, opacity: 176 },
+            ];
+            for (const spec of bandSpecs) {
+                const band = new Node(`PatternCompleteSweep${spec.name}`);
+                sweep.addChild(band);
+                band.layer = Layers.Enum.UI_2D;
+                const transform = band.addComponent(UITransform);
+                transform.setContentSize(spec.width, bandLength);
+                const sprite = band.addComponent(Sprite);
+                sprite.type = Sprite.Type.SIMPLE;
+                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+                sprite.spriteFrame = frame;
+                const opacity = band.addComponent(UIOpacity);
+                opacity.opacity = spec.opacity;
             }
-            this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
-                if (!fxRoot?.isValid || !this.isValid) {
-                    finish();
-                    return;
-                }
-                let remaining = beanWorldPositions.length;
-                let done = false;
-                const finishOne = () => {
-                    if (done) return;
-                    remaining--;
-                    if (remaining <= 0) {
-                        done = true;
-                        finish();
-                    }
-                };
-                for (const worldPos of beanWorldPositions) {
-                    this.playPinddSpineFxAtWorldPosition(
-                        fxRoot,
-                        fxRootTransform,
-                        skeletonData,
-                        worldPos,
-                        PINDD_SPINE_FX_ANIMATION.patternComplete,
-                        finishOne,
-                    );
-                }
+            setFxLayerDeep(sweep, Layers.Enum.UI_2D);
+            debugPerfTrace('pinddSweepFx.patternComplete', {
+                boardWidth,
+                boardHeight,
+                bandCount: bandSpecs.length,
             });
+            let completed = false;
+            const completeOnce = () => {
+                if (completed) return;
+                completed = true;
+                if (sweep?.isValid) sweep.destroy();
+                finish();
+            };
+            tween(sweepOpacity)
+                .to(PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION, { opacity: 255 })
+                .delay(Math.max(0, PINDD_PATTERN_COMPLETE_SWEEP_DURATION - PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION - PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION))
+                .to(PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION, { opacity: 0 })
+                .start();
+            tween(sweep)
+                .to(PINDD_PATTERN_COMPLETE_SWEEP_DURATION, { position: new Vec3(travel, -travel, 0) }, { easing: 'sineInOut' })
+                .call(completeOnce)
+                .start();
         },
 
         enqueueColorCompleteEffect(colorId: number, playSound: boolean = true): void {
@@ -776,9 +771,41 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
         },
 
-        playColorCompleteEffect(colorId: number, playSound: boolean = true) {
+        flushPendingColorCompleteEffectsSequentially(onDone?: () => void, gapSeconds: number = 0.12): void {
+            const pending = this._pendingColorCompleteEffects;
+            if (!pending || !(pending instanceof Map) || pending.size === 0) {
+                onDone?.();
+                return;
+            }
+            const entries = Array.from(pending.entries());
+            pending.clear();
+            const gap = Math.max(0, Number(gapSeconds) || 0);
+            let nextIndex = 0;
+            const playNext = () => {
+                const entry = entries[nextIndex++];
+                if (!entry) {
+                    onDone?.();
+                    return;
+                }
+                const [colorId] = entry;
+                this.playColorCompleteEffect(colorId, true, () => {
+                    if (nextIndex >= entries.length) {
+                        onDone?.();
+                        return;
+                    }
+                    if (gap > 0 && typeof this.scheduleOnce === 'function') {
+                        this.scheduleOnce(playNext, gap);
+                    } else {
+                        playNext();
+                    }
+                });
+            };
+            playNext();
+        },
+
+        playColorCompleteEffect(colorId: number, playSound: boolean = true, onDone?: () => void): void {
             if (playSound) AudioMgr.inst.play('winColor');
-            this.playColorCompleteMatchFxForColor(colorId);
+            this.playColorCompleteMatchFxForColor(colorId, onDone);
         },
     });
 }

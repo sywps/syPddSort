@@ -7,7 +7,8 @@ import {
 import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { collectActiveBlockInputEvents } from './DebugPerfTrace';
-import { validateConveyorCapacity } from './LevelConfig';
+import { ensureHardLevelIntroController } from './HardLevelIntroController';
+import { validateConveyorCapacity, validateHard } from './LevelConfig';
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 import { PCH_GAMEPLAY_MODE, PCH_GAMEPLAY_SCHEMA_VERSION } from './AnalyticsMgr';
@@ -25,6 +26,7 @@ export class GameplaySessionController {
         let gameplayEntryMode: 'main' | 'theme' | 'external' = 'main';
         let tutorialMode: TutorialMode = 'none';
         try {
+            ensureHardLevelIntroController(runtime).stop();
             ensurePchConveyorGameplayController(runtime).stop();
             runtime.cancelRewardedGrantInteraction?.('gameplay-init');
             for (const scope of ['modal', 'timer', 'placement', 'placement-input', 'guide', 'ad']) {
@@ -42,6 +44,7 @@ export class GameplaySessionController {
             const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
             if (!bootstrapOnlyGameplayStartup) {
                 AudioMgr.inst.preload('place');
+                AudioMgr.inst.preload('settle');
             }
             runtime.levelData = data;
             initStage = 'route_context';
@@ -71,6 +74,8 @@ export class GameplaySessionController {
             runtime._firstLevelGuideStepFirstTouchSent = {};
             runtime._firstLevelGuideLayerTouchCounts = {};
             runtime._interactionTouchAttemptCount = 0;
+            initStage = 'hard_level_flag';
+            const hard = validateHard(data.Hard, `level ${resolvedLevelId}`);
             initStage = 'conveyor_capacity';
             validateConveyorCapacity(data.conveyorCapacity, `level ${resolvedLevelId}`);
             initStage = 'model_build';
@@ -90,7 +95,9 @@ export class GameplaySessionController {
             initStage = 'state_reset';
             runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
             runtime.timeRemain = dynamicTimeLimit;
+            runtime._countdownWarningTickSecondsPlayed = new Set<number>();
             runtime.isGameEnd = false;
+            runtime._activeLoseReason = null;
             runtime.isSelected = false;
             runtime.currentBlock = null;
             runtime._selectedSlotIndices = [];
@@ -156,72 +163,109 @@ export class GameplaySessionController {
             initStage = 'loading_release';
             runtime.reportFirstLevelReleaseState?.('before_loading_hide');
             runtime.hideLoadingOverlayAfterGameplayReady?.();
-            initStage = 'opening_pattern_transition';
-            pchController.playOpeningPatternShuffle();
-            runtime.reportFirstLevelReleaseState?.('after_loading_hide');
-            AudioMgr.inst.playGameBgm();
-            const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
-            if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
-                runtime.recordMainlineLevelEntry(activeLogicalLevelId);
-            }
-            this.clearGameplayReadyRouteCover();
-            const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
-            const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
-            if (runtime.isFirstLevelFunnelActive()) {
-                AnalyticsMgr.inst.markFirstLevelReady({
-                    page: runtime.getAnalyticsPage(),
-                    levelId: startupTraceLogicalLevel,
-                    logicalLevelId: startupTraceLogicalLevel,
-                    physicalLevelId: startupTracePhysicalLevel,
-                    source: runtime.shouldUseLocalBootstrapBundle(startupTracePhysicalLevel) ? 'bootstrap' : 'remote',
+            const initSeq = Math.max(0, Number(runtime._gameplayInitSeq) || 0);
+            let continuationSynchronous = true;
+            const continueAfterHardIntro = () => {
+                if (initSeq !== Math.max(0, Number(runtime._gameplayInitSeq) || 0) || runtime.isGameEnd) return;
+                try {
+                    initStage = 'opening_pattern_transition';
+                    pchController.playOpeningPatternShuffle();
+                    runtime.reportFirstLevelReleaseState?.('after_loading_hide');
+                    AudioMgr.inst.playGameBgm();
+                    const urlLevel = typeof runtime.getUrlLevel === 'function' ? runtime.getUrlLevel() : 0;
+                    if (gameplayEntryMode === 'main' && urlLevel <= 0 && typeof runtime.recordMainlineLevelEntry === 'function') {
+                        runtime.recordMainlineLevelEntry(activeLogicalLevelId);
+                    }
+                    this.clearGameplayReadyRouteCover();
+                    const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
+                    const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
+                    if (runtime.isFirstLevelFunnelActive()) {
+                        AnalyticsMgr.inst.markFirstLevelReady({
+                            page: runtime.getAnalyticsPage(),
+                            levelId: startupTraceLogicalLevel,
+                            logicalLevelId: startupTraceLogicalLevel,
+                            physicalLevelId: startupTracePhysicalLevel,
+                            source: runtime.shouldUseLocalBootstrapBundle(startupTracePhysicalLevel) ? 'bootstrap' : 'remote',
+                        });
+                        runtime.reportFirstLevelReleaseState?.('ui_ready_emitted');
+                    }
+                    markStartupTrace('startup_first_playable_ready', {
+                        levelId: startupTraceLogicalLevel,
+                        physicalLevelId: startupTracePhysicalLevel,
+                        entryMode: gameplayEntryMode,
+                    });
+                    flushStartupTrace((event) => AnalyticsMgr.inst.trackFunnelEvent(event), {
+                        levelId: startupTraceLogicalLevel,
+                        logicalLevelId: startupTraceLogicalLevel,
+                        physicalLevelId: startupTracePhysicalLevel,
+                    });
+                    AnalyticsMgr.inst.flushFunnelEvents();
+                    initStage = 'startup_services';
+                    runtime.scheduleRewardedAdPreload?.('gameplay-ready-fallback', 0);
+                    runtime.onGameplayUiReadyForStartupServices?.();
+                    runtime.startPostPlayableWarmup?.('gameplay-ready');
+
+                    runtime.unschedule(runtime.tickTimer);
+                    runtime._timerStarted = false;
+                    runtime._adTimerSuspended = false;
+
+                    const analyticsLevelId = runtime.getAnalyticsLevelId();
+                    const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
+                    initStage = 'level_analytics';
+                    const experimentAnalyticsContext = gameplayEntryMode === 'main'
+                        ? getFrontLevelExperimentAnalyticsContext(analyticsLevelId, 'level_')
+                        : null;
+                    AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
+                        logicalLevelId: analyticsLevelId,
+                        physicalLevelId: analyticsPhysicalLevelId,
+                        abId: experimentAnalyticsContext?.abId,
+                        abBucket: experimentAnalyticsContext?.abBucket,
+                        gameplayMode: PCH_GAMEPLAY_MODE,
+                        gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
+                    }, pchController.getAnalyticsSnapshot());
+                    SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
+                    initStage = 'interaction_ready';
+                    this.reportLevelInteractionReady(
+                        runtime,
+                        analyticsLevelId,
+                        analyticsPhysicalLevelId,
+                        gameplayEntryMode,
+                        tutorialMode,
+                    );
+                    runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
+                    runtime.scheduleFirstLevelReleaseDiagnostics?.();
+                } catch (error) {
+                    if (continuationSynchronous) throw error;
+                    this.failGameplayInitialization(runtime, {
+                        error,
+                        initStage,
+                        resolvedLevelId,
+                        activeLogicalLevelId,
+                        gameplayPrefix,
+                        gameplayEntryMode,
+                        tutorialMode,
+                    });
+                    throw error;
+                }
+            };
+            const failHardIntro = (error: Error) => {
+                if (initSeq !== Math.max(0, Number(runtime._gameplayInitSeq) || 0)) return;
+                initStage = 'hard_level_intro';
+                if (continuationSynchronous) throw error;
+                this.failGameplayInitialization(runtime, {
+                    error,
+                    initStage,
+                    resolvedLevelId,
+                    activeLogicalLevelId,
+                    gameplayPrefix,
+                    gameplayEntryMode,
+                    tutorialMode,
                 });
-                runtime.reportFirstLevelReleaseState?.('ui_ready_emitted');
-            }
-            markStartupTrace('startup_first_playable_ready', {
-                levelId: startupTraceLogicalLevel,
-                physicalLevelId: startupTracePhysicalLevel,
-                entryMode: gameplayEntryMode,
-            });
-            flushStartupTrace((event) => AnalyticsMgr.inst.trackFunnelEvent(event), {
-                levelId: startupTraceLogicalLevel,
-                logicalLevelId: startupTraceLogicalLevel,
-                physicalLevelId: startupTracePhysicalLevel,
-            });
-            AnalyticsMgr.inst.flushFunnelEvents();
-            initStage = 'startup_services';
-            runtime.scheduleRewardedAdPreload?.('gameplay-ready-fallback', 0);
-            runtime.onGameplayUiReadyForStartupServices?.();
-            runtime.startPostPlayableWarmup?.('gameplay-ready');
-
-            runtime.unschedule(runtime.tickTimer);
-            runtime._timerStarted = false;
-            runtime._adTimerSuspended = false;
-
-            const analyticsLevelId = runtime.getAnalyticsLevelId();
-            const analyticsPhysicalLevelId = runtime.getActivePhysicalLevelId();
-            initStage = 'level_analytics';
-            const experimentAnalyticsContext = gameplayEntryMode === 'main'
-                ? getFrontLevelExperimentAnalyticsContext(analyticsLevelId, 'level_')
-                : null;
-            AnalyticsMgr.inst.beginLevel(analyticsLevelId, runtime.getAnalyticsPage(), {
-                logicalLevelId: analyticsLevelId,
-                physicalLevelId: analyticsPhysicalLevelId,
-                abId: experimentAnalyticsContext?.abId,
-                abBucket: experimentAnalyticsContext?.abBucket,
-                gameplayMode: PCH_GAMEPLAY_MODE,
-                gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
-            }, pchController.getAnalyticsSnapshot());
-            SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
-            initStage = 'interaction_ready';
-            this.reportLevelInteractionReady(
-                runtime,
-                analyticsLevelId,
-                analyticsPhysicalLevelId,
-                gameplayEntryMode,
-                tutorialMode,
-            );
-            runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
-            runtime.scheduleFirstLevelReleaseDiagnostics?.();
+                throw error;
+            };
+            initStage = 'hard_level_intro';
+            ensureHardLevelIntroController(runtime).play(hard, continueAfterHardIntro, failHardIntro);
+            continuationSynchronous = false;
         } catch (error) {
             this.failGameplayInitialization(runtime, {
                 error,
@@ -275,6 +319,7 @@ export class GameplaySessionController {
         };
 
         runtime.isGameEnd = true;
+        runCleanup('hard-intro', () => ensureHardLevelIntroController(runtime).stop());
         runCleanup('pch-core', () => ensurePchConveyorGameplayController(runtime).stop());
         runCleanup('tutorial', () => this.clearTutorialRuntimeState(runtime));
         runCleanup('callbacks', () => runtime.unscheduleAllCallbacks?.());

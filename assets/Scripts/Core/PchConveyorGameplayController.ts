@@ -39,17 +39,26 @@ import {
 } from './AnalyticsMgr';
 import type { PchSpeedMultiplier } from './AppSession';
 
-const BELT_STEP_SECONDS = 0.28;
+const BELT_STEP_SECONDS = 0.25;
 const PCH_TRANSFER_SECONDS = 0.16;
 const PCH_ENTRY_STAGGER_SECONDS = 0.012;
 const PCH_RETURN_TRANSFER_SECONDS = 0.3;
 const PCH_RETURN_STAGGER_SECONDS = 0.05;
 const PCH_RETURN_COMPLETE_DELAY_SECONDS = 0.01;
+const PCH_RETURN_SETTLE_FX_DURATION_SECONDS = 0.7;
+const PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS = Math.max(
+    0,
+    PCH_RETURN_SETTLE_FX_DURATION_SECONDS - PCH_RETURN_COMPLETE_DELAY_SECONDS,
+);
 const PCH_SKILL_STAGGER_SECONDS = 0.028;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
 const PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT = true;
 const PCH_EXPAND_CAPACITY = 12;
+const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
+const PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD = 3;
+const PCH_RED_WARNING_PULSE_SECONDS = 0.5;
+const PCH_RED_WARNING_MAX_OPACITY = 102;
 const PCH_CAPACITY_TEXT_COLOR = new Color(43, 43, 43, 255);
 const PCH_CAPACITY_OUTLINE_COLOR = new Color(255, 221, 35, 255);
 const PCH_ENTRANCE_SNAP_PROGRESS = 0.032;
@@ -205,6 +214,9 @@ export class PchConveyorGameplayController {
     private capacityProgress: ProgressBar | null = null;
     private capacityWarningAnimation: Animation | null = null;
     private capacityWarningActive = false;
+    private warningOverlay: Node | null = null;
+    private warningOverlayOpacity: UIOpacity | null = null;
+    private warningPulseGeneration = 0;
     private normalEntryDoors: ConveyorEntryDoorBindings | null = null;
     private activeEntryDoors: ConveyorEntryDoorBindings | null = null;
     private entryDoorState: 'none' | 'open' | 'closed' = 'none';
@@ -225,6 +237,7 @@ export class PchConveyorGameplayController {
     private openingGuideTarget: Node | null = null;
     private openingGuideLevelOneCells: Array<{ row: number; col: number }> = [];
     private openingGuideLevelOneStep = -1;
+    private openingGuideWrongTapToastLastShownAt = 0;
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
     private carrierDirectionNodes: Node[] = [];
@@ -237,6 +250,11 @@ export class PchConveyorGameplayController {
     private activeReturnAnimations = 0;
     private readonly activeReturnBeans = new Set<Node>();
     private readonly pendingReturnCompletions = new Map<Node, () => void>();
+    private readonly pendingPchColorCompleteStarts = new Set<() => void>();
+    private readonly queuedPchColorCompleteIds: number[] = [];
+    private pchColorCompleteEffectActive = false;
+    private pchColorCompleteSequenceGeneration = 0;
+    private readonly lastEntranceAudioVisitByCarrier = new Map<number, number>();
     private beltPath: Vec3[] = [];
     private beltPathDistances: number[] = [];
     private beltPathLength = 0;
@@ -353,13 +371,17 @@ export class PchConveyorGameplayController {
             || typeof this.runtime.requireRenderReadySpriteFrame !== 'function'
             || typeof this.runtime.requireSphereFlyStarSpriteFrame !== 'function'
             || typeof this.runtime.requireSphereFlyTrailSpriteFrame !== 'function'
+            || typeof this.runtime.requireWarningMaskSpriteFrame !== 'function'
             || typeof this.runtime.renderBoardCell !== 'function'
             || typeof this.runtime.getBoardCellWorldPosition !== 'function'
+            || typeof this.runtime.acquireFlyBeanNode !== 'function'
+            || typeof this.runtime.recycleFlyBeanNode !== 'function'
             || typeof this.runtime.gameLose !== 'function') {
             throw new Error('[pch-core] original bean sprite or sphere flight effect is unavailable');
         }
         this.runtime.requireSphereFlyStarSpriteFrame();
         this.runtime.requireSphereFlyTrailSpriteFrame();
+        this.runtime.requireWarningMaskSpriteFrame();
         this.rules = new PchConveyorRules(
             this.runtime.boardModel,
             this.runtime.levelData?.conveyorCapacity,
@@ -371,6 +393,7 @@ export class PchConveyorGameplayController {
         this.activeReturnAnimations = 0;
         this.activeReturnBeans.clear();
         this.pendingReturnCompletions.clear();
+        this.clearPchColorCompleteSequence();
         this.beforeWinSpeedActive = false;
         this.finishCommitted = false;
         this.settlementPaused = false;
@@ -378,6 +401,7 @@ export class PchConveyorGameplayController {
 
         const fixedRoot = this.runtime.getGameplayFixedRoot();
         this.root = this.requireConveyorNode(fixedRoot, 'PchConveyorRoot', 'GameplayFixedRoot/PchConveyorRoot');
+        this.bindWarningOverlay();
         const normalLayout = this.bindConveyorLayout(this.root, 'NormalLayout');
         const compactLayout = {
             node: this.requireConveyorNode(this.root, 'CompactLayout', 'GameplayFixedRoot/PchConveyorRoot/CompactLayout'),
@@ -449,19 +473,16 @@ export class PchConveyorGameplayController {
         this.openingPatternState = 'running';
 
         visuals.forEach((visual, index) => {
-            const spin = this.getOpeningPatternSpin(visual.move);
             const midpoint = this.getOpeningPatternArcMidpoint(visual, index);
             tween(visual.node)
                 .delay(OPENING_PATTERN_HOLD_SECONDS + index * stagger)
                 .to(firstDuration, {
                     position: midpoint,
                     scale: new Vec3(0.84, 1.06, 1),
-                    angle: spin * 0.56,
                 }, { easing: 'quadIn' })
                 .to(secondDuration, {
                     position: visual.targetPosition,
                     scale: new Vec3(1, 1, 1),
-                    angle: spin,
                 }, { easing: 'quadOut' })
                 .call(() => {
                     if (generation !== this.openingPatternGeneration || this.openingPatternState !== 'running') return;
@@ -555,16 +576,6 @@ export class PchConveyorGameplayController {
         );
     }
 
-    private getOpeningPatternSpin(move: OpeningPatternMove): number {
-        const hash = (
-            ((move.source.row + 1) * 73856093)
-            ^ ((move.source.col + 1) * 19349663)
-            ^ (move.colorId * 83492791)
-        ) >>> 0;
-        const direction = (hash & 1) === 0 ? 1 : -1;
-        return direction * (140 + hash % 181);
-    }
-
     stop(): void {
         this.cancelOpeningPatternShuffle(true);
         this.releaseActiveSkillPause();
@@ -575,6 +586,8 @@ export class PchConveyorGameplayController {
             this.runtime.unschedule?.(callback);
         }
         this.pendingReturnCompletions.clear();
+        this.clearPchColorCompleteSequence();
+        this.lastEntranceAudioVisitByCarrier.clear();
         if (this.inputRoot?.isValid) {
             this.inputRoot.off(Node.EventType.TOUCH_START, this.onRootTouchStart, this);
             this.inputRoot.off(Node.EventType.TOUCH_MOVE, this.onRootTouchMove, this);
@@ -620,6 +633,8 @@ export class PchConveyorGameplayController {
         this.capacityBadge = null;
         this.capacityProgress = null;
         this.capacityWarningAnimation = null;
+        this.warningOverlay = null;
+        this.warningOverlayOpacity = null;
         this.normalEntryDoors = null;
         this.activeEntryDoors = null;
         this.entryFlyAnchor = null;
@@ -634,6 +649,7 @@ export class PchConveyorGameplayController {
         this.speedBadgeLabel = null;
         this.openingGuideLevelOneCells = [];
         this.openingGuideLevelOneStep = -1;
+        this.openingGuideWrongTapToastLastShownAt = 0;
         this.rules = null;
         this.carrierNodes = [];
         this.carrierDirectionNodes = [];
@@ -649,6 +665,7 @@ export class PchConveyorGameplayController {
         this.skillMovementPaused = false;
         this.skillTimerPauseToken = '';
         this.capacityWarningActive = false;
+        this.warningPulseGeneration = 0;
     }
 
     update(deltaTime: number): void {
@@ -824,6 +841,7 @@ export class PchConveyorGameplayController {
     private onRootTouchEnd(event: any): void {
         if (!this.rules || this.runtime.isGameEnd) return;
         if (this.inputLocked) {
+            if (this.isOpeningGuideTargetEvent(event)) return;
             event.propagationStopped = true;
             this.handleOpeningGuideRootTap(event);
             return;
@@ -868,6 +886,7 @@ export class PchConveyorGameplayController {
         const guideName = this.openingGuide?.name || '';
         if (guideName.startsWith('PchLevelOneGuideStep')) {
             this.trackOpeningGuideEvent('pch_guide_tap_result', false, 'miss_target', guideName);
+            this.maybeShowOpeningGuideWrongTapToast();
             return false;
         }
         const target = guideName === 'PchLevelTwoSpeedGuide'
@@ -876,6 +895,7 @@ export class PchConveyorGameplayController {
         const bounds = target?.getComponent(UITransform)?.getBoundingBoxToWorld();
         if (!bounds || !bounds.contains(rawPos)) {
             this.trackOpeningGuideEvent('pch_guide_tap_result', false, 'miss_target', guideName);
+            this.maybeShowOpeningGuideWrongTapToast();
             return false;
         }
         event.propagationStopped = true;
@@ -885,6 +905,24 @@ export class PchConveyorGameplayController {
             this.onOpeningGuideFreeCapacity(event);
         }
         return true;
+    }
+
+    private maybeShowOpeningGuideWrongTapToast(): void {
+        const guideName = this.openingGuide?.name || '';
+        const isStarterGuide = guideName.startsWith('PchLevelOneGuideStep')
+            || guideName === 'PchLevelTwoSpeedGuide'
+            || guideName === 'PchLevelThreeCapacityGuide';
+        if (!isStarterGuide) return;
+        const now = Date.now();
+        const lastShownAt = Math.max(0, Number(this.openingGuideWrongTapToastLastShownAt) || 0);
+        if (lastShownAt > 0 && now >= lastShownAt && now - lastShownAt < OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS) {
+            return;
+        }
+        if (typeof this.runtime.showToast !== 'function') {
+            throw new Error('[pch-core] opening guide wrong-tap Toast is unavailable');
+        }
+        this.openingGuideWrongTapToastLastShownAt = now;
+        this.runtime.showToast('请跟随指示完成引导');
     }
 
     private handleLevelOneOpeningGuideRootTap(event: any): boolean {
@@ -903,6 +941,17 @@ export class PchConveyorGameplayController {
         event.propagationStopped = true;
         this.onOpeningGuideLevelOneTap(event);
         return true;
+    }
+
+    private isOpeningGuideTargetEvent(event: any): boolean {
+        const guideTarget = this.openingGuideTarget;
+        if (!guideTarget?.isValid) return false;
+        let node = event?.target as Node | null;
+        while (node?.isValid && node !== this.inputRoot) {
+            if (node === guideTarget) return true;
+            node = node.parent;
+        }
+        return false;
     }
 
     private hasDirectButtonTarget(event: any): boolean {
@@ -936,7 +985,6 @@ export class PchConveyorGameplayController {
         }
         this.runtime.ensureTimerStarted?.();
         AudioMgr.inst.play('select');
-        AudioMgr.inst.vibrateSelect();
         this.runtime.renderBoardCells(result.boardCells);
         this.runtime.refreshEndgameHints?.('pch-store');
         this.renderEntranceQueue();
@@ -944,7 +992,12 @@ export class PchConveyorGameplayController {
         result.boardCells.forEach((_cell, index) => {
             const sourceWorld = sourceWorldPositions[index];
             if (!sourceWorld) throw new Error(`[pch-core] board bean ${index} has no fly source`);
-            this.animateBeanIntoConveyor(block.colorId, sourceWorld, index);
+            this.animateBeanIntoConveyor(
+                block.colorId,
+                sourceWorld,
+                index,
+                index === result.boardCells.length - 1,
+            );
         });
         if (result.moved < block.cells.length) {
             if (this.statusLabel) this.statusLabel.string = '空间不足，剩余豆豆保留在棋盘';
@@ -957,10 +1010,17 @@ export class PchConveyorGameplayController {
         if (!this.rules || this.rules.readyEntryCount <= 0) return false;
         const result = this.rules.transferReadyBeansToCarrier(carrierIndex);
         if (result.moved <= 0) return false;
+        const visitOrdinal = this.getEntranceVisitOrdinal(carrierIndex);
+        const shouldPlayVisitFeedback = this.lastEntranceAudioVisitByCarrier.get(carrierIndex) !== visitOrdinal;
+        if (shouldPlayVisitFeedback) {
+            this.lastEntranceAudioVisitByCarrier.set(carrierIndex, visitOrdinal);
+            AudioMgr.inst.play('settle');
+            AudioMgr.inst.vibratePlace();
+        }
         this.renderConveyorCarrier(carrierIndex);
         this.renderEntranceQueue();
         this.refreshStatus();
-        this.playEntranceTransferPulse(result.carrierIndex);
+        if (shouldPlayVisitFeedback) this.playEntranceTransferPulse(result.carrierIndex);
         return true;
     }
 
@@ -971,6 +1031,11 @@ export class PchConveyorGameplayController {
         const distance = Math.min(progress, 1 - progress);
         if (distance > PCH_ENTRANCE_SNAP_PROGRESS) return false;
         return this.handleCarrierAtEntrance(carrierIndex);
+    }
+
+    private getEntranceVisitOrdinal(carrierIndex: number): number {
+        if (!this.rules) return 0;
+        return Math.round((carrierIndex + this.beltTravel) / this.rules.carrierCount);
     }
 
     private playEntranceTransferPulse(carrierIndex: number): void {
@@ -1005,8 +1070,8 @@ export class PchConveyorGameplayController {
                 world: beanTransform.convertToWorldSpaceAR(new Vec3()),
                 size: Math.max(1, 31 * (this.runtime.getNodeScaleInLayer?.(beanNode, this.root) || 1)),
             };
-        }).reverse();
-        const result = this.rules.autoPlaceAvailableTop(carrierIndex);
+        });
+        const result = this.rules.autoPlaceAvailableLayers(carrierIndex);
         if (result.moved <= 0) return false;
         if (!this.firstReturnEventSent) {
             this.firstReturnEventSent = true;
@@ -1018,7 +1083,7 @@ export class PchConveyorGameplayController {
         this.renderConveyorCarrier(carrierIndex);
         this.refreshStatus();
         result.boardCells.forEach((target, index) => {
-            const source = sourceLayers[index];
+            const source = sourceLayers[result.sourceLayerIndices[index]];
             const colorId = result.colorIds[index];
             if (!source || colorId <= 0) {
                 throw new Error(`[pch-core] return batch ${carrierIndex}:${index} has no source bean`);
@@ -1114,6 +1179,7 @@ export class PchConveyorGameplayController {
         colorId: number,
         sourceWorld: Vec3,
         staggerIndex: number,
+        playBatchAudio: boolean,
     ): void {
         if (!this.root || !this.entryFlyAnchor) throw new Error('[pch-core] conveyor entry visual anchor is unavailable');
         const sourceBeanSize = Math.max(1, this.runtime.getBoardFlyBeanSizeInLayer?.(this.root) || 31);
@@ -1132,7 +1198,10 @@ export class PchConveyorGameplayController {
             }, { easing: 'quadIn' })
             .call(() => {
                 this.destroyFlyBean(bean);
-                AudioMgr.inst.play('place');
+                if (playBatchAudio) {
+                    AudioMgr.inst.play('settle');
+                    AudioMgr.inst.vibratePlace();
+                }
                 this.rules?.markQueuedBeansReady(1);
                 this.renderEntranceQueue();
                 this.refreshStatus();
@@ -1167,18 +1236,13 @@ export class PchConveyorGameplayController {
         };
         tween(bean)
             .delay(flightDelay)
-            .parallel(
-                tween().to(PCH_RETURN_TRANSFER_SECONDS, {
-                    position: targetLocal,
-                    scale: new Vec3(targetScale, targetScale, 1),
-                }, { easing: 'quadOut' }),
-                tween().to(PCH_RETURN_TRANSFER_SECONDS, {
-                    eulerAngles: new Vec3(0, 360, 0),
-                }, { easing: 'linear' }),
-            )
+            .to(PCH_RETURN_TRANSFER_SECONDS, {
+                position: targetLocal,
+                scale: new Vec3(targetScale, targetScale, 1),
+            }, { easing: 'quadOut' })
             .call(() => {
                 bean.active = false;
-                AudioMgr.inst.play('place');
+                AudioMgr.inst.play('settle');
                 AudioMgr.inst.vibratePlace();
                 this.runtime.renderBoardCell(target.row, target.col);
                 this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);
@@ -1193,15 +1257,86 @@ export class PchConveyorGameplayController {
     private finishReturnAnimation(target: { row: number; col: number }): void {
         this.activeReturnAnimations = Math.max(0, this.activeReturnAnimations - 1);
         this.runtime.syncSkillButtonRuntimeStates?.();
+        const pendingColorIdsBeforeCompletion = this.getPendingColorCompleteEffectIds();
         this.runtime.checkColorCompletion?.();
+        for (const colorId of this.takeNewPendingColorCompleteEffectIds(pendingColorIdsBeforeCompletion)) {
+            this.schedulePchColorCompleteAfterSettleFx(colorId);
+        }
         const boardComplete = this.rules?.board.isAllLocked() === true;
-        if (!boardComplete) this.runtime.flushPendingColorCompleteEffects?.();
+        const allReturnAnimationsFinished = this.activeReturnAnimations === 0;
+        if (!boardComplete && allReturnAnimationsFinished) this.runtime.flushPendingColorCompleteEffects?.();
         this.runtime.checkGuideStepComplete?.();
-        if (boardComplete && this.activeReturnAnimations === 0) {
-            this.commitFinish();
-        } else if (!boardComplete) {
+        if (boardComplete) {
+            this.tryCommitFinishAfterPchColorCompleteEffects();
+        } else {
             this.runtime.refreshEndgameHints?.(`pch-return-${target.row}-${target.col}`);
         }
+    }
+
+    private getPendingColorCompleteEffectIds(): Set<number> {
+        const pending = this.runtime._pendingColorCompleteEffects;
+        return pending instanceof Map ? new Set<number>(pending.keys()) : new Set<number>();
+    }
+
+    private takeNewPendingColorCompleteEffectIds(previousColorIds: ReadonlySet<number>): number[] {
+        const pending = this.runtime._pendingColorCompleteEffects;
+        if (!(pending instanceof Map)) return [];
+        const colorIds: number[] = [];
+        for (const colorId of pending.keys()) {
+            if (previousColorIds.has(colorId)) continue;
+            pending.delete(colorId);
+            colorIds.push(colorId);
+        }
+        return colorIds;
+    }
+
+    private schedulePchColorCompleteAfterSettleFx(colorId: number): void {
+        const generation = this.pchColorCompleteSequenceGeneration;
+        const beginColorCompleteEffect = () => {
+            this.pendingPchColorCompleteStarts.delete(beginColorCompleteEffect);
+            if (generation !== this.pchColorCompleteSequenceGeneration || this.runtime.isGameEnd) return;
+            this.queuedPchColorCompleteIds.push(colorId);
+            this.playNextPchColorCompleteEffect();
+        };
+        this.pendingPchColorCompleteStarts.add(beginColorCompleteEffect);
+        this.runtime.scheduleOnce(beginColorCompleteEffect, PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS);
+    }
+
+    private playNextPchColorCompleteEffect(): void {
+        if (this.pchColorCompleteEffectActive) return;
+        const colorId = this.queuedPchColorCompleteIds.shift();
+        if (colorId === undefined) {
+            this.tryCommitFinishAfterPchColorCompleteEffects();
+            return;
+        }
+        const generation = this.pchColorCompleteSequenceGeneration;
+        this.pchColorCompleteEffectActive = true;
+        this.runtime.playColorCompleteEffect(colorId, true, () => {
+            if (generation !== this.pchColorCompleteSequenceGeneration) return;
+            this.pchColorCompleteEffectActive = false;
+            this.playNextPchColorCompleteEffect();
+        });
+    }
+
+    private tryCommitFinishAfterPchColorCompleteEffects(): void {
+        if (this.rules?.board.isAllLocked() !== true
+            || this.activeReturnAnimations > 0
+            || this.pendingPchColorCompleteStarts.size > 0
+            || this.queuedPchColorCompleteIds.length > 0
+            || this.pchColorCompleteEffectActive) {
+            return;
+        }
+        this.commitFinish();
+    }
+
+    private clearPchColorCompleteSequence(): void {
+        this.pchColorCompleteSequenceGeneration += 1;
+        for (const callback of this.pendingPchColorCompleteStarts) {
+            this.runtime.unschedule?.(callback);
+        }
+        this.pendingPchColorCompleteStarts.clear();
+        this.queuedPchColorCompleteIds.length = 0;
+        this.pchColorCompleteEffectActive = false;
     }
 
     private commitFinish(): void {
@@ -1216,13 +1351,18 @@ export class PchConveyorGameplayController {
         if (!this.root) throw new Error('[pch-core] fly bean root is unavailable');
         const rootTransform = this.root.getComponent(UITransform)!;
         const localPosition = rootTransform.convertToNodeSpaceAR(worldPosition);
-        const bean = this.makeNode(name, this.root, size, size, localPosition.x, localPosition.y);
-        const sprite = bean.addComponent(Sprite);
-        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
-        sprite.spriteFrame = this.runtime.requireRenderReadySpriteFrame(
+        const spriteFrame = this.runtime.requireRenderReadySpriteFrame(
             this.runtime.getBeanSpriteFrame(colorId, false),
             `${name}:color:${colorId}`,
         );
+        const bean = this.runtime.acquireFlyBeanNode(name, size, spriteFrame) as Node;
+        if (!bean?.isValid) throw new Error('[pch-core] pooled fly bean is unavailable');
+        const brightOverlay = bean.getChildByName('BrightOverlay');
+        if (!brightOverlay?.isValid) throw new Error('[pch-core] pooled fly bean is missing BrightOverlay');
+        brightOverlay.active = false;
+        this.root.addChild(bean);
+        bean.setPosition(localPosition.x, localPosition.y, 0);
+        bean.setScale(1, 1, 1);
         this.activeFlyBeans.add(bean);
         return bean;
     }
@@ -1538,7 +1678,7 @@ export class PchConveyorGameplayController {
         this.activeFlyBeans.delete(bean);
         if (!bean?.isValid) return;
         this.stopNodeTreeTweens(bean);
-        bean.destroy();
+        this.runtime.recycleFlyBeanNode(bean);
     }
 
     private getBoardCellWorldPosition(row: number, col: number): Vec3 {
@@ -1572,24 +1712,91 @@ export class PchConveyorGameplayController {
                 : 0;
             this.capacityProgress.progress = Math.min(1, Math.max(0, capacityRatio));
         }
-        this.syncCapacityWarning(isFull);
+        this.syncCapacityWarning(this.rules.shouldShowRedWarning(PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD));
         this.runtime.refreshCompletionProgressLabel?.();
         this.runtime.syncSkillButtonRuntimeStates?.();
     }
 
-    private syncCapacityWarning(isFull: boolean): void {
-        if (!isFull || this.capacityWarningActive) return;
+    private syncCapacityWarning(shouldWarn: boolean): void {
+        if (!shouldWarn) {
+            this.resetCapacityWarning();
+            return;
+        }
+        if (this.capacityWarningActive) return;
         this.capacityWarningActive = true;
         this.capacityWarningAnimation?.play(PCH_CAPACITY_FULL_WARNING_CLIP);
+        this.startWarningOverlayPulse();
     }
 
     private resetCapacityWarning(): void {
         this.capacityWarningAnimation?.stop();
+        this.warningPulseGeneration += 1;
+        if (this.warningOverlayOpacity?.isValid) {
+            Tween.stopAllByTarget(this.warningOverlayOpacity);
+            this.warningOverlayOpacity.opacity = 0;
+        }
+        if (this.warningOverlay?.isValid) this.warningOverlay.active = false;
         if (this.countLabel?.isValid) {
             this.countLabel.color = PCH_CAPACITY_TEXT_COLOR;
             this.countLabel.outlineColor = PCH_CAPACITY_OUTLINE_COLOR;
         }
         this.capacityWarningActive = false;
+    }
+
+    private bindWarningOverlay(): void {
+        const effectRoot = this.runtime.requireCanvasUiRoot?.('FxRoot') || null;
+        if (!effectRoot?.isValid) throw new Error('[pch-core] warning effect root is unavailable');
+        const effectTransform = effectRoot.getComponent(UITransform);
+        if (!effectTransform) throw new Error('[pch-core] warning effect root is missing UITransform');
+        let overlay = effectRoot.getChildByName('PchRedCapacityWarning');
+        if (!overlay?.isValid) {
+            overlay = new Node('PchRedCapacityWarning');
+            effectRoot.addChild(overlay);
+        }
+        overlay.layer = Layers.Enum.UI_2D;
+        overlay.setSiblingIndex(effectRoot.children.length - 1);
+        const transform = overlay.getComponent(UITransform) || overlay.addComponent(UITransform);
+        transform.setAnchorPoint(0.5, 0.5);
+        transform.setContentSize(effectTransform.contentSize);
+        const widget = overlay.getComponent(Widget) || overlay.addComponent(Widget);
+        widget.isAlignLeft = true;
+        widget.isAlignRight = true;
+        widget.isAlignTop = true;
+        widget.isAlignBottom = true;
+        widget.left = 0;
+        widget.right = 0;
+        widget.top = 0;
+        widget.bottom = 0;
+        const sprite = overlay.getComponent(Sprite) || overlay.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        sprite.spriteFrame = this.runtime.requireWarningMaskSpriteFrame();
+        sprite.color = new Color(255, 0, 0, 255);
+        const opacity = overlay.getComponent(UIOpacity) || overlay.addComponent(UIOpacity);
+        opacity.opacity = 0;
+        overlay.active = false;
+        this.warningOverlay = overlay;
+        this.warningOverlayOpacity = opacity;
+    }
+
+    private startWarningOverlayPulse(): void {
+        const overlay = this.warningOverlay;
+        const opacity = this.warningOverlayOpacity;
+        if (!overlay?.isValid || !opacity?.isValid) {
+            throw new Error('[pch-core] warning overlay is unavailable');
+        }
+        const generation = ++this.warningPulseGeneration;
+        Tween.stopAllByTarget(opacity);
+        overlay.active = true;
+        opacity.opacity = 0;
+        const pulse = () => {
+            if (!this.capacityWarningActive || generation !== this.warningPulseGeneration || !opacity.isValid) return;
+            tween(opacity)
+                .to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: PCH_RED_WARNING_MAX_OPACITY })
+                .to(PCH_RED_WARNING_PULSE_SECONDS, { opacity: 0 })
+                .call(pulse)
+                .start();
+        };
+        pulse();
     }
 
     private runConveyorSkill(
@@ -1682,7 +1889,7 @@ export class PchConveyorGameplayController {
                     this.destroyFlyBean(bean);
                     this.runtime._flyingTargets?.delete?.(`${move.target.row},${move.target.col}`);
                     this.runtime.renderBoardCell?.(move.target.row, move.target.col);
-                    AudioMgr.inst.play('place');
+                    AudioMgr.inst.play('settle');
                     this.playSkillTargetPulse(move.target, () => {});
                     remaining -= 1;
                     if (remaining <= 0) finish();
@@ -1787,23 +1994,28 @@ export class PchConveyorGameplayController {
         direction.active = stack.length === 0;
         for (let layer = 0; layer < stack.length; layer += 1) {
             const colorId = stack[layer];
-            const bean = this.makeNode(
-                `PchStackBean-${carrierIndex}-${layer}`,
-                carrier,
-                PCH_STACK_BEAN_SIZE,
-                PCH_STACK_BEAN_SIZE,
-                0,
-                layer * PCH_STACK_LAYER_OFFSET,
-            );
-            bean.addComponent(Sprite);
+            const beanName = `PchStackBean-${carrierIndex}-${layer}`;
+            let bean = carrier.getChildByName(beanName);
+            if (!bean) {
+                bean = this.makeNode(
+                    beanName,
+                    carrier,
+                    PCH_STACK_BEAN_SIZE,
+                    PCH_STACK_BEAN_SIZE,
+                    0,
+                    layer * PCH_STACK_LAYER_OFFSET,
+                );
+                bean.addComponent(Sprite);
+            }
             this.configureStackBean(
                 bean,
-                `PchStackBean-${carrierIndex}-${layer}`,
+                beanName,
                 colorId,
                 layer,
                 stack.length,
                 `pch-carrier:${carrierIndex}:layer:${layer}:color:${colorId}`,
             );
+            bean.setSiblingIndex(layer + 1);
         }
         this.carrierDirectionNodes[carrierIndex] = direction;
     }
@@ -2155,7 +2367,15 @@ export class PchConveyorGameplayController {
         carrier.setScale(1, 1, 1);
         carrier.children
             .filter((node) => node.name !== 'Direction')
-            .forEach((node) => node.destroy());
+            .forEach((node) => {
+                if (/^PchStackBean-\d+-\d+$/.test(node.name)) {
+                    this.stopNodeTreeTweens(node);
+                    node.active = false;
+                    node.setScale(1, 1, 1);
+                    return;
+                }
+                node.destroy();
+            });
         const direction = carrier.getChildByName('Direction');
         if (!direction?.isValid || !direction.getComponent(Sprite)?.spriteFrame) {
             throw new Error(`[pch-core] ${carrier.name} lost its hierarchy-owned Direction`);
@@ -2186,12 +2406,28 @@ export class PchConveyorGameplayController {
     private showOpeningFeatureGuide(parent: Node): void {
         const logicalLevelId = Math.max(1, Math.floor(Number(this.runtime.getActiveLogicalLevelId?.()) || 1));
         if (this.runtime._activeGameplayEntryMode !== 'main') return;
+        const shouldShowGuide = logicalLevelId === 1
+            || (logicalLevelId === 2 && !!this.speedButton?.isValid)
+            || (logicalLevelId === 3 && !!this.adButton?.isValid);
+        if (!shouldShowGuide) return;
+        if (!this.runtime.getSF?.('guide_bubble_frame')) {
+            if (typeof this.runtime._ensureSpriteFramesByName !== 'function') {
+                throw new Error('[pch-core] opening guide bubble frame loader is unavailable');
+            }
+            this.inputLocked = true;
+            this.runtime._ensureSpriteFramesByName(['guide_bubble_frame'], (error?: Error) => {
+                if (error) throw error;
+                if (!parent.isValid || !this.rules || this.runtime.isGameEnd) return;
+                this.showOpeningFeatureGuide(parent);
+            });
+            return;
+        }
         if (logicalLevelId === 1) {
             this.showLevelOneBoardGuide(parent);
         } else if (logicalLevelId === 2 && this.speedButton?.isValid) {
             this.showOpeningTargetGuide(parent, this.speedButton, 'PchLevelTwoSpeedGuide', '点击开启两倍速', this.onOpeningGuideDoubleSpeed);
         } else if (logicalLevelId === 3 && this.adButton?.isValid) {
-            this.showOpeningTargetGuide(parent, this.adButton, 'PchLevelThreeCapacityGuide', '点击广告按钮增加 12 个空位', this.onOpeningGuideFreeCapacity);
+            this.showOpeningTargetGuide(parent, this.adButton, 'PchLevelThreeCapacityGuide', '点击广告按钮增加 12 个空位', this.onOpeningGuideFreeCapacity, -365);
         }
     }
 
@@ -2249,6 +2485,7 @@ export class PchConveyorGameplayController {
             `PchLevelOneGuideStep${this.openingGuideLevelOneStep + 1}`,
             copy,
             this.onOpeningGuideLevelOneTap,
+            true,
         );
     }
 
@@ -2258,6 +2495,7 @@ export class PchConveyorGameplayController {
         guideName: string,
         copy: string,
         onTargetTap: (event: any) => void,
+        promptYOverride?: number,
     ): void {
         const parentTransform = parent.getComponent(UITransform);
         const targetTransform = target.getComponent(UITransform);
@@ -2267,7 +2505,7 @@ export class PchConveyorGameplayController {
         const targetLocal = parentTransform.convertToNodeSpaceAR(targetTransform.convertToWorldSpaceAR(new Vec3()));
         const targetWidth = targetTransform.contentSize.width * Math.abs(target.worldScale.x || 1);
         const targetHeight = targetTransform.contentSize.height * Math.abs(target.worldScale.y || 1);
-        this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap);
+        this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap, true, promptYOverride);
     }
 
     private showOpeningTargetGuideAt(
@@ -2278,6 +2516,8 @@ export class PchConveyorGameplayController {
         guideName: string,
         copy: string,
         onTargetTap: (event: any) => void,
+        useGuideBubbleFrame = false,
+        promptYOverride?: number,
     ): void {
         this.inputLocked = true;
         this.openingGuide = this.makeNode(guideName, parent, 720, 1280, 0, 0);
@@ -2294,14 +2534,30 @@ export class PchConveyorGameplayController {
         button.zoomScale = 0.92;
         this.openingGuideTarget.on(Node.EventType.TOUCH_END, onTargetTap, this);
 
-        const promptY = Math.max(-520, targetLocal.y - targetHeight / 2 - 72);
-        const promptX = Math.max(-100, Math.min(100, targetLocal.x));
-        const prompt = this.makeNode('OpeningGuidePrompt', this.openingGuide, 500, 64, promptX, promptY);
-        const promptGraphics = prompt.addComponent(Graphics);
-        promptGraphics.fillColor = new Color(53, 43, 117, 245);
-        promptGraphics.roundRect(-250, -32, 500, 64, 20);
-        promptGraphics.fill();
-        this.makeLabel(prompt, copy, 25, Color.WHITE, 0, 0, 470);
+        const promptWidth = useGuideBubbleFrame ? 560 : 500;
+        const promptHeight = useGuideBubbleFrame ? 128 : 64;
+        const promptY = promptYOverride ?? Math.max(-520, targetLocal.y - targetHeight / 2 - promptHeight / 2 - 40);
+        const promptXLimit = useGuideBubbleFrame ? 80 : 100;
+        const promptX = Math.max(-promptXLimit, Math.min(promptXLimit, targetLocal.x));
+        const prompt = this.makeNode('OpeningGuidePrompt', this.openingGuide, promptWidth, promptHeight, promptX, promptY);
+        if (useGuideBubbleFrame) {
+            const guideBubbleFrame = this.runtime.getSF?.('guide_bubble_frame') || null;
+            if (!guideBubbleFrame) {
+                throw new Error('[pch-core] missing opening guide bubble frame');
+            }
+            if (typeof this.runtime._applySpriteFrame !== 'function') {
+                throw new Error('[pch-core] guide bubble sprite applicator is unavailable');
+            }
+            this.runtime._applySpriteFrame(prompt, guideBubbleFrame, promptWidth, promptHeight, Sprite.Type.SLICED);
+            const promptLabel = this.makeLabel(prompt, copy, 28, new Color('#7162A2'), 0, 22, promptWidth - 48);
+            (promptLabel as Label & { isBold?: boolean }).isBold = true;
+        } else {
+            const promptGraphics = prompt.addComponent(Graphics);
+            promptGraphics.fillColor = new Color(53, 43, 117, 245);
+            promptGraphics.roundRect(-250, -32, 500, 64, 20);
+            promptGraphics.fill();
+            this.makeLabel(prompt, copy, 25, Color.WHITE, 0, 0, 470);
+        }
 
         const overlayRoot = this.runtime.requireCanvasUiRoot?.('OverlayRoot') || null;
         const sourceHand = overlayRoot?.getChildByName('TutorialGuideHands')?.getChildByName('GuideHandSingle') || null;
@@ -2368,6 +2624,7 @@ export class PchConveyorGameplayController {
         this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
         this.runtime.markDynamicCountdownAssisted?.();
         this.dismissOpeningGuide();
+        this.runtime.showToast('传送带已扩容 +12');
     }
 
     private dismissOpeningGuide(): void {
@@ -2523,6 +2780,7 @@ export class PchConveyorGameplayController {
                 timerToken = '';
             },
             grantFailToast: '传送带扩容失败，请重试',
+            successToast: '传送带已扩容 +12',
         });
     }
 
@@ -2532,6 +2790,7 @@ export class PchConveyorGameplayController {
         const phase = this.wrap01(this.beltTravel / previousCarrierCount);
         const added = this.rules.addBufferSlots(PCH_EXPAND_CAPACITY);
         this.beltTravel = phase * this.rules.carrierCount;
+        this.lastEntranceAudioVisitByCarrier.clear();
         this.renderConveyor();
         this.renderEntranceQueue();
         this.refreshStatus();

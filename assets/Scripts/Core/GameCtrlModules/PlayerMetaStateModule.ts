@@ -4,18 +4,18 @@ import {
     Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
-    PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
-    mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, DAILY_SIGNIN_RELEASE_TEXTURE_NAMES, DAILY_SIGNIN_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
+    PerformanceMgr, AnalyticsMgr, LeaderboardMgr, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
+    mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
-    MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY, MAINLINE_SLOT_LOCK_DASH_ALPHA,
-    MAINLINE_SLOT_LOCK_ROW_WIDTH, MAINLINE_SLOT_LOCK_ROW_HEIGHT, MAINLINE_SLOT_PANEL_TEXTURE, MAINLINE_SLOT_GROOVE_TEXTURE, MAINLINE_SLOT_TEXTURE_NAMES, SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
+    MAINLINE_SLOT_ROW_SPACING, MAINLINE_SLOT_PANEL_EXTRA_HEIGHT, MAINLINE_SLOT_CENTER_SPACING, MAINLINE_SLOT_MARKER_WIDTH, MAINLINE_SLOT_MARKER_HEIGHT, MAINLINE_SLOT_MARKER_UNLOCKED_OPACITY, MAINLINE_SLOT_MARKER_LOCKED_OPACITY,
+    SKILL_BUTTON_Y, SKILL_BUTTON_SPACING, LOCAL_BOOTSTRAP_LEVEL_ID,
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
-    LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_DAILY_SIGNIN_COUNT, LS_DAILY_SIGNIN_LAST_DATE_KEY, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
+    LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
     LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
@@ -26,7 +26,7 @@ import {
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
-    InventoryPropKind, DailySignInReward, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
+    InventoryPropKind, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
@@ -55,7 +55,6 @@ type RewardResultPopupOptions = {
     onConfirm?: () => void;
 };
 
-type DailySignInPropRewardKey = 'wand' | 'freeze' | 'brush' | 'magnet';
 type RecoverVigorShareState = {
     dateKey: string;
     count: number;
@@ -117,11 +116,6 @@ function syncExistingPopupLabel(parent: Node, childName: string, text: string, e
     label.string = text;
     label.enableWrapText = false;
     return label;
-}
-
-function getDailySignInPropRewardCount(reward: DailySignInReward, key: DailySignInPropRewardKey): number {
-    if (!(key in reward)) return 0;
-    return Math.max(0, Math.floor(Number((reward as any)[key]) || 0));
 }
 
 export function installPlayerMetaStateModule(target: any): void {
@@ -264,132 +258,6 @@ export function installPlayerMetaStateModule(target: any): void {
             visit(this.node?.scene || null);
         },
 
-        getDailySignInClaimedCount(): number {
-            const raw = sys.localStorage.getItem(LS_DAILY_SIGNIN_COUNT);
-            const value = raw ? parseInt(raw, 10) : 0;
-            return Number.isFinite(value) && value > 0 ? value : 0;
-        },
-
-        setDailySignInClaimedCount(value: number): void {
-            sys.localStorage.setItem(LS_DAILY_SIGNIN_COUNT, String(Math.max(0, Math.floor(Number(value) || 0))));
-            this.queueCloudGameStateSync();
-        },
-
-        getDailySignInLastClaimDateKey(): number {
-            const raw = sys.localStorage.getItem(LS_DAILY_SIGNIN_LAST_DATE_KEY);
-            const value = raw ? parseInt(raw, 10) : 0;
-            return Number.isFinite(value) && value > 0 ? value : 0;
-        },
-
-        setDailySignInLastClaimDateKey(value: number): void {
-            sys.localStorage.setItem(LS_DAILY_SIGNIN_LAST_DATE_KEY, String(Math.max(0, Math.floor(Number(value) || 0))));
-            this.queueCloudGameStateSync();
-        },
-
-        getTodayDateKey(): number {
-            const now = new Date();
-            return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
-        },
-
-        dateFromKey(key: number): Date | null {
-            if (!key) return null;
-            const year = Math.floor(key / 10000);
-            const month = Math.floor((key % 10000) / 100);
-            const day = key % 100;
-            if (year <= 0 || month <= 0 || day <= 0) return null;
-            return new Date(year, month - 1, day, 12, 0, 0, 0);
-        },
-
-        isYesterdayDateKey(prevKey: number, todayKey: number): boolean {
-            const prev = this.dateFromKey(prevKey);
-            const today = this.dateFromKey(todayKey);
-            if (!prev || !today) return false;
-            const diff = today.getTime() - prev.getTime();
-            return diff > 0 && Math.round(diff / 86400000) === 1;
-        },
-
-        getDailySignInStatus(): {
-            cycleLength: number;
-            canClaim: boolean;
-            alreadyClaimedToday: boolean;
-            nextClaimIndex: number;
-            displayClaimedCount: number;
-        } {
-            const rewards = ECONOMY_NUMERIC_TABLE.dailySignIn.rewards;
-            const cycleLength = rewards.length;
-            const todayKey = this.getTodayDateKey();
-            const lastClaimDateKey = this.getDailySignInLastClaimDateKey();
-            const storedCount = Math.max(0, Math.min(this.getDailySignInClaimedCount(), cycleLength));
-            if (lastClaimDateKey === todayKey) {
-                return {
-                    cycleLength,
-                    canClaim: false,
-                    alreadyClaimedToday: true,
-                    nextClaimIndex: Math.max(0, Math.min(storedCount - 1, cycleLength - 1)),
-                    displayClaimedCount: storedCount,
-                };
-            }
-        
-            const continueStreak = this.isYesterdayDateKey(lastClaimDateKey, todayKey);
-            const baseCount = continueStreak ? (storedCount >= cycleLength ? 0 : storedCount) : 0;
-            return {
-                cycleLength,
-                canClaim: true,
-                alreadyClaimedToday: false,
-                nextClaimIndex: baseCount,
-                displayClaimedCount: baseCount,
-            };
-        },
-
-        buildDailySignInRewardText(reward: DailySignInReward): string[] {
-            const lines: string[] = [];
-            const wandReward = getDailySignInPropRewardCount(reward, 'wand');
-            const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
-            const brushReward = getDailySignInPropRewardCount(reward, 'brush');
-            const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
-            if (reward.gold && reward.gold > 0) lines.push(`+${reward.gold}金币`);
-            if (freezeReward > 0) lines.push(`\u51bb\u7ed3x${freezeReward}`);
-            if (wandReward > 0) lines.push(`魔法棒x${wandReward}`);
-            if (brushReward > 0) lines.push(`刷子x${brushReward}`);
-            if (magnetReward > 0) lines.push(`磁铁x${magnetReward}`);
-            return lines;
-        },
-
-        grantDailySignInReward(reward: DailySignInReward): string {
-            this.setLocalUserStateUpdatedAt(Date.now());
-            const wandReward = getDailySignInPropRewardCount(reward, 'wand');
-            const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
-            const brushReward = getDailySignInPropRewardCount(reward, 'brush');
-            const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
-            const goldReward = Math.max(0, Math.floor(Number(reward.gold) || 0));
-            if (goldReward > 0) {
-                const expectedGold = this.getGold() + goldReward;
-                this.setGold(expectedGold);
-                if (this.getGold() !== expectedGold) {
-                    throw new Error('[daily-signin] gold write verification failed');
-                }
-            }
-            if (freezeReward > 0) this.addPropCount('freeze', freezeReward);
-            if (wandReward > 0) this.addPropCount('wand', wandReward);
-            if (brushReward > 0) this.addPropCount('brush', brushReward);
-            if (magnetReward > 0) this.addPropCount('magnet', magnetReward);
-            return this.buildDailySignInRewardText(reward).join('、');
-        },
-
-        buildDailySignInRewardResultItems(reward: DailySignInReward): RewardResultPopupItem[] {
-            const items: RewardResultPopupItem[] = [];
-            const wandReward = getDailySignInPropRewardCount(reward, 'wand');
-            const freezeReward = getDailySignInPropRewardCount(reward, 'freeze');
-            const brushReward = getDailySignInPropRewardCount(reward, 'brush');
-            const magnetReward = getDailySignInPropRewardCount(reward, 'magnet');
-            if (reward.gold && reward.gold > 0) items.push({ iconName: '金币', amountText: `+${reward.gold}`, labelText: '金币' });
-            if (freezeReward > 0) items.push({ iconName: 'popup_tool_freeze_icon', amountText: `x${freezeReward}`, labelText: '\u51bb\u7ed3' });
-            if (wandReward > 0) items.push({ iconName: 'popup_tool_wand_icon', amountText: `x${wandReward}`, labelText: '魔法棒' });
-            if (brushReward > 0) items.push({ iconName: 'popup_tool_brush_icon', amountText: `x${brushReward}`, labelText: '刷子' });
-            if (magnetReward > 0) items.push({ iconName: 'popup_tool_magnet_icon', amountText: `x${magnetReward}`, labelText: '磁铁' });
-            return items;
-        },
-
         showRewardResultPopup(options: RewardResultPopupOptions) {
             const popupRoot = this.requireCanvasUiRoot('PopupRoot');
             const overlayName = options.overlayName || 'RewardResultOverlay';
@@ -529,19 +397,6 @@ export function installPlayerMetaStateModule(target: any): void {
                         failOpen(error?.message || '[reward-result-prefab] build failed', overlay);
                     }
                 });
-            });
-        },
-
-        showDailySignInRewardReceipt(reward: DailySignInReward) {
-            const items = this.buildDailySignInRewardResultItems(reward);
-            const hasPropReward = items.some((item) => item.iconName !== '金币');
-            this.showRewardResultPopup({
-                overlayName: 'RewardResultOverlay',
-                title: '签到成功',
-                subtitle: '奖励已到账',
-                items,
-                tip: hasPropReward ? '道具会在关卡内技能按钮上显示库存' : '奖励将发放到当前账号',
-                confirmText: '我知道了',
             });
         },
 
@@ -1130,8 +985,8 @@ export function installPlayerMetaStateModule(target: any): void {
                                         if (grantedAmount <= 0) return false;
                                         this.recordRecoverVigorShareGrant();
                                     }, {
-                                        busyFlag: '_adShowing',
                                         shareType: 'vigor_recover_share',
+                                        busyFlag: '_shareShowing',
                                         title: () => `\u6211\u5728\u62fc\u8c46\u8c46\u8865\u5145\u4e86\u4f53\u529b\uff0c\u5feb\u6765\u4e00\u8d77\u6311\u6218\uff01`,
                                         query: () => `level=${this.getActiveLogicalLevelId?.() || this.levelData?.levelId || 0}`,
                                         shareFailToast: '\u5206\u4eab\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',

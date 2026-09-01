@@ -76,6 +76,16 @@ function loadControllerHarness(activeBlockers = []) {
             if (request === './DebugPerfTrace') {
                 return { collectActiveBlockInputEvents: () => activeBlockers };
             }
+            if (request === './HardLevelIntroController') {
+                return {
+                    ensureHardLevelIntroController() {
+                        return {
+                            stop() {},
+                            play(_hard, onComplete) { onComplete(); },
+                        };
+                    },
+                };
+            }
             if (request === './LevelExperimentService') {
                 return { getFrontLevelExperimentAnalyticsContext: () => null };
             }
@@ -85,6 +95,10 @@ function loadControllerHarness(activeBlockers = []) {
                         if (!Number.isInteger(value) || value <= 0 || value % 3 !== 0) {
                             throw new Error('invalid conveyor capacity');
                         }
+                        return value;
+                    },
+                    validateHard(value) {
+                        if (value !== 0 && value !== 1) throw new Error('invalid Hard flag');
                         return value;
                     },
                 };
@@ -255,6 +269,7 @@ function runFailureCase(levelId, failAt, expectedStage, expectedMessage) {
     const controller = new harness.GameplaySessionController(runtime);
     const data = {
         levelId,
+        Hard: 0,
         boardWidth: 2,
         boardHeight: 2,
         timeLimit: 60,

@@ -47,10 +47,21 @@ function findComponent(prefab, node, type) {
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const resultPanel = read('assets/Scripts/Core/GameplayResultPanelController.ts');
+const gameCtrlState = read('assets/Scripts/Core/GameCtrlState.ts');
+const gameplaySession = read('assets/Scripts/Core/GameplaySessionController.ts');
+const pchConveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const losePrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/LosePanel.prefab');
 const adIconMeta = readJson('assets/BootstrapBundle/GameUI/popup_ad_play_icon.png.meta');
 
 const gameLose = extractMethod(settlement, "gameLose(reason: 'timeout' | 'buffer-full' = 'timeout')");
+assert.ok(
+    gameCtrlState.includes("_activeLoseReason: null as 'timeout' | 'buffer-full' | null"),
+    'runtime state must initialize the active loss reason explicitly',
+);
+assert.ok(
+    gameplaySession.includes('runtime._activeLoseReason = null;'),
+    'each gameplay initialization must clear the previous loss reason',
+);
 const isCompletionCommitted = compileExtractedMethod(
     settlement,
     'isBoardCompletionCommittedForSettlement(): boolean',
@@ -145,6 +156,7 @@ const timeoutLoseRuntime = createLoseRouteRuntime();
 timeoutLoseRuntime.panelBufferFullContinue.active = true;
 timeoutLoseRuntime.panelLose.active = true;
 runGameLose.call(timeoutLoseRuntime, 'timeout');
+assert.equal(timeoutLoseRuntime._activeLoseReason, 'timeout', 'timeout must preserve its reason for the final failure page');
 assert.equal(timeoutLoseRuntime.panelTimeoutContinue.active, true, 'timeout must display its revive panel');
 assert.equal(timeoutLoseRuntime.panelTimeoutContinue.siblingIndex, 999, 'timeout revive panel must be brought to front');
 assert.equal(timeoutLoseRuntime.panelBufferFullContinue.active, false, 'timeout must hide the buffer-full revive panel');
@@ -160,6 +172,7 @@ const bufferFullLoseRuntime = createLoseRouteRuntime();
 bufferFullLoseRuntime.panelTimeoutContinue.active = true;
 bufferFullLoseRuntime.panelLose.active = true;
 runGameLose.call(bufferFullLoseRuntime, 'buffer-full');
+assert.equal(bufferFullLoseRuntime._activeLoseReason, 'buffer-full', 'buffer-full must preserve its reason for the final failure page');
 assert.equal(bufferFullLoseRuntime.panelBufferFullContinue.active, true, 'buffer-full must display its expansion revive panel');
 assert.equal(bufferFullLoseRuntime.panelBufferFullContinue.siblingIndex, 999, 'buffer-full revive panel must be brought to front');
 assert.equal(bufferFullLoseRuntime.panelTimeoutContinue.active, false, 'buffer-full must hide the timeout revive panel');
@@ -209,6 +222,7 @@ const continueRuntime = {
     _freezeTimeLeft: 0,
     _freezeTimeTotal: 0,
     _adTimerSuspended: false,
+    _activeLoseReason: 'timeout',
     isGameEnd: true,
     tickTimer() {},
     revokeDynamicCountdownFinalFailure() {},
@@ -222,6 +236,7 @@ const continueRuntime = {
 runContinueAfterLose.call(continueRuntime, 120, false);
 assert.equal(continueRuntime.timeRemain, 120, 'PCH rewarded revive must add the configured time');
 assert.equal(continueRuntime.isGameEnd, false, 'PCH rewarded revive must return to Running');
+assert.equal(continueRuntime._activeLoseReason, null, 'successful revive must clear the completed loss reason');
 assert.equal(resumedReturnCount, 1, 'PCH rewarded revive must resume registered return animation once');
 assert.equal(scheduledTimerCount, 1, 'PCH rewarded revive must resume the already-started timer without another board tap');
 let nonPchScheduledTimerCount = 0;
@@ -237,10 +252,33 @@ runContinueAfterLose.call(nonPchContinueRuntime, 120, false);
 assert.equal(nonPchScheduledTimerCount, 0, 'non-PCH timeout revive must keep its existing wait-for-next-selection timer behavior');
 assert.equal(nonPchContinueRuntime._timerStarted, false, 'non-PCH timeout revive must not silently broaden the PCH timer policy');
 
+const runContinueAfterBufferFull = compileExtractedMethod(
+    pchConveyor,
+    'continueAfterBufferFull(): boolean',
+);
+let expandedBufferCount = 0;
+let bufferContinueArgs = null;
+const bufferContinueRuntime = {
+    rules: {},
+    inputLocked: true,
+    runtime: {
+        isGameEnd: true,
+        continueAfterLose(...args) { bufferContinueArgs = args; },
+    },
+    expandCapacity() {
+        expandedBufferCount += 1;
+        return true;
+    },
+};
+assert.equal(runContinueAfterBufferFull.call(bufferContinueRuntime), true, 'valid buffer-full recovery must succeed');
+assert.equal(expandedBufferCount, 1, 'buffer-full recovery must expand capacity exactly once');
+assert.equal(bufferContinueRuntime.inputLocked, false, 'buffer-full recovery must unlock conveyor input');
+assert.deepStrictEqual(bufferContinueArgs, [0, true], 'buffer-full recovery must resume the same game immediately without time-only reward');
+
 const createLosePanel = extractMethod(resultPanel, 'createLoseSettlementPanel(): Node');
 assert.ok(
-    createLosePanel.includes('this.bindReviveContinueAction(reviveBtn, overlay);'),
-    'failure Continue Game must use the shared direct rewarded-revive action',
+    createLosePanel.includes('this.bindLoseReviveContinueAction(reviveBtn, overlay);'),
+    'failure Continue Game must choose its reward from the active loss reason at click time',
 );
 const createRevivePanel = extractMethod(resultPanel, 'createReviveSettlementPanel(): Node');
 assert.ok(
@@ -253,15 +291,31 @@ assert.match(
     'closing the timeout revive panel must enter the final failure panel',
 );
 const bindRevive = extractMethod(resultPanel, 'bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number)');
+const runLevelRevive = extractMethod(resultPanel, 'runLevelReviveAction(overlay: Node, continueSeconds: number)');
 assert.match(
-    bindRevive,
+    runLevelRevive,
     /runtime\.runRewardedGrant\('level_revive',[\s\S]*?runtime\.continueAfterLose\(continueSeconds\);/,
     'completed rewarded video must directly continue gameplay',
+);
+assert.ok(
+    bindRevive.includes('this.runLevelReviveAction(overlay, continueSeconds)'),
+    'timeout revive binding must delegate to the guarded level-revive action',
+);
+const bindLoseRevive = extractMethod(resultPanel, 'bindLoseReviveContinueAction(triggerNode: Node, overlay: Node)');
+assert.match(
+    bindLoseRevive,
+    /runtime\._activeLoseReason === 'buffer-full'[\s\S]*?this\.runBufferFullReviveAction\(overlay\);[\s\S]*?this\.runLevelReviveAction\(overlay, continueSeconds\);/,
+    'the final failure page must reuse buffer expansion only for a buffer-full loss',
 );
 const runBindRevive = compileExtractedMethod(
     resultPanel,
     'bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number)',
     ['triggerNode', 'overlay', 'rewardedSeconds', 'AudioMgr'],
+);
+const runLevelReviveAction = compileExtractedMethod(
+    resultPanel,
+    'runLevelReviveAction(overlay: Node, continueSeconds: number)',
+    ['overlay', 'continueSeconds', 'AudioMgr'],
 );
 const timeoutOverlay = { active: true };
 const timeoutTrigger = {};
@@ -284,6 +338,9 @@ const timeoutResultController = {
     bindPanelButton(triggerNode, action) {
         assert.strictEqual(triggerNode, timeoutTrigger);
         timeoutReviveAction = action;
+    },
+    runLevelReviveAction(overlay, seconds) {
+        return runLevelReviveAction.call(this, overlay, seconds, { inst: { play() {} } });
     },
 };
 runBindRevive.call(

@@ -49,6 +49,7 @@ function findLabel(records, text) {
 
 const controllerSource = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const bufferFactory = extractMethod(controllerSource, 'createBufferFullSettlementPanel(): Node');
+const bufferReviveAction = extractMethod(controllerSource, 'runBufferFullReviveAction(overlay: Node): void');
 assert.ok(
     controllerSource.includes("bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanel'"),
     'result-panel loader must declare the dedicated buffer-full prefab path',
@@ -78,12 +79,16 @@ for (const forbiddenRuntimeVisual of [
 }
 assert.ok(!controllerSource.includes('drawBufferFullConveyorIllustration'), 'buffer-full art must no longer be code-drawn');
 assert.ok(!controllerSource.includes('requireLabelWithText'), 'buffer-full copy must no longer be found and rewritten at runtime');
+assert.ok(
+    bufferFactory.includes('this.bindPanelButton(continueBtn, () => this.runBufferFullReviveAction(overlay));'),
+    'buffer-full factory must bind its existing dedicated ad continuation action',
+);
 assert.match(
-    bufferFactory,
+    bufferReviveAction,
     /runRewardedGrant\('pch_buffer_full_revive',[\s\S]*?continueAfterBufferFull\(\)/,
     'dedicated prefab migration must preserve the rewarded +12 continuation',
 );
-assert.ok(bufferFactory.includes("successToast: '已增加12个位置'"));
+assert.ok(bufferReviveAction.includes("successToast: '已增加12个位置'"));
 
 const timeoutPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab');
 const timeoutMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab.meta');
@@ -101,7 +106,7 @@ const title = findLabel(bufferPrefab, '继续吗？');
 assert.strictEqual(title.label._fontSize, 50);
 assert.strictEqual(title.label._lineHeight, 52);
 
-const message = findLabel(bufferPrefab, '暂存槽已满！\n腾出12个位置继续游戏吧！');
+const message = findLabel(bufferPrefab, '传送带已满！\n增加12个位置继续游戏吧！');
 assert.strictEqual(message.node._active, true, 'buffer-full explanation must be visible from the prefab');
 assert.strictEqual(message.label._fontSize, 26);
 assert.strictEqual(message.label._lineHeight, 32);
@@ -113,16 +118,16 @@ assert.strictEqual(message.ui?._contentSize?.height, 72);
 const timeoutSeconds = findLabel(bufferPrefab, '120秒');
 assert.strictEqual(timeoutSeconds.node._active, false, 'timeout-only 120-second copy must be hidden in the buffer prefab');
 
-const reviveLabel = findLabel(bufferPrefab, '复活');
+const reviveLabel = findLabel(bufferPrefab, '复活送扩展');
 assert.strictEqual(reviveLabel.parent?._name, 'ContinueBtn');
 assert.strictEqual(reviveLabel.label._fontSize, 50);
-assert.strictEqual(reviveLabel.label._lineHeight, 56);
+assert.strictEqual(reviveLabel.label._lineHeight, 80);
 
 const infoArt = findNode(bufferPrefab, 'InfoArt');
 const infoComponents = componentsOf(bufferPrefab, infoArt.node);
 const infoUi = infoComponents.find((component) => component.__type__ === 'cc.UITransform');
 const infoSprite = infoComponents.find((component) => component.__type__ === 'cc.Sprite');
-assert.strictEqual(infoArt.node._lpos?.y, 52);
+assert.strictEqual(infoArt.node._lpos?.y, 29.153);
 assert.strictEqual(infoUi?._contentSize?.width, 460);
 assert.strictEqual(infoUi?._contentSize?.height, 210);
 assert.strictEqual(infoSprite?._enabled, true);
@@ -135,7 +140,7 @@ assert.strictEqual(
 
 assert.strictEqual(findLabel(timeoutPrefab, '快完成啦').node._active, true);
 assert.strictEqual(findLabel(timeoutPrefab, '120秒').node._active, true);
-assert.strictEqual(findLabel(timeoutPrefab, '+120秒').parent?._name, 'ContinueBtn');
+assert.strictEqual(findNode(timeoutPrefab, 'ContinueBtn').node._active, true);
 assert.ok(
     !JSON.stringify(timeoutPrefab).includes('popup_buffer_full_conveyor'),
     'timeout prefab must remain independent from the buffer-full art',

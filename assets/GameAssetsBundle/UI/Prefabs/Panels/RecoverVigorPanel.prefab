@@ -1482,7 +1482,7 @@
       "b": 116,
       "a": 255
     },
-    "_string": "4",
+    "_string": "+4",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 36,
@@ -2523,7 +2523,7 @@
       "b": 116,
       "a": 255
     },
-    "_string": "2",
+    "_string": "+2",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 36,
@@ -3618,7 +3618,7 @@
       "__uuid__": "dcaa6230-e913-4b04-88bf-b66910298aa8@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
-    "_type": 0,
+    "_type": 1,
     "_fillType": 0,
     "_sizeMode": 0,
     "_fillCenter": {
