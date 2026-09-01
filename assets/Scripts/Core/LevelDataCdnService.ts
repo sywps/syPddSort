@@ -95,7 +95,6 @@ const FOREGROUND_CDN_REQUEST_ATTEMPTS = 2;
 const FOREGROUND_CDN_RETRY_DELAY_MS = 300;
 const LEVEL_PACK_STORAGE_KEY = 'pdd.cdn.levelPackCache.v1';
 const DEFAULT_LEVEL_PREFIX = 'level_';
-const THEME_LEVEL_PREFIX = 'zt_level_';
 const DEFAULT_WECHAT_LEVEL_DATA_CDN_URL = 'https://game-pdd-v2.oss-cn-beijing.aliyuncs.com/syGame/pdd_v2/remote_wechat/levels/';
 
 function runtimeLevelDataBaseUrl(): string {
@@ -145,7 +144,6 @@ function removePersistedLevelPack(cacheKey: string): void {
 
 function normalizeLevelPrefix(prefix: string): string {
     if (!prefix || prefix === DEFAULT_LEVEL_PREFIX) return DEFAULT_LEVEL_PREFIX;
-    if (prefix === THEME_LEVEL_PREFIX) return THEME_LEVEL_PREFIX;
     return '';
 }
 

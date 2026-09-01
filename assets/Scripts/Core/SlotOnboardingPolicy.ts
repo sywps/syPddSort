@@ -1,4 +1,4 @@
-export type SlotOnboardingEntryMode = 'main' | 'theme' | 'external' | string;
+export type SlotOnboardingEntryMode = 'main' | 'external' | string;
 export type SlotUnlockMode = 'free' | 'ad';
 
 export type SlotPolicyConfig = {

@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -152,36 +152,6 @@ export function installHomeCommerceModule(target: any): void {
         
             // 结算横幅风格动效
             ensureHomeStartButtonFx(btn);
-        },
-
-        /** 主题挑战按钮（黄色胶囊，开始游戏按钮下方） */
-        drawThemeChallengeButton(parent: Node) {
-            const mainLevel = this.getSavedLevel();
-            const isOpen = this.canOpenThemePanel(mainLevel);
-            const unlockQuota = this.getThemeUnlockQuota(mainLevel);
-            const btn = this.requireUiChild(parent, 'ThemeBtn', 'PrimaryActionLayer/ThemeBtn');
-            this.requireSceneSpriteFrame(btn, 'PrimaryActionLayer/ThemeBtn');
-            const titleNode = this.requireUiChild(btn, 'ThemeTitle', 'ThemeBtn/ThemeTitle');
-            const titleLabel = titleNode.getComponent(Label);
-            if (!titleLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeTitle');
-            const subText = isOpen
-                ? `当前进度可解锁前 ${unlockQuota} 关`
-                : `主线第${this.getThemePanelOpenRequirementLevel()}关解锁第1关`;
-            const subNode = this.requireUiChild(btn, 'ThemeSub', 'ThemeBtn/ThemeSub');
-            const subLabel = subNode.getComponent(Label);
-            if (!subLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeSub');
-            subLabel.string = subText;
-            subLabel.color = isOpen ? new Color('#EAF7E6') : new Color('#F6EEE5');
-
-            btn.targetOff(this);
-            btn.getComponent(Button) || btn.addComponent(Button);
-            btn.on(Button.EventType.CLICK, () => {
-                AudioMgr.inst.play('button');
-                this.openThemePanel();
-            }, this);
-        
-            // 呼吸动画
-            this.startHomeSceneScalePulse(btn, 1.02, 1.1);
         },
 
         // ==================== 图鉴入口 ====================

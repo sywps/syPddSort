@@ -17,7 +17,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, TUTORIAL_ZOOM_SCALE_DELTA, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -242,6 +242,23 @@ export function installBoardInputViewportModule(target: any): void {
                     bottom: center - 40,
                     top: center + 40,
                 };
+            }
+            return { left, right, bottom, top };
+        },
+
+        getBoardInitialFitRect(): { left: number; right: number; bottom: number; top: number } {
+            const area = this.getGameplayFixedGroup?.('BoardInitialFitArea') || null;
+            const sceneRect = this.getGameplayNodeBoundsInFixedRoot(area);
+            if (!sceneRect || sceneRect.right <= sceneRect.left || sceneRect.top <= sceneRect.bottom) {
+                throw new Error('[GameplayScene] Game.scene is missing a valid GameplayFixedRoot/BoardInitialFitArea');
+            }
+            const safeRect = this.getBoardSafeViewportRect();
+            const left = Math.max(sceneRect.left, safeRect.left);
+            const right = Math.min(sceneRect.right, safeRect.right);
+            const bottom = Math.max(sceneRect.bottom, safeRect.bottom);
+            const top = Math.min(sceneRect.top, safeRect.top);
+            if (right <= left || top <= bottom) {
+                throw new Error('[GameplayScene] BoardInitialFitArea does not intersect the board safe viewport');
             }
             return { left, right, bottom, top };
         },

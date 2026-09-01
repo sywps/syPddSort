@@ -105,6 +105,53 @@ function createFixture() {
 }
 
 const Controller = loadController();
+
+const textSummaryCaption = {
+    getComponent(type) {
+        return type === Label ? new Label() : null;
+    },
+};
+const textSummary = {
+    getComponent(type) {
+        return type === Label ? new Label() : null;
+    },
+    getChildByName(name) {
+        return name === 'Label-001' ? textSummaryCaption : null;
+    },
+};
+const textProgressBox = {
+    getChildByName(name) {
+        return name === 'Label' ? textSummary : null;
+    },
+};
+const textProgressPanel = {
+    getChildByName(name) {
+        return name === 'Box' ? textProgressBox : null;
+    },
+};
+const textProgressController = new Controller({
+    requirePanelChild(parent, name) {
+        const child = parent.getChildByName(name);
+        assert.ok(child, `text-progress fixture is missing ${name}`);
+        return child;
+    },
+});
+assert.doesNotThrow(
+    () => textProgressController.syncResultProgressWidget(textProgressPanel),
+    'the current two-label completion summary must be a valid revive-panel progress layout',
+);
+
+const missingProgressPanel = {
+    getChildByName(name) {
+        return name === 'Box' ? { getChildByName() { return null; } } : null;
+    },
+};
+assert.throws(
+    () => textProgressController.syncResultProgressWidget(missingProgressPanel),
+    /text completion summary/,
+    'a revive panel with neither supported progress layout must still fail explicitly',
+);
+
 const fixture = createFixture();
 const controller = new Controller(fixture.runtime);
 let firstCalls = 0;
@@ -147,10 +194,16 @@ assert.strictEqual(failurePanelShows, 0, 'a ContinueBtn touch must not dispatch 
 
 let bufferCapacity = 60;
 let continueAfterBufferFullCalls = 0;
+let grantReviveCapacityCalls = 0;
 const pchController = {
     getBufferCapacity: () => bufferCapacity,
     continueAfterBufferFull() {
         continueAfterBufferFullCalls += 1;
+        bufferCapacity += 12;
+        return true;
+    },
+    grantReviveCapacity() {
+        grantReviveCapacityCalls += 1;
         bufferCapacity += 12;
         return true;
     },
@@ -189,9 +242,11 @@ const pendingGrants = [];
 let losePanelCalls = 0;
 let bufferPrefabKind = null;
 let bufferOverlayName = null;
+const reviveCancelReasons = [];
 const bufferRuntime = {
     constructor: { REWARDED_CONTINUE_SECONDS: 120 },
     _adShowing: false,
+    _shareShowing: false,
     _activeLoseReason: 'buffer-full',
     requirePanelChild(parent, name) {
         const child = parent.getChildByName(name);
@@ -208,6 +263,15 @@ const bufferRuntime = {
     showLosePanel() {
         losePanelCalls += 1;
     },
+    cancelRewardedGrantInteraction(reason) {
+        reviveCancelReasons.push(`ad:${reason}`);
+        this._adShowing = false;
+        return true;
+    },
+    cancelPendingShareReturn(reason) {
+        reviveCancelReasons.push(`share:${reason}`);
+        return true;
+    },
 };
 const continuedFromLoseSeconds = [];
 bufferRuntime.continueAfterLose = (seconds) => {
@@ -220,6 +284,8 @@ bufferController.instantiateGameplayOverlay = (kind, name) => {
     return bufferOverlay;
 };
 bufferController.syncResultProgressWidget = () => {};
+bufferController.bindReviveShareButton = () => {};
+bufferController.syncReviveSharePanel = () => {};
 bufferController.bindPanelButton = (node, handler) => {
     bufferHandlers.set(node, handler);
 };
@@ -256,9 +322,17 @@ assert.strictEqual(bufferOverlay.active, false, 'the revive panel closes only af
 assert.strictEqual(losePanelCalls, 0, 'a successful revive must not enter the failure panel');
 
 bufferOverlay.active = true;
+bufferRuntime._adShowing = false;
+runBufferContinue();
+const lateBufferGrant = pendingGrants.at(-1);
+assert.strictEqual(rewardedAttempts.at(-1).page, 'pch_buffer_full_revive');
 runBufferClose();
 assert.strictEqual(bufferOverlay.active, false, 'the explicit close action must close the revive panel');
 assert.strictEqual(losePanelCalls, 1, 'only the explicit close action may enter the final failure panel');
+assert.deepStrictEqual(reviveCancelReasons, ['ad:revive-panel-close', 'share:revive-panel-close']);
+assert.strictEqual(lateBufferGrant(), false, 'a rewarded callback that arrives after close must not revive');
+assert.strictEqual(bufferCapacity, 72, 'a late rewarded callback after close must not expand capacity');
+assert.strictEqual(continueAfterBufferFullCalls, 1, 'a late rewarded callback after close must not resume the game');
 
 const finalLoseReviveButton = {};
 bufferController.bindLoseReviveContinueAction(finalLoseReviveButton, bufferOverlay);
@@ -281,15 +355,24 @@ assert.deepStrictEqual(continuedFromLoseSeconds, [], 'buffer-full final revive m
 assert.strictEqual(bufferOverlay.active, false, 'successful final-page buffer revive must close the failure page');
 
 const attemptsBeforeFinalTimeoutRevive = rewardedAttempts.length;
-bufferRuntime._activeLoseReason = 'timeout';
+bufferController.captureReviveFailure('timeout');
+bufferRuntime._activeLoseReason = 'buffer-full';
 bufferRuntime._adShowing = false;
 bufferOverlay.active = true;
 runFinalLoseRevive();
 assert.strictEqual(rewardedAttempts.length, attemptsBeforeFinalTimeoutRevive + 1);
-assert.strictEqual(rewardedAttempts.at(-1).page, 'level_revive', 'a timeout failure page must keep the ordinary level-revive placement');
+assert.strictEqual(rewardedAttempts.at(-1).page, 'level_revive', 'a frozen timeout failure page must not be rerouted by a changed global reason');
+assert.strictEqual(bufferCapacity, 84, 'an incomplete timeout ad must not grant capacity');
+assert.strictEqual(bufferOverlay.active, true, 'an incomplete timeout ad must keep the failure page available');
+bufferRuntime._adShowing = false;
+runFinalLoseRevive();
+assert.strictEqual(rewardedAttempts.length, attemptsBeforeFinalTimeoutRevive + 2, 'a timeout failure page must allow a second ad attempt after cancellation');
+assert.strictEqual(rewardedAttempts.at(-1).page, 'level_revive', 'a retry after cancellation must not route into buffer-full revive');
 assert.strictEqual(pendingGrants.at(-1)(), true);
 assert.deepStrictEqual(continuedFromLoseSeconds, [120], 'a timeout failure page must still add the configured revive time');
-assert.strictEqual(bufferCapacity, 84, 'ordinary timeout revive must not change conveyor capacity');
+assert.strictEqual(bufferCapacity, 96, 'a verified timeout revive must also add exactly 12 capacity');
+assert.strictEqual(grantReviveCapacityCalls, 1, 'a timeout revive must use the capacity-only grant, not the buffer-full recovery');
+assert.strictEqual(continueAfterBufferFullCalls, 2, 'a timeout revive must not enter the buffer-full recovery path');
 assert.strictEqual(bufferOverlay.active, false, 'successful timeout revive must close the failure page');
 
 console.log('result-panel-scaled-fallback.test.js passed');

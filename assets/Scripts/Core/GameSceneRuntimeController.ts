@@ -448,12 +448,6 @@ export class GameSceneRuntimeController {
             this.runtime._activePhysicalLevelId = levelId;
             this.runtime._activeLogicalLevelId = levelId;
             this.runtime._activeGameplayEntryMode = 'main';
-        } else if (pending.entryMode === 'theme') {
-            this.runtime._isThemeLevel = true;
-            this.runtime._currentThemeLevelId = levelId;
-            this.runtime._activePhysicalLevelId = levelId;
-            this.runtime._activeLogicalLevelId = levelId;
-            this.runtime._activeGameplayEntryMode = 'theme';
         }
         const screenRoot = this.runtime.requireCanvasUiRoot('ScreenRoot');
         const gameplayRoot = this.runtime.requireUiChild(screenRoot, 'GameplayRoot', 'ScreenRoot/GameplayRoot');
@@ -461,11 +455,11 @@ export class GameSceneRuntimeController {
         const topBar = this.runtime.requireUiChild(fixedRoot, 'TopBarGroup', 'GameplayFixedRoot/TopBarGroup');
         const normalNode = this.runtime.requireUiChild(topBar, 'LevelTitle', 'TopBarGroup/LevelTitle');
         const level1Node = this.runtime.requireUiChild(topBar, 'LevelTitleLevel1', 'TopBarGroup/LevelTitleLevel1');
-        const useLevel1Variant = pending.entryMode === 'main' && levelId === 1;
-        normalNode.active = !useLevel1Variant;
-        level1Node.active = useLevel1Variant;
-        const titleNode = useLevel1Variant ? level1Node : normalNode;
-        const titlePath = useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1' : 'TopBarGroup/LevelTitle';
+        const hideLevelOneTitle = pending.entryMode === 'main' && levelId === 1;
+        normalNode.active = !hideLevelOneTitle;
+        level1Node.active = false;
+        const titleNode = hideLevelOneTitle ? level1Node : normalNode;
+        const titlePath = hideLevelOneTitle ? 'TopBarGroup/LevelTitleLevel1' : 'TopBarGroup/LevelTitle';
         const labelNode = this.runtime.requireUiChild(titleNode, 'Label', `${titlePath}/Label`);
         const label = labelNode.getComponent(Label);
         if (!label) {

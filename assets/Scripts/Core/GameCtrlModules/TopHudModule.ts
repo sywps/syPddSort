@@ -37,7 +37,6 @@ const LEGACY_TOP_HUD_NAMES = new Set([
 const SETTINGS_TEXTURE_NAME = '\u8bbe\u7f6e';
 const GAMEPLAY_SETTINGS_CENTER_Y = 591.564;
 const HOME_GOLD_BANNER_TEXTURE_NAME = '\u91d1\u5e01\u6846 (2)';
-const POPUP_CURRENCY_CHIP_TEXTURE_NAME = 'popup_currency_chip';
 
 function setLayerDeep(node: Node, layer: number): void {
     node.layer = layer;
@@ -140,7 +139,6 @@ function getSettingFrame(parent: Node, runtime: any): SpriteFrame | null {
 function getGoldBannerFrame(parent: Node, runtime: any): SpriteFrame | null {
     return spriteFrameOf(parent.getChildByName('GoldGroup')?.getChildByName('GoldBanner'))
         || runtime.getSF?.(HOME_GOLD_BANNER_TEXTURE_NAME)
-        || runtime.getSF?.(POPUP_CURRENCY_CHIP_TEXTURE_NAME)
         || null;
 }
 
@@ -314,7 +312,7 @@ export function installTopHudModule(target: any): void {
                 } else {
                     this._settlementGoldCountLbl = goldLabel;
                     if (!goldBannerSprite.spriteFrame) {
-                        this.applySettlementSpriteFrame?.(goldBannerSprite, [HOME_GOLD_BANNER_TEXTURE_NAME, POPUP_CURRENCY_CHIP_TEXTURE_NAME], null);
+                        this.applySettlementSpriteFrame?.(goldBannerSprite, [HOME_GOLD_BANNER_TEXTURE_NAME], null);
                     }
                 }
             } else if (goldNode?.isValid) {

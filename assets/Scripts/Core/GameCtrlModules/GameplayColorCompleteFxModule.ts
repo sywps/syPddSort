@@ -677,6 +677,36 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             );
         },
 
+        playColorCompleteMatchFxOnCells(targets: Array<{ row: number; col: number }>, onDone?: () => void): void {
+            const beanNodes: Node[] = [];
+            const targetKeys = new Set<string>();
+            for (const target of targets || []) {
+                const row = Math.floor(Number(target?.row));
+                const col = Math.floor(Number(target?.col));
+                if (!Number.isFinite(row) || !Number.isFinite(col)) continue;
+                const key = `${row},${col}`;
+                if (targetKeys.has(key)) continue;
+                targetKeys.add(key);
+                const beanNode = this.cellNodes[row]?.[col];
+                if (beanNode?.isValid) beanNodes.push(beanNode);
+            }
+            if (beanNodes.length === 0) {
+                onDone?.();
+                return;
+            }
+            debugPerfTrace('pinddSpineFx.colorCompleteTargets', {
+                requestedCount: targetKeys.size,
+                activeLimit: PINDD_SPINE_FX_ACTIVE_LIMIT,
+                allowActiveLimitOverride: true,
+            });
+            this.playPinddSpineFxOnBeansSameFrame(
+                beanNodes,
+                PINDD_SPINE_FX_ANIMATION.colorComplete,
+                onDone,
+                { allowActiveLimitOverride: true },
+            );
+        },
+
         playPatternCompleteMatchFx(onDone?: () => void): void {
             const finish = () => {
                 if (typeof onDone === 'function') onDone();
@@ -806,6 +836,15 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
         playColorCompleteEffect(colorId: number, playSound: boolean = true, onDone?: () => void): void {
             if (playSound) AudioMgr.inst.play('winColor');
             this.playColorCompleteMatchFxForColor(colorId, onDone);
+        },
+
+        playColorCompleteEffectOnCells(
+            targets: Array<{ row: number; col: number }>,
+            playSound: boolean = true,
+            onDone?: () => void,
+        ): void {
+            if (playSound) AudioMgr.inst.play('winColor');
+            this.playColorCompleteMatchFxOnCells(targets, onDone);
         },
     });
 }

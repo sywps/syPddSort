@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const COLLECTION_CATALOG_VERSION = 1;
-const SUPPORTED_LEVEL_PREFIXES = new Set(['level_', 'zt_level_']);
+const SUPPORTED_LEVEL_PREFIXES = new Set(['level_']);
 
 function requirePositiveInteger(value, label) {
     const number = Number(value);

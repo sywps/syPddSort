@@ -141,7 +141,6 @@ async function runBClassDirectStartupCase() {
     const runtime = {
         getUrlLevel: () => 0,
         getUrlLevelFile: () => '',
-        getUrlTheme: () => false,
         getStartupLocalProgressState: () => 'rawLevelMissing',
         getDefaultEntryLevel: () => 1,
         getSavedLevel: () => 6,
@@ -215,7 +214,6 @@ async function runCClassProvisionalStartupCase() {
     const runtime = {
         getUrlLevel: () => 0,
         getUrlLevelFile: () => '',
-        getUrlTheme: () => false,
         getStartupLocalProgressState: () => 'rawLevelMissing',
         getDefaultEntryLevel: () => 1,
         getSavedLevel: () => 1,

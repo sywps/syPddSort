@@ -202,9 +202,9 @@ assert.deepStrictEqual(
     },
 );
 assert.deepStrictEqual(
-    JSON.parse(JSON.stringify(resolveForcedExp(10, 'zt_level_'))),
+    JSON.parse(JSON.stringify(resolveForcedExp(10, 'other_'))),
     { baseUrl: stableA, namespace: 'stable' },
-    'theme routing must remain outside the mainline experiment',
+    'non-mainline prefixes must remain outside the mainline experiment',
 );
 
 const forcedBaseHarness = loadExperimentHarness({ forced: 'base' });

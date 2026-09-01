@@ -435,11 +435,12 @@ export class GameplayViewController {
         const runtime = this.runtime;
         const normalNode = runtime.requireUiChild(parent, 'LevelTitle', 'TopBarGroup/LevelTitle');
         const level1Node = runtime.requireUiChild(parent, 'LevelTitleLevel1', 'TopBarGroup/LevelTitleLevel1');
-        const useLevel1Variant = runtime.getActiveLogicalLevelId?.() === 1;
-        normalNode.active = !useLevel1Variant;
-        level1Node.active = useLevel1Variant;
-        const node = useLevel1Variant ? level1Node : normalNode;
-        const titlePath = useLevel1Variant ? 'TopBarGroup/LevelTitleLevel1' : 'TopBarGroup/LevelTitle';
+        const hideLevelOneTitle = runtime._activeGameplayEntryMode === 'main'
+            && runtime.getActiveLogicalLevelId?.() === 1;
+        normalNode.active = !hideLevelOneTitle;
+        level1Node.active = false;
+        const node = hideLevelOneTitle ? level1Node : normalNode;
+        const titlePath = hideLevelOneTitle ? 'TopBarGroup/LevelTitleLevel1' : 'TopBarGroup/LevelTitle';
         const labelNode = runtime.requireUiChild(node, 'Label', `${titlePath}/Label`);
         const label = labelNode.getComponent(Label);
         if (!node.getComponent(UITransform) || !labelNode.getComponent(UITransform)) {
@@ -707,9 +708,9 @@ export class GameplayViewController {
 
     private fitBoardViewportToSafeRect(boardWidth: number, boardHeight: number, padding: number): void {
         const runtime = this.runtime;
-        const safeRect = runtime.getBoardSafeViewportRect();
-        const availableW = Math.max(1, safeRect.right - safeRect.left);
-        const availableH = Math.max(1, safeRect.top - safeRect.bottom);
+        const initialFitRect = runtime.getBoardInitialFitRect();
+        const availableW = Math.max(1, initialFitRect.right - initialFitRect.left);
+        const availableH = Math.max(1, initialFitRect.top - initialFitRect.bottom);
         const targetBounds = this.getTargetContentBounds(runtime.levelData.correctColorArr || [], boardWidth, boardHeight);
         const targetCols = Math.max(1, targetBounds.maxCol - targetBounds.minCol + 1);
         const targetRows = Math.max(1, targetBounds.maxRow - targetBounds.minRow + 1);
@@ -748,9 +749,8 @@ export class GameplayViewController {
         );
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - boardWidth / 2) * step;
         const targetCenterY = (boardHeight / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
-        const viewportCenterX = (safeRect.left + safeRect.right) / 2;
-        const starterBoardLift = levelId === 1 || levelId === 2 ? 64 : 0;
-        const viewportCenterY = (safeRect.bottom + safeRect.top) / 2 + starterBoardLift;
+        const viewportCenterX = (initialFitRect.left + initialFitRect.right) / 2;
+        const viewportCenterY = (initialFitRect.bottom + initialFitRect.top) / 2;
         runtime.boardViewport.setViewTransformClamped(
             initScale,
             new Vec2(

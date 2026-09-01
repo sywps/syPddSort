@@ -10,10 +10,10 @@ const source = fs.readFileSync(
 
 assert.ok(
     source.includes('if (logicalLevelId === 1)')
-        && source.includes("? '点击一组棋子，将它们放到传送带上'")
-        && source.includes(": '再点击另一组棋子，空出对应颜色的位置';")
+        && source.includes("? '点击白色豆豆'")
+        && source.includes(": '再点击蓝色豆豆';")
         && source.includes('this.openingGuideLevelOneCells.length >= 2'),
-    'mainline level 1 must use the original package Guide_table1 and Guide_table2 copy',
+    'mainline level 1 must retain the approved concise color-specific copy',
 );
 assert.ok(
     source.includes('this.handleBoardTap(cell.row, cell.col);')
@@ -27,7 +27,12 @@ assert.ok(
         && source.includes('maxX = Math.max(maxX, bounds.xMax);')
         && source.includes('targetWidth,')
         && source.includes('targetHeight,'),
-    'each level-1 guide frame must enclose every bean of the active red or blue color',
+    'each level-1 guide target must cover every bean of the active color',
+);
+assert.ok(
+    !source.includes('ring.strokeColor = new Color(255, 236, 82, 255)')
+        && !source.includes('ring.roundRect(-(targetWidth + 20) / 2'),
+    'opening guides for levels 1-3 must not draw a yellow target frame',
 );
 assert.ok(
     source.includes('if (this.inputLocked) {')
@@ -61,11 +66,14 @@ assert.ok(
 assert.ok(
     source.includes("logicalLevelId === 3 && this.adButton?.isValid")
         && source.includes("'PchLevelThreeCapacityGuide'")
-        && source.includes("'点击广告按钮增加 12 个空位'"),
+        && source.includes("'点击扩容按钮\\n增加12个位置'")
+        && source.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
+        && !source.includes('createOpeningGuideFocusMask(')
+        && !source.includes('PchOpeningGuideDimMask'),
     'mainline level 3 must guide the capacity ad button before gameplay starts',
 );
 assert.ok(
-    source.includes("const expanded = this.expandCapacity('guide_free');")
+    source.includes('const expanded = this.expandCapacity();')
         && source.includes('if (!expanded) return;')
         && !source.includes('onOpeningGuideWatchAd'),
     'the guided level-3 capacity grant must expand directly without requesting an ad',
@@ -80,8 +88,11 @@ assert.ok(
     'all opening guides must clone the original authored hand and accept touch-end input on the highlighted Button target',
 );
 assert.ok(
-    source.includes('if (!this.rules || this.runtime.isGameEnd || this.openingGuide?.isValid) return;'),
-    'the conveyor must remain paused until the required opening guide tap succeeds',
+    source.includes('if (!this.rules || this.runtime.isGameEnd) return;')
+        && !source.includes('if (!this.rules || this.runtime.isGameEnd || this.openingGuide?.isValid) return;')
+        && source.includes('if (this.inputLocked) {')
+        && source.includes('this.handleOpeningGuideRootTap(event);'),
+    'opening guides must keep their input gate while allowing the conveyor to continue updating',
 );
 assert.ok(
     source.includes("this.runtime.runRewardedGrant('pch_conveyor_expand'"),

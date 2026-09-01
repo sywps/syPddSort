@@ -46,22 +46,6 @@ function hasOwn(source, key) {
   return Object.prototype.hasOwnProperty.call(source || {}, key);
 }
 
-function normalizeThemeUnlockedIds(value) {
-  if (!Array.isArray(value)) return [];
-  const ids = value
-    .map((item) => Math.floor(Number(item) || 0))
-    .filter((item) => item > 0);
-  return Array.from(new Set(ids)).sort((a, b) => a - b);
-}
-
-function normalizeThemeCompletedIds(value) {
-  if (!Array.isArray(value)) return [];
-  const ids = value
-    .map((item) => Math.floor(Number(item) || 0))
-    .filter((item) => item > 0);
-  return Array.from(new Set(ids)).sort((a, b) => a - b);
-}
-
 function normalizeBackgroundSkinId(value) {
   const id = Math.floor(Number(value) || 0);
   if (id === 0) return 1000;
@@ -87,21 +71,6 @@ function normalizeBackgroundSkinAdProgress(value) {
   }
   return result;
 }
-function mergeSortedThemeIds(currentValue, sourceValue, normalizer) {
-  return Array.from(new Set([
-    ...normalizer(currentValue),
-    ...normalizer(sourceValue),
-  ])).sort((a, b) => a - b);
-}
-
-function mergeThemeUnlockedIds(currentValue, sourceValue) {
-  return mergeSortedThemeIds(currentValue, sourceValue, normalizeThemeUnlockedIds);
-}
-
-function mergeThemeCompletedIds(currentValue, sourceValue) {
-  return mergeSortedThemeIds(currentValue, sourceValue, normalizeThemeCompletedIds);
-}
-
 function mergeBackgroundSkinIds(currentValue, sourceValue) {
   return Array.from(new Set([
     ...normalizeBackgroundSkinIds(currentValue),
@@ -288,8 +257,6 @@ function extractGameState(doc, effectiveProgress = 0) {
   if (typeof doc?.freezeCount === 'number') state.freezeCount = normalizeNonNegativeInt(doc.freezeCount, 0);
   if (typeof doc?.brushCount === 'number') state.brushCount = normalizeNonNegativeInt(doc.brushCount, 0);
   if (typeof doc?.magnetCount === 'number') state.magnetCount = normalizeNonNegativeInt(doc.magnetCount, 0);
-  if (Array.isArray(doc?.themeUnlockedIds)) state.themeUnlockedIds = normalizeThemeUnlockedIds(doc.themeUnlockedIds);
-  if (Array.isArray(doc?.themeCompletedIds)) state.themeCompletedIds = normalizeThemeCompletedIds(doc.themeCompletedIds);
   const ownedBackgroundSkinIds = mergeBackgroundSkinIds(doc?.ownedBackgroundSkinIds, doc?.backgroundSkinOwnedIds);
   if (ownedBackgroundSkinIds.length > 0) state.ownedBackgroundSkinIds = ownedBackgroundSkinIds;
   if (doc?.backgroundSkinAdProgress && typeof doc.backgroundSkinAdProgress === 'object') state.backgroundSkinAdProgress = normalizeBackgroundSkinAdProgress(doc.backgroundSkinAdProgress);
@@ -374,8 +341,6 @@ function buildGameStatePatch(source = {}, current = {}) {
   const sourceBrushCount = normalizeNonNegativeInt(source.brushCount, currentBrushCount);
   const currentMagnetCount = normalizeNonNegativeInt(current.magnetCount, 0);
   const sourceMagnetCount = normalizeNonNegativeInt(source.magnetCount, currentMagnetCount);
-  const mergedThemeUnlockedIds = mergeThemeUnlockedIds(current.themeUnlockedIds, source.themeUnlockedIds);
-  const mergedThemeCompletedIds = mergeThemeCompletedIds(current.themeCompletedIds, source.themeCompletedIds);
   const currentBackgroundSkinIds = mergeBackgroundSkinIds(current.ownedBackgroundSkinIds, current.backgroundSkinOwnedIds);
   const sourceBackgroundSkinIds = mergeBackgroundSkinIds(source.ownedBackgroundSkinIds, source.backgroundSkinOwnedIds);
   const mergedBackgroundSkinIds = mergeBackgroundSkinIds(currentBackgroundSkinIds, sourceBackgroundSkinIds);
@@ -411,8 +376,6 @@ function buildGameStatePatch(source = {}, current = {}) {
     (
       sourceStateUpdatedAt < currentStateUpdatedAt ||
       (hasOwn(source, 'savedLevel') && sourceSavedLevel < currentSavedLevel) ||
-      mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
-      mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length ||
       mergedBackgroundSkinIds.length > sourceBackgroundSkinIds.length ||
       Object.keys(mergedBackgroundSkinAdProgress).some((id) => {
         const sourceProgress = normalizeBackgroundSkinAdProgress(source.backgroundSkinAdProgress);
@@ -433,8 +396,6 @@ function buildGameStatePatch(source = {}, current = {}) {
     freezeCount: shouldPreserveCurrentVolatileState ? currentFreezeCount : sourceFreezeCount,
     brushCount: shouldPreserveCurrentVolatileState ? currentBrushCount : sourceBrushCount,
     magnetCount: shouldPreserveCurrentVolatileState ? currentMagnetCount : sourceMagnetCount,
-    themeUnlockedIds: mergedThemeUnlockedIds,
-    themeCompletedIds: mergedThemeCompletedIds,
     ownedBackgroundSkinIds: mergedBackgroundSkinIds,
     backgroundSkinOwnedIds: [],
     backgroundSkinAdProgress: mergedBackgroundSkinAdProgress,

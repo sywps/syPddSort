@@ -7,8 +7,8 @@ import {
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, POPUP_UI_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
-    RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
-    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, THEME_PANEL_RELEASE_TEXTURE_NAMES, THEME_PANEL_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
@@ -17,7 +17,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LEVEL_DATA_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -69,12 +69,10 @@ const SHARED_UI_SPRITE_FRAME_NAMES = new Set<string>([
     ...GOLD_SHOP_TEXTURE_NAMES,
     ...RESOURCE_ACQUIRE_TEXTURE_NAMES,
     ...RECOVER_VIGOR_TEXTURE_NAMES,
-    ...REWARD_RESULT_TEXTURE_NAMES,
     ...RESULT_PANEL_TEXTURE_NAMES,
     ...SETTINGS_PANEL_TEXTURE_NAMES,
     ...LEADERBOARD_TEXTURE_NAMES,
     ...COLLECTION_TEXTURE_NAMES,
-    ...THEME_PANEL_TEXTURE_NAMES,
 ]);
 
 export function installAssetBootstrapModule(target: any): void {
@@ -1806,7 +1804,6 @@ export function installAssetBootstrapModule(target: any): void {
                 ...SETTINGS_PANEL_TEXTURE_NAMES,
                 ...LEADERBOARD_TEXTURE_NAMES,
                 ...RESOURCE_ACQUIRE_TEXTURE_NAMES,
-                ...REWARD_RESULT_TEXTURE_NAMES,
             ]));
             const initialMissingNames = names.filter((name) => !this.getSF(name));
             if (initialMissingNames.length === 0) {
@@ -2395,7 +2392,7 @@ export function installAssetBootstrapModule(target: any): void {
         getBoardBeanVisualSize(): number {
             const slotSize = this.getBoardSlotVisualSize();
             const targetSize = Math.max(6, Math.round(slotSize * PINDD_BEAN_TO_SLOT_RATIO));
-            // 主题挑战大图案会把 cell 压得很小；这里必须保证豆豆永远不大于格子，避免彼此重叠。
+            // 大图案会把 cell 压得很小；这里必须保证豆豆永远不大于格子，避免彼此重叠。
             const maxSafeSize = slotSize <= 10 ? Math.max(4, slotSize - 1) : slotSize;
             return Math.max(4, Math.min(targetSize, maxSafeSize));
         },
@@ -2764,8 +2761,6 @@ export function installAssetBootstrapModule(target: any): void {
                 freezeCount: this.getPropCount('freeze'),
                 brushCount: this.getPropCount('brush'),
                 magnetCount: this.getPropCount('magnet'),
-                themeUnlockedIds: Array.from(this.getThemeUnlockedSet() as Set<number>).sort((a, b) => a - b),
-                themeCompletedIds: Array.from(this.getThemeCompletedSet() as Set<number>).sort((a, b) => a - b),
                 ownedBackgroundSkinIds: Array.isArray(backgroundSkinState.ownedBackgroundSkinIds)
                     ? backgroundSkinState.ownedBackgroundSkinIds as number[]
                     : (typeof this.getOwnedBackgroundSkinIds === 'function' ? this.getOwnedBackgroundSkinIds() : []),
@@ -2863,37 +2858,6 @@ export function installAssetBootstrapModule(target: any): void {
             applyLateCloudUserStateToRuntime(this, state, hadLocalUserState);
         },
 
-        mergeAuthoritativeCloudThemeState(gameState: Partial<CloudGameState> | null): void {
-            if (!gameState) return;
-            const normalizeIds = (value: unknown): number[] => Array.from(new Set(
-                (Array.isArray(value) ? value : [])
-                    .map((item) => Math.floor(Number(item) || 0))
-                    .filter((item) => item > 0),
-            )).sort((a, b) => a - b);
-            const mergeIntoStorage = (storageKey: string, currentIds: Set<number>, incomingValue: unknown): boolean => {
-                const incomingIds = normalizeIds(incomingValue);
-                if (incomingIds.length === 0) return false;
-                let changed = false;
-                for (const id of incomingIds) {
-                    if (!currentIds.has(id)) {
-                        currentIds.add(id);
-                        changed = true;
-                    }
-                }
-                if (!changed) return false;
-                sys.localStorage.setItem(storageKey, JSON.stringify(Array.from(currentIds).sort((a, b) => a - b)));
-                return true;
-            };
-            const completed = this.getThemeCompletedSet() as Set<number>;
-            const completedChanged = mergeIntoStorage(LS_THEME_COMPLETED, completed, gameState.themeCompletedIds);
-            const unlocked = this.getThemeUnlockedSet() as Set<number>;
-            for (const id of completed) unlocked.add(id);
-            const unlockedChanged = mergeIntoStorage(this.getThemeUnlockKey(), unlocked, gameState.themeUnlockedIds);
-            if (completedChanged && !unlockedChanged) {
-                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(Array.from(unlocked).sort((a, b) => a - b)));
-            }
-        },
-
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
             const { profile, gameState } = restoreResult;
             if (!profile && !gameState) {
@@ -2970,18 +2934,6 @@ export function installAssetBootstrapModule(target: any): void {
             if (typeof gameState.magnetCount === 'number') {
                 sys.localStorage.setItem(LS_PROP_MAGNET, String(Math.max(0, Math.floor(gameState.magnetCount))));
             }
-            if (Array.isArray(gameState.themeUnlockedIds)) {
-                const ids = gameState.themeUnlockedIds
-                    .map((value) => Math.floor(Number(value) || 0))
-                    .filter((value) => value > 0);
-                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(Array.from(new Set(ids))));
-            }
-            if (Array.isArray(gameState.themeCompletedIds)) {
-                const ids = gameState.themeCompletedIds
-                    .map((value) => Math.floor(Number(value) || 0))
-                    .filter((value) => value > 0);
-                sys.localStorage.setItem(LS_THEME_COMPLETED, JSON.stringify(Array.from(new Set(ids))));
-            }
             if (cloudUpdatedAt > 0) {
                 this.setLocalUserStateUpdatedAt(cloudUpdatedAt);
             }
@@ -3005,7 +2957,6 @@ export function installAssetBootstrapModule(target: any): void {
                     this.refreshEquippedGameplayBackground(true);
                 }
             }
-            this.mergeAuthoritativeCloudThemeState(gameState);
             const cloudSavedLevel = Math.floor(Number(state?.gameState?.savedLevel) || 0);
             const localSavedLevel = this.getSavedLevel();
             if (cloudSavedLevel > localSavedLevel) {

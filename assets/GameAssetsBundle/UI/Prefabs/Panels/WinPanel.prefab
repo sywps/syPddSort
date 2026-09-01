@@ -2164,9 +2164,6 @@
     "_children": [
       {
         "__id__": 88
-      },
-      {
-        "__id__": 94
       }
     ],
     "_active": true,
@@ -2351,9 +2348,7 @@
     "_name": "标题底板",
     "_objFlags": 0,
     "__editorExtras__": {},
-    "_parent": {
-      "__id__": 87
-    },
+    "_parent": null,
     "_children": [
       {
         "__id__": 95
@@ -2609,10 +2604,7 @@
       "b": 255,
       "a": 255
     },
-    "_spriteFrame": {
-      "__uuid__": "69c7674a-2ff1-4f1f-9ad8-f199720ccca8@f9941",
-      "__expectedType__": "cc.SpriteFrame"
-    },
+    "_spriteFrame": null,
     "_type": 0,
     "_fillType": 0,
     "_sizeMode": 0,

@@ -303,7 +303,7 @@ function assertLevelDataTarget(cdn, oss) {
 }
 
 function parseLevelDataSourceFile(name) {
-    const match = /^(zt_level_|level_)(\d+)\.json$/.exec(name);
+    const match = /^(level_)(\d+)\.json$/.exec(name);
     if (!match) return null;
     const levelId = Math.max(1, Math.floor(Number(match[2]) || 1));
     return {
@@ -382,7 +382,7 @@ function validateLevelDataPackage() {
             fail('level_live.json pack.url 不正确');
         }
         const packPrefix = String(pack.prefix || 'level_');
-        if (packPrefix !== 'level_' && packPrefix !== 'zt_level_') fail('level_live.json pack.prefix 不正确: ' + pack.url);
+        if (packPrefix !== 'level_') fail('level_live.json pack.prefix 不正确: ' + pack.url);
         const packPath = path.join(levelDataDir, pack.url);
         assertFile(packPath, '关卡数据 pack');
         const packJson = readJson(packPath);
@@ -425,7 +425,7 @@ function validateLevelDataPackage() {
     }
     if (levelCount !== manifest.levelCount) fail('level_live.json levelCount 不一致: ' + levelCount + ' != ' + manifest.levelCount);
     if (levelCount !== sourceKeys.size) fail('关卡数据数量异常: ' + levelCount + ' != ' + levelDataSourceLabel + ' ' + sourceKeys.size);
-    for (const prefix of ['level_', 'zt_level_']) {
+    for (const prefix of ['level_']) {
         const sourceCount = sourcePrefixCounts[prefix] || 0;
         if ((manifestPrefixCounts[prefix] || 0) !== sourceCount) {
             fail('level_live.json levelCounts.' + prefix + ' 不一致: ' + (manifestPrefixCounts[prefix] || 0) + ' != ' + sourceCount);
@@ -473,7 +473,7 @@ function assertLevelExperimentManifest(manifest, label) {
     if (manifest.levelCount !== expectedKeys.size) {
         fail(label + ' 关卡数量必须是 ' + expectedKeys.size);
     }
-    for (const prefix of ['level_', 'zt_level_']) {
+    for (const prefix of ['level_']) {
         if ((manifest.levelCounts?.[prefix] || 0) !== (expectedPrefixCounts[prefix] || 0)) {
             fail(label + ' levelCounts.' + prefix + ' 必须与稳定 A/B 一致');
         }
@@ -527,7 +527,7 @@ async function verifyRemoteLiveManifest(expectedServer, localManifest, localLeve
     if (remoteManifest.levelCount !== localLevelCount) {
         fail('远端 level_live.json levelCount 异常: ' + remoteManifest.levelCount + ' != ' + localLevelCount);
     }
-    for (const prefix of ['level_', 'zt_level_']) {
+    for (const prefix of ['level_']) {
         const localCount = (localManifest.levelCounts || {})[prefix] || 0;
         const remoteCount = (remoteManifest.levelCounts || {})[prefix] || 0;
         if (remoteCount !== localCount) {
@@ -542,8 +542,6 @@ async function verifyRemoteLiveManifest(expectedServer, localManifest, localLeve
                 fail('远端实验 pack hash 未同步: ' + String(remotePack.id || '<missing>'));
             }
         }
-    } else if (!remoteManifest.packs.some((pack) => String(pack && pack.prefix || 'level_') === 'zt_level_')) {
-        fail('远端 level_live.json 缺少 zt_level_ 主题关卡 pack');
     }
     console.log('远端 level_live.json 回读校验通过: ' + remoteUrl);
 }

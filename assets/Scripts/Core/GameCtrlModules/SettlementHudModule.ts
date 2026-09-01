@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -315,36 +315,37 @@ export function installSettlementHudModule(target: any): void {
             this.completionLabel.string = `完成${stats.completePercent}%`;
         },
 
-        syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number) {
+        syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean {
             const box = panel?.getChildByName('Box');
-            if (!box) return;
+            if (!box) return false;
             for (const child of box.children) {
                 if (child.name !== 'Label') continue;
                 const percentLabel = child.getComponent(Label);
                 const captionLabel = child.getChildByName('Label-001')?.getComponent(Label) ?? null;
                 if (percentLabel && captionLabel) {
                     percentLabel.string = `${percent}%`;
-                    return;
+                    return true;
                 }
                 const nestedPercentLabel = child.getChildByName('Label')?.getComponent(Label) ?? null;
                 if (percentLabel && nestedPercentLabel) {
                     nestedPercentLabel.string = `${percent}%`;
-                    return;
+                    return true;
                 }
             }
+            return false;
         },
 
         syncSettlementProgressWidget(panel: Node | null | undefined, stats?: { completePercent: number }) {
             if (!panel) return;
+            const resolvedStats = stats || this.getBoardCompletionStats();
+            const percent = Math.max(0, Math.min(100, Math.floor(Number(resolvedStats.completePercent) || 0)));
+            if (this.syncSettlementCompletionSummary(panel, percent)) return;
             const progressRoot = panel
                 .getChildByName('Box')
                 ?.getChildByName('\u8fdb\u5ea6\u6761');
             if (!progressRoot) {
-                throw new Error('[settlement-progress] result panel is missing Box/进度条');
+                throw new Error('[settlement-progress] result panel is missing Box/进度条 or text completion summary');
             }
-            const resolvedStats = stats || this.getBoardCompletionStats();
-            const percent = Math.max(0, Math.min(100, Math.floor(Number(resolvedStats.completePercent) || 0)));
-            this.syncSettlementCompletionSummary(panel, percent);
             const progressLabel = progressRoot.getChildByName('Label')?.getComponent(Label);
             if (progressLabel) {
                 progressLabel.string = `\u5df2\u5b8c\u6210 ${percent}%`;
@@ -568,7 +569,7 @@ export function installSettlementHudModule(target: any): void {
                 || adBtn.getChildByName('ContinueBtnSubLblAnchor')?.getChildByName('AdBonusSubLbl')?.getComponent(Label);
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
-            const eligible = !this._isThemeLevel && this._pendingWinAdBonusReward > 0 && !this._settlementNextTransitioning;
+            const eligible = this._pendingWinAdBonusReward > 0 && !this._settlementNextTransitioning;
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
             const adIcon = adBtn.getChildByName('AdBonusAdIcon') || coinIcon;
             const claimedLbl = adBtn.getChildByName('AdBonusClaimedLbl');
@@ -613,7 +614,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         claimWinAdBonusReward() {
-            if (this._isThemeLevel || this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
+            if (this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
                 return;
             }
             const grantWinBonusReward = () => {
@@ -687,38 +688,13 @@ export function installSettlementHudModule(target: any): void {
         },
 
         shouldChainTutorialLevelsOnWin() {
-            return !this._isThemeLevel && this.levelData?.levelId === 1;
+            return this.levelData?.levelId === 1;
         },
 
         continueTutorialToSlotIntro(nextId: number) {
             this.scheduleOnce(() => {
                 this.loadLevel(nextId);
             }, 0.08);
-        },
-
-        getFirstThemeLevelId(): number {
-            return this.getThemeLevelOrder()[0] || 0;
-        },
-
-        shouldPromptFirstThemeUnlockOnWin(): boolean {
-            if (this._isThemeLevel || this.getActiveLogicalLevelId() !== this.getThemePanelOpenRequirementLevel()) {
-                return false;
-            }
-            const firstThemeLevelId = this.getFirstThemeLevelId();
-            if (firstThemeLevelId <= 0) {
-                return false;
-            }
-            const unlocked = this.getThemeUnlockedSet();
-            const completed = this.getThemeCompletedSet();
-            return !unlocked.has(firstThemeLevelId) && !completed.has(firstThemeLevelId);
-        },
-
-        continueToFirstThemeUnlockPrompt() {
-            this.showToast('已解锁主题挑战第一关资格，快去看看', 1.8);
-            this.scheduleOnce(() => {
-                this.showMainMenu();
-                this.scheduleOnce(() => this.openThemePanel(), 0.08);
-            }, 0.95);
         },
 
         failWinSettlementReveal(error: unknown, revealToken: number): void {
@@ -826,15 +802,9 @@ export function installSettlementHudModule(target: any): void {
             });
             SySDKMgr.inst.reportLevelPass(logicalLevelId);
             this.recordDynamicCountdownWin?.();
-            if (this._isThemeLevel) {
-                this.setThemeCompleted(this._currentThemeLevelId || this.levelData.levelId);
-            } else {
-                this.saveLevelProgress(logicalLevelId + 1);
-            }
+            this.saveLevelProgress(logicalLevelId + 1);
             this._pendingWinGoldReward = this.calcWinGoldReward();
-            this._pendingWinAdBonusReward = this._isThemeLevel
-                ? 0
-                : Math.max(0, this._pendingWinGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1));
+            this._pendingWinAdBonusReward = Math.max(0, this._pendingWinGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1));
             this._winAdRewardClaimed = false;
             this._winBaseGoldFlyPlayed = false;
             this._settlementNextTransitioning = false;
@@ -939,6 +909,7 @@ export function installSettlementHudModule(target: any): void {
             }
             this.isGameEnd = true;
             this._activeLoseReason = reason;
+            this._gameplayResultPanelController?.captureReviveFailure?.(reason);
             this._pchConveyorGameplayController?.pauseForSettlement?.();
             this.clearIdleHint();
             this.clearAdRewardHintVisuals?.();
@@ -989,7 +960,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         restart() {
-            const entryMode = this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
+            const entryMode = this._activeGameplayEntryMode || 'main';
             const activeLevel = this.getActiveLogicalLevelId();
             if (!this.costVigorForLevel(activeLevel, entryMode)) {
                 this.showNoLivesAdModal({
@@ -1077,11 +1048,6 @@ export function installSettlementHudModule(target: any): void {
             this.unscheduleAllCallbacks();
             this.stopPulseTweens();
             this.clearDragNodes();
-            // 主题关卡通关 → 回主菜单并打开主题面板
-            if (this._isThemeLevel) {
-                this.returnToThemePanel();
-                return;
-            }
             const nextId = this.getActiveLogicalLevelId() + 1;
             this.saveLevelProgress(nextId);
             // 下一关消耗体力

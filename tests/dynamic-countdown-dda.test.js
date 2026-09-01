@@ -200,7 +200,7 @@ assert.ok(gameCtrlShared.includes('const FREEZE_PROP_SECONDS = 90;'), 'freeze pr
 const economyConfig = read('assets/Scripts/Core/EconomyConfig.ts');
 assert.ok(economyConfig.includes('continueSeconds: 120,'), 'timeout revive rewarded ad must add 120 seconds');
 const revivePanelPrefab = read('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab');
-assert.ok(revivePanelPrefab.includes('"_string": "+120秒"'), 'timeout revive panel must display the 120-second reward');
+assert.ok(revivePanelPrefab.includes('"_string": "获得120秒额外时间+扩展传送带"'), 'timeout revive panel must display the confirmed time-and-capacity reward');
 
 const slotUi = read('assets/Scripts/Core/GameplaySlotUiController.ts');
 assert.ok(slotUi.includes('runtime.markDynamicCountdownAssisted?.();'), 'successful slot-row unlock must mark assisted run');

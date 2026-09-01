@@ -673,7 +673,7 @@ td strong { color: #31486e; }
         <div class="hero-top">
             <div class="hero-title">
                 <h1>拼豆豆数据日报看板</h1>
-                <p>把完整日报 `dailyDiagnosis` 展成会议可读看板，统一查看前三关 PCH 里程碑、引导结果、复活广告、前20关、关卡净价值和数据质量。</p>
+                <p>将完整日报诊断转成会议可读看板，统一查看前三关传送带玩法里程碑（PCH）、引导结果、复活广告、前20关、关卡净价值和数据质量。</p>
             </div>
             <div class="hero-controls">
                 <select id="dateSelect"></select>
@@ -1222,7 +1222,7 @@ function renderTable(headers, rows, options = {}) {
                             ${filterColumnSet.has(index) ? `
                                 <div class="filterable-header">
                                     <button class="sort-header" type="button" data-sort-index="${index}">
-                                        <span>${escapeHtml(header)}</span>
+                                        <span>${escapeHtml(displayAnalyticsTableHeader(header))}</span>
                                         <span class="sort-indicator" aria-hidden="true"></span>
                                     </button>
                                     <button class="column-filter-button" type="button" data-filter-index="${index}" aria-label="筛选${escapeHtml(header)}">▾</button>
@@ -1230,7 +1230,7 @@ function renderTable(headers, rows, options = {}) {
                                 </div>
                             ` : `
                                 <button class="sort-header" type="button" data-sort-index="${index}">
-                                    <span>${escapeHtml(header)}</span>
+                                    <span>${escapeHtml(displayAnalyticsTableHeader(header))}</span>
                                     <span class="sort-indicator" aria-hidden="true"></span>
                                 </button>
                             `}
@@ -1725,11 +1725,11 @@ function buildOpsInsights(summary, trendSummaries) {
 
     if (diagnosis) {
         for (const item of diagnosis.recommendations || []) {
-            risks.push(`${item.priority} ${item.topic}：${item.finding}`);
-            actions.push(`${item.priority} ${item.topic}：${item.action}`);
+            risks.push(displayAnalyticsTerms(`${item.priority} ${item.topic}：${item.finding}`));
+            actions.push(displayAnalyticsTerms(`${item.priority} ${item.topic}：${item.action}`));
         }
         for (const warning of diagnosis.dataQuality?.warnings || []) {
-            risks.push(`数据质量：${warning}`);
+            risks.push(`数据质量：${displayAnalyticsTerms(warning)}`);
         }
         return { highlights, risks, actions };
     }
@@ -1749,7 +1749,7 @@ function buildOpsInsights(summary, trendSummaries) {
     }
     if (adStat?.weakFinishRate?.length) {
         const weak = adStat.weakFinishRate[0];
-        risks.push(`${getAdDisplayLabel(weak)} 广告完成率只有 ${pctFromRatio(weak.finishRate)}。`);
+        risks.push(`${displayAnalyticsTerms(getAdDisplayLabel(weak))} 广告完成率只有 ${pctFromRatio(weak.finishRate)}。`);
         actions.push('把完成率最低的广告位先减压，回看触发时机和奖励承诺。');
     }
     return { highlights, risks, actions };
@@ -1761,8 +1761,8 @@ function renderDiagnosisFunnelTable(rows, options = {}) {
         const latency = row.latencyToNextMs;
         const mainRow = `
             <tr data-sort-original-index="${rowIndex}">
-                <td><strong>${escapeHtml(row.label)}</strong></td>
-                <td>${escapeHtml(row.eventName)}</td>
+                <td><strong>${escapeHtml(displayAnalyticsTerms(row.label))}</strong></td>
+                <td>${escapeHtml(displayAnalyticsTerms(row.eventName))}</td>
                 <td>${formatNumber(row.users)}</td>
                 <td>${pctFromRatio(row.userRateFromStart)}</td>
                 <td>${formatNumber(row.sessions)}</td>
@@ -1780,7 +1780,7 @@ function renderDiagnosisFunnelTable(rows, options = {}) {
         return `${mainRow}
             <tr class="latency-row" data-latency-row="true">
                 <td colspan="${headers.length}">
-                    <strong>${escapeHtml(latency.fromLabel)} → ${escapeHtml(latency.toLabel)}</strong>
+                    <strong>${escapeHtml(displayAnalyticsTerms(latency.fromLabel))} → ${escapeHtml(displayAnalyticsTerms(latency.toLabel))}</strong>
                     ${latencyText}
                 </td>
             </tr>
@@ -1792,7 +1792,7 @@ function renderDiagnosisFunnelTable(rows, options = {}) {
                 <input type="checkbox" class="funnel-latency-checkbox" ${state.showFunnelLatency ? 'checked' : ''}>
                 <span>显示耗时</span>
             </label>
-            <span class="funnel-scope-label">当前：${escapeHtml(options.scopeLabel || 'logical_levels=1,2,3')}</span>
+            <span class="funnel-scope-label">当前范围：${escapeHtml(displayAnalyticsTerms(options.scopeLabel || 'logical_levels=1,2,3'))}</span>
         </div>
         <div class="table-wrap">
             <table class="sortable-table funnel-table ${state.showFunnelLatency ? 'show-latency' : ''}">
@@ -1800,7 +1800,7 @@ function renderDiagnosisFunnelTable(rows, options = {}) {
                     <tr>${headers.map((header, index) => `
                         <th aria-sort="none">
                             <button class="sort-header" type="button" data-sort-index="${index}">
-                                <span>${escapeHtml(header)}</span>
+                                <span>${escapeHtml(displayAnalyticsTableHeader(header))}</span>
                                 <span class="sort-indicator" aria-hidden="true"></span>
                             </button>
                         </th>
@@ -1849,8 +1849,8 @@ function renderExperimentFunnelBreakdown(experimentBreakdowns) {
                         <td>${escapeHtml(section.experimentId)}</td>
                         <td>${escapeHtml(groupRow.groupLabel || groupRow.bucket || '')}</td>
                         <td>${formatNumber(groupRow.cohortUsers)}</td>
-                        <td><strong>${escapeHtml(row.label)}</strong></td>
-                        <td>${escapeHtml(row.eventName)}</td>
+                        <td><strong>${escapeHtml(displayAnalyticsTerms(row.label))}</strong></td>
+                        <td>${escapeHtml(displayAnalyticsTerms(row.eventName))}</td>
                         <td>${formatNumber(row.users)}</td>
                         <td>${pctFromRatio(row.userRateFromStart)}</td>
                         <td>${formatNumber(row.sessions)}</td>
@@ -1866,7 +1866,7 @@ function renderExperimentFunnelBreakdown(experimentBreakdowns) {
                     tableRows.push(`
                         <tr class="latency-row" data-latency-row="true">
                             <td colspan="${headers.length}">
-                                <strong>${escapeHtml(section.experimentId)} / ${escapeHtml(groupRow.groupLabel || groupRow.bucket || '')}：${escapeHtml(latency.fromLabel)} → ${escapeHtml(latency.toLabel)}</strong>
+                                <strong>${escapeHtml(section.experimentId)} / ${escapeHtml(groupRow.groupLabel || groupRow.bucket || '')}：${escapeHtml(displayAnalyticsTerms(latency.fromLabel))} → ${escapeHtml(displayAnalyticsTerms(latency.toLabel))}</strong>
                                 ${latencyText}
                             </td>
                         </tr>
@@ -1876,14 +1876,14 @@ function renderExperimentFunnelBreakdown(experimentBreakdowns) {
         }
     }
     return `
-        <div class="card-subtitle" style="margin:16px 0 10px;">AB实验前三关 PCH 里程碑，只展示 A+B、C+D、NULL、未归因。</div>
+        <div class="card-subtitle" style="margin:16px 0 10px;">AB 实验的前三关传送带玩法（PCH）里程碑，只展示 A+B、C+D、未归因。</div>
         <div class="table-wrap">
             <table class="sortable-table funnel-table ${state.showFunnelLatency ? 'show-latency' : ''}">
                 <thead>
                     <tr>${headers.map((header, index) => `
                         <th aria-sort="none">
                             <button class="sort-header" type="button" data-sort-index="${index}">
-                                <span>${escapeHtml(header)}</span>
+                                <span>${escapeHtml(displayAnalyticsTableHeader(header))}</span>
                                 <span class="sort-indicator" aria-hidden="true"></span>
                             </button>
                         </th>
@@ -1895,22 +1895,100 @@ function renderExperimentFunnelBreakdown(experimentBreakdowns) {
     `;
 }
 
+const ANALYTICS_TERM_LABELS = {
+    logical_levels: '逻辑关卡范围',
+    fallback: '回退数据源',
+    App: '游戏应用',
+    DAU: '日活跃用户',
+    UV: '去重用户',
+    PV: '点击次数',
+    Top: '前列',
+    fail: '失败记录',
+    JSON: '数据文件',
+    Markdown: '文档报告',
+    CSV: '表格明细',
+    user_behavior_fallback: '用户行为明细回推',
+    avgDurationSeconds: '平均时长（秒）',
+    dailyDiagnosis: '日报诊断',
+    level_record: '关卡记录',
+    first_level_funnel: '首关漏斗',
+    recommendations: '建议',
+    levelId: '关卡编号',
+    pch_first_return_success: '首次从传送带归位成功',
+    pch_first_store_success: '首次存入传送带成功',
+    pch_guide_tap_result: '传送带引导点击结果',
+    pch_guide_step_done: '传送带引导步骤完成',
+    pch_level_1_store_v1: 'L1 首次存入引导',
+    pch_level_2_speed_v1: 'L2 倍速引导',
+    pch_level_3_capacity_v1: 'L3 扩容引导',
+    pch_buffer_full_revive: '传送带满时复活',
+    pch_conveyor_expand: '传送带扩容',
+    skill_brush_acquire: '刷子道具获取',
+    freeze_rescue_60s: '冻结救援 60 秒',
+    win_bonus_reward: '通关奖励',
+    no_meaningful_action: '无可归因行为',
+    no_previous_action: '无倒数第二次行为',
+    no_third_action: '无倒数第三次行为',
+    store_color_1: '存入颜色 1',
+    store_color_2: '存入颜色 2',
+    expand_capacity_free: '免费扩容',
+    capacity_expand_failed: '免费扩容失败',
+    capacity_expanded: '免费扩容成功',
+    enabled_2x: '2 倍速已开启',
+    miss_target: '未点中目标',
+    level_revive: '关卡失败复活',
+    vigor_recover: '体力恢复',
+    level_pass: '关卡通过',
+    level_fail: '关卡失败',
+    ad_finish: '广告完成',
+    ad_click: '广告点击',
+    ad_show: '广告展示',
+    app_launch: '启动游戏',
+    daily_stat: '每日汇总',
+    user_behavior: '用户行为',
+    ad_stat: '广告汇总',
+    records: '记录数',
+    sessions: '对局数',
+    Session: '对局',
+    low_sample: '样本不足',
+    directional: '方向性参考',
+    stable: '稳定',
+    stored: '存入成功',
+    partial: '部分存入成功',
+    shown: '引导已曝光',
+    completed: '引导步骤完成',
+    unknown: '未知',
+    PCH: '传送带玩法',
+};
+
+function displayAnalyticsTerms(value) {
+    const raw = String(value ?? '');
+    if (!raw) return raw;
+    const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return Object.keys(ANALYTICS_TERM_LABELS)
+        .sort((left, right) => right.length - left.length)
+        .reduce((text, term) => {
+            const pattern = new RegExp(`(^|[^A-Za-z0-9_])(${escapeRegExp(term)})(?=$|[^A-Za-z0-9_])`, 'g');
+            return text.replace(pattern, (_, prefix) => `${prefix}${ANALYTICS_TERM_LABELS[term]}（${term}）`);
+        }, raw);
+}
+
+function displayAnalyticsTableHeader(value) {
+    return displayAnalyticsTerms(value)
+        .replaceAll('点击点击次数（PV）', '点击次数（PV）')
+        .replaceAll('曝光点击次数（PV）', '曝光次数（PV）')
+        .replaceAll('完成点击次数（PV）', '完成次数（PV）')
+        .replaceAll('广告点击次数（PV）', '广告次数（PV）')
+        .replaceAll('分组去重用户（UV）', '分组用户数（UV）')
+        .replaceAll('L1 去重用户（UV）', 'L1 用户数（UV）');
+}
+
 function describePchGuideResultKey(key) {
     const parts = String(key || '').split('|');
     const result = parts[parts.length - 1] || 'unknown';
     const step = parts.slice(0, -1).join(' / ');
-    const resultText = {
-        shown: '引导已曝光',
-        stored: '存入成功',
-        partial: '部分存入成功',
-        enabled_2x: '2 倍速已开启',
-        capacity_expanded: '免费扩容成功',
-        capacity_expand_failed: '免费扩容失败',
-        miss_target: '未点中目标',
-        completed: '引导步骤完成',
-        unknown: '未知结果',
-    }[result] || `结果 ${result}`;
-    const prefix = step ? `步骤 ${step}：` : '';
+    const resultText = displayAnalyticsTerms(result);
+    const prefix = step ? `步骤 ${displayAnalyticsTerms(step)}：` : '';
     return `${prefix}${resultText}`;
 }
 
@@ -1919,7 +1997,7 @@ function renderPchGuideResultTable(rows) {
     return renderTable(
         ['类型/含义', '点击PV', 'Session', 'UV', 'PV占比'],
         rows.map((row) => [
-            `<div class="tap-type-cell"><strong>${escapeHtml(row.key)}</strong><span>【${escapeHtml(describePchGuideResultKey(row.key))}】</span></div>`,
+            `<div class="tap-type-cell"><strong>${escapeHtml(displayAnalyticsTerms(row.key))}</strong><span>【${escapeHtml(describePchGuideResultKey(row.key))}】</span></div>`,
             formatNumber(row.records),
             formatNumber(row.sessions),
             formatNumber(row.users),
@@ -1929,7 +2007,7 @@ function renderPchGuideResultTable(rows) {
 }
 
 function renderActionCell(row) {
-    return `<div class="tap-type-cell"><strong>${escapeHtml(row.key || '-')}</strong><span>【${escapeHtml(row.meaning || '-')}】</span></div>`;
+    return `<div class="tap-type-cell"><strong>${escapeHtml(displayAnalyticsTerms(row.key || '-'))}</strong><span>【${escapeHtml(displayAnalyticsTerms(row.meaning || '-'))}】</span></div>`;
 }
 
 function renderChurnCohortTable(cohort) {
@@ -1959,8 +2037,8 @@ function renderFirstDayChurnAnalysis(churn) {
     return cohorts.map((cohort) => `
         <div style="margin-bottom:18px;">
             <div class="card-subtitle" style="margin-bottom:10px;">
-                <strong>${escapeHtml(cohort.label || cohort.key || '-')}</strong>
-                ：${escapeHtml(cohort.description || '')}
+                <strong>${escapeHtml(displayAnalyticsTerms(cohort.label || cohort.key || '-'))}</strong>
+                ：${escapeHtml(displayAnalyticsTerms(cohort.description || ''))}
                 样本 ${formatNumber(cohort.users)} UV，行为覆盖 ${pctFromRatio(cohort.actionCoverageRate)}
             </div>
             ${renderChurnCohortTable(cohort)}
@@ -1985,7 +2063,7 @@ function renderFirst20Table(rows) {
             formatNumber(row.magnetUses),
             formatNumber(row.brushUses),
             formatNumber(row.freezeUses),
-            escapeHtml(row.diagnosis || ''),
+            escapeHtml(displayAnalyticsTerms(row.diagnosis || '')),
         ]),
     );
 }
@@ -2005,7 +2083,7 @@ function renderExperimentFirst20Breakdown(experimentBreakdowns) {
             });
             for (const row of orderedRows) {
                 const levelLabel = row.isTotal || row.levelId === 'All'
-                    ? '<strong>L_All</strong>'
+                    ? '<strong>全部关卡（L_All）</strong>'
                     : `<strong>L${escapeHtml(row.levelId)}</strong>`;
                 rows.push([
                     escapeHtml(section.experimentId),
@@ -2030,15 +2108,15 @@ function renderExperimentFirst20Breakdown(experimentBreakdowns) {
                     perUserText(row.adFinishPv, groupRow.cohortUsers),
                     perUserText(row.adShowPv, l1Uv),
                     perUserText(row.adFinishPv, l1Uv),
-                    `<span class="cell-ellipsis" title="${escapeHtml(row.diagnosis || '')}">${escapeHtml(row.diagnosis || '')}</span>`,
+                    `<span class="cell-ellipsis" title="${escapeHtml(displayAnalyticsTerms(row.diagnosis || ''))}">${escapeHtml(displayAnalyticsTerms(row.diagnosis || ''))}</span>`,
                 ]);
             }
         }
     }
     return `
-        <div class="card-subtitle" style="margin:16px 0 10px;">AB实验前20关表现，只展示 A+B、C+D、NULL、未归因；L1UV 是首关漏斗起点用户，L_All 是该分组所有关卡汇总。</div>
+        <div class="card-subtitle" style="margin:16px 0 10px;">AB 实验前 20 关表现，只展示 A+B、C+D、未归因；L1 用户数是首关漏斗起点用户，“全部关卡”是该分组所有关卡汇总。</div>
         ${renderTable(
-            ['实验', '桶/分组', '分组UV', 'L1UV', '关卡', '进入UV', '通过UV', '通过/分组UV', '通过/L1UV', '通过/进入UV', '失败UV', '进入未通过UV', '记录局数', '平均尝试', '平均时长(s)', '中位数时长(s)', '广告展现次数', '广告完成次数', '广告展现/分组UV', '广告完成/分组UV', '广告展现/L1UV', '广告完成/L1UV', '判断'],
+            ['实验', '桶/分组', '分组用户数', 'L1 用户数', '关卡', '进入用户数', '通过用户数', '通过/分组用户数', '通过/L1 用户数', '通过/进入用户数', '失败用户数', '进入未通过用户数', '记录局数', '平均尝试', '平均时长（秒）', '中位数时长（秒）', '广告展现次数', '广告完成次数', '广告展现/分组用户数', '广告完成/分组用户数', '广告展现/L1 用户数', '广告完成/L1 用户数', '判断'],
             rows,
             { className: 'experiment-first20-table', filterColumns: [0, 1, 4] },
         )}
@@ -2103,7 +2181,7 @@ function renderExperimentLevelAdBreakdown(experimentBreakdowns, options = {}) {
 }
 
 function renderLevelNetValueExplanation(model) {
-    const durationSource = escapeHtml(model?.durationBaselineSource || 'level_record.avgDurationSeconds');
+    const durationSource = escapeHtml(displayAnalyticsTerms(model?.durationBaselineSource || 'level_record.avgDurationSeconds'));
     const adSeconds = formatNumber(model?.adSecondsAssumption || 30);
     return `
         <details class="analysis-details">
@@ -2165,7 +2243,7 @@ function renderLevelNetValueTable(model, rowsOverride = null) {
             rows.map((row) => [
                 `<strong>L${escapeHtml(row.levelId)}</strong>`,
                 formatNumber(row.enterUv),
-                escapeHtml(row.sampleQuality || ''),
+                escapeHtml(displayAnalyticsTerms(row.sampleQuality || '')),
                 escapeHtml(row.structuralDifficultyTag || ''),
                 escapeHtml(structureText(row)),
                 escapeHtml(row.behaviorFrictionTag || ''),
@@ -2181,8 +2259,8 @@ function renderLevelNetValueTable(model, rowsOverride = null) {
                 formatNumber(row.levelNetScore),
                 pctFromRatio(row.adFinishUvRate),
                 pctFromRatio(row.pureLossRate),
-                escapeHtml(getAdDisplayLabel({ page: row.topAdPlacement, label: row.topAdPlacement })),
-                escapeHtml(row.actionTag || ''),
+                escapeHtml(displayAnalyticsTerms(getAdDisplayLabel({ page: row.topAdPlacement, label: row.topAdPlacement }))),
+                escapeHtml(displayAnalyticsTerms(row.actionTag || '')),
             ]),
         )}
     `;
@@ -2200,7 +2278,7 @@ function renderMainlineTable(rows) {
             formatNumber(row.failUv),
             formatNumber(row.silentDropUv),
             finiteNumber(row.avgTryCount).toFixed(2),
-            escapeHtml(row.diagnosis || ''),
+            escapeHtml(displayAnalyticsTerms(row.diagnosis || '')),
         ]),
     );
 }
@@ -2226,7 +2304,7 @@ function renderAdPerformanceTable(adPerformance) {
     return renderTable(
         ['广告位', '曝光PV', '点击PV', '完成PV', '用户数', '点击后展示率', '展示后完成率', '点击后完成率'],
         rows.map((row) => [
-            `<strong>${escapeHtml(getAdDisplayLabel(row))}</strong>`,
+            `<strong>${escapeHtml(displayAnalyticsTerms(getAdDisplayLabel(row)))}</strong>`,
             formatNumber(row.showNum),
             formatNumber(row.clickNum),
             formatNumber(row.finishNum),
@@ -2243,7 +2321,7 @@ function renderReviveAdFunnel(rows) {
         ['关卡', '入口', '面板曝光', '广告点击', '广告展示', '广告完成', '复活成功', '点击/面板', '展示/点击', '完成/展示', '复活/完成'],
         (rows || []).map((row) => [
             `<strong>L${escapeHtml(row.levelId)}</strong>`,
-            escapeHtml(row.page),
+            escapeHtml(displayAnalyticsTerms(row.page)),
             formatNumber(row.panelShowNum),
             formatNumber(row.clickNum),
             formatNumber(row.showNum),
@@ -2269,7 +2347,7 @@ function renderExperimentAdPerformanceBreakdown(experimentBreakdowns) {
                     escapeHtml(groupRow.groupLabel || groupRow.bucket || ''),
                     formatNumber(groupRow.cohortUsers),
                     formatNumber(groupRow.l1StartUsers),
-                    row.isTotal ? '<strong>全部广告位</strong>' : `<strong>${escapeHtml(getAdDisplayLabel(row))}</strong>`,
+                    row.isTotal ? '<strong>全部广告位</strong>' : `<strong>${escapeHtml(displayAnalyticsTerms(getAdDisplayLabel(row)))}</strong>`,
                     formatNumber(row.showNum),
                     formatNumber(row.clickNum),
                     formatNumber(row.finishNum),
@@ -2293,16 +2371,16 @@ function renderExperimentAdPerformanceBreakdown(experimentBreakdowns) {
 
 function renderDataQuality(dataQuality) {
     const rows = [
-        ['PCH funnel scope', escapeHtml(dataQuality?.pchFunnelScope || 'logical_levels=1,2,3')],
-        ['PCH funnel records', formatNumber(dataQuality?.pchFunnelRecords)],
-        ['PCH funnel sessions', formatNumber(dataQuality?.pchFunnelSessions)],
-        ['daily core source', escapeHtml(dataQuality?.dailyCoreSource || 'unknown')],
-        ['ad source', escapeHtml(dataQuality?.adStatSource || 'unknown')],
-        ['L1 fail 覆盖率', pctFromRatio(dataQuality?.l1FailCoverageRate)],
+        ['传送带玩法漏斗范围（PCH）', escapeHtml(displayAnalyticsTerms(dataQuality?.pchFunnelScope || 'logical_levels=1,2,3'))],
+        ['传送带玩法漏斗记录数（PCH）', formatNumber(dataQuality?.pchFunnelRecords)],
+        ['传送带玩法漏斗对局数（PCH）', formatNumber(dataQuality?.pchFunnelSessions)],
+        ['核心数据来源', escapeHtml(displayAnalyticsTerms(dataQuality?.dailyCoreSource || 'unknown'))],
+        ['广告数据来源', escapeHtml(displayAnalyticsTerms(dataQuality?.adStatSource || 'unknown'))],
+        ['L1 失败记录覆盖率（fail）', pctFromRatio(dataQuality?.l1FailCoverageRate)],
     ];
     return `
         ${renderTable(['检查项', '结果'], rows)}
-        <div style="margin-top:12px;">${renderBulletList(dataQuality?.warnings || [])}</div>
+        <div style="margin-top:12px;">${renderBulletList((dataQuality?.warnings || []).map(displayAnalyticsTerms))}</div>
     `;
 }
 
@@ -2360,19 +2438,19 @@ function renderContent(summary, trendSummaries) {
     qs('heroEnv').textContent = `环境：${summary.envId || '-'}`;
 
     const heroMetrics = [
-        renderMetricCard('DAU', formatNumber(firstFiniteNumber(core.dau, latestDaily.dau)), `总局数 ${formatNumber(firstFiniteNumber(core.totalPlay, latestDaily.totalPlay))}`),
+        renderMetricCard('日活跃用户（DAU）', formatNumber(firstFiniteNumber(core.dau, latestDaily.dau)), `总局数 ${formatNumber(firstFiniteNumber(core.totalPlay, latestDaily.totalPlay))}`),
         renderMetricCard('L1进入后UV通过率', pctFromRatio(l1PassRate), `L1通过 ${formatNumber(firstFiniteNumber(core.l1PassUv, behavior?.levelOnePassUv))} / L1进入 ${formatNumber(firstFiniteNumber(core.l1EnterUv, behavior?.levelOneEnterUv))}`),
-        renderMetricCard('首次存入到首次归位', pctFromRatio(pchReturnRate), `${formatNumber(firstFiniteNumber(core.pchFirstReturnSessions, firstReturn?.sessions))} / ${formatNumber(firstFiniteNumber(core.pchFirstStoreSessions, firstStore?.sessions))} sessions`),
+        renderMetricCard('首次存入到首次归位', pctFromRatio(pchReturnRate), `${formatNumber(firstFiniteNumber(core.pchFirstReturnSessions, firstReturn?.sessions))} / ${formatNumber(firstFiniteNumber(core.pchFirstStoreSessions, firstStore?.sessions))} 次对局`),
         renderMetricCard('广告完成率', pctFromRatio(adFinishRate), `完成 ${formatNumber(firstFiniteNumber(core.adFinishPv, adOverall.finishNum))} / 曝光 ${formatNumber(firstFiniteNumber(core.adShowPv, adOverall.showNum))}`),
     ].join('');
 
     const trendCards = trendSeries.length
         ? [
             {
-                title: 'DAU',
+                title: '日活跃用户（DAU）',
                 value: formatNumber(currentTrend.dau),
                 delta: previousTrend ? classifyDelta(currentTrend.dau, previousTrend.dau, true) : { state: 'flat', delta: 0 },
-                subtitle: currentTrend.dailyCoreFallback ? '由 user_behavior 回推' : `新增 ${formatNumber(currentTrend.newUser)} 人`,
+                subtitle: currentTrend.dailyCoreFallback ? `由 ${displayAnalyticsTerms('user_behavior')} 回推` : `新增 ${formatNumber(currentTrend.newUser)} 人`,
                 points: trendSeries.map((item) => ({ date: item.date, value: item.dau })),
                 color: '#3f6cb4',
                 deltaFormatter: (delta) => formatSignedNumber(delta, 0),
@@ -2381,7 +2459,7 @@ function renderContent(summary, trendSummaries) {
                 title: '首关漏斗UV通过率',
                 value: pctFromRatio(currentTrend.levelOnePassRate),
                 delta: previousTrend ? classifyDelta(currentTrend.levelOnePassRate, previousTrend.levelOnePassRate, true) : { state: 'flat', delta: 0 },
-                subtitle: 'level_pass UV / app_launch UV',
+                subtitle: '关卡通过用户 / 启动游戏用户（level_pass / app_launch）',
                 points: trendSeries.map((item) => ({ date: item.date, value: item.levelOnePassRate * 100 })),
                 color: '#d98542',
                 deltaFormatter: (delta) => formatSignedPercent(delta * 100),
@@ -2390,7 +2468,7 @@ function renderContent(summary, trendSummaries) {
                 title: '前三关首次存入到首次归位',
                 value: pctFromRatio(currentTrend.pchReturnRate),
                 delta: previousTrend ? classifyDelta(currentTrend.pchReturnRate, previousTrend.pchReturnRate, true) : { state: 'flat', delta: 0 },
-                subtitle: 'pch_first_return_success / pch_first_store_success',
+                subtitle: '首次归位成功 / 首次存入成功（pch_first_return_success / pch_first_store_success）',
                 points: trendSeries.map((item) => ({ date: item.date, value: item.pchReturnRate * 100 })),
                 color: '#8c61c8',
                 deltaFormatter: (delta) => formatSignedPercent(delta * 100),
@@ -2399,7 +2477,7 @@ function renderContent(summary, trendSummaries) {
                 title: '广告完成率',
                 value: pctFromRatio(currentTrend.adFinishRate),
                 delta: previousTrend ? classifyDelta(currentTrend.adFinishRate, previousTrend.adFinishRate, true) : { state: 'flat', delta: 0 },
-                subtitle: currentTrend.adFallback ? '由 user_behavior 回推' : 'ad_stat',
+                subtitle: currentTrend.adFallback ? `由 ${displayAnalyticsTerms('user_behavior')} 回推` : displayAnalyticsTerms('ad_stat'),
                 points: trendSeries.map((item) => ({ date: item.date, value: item.adFinishRate * 100 })),
                 color: '#47a96e',
                 deltaFormatter: (delta) => formatSignedPercent(delta * 100),
@@ -2425,7 +2503,7 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">今日核心结论</div>
-                <div class="card-subtitle">优先来自 dailyDiagnosis.recommendations；没有新结构时才退回旧 summary 推断。</div>
+                <div class="card-subtitle">优先使用日报诊断建议；没有新结构时才回退到兼容汇总推断。</div>
             </div>
             <div class="card-body">
                 <div class="insight-grid">
@@ -2448,7 +2526,7 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">最近 7 天趋势</div>
-                <div class="card-subtitle">使用每份 combined_summary.json 的 dailyDiagnosis 口径；旧日报自动兼容旧字段。</div>
+                <div class="card-subtitle">使用每份日报汇总的日报诊断口径；旧日报自动兼容旧字段。</div>
             </div>
             <div class="card-body">
                 <div class="trend-grid">${trendCards}</div>
@@ -2457,30 +2535,30 @@ function renderContent(summary, trendSummaries) {
 
         <section class="card span-12">
             <div class="card-header">
-                <div class="card-title">前三关 PCH 里程碑</div>
-                <div class="card-subtitle">只统计逻辑关卡 L1-L3 的首次存入与首次归位，每次关卡尝试各最多一次。</div>
+                <div class="card-title">前三关传送带玩法里程碑（PCH）</div>
+                <div class="card-subtitle">只统计逻辑关卡 L1-L3 的首次存入与首次归位，每次关卡尝试各最多记录一次。</div>
             </div>
             <div class="card-body">
                 ${funnelRows.length ? renderDiagnosisFunnelTable(funnelRows, {
                     scopeLabel: funnelScopeLabel,
-                }) : '<div class="empty">这份日报没有前三关 PCH 里程碑数据。</div>'}
+                }) : '<div class="empty">这份日报没有前三关传送带玩法里程碑数据。</div>'}
                 ${renderExperimentFunnelBreakdown(experimentBreakdowns)}
             </div>
         </section>
 
         <section class="card span-12">
             <div class="card-header">
-                <div class="card-title">PCH 引导结果</div>
-                <div class="card-subtitle">只统计 L1-L3 的真实引导步骤；分母是 pch_guide_tap_result.records，可查看各引导步骤的点击结果构成。</div>
+                <div class="card-title">传送带玩法引导结果（PCH）</div>
+                <div class="card-subtitle">只统计 L1-L3 的真实引导步骤；分母为引导点击结果记录数（pch_guide_tap_result.records），可查看各步骤的结果构成。</div>
             </div>
             <div class="card-body two-col">
                 <div>
                     <div class="card-subtitle" style="margin-bottom:10px;">整体类型</div>
-                    ${guideTapBreakdown.length ? renderPchGuideResultTable(guideTapBreakdown) : '<div class="empty">没有 PCH 引导点击结果汇总。</div>'}
+                    ${guideTapBreakdown.length ? renderPchGuideResultTable(guideTapBreakdown) : '<div class="empty">没有传送带玩法引导点击结果汇总。</div>'}
                 </div>
                 <div>
-                    <div class="card-subtitle" style="margin-bottom:10px;">按步骤 Top</div>
-                    ${guideTapByStep.length ? renderPchGuideResultTable(guideTapByStep) : '<div class="empty">没有 PCH 引导点击结果步骤明细。</div>'}
+                    <div class="card-subtitle" style="margin-bottom:10px;">按步骤前列</div>
+                    ${guideTapByStep.length ? renderPchGuideResultTable(guideTapByStep) : '<div class="empty">没有传送带玩法引导点击结果步骤明细。</div>'}
                 </div>
             </div>
         </section>
@@ -2535,7 +2613,7 @@ function renderContent(summary, trendSummaries) {
                     <div class="card-title">关卡广告透出/收益关系</div>
                     ${renderSectionExpandButton('levelAdRelationship', state.showAllLevelAdRelationship, levelAdRelationship.length)}
                 </div>
-                <div class="card-subtitle">所有关卡按 user_behavior.levelId 归因；重点看 L4/L12/L13 的“未过且无广告完成”是否是纯流失。</div>
+                <div class="card-subtitle">所有关卡按用户行为记录中的关卡编号归因；重点看 L4/L12/L13 的“未过且无广告完成”是否是纯流失。</div>
             </div>
             <div class="card-body">
                 ${visibleLevelAdRelationship.length ? renderLevelAdRelationshipTable(visibleLevelAdRelationship) : '<div class="empty">这份日报没有关卡广告关系数据。</div>'}
@@ -2565,7 +2643,7 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">广告表现</div>
-                <div class="card-subtitle">${adPerformance?.isFallback ? 'ad_stat 当天为空，当前由 user_behavior 广告事件回推。' : '来自 ad_stat 汇总。'}</div>
+                <div class="card-subtitle">${adPerformance?.isFallback ? '广告汇总当天为空，当前由用户行为中的广告事件回推。' : '来自广告汇总。'}</div>
             </div>
             <div class="card-body">
                 ${renderAdPerformanceTable(adPerformance)}
@@ -2576,7 +2654,7 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-6">
             <div class="card-header">
                 <div class="card-title">数据质量与日志覆盖</div>
-                <div class="card-subtitle">把 fallback、缺表和日志覆盖风险显式列出来，避免把缺数据误判成业务结论。</div>
+                <div class="card-subtitle">把回退数据源（fallback）、缺表和日志覆盖风险显式列出来，避免把缺数据误判成业务结论。</div>
             </div>
             <div class="card-body">
                 ${renderDataQuality(diagnosis?.dataQuality || {})}
@@ -2586,17 +2664,17 @@ function renderContent(summary, trendSummaries) {
         <section class="card span-12">
             <div class="card-header">
                 <div class="card-title">快捷文件入口</div>
-                <div class="card-subtitle">原始 JSON、统一 Markdown 报告、各表 Markdown 报告和 CSV 明细都能从这里直接点开。</div>
+                <div class="card-subtitle">原始数据文件、统一文档报告、各表文档报告和表格明细都能从这里直接点开。</div>
             </div>
             <div class="card-body">
                 <div class="link-row">
-                    <a href="${REPORT_ROOT}/${summary.date}/combined_report.md">combined_report.md</a>
-                    <a href="${REPORT_ROOT}/${summary.date}/combined_summary.json">combined_summary.json</a>
-                    ${collections.user_behavior?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/user_behavior/report.md">user_behavior 报告</a>` : ''}
-                    ${collections.level_record?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/level_record/report.md">level_record 报告</a>` : ''}
-                    ${collections.first_level_funnel?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/first_level_funnel/report.md">first_level_funnel 报告</a>` : ''}
-                    ${collections.ad_stat?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/ad_stat/report.md">ad_stat 报告</a>` : ''}
-                    ${collections.daily_stat?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/daily_stat/report.md">daily_stat 报告</a>` : ''}
+                    <a href="${REPORT_ROOT}/${summary.date}/combined_report.md">统一日报报告（combined_report.md）</a>
+                    <a href="${REPORT_ROOT}/${summary.date}/combined_summary.json">统一日报数据（combined_summary.json）</a>
+                    ${collections.user_behavior?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/user_behavior/report.md">用户行为报告（user_behavior）</a>` : ''}
+                    ${collections.level_record?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/level_record/report.md">关卡记录报告（level_record）</a>` : ''}
+                    ${collections.first_level_funnel?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/first_level_funnel/report.md">首关漏斗报告（first_level_funnel）</a>` : ''}
+                    ${collections.ad_stat?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/ad_stat/report.md">广告汇总报告（ad_stat）</a>` : ''}
+                    ${collections.daily_stat?.reportFiles?.markdownPath ? `<a href="${REPORT_ROOT}/${summary.date}/daily_stat/report.md">每日汇总报告（daily_stat）</a>` : ''}
                 </div>
             </div>
         </section>

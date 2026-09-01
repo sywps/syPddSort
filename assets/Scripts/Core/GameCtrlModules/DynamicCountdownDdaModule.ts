@@ -123,7 +123,7 @@ export function installDynamicCountdownDdaModule(target: any): void {
         },
 
         getDynamicCountdownEntryMode(): string {
-            return this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
+            return this._activeGameplayEntryMode || 'main';
         },
 
         resolveDynamicCountdownTimeLimit(options: {

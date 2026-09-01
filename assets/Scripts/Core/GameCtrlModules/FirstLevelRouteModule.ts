@@ -16,7 +16,7 @@ import {
     LOCAL_BOOTSTRAP_LEVEL_IDS, LOCAL_BOOTSTRAP_LEVEL_PREFIX, LOCAL_BOOTSTRAP_BUNDLE_NAME, GAME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BEAN_DIR, LOCAL_BOOTSTRAP_BEAN_ATLAS_DATA_PATH, LOCAL_BOOTSTRAP_BEAN_ATLAS_TEXTURE_PATH, LOCAL_BOOTSTRAP_LEVEL_DIR, LOCAL_BOOTSTRAP_TEXTURE_DIR,
     LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY, PINDD_BEAN_VARIANTS, LOCAL_BOOTSTRAP_TEXTURE_NAMES, MAX_LEADERBOARD_AVATAR_FRAMES, LS_LEVEL, LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND,
     LS_PROP_BRUSH, LS_PROP_MAGNET, LS_PINCH_GUIDE, LS_SKILL_WAND_USED, LS_SKILL_BROOM_USED, LS_SKILL_MAGNET_USED,
-    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, LS_THEME_COMPLETED, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
+    LS_EXPAND_USED, LS_USER_STATE_UPDATED_AT, CLOUD_STATE_RESTORE_EMPTY_INSTALL_TIMEOUT_MS, NEW_USER_STARTER_PROP_COUNT,
     MAX_FLY_BEAN_POOL_SIZE, MAX_FRAME_FX_POOL_SIZE, MAX_BRIGHT_FLASH_POOL_SIZE, MAX_CONCURRENT_FRAME_EFFECTS, GAME_ASSETS_EFFECTS_IDLE_WARMUP, SKILL_UNLOCK_WAND, SKILL_UNLOCK_BROOM, SKILL_UNLOCK_MAGNET,
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
@@ -83,7 +83,7 @@ export function installFirstLevelRouteModule(target: any): void {
 
         isFirstLevelReleaseDiagnosticsActive(): boolean {
             if ((Number(this._firstLevelReleaseDiagStartedAt) || 0) <= 0) return false;
-            if (this._isThemeLevel || this._activeGameplayEntryMode !== 'main') return false;
+            if (this._activeGameplayEntryMode !== 'main') return false;
             return Math.max(1, Math.floor(Number(this.getActiveLogicalLevelId?.()) || 1)) === 1;
         },
 
@@ -180,7 +180,7 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         beginFirstLevelReleaseDiagnostics(): void {
-            if (this._isThemeLevel || this._activeGameplayEntryMode !== 'main') return;
+            if (this._activeGameplayEntryMode !== 'main') return;
             if (Math.max(1, Math.floor(Number(this.getActiveLogicalLevelId?.()) || 1)) !== 1) return;
             this.bindFirstLevelReleaseTouchObserver?.();
             this._firstLevelReleaseDiagStartedAt = Date.now();
@@ -1063,7 +1063,6 @@ export function installFirstLevelRouteModule(target: any): void {
             markStartupTrace('startup_continue_decision_start');
             const urlLevel = this.getUrlLevel();
             const urlLevelFile = this.getUrlLevelFile();
-            const urlTheme = this.getUrlTheme();
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const initialDefaultEntryLevel = this.getDefaultEntryLevel();
@@ -1145,8 +1144,7 @@ export function installFirstLevelRouteModule(target: any): void {
             const startupLevelId = urlLevelFile ? 0 : (urlLevel > 0 ? urlLevel : (pendingStartupLevelId || defaultEntryLevel));
         
             let started = false;
-            const urlLevelFileTheme = !!urlLevelFile && (urlTheme || this.isThemeLevelFile(urlLevelFile));
-            const startupLevelPrefix = (urlLevel > 0 && urlTheme) ? 'zt_level_' : (pendingStartupPrefix || 'level_');
+            const startupLevelPrefix = pendingStartupPrefix || 'level_';
             if (!urlLevelFile && startupLevelId > 0) {
                 this.reportLevelDataLoadDiagnostic(
                     startupLevelId,
@@ -1158,7 +1156,6 @@ export function installFirstLevelRouteModule(target: any): void {
                             initialDefaultEntryLevel,
                             defaultEntryLevel,
                             urlLevel,
-                            urlTheme,
                             restoreStatus,
                             startupLocalProgressState,
                             pendingStartupLevelId,
@@ -1172,26 +1169,15 @@ export function installFirstLevelRouteModule(target: any): void {
                 if (started) return;
                 started = true;
                 if (urlLevelFile) {
-                    this.loadExternalLevelFile(
-                        urlLevelFile,
-                        urlLevelFileTheme ? 'zt_level_' : 'level_',
-                    );
+                    this.loadExternalLevelFile(urlLevelFile);
                 } else if (urlLevel > 0) {
-                    if (urlTheme) {
-                        this.loadThemeLevel(urlLevel);
-                    } else {
-                        this.loadLevel(urlLevel, 'level_', false);
-                    }
+                    this.loadLevel(urlLevel, 'level_', false);
                 } else if (pendingSceneGameplayRequest) {
-                    if (pendingSceneGameplayRequest.entryMode === 'theme') {
-                        this.loadThemeLevel(pendingSceneGameplayRequest.levelId);
-                    } else {
-                        this.loadLevel(
-                            pendingSceneGameplayRequest.levelId,
-                            pendingSceneGameplayRequest.prefix,
-                            pendingSceneGameplayRequest.entryMode === 'external',
-                        );
-                    }
+                    this.loadLevel(
+                        pendingSceneGameplayRequest.levelId,
+                        pendingSceneGameplayRequest.prefix,
+                        pendingSceneGameplayRequest.entryMode === 'external',
+                    );
                 } else if (defaultEntryLevel <= 1) {
                     // 纯新用户默认从第一关进入
                     this.loadLevel(1);
@@ -1214,10 +1200,6 @@ export function installFirstLevelRouteModule(target: any): void {
                     this.startLocalBootstrapLevelFast(startupLevelId, LOCAL_BOOTSTRAP_LEVEL_PREFIX, startupLevelId);
                 } else {
                     const fastPrefix = startupLevelPrefix;
-                    if (urlLevel > 0 && urlTheme) {
-                        this._isThemeLevel = true;
-                        this._currentThemeLevelId = urlLevel;
-                    }
                     this.startGameAssetsLevelFast(startupLevelId, fastPrefix, startupLevelId);
                 }
             } else {

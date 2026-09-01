@@ -29,7 +29,7 @@ assert.equal(validateConveyorCapacity({ conveyorCapacity: 60 }, 'valid'), 60);
 
 function validateDirectory(relDir, expectedCount) {
     const absDir = path.join(root, relDir);
-    const files = fs.readdirSync(absDir).filter((name) => /^(?:level_|zt_level_)\d+\.json$/.test(name));
+    const files = fs.readdirSync(absDir).filter((name) => /^level_\d+\.json$/.test(name));
     assert.equal(files.length, expectedCount, `${relDir} playable level count`);
     for (const name of files) {
         const data = JSON.parse(fs.readFileSync(path.join(absDir, name), 'utf8'));
@@ -39,7 +39,7 @@ function validateDirectory(relDir, expectedCount) {
     }
 }
 
-validateDirectory('assets/LevelData', 348);
+validateDirectory('assets/LevelData', 300);
 validateDirectory('assets/BootstrapBundle/LevelData', 1);
 validateDirectory('experiments/ly_0224/treatment', 8);
 const treatmentLevel2 = JSON.parse(fs.readFileSync(path.join(root, 'experiments/ly_0224/treatment/level_2.json'), 'utf8'));
@@ -49,14 +49,13 @@ const levelConfig = fs.readFileSync(path.join(root, 'assets/Scripts/Core/LevelCo
 assert.match(levelConfig, /conveyorCapacity:\s*number;/, 'LevelData must require conveyorCapacity');
 assert.doesNotMatch(levelConfig, /slotPolicy\??:/, 'LevelData must not expose the legacy policy');
 
-const themePanelFlow = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts'), 'utf8');
-const builtinLevelStart = themePanelFlow.indexOf('getBuiltinLevel(): LevelData');
-const builtinLevelEnd = themePanelFlow.indexOf('getDefaultThemeGroups()', builtinLevelStart);
-assert.ok(builtinLevelStart >= 0 && builtinLevelEnd > builtinLevelStart, 'built-in theme level source must be present');
+const collectionGuide = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts'), 'utf8');
+const builtinLevelStart = collectionGuide.indexOf('getBuiltinLevel(): LevelData');
+assert.ok(builtinLevelStart >= 0, 'built-in level source must be present');
 assert.match(
-    themePanelFlow.slice(builtinLevelStart, builtinLevelEnd),
+    collectionGuide.slice(builtinLevelStart),
     /conveyorCapacity:\s*60,/,
-    'built-in theme fallback must use the new conveyor capacity',
+    'built-in level fallback must use the new conveyor capacity',
 );
 
 const session = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameplaySessionController.ts'), 'utf8');

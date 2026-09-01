@@ -6,6 +6,11 @@ import {
     type BeanBlockInfo,
 } from './LevelConfig';
 
+const PCH_SELECTION_DIRS = [
+    [-1, 0], [1, 0], [0, -1], [0, 1],
+    [-1, -1], [-1, 1], [1, -1], [1, 1],
+] as const;
+
 export type PchCarrierMove = {
     moved: number;
     boardCells: Array<{ row: number; col: number }>;
@@ -79,12 +84,38 @@ export class PchConveyorRules {
     }
 
     selectBoard(row: number, col: number): BeanBlockInfo | null {
-        const preferredCorrectColor = this.board.correctColors[row]?.[col];
+        const preferredCorrectColor = this.board.correctColors[row]?.[col] || 0;
         const block = this.board.getConnectedBlock(row, col, preferredCorrectColor);
-        if (!block) return null;
+        if (!block || preferredCorrectColor <= 0) return null;
+
+        const unvisited = new Set<number>();
+        for (const cell of block.cells) {
+            if (this.board.correctColors[cell.row]?.[cell.col] === preferredCorrectColor) {
+                unvisited.add(cell.row * this.board.width + cell.col);
+            }
+        }
+        const startKey = row * this.board.width + col;
+        if (!unvisited.delete(startKey)) return null;
+
+        const cells: Array<{ row: number; col: number }> = [];
+        const queue: Array<{ row: number; col: number }> = [{ row, col }];
+        for (let head = 0; head < queue.length && cells.length < this.moveLimit; head += 1) {
+            const cell = queue[head];
+            cells.push(cell);
+            for (const [dr, dc] of PCH_SELECTION_DIRS) {
+                const nextRow = cell.row + dr;
+                const nextCol = cell.col + dc;
+                if (nextRow < 0 || nextRow >= this.board.height || nextCol < 0 || nextCol >= this.board.width) {
+                    continue;
+                }
+                const nextKey = nextRow * this.board.width + nextCol;
+                if (!unvisited.delete(nextKey)) continue;
+                queue.push({ row: nextRow, col: nextCol });
+            }
+        }
         return {
             ...block,
-            cells: block.cells.slice(0, this.moveLimit),
+            cells,
         };
     }
 

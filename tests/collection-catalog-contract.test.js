@@ -111,7 +111,7 @@ function loadCollectionUnlockPolicy() {
 const config = readJson('config/collection-catalog.json');
 const availableLevelKeys = new Set(
     fs.readdirSync(path.join(root, 'assets', 'LevelData'))
-        .map((name) => /^(level_|zt_level_)(\d+)\.json$/.exec(name))
+        .map((name) => /^(level_)(\d+)\.json$/.exec(name))
         .filter(Boolean)
         .map((match) => match[1] + Number(match[2])),
 );
@@ -155,9 +155,9 @@ assert.deepStrictEqual(
 assert.deepStrictEqual(
     JSON.parse(JSON.stringify(clientCatalogContract.resolveLevelCollectionEntries({
         collectionCatalogVersion: 1,
-        collectionEntries: [{ levelId: 7, prefix: 'zt_level_', unlockLevel: 9 }],
+        collectionEntries: [{ levelId: 7, prefix: 'level_', unlockLevel: 9 }],
     }))),
-    [{ levelId: 7, prefix: 'zt_level_', unlockLevel: 9 }],
+    [{ levelId: 7, prefix: 'level_', unlockLevel: 9 }],
     'explicit catalog v1 must remain authoritative',
 );
 assert.throws(
@@ -259,7 +259,7 @@ try {
 const host = read('assets/Scripts/Core/GameRuntimeHost.ts');
 const collection = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
 const panel = read('assets/Scripts/Core/Panels/CollectionPanelController.ts');
-const flow = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
+const flow = read('assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts');
 const cloudFunction = read('cloudfunctions/syncUserState/index.js');
 
 assert.ok(!host.includes('COLLECTION_MAIN_LEVEL_COUNT'), 'runtime must not own the collection count');

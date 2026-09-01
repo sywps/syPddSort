@@ -326,10 +326,11 @@ async function main() {
     buttonHandlers.get(finalReviveButton)();
     assert.strictEqual(attempts.length, 2, 'final failure revive must start a second ad');
     assert.strictEqual(attempts[1].page, 'pch_buffer_full_revive', 'second ad must keep the buffer expansion placement');
+    pchController.inputLocked = false;
     attempts[1].onComplete({ attemptId: 2, status: 'verified_complete' });
 
     assert.strictEqual(rules.bufferCount, 72);
-    assert.strictEqual(rules.bufferCapacity, 84, 'verified second ad must expand 72/72 to 72/84 before resuming');
+    assert.strictEqual(rules.bufferCapacity, 84, 'verified second ad must expand even if asynchronous UI released the old input lock');
     assert.strictEqual(pchController.inputLocked, false, 'verified second ad must unlock conveyor input');
     assert.strictEqual(runtime.isGameEnd, false, 'verified second ad must resume the same game');
     assert.strictEqual(runtime._activeLoseReason, null, 'successful recovery must clear the consumed loss reason');

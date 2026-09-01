@@ -10,11 +10,15 @@ const session = read('assets/Scripts/Core/GameplaySessionController.ts');
 const cloudRestore = read('assets/Scripts/Core/GameCtrlModules/StartupCloudRestoreHelper.ts');
 const boardInput = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
 const gameplayView = read('assets/Scripts/Core/GameplayViewController.ts');
+const gameCtrlShared = read('assets/Scripts/Core/GameCtrlShared.ts');
 const gameRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const gameScene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
 const rainbowFrame = (name) => JSON.parse(
     read(`assets/BootstrapBundle/GameUI/RainbowConveyor/${name}.meta`),
+).subMetas.f9941.uuid;
+const bootstrapFrame = (name) => JSON.parse(
+    read(`assets/BootstrapBundle/GameUI/${name}.meta`),
 ).subMetas.f9941.uuid;
 const near = (actual, expected) => Math.abs(actual - expected) < 1e-6;
 const findSceneNode = (name) => gameScene.find((entry) => entry?.__type__ === 'cc.Node' && entry._name === name);
@@ -47,9 +51,23 @@ assert.ok(cloudRestore.includes('runtime.loadLevel(restoredLevel)'), 'regression
 assert.ok(session.indexOf('runtime._activeGameplayGuideLayoutMode = tutorialMode') < session.indexOf('runtime.buildUI()'), 'guide layout mode must be resolved before board fitting');
 assert.ok(boardInput.includes('getSlotIntroGuideBand'), 'level 3 must reserve a top guide band');
 assert.ok(gameplayView.includes('this.fitBoardViewportToSafeRect(bw, bh, padding)'), 'initial board fit must consume the guide-aware safe viewport');
+assert.ok(gameplayView.includes('const initialFitRect = runtime.getBoardInitialFitRect();'), 'initial board fit must read the scene-owned initial-fit area');
+assert.ok(
+    boardInput.includes("this.getGameplayFixedGroup?.('BoardInitialFitArea')")
+        && boardInput.includes('const left = Math.max(sceneRect.left, safeRect.left);')
+        && boardInput.includes('const right = Math.min(sceneRect.right, safeRect.right);')
+        && boardInput.includes('BoardInitialFitArea does not intersect the board safe viewport'),
+    'initial board fit must intersect the scene-owned area with the dynamic safe viewport',
+);
+assert.ok(
+    gameCtrlShared.includes('const rect = this.options.getSafeViewportRect();')
+        && gameCtrlShared.includes('private clampOffset(x: number, y: number, scale: number): Vec2'),
+    'zoom and pan must retain their existing dynamic safe-viewport clamp',
+);
 assert.ok(gameplayView.includes('levelId === 2 ? 1.025'), 'level 2 must start at exactly 1.25x its former 0.82 fitted scale');
 
 const fixedRoot = findSceneNode('GameplayFixedRoot');
+const initialFitArea = sceneChild(fixedRoot, 'BoardInitialFitArea');
 const conveyorRoot = sceneChild(fixedRoot, 'PchConveyorRoot');
 const normalConveyor = sceneChild(conveyorRoot, 'NormalLayout');
 const compactConveyor = sceneChild(conveyorRoot, 'CompactLayout');
@@ -66,6 +84,17 @@ const topChildNames = topBar._children.map((ref) => gameScene[ref.__id__]?._name
 const settingsBindStart = gameRuntime.indexOf('private bindEarlyGameSettingsButton()');
 const settingsBindEnd = gameRuntime.indexOf('private bindExistingGameLoadingOverlay(', settingsBindStart);
 const settingsBind = gameRuntime.slice(settingsBindStart, settingsBindEnd);
+
+assert.ok(
+    initialFitArea?._active === true
+        && initialFitArea?._parent?.__id__ === gameScene.indexOf(fixedRoot)
+        && sceneComponent(initialFitArea, 'cc.UITransform')?._contentSize.width === 720
+        && sceneComponent(initialFitArea, 'cc.UITransform')?._contentSize.height === 1280
+        && sceneComponent(initialFitArea, 'cc.Widget')?._enabled === true
+        && sceneComponent(initialFitArea, 'cc.Widget')?._alignFlags === 45
+        && sceneComponent(initialFitArea, 'cc.Mask') === undefined,
+    'BoardInitialFitArea must remain an editable, mask-free GameplayFixedRoot layout node',
+);
 
 assert.deepStrictEqual(
     sceneChildren(bottomHud).map((node) => node._name),
@@ -222,9 +251,10 @@ const validateConveyorLayout = (layout, tableType) => {
             && near(adButton?._lscale.x, 0.9)
             && sceneComponent(adButton, 'cc.Button')
             && sceneComponent(sceneChild(adButton, 'Visual'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('wf_base_14.png')
-            && sceneComponent(sceneChild(adButton, 'AdIcon'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('ADIcon.png')
+            && (tableType === 2
+                ? sceneComponent(sceneChild(adButton, 'AdIcon'), 'cc.Sprite')?._spriteFrame?.__uuid__ === bootstrapFrame('popup_ad_play_icon.png')
+                : !sceneChild(adButton, 'AdIcon'))
             && sceneComponent(sceneChild(adButton, 'ExpandIcon'), 'cc.Sprite')?._spriteFrame?.__uuid__ === rainbowFrame('gameProp_2007.png')
-            && sceneChildren(adButton).map((node) => node._name).join(',') === 'Visual,AdIcon,ExpandIcon',
         `table ${tableType} source expansion button`,
     );
 };

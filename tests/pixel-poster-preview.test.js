@@ -167,15 +167,10 @@ assert.ok(collection.includes("maxCellSize: options?.maxCellSize ?? (previewMode
 assert.ok(collection.includes("padding: options?.padding ?? (previewMode === 'poster' ? 8 : 10)"), 'collection cards must keep their default padding unless a caller opts into container fit');
 assert.ok(collection.includes('renderPixelPosterPreview(renderParent, correctArr'), 'collection preview methods must call the shared renderer');
 
-const themePanel = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
-assert.ok(themePanel.includes('this.drawBeanPreviewGrid(card, data.correctColorArr'), 'collection detail preview must route through drawBeanPreviewGrid');
-assert.ok(!themePanel.includes('[collection-preview] bean SpriteFrames unavailable'), 'collection detail preview must not be blocked by bean SpriteFrame availability');
-assert.ok(!themePanel.includes('_prepareBeanFramesForLevelData(data, drawPreview)'), 'collection detail preview must not wait for bean atlas loading');
-
-const themeLoading = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
-assert.ok(themeLoading.includes("this.drawCollectionPixelPreviewOnCard(parent, levelId, offsetX, offsetY, maxW, maxH, 'zt_level_', {"), 'theme card previews must reuse the shared card preview path with theme-specific fit options');
-assert.ok(themeLoading.includes('maxCellSize: Math.max(maxW, maxH),'), 'theme card previews must not be capped by the collection card default cell size');
-assert.ok(themeLoading.includes('padding: 0,'), 'theme card previews must let PreviewContainer define the fit bounds');
+const collectionGuide = read('assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts');
+assert.ok(collectionGuide.includes('this.drawBeanPreviewGrid(card, data.correctColorArr'), 'collection detail preview must route through drawBeanPreviewGrid');
+assert.ok(!collectionGuide.includes('[collection-preview] bean SpriteFrames unavailable'), 'collection detail preview must not be blocked by bean SpriteFrame availability');
+assert.ok(!collectionGuide.includes('_prepareBeanFramesForLevelData(data, drawPreview)'), 'collection detail preview must not wait for bean atlas loading');
 
 const home = read('assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts');
 assert.ok(home.includes('drawHomeLevelPixelPreview(parent: Node, levelId: number'), 'home module must expose next-level preview drawing');
@@ -191,6 +186,6 @@ assert.ok(settlement.includes('maxH = Math.max(120, previewTransform?.height || 
 
 const installer = read('assets/Scripts/Core/installGameCtrlModules.ts');
 assert.ok(installer.indexOf('installCollectionAvatarModule(runtime);') >= 0, 'collection avatar module must be installed');
-assert.ok(installer.indexOf('installThemePanelFlowModule(runtime);') > installer.indexOf('installCollectionAvatarModule(runtime);'), 'theme panel flow must be installed after collection preview helpers');
+assert.ok(installer.indexOf('installCollectionGuideModule(runtime);') > installer.indexOf('installCollectionAvatarModule(runtime);'), 'collection guide module must be installed after collection preview helpers');
 
 console.log('pixel-poster-preview.test.js passed');

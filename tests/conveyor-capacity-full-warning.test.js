@@ -279,6 +279,7 @@ const resumeStart = controllerSource.indexOf('    resumeAfterSettlement(): void 
 const pauseSource = controllerSource.slice(pauseStart, resumeStart);
 assert.ok(pauseStart >= 0 && resumeStart > pauseStart);
 assert.ok(pauseSource.includes('this.resetCapacityWarning();'));
+assert.ok(pauseSource.includes('this.dismissOpeningGuide();'), 'settlement must dismiss any opening guide before showing a result panel');
 
 const commitStart = controllerSource.indexOf('    private commitFinish(): void {');
 const createFlyBeanStart = controllerSource.indexOf('    private createFlyBean(', commitStart);

@@ -56,6 +56,10 @@ class ApiError(Exception):
         self.payload = payload
 
 
+class FingerprintIncompatibleError(ValueError):
+    pass
+
+
 def build_level_swap_backup_dir(level_a_id, level_b_id, target_type='online'):
     stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
     prefix = 'zt_level' if normalize_import_target_type(target_type) == 'theme' else 'level'
@@ -85,7 +89,9 @@ def load_level_json(filepath):
 def build_level_content_fingerprint(level_data):
     missing_keys = [key for key in LEVEL_FINGERPRINT_KEYS if key not in level_data]
     if missing_keys:
-        raise ValueError(f'missing level fingerprint fields: {", ".join(missing_keys)}')
+        raise FingerprintIncompatibleError(
+            f'missing level fingerprint fields: {", ".join(missing_keys)}'
+        )
     canonical = {key: level_data[key] for key in LEVEL_FINGERPRINT_KEYS}
     body = json.dumps(
         canonical,
@@ -323,6 +329,11 @@ def repair_import_map(import_map):
             os.path.commonpath([PROJECT_ROOT, source_path]) != PROJECT_ROOT
             or not os.path.isfile(source_path)
         ):
+            continue
+
+        try:
+            read_level_content_fingerprint(source_path)
+        except FingerprintIncompatibleError:
             continue
 
         repaired_marker, marker_changed = normalize_import_marker(source_path, marker)

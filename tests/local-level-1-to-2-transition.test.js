@@ -28,8 +28,8 @@ assert.ok(
     'level-1 settlement primary action must route to the next physical level',
 );
 assert.ok(
-    settlement.includes('return !this._isThemeLevel && this.levelData?.levelId === 1;'),
-    'only mainline level 1 should use the tutorial transition chain',
+    settlement.includes('return this.levelData?.levelId === 1;'),
+    'level 1 should use the tutorial transition chain',
 );
 assert.ok(
     settlement.includes('this.scheduleOnce(() => {\n                this.loadLevel(nextId);\n            }, 0.08);'),

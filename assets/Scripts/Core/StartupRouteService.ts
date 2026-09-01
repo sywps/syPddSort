@@ -60,7 +60,6 @@ function hasValue(value: unknown): boolean {
 function hasExplicitGameplayLaunch(query: Record<string, string>): boolean {
     if (Math.floor(Number(query.level) || 0) > 0) return true;
     if (hasValue(query.levelfile) || hasValue(query.level_file) || hasValue(query.levelfileurl)) return true;
-    if (hasValue(query.theme) && Math.floor(Number(query.level) || 0) > 0) return true;
     return false;
 }
 

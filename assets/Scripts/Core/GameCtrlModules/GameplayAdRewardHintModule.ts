@@ -23,7 +23,7 @@ function getActiveLevel(runtime: any): number {
 
 function getActiveEntryMode(runtime: any): string {
     return runtime._activeGameplayEntryMode
-        || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
+        || (runtime._currentExternalLevelFilePath ? 'external' : 'main');
 }
 
 function isTimerGameplay(runtime: any): boolean {

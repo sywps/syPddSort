@@ -17,7 +17,6 @@ const outputDir = path.resolve(options.output || path.join(projectDir, 'build', 
 const packSize = Math.max(1, Math.floor(Number(process.env.PDD_LEVEL_PACK_SIZE || 100) || 100));
 const levelFileKinds = [
     { prefix: 'level_', kind: 'mainline', pattern: /^level_(\d+)\.json$/ },
-    { prefix: 'zt_level_', kind: 'theme', pattern: /^zt_level_(\d+)\.json$/ },
 ];
 
 function parseArgs(args) {
@@ -132,7 +131,7 @@ function collectLevels() {
             return kindOrder || a.levelId - b.levelId;
         });
     if (levels.length < 1) {
-        fail('没有找到 level_*.json 或 zt_level_*.json');
+        fail('没有找到 level_*.json');
     }
     const seenKeys = new Set();
     for (const level of levels) {

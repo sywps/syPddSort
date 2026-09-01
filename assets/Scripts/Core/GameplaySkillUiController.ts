@@ -280,7 +280,7 @@ export class GameplaySkillUiController {
         if (!root?.isValid) return;
         const currentLevel = runtime.getActiveLogicalLevelId();
         const entryMode = runtime._activeGameplayEntryMode
-            || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
+            || (runtime._currentExternalLevelFilePath ? 'external' : 'main');
         if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) return;
         const states: Array<{
             kind: GameplaySkillKind;
@@ -316,7 +316,7 @@ export class GameplaySkillUiController {
 
         const currentLevel = runtime.getActiveLogicalLevelId();
         const entryMode = runtime._activeGameplayEntryMode
-            || (runtime._currentExternalLevelFilePath ? 'external' : (runtime._isThemeLevel ? 'theme' : 'main'));
+            || (runtime._currentExternalLevelFilePath ? 'external' : 'main');
         if (!shouldShowGameplaySkillArea(currentLevel, entryMode)) {
             for (const kind of this.skillShellKinds) {
                 const node = root.getChildByName(this.getSkillShellName(kind));

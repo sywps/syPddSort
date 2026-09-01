@@ -12,7 +12,6 @@ const gameAssetsBundleName = 'gameAssets';
 const homeAssetsBundleName = 'homeAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
-	'GameUI/RainbowConveyor/ADIcon',
 	'GameUI/RainbowConveyor/compact_conveyor_track',
 	'GameUI/RainbowConveyor/conveyor_0',
 	'GameUI/RainbowConveyor/conveyor_1',
@@ -45,12 +44,9 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/pdpx_eff_Mask_01',
 	'GameUI/pdpx_eff_Star_01',
 	'GameUI/pdpx_eff_Trail_02',
-	'GameUI/pch_speed_active',
 	'GameUI/pch_speed_inactive',
-	'GameUI/popup_guide_highlight_ring',
 	'GameUI/popup_ad_play_icon',
 	'GameUI/popup_primary_button',
-	'GameUI/popup_gameplay_tool_slot_plate',
 	'GameUI/popup_tool_add_badge',
 	'GameUI/popup_tool_count_badge',
 	'GameUI/popup_tool_wand_icon',

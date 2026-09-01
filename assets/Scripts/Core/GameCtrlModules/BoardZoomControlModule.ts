@@ -237,7 +237,6 @@ export function installBoardZoomControlModule(target: any): void {
         },
 
         shouldHideBoardZoomControlForCurrentLevel(): boolean {
-            if (this._isThemeLevel) return false;
             const logicalLevelId = typeof this.getActiveLogicalLevelId === 'function'
                 ? this.getActiveLogicalLevelId()
                 : Math.max(1, Math.floor(Number(this.levelData?.levelId || 1) || 1));
