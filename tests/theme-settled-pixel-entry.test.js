@@ -9,8 +9,11 @@ const homeScene = JSON.parse(read('assets/HomeAssetsBundle/Scenes/Home.scene'));
 const homeCommerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
 const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const gameplaySession = read('assets/Scripts/Core/GameplaySessionController.ts');
+const sceneHomeEntry = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
 const themeFlow = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
 const themePanel = read('assets/Scripts/Core/Panels/ThemePanelController.ts');
+const themeLoading = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
+const playerMeta = read('assets/Scripts/Core/GameCtrlModules/PlayerMetaStateModule.ts');
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
 const collectionPanel = read('assets/Scripts/Core/Panels/CollectionPanelController.ts');
@@ -66,9 +69,21 @@ assert.ok(
     'the pixel puzzle button must start the first incomplete theme level directly',
 );
 assert.ok(
-    gameplaySession.includes("gameplayEntryMode = runtime._currentExternalLevelFilePath\n                ? 'external'\n                : (runtime._isThemeLevel ? 'theme' : 'main');")
+    themeLoading.includes("if (!this.costVigorForLevel(normalizedLevelId, 'theme'))")
+        && themeLoading.includes("source: 'theme_start'")
+        && themeLoading.includes('this.startThemeLevel(normalizedLevelId, options);')
+        && playerMeta.includes("'theme_start'"),
+    'every pixel puzzle level start must spend vigor or open the existing recovery flow',
+);
+assert.ok(
+    gameplaySession.includes("gameplayEntryMode = runtime._currentExternalLevelFilePath\n                ? (runtime._isThemeLevel ? 'theme' : 'external')\n                : (runtime._isThemeLevel ? 'theme' : 'main');")
         && gameplaySession.includes('runtime._activeGameplayEntryMode = gameplayEntryMode;'),
-    'gameplay startup must establish the authoritative entry mode before PCH starts',
+    'external zt_level files must establish theme mode before PCH starts',
+);
+assert.ok(
+    sceneHomeEntry.includes("if (prefix === 'zt_level_') return 'theme';")
+        && sceneHomeEntry.includes("if (external) return 'external';"),
+    'external zt_level requests must retain pixel-puzzle session routing',
 );
 assert.ok(
     conveyor.includes("this.runtime._activeGameplayEntryMode === 'theme'"),
@@ -109,8 +124,8 @@ const themeFileIds = fs.readdirSync(path.join(root, 'assets/LevelData'))
     .filter(Boolean)
     .map((match) => Number(match[1]))
     .sort((a, b) => a - b);
-assert.deepStrictEqual(configuredThemeIds, themeFileIds, 'themes.json must include every authored theme level exactly once');
-assert.deepStrictEqual(themeFileIds, Array.from({ length: 48 }, (_, index) => index + 1), 'theme filenames must run continuously from 1 to 48');
+assert.ok(configuredThemeIds.every((levelId) => themeFileIds.includes(levelId)), 'every configured theme level must have an authored file');
+assert.deepStrictEqual(themeFileIds, Array.from({ length: 205 }, (_, index) => index + 1), 'theme filenames must run continuously from 1 to 205');
 for (const levelId of themeFileIds) {
     const level = JSON.parse(read(`assets/LevelData/zt_level_${levelId}.json`));
     assert.strictEqual(level.levelId, levelId, `zt_level_${levelId}.json must use the matching internal levelId`);

@@ -168,9 +168,9 @@ const expectedLevelCounts = expectedStableEntries.reduce((counts, entry) => {
 }, {});
 const expectedPackCount = Object.values(expectedLevelCounts)
     .reduce((total, count) => total + Math.ceil(count / config.packSize), 0);
-assert.strictEqual(expectedLevelKeys.length, 348, 'stable A/B and EXP must share the same 348 level keys');
-assert.deepStrictEqual(expectedLevelCounts, { level_: 300, zt_level_: 48 });
-assert.strictEqual(expectedPackCount, 4);
+assert.strictEqual(expectedLevelKeys.length, 505, 'stable A/B and EXP must share the same 505 level keys');
+assert.deepStrictEqual(expectedLevelCounts, { level_: 300, zt_level_: 205 });
+assert.strictEqual(expectedPackCount, 6);
 const stableDigestBefore = stableSourceDigest();
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdd-ly-0224-cdn-'));
 try {
@@ -205,7 +205,9 @@ try {
     const themePacks = manifest.packs.filter((entry) => entry.prefix === 'zt_level_');
     assert.strictEqual(mainlinePacks[0].levelRange[0], 1);
     assert.strictEqual(mainlinePacks[mainlinePacks.length - 1].levelRange[1], 300);
-    assert.strictEqual(themePacks.length, 1);
+    assert.strictEqual(themePacks.length, 3);
+    assert.strictEqual(themePacks[0].levelRange[0], 1);
+    assert.strictEqual(themePacks[themePacks.length - 1].levelRange[1], 205);
 
     const actualLevelKeys = [];
     const changedFromStableKeys = [];

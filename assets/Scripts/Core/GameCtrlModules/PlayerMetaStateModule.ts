@@ -60,7 +60,7 @@ type RecoverVigorShareState = {
     count: number;
 };
 
-export type RecoverVigorSource = 'home_hud' | 'home_start' | 'restart' | 'next_level';
+export type RecoverVigorSource = 'home_hud' | 'home_start' | 'theme_start' | 'restart' | 'next_level';
 export type RecoverVigorResultStatus = 'granted' | 'failed' | 'cancelled';
 export type RecoverVigorResult = {
     source: RecoverVigorSource;

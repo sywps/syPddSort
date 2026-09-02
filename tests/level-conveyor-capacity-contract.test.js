@@ -39,7 +39,7 @@ function validateDirectory(relDir, expectedCount) {
     }
 }
 
-validateDirectory('assets/LevelData', 348);
+validateDirectory('assets/LevelData', 505);
 validateDirectory('assets/BootstrapBundle/LevelData', 1);
 validateDirectory('experiments/ly_0224/treatment', 8);
 const treatmentLevel2 = JSON.parse(fs.readFileSync(path.join(root, 'experiments/ly_0224/treatment/level_2.json'), 'utf8'));

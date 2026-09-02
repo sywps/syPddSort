@@ -31,6 +31,7 @@ LEVEL_DATA_DIR = GAME_LEVEL_DATA_DIR
 DAILY_REPORT_DIR = os.path.join(PROJECT_ROOT, 'artifacts', 'cloudbase-daily-report')
 ONLINE_LEVEL_KEYS = (
     'levelId',
+    'Hard',
     'boardWidth',
     'boardHeight',
     'timeLimit',

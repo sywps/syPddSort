@@ -322,6 +322,16 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 }, 0.05);
                 return false;
             };
+            if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
+                this.showNoLivesAdModal({
+                    source: 'theme_start',
+                    onResult: (result: any) => {
+                        if (result?.status !== 'granted' || !this.isValid) return;
+                        this.startThemeLevel(normalizedLevelId, options);
+                    },
+                });
+                return false;
+            }
             this.closeThemePanel();
             if (this.getRuntimeSceneName('Game') === 'Home') {
                 return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false)

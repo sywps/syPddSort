@@ -1,0 +1,294 @@
+{
+  "generatedLevelCount": 200,
+  "preservedOnlineLevelCount": 5,
+  "totalLevelFileCount": 205,
+  "beanCount": {
+    "min": 800,
+    "mean": 1113.69,
+    "median": 1002.0,
+    "max": 3001,
+    "ge1000": 102,
+    "ge900": 148
+  },
+  "placedBeanRatio": {
+    "mean": 0.019277758641186554,
+    "below8Pct": 180,
+    "above12Pct": 2,
+    "max": 0.12222222222222222
+  },
+  "chapters": [
+    {
+      "chapter": 1,
+      "range": [
+        6,
+        15
+      ],
+      "meanDifficulty": 15.381879099999999,
+      "miniPeakDifficulty": 18.591834,
+      "reliefDifficulty": 9.341733,
+      "chapterPeakDifficulty": 19.821665,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.5693334
+    },
+    {
+      "chapter": 2,
+      "range": [
+        16,
+        25
+      ],
+      "meanDifficulty": 24.1170506,
+      "miniPeakDifficulty": 26.366067,
+      "reliefDifficulty": 20.890896,
+      "chapterPeakDifficulty": 27.896129,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.9006667
+    },
+    {
+      "chapter": 3,
+      "range": [
+        26,
+        35
+      ],
+      "meanDifficulty": 29.8803388,
+      "miniPeakDifficulty": 30.613258,
+      "reliefDifficulty": 28.48913,
+      "chapterPeakDifficulty": 31.210648,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.4373333
+    },
+    {
+      "chapter": 4,
+      "range": [
+        36,
+        45
+      ],
+      "meanDifficulty": 32.7196716,
+      "miniPeakDifficulty": 34.146464,
+      "reliefDifficulty": 31.945954,
+      "chapterPeakDifficulty": 34.157771,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.8239999000000005
+    },
+    {
+      "chapter": 5,
+      "range": [
+        46,
+        55
+      ],
+      "meanDifficulty": 34.4639005,
+      "miniPeakDifficulty": 34.598093,
+      "reliefDifficulty": 34.262555,
+      "chapterPeakDifficulty": 34.642239,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.798
+    },
+    {
+      "chapter": 6,
+      "range": [
+        56,
+        65
+      ],
+      "meanDifficulty": 35.2219654,
+      "miniPeakDifficulty": 35.381055,
+      "reliefDifficulty": 34.783916,
+      "chapterPeakDifficulty": 35.637145,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 7.3673334
+    },
+    {
+      "chapter": 7,
+      "range": [
+        66,
+        75
+      ],
+      "meanDifficulty": 36.0408241,
+      "miniPeakDifficulty": 36.209072,
+      "reliefDifficulty": 35.853317,
+      "chapterPeakDifficulty": 36.296308,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.2366667
+    },
+    {
+      "chapter": 8,
+      "range": [
+        76,
+        85
+      ],
+      "meanDifficulty": 36.506364500000004,
+      "miniPeakDifficulty": 36.724699,
+      "reliefDifficulty": 36.302119,
+      "chapterPeakDifficulty": 36.732174,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 7.0266667
+    },
+    {
+      "chapter": 9,
+      "range": [
+        86,
+        95
+      ],
+      "meanDifficulty": 37.3460045,
+      "miniPeakDifficulty": 37.714249,
+      "reliefDifficulty": 36.747816,
+      "chapterPeakDifficulty": 37.750592,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.7599998999999995
+    },
+    {
+      "chapter": 10,
+      "range": [
+        96,
+        105
+      ],
+      "meanDifficulty": 38.102738,
+      "miniPeakDifficulty": 38.285814,
+      "reliefDifficulty": 37.779697,
+      "chapterPeakDifficulty": 38.354542,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.2026667
+    },
+    {
+      "chapter": 11,
+      "range": [
+        106,
+        115
+      ],
+      "meanDifficulty": 38.732453,
+      "miniPeakDifficulty": 38.964749,
+      "reliefDifficulty": 38.414394,
+      "chapterPeakDifficulty": 38.989136,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.4186667
+    },
+    {
+      "chapter": 12,
+      "range": [
+        116,
+        125
+      ],
+      "meanDifficulty": 39.6630391,
+      "miniPeakDifficulty": 39.970259,
+      "reliefDifficulty": 39.398776,
+      "chapterPeakDifficulty": 40.002114,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.88
+    },
+    {
+      "chapter": 13,
+      "range": [
+        126,
+        135
+      ],
+      "meanDifficulty": 40.6991277,
+      "miniPeakDifficulty": 40.883238,
+      "reliefDifficulty": 40.263875,
+      "chapterPeakDifficulty": 40.944319,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 9.1400001
+    },
+    {
+      "chapter": 14,
+      "range": [
+        136,
+        145
+      ],
+      "meanDifficulty": 41.534759,
+      "miniPeakDifficulty": 41.851207,
+      "reliefDifficulty": 41.132496,
+      "chapterPeakDifficulty": 41.970228,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 6.4426667
+    },
+    {
+      "chapter": 15,
+      "range": [
+        146,
+        155
+      ],
+      "meanDifficulty": 42.7578773,
+      "miniPeakDifficulty": 43.097516,
+      "reliefDifficulty": 41.985105,
+      "chapterPeakDifficulty": 43.134815,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 7.932
+    },
+    {
+      "chapter": 16,
+      "range": [
+        156,
+        165
+      ],
+      "meanDifficulty": 43.6578209,
+      "miniPeakDifficulty": 43.993726,
+      "reliefDifficulty": 43.371009,
+      "chapterPeakDifficulty": 43.994154,
+      "meanTimeLimit": 147,
+      "meanActualBeansPerSecond": 7.6686667
+    },
+    {
+      "chapter": 17,
+      "range": [
+        166,
+        175
+      ],
+      "meanDifficulty": 44.5654254,
+      "miniPeakDifficulty": 45.073269,
+      "reliefDifficulty": 44.104661,
+      "chapterPeakDifficulty": 45.167897,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 8.7113333
+    },
+    {
+      "chapter": 18,
+      "range": [
+        176,
+        185
+      ],
+      "meanDifficulty": 46.0182362,
+      "miniPeakDifficulty": 46.921911,
+      "reliefDifficulty": 45.174631,
+      "chapterPeakDifficulty": 47.039086,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 8.9466667
+    },
+    {
+      "chapter": 19,
+      "range": [
+        186,
+        195
+      ],
+      "meanDifficulty": 48.2923877,
+      "miniPeakDifficulty": 49.004637,
+      "reliefDifficulty": 47.228183,
+      "chapterPeakDifficulty": 49.063411,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 9.726
+    },
+    {
+      "chapter": 20,
+      "range": [
+        196,
+        205
+      ],
+      "meanDifficulty": 52.3581513,
+      "miniPeakDifficulty": 54.87239,
+      "reliefDifficulty": 49.885594,
+      "chapterPeakDifficulty": 59.542643,
+      "meanTimeLimit": 150,
+      "meanActualBeansPerSecond": 9.6366668
+    }
+  ],
+  "runtimeSchema": {
+    "Hard": 0,
+    "conveyorCapacity": 60
+  },
+  "timeLimit": {
+    "policy": "mainline: min(150, ceil(beanCount / 200) * 30)",
+    "min": 120,
+    "mean": 149.85,
+    "median": 150.0,
+    "max": 150,
+    "step": 30,
+    "meanActualBeansPerSecond": 7.431266685
+  }
+}
