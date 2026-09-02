@@ -11,6 +11,7 @@ import {
     NodePool,
     ProgressBar,
     Sprite,
+    SySDKMgr,
     Tween,
     UITransform,
     UIOpacity,
@@ -245,6 +246,8 @@ export class PchConveyorGameplayController {
     private openingGuideLevelOneCells: Array<{ row: number; col: number }> = [];
     private openingGuideLevelOneStep = -1;
     private openingGuideWrongTapToastLastShownAt = 0;
+    private openingGuideTutorialStarted = false;
+    private openingGuideTutorialFinished = false;
     private rules: PchConveyorRules | null = null;
     private carrierNodes: Node[] = [];
     private carrierDirectionNodes: Node[] = [];
@@ -364,6 +367,18 @@ export class PchConveyorGameplayController {
                 result,
             },
         });
+    }
+
+    private reportOpeningGuideTutorialStart(): void {
+        if (this.openingGuideTutorialStarted) return;
+        this.openingGuideTutorialStarted = true;
+        SySDKMgr.inst.reportTutorialStart();
+    }
+
+    private reportOpeningGuideTutorialFinish(): void {
+        if (!this.openingGuideTutorialStarted || this.openingGuideTutorialFinished) return;
+        this.openingGuideTutorialFinished = true;
+        SySDKMgr.inst.reportTutorialFinish();
     }
 
     start(): void {
@@ -660,6 +675,8 @@ export class PchConveyorGameplayController {
         this.openingGuideLevelOneCells = [];
         this.openingGuideLevelOneStep = -1;
         this.openingGuideWrongTapToastLastShownAt = 0;
+        this.openingGuideTutorialStarted = false;
+        this.openingGuideTutorialFinished = false;
         this.rules = null;
         this.carrierNodes = [];
         this.carrierDirectionNodes = [];
@@ -2621,6 +2638,7 @@ export class PchConveyorGameplayController {
             )
             .start();
         this.trackOpeningGuideEvent('pch_guide_step_shown', true, 'shown', guideName);
+        this.reportOpeningGuideTutorialStart();
     }
 
     private onOpeningGuideLevelOneTap(event: any): void {
@@ -2633,6 +2651,7 @@ export class PchConveyorGameplayController {
         if (!success) return;
         this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
         if (this.openingGuideLevelOneStep >= 1) {
+            this.reportOpeningGuideTutorialFinish();
             this.dismissOpeningGuide();
             return;
         }
@@ -2647,6 +2666,7 @@ export class PchConveyorGameplayController {
         this.setManualSpeedMultiplier(2);
         this.trackOpeningGuideEvent('pch_guide_tap_result', true, 'enabled_2x');
         this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
+        this.reportOpeningGuideTutorialFinish();
         this.refreshSpeedButtonState();
         if (this.statusLabel) this.statusLabel.string = '2 倍速度已开启';
         this.dismissOpeningGuide();
@@ -2665,6 +2685,7 @@ export class PchConveyorGameplayController {
         );
         if (!expanded) return;
         this.trackOpeningGuideEvent('pch_guide_step_done', true, 'completed');
+        this.reportOpeningGuideTutorialFinish();
         this.runtime.markDynamicCountdownAssisted?.();
         this.dismissOpeningGuide();
         this.runtime.showToast('传送带已扩容 +12');

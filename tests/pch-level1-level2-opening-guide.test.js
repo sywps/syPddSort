@@ -22,6 +22,13 @@ function extractMethod(signature) {
 
 const playedAudio = [];
 const fakeAudioMgr = { inst: { play(name) { playedAudio.push(name); } } };
+const tutorialReports = [];
+const fakeSySDKMgr = {
+    inst: {
+        reportTutorialStart() { tutorialReports.push('start'); },
+        reportTutorialFinish() { tutorialReports.push('finish'); },
+    },
+};
 const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 
 function createHarness(signatures) {
@@ -33,8 +40,8 @@ function createHarness(signatures) {
         },
     }).outputText;
     const testModule = { exports: {} };
-    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', compiled);
-    load(testModule, testModule.exports, require, fakeAudioMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS);
+    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'SySDKMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', compiled);
+    load(testModule, testModule.exports, require, fakeAudioMgr, fakeSySDKMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS);
     return new testModule.exports.Harness();
 }
 
@@ -169,9 +176,23 @@ assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGu
     assert.strictEqual(tapResults.length, 5, 'each wrong guide tap must retain its existing analytics result');
 }
 
+const tutorialTelemetry = createHarness([
+    'private reportOpeningGuideTutorialStart(): void',
+    'private reportOpeningGuideTutorialFinish(): void',
+]);
+tutorialReports.length = 0;
+tutorialTelemetry.reportOpeningGuideTutorialFinish();
+assert.deepStrictEqual(tutorialReports, [], 'a guide that never became visible must not report completion');
+tutorialTelemetry.reportOpeningGuideTutorialStart();
+tutorialTelemetry.reportOpeningGuideTutorialStart();
+assert.deepStrictEqual(tutorialReports, ['start'], 'a multi-step opening guide must report DataNexus start only once');
+tutorialTelemetry.reportOpeningGuideTutorialFinish();
+tutorialTelemetry.reportOpeningGuideTutorialFinish();
+assert.deepStrictEqual(tutorialReports, ['start', 'finish'], 'a completed opening guide must report DataNexus finish only once');
+
 function runLevelOneOutcome(outcome, step) {
     const guide = createHarness(['private onOpeningGuideLevelOneTap(event: any): void']);
-    const calls = { analytics: [], clear: 0, show: 0, dismiss: 0 };
+    const calls = { analytics: [], clear: 0, show: 0, dismiss: 0, tutorialFinish: 0 };
     guide.openingGuideLevelOneCells = [{ row: 0, col: 0 }, { row: 0, col: 1 }];
     guide.openingGuideLevelOneStep = step;
     guide.rules = {};
@@ -181,6 +202,7 @@ function runLevelOneOutcome(outcome, step) {
     };
     guide.handleBoardTap = () => outcome;
     guide.trackOpeningGuideEvent = (...args) => calls.analytics.push(args);
+    guide.reportOpeningGuideTutorialFinish = () => { calls.tutorialFinish += 1; };
     guide.clearOpeningGuideNodes = () => { calls.clear += 1; };
     guide.showLevelOneBoardGuideStep = (parent) => {
         assert.strictEqual(parent, 'fixed-root');
@@ -199,6 +221,7 @@ for (const outcome of ['invalid', 'capacity_blocked']) {
     assert.strictEqual(result.calls.clear, 0, `${outcome} must retain the current guide visuals`);
     assert.strictEqual(result.calls.show, 0, `${outcome} must not show the second guide step`);
     assert.strictEqual(result.calls.dismiss, 0, `${outcome} must not dismiss the guide`);
+    assert.strictEqual(result.calls.tutorialFinish, 0, `${outcome} must not report tutorial completion`);
     assert.deepStrictEqual(result.calls.analytics, [['pch_guide_tap_result', false, outcome]]);
 }
 
@@ -207,6 +230,7 @@ assert.strictEqual(firstSuccess.guide.openingGuideLevelOneStep, 1, 'the first st
 assert.strictEqual(firstSuccess.calls.clear, 1);
 assert.strictEqual(firstSuccess.calls.show, 1);
 assert.strictEqual(firstSuccess.calls.dismiss, 0);
+assert.strictEqual(firstSuccess.calls.tutorialFinish, 0, 'the first level-1 step must not report tutorial completion');
 assert.deepStrictEqual(firstSuccess.calls.analytics, [
     ['pch_guide_tap_result', true, 'stored'],
     ['pch_guide_step_done', true, 'completed'],
@@ -216,6 +240,7 @@ const secondSuccess = runLevelOneOutcome('partial', 1);
 assert.strictEqual(secondSuccess.calls.clear, 0);
 assert.strictEqual(secondSuccess.calls.show, 0);
 assert.strictEqual(secondSuccess.calls.dismiss, 1, 'the second accepted color must finish the level-1 guide');
+assert.strictEqual(secondSuccess.calls.tutorialFinish, 1, 'the second level-1 step must report tutorial completion once');
 assert.deepStrictEqual(secondSuccess.calls.analytics, [
     ['pch_guide_tap_result', true, 'partial'],
     ['pch_guide_step_done', true, 'completed'],
@@ -227,11 +252,13 @@ const multipliers = [];
 const levelTwoAnalytics = [];
 let levelTwoRefreshes = 0;
 let levelTwoDismisses = 0;
+let levelTwoTutorialFinishes = 0;
 levelTwo.rules = {};
 levelTwo.runtime = { isGameEnd: false };
 levelTwo.statusLabel = { string: '' };
 levelTwo.setManualSpeedMultiplier = (value) => multipliers.push(value);
 levelTwo.trackOpeningGuideEvent = (...args) => levelTwoAnalytics.push(args);
+levelTwo.reportOpeningGuideTutorialFinish = () => { levelTwoTutorialFinishes += 1; };
 levelTwo.refreshSpeedButtonState = () => { levelTwoRefreshes += 1; };
 levelTwo.dismissOpeningGuide = () => { levelTwoDismisses += 1; };
 const speedEvent = { propagationStopped: false };
@@ -240,6 +267,7 @@ assert.deepStrictEqual(multipliers, [2], 'level 2 must deterministically enable 
 assert.strictEqual(speedEvent.propagationStopped, true);
 assert.strictEqual(levelTwoRefreshes, 1);
 assert.strictEqual(levelTwoDismisses, 1);
+assert.strictEqual(levelTwoTutorialFinishes, 1, 'level 2 guide success must report tutorial completion once');
 assert.strictEqual(levelTwo.statusLabel.string, '2 倍速度已开启');
 assert.deepStrictEqual(levelTwoAnalytics, [
     ['pch_guide_tap_result', true, 'enabled_2x'],
@@ -252,6 +280,7 @@ const levelThree = createHarness(['private onOpeningGuideFreeCapacity(event: any
 const levelThreeAnalytics = [];
 const levelThreeCalls = [];
 const levelThreeToasts = [];
+let levelThreeTutorialFinishes = 0;
 levelThree.rules = {};
 levelThree.runtime = {
     isGameEnd: false,
@@ -266,10 +295,12 @@ levelThree.expandCapacity = () => {
     return true;
 };
 levelThree.trackOpeningGuideEvent = (...args) => levelThreeAnalytics.push(args);
+levelThree.reportOpeningGuideTutorialFinish = () => { levelThreeTutorialFinishes += 1; };
 levelThree.dismissOpeningGuide = () => { levelThreeCalls.push('dismiss'); };
 const capacityEvent = { propagationStopped: false };
 levelThree.onOpeningGuideFreeCapacity(capacityEvent);
 assert.strictEqual(capacityEvent.propagationStopped, true);
+assert.strictEqual(levelThreeTutorialFinishes, 1, 'level 3 guide success must report tutorial completion once');
 assert.deepStrictEqual(levelThreeAnalytics, [
     ['pch_guide_tap_result', true, 'capacity_expanded'],
     ['pch_guide_step_done', true, 'completed'],
@@ -284,6 +315,7 @@ const failedLevelThreeAnalytics = [];
 const failedLevelThreeToasts = [];
 let failedLevelThreeDismisses = 0;
 let failedLevelThreeAssists = 0;
+let failedLevelThreeTutorialFinishes = 0;
 failedLevelThree.rules = {};
 failedLevelThree.runtime = {
     isGameEnd: false,
@@ -292,6 +324,7 @@ failedLevelThree.runtime = {
 };
 failedLevelThree.expandCapacity = () => false;
 failedLevelThree.trackOpeningGuideEvent = (...args) => failedLevelThreeAnalytics.push(args);
+failedLevelThree.reportOpeningGuideTutorialFinish = () => { failedLevelThreeTutorialFinishes += 1; };
 failedLevelThree.dismissOpeningGuide = () => { failedLevelThreeDismisses += 1; };
 failedLevelThree.onOpeningGuideFreeCapacity({ propagationStopped: false });
 assert.deepStrictEqual(failedLevelThreeAnalytics, [
@@ -299,6 +332,7 @@ assert.deepStrictEqual(failedLevelThreeAnalytics, [
 ]);
 assert.strictEqual(failedLevelThreeAssists, 0, 'failed capacity expansion must not mark countdown assistance');
 assert.strictEqual(failedLevelThreeDismisses, 0, 'failed capacity expansion must retain the guide');
+assert.strictEqual(failedLevelThreeTutorialFinishes, 0, 'failed capacity expansion must not report tutorial completion');
 assert.deepStrictEqual(failedLevelThreeToasts, [], 'failed capacity expansion must not show the success Toast');
 assert.deepStrictEqual(playedAudio, ['button']);
 
@@ -375,6 +409,22 @@ assert.ok(
 const levelOneGuideStepSource = extractMethod('private showLevelOneBoardGuideStep(parent: Node): void');
 const sharedTargetGuideSource = extractMethod('private showOpeningTargetGuide(');
 const sharedTargetGuideAtSource = extractMethod('private showOpeningTargetGuideAt(');
+const tutorialStartSource = extractMethod('private reportOpeningGuideTutorialStart(): void');
+const tutorialFinishSource = extractMethod('private reportOpeningGuideTutorialFinish(): void');
+const sySdkSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/SySDKMgr.ts'), 'utf8');
+assert.ok(
+    tutorialStartSource.includes('SySDKMgr.inst.reportTutorialStart()')
+        && tutorialFinishSource.includes('SySDKMgr.inst.reportTutorialFinish()')
+        && sySdkSource.includes('reportTutorialStart()')
+        && sySdkSource.includes('syIaaTutorialTrack(1)')
+        && sySdkSource.includes('reportTutorialFinish()')
+        && sySdkSource.includes('syIaaTutorialTrack(2)'),
+    'PCH opening-guide telemetry must use the restored guarded DataNexus tutorial wrappers',
+);
+assert.ok(
+    sharedTargetGuideAtSource.includes("this.trackOpeningGuideEvent('pch_guide_step_shown', true, 'shown', guideName);\n        this.reportOpeningGuideTutorialStart();"),
+    'DataNexus tutorial start must be emitted only after the visible opening guide has been fully created',
+);
 assert.ok(
     levelOneGuideStepSource.includes('this.onOpeningGuideLevelOneTap,\n            true,\n        );'),
     'level 1 must request the selected frame without a vertical override',
