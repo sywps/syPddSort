@@ -73,11 +73,11 @@ assert.ok(
     'each loss must freeze its revive reason before the failure UI can be entered',
 );
 assert.ok(
-    controllerSource.includes("bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanelV2'"),
+    controllerSource.includes("bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanel'"),
     'result-panel loader must declare the dedicated buffer-full prefab path',
 );
 assert.ok(
-    controllerSource.includes("revive: 'UI/Prefabs/Panels/RevivePanelV2'"),
+    controllerSource.includes("revive: 'UI/Prefabs/Panels/RevivePanel'"),
     'result-panel loader must declare the dedicated timeout prefab path',
 );
 assert.ok(
@@ -116,21 +116,21 @@ assert.match(
 );
 assert.ok(bufferReviveAction.includes("successToast: '已增加12个位置'"));
 
-const timeoutPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanelV2.prefab');
-const timeoutMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanelV2.prefab.meta');
-const bufferPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanelV2.prefab');
-const bufferMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanelV2.prefab.meta');
+const timeoutPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab');
+const timeoutMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab.meta');
+const bufferPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanel.prefab');
+const bufferMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanel.prefab.meta');
 const titleArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/revive_title_ribbon.png.meta');
 const timeoutArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/revive_timeout_illustration.png.meta');
 const bufferArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/tc_img_40.png.meta');
 
-assert.strictEqual(timeoutPrefab[0]?._name, 'RevivePanelV2');
-assert.strictEqual(timeoutPrefab[1]?._name, 'RevivePanelV2');
-assert.strictEqual(timeoutMeta.userData?.syncNodeName, 'RevivePanelV2');
+assert.strictEqual(timeoutPrefab[0]?._name, 'RevivePanel');
+assert.strictEqual(timeoutPrefab[1]?._name, 'RevivePanel');
+assert.strictEqual(timeoutMeta.userData?.syncNodeName, 'RevivePanel');
 assert.strictEqual(timeoutMeta.uuid, '853369d3-bce6-4a04-aaaf-1d8b2040707b');
-assert.strictEqual(bufferPrefab[0]?._name, 'BufferFullRevivePanelV2');
-assert.strictEqual(bufferPrefab[1]?._name, 'BufferFullRevivePanelV2');
-assert.strictEqual(bufferMeta.userData?.syncNodeName, 'BufferFullRevivePanelV2');
+assert.strictEqual(bufferPrefab[0]?._name, 'BufferFullRevivePanel');
+assert.strictEqual(bufferPrefab[1]?._name, 'BufferFullRevivePanel');
+assert.strictEqual(bufferMeta.userData?.syncNodeName, 'BufferFullRevivePanel');
 assert.strictEqual(bufferMeta.uuid, '1699e623-505e-4752-937d-1da640e21860');
 assert.notStrictEqual(bufferMeta.uuid, timeoutMeta.uuid, 'timeout and buffer-full prefabs must have distinct UUIDs');
 
@@ -272,12 +272,12 @@ for (const scriptPath of [
     'scripts/patch-bootstrap-dynamic-assets.js',
 ]) {
     assert.ok(
-        read(scriptPath).includes('UI/Prefabs/Panels/RevivePanelV2'),
-        `${scriptPath} must promote the V2 timeout prefab`,
+        read(scriptPath).includes('UI/Prefabs/Panels/RevivePanel'),
+        `${scriptPath} must promote the formal timeout prefab`,
     );
     assert.ok(
-        read(scriptPath).includes('UI/Prefabs/Panels/BufferFullRevivePanelV2'),
-        `${scriptPath} must promote the V2 dedicated buffer-full prefab`,
+        read(scriptPath).includes('UI/Prefabs/Panels/BufferFullRevivePanel'),
+        `${scriptPath} must promote the formal dedicated buffer-full prefab`,
     );
 }
 

@@ -170,8 +170,8 @@ function testSourceContract() {
     assert.ok(!controllerSource.includes('instantiate(continueBtn)'), 'ShareBtn must not be cloned at runtime');
     assert.ok(!controllerSource.includes("shareBtn.name = 'ShareBtn'"));
     assert.ok(!controllerSource.includes("getChildByName('popup_ad_play_icon')"));
-    assertStaticShareButton('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanelV2.prefab', '分享复活');
-    assertStaticShareButton('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanelV2.prefab', '分享送扩展');
+    assertStaticShareButton('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab', '分享复活');
+    assertStaticShareButton('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanel.prefab', '分享送扩展');
 
     const timeoutFactory = extractMethod(controllerSource, 'createReviveSettlementPanel(): Node');
     const bufferFactory = extractMethod(controllerSource, 'createBufferFullSettlementPanel(): Node');

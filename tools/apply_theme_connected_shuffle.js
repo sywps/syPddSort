@@ -11,6 +11,21 @@ const referenceDir = path.join(root, 'tools', 'dbt');
 const LEVEL_COUNT = 48;
 const ALGORITHM = 'ControlledShuffle.theme-strict-connected-v2';
 
+function parseLevelRange(args) {
+    let firstLevelId = 1;
+    let lastLevelId = LEVEL_COUNT;
+    for (const arg of args) {
+        const match = /^--(from|to)=(\d+)$/.exec(arg);
+        assert.ok(match, `unsupported argument: ${arg}`);
+        const levelId = Number(match[2]);
+        assert.ok(Number.isInteger(levelId) && levelId >= 1 && levelId <= LEVEL_COUNT, `level range must stay within 1-${LEVEL_COUNT}`);
+        if (match[1] === 'from') firstLevelId = levelId;
+        if (match[1] === 'to') lastLevelId = levelId;
+    }
+    assert.ok(firstLevelId <= lastLevelId, '--from must not exceed --to');
+    return { firstLevelId, lastLevelId };
+}
+
 function readJson(file) {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
@@ -42,11 +57,12 @@ const referenceLevels = Array.from({ length: 182 }, (_value, index) => (
 ));
 const profile = shuffle.learnProfile(referenceLevels);
 assert.equal(profile.count, 182, 'expected all 182 拼成彩虹 reference levels');
+const { firstLevelId, lastLevelId } = parseLevelRange(process.argv.slice(2));
 
 const writes = [];
 const metrics = [];
 const constrainedLevels = [];
-for (let levelId = 1; levelId <= LEVEL_COUNT; levelId += 1) {
+for (let levelId = firstLevelId; levelId <= lastLevelId; levelId += 1) {
     const filename = `zt_level_${levelId}.json`;
     const file = path.join(levelDir, filename);
     const level = readJson(file);
@@ -71,7 +87,9 @@ for (let levelId = 1; levelId <= LEVEL_COUNT; levelId += 1) {
 writes.forEach(({ file, text }) => writeWithRetry(file, text));
 console.log(JSON.stringify({
     algorithm: ALGORITHM,
-    levelCount: LEVEL_COUNT,
+    firstLevelId,
+    lastLevelId,
+    levelCount: writes.length,
     constrainedLevels,
     metrics: {
         displacement: average(metrics, 'displacement'),

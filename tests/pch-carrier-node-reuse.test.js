@@ -168,4 +168,20 @@ assert.equal(
     'repeated updates must not grow the carrier node count beyond the high-water mark',
 );
 
+resetConveyorCarrier.call(controller, carrier);
+renderConveyorCarrierVisual.call(controller, carrier, [6, 7, 8, 9, 10, 11], 0);
+const layer5 = carrier.getChildByName('PchStackBean-0-5');
+assert.ok(layer5?.isValid, 'an expanded carrier must render every layer above the old depth of three');
+assert.deepEqual(layer5.position, [0, 40, 0], 'expanded beans must continue stacking upward');
+assert.equal(
+    carrier.children.filter((child) => child.name.startsWith('PchStackBean-')).length,
+    6,
+    'the carrier must create exactly the high-water nodes needed for six stored beans',
+);
+
+resetConveyorCarrier.call(controller, carrier);
+renderConveyorCarrierVisual.call(controller, carrier, [6, 7, 8], 0);
+assert.equal(layer5.active, false, 'unused expanded layers must be hidden when the stack shrinks');
+assert.equal(layer5.destroyed, false, 'unused expanded layers must remain reusable');
+
 console.log('pch-carrier-node-reuse.test.js passed');

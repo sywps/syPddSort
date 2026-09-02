@@ -31,8 +31,8 @@ const BOOTSTRAP_PATH_MAP = (() => {
 
     for (const prefabPath of [
         'UI/Prefabs/Panels/WinPanel',
-        'UI/Prefabs/Panels/RevivePanelV2',
-        'UI/Prefabs/Panels/BufferFullRevivePanelV2',
+        'UI/Prefabs/Panels/RevivePanel',
+        'UI/Prefabs/Panels/BufferFullRevivePanel',
         'UI/Prefabs/Panels/LosePanel',
     ]) {
         map.set(prefabPath, prefabPath);

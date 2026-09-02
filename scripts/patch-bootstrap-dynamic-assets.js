@@ -75,8 +75,8 @@ const criticalGameAssetsPathMap = new Map([
     ['Audio/winColor', 'Audio/winColor'],
     ['Audio/winSettlement', 'Audio/winSettlement'],
     ['UI/Prefabs/Panels/WinPanel', 'UI/Prefabs/Panels/WinPanel'],
-    ['UI/Prefabs/Panels/RevivePanelV2', 'UI/Prefabs/Panels/RevivePanelV2'],
-    ['UI/Prefabs/Panels/BufferFullRevivePanelV2', 'UI/Prefabs/Panels/BufferFullRevivePanelV2'],
+    ['UI/Prefabs/Panels/RevivePanel', 'UI/Prefabs/Panels/RevivePanel'],
+    ['UI/Prefabs/Panels/BufferFullRevivePanel', 'UI/Prefabs/Panels/BufferFullRevivePanel'],
     ['UI/Prefabs/Panels/LosePanel', 'UI/Prefabs/Panels/LosePanel'],
 ]);
 

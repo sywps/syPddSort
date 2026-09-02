@@ -257,7 +257,6 @@
     "__type__": "82628JsoLVO36TidTplI+is",
     "_name": "",
     "_objFlags": 0,
-    "__editorExtras__": {},
     "node": {
       "__id__": 5
     },
@@ -3968,7 +3967,7 @@
     "_lpos": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -423.96699999999987,
+      "y": -408.798,
       "z": 0
     },
     "_lrot": {
@@ -3980,8 +3979,8 @@
     },
     "_lscale": {
       "__type__": "cc.Vec3",
-      "x": 1,
-      "y": 1,
+      "x": 1.2,
+      "y": 1.2,
       "z": 1
     },
     "_mobility": 0,
@@ -12111,7 +12110,7 @@
     "_left": 16,
     "_right": 16,
     "_top": 867.9549999999999,
-    "_bottom": 16.033000000000072,
+    "_bottom": -8.798000000000059,
     "_horizontalCenter": 0,
     "_verticalCenter": 0,
     "_isAbsLeft": true,

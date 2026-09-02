@@ -171,8 +171,8 @@ assert.ok(!patchHomeAssetsBundle.includes("buildMode !== 'release'"), 'skin mirr
 
 for (const bootstrapPath of [
     'UI/Prefabs/Panels/WinPanel',
-    'UI/Prefabs/Panels/RevivePanelV2',
-    'UI/Prefabs/Panels/BufferFullRevivePanelV2',
+    'UI/Prefabs/Panels/RevivePanel',
+    'UI/Prefabs/Panels/BufferFullRevivePanel',
     'UI/Prefabs/Panels/LosePanel',
     'Audio/bgm',
     'Audio/pindd/bean_pickup',

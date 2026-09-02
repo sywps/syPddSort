@@ -1713,7 +1713,7 @@ export class PchConveyorGameplayController {
         if (this.statusLabel) {
             this.statusLabel.string = this.rules.entryCount > 0
                 ? `入口等待 ${this.rules.entryCount} 颗 · 格位到达后自动装载`
-                : `${this.rules.carrierCount} 个循环位置 · 每位最多叠 3 颗`;
+                : `${this.rules.carrierCount} 个循环位置 · 当前容量 ${this.rules.bufferCapacity}`;
             this.statusLabel.color = isFull ? new Color(202, 56, 82) : new Color(79, 65, 126);
         }
         if (this.countLabel) {
@@ -2829,10 +2829,7 @@ export class PchConveyorGameplayController {
 
     private expandCapacity(): boolean {
         if (!this.rules) return false;
-        const previousCarrierCount = this.rules.carrierCount;
-        const phase = this.wrap01(this.beltTravel / previousCarrierCount);
         const added = this.rules.addBufferSlots(PCH_EXPAND_CAPACITY);
-        this.beltTravel = phase * this.rules.carrierCount;
         this.lastEntranceAudioVisitByCarrier.clear();
         this.renderConveyor();
         this.renderEntranceQueue();
