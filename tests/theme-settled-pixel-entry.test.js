@@ -10,7 +10,7 @@ const homeCommerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModul
 const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const gameplaySession = read('assets/Scripts/Core/GameplaySessionController.ts');
 const themeFlow = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
-const themePanel = read('assets/Scripts/Core/Panels/ThemePanelController.ts');
+const themeLoading = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 const assetBootstrap = read('assets/Scripts/Core/GameCtrlModules/AssetBootstrapModule.ts');
 const collectionPanel = read('assets/Scripts/Core/Panels/CollectionPanelController.ts');
@@ -57,13 +57,23 @@ assert.ok(
     'home runtime must keep ThemeBtn visible after rebuilding the menu',
 );
 assert.ok(
-    homeCommerce.includes("titleLabel.string = '像素拼图';")
-        && themePanel.includes("title: '像素拼图'"),
-    'the restored mode must use the Pixel Puzzle player-facing name',
+    homeCommerce.includes("titleLabel.string = '像素拼图';"),
+    'the direct entry must use the Pixel Puzzle player-facing name',
 );
 assert.ok(
     homeCommerce.includes('this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));'),
     'the pixel puzzle button must start the first incomplete theme level directly',
+);
+assert.ok(
+    !fs.existsSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/ThemePanel.prefab'))
+        && !fs.existsSync(path.join(root, 'assets/Scripts/Core/Panels/ThemePanelController.ts')),
+    'the obsolete ThemePanel prefab and controller must be removed',
+);
+assert.ok(
+    !themeFlow.includes('openThemePanel')
+        && !themeFlow.includes('renderThemePanelContent')
+        && !themeLoading.includes('UI/Prefabs/Panels/ThemePanel'),
+    'the direct entry must not retain a ThemePanel runtime path',
 );
 assert.ok(
     gameplaySession.includes("gameplayEntryMode = runtime._currentExternalLevelFilePath\n                ? 'external'\n                : (runtime._isThemeLevel ? 'theme' : 'main');")
@@ -75,8 +85,7 @@ assert.ok(
     'settled pixel blocks must be enabled only for theme challenge gameplay',
 );
 assert.ok(
-    themeFlow.includes('return true;')
-        && themeFlow.includes('return this.getThemeLevelOrder().length;')
+    themeFlow.includes('for (const levelId of this.getThemeLevelOrder())')
         && themeFlow.includes('return ordered.find((levelId) => !completed.has(levelId)) || ordered[0];')
         && themeFlow.includes('return index >= 0 ? index + 1 : 1;')
         && themeFlow.includes('levelNames: group.levelIds.map(() => `第${++displayNumber}关`)'),

@@ -1184,8 +1184,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._collectionPreviewRowPitch = 0;
             this._collectionPageIndicator = null;
             this._collectionImageModal = null;
-            this._themeOverlay = null;
-            this._themeImageModal = null;
             this._vigorCountLbl = null;
             this._vigorTimeLbl = null;
             this._goldCountLbl = null;
@@ -1230,7 +1228,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._selectedSlotIndices = [];
             this.resetTouchState();
             this.closeCollection();
-            this.closeThemePanel();
             this._isThemeLevel = false;
             this._currentThemeLevelId = 0;
             if (this._pinchGuideAutoCloseHandler) {

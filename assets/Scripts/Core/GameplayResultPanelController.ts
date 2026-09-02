@@ -29,8 +29,8 @@ import { ensurePchConveyorGameplayController } from './PchConveyorGameplayContro
 
 const RESULT_PANEL_PREFAB_PATHS = {
     win: 'UI/Prefabs/Panels/WinPanel',
-    revive: 'UI/Prefabs/Panels/RevivePanel',
-    bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanel',
+    revive: 'UI/Prefabs/Panels/RevivePanelV2',
+    bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanelV2',
     lose: 'UI/Prefabs/Panels/LosePanel',
 } as const;
 

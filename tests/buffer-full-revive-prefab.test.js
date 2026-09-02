@@ -73,8 +73,12 @@ assert.ok(
     'each loss must freeze its revive reason before the failure UI can be entered',
 );
 assert.ok(
-    controllerSource.includes("bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanel'"),
+    controllerSource.includes("bufferFullRevive: 'UI/Prefabs/Panels/BufferFullRevivePanelV2'"),
     'result-panel loader must declare the dedicated buffer-full prefab path',
+);
+assert.ok(
+    controllerSource.includes("revive: 'UI/Prefabs/Panels/RevivePanelV2'"),
+    'result-panel loader must declare the dedicated timeout prefab path',
 );
 assert.ok(
     controllerSource.includes("['win', 'revive', 'bufferFullRevive', 'lose']"),
@@ -112,18 +116,22 @@ assert.match(
 );
 assert.ok(bufferReviveAction.includes("successToast: '已增加12个位置'"));
 
-const timeoutPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab');
-const timeoutMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanel.prefab.meta');
-const bufferPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanel.prefab');
-const bufferMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanel.prefab.meta');
+const timeoutPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanelV2.prefab');
+const timeoutMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/RevivePanelV2.prefab.meta');
+const bufferPrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanelV2.prefab');
+const bufferMeta = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/BufferFullRevivePanelV2.prefab.meta');
 const titleArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/revive_title_ribbon.png.meta');
 const timeoutArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/revive_timeout_illustration.png.meta');
-const bufferArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/revive_buffer_full_illustration.png.meta');
+const bufferArtMeta = readJson('assets/GameAssetsBundle/Textures/UI/tc_img_40.png.meta');
 
-assert.strictEqual(bufferPrefab[0]?._name, 'BufferFullRevivePanel');
-assert.strictEqual(bufferPrefab[1]?._name, 'BufferFullRevivePanel');
-assert.strictEqual(bufferMeta.userData?.syncNodeName, 'BufferFullRevivePanel');
-assert.strictEqual(bufferMeta.uuid, 'ef325ffc-7e49-421a-9a09-f9d7314731cd');
+assert.strictEqual(timeoutPrefab[0]?._name, 'RevivePanelV2');
+assert.strictEqual(timeoutPrefab[1]?._name, 'RevivePanelV2');
+assert.strictEqual(timeoutMeta.userData?.syncNodeName, 'RevivePanelV2');
+assert.strictEqual(timeoutMeta.uuid, '853369d3-bce6-4a04-aaaf-1d8b2040707b');
+assert.strictEqual(bufferPrefab[0]?._name, 'BufferFullRevivePanelV2');
+assert.strictEqual(bufferPrefab[1]?._name, 'BufferFullRevivePanelV2');
+assert.strictEqual(bufferMeta.userData?.syncNodeName, 'BufferFullRevivePanelV2');
+assert.strictEqual(bufferMeta.uuid, '1699e623-505e-4752-937d-1da640e21860');
 assert.notStrictEqual(bufferMeta.uuid, timeoutMeta.uuid, 'timeout and buffer-full prefabs must have distinct UUIDs');
 
 const title = findLabel(bufferPrefab, '复活');
@@ -150,19 +158,19 @@ assert.strictEqual(reviveLabel.parent?._name, 'ContinueBtn');
 assert.strictEqual(reviveLabel.label._fontSize, 56);
 assert.strictEqual(reviveLabel.label._lineHeight, 80);
 
-const infoArt = findNode(bufferPrefab, 'InfoArt');
+const infoArt = findNode(bufferPrefab, 'BufferFullIllustration');
 const infoComponents = componentsOf(bufferPrefab, infoArt.node);
 const infoUi = infoComponents.find((component) => component.__type__ === 'cc.UITransform');
 const infoSprite = infoComponents.find((component) => component.__type__ === 'cc.Sprite');
-assert.strictEqual(infoArt.node._lpos?.y, -37);
-assert.strictEqual(infoUi?._contentSize?.width, 565);
-assert.strictEqual(infoUi?._contentSize?.height, 474);
+assert.strictEqual(infoArt.node._lpos?.y, 0);
+assert.strictEqual(infoUi?._contentSize?.width, 644);
+assert.strictEqual(infoUi?._contentSize?.height, 308);
 assert.strictEqual(infoSprite?._enabled, true);
 assert.strictEqual(infoSprite?._sizeMode, 0);
 assert.strictEqual(
     infoSprite?._spriteFrame?.__uuid__,
-    '97b39596-f3df-46b8-803f-f850eef83b73@f9941',
-    'buffer-full art must be serialized on InfoArt',
+    'de393821-f4c5-4114-9a15-70b4e5ebc12a@f9941',
+    'buffer-full art must be serialized on the clean visible illustration node',
 );
 
 assert.strictEqual(findLabel(timeoutPrefab, '复活').node._active, true);
@@ -197,14 +205,14 @@ for (const [adIcon, ctaLabel, kind] of [
     );
 }
 assert.ok(
-    !JSON.stringify(timeoutPrefab).includes('revive_buffer_full_illustration'),
+    !JSON.stringify(timeoutPrefab).includes('de393821-f4c5-4114-9a15-70b4e5ebc12a@f9941'),
     'timeout prefab must remain independent from the buffer-full art',
 );
 
 for (const [fileName, meta, uuid, width, height] of [
     ['revive_title_ribbon.png', titleArtMeta, '00895f15-d856-44a5-acd0-326ccedb359a', 1024, 279],
     ['revive_timeout_illustration.png', timeoutArtMeta, '123c4ced-f82b-4826-9499-1d90c53d8478', 1024, 722],
-    ['revive_buffer_full_illustration.png', bufferArtMeta, '97b39596-f3df-46b8-803f-f850eef83b73', 1024, 859],
+    ['tc_img_40.png', bufferArtMeta, 'de393821-f4c5-4114-9a15-70b4e5ebc12a', 644, 308],
 ]) {
     assert.strictEqual(meta.uuid, uuid, `${fileName} must keep its serialized asset UUID`);
     assert.strictEqual(meta.subMetas?.f9941?.userData?.rawWidth, width, `${fileName} width must match sprite metadata`);
@@ -219,8 +227,12 @@ for (const prefab of [timeoutPrefab, bufferPrefab]) {
     const box = findNode(prefab, 'Box');
     const boxUi = componentsOf(prefab, box.node).find((component) => component.__type__ === 'cc.UITransform');
     assert.deepStrictEqual([boxUi?._contentSize?.width, boxUi?._contentSize?.height], [720, 1280], 'revive content must use the full screen design area');
-    const legacyBg = prefab.find((record) => record?.__type__ === 'cc.Node' && record._name === 'Bg') || null;
-    assert.ok(!legacyBg || !legacyBg._active, 'legacy center card must be hidden or removed from the full-screen revive design');
+    assert.strictEqual(componentsOf(prefab, box.node).some((component) => component.__type__ === 'cc.Sprite'), false, 'clean revive Box must not add a solid content background');
+    const shade = findNode(prefab, 'Shade');
+    const shadeParent = byId(prefab, shade.node._parent);
+    const shadeSprite = componentsOf(prefab, shade.node).find((component) => component.__type__ === 'cc.Sprite');
+    assert.strictEqual(byId(prefab, shadeParent?._children?.[0])?._name, 'Shade', 'Shade must remain beneath Box in the Prefab');
+    assert.strictEqual(shadeSprite?._color?.a, 190, 'revive Shade must dim the gameplay behind Box');
     const closeButton = findNode(prefab, 'CloseBtn');
     const closeComponents = componentsOf(prefab, closeButton.node);
     const closeUi = closeComponents.find((component) => component.__type__ === 'cc.UITransform');
@@ -238,6 +250,11 @@ for (const prefab of [timeoutPrefab, bufferPrefab]) {
         );
         assert.ok(renderables.length <= 1, `${node._name || '<unnamed>'} must not contain more than one UI renderable`);
     }
+    assert.strictEqual(prefab.some((record) => record?.__type__ === 'cc.UIOpacity'), false, 'clean revive prefab must not serialize a permanent opacity component');
+    assert.ok(
+        prefab.filter((record) => record?.__type__ === 'cc.PrefabInfo').every((record) => String(record.fileId || '').startsWith('revive-v2-')),
+        'clean revive prefab must use fresh V2 node file IDs instead of legacy serialization IDs',
+    );
 
     const completionPercent = findLabel(prefab, '86%');
     assert.strictEqual(byId(prefab, completionPercent.node._parent)?._name, 'Box', 'completion percentage must remain a direct Prefab-controlled summary');
@@ -245,7 +262,7 @@ for (const prefab of [timeoutPrefab, bufferPrefab]) {
 }
 
 for (const prefab of [timeoutPrefab, bufferPrefab]) {
-    const banner = findNode(prefab, 'Node');
+    const banner = findNode(prefab, 'TitleRibbon');
     const bannerSprite = componentsOf(prefab, banner.node).find((component) => component.__type__ === 'cc.Sprite');
     assert.strictEqual(bannerSprite?._spriteFrame?.__uuid__, '00895f15-d856-44a5-acd0-326ccedb359a@f9941', 'both revive panels must use the shared new title ribbon');
 }
@@ -255,8 +272,12 @@ for (const scriptPath of [
     'scripts/patch-bootstrap-dynamic-assets.js',
 ]) {
     assert.ok(
-        read(scriptPath).includes('UI/Prefabs/Panels/BufferFullRevivePanel'),
-        `${scriptPath} must promote the dedicated buffer-full prefab`,
+        read(scriptPath).includes('UI/Prefabs/Panels/RevivePanelV2'),
+        `${scriptPath} must promote the V2 timeout prefab`,
+    );
+    assert.ok(
+        read(scriptPath).includes('UI/Prefabs/Panels/BufferFullRevivePanelV2'),
+        `${scriptPath} must promote the V2 dedicated buffer-full prefab`,
     );
 }
 

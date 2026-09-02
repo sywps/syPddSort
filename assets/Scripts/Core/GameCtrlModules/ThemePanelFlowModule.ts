@@ -29,7 +29,6 @@ import type {
     InventoryPropKind, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-import { ensureThemePanelController } from '../Panels/ThemePanelController';
 import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 
@@ -512,22 +511,6 @@ export function installThemePanelFlowModule(target: any): void {
             return 'pdd.theme_unlocked';
         },
 
-        getThemePanelOpenRequirementLevel(): number {
-            return 5;
-        },
-
-        getThemeUnlockStepLevel(): number {
-            return 5;
-        },
-
-        canOpenThemePanel(mainLevel: number = this.getSavedLevel()): boolean {
-            return true;
-        },
-
-        getThemeUnlockQuota(mainLevel: number = this.getSavedLevel()): number {
-            return this.getThemeLevelOrder().length;
-        },
-
         getThemeLevelOrder(): number[] {
             const ordered: number[] = [];
             for (const group of this.getThemeGroups()) {
@@ -538,19 +521,6 @@ export function installThemePanelFlowModule(target: any): void {
                 }
             }
             return ordered;
-        },
-
-        getThemeUnlockRequirementLevel(levelId: number): number {
-            const ordered = this.getThemeLevelOrder();
-            const index = ordered.indexOf(levelId);
-            if (index < 0) {
-                return this.getThemePanelOpenRequirementLevel();
-            }
-            return this.getThemeUnlockStepLevel() * (index + 1);
-        },
-
-        canUnlockThemeLevelByMainProgress(levelId: number, mainLevel: number = this.getSavedLevel()): boolean {
-            return this.getThemeLevelOrder().includes(levelId);
         },
 
         getThemeDirectPlayLevelId(): number {
@@ -622,161 +592,5 @@ export function installThemePanelFlowModule(target: any): void {
             }
         },
 
-        setThemeUnlocked(levelId: number): boolean {
-            const normalizedLevelId = Math.max(0, Math.floor(Number(levelId) || 0));
-            if (normalizedLevelId <= 0) {
-                console.error('[theme_unlock] invalid levelId:', levelId);
-                return false;
-            }
-            const set = this.getThemeUnlockedSet();
-            set.add(normalizedLevelId);
-            const unlockedLevels = Array.from(set)
-                .map((value) => Math.floor(Number(value) || 0))
-                .filter((value) => value > 0)
-                .sort((a, b) => a - b);
-            try {
-                sys.localStorage.setItem(this.getThemeUnlockKey(), JSON.stringify(unlockedLevels));
-            } catch (error) {
-                console.error('[theme_unlock] persist unlocked level failed:', { levelId: normalizedLevelId, error });
-                return false;
-            }
-            const verified = this.getThemeUnlockedSet().has(normalizedLevelId);
-            if (!verified) {
-                console.error('[theme_unlock] unlocked level readback failed:', { levelId: normalizedLevelId, unlockedLevels });
-                return false;
-            }
-            try {
-                this.queueCloudGameStateSync();
-            } catch (error) {
-                console.error('[theme_unlock] queue cloud sync failed:', { levelId: normalizedLevelId, error });
-                return false;
-            }
-            return true;
-        },
-
-        openThemePanel() {
-            return ensureThemePanelController(this).open();
-        },
-
-        renderThemePanelContent(content: Node, contentW: number, scrollH: number) {
-            const groups = this.getThemeGroups();
-            const completed = this.getThemeCompletedSet();
-
-            const headerTemplate = content.getChildByName('ThemeHeaderTemplate');
-            const cardTemplate = content.getChildByName('ThemeCardTemplate');
-            if (!headerTemplate || !cardTemplate) {
-                throw new Error('[theme-panel] missing ThemeHeaderTemplate or ThemeCardTemplate');
-            }
-            const headerUi = headerTemplate.getComponent(UITransform);
-            const cardUi = cardTemplate.getComponent(UITransform);
-            if (!headerUi || !cardUi) {
-                throw new Error('[theme-panel] theme templates must provide UITransform');
-            }
-
-            const cardW = cardUi.width;
-            const cardH = cardUi.height;
-            const headerH = headerUi.height;
-            const horizontalGap = Math.max(20, contentW - cardW * 2);
-            const fallbackLeftX = -cardW / 2 - horizontalGap / 4;
-            const leftX = Number.isFinite(cardTemplate.position.x) && Math.abs(cardTemplate.position.x) > 0
-                ? cardTemplate.position.x
-                : fallbackLeftX;
-            const rightX = Number.isFinite(cardTemplate.position.x) && Math.abs(cardTemplate.position.x) > 0
-                ? -cardTemplate.position.x
-                : cardW / 2 + horizontalGap / 4;
-            const templateContentH = content.getComponent(UITransform)?.height || scrollH;
-            const templateTopPad = templateContentH / 2 - (headerTemplate.position.y + headerH / 2);
-            const templateHeaderCardGap = (headerTemplate.position.y - headerH / 2) - (cardTemplate.position.y + cardH / 2);
-            const gapY = 18;
-            const sectionGap = 28;
-            const topPad = Math.max(0, Number.isFinite(templateTopPad) ? templateTopPad : 18);
-            const headerCardGap = Math.max(0, Number.isFinite(templateHeaderCardGap) ? templateHeaderCardGap : 0);
-            this._themePreviewItems = [];
-            this._themePreviewRowPitch = cardH + gapY;
-            this._themePreviewBufferRows = 1;
-
-            let total = topPad;
-            for (const grp of groups) {
-                total += headerH;
-                total += headerCardGap;
-                const rows = Math.ceil(grp.levelIds.length / 2);
-                total += rows * cardH + (rows - 1) * gapY;
-                total += sectionGap;
-            }
-            total = Math.max(scrollH, total);
-            content.getComponent(UITransform)!.setContentSize(contentW, total);
-
-            let cursorY = total / 2 - topPad;
-
-            for (const grp of groups) {
-                const headerNode = instantiate(headerTemplate);
-                content.addChild(headerNode);
-                headerNode.name = `ThemeHeader_${grp.name}`;
-                headerNode.active = true;
-                headerNode.layer = Layers.Enum.UI_2D;
-                headerNode.setPosition(0, cursorY - headerH / 2);
-                const themeNameLabel = headerNode.getChildByName('ThemeName')?.getComponent(Label);
-                if (!themeNameLabel) {
-                    throw new Error('[theme-panel] ThemeHeaderTemplate is missing ThemeName label');
-                }
-                themeNameLabel.string = grp.name;
-                cursorY -= headerH + headerCardGap;
-
-                const rows = Math.ceil(grp.levelIds.length / 2);
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < 2; c++) {
-                        const idx = r * 2 + c;
-                        if (idx >= grp.levelIds.length) break;
-                        const lvId = grp.levelIds[idx];
-                        const lvName = grp.levelNames && grp.levelNames[idx] ? grp.levelNames[idx] : '';
-                        const isCompleted = completed.has(lvId);
-                        const isUnlocked = true;
-                        const canUnlock = false;
-                        const unlockRequirementLevel = this.getThemeUnlockRequirementLevel(lvId);
-                        const cx = c === 0 ? leftX : rightX;
-                        const cy = cursorY - cardH / 2 - r * (cardH + gapY);
-                        const previewInfo = this.drawThemeCard(content, lvId, cx, cy, cardW, cardH, isUnlocked, isCompleted, canUnlock, unlockRequirementLevel, lvName, {
-                            deferPreview: true,
-                        });
-                        this._themePreviewItems.push({
-                            card: previewInfo?.card || content.getChildByName(`ThemeCard_${lvId}`),
-                            previewContainer: previewInfo?.previewContainer || null,
-                            levelId: lvId,
-                            rendered: false,
-                            previewW: previewInfo?.previewW || Math.max(1, cardW - 24),
-                            previewH: previewInfo?.previewH || Math.max(1, cardH - 74),
-                        });
-                    }
-                }
-                cursorY -= rows * cardH + (rows - 1) * gapY;
-                cursorY -= sectionGap;
-            }
-
-            // content 中心 y 设为 (totalH - scrollH)/2，让其顶部对齐 scrollNode 顶部
-            if (total > scrollH) {
-                content.setPosition(0, -(total - scrollH) / 2);
-            } else {
-                content.setPosition(0, 0);
-            }
-        },
-
-        renderThemePanelVisiblePreviews(content?: Node, scrollH?: number, bufferRows: number = 1) {
-            const resolvedContent = content || this._themeOverlay?.getChildByName('Box')?.getChildByName('Content')?.getChildByName('ThemeScrollContent');
-            const items = this._themePreviewItems as Array<any>;
-            if (!resolvedContent?.isValid || !Array.isArray(items) || items.length === 0) return;
-            const viewH = Math.max(1, Number(scrollH) || 1);
-            const rowPitch = Math.max(1, Number(this._themePreviewRowPitch) || 1);
-            const bufferPx = rowPitch * Math.max(0, Math.floor(Number(bufferRows) || 0));
-            const minY = -viewH / 2 - bufferPx - resolvedContent.position.y;
-            const maxY = viewH / 2 + bufferPx - resolvedContent.position.y;
-
-            for (const item of items) {
-                if (!item || item.rendered || !item.card?.isValid || !item.previewContainer?.isValid) continue;
-                const cardY = item.card.position.y;
-                if (cardY < minY || cardY > maxY) continue;
-                item.rendered = true;
-                this.drawThemePixelPreview(item.previewContainer, item.levelId, 0, 0, item.previewW, item.previewH);
-            }
-        },
     });
 }
