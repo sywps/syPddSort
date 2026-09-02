@@ -266,7 +266,7 @@ def write_outputs(
         "- 明细：见 `selection_manifest.json`，包含新编号、源编号、DBT 参考关、类型、压力档、距离、指标及源/输出 SHA-256。",
         "",
         "除 `levelId` 按观看顺序改为 1–300 外，关卡内容字段沿用选中的源关卡。",
-        "筛选完成后运行 `node tools/apply_controlled_shuffle_to_levels.js`，用 182 个 DBT 参考关学习出的新算法重建全部 `initRandomColorArr`。",
+        "旧的 selected-300 乱序生成器已移除；此工具仅负责筛选和对比。48 个像素主题关请运行 `node tools/apply_theme_connected_shuffle.js`。",
         "",
     ])
     (output_dir / "README.md").write_text(readme, encoding="utf-8")

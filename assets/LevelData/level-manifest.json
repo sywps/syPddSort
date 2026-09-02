@@ -1510,14 +1510,18 @@
       "levelId": 1,
       "Hard": 0,
       "file": "LevelData/level_1.json",
-      "boardWidth": 14,
+      "boardWidth": 12,
       "boardHeight": 12,
-      "filledCellCount": 24,
+      "filledCellCount": 96,
       "colorIds": [
+        4,
+        7,
         10,
-        13
+        13,
+        16,
+        20
       ],
-      "colorCount": 2,
+      "colorCount": 6,
       "slotTotalCount": 24,
       "conveyorCapacity": 60,
       "timeLimit": 600,

@@ -5,7 +5,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 
 function read(relPath) {
-    return fs.readFileSync(path.join(root, relPath), 'utf8');
+    return fs.readFileSync(path.join(root, relPath), 'utf8').replace(/\r\n/g, '\n');
 }
 
 function readScene(relPath) {
@@ -24,7 +24,7 @@ function componentTypes(scene, node) {
 
 const gameScene = readScene('assets/BootstrapBundle/Scenes/Game.scene');
 const gameSceneRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
-const loadingOverlayModule = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
+const loadingOverlayModule = read('assets/Scripts/Core/GameCtrlModules/GameplayShareLoadingModule.ts');
 const firstLevelRouteModule = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
 
 const loadingCover = findNode(gameScene, 'LoadingCover').node;

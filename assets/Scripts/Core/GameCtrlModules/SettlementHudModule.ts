@@ -315,36 +315,37 @@ export function installSettlementHudModule(target: any): void {
             this.completionLabel.string = `完成${stats.completePercent}%`;
         },
 
-        syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number) {
+        syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean {
             const box = panel?.getChildByName('Box');
-            if (!box) return;
+            if (!box) return false;
             for (const child of box.children) {
                 if (child.name !== 'Label') continue;
                 const percentLabel = child.getComponent(Label);
                 const captionLabel = child.getChildByName('Label-001')?.getComponent(Label) ?? null;
                 if (percentLabel && captionLabel) {
                     percentLabel.string = `${percent}%`;
-                    return;
+                    return true;
                 }
                 const nestedPercentLabel = child.getChildByName('Label')?.getComponent(Label) ?? null;
                 if (percentLabel && nestedPercentLabel) {
                     nestedPercentLabel.string = `${percent}%`;
-                    return;
+                    return true;
                 }
             }
+            return false;
         },
 
         syncSettlementProgressWidget(panel: Node | null | undefined, stats?: { completePercent: number }) {
             if (!panel) return;
+            const resolvedStats = stats || this.getBoardCompletionStats();
+            const percent = Math.max(0, Math.min(100, Math.floor(Number(resolvedStats.completePercent) || 0)));
+            if (this.syncSettlementCompletionSummary(panel, percent)) return;
             const progressRoot = panel
                 .getChildByName('Box')
                 ?.getChildByName('\u8fdb\u5ea6\u6761');
             if (!progressRoot) {
-                throw new Error('[settlement-progress] result panel is missing Box/进度条');
+                throw new Error('[settlement-progress] result panel is missing Box/进度条 or text completion summary');
             }
-            const resolvedStats = stats || this.getBoardCompletionStats();
-            const percent = Math.max(0, Math.min(100, Math.floor(Number(resolvedStats.completePercent) || 0)));
-            this.syncSettlementCompletionSummary(panel, percent);
             const progressLabel = progressRoot.getChildByName('Label')?.getComponent(Label);
             if (progressLabel) {
                 progressLabel.string = `\u5df2\u5b8c\u6210 ${percent}%`;
@@ -914,6 +915,7 @@ export function installSettlementHudModule(target: any): void {
             }
             this.isGameEnd = true;
             this._activeLoseReason = reason;
+            this._gameplayResultPanelController?.captureReviveFailure?.(reason);
             this._pchConveyorGameplayController?.pauseForSettlement?.();
             this.clearIdleHint();
             this.clearAdRewardHintVisuals?.();

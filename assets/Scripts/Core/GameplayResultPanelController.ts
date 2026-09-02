@@ -56,6 +56,16 @@ type ReviveShareState = {
 
 type ReviveSharePanelKind = 'timeout' | 'buffer-full';
 
+type ReviveFailureContext = {
+    kind: ReviveSharePanelKind;
+    logicalLevelId: number;
+};
+
+type ReviveFailureSession = ReviveFailureContext & {
+    token: number;
+    active: boolean;
+};
+
 type ReviveShareStorage = {
     getItem: (key: string) => string | null;
     setItem: (key: string, value: string) => void;
@@ -85,7 +95,80 @@ const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
 
 export class GameplayResultPanelController {
 
+    private reviveFailureSessionSeq = 0;
+    private activeReviveFailureSession: ReviveFailureSession | null = null;
+    private finalFailureReviveContext: ReviveFailureContext | null = null;
+
     constructor(private readonly runtime: any) {}
+
+    captureReviveFailure(kind: ReviveSharePanelKind): void {
+        if (this.activeReviveFailureSession) {
+            this.activeReviveFailureSession.active = false;
+        }
+        this.activeReviveFailureSession = null;
+        this.finalFailureReviveContext = {
+            kind,
+            logicalLevelId: this.getReviveShareLogicalLevelId(),
+        };
+    }
+
+    private beginReviveFailureSession(kind: ReviveSharePanelKind): ReviveFailureSession {
+        const logicalLevelId = this.getReviveShareLogicalLevelId();
+        const active = this.activeReviveFailureSession;
+        if (active?.active && active.kind === kind && active.logicalLevelId === logicalLevelId) {
+            return active;
+        }
+        if (active) active.active = false;
+        const session: ReviveFailureSession = {
+            token: (this.reviveFailureSessionSeq += 1),
+            kind,
+            logicalLevelId,
+            active: true,
+        };
+        this.activeReviveFailureSession = session;
+        this.finalFailureReviveContext = {
+            kind,
+            logicalLevelId,
+        };
+        return session;
+    }
+
+    private isReviveFailureSessionActive(session: ReviveFailureSession): boolean {
+        if (!session.active || this.activeReviveFailureSession?.token !== session.token) return false;
+        if (session.logicalLevelId !== this.getReviveShareLogicalLevelId()) return false;
+        return this.runtime?.isGameEnd !== false;
+    }
+
+    private completeReviveFailureSession(session: ReviveFailureSession): void {
+        if (this.activeReviveFailureSession?.token !== session.token) return;
+        session.active = false;
+        this.activeReviveFailureSession = null;
+        this.finalFailureReviveContext = null;
+    }
+
+    private closeReviveFailureSession(kind: ReviveSharePanelKind, overlay: Node): void {
+        const session = this.beginReviveFailureSession(kind);
+        session.active = false;
+        if (this.activeReviveFailureSession === session) {
+            this.activeReviveFailureSession = null;
+        }
+        this.finalFailureReviveContext = {
+            kind,
+            logicalLevelId: session.logicalLevelId,
+        };
+        this.runtime.cancelRewardedGrantInteraction?.('revive-panel-close');
+        this.runtime.cancelPendingShareReturn?.('revive-panel-close');
+        overlay.active = false;
+        this.runtime.showLosePanel();
+    }
+
+    private resolveFinalFailureReviveKind(): ReviveSharePanelKind {
+        const context = this.finalFailureReviveContext;
+        if (context?.logicalLevelId === this.getReviveShareLogicalLevelId()) {
+            return context.kind;
+        }
+        return this.runtime._activeLoseReason === 'buffer-full' ? 'buffer-full' : 'timeout';
+    }
 
     private getPrefabCache(source: string): Map<string, Prefab> {
         const cache = this.runtime?._gameplayResultPanelPrefabCache;
@@ -265,7 +348,15 @@ export class GameplayResultPanelController {
 
     private syncResultProgressWidget(panel: Node, ratio: number = 0): void {
         const runtime = this.runtime;
-        const progressRoot = runtime.requirePanelChild(runtime.requirePanelChild(panel, 'Box'), '\u8fdb\u5ea6\u6761');
+        const box = runtime.requirePanelChild(panel, 'Box');
+        const progressRoot = box.getChildByName('\u8fdb\u5ea6\u6761');
+        const completionSummary = box.getChildByName('Label');
+        const hasTextCompletionSummary = !!completionSummary?.getComponent(Label)
+            && !!completionSummary.getChildByName('Label-001')?.getComponent(Label);
+        if (!progressRoot) {
+            if (hasTextCompletionSummary) return;
+            throw new Error('[result-panel] result panel is missing Box/进度条 or text completion summary');
+        }
         const progressArea = runtime.requirePanelChild(progressRoot, 'ProgressBarArea');
         const progressLabel = progressRoot.getChildByName('Label')?.getComponent(Label);
         if (progressLabel) {
@@ -556,11 +647,6 @@ export class GameplayResultPanelController {
             runtime.claimWinAdBonusReward();
         });
         const collectionBtn = runtime.requirePanelChild(box, 'CollectionBtn');
-        const collectionTitlePlate = runtime.requirePanelChild(collectionBtn, '标题底板');
-        const collectionTitleLabel = runtime.requirePanelChild(collectionTitlePlate, 'Label');
-        if (!collectionTitleLabel.getComponent(Label)) {
-            throw new Error('[result-panel] WinPanel collection title is missing Label');
-        }
         this.bindPanelButton(collectionBtn, () => {
             AudioMgr.inst.play('button');
             runtime.openCollection();
@@ -712,10 +798,13 @@ export class GameplayResultPanelController {
     ): void {
         const runtime = this.runtime;
         if (runtime._adShowing || runtime._shareShowing || !this.canUseReviveShare()) return;
+        const session = this.beginReviveFailureSession(kind);
+        if (!this.isReviveFailureSessionActive(session)) return;
         const levelId = this.getReviveShareLogicalLevelId();
         const page = kind === 'buffer-full' ? 'pch_buffer_full_revive_share' : 'level_revive_share';
         AudioMgr.inst.play('button');
         runtime.runShareGrant(page, () => {
+            if (!this.isReviveFailureSessionActive(session)) return false;
             const rollbackReservation = this.reserveReviveShareGrant();
             if (!rollbackReservation) return false;
             try {
@@ -726,9 +815,15 @@ export class GameplayResultPanelController {
                         return false;
                     }
                 } else {
+                    const expanded = ensurePchConveyorGameplayController(runtime).grantReviveCapacity();
+                    if (!expanded) {
+                        rollbackReservation();
+                        return false;
+                    }
                     runtime.continueAfterLose(continueSeconds);
                 }
                 overlay.active = false;
+                this.completeReviveFailureSession(session);
                 this.refreshReviveShareButtons();
                 return true;
             } catch (error) {
@@ -744,7 +839,7 @@ export class GameplayResultPanelController {
             query: () => `level=${levelId}`,
             shareFailToast: kind === 'buffer-full' ? '分享未完成，未增加位置' : '分享未完成，未复活',
             grantFailToast: kind === 'buffer-full' ? '传送带扩容失败，请重试' : '复活失败，请重试',
-            successToast: kind === 'buffer-full' ? '已增加12个位置' : '复活成功',
+            successToast: kind === 'buffer-full' ? '已增加12个位置' : '已获得120秒和12个位置',
             onFinally: () => this.refreshReviveShareButtons(),
         });
     }
@@ -763,8 +858,7 @@ export class GameplayResultPanelController {
         }
         const rewardedSeconds = runtime.constructor.REWARDED_CONTINUE_SECONDS;
         const giveUp = () => {
-            overlay.active = false;
-            runtime.showLosePanel();
+            this.closeReviveFailureSession('timeout', overlay);
         };
         this.bindReviveContinueAction(continueBtn, overlay, rewardedSeconds);
         this.bindReviveShareButton(
@@ -810,8 +904,7 @@ export class GameplayResultPanelController {
         for (const node of giveUpNodes) {
             this.bindPanelButton(node, () => {
                 AudioMgr.inst.play('button');
-                overlay.active = false;
-                runtime.showLosePanel();
+                this.closeReviveFailureSession('buffer-full', overlay);
             });
         }
         return overlay;
@@ -823,14 +916,18 @@ export class GameplayResultPanelController {
 
     runBufferFullReviveAction(overlay: Node): void {
         const runtime = this.runtime;
-        if (runtime._adShowing) return;
+        if (runtime._adShowing || runtime._shareShowing) return;
+        const session = this.beginReviveFailureSession('buffer-full');
+        if (!this.isReviveFailureSessionActive(session)) return;
         const controller = ensurePchConveyorGameplayController(runtime);
         const capacityBeforeGrant = controller.getBufferCapacity();
         AudioMgr.inst.play('button');
         runtime.runRewardedGrant('pch_buffer_full_revive', () => {
+            if (!this.isReviveFailureSessionActive(session)) return false;
             const continued = controller.continueAfterBufferFull();
             if (!continued) return false;
             overlay.active = false;
+            this.completeReviveFailureSession(session);
             return true;
         }, {
             claimKey: `pch_buffer_full_revive:${runtime.getActiveLogicalLevelId?.() || 0}:${capacityBeforeGrant}`,
@@ -844,16 +941,23 @@ export class GameplayResultPanelController {
 
     runLevelReviveAction(overlay: Node, continueSeconds: number): void {
         const runtime = this.runtime;
-        if (runtime._adShowing) return;
+        if (runtime._adShowing || runtime._shareShowing) return;
+        const session = this.beginReviveFailureSession('timeout');
+        if (!this.isReviveFailureSessionActive(session)) return;
+        const controller = ensurePchConveyorGameplayController(runtime);
         AudioMgr.inst.play('button');
         runtime.runRewardedGrant('level_revive', () => {
-            overlay.active = false;
+            if (!this.isReviveFailureSessionActive(session)) return false;
+            if (!controller.grantReviveCapacity()) return false;
             runtime.continueAfterLose(continueSeconds);
+            overlay.active = false;
+            this.completeReviveFailureSession(session);
             return true;
         }, {
             busyFlag: '_adShowing',
             markLevelRevive: true,
             grantFailToast: '复活失败，请重试',
+            successToast: '已获得120秒和12个位置',
         });
     }
 
@@ -861,7 +965,7 @@ export class GameplayResultPanelController {
         const runtime = this.runtime;
         const continueSeconds = runtime.constructor.REWARDED_CONTINUE_SECONDS;
         this.bindPanelButton(triggerNode, () => {
-            if (runtime._activeLoseReason === 'buffer-full') {
+            if (this.resolveFinalFailureReviveKind() === 'buffer-full') {
                 this.runBufferFullReviveAction(overlay);
                 return;
             }

@@ -180,14 +180,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             <select id="dirPreset">
                 <option value="">常用目录</option>
                 <option value="assets/LevelData::main">正式关卡</option>
+                <option value="tools/historical/formal-1643-20260825::main">历史正式关卡-1643关</option>
+                <option value="tools/competitors/拼成彩虹/levels/main::main">拼成彩虹 主线</option>
+                <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
+                <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
                 <option value="assets/LevelData::theme">主题关卡</option>
                 <option value="tools/competitors/拼豆1000关/levels/main::main">拼豆1000关 主线</option>
                 <option value="tools/competitors/全民拼豆/levels/main::main">全民拼豆 主线</option>
                 <option value="tools/competitors/全民拼豆/levels/daily::main">全民拼豆 Daily</option>
-                <option value="tools/competitors/拼豆解解压/levels/main::main">拼豆解解压 主线</option>
                 <option value="tools/competitors/拼豆解解压/levels/daily::main">拼豆解解压 Daily</option>
                 <option value="tools/competitors/拼豆达人赛/levels/main::main">拼豆达人赛 主线</option>
-                <option value="tools/competitors/快乐拼拼豆/levels/main::main">快乐拼拼豆 主线</option>
                 <option value="tools/competitors/这不是挑战/levels/main::main">这不是挑战 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/main::main">拼豆天才 主线</option>
                 <option value="tools/competitors/拼豆天才/levels/daily::main">拼豆天才 Daily</option>
@@ -311,14 +313,15 @@ const DEFAULT_LEVEL_DIR = 'assets/LevelData';
 const DEFAULT_LEVEL_KIND = 'main';
 const PRESET_LEVEL_DIR_ITEMS = [
     { label: '正式关卡', dir: DEFAULT_LEVEL_DIR, kind: 'main' },
+    { label: '拼成彩虹 主线', dir: 'tools/competitors/拼成彩虹/levels/main', kind: 'main' },
+    { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
+    { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
     { label: '主题关卡', dir: DEFAULT_LEVEL_DIR, kind: 'theme' },
     { label: '拼豆1000关 主线', dir: 'tools/competitors/拼豆1000关/levels/main', kind: 'main' },
     { label: '全民拼豆 主线', dir: 'tools/competitors/全民拼豆/levels/main', kind: 'main' },
     { label: '全民拼豆 Daily', dir: 'tools/competitors/全民拼豆/levels/daily', kind: 'main' },
-    { label: '拼豆解解压 主线', dir: 'tools/competitors/拼豆解解压/levels/main', kind: 'main' },
     { label: '拼豆解解压 Daily', dir: 'tools/competitors/拼豆解解压/levels/daily', kind: 'main' },
     { label: '拼豆达人赛 主线', dir: 'tools/competitors/拼豆达人赛/levels/main', kind: 'main' },
-    { label: '快乐拼拼豆 主线', dir: 'tools/competitors/快乐拼拼豆/levels/main', kind: 'main' },
     { label: '这不是挑战 主线', dir: 'tools/competitors/这不是挑战/levels/main', kind: 'main' },
     { label: '拼豆天才 主线', dir: 'tools/competitors/拼豆天才/levels/main', kind: 'main' },
     { label: '拼豆天才 Daily', dir: 'tools/competitors/拼豆天才/levels/daily', kind: 'main' },
@@ -1398,6 +1401,18 @@ function drawSpecialOverlays(ctx, specialMeta, boardWidth, boardHeight, cellSize
     }
 }
 
+function getColorHexMap(data, colors) {
+    if (data.palette && typeof data.palette === 'object') return data.palette;
+    return Object.keys(colors).every(c => PNG_HEX[c]) ? PNG_HEX : COLOR_HEX;
+}
+
+function getColorName(data, colorId) {
+    const sourceColor = Array.isArray(data.colorMeta)
+        ? data.colorMeta.find(item => String(item.id) === String(colorId))
+        : null;
+    return sourceColor?.sameColorGroup || COLOR_NAMES[colorId] || `颜色 ${colorId}`;
+}
+
 function drawGrid(canvas, grid, cellSize, options = {}) {
     const h = grid.length, w = grid[0].length;
     canvas.width = w * cellSize;
@@ -1410,7 +1425,7 @@ function drawGrid(canvas, grid, cellSize, options = {}) {
         for (let c = 0; c < w; c++) {
             const v = grid[r][c];
             if (v === 0) continue;
-            const hex = COLOR_HEX[v] || '#ccc';
+            const hex = options.palette?.[v] || COLOR_HEX[v] || '#ccc';
             const x = c * cellSize, y = r * cellSize;
             const radius = Math.max(0.5, cellSize * 0.14);
 
@@ -1609,14 +1624,14 @@ function renderCard(data) {
 
     card.appendChild(previewDiv);
 
-    drawGrid(canvasTarget, data.correctColorArr, cellSize);
+    drawGrid(canvasTarget, data.correctColorArr, cellSize, { palette: data.palette });
 
     // Info
     const info = document.createElement('div');
     info.className = 'info';
-    const colorHexMap = Object.keys(colors).every(c => PNG_HEX[c]) ? PNG_HEX : COLOR_HEX;
+    const colorHexMap = getColorHexMap(data, colors);
     const colorDots = Object.keys(colors).map(c =>
-        `<span class="color-dot" style="background:${colorHexMap[c]}" title="${COLOR_NAMES[c]}"></span>`
+        `<span class="color-dot" style="background:${colorHexMap[c] || '#ccc'}" title="${getColorName(data, c)}"></span>`
     ).join('');
     const statusHtml = CAN_IMPORT_TO_OFFICIAL
         ? `<span class="online-status">${hasOfficialImport ? `已导入 ${importBadgeText}` : '未导入'}</span>`
@@ -1680,10 +1695,10 @@ function showDetail(data) {
     const cellSize = Math.max(3, Math.min(10, Math.floor(320 / maxDim)));
     const specialMeta = getSpecialMeta(data);
 
-    const colorHexMap = Object.keys(colors).every(c => PNG_HEX[c]) ? PNG_HEX : COLOR_HEX;
+    const colorHexMap = getColorHexMap(data, colors);
     const colorDetails = Object.entries(colors)
         .sort((a, b) => b[1] - a[1])
-        .map(([c, n]) => `<span class="color-dot" style="background:${colorHexMap[c]}"></span>${COLOR_NAMES[c]}: ${n}`)
+        .map(([c, n]) => `<span class="color-dot" style="background:${colorHexMap[c] || '#ccc'}"></span>${getColorName(data, c)}: ${n}`)
         .join('&nbsp;&nbsp;');
 
     modal.innerHTML = `
@@ -1729,9 +1744,10 @@ function showDetail(data) {
         </div>
     `;
 
-    drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-    drawGrid(document.getElementById('detailOldShuffle'), data.initRandomColorArr, cellSize, { specialMeta, specialMode: 'detail' });
-    drawGrid(document.getElementById('detailNewShuffle'), nextShuffle, cellSize, { specialMeta, specialMode: 'detail' });
+    const gridOptions = { specialMeta, specialMode: 'detail', palette: data.palette };
+    drawGrid(document.getElementById('detailTarget'), data.correctColorArr, cellSize, gridOptions);
+    drawGrid(document.getElementById('detailOldShuffle'), data.initRandomColorArr, cellSize, gridOptions);
+    drawGrid(document.getElementById('detailNewShuffle'), nextShuffle, cellSize, gridOptions);
 
     document.getElementById('modalOverlay').classList.add('active');
 }

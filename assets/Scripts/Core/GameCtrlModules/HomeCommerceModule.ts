@@ -191,7 +191,7 @@ export function installHomeCommerceModule(target: any): void {
                 AudioMgr.inst.play('button');
                 this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));
             }, this);
-        
+
             // 呼吸动画
             this.startHomeSceneScalePulse(btn, 1.02, 1.1);
         },

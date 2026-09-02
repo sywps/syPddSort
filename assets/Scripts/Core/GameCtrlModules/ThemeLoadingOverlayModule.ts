@@ -30,7 +30,6 @@ import type {
     InventoryPropKind, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
-import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
 import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
 import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
 
@@ -97,229 +96,17 @@ function startWeChatDisplayShare(runtime: any, options: WeChatDisplayShareOption
     return true;
 }
 
-function syncThemeTextNode(
-    parent: Node,
-    name: string,
-    text: string,
-    fontSize: number,
-    color: Color,
-    width: number,
-    height: number,
-    x: number,
-    y: number,
-    horizontalAlign: number = Label.HorizontalAlign.CENTER,
-): Label {
-    const node = parent.getChildByName(name);
-    const label = node?.getComponent(Label) || null;
-    if (!node?.isValid || !label) {
-        throw new Error(`[theme-ui] missing prefab Label: ${parent.name}/${name}`);
-    }
-    node.setPosition(x, y, 0);
-    const ui = node.getComponent(UITransform);
-    if (!ui) {
-        throw new Error(`[theme-ui] missing prefab UITransform: ${parent.name}/${name}`);
-    }
-    ui.setContentSize(width, height);
-    label.string = text;
-    label.fontSize = fontSize;
-    label.lineHeight = Math.max(fontSize + 4, height);
-    label.color = color;
-    label.horizontalAlign = horizontalAlign;
-    label.verticalAlign = Label.VerticalAlign.CENTER;
-    label.overflow = Label.Overflow.SHRINK;
-    label.enableWrapText = false;
-    node.active = true;
-    return label;
-}
-
-function applyThemeSpriteFrame(
-    runtime: any,
-    node: Node,
-    frameName: string,
-    width: number,
-    height: number,
-    color?: Color,
-) {
-    const frame = runtime.getSF(frameName);
-    if (!frame) {
-        throw new Error(`[theme-ui] missing sprite frame: ${frameName}`);
-    }
-    runtime._applySpriteFrame(node, frame, width, height);
-    const sprite = node.getComponent(Sprite);
-    if (sprite) {
-        sprite.color = color || Color.WHITE;
-    }
-}
-
-type ThemeCardState = 'completed' | 'unlocked' | 'canUnlock' | 'locked';
-
-const THEME_CARD_STATE_NODE_NAMES: Record<ThemeCardState, string[]> = {
-    completed: ['CompletedState', 'ThemeCompletedState', 'ThemeCardCompletedState', 'ThemeBtnCompletedState'],
-    unlocked: ['UnlockedState', 'ThemeUnlockedState', 'ThemeCardUnlockedState', 'ThemeBtnUnlockedState'],
-    canUnlock: ['CanUnlockState', 'UnlockableState', 'ThemeCanUnlockState', 'ThemeCardCanUnlockState', 'ThemeBtnCanUnlockState'],
-    locked: ['LockedState', 'ThemeLockedState', 'ThemeCardLockedState', 'ThemeBtnLockedState'],
-};
-
-const ALL_THEME_CARD_STATE_NODE_NAMES = [
-    ...THEME_CARD_STATE_NODE_NAMES.completed,
-    ...THEME_CARD_STATE_NODE_NAMES.unlocked,
-    ...THEME_CARD_STATE_NODE_NAMES.canUnlock,
-    ...THEME_CARD_STATE_NODE_NAMES.locked,
-];
-
-function setOptionalThemeStateNodes(root: Node, state: ThemeCardState): void {
-    const allStateNames = new Set<string>(ALL_THEME_CARD_STATE_NODE_NAMES);
-    const activeNames = new Set<string>(THEME_CARD_STATE_NODE_NAMES[state]);
-    for (const child of root.children) {
-        if (allStateNames.has(child.name)) {
-            child.active = activeNames.has(child.name);
-        }
-    }
-}
-
 export function installThemeLoadingOverlayModule(target: any): void {
     Object.assign(target, {
-        drawThemeCard(
-            parent: Node,
-            levelId: number,
-            cx: number,
-            cy: number,
-            w: number,
-            h: number,
-            isUnlocked: boolean,
-            isCompleted: boolean,
-            canUnlock: boolean,
-            unlockRequirementLevel: number,
-            levelName: string = '',
-            options: { deferPreview?: boolean } = {},
-        ) {
-            const existing = parent.getChildByName(`ThemeCard_${levelId}`);
-            const template = parent.getChildByName('ThemeCardTemplate');
-            if (!template) {
-                throw new Error('[theme-card] missing ThemeCardTemplate');
-            }
-            const card = existing || instantiate(template);
-            if (!existing) {
-                parent.addChild(card);
-            }
-            card.name = `ThemeCard_${levelId}`;
-            card.active = true;
-            card.layer = parent.layer || Layers.Enum.UI_2D;
-            card.setPosition(cx, cy);
-            const cardUi = card.getComponent(UITransform);
-            if (!cardUi) {
-                throw new Error('[theme-card] ThemeCardTemplate must provide UITransform');
-            }
-            const cardState: ThemeCardState = isUnlocked ? (isCompleted ? 'completed' : 'unlocked') : (canUnlock ? 'canUnlock' : 'locked');
-            setOptionalThemeStateNodes(card, cardState);
-
-            const clipNode = card.getChildByName('CardClip');
-            if (!clipNode) {
-                throw new Error('[theme-card] missing CardClip template node');
-            }
-            clipNode.layer = card.layer;
-            if (!clipNode.getComponent(Mask)) {
-                throw new Error('[theme-card] CardClip template must provide Mask');
-            }
-        
-            const nameNode = clipNode.getChildByName('ThemeLvName');
-            const nameLabel = nameNode?.getComponent(Label);
-            if (levelName) {
-                if (!nameNode || !nameLabel) {
-                    throw new Error('[theme-card] ThemeCardTemplate is missing ThemeLvName label');
-                }
-                nameLabel.string = levelName;
-            } else if (nameLabel) {
-                nameLabel.string = '';
-            }
-
-            const previewContainer = clipNode.getChildByName('PreviewContainer');
-            if (!previewContainer) {
-                throw new Error('[theme-card] missing PreviewContainer template node');
-            }
-            previewContainer.layer = clipNode.layer;
-            const previewUi = previewContainer.getComponent(UITransform);
-            if (!previewUi) {
-                throw new Error('[theme-card] PreviewContainer template must provide UITransform');
-            }
-            for (const child of previewContainer.children.slice()) {
-                child.destroy();
-            }
-
-            const btn = card.getChildByName('ThemeCardBtn');
-            if (!btn) {
-                throw new Error('[theme-card] missing ThemeCardBtn template node');
-            }
-            btn.layer = card.layer;
-            setOptionalThemeStateNodes(btn, cardState);
-            let buttonText = '';
-            if (isUnlocked) {
-                buttonText = isCompleted ? '已通关' : '开始';
-            } else if (canUnlock) {
-                buttonText = '看广告解锁';
-            } else {
-                buttonText = `${unlockRequirementLevel}关开放`;
-            }
-            const btnLabelNode = btn.getChildByName('ThemeBtnLbl');
-            const btnLabel = btnLabelNode?.getComponent(Label);
-            if (!btnLabelNode || !btnLabel) {
-                throw new Error('[theme-card] ThemeCardBtn is missing ThemeBtnLbl label');
-            }
-            btnLabel.string = buttonText;
-
-            if (!btn.getComponent(Button)) {
-                throw new Error('[theme-card] ThemeCardBtn template must provide Button');
-            }
-            btn.targetOff(this);
-            btn.on(Button.EventType.CLICK, () => {
-                if (this._themeOverlay && this._themeScrollSuppressClick) {
-                    this._themeScrollSuppressClick = false;
-                    return;
-                }
-                AudioMgr.inst.play('button');
-                if (isUnlocked) {
-                    if (isCompleted) {
-                        this.openThemeImageModal(levelId, levelName);
-                    } else {
-                        this.startThemeLevel(levelId);
-                    }
-                } else if (canUnlock) {
-                    this.unlockThemeLevelByAd(levelId);
-                } else {
-                    this.showToast(`主线到第${unlockRequirementLevel}关后可解锁这一关`);
-                }
-            }, this);
-
-            if (!options.deferPreview) {
-                this.drawThemePixelPreview(previewContainer, levelId, 0, 0, previewUi.width, previewUi.height);
-            }
-            return {
-                card,
-                previewContainer,
-                previewW: previewUi.width,
-                previewH: previewUi.height,
-            };
-        },
-
-        /** 在主题卡片上绘制像素图预览（基于 zt_level_xxx.json 的 correctColorArr） */
-        drawThemePixelPreview(parent: Node, levelId: number, offsetX: number, offsetY: number, maxW: number, maxH: number) {
-            this.drawCollectionPixelPreviewOnCard(parent, levelId, offsetX, offsetY, maxW, maxH, 'zt_level_', {
-                maxCellSize: Math.max(maxW, maxH),
-                padding: 0,
-            });
-        },
-
         startThemeLevel(levelId: number, options: { suppressFailureToast?: boolean } = {}): boolean | Promise<boolean> {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const startedFromHome = this.getRuntimeSceneName('Game') === 'Home';
             const onFail = (error: unknown): false => {
                 console.error('[theme_unlock] start theme level failed:', { levelId: normalizedLevelId, error });
                 if (!options.suppressFailureToast) {
                     this.showToast('像素关启动失败，请重试');
                 }
-                this.scheduleOnce(() => {
-                    if (!this.isValid) return;
-                    this.openThemePanel();
-                }, 0.05);
+                if (!startedFromHome) this.showMainMenu();
                 return false;
             };
             if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
@@ -332,8 +119,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 });
                 return false;
             }
-            this.closeThemePanel();
-            if (this.getRuntimeSceneName('Game') === 'Home') {
+            if (startedFromHome) {
                 return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false)
                     .then(() => true)
                     .catch(onFail);
@@ -347,177 +133,14 @@ export function installThemeLoadingOverlayModule(target: any): void {
             }
         },
 
-        closeThemeImageModal() {
-            if (this._themeImageModal) {
-                this._themeImageModal.destroy();
-            }
-            this._themeImageModal = null;
-        },
-
-        openThemeImageModal(levelId: number, levelName: string = '') {
-            this.closeThemeImageModal();
-            const title = levelName || this.findThemeLevelName(levelId) || `像素关 ${levelId}`;
-            openCollectionShellOverlay(this, {
-                overlayName: 'ThemeImageModal',
-                prefabPath: 'UI/Prefabs/Panels/ThemePanel',
-                title,
-                siblingIndex: 1001,
-                requireActionNodes: false,
-                onClose: () => {
-                    this._themeImageModal = null;
-                },
-                onReady: ({ overlay, content, pageIndicator, leftArrow, rightArrow, close }) => {
-                    this._themeImageModal = overlay;
-                    content.removeAllChildren();
-                    if (pageIndicator) {
-                        pageIndicator.active = true;
-                        pageIndicator.setPosition(0, 408, 0);
-                        syncThemeTextNode(pageIndicator, 'ThemePixelTitle', title, 22, new Color('#5A4A3A'), 320, 36, 0, 0);
-                    }
-                    this.drawCollectionPatternOnCard(content, levelId, 0, 10, 548, 760, 'zt_level_');
-
-                    if (leftArrow) leftArrow.active = false;
-                    if (rightArrow) {
-                        rightArrow.active = true;
-                        rightArrow.setPosition(0, -404, 0);
-                        const rightArrowUi = rightArrow.getComponent(UITransform) || rightArrow.addComponent(UITransform);
-                        rightArrowUi.setContentSize(220, 56);
-                        applyThemeSpriteFrame(this, rightArrow, 'popup_primary_button', 220, 56, new Color('#3AA8E0'));
-                        syncThemeTextNode(rightArrow, 'ThemePixelStartLbl', '再玩一次', 24, Color.WHITE, 180, 32, 0, 0);
-                        this.bindPanelButton(rightArrow, () => {
-                            AudioMgr.inst.play('button');
-                            close();
-                            this.startThemeLevel(levelId);
-                        });
-                    }
-                },
-            });
-        },
-
-        unlockThemeLevelByAd(levelId: number) {
-            if (this._adShowing) return;
-            if (!this.canUnlockThemeLevelByMainProgress(levelId)) {
-                const requirementLevel = this.getThemeUnlockRequirementLevel(levelId);
-                this.showToast(`主线到第${requirementLevel}关后可解锁这一关`);
-                return;
-            }
-            this.runRewardedGrant('theme_unlock', () => {
-                const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
-                if (!this.setThemeUnlocked(normalizedLevelId)) {
-                    return false;
-                }
-                const unlocked = this.getThemeUnlockedSet();
-                const verified = unlocked.has(normalizedLevelId);
-                if (!verified) {
-                    console.error('[theme_unlock] unlocked level missing after grant:', {
-                        levelId: normalizedLevelId,
-                        unlocked: Array.from(unlocked),
-                    });
-                }
-                return verified;
-            }, {
-                busyFlag: '_adShowing',
-                levelId,
-                adFailToast: '广告未完成，未解锁',
-                grantFailToast: '解锁保存失败，请重试',
-                successToast: '解锁成功',
-                afterGrantFailToast: '像素关启动失败，请重试',
-                afterGrant: () => this.startThemeLevel(levelId, { suppressFailureToast: true }),
-            });
-        },
-
-        refreshThemePanel() {
-            if (!this._themeOverlay) return;
-            this.closeThemePanel();
-            this.openThemePanel();
-        },
-
-        closeThemePanel() {
-            this.closeThemeImageModal();
-            if (this._themeOverlay && this._themeOverlay.isValid) {
-                this._themeOverlay.destroy();
-            }
-            this._themeOverlay = null;
-        },
-
-        returnToThemePanel() {
-            this._isThemeLevel = false;
-            this._currentThemeLevelId = 0;
-            this.showMainMenu();
-        },
-
-        /**
-         * 像素拼图关卡通关后分享：
-         *   - 微信小游戏：调用 wx.shareAppMessage 转发到聊天
-         *   - 抖音小游戏：调用 tt.shareAppMessage 分享
-         *   - 其它环境：toast 提示并回到主题面板
-         */
-        shareThemeLevel() {
-            const levelId = this._currentThemeLevelId || (this.levelData?.levelId ?? 0);
-            const themeName = this.findThemeNameByLevelId(levelId);
-            const levelName = (this.levelData as any)?.levelName || '';
-            const title = themeName
-                ? `我在拼豆豆完成了【${themeName}-${levelName || levelId}】，快来挑战！`
-                : `我在拼豆豆完成了一个图案，快来挑战！`;
-            const wx: any = this.getWeChatRuntime();
-            const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
-                || (typeof window !== 'undefined' ? (window as any).tt : null);
-        
-            const onShared = () => {
-                this.returnToThemePanel();
-            };
-        
-            if (wx && typeof wx.shareAppMessage === 'function') {
-                startWeChatDisplayShare(this, {
-                    shareType: 'theme_level',
-                    page: 'theme_share',
-                    levelId,
-                    title,
-                    query: `level=${levelId}&theme=1`,
-                    onQualified: () => {
-                        this.showToast('分享成功');
-                        onShared();
-                    },
-                    onRejected: (reason) => {
-                        this.showToast(getWeChatShareReturnToast(reason));
-                        onShared();
-                    },
-                });
-                return;
-            }
-        
-            if (tt && typeof tt.shareAppMessage === 'function') {
-                AnalyticsMgr.inst.trackShareClick('theme_level', 'theme_share', levelId);
-                try {
-                    tt.shareAppMessage({
-                        channel: 'video',
-                        title,
-                        desc: title,
-                        query: `level=${levelId}&theme=1`,
-                        success: () => { AnalyticsMgr.inst.trackShareSuccess('theme_level', 'theme_share', levelId); this.showToast('分享成功'); onShared(); },
-                        fail: () => { this.showToast('分享已取消'); onShared(); },
-                    });
-                } catch (e) {
-                    console.warn('[shareThemeLevel] tt.shareAppMessage error:', e);
-                    this.showToast('分享失败');
-                    onShared();
-                }
-                return;
-            }
-        
-            // 未识别平台：直接回到主题面板
-            this.showToast('请在微信/抖音中分享');
-            onShared();
-        },
-
         shareCurrentWinLevel() {
             const levelId = this.getActiveLogicalLevelId();
             const title = `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
-        
+
             const wx: any = this.getWeChatRuntime();
             const tt: any = (typeof globalThis !== 'undefined' ? (globalThis as any).tt : null)
                 || (typeof window !== 'undefined' ? (window as any).tt : null);
-        
+
             if (wx && typeof wx.shareAppMessage === 'function') {
                 startWeChatDisplayShare(this, {
                     shareType: 'level_win',
@@ -530,7 +153,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 });
                 return;
             }
-        
+
             if (tt && typeof tt.shareAppMessage === 'function') {
                 AnalyticsMgr.inst.trackShareClick('level_win', 'win_share', levelId);
                 try {
@@ -553,29 +176,12 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 }
                 return;
             }
-        
+
             this.showToast('请在微信/抖音中分享');
         },
 
-        findThemeNameByLevelId(levelId: number): string {
-            for (const g of this.getThemeGroups()) {
-                if (g.levelIds.indexOf(levelId) >= 0) return g.name;
-            }
-            return '';
-        },
-
-        findThemeLevelName(levelId: number): string {
-            for (const g of this.getThemeGroups()) {
-                const idx = g.levelIds.indexOf(levelId);
-                if (idx >= 0) {
-                    return g.levelNames && g.levelNames[idx] ? g.levelNames[idx] : '';
-                }
-            }
-            return '';
-        },
-
         // ==================== 加载封面 ====================
-        
+
         /** 显示全屏加载封面（资源加载期间覆盖屏幕） */
         showLoadingOverlay() {
             if (this._loadingOverlay) return;
@@ -652,7 +258,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 sourceSize.width * coverScale,
                 sourceSize.height * coverScale,
             );
-        
+
             this._buildLoadingProgressBar(layer);
         },
 

@@ -135,7 +135,6 @@ export class PreviewController extends GameRuntimeHost {
                 { label: '恢复体力', onClick: () => this.openPanelPreview(() => { (this as any).openRecoverVigorPrefabModal(() => {}); }) },
             ],
             [
-                { label: '主题挑战', onClick: () => this.openPanelPreview(() => { (this as any).openThemePanel(); }) },
                 { label: '恢复体力', onClick: () => this.openPanelPreview(() => { (this as any).openRecoverVigorPrefabModal(() => {}); }) },
                 { label: '胜利结算', onClick: () => this.openResultPanelPreview('win') },
                 { label: '失败结算', onClick: () => this.openResultPanelPreview('lose') },
@@ -249,7 +248,6 @@ export class PreviewController extends GameRuntimeHost {
         runtime._ensureGameplayResultPanelPrefabsReady?.(() => {
             this.clearPreviewPopups();
             this.prepareResultPreviewBoardModel(runtime);
-            runtime._isThemeLevel = false;
             const baseGoldReward = 80;
             runtime._pendingWinGoldReward = baseGoldReward;
             runtime._pendingWinAdBonusReward = baseGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1);

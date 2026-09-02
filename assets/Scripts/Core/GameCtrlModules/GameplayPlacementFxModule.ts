@@ -1039,12 +1039,17 @@ export function installGameplayPlacementFxModule(target: any): void {
             const bm = this.boardModel;
             const skipColorCompleteAudio = bm.isAllLocked();
             for (const cid of bm.getColorIds()) {
-                if (this._completedColors.has(cid)) continue;
-                if (bm.isColorComplete(cid)) {
-                    this._completedColors.add(cid);
+                if (this.markColorCompleteIfNeeded(cid)) {
                     this.enqueueColorCompleteEffect(cid, !skipColorCompleteAudio);
                 }
             }
+        },
+
+        markColorCompleteIfNeeded(colorId: number): boolean {
+            const cid = Math.floor(Number(colorId) || 0);
+            if (cid <= 0 || this._completedColors.has(cid) || !this.boardModel.isColorComplete(cid)) return false;
+            this._completedColors.add(cid);
+            return true;
         },
 
         resetCellPositionsExcept(excludedCells: { row: number; col: number }[] = []) {

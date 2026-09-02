@@ -246,6 +246,23 @@ export function installBoardInputViewportModule(target: any): void {
             return { left, right, bottom, top };
         },
 
+        getBoardInitialFitRect(): { left: number; right: number; bottom: number; top: number } {
+            const area = this.getGameplayFixedGroup?.('BoardInitialFitArea') || null;
+            const sceneRect = this.getGameplayNodeBoundsInFixedRoot(area);
+            if (!sceneRect || sceneRect.right <= sceneRect.left || sceneRect.top <= sceneRect.bottom) {
+                throw new Error('[GameplayScene] Game.scene is missing a valid GameplayFixedRoot/BoardInitialFitArea');
+            }
+            const safeRect = this.getBoardSafeViewportRect();
+            const left = Math.max(sceneRect.left, safeRect.left);
+            const right = Math.min(sceneRect.right, safeRect.right);
+            const bottom = Math.max(sceneRect.bottom, safeRect.bottom);
+            const top = Math.min(sceneRect.top, safeRect.top);
+            if (right <= left || top <= bottom) {
+                throw new Error('[GameplayScene] BoardInitialFitArea does not intersect the board safe viewport');
+            }
+            return { left, right, bottom, top };
+        },
+
         setViewTransformClamped(scale: number, offset: Vec2): void {
             this.boardViewport.setViewTransformClamped(scale, offset);
             this.boardViewScale = this.boardViewport.scale;

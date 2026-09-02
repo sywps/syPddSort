@@ -20,6 +20,8 @@ import { installSettlementHudModule } from './GameCtrlModules/SettlementHudModul
 import { installCollectionAvatarModule } from './GameCtrlModules/CollectionAvatarModule';
 import { installThemePanelFlowModule } from './GameCtrlModules/ThemePanelFlowModule';
 import { installThemeLoadingOverlayModule } from './GameCtrlModules/ThemeLoadingOverlayModule';
+import { installCollectionGuideModule } from './GameCtrlModules/CollectionGuideModule';
+import { installGameplayShareLoadingModule } from './GameCtrlModules/GameplayShareLoadingModule';
 import { installSettingsPanelModule } from './GameCtrlModules/SettingsPanelModule';
 import { installTutorialGuideModule } from './GameCtrlModules/TutorialGuideModule';
 import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
@@ -58,6 +60,8 @@ export function installGameCtrlModules(runtime: any): void {
     installCollectionAvatarModule(runtime);
     installThemePanelFlowModule(runtime);
     installThemeLoadingOverlayModule(runtime);
+    installCollectionGuideModule(runtime);
+    installGameplayShareLoadingModule(runtime);
     installSettingsPanelModule(runtime);
     installPostPlayableWarmupModule(runtime);
 }

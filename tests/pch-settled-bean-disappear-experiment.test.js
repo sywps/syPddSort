@@ -47,8 +47,8 @@ assert.ok(
     'the experiment must suppress only the bean sprite while preserving board data',
 );
 assert.ok(
-    rules.includes('this.board.currentColors[row][col] = colorId;')
-        && rules.includes('this.board.setLocked(row, col, true);'),
+    rules.includes('this.board.currentColors[target.row][target.col] = colorId;')
+        && rules.includes('this.board.setLocked(target.row, target.col, true);'),
     'settled beans must still commit their color and lock state for completion',
 );
 

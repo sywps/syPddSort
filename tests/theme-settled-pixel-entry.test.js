@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n');
 
 const homeScene = JSON.parse(read('assets/HomeAssetsBundle/Scenes/Home.scene'));
 const homeCommerce = read('assets/Scripts/Core/GameCtrlModules/HomeCommerceModule.ts');
@@ -11,7 +11,6 @@ const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const gameplaySession = read('assets/Scripts/Core/GameplaySessionController.ts');
 const sceneHomeEntry = read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts');
 const themeFlow = read('assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts');
-const themePanel = read('assets/Scripts/Core/Panels/ThemePanelController.ts');
 const themeLoading = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverlayModule.ts');
 const playerMeta = read('assets/Scripts/Core/GameCtrlModules/PlayerMetaStateModule.ts');
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
@@ -60,13 +59,23 @@ assert.ok(
     'home runtime must keep ThemeBtn visible after rebuilding the menu',
 );
 assert.ok(
-    homeCommerce.includes("titleLabel.string = '像素拼图';")
-        && themePanel.includes("title: '像素拼图'"),
-    'the restored mode must use the Pixel Puzzle player-facing name',
+    homeCommerce.includes("titleLabel.string = '像素拼图';"),
+    'the direct entry must use the Pixel Puzzle player-facing name',
 );
 assert.ok(
     homeCommerce.includes('this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));'),
     'the pixel puzzle button must start the first incomplete theme level directly',
+);
+assert.ok(
+    !fs.existsSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/ThemePanel.prefab'))
+        && !fs.existsSync(path.join(root, 'assets/Scripts/Core/Panels/ThemePanelController.ts')),
+    'the obsolete ThemePanel prefab and controller must be removed',
+);
+assert.ok(
+    !themeFlow.includes('openThemePanel')
+        && !themeFlow.includes('renderThemePanelContent')
+        && !themeLoading.includes('UI/Prefabs/Panels/ThemePanel'),
+    'the direct entry must not retain a ThemePanel runtime path',
 );
 assert.ok(
     themeLoading.includes("if (!this.costVigorForLevel(normalizedLevelId, 'theme'))")
@@ -90,8 +99,7 @@ assert.ok(
     'settled pixel blocks must be enabled only for theme challenge gameplay',
 );
 assert.ok(
-    themeFlow.includes('return true;')
-        && themeFlow.includes('return this.getThemeLevelOrder().length;')
+    themeFlow.includes('for (const levelId of this.getThemeLevelOrder())')
         && themeFlow.includes('return ordered.find((levelId) => !completed.has(levelId)) || ordered[0];')
         && themeFlow.includes('return index >= 0 ? index + 1 : 1;')
         && themeFlow.includes('levelNames: group.levelIds.map(() => `第${++displayNumber}关`)'),
@@ -119,13 +127,16 @@ assert.ok(
     'the collection must expose separate mainline and pixel-puzzle tabs',
 );
 const configuredThemeIds = themeConfig.groups.flatMap((group) => group.levelIds).sort((a, b) => a - b);
+const expectedThemeIds = Array.from({ length: 205 }, (_, index) => index + 1);
 const themeFileIds = fs.readdirSync(path.join(root, 'assets/LevelData'))
     .map((name) => name.match(/^zt_level_(\d+)\.json$/))
     .filter(Boolean)
     .map((match) => Number(match[1]))
     .sort((a, b) => a - b);
-assert.ok(configuredThemeIds.every((levelId) => themeFileIds.includes(levelId)), 'every configured theme level must have an authored file');
-assert.deepStrictEqual(themeFileIds, Array.from({ length: 205 }, (_, index) => index + 1), 'theme filenames must run continuously from 1 to 205');
+assert.strictEqual(themeConfig.groups.length, 1, 'all pixel puzzle levels must use one group');
+assert.strictEqual(themeConfig.groups[0].name, '像素拼图', 'the single pixel puzzle group must use the player-facing name');
+assert.deepStrictEqual(configuredThemeIds, expectedThemeIds, 'the single pixel puzzle group must cover every level from 1 to 205 continuously');
+assert.deepStrictEqual(themeFileIds, expectedThemeIds, 'theme filenames must run continuously from 1 to 205');
 for (const levelId of themeFileIds) {
     const level = JSON.parse(read(`assets/LevelData/zt_level_${levelId}.json`));
     assert.strictEqual(level.levelId, levelId, `zt_level_${levelId}.json must use the matching internal levelId`);

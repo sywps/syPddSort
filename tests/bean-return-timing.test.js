@@ -15,6 +15,7 @@ const section = (source, startMarker, endMarker) => {
 const magnet = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillMagnetModule.ts');
 const wand = read('assets/Scripts/Core/GameCtrlModules/GameplaySkillWandModule.ts');
 const pch = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
+const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
 
 const magnetReturn = section(
     magnet,
@@ -73,6 +74,8 @@ assert.strictEqual((pchInbound.match(/AudioMgr\.inst\.vibratePlace\(\);/g) || []
 const pchReturn = section(pch, '    private animateBeanReturn(', '    private finishReturnAnimation(');
 const pchReturnFinish = section(pch, '    private finishReturnAnimation(', '    private commitFinish(');
 const pchCommitFinish = section(pch, '    private commitFinish(', '    private createFlyBean(');
+const pchExit = section(pch, '    private handleCarrierAtExit(', '    private playExitPulse(');
+const pchColorSettle = section(pch, '    private schedulePchReturnColorSettle(', '    private playNextPchColorCompleteEffect(');
 assert.ok(pchReturn.includes('const flightDelay = staggerIndex * PCH_RETURN_STAGGER_SECONDS;'), 'PCH automatic returns must preserve indexed launch timing');
 assert.ok(pchReturn.includes('this.attachSphereFlyEffect(bean, sourceBeanSize, flightDelay);'), 'PCH automatic returns must attach the pooled Star/Trail effect with the same launch delay');
 assert.ok(pchReturn.includes('.delay(flightDelay)'), 'PCH automatic returns must apply the indexed launch delay');
@@ -87,7 +90,7 @@ const renderIndex = pchReturn.indexOf('this.runtime.renderBoardCell(target.row, 
 const settleIndex = pchReturn.indexOf('this.runtime.playBeanSettleMatchFxOnCell?.(target.row, target.col);');
 const completeReturnIndex = pchReturn.indexOf('const completeReturn = () => {');
 const destroyIndex = pchReturn.indexOf('this.destroyFlyBean(bean);', completeReturnIndex);
-const finishIndex = pchReturn.indexOf('this.finishReturnAnimation(target);', destroyIndex);
+const finishIndex = pchReturn.indexOf('this.finishReturnAnimation(target, colorBatch);', destroyIndex);
 const completionScheduleIndex = pchReturn.indexOf('this.runtime.scheduleOnce(completeReturn, PCH_RETURN_COMPLETE_DELAY_SECONDS);');
 assert.ok(
     completeReturnIndex >= 0
@@ -103,17 +106,19 @@ assert.ok(
 );
 assert.strictEqual((pchReturn.match(/AudioMgr\.inst\.play\('settle'\);/g) || []).length, 1, 'each individual PCH return must use the dedicated settlement cue once');
 assert.ok(!pchReturn.includes('.delay(PCH_RETURN_COMPLETE_DELAY_SECONDS)'), 'an inactive return bean must not own the completion delay');
-assert.ok(pchReturnFinish.includes('const pendingColorIdsBeforeCompletion = this.getPendingColorCompleteEffectIds();'), 'PCH must identify colors completed by this specific return');
-assert.ok(pchReturnFinish.includes('this.schedulePchColorCompleteAfterSettleFx(colorId);'), 'each newly completed color must start after its triggering a1');
-assert.ok(
-    pchReturnFinish.indexOf('this.schedulePchColorCompleteAfterSettleFx(colorId);')
-        < pchReturnFinish.indexOf('if (!boardComplete && allReturnAnimationsFinished) this.runtime.flushPendingColorCompleteEffects?.();'),
-    'new color feedback must leave the shared queue before the old batch-tail flush can run',
-);
-assert.ok(pch.includes('this.runtime.scheduleOnce(beginColorCompleteEffect, PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS);'), 'PCH color completion must wait for the remaining a1 duration');
-assert.ok(pch.includes('this.runtime.playColorCompleteEffect(colorId, true, () => {'), 'each color must play all same-color b1 effects with its own audio cue');
+assert.ok(pchExit.includes('const returnColorBatches = new Map<number, PchReturnColorEffectBatch>();'), 'PCH must group the current return batch by color');
+assert.ok(pchExit.includes('colorBatch.targets.push(target);') && pchExit.includes('colorBatch.pendingSettleFxCount += 1;'), 'PCH must retain only this batch\'s returned targets and a1 count');
+assert.ok(pchReturnFinish.includes('this.schedulePchReturnColorSettle(colorBatch);'), 'each returned bean must report a1 completion to its own color batch');
+assert.ok(!pchReturnFinish.includes('this.runtime.checkColorCompletion?.();'), 'PCH returns must not rescan all colors after each bean');
+assert.ok(pch.includes('this.runtime.scheduleOnce(completeColorSettle, PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS);'), 'PCH color completion must wait for the remaining a1 duration');
+assert.ok(pch.includes('this.runtime.markColorCompleteIfNeeded(colorBatch.colorId) !== true'), 'PCH must check only the returning color before starting its b1');
+assert.ok(/if \(colorBatch\.pendingSettleFxCount > 0\) return;\s*if \(this\.runtime\.markColorCompleteIfNeeded\(colorBatch\.colorId\) !== true\) \{[\s\S]*?\}\s*this\.queuedPchColorCompleteBatches\.push\(colorBatch\);/.test(pchColorSettle), 'the last a1 in a return color group must queue b1 only when that color is complete');
+assert.ok(pch.includes('this.runtime.playColorCompleteEffect(colorBatch.colorId, true, () => {'), 'PCH b1 must target every bean of the completed color');
+assert.ok(!pch.includes('this.runtime.playColorCompleteEffectOnCells(colorBatch.targets'), 'PCH must not limit a completed-color b1 to the return batch');
 assert.ok(pch.includes('this.tryCommitFinishAfterPchColorCompleteEffects();'), 'global completion must wait for the PCH color-complete queue');
 assert.ok(pchCommitFinish.includes('this.runtime.playPatternCompleteThenWin?.();'), 'PCH must enter the Shader stage only after final b1 completion');
+assert.ok(colorFx.includes('playColorCompleteMatchFxForColor(colorId: number, onDone?: () => void): void'), 'color FX must collect all targets of a completed color');
+assert.ok(colorFx.includes('this.playPinddSpineFxOnBeansSameFrame('), 'all beans of a completed color must start b1 in the same frame');
 
 const pchSkill = section(pch, '    private runConveyorSkill(', '    private resolveSkillSourceVisual(');
 assert.ok(pchSkill.includes('.delay(index * PCH_SKILL_STAGGER_SECONDS)'), 'PCH prop returns must use fixed indexed launch timing');

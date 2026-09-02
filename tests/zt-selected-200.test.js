@@ -11,7 +11,11 @@ const sourceDir = path.join(root, 'tools', 'online-levels-2026-08-01');
 const onlineDir = path.join(root, 'assets', 'LevelData');
 const manifest = JSON.parse(fs.readFileSync(path.join(outputDir, 'selection_manifest.json'), 'utf8'));
 const report = JSON.parse(fs.readFileSync(path.join(outputDir, 'selection_report.json'), 'utf8'));
-const hash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex');
+const rawHash = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex');
+const lfHash = (buffer) => crypto.createHash('sha256')
+    .update(Buffer.from(buffer.toString('utf8').replace(/\r\n/g, '\n'), 'utf8'))
+    .digest('hex');
+const matchesManifestHash = (buffer, expected) => rawHash(buffer) === expected || lfHash(buffer) === expected;
 
 const inventory = (grid) => {
     const counts = new Map();
@@ -82,8 +86,8 @@ for (const entry of manifest.levels) {
     const sourceBuffer = fs.readFileSync(sourcePath);
     const output = JSON.parse(outputBuffer.toString('utf8'));
     const source = JSON.parse(sourceBuffer.toString('utf8'));
-    assert.equal(hash(outputBuffer), entry.outputSha256, `${entry.outputFilename} output hash`);
-    assert.equal(hash(sourceBuffer), entry.sourceSha256, `${entry.sourceFilename} source hash`);
+    assert.ok(matchesManifestHash(outputBuffer, entry.outputSha256), `${entry.outputFilename} output hash`);
+    assert.ok(matchesManifestHash(sourceBuffer, entry.sourceSha256), `${entry.sourceFilename} source hash`);
     assert.equal(output.levelId, entry.ztLevelId, `${entry.outputFilename} internal ID`);
     assert.equal(output.Hard, 0, `${entry.outputFilename} normal theme level`);
     assert.equal(output.conveyorCapacity, 60, `${entry.outputFilename} conveyor capacity`);
@@ -127,8 +131,8 @@ for (const entry of manifest.levels) {
 
 for (let levelId = 1; levelId <= 5; levelId += 1) {
     const filename = `zt_level_${levelId}.json`;
-    assert.equal(hash(fs.readFileSync(path.join(onlineDir, filename))), manifest.protectedOnlineThemeHashes[filename], `${filename} protected`);
-    assert.equal(hash(fs.readFileSync(path.join(outputDir, filename))), manifest.protectedOnlineThemeHashes[filename], `${filename} preserved copy`);
+    assert.ok(matchesManifestHash(fs.readFileSync(path.join(onlineDir, filename)), manifest.protectedOnlineThemeHashes[filename]), `${filename} protected`);
+    assert.ok(matchesManifestHash(fs.readFileSync(path.join(outputDir, filename)), manifest.protectedOnlineThemeHashes[filename]), `${filename} preserved copy`);
 }
 
 assert.equal(report.beanCount.min, 800);

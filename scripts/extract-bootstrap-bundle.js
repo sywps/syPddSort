@@ -13,19 +13,18 @@ const BOOTSTRAP_PATH_MAP = (() => {
 
     for (const audioPath of [
         'Audio/bgm',
-        'Audio/pindd/select',
-        'Audio/pindd/right_place_short',
-        'Audio/pindd/shelf',
+        'Audio/pindd/bean_pickup',
+        'Audio/pindd/bean_correct_place',
+        'Audio/pindd/bean_return_settle',
+        'Audio/pindd/bean_fly',
         'Audio/pindd/error',
         'Audio/ui',
         'Audio/tick',
+        'Audio/pindd/shelf',
         'Audio/win',
         'Audio/lose',
+        'Audio/winColor',
         'Audio/winSettlement',
-        'Audio/guide_level1_pick_1',
-        'Audio/guide_level1_place_1',
-        'Audio/guide_level1_pick_2',
-        'Audio/guide_level1_place_2',
     ]) {
         map.set(audioPath, audioPath);
     }

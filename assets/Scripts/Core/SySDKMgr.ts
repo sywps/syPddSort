@@ -165,6 +165,8 @@ class SySDKMgr {
     }
 
     reportLoadFinish()      { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaLoadFinish) return; try { s.syIaaLoadFinish(); } catch(e) { console.warn('[SySDK] reportLoadFinish:', e); } }
+    reportTutorialStart()   { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaTutorialTrack) return; try { s.syIaaTutorialTrack(1); } catch(e) { console.warn('[SySDK] reportTutorialStart:', e); } }
+    reportTutorialFinish()  { if (this._disabledForPreview) return; const s=getSygame(); if (!s?.syIaaTutorialTrack) return; try { s.syIaaTutorialTrack(2); } catch(e) { console.warn('[SySDK] reportTutorialFinish:', e); } }
     reportLevelEnter(id: number) {
         if (this._disabledForPreview) return;
         if (!this._levelEnded) return;

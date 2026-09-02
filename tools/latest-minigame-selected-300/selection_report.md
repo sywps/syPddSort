@@ -55,6 +55,6 @@
 - `node tests/dbt-design-report.test.js`：通过
 - `node tests/dbt-online-level-contract.test.js`：通过
 - `python3 -m py_compile tools/select_latest_minigame_levels.py tools/select_dbt_like_levels.py`：通过
-- `node --check tools/apply_controlled_shuffle_to_levels.js`：通过
+- 已移除旧的 selected-300 乱序生成器；本历史报告保留其余验证结果。
 
 源目录 `assets/LevelData` 的 1643 个文件整体摘要仍为 `fe265bcd5d9dc2df991bff7c07e331adac10943abdc31b896f267b85b3b09979`，未被修改。工作区已有无关修改均保留，未执行 Git commit 或 push。

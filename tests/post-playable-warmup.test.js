@@ -175,7 +175,7 @@ for (const bootstrapPath of [
     'UI/Prefabs/Panels/BufferFullRevivePanel',
     'UI/Prefabs/Panels/LosePanel',
     'Audio/bgm',
-    'Audio/pindd/select',
+    'Audio/pindd/bean_pickup',
     'Audio/win',
     'Audio/winSettlement',
     'Audio/lose',

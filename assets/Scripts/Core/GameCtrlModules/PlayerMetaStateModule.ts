@@ -6,7 +6,7 @@ import {
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
-    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, REWARD_RESULT_RELEASE_TEXTURE_NAMES, REWARD_RESULT_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
+    GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
@@ -32,28 +32,11 @@ import type {
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
-const REWARD_RESULT_POPUP_PREFAB_PATH = 'UI/Prefabs/Panels/RewardResultPopup';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
 const RECOVER_VIGOR_AD_REWARD = 4;
 const RECOVER_VIGOR_SHARE_REWARD = 2;
 const RECOVER_VIGOR_SHARE_DAILY_LIMIT = 3;
 const RECOVER_VIGOR_SHARE_STATE_KEY = 'pdd.recoverVigor.shareState.v1';
-
-type RewardResultPopupItem = {
-    iconName: string;
-    amountText: string;
-    labelText: string;
-};
-
-type RewardResultPopupOptions = {
-    overlayName?: string;
-    title: string;
-    subtitle: string;
-    items: RewardResultPopupItem[];
-    tip?: string;
-    confirmText?: string;
-    onConfirm?: () => void;
-};
 
 type RecoverVigorShareState = {
     dateKey: string;
@@ -92,30 +75,6 @@ function logRecoverVigorNodeSize(name: string, node: Node | null): void {
         `[UI尺寸] ${name}: width=${size.width}, height=${size.height}, ` +
         `pos=(${pos.x}, ${pos.y}), active=${node.active}`,
     );
-}
-
-function syncPlayerMetaPopupTitle(box: Node, title: string): void {
-    const badge = box.getChildByName('PopupTitleBadge');
-    const titleNode = badge?.getChildByName('PopupTitleLabel');
-    const label = titleNode?.getComponent(Label);
-    if (!badge || !titleNode || !label) {
-        throw new Error('[reward-result-prefab] missing popup title nodes');
-    }
-    badge.active = true;
-    titleNode.active = true;
-    label.string = title;
-}
-
-function syncExistingPopupLabel(parent: Node, childName: string, text: string, errorPrefix: string): Label {
-    const labelNode = parent.getChildByName(childName);
-    const label = labelNode?.getComponent(Label);
-    if (!labelNode || !label) {
-        throw new Error(`${errorPrefix} missing Label component on ${parent.name}/${childName}`);
-    }
-    labelNode.active = true;
-    label.string = text;
-    label.enableWrapText = false;
-    return label;
 }
 
 export function installPlayerMetaStateModule(target: any): void {
@@ -256,148 +215,6 @@ export function installPlayerMetaStateModule(target: any): void {
                 }
             };
             visit(this.node?.scene || null);
-        },
-
-        showRewardResultPopup(options: RewardResultPopupOptions) {
-            const popupRoot = this.requireCanvasUiRoot('PopupRoot');
-            const overlayName = options.overlayName || 'RewardResultOverlay';
-            const items = options.items.filter((item) => !!item.iconName && !!item.amountText).slice(0, 3);
-            if (items.length <= 0) {
-                throw new Error('[reward-result] at least one reward item is required');
-            }
-            if (REWARD_RESULT_TEXTURE_NAMES.some((name: string) => !this.getSF(name))) {
-                this._openPanelAfterTextures('reward-result', REWARD_RESULT_TEXTURE_NAMES, () => !!popupRoot.getChildByName(overlayName), () => this.showRewardResultPopup(options));
-                return;
-            }
-            if (popupRoot.getChildByName(overlayName)) return;
-            this._retainPanelTextureOwner('reward-result', REWARD_RESULT_TEXTURE_NAMES);
-
-            const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
-            const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
-            const cancelStaleOpen = () => {
-                if (!isRuntimeAlive()) return;
-                this._releasePanelTextureOwner('reward-result', 'reward-result-open-stale');
-            };
-            const failOpen = (message: string, overlay?: Node | null) => {
-                if (overlay?.isValid) {
-                    this._clearSpriteFramesBeforeDestroy(overlay);
-                    this._destroyDetachedNodeNextFrame(overlay);
-                }
-                this._releasePanelTextureOwner('reward-result', 'reward-result-open-failed');
-                throw new Error(message);
-            };
-
-            this._withGameAssetsBundle((bundle: Bundle | null) => {
-                if (!isOpenTargetAlive()) {
-                    cancelStaleOpen();
-                    return;
-                }
-                if (!bundle) {
-                    failOpen('[reward-result-prefab] gameAssets bundle unavailable');
-                    return;
-                }
-                bundle.load(REWARD_RESULT_POPUP_PREFAB_PATH, Prefab, (err: Error | null, prefab: Prefab | null) => {
-                    if (!isOpenTargetAlive()) {
-                        cancelStaleOpen();
-                        return;
-                    }
-                    if (err || !prefab) {
-                        failOpen(`[reward-result-prefab] load failed: ${err?.message || 'prefab missing'}`);
-                        return;
-                    }
-
-                    let overlay: Node | null = null;
-                    try {
-                        overlay = instantiate(prefab);
-                        overlay.name = overlayName;
-                        popupRoot.addChild(overlay);
-                        overlay.setSiblingIndex(999);
-                        if (!overlay.getComponent(BlockInputEvents)) overlay.addComponent(BlockInputEvents);
-
-                        const box = this.requirePanelChild(overlay, 'Box');
-                        syncPlayerMetaPopupTitle(box, options.title);
-                        if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
-
-                        const closePopup = () => {
-                            if (!overlay?.isValid) return;
-                            AudioMgr.inst.play('button');
-                            this._closePanelWithTextureOwner(overlay, 'reward-result', 'reward-result');
-                        };
-                        const confirmPopup = () => {
-                            if (!overlay?.isValid) return;
-                            AudioMgr.inst.play('button');
-                            this._closePanelWithTextureOwner(overlay, 'reward-result', 'reward-result-confirm');
-                            options.onConfirm?.();
-                        };
-
-                        overlay.on(Node.EventType.TOUCH_END, (e: EventTouch) => {
-                            const boxUT = box.getComponent(UITransform);
-                            if (!boxUT) return;
-                            const uiPos = e.getUILocation();
-                            const local = boxUT.convertToNodeSpaceAR(new Vec3(uiPos.x, uiPos.y, 0));
-                            const size = boxUT.contentSize;
-                            if (Math.abs(local.x) <= size.width / 2 && Math.abs(local.y) <= size.height / 2) return;
-                            closePopup();
-                        }, this);
-
-                        this.bindPanelButton(this.requirePanelChild(box, 'XBtn'), closePopup);
-
-                        const subtitleLabel = syncExistingPopupLabel(box, 'RewardSubtitle', options.subtitle, '[reward-result-prefab]');
-                        subtitleLabel.overflow = Label.Overflow.SHRINK;
-                        const tipLabel = syncExistingPopupLabel(box, 'RewardTip', options.tip || '奖励将发放到当前账号', '[reward-result-prefab]');
-                        tipLabel.overflow = Label.Overflow.SHRINK;
-
-                        const confirmButton = this.requirePanelChild(box, 'PrimaryButton');
-                        syncExistingPopupLabel(confirmButton, 'PrimaryButtonLabel', options.confirmText || '我知道了', '[reward-result-prefab]');
-                        this.bindPanelButton(confirmButton, confirmPopup);
-
-                        const template = this.requirePanelChild(box, 'RewardCardTemplate');
-                        const cardParent = template.parent;
-                        if (!cardParent) {
-                            throw new Error('[reward-result-prefab] RewardCardTemplate parent is missing');
-                        }
-                        for (const child of [...cardParent.children]) {
-                            if (child !== template && child.name.startsWith('RewardCardAuto_')) {
-                                child.destroy();
-                            }
-                        }
-
-                        const basePos = template.position.clone();
-                        const spacing = items.length >= 3 ? 176 : 214;
-                        const startX = basePos.x - ((items.length - 1) * spacing) / 2;
-                        for (let i = 0; i < items.length; i++) {
-                            const item = items[i];
-                            const card = i === 0 ? template : instantiate(template);
-                            if (i > 0) {
-                                card.name = `RewardCardAuto_${i}`;
-                                cardParent.addChild(card);
-                            }
-                            card.active = true;
-                            card.setPosition(startX + i * spacing, basePos.y, basePos.z);
-
-                            const iconNode = this.requirePanelChild(card, 'RewardIcon');
-                            const iconSprite = iconNode.getComponent(Sprite);
-                            const spriteFrame = this.getSF(item.iconName);
-                            if (!iconSprite || !spriteFrame) {
-                                throw new Error(`[reward-result-prefab] missing reward icon SpriteFrame: ${item.iconName}`);
-                            }
-                            if (typeof this.scheduleSpriteFrameApply === 'function') {
-                                this.scheduleSpriteFrameApply(iconSprite, spriteFrame, `reward-result:${item.iconName}`);
-                            } else {
-                                iconSprite.spriteFrame = spriteFrame;
-                            }
-
-                            const amountLabel = syncExistingPopupLabel(card, 'RewardAmountLabel', item.amountText, '[reward-result-prefab]');
-                            amountLabel.overflow = Label.Overflow.SHRINK;
-                            const nameLabel = syncExistingPopupLabel(card, 'RewardNameLabel', item.labelText, '[reward-result-prefab]');
-                            nameLabel.overflow = Label.Overflow.SHRINK;
-                        }
-                        this.playPopupOpenAnim?.(overlay, box);
-                    } catch (error: any) {
-                        failOpen(error?.message || '[reward-result-prefab] build failed', overlay);
-                    }
-                });
-            });
         },
 
         /** 消耗体力 */

@@ -171,8 +171,33 @@ assert.equal(queueRules.bufferCount, 12);
 
 const added = queueRules.addBufferSlots(12);
 assert.equal(added, 12);
-assert.equal(queueRules.carrierCount, 24);
+assert.equal(queueRules.carrierCount, 20, 'capacity expansion must keep the original carrier count');
 assert.equal(queueRules.bufferCapacity, 72);
+assert.deepEqual(
+    Array.from({ length: queueRules.carrierCount }, (_, index) => queueRules.getCarrierCapacity(index)),
+    [...Array(12).fill(4), ...Array(8).fill(3)],
+    'the added 12 positions must be distributed across the existing carriers',
+);
+assert.equal(
+    queueRules.transferReadyBeansToCarrier(0).moved,
+    1,
+    'an existing carrier must accept its newly added capacity',
+);
+
+const unboundedExpansionRules = new PchConveyorRules(capacityBoard);
+for (let grant = 0; grant < 4; grant += 1) {
+    assert.equal(unboundedExpansionRules.addBufferSlots(12), 12);
+}
+assert.equal(unboundedExpansionRules.carrierCount, 20, 'repeated grants must never add carriers');
+assert.equal(unboundedExpansionRules.bufferCapacity, 108, 'four grants must add exactly 48 total positions');
+assert.deepEqual(
+    Array.from(
+        { length: unboundedExpansionRules.carrierCount },
+        (_, index) => unboundedExpansionRules.getCarrierCapacity(index),
+    ),
+    [...Array(8).fill(6), ...Array(12).fill(5)],
+    'capacity must continue above five per carrier without a maximum',
+);
 
 const returnBoard = new FakeBoard(2, 1, [[2, 1]], [[0, 0]]);
 const returnRules = new PchConveyorRules(returnBoard);
@@ -211,6 +236,7 @@ const deadlockRules = new PchConveyorRules(deadlockBoard);
 deadlockRules.carriers.forEach((stack) => stack.push(1, 1, 1));
 assert.equal(deadlockRules.isBufferDeadlocked(), true, 'a full conveyor with no returnable stored bean must fail');
 assert.equal(deadlockRules.addBufferSlots(12), 12, 'buffer-full revive must add exactly 12 positions');
+assert.equal(deadlockRules.carrierCount, 20, 'buffer-full revive must keep the existing carriers');
 assert.equal(deadlockRules.bufferCapacity, 72, 'buffer-full revive increases capacity from 60 to 72');
 assert.equal(deadlockRules.isBufferDeadlocked(), false, 'the added 12 positions must immediately clear the deadlock');
 

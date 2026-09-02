@@ -132,6 +132,7 @@ function makeRuntime() {
         _adShowing: false,
         _shareShowing: false,
         _isThemeLevel: false,
+        isGameEnd: true,
         _activeGameplayEntryMode: 'main',
         panelTimeoutContinue: null,
         panelBufferFullContinue: null,
@@ -142,6 +143,15 @@ function makeRuntime() {
             offShow() {},
         }),
         continueAfterLose(seconds) { calls.push(['continue', seconds]); },
+        showLosePanel() { calls.push(['lose']); },
+        cancelRewardedGrantInteraction(reason) {
+            calls.push(['cancel-ad', reason]);
+            return true;
+        },
+        cancelPendingShareReturn(reason) {
+            calls.push(['cancel-share', reason]);
+            return true;
+        },
         runShareGrant(page, grant, options) {
             calls.push(['share', page, grant, options]);
             return true;
@@ -232,9 +242,14 @@ function testDailyStateAndEligibility() {
 function testBothReviveActionsConsumeOneSharedClaim() {
     const storage = createStorage();
     let bufferContinues = 0;
+    let timeoutCapacityGrants = 0;
     const Controller = loadController(storage, {
         continueAfterBufferFull() {
             bufferContinues += 1;
+            return true;
+        },
+        grantReviveCapacity() {
+            timeoutCapacityGrants += 1;
             return true;
         },
     });
@@ -247,6 +262,7 @@ function testBothReviveActionsConsumeOneSharedClaim() {
     assert.strictEqual(timeoutShare[1], 'level_revive_share');
     assert.strictEqual(timeoutShare[3].busyFlag, '_shareShowing');
     assert.strictEqual(timeoutShare[2](), true);
+    assert.strictEqual(timeoutCapacityGrants, 1, 'a timeout share revive must grant one +12 capacity reward');
     assert.deepStrictEqual(calls.filter((call) => call[0] === 'continue'), [['continue', 120]]);
     assert.strictEqual(timeoutOverlay.active, false);
     assert.strictEqual(storage.getJson('pdd.revive.shareState.v1').count, 1);
@@ -257,8 +273,38 @@ function testBothReviveActionsConsumeOneSharedClaim() {
     assert.strictEqual(bufferContinues, 0);
 }
 
+function testLateShareGrantCannotReviveAfterClose() {
+    const storage = createStorage();
+    let timeoutCapacityGrants = 0;
+    const Controller = loadController(storage, {
+        grantReviveCapacity() {
+            timeoutCapacityGrants += 1;
+            return true;
+        },
+    });
+    const { runtime, calls } = makeRuntime();
+    const controller = new Controller(runtime);
+    const overlay = { active: true };
+
+    controller.runReviveShareAction('timeout', overlay, 120);
+    const share = calls.find((call) => call[0] === 'share');
+    assert.ok(share, 'the timeout share must register its deferred grant');
+
+    controller.closeReviveFailureSession('timeout', overlay);
+    assert.strictEqual(overlay.active, false, 'close must hide the revive panel before a share callback can grant');
+    assert.deepStrictEqual(
+        calls.filter((call) => call[0] === 'cancel-ad' || call[0] === 'cancel-share'),
+        [['cancel-ad', 'revive-panel-close'], ['cancel-share', 'revive-panel-close']],
+    );
+    assert.strictEqual(share[2](), false, 'a qualified share callback that arrives after close must be ignored');
+    assert.strictEqual(timeoutCapacityGrants, 0, 'a late share callback must not expand capacity');
+    assert.deepStrictEqual(calls.filter((call) => call[0] === 'continue'), [], 'a late share callback must not resume gameplay');
+    assert.strictEqual(storage.getItem('pdd.revive.shareState.v1'), null, 'a late share callback must not consume the daily revive');
+}
+
 testSourceContract();
 testStaticShareButtonBinding();
 testDailyStateAndEligibility();
 testBothReviveActionsConsumeOneSharedClaim();
+testLateShareGrantCannotReviveAfterClose();
 console.log('daily-share-revive.test.js passed');

@@ -4,7 +4,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const prefab = JSON.parse(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/CollectionPanel.prefab'), 'utf8'));
-const flow = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/ThemePanelFlowModule.ts'), 'utf8');
+const flow = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts'), 'utf8');
 const collection = fs.readFileSync(path.join(root, 'assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts'), 'utf8');
 
 const COLLECTION_CARD_UUID = 'ff32ca0c-9115-469a-8c9a-e73033dff480@f9941';

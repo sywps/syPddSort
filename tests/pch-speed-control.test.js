@@ -11,7 +11,6 @@ const appSession = read('assets/Scripts/Core/AppSession.ts');
 const sceneSource = read('assets/BootstrapBundle/Scenes/Game.scene');
 const scene = JSON.parse(sceneSource);
 const inactiveMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_inactive.png.meta'));
-const activeMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_active.png.meta'));
 const pngDimensions = (relPath) => {
     const bytes = fs.readFileSync(path.join(root, relPath));
     assert.ok(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), `${relPath} must be a PNG`);
@@ -139,8 +138,7 @@ assert.ok(
     inactiveState?._active === true
         && activeState?._active === false
         && inactiveSprite?._spriteFrame?.__uuid__ === inactiveMeta.subMetas.f9941.uuid
-        && activeSprite?._spriteFrame?.__uuid__ === inactiveMeta.subMetas.f9941.uuid
-        && !sceneSource.includes(activeMeta.subMetas.f9941.uuid),
+        && activeSprite?._spriteFrame?.__uuid__ === inactiveMeta.subMetas.f9941.uuid,
     'both serialized speed states must use only pch_speed_inactive',
 );
 assert.deepStrictEqual(

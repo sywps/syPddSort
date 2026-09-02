@@ -719,8 +719,8 @@ export class GameplaySlotUiController {
         const guideMode: 'expand' | 'unlock' = unlockBtn ? 'unlock' : 'expand';
         const targetUT = targetNode.getComponent(UITransform);
         if (!targetUT) return;
-        if (!runtime.getSF('guide_hand') || !runtime.getSF('popup_guide_highlight_ring')) {
-            runtime._ensureSpriteFramesByName(['guide_hand', 'popup_guide_highlight_ring'], () => this.showExpandSlotGuide());
+        if (!runtime.getSF('guide_hand')) {
+            runtime._ensureSpriteFramesByName(['guide_hand'], () => this.showExpandSlotGuide());
             return;
         }
         const guideHandFrame = runtime.getSF('guide_hand');
@@ -744,21 +744,6 @@ export class GameplaySlotUiController {
         const layerUT = overlay.getComponent(UITransform)!;
         const targetWorld = targetUT.convertToWorldSpaceAR(new Vec3(0, 0, 0));
         const targetLocal = layerUT.convertToNodeSpaceAR(targetWorld);
-        const hlW = Math.max(160, targetUT.contentSize.width + 20);
-        const hlH = Math.max(50, targetUT.contentSize.height + 16);
-        const hl = new Node('SlotUnlockGuideHighlight');
-        overlay.addChild(hl);
-        hl.addComponent(UITransform).setContentSize(hlW, hlH);
-        hl.layer = Layers.Enum.UI_2D;
-        hl.setPosition(targetLocal.x, targetLocal.y);
-        const highlightFrame = runtime.getSF('popup_guide_highlight_ring');
-        if (!highlightFrame) {
-            throw new Error('[slot-guide] missing sprite frame: popup_guide_highlight_ring');
-        }
-        const ringSize = Math.max(118, Math.max(hlW, hlH) + 40);
-        runtime._applySpriteFrame(hl, highlightFrame, ringSize, ringSize);
-        tween(hl).to(0.5, { scale: new Vec3(1.1, 1.1, 1) }, { easing: 'sineInOut' }).to(0.5, { scale: new Vec3(0.95, 0.95, 1) }, { easing: 'sineInOut' }).union().repeatForever().start();
-
         const hand = new Node('SlotUnlockGuideHand');
         overlay.addChild(hand);
         hand.addComponent(UITransform).setContentSize(GUIDE_HAND_BOX_SIZE, GUIDE_HAND_BOX_SIZE);
@@ -783,7 +768,6 @@ export class GameplaySlotUiController {
                 && Math.abs(localInTarget.y) <= targetUT.contentSize.height / 2;
             if (!hitTarget) return;
             Tween.stopAllByTarget(hand);
-            Tween.stopAllByTarget(hl);
             overlay.destroy();
             runtime._slotUnlockGuideLayer = null;
             sys.localStorage.setItem(LS_EXPAND_USED, '1');
