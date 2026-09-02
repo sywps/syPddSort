@@ -109,6 +109,16 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 if (!startedFromHome) this.showMainMenu();
                 return false;
             };
+            if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
+                this.showNoLivesAdModal({
+                    source: 'theme_start',
+                    onResult: (result: any) => {
+                        if (result?.status !== 'granted' || !this.isValid) return;
+                        this.startThemeLevel(normalizedLevelId, options);
+                    },
+                });
+                return false;
+            }
             if (startedFromHome) {
                 return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false)
                     .then(() => true)

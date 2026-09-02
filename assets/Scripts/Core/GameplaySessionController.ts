@@ -55,7 +55,7 @@ export class GameplaySessionController {
                 ? runtime._currentExternalLevelPrefix
                 : (runtime._isThemeLevel ? 'zt_level_' : 'level_');
             gameplayEntryMode = runtime._currentExternalLevelFilePath
-                ? 'external'
+                ? (runtime._isThemeLevel ? 'theme' : 'external')
                 : (runtime._isThemeLevel ? 'theme' : 'main');
             AppRoot.tryGet()?.markGameActive(resolvedLevelId, gameplayPrefix, gameplayEntryMode, 'Game');
             runtime._activePhysicalLevelId = resolvedLevelId;

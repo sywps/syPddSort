@@ -49,8 +49,9 @@ function getConfiguredLevelDataWatchdogSource(): 'local' | 'remote' {
 export function installSceneHomeEntryModule(target: any): void {
     Object.assign(target, {
         getGameplayEntryMode(prefix: string = 'level_', external: boolean = false): 'main' | 'theme' | 'external' {
+            if (prefix === 'zt_level_') return 'theme';
             if (external) return 'external';
-            return prefix === 'zt_level_' ? 'theme' : 'main';
+            return 'main';
         },
 
         syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'auto'): void {
