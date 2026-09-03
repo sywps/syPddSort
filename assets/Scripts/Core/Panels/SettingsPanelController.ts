@@ -3,6 +3,7 @@ import {
     BlockInputEvents,
     Button,
     Bundle,
+    Label,
     Node,
     Prefab,
     SETTINGS_PANEL_TEXTURE_NAMES,
@@ -10,10 +11,16 @@ import {
     instantiate,
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { AnalyticsMgr } from '../AnalyticsMgr';
+import { getMiniGameApi } from '../MiniGamePlatform';
 
 const SETTINGS_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/SettingsPanel';
 const SETTINGS_PREFAB_IN_FLIGHT_KEY = 'settings-prefab';
 const SETTINGS_PREFAB_LOAD_TIMEOUT_MS = 8000;
+const PLAYER_UID_ROW_NAME = 'PlayerUidRow';
+const PLAYER_UID_TITLE_NAME = 'PlayerUidTitle';
+const PLAYER_UID_VALUE_NAME = 'PlayerUidValue';
+const PLAYER_UID_COPY_NAME = 'PlayerUidCopy';
 
 function buildSettingsToggle(runtime: any, parent: Node, initialOn: boolean, onToggle: (v: boolean) => void) {
     const toggle = parent;
@@ -38,6 +45,111 @@ function buildSettingsToggle(runtime: any, parent: Node, initialOn: boolean, onT
         onToggle(next);
         AudioMgr.inst.play('button');
     }, runtime);
+}
+
+function requirePlayerUidRow(box: Node): { row: Node; valueLabel: Label } {
+    const row = box.getChildByName(PLAYER_UID_ROW_NAME);
+    if (!row) {
+        throw new Error('[settings-prefab] missing PlayerUidRow');
+    }
+    if (!row.getComponent(UITransform)) {
+        throw new Error('[settings-prefab] missing PlayerUidRow UITransform');
+    }
+    if (!row.getComponent(Button)) {
+        throw new Error('[settings-prefab] missing PlayerUidRow Button');
+    }
+    const titleLabel = row.getChildByName(PLAYER_UID_TITLE_NAME)?.getComponent(Label);
+    const valueLabel = row.getChildByName(PLAYER_UID_VALUE_NAME)?.getComponent(Label);
+    const copyLabel = row.getChildByName(PLAYER_UID_COPY_NAME)?.getComponent(Label);
+    if (!titleLabel || !valueLabel || !copyLabel) {
+        throw new Error('[settings-prefab] missing PlayerUid row label');
+    }
+    return { row, valueLabel };
+}
+
+function setMiniGameClipboardText(api: any, text: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        let completed = false;
+        const finish = (copied: boolean) => {
+            if (completed) return;
+            completed = true;
+            resolve(copied);
+        };
+        try {
+            const result = api.setClipboardData({
+                data: text,
+                success: () => finish(true),
+                fail: () => finish(false),
+            });
+            if (result?.then) {
+                void result.then(() => finish(true), () => finish(false));
+            }
+        } catch (_) {
+            finish(false);
+        }
+    });
+}
+
+async function copyPlayerUid(uid: string): Promise<boolean> {
+    const wxApi = getMiniGameApi('wx');
+    if (wxApi?.setClipboardData && await setMiniGameClipboardText(wxApi, uid)) {
+        return true;
+    }
+    const ttApi = getMiniGameApi('tt');
+    if (ttApi?.setClipboardData && await setMiniGameClipboardText(ttApi, uid)) {
+        return true;
+    }
+
+    try {
+        const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+        if (nav?.clipboard?.writeText) {
+            await nav.clipboard.writeText(uid);
+            return true;
+        }
+    } catch (_) {
+        // Continue to the DOM fallback when the browser Clipboard API is unavailable.
+    }
+
+    try {
+        const doc: any = typeof document !== 'undefined' ? document : null;
+        if (!doc?.createElement || !doc?.body) return false;
+        const textarea = doc.createElement('textarea');
+        textarea.value = uid;
+        textarea.setAttribute('readonly', 'readonly');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        doc.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, uid.length);
+        const copied = typeof doc.execCommand === 'function' && !!doc.execCommand('copy');
+        doc.body.removeChild(textarea);
+        return copied;
+    } catch (_) {
+        return false;
+    }
+}
+
+function syncPlayerUidRow(box: Node, runtime: any): void {
+    const { row, valueLabel } = requirePlayerUidRow(box);
+    const update = () => {
+        if (!box.isValid || !row.isValid || !valueLabel.node.isValid) return;
+        valueLabel.string = AnalyticsMgr.inst.getPlayerUid() || '--';
+    };
+
+    row.targetOff(runtime);
+    row.on(Button.EventType.CLICK, () => {
+        const uid = AnalyticsMgr.inst.getPlayerUid();
+        if (!uid) return;
+        void copyPlayerUid(uid).then((copied) => {
+            if (!copied || !row.isValid) return;
+            runtime.showToast?.('复制成功', 1.2);
+        }).catch((error) => {
+            console.warn('[settings-prefab] PlayerUid copy failed', error);
+        });
+    }, runtime);
+
+    update();
+    void AnalyticsMgr.inst.ensureReady().then(update);
 }
 
 export class SettingsPanelController {
@@ -423,6 +535,7 @@ export class SettingsPanelController {
                     const toggleWrap = requireChild(row, 'ToggleWrap');
                     buildSettingsToggle(runtime, toggleWrap, item.get(), (value: boolean) => item.set(value));
                 }
+                syncPlayerUidRow(box, runtime);
 
                 runtime.playPopupOpenAnim?.(overlay, box);
                 clearOpenInFlight();

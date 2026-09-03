@@ -34,6 +34,7 @@
     "sync:cdn:douyin:skin_data": "PDD_CDN_PLATFORM=douyin node scripts/sync-skin-data-cdn-wechat.js",
     "sync:cdn:douyin:skin_data:dry": "PDD_CDN_PLATFORM=douyin node scripts/sync-skin-data-cdn-wechat.js --dry-run",
     "analytics:daily": "node scripts/user-behavior-daily-job.js",
+    "analytics:player": "node scripts/player-uid-admin.js",
     "analytics:retention": "node scripts/retention-report-job.js",
     "analytics:level-duration": "node scripts/level-duration-matrix-job.js",
     "textures:audit": "node scripts/audit-texture-memory.js",

@@ -49,8 +49,9 @@ function findLabel(records, text) {
 
 const controllerSource = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const bufferFactory = extractMethod(controllerSource, 'createBufferFullSettlementPanel(): Node');
+const timeoutFactory = extractMethod(controllerSource, 'createReviveSettlementPanel(): Node');
 const bufferReviveAction = extractMethod(controllerSource, 'runBufferFullReviveAction(overlay: Node): void');
-const resultProgressSync = extractMethod(controllerSource, 'private syncResultProgressWidget(panel: Node, ratio: number = 0): void');
+const resultProgressSync = extractMethod(controllerSource, 'private syncResultProgressWidget(panel: Node, ratio: number = 0, allowStaticSummary: boolean = false): void');
 const settlementHudSource = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
 assert.ok(
     resultProgressSync.includes("const completionSummary = box.getChildByName('Label');"),
@@ -61,12 +62,25 @@ assert.ok(
     'text completion summary must bypass only the obsolete bar-layout contract',
 );
 assert.ok(
+    resultProgressSync.includes('const hasTextCompletionSummary = allowStaticSummary && !!completionSummary?.getComponent(Label);'),
+    'only explicitly identified revive panels may use the static summary layout',
+);
+assert.ok(
     settlementHudSource.includes('syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean'),
     'settlement summary sync must report whether the Prefab text layout handled the progress',
 );
 assert.ok(
     settlementHudSource.includes('if (this.syncSettlementCompletionSummary(panel, percent)) return;'),
     'live failure progress must update the text layout before requiring the legacy progress bar',
+);
+const settlementCompletionSummary = extractMethod(
+    settlementHudSource,
+    'syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean',
+);
+assert.ok(
+    settlementCompletionSummary.includes("panel?.name === 'ReviveSettlementOverlay'")
+        && settlementCompletionSummary.includes("panel?.name === 'BufferFullSettlementOverlay'"),
+    'runtime-named revive overlays must preserve their static prompt instead of receiving a completion percentage',
 );
 assert.ok(
     settlementHudSource.includes('this._gameplayResultPanelController?.captureReviveFailure?.(reason);'),
@@ -87,6 +101,11 @@ assert.ok(
 assert.ok(
     bufferFactory.includes("this.instantiateGameplayOverlay('bufferFullRevive', 'BufferFullSettlementOverlay')"),
     'buffer-full settlement must instantiate the dedicated prefab',
+);
+assert.ok(
+    timeoutFactory.includes('this.syncResultProgressWidget(overlay, 0, true);')
+        && bufferFactory.includes('this.syncResultProgressWidget(overlay, 0, true);'),
+    'only the two revive panels may opt into the static prompt layout',
 );
 for (const forbiddenRuntimeVisual of [
     'titleLabel',
@@ -256,9 +275,24 @@ for (const prefab of [timeoutPrefab, bufferPrefab]) {
         'clean revive prefab must use fresh V2 node file IDs instead of legacy serialization IDs',
     );
 
-    const completionPercent = findLabel(prefab, '86%');
-    assert.strictEqual(byId(prefab, completionPercent.node._parent)?._name, 'Box', 'completion percentage must remain a direct Prefab-controlled summary');
-    assert.strictEqual(byId(prefab, completionPercent.node._children?.[0])?._name, 'Label-001', 'completion summary must retain its caption label');
+    const [prompt, width] = prefab === timeoutPrefab
+        ? ['时间不够啦！', 480]
+        : ['啊哦！传送带满了！', 520];
+    const promptLabel = findLabel(prefab, prompt);
+    assert.strictEqual(byId(prefab, promptLabel.node._parent)?._name, 'Box', 'revive prompt must remain in the existing summary position');
+    assert.ok(Math.abs(Number(promptLabel.node._lpos?.x) || 0) <= 16, 'revive prompt must remain visually centered');
+    assert.strictEqual(promptLabel.label._fontSize, 52, 'revive prompt must be slightly more prominent');
+    assert.strictEqual(promptLabel.label._lineHeight, 64);
+    assert.strictEqual(promptLabel.label._isBold, true);
+    assert.strictEqual(promptLabel.ui?._contentSize?.width, width);
+    assert.strictEqual(promptLabel.ui?._contentSize?.height, 86);
+    assert.strictEqual(promptLabel.node._children?.length, 0, 'static prompt must not retain a hidden legacy caption child');
+    assert.strictEqual(
+        prefab.some((record) => record?.__type__ === 'cc.Node' && record._name === 'Label-001'),
+        false,
+        'legacy completion caption must not remain serialized',
+    );
+    assert.ok(!JSON.stringify(prefab).includes('"_string":"86%"'), 'revive prefab must not retain a visible completion percentage');
 }
 
 for (const prefab of [timeoutPrefab, bufferPrefab]) {

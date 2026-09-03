@@ -80,9 +80,13 @@ assert.ok(
 assert.ok(
     themeLoading.includes("if (!this.costVigorForLevel(normalizedLevelId, 'theme'))")
         && themeLoading.includes("source: 'theme_start'")
+        && themeLoading.includes('levelId: normalizedLevelId')
+        && themeLoading.includes("gameplayEntryMode: 'theme'")
         && themeLoading.includes('this.startThemeLevel(normalizedLevelId, options);')
-        && playerMeta.includes("'theme_start'"),
-    'every pixel puzzle level start must spend vigor or open the existing recovery flow',
+        && playerMeta.includes("gameplayEntryMode?: 'main' | 'theme' | 'external';")
+        && playerMeta.includes('levelId: options.levelId')
+        && playerMeta.includes('gameplayEntryMode: options.gameplayEntryMode'),
+    'every pixel puzzle level start must spend vigor or open a recovery flow attributed to its target pixel level',
 );
 assert.ok(
     gameplaySession.includes("gameplayEntryMode = runtime._currentExternalLevelFilePath\n                ? (runtime._isThemeLevel ? 'theme' : 'external')\n                : (runtime._isThemeLevel ? 'theme' : 'main');")

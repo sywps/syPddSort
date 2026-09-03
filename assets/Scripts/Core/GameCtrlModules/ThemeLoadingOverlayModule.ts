@@ -112,6 +112,8 @@ export function installThemeLoadingOverlayModule(target: any): void {
             if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
                 this.showNoLivesAdModal({
                     source: 'theme_start',
+                    levelId: normalizedLevelId,
+                    gameplayEntryMode: 'theme',
                     onResult: (result: any) => {
                         if (result?.status !== 'granted' || !this.isValid) return;
                         this.startThemeLevel(normalizedLevelId, options);

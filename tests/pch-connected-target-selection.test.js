@@ -97,8 +97,42 @@ assert.equal(bridgeBoard.lastPreferredCorrectColor, 4, 'the clicked target color
 assert.equal(bridgeBoard.lastBroadBlockSize, 4, 'the broad same-bean-color block must include the remote bean through its other-target bridge');
 assert.deepEqual(
     bridgeSelection.cells,
+    [
+        { row: 2, col: 0 },
+        { row: 2, col: 1 },
+        { row: 1, col: 1 },
+        { row: 0, col: 2 },
+    ],
+    'other-target neighbors must extend the connected selection before a remote preferred-target bean can join',
+);
+
+const limitedBridgeSelection = new PchConveyorRules(bridgeBoard, 60, 2).selectBoard(2, 0);
+assert.deepEqual(
+    limitedBridgeSelection?.cells,
     [{ row: 2, col: 0 }, { row: 2, col: 1 }],
-    'a different-target bean must not bridge a remote same-target bean into the final selection',
+    'the selection limit must not jump over an unselected bridge to reach a remote preferred-target bean',
+);
+
+const mixedTargetBoard = new Board(
+    [[4, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]],
+    [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
+);
+const mixedTargetSelection = new PchConveyorRules(mixedTargetBoard, 60).selectBoard(0, 0);
+assert.deepEqual(
+    mixedTargetSelection?.cells,
+    Array.from({ length: 12 }, (_value, col) => ({ row: 0, col })),
+    'after preferred-target neighbors run out, adjacent same-bean-color beans on other targets must fill the selection',
+);
+
+const dynamicPreferredBoard = new Board(
+    [[0, 4, 0], [0, 2, 0], [0, 2, 0]],
+    [[0, 1, 0], [0, 1, 0], [0, 1, 0]],
+);
+const dynamicPreferredSelection = new PchConveyorRules(dynamicPreferredBoard, 60, 2).selectBoard(1, 1);
+assert.deepEqual(
+    dynamicPreferredSelection?.cells,
+    [{ row: 1, col: 1 }, { row: 2, col: 1 }],
+    'the preferred target color must come from the clicked cell instead of any fixed color',
 );
 
 const diagonalBoard = new Board(

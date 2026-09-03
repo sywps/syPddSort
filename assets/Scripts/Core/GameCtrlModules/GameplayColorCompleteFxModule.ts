@@ -30,7 +30,7 @@ const PINDD_SPINE_FX_POOL_LIMIT = 48;
 const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
 const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
 const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
-const PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1.25;
+const PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1;
 const PINDD_PATTERN_COMPLETE_SWEEP_FADE_IN_DURATION = 0.12;
 const PINDD_PATTERN_COMPLETE_SWEEP_FADE_OUT_DURATION = 0.26;
 const PINDD_SPINE_FX_ANIMATION = {
@@ -734,8 +734,6 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             sweepOpacity.opacity = 0;
             const frame = getPatternCompleteSweepFrame();
             const bandSpecs = [
-                { name: 'Outer', width: baseBandWidth * 2.1, opacity: 34 },
-                { name: 'Middle', width: baseBandWidth * 1.25, opacity: 82 },
                 { name: 'Core', width: baseBandWidth * 0.52, opacity: 176 },
             ];
             for (const spec of bandSpecs) {

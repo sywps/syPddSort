@@ -261,6 +261,7 @@ function testBothReviveActionsConsumeOneSharedClaim() {
     assert.ok(timeoutShare);
     assert.strictEqual(timeoutShare[1], 'level_revive_share');
     assert.strictEqual(timeoutShare[3].busyFlag, '_shareShowing');
+    assert.strictEqual(timeoutShare[3].markLevelRevive, true);
     assert.strictEqual(timeoutShare[2](), true);
     assert.strictEqual(timeoutCapacityGrants, 1, 'a timeout share revive must grant one +12 capacity reward');
     assert.deepStrictEqual(calls.filter((call) => call[0] === 'continue'), [['continue', 120]]);

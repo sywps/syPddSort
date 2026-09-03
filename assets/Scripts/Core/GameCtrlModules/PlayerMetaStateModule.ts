@@ -43,7 +43,7 @@ type RecoverVigorShareState = {
     count: number;
 };
 
-export type RecoverVigorSource = 'home_hud' | 'home_start' | 'theme_start' | 'restart' | 'next_level';
+export type RecoverVigorSource = 'home_hud' | 'home_start' | 'theme_start' | 'restart' | 'next_level' | 'collection_replay';
 export type RecoverVigorResultStatus = 'granted' | 'failed' | 'cancelled';
 export type RecoverVigorResult = {
     source: RecoverVigorSource;
@@ -54,6 +54,8 @@ export type RecoverVigorResult = {
 };
 export type RecoverVigorOptions = {
     source: RecoverVigorSource;
+    levelId?: number;
+    gameplayEntryMode?: 'main' | 'theme' | 'external';
     onResult?: (result: RecoverVigorResult) => void;
 };
 
@@ -765,6 +767,8 @@ export function installPlayerMetaStateModule(target: any): void {
                                         grantedAmount = this.grantVigorByAmount(RECOVER_VIGOR_AD_REWARD);
                                         if (grantedAmount <= 0) return false;
                                     }, {
+                                        levelId: options.levelId,
+                                        gameplayEntryMode: options.gameplayEntryMode,
                                         claimKey: 'vigor_recover:video',
                                         busyFlag: '_adShowing',
                                         adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
