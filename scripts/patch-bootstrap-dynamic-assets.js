@@ -29,7 +29,7 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/RainbowConveyor/exit_2',
 	'GameUI/RainbowConveyor/gameProp_2007',
 	'GameUI/RainbowConveyor/wf_base_14',
-	'GameUI/bg_game_pindd',
+	'GameUI/home_bg',
 	'GameUI/board_zoom_fill',
 	'GameUI/board_zoom_locate',
 	'GameUI/board_zoom_minus',

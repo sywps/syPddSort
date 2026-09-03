@@ -302,6 +302,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _collectionScrollSuppressClick: false,
         _collectionScrollInertiaStep: null,
         _collectionImageModal: null,
+        _collectionReplayStarting: false,
         _pinchGuideLayer: null,
         _pinchGuideAutoCloseHandler: null,
         gestureMode: 'idle',

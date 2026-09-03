@@ -10,6 +10,7 @@ import {
 const { ccclass } = _decorator;
 
 const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
+const LS_ANALYTICS_PLAYER_UID = 'pdd.analytics.player_uid.v1';
 const LS_RUNTIME_CHECKPOINT = 'pdd.analytics.runtime_checkpoint.v1';
 const RUNTIME_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_RUNTIME_DIAGNOSTICS_PER_SESSION = 8;
@@ -17,6 +18,7 @@ const MAX_RUNTIME_DIAGNOSTIC_MESSAGE_LENGTH = 240;
 
 export const PCH_GAMEPLAY_MODE = 'pch_conveyor' as const;
 export const PCH_GAMEPLAY_SCHEMA_VERSION = 1;
+export type GameplayEntryMode = '' | 'main' | 'theme' | 'external';
 
 export type PchFailureReason = '' | 'timeout' | 'buffer_full';
 
@@ -35,6 +37,7 @@ type CloudResult = {
     ok?: boolean;
     errorMessage?: string;
     openid?: string;
+    uid?: string;
     isNewUser?: boolean;
 };
 
@@ -52,6 +55,7 @@ export type ReportDataOptions = {
     abBucket?: string;
     smartHintShownCount?: number;
     gameplayMode?: string;
+    gameplayEntryMode?: string;
     gameplaySchemaVersion?: number;
     failureReason?: PchFailureReason;
 };
@@ -73,12 +77,13 @@ export type FunnelEventOptions = {
     abId?: string;
     abBucket?: string;
     gameplayMode?: string;
+    gameplayEntryMode?: string;
     gameplaySchemaVersion?: number;
     extra?: Record<string, unknown>;
 };
 
 type AnalyticsLevelContext = Partial<Pick<ReportDataOptions,
-    'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'gameplayMode' | 'gameplaySchemaVersion'
+    'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'gameplayMode' | 'gameplayEntryMode' | 'gameplaySchemaVersion'
 >>;
 
 type SmartHintShowOptions = {
@@ -118,6 +123,7 @@ type LevelSessionState = {
     finalized: boolean;
     smartHintShownCount: number;
     gameplayMode: string;
+    gameplayEntryMode: GameplayEntryMode;
     gameplaySchemaVersion: number;
     failureReason: PchFailureReason;
     gameplayStats: PchGameplayAnalyticsSnapshot | null;
@@ -140,6 +146,11 @@ function normalizePositiveLevelId(value: string | number | undefined): number {
     return num > 0 ? num : 0;
 }
 
+function normalizePlayerUid(value: unknown): string {
+    const uid = typeof value === 'string' ? value.trim() : '';
+    return /^[1-9]\d{7}$/.test(uid) ? uid : '';
+}
+
 const PCH_GAMEPLAY_INTEGER_FIELDS: ReadonlyArray<keyof PchGameplayAnalyticsSnapshot> = [
     'magnetUses',
     'brushUses',
@@ -148,6 +159,10 @@ const PCH_GAMEPLAY_INTEGER_FIELDS: ReadonlyArray<keyof PchGameplayAnalyticsSnaps
 
 function normalizeGameplayMode(value: unknown): string {
     return value === PCH_GAMEPLAY_MODE ? PCH_GAMEPLAY_MODE : '';
+}
+
+function normalizeGameplayEntryMode(value: unknown): GameplayEntryMode {
+    return value === 'main' || value === 'theme' || value === 'external' ? value : '';
 }
 
 function normalizeGameplaySchemaVersion(value: unknown, gameplayMode: string): number {
@@ -245,6 +260,7 @@ export class AnalyticsMgr {
 
     private readyPromise: Promise<boolean> | null = null;
     private openid = '';
+    private playerUid = '';
     private bootstrapped = false;
     private lifecycleBound = false;
     private exitReported = false;
@@ -269,6 +285,7 @@ export class AnalyticsMgr {
     private lastRuntimeCheckpointAt = this.appLaunchTime;
     private constructor() {
         this.openid = this.readCachedOpenid();
+        this.playerUid = this.readCachedPlayerUid();
         this.recoverPreviousRuntimeCheckpoint();
         this.markRuntimeCheckpoint('analytics_created', true, 'app', 0);
         this.bindRuntimeDiagnostics();
@@ -328,6 +345,11 @@ export class AnalyticsMgr {
                 this.openid = result.openid;
                 this.cacheOpenid(result.openid);
             }
+            const playerUid = normalizePlayerUid(result?.uid);
+            if (playerUid) {
+                this.playerUid = playerUid;
+                this.cachePlayerUid(playerUid);
+            }
 
             return !!this.openid;
         }).catch((error) => {
@@ -340,6 +362,10 @@ export class AnalyticsMgr {
         });
 
         return this.readyPromise;
+    }
+
+    getPlayerUid(): string {
+        return this.playerUid;
     }
 
     async wxReportData(opt: ReportDataOptions): Promise<CloudResult | { ok: false; skipped: true }> {
@@ -364,6 +390,9 @@ export class AnalyticsMgr {
                 abBucket: opt.abBucket ?? this.levelContext.abBucket ?? '',
                 smartHintShownCount: opt.smartHintShownCount ?? 0,
                 gameplayMode: normalizeGameplayMode(opt.gameplayMode ?? this.levelContext.gameplayMode),
+                gameplayEntryMode: normalizeGameplayEntryMode(
+                    opt.gameplayEntryMode ?? this.levelContext.gameplayEntryMode,
+                ),
                 gameplaySchemaVersion: normalizeGameplaySchemaVersion(
                     opt.gameplaySchemaVersion ?? this.levelContext.gameplaySchemaVersion,
                     normalizeGameplayMode(opt.gameplayMode ?? this.levelContext.gameplayMode),
@@ -521,10 +550,14 @@ export class AnalyticsMgr {
         const gameplayMode = context.gameplayMode === undefined
             ? this.levelContext.gameplayMode
             : normalizeGameplayMode(context.gameplayMode);
+        const gameplayEntryMode = context.gameplayEntryMode === undefined
+            ? this.levelContext.gameplayEntryMode
+            : normalizeGameplayEntryMode(context.gameplayEntryMode);
         this.levelContext = {
             ...this.levelContext,
             ...context,
             gameplayMode,
+            gameplayEntryMode,
             gameplaySchemaVersion: context.gameplaySchemaVersion === undefined
                 ? this.levelContext.gameplaySchemaVersion
                 : normalizeGameplaySchemaVersion(context.gameplaySchemaVersion, gameplayMode || ''),
@@ -544,6 +577,7 @@ export class AnalyticsMgr {
             this.setLevelContext(context);
         }
         const gameplayMode = normalizeGameplayMode(this.levelContext.gameplayMode);
+        const gameplayEntryMode = normalizeGameplayEntryMode(this.levelContext.gameplayEntryMode);
         const gameplaySchemaVersion = normalizeGameplaySchemaVersion(
             this.levelContext.gameplaySchemaVersion,
             gameplayMode,
@@ -561,6 +595,7 @@ export class AnalyticsMgr {
             this.levelSession.startTime = now;
             this.levelSession.smartHintShownCount = 0;
             this.levelSession.gameplayMode = gameplayMode;
+            this.levelSession.gameplayEntryMode = gameplayEntryMode;
             this.levelSession.gameplaySchemaVersion = gameplaySchemaVersion;
             this.levelSession.failureReason = '';
             this.levelSession.gameplayStats = normalizedGameplayStats;
@@ -576,6 +611,7 @@ export class AnalyticsMgr {
                 finalized: false,
                 smartHintShownCount: 0,
                 gameplayMode,
+                gameplayEntryMode,
                 gameplaySchemaVersion,
                 failureReason: '',
                 gameplayStats: normalizedGameplayStats,
@@ -589,6 +625,7 @@ export class AnalyticsMgr {
             page: normalizedPage,
             actionType: 1,
             gameplayMode,
+            gameplayEntryMode,
             gameplaySchemaVersion,
         });
     }
@@ -646,6 +683,7 @@ export class AnalyticsMgr {
             page: currentPage,
             actionType: 4,
             gameplayMode: session?.gameplayMode,
+            gameplayEntryMode: session?.gameplayEntryMode,
             gameplaySchemaVersion: session?.gameplaySchemaVersion,
             failureReason: session?.failureReason || normalizeFailureReason(update?.failureReason),
         });
@@ -665,6 +703,7 @@ export class AnalyticsMgr {
             actionType: 3,
             smartHintShownCount,
             gameplayMode: session?.gameplayMode,
+            gameplayEntryMode: session?.gameplayEntryMode,
             gameplaySchemaVersion: session?.gameplaySchemaVersion,
             failureReason: session?.failureReason,
         });
@@ -703,33 +742,47 @@ export class AnalyticsMgr {
         void this.finalizeActiveLevel(false, 'fail');
     }
 
-    trackAdClick(adType: string, page: string, levelId?: number): void {
+    trackAdClick(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
         void this.wxReportData({
             eventName: 'ad_click',
             levelId: levelId ?? this.levelSession?.levelId ?? 0,
             page,
             actionType: 2,
             adType,
+            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
         });
     }
 
-    trackAdShow(adType: string, page: string, levelId?: number): void {
+    trackAdShow(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
         void this.wxReportData({
             eventName: 'ad_show',
             levelId: levelId ?? this.levelSession?.levelId ?? 0,
             page,
             actionType: 1,
             adType,
+            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
         });
     }
 
-    trackAdFinish(adType: string, page: string, levelId?: number): void {
+    trackAdFinish(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
         void this.wxReportData({
             eventName: 'ad_finish',
             levelId: levelId ?? this.levelSession?.levelId ?? 0,
             page,
             actionType: 3,
             adType,
+            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
+        });
+    }
+
+    trackAdRewardSuccess(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
+        void this.wxReportData({
+            eventName: 'ad_reward_success',
+            levelId: levelId ?? this.levelSession?.levelId ?? 0,
+            page,
+            actionType: 3,
+            adType,
+            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
         });
     }
 
@@ -742,12 +795,24 @@ export class AnalyticsMgr {
         });
     }
 
-    trackReviveSuccess(page: string, levelId?: number): void {
+    trackReviveSuccess(page: string, levelId?: number, gameplayEntryMode?: string): void {
         void this.wxReportData({
             eventName: 'revive_success',
             levelId: levelId ?? this.levelSession?.levelId ?? 0,
             page,
             actionType: 3,
+            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
+        });
+    }
+
+    trackShareReviveSuccess(shareType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
+        void this.wxReportData({
+            eventName: 'share_revive_success',
+            levelId: levelId ?? this.levelSession?.levelId ?? 0,
+            page,
+            actionType: 3,
+            shareType,
+            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
         });
     }
 
@@ -1042,6 +1107,7 @@ export class AnalyticsMgr {
                 startTime: session.startTime,
                 endTime: Date.now(),
                 gameplayMode: session.gameplayMode,
+                gameplayEntryMode: session.gameplayEntryMode,
                 gameplaySchemaVersion: session.gameplaySchemaVersion,
                 failureReason: session.failureReason,
                 gameplayStats: session.gameplayStats || undefined,
@@ -1142,6 +1208,22 @@ export class AnalyticsMgr {
     private cacheOpenid(openid: string): void {
         try {
             sys.localStorage.setItem(LS_ANALYTICS_OPENID, openid);
+        } catch (_) {
+            // ignore storage failures
+        }
+    }
+
+    private readCachedPlayerUid(): string {
+        try {
+            return normalizePlayerUid(sys.localStorage.getItem(LS_ANALYTICS_PLAYER_UID));
+        } catch (_) {
+            return '';
+        }
+    }
+
+    private cachePlayerUid(uid: string): void {
+        try {
+            sys.localStorage.setItem(LS_ANALYTICS_PLAYER_UID, uid);
         } catch (_) {
             // ignore storage failures
         }

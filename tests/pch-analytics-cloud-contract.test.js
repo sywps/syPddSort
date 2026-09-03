@@ -63,6 +63,7 @@ async function main() {
         eventName: 'level_fail',
         levelId: 3,
         gameplayMode: 'pch_conveyor',
+        gameplayEntryMode: 'theme',
         gameplaySchemaVersion: 1,
         failureReason: 'buffer_full',
         gameplayStats: { magnetUses: 99 },
@@ -72,6 +73,7 @@ async function main() {
     const behaviorWrite = behavior.writes.find((entry) => entry.collection === 'user_behavior');
     assert.ok(behaviorWrite, 'addBehaviorData must write user_behavior');
     assert.strictEqual(behaviorWrite.data.gameplayMode, 'pch_conveyor');
+    assert.strictEqual(behaviorWrite.data.gameplayEntryMode, 'theme');
     assert.strictEqual(behaviorWrite.data.gameplaySchemaVersion, 1);
     assert.strictEqual(behaviorWrite.data.failureReason, 'buffer_full');
     assert.ok(!Object.hasOwn(behaviorWrite.data, 'gameplayStats'), 'behavior rows must not persist a nested snapshot');
@@ -83,6 +85,7 @@ async function main() {
         passStatus: false,
         endReason: 'fail',
         gameplayMode: 'pch_conveyor',
+        gameplayEntryMode: 'theme',
         gameplaySchemaVersion: 1,
         failureReason: 'timeout',
         startTime: 100,
@@ -100,6 +103,7 @@ async function main() {
     const levelWrite = levelRecord.writes.find((entry) => entry.collection === 'level_record');
     assert.ok(levelWrite, 'saveLevelRecord must write level_record');
     assert.strictEqual(levelWrite.data.gameplayMode, 'pch_conveyor');
+    assert.strictEqual(levelWrite.data.gameplayEntryMode, 'theme');
     assert.strictEqual(levelWrite.data.gameplaySchemaVersion, 1);
     assert.strictEqual(levelWrite.data.failureReason, 'timeout');
     assert.deepStrictEqual(levelWrite.data.gameplayStats, {
@@ -112,11 +116,13 @@ async function main() {
     await invalidSchema.main({
         levelId: 4,
         gameplayMode: 'pch_conveyor',
+        gameplayEntryMode: 'unexpected',
         gameplaySchemaVersion: 2,
         gameplayStats: { magnetUses: 10 },
     });
     const invalidWrite = invalidSchema.writes.find((entry) => entry.collection === 'level_record');
     assert.strictEqual(invalidWrite.data.gameplaySchemaVersion, 0);
+    assert.strictEqual(invalidWrite.data.gameplayEntryMode, '', 'unknown entry modes must be normalized away');
     assert.strictEqual(invalidWrite.data.gameplayStats, null, 'unsupported schemas must not persist arbitrary stats');
 
     console.log('pch-analytics-cloud-contract.test.js passed');

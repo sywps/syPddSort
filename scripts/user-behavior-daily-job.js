@@ -1229,6 +1229,172 @@ function getBehaviorRecordLevelId(record) {
   return 0;
 }
 
+function isPixelBeanLifecycleRecord(record) {
+  const gameplayEntryMode = typeof record?.gameplayEntryMode === "string"
+    ? record.gameplayEntryMode.trim()
+    : "";
+  if (gameplayEntryMode) return gameplayEntryMode === "theme";
+  return record?.page === "theme_level";
+}
+
+function buildPixelBeanProgress(records) {
+  const eventNames = new Set(["enter_level", "level_pass", "level_fail"]);
+  const levelStats = new Map();
+  const activeUsers = new Set();
+  const enterUsers = new Set();
+  const passUsers = new Set();
+  const failUsers = new Set();
+  const userMaxEnteredLevel = new Map();
+  let highestEnteredLevel = 0;
+  let highestPassedLevel = 0;
+
+  for (const record of Array.isArray(records) ? records : []) {
+    const eventName = record?.eventName || "";
+    if (!eventNames.has(eventName) || !isPixelBeanLifecycleRecord(record)) continue;
+    const levelId = getBehaviorRecordLevelId(record);
+    if (!levelId) continue;
+    if (!levelStats.has(levelId)) {
+      levelStats.set(levelId, {
+        levelId,
+        enterUv: new Set(),
+        enterPv: 0,
+        passUv: new Set(),
+        passPv: 0,
+        failUv: new Set(),
+        failPv: 0,
+      });
+    }
+    const stat = levelStats.get(levelId);
+    const openid = typeof record.openid === "string" ? record.openid : "";
+    if (openid) activeUsers.add(openid);
+    if (eventName === "enter_level") {
+      stat.enterPv += 1;
+      highestEnteredLevel = Math.max(highestEnteredLevel, levelId);
+      if (openid) {
+        stat.enterUv.add(openid);
+        enterUsers.add(openid);
+        userMaxEnteredLevel.set(openid, Math.max(userMaxEnteredLevel.get(openid) || 0, levelId));
+      }
+    } else if (eventName === "level_pass") {
+      stat.passPv += 1;
+      highestPassedLevel = Math.max(highestPassedLevel, levelId);
+      if (openid) {
+        stat.passUv.add(openid);
+        passUsers.add(openid);
+      }
+    } else if (eventName === "level_fail") {
+      stat.failPv += 1;
+      if (openid) {
+        stat.failUv.add(openid);
+        failUsers.add(openid);
+      }
+    }
+  }
+
+  const levels = [...levelStats.values()]
+    .map((stat) => ({
+      levelId: stat.levelId,
+      enterUv: stat.enterUv.size,
+      enterPv: stat.enterPv,
+      passUv: stat.passUv.size,
+      passPv: stat.passPv,
+      failUv: stat.failUv.size,
+      failPv: stat.failPv,
+      uvPassRate: ratio(stat.passUv.size, stat.enterUv.size),
+    }))
+    .sort((a, b) => a.levelId - b.levelId);
+  const distribution = new Map();
+  for (const levelId of userMaxEnteredLevel.values()) {
+    distribution.set(levelId, (distribution.get(levelId) || 0) + 1);
+  }
+
+  return {
+    scope: "lifecycle gameplayEntryMode=theme; legacy lifecycle page=theme_level",
+    overall: {
+      activeUsers: activeUsers.size,
+      enterUsers: enterUsers.size,
+      passUsers: passUsers.size,
+      failUsers: failUsers.size,
+      highestEnteredLevel,
+      highestPassedLevel,
+    },
+    levels,
+    maxEnteredLevelDistribution: [...distribution.entries()]
+      .map(([levelId, users]) => ({ levelId, users }))
+      .sort((a, b) => a.levelId - b.levelId),
+  };
+}
+
+function buildPixelBeanAds(records) {
+  const eventNames = new Set(["ad_click", "ad_show", "ad_finish", "ad_reward_success"]);
+  const statMap = new Map();
+  const users = new Set();
+  for (const record of Array.isArray(records) ? records : []) {
+    const eventName = record?.eventName || "";
+    if (!eventNames.has(eventName) || record?.gameplayEntryMode !== "theme") continue;
+    const levelId = getBehaviorRecordLevelId(record);
+    if (!levelId) continue;
+    const page = typeof record.page === "string" && record.page.trim() ? record.page.trim() : "unknown";
+    const adType = typeof record.adType === "string" && record.adType.trim() ? record.adType.trim() : "unknown";
+    const key = `${levelId}|${adType}|${page}`;
+    if (!statMap.has(key)) {
+      statMap.set(key, {
+        levelId,
+        adType,
+        page,
+        label: page,
+        clickNum: 0,
+        showNum: 0,
+        finishNum: 0,
+        rewardSuccessNum: 0,
+        users: new Set(),
+      });
+    }
+    const stat = statMap.get(key);
+    if (eventName === "ad_click") stat.clickNum += 1;
+    if (eventName === "ad_show") stat.showNum += 1;
+    if (eventName === "ad_finish") stat.finishNum += 1;
+    if (eventName === "ad_reward_success") stat.rewardSuccessNum += 1;
+    if (record.openid) {
+      stat.users.add(record.openid);
+      users.add(record.openid);
+    }
+  }
+  const rows = [...statMap.values()]
+    .map((stat) => ({
+      levelId: stat.levelId,
+      adType: stat.adType,
+      page: stat.page,
+      label: stat.label,
+      clickNum: stat.clickNum,
+      showNum: stat.showNum,
+      finishNum: stat.finishNum,
+      rewardSuccessNum: stat.rewardSuccessNum,
+      userNum: stat.users.size,
+      adShowRate: ratio(stat.showNum, stat.clickNum),
+      adFinishRate: ratio(stat.finishNum, stat.showNum),
+      rewardSuccessRate: ratio(stat.rewardSuccessNum, stat.finishNum),
+    }))
+    .sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
+  const overall = {
+    clickNum: rows.reduce((total, row) => total + row.clickNum, 0),
+    showNum: rows.reduce((total, row) => total + row.showNum, 0),
+    finishNum: rows.reduce((total, row) => total + row.finishNum, 0),
+    rewardSuccessNum: rows.reduce((total, row) => total + row.rewardSuccessNum, 0),
+    userNum: users.size,
+  };
+  return {
+    scope: "gameplayEntryMode=theme; no legacy ad attribution",
+    overall: {
+      ...overall,
+      adShowRate: ratio(overall.showNum, overall.clickNum),
+      adFinishRate: ratio(overall.finishNum, overall.showNum),
+      rewardSuccessRate: ratio(overall.rewardSuccessNum, overall.finishNum),
+    },
+    rows,
+  };
+}
+
 function buildReviveAdFunnel(records) {
   const revivePages = new Set(["level_revive", "pch_buffer_full_revive"]);
   const eventNames = new Set(["revive_panel_show", "ad_click", "ad_show", "ad_finish", "revive_success"]);
@@ -1274,6 +1440,57 @@ function buildReviveAdFunnel(records) {
       adShowRate: ratio(stat.showNum, stat.clickNum),
       adFinishRate: ratio(stat.finishNum, stat.showNum),
       reviveSuccessRate: ratio(stat.reviveSuccessNum, stat.finishNum),
+    }))
+    .sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
+}
+
+function buildReviveShareFunnel(records) {
+  const revivePages = new Set(["level_revive", "pch_buffer_full_revive"]);
+  const sharePageToRevivePage = new Map([
+    ["level_revive_share", "level_revive"],
+    ["pch_buffer_full_revive_share", "pch_buffer_full_revive"],
+  ]);
+  const eventNames = new Set(["revive_panel_show", "share_click", "share_success", "share_revive_success"]);
+  const statMap = new Map();
+  for (const record of Array.isArray(records) ? records : []) {
+    const eventName = record.eventName || "";
+    if (!eventNames.has(eventName)) continue;
+    const page = typeof record.page === "string" ? record.page.trim() : "";
+    const revivePage = eventName === "revive_panel_show" ? page : sharePageToRevivePage.get(page);
+    if (!revivePages.has(revivePage)) continue;
+    const levelId = getBehaviorRecordLevelId(record);
+    if (!levelId) continue;
+    const key = `${levelId}|${revivePage}`;
+    if (!statMap.has(key)) {
+      statMap.set(key, {
+        levelId,
+        page: revivePage,
+        panelShowNum: 0,
+        shareClickNum: 0,
+        qualifiedReturnNum: 0,
+        shareReviveSuccessNum: 0,
+        users: new Set(),
+      });
+    }
+    const stat = statMap.get(key);
+    if (eventName === "revive_panel_show") stat.panelShowNum += 1;
+    if (eventName === "share_click") stat.shareClickNum += 1;
+    if (eventName === "share_success") stat.qualifiedReturnNum += 1;
+    if (eventName === "share_revive_success") stat.shareReviveSuccessNum += 1;
+    if (record.openid) stat.users.add(record.openid);
+  }
+  return [...statMap.values()]
+    .map((stat) => ({
+      levelId: stat.levelId,
+      page: stat.page,
+      panelShowNum: stat.panelShowNum,
+      shareClickNum: stat.shareClickNum,
+      qualifiedReturnNum: stat.qualifiedReturnNum,
+      shareReviveSuccessNum: stat.shareReviveSuccessNum,
+      userNum: stat.users.size,
+      panelShareClickRate: ratio(stat.shareClickNum, stat.panelShowNum),
+      qualifiedReturnRate: ratio(stat.qualifiedReturnNum, stat.shareClickNum),
+      shareReviveSuccessRate: ratio(stat.shareReviveSuccessNum, stat.qualifiedReturnNum),
     }))
     .sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
 }
@@ -1422,6 +1639,8 @@ function analyzeUserBehaviorFile({
     .sort((a, b) => b.failPv - a.failPv)
     .slice(0, 10);
   const adEventBreakdown = buildAdEventBreakdown(records);
+  const pixelBeanProgress = buildPixelBeanProgress(records);
+  const pixelBeanAds = buildPixelBeanAds(records);
 
   const eventCountObject = sortObjectByValueDesc(eventCounts);
   const pageCountObject = sortObjectByValueDesc(pageCounts);
@@ -1455,7 +1674,10 @@ function analyzeUserBehaviorFile({
     eventCounts: eventCountObject,
     pageCounts: pageCountObject,
     adEventBreakdown,
+    pixelBeanProgress,
+    pixelBeanAds,
     reviveAdFunnel: buildReviveAdFunnel(records),
+    reviveShareFunnel: buildReviveShareFunnel(records),
     levelRows,
     lowPassLevels,
     topEnteredLevels,
@@ -3980,7 +4202,7 @@ function buildDailyDiagnosis(combinedSummary) {
   });
 
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     generatedAt: new Date().toISOString(),
     coreMetrics,
     firstLevelFunnel,
@@ -3988,6 +4210,9 @@ function buildDailyDiagnosis(combinedSummary) {
     guideTapBreakdown,
     guideTapByStep,
     reviveAdFunnel: Array.isArray(userBehaviorSummary?.reviveAdFunnel) ? userBehaviorSummary.reviveAdFunnel : [],
+    reviveShareFunnel: Array.isArray(userBehaviorSummary?.reviveShareFunnel) ? userBehaviorSummary.reviveShareFunnel : [],
+    pixelBeanProgress: userBehaviorSummary?.pixelBeanProgress || null,
+    pixelBeanAds: userBehaviorSummary?.pixelBeanAds || null,
     first20Levels,
     mainlineBottlenecks,
     highRetryLevels,
@@ -4148,6 +4373,23 @@ function writeCombinedOutputs({
         percentText(row.adShowRate),
         percentText(row.adFinishRate),
         percentText(row.reviveSuccessRate),
+      ]),
+    ),
+    ``,
+    `## 分关卡分享复活漏斗`,
+    ``,
+    markdownTable(
+      ["关卡", "入口", "面板曝光", "分享点击", "合格返回", "分享复活成功", "点击/面板", "合格/点击", "复活/合格"],
+      diagnosis.reviveShareFunnel.map((row) => [
+        `L${row.levelId}`,
+        row.page,
+        integerText(row.panelShowNum),
+        integerText(row.shareClickNum),
+        integerText(row.qualifiedReturnNum),
+        integerText(row.shareReviveSuccessNum),
+        percentText(row.panelShareClickRate),
+        percentText(row.qualifiedReturnRate),
+        percentText(row.shareReviveSuccessRate),
       ]),
     ),
     ``,

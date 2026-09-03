@@ -356,6 +356,57 @@ function buildReviveAdFunnel(behaviorList) {
     .sort((a, b) => a.logicalLevelId - b.logicalLevelId || a.page.localeCompare(b.page));
 }
 
+function buildReviveShareFunnel(behaviorList) {
+  const revivePages = new Set(['level_revive', 'pch_buffer_full_revive']);
+  const sharePageToRevivePage = new Map([
+    ['level_revive_share', 'level_revive'],
+    ['pch_buffer_full_revive_share', 'pch_buffer_full_revive'],
+  ]);
+  const eventNames = new Set(['revive_panel_show', 'share_click', 'share_success', 'share_revive_success']);
+  const statMap = new Map();
+  for (const item of behaviorList) {
+    const eventName = item.eventName || '';
+    if (!eventNames.has(eventName)) continue;
+    const page = typeof item.page === 'string' ? item.page.trim() : '';
+    const revivePage = eventName === 'revive_panel_show' ? page : sharePageToRevivePage.get(page);
+    if (!revivePages.has(revivePage)) continue;
+    const logicalLevelId = getBehaviorLogicalLevelId(item);
+    if (!logicalLevelId) continue;
+    const key = `${logicalLevelId}:${revivePage}`;
+    if (!statMap.has(key)) {
+      statMap.set(key, {
+        logicalLevelId,
+        page: revivePage,
+        panelShowNum: 0,
+        shareClickNum: 0,
+        qualifiedReturnNum: 0,
+        shareReviveSuccessNum: 0,
+        users: new Set(),
+      });
+    }
+    const stat = statMap.get(key);
+    if (eventName === 'revive_panel_show') stat.panelShowNum += 1;
+    if (eventName === 'share_click') stat.shareClickNum += 1;
+    if (eventName === 'share_success') stat.qualifiedReturnNum += 1;
+    if (eventName === 'share_revive_success') stat.shareReviveSuccessNum += 1;
+    if (item.openid) stat.users.add(item.openid);
+  }
+  return Array.from(statMap.values())
+    .map((stat) => ({
+      logicalLevelId: stat.logicalLevelId,
+      page: stat.page,
+      panelShowNum: stat.panelShowNum,
+      shareClickNum: stat.shareClickNum,
+      qualifiedReturnNum: stat.qualifiedReturnNum,
+      shareReviveSuccessNum: stat.shareReviveSuccessNum,
+      userNum: stat.users.size,
+      panelShareClickRate: toPercent(stat.shareClickNum, stat.panelShowNum),
+      qualifiedReturnRate: toPercent(stat.qualifiedReturnNum, stat.shareClickNum),
+      shareReviveSuccessRate: toPercent(stat.shareReviveSuccessNum, stat.qualifiedReturnNum),
+    }))
+    .sort((a, b) => a.logicalLevelId - b.logicalLevelId || a.page.localeCompare(b.page));
+}
+
 function buildPchSkillUses(levelRecords) {
   const levelMap = new Map();
   for (const item of levelRecords) {
@@ -783,6 +834,7 @@ exports.main = async (event = {}) => {
       levelTopLoss: buildLevelTopLoss(levelRecords, topLimit),
       adConversion: buildAdConversion(behaviorList),
       reviveAdFunnel: buildReviveAdFunnel(behaviorList),
+      reviveShareFunnel: buildReviveShareFunnel(behaviorList),
       pchSkillUses: buildPchSkillUses(levelRecords),
       funnel: buildFunnel(behaviorList),
       front10ExperimentStats: buildFront10ExperimentStats(behaviorList),

@@ -43,6 +43,8 @@ function loadHomeAdFlowInstaller(analyticsEvents, timerApi = {}, resultPanelCont
                         inst: {
                             trackShareClick: (...args) => analyticsEvents.push(['click', ...args]),
                             trackShareSuccess: (...args) => analyticsEvents.push(['success', ...args]),
+                            markShareRevive: () => analyticsEvents.push(['share-revive-mark']),
+                            trackShareReviveSuccess: (...args) => analyticsEvents.push(['share-revive-success', ...args]),
                         },
                     },
                     PerformanceMgr: { inst: { markUserActivity() {} } },
@@ -214,6 +216,57 @@ async function testShareGrantWaitsForQualifiedReturn() {
     assert.strictEqual(analyticsEvents.filter((event) => event[0] === 'success').length, 1);
 }
 
+async function testShareReviveAnalyticsWaitsForActualGrant() {
+    const analyticsEvents = [];
+    const shareReturnService = {
+        start({ runtime, payload, onComplete }) {
+            runtime.shareAppMessage(payload);
+            onComplete({ status: 'qualified', elapsedMs: 1501 });
+            return {
+                started: true,
+                handle: { cancel: () => false, isActive: () => false },
+            };
+        },
+    };
+    const runtime = {
+        _shareShowing: false,
+        getActiveLogicalLevelId: () => 7,
+        getAnalyticsLevelId: () => 7,
+        getWeChatRuntime: () => ({ shareAppMessage() {} }),
+        showToast() {},
+    };
+    loadHomeAdFlowInstaller(analyticsEvents, {}, {}, shareReturnService)(runtime);
+
+    let resolveGrant;
+    assert.strictEqual(runtime.runShareGrant('level_revive_share', () => new Promise((resolve) => {
+        resolveGrant = resolve;
+    }), {
+        busyFlag: '_shareShowing',
+        markLevelRevive: true,
+        shareType: 'level_revive_share',
+    }), true);
+    await flushMicrotasks();
+    assert.ok(!analyticsEvents.some((event) => event[0] === 'share-revive-success'));
+
+    resolveGrant(true);
+    await flushMicrotasks();
+    assert.ok(analyticsEvents.some((event) => event[0] === 'share-revive-mark'));
+    assert.deepStrictEqual(
+        analyticsEvents.find((event) => event[0] === 'share-revive-success'),
+        ['share-revive-success', 'level_revive_share', 'level_revive_share', 7],
+    );
+
+    analyticsEvents.length = 0;
+    assert.strictEqual(runtime.runShareGrant('level_revive_share', () => false, {
+        busyFlag: '_shareShowing',
+        markLevelRevive: true,
+        shareType: 'level_revive_share',
+    }), true);
+    await flushMicrotasks();
+    assert.ok(!analyticsEvents.some((event) => event[0] === 'share-revive-mark'));
+    assert.ok(!analyticsEvents.some((event) => event[0] === 'share-revive-success'));
+}
+
 function testResultPanelsInstantiateOnlyForRequestedSettlementPath() {
     const created = [];
     const makePanel = (kind) => ({ isValid: true, kind });
@@ -320,6 +373,7 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     await testSettlementRewardedAdGrantsTrueFiveTimesTotal();
     await testSynchronousShareFailureDoesNotGrant();
     await testShareGrantWaitsForQualifiedReturn();
+    await testShareReviveAnalyticsWaitsForActualGrant();
     testResultPanelsInstantiateOnlyForRequestedSettlementPath();
     await testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim();
     console.log('reward-share-flow.test.js passed');

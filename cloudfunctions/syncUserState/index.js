@@ -11,7 +11,8 @@ const USER_STATE_SCHEMA_VERSION = 2;
 const SKIN_STATE_SCHEMA_VERSION = 1;
 const BACKGROUND_SKIN_RESET_VERSION = 1;
 const DEFAULT_BACKGROUND_SKIN_ID = 1000;
-const DEFAULT_BACKGROUND_SKIN_IDS = [1000, 1001];
+const DEFAULT_BACKGROUND_SKIN_IDS = [1000];
+const RETIRED_BACKGROUND_SKIN_IDS = new Set([1001]);
 const BACKGROUND_SKIN_RESET_BACKUP_FIELD = 'backgroundSkinResetBackupV1';
 
 function cleanString(value, maxLength = 96) {
@@ -69,7 +70,11 @@ function normalizeBackgroundSkinId(value) {
   return id > 0 ? id : 0;
 }
 
-function normalizeBackgroundSkinIds(value) {
+function isRetiredBackgroundSkinId(id) {
+  return RETIRED_BACKGROUND_SKIN_IDS.has(normalizeBackgroundSkinId(id));
+}
+
+function normalizeBackgroundSkinIdsIncludingRetired(value) {
   if (!Array.isArray(value)) return [];
   const ids = value
     .map(normalizeBackgroundSkinId)
@@ -77,7 +82,11 @@ function normalizeBackgroundSkinIds(value) {
   return Array.from(new Set(ids)).sort((a, b) => a - b);
 }
 
-function normalizeBackgroundSkinAdProgress(value) {
+function normalizeBackgroundSkinIds(value) {
+  return normalizeBackgroundSkinIdsIncludingRetired(value).filter((id) => !isRetiredBackgroundSkinId(id));
+}
+
+function normalizeBackgroundSkinAdProgressIncludingRetired(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const result = {};
   for (const [key, raw] of Object.entries(value)) {
@@ -86,6 +95,19 @@ function normalizeBackgroundSkinAdProgress(value) {
     if (id > 0 && count > 0) result[String(id)] = count;
   }
   return result;
+}
+
+function normalizeBackgroundSkinAdProgress(value) {
+  const result = normalizeBackgroundSkinAdProgressIncludingRetired(value);
+  for (const id of Object.keys(result)) {
+    if (isRetiredBackgroundSkinId(id)) delete result[id];
+  }
+  return result;
+}
+
+function normalizeEquippedBackgroundSkinId(value) {
+  const id = normalizeBackgroundSkinId(value);
+  return isRetiredBackgroundSkinId(id) ? DEFAULT_BACKGROUND_SKIN_ID : id;
 }
 function mergeSortedThemeIds(currentValue, sourceValue, normalizer) {
   return Array.from(new Set([
@@ -133,8 +155,11 @@ function shouldResetBackgroundSkinState(source) {
 
 function buildBackgroundSkinResetBackup(source, resetAt) {
   return {
-    ownedBackgroundSkinIds: mergeBackgroundSkinIds(source?.ownedBackgroundSkinIds, source?.backgroundSkinOwnedIds),
-    backgroundSkinAdProgress: normalizeBackgroundSkinAdProgress(source?.backgroundSkinAdProgress),
+    ownedBackgroundSkinIds: Array.from(new Set([
+      ...normalizeBackgroundSkinIdsIncludingRetired(source?.ownedBackgroundSkinIds),
+      ...normalizeBackgroundSkinIdsIncludingRetired(source?.backgroundSkinOwnedIds),
+    ])).sort((a, b) => a - b),
+    backgroundSkinAdProgress: normalizeBackgroundSkinAdProgressIncludingRetired(source?.backgroundSkinAdProgress),
     equippedBackgroundSkinId: normalizeBackgroundSkinId(source?.equippedBackgroundSkinId),
     equippedBackgroundSkinUpdatedAt: normalizeTimestamp(source?.equippedBackgroundSkinUpdatedAt, 0),
     resetAt,
@@ -185,6 +210,31 @@ function buildBackgroundSkinResetPersistPatch(source = {}, now = Date.now()) {
   }
   if (!source?.[BACKGROUND_SKIN_RESET_BACKUP_FIELD]) {
     patch[BACKGROUND_SKIN_RESET_BACKUP_FIELD] = buildBackgroundSkinResetBackup(source, now);
+  }
+  return patch;
+}
+
+function hasRetiredBackgroundSkinState(source = {}) {
+  const ownedIds = [
+    ...normalizeBackgroundSkinIdsIncludingRetired(source?.ownedBackgroundSkinIds),
+    ...normalizeBackgroundSkinIdsIncludingRetired(source?.backgroundSkinOwnedIds),
+  ];
+  const progressIds = Object.keys(normalizeBackgroundSkinAdProgressIncludingRetired(source?.backgroundSkinAdProgress));
+  return ownedIds.some(isRetiredBackgroundSkinId)
+    || progressIds.some(isRetiredBackgroundSkinId)
+    || isRetiredBackgroundSkinId(source?.equippedBackgroundSkinId);
+}
+
+function buildBackgroundSkinRetirementPersistPatch(source = {}, now = Date.now()) {
+  if (!hasRetiredBackgroundSkinState(source)) return null;
+  const patch = {
+    ownedBackgroundSkinIds: mergeBackgroundSkinIds(source?.ownedBackgroundSkinIds, source?.backgroundSkinOwnedIds),
+    backgroundSkinOwnedIds: [],
+    backgroundSkinAdProgress: normalizeBackgroundSkinAdProgress(source?.backgroundSkinAdProgress),
+  };
+  if (isRetiredBackgroundSkinId(source?.equippedBackgroundSkinId)) {
+    patch.equippedBackgroundSkinId = DEFAULT_BACKGROUND_SKIN_ID;
+    patch.equippedBackgroundSkinUpdatedAt = normalizeTimestamp(source?.equippedBackgroundSkinUpdatedAt, now);
   }
   return patch;
 }
@@ -294,7 +344,7 @@ function extractGameState(doc, effectiveProgress = 0) {
   if (ownedBackgroundSkinIds.length > 0) state.ownedBackgroundSkinIds = ownedBackgroundSkinIds;
   if (doc?.backgroundSkinAdProgress && typeof doc.backgroundSkinAdProgress === 'object') state.backgroundSkinAdProgress = normalizeBackgroundSkinAdProgress(doc.backgroundSkinAdProgress);
   state.backgroundSkinResetVersion = normalizeBackgroundSkinResetVersion(doc?.backgroundSkinResetVersion);
-  const equippedBackgroundSkinId = normalizeBackgroundSkinId(doc?.equippedBackgroundSkinId);
+  const equippedBackgroundSkinId = normalizeEquippedBackgroundSkinId(doc?.equippedBackgroundSkinId);
   const equippedBackgroundSkinUpdatedAt = normalizeTimestamp(
     doc?.equippedBackgroundSkinUpdatedAt,
     normalizeTimestamp(doc?.stateUpdatedAt, normalizeTimestamp(doc?.lastLoginTime, 0)),
@@ -385,8 +435,8 @@ function buildGameStatePatch(source = {}, current = {}) {
     normalizeBackgroundSkinResetVersion(source.backgroundSkinResetVersion),
     BACKGROUND_SKIN_RESET_VERSION
   );
-  const currentEquippedBackgroundSkinId = normalizeBackgroundSkinId(current.equippedBackgroundSkinId);
-  const sourceEquippedBackgroundSkinId = hasOwn(source, 'equippedBackgroundSkinId') ? normalizeBackgroundSkinId(source.equippedBackgroundSkinId) : 0;
+  const currentEquippedBackgroundSkinId = normalizeEquippedBackgroundSkinId(current.equippedBackgroundSkinId);
+  const sourceEquippedBackgroundSkinId = hasOwn(source, 'equippedBackgroundSkinId') ? normalizeEquippedBackgroundSkinId(source.equippedBackgroundSkinId) : 0;
   const currentEquippedBackgroundSkinUpdatedAt = normalizeTimestamp(current.equippedBackgroundSkinUpdatedAt, 0);
   const sourceEquippedBackgroundSkinUpdatedAt = normalizeTimestamp(source.equippedBackgroundSkinUpdatedAt, 0);
   const currentEquippedBackgroundSkinValid = currentEquippedBackgroundSkinId > 0 && currentEquippedBackgroundSkinUpdatedAt > 0;
@@ -472,11 +522,15 @@ exports.main = async (event = {}) => {
 
     if (action === 'get') {
       const resetPatch = current?._id ? buildBackgroundSkinResetPersistPatch(current, Date.now()) : null;
-      if (resetPatch) {
-        await collection.doc(current._id).update({ data: resetPatch });
+      const retirementPatch = !resetPatch && current?._id
+        ? buildBackgroundSkinRetirementPersistPatch(current, Date.now())
+        : null;
+      const skinStatePatch = resetPatch || retirementPatch;
+      if (skinStatePatch) {
+        await collection.doc(current._id).update({ data: skinStatePatch });
         current = {
           ...current,
-          ...resetPatch,
+          ...skinStatePatch,
         };
       }
       const effectiveProgress = resolveEffectiveProgress(current);

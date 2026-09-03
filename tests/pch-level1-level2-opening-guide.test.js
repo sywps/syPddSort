@@ -397,18 +397,19 @@ for (const levelId of [1, 2, 3]) {
     );
 }
 assert.ok(
-    source.includes("? '点击白色豆豆'")
-        && source.includes(": '再点击蓝色豆豆';"),
+    source.includes("? '点击白色豆豆\\n将它们放到传送带上'")
+        && source.includes(": '再点击蓝色豆豆\\n空出对应颜色的位置';"),
     'level 1 must use the approved two-step opening-guide copy',
 );
 assert.ok(
-    !source.includes('点击一组棋子\\n将它们放到下方传送带')
-        && !source.includes('再点击另一组棋子\\n空出对应颜色的位置'),
-    'level 1 must not retain the old long opening-guide copy',
+    !source.includes("? '点击白色豆豆'")
+        && !source.includes(": '再点击蓝色豆豆';"),
+    'level 1 must not retain the abbreviated opening-guide copy',
 );
 const levelOneGuideStepSource = extractMethod('private showLevelOneBoardGuideStep(parent: Node): void');
 const sharedTargetGuideSource = extractMethod('private showOpeningTargetGuide(');
 const sharedTargetGuideAtSource = extractMethod('private showOpeningTargetGuideAt(');
+const focusMaskSource = extractMethod('private createOpeningGuideFocusMask(');
 const tutorialStartSource = extractMethod('private reportOpeningGuideTutorialStart(): void');
 const tutorialFinishSource = extractMethod('private reportOpeningGuideTutorialFinish(): void');
 const sySdkSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/SySDKMgr.ts'), 'utf8');
@@ -435,13 +436,19 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('Sprite.Type.SLICED')
         && sharedTargetGuideAtSource.includes("guideName.startsWith('PchLevelOneGuideStep')")
         && sharedTargetGuideAtSource.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
-        && !sharedTargetGuideAtSource.includes('createOpeningGuideFocusMask(')
+        && sharedTargetGuideAtSource.includes('this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);')
         && sharedTargetGuideAtSource.includes('const promptWidth = isLevelOneBoardGuide ? 340')
         && sharedTargetGuideAtSource.includes('const promptHeight = isLevelOneBoardGuide ? 216')
-        && sharedTargetGuideAtSource.includes("guideName === 'PchLevelOneGuideStep1'")
-        && sharedTargetGuideAtSource.includes("bubbleBackground.setScale(1, isLevelTwoSpeedGuide ? -bubbleScaleY : bubbleScaleY, 1);")
+        && !sharedTargetGuideAtSource.includes("guideName === 'PchLevelOneGuideStep1'")
+        && sharedTargetGuideAtSource.includes('const levelOneBubbleVisibleHeight = promptHeight * bubbleScaleY;')
+        && sharedTargetGuideAtSource.includes('levelOnePromptY = targetLocal.y - targetHeight / 2 - levelOneBubbleVisibleHeight / 2 - 24;')
+        && sharedTargetGuideAtSource.includes('const parentBottomSafeY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y + 24;')
+        && sharedTargetGuideAtSource.includes('levelOnePromptY - levelOneBubbleVisibleHeight / 2 < parentBottomSafeY')
+        && sharedTargetGuideAtSource.includes("throw new Error('[pch-core] level 1 guide bubble has no space below target');")
+        && sharedTargetGuideAtSource.includes('bubbleBackground.setScale(1, (isLevelOneBoardGuide || isLevelTwoSpeedGuide) ? -bubbleScaleY : bubbleScaleY, 1);')
         && sharedTargetGuideAtSource.includes("copy.split('\\n', 2)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, copy, 38, new Color('#3C285D'), 0, 28, promptWidth - 48)")
+        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, title, 42, new Color('#3C285D'), 0, -5, promptWidth - 48)")
+        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, detail || title, 32, new Color('#3C285D'), 0, -55, promptWidth - 48)")
         && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, copy, 32, new Color('#3C285D'), 0, -16, promptWidth - 48)")
         && sharedTargetGuideAtSource.includes("title, 32, new Color('#3C285D'), 0, 48, promptWidth - 48")
         && sharedTargetGuideAtSource.includes("detail || title, 28, new Color('#3C285D'), 0, 4, promptWidth - 56")
@@ -455,16 +462,40 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('const promptX = isLevelTwoSpeedGuide')
         && sharedTargetGuideAtSource.includes('? targetLocal.x')
         && sharedTargetGuideAtSource.includes(': Math.max(-promptXLimit, Math.min(promptXLimit, targetLocal.x));'),
-    'all first-three-level guides must use compact bubble bodies, center text outside the tail, and anchor the level-2 tail to its speed button',
+    'level 1 must use its own target-relative lower flipped bubble while the other starter guides retain their existing bubble behavior',
 );
 assert.ok(
-    !source.includes('createOpeningGuideFocusMask(')
-        && !source.includes('PchOpeningGuideDimMask')
-        && !source.includes("setPanel('GuideDimTop'")
-        && !source.includes("setPanel('GuideDimBottom'")
-        && !source.includes("setPanel('GuideDimLeft'")
-        && !source.includes("setPanel('GuideDimRight'"),
-    'all first-three-level guides must not create a dim mask',
+    !sharedTargetGuideAtSource.includes("const overlayRoot = this.runtime.requireCanvasUiRoot?.('OverlayRoot') || null;")
+        && !sharedTargetGuideAtSource.includes('visualGuideParent')
+        && !sharedTargetGuideAtSource.includes('visualTargetLocal')
+        && sharedTargetGuideAtSource.includes('this.openingGuide = this.makeNode(guideName, parent, 720, 1280, 0, 0);')
+        && sharedTargetGuideAtSource.includes('this.openingGuide.setSiblingIndex(Math.max(0, parent.children.length - 1));')
+        && sharedTargetGuideAtSource.includes("this.openingGuideTarget = this.makeNode('OpeningGuideTapTarget', parent, targetWidth + 24, targetHeight + 24, targetLocal.x, targetLocal.y);")
+        && !sharedTargetGuideAtSource.includes('addComponent(BlockInputEvents)'),
+    'level 1 must keep its mask, bubble, hand, and touch target in GameplayFixedRoot without adding a blocking input component',
+);
+assert.ok(
+    source.includes('const OPENING_GUIDE_TARGET_FOCUS_PADDING = 12;')
+        && focusMaskSource.includes("const mask = this.makeNode(\n            'PchOpeningGuideDimMask',")
+        && focusMaskSource.includes('parentTransform.contentSize.width')
+        && focusMaskSource.includes("this.belt?.getChildByName('PchMovingTrack')")
+        && focusMaskSource.includes('const targetFocus = createFocusRect(')
+        && focusMaskSource.includes('const conveyorFocus = createFocusRect(')
+        && focusMaskSource.includes('if (targetFocus.bottom <= conveyorFocus.top)')
+        && focusMaskSource.includes('const graphics = panel.addComponent(Graphics);')
+        && focusMaskSource.includes('graphics.fillColor = new Color(27, 23, 48, OPENING_GUIDE_DIM_MASK_OPACITY);')
+        && focusMaskSource.includes('graphics.rect(-width / 2, -height / 2, width, height);')
+        && focusMaskSource.includes("createPanel('GuideDimTop'")
+        && focusMaskSource.includes("createPanel('GuideDimBetweenFocus'")
+        && focusMaskSource.includes("createPanel('GuideDimConveyorLeft'")
+        && focusMaskSource.includes("createPanel('GuideDimConveyorRight'")
+        && focusMaskSource.includes("createPanel('GuideDimBottom'")
+        && focusMaskSource.includes('mask.setSiblingIndex(0);')
+        && !focusMaskSource.includes('GuideDimMaskTemplate')
+        && !focusMaskSource.includes('instantiate(template)')
+        && !focusMaskSource.includes('UIOpacity')
+        && !focusMaskSource.includes('BlockInputEvents'),
+    'only level 1 must render seven same-layer Graphics panels with independent bean and conveyor focus regions',
 );
 assert.ok(
     sharedTargetGuideSource.includes('promptYOverride?: number')
@@ -488,12 +519,12 @@ assert.ok(
     sharedTargetGuideAtSource.includes('promptYOverride?: number')
         && sharedTargetGuideAtSource.includes('const promptY = isLevelOneBoardGuide')
         && sharedTargetGuideAtSource.includes('const sharedPromptY = promptYOverride ?? Math.max(-520,')
-        && sharedTargetGuideAtSource.includes('Math.min(isLevelOneFirstStep ? 520 : 500,')
-        && sharedTargetGuideAtSource.includes('isLevelOneFirstStep ? 76 : 44')
+        && sharedTargetGuideAtSource.includes('? levelOnePromptY')
+        && !sharedTargetGuideAtSource.includes('isLevelOneFirstStep')
         && sharedTargetGuideAtSource.includes('targetHeight / 2 - promptHeight / 2 - 24')
         && sharedTargetGuideAtSource.includes('targetLocal.y + targetHeight / 2 + promptHeight / 2 + 24')
         && !source.includes("'点击扩容按钮\\n增加12个位置', this.onOpeningGuideFreeCapacity, -365"),
-    'the first-three-level prompts must use their approved target-relative positions',
+    'each level-1 step must independently derive its lower bubble position from its own target while levels 2 and 3 retain their target-relative positions',
 );
 assert.deepStrictEqual(routeGuide(4, 'main'), []);
 

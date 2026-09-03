@@ -10,10 +10,10 @@ const source = fs.readFileSync(
 
 assert.ok(
     source.includes('if (logicalLevelId === 1)')
-        && source.includes("? '点击白色豆豆'")
-        && source.includes(": '再点击蓝色豆豆';")
+        && source.includes("? '点击白色豆豆\\n将它们放到传送带上'")
+        && source.includes(": '再点击蓝色豆豆\\n空出对应颜色的位置';")
         && source.includes('this.openingGuideLevelOneCells.length >= 2'),
-    'mainline level 1 must retain the approved concise color-specific copy',
+    'mainline level 1 must retain the approved two-line color-specific copy',
 );
 assert.ok(
     source.includes('this.handleBoardTap(cell.row, cell.col);')
@@ -68,9 +68,13 @@ assert.ok(
         && source.includes("'PchLevelThreeCapacityGuide'")
         && source.includes("'点击扩容按钮\\n增加12个位置'")
         && source.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
-        && !source.includes('createOpeningGuideFocusMask(')
-        && !source.includes('PchOpeningGuideDimMask'),
-    'mainline level 3 must guide the capacity ad button before gameplay starts',
+        && source.includes('this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);'),
+    'mainline level 3 must retain its capacity guide while the dim mask remains exclusive to level 1',
+);
+assert.strictEqual(
+    (source.match(/this\.createOpeningGuideFocusMask\(parent, targetLocal, targetWidth, targetHeight\);/g) || []).length,
+    1,
+    'levels 2 and 3 must not create the level-1-only dim mask',
 );
 assert.ok(
     source.includes('const expanded = this.expandCapacity();')

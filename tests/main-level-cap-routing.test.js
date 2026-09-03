@@ -17,6 +17,7 @@ const settlementSource = fs.readFileSync(
     path.join(root, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts'),
     'utf8',
 );
+const normalizedSceneHomeEntrySource = sceneHomeEntrySource.replace(/\r\n/g, '\n');
 const normalizedSettlementSource = settlementSource.replace(/\r\n/g, '\n');
 
 const output = ts.transpileModule(routeSource, {
@@ -46,7 +47,7 @@ for (const [savedLevel, expectedPhysicalLevel] of [
 }
 
 assert.ok(
-    sceneHomeEntrySource.includes("const resolvedLevelId = prefix === 'level_'\n                ? mapLogicalToPhysicalLevelId(normalizedLevelId)"),
+    normalizedSceneHomeEntrySource.includes("const resolvedLevelId = prefix === 'level_'\n                ? mapLogicalToPhysicalLevelId(normalizedLevelId)"),
     'ordinary mainline loading must consume the capped physical-level mapper',
 );
 

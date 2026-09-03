@@ -72,8 +72,9 @@ const LS_EQUIPPED_BACKGROUND_SKIN_ROW_CACHE = 'pdd.skin.background.equippedRow';
 const DEFAULT_BACKGROUND_SKIN_ID = 1000;
 const BACKGROUND_SKIN_RESET_VERSION = 1;
 const LS_BACKGROUND_SKIN_RESET_VERSION = 'pdd.skin.background.resetVersion';
-const DEFAULT_OWNED_BACKGROUND_SKIN_IDS = [1000, 1001];
+const DEFAULT_OWNED_BACKGROUND_SKIN_IDS = [1000];
 const DEFAULT_OWNED_BACKGROUND_SKIN_ID_SET = new Set<number>(DEFAULT_OWNED_BACKGROUND_SKIN_IDS);
+const RETIRED_BACKGROUND_SKIN_IDS = new Set<number>([1001]);
 const LOCAL_BACKGROUND_SKIN_SHORT_ID_SET = new Set<number>([2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 16, 21, 22, 99]);
 const SKIN_PANEL_NAME = 'BackgroundSkinPanelOverlay';
 const SKIN_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/BackgroundSkinPanel';
@@ -143,11 +144,20 @@ function toBackgroundSkinStorageId(value: unknown, fallback: number = 0): number
     return id > 0 ? id : fallback;
 }
 
+function isRetiredBackgroundSkinId(value: unknown): boolean {
+    return RETIRED_BACKGROUND_SKIN_IDS.has(toBackgroundSkinStorageId(value));
+}
+
+function toAvailableBackgroundSkinStorageId(value: unknown, fallback: number = 0): number {
+    const id = toBackgroundSkinStorageId(value, fallback);
+    return isRetiredBackgroundSkinId(id) ? DEFAULT_BACKGROUND_SKIN_ID : id;
+}
+
 function normalizeBackgroundSkinIdList(value: unknown): number[] {
     if (!Array.isArray(value)) return [];
     return Array.from(new Set(value
         .map((id) => toBackgroundSkinStorageId(id))
-        .filter((id) => id > 0)))
+        .filter((id) => id > 0 && !isRetiredBackgroundSkinId(id))))
         .sort((a, b) => a - b);
 }
 
@@ -159,7 +169,7 @@ function normalizeBackgroundSkinAdProgress(value: unknown): Record<string, numbe
         const rawCount = source[rawId];
         const id = toBackgroundSkinStorageId(rawId);
         const count = Math.max(0, Math.floor(Number(rawCount) || 0));
-        if (id > 0 && count > 0) result[String(id)] = count;
+        if (id > 0 && !isRetiredBackgroundSkinId(id) && count > 0) result[String(id)] = count;
     }
     return result;
 }
@@ -268,7 +278,7 @@ export function installSkinBackgroundModule(target: any): void {
         _parseBackgroundSkinConfig(json: any): BackgroundSkinConfig {
             const sourceRows = Array.isArray(json?.skins) ? json.skins : [];
             const rows: BackgroundSkinRow[] = sourceRows
-                .filter((raw: any) => raw?.type === 'background' && raw.enabled !== false)
+                .filter((raw: any) => raw?.type === 'background' && raw.enabled !== false && !isRetiredBackgroundSkinId(raw.id))
                 .map((raw: any) => {
                     const row: BackgroundSkinRow = {
                         id: toSkinId(raw.id, -1),
@@ -317,7 +327,7 @@ export function installSkinBackgroundModule(target: any): void {
         _parseBackgroundSkinCdnManifest(manifest: SkinLiveManifest): BackgroundSkinConfig {
             const sourceRows = Array.isArray(manifest?.skins) ? manifest.skins : [];
             const rows: BackgroundSkinRow[] = sourceRows
-                .filter((raw: any) => raw?.type === 'background' && raw.enabled !== false)
+                .filter((raw: any) => raw?.type === 'background' && raw.enabled !== false && !isRetiredBackgroundSkinId(raw.id))
                 .map((raw: any) => {
                     const backgroundAsset = raw.assets?.background || null;
                     const iconAsset = raw.assets?.thumbnail || raw.assets?.icon || null;
@@ -891,7 +901,7 @@ export function installSkinBackgroundModule(target: any): void {
 
         addBackgroundSkinAdProgress(id: number): number {
             const safeId = toBackgroundSkinStorageId(id);
-            if (!safeId) return 0;
+            if (!safeId || isRetiredBackgroundSkinId(safeId)) return 0;
             const progress = this._readBackgroundSkinAdProgress();
             const next = this.getBackgroundSkinAdProgress(safeId) + 1;
             progress[String(safeId)] = next;
@@ -988,7 +998,7 @@ export function installSkinBackgroundModule(target: any): void {
                     name: '默认皮肤',
                     isDefault: true,
                     assetBundle: LOCAL_BOOTSTRAP_BUNDLE_NAME,
-                    assetKey: 'GameUI/bg_game_pindd',
+                    assetKey: 'GameUI/home_bg',
                     iconBundle: GAME_ASSETS_BUNDLE_NAME,
                     iconKey: 'Skins/Icons/bg_000',
                     unlockType: 'default',
@@ -1048,8 +1058,61 @@ export function installSkinBackgroundModule(target: any): void {
             sys.localStorage.setItem(LS_BACKGROUND_SKIN_RESET_VERSION, String(Math.max(0, Math.floor(Number(version) || 0))));
         },
 
+        _sanitizeRetiredBackgroundSkinState(): boolean {
+            let changed = false;
+            const rawOwned = sys.localStorage.getItem(LS_OWNED_BACKGROUND_SKINS);
+            if (rawOwned !== null) {
+                try {
+                    const parsedOwned = JSON.parse(rawOwned || '[]');
+                    if (Array.isArray(parsedOwned) && parsedOwned.some((id) => isRetiredBackgroundSkinId(id))) {
+                        this._writeBackgroundSkinOwnedIds(new Set(normalizeBackgroundSkinIdList(parsedOwned)));
+                        changed = true;
+                    }
+                } catch (_) {}
+            }
+            const rawProgress = sys.localStorage.getItem(LS_BACKGROUND_SKIN_AD_PROGRESS);
+            if (rawProgress !== null) {
+                try {
+                    const parsedProgress = JSON.parse(rawProgress || '{}');
+                    if (parsedProgress && typeof parsedProgress === 'object' && !Array.isArray(parsedProgress)
+                        && Object.keys(parsedProgress).some((id) => isRetiredBackgroundSkinId(id))) {
+                        this._writeBackgroundSkinAdProgress(parsedProgress);
+                        changed = true;
+                    }
+                } catch (_) {}
+            }
+            const rawEquippedState = sys.localStorage.getItem(LS_EQUIPPED_BACKGROUND_SKIN_STATE);
+            const currentState = parseEquippedBackgroundSkinState(rawEquippedState);
+            let currentRawId = currentState.id;
+            if (!currentRawId && rawEquippedState) {
+                try {
+                    currentRawId = toBackgroundSkinStorageId(JSON.parse(rawEquippedState)?.id);
+                } catch (_) {}
+            }
+            const legacyId = toBackgroundSkinStorageId(sys.localStorage.getItem(LEGACY_LS_EQUIPPED_BACKGROUND_SKIN));
+            const retiredEquipped = isRetiredBackgroundSkinId(currentRawId) || (!currentRawId && isRetiredBackgroundSkinId(legacyId));
+            if (retiredEquipped) {
+                this._writeEquippedBackgroundSkinState(DEFAULT_BACKGROUND_SKIN_ID, currentState.updatedAt || Date.now());
+                this._equippedBackgroundSkinId = 0;
+                this._equippedBackgroundSkinFrame = null;
+                this._clearBackgroundSkinCachedSpriteFrames('frame', 'retired-skin');
+                this._clearEquippedBackgroundSkinRowCache();
+                this._markBackgroundSkinChanged();
+                changed = true;
+            }
+            if (isRetiredBackgroundSkinId(legacyId)) {
+                sys.localStorage.removeItem(LEGACY_LS_EQUIPPED_BACKGROUND_SKIN);
+                changed = true;
+            }
+            return changed;
+        },
+
         _applyBackgroundSkinResetMigration(syncCloud: boolean = true): boolean {
-            if (this._readBackgroundSkinResetVersion() >= BACKGROUND_SKIN_RESET_VERSION) return false;
+            const retiredStateChanged = this._sanitizeRetiredBackgroundSkinState();
+            if (this._readBackgroundSkinResetVersion() >= BACKGROUND_SKIN_RESET_VERSION) {
+                if (retiredStateChanged && syncCloud) this.syncBackgroundSkinCloudState?.();
+                return retiredStateChanged;
+            }
             const owned = new Set<number>(DEFAULT_OWNED_BACKGROUND_SKIN_IDS);
             this._writeBackgroundSkinOwnedIds(owned);
             this._writeBackgroundSkinAdProgress({});
@@ -1069,9 +1132,8 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         _syncDefaultOwnedBackgroundSkins(config: BackgroundSkinConfig): void {
-            this._applyBackgroundSkinResetMigration(false);
+            let changed = this._applyBackgroundSkinResetMigration(false);
             const owned = this._readBackgroundSkinOwnedIds();
-            let changed = false;
             for (const row of config.rows) {
                 if (
                     row.isDefault
@@ -1099,7 +1161,7 @@ export function installSkinBackgroundModule(target: any): void {
 
         grantBackgroundSkin(id: number): boolean {
             const safeId = toBackgroundSkinStorageId(id);
-            if (!safeId) return false;
+            if (!safeId || isRetiredBackgroundSkinId(safeId)) return false;
             const owned = this._readBackgroundSkinOwnedIds();
             const hadOwned = owned.has(safeId);
             owned.add(safeId);
@@ -1150,7 +1212,7 @@ export function installSkinBackgroundModule(target: any): void {
 
         _writeEquippedBackgroundSkinState(id: number, updatedAt: number): void {
             const state = {
-                id: toBackgroundSkinStorageId(id),
+                id: toAvailableBackgroundSkinStorageId(id),
                 updatedAt: toSkinTimestamp(updatedAt),
             };
             if (!state.id || !state.updatedAt) {
@@ -1162,9 +1224,9 @@ export function installSkinBackgroundModule(target: any): void {
 
         _readEquippedBackgroundSkinState(): { id: number; updatedAt: number } {
             const state = parseEquippedBackgroundSkinState(sys.localStorage.getItem(LS_EQUIPPED_BACKGROUND_SKIN_STATE));
-            if (state.id) return state;
+            if (state.id) return { id: toAvailableBackgroundSkinStorageId(state.id), updatedAt: state.updatedAt };
             const legacyId = toBackgroundSkinStorageId(sys.localStorage.getItem(LEGACY_LS_EQUIPPED_BACKGROUND_SKIN));
-            return legacyId ? { id: legacyId, updatedAt: 0 } : { id: 0, updatedAt: 0 };
+            return legacyId ? { id: toAvailableBackgroundSkinStorageId(legacyId), updatedAt: 0 } : { id: 0, updatedAt: 0 };
         },
 
         _persistEquippedBackgroundSkinSelection(skin: BackgroundSkinRow): void {
@@ -1236,9 +1298,11 @@ export function installSkinBackgroundModule(target: any): void {
             const incomingOwned = Array.isArray(ownedIds)
                 ? ownedIds.map((id) => toBackgroundSkinStorageId(id)).filter(Boolean)
                 : [];
-            for (const id of incomingOwned) owned.add(id);
+            for (const id of incomingOwned) {
+                if (!isRetiredBackgroundSkinId(id)) owned.add(id);
+            }
             const cloudUpdatedAt = toSkinTimestamp(equippedUpdatedAt);
-            const cloudEquippedId = cloudUpdatedAt > 0 ? toBackgroundSkinStorageId(equippedId) : 0;
+            const cloudEquippedId = cloudUpdatedAt > 0 ? toAvailableBackgroundSkinStorageId(equippedId) : 0;
             if (!cloudEquippedId && (toBackgroundSkinStorageId(equippedId) > 0 || cloudUpdatedAt > 0)) {
                 emitBackgroundSkinDiagnostic('cloud-skin-invalid-pair', {
                     incomingEquippedBackgroundSkinId: toBackgroundSkinStorageId(equippedId),

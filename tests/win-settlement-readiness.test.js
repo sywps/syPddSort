@@ -49,7 +49,7 @@ assert.ok(
 );
 assert.ok(
     !settlement.includes('PATTERN_COMPLETE_COLOR_HOLD')
-        && settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5'),
+        && settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25'),
     'final colors must gate the next stage by b1 completion while the Shader keeps its fixed presentation hold',
 );
 assert.ok(

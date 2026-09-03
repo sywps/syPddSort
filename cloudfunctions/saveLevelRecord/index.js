@@ -44,6 +44,11 @@ function normalizeGameplayMode(value) {
   return cleanString(value, 32) === PCH_GAMEPLAY_MODE ? PCH_GAMEPLAY_MODE : '';
 }
 
+function normalizeGameplayEntryMode(value) {
+  const mode = cleanString(value, 16);
+  return ['main', 'theme', 'external'].includes(mode) ? mode : '';
+}
+
 function normalizeGameplaySchemaVersion(value, gameplayMode) {
   if (gameplayMode !== PCH_GAMEPLAY_MODE) return 0;
   return Math.floor(Number(value) || 0) === PCH_GAMEPLAY_SCHEMA_VERSION
@@ -110,6 +115,7 @@ exports.main = async (event = {}) => {
         useAdRevive: normalizeBoolean(event.useAdRevive),
         useShareRevive: normalizeBoolean(event.useShareRevive),
         gameplayMode,
+        gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode),
         gameplaySchemaVersion,
         failureReason: normalizeFailureReason(event.failureReason),
         gameplayStats: normalizePchGameplayStats(event.gameplayStats, gameplayMode, gameplaySchemaVersion),

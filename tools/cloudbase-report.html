@@ -2335,6 +2335,97 @@ function renderReviveAdFunnel(rows) {
     );
 }
 
+function renderReviveShareFunnel(rows) {
+    return renderTable(
+        ['关卡', '入口', '面板曝光', '分享点击', '合格返回', '分享复活成功', '点击/面板', '合格/点击', '复活/合格'],
+        (rows || []).map((row) => [
+            `<strong>L${escapeHtml(row.levelId)}</strong>`,
+            escapeHtml(displayAnalyticsTerms(row.page)),
+            formatNumber(row.panelShowNum),
+            formatNumber(row.shareClickNum),
+            formatNumber(row.qualifiedReturnNum),
+            formatNumber(row.shareReviveSuccessNum),
+            pctFromRatio(row.panelShareClickRate),
+            pctFromRatio(row.qualifiedReturnRate),
+            pctFromRatio(row.shareReviveSuccessRate),
+        ]),
+    );
+}
+
+function renderPixelBeanProgress(progress) {
+    const overall = progress?.overall || {};
+    const levels = Array.isArray(progress?.levels) ? progress.levels : [];
+    const distribution = Array.isArray(progress?.maxEnteredLevelDistribution)
+        ? progress.maxEnteredLevelDistribution
+        : [];
+    return `
+        ${renderTable(
+            ['指标', '数值'],
+            [
+                ['当日最高进入关卡', `L${formatNumber(overall.highestEnteredLevel)}`],
+                ['当日最高通关关卡', `L${formatNumber(overall.highestPassedLevel)}`],
+                ['活跃玩家UV', formatNumber(overall.activeUsers)],
+                ['进入 / 通关 / 失败 UV', `${formatNumber(overall.enterUsers)} / ${formatNumber(overall.passUsers)} / ${formatNumber(overall.failUsers)}`],
+            ],
+        )}
+        <div class="card-subtitle" style="margin:14px 0 8px;">逐关进度</div>
+        ${levels.length ? renderTable(
+            ['关卡', '进入UV', '进入PV', '通关UV', '通关PV', '失败UV', '失败PV', 'UV通关率'],
+            levels.map((row) => [
+                `<strong>L${escapeHtml(row.levelId)}</strong>`,
+                formatNumber(row.enterUv),
+                formatNumber(row.enterPv),
+                formatNumber(row.passUv),
+                formatNumber(row.passPv),
+                formatNumber(row.failUv),
+                formatNumber(row.failPv),
+                pctFromRatio(row.uvPassRate),
+            ]),
+        ) : '<div class="empty">今天没有像素拼豆关卡生命周期数据。</div>'}
+        <div class="card-subtitle" style="margin:14px 0 8px;">玩家最高进入关卡分布</div>
+        ${distribution.length ? renderTable(
+            ['最高进入关卡', '玩家UV'],
+            distribution.map((row) => [`L${escapeHtml(row.levelId)}`, formatNumber(row.users)]),
+        ) : '<div class="empty">今天没有可用的最高进入关卡分布。</div>'}
+    `;
+}
+
+function renderPixelBeanAds(ads) {
+    const overall = ads?.overall || {};
+    const rows = Array.isArray(ads?.rows) ? ads.rows : [];
+    return `
+        ${renderTable(
+            ['点击', '展示', '完成', '奖励到账', '玩家UV', '展示/点击', '完成/展示', '到账/完成'],
+            [[
+                formatNumber(overall.clickNum),
+                formatNumber(overall.showNum),
+                formatNumber(overall.finishNum),
+                formatNumber(overall.rewardSuccessNum),
+                formatNumber(overall.userNum),
+                pctFromRatio(overall.adShowRate),
+                pctFromRatio(overall.adFinishRate),
+                pctFromRatio(overall.rewardSuccessRate),
+            ]],
+        )}
+        <div class="card-subtitle" style="margin:14px 0 8px;">按关卡与广告位</div>
+        ${rows.length ? renderTable(
+            ['关卡', '广告位', '点击', '展示', '完成', '奖励到账', '玩家UV', '展示/点击', '完成/展示', '到账/完成'],
+            rows.map((row) => [
+                `<strong>L${escapeHtml(row.levelId)}</strong>`,
+                escapeHtml(displayAnalyticsTerms(row.page || row.label || 'unknown')),
+                formatNumber(row.clickNum),
+                formatNumber(row.showNum),
+                formatNumber(row.finishNum),
+                formatNumber(row.rewardSuccessNum),
+                formatNumber(row.userNum),
+                pctFromRatio(row.adShowRate),
+                pctFromRatio(row.adFinishRate),
+                pctFromRatio(row.rewardSuccessRate),
+            ]),
+        ) : '<div class="empty">今天没有带像素玩法归属的新广告事件。</div>'}
+    `;
+}
+
 function renderExperimentAdPerformanceBreakdown(experimentBreakdowns) {
     const sections = getExperimentSections(experimentBreakdowns?.adPerformance);
     if (!sections.length) return '';
@@ -2412,6 +2503,9 @@ function renderContent(summary, trendSummaries) {
     const guideTapBreakdown = Array.isArray(diagnosis?.guideTapBreakdown) ? diagnosis.guideTapBreakdown : [];
     const guideTapByStep = Array.isArray(diagnosis?.guideTapByStep) ? diagnosis.guideTapByStep : [];
     const reviveAdFunnel = Array.isArray(diagnosis?.reviveAdFunnel) ? diagnosis.reviveAdFunnel : [];
+    const reviveShareFunnel = Array.isArray(diagnosis?.reviveShareFunnel) ? diagnosis.reviveShareFunnel : [];
+    const pixelBeanProgress = diagnosis?.pixelBeanProgress || behavior?.pixelBeanProgress || null;
+    const pixelBeanAds = diagnosis?.pixelBeanAds || behavior?.pixelBeanAds || null;
     const funnelScopeLabel = diagnosis?.pchFunnelScope?.label || 'logical_levels=1,2,3';
     const first20Levels = Array.isArray(diagnosis?.first20Levels) ? diagnosis.first20Levels : [];
     const firstDayChurnAnalysis = diagnosis?.firstDayChurnAnalysis || null;
@@ -2565,11 +2659,41 @@ function renderContent(summary, trendSummaries) {
 
         <section class="card span-12">
             <div class="card-header">
+                <div class="card-title">像素拼豆关卡进度</div>
+                <div class="card-subtitle">关卡进度表示玩家当天最高进入/通关到第几关；历史生命周期事件兼容 theme_level，不统计关内百分比或逐豆操作。</div>
+            </div>
+            <div class="card-body">
+                ${pixelBeanProgress ? renderPixelBeanProgress(pixelBeanProgress) : '<div class="empty">这份日报没有像素拼豆关卡进度数据。</div>'}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">像素拼豆广告</div>
+                <div class="card-subtitle">只统计带 gameplayEntryMode=theme 的新事件；历史广告不猜测归属。奖励到账表示广告完成后游戏奖励实际发放成功。</div>
+            </div>
+            <div class="card-body">
+                ${pixelBeanAds ? renderPixelBeanAds(pixelBeanAds) : '<div class="empty">这份日报没有像素拼豆广告数据。</div>'}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
                 <div class="card-title">分关卡复活广告漏斗</div>
                 <div class="card-subtitle">分别统计倒计时失败和传送带满两种入口：点击/面板、展示/点击、完成/展示、实际复活/完成。</div>
             </div>
             <div class="card-body">
                 ${reviveAdFunnel.length ? renderReviveAdFunnel(reviveAdFunnel) : '<div class="empty">这份日报没有复活广告漏斗数据。</div>'}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">分关卡分享复活漏斗</div>
+                <div class="card-subtitle">独立统计分享点击、合格返回和实际分享复活成功；合格返回是当前产品的分享判定，不等同于微信可证明的外部转发成功。</div>
+            </div>
+            <div class="card-body">
+                ${reviveShareFunnel.length ? renderReviveShareFunnel(reviveShareFunnel) : '<div class="empty">这份日报没有分享复活漏斗数据。</div>'}
             </div>
         </section>
 

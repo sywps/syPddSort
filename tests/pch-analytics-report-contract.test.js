@@ -129,6 +129,15 @@ const newSummary = {
             reviveSuccessNum: 3,
             userNum: 3,
         }],
+        reviveShareFunnel: [{
+            levelId: 3,
+            page: 'pch_buffer_full_revive',
+            panelShowNum: 10,
+            shareClickNum: 6,
+            qualifiedReturnNum: 4,
+            shareReviveSuccessNum: 3,
+            userNum: 3,
+        }],
         first20Levels: [{
             levelId: 1,
             enterUv: 11,
@@ -183,6 +192,11 @@ try {
         [revive.panelClickRate, revive.adShowRate, revive.adFinishRate, revive.reviveSuccessRate],
         [0.6, 0.8333, 0.8, 0.75],
     );
+    const shareRevive = diagnosis.reviveShareFunnel[0];
+    assert.deepStrictEqual(
+        [shareRevive.panelShareClickRate, shareRevive.qualifiedReturnRate, shareRevive.shareReviveSuccessRate],
+        [0.6, 0.6667, 0.75],
+    );
     const levelOne = diagnosis.first20Levels.find((row) => row.levelId === 1);
     assert.deepStrictEqual(
         [levelOne.magnetUses, levelOne.brushUses, levelOne.freezeUses],
@@ -200,9 +214,10 @@ try {
     const scriptBlock = html.match(/<script>([\s\S]*?)<\/script>/);
     assert.ok(scriptBlock, 'dashboard HTML must contain its script block');
     new Function(scriptBlock[1]);
-    assert.ok(html.includes('前三关 PCH 里程碑'));
-    assert.ok(html.includes('PCH 引导结果'));
+    assert.ok(html.includes('前三关传送带玩法里程碑（PCH）'));
+    assert.ok(html.includes('传送带玩法引导结果（PCH）'));
     assert.ok(html.includes('分关卡复活广告漏斗'));
+    assert.ok(html.includes('分关卡分享复活漏斗'));
 
     const dailyJob = fs.readFileSync(path.join(root, 'scripts/user-behavior-daily-job.js'), 'utf8');
     const dashboard = fs.readFileSync(path.join(root, 'cloudfunctions/getAllDashboardData/index.js'), 'utf8');
@@ -215,6 +230,9 @@ try {
     assert.ok(dashboard.includes('adShowRate: toPercent(stat.showNum, stat.clickNum)'));
     assert.ok(dashboard.includes('adFinishRate: toPercent(stat.finishNum, stat.showNum)'));
     assert.ok(dashboard.includes('reviveSuccessRate: toPercent(stat.reviveSuccessNum, stat.finishNum)'));
+    assert.ok(dashboard.includes('panelShareClickRate: toPercent(stat.shareClickNum, stat.panelShowNum)'));
+    assert.ok(dashboard.includes('qualifiedReturnRate: toPercent(stat.qualifiedReturnNum, stat.shareClickNum)'));
+    assert.ok(dashboard.includes('shareReviveSuccessRate: toPercent(stat.shareReviveSuccessNum, stat.qualifiedReturnNum)'));
 
     console.log('pch-analytics-report-contract.test.js passed');
 } finally {

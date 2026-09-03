@@ -37,7 +37,7 @@ import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentServi
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
 const PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8;
-const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5;
+const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
 const LEVEL_3_IDLE_HINT_FAST_DELAY_SECONDS = 4;
@@ -305,6 +305,11 @@ export function installSettlementHudModule(target: any): void {
             return conveyor.isFinishCommitted?.() === true;
         },
 
+        isBoardCompletionPendingForSettlement(): boolean {
+            const conveyor = this._pchConveyorGameplayController;
+            return conveyor?.isActive?.() === true && conveyor.isFinishPending?.() === true;
+        },
+
         refreshCompletionProgressLabel() {
             if (this.levelLabel) {
                 const activeLevel = this.getActiveLogicalLevelId();
@@ -316,6 +321,11 @@ export function installSettlementHudModule(target: any): void {
         },
 
         syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean {
+            const isStaticRevivePrompt = panel?.name === 'RevivePanel'
+                || panel?.name === 'BufferFullRevivePanel'
+                || panel?.name === 'ReviveSettlementOverlay'
+                || panel?.name === 'BufferFullSettlementOverlay';
+            if (isStaticRevivePrompt) return true;
             const box = panel?.getChildByName('Box');
             if (!box) return false;
             for (const child of box.children) {
@@ -911,6 +921,10 @@ export function installSettlementHudModule(target: any): void {
             if (this.isGameEnd) return;
             if (this.isBoardCompletionCommittedForSettlement()) {
                 this.playPatternCompleteThenWin();
+                return;
+            }
+            if (this.isBoardCompletionPendingForSettlement()) {
+                this.unschedule(this.tickTimer);
                 return;
             }
             this.isGameEnd = true;
