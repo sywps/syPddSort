@@ -10,7 +10,7 @@ const SAVE_DEBOUNCE_MS = 600;
 const SAVE_RETRY_MS = 3000;
 const SAVE_RETRY_LIMIT = 3;
 const USER_STATE_SCHEMA_VERSION = 2;
-const SKIN_STATE_SCHEMA_VERSION = 1;
+const SKIN_STATE_SCHEMA_VERSION = 2;
 
 export type CloudUserProfile = {
     version: number;
@@ -42,6 +42,9 @@ export type CloudGameState = {
     equippedBackgroundSkinId: number;
     equippedBackgroundSkinUpdatedAt: number;
     backgroundSkinResetVersion: number;
+    ownedBeanSkinIds: number[];
+    equippedBeanSkinId: number;
+    equippedBeanSkinUpdatedAt: number;
     stateUpdatedAt: number;
 };
 
@@ -149,6 +152,22 @@ function getEquippedBackgroundSkinPair(gameState?: Partial<CloudGameState> | nul
     return id > 0 && updatedAt > 0 ? { id, updatedAt } : null;
 }
 
+function getDiagnosticEquippedBeanSkinId(gameState?: Partial<CloudGameState> | null): number | null {
+    const id = Math.max(0, Math.floor(Number(gameState?.equippedBeanSkinId) || 0));
+    return id > 0 ? id : null;
+}
+
+function getDiagnosticEquippedBeanSkinUpdatedAt(gameState?: Partial<CloudGameState> | null): number | null {
+    const value = Math.max(0, Math.floor(Number(gameState?.equippedBeanSkinUpdatedAt) || 0));
+    return value > 0 ? value : null;
+}
+
+function getEquippedBeanSkinPair(gameState?: Partial<CloudGameState> | null): { id: number; updatedAt: number } | null {
+    const id = Math.max(0, Math.floor(Number(gameState?.equippedBeanSkinId) || 0));
+    const updatedAt = Math.max(0, Math.floor(Number(gameState?.equippedBeanSkinUpdatedAt) || 0));
+    return id > 0 && updatedAt > 0 ? { id, updatedAt } : null;
+}
+
 function normalizePositiveInt(value: unknown): number {
     const num = Math.floor(Number(value) || 0);
     return Number.isFinite(num) && num > 0 ? num : 0;
@@ -224,6 +243,8 @@ export class UserStateSyncMgr {
                 savedLevel: result?.gameState?.savedLevel ?? null,
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(result?.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(result?.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(result?.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(result?.gameState),
             });
             if ((result?.skinStateSchemaVersion || 0) < SKIN_STATE_SCHEMA_VERSION && !getEquippedBackgroundSkinPair(result?.gameState)) {
                 emitCloudSyncDiagnostic('load:skin-schema-unknown', {
@@ -264,6 +285,8 @@ export class UserStateSyncMgr {
                 savedLevel: patch.gameState?.savedLevel ?? null,
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             return;
@@ -274,6 +297,8 @@ export class UserStateSyncMgr {
             savedLevel: patch.gameState?.savedLevel ?? null,
             equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
             equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
+            equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
+            equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
             hasProfile: !!patch.profile,
             hasGameState: !!patch.gameState,
         });
@@ -310,6 +335,8 @@ export class UserStateSyncMgr {
             savedLevel: patch.gameState?.savedLevel ?? null,
             equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
             equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
+            equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
+            equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
             hasProfile: !!patch.profile,
             hasGameState: !!patch.gameState,
         });
@@ -327,6 +354,8 @@ export class UserStateSyncMgr {
                 savedLevel: patch.gameState?.savedLevel ?? null,
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             const result = await PlatformCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
@@ -345,6 +374,8 @@ export class UserStateSyncMgr {
                 savedLevel: result?.gameState?.savedLevel ?? patch.gameState?.savedLevel ?? null,
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(result?.gameState || patch.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(result?.gameState || patch.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(result?.gameState || patch.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(result?.gameState || patch.gameState),
                 hasProfile: !!result?.profile,
                 hasGameState: !!result?.gameState,
             });
@@ -360,6 +391,8 @@ export class UserStateSyncMgr {
                 savedLevel: patch.gameState?.savedLevel ?? null,
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
                 message: String((error as any)?.message || error || 'unknown error'),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
@@ -402,6 +435,7 @@ export class UserStateSyncMgr {
         this.collectArrayAcknowledgementProblem(problems, 'themeUnlockedIds', patchGameState?.themeUnlockedIds, returnedGameState?.themeUnlockedIds);
         this.collectArrayAcknowledgementProblem(problems, 'themeCompletedIds', patchGameState?.themeCompletedIds, returnedGameState?.themeCompletedIds);
         this.collectArrayAcknowledgementProblem(problems, 'ownedBackgroundSkinIds', patchGameState?.ownedBackgroundSkinIds, returnedGameState?.ownedBackgroundSkinIds);
+        this.collectArrayAcknowledgementProblem(problems, 'ownedBeanSkinIds', patchGameState?.ownedBeanSkinIds, returnedGameState?.ownedBeanSkinIds);
 
         const expected = getEquippedBackgroundSkinPair(patch.gameState);
         const returned = getEquippedBackgroundSkinPair(result?.gameState);
@@ -415,6 +449,21 @@ export class UserStateSyncMgr {
                     expectedUpdatedAt: expected.updatedAt,
                     returnedId: returned?.id ?? null,
                     returnedUpdatedAt: returned?.updatedAt ?? null,
+                };
+            }
+        }
+        const expectedBean = getEquippedBeanSkinPair(patch.gameState);
+        const returnedBean = getEquippedBeanSkinPair(result?.gameState);
+        if (expectedBean) {
+            const acknowledged = !!returnedBean
+                && returnedBean.id === expectedBean.id
+                && returnedBean.updatedAt >= expectedBean.updatedAt;
+            if (!acknowledged) {
+                problems.equippedBeanSkin = {
+                    expectedId: expectedBean.id,
+                    expectedUpdatedAt: expectedBean.updatedAt,
+                    returnedId: returnedBean?.id ?? null,
+                    returnedUpdatedAt: returnedBean?.updatedAt ?? null,
                 };
             }
         }
@@ -434,7 +483,7 @@ export class UserStateSyncMgr {
 
     private collectArrayAcknowledgementProblem(
         problems: Record<string, unknown>,
-        key: 'themeUnlockedIds' | 'themeCompletedIds' | 'ownedBackgroundSkinIds',
+        key: 'themeUnlockedIds' | 'themeCompletedIds' | 'ownedBackgroundSkinIds' | 'ownedBeanSkinIds',
         expectedValue: unknown,
         returnedValue: unknown,
     ): void {
@@ -458,6 +507,8 @@ export class UserStateSyncMgr {
                 reason: 'retry_limit',
                 equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(this.pendingPatch.gameState),
                 equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(this.pendingPatch.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(this.pendingPatch.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(this.pendingPatch.gameState),
             });
             return;
         }
@@ -466,6 +517,8 @@ export class UserStateSyncMgr {
             failures: this.consecutiveSaveFailures,
             equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(this.pendingPatch.gameState),
             equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(this.pendingPatch.gameState),
+            equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(this.pendingPatch.gameState),
+            equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(this.pendingPatch.gameState),
         });
         this.saveTimer = setTimeout(() => {
             this.saveTimer = null;

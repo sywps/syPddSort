@@ -421,7 +421,9 @@ export class GameplayViewController {
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
-        if (Number(runtime.levelData?.levelId) === 1) {
+        const hideMainlineFirstLevelTimer = runtime._activeGameplayEntryMode === 'main'
+            && runtime.getActiveLogicalLevelId?.() === 1;
+        if (hideMainlineFirstLevelTimer) {
             timerWrap.active = false;
             runtime.timerLabel = null;
             return;
@@ -442,7 +444,9 @@ export class GameplayViewController {
         const timerNode = runtime.requireUiChild(timerWrap, 'Timer', 'TimerWrap/Timer');
         const timerLabel = timerNode.getComponent(Label);
         if (!timerLabel) throw new Error('[GameplayScene] Game.scene is missing Label component on TimerWrap/Timer');
-        if (Number(runtime.levelData?.levelId) === 1) {
+        const hideMainlineFirstLevelTimer = runtime._activeGameplayEntryMode === 'main'
+            && runtime.getActiveLogicalLevelId?.() === 1;
+        if (hideMainlineFirstLevelTimer) {
             timerWrap.active = false;
             runtime.timerLabel = null;
             return;

@@ -3,7 +3,6 @@ import {
     BlockInputEvents,
     Component,
     Label,
-    ProgressBar,
     ResolutionPolicy,
     Size,
     Sprite,
@@ -16,6 +15,10 @@ import {
 import { AppRoot } from './AppRoot';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import { markStartupTrace } from './StartupTrace';
+import {
+    createSlicedLoadingProgressAdapter,
+    type SlicedLoadingProgressTarget,
+} from './SlicedLoadingProgressAdapter';
 
 const { ccclass, property } = _decorator;
 const VIEWPORT_WIDTH = 720;
@@ -32,7 +35,7 @@ export class BootSceneCtrl extends Component {
     @property(SpriteFrame)
     protected loadingCover: SpriteFrame | null = null;
 
-    private bootLoadingProgressBar: ProgressBar | null = null;
+    private bootLoadingProgressTarget: SlicedLoadingProgressTarget | null = null;
     private bootLoadingLabel: Label | null = null;
     private bootLoadingProgress = 0;
     private bootLoadingPercent = 0;
@@ -113,17 +116,21 @@ export class BootSceneCtrl extends Component {
             coverSprite.spriteFrame = this.loadingCover;
         }
 
-        const progressArea = loading
-            .getChildByName('LoadingProgressGroup')
-            ?.getChildByName('LoadingBarTrack')
-            ?.getChildByName('ProgressBarArea') || null;
-        const progressBar = progressArea?.getComponent(ProgressBar) || null;
-
-        const label = loading
-            .getChildByName('LoadingProgressGroup')
-            ?.getChildByName('Label')
-            ?.getComponent(Label) || null;
-        this.bootLoadingProgressBar = progressBar;
+        const progressGroup = this.requireChild(
+            loading,
+            'LoadingProgressGroup',
+            'StartupLoadingUI/LoadingProgressGroup',
+        );
+        const progressTrack = this.requireChild(
+            progressGroup,
+            'LoadingBarTrack',
+            'LoadingProgressGroup/LoadingBarTrack',
+        );
+        const label = this.requireChild(progressGroup, 'Label', 'LoadingProgressGroup/Label').getComponent(Label) || null;
+        this.bootLoadingProgressTarget = createSlicedLoadingProgressAdapter(
+            progressTrack,
+            'StartupLoadingUI/LoadingProgressGroup/LoadingBarTrack',
+        );
         this.bootLoadingLabel = label;
         if (label) label.enableWrapText = false;
         this.startBootLoadingProgress();
@@ -147,18 +154,18 @@ export class BootSceneCtrl extends Component {
     }
 
     private setBootLoadingProgress(progress: number, duration: number): void {
-        const progressBar = this.bootLoadingProgressBar;
+        const progressTarget = this.bootLoadingProgressTarget;
         const prev = this.bootLoadingProgress;
         const next = Math.max(prev, Math.max(0, Math.min(1, progress)));
         this.bootLoadingProgress = next;
         this.animateBootLoadingPercent(next, duration);
-        if (!progressBar) return;
-        Tween.stopAllByTarget(progressBar);
+        if (!progressTarget) return;
+        Tween.stopAllByTarget(progressTarget);
         if (duration <= 0) {
-            progressBar.progress = next;
+            progressTarget.progress = next;
             return;
         }
-        tween(progressBar).to(duration, { progress: next }, { easing: 'sineOut' }).start();
+        tween(progressTarget).to(duration, { progress: next }, { easing: 'sineOut' }).start();
     }
 
     private animateBootLoadingPercent(progress: number, duration: number): void {
@@ -202,8 +209,8 @@ export class BootSceneCtrl extends Component {
             this.bootLoadingPercentTween.stop();
             this.bootLoadingPercentTween = null;
         }
-        if (this.bootLoadingProgressBar) {
-            Tween.stopAllByTarget(this.bootLoadingProgressBar);
+        if (this.bootLoadingProgressTarget) {
+            Tween.stopAllByTarget(this.bootLoadingProgressTarget);
         }
     }
 

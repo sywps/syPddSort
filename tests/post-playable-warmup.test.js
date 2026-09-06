@@ -126,7 +126,8 @@ assert.ok(!warmup.includes('REWARDED_AD_WARMUP_DELAY_SECONDS'), 'the removed rew
 assert.ok(!warmup.includes("name: 'freeze-spine'"), 'freeze Spine must not run as a fixed post-playable warmup task');
 assert.ok(!warmup.includes("name: 'pindd-spine'"), 'pindd Spine must not run as a fixed post-playable warmup task');
 assert.ok(freezeFx.includes('ensureFreezeSpineFxSkeletonData'), 'freeze Spine must remain available for first-use loading');
-assert.ok(colorFx.includes('ensurePinddSpineFxSkeletonData'), 'pindd Spine must remain available for first-use loading');
+assert.ok(colorFx.includes('prewarmPinddSpineFx(onDone?: () => void): void'), 'pindd Spine must expose a one-node preload method');
+assert.ok(skin.includes('this.prewarmPinddSpineFx(startGameplay);'), 'pindd Spine must finish prewarming before Game initialization');
 assert.ok(!settingsPanel.includes('ensureSpriteFramesReady'), 'settings preload must not batch-load all settings SpriteFrames during Game rendering');
 assert.ok(!settingsPanel.includes('runtime._loadSpriteFrameByName(name'), 'settings preload must rely on prefab ownership instead of SpriteFrame burst loads');
 assert.ok(settingsPanel.includes('loadPrefab();'), 'settings preload must still load the prefab itself');

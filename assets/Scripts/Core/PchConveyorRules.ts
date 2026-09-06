@@ -11,6 +11,13 @@ const PCH_SELECTION_DIRS = [
     [-1, -1], [-1, 1], [1, -1], [1, 1],
 ] as const;
 
+function validateInitialCarrierCount(value: unknown, label: string): number {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new Error(`[PchCarrierCount] ${label}.initialCarrierCount must be a positive integer: ${value}`);
+    }
+    return value;
+}
+
 export type PchCarrierMove = {
     moved: number;
     boardCells: Array<{ row: number; col: number }>;
@@ -77,10 +84,14 @@ export class PchConveyorRules {
         public readonly board: BoardModel,
         conveyorCapacity: unknown,
         singleSelectionLimit?: unknown,
+        initialCarrierCountOverride?: unknown,
     ) {
         const capacity = validateConveyorCapacity(conveyorCapacity, 'PchConveyorRules');
         this.moveLimit = validatePchSingleSelectionLimit(singleSelectionLimit, 'PchConveyorRules');
-        this.initialCarrierCount = capacity / this.stackDepth;
+        const defaultInitialCarrierCount = Math.ceil(capacity / this.stackDepth);
+        this.initialCarrierCount = initialCarrierCountOverride == null
+            ? defaultInitialCarrierCount
+            : validateInitialCarrierCount(initialCarrierCountOverride, 'PchConveyorRules');
         this.carriers = Array.from({ length: this.initialCarrierCount }, () => []);
         this.totalBufferCapacity = capacity;
     }

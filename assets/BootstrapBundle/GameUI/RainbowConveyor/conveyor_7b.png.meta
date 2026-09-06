@@ -2,7 +2,7 @@
   "ver": "1.0.27",
   "importer": "image",
   "imported": true,
-  "uuid": "e733003d-06a6-48fb-a5c0-3b27ba65fcbc",
+  "uuid": "c3a18cfe-8e22-4d99-8029-de1cbc73c9db",
   "files": [
     ".json",
     ".png"
@@ -10,14 +10,14 @@
   "subMetas": {
     "6c48a": {
       "importer": "texture",
-      "uuid": "e733003d-06a6-48fb-a5c0-3b27ba65fcbc@6c48a",
+      "uuid": "c3a18cfe-8e22-4d99-8029-de1cbc73c9db@6c48a",
       "displayName": "conveyor_7b",
       "id": "6c48a",
       "name": "texture",
       "userData": {
         "wrapModeS": "clamp-to-edge",
         "wrapModeT": "clamp-to-edge",
-        "imageUuidOrDatabaseUri": "e733003d-06a6-48fb-a5c0-3b27ba65fcbc",
+        "imageUuidOrDatabaseUri": "c3a18cfe-8e22-4d99-8029-de1cbc73c9db",
         "isUuid": true,
         "visible": false,
         "minfilter": "linear",
@@ -34,7 +34,7 @@
     },
     "f9941": {
       "importer": "sprite-frame",
-      "uuid": "e733003d-06a6-48fb-a5c0-3b27ba65fcbc@f9941",
+      "uuid": "c3a18cfe-8e22-4d99-8029-de1cbc73c9db@f9941",
       "displayName": "conveyor_7b",
       "id": "f9941",
       "name": "spriteFrame",
@@ -113,7 +113,7 @@
           ]
         },
         "isUuid": true,
-        "imageUuidOrDatabaseUri": "e733003d-06a6-48fb-a5c0-3b27ba65fcbc@6c48a",
+        "imageUuidOrDatabaseUri": "c3a18cfe-8e22-4d99-8029-de1cbc73c9db@6c48a",
         "atlasUuid": "",
         "trimType": "auto"
       },
@@ -129,6 +129,6 @@
     "type": "sprite-frame",
     "fixAlphaTransparencyArtifacts": false,
     "hasAlpha": true,
-    "redirect": "e733003d-06a6-48fb-a5c0-3b27ba65fcbc@6c48a"
+    "redirect": "c3a18cfe-8e22-4d99-8029-de1cbc73c9db@6c48a"
   }
 }

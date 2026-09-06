@@ -346,6 +346,35 @@ function createSingleColorSpriteFrame(color: Color, width: number, height: numbe
     return spFrame;
 }
 
+function createHorizontalAlphaFadeSpriteFrame(width: number, height: number, edgeFadeRatio: number): SpriteFrame {
+    const safeWidth = Math.max(2, Math.ceil(width));
+    const safeHeight = Math.max(1, Math.ceil(height));
+    const safeEdgeFadeRatio = Math.max(0.01, Math.min(0.5, Number(edgeFadeRatio) || 0.32));
+    const canvas = createSolidColorCanvas(safeWidth, safeHeight);
+    const ctx = canvas.getContext?.('2d');
+    if (!ctx) {
+        throw new Error('Canvas 2D context unavailable for horizontal alpha fade generation');
+    }
+    ctx.clearRect?.(0, 0, safeWidth, safeHeight);
+    for (let x = 0; x < safeWidth; x++) {
+        const position = x / (safeWidth - 1);
+        const edgeDistance = Math.min(position, 1 - position);
+        const edgeProgress = Math.max(0, Math.min(1, edgeDistance / safeEdgeFadeRatio));
+        const alpha = edgeProgress * edgeProgress * (3 - 2 * edgeProgress);
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillRect(x, 0, 1, safeHeight);
+    }
+
+    const image = new ImageAsset(canvas);
+    const texture = new Texture2D();
+    texture.image = image;
+    const spFrame = new SpriteFrame();
+    spFrame.texture = texture;
+    spFrame.rect = new Rect(0, 0, safeWidth, safeHeight);
+    (spFrame as any).packingMode = 'none';
+    return spFrame;
+}
+
 type GestureMode = 'idle' | 'tapCandidate' | 'panning' | 'pinching';
 type BoardSafeViewportRect = { left: number; right: number; bottom: number; top: number };
 type BoardGridCell = { row: number; col: number };
@@ -603,7 +632,7 @@ export {
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, TUTORIAL_ZOOM_SCALE_DELTA, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
-    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
+    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, createHorizontalAlphaFadeSpriteFrame, BoardViewportController
 };
 
 export type {

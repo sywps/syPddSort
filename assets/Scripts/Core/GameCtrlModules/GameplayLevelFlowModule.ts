@@ -158,10 +158,13 @@ export function installGameplayLevelFlowModule(target: any): void {
             };
             pushGrid(data?.correctColorArr);
             pushGrid(data?.initRandomColorArr);
-            return [...colors].sort((a, b) => a - b);
+            return Array.from(colors).sort((a, b) => a - b);
         },
 
         _hasBootstrapAtlasFramesForLevelData(data: LevelData | null): boolean {
+            if (typeof this.hasEquippedBeanSkinFramesForLevelData === 'function') {
+                return this.hasEquippedBeanSkinFramesForLevelData(data);
+            }
             if (!this._bootstrapBeanAtlasReady) return false;
             const colorIds = this.getLevelColorIds(data);
             if (colorIds.length === 0) {
@@ -169,7 +172,7 @@ export function installGameplayLevelFlowModule(target: any): void {
             }
             for (const colorId of colorIds) {
                 const key = this.getPinddColorKey(colorId);
-                if (!key) continue;
+                if (!key) return false;
                 for (const variant of PINDD_BEAN_VARIANTS) {
                     if (!this._bootstrapAtlasFrameCache.has(`${key}_${variant}`)) {
                         return false;

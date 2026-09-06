@@ -410,6 +410,7 @@ const levelOneGuideStepSource = extractMethod('private showLevelOneBoardGuideSte
 const sharedTargetGuideSource = extractMethod('private showOpeningTargetGuide(');
 const sharedTargetGuideAtSource = extractMethod('private showOpeningTargetGuideAt(');
 const focusMaskSource = extractMethod('private createOpeningGuideFocusMask(');
+const openingGuideTextStyleSource = extractMethod('private applyOpeningGuidePromptLabelStyle(');
 const tutorialStartSource = extractMethod('private reportOpeningGuideTutorialStart(): void');
 const tutorialFinishSource = extractMethod('private reportOpeningGuideTutorialFinish(): void');
 const sySdkSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/SySDKMgr.ts'), 'utf8');
@@ -447,11 +448,14 @@ assert.ok(
         && sharedTargetGuideAtSource.includes("throw new Error('[pch-core] level 1 guide bubble has no space below target');")
         && sharedTargetGuideAtSource.includes('bubbleBackground.setScale(1, (isLevelOneBoardGuide || isLevelTwoSpeedGuide) ? -bubbleScaleY : bubbleScaleY, 1);')
         && sharedTargetGuideAtSource.includes("copy.split('\\n', 2)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, title, 42, new Color('#3C285D'), 0, -5, promptWidth - 48)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, detail || title, 32, new Color('#3C285D'), 0, -55, promptWidth - 48)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, copy, 32, new Color('#3C285D'), 0, -16, promptWidth - 48)")
-        && sharedTargetGuideAtSource.includes("title, 32, new Color('#3C285D'), 0, 48, promptWidth - 48")
-        && sharedTargetGuideAtSource.includes("detail || title, 28, new Color('#3C285D'), 0, 4, promptWidth - 56")
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, title, 42, Color.WHITE, 0, -5, promptWidth - 48)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -55, promptWidth - 48)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, copy, 32, Color.WHITE, 0, -16, promptWidth - 48)')
+        && sharedTargetGuideAtSource.includes('title, 32, Color.WHITE, 0, 48, promptWidth - 48')
+        && sharedTargetGuideAtSource.includes('detail || title, 28, Color.WHITE, 0, 4, promptWidth - 56')
+        && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(titleLabel, true);')
+        && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(detailLabel, false);')
+        && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(promptLabel, true);')
         && sharedTargetGuideAtSource.includes('const handRestOffsetY = isLevelTwoSpeedGuide ? -52 : -76;')
         && sharedTargetGuideAtSource.includes('const handPressOffsetY = isLevelTwoSpeedGuide ? -36 : -60;')
         && sharedTargetGuideAtSource.includes("new Color('#7162A2')")
@@ -463,6 +467,19 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('? targetLocal.x')
         && sharedTargetGuideAtSource.includes(': Math.max(-promptXLimit, Math.min(promptXLimit, targetLocal.x));'),
     'level 1 must use its own target-relative lower flipped bubble while the other starter guides retain their existing bubble behavior',
+);
+assert.ok(
+    openingGuideTextStyleSource.includes('label.color = Color.WHITE;')
+        && openingGuideTextStyleSource.includes('label.cacheMode = Label.CacheMode.NONE;')
+        && openingGuideTextStyleSource.includes('label.enableOutline = true;')
+        && openingGuideTextStyleSource.includes('label.outlineColor = new Color(246, 184, 26, 255);')
+        && openingGuideTextStyleSource.includes('label.outlineWidth = emphasized ? 3 : 2;')
+        && openingGuideTextStyleSource.includes('label.enableShadow = true;')
+        && openingGuideTextStyleSource.includes('label.shadowColor = new Color(106, 59, 18, 210);')
+        && openingGuideTextStyleSource.includes('label.shadowOffset = emphasized ? new Vec2(2, -3) : new Vec2(1, -2);')
+        && openingGuideTextStyleSource.includes('label.shadowBlur = 0;')
+        && openingGuideTextStyleSource.includes('.isBold = true;'),
+    'the first-three-level guide labels must use white fill, gold outline, and crisp warm-brown dimensional shadows',
 );
 assert.ok(
     !sharedTargetGuideAtSource.includes("const overlayRoot = this.runtime.requireCanvasUiRoot?.('OverlayRoot') || null;")

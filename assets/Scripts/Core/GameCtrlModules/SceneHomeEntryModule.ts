@@ -1057,7 +1057,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 }
                 requiredAssetRequestsDispatched = true;
                 tryInit();
-                // Bootstrap levels must not block first playable UI on gameAssets.
+                // Bootstrap levels must not block first playable UI on optional gameAssets texture prewarming.
             }, prefix);
         },
 

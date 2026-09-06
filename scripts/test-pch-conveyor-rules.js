@@ -30,9 +30,6 @@ load(loadedModule, loadedModule.exports, (request) => {
                 if (!Number.isInteger(value) || value <= 0) {
                     throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
                 }
-                if (value % 3 !== 0) {
-                    throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a multiple of 3: ${value}`);
-                }
                 return value;
             },
             validatePchSingleSelectionLimit(value, label) {
@@ -104,11 +101,9 @@ assert.throws(
     /positive integer/,
     'missing per-level conveyor capacity must fail fast',
 );
-assert.throws(
-    () => new RequiredCapacityPchConveyorRules(capacityBoard, 25),
-    /multiple of 3/,
-    'capacity must align to the three-bean carrier depth',
-);
+const unevenCapacityRules = new RequiredCapacityPchConveyorRules(capacityBoard, 25);
+assert.equal(unevenCapacityRules.carrierCount, 9, 'uneven capacity must round up to whole carriers');
+assert.equal(unevenCapacityRules.bufferCapacity, 25, 'rules must preserve uneven positive capacities');
 const compactCapacityRules = new RequiredCapacityPchConveyorRules(capacityBoard, 24);
 assert.equal(compactCapacityRules.carrierCount, 8, 'per-level capacity must determine carrier count');
 assert.equal(compactCapacityRules.bufferCapacity, 24, 'rules must preserve the requested bean capacity');

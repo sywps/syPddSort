@@ -55,6 +55,7 @@ const PCH_SKILL_STAGGER_SECONDS = 0.028;
 const PCH_SKILL_TRANSFER_SECONDS = 0.2;
 const PCH_SETTLED_PIXEL_BLOCK_EXPERIMENT = true;
 const PCH_EXPAND_CAPACITY = 12;
+const PCH_SCENE_CARRIER_COUNT = 20;
 const OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS = 1500;
 const OPENING_GUIDE_DIM_MASK_OPACITY = 168;
 const OPENING_GUIDE_TARGET_FOCUS_PADDING = 12;
@@ -65,11 +66,8 @@ const PCH_RED_WARNING_PULSE_SECONDS = 0.5;
 const PCH_RED_WARNING_MAX_OPACITY = 102;
 const PCH_CAPACITY_TEXT_COLOR = new Color(43, 43, 43, 255);
 const PCH_CAPACITY_OUTLINE_COLOR = new Color(255, 221, 35, 255);
-const PCH_CAPACITY_TRACK_BORDER_COLOR = new Color(45, 45, 45, 255);
-const PCH_CAPACITY_TRACK_FILL_COLOR = new Color(68, 68, 68, 255);
-const PCH_CAPACITY_PROGRESS_FILL_COLOR = new Color(119, 239, 67, 255);
-const PCH_CAPACITY_TRACK_BORDER_INSET = 1;
 const PCH_CAPACITY_PROGRESS_INSET = 3;
+const PCH_CAPACITY_SLICED_RENDER_SCALE = 0.25;
 const PCH_ENTRANCE_SNAP_PROGRESS = 0.032;
 const PCH_ENTRY_PICKUP_LEAD_STEP_RATIO = 0.2;
 const PCH_ENTRY_DOOR_OPEN_WIDTH = 0;
@@ -419,6 +417,7 @@ export class PchConveyorGameplayController {
             this.runtime.boardModel,
             this.runtime.levelData?.conveyorCapacity,
             this.runtime.levelData?.singleSelectionLimit,
+            PCH_SCENE_CARRIER_COUNT,
         );
         this.resetAnalyticsStats();
         this.beltTravel = 0;
@@ -1763,40 +1762,42 @@ export class PchConveyorGameplayController {
 
     private renderNormalCapacityTrack(capacityTrack: Node | null | undefined, ratio: number): void {
         if (!capacityTrack?.isValid) return;
-        const graphics = capacityTrack.getComponent(Graphics);
         const transform = capacityTrack.getComponent(UITransform);
-        if (!graphics || !transform) {
-            throw new Error('[pch-core] NormalLayout PchCapacityTrack must provide Graphics and UITransform');
+        const trackSpriteNode = capacityTrack.getChildByName('TrackSprite');
+        const fillSpriteNode = capacityTrack.getChildByName('FillSprite');
+        const trackTransform = trackSpriteNode?.getComponent(UITransform);
+        const fillTransform = fillSpriteNode?.getComponent(UITransform);
+        const trackSprite = trackSpriteNode?.getComponent(Sprite);
+        const fillSprite = fillSpriteNode?.getComponent(Sprite);
+        if (!transform || !trackSpriteNode || !fillSpriteNode || !trackTransform || !fillTransform || !trackSprite || !fillSprite) {
+            throw new Error('[pch-core] NormalLayout PchCapacityTrack must provide TrackSprite, FillSprite, Sprite, and UITransform components');
         }
         const { width, height } = transform.contentSize;
-        if (width <= 0 || height <= 0) return;
+        if (width <= 0 || height <= 0) {
+            fillSpriteNode.active = false;
+            return;
+        }
 
         const safeRatio = Math.min(1, Math.max(0, Number(ratio) || 0));
-        const outerRadius = height / 2;
-        const innerWidth = Math.max(0, width - PCH_CAPACITY_TRACK_BORDER_INSET * 2);
-        const innerHeight = Math.max(0, height - PCH_CAPACITY_TRACK_BORDER_INSET * 2);
         const fillWidth = Math.max(0, width - PCH_CAPACITY_PROGRESS_INSET * 2) * safeRatio;
         const fillHeight = Math.max(0, height - PCH_CAPACITY_PROGRESS_INSET * 2);
+        const highResolutionScale = PCH_CAPACITY_SLICED_RENDER_SCALE;
+        trackTransform.setContentSize(width / highResolutionScale, height / highResolutionScale);
+        trackSpriteNode.setPosition(0, 0, 0);
+        trackSpriteNode.setScale(highResolutionScale, highResolutionScale, 1);
 
-        graphics.clear();
-        graphics.fillColor = PCH_CAPACITY_TRACK_BORDER_COLOR;
-        graphics.roundRect(-width / 2, -height / 2, width, height, outerRadius);
-        graphics.fill();
-
-        graphics.fillColor = PCH_CAPACITY_TRACK_FILL_COLOR;
-        graphics.roundRect(-innerWidth / 2, -innerHeight / 2, innerWidth, innerHeight, innerHeight / 2);
-        graphics.fill();
-
-        if (fillWidth <= 0 || fillHeight <= 0) return;
-        graphics.fillColor = PCH_CAPACITY_PROGRESS_FILL_COLOR;
-        graphics.roundRect(
-            -width / 2 + PCH_CAPACITY_PROGRESS_INSET,
-            -fillHeight / 2,
-            fillWidth,
-            fillHeight,
-            Math.min(fillHeight / 2, fillWidth / 2),
+        if (fillWidth <= 0 || fillHeight <= 0) {
+            fillSpriteNode.active = false;
+            return;
+        }
+        fillSpriteNode.active = true;
+        fillTransform.setContentSize(fillWidth / highResolutionScale, fillHeight / highResolutionScale);
+        fillSpriteNode.setPosition(
+            -width / 2 + PCH_CAPACITY_PROGRESS_INSET + fillWidth / 2,
+            0,
+            0,
         );
-        graphics.fill();
+        fillSpriteNode.setScale(highResolutionScale, highResolutionScale, 1);
     }
 
     private syncCapacityWarning(shouldWarn: boolean): void {
@@ -2372,8 +2373,22 @@ export class PchConveyorGameplayController {
                 'PchCapacityTrack',
                 `${basePath}/PchCapacityBadge/PchCapacityTrack`,
             );
-            if (!capacityTrack.getComponent(UITransform) || !capacityTrack.getComponent(Graphics)) {
-                throw new Error(`[pch-core] Game.scene must provide Graphics and UITransform on ${basePath}/PchCapacityBadge/PchCapacityTrack`);
+            const trackSpriteNode = this.requireConveyorSprite(
+                capacityTrack,
+                'TrackSprite',
+                `${basePath}/PchCapacityBadge/PchCapacityTrack/TrackSprite`,
+            );
+            const fillSpriteNode = this.requireConveyorSprite(
+                capacityTrack,
+                'FillSprite',
+                `${basePath}/PchCapacityBadge/PchCapacityTrack/FillSprite`,
+            );
+            if (!capacityTrack.getComponent(UITransform)
+                || !trackSpriteNode.getComponent(UITransform)
+                || !fillSpriteNode.getComponent(UITransform)
+                || trackSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.SLICED
+                || fillSpriteNode.getComponent(Sprite)?.type !== Sprite.Type.SLICED) {
+                throw new Error(`[pch-core] Game.scene must provide Sliced TrackSprite and FillSprite with UITransform on ${basePath}/PchCapacityBadge/PchCapacityTrack`);
             }
             this.renderNormalCapacityTrack(capacityTrack, 0);
         } else {
@@ -2778,19 +2793,19 @@ export class PchConveyorGameplayController {
             bubbleBackground.setScale(1, (isLevelOneBoardGuide || isLevelTwoSpeedGuide) ? -bubbleScaleY : bubbleScaleY, 1);
             if (isLevelOneBoardGuide) {
                 const [title, detail] = copy.split('\n', 2);
-                const titleLabel = this.makeLabel(prompt, title, 42, new Color('#3C285D'), 0, -5, promptWidth - 48);
-                const detailLabel = this.makeLabel(prompt, detail || title, 32, new Color('#3C285D'), 0, -55, promptWidth - 48);
-                (titleLabel as Label & { isBold?: boolean }).isBold = true;
-                (detailLabel as Label & { isBold?: boolean }).isBold = true;
+                const titleLabel = this.makeLabel(prompt, title, 42, Color.WHITE, 0, -5, promptWidth - 48);
+                const detailLabel = this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -55, promptWidth - 48);
+                this.applyOpeningGuidePromptLabelStyle(titleLabel, true);
+                this.applyOpeningGuidePromptLabelStyle(detailLabel, false);
             } else if (isLevelTwoSpeedGuide) {
-                const promptLabel = this.makeLabel(prompt, copy, 32, new Color('#3C285D'), 0, -16, promptWidth - 48);
-                (promptLabel as Label & { isBold?: boolean }).isBold = true;
+                const promptLabel = this.makeLabel(prompt, copy, 32, Color.WHITE, 0, -16, promptWidth - 48);
+                this.applyOpeningGuidePromptLabelStyle(promptLabel, true);
             } else if (isLevelThreeCapacityGuide) {
                 const [title, detail] = copy.split('\n', 2);
-                const titleLabel = this.makeLabel(prompt, title, 32, new Color('#3C285D'), 0, 48, promptWidth - 48);
-                const detailLabel = this.makeLabel(prompt, detail || title, 28, new Color('#3C285D'), 0, 4, promptWidth - 56);
-                (titleLabel as Label & { isBold?: boolean }).isBold = true;
-                (detailLabel as Label & { isBold?: boolean }).isBold = true;
+                const titleLabel = this.makeLabel(prompt, title, 32, Color.WHITE, 0, 48, promptWidth - 48);
+                const detailLabel = this.makeLabel(prompt, detail || title, 28, Color.WHITE, 0, 4, promptWidth - 56);
+                this.applyOpeningGuidePromptLabelStyle(titleLabel, true);
+                this.applyOpeningGuidePromptLabelStyle(detailLabel, false);
             } else {
                 const promptLabel = this.makeLabel(prompt, copy, 28, new Color('#7162A2'), 0, 22, promptWidth - 48);
                 (promptLabel as Label & { isBold?: boolean }).isBold = true;
@@ -3081,6 +3096,19 @@ export class PchConveyorGameplayController {
         const transform = node.addComponent(UITransform);
         transform.setContentSize(width, height);
         return node;
+    }
+
+    private applyOpeningGuidePromptLabelStyle(label: Label, emphasized: boolean): void {
+        label.color = Color.WHITE;
+        label.cacheMode = Label.CacheMode.NONE;
+        label.enableOutline = true;
+        label.outlineColor = new Color(242, 140, 52, 255);
+        label.outlineWidth = emphasized ? 3 : 2;
+        label.enableShadow = true;
+        label.shadowColor = new Color(106, 59, 18, 210);
+        label.shadowOffset = emphasized ? new Vec2(2, -3) : new Vec2(1, -2);
+        label.shadowBlur = 0;
+        (label as Label & { isBold?: boolean }).isBold = true;
     }
 
     private makeLabel(parent: Node, text: string, size: number, color: Color, x: number, y: number, width: number): Label {

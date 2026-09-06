@@ -58,6 +58,10 @@ assert.strictEqual(findNode('TextFreeze')._active, false, 'TextFreeze must defau
 assert.strictEqual(findNode('AcquireInsufficientGoldTip')._active, false, 'insufficient gold tip must default inactive');
 assert.strictEqual(findNode('AcquireCancelBtn')._active, false, 'ad result end-wait action must default hidden');
 assert.strictEqual(getComponent('AcquireCancelLbl', 'cc.Label')._string, '结束等待', 'ad result end-wait copy must be prefab-owned');
+assert.strictEqual(getComponent('AcquireAdLbl', 'cc.Label')._string, '免费', 'tool ad action must default to free copy');
+assert.strictEqual(getComponent('AcquireGoldAdLbl', 'cc.Label')._string, '免费', 'gold ad action must default to free copy');
+assert.ok(childNames('AcquireAdBtn').includes('AcquireAdIcon'), 'tool ad action must retain its ad icon');
+assert.ok(childNames('AcquireGoldAdBtn').includes('AcquireGoldAdIcon'), 'gold ad action must retain its ad icon');
 
 const controller = read('assets/Scripts/Core/Panels/CommercePanelController.ts');
 assert.ok(controller.includes("freeze: 'TitleFreeze'"), 'freeze title variant must map to TitleFreeze');
@@ -74,6 +78,8 @@ assert.ok(controller.includes("this.setAcquireInsufficientGoldTipActive(box, tru
 assert.ok(!controller.includes('金币不足'), 'insufficient gold copy must not be hardcoded in controller');
 assert.ok(!controller.includes('广告准备中'), 'the panel must not flash a custom ad preparation state');
 assert.ok(!controller.includes('取消等待'), 'the panel must not expose a pre-ad cancellation action');
+assert.ok(!controller.includes('看广告领取'), 'runtime ad states must not restore the old ad-action copy');
+assert.ok(controller.includes("setAdPanelState('免费', false, false);"), 'runtime ad states must initialize with the free copy');
 assert.ok(controller.includes('onInteractionStarted: hidePanelForNativeAd'), 'the panel must hand off immediately when the ad request starts');
 assert.ok(controller.includes('onAdShown: hidePanelForNativeAd'), 'the panel must remain hidden when the native ad becomes visible');
 assert.ok(controller.includes("setAdPanelState('正在确认结果…', true, true, '结束等待');"), 'a delayed native close must expose an explicit end-wait action');

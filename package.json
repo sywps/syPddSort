@@ -15,6 +15,7 @@
     "levels:manifest": "node scripts/write-level-manifest.js",
     "levels:cdn": "node scripts/write-level-data-cdn.js",
     "skins:cdn": "node scripts/write-skin-data-cdn.js",
+    "beans:atlas": "node scripts/generate-bean-skin-atlases.js",
     "sync:cdn:wechat": "node scripts/sync-wechat-cdn.js",
     "sync:cdn:wechat:dry": "node scripts/sync-wechat-cdn.js --dry-run",
     "sync:cdn:wechat:all": "node scripts/sync-wechat-cdn.js",

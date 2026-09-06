@@ -41,6 +41,19 @@ import { director, Director } from 'cc';
 const FIRST_LEVEL_RELEASE_DIAGNOSTIC_EVENT_LIMIT = 18;
 const FIRST_LEVEL_RELEASE_CAPTURE_EVENT_LIMIT = 3;
 
+function getRenderReadyAtlasImageAsset(texture: Texture2D | null): ImageAsset | null {
+    if (!texture?.isValid) return null;
+    try {
+        const imageAsset = texture.image;
+        if (!imageAsset?.isValid) return null;
+        const width = Number(imageAsset.width || (imageAsset as any)?.image?.width || 0);
+        const height = Number(imageAsset.height || (imageAsset as any)?.image?.height || 0);
+        return width > 0 && height > 0 ? imageAsset : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
         isExpectedModalBlockerPath(path: string): boolean {
@@ -1377,10 +1390,17 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         _hasBeanAtlasReadyForLevelData(data: LevelData): boolean {
+            if (typeof this.hasEquippedBeanSkinFramesForLevelData === 'function') {
+                return this.hasEquippedBeanSkinFramesForLevelData(data);
+            }
             return this._hasBootstrapAtlasFramesForLevelData(data);
         },
 
         _ensureBeanAtlasLoadedForLevelData(data: LevelData, onDone?: () => void) {
+            if (typeof this.ensureEquippedBeanSkinLoadedForLevelData === 'function') {
+                this.ensureEquippedBeanSkinLoadedForLevelData(data, onDone || (() => {}));
+                return;
+            }
             this._ensureBootstrapBeanAtlasLoaded(onDone);
         },
 
@@ -1470,8 +1490,9 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
                 bundle.load(spriteFrameCandidates[index], SpriteFrame, (err, spriteFrame) => {
                     const texture = spriteFrame?.texture as Texture2D | null;
-                    if (!err && texture) {
-                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
+                    const imageAsset = getRenderReadyAtlasImageAsset(texture);
+                    if (!err && spriteFrame?.isValid && texture && imageAsset) {
+                        callback(null, texture, { releaseMode: 'asset', imageAsset });
                         return;
                     }
                     trySpriteFrame(index + 1);
@@ -1484,8 +1505,9 @@ export function installFirstLevelRouteModule(target: any): void {
                     return;
                 }
                 bundle.load(textureCandidates[index], Texture2D, (err, texture) => {
-                    if (!err && texture) {
-                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
+                    const imageAsset = getRenderReadyAtlasImageAsset(texture);
+                    if (!err && texture?.isValid && imageAsset) {
+                        callback(null, texture, { releaseMode: 'asset', imageAsset });
                         return;
                     }
                     tryTexture(index + 1);
@@ -1498,11 +1520,15 @@ export function installFirstLevelRouteModule(target: any): void {
                     return;
                 }
                 bundle.load(imageCandidates[index], ImageAsset, (err, imgAsset) => {
-                    if (!err && imgAsset) {
+                    if (!err && imgAsset?.isValid) {
                         const texture = new Texture2D();
                         texture.image = imgAsset;
-                        callback(null, texture, { releaseMode: 'dynamic', imageAsset: imgAsset });
-                        return;
+                        const imageAsset = getRenderReadyAtlasImageAsset(texture);
+                        if (imageAsset) {
+                            callback(null, texture, { releaseMode: 'dynamic', imageAsset });
+                            return;
+                        }
+                        texture.destroy();
                     }
                     tryImageAsset(index + 1);
                 });

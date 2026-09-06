@@ -18,7 +18,7 @@ function isDocumentMissing(error) {
 }
 
 function readSnapshotData(snapshot) {
-  const data = typeof snapshot?.data === 'function' ? snapshot.data() : null;
+  const data = typeof snapshot?.data === 'function' ? snapshot.data() : snapshot?.data;
   return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
 }
 
@@ -31,9 +31,12 @@ function resolveNextUid(sequence) {
   return nextUid;
 }
 
-async function readSequenceInTransaction(transaction, sequenceRef) {
+async function readSequenceInTransaction(transaction) {
   try {
-    return readSnapshotData(await transaction.get(sequenceRef));
+    return readSnapshotData(await transaction
+      .collection(PLAYER_UID_SEQUENCE_COLLECTION)
+      .doc(PLAYER_UID_SEQUENCE_DOC_ID)
+      .get());
   } catch (error) {
     if (isDocumentMissing(error)) return null;
     throw error;
@@ -45,12 +48,11 @@ async function ensurePlayerUid(db, profileId) {
     throw new Error('missing user profile id for uid allocation');
   }
 
-  const profileRef = db.collection(USER_PROFILE_COLLECTION).doc(profileId);
-  const sequenceRef = db.collection(PLAYER_UID_SEQUENCE_COLLECTION).doc(PLAYER_UID_SEQUENCE_DOC_ID);
   let assignedUid = '';
 
   await db.runTransaction(async (transaction) => {
-    const profile = readSnapshotData(await transaction.get(profileRef));
+    const profileRef = transaction.collection(USER_PROFILE_COLLECTION).doc(profileId);
+    const profile = readSnapshotData(await profileRef.get());
     if (!profile) {
       throw new Error('missing user profile during uid allocation');
     }
@@ -61,15 +63,18 @@ async function ensurePlayerUid(db, profileId) {
       return;
     }
 
-    const sequence = await readSequenceInTransaction(transaction, sequenceRef);
+    const sequence = await readSequenceInTransaction(transaction);
     const nextUid = resolveNextUid(sequence);
     if (nextUid > PLAYER_UID_MAX) {
       throw new Error('player uid sequence exhausted');
     }
 
     assignedUid = String(nextUid);
-    await transaction.set(sequenceRef, { nextUid: nextUid + 1 });
-    await transaction.update(profileRef, { [PLAYER_UID_FIELD]: assignedUid });
+    await transaction
+      .collection(PLAYER_UID_SEQUENCE_COLLECTION)
+      .doc(PLAYER_UID_SEQUENCE_DOC_ID)
+      .set({ data: { nextUid: nextUid + 1 } });
+    await profileRef.update({ data: { [PLAYER_UID_FIELD]: assignedUid } });
   }, 8);
 
   if (!normalizePlayerUid(assignedUid)) {

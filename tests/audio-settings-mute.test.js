@@ -370,6 +370,18 @@ assert.ok(
     toggleHandler[1].indexOf('onToggle(next);') < toggleHandler[1].indexOf("AudioMgr.inst.play('button');"),
     'settings must apply the new state before optional button feedback',
 );
+const homeButtonHandlerStart = settingsSource.indexOf('bindClick(homeBtn, () => {');
+const homeButtonHandlerEnd = settingsSource.indexOf('\n                    });', homeButtonHandlerStart);
+assert.ok(homeButtonHandlerStart >= 0 && homeButtonHandlerEnd > homeButtonHandlerStart, 'settings home button handler must remain discoverable');
+const homeButtonHandler = settingsSource.slice(homeButtonHandlerStart, homeButtonHandlerEnd);
+assert.ok(
+    homeButtonHandler.indexOf("AudioMgr.inst.play('button');") > homeButtonHandler.indexOf('if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;'),
+    'settings home button must only play feedback after its valid-click guard',
+);
+assert.ok(
+    homeButtonHandler.indexOf("AudioMgr.inst.play('button');") < homeButtonHandler.indexOf('routePromise = requestHomeRouteFromSettings();'),
+    'settings home button feedback must play before its route request starts',
+);
 assert.ok(!audioMgrSource.includes('.playOneShot('), 'AudioMgr must not use untracked one-shot playback');
 
 const audioInitIndex = gameplaySessionSource.indexOf('AudioMgr.inst.init(runtime.node);');

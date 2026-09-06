@@ -404,7 +404,7 @@ export class CommercePanelController {
                     const activeAdButton = activeAdBtn.getComponent(Button) || activeAdBtn.addComponent(Button);
                     const buyButton = buyBtn.getComponent(Button) || buyBtn.addComponent(Button);
                     let adGrantSucceeded = false;
-                    let adFailureLabel = '看广告领取';
+                    let adFailureLabel = '免费';
 
                     const setAdSpinnerActive = (active: boolean) => {
                         Tween.stopAllByTarget(activeAdIcon);
@@ -445,7 +445,7 @@ export class CommercePanelController {
                         endAcquireModalFocus();
                         if (overlay?.isValid) overlay.active = false;
                     };
-                    setAdPanelState('看广告领取', false, false);
+                    setAdPanelState('免费', false, false);
 
                     if (options.onBuy && options.buyLabel) {
                         runtime.bindPanelButton(buyBtn, () => {
@@ -472,7 +472,7 @@ export class CommercePanelController {
                         }
                         adFailureLabel = transaction.phase === 'recoverable_endable'
                             ? '重新加载广告'
-                            : '看广告领取';
+                            : '免费';
                         runtime.cancelRewardedGrantInteraction?.(
                             transaction.phase === 'recoverable_endable'
                                 ? 'resource-acquire-end-wait'
@@ -485,7 +485,7 @@ export class CommercePanelController {
                         if (runtime._adShowing || panelTransaction()) return;
                         AudioMgr.inst.play('button');
                         adGrantSucceeded = false;
-                        adFailureLabel = '看广告领取';
+                        adFailureLabel = '免费';
                         const started = runtime.runRewardedGrant(options.adType, () => {
                             return Promise.resolve(options.onAdGrant()).then((grantResult) => {
                                 if (grantResult !== false) {

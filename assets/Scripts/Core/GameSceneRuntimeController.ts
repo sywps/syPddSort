@@ -230,6 +230,9 @@ export class GameSceneRuntimeController {
             this.primePendingGameplayShell(pendingGameplayRequest);
         }
         this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
+        if (!suppressGameplayEntryCover) {
+            this.runtime.scheduleRewardedAdPreload?.('loading:game-start', 0);
+        }
         appRoot.clearRouteCover(suppressGameplayEntryCover ? 'gameplay-entry-no-cover' : 'game-direct-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:skipRouteCover', {
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
@@ -548,6 +551,7 @@ export class GameSceneRuntimeController {
         this.runtime.clearEffectPools();
         this.runtime.clearRuntimeOwners?.();
         this.runtime.cancelSpriteFrameLoadQueue?.(`runtime-destroy:${sceneName}`);
+        this.runtime.releaseBeanSkinRuntimeResources?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseBackgroundSkinCachedSpriteFrames?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
         debugPerfTrace('runtime.destroy.after', {

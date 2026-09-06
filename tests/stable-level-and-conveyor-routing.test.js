@@ -44,7 +44,12 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
         : { ...candidatePayload, levelId };
     const comparableFormalPayload = { ...formalPayload };
     delete comparableFormalPayload.Hard;
-    if (levelId === 2) delete comparableFormalPayload.singleSelectionLimit;
+    if (levelId === 2) {
+        delete comparableFormalPayload.singleSelectionLimit;
+        assert.equal(formalPayload.conveyorCapacity, 80, 'formal level 2 must use the configured initial capacity');
+        assert.equal(comparableCandidatePayload.conveyorCapacity, 60, 'candidate level 2 remains the historical source payload');
+        comparableFormalPayload.conveyorCapacity = comparableCandidatePayload.conveyorCapacity;
+    }
     if (levelId >= 5 || authoredTimeOverrides.has(levelId)) comparableFormalPayload.timeLimit = comparableCandidatePayload.timeLimit;
     assert.deepEqual(
         comparableFormalPayload,
@@ -66,7 +71,7 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     assert.equal(level.Hard, levelId === 3 ? 1 : 0, `level ${levelId} Hard flag`);
     assert.deepEqual(
         [level.levelId, level.conveyorCapacity],
-        [levelId, 60],
+        [levelId, levelId === 2 ? 80 : 60],
         `level ${levelId} must keep a continuous ID and the formal conveyor capacity`,
     );
     assert.equal(level.correctColorArr.length, level.boardHeight, `level ${levelId} correct height`);
@@ -79,7 +84,7 @@ for (let levelId = 1; levelId <= 300; levelId += 1) {
     const entry = manifestByLevel.get(levelId);
     assert.deepEqual(
         [entry?.Hard, entry?.boardWidth, entry?.boardHeight, entry?.timeLimit, entry?.slotTotalCount, entry?.conveyorCapacity],
-        [level.Hard, level.boardWidth, level.boardHeight, level.timeLimit, level.slotTotalCount, 60],
+        [level.Hard, level.boardWidth, level.boardHeight, level.timeLimit, level.slotTotalCount, level.conveyorCapacity],
         `level ${levelId} manifest metadata`,
     );
 }
@@ -105,6 +110,11 @@ assert.match(view, /PCH conveyor missing after gameplay start/);
 const controller = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 assert.match(controller, /this\.runtime\.levelData\?\.conveyorCapacity/);
 assert.match(controller, /const PCH_EXPAND_CAPACITY = 12;/);
+assert.match(controller, /const PCH_SCENE_CARRIER_COUNT = 20;/);
+assert.match(
+    controller,
+    /new PchConveyorRules\(\s*this\.runtime\.boardModel,\s*this\.runtime\.levelData\?\.conveyorCapacity,\s*this\.runtime\.levelData\?\.singleSelectionLimit,\s*PCH_SCENE_CARRIER_COUNT,\s*\)/,
+);
 assert.match(controller, /normalLayout\.node\.active = true;/);
 assert.match(controller, /compactLayout\.node\.active = false;/);
 assert.match(controller, /const activeLayout = normalLayout;/);
@@ -112,7 +122,7 @@ assert.match(controller, /this\.prepareBeltPath\(2\);/);
 assert.doesNotMatch(controller, /useCompactLayout/);
 
 const rules = read('assets/Scripts/Core/PchConveyorRules.ts');
-assert.match(rules, /this\.initialCarrierCount = capacity \/ this\.stackDepth;/);
+assert.match(rules, /const defaultInitialCarrierCount = Math\.ceil\(capacity \/ this\.stackDepth\);/);
 assert.doesNotMatch(rules, /initialCarrierCount\s*=\s*20/);
 
 const experimentService = read('assets/Scripts/Core/LevelExperimentService.ts');

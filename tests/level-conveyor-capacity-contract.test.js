@@ -20,12 +20,17 @@ assert.throws(
     /positive integer/,
     'missing conveyorCapacity must fail fast',
 );
-assert.throws(
-    () => validateConveyorCapacity({ conveyorCapacity: 25 }, 'unaligned'),
-    /multiple of 3/,
-    'capacity must align to the three-bean carrier depth',
+assert.equal(
+    validateConveyorCapacity({ conveyorCapacity: 25 }, 'uneven'),
+    25,
+    'total capacity may use any positive integer',
 );
 assert.equal(validateConveyorCapacity({ conveyorCapacity: 60 }, 'valid'), 60);
+assert.equal(validateConveyorCapacity({ conveyorCapacity: 80 }, 'valid'), 80);
+
+function expectedCapacity(relDir, name) {
+    return relDir === 'assets/LevelData' && name === 'level_2.json' ? 80 : 60;
+}
 
 function validateDirectory(relDir, expectedCount) {
     const absDir = path.join(root, relDir);
@@ -33,7 +38,11 @@ function validateDirectory(relDir, expectedCount) {
     assert.equal(files.length, expectedCount, `${relDir} playable level count`);
     for (const name of files) {
         const data = JSON.parse(fs.readFileSync(path.join(absDir, name), 'utf8'));
-        assert.equal(validateConveyorCapacity(data, `${relDir}/${name}`), 60, `${name} initial capacity`);
+        assert.equal(
+            validateConveyorCapacity(data, `${relDir}/${name}`),
+            expectedCapacity(relDir, name),
+            `${name} initial capacity`,
+        );
         assert.equal(Object.hasOwn(data, 'slotPolicy'), false, `${name} must not retain slotPolicy`);
         assert.equal(Object.hasOwn(data, 'initialSlotUnlockedRows'), false, `${name} must not retain row data`);
     }
@@ -80,7 +89,7 @@ assert.doesNotMatch(slotUi, /slotHasBeans\(\): boolean/, 'retired row-slot UI mu
 assert.doesNotMatch(slotUi, /slotModel\.getAll\(\)\.some/, 'retired row-slot storage must not be read by active skill checks');
 
 const rules = fs.readFileSync(path.join(root, 'assets/Scripts/Core/PchConveyorRules.ts'), 'utf8');
-assert.match(rules, /capacity \/ this\.stackDepth/, 'carrier count must derive from per-level capacity');
+assert.match(rules, /Math\.ceil\(capacity \/ this\.stackDepth\)/, 'carrier count must safely derive from per-level capacity');
 assert.doesNotMatch(rules, /initialCarrierCount\s*=\s*20/, 'rules must not hard-code 60 as twenty carriers');
 
 const cdnService = fs.readFileSync(path.join(root, 'assets/Scripts/Core/LevelDataCdnService.ts'), 'utf8');
@@ -91,6 +100,11 @@ assert.doesNotMatch(cdnService, /LEVEL_DATA_COMPAT_SCHEMA_VERSION|validateSlotPo
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'assets/LevelData/level-manifest.json'), 'utf8'));
 assert.equal(manifest.levelCount, 300);
 assert.equal(manifest.entries.length, 300);
-assert.equal(manifest.entries.every((entry) => entry.conveyorCapacity === 60), true, 'manifest capacities must all be 60');
+assert.equal(manifest.entries.find((entry) => entry.levelId === 2)?.conveyorCapacity, 80, 'manifest level 2 capacity');
+assert.equal(
+    manifest.entries.filter((entry) => entry.levelId !== 2).every((entry) => entry.conveyorCapacity === 60),
+    true,
+    'other manifest capacities must remain 60',
+);
 
 console.log('level-conveyor-capacity-contract.test.js passed');

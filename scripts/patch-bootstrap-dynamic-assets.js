@@ -23,6 +23,8 @@ const bootstrapImageAllowlist = new Set([
 	'GameUI/RainbowConveyor/conveyor_7a',
 	'GameUI/RainbowConveyor/conveyor_7b',
 	'GameUI/RainbowConveyor/exit_1',
+	'GameUI/RainbowConveyor/pch_capacity_fill_sliced',
+	'GameUI/RainbowConveyor/pch_capacity_track_sliced',
 	'GameUI/RainbowConveyor/exit_1_2',
 	'GameUI/RainbowConveyor/exit_1_3',
 	'GameUI/RainbowConveyor/exit_1_4',

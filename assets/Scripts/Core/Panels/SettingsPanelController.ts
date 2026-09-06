@@ -508,6 +508,7 @@ export class SettingsPanelController {
                     bindClick(homeBtn, () => {
                         if (settingsClosed || homeRouteInFlight || !overlay?.isValid) return;
                         homeRouteInFlight = true;
+                        AudioMgr.inst.play('button');
                         let routePromise: Promise<void>;
                         try {
                             routePromise = requestHomeRouteFromSettings();

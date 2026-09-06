@@ -1565,9 +1565,12 @@ export function installSkinBackgroundModule(target: any): void {
             // 背景皮肤大图在 release 包中来自 skin CDN，不能作为关卡初始化前置条件。
             this._appliedGameplayBackgroundSkinId = 0;
             this._appliedGameplayBackgroundRefreshSeq = -1;
-            if (init) init();
-            else this.initGame(data, activeLevelId);
-            this._refreshEquippedGameplayBackgroundForStartup?.();
+            const startGameplay = () => {
+                if (init) init();
+                else this.initGame(data, activeLevelId);
+                this._refreshEquippedGameplayBackgroundForStartup?.();
+            };
+            this.prewarmPinddSpineFx(startGameplay);
         },
 
         equipBackgroundSkin(id: number, callback?: (ok: boolean, err?: Error | null) => void): void {
@@ -1721,6 +1724,7 @@ export function installSkinBackgroundModule(target: any): void {
                             requireSkinPanelChild(content, SKIN_PANEL_SCROLL_CONTENT_NAME, 'BackgroundSkinPanel/Box/Content');
                             bindSkinPanelButton(this, close, 'BackgroundSkinPanel/Box/XBtn', () => this.closeBackgroundSkinPanel());
                             this._backgroundSkinPanelOverlay = overlay;
+                            this.setupBeanSkinPanelTabs?.(box, content);
                             this.renderBackgroundSkinPanelCards(content, config.rows);
                             this.playPopupOpenAnim?.(overlay, box);
                         } catch (buildErr) {
@@ -1737,6 +1741,7 @@ export function installSkinBackgroundModule(target: any): void {
                 this._backgroundSkinPanelScrollInertiaStep = null;
             }
             this._backgroundSkinPanelVirtualState = null;
+            this.disposeBeanSkinPanel?.();
             this._cancelBackgroundSkinIconLoads?.('close-panel');
             const overlay = this._backgroundSkinPanelOverlay;
             this._backgroundSkinPanelOverlay = null;

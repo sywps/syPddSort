@@ -21,9 +21,6 @@ function validateConveyorCapacity(data, label = 'level data', stackDepth = CONVE
     if (!Number.isInteger(stackDepth) || stackDepth <= 0) {
         throw new Error(label + ' conveyor stack depth must be a positive integer');
     }
-    if (capacity % stackDepth !== 0) {
-        throw new Error(label + ' conveyorCapacity must be a multiple of ' + stackDepth);
-    }
     return capacity;
 }
 

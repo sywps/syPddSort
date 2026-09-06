@@ -21,6 +21,11 @@ function createCloudHarness() {
   const profileDocument = (id) => ({
     _coll: 'user_profile',
     id,
+    async get() {
+      const profile = profiles.get(id);
+      if (!profile) throw new Error('document does not exist');
+      return { data: clone(profile) };
+    },
     async update({ data }) {
       const profile = profiles.get(id);
       if (!profile) throw new Error('document does not exist');
@@ -31,6 +36,15 @@ function createCloudHarness() {
   const sequenceDocument = (id) => ({
     _coll: 'player_uid_sequence',
     id,
+    async get() {
+      const sequence = sequences.get(id);
+      if (!sequence) throw new Error('document does not exist');
+      return { data: clone(sequence) };
+    },
+    async set({ data }) {
+      sequences.set(id, clone(data));
+      return { updated: 1 };
+    },
   });
   const profileCollection = {
     where(query) {
@@ -83,30 +97,10 @@ function createCloudHarness() {
     },
     async runTransaction(callback) {
       await callback({
-        async get(reference) {
-          if (reference._coll === 'user_profile') {
-            return { data: () => clone(profiles.get(reference.id)) };
-          }
-          if (reference._coll === 'player_uid_sequence') {
-            const sequence = sequences.get(reference.id);
-            if (!sequence) throw new Error('document does not exist');
-            return { data: () => clone(sequence) };
-          }
-          throw new Error(`unexpected transaction read: ${reference._coll}`);
-        },
-        async set(reference, data) {
-          if (reference._coll !== 'player_uid_sequence') {
-            throw new Error(`unexpected transaction set: ${reference._coll}`);
-          }
-          sequences.set(reference.id, clone(data));
-        },
-        async update(reference, data) {
-          if (reference._coll !== 'user_profile') {
-            throw new Error(`unexpected transaction update: ${reference._coll}`);
-          }
-          const profile = profiles.get(reference.id);
-          if (!profile) throw new Error('document does not exist');
-          Object.assign(profile, clone(data));
+        collection(name) {
+          if (name === 'user_profile') return { doc: profileDocument };
+          if (name === 'player_uid_sequence') return { doc: sequenceDocument };
+          throw new Error(`unexpected transaction collection: ${name}`);
         },
       });
     },
@@ -261,6 +255,11 @@ async function main() {
 
     const analyticsSource = fs.readFileSync(path.join(root, 'assets', 'Scripts', 'Core', 'AnalyticsMgr.ts'), 'utf8');
     const settingsSource = fs.readFileSync(path.join(root, 'assets', 'Scripts', 'Core', 'Panels', 'SettingsPanelController.ts'), 'utf8');
+    const playerUidSource = fs.readFileSync(playerUidPath, 'utf8');
+    assert.match(playerUidSource, /transaction\.collection\(USER_PROFILE_COLLECTION\)\.doc\(profileId\)/);
+    assert.match(playerUidSource, /\.set\(\{ data: \{ nextUid: nextUid \+ 1 \} \}\)/);
+    assert.match(playerUidSource, /profileRef\.update\(\{ data: \{ \[PLAYER_UID_FIELD\]: assignedUid \} \}\)/);
+    assert.doesNotMatch(playerUidSource, /transaction\.(get|set|update)\(/);
     assert.match(analyticsSource, /getPlayerUid\(\): string/);
     assert.match(analyticsSource, /LS_ANALYTICS_PLAYER_UID/);
     assert.match(settingsSource, /PLAYER_UID_ROW_NAME = 'PlayerUidRow'/);

@@ -1,4 +1,5 @@
 import { installAssetBootstrapModule } from './GameCtrlModules/AssetBootstrapModule';
+import { installBeanSkinModule } from './GameCtrlModules/BeanSkinModule';
 import { installSkinBackgroundModule } from './GameCtrlModules/SkinBackgroundModule';
 import { installBoardInputViewportModule } from './GameCtrlModules/BoardInputViewportModule';
 import { installBoardZoomControlModule } from './GameCtrlModules/BoardZoomControlModule';
@@ -37,6 +38,7 @@ export function installGameCtrlModules(runtime: any): void {
     installPlayerMetaStateModule(runtime);
     installFirstLevelRouteModule(runtime);
     installAssetBootstrapModule(runtime);
+    installBeanSkinModule(runtime);
     installTopHudModule(runtime);
     installSkinBackgroundModule(runtime);
     installDynamicCountdownDdaModule(runtime);

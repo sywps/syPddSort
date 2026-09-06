@@ -2380,9 +2380,8 @@ export function installAssetBootstrapModule(target: any): void {
 
         getPinddColorKey(colorId: number): string | null {
             const safeColorId = this.normalizeBeanColorId(colorId);
-            if (safeColorId === null) return null;
-            const normalized = ((safeColorId - 1) % 21) + 1;
-            const n = normalized < 10 ? `00${normalized}` : normalized < 100 ? `0${normalized}` : `${normalized}`;
+            if (safeColorId === null || safeColorId > 20) return null;
+            const n = safeColorId < 10 ? `00${safeColorId}` : `0${safeColorId}`;
             return `b${n}`;
         },
 
@@ -2390,6 +2389,14 @@ export function installAssetBootstrapModule(target: any): void {
             const key = this.getPinddColorKey(colorId);
             if (!key) return null;
             const cacheKey = `${key}_${variant}`;
+            if (typeof this.getEquippedBeanSkinFrame === 'function') {
+                const equippedFrame = this.getEquippedBeanSkinFrame(cacheKey);
+                if (equippedFrame !== undefined) {
+                    if (equippedFrame) return equippedFrame;
+                    console.error('[bean-skin] required equipped SpriteFrame missing:', cacheKey);
+                    return null;
+                }
+            }
             const cached = this.getSF(cacheKey) || null;
             if (cached) return cached;
             const atlasFrame = this._bootstrapAtlasFrameCache.get(cacheKey) || null;
@@ -2764,6 +2771,13 @@ export function installAssetBootstrapModule(target: any): void {
                     equippedBackgroundSkinUpdatedAt: 0,
                     backgroundSkinResetVersion: 0,
                 };
+            const beanSkinState = typeof this.captureBeanSkinCloudState === 'function'
+                ? this.captureBeanSkinCloudState()
+                : {
+                    ownedBeanSkinIds: [2000],
+                    equippedBeanSkinId: 0,
+                    equippedBeanSkinUpdatedAt: 0,
+                };
             return {
                 savedLevel: this.getSavedLevel(),
                 vigor: this.getVigor(),
@@ -2783,6 +2797,11 @@ export function installAssetBootstrapModule(target: any): void {
                 equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
                 equippedBackgroundSkinUpdatedAt: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinUpdatedAt) || 0)),
                 backgroundSkinResetVersion: Math.max(0, Math.floor(Number(backgroundSkinState.backgroundSkinResetVersion) || 0)),
+                ownedBeanSkinIds: Array.isArray(beanSkinState.ownedBeanSkinIds)
+                    ? beanSkinState.ownedBeanSkinIds as number[]
+                    : [2000],
+                equippedBeanSkinId: Math.max(0, Math.floor(Number(beanSkinState.equippedBeanSkinId) || 0)),
+                equippedBeanSkinUpdatedAt: Math.max(0, Math.floor(Number(beanSkinState.equippedBeanSkinUpdatedAt) || 0)),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -2931,6 +2950,9 @@ export function installAssetBootstrapModule(target: any): void {
             if (typeof this.applyBackgroundSkinCloudState === 'function') {
                 this.applyBackgroundSkinCloudState(gameState as any, !shouldSkipVolatileRestore);
             }
+            if (typeof this.applyBeanSkinCloudState === 'function') {
+                this.applyBeanSkinCloudState(gameState as any);
+            }
         
             const effectiveLevel = Math.max(localSavedLevel, cloudSavedLevel);
             if (effectiveLevel > 0 && (cloudSavedLevel > 0 || readStartupLocalProgress().hasStoredProgress)) {
@@ -3005,6 +3027,9 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
             const gameState = state?.gameState || null;
+            if (gameState && typeof this.applyBeanSkinCloudState === 'function') {
+                this.applyBeanSkinCloudState(gameState as any);
+            }
             if (gameState && typeof this.applyCloudBackgroundSkinState === 'function') {
                 this.applyCloudBackgroundSkinState(
                     gameState.ownedBackgroundSkinIds,

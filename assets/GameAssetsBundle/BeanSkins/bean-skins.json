@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "defaultEquipped": 2000,
+  "sourceManifestSha256": "c2a5295237359bc32a310a0bb10f787b562e1d63eaae96ff91c066f6808cfe67",
+  "skins": [
+    {
+      "id": 2000,
+      "key": "bean_skin_01",
+      "sort": 1,
+      "isDefault": true,
+      "resourceMode": "bootstrap_existing",
+      "iconKey": "BeanSkins/icons/bean_skin_01",
+      "previewColorId": 1,
+      "unlockType": "default",
+      "unlockValue": 0,
+      "enabled": true
+    },
+    {
+      "id": 2001,
+      "key": "bean_skin_02",
+      "sort": 2,
+      "isDefault": false,
+      "resourceMode": "game_assets_atlas",
+      "atlasDataKey": "BeanSkins/skin_02/bean-atlas-data",
+      "atlasTextureKey": "BeanSkins/skin_02/bean-atlas",
+      "iconKey": "BeanSkins/icons/bean_skin_02",
+      "previewColorId": 4,
+      "unlockType": "ad",
+      "unlockValue": 1,
+      "enabled": true
+    },
+    {
+      "id": 2002,
+      "key": "bean_skin_03",
+      "sort": 3,
+      "isDefault": false,
+      "resourceMode": "game_assets_atlas",
+      "atlasDataKey": "BeanSkins/skin_03/bean-atlas-data",
+      "atlasTextureKey": "BeanSkins/skin_03/bean-atlas",
+      "iconKey": "BeanSkins/icons/bean_skin_03",
+      "previewColorId": 6,
+      "unlockType": "ad",
+      "unlockValue": 1,
+      "enabled": true
+    },
+    {
+      "id": 2003,
+      "key": "bean_skin_04",
+      "sort": 4,
+      "isDefault": false,
+      "resourceMode": "game_assets_atlas",
+      "atlasDataKey": "BeanSkins/skin_04/bean-atlas-data",
+      "atlasTextureKey": "BeanSkins/skin_04/bean-atlas",
+      "iconKey": "BeanSkins/icons/bean_skin_04",
+      "previewColorId": 9,
+      "unlockType": "ad",
+      "unlockValue": 1,
+      "enabled": true
+    },
+    {
+      "id": 2004,
+      "key": "bean_skin_05",
+      "sort": 5,
+      "isDefault": false,
+      "resourceMode": "game_assets_atlas",
+      "atlasDataKey": "BeanSkins/skin_05/bean-atlas-data",
+      "atlasTextureKey": "BeanSkins/skin_05/bean-atlas",
+      "iconKey": "BeanSkins/icons/bean_skin_05",
+      "previewColorId": 13,
+      "unlockType": "ad",
+      "unlockValue": 1,
+      "enabled": true
+    }
+  ]
+}

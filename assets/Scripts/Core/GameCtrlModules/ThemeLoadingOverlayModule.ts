@@ -1,5 +1,5 @@
 ﻿import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
@@ -24,6 +24,11 @@
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import {
+    createSlicedLoadingProgressAdapter,
+    type SlicedLoadingProgressAdapter,
+    type SlicedLoadingProgressTarget,
+} from '../SlicedLoadingProgressAdapter';
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -280,18 +285,15 @@ export function installThemeLoadingOverlayModule(target: any): void {
             const trackUI = track.getComponent(UITransform);
             if (!trackUI) throw new Error('[BootScene] Boot.scene is missing UITransform on LoadingProgressGroup/LoadingBarTrack');
 
-            const progressArea = this.requireUiChild(track, 'ProgressBarArea', 'LoadingBarTrack/ProgressBarArea');
-            const progressBar = progressArea.getComponent(ProgressBar);
-            if (!progressBar) throw new Error('[BootScene] Boot.scene is missing ProgressBar component on LoadingBarTrack/ProgressBarArea');
-
-            const fill = this.requireUiChild(progressArea, 'ProgressFill', 'ProgressBarArea/ProgressFill');
-            const fillSprite = fill.getComponent(Sprite);
-            if (!fillSprite) throw new Error('[BootScene] Boot.scene is missing Sprite component on ProgressBarArea/ProgressFill');
-            if (!progressBar.barSprite) {
-                progressBar.barSprite = fillSprite;
-            }
-
-            this._loadingProgressFill = progressBar;
+            const progress = createSlicedLoadingProgressAdapter(
+                track,
+                'StartupLoadingUI/LoadingProgressGroup/LoadingBarTrack',
+            );
+            this._loadingProgressFill = progress;
+            this._loadingProgressFillNode = progress.fillNode;
+            this._loadingProgressFullWidth = progress.fillWidth;
+            this._loadingProgressFullHeight = progress.fillHeight;
+            this._loadingProgressTrackWidth = progress.trackWidth;
             this._loadingProgressLabelShadow = null;
             this._loadingShine = null;
             this._setLoadingStatusText('正在准备关卡…');
@@ -351,15 +353,18 @@ export function installThemeLoadingOverlayModule(target: any): void {
         _startLoadingIndeterminate(overlayVersion: number) {
             if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
             this._stopLoadingShine();
+            const progressAdapter = this._loadingProgressFill as SlicedLoadingProgressAdapter | null;
+            const fillRenderScale = Math.max(0.001, Number(progressAdapter?.fillRenderScale) || 1);
             const fillNode = this._loadingProgressFillNode as Node | null;
             const fillTransform = fillNode?.getComponent(UITransform) || null;
             if (fillNode?.isValid && fillTransform) {
-                const trackWidth = Math.max(120, Number(this._loadingProgressTrackWidth) || 520);
+                const trackWidth = Math.max(120, Number(progressAdapter?.trackWidth || this._loadingProgressTrackWidth) || 520);
                 const segmentWidth = Math.min(120, trackWidth);
-                const segmentHeight = Math.max(1, Number(this._loadingProgressFullHeight) || 8);
+                const segmentHeight = Math.max(1, Number(progressAdapter?.fillHeight || this._loadingProgressFullHeight) || 8);
                 const startX = -trackWidth / 2 + segmentWidth / 2;
                 const endX = trackWidth / 2 - segmentWidth / 2;
-                fillTransform.setContentSize(segmentWidth, segmentHeight);
+                fillNode.active = true;
+                fillTransform.setContentSize(segmentWidth / fillRenderScale, segmentHeight / fillRenderScale);
                 const highlight = fillNode.getChildByName('LoadingBarFillHighlight') || null;
                 const highlightTransform = highlight?.getComponent(UITransform) || null;
                 if (highlightTransform) {
@@ -382,10 +387,10 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 this._loadingShineTween = tween(fillNode).repeatForever(sweep).start();
                 return;
             }
-            const progressBar = this._loadingProgressFill as ProgressBar | null;
-            if (!progressBar) return;
-            progressBar.progress = 0.18;
-            this._loadingShineTween = tween(progressBar)
+            const progressTarget = this._loadingProgressFill as SlicedLoadingProgressTarget | null;
+            if (!progressTarget) return;
+            progressTarget.progress = 0.18;
+            this._loadingShineTween = tween(progressTarget)
                 .to(0.6, { progress: 0.72 }, { easing: 'sineInOut' })
                 .to(0.6, { progress: 0.18 }, { easing: 'sineInOut' })
                 .union()
@@ -394,18 +399,18 @@ export function installThemeLoadingOverlayModule(target: any): void {
         },
 
         _setLoadingProgress(progress: number, duration = 0.2, overlayVersion: number = this._loadingOverlayVersion || 0) {
-            const progressBar = this._loadingProgressFill as ProgressBar | null;
+            const progressTarget = this._loadingProgressFill as SlicedLoadingProgressTarget | null;
             const prev = this._loadingProgress;
             const next = Math.max(this._loadingProgress, Math.max(0, Math.min(1, progress)));
             this._loadingProgress = next;
             this._animateLoadingProgressPercent(prev, next, duration, overlayVersion);
-            if (!progressBar) return;
-            Tween.stopAllByTarget(progressBar);
+            if (!progressTarget) return;
+            Tween.stopAllByTarget(progressTarget);
             if (duration <= 0) {
-                progressBar.progress = next;
+                progressTarget.progress = next;
                 return;
             }
-            tween(progressBar).to(duration, { progress: next }, { easing: 'sineOut' }).start();
+            tween(progressTarget).to(duration, { progress: next }, { easing: 'sineOut' }).start();
         },
 
         _setLoadingProgressPercentText(percent: number) {

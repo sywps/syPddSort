@@ -8,12 +8,14 @@ const db = cloud.database();
 const USER_PROFILE_COLLECTION = 'user_profile';
 const NEW_USER_STARTER_PROP_COUNT = 3;
 const USER_STATE_SCHEMA_VERSION = 2;
-const SKIN_STATE_SCHEMA_VERSION = 1;
+const SKIN_STATE_SCHEMA_VERSION = 2;
 const BACKGROUND_SKIN_RESET_VERSION = 1;
 const DEFAULT_BACKGROUND_SKIN_ID = 1000;
 const DEFAULT_BACKGROUND_SKIN_IDS = [1000];
 const RETIRED_BACKGROUND_SKIN_IDS = new Set([1001]);
 const BACKGROUND_SKIN_RESET_BACKUP_FIELD = 'backgroundSkinResetBackupV1';
+const DEFAULT_BEAN_SKIN_ID = 2000;
+const VALID_BEAN_SKIN_IDS = new Set([2000, 2001, 2002, 2003, 2004]);
 
 function cleanString(value, maxLength = 96) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
@@ -108,6 +110,25 @@ function normalizeBackgroundSkinAdProgress(value) {
 function normalizeEquippedBackgroundSkinId(value) {
   const id = normalizeBackgroundSkinId(value);
   return isRetiredBackgroundSkinId(id) ? DEFAULT_BACKGROUND_SKIN_ID : id;
+}
+
+function normalizeBeanSkinId(value) {
+  const id = Math.floor(Number(value) || 0);
+  return VALID_BEAN_SKIN_IDS.has(id) ? id : 0;
+}
+
+function normalizeBeanSkinIds(value) {
+  const source = Array.isArray(value) ? value : [];
+  const ids = source.map(normalizeBeanSkinId).filter((id) => id > 0);
+  ids.push(DEFAULT_BEAN_SKIN_ID);
+  return Array.from(new Set(ids)).sort((a, b) => a - b);
+}
+
+function mergeBeanSkinIds(currentValue, sourceValue) {
+  return Array.from(new Set([
+    ...normalizeBeanSkinIds(currentValue),
+    ...normalizeBeanSkinIds(sourceValue),
+  ])).sort((a, b) => a - b);
 }
 function mergeSortedThemeIds(currentValue, sourceValue, normalizer) {
   return Array.from(new Set([
@@ -353,6 +374,16 @@ function extractGameState(doc, effectiveProgress = 0) {
     state.equippedBackgroundSkinId = equippedBackgroundSkinId;
     state.equippedBackgroundSkinUpdatedAt = equippedBackgroundSkinUpdatedAt;
   }
+  const ownedBeanSkinIds = normalizeBeanSkinIds(doc?.ownedBeanSkinIds);
+  state.ownedBeanSkinIds = ownedBeanSkinIds;
+  const equippedBeanSkinId = normalizeBeanSkinId(doc?.equippedBeanSkinId);
+  const equippedBeanSkinUpdatedAt = normalizeTimestamp(doc?.equippedBeanSkinUpdatedAt, 0);
+  if (equippedBeanSkinUpdatedAt > 0) {
+    state.equippedBeanSkinId = equippedBeanSkinId > 0 && ownedBeanSkinIds.includes(equippedBeanSkinId)
+      ? equippedBeanSkinId
+      : DEFAULT_BEAN_SKIN_ID;
+    state.equippedBeanSkinUpdatedAt = equippedBeanSkinUpdatedAt;
+  }
   return Object.keys(state).length > 0 ? state : null;
 }
 
@@ -456,6 +487,29 @@ function buildGameStatePatch(source = {}, current = {}) {
     mergedBackgroundSkinIds.push(equippedBackgroundSkinId);
     mergedBackgroundSkinIds.sort((a, b) => a - b);
   }
+  const currentBeanSkinIds = normalizeBeanSkinIds(current.ownedBeanSkinIds);
+  const sourceBeanSkinIds = normalizeBeanSkinIds(source.ownedBeanSkinIds);
+  const mergedBeanSkinIds = mergeBeanSkinIds(currentBeanSkinIds, sourceBeanSkinIds);
+  const currentEquippedBeanSkinId = normalizeBeanSkinId(current.equippedBeanSkinId);
+  const sourceEquippedBeanSkinId = hasOwn(source, 'equippedBeanSkinId') ? normalizeBeanSkinId(source.equippedBeanSkinId) : 0;
+  const currentEquippedBeanSkinUpdatedAt = normalizeTimestamp(current.equippedBeanSkinUpdatedAt, 0);
+  const sourceEquippedBeanSkinUpdatedAt = normalizeTimestamp(source.equippedBeanSkinUpdatedAt, 0);
+  const currentEquippedBeanSkinValid = currentEquippedBeanSkinId > 0
+    && currentEquippedBeanSkinUpdatedAt > 0
+    && currentBeanSkinIds.includes(currentEquippedBeanSkinId);
+  const sourceEquippedBeanSkinValid = sourceEquippedBeanSkinId > 0
+    && sourceEquippedBeanSkinUpdatedAt > 0
+    && sourceBeanSkinIds.includes(sourceEquippedBeanSkinId);
+  let equippedBeanSkinId = currentEquippedBeanSkinValid ? currentEquippedBeanSkinId : 0;
+  let equippedBeanSkinUpdatedAt = currentEquippedBeanSkinValid ? currentEquippedBeanSkinUpdatedAt : 0;
+  if (sourceEquippedBeanSkinValid && (!currentEquippedBeanSkinValid || sourceEquippedBeanSkinUpdatedAt > currentEquippedBeanSkinUpdatedAt)) {
+    equippedBeanSkinId = sourceEquippedBeanSkinId;
+    equippedBeanSkinUpdatedAt = sourceEquippedBeanSkinUpdatedAt;
+  }
+  if (!equippedBeanSkinId) {
+    equippedBeanSkinId = DEFAULT_BEAN_SKIN_ID;
+    equippedBeanSkinUpdatedAt = now;
+  }
   const shouldPreserveCurrentVolatileState =
     currentStateUpdatedAt > 0 &&
     (
@@ -464,6 +518,7 @@ function buildGameStatePatch(source = {}, current = {}) {
       mergedThemeUnlockedIds.length > normalizeThemeUnlockedIds(source.themeUnlockedIds).length ||
       mergedThemeCompletedIds.length > normalizeThemeCompletedIds(source.themeCompletedIds).length ||
       mergedBackgroundSkinIds.length > sourceBackgroundSkinIds.length ||
+      mergedBeanSkinIds.length > sourceBeanSkinIds.length ||
       Object.keys(mergedBackgroundSkinAdProgress).some((id) => {
         const sourceProgress = normalizeBackgroundSkinAdProgress(source.backgroundSkinAdProgress);
         return mergedBackgroundSkinAdProgress[id] > (sourceProgress[id] || 0);
@@ -491,6 +546,9 @@ function buildGameStatePatch(source = {}, current = {}) {
     backgroundSkinResetVersion: mergedBackgroundSkinResetVersion,
     equippedBackgroundSkinId,
     equippedBackgroundSkinUpdatedAt,
+    ownedBeanSkinIds: mergedBeanSkinIds,
+    equippedBeanSkinId,
+    equippedBeanSkinUpdatedAt,
     stateUpdatedAt: shouldPreserveCurrentVolatileState
       ? currentStateUpdatedAt
       : Math.max(currentStateUpdatedAt, sourceStateUpdatedAt),

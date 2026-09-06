@@ -40,7 +40,12 @@ for (const filename of outputFiles) {
     const comparableCandidate = candidateLevelId === levelId ? candidate : { ...candidate, levelId };
     const comparableFormal = { ...formal };
     delete comparableFormal.Hard;
-    if (levelId === 2) delete comparableFormal.singleSelectionLimit;
+    if (levelId === 2) {
+        delete comparableFormal.singleSelectionLimit;
+        assert.equal(formal.conveyorCapacity, 80, 'formal level 2 must use the configured initial capacity');
+        assert.equal(comparableCandidate.conveyorCapacity, 60, 'candidate level 2 remains the historical source payload');
+        comparableFormal.conveyorCapacity = comparableCandidate.conveyorCapacity;
+    }
     if (levelId >= 5 || authoredTimeOverrides.has(levelId)) comparableFormal.timeLimit = comparableCandidate.timeLimit;
     assert.deepEqual(
         comparableFormal,

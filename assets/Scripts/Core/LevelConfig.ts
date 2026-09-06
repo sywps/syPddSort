@@ -123,9 +123,6 @@ export function validateConveyorCapacity(value: unknown, label: string = 'level 
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
         throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
     }
-    if (value % CONVEYOR_STACK_DEPTH !== 0) {
-        throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a multiple of ${CONVEYOR_STACK_DEPTH}: ${value}`);
-    }
     return value;
 }
 
