@@ -18,7 +18,6 @@ export const POPUP_UI_TEXTURE_NAMES = [
     'popup_list_row_bg',
     'popup_primary_button',
     'popup_secondary_button',
-    'popup_tab_active',
     'popup_tab_inactive',
 ];
 
@@ -59,7 +58,6 @@ export const RECOVER_VIGOR_TEXTURE_NAMES = [
 
 export const RESULT_PANEL_TEXTURE_NAMES = [
     ...POPUP_UI_TEXTURE_NAMES,
-    'popup_result_time_icon',
     '金币',
     'popup_ad_play_icon',
     'popup_share_icon',

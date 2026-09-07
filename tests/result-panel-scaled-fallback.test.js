@@ -106,17 +106,9 @@ function createFixture() {
 
 const Controller = loadController();
 
-const textSummaryCaption = {
-    getComponent(type) {
-        return type === Label ? new Label() : null;
-    },
-};
 const textSummary = {
     getComponent(type) {
         return type === Label ? new Label() : null;
-    },
-    getChildByName(name) {
-        return name === 'Label-001' ? textSummaryCaption : null;
     },
 };
 const textProgressBox = {
@@ -137,8 +129,13 @@ const textProgressController = new Controller({
     },
 });
 assert.doesNotThrow(
+    () => textProgressController.syncResultProgressWidget(textProgressPanel, 0, true),
+    'an explicitly enabled static prompt must be a valid revive-panel progress layout',
+);
+assert.throws(
     () => textProgressController.syncResultProgressWidget(textProgressPanel),
-    'the current two-label completion summary must be a valid revive-panel progress layout',
+    /text completion summary/,
+    'a generic result panel must not silently accept a missing progress bar',
 );
 
 const missingProgressPanel = {

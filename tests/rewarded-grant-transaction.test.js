@@ -31,6 +31,7 @@ function loadInstaller(timerApi = {}, adApi = {}) {
         trackAdClick() {},
         trackAdShow() {},
         trackAdFinish() {},
+        trackAdRewardSuccess() {},
         markAdRevive() {},
         trackReviveSuccess() {},
         ...(adApi.AnalyticsMgr?.inst || {}),
@@ -175,16 +176,76 @@ async function main() {
     );
     assert.strictEqual(noopRuntime._skillActive, false, 'no-op grant finalization must release the busy flag');
 
+    const rewardSuccessEvents = [];
+    const installRewardSuccessFlow = loadInstaller({}, {
+        AnalyticsMgr: {
+            inst: {
+                trackAdRewardSuccess(adType, page, levelId, gameplayEntryMode) {
+                    rewardSuccessEvents.push(`${adType}:${page}:${levelId}:${gameplayEntryMode}`);
+                },
+            },
+        },
+    });
+    const rewardSuccessRuntime = {
+        _activeGameplayEntryMode: 'theme',
+        _activeLogicalLevelId: 12,
+    };
+    installRewardSuccessFlow(rewardSuccessRuntime);
+    rewardSuccessRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
+        assert.strictEqual(options.levelId, 12, 'reward transaction must snapshot its level before the async ad callback');
+        assert.strictEqual(options.gameplayEntryMode, 'theme', 'reward transaction must snapshot its entry mode');
+        rewardSuccessRuntime._activeGameplayEntryMode = 'main';
+        onComplete(adOutcome('verified_complete'));
+        onComplete(adOutcome('verified_complete'));
+    };
+    rewardSuccessRuntime.runRewardedGrant('pch_conveyor_expand', () => false, {
+        claimKey: 'pixel-reward-fail',
+    });
+    await flushMicrotasks();
+    assert.deepStrictEqual(rewardSuccessEvents, [], 'a failed gameplay grant must not report reward success');
+    rewardSuccessRuntime._activeGameplayEntryMode = 'theme';
+    rewardSuccessRuntime.runRewardedGrant('pch_conveyor_expand', () => true, {
+        claimKey: 'pixel-reward-success',
+    });
+    await flushMicrotasks();
+    assert.deepStrictEqual(
+        rewardSuccessEvents,
+        ['rewardedVideo:pch_conveyor_expand:pch_conveyor_expand:12:theme'],
+        'a successful gameplay grant must report exactly one reward receipt with the original level context',
+    );
+
+    rewardSuccessRuntime._activeGameplayEntryMode = 'main';
+    rewardSuccessRuntime._activeLogicalLevelId = 99;
+    rewardSuccessRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
+        assert.strictEqual(options.levelId, 7, 'a pre-game reward must retain its explicit target level');
+        assert.strictEqual(options.gameplayEntryMode, 'theme', 'an explicit pre-game entry mode must override unrelated active context');
+        onComplete(adOutcome('verified_complete'));
+    };
+    rewardSuccessRuntime.runRewardedGrant('vigor_recover', () => true, {
+        claimKey: 'pixel-vigor-reward-success',
+        levelId: 7,
+        gameplayEntryMode: 'theme',
+    });
+    await flushMicrotasks();
+    assert.deepStrictEqual(
+        rewardSuccessEvents,
+        [
+            'rewardedVideo:pch_conveyor_expand:pch_conveyor_expand:12:theme',
+            'rewardedVideo:vigor_recover:vigor_recover:7:theme',
+        ],
+        'a successful pre-game vigor grant must report the requested pixel level and entry mode',
+    );
+
     const reviveEvents = [];
     const installReviveFlow = loadInstaller({}, {
         AnalyticsMgr: {
             inst: {
                 markAdRevive() { reviveEvents.push('mark'); },
-                trackReviveSuccess(page, levelId) { reviveEvents.push(`success:${page}:${levelId}`); },
+                trackReviveSuccess(page, levelId, gameplayEntryMode) { reviveEvents.push(`success:${page}:${levelId}:${gameplayEntryMode}`); },
             },
         },
     });
-    const reviveRuntime = { _adShowing: false };
+    const reviveRuntime = { _adShowing: false, _activeGameplayEntryMode: 'theme' };
     installReviveFlow(reviveRuntime);
     reviveRuntime.showRewardedAdPendingStrip = () => {};
     reviveRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('verified_complete'));
@@ -207,7 +268,7 @@ async function main() {
     await flushMicrotasks();
     assert.deepStrictEqual(
         reviveEvents,
-        ['mark', 'success:level_revive:3'],
+        ['mark', 'success:level_revive:3:theme'],
         'resolved gameplay grant must mark and report one successful revive',
     );
 

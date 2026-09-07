@@ -29,7 +29,10 @@ import type {
     InventoryPropKind, SafeInsets, RankListEntry, UserStateRestoreStatus, GestureMode, BoardSafeViewportRect, BoardGridCell,
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
+import { AppRoot } from '../AppRoot';
 import { openCollectionShellOverlay } from '../Panels/CollectionShellOverlay';
+
+export const COLLECTION_REPLAY_ROUTE_REASON = 'collection_replay';
 
 function syncDynamicGuideLabelNode(
     parent: Node,
@@ -86,6 +89,106 @@ function requireCollectionLabelNode(
 
 export function installCollectionGuideModule(target: any): void {
     Object.assign(target, {
+        startCollectionReplay(levelId: number, prefix: string = 'level_'): boolean | Promise<boolean> {
+            const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const normalizedPrefix = String(prefix || 'level_');
+            const gameplayEntryMode = normalizedPrefix === 'zt_level_' ? 'theme' : 'main';
+            const startedFromHome = this.getRuntimeSceneName('Game') === 'Home';
+            if (this._collectionReplayStarting) return false;
+
+            if (startedFromHome) {
+                const appRoot = AppRoot.tryGet();
+                if (!appRoot || appRoot.router.isTransitioning || appRoot.session.pendingGameplayRequest) {
+                    return false;
+                }
+            }
+
+            this._collectionReplayStarting = true;
+            if (!this.costVigorForLevel(normalizedLevelId, COLLECTION_REPLAY_ROUTE_REASON)) {
+                this.showNoLivesAdModal({
+                    source: COLLECTION_REPLAY_ROUTE_REASON,
+                    levelId: normalizedLevelId,
+                    gameplayEntryMode,
+                    onResult: (result: any) => {
+                        this._collectionReplayStarting = false;
+                        if (result?.status !== 'granted' || !this.isValid) return;
+                        this.startCollectionReplay(normalizedLevelId, normalizedPrefix);
+                    },
+                });
+                return false;
+            }
+
+            const failStart = (error: unknown): false => {
+                this._collectionReplayStarting = false;
+                console.error('[collection-replay] start failed:', {
+                    levelId: normalizedLevelId,
+                    prefix: normalizedPrefix,
+                    error,
+                });
+                this.showToast?.('关卡启动失败，请重试');
+                return false;
+            };
+
+            try {
+                this.closeCollection();
+                if (startedFromHome) {
+                    return this.requestGameplayRoute(
+                        normalizedLevelId,
+                        normalizedPrefix,
+                        false,
+                        'none',
+                        COLLECTION_REPLAY_ROUTE_REASON,
+                    ).then(() => {
+                        this._collectionReplayStarting = false;
+                        return true;
+                    }).catch(failStart);
+                }
+
+                this._isThemeLevel = gameplayEntryMode === 'theme';
+                this._currentThemeLevelId = this._isThemeLevel ? normalizedLevelId : 0;
+                this.deactivateMainMenuNode();
+                this.loadLevel(
+                    normalizedLevelId,
+                    normalizedPrefix,
+                    false,
+                    COLLECTION_REPLAY_ROUTE_REASON,
+                );
+                this._collectionReplayStarting = false;
+                return true;
+            } catch (error) {
+                return failStart(error);
+            }
+        },
+
+        bindCollectionReplayButton(box: Node, levelId: number, prefix: string = 'level_'): Node {
+            const button = box.getChildByName('CollectionReplayButton');
+            const titleLabel = button?.getChildByName('ReplayTitle')?.getComponent(Label) || null;
+            const vigorIcon = button?.getChildByName('VigorIcon') || null;
+            const vigorSprite = vigorIcon?.getComponent(Sprite) || null;
+            const costLabel = button?.getChildByName('VigorCost')?.getComponent(Label) || null;
+            if (
+                !button?.isValid
+                || !button.getComponent(UITransform)
+                || !button.getComponent(Sprite)?.spriteFrame
+                || !titleLabel
+                || !vigorIcon?.isValid
+                || !vigorSprite?.spriteFrame
+                || !costLabel
+            ) {
+                throw new Error('[collection-replay] missing prefab replay button nodes or components');
+            }
+
+            titleLabel.string = '重玩本关';
+            costLabel.string = '-1';
+            button.active = true;
+
+            this.bindPanelButton(button, () => {
+                AudioMgr.inst.play('button');
+                void this.startCollectionReplay(levelId, prefix);
+            });
+            return button;
+        },
+
         openCollectionImageModal(levelId: number, prefix: string = 'level_') {
             this.closeCollectionImageModal();
             openCollectionShellOverlay(this, {
@@ -95,7 +198,7 @@ export function installCollectionGuideModule(target: any): void {
                 onClose: () => {
                     this._collectionImageModal = null;
                 },
-                onReady: ({ overlay, content, pageIndicator }) => {
+                onReady: ({ overlay, box, content, pageIndicator }) => {
                     this._collectionImageModal = overlay;
                     content.removeAllChildren();
                     if (pageIndicator) {
@@ -113,15 +216,16 @@ export function installCollectionGuideModule(target: any): void {
                         content,
                         levelId,
                         0,
-                        10,
-                        548,
-                        760,
+                        70,
+                        520,
+                        590,
                         prefix,
                         {
                             drawTargetBackground: true,
                             beanScale: 0.78,
                         },
                     );
+                    this.bindCollectionReplayButton(box, levelId, prefix);
                 },
             });
         },

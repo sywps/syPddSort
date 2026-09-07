@@ -162,6 +162,22 @@ export class GameplayResultPanelController {
         this.runtime.showLosePanel();
     }
 
+    private leaveFailureToHome(overlay: Node): void {
+        const runtime = this.runtime;
+        if (this.activeReviveFailureSession) {
+            this.activeReviveFailureSession.active = false;
+        }
+        this.activeReviveFailureSession = null;
+        this.finalFailureReviveContext = null;
+        runtime.cancelRewardedGrantInteraction?.('lose-panel-home');
+        runtime.cancelPendingShareReturn?.('lose-panel-home');
+        AnalyticsMgr.inst.finalizePendingFailedLevel({
+            gameplayStats: runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
+        });
+        overlay.active = false;
+        runtime.showMainMenu();
+    }
+
     private resolveFinalFailureReviveKind(): ReviveSharePanelKind {
         const context = this.finalFailureReviveContext;
         if (context?.logicalLevelId === this.getReviveShareLogicalLevelId()) {
@@ -346,13 +362,12 @@ export class GameplayResultPanelController {
         return overlay;
     }
 
-    private syncResultProgressWidget(panel: Node, ratio: number = 0): void {
+    private syncResultProgressWidget(panel: Node, ratio: number = 0, allowStaticSummary: boolean = false): void {
         const runtime = this.runtime;
         const box = runtime.requirePanelChild(panel, 'Box');
         const progressRoot = box.getChildByName('\u8fdb\u5ea6\u6761');
         const completionSummary = box.getChildByName('Label');
-        const hasTextCompletionSummary = !!completionSummary?.getComponent(Label)
-            && !!completionSummary.getChildByName('Label-001')?.getComponent(Label);
+        const hasTextCompletionSummary = allowStaticSummary && !!completionSummary?.getComponent(Label);
         if (!progressRoot) {
             if (hasTextCompletionSummary) return;
             throw new Error('[result-panel] result panel is missing Box/进度条 or text completion summary');
@@ -851,7 +866,7 @@ export class GameplayResultPanelController {
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
-        this.syncResultProgressWidget(overlay, 0);
+        this.syncResultProgressWidget(overlay, 0, true);
         const continueBtn = box.getChildByName('ContinueBtn');
         if (!continueBtn) {
             throw new Error('[result-panel] RevivePanel is missing ContinueBtn');
@@ -886,7 +901,7 @@ export class GameplayResultPanelController {
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
-        this.syncResultProgressWidget(overlay, 0);
+        this.syncResultProgressWidget(overlay, 0, true);
 
         const continueBtn = runtime.requirePanelChild(box, 'ContinueBtn');
         this.bindPanelButton(continueBtn, () => this.runBufferFullReviveAction(overlay));
@@ -986,18 +1001,14 @@ export class GameplayResultPanelController {
         if (!box.getComponent(BlockInputEvents)) {
             box.addComponent(BlockInputEvents);
         }
-        this.syncResultProgressWidget(overlay, 0);
+        this.syncResultProgressWidget(overlay, 0, true);
         const reviveBtn = runtime.requirePanelChild(box, '\u590d\u6d3b\u7a97\u7ec4\u4ef63');
-        const homeBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846');
+        const homeBtn = runtime.requirePanelChild(box, 'HomeBtn');
         const replayBtn = runtime.requirePanelChild(box, '\u7eff\u8272\u6309\u952e\u5e95\u6846-001');
         this.bindLoseReviveContinueAction(reviveBtn, overlay);
         this.bindPanelButton(homeBtn, () => {
             AudioMgr.inst.play('button');
-            AnalyticsMgr.inst.finalizePendingFailedLevel({
-                gameplayStats: runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
-            });
-            overlay.active = false;
-            runtime.showMainMenu();
+            this.leaveFailureToHome(overlay);
         });
         this.bindPanelButton(replayBtn, () => {
             AudioMgr.inst.play('button');

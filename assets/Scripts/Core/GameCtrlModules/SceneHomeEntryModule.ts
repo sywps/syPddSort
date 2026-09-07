@@ -54,7 +54,13 @@ export function installSceneHomeEntryModule(target: any): void {
             return 'main';
         },
 
-        syncAppSessionForGameplayRequest(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'auto'): void {
+        syncAppSessionForGameplayRequest(
+            levelId: number,
+            prefix: string = 'level_',
+            external: boolean = false,
+            entryCoverMode: AppGameplayEntryCoverMode = 'auto',
+            routeReason: string = '',
+        ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             const pending = AppRoot.tryGet()?.session.pendingGameplayRequest;
             AppRoot.tryGet()?.markGameRequested(
@@ -62,11 +68,21 @@ export function installSceneHomeEntryModule(target: any): void {
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
                 entryCoverMode,
-                pending?.levelId === normalizedLevelId && pending.prefix === prefix ? pending.routeReason : '',
+                routeReason || (
+                    pending?.levelId === normalizedLevelId && pending.prefix === prefix
+                        ? pending.routeReason
+                        : ''
+                ),
             );
         },
 
-        async requestGameplayRoute(levelId: number, prefix: string = 'level_', external: boolean = false, entryCoverMode: AppGameplayEntryCoverMode = 'none'): Promise<void> {
+        async requestGameplayRoute(
+            levelId: number,
+            prefix: string = 'level_',
+            external: boolean = false,
+            entryCoverMode: AppGameplayEntryCoverMode = 'none',
+            routeReason: string = '',
+        ): Promise<void> {
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
                 throw new Error('[SceneSplit] AppRoot is not ready for gameplay route');
@@ -77,6 +93,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
                 entryCoverMode,
+                routeReason,
             );
             await appRoot.router.toGame();
         },
@@ -246,7 +263,12 @@ export function installSceneHomeEntryModule(target: any): void {
             ensureGameCirclePanelController(this).open(GAME_CIRCLE_OPENLINK);
         },
 
-        loadLevel(levelId: number, prefix: string = 'level_', _mapMainLevel: boolean = true) {
+        loadLevel(
+            levelId: number,
+            prefix: string = 'level_',
+            _mapMainLevel: boolean = true,
+            routeReason: string = '',
+        ) {
             if (this.shouldUseCurrentExternalLevelFile(levelId, prefix)) {
                 this.loadExternalLevelFile(this._currentExternalLevelFilePath, prefix);
                 return;
@@ -255,7 +277,7 @@ export function installSceneHomeEntryModule(target: any): void {
             const resolvedLevelId = prefix === 'level_'
                 ? mapLogicalToPhysicalLevelId(normalizedLevelId)
                 : normalizedLevelId;
-            this.syncAppSessionForGameplayRequest(resolvedLevelId, prefix, false);
+            this.syncAppSessionForGameplayRequest(resolvedLevelId, prefix, false, 'auto', routeReason);
             this.clearCurrentExternalLevelFile();
             if (this.shouldUseLocalBootstrapBundle(resolvedLevelId, prefix)) {
                 this.loadLocalLevel(resolvedLevelId, prefix, resolvedLevelId);

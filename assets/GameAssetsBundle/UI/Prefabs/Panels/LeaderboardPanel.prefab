@@ -2213,8 +2213,6 @@
       "__id__": 0
     },
     "fileId": "PopupTabGlobalInactiveBg-node-1781508592428-223",
-    "instance": null,
-    "targetOverrides": null,
     "nestedPrefabInstanceRoots": null
   },
   {
@@ -2481,7 +2479,7 @@
       "a": 255
     },
     "_spriteFrame": {
-      "__uuid__": "18edc296-4ecc-48de-8336-73784263a3db@f9941",
+      "__uuid__": "e1eea1d1-e5a9-48fa-b4b1-dad57d64de3f@f9941",
       "__expectedType__": "cc.SpriteFrame"
     },
     "_type": 0,

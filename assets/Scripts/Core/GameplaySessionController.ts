@@ -156,6 +156,7 @@ export class GameplaySessionController {
                 logicalLevelId: activeLogicalLevelId,
                 physicalLevelId: resolvedLevelId,
                 gameplayMode: PCH_GAMEPLAY_MODE,
+                gameplayEntryMode,
                 gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
             });
             initStage = 'visual_readiness';
@@ -221,6 +222,7 @@ export class GameplaySessionController {
                         abId: experimentAnalyticsContext?.abId,
                         abBucket: experimentAnalyticsContext?.abBucket,
                         gameplayMode: PCH_GAMEPLAY_MODE,
+                        gameplayEntryMode,
                         gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
                     }, pchController.getAnalyticsSnapshot());
                     SySDKMgr.inst.reportLevelEnter(analyticsLevelId);

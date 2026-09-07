@@ -38,6 +38,17 @@ export function isCollectionEntryUnlocked(unlockLevel: number, savedLevel: numbe
     return unlockLevel <= completedLevel;
 }
 
+export function isCollectionEntryUnlockedForProgress(
+    entry: LevelCollectionEntry,
+    savedLevel: number,
+    completedThemeLevelIds: ReadonlySet<number>,
+): boolean {
+    if (entry.prefix === 'zt_level_') {
+        return completedThemeLevelIds.has(entry.levelId);
+    }
+    return isCollectionEntryUnlocked(entry.unlockLevel, savedLevel);
+}
+
 function getRankTextColor(rank: number): Color {
     if (rank === 1) return new Color('#D99A16');
     if (rank === 2) return new Color('#6D7F9C');
@@ -543,6 +554,9 @@ export function installCollectionAvatarModule(target: any): void {
                 throw new Error(`[collection-catalog] ${activeTab} entries missing`);
             }
             const savedLevel = this.getSavedLevel();
+            const completedThemeLevelIds = activeTab === 'theme'
+                ? this.getThemeCompletedSet() as Set<number>
+                : new Set<number>();
             const columnCount = Math.max(1, columnXs.length);
             const rowCount = Math.max(1, Math.ceil(allEntries.length / columnCount));
             const totalH = Math.max(viewportH, topPadding + Math.max(0, rowCount - 1) * rowPitch + bottomPadding);
@@ -567,7 +581,7 @@ export function installCollectionAvatarModule(target: any): void {
                 const levelId = entry.levelId;
                 const row = Math.floor(idx / columnCount);
                 const col = idx % columnCount;
-                const unlocked = isCollectionEntryUnlocked(entry.unlockLevel, savedLevel);
+                const unlocked = isCollectionEntryUnlockedForProgress(entry, savedLevel, completedThemeLevelIds);
                 slot.name = `CollectionCardSlotItem_${idx}`;
                 slot.active = true;
                 slot.layer = scrollContent.layer;

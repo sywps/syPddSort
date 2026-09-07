@@ -294,6 +294,118 @@ function aggregateReviveAdFunnel(rows) {
   return out.sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
 }
 
+function aggregateReviveShareFunnel(rows) {
+  const out = [];
+  for (const [, group] of groupBy(rows, (row) => `${row?.levelId ?? row?.logicalLevelId ?? ""}|${row?.page || ""}`)) {
+    const first = clone(group[0] || {});
+    const levelId = num(first.levelId || first.logicalLevelId);
+    if (!levelId || !first.page) continue;
+    const row = {
+      levelId,
+      page: first.page,
+      panelShowNum: sum(group, "panelShowNum"),
+      shareClickNum: sum(group, "shareClickNum"),
+      qualifiedReturnNum: sum(group, "qualifiedReturnNum"),
+      shareReviveSuccessNum: sum(group, "shareReviveSuccessNum"),
+      userNum: sum(group, "userNum"),
+    };
+    row.panelShareClickRate = ratio(row.shareClickNum, row.panelShowNum);
+    row.qualifiedReturnRate = ratio(row.qualifiedReturnNum, row.shareClickNum);
+    row.shareReviveSuccessRate = ratio(row.shareReviveSuccessNum, row.qualifiedReturnNum);
+    out.push(row);
+  }
+  return out.sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page));
+}
+
+function aggregatePixelBeanProgress(items) {
+  const values = (items || []).filter(Boolean);
+  if (!values.length) return null;
+  const levelRows = [];
+  for (const [, group] of groupBy(values.flatMap((item) => item.levels || []), (row) => String(row?.levelId || ""))) {
+    const levelId = num(group[0]?.levelId);
+    if (!levelId) continue;
+    const row = {
+      levelId,
+      enterUv: sum(group, "enterUv"),
+      enterPv: sum(group, "enterPv"),
+      passUv: sum(group, "passUv"),
+      passPv: sum(group, "passPv"),
+      failUv: sum(group, "failUv"),
+      failPv: sum(group, "failPv"),
+    };
+    row.uvPassRate = ratio(row.passUv, row.enterUv);
+    levelRows.push(row);
+  }
+  const distribution = [];
+  for (const [, group] of groupBy(
+    values.flatMap((item) => item.maxEnteredLevelDistribution || []),
+    (row) => String(row?.levelId || ""),
+  )) {
+    const levelId = num(group[0]?.levelId);
+    if (levelId) distribution.push({ levelId, users: sum(group, "users") });
+  }
+  const overallRows = values.map((item) => item.overall || {});
+  return {
+    scope: "synthetic daily sum; lifecycle gameplayEntryMode=theme with legacy page fallback",
+    overall: {
+      activeUsers: sum(overallRows, "activeUsers"),
+      enterUsers: sum(overallRows, "enterUsers"),
+      passUsers: sum(overallRows, "passUsers"),
+      failUsers: sum(overallRows, "failUsers"),
+      highestEnteredLevel: Math.max(0, ...overallRows.map((row) => num(row.highestEnteredLevel))),
+      highestPassedLevel: Math.max(0, ...overallRows.map((row) => num(row.highestPassedLevel))),
+    },
+    levels: levelRows.sort((a, b) => a.levelId - b.levelId),
+    maxEnteredLevelDistribution: distribution.sort((a, b) => a.levelId - b.levelId),
+  };
+}
+
+function aggregatePixelBeanAds(items) {
+  const values = (items || []).filter(Boolean);
+  if (!values.length) return null;
+  const rows = [];
+  for (const [, group] of groupBy(
+    values.flatMap((item) => item.rows || []),
+    (row) => `${row?.levelId || ""}|${row?.adType || ""}|${row?.page || ""}`,
+  )) {
+    const first = clone(group[0] || {});
+    const row = {
+      levelId: num(first.levelId),
+      adType: first.adType || "unknown",
+      page: first.page || "unknown",
+      label: first.label || first.page || "unknown",
+      clickNum: sum(group, "clickNum"),
+      showNum: sum(group, "showNum"),
+      finishNum: sum(group, "finishNum"),
+      rewardSuccessNum: sum(group, "rewardSuccessNum"),
+      userNum: sum(group, "userNum"),
+    };
+    if (!row.levelId) continue;
+    row.adShowRate = ratio(row.showNum, row.clickNum);
+    row.adFinishRate = ratio(row.finishNum, row.showNum);
+    row.rewardSuccessRate = ratio(row.rewardSuccessNum, row.finishNum);
+    rows.push(row);
+  }
+  const overallRows = values.map((item) => item.overall || {});
+  const overall = {
+    clickNum: sum(overallRows, "clickNum"),
+    showNum: sum(overallRows, "showNum"),
+    finishNum: sum(overallRows, "finishNum"),
+    rewardSuccessNum: sum(overallRows, "rewardSuccessNum"),
+    userNum: sum(overallRows, "userNum"),
+  };
+  return {
+    scope: "synthetic daily sum; gameplayEntryMode=theme only",
+    overall: {
+      ...overall,
+      adShowRate: ratio(overall.showNum, overall.clickNum),
+      adFinishRate: ratio(overall.finishNum, overall.showNum),
+      rewardSuccessRate: ratio(overall.rewardSuccessNum, overall.finishNum),
+    },
+    rows: rows.sort((a, b) => a.levelId - b.levelId || a.page.localeCompare(b.page)),
+  };
+}
+
 function aggregateCoreMetrics(items, targetDate) {
   const out = { ...clone(items[0] || {}), date: targetDate };
   for (const field of Object.keys(out)) {
@@ -420,7 +532,7 @@ function aggregateDailyDiagnosis(summaries, targetDate, sourceDates) {
   }
   return {
     ...first,
-    schemaVersion: "10+synthetic-daily-sum",
+    schemaVersion: "11+synthetic-daily-sum",
     generatedAt: new Date().toISOString(),
     synthetic: {
       type: "daily_sum",
@@ -433,6 +545,9 @@ function aggregateDailyDiagnosis(summaries, targetDate, sourceDates) {
     guideTapBreakdown: aggregateTapRows(diags.flatMap((item) => item.guideTapBreakdown || [])),
     guideTapByStep: aggregateTapRows(diags.flatMap((item) => item.guideTapByStep || [])),
     reviveAdFunnel: aggregateReviveAdFunnel(diags.flatMap((item) => item.reviveAdFunnel || [])),
+    reviveShareFunnel: aggregateReviveShareFunnel(diags.flatMap((item) => item.reviveShareFunnel || [])),
+    pixelBeanProgress: aggregatePixelBeanProgress(diags.map((item) => item.pixelBeanProgress)),
+    pixelBeanAds: aggregatePixelBeanAds(diags.map((item) => item.pixelBeanAds)),
     first20Levels: first20,
     mainlineBottlenecks: first20.filter((row) => !row.isTotal).sort((a, b) => num(b.enterNotPassUv) - num(a.enterNotPassUv)).slice(0, 10),
     highRetryLevels: first20.filter((row) => !row.isTotal && num(row.avgTryCount) > 1).sort((a, b) => num(b.avgTryCount) - num(a.avgTryCount)).slice(0, 10),
@@ -466,6 +581,12 @@ function aggregateCollections(summaries, targetDate) {
     if (summary.levelRows) summary.levelRows = aggregateLevelRows(entries.flatMap((item) => item.summary?.levelRows || []));
     if (summary.adEventBreakdown) summary.adEventBreakdown = aggregateAdPerformanceRows(entries.flatMap((item) => item.summary?.adEventBreakdown || []));
     if (summary.topByShow) summary.topByShow = aggregateAdPerformanceRows(entries.flatMap((item) => item.summary?.topByShow || []));
+    if (entries.some((item) => item.summary?.pixelBeanProgress)) {
+      summary.pixelBeanProgress = aggregatePixelBeanProgress(entries.map((item) => item.summary?.pixelBeanProgress));
+    }
+    if (entries.some((item) => item.summary?.pixelBeanAds)) {
+      summary.pixelBeanAds = aggregatePixelBeanAds(entries.map((item) => item.summary?.pixelBeanAds));
+    }
     summary.levelOneUvPassRate = ratio(summary.levelOnePassUv, summary.levelOneEnterUv);
     summary.passRate = ratio(summary.passRounds, num(summary.passRounds) + num(summary.failRounds));
     delete summary.clickRate;

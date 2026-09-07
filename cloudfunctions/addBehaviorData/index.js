@@ -77,6 +77,11 @@ function normalizeGameplayMode(value) {
   return cleanString(value, 32) === PCH_GAMEPLAY_MODE ? PCH_GAMEPLAY_MODE : '';
 }
 
+function normalizeGameplayEntryMode(value) {
+  const mode = cleanString(value, 16);
+  return ['main', 'theme', 'external'].includes(mode) ? mode : '';
+}
+
 function normalizeGameplaySchemaVersion(value, gameplayMode) {
   if (gameplayMode !== PCH_GAMEPLAY_MODE) return 0;
   return Math.floor(Number(value) || 0) === PCH_GAMEPLAY_SCHEMA_VERSION
@@ -168,6 +173,7 @@ exports.main = async (event = {}) => {
     physicalLevelId: normalizeExperimentLevelId(event.physicalLevelId),
     smartHintShownCount: normalizeNonNegativeInt(event.smartHintShownCount),
     gameplayMode,
+    gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode),
     gameplaySchemaVersion: normalizeGameplaySchemaVersion(event.gameplaySchemaVersion, gameplayMode),
     failureReason: normalizeFailureReason(event.failureReason),
     timestamp,

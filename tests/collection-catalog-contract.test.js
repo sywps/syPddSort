@@ -80,7 +80,7 @@ function loadClientCollectionCatalogContract(liveManifest = null) {
     return module.exports;
 }
 
-function loadCollectionUnlockPolicy() {
+function loadCollectionUnlockPolicies() {
     const source = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
     const output = ts.transpileModule(source, {
         compilerOptions: {
@@ -105,7 +105,7 @@ function loadCollectionUnlockPolicy() {
         },
     };
     vm.runInNewContext(output, sandbox, { filename: 'CollectionAvatarModule.ts' });
-    return module.exports.isCollectionEntryUnlocked;
+    return module.exports;
 }
 
 const config = readJson('config/collection-catalog.json');
@@ -124,7 +124,10 @@ assert.deepStrictEqual(catalog.entries.at(-1), { levelId: 300, prefix: 'level_',
 assert.ok(catalog.entries.every((entry) => availableLevelKeys.has(entry.prefix + entry.levelId)), 'every collection entry must resolve to a source level');
 assert.ok(!catalog.entries.some((entry) => entry.levelId >= 100001), 'removed special ids must not return');
 
-const isCollectionEntryUnlocked = loadCollectionUnlockPolicy();
+const {
+    isCollectionEntryUnlocked,
+    isCollectionEntryUnlockedForProgress,
+} = loadCollectionUnlockPolicies();
 assert.strictEqual(typeof isCollectionEntryUnlocked, 'function', 'collection unlock policy must be executable in isolation');
 assert.strictEqual(
     catalog.entries.filter((entry) => isCollectionEntryUnlocked(entry.unlockLevel, 1)).length,
@@ -137,6 +140,45 @@ assert.strictEqual(unlockedWhilePlayingLevel8.at(-1)?.levelId, 7, 'the current u
 const unlockedAfterCompletingLevel8 = catalog.entries.filter((entry) => isCollectionEntryUnlocked(entry.unlockLevel, 9));
 assert.strictEqual(unlockedAfterCompletingLevel8.length, 8, 'completing level 8 must light levels 1..8');
 assert.strictEqual(unlockedAfterCompletingLevel8.at(-1)?.levelId, 8, 'the next unfinished level must stay locked');
+
+assert.strictEqual(
+    typeof isCollectionEntryUnlockedForProgress,
+    'function',
+    'collection unlock policy must distinguish mainline progress from completed pixel levels',
+);
+const pixelEntries = Array.from({ length: 6 }, (_, index) => ({
+    levelId: index + 1,
+    prefix: 'zt_level_',
+    unlockLevel: 1,
+}));
+const pixelUnlockedAtLevel2 = pixelEntries.filter((entry) => (
+    isCollectionEntryUnlockedForProgress(entry, 50, new Set([1]))
+));
+assert.deepStrictEqual(
+    pixelUnlockedAtLevel2.map((entry) => entry.levelId),
+    [1],
+    'high mainline progress must not light pixel levels beyond the actually completed level 1',
+);
+assert.strictEqual(
+    isCollectionEntryUnlockedForProgress(pixelEntries[1], 50, new Set([1])),
+    false,
+    'the current unfinished pixel level 2 must stay locked even when mainline progress is high',
+);
+assert.strictEqual(
+    pixelEntries.filter((entry) => isCollectionEntryUnlockedForProgress(entry, 50, new Set())).length,
+    0,
+    'an empty pixel completion set must leave every pixel collection entry locked',
+);
+assert.strictEqual(
+    isCollectionEntryUnlockedForProgress({ levelId: 8, prefix: 'level_', unlockLevel: 8 }, 8, new Set([8])),
+    false,
+    'mainline entries must keep using savedLevel minus one even when the pixel completion set contains the same id',
+);
+assert.strictEqual(
+    isCollectionEntryUnlockedForProgress({ levelId: 8, prefix: 'level_', unlockLevel: 8 }, 9, new Set()),
+    true,
+    'completed mainline entries must remain lit after splitting the pixel progress policy',
+);
 
 const clientCatalogContract = loadClientCollectionCatalogContract();
 const manifestCatalog = clientCatalogContract.resolveLevelCollectionEntries({
@@ -267,6 +309,8 @@ assert.ok(!host.includes('COLLECTION_SPECIAL_LEVEL_'), 'runtime must not own syn
 assert.ok(!collection.includes('collectAllLevelIds'), 'collection rendering must not rebuild a hardcoded catalog');
 assert.ok(panel.includes('loadCollectionLevelEntries'), 'collection open must load manifest entries');
 assert.ok(collection.includes('isCollectionEntryUnlocked(entry.unlockLevel, savedLevel)'), 'unlock state must use completed progress with the manifest contract');
+assert.ok(collection.includes("const completedThemeLevelIds = activeTab === 'theme'"), 'pixel collection rendering must read its completed-level set once outside the entry loop');
+assert.ok(collection.includes('isCollectionEntryUnlockedForProgress(entry, savedLevel, completedThemeLevelIds)'), 'collection rendering must apply the gameplay-specific completion policy');
 assert.ok(!collection.includes('entry.unlockLevel <= savedLevel'), 'unlock state must not treat the current playable level as completed');
 assert.ok(collection.includes('prefix: entry.prefix'), 'lazy preview state must retain the manifest prefix');
 assert.ok(flow.includes('openCollectionImageModal(levelId, prefix)'), 'collection detail must retain the manifest prefix');

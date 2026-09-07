@@ -188,6 +188,7 @@ export class CollectionPanelController {
 
                     const box = runtime.requirePanelChild(overlay, 'Box');
                     syncPrefabPopupTitle(box, '图鉴');
+                    runtime.requirePanelChild(box, 'CollectionReplayButton').active = false;
                     if (!box.getComponent(BlockInputEvents)) box.addComponent(BlockInputEvents);
                     const isInsideNode = (node: Node, uiPos: Vec3) => {
                         const nodeUT = node.getComponent(UITransform);

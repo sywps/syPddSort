@@ -48,6 +48,12 @@ assert.ok(analytics.includes('endReason,'), 'saveLevelRecord payload must includ
 assert.ok(methodBody(analytics, 'trackSmartHintShow').includes("eventName: 'smart_hint_show'"), 'smart idle hints must emit smart_hint_show behavior events');
 assert.ok(methodBody(analytics, 'trackSmartHintShow').includes('this.trackFunnelEvent'), 'smart idle hints must also emit funnel events');
 assert.ok(methodBody(analytics, 'markLevelPassed').includes('smartHintShownCount'), 'level_pass behavior event must carry smartHintShownCount');
+assert.ok(analytics.includes("export type GameplayEntryMode = '' | 'main' | 'theme' | 'external'"), 'analytics must define the bounded gameplay entry mode');
+assert.ok(methodBody(analytics, 'setLevelContext').includes('normalizeGameplayEntryMode'), 'level context must normalize gameplayEntryMode');
+assert.ok(methodBody(analytics, 'beginLevel').includes('gameplayEntryMode'), 'level entry must snapshot gameplayEntryMode');
+assert.ok(methodBody(analytics, 'markLevelPassed').includes('gameplayEntryMode: session?.gameplayEntryMode'), 'pass events must retain the entry mode snapshot');
+assert.ok(methodBody(analytics, 'markLevelFailed').includes('gameplayEntryMode: session?.gameplayEntryMode'), 'fail events must retain the entry mode snapshot');
+assert.ok(analytics.includes('gameplayEntryMode: session.gameplayEntryMode'), 'level records must retain the entry mode snapshot');
 
 assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {'), 'gameWin must pass the runtime logical level id and PCH snapshot');
 assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId, {'), 'gameLose must pass the runtime logical level id and PCH failure snapshot');
@@ -57,6 +63,8 @@ assert.ok(settlement.includes('this.trackSmartIdleHintShown?.(plan)'), 'smart id
 assert.ok(addBehaviorData.includes('smartHintShownCount: normalizeNonNegativeInt(event.smartHintShownCount)'), 'addBehaviorData must persist smartHintShownCount');
 assert.ok(saveLevelRecord.includes('normalizeEndReason'), 'saveLevelRecord must normalize endReason');
 assert.ok(saveLevelRecord.includes('endReason,'), 'saveLevelRecord must persist endReason');
+assert.ok(addBehaviorData.includes('gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode)'), 'addBehaviorData must persist normalized gameplayEntryMode');
+assert.ok(saveLevelRecord.includes('gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode)'), 'saveLevelRecord must persist normalized gameplayEntryMode');
 assert.ok(calcLevelRate.includes('isAbandonedRecord'), 'calcLevelRate must identify abandoned/interrupted records');
 assert.ok(calcLevelRate.includes('resultRecords = records.filter'), 'calcLevelRate must exclude abandoned records from pass/fail denominator');
 assert.ok(calcLevelRate.includes('abandonedCount'), 'calcLevelRate must expose abandonedCount for diagnostics');

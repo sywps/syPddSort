@@ -86,16 +86,18 @@ assert.ok(sameFrameFxMethod.includes('allowActiveLimitOverride'), 'same-frame pl
 assert.ok(sameFrameFxMethod.includes('this.playPinddSpineFxOnBean(beanNode, animationName, finishOne, {'), 'same-frame playback must forward its options to each bean effect');
 assert.ok(colorFx.includes('acquirePinddSpineFxNode(allowActiveLimitOverride: boolean = false)'), 'node acquisition must receive the narrowly scoped active-limit override');
 assert.ok(patternCompleteMatchMethod.includes("new Node('PatternCompleteDiagonalSweepFx')"), 'whole-pattern completion must create one diagonal sweep root');
-assert.ok(patternCompleteMatchMethod.includes('sweep.angle = -45;'), 'whole-pattern Shader light band must be / while it travels from upper-left to lower-right');
-assert.ok(patternCompleteMatchMethod.includes('const bandSpecs = ['), 'whole-pattern completion must use the configured soft-edge sweep bands');
-assert.ok(patternCompleteMatchMethod.includes("tween(sweep)"), 'whole-pattern completion must animate the single sweep node');
-assert.ok(colorFx.includes('PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1.25'), 'whole-pattern Shader sweep must use the slower visible duration');
+assert.ok(patternCompleteMatchMethod.includes('sweep.angle = -45;'), 'whole-pattern light band must be / while it travels from upper-left to lower-right');
+assert.ok(patternCompleteMatchMethod.includes('const bandSpecs = ['), 'whole-pattern completion must use the configured sweep band');
+assert.ok(patternCompleteMatchMethod.includes("{ name: 'Core', width: baseBandWidth * 0.52, opacity: 176 }"), 'whole-pattern completion must retain only the original central core band');
+assert.ok(!patternCompleteMatchMethod.includes("name: 'Outer'") && !patternCompleteMatchMethod.includes("name: 'Middle'"), 'whole-pattern completion must not recreate the two auxiliary light bands');
+assert.ok(patternCompleteMatchMethod.includes('tween(sweep)'), 'whole-pattern completion must animate the single sweep node');
+assert.ok(colorFx.includes('PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1'), 'whole-pattern Shader sweep must use the configured one-second duration');
 assert.ok(patternCompleteRootMethod.includes('mask.type = Mask.Type.GRAPHICS_STENCIL;'), 'whole-pattern sweep must use a dynamic stencil rather than a rectangular board mask');
 assert.ok(patternCompleteRootMethod.includes('this.drawPatternCompleteMatchFxMask(graphics);'), 'whole-pattern sweep must refresh the stencil for the current level pattern');
 assert.ok(patternCompleteMaskMethod.includes('boardModel.correctColors[row]?.[col]'), 'whole-pattern stencil must include only actual pattern cells');
 assert.ok(patternCompleteMaskMethod.includes('this.getBoardCellCenterLocal(row, col);'), 'whole-pattern stencil must use the board-owned cell coordinates');
 assert.ok(patternCompleteMaskMethod.includes('graphics.rect(') && patternCompleteMaskMethod.includes('graphics.fill();'), 'whole-pattern stencil must draw each valid cell into one graphics mask');
-assert.ok(!colorFx.includes('mask.type = Mask.Type.GRAPHICS_RECT'), 'whole-pattern sweep must not retain the rectangular board mask');
+assert.ok(!colorFx.includes('PatternCompleteBeanSweep'), 'whole-pattern sweep must not retain the reverted Shader material');
 assert.ok(!colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion must not create per-bean c1 Spine effects');
 assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES'), 'whole-pattern completion must not retain the old per-bean cap');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_ACTIVE_LIMIT = 48'), 'ordinary Pindd Spine effects must retain the 48-node active cap');
@@ -216,7 +218,7 @@ assert.ok(settlement.includes('.call(playPatternCompleteFx)'), 'pattern-complete
 assert.ok(!settlement.includes('PATTERN_COMPLETE_FX_START_DELAY'), 'pattern-complete c1 must not use a separate fixed start delay');
 assert.ok(!settlement.includes('PATTERN_COMPLETE_COLOR_HOLD'), 'final color b1 must gate board shrink by its real completion callback instead of a fixed whole-board replay hold');
 assert.ok(settlement.includes('this.flushPendingColorCompleteEffectsSequentially(scheduleBoardCompleteShrink);'), 'final pattern win must play only the queued completed colors before board shrink');
-assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.5'), 'settlement must keep the fixed post-Shader overlap hold');
+assert.ok(settlement.includes('PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25'), 'settlement must keep the configured post-Shader overlap hold');
 
 assert.ok(firstLevelRoute.includes("this.requireUiChild(overlayTemplates, 'RemoteLoadFatalError'"), 'level-data fatal overlay must use the authored RemoteLoadFatalError template');
 assert.ok(!firstLevelRoute.includes('ensureLevelDataLoadFatalLayer'), 'level-data fatal overlay must not create a runtime layer fallback');

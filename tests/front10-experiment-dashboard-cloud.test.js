@@ -27,6 +27,10 @@ const collections = {
     { openid: 'revive-user', eventName: 'ad_show', levelId: 3, logicalLevelId: 3, page: 'pch_buffer_full_revive', timestamp: timestamp + 15 },
     { openid: 'revive-user', eventName: 'ad_finish', levelId: 3, logicalLevelId: 3, page: 'pch_buffer_full_revive', timestamp: timestamp + 16 },
     { openid: 'revive-user', eventName: 'revive_success', levelId: 3, logicalLevelId: 3, page: 'pch_buffer_full_revive', timestamp: timestamp + 17 },
+    { openid: 'share-revive-user', eventName: 'revive_panel_show', levelId: 4, logicalLevelId: 4, page: 'level_revive', timestamp: timestamp + 18 },
+    { openid: 'share-revive-user', eventName: 'share_click', levelId: 4, logicalLevelId: 4, page: 'level_revive_share', timestamp: timestamp + 19 },
+    { openid: 'share-revive-user', eventName: 'share_success', levelId: 4, logicalLevelId: 4, page: 'level_revive_share', timestamp: timestamp + 20 },
+    { openid: 'share-revive-user', eventName: 'share_revive_success', levelId: 4, logicalLevelId: 4, page: 'level_revive_share', timestamp: timestamp + 21 },
   ],
   level_record: [
     { openid: 'revive-user', levelId: 3, gameplayMode: 'pch_conveyor', gameplaySchemaVersion: 1, gameplayStats: { magnetUses: 2, brushUses: 3, freezeUses: 4 }, endTime: timestamp + 18 },
@@ -160,6 +164,17 @@ function findRow(stats, logicalLevelId, abBucket) {
   assert.deepStrictEqual(
     [revive.panelClickRate, revive.adShowRate, revive.adFinishRate, revive.reviveSuccessRate],
     [100, 100, 100, 100],
+  );
+
+  const shareRevive = result.reviveShareFunnel.find((row) => row.logicalLevelId === 4 && row.page === 'level_revive');
+  assert.ok(shareRevive, 'dashboard must expose the timeout share-revive placement');
+  assert.deepStrictEqual(
+    [shareRevive.panelShowNum, shareRevive.shareClickNum, shareRevive.qualifiedReturnNum, shareRevive.shareReviveSuccessNum],
+    [1, 1, 1, 1],
+  );
+  assert.deepStrictEqual(
+    [shareRevive.panelShareClickRate, shareRevive.qualifiedReturnRate, shareRevive.shareReviveSuccessRate],
+    [100, 100, 100],
   );
 
   assert.deepStrictEqual(

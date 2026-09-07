@@ -140,6 +140,7 @@ const createLoseRouteRuntime = () => {
         panelLose: createPanel(),
         showLosePanelCalls: 0,
         isBoardCompletionCommittedForSettlement: () => false,
+        isBoardCompletionPendingForSettlement: () => false,
         clearIdleHint() {},
         unschedule() {},
         tickTimer() {},
@@ -252,6 +253,36 @@ runContinueAfterLose.call(nonPchContinueRuntime, 120, false);
 assert.equal(nonPchScheduledTimerCount, 0, 'non-PCH timeout revive must keep its existing wait-for-next-selection timer behavior');
 assert.equal(nonPchContinueRuntime._timerStarted, false, 'non-PCH timeout revive must not silently broaden the PCH timer policy');
 
+const runCompletionSummary = compileExtractedMethod(
+    settlement,
+    'syncSettlementCompletionSummary(panel: Node | null | undefined, percent: number): boolean',
+    ['panel', 'percent', 'Label'],
+);
+const completionRootLabel = { string: '关卡已完成' };
+const completionPercentLabel = { string: '%' };
+const completionPercentNode = {
+    getComponent() { return completionPercentLabel; },
+};
+const runtimeCompletionSummaryNode = {
+    name: 'Label',
+    getComponent() { return completionRootLabel; },
+    getChildByName(name) { return name === 'Label' ? completionPercentNode : null; },
+};
+const completionBox = {
+    children: [runtimeCompletionSummaryNode],
+    getChildByName() { return null; },
+};
+const completionPanel = {
+    name: 'LosePanel',
+    getChildByName(name) { return name === 'Box' ? completionBox : null; },
+};
+assert.equal(
+    runCompletionSummary.call({}, completionPanel, 87, function Label() {}),
+    true,
+    'LosePanel must keep the existing dynamic completion-summary contract',
+);
+assert.equal(completionPercentLabel.string, '87%', 'LosePanel must render the runtime completion percentage inside the new summary');
+
 const runContinueAfterBufferFull = compileExtractedMethod(
     pchConveyor,
     'continueAfterBufferFull(): boolean',
@@ -280,6 +311,18 @@ assert.ok(
     createLosePanel.includes('this.bindLoseReviveContinueAction(reviveBtn, overlay);'),
     'failure Continue Game must choose its reward from the active loss reason at click time',
 );
+assert.ok(
+    createLosePanel.includes('this.syncResultProgressWidget(overlay, 0, true);'),
+    'failure panel must explicitly use the text completion summary when its legacy progress widget is absent',
+);
+assert.ok(
+    createLosePanel.includes("runtime.requirePanelChild(box, 'HomeBtn')"),
+    'failure panel must bind its dedicated text-style HomeBtn node',
+);
+assert.ok(
+    createLosePanel.includes('this.leaveFailureToHome(overlay);'),
+    'failure HomeBtn must invalidate pending revive activity before routing home',
+);
 const createRevivePanel = extractMethod(resultPanel, 'createReviveSettlementPanel(): Node');
 assert.ok(
     createRevivePanel.includes('this.bindReviveContinueAction(continueBtn, overlay, rewardedSeconds);'),
@@ -287,8 +330,17 @@ assert.ok(
 );
 assert.match(
     createRevivePanel,
-    /const giveUp = \(\) => \{[\s\S]*?runtime\.showLosePanel\(\);/,
-    'closing the timeout revive panel must enter the final failure panel',
+    /const giveUp = \(\) => \{[\s\S]*?this\.closeReviveFailureSession\('timeout', overlay\);/,
+    'closing the timeout revive panel must delegate to the guarded final-failure route',
+);
+const closeReviveFailureSession = extractMethod(
+    resultPanel,
+    'closeReviveFailureSession(kind: ReviveSharePanelKind, overlay: Node): void',
+);
+assert.match(
+    closeReviveFailureSession,
+    /cancelRewardedGrantInteraction\?\.\('revive-panel-close'\)[\s\S]*?cancelPendingShareReturn\?\.\('revive-panel-close'\)[\s\S]*?showLosePanel\(\)/,
+    'closing the timeout revive panel must cancel pending activity before entering final failure',
 );
 const bindRevive = extractMethod(resultPanel, 'bindReviveContinueAction(triggerNode: Node, overlay: Node, rewardedSeconds?: number)');
 const runLevelRevive = extractMethod(resultPanel, 'runLevelReviveAction(overlay: Node, continueSeconds: number)');
@@ -304,8 +356,14 @@ assert.ok(
 const bindLoseRevive = extractMethod(resultPanel, 'bindLoseReviveContinueAction(triggerNode: Node, overlay: Node)');
 assert.match(
     bindLoseRevive,
-    /runtime\._activeLoseReason === 'buffer-full'[\s\S]*?this\.runBufferFullReviveAction\(overlay\);[\s\S]*?this\.runLevelReviveAction\(overlay, continueSeconds\);/,
+    /this\.resolveFinalFailureReviveKind\(\) === 'buffer-full'[\s\S]*?this\.runBufferFullReviveAction\(overlay\);[\s\S]*?this\.runLevelReviveAction\(overlay, continueSeconds\);/,
     'the final failure page must reuse buffer expansion only for a buffer-full loss',
+);
+const resolveFinalFailureReviveKind = extractMethod(resultPanel, 'resolveFinalFailureReviveKind(): ReviveSharePanelKind');
+assert.match(
+    resolveFinalFailureReviveKind,
+    /runtime\._activeLoseReason === 'buffer-full' \? 'buffer-full' : 'timeout'/,
+    'the final failure page must retain its buffer-full fallback when no session context remains',
 );
 const runBindRevive = compileExtractedMethod(
     resultPanel,
@@ -315,7 +373,7 @@ const runBindRevive = compileExtractedMethod(
 const runLevelReviveAction = compileExtractedMethod(
     resultPanel,
     'runLevelReviveAction(overlay: Node, continueSeconds: number)',
-    ['overlay', 'continueSeconds', 'AudioMgr'],
+    ['overlay', 'continueSeconds', 'AudioMgr', 'ensurePchConveyorGameplayController'],
 );
 const timeoutOverlay = { active: true };
 const timeoutTrigger = {};
@@ -327,6 +385,9 @@ const timeoutResultController = {
     runtime: {
         constructor: { REWARDED_CONTINUE_SECONDS: 120 },
         _adShowing: false,
+        _pchConveyorGameplayController: {
+            grantReviveCapacity: () => true,
+        },
         runRewardedGrant(page, grant) {
             assert.equal(page, 'level_revive', 'timeout revive must request the level-revive rewarded placement');
             timeoutRewardedAttempts += 1;
@@ -339,8 +400,23 @@ const timeoutResultController = {
         assert.strictEqual(triggerNode, timeoutTrigger);
         timeoutReviveAction = action;
     },
+    beginReviveFailureSession(kind) {
+        return { kind, active: true };
+    },
+    isReviveFailureSessionActive(session) {
+        return session.active;
+    },
+    completeReviveFailureSession(session) {
+        session.active = false;
+    },
     runLevelReviveAction(overlay, seconds) {
-        return runLevelReviveAction.call(this, overlay, seconds, { inst: { play() {} } });
+        return runLevelReviveAction.call(
+            this,
+            overlay,
+            seconds,
+            { inst: { play() {} } },
+            (runtime) => runtime._pchConveyorGameplayController,
+        );
     },
 };
 runBindRevive.call(
@@ -375,7 +451,7 @@ assert.strictEqual(refId(iconNode._parent), continueButtonIndex, 'ad icon must b
 const label = findComponent(losePrefab, labelNode, 'cc.Label');
 const iconUi = findComponent(losePrefab, iconNode, 'cc.UITransform');
 const iconSprite = findComponent(losePrefab, iconNode, 'cc.Sprite');
-assert.strictEqual(label?.['_string'], '复活', 'failure action label must retain the current Revive text');
+assert.strictEqual(label?.['_string'], '继续游戏', 'failure action label must present the rewarded Continue Game action');
 assert.ok(Number(iconUi?._contentSize?.width) > 0 && Number(iconUi?._contentSize?.height) > 0, 'ad icon must have visible dimensions');
 assert.strictEqual(
     iconSprite?._spriteFrame?.__uuid__,
@@ -388,5 +464,120 @@ assert.strictEqual(
     'serialized icon reference must resolve to the existing BootstrapBundle asset',
 );
 assert.ok(iconNode._lpos.x < labelNode._lpos.x, 'ad icon must render to the left of the Continue Game label');
+assert.strictEqual(continueButton._lpos.x, 150, 'green rewarded Continue Game must render on the right');
+
+const homeButtonIndex = losePrefab.findIndex(
+    (entry) => entry?.__type__ === 'cc.Node' && entry._name === 'HomeBtn',
+);
+assert.ok(homeButtonIndex >= 0, 'LosePanel must expose a dedicated HomeBtn node');
+const homeButton = losePrefab[homeButtonIndex];
+const homeLabelNode = childNodes(losePrefab, homeButton).find((node) => node?._name === 'HomeLabel');
+assert.ok(homeLabelNode, 'HomeBtn must retain its text label');
+assert.strictEqual(findComponent(losePrefab, homeLabelNode, 'cc.Label')?.['_string'], '返回主页');
+assert.strictEqual(
+    findComponent(losePrefab, homeButton, 'cc.Sprite')?._enabled,
+    false,
+    'HomeBtn must remain a low-priority text action without a visible button background',
+);
+
+const loseBoxIndex = losePrefab.findIndex(
+    (entry) => entry?.__type__ === 'cc.Node' && entry._name === 'Box',
+);
+assert.ok(loseBoxIndex >= 0, 'LosePanel must retain its Box root');
+const loseBoxChildren = childNodes(losePrefab, losePrefab[loseBoxIndex]);
+const infoArtNode = loseBoxChildren.find((node) => node?._name === 'InfoArt');
+const titleRibbonNode = loseBoxChildren.find((node) => node?._name === 'TitleRibbon');
+const completionSummaryNode = loseBoxChildren.find((node) => node?._name === 'Label');
+const legacyProgressNode = loseBoxChildren.find((node) => node?._name === '进度条');
+assert.ok(infoArtNode, 'LosePanel must reuse the timeout failure illustration as InfoArt');
+assert.strictEqual(
+    findComponent(losePrefab, infoArtNode, 'cc.Sprite')?._spriteFrame?.__uuid__,
+    '123c4ced-f82b-4826-9499-1d90c53d8478@f9941',
+    'LosePanel InfoArt must reference the existing timeout revive illustration',
+);
+assert.ok(titleRibbonNode, 'LosePanel must retain a title ribbon');
+const titleLabelNode = childNodes(losePrefab, titleRibbonNode).find((node) => node?._name === 'TitleLabel');
+assert.strictEqual(
+    findComponent(losePrefab, titleLabelNode, 'cc.Label')?._string,
+    '关卡失败',
+    'LosePanel title must match the confirmed failure state',
+);
+assert.ok(completionSummaryNode, 'LosePanel must retain the dynamic completion-summary root');
+assert.strictEqual(findComponent(losePrefab, completionSummaryNode, 'cc.Label')?._string, '关卡已完成');
+const serializedCompletionPercentNode = childNodes(losePrefab, completionSummaryNode).find((node) => node?._name === 'Label');
+const serializedCompletionTailNode = childNodes(losePrefab, completionSummaryNode).find((node) => node?._name === 'ProgressTail');
+assert.ok(
+    serializedCompletionPercentNode,
+    'completion summary must retain its dynamic percentage Label child',
+);
+assert.strictEqual(
+    findComponent(losePrefab, serializedCompletionTailNode, 'cc.Label')?._string,
+    '，就差一点点了！',
+    'completion summary must retain its encouragement suffix',
+);
+assert.strictEqual(legacyProgressNode, undefined, 'LosePanel must physically remove the legacy progress node');
+assert.ok(
+    !losePrefab.some((entry) => entry?.__type__ === 'cc.Node' && entry._name === '进度条'),
+    'LosePanel must not retain an unreachable legacy progress node record',
+);
+const replayButtonNode = loseBoxChildren.find((node) => node?._name === '绿色按键底框-001');
+assert.ok(replayButtonNode, 'LosePanel must retain its Restart button');
+assert.strictEqual(replayButtonNode._lpos.x, -150, 'blue Restart must render on the left');
+const replayLabelNode = childNodes(losePrefab, replayButtonNode).find((node) => node?._name === 'Label');
+for (const styledLabelNode of [
+    titleLabelNode,
+    completionSummaryNode,
+    serializedCompletionPercentNode,
+    serializedCompletionTailNode,
+    labelNode,
+    homeLabelNode,
+    replayLabelNode,
+]) {
+    const styledLabel = findComponent(losePrefab, styledLabelNode, 'cc.Label');
+    assert.strictEqual(styledLabel?._outlineColor?.__type__, 'cc.Color', 'LosePanel label outline must use a serialized cc.Color');
+    assert.strictEqual(styledLabel?._outlineColor?._color, undefined, 'LosePanel label outline must not contain an invalid nested color');
+}
+
+const leaveFailureToHome = extractMethod(resultPanel, 'leaveFailureToHome(overlay: Node): void');
+assert.match(
+    leaveFailureToHome,
+    /cancelRewardedGrantInteraction\?\.\('lose-panel-home'\)[\s\S]*?cancelPendingShareReturn\?\.\('lose-panel-home'\)[\s\S]*?showMainMenu\(\)/,
+    'HomeBtn must cancel pending rewarded and share activity before routing home',
+);
+const runLeaveFailureToHome = compileExtractedMethod(
+    resultPanel,
+    'leaveFailureToHome(overlay: Node): void',
+    ['overlay', 'AnalyticsMgr'],
+);
+const pendingSession = { active: true };
+const homeExitOverlay = { active: true };
+const homeExitCalls = [];
+const homeExitController = {
+    activeReviveFailureSession: pendingSession,
+    finalFailureReviveContext: { kind: 'timeout', logicalLevelId: 4 },
+    runtime: {
+        cancelRewardedGrantInteraction(reason) { homeExitCalls.push(`cancel-ad:${reason}`); },
+        cancelPendingShareReturn(reason) { homeExitCalls.push(`cancel-share:${reason}`); },
+        _pchConveyorGameplayController: { getAnalyticsSnapshot: () => ({ slots: 3 }) },
+        showMainMenu() { homeExitCalls.push('home'); },
+    },
+};
+runLeaveFailureToHome.call(homeExitController, homeExitOverlay, {
+    inst: {
+        finalizePendingFailedLevel(payload) {
+            assert.deepStrictEqual(payload, { gameplayStats: { slots: 3 } });
+            homeExitCalls.push('finalize');
+        },
+    },
+});
+assert.equal(pendingSession.active, false, 'HomeBtn must invalidate the in-flight revive session');
+assert.equal(homeExitController.activeReviveFailureSession, null, 'HomeBtn must clear the active revive session handle');
+assert.equal(homeExitController.finalFailureReviveContext, null, 'HomeBtn must clear final failure revive context');
+assert.equal(homeExitOverlay.active, false, 'HomeBtn must hide the failure overlay before routing home');
+assert.deepStrictEqual(
+    homeExitCalls,
+    ['cancel-ad:lose-panel-home', 'cancel-share:lose-panel-home', 'finalize', 'home'],
+    'HomeBtn must complete cancellation and analytics before the home route',
+);
 
 console.log('lose-settlement-rewarded-continue.test.js passed');

@@ -52,6 +52,7 @@ function resolveGrantTimeoutMs(value: number | undefined, fallback: number): num
 
 type RewardedGrantOptions = {
     levelId?: number;
+    gameplayEntryMode?: string;
     claimKey?: string;
     markLevelRevive?: boolean;
     busyFlag?: string;
@@ -85,6 +86,7 @@ type RewardedGrantRuntimeTransaction = {
 type ShareGrantOptions = {
     levelId?: number;
     claimKey?: string;
+    markLevelRevive?: boolean;
     shareType?: string;
     busyFlag?: string;
     title?: RewardedGrantToast;
@@ -123,6 +125,31 @@ function getTimedOutGrantClaims(runtime: any): Set<string> {
         runtime._rewardedGrantTimedOutClaims = new Set<string>();
     }
     return runtime._rewardedGrantTimedOutClaims;
+}
+
+function resolveActiveGameplayEntryMode(
+    runtime: any,
+    explicitValue?: unknown,
+): '' | 'main' | 'theme' | 'external' {
+    const appRoot = explicitValue === undefined && typeof AppRoot.tryGet === 'function'
+        ? AppRoot.tryGet()
+        : null;
+    const value = explicitValue === undefined
+        ? (appRoot
+            ? appRoot.session?.activeGameplayContext?.entryMode
+            : runtime?._activeGameplayEntryMode)
+        : explicitValue;
+    return value === 'main' || value === 'theme' || value === 'external' ? value : '';
+}
+
+function resolveActiveAnalyticsLevelId(runtime: any, explicitLevelId?: number): number {
+    let value: unknown = explicitLevelId;
+    if (value === undefined) {
+        value = typeof runtime?.getActiveLogicalLevelId === 'function'
+            ? runtime.getAnalyticsLevelId?.()
+            : (runtime?._activeLogicalLevelId ?? runtime?._currentThemeLevelId ?? runtime?.levelData?.levelId);
+    }
+    return Math.max(0, Math.floor(Number(value) || 0));
 }
 
 export function installHomeAdFlowModule(target: any): void {
@@ -439,12 +466,14 @@ export function installHomeAdFlowModule(target: any): void {
             onComplete: (outcome: RewardedAdOutcome) => void,
             options: {
                 levelId?: number;
+                gameplayEntryMode?: string;
                 onShow?: () => void;
                 onRecoverable?: () => void;
             } = {},
         ) {
             const adType = `rewardedVideo:${page}`;
             const levelId = options.levelId ?? this.getAnalyticsLevelId();
+            const gameplayEntryMode = resolveActiveGameplayEntryMode(this, options.gameplayEntryMode);
             let interactionReleased = false;
             const adAudioReason = `rewarded:${page}`;
             this.ensureRewardedAdStateTelemetry();
@@ -471,7 +500,7 @@ export function installHomeAdFlowModule(target: any): void {
                 AudioMgr.inst.endExternalInterruptionWithBgmRestart(`${adAudioReason}:${reason}`);
                 this.resumeTimerAfterAd();
             };
-            AnalyticsMgr.inst.trackAdClick(adType, page, levelId);
+            AnalyticsMgr.inst.trackAdClick(adType, page, levelId, gameplayEntryMode);
             this.suspendTimerForAd();
             AudioMgr.inst.beginExternalInterruption(adAudioReason);
             try {
@@ -479,7 +508,7 @@ export function installHomeAdFlowModule(target: any): void {
                     const success = outcome.status === 'verified_complete';
                     releaseInteraction(`complete-${outcome.status}`);
                     if (success) {
-                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId);
+                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId, gameplayEntryMode);
                         SySDKMgr.inst.reportAdFinish(page);
                     }
                     try {
@@ -506,7 +535,7 @@ export function installHomeAdFlowModule(target: any): void {
                     }
                 }, {
                     onShow: () => {
-                        AnalyticsMgr.inst.trackAdShow(adType, page, levelId);
+                        AnalyticsMgr.inst.trackAdShow(adType, page, levelId, gameplayEntryMode);
                         SySDKMgr.inst.reportAdShow(page);
                         options.onShow?.();
                     },
@@ -648,6 +677,10 @@ export function installHomeAdFlowModule(target: any): void {
                             showRewardedGrantToast(this, options.grantFailToast);
                             return;
                         }
+                        if (options.markLevelRevive) {
+                            AnalyticsMgr.inst.markShareRevive();
+                            AnalyticsMgr.inst.trackShareReviveSuccess(shareType, page, levelId);
+                        }
                         showRewardedGrantToast(this, options.successToast);
                         if (!options.afterGrant) {
                             return;
@@ -763,6 +796,8 @@ export function installHomeAdFlowModule(target: any): void {
             this._rewardedGrantTransactionSeq = transactionId;
             const claimGrant = grant;
             const claimOptions = options;
+            const analyticsLevelId = resolveActiveAnalyticsLevelId(this, claimOptions.levelId);
+            const gameplayEntryMode = resolveActiveGameplayEntryMode(this, claimOptions.gameplayEntryMode);
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -937,9 +972,15 @@ export function installHomeAdFlowModule(target: any): void {
                             showRewardedGrantToast(this, claimOptions.grantFailToast);
                             return;
                         }
+                        AnalyticsMgr.inst.trackAdRewardSuccess(
+                            `rewardedVideo:${page}`,
+                            page,
+                            analyticsLevelId,
+                            gameplayEntryMode,
+                        );
                         if (claimOptions.markLevelRevive) {
                             AnalyticsMgr.inst.markAdRevive();
-                            AnalyticsMgr.inst.trackReviveSuccess(page, claimOptions.levelId ?? this.getAnalyticsLevelId());
+                            AnalyticsMgr.inst.trackReviveSuccess(page, analyticsLevelId, gameplayEntryMode);
                         }
                         showRewardedGrantToast(this, claimOptions.successToast);
                         if (!claimOptions.afterGrant) return;
@@ -1069,7 +1110,8 @@ export function installHomeAdFlowModule(target: any): void {
                         }
                         beginGrant();
                     }, {
-                        levelId: claimOptions.levelId,
+                        levelId: analyticsLevelId,
+                        gameplayEntryMode,
                         onShow: () => {
                             if (!claimOptions.suppressPendingStrip) {
                                 this.clearRewardedAdPendingStrip?.();

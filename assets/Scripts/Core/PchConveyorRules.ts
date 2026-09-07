@@ -90,19 +90,23 @@ export class PchConveyorRules {
         const block = this.board.getConnectedBlock(row, col, preferredCorrectColor);
         if (!block || preferredCorrectColor <= 0) return null;
 
-        const unvisited = new Set<number>();
+        const remaining = new Set<number>();
         for (const cell of block.cells) {
-            if (this.board.correctColors[cell.row]?.[cell.col] === preferredCorrectColor) {
-                unvisited.add(cell.row * this.board.width + cell.col);
-            }
+            remaining.add(cell.row * this.board.width + cell.col);
         }
         const startKey = row * this.board.width + col;
-        if (!unvisited.delete(startKey)) return null;
+        if (!remaining.delete(startKey)) return null;
 
         const cells: Array<{ row: number; col: number }> = [];
-        const queue: Array<{ row: number; col: number }> = [{ row, col }];
-        for (let head = 0; head < queue.length && cells.length < this.moveLimit; head += 1) {
-            const cell = queue[head];
+        const preferredFrontier: Array<{ row: number; col: number }> = [{ row, col }];
+        const fallbackFrontier: Array<{ row: number; col: number }> = [];
+        let preferredHead = 0;
+        let fallbackHead = 0;
+        while (cells.length < this.moveLimit) {
+            const cell = preferredHead < preferredFrontier.length
+                ? preferredFrontier[preferredHead++]
+                : (fallbackHead < fallbackFrontier.length ? fallbackFrontier[fallbackHead++] : null);
+            if (!cell) break;
             cells.push(cell);
             for (const [dr, dc] of PCH_SELECTION_DIRS) {
                 const nextRow = cell.row + dr;
@@ -111,8 +115,11 @@ export class PchConveyorRules {
                     continue;
                 }
                 const nextKey = nextRow * this.board.width + nextCol;
-                if (!unvisited.delete(nextKey)) continue;
-                queue.push({ row: nextRow, col: nextCol });
+                if (!remaining.delete(nextKey)) continue;
+                const frontier = this.board.correctColors[nextRow]?.[nextCol] === preferredCorrectColor
+                    ? preferredFrontier
+                    : fallbackFrontier;
+                frontier.push({ row: nextRow, col: nextCol });
             }
         }
         return {
