@@ -412,6 +412,7 @@ const controllerModule = { exports: {} };
 const loadController = new Function('module', 'exports', 'require', controllerCompiled.outputText);
 loadController(controllerModule, controllerModule.exports, (request) => {
     if (request === './PchConveyorRules') return { PchConveyorRules };
+    if (request === './PchConveyorGeometry') return require('../cloudfunctions/pvpService/bot-runtime/PchConveyorGeometry');
     if (request === './AppRoot') return { AppRoot: { tryGet() { return null; } } };
     if (request === './AnalyticsMgr') return { AnalyticsMgr: { inst: { trackFunnelEvent() {} } } };
     if (request === './OpeningPatternTransition') {

@@ -1061,13 +1061,14 @@ export function installFirstLevelRouteModule(target: any): void {
 
         async continueStartup() {
             markStartupTrace('startup_continue_decision_start');
-            const urlLevel = this.getUrlLevel();
-            const urlLevelFile = this.getUrlLevelFile();
-            const urlTheme = this.getUrlTheme();
+            const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
+            const pixelPvpRequest = pendingSceneGameplayRequest?.routeReason === 'pvp-ranked';
+            const urlLevel = pixelPvpRequest ? 0 : this.getUrlLevel();
+            const urlLevelFile = pixelPvpRequest ? '' : this.getUrlLevelFile();
+            const urlTheme = pixelPvpRequest || this.getUrlTheme();
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const initialDefaultEntryLevel = this.getDefaultEntryLevel();
-            const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
             const pendingMainGameplayRequest = !urlLevelFile
                 && urlLevel <= 0
                 && pendingSceneGameplayRequest?.entryMode === 'main'

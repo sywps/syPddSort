@@ -7,8 +7,8 @@ import {
 export type StartupRouteDecision = {
     shouldMarkPendingGameplay: boolean;
     levelId: number;
-    prefix: 'level_';
-    reason: 'explicit_launch' | 'local_progress_gt_1' | 'default_level_1';
+    prefix: 'level_' | 'zt_level_';
+    reason: 'explicit_launch' | 'local_progress_gt_1' | 'default_level_1' | 'pvp-ranked';
 };
 
 function getGlobalScope(): any {
@@ -69,6 +69,14 @@ export function resolveStartupRouteDecisionFromInputs(
     rawLocalLevel: unknown = null,
     _rawUserProfile: unknown = null,
 ): StartupRouteDecision {
+    if (String(query.pvppreview || '').trim() === '1') {
+        return {
+            shouldMarkPendingGameplay: true,
+            levelId: Math.max(1, Math.floor(Number(query.level) || 1)),
+            prefix: 'zt_level_',
+            reason: 'pvp-ranked',
+        };
+    }
     if (hasExplicitGameplayLaunch(query)) {
         return {
             shouldMarkPendingGameplay: false,

@@ -144,31 +144,37 @@ exports.main = async (event = {}) => {
       };
     }
 
-    const { next, patch } = applyAssetUpdates(current, event);
-    const profilePatch = {
-      lastLoginTime: timestamp,
-      ...patch,
-    };
+    return await db.runTransaction(async transaction => {
+      current = (await transaction.collection(USER_PROFILE_COLLECTION).doc(current._id).get()).data;
+      if (!current || current.openid !== openid) throw new Error('user profile ownership mismatch');
+      if (normalizeNonNegativeInt(current.pvpEconomyRevision) > 0
+        && event.pvpEconomyRevision !== current.pvpEconomyRevision) throw new Error('asset revision mismatch; refresh user state');
+      const { next, patch } = applyAssetUpdates(current, event);
+      const profilePatch = {
+        lastLoginTime: timestamp,
+        ...patch,
+      };
 
-    // 老用户补齐缺失字段，即使这次没有传更新值也会一并写回
-    for (const field of ASSET_FIELDS) {
-      if (Number(current[field]) !== next[field] && !Object.prototype.hasOwnProperty.call(profilePatch, field)) {
-        profilePatch[field] = next[field];
+      // 老用户补齐缺失字段，即使这次没有传更新值也会一并写回
+      for (const field of ASSET_FIELDS) {
+        if (Number(current[field]) !== next[field] && !Object.prototype.hasOwnProperty.call(profilePatch, field)) {
+          profilePatch[field] = next[field];
+        }
       }
-    }
 
-    if (current._id) {
-      await collection.doc(current._id).update({ data: profilePatch });
-    }
+      if (current._id) {
+        await transaction.collection(USER_PROFILE_COLLECTION).doc(current._id).update({ data: profilePatch });
+      }
 
-    return {
-      ok: true,
-      openid,
-      profile: {
-        ...current,
-        ...profilePatch,
-      },
-    };
+      return {
+        ok: true,
+        openid,
+        profile: {
+          ...current,
+          ...profilePatch,
+        },
+      };
+    });
   } catch (error) {
     return {
       ok: false,

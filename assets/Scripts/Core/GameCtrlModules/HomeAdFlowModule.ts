@@ -1328,6 +1328,11 @@ export function installHomeAdFlowModule(target: any): void {
             this.drawCollectionButton(entryLayer);
             this.drawSkinButton?.(entryLayer);
             this.drawGameCircleButton?.(entryLayer);
+            const legacyPvpEntry = entryLayer.getChildByName('PvpEntryButton');
+            if (legacyPvpEntry) {
+                legacyPvpEntry.active = false;
+                legacyPvpEntry.destroy();
+            }
             if (typeof this.drawSidebarEntry === 'function') {
                 this.drawSidebarEntry(entryLayer);
             }
@@ -1359,6 +1364,7 @@ export function installHomeAdFlowModule(target: any): void {
             const fixedRoot = this.mountMainMenuFixedRoot(menuRoot);
             AppRoot.tryGet()?.markHomeVisible(sceneName);
             this.renderMainMenuFixedRoot(fixedRoot);
+            if (AppRoot.tryGet()?.session.pixelPuzzleLobbyActive) this.openPvpLobby();
             const pendingHomeToast = AppRoot.tryGet()?.session.consumePendingHomeToast();
             if (pendingHomeToast) {
                 this.scheduleOnce(() => {

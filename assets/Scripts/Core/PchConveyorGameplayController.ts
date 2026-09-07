@@ -39,6 +39,7 @@ import {
     type PchGameplayAnalyticsSnapshot,
 } from './AnalyticsMgr';
 import type { PchSpeedMultiplier } from './AppSession';
+import { RAINBOW_CONVEYOR_PATHS, RAINBOW_CONVEYOR_EXIT_POINT_INDEX, conveyorExitProgress, type RainbowConveyorTableType } from './PchConveyorGeometry';
 
 const BELT_STEP_SECONDS = 0.25;
 const PCH_TRANSFER_SECONDS = 0.16;
@@ -101,7 +102,6 @@ const MAX_POOLED_SPHERE_FLY_EFFECTS = 24;
 const MAX_POOLED_SPHERE_FLY_STARS = 240;
 const SPHERE_FLY_TRAIL_COLOR = new Color(255, 238, 161, 255);
 
-type RainbowConveyorTableType = 2 | 3;
 type PchBoardTapOutcome = 'inactive' | 'invalid' | 'capacity_blocked' | 'partial' | 'stored';
 
 type PchOpeningGuideAnalyticsMeta = {
@@ -110,19 +110,6 @@ type PchOpeningGuideAnalyticsMeta = {
     stepName: string;
 };
 
-const RAINBOW_CONVEYOR_PATHS: Record<
-    RainbowConveyorTableType,
-    ReadonlyArray<readonly [number, number]>
-> = {
-    2: [
-        [-219, -99], [390, -96], [390, 104.2], [152, 104.2], [-396, 104.2], [-390, -92],
-    ],
-    3: [
-        [-327, -159], [447, -162], [447, 161], [263, 161], [264, 50],
-        [163, 50], [-279, 47], [-279, 166.3], [-452, 166.3], [-452, -159],
-    ],
-};
-const RAINBOW_CONVEYOR_EXIT_POINT_INDEX: Record<RainbowConveyorTableType, number> = { 2: 3, 3: 5 };
 const RAINBOW_CONVEYOR_TRACK_PARTS: Record<'NormalLayout' | 'CompactLayout', readonly string[]> = {
     NormalLayout: [
         'BottomStraight', 'BottomLeftCorner', 'TopLeftCorner', 'LeftSide',
@@ -275,6 +262,7 @@ export class PchConveyorGameplayController {
     private finishCommitted = false;
     private settlementPaused = false;
     private inputLocked = false;
+    private externalInputBlocked = false;
     private skillMovementPaused = false;
     private skillTimerPauseToken = '';
     private openingPatternVisuals: OpeningPatternVisual[] = [];
@@ -406,13 +394,15 @@ export class PchConveyorGameplayController {
         this.runtime.requireSphereFlyStarSpriteFrame();
         this.runtime.requireSphereFlyTrailSpriteFrame();
         this.runtime.requireWarningMaskSpriteFrame();
-        this.rules = new PchConveyorRules(
+        this.rules = this.runtime._pvpReplayResumeState?.rules || new PchConveyorRules(
             this.runtime.boardModel,
             this.runtime.levelData?.conveyorCapacity,
             this.runtime.levelData?.singleSelectionLimit,
         );
         this.resetAnalyticsStats();
-        this.beltTravel = 0;
+        this.beltTravel = this.runtime._pvpReplayResumeState?.travel || 0;
+        if (this.runtime._pvpReplayResumeState) this.manualSpeedMultiplier = this.runtime._pvpReplayResumeState.speed;
+        else this.runtime.recordPvpRuleEvent?.(0, this.manualSpeedMultiplier);
         this.inputLocked = true;
         this.activeReturnAnimations = 0;
         this.activeReturnBeans.clear();
@@ -456,10 +446,11 @@ export class PchConveyorGameplayController {
         this.capacityWarningAnimation = activeLayout.capacityWarningAnimation;
         const hideFirstLevelControls = this.runtime._activeGameplayEntryMode === 'main'
             && Math.floor(Number(this.runtime.levelData?.levelId) || 0) === 1;
+        const rankedPvp = this.runtime.isRankedPvpMode?.() === true;
         this.adButton = activeLayout.adButton;
-        this.adButton.active = !hideFirstLevelControls;
+        this.adButton.active = !hideFirstLevelControls && !rankedPvp;
         this.adButton.off(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
-        this.adButton.on(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
+        if (!rankedPvp) this.adButton.on(Node.EventType.TOUCH_END, this.onCapacityAdTap, this);
         this.startExitArrowAnimation();
         this.root.active = true;
         this.inputRoot = this.runtime._sceneInputRoot?.isValid ? this.runtime._sceneInputRoot : fixedRoot;
@@ -478,10 +469,34 @@ export class PchConveyorGameplayController {
         }
         settingsButton.active = !hideFirstLevelControls;
         this.bindSpeedButton(topBar, !hideFirstLevelControls);
-        this.prepareOpeningPatternShuffle();
+        if (this.runtime._pvpReplayResumeState) {
+            this.openingPatternState = 'ready';
+            this.externalInputBlocked = true;
+        } else this.prepareOpeningPatternShuffle();
     }
 
     playOpeningPatternShuffle(): void {
+        const resumed = this.runtime._pvpReplayResumeState;
+        if (resumed) {
+            this.openingPatternState = 'done';
+            this.inputLocked = false;
+            this.externalInputBlocked = false;
+            for (const due of resumed.pendingReady) this.runtime.scheduleOnce(() => {
+                if (this.runtime.isGameEnd) return;
+                this.runtime.recordPvpRuleEvent?.(3);
+                this.rules?.markQueuedBeansReady(1);
+                this.renderEntranceQueue();
+                this.tryTransferAtCurrentEntrance();
+            }, Math.max(0.02, (due - resumed.lastTime) / 1000));
+            this.runtime.scheduleOnce(() => {
+                if (this.rules?.board.isAllLocked()) this.commitFinish();
+                else if (!this.checkBufferDeadlock() && resumed.firstTap >= 0) {
+                    this.runtime.timeRemain = Math.max(0, this.runtime.levelData.timeLimit - (resumed.lastTime - resumed.firstTap) / 1000);
+                    this.runtime.ensureTimerStarted?.();
+                }
+            }, 0.02);
+            return;
+        }
         if (this.openingPatternState !== 'ready') {
             throw new Error(`[pch-opening] transition is not ready: ${this.openingPatternState}`);
         }
@@ -689,6 +704,7 @@ export class PchConveyorGameplayController {
         this.finishCommitted = false;
         this.settlementPaused = false;
         this.inputLocked = false;
+        this.externalInputBlocked = false;
         this.skillMovementPaused = false;
         this.skillTimerPauseToken = '';
         this.capacityWarningActive = false;
@@ -698,11 +714,12 @@ export class PchConveyorGameplayController {
     update(deltaTime: number): void {
         this.updateSphereFlyEffects(deltaTime);
         this.updateExitArrowAnimation(deltaTime);
-        if (!this.rules || this.runtime.isGameEnd) return;
+        if (!this.rules || this.runtime.isGameEnd || this.externalInputBlocked) return;
         if (this.skillMovementPaused || this.runtime._adShowing || this.runtime._rewardedGrantTransaction) return;
         const previousTravel = this.beltTravel;
         const speedMultiplier = this.getEffectiveBeltSpeedMultiplier();
         this.beltTravel += (Math.max(0, deltaTime) * speedMultiplier) / BELT_STEP_SECONDS;
+        this.runtime.recordPvpRuleEvent?.(1, this.beltTravel);
         const entrancePickupProgress = 1 - PCH_ENTRY_PICKUP_LEAD_STEP_RATIO / this.rules.carrierCount;
         for (let carrierIndex = 0; carrierIndex < this.rules.carrierCount; carrierIndex += 1) {
             if (this.didCarrierCrossProgress(
@@ -768,6 +785,10 @@ export class PchConveyorGameplayController {
         for (const callback of this.pendingReturnCompletions.values()) {
             this.runtime.unschedule?.(callback);
         }
+    }
+
+    setExternalInputBlocked(blocked: boolean): void {
+        this.externalInputBlocked = blocked === true;
     }
 
     resumeAfterSettlement(): void {
@@ -845,7 +866,7 @@ export class PchConveyorGameplayController {
     }
 
     private onRootTouchStart(event: any): void {
-        if (this.inputLocked) {
+        if (this.inputLocked || this.externalInputBlocked) {
             event.propagationStopped = true;
             return;
         }
@@ -853,7 +874,7 @@ export class PchConveyorGameplayController {
     }
 
     private onRootTouchMove(event: any): void {
-        if (this.inputLocked) {
+        if (this.inputLocked || this.externalInputBlocked) {
             event.propagationStopped = true;
             return;
         }
@@ -861,7 +882,7 @@ export class PchConveyorGameplayController {
     }
 
     private onRootTouchCancel(event: any): void {
-        if (this.inputLocked) {
+        if (this.inputLocked || this.externalInputBlocked) {
             event.propagationStopped = true;
             return;
         }
@@ -869,7 +890,7 @@ export class PchConveyorGameplayController {
     }
 
     private onRootMouseWheel(event: any): void {
-        if (this.inputLocked) {
+        if (this.inputLocked || this.externalInputBlocked) {
             event.propagationStopped = true;
             return;
         }
@@ -878,6 +899,10 @@ export class PchConveyorGameplayController {
 
     private onRootTouchEnd(event: any): void {
         if (!this.rules || this.runtime.isGameEnd) return;
+        if (this.externalInputBlocked) {
+            event.propagationStopped = true;
+            return;
+        }
         if (this.inputLocked) {
             if (this.isOpeningGuideTargetEvent(event)) return;
             event.propagationStopped = true;
@@ -1022,6 +1047,8 @@ export class PchConveyorGameplayController {
             });
         }
         this.runtime.ensureTimerStarted?.();
+        this.runtime.recordPvpAction?.(row, col, block.colorId, result.moved);
+        this.runtime.recordPvpRuleEvent?.(2, row, col, block.colorId, result.moved);
         AudioMgr.inst.play('select');
         this.runtime.renderBoardCells(result.boardCells);
         this.runtime.refreshEndgameHints?.('pch-store');
@@ -1248,6 +1275,7 @@ export class PchConveyorGameplayController {
                     AudioMgr.inst.play('settle');
                     AudioMgr.inst.vibratePlace();
                 }
+                this.runtime.recordPvpRuleEvent?.(3);
                 this.rules?.markQueuedBeansReady(1);
                 this.renderEntranceQueue();
                 this.refreshStatus();
@@ -2173,7 +2201,7 @@ export class PchConveyorGameplayController {
         if (exitIndex <= 0 || exitIndex >= this.beltPathDistances.length || this.beltPathLength <= 0) {
             throw new Error(`[pch-core] invalid original-package conveyor path for table type ${tableType}`);
         }
-        this.exitPathProgress = this.beltPathDistances[exitIndex] / this.beltPathLength;
+        this.exitPathProgress = conveyorExitProgress(tableType);
     }
 
     private requireConveyorNode(parent: Node, name: string, path: string): Node {
@@ -2435,6 +2463,7 @@ export class PchConveyorGameplayController {
     private showOpeningFeatureGuide(parent: Node): void {
         const logicalLevelId = Math.max(1, Math.floor(Number(this.runtime.getActiveLogicalLevelId?.()) || 1));
         if (this.runtime._activeGameplayEntryMode !== 'main') return;
+        if (this.runtime.isRankedPvpMode?.() === true) return;
         const shouldShowGuide = logicalLevelId === 1
             || (logicalLevelId === 2 && !!this.speedButton?.isValid)
             || (logicalLevelId === 3 && !!this.adButton?.isValid);
@@ -2774,6 +2803,7 @@ export class PchConveyorGameplayController {
 
     private setManualSpeedMultiplier(multiplier: PchSpeedMultiplier): void {
         this.manualSpeedMultiplier = multiplier;
+        this.runtime.recordPvpRuleEvent?.(4, multiplier);
         AppRoot.tryGet()?.session.setPchSpeedMultiplier(multiplier);
     }
 
@@ -2823,6 +2853,7 @@ export class PchConveyorGameplayController {
 
     private onCapacityAdTap(event: any): void {
         event.propagationStopped = true;
+        if (this.runtime.isRankedPvpMode?.() === true) return;
         if (!this.rules || this.inputLocked || this.runtime.isGameEnd || this.runtime._adShowing) return;
         if (typeof this.runtime.runRewardedGrant !== 'function') {
             throw new Error('[pch-core] rewarded capacity grant is unavailable');

@@ -1,4 +1,5 @@
 import { sys, type AssetManager } from 'cc';
+import type { PvpBattleContext } from './PvpModeConfig';
 
 type Bundle = AssetManager.Bundle;
 
@@ -53,6 +54,8 @@ export class AppSession {
     private _pendingGameplayRequest: PendingGameplayRequest | null = null;
     private _activeGameplayContext: ActiveGameplayContext | null = null;
     private _pendingHomeToast: PendingHomeToast | null = null;
+    private _pvpBattleContext: PvpBattleContext | null = null;
+    pixelPuzzleLobbyActive: boolean = false;
     private _pchSpeedMultiplier: PchSpeedMultiplier = 1;
     private readonly _routedBundles = new Map<string, Bundle>();
 
@@ -82,6 +85,18 @@ export class AppSession {
 
     get pchSpeedMultiplier(): PchSpeedMultiplier {
         return this._pchSpeedMultiplier;
+    }
+
+    get pvpBattleContext(): PvpBattleContext | null {
+        return this._pvpBattleContext;
+    }
+
+    setPvpBattleContext(context: PvpBattleContext): void {
+        this._pvpBattleContext = context;
+    }
+
+    clearPvpBattleContext(): void {
+        this._pvpBattleContext = null;
     }
 
     setPchSpeedMultiplier(multiplier: number): void {
@@ -129,6 +144,7 @@ export class AppSession {
     clearGameplayContext(): void {
         this._pendingGameplayRequest = null;
         this._activeGameplayContext = null;
+        this._pvpBattleContext = null;
     }
 
     setPendingHomeToast(text: string, duration: number = 2.5): void {

@@ -57,7 +57,7 @@ export class BootSceneCtrl extends Component {
 
         const routeDecision = resolveStartupRouteDecision();
         if (routeDecision.shouldMarkPendingGameplay) {
-            appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, 'main', 'auto', routeDecision.reason);
+            appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, routeDecision.prefix === 'zt_level_' ? 'theme' : 'main', 'auto', routeDecision.reason);
         }
         markStartupTrace('startup_boot_route_decided', {
             reason: routeDecision.reason,

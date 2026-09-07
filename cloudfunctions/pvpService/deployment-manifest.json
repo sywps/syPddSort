@@ -1,0 +1,79 @@
+{
+  "function": {
+    "name": "pvpService",
+    "source": "cloudfunctions/pvpService",
+    "installDependencies": true,
+    "timeoutSeconds": 20,
+    "memoryMb": 256
+  },
+  "collections": [
+    "pvp_profiles",
+    "pvp_matches",
+    "pvp_replays",
+    "pvp_settlements",
+    "pvp_checkpoints",
+    "pvp_ticket_claims",
+    "pvp_rank_reward_claims"
+  ],
+  "existingCollectionDependencies": ["user_profile"],
+  "coordinatedFunctions": ["syncUserState", "updateUserProfileAssets"],
+  "indexes": [
+    {
+      "collection": "pvp_replays",
+      "name": "verified_human_level_rating_created_v1",
+      "fields": [["levelId", "asc"], ["levelPrefix", "asc"], ["rulesVersion", "asc"], ["levelHash", "asc"], ["verificationLevel", "asc"], ["eligibleForMatchmaking", "asc"], ["ratingBucket", "asc"], ["createdAt", "desc"]]
+    },
+    {
+      "collection": "pvp_profiles",
+      "name": "rank_stars_rating",
+      "fields": [["rankStars", "desc"], ["rating", "desc"]]
+    },
+    {
+      "collection": "pvp_replays",
+      "name": "pixel_level_rules_verified_eligible_created",
+      "fields": [["levelId", "asc"], ["levelPrefix", "asc"], ["rulesVersion", "asc"], ["verified", "asc"], ["eligibleForMatchmaking", "asc"], ["useCount", "asc"], ["createdAt", "desc"]]
+    },
+    {
+      "collection": "pvp_matches",
+      "name": "challenge_code_type",
+      "fields": [["challengeCode", "asc"], ["matchType", "asc"]]
+    },
+    {
+      "collection": "pvp_matches",
+      "name": "pixel_player_a_rules_status_updated",
+      "fields": [["playerAOpenid", "asc"], ["levelPrefix", "asc"], ["rulesVersion", "asc"], ["status", "asc"], ["updatedAt", "desc"]]
+    },
+    {
+      "collection": "pvp_matches",
+      "name": "pixel_player_b_rules_status_updated",
+      "fields": [["playerBOpenid", "asc"], ["levelPrefix", "asc"], ["rulesVersion", "asc"], ["status", "asc"], ["updatedAt", "desc"]]
+    },
+    {
+      "collection": "pvp_matches",
+      "name": "player_a_status_updated",
+      "fields": [["playerAOpenid", "asc"], ["status", "asc"], ["updatedAt", "desc"]]
+    },
+    {
+      "collection": "pvp_matches",
+      "name": "player_b_status_updated",
+      "fields": [["playerBOpenid", "asc"], ["status", "asc"], ["updatedAt", "desc"]]
+    },
+    {
+      "collection": "pvp_matches",
+      "name": "status_expires",
+      "fields": [["status", "asc"], ["expiresAt", "asc"]]
+    },
+    {
+      "collection": "pvp_replays",
+      "name": "eligible_valid_until",
+      "fields": [["eligibleForMatchmaking", "asc"], ["validUntil", "asc"]]
+    }
+  ],
+  "environment": {
+    "required": ["PVP_MAINTENANCE_TOKEN"],
+    "production": {
+      "PVP_ALLOW_DEV_SEED": "false",
+      "PVP_RANK_REWARDS_ENABLED": "false"
+    }
+  }
+}

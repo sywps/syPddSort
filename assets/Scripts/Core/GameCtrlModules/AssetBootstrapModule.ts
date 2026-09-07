@@ -38,6 +38,7 @@ import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
+import { PVP_ECONOMY_REVISION_KEY } from '../UserStateSyncMgr';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { normalizeStartupLocalLevel, readStartupLocalProgress } from '../StartupLocalProgress';
 import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
@@ -2767,6 +2768,7 @@ export function installAssetBootstrapModule(target: any): void {
             return {
                 savedLevel: this.getSavedLevel(),
                 vigor: this.getVigor(),
+                pvpEconomyRevision: Math.max(0, Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0),
                 vigorTime: this.getVigorTime(),
                 gold: this.getGold(),
                 expandSlotCount: this.getPropCount('expand'),
@@ -2906,6 +2908,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyCloudUserState(restoreResult: CloudUserState): UserStateRestoreStatus {
             const { profile, gameState } = restoreResult;
+            this.applyPvpEconomySnapshot?.(gameState);
             if (!profile && !gameState) {
                 return 'cloud_confirmed_empty';
             }
@@ -3005,6 +3008,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
             const gameState = state?.gameState || null;
+            this.applyPvpEconomySnapshot?.(gameState);
             if (gameState && typeof this.applyCloudBackgroundSkinState === 'function') {
                 this.applyCloudBackgroundSkinState(
                     gameState.ownedBackgroundSkinIds,

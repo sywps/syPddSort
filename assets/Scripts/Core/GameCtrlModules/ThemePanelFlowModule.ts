@@ -426,28 +426,37 @@ export function installThemePanelFlowModule(target: any): void {
         /**
          * 异步加载 themes.json 到缓存。
          * 从 gameAssets bundle 加载；
-         * 任何失败都回退到默认值。
+         * 旧调用保留默认值行为；提供 onError 的入口要求真实配置加载成功。
          */
-        loadThemeConfig(callback?: () => void) {
-            if (this._themeGroupsCache) { if (callback) callback(); return; }
+        loadThemeConfig(callback?: () => void, onError?: (error: Error) => void) {
+            const finish = () => {
+                if (this._themeGroupsLoadError && onError) {
+                    onError(this._themeGroupsLoadError);
+                    return;
+                }
+                if (callback) callback();
+            };
+            if (this._themeGroupsCache && !this._themeGroupsLoadError) { finish(); return; }
             if (this._themeGroupsLoading) {
                 // 简单轮询等待
                 const wait = () => {
-                    if (!this._themeGroupsLoading) { if (callback) callback(); return; }
+                    if (!this._themeGroupsLoading) { finish(); return; }
                     this.scheduleOnce(wait, 0.1);
                 };
                 this.scheduleOnce(wait, 0.1);
                 return;
             }
             this._themeGroupsLoading = true;
+            this._themeGroupsLoadError = null;
             const isRuntimeAlive = () => !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
             const onDone = (data: any) => {
                 if (!isRuntimeAlive()) return;
                 this._themeGroupsLoading = false;
                 runtimeLog(`[ThemeConfig] onDone, data=${!!data}, type=${typeof data}`, data ? JSON.stringify(data).slice(0, 200) : 'null');
                 const parsed = this.parseThemeConfig(data);
+                this._themeGroupsLoadError = parsed.length > 0 ? null : new Error('像素关卡目录加载失败');
                 this._themeGroupsCache = parsed.length > 0 ? parsed : this.getDefaultThemeGroups();
-                if (callback) callback();
+                finish();
             };
             runtimeLog(`[ThemeConfig] gameAssetsBundle=${!!this.gameAssetsBundle}`);
             if (this.gameAssetsBundle) {

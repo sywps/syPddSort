@@ -278,6 +278,7 @@ function extractGameState(doc, effectiveProgress = 0) {
 
   if (typeof doc?.vigor === 'number') state.vigor = normalizeNonNegativeInt(doc.vigor, 10);
   if (typeof doc?.vigorTime === 'number') state.vigorTime = normalizeNonNegativeInt(doc.vigorTime, 0);
+  state.pvpEconomyRevision = normalizeNonNegativeInt(doc?.pvpEconomyRevision, 0);
   if (typeof doc?.gold === 'number') state.gold = normalizeNonNegativeInt(doc.gold, 0);
   if (typeof doc?.expandSlotCount === 'number') state.expandSlotCount = normalizeNonNegativeInt(doc.expandSlotCount, 0);
   if (typeof doc?.magicWandCount === 'number') {
@@ -407,6 +408,7 @@ function buildGameStatePatch(source = {}, current = {}) {
     mergedBackgroundSkinIds.sort((a, b) => a - b);
   }
   const shouldPreserveCurrentVolatileState =
+    normalizeNonNegativeInt(source.pvpEconomyRevision, 0) !== normalizeNonNegativeInt(current.pvpEconomyRevision, 0) ||
     currentStateUpdatedAt > 0 &&
     (
       sourceStateUpdatedAt < currentStateUpdatedAt ||
@@ -433,6 +435,7 @@ function buildGameStatePatch(source = {}, current = {}) {
     freezeCount: shouldPreserveCurrentVolatileState ? currentFreezeCount : sourceFreezeCount,
     brushCount: shouldPreserveCurrentVolatileState ? currentBrushCount : sourceBrushCount,
     magnetCount: shouldPreserveCurrentVolatileState ? currentMagnetCount : sourceMagnetCount,
+    pvpEconomyRevision: normalizeNonNegativeInt(current.pvpEconomyRevision, 0),
     themeUnlockedIds: mergedThemeUnlockedIds,
     themeCompletedIds: mergedThemeCompletedIds,
     ownedBackgroundSkinIds: mergedBackgroundSkinIds,
@@ -507,37 +510,39 @@ exports.main = async (event = {}) => {
       };
     }
 
-    const patch = {
-      lastLoginTime: timestamp,
-    };
+    return await db.runTransaction(async transaction => {
+      current = (await transaction.collection(USER_PROFILE_COLLECTION).doc(current._id).get()).data;
+      if (!current || current.openid !== openid) throw new Error('user profile ownership mismatch');
+      const patch = { lastLoginTime: timestamp };
 
-    if (event.profile && typeof event.profile === 'object') {
-      Object.assign(patch, buildProfilePatch(event.profile, current));
-    }
-    if (event.gameState && typeof event.gameState === 'object') {
-      Object.assign(patch, buildGameStatePatch(event.gameState, current));
-    }
-    const effectiveProgress = resolveEffectiveProgress(current, event.profile, event.gameState, patch);
-    if (effectiveProgress > 0) {
-      patch.savedLevel = effectiveProgress;
-      patch.lastLevelId = effectiveProgress;
-    }
-    if (current._id) {
-      await collection.doc(current._id).update({ data: patch });
-    }
+      if (event.profile && typeof event.profile === 'object') {
+        Object.assign(patch, buildProfilePatch(event.profile, current));
+      }
+      if (event.gameState && typeof event.gameState === 'object') {
+        Object.assign(patch, buildGameStatePatch(event.gameState, current));
+      }
+      const effectiveProgress = resolveEffectiveProgress(current, event.profile, event.gameState, patch);
+      if (effectiveProgress > 0) {
+        patch.savedLevel = effectiveProgress;
+        patch.lastLevelId = effectiveProgress;
+      }
+      if (current._id) {
+        await transaction.collection(USER_PROFILE_COLLECTION).doc(current._id).update({ data: patch });
+      }
 
-    const merged = {
-      ...current,
-      ...patch,
-    };
+      const merged = {
+        ...current,
+        ...patch,
+      };
 
-    return {
-      ok: true,
-      userStateSchemaVersion: USER_STATE_SCHEMA_VERSION,
-      skinStateSchemaVersion: SKIN_STATE_SCHEMA_VERSION,
-      profile: extractProfile(merged, effectiveProgress),
-      gameState: extractGameState(merged, effectiveProgress),
-    };
+      return {
+        ok: true,
+        userStateSchemaVersion: USER_STATE_SCHEMA_VERSION,
+        skinStateSchemaVersion: SKIN_STATE_SCHEMA_VERSION,
+        profile: extractProfile(merged, effectiveProgress),
+        gameState: extractGameState(merged, effectiveProgress),
+      };
+    });
   } catch (error) {
     return {
       ok: false,

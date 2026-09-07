@@ -32,6 +32,7 @@ function loadCloudFunction(initialDoc) {
         },
         doc(id) {
             return {
+                async get() { assert.strictEqual(id, doc._id); return { data: clone(doc) }; },
                 async update({ data }) {
                     assert.strictEqual(id, doc._id);
                     doc = { ...doc, ...clone(data) };
@@ -48,6 +49,7 @@ function loadCloudFunction(initialDoc) {
         },
         database() {
             return {
+                async runTransaction(callback) { return callback({ collection: () => collection }); },
                 collection(name) {
                     assert.strictEqual(name, 'user_profile');
                     return collection;
@@ -174,6 +176,24 @@ async function runPostResetAdUnlockSaveCase() {
 }
 
 (async () => {
+    for (const incomingRevision of [0, 1, 999]) {
+        const runtime = loadCloudFunction({ savedLevel: 3, lastLevelId: 3, pvpEconomyRevision: 2,
+            vigor: 8, vigorTime: 300000, gold: 288, magnetCount: 1, brushCount: 0, stateUpdatedAt: 100 });
+        const response = await runtime.main({ action: 'save', gameState: { savedLevel: 4,
+            pvpEconomyRevision: incomingRevision, vigor: 10, gold: 100, magnetCount: 0, stateUpdatedAt: 999999 } });
+        assert.strictEqual(response.ok, true);
+        assert.strictEqual(runtime.getDoc().vigor, 8, 'stale/future revision cannot restore spent stamina');
+        assert.strictEqual(runtime.getDoc().gold, 288, 'stale/future revision cannot erase granted gold');
+        assert.strictEqual(runtime.getDoc().magnetCount, 1);
+        assert.strictEqual(runtime.getDoc().pvpEconomyRevision, 2);
+        assert.strictEqual(runtime.getDoc().savedLevel, 4, 'inventory protection must preserve valid chapter progress');
+    }
+    const currentRevision = loadCloudFunction({ savedLevel: 3, pvpEconomyRevision: 2,
+        vigor: 8, gold: 288, stateUpdatedAt: 100 });
+    await currentRevision.main({ action: 'save', gameState: { savedLevel: 3, pvpEconomyRevision: 2,
+        vigor: 7, gold: 298, stateUpdatedAt: 200 } });
+    assert.strictEqual(currentRevision.getDoc().vigor, 7, 'same revision retains ordinary stamina usage');
+    assert.strictEqual(currentRevision.getDoc().gold, 298, 'same revision retains ordinary chapter rewards');
     await runCase(
         'get normalizes profile-only progress',
         { lastLevelId: 8 },

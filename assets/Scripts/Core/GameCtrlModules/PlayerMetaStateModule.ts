@@ -30,6 +30,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
+import { PVP_ECONOMY_REVISION_KEY } from '../UserStateSyncMgr';
 
 const RECOVER_VIGOR_PANEL_PREFAB_PATH = 'UI/Prefabs/Panels/RecoverVigorPanel';
 const DEBUG_RECOVER_VIGOR_LAYOUT = false;
@@ -43,7 +44,7 @@ type RecoverVigorShareState = {
     count: number;
 };
 
-export type RecoverVigorSource = 'home_hud' | 'home_start' | 'theme_start' | 'restart' | 'next_level';
+export type RecoverVigorSource = 'home_hud' | 'home_start' | 'theme_start' | 'pvp_start' | 'restart' | 'next_level';
 export type RecoverVigorResultStatus = 'granted' | 'failed' | 'cancelled';
 export type RecoverVigorResult = {
     source: RecoverVigorSource;
@@ -79,6 +80,24 @@ function logRecoverVigorNodeSize(name: string, node: Node | null): void {
 
 export function installPlayerMetaStateModule(target: any): void {
     Object.assign(target, {
+        applyPvpEconomySnapshot(state: Partial<CloudGameState> | null | undefined): void {
+            const revision = Number(state?.pvpEconomyRevision) || 0;
+            const localRevision = Number(sys.localStorage.getItem(PVP_ECONOMY_REVISION_KEY)) || 0;
+            if (revision <= localRevision) return;
+            const fields = ['vigor', 'vigorTime', 'gold', 'expandSlotCount', 'magicWandCount', 'freezeCount', 'brushCount', 'magnetCount'];
+            if (!Number.isSafeInteger(revision) || fields.some(key => !Number.isSafeInteger(state?.[key]) || state![key] < 0)) {
+                throw new Error('[PvpEconomy] invalid authoritative inventory snapshot');
+            }
+            const keys = [(this.constructor as any).LS_VIGOR, (this.constructor as any).LS_VIGOR_TIME,
+                LS_GOLD, LS_PROP_EXPAND, LS_PROP_WAND, LS_PROP_FREEZE, LS_PROP_BRUSH, LS_PROP_MAGNET];
+            fields.forEach((field, index) => sys.localStorage.setItem(keys[index], String(state![field])));
+            sys.localStorage.setItem(PVP_ECONOMY_REVISION_KEY, String(revision));
+            this.setLocalUserStateUpdatedAt(Math.max(Date.now(), Number(state?.stateUpdatedAt) || 0));
+            this.refreshVigorUI?.();
+            this.refreshGoldUI?.();
+            this.syncSkillButtonRuntimeStates?.();
+        },
+
         getVigor(): number {
             const raw = sys.localStorage.getItem((this.constructor as any).LS_VIGOR);
             let count = raw ? parseInt(raw) : (this.constructor as any).VIGOR_CEILING;

@@ -69,7 +69,7 @@ type SlotTapIntent = {
     source: 'direct' | 'tolerant' | 'area' | 'miss';
 };
 
-const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud']);
+const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud', 'PvpBattleHud']);
 const SLOT_INTRO_PROMPT_TOP_GAP = 16;
 const SLOT_INTRO_PROMPT_BOARD_GAP = 18;
 const SLOT_INTRO_PROMPT_FALLBACK_HEIGHT = 158;
@@ -148,11 +148,16 @@ export function installBoardInputViewportModule(target: any): void {
 
         getBottomHudAvoidTopY(): number | null {
             let bounds: { bottom: number; top: number } | null = null;
-            bounds = this.mergeVerticalBounds(bounds, this.getGameplayNodeVerticalBoundsInFixedRoot(this.slotAreaNode || null));
-            try {
-                const skillRoot = this.getGameplayBottomHudChild?.('SkillArea') || null;
-                bounds = this.mergeVerticalBounds(bounds, this.getGameplayChildrenVerticalBounds(skillRoot));
-            } catch {}
+            const conveyorActive = this._pchConveyorGameplayController?.isActive?.() === true;
+            if (!conveyorActive && this.shouldShowSlotArea?.() && this.slotAreaNode?.isValid) {
+                bounds = this.mergeVerticalBounds(bounds, this.getGameplayNodeVerticalBoundsInFixedRoot(this.slotAreaNode));
+            }
+            if (this.isRankedPvpMode?.() !== true) {
+                try {
+                    const skillRoot = this.getGameplayBottomHudChild?.('SkillArea') || null;
+                    bounds = this.mergeVerticalBounds(bounds, this.getGameplayChildrenVerticalBounds(skillRoot));
+                } catch {}
+            }
             const conveyorTop = this._pchConveyorGameplayController?.getAvoidTopY?.();
             if (Number.isFinite(conveyorTop)) {
                 bounds = this.mergeVerticalBounds(bounds, { bottom: conveyorTop, top: conveyorTop });
@@ -198,7 +203,8 @@ export function installBoardInputViewportModule(target: any): void {
                 top = Math.min(top, guideBand.bottom - SLOT_INTRO_PROMPT_BOARD_GAP);
             }
             let bottom = -visibleH / 2 + 180;
-            if (this.shouldShowSlotArea() && this.slotAreaNode?.isValid) {
+            const conveyorActive = this._pchConveyorGameplayController?.isActive?.() === true;
+            if (!conveyorActive && this.shouldShowSlotArea() && this.slotAreaNode?.isValid) {
                 const slotUT = this.slotAreaNode.getComponent(UITransform);
                 const slotScale = Math.abs(this.slotAreaNode.scale.y || 1);
                 const slotH = (slotUT?.contentSize.height ?? 0) * slotScale;

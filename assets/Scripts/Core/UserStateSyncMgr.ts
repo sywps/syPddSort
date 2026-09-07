@@ -6,6 +6,7 @@ import { runtimeLog, runtimeWarn } from './RuntimeLog';
 const { ccclass } = _decorator;
 
 const CLOUD_FUNCTION_NAME = 'syncUserState';
+export const PVP_ECONOMY_REVISION_KEY = 'pdd.pvp.economyRevision.v1';
 const SAVE_DEBOUNCE_MS = 600;
 const SAVE_RETRY_MS = 3000;
 const SAVE_RETRY_LIMIT = 3;
@@ -25,6 +26,7 @@ export type CloudUserProfile = {
 };
 
 export type CloudGameState = {
+    pvpEconomyRevision?: number;
     savedLevel: number;
     vigor: number;
     vigorTime: number;

@@ -126,7 +126,7 @@ assert.ok(
 );
 
 assert.ok(
-    bootSceneCtrl.includes("appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, 'main', 'auto', routeDecision.reason)"),
+    bootSceneCtrl.includes("appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, routeDecision.prefix === 'zt_level_' ? 'theme' : 'main', 'auto', routeDecision.reason)"),
     'Boot must convert B-class route decisions into pending gameplay requests before Game.scene starts',
 );
 assert.ok(
@@ -169,7 +169,7 @@ assert.ok(
     'GameSceneRuntimeController Boot route must leave startup trace evidence for route decisions',
 );
 assert.ok(
-    gameSceneRuntime.includes("appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, 'main', 'auto', routeDecision.reason)"),
+    gameSceneRuntime.includes("appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, routeDecision.prefix === 'zt_level_' ? 'theme' : 'main', 'auto', routeDecision.reason)"),
     'GameSceneRuntimeController Boot fallback must preserve route decision reason on pending gameplay requests',
 );
 assert.ok(
@@ -273,6 +273,13 @@ assert.ok(
         prefix: 'level_',
         reason: 'default_level_1',
     }, 'A-class startup should default to Game level 1 without pending gameplay');
+}
+
+{
+    const route = plain(loadStartupRouteModule('77', {}, '?pvppreview=1&level=3').resolveStartupRouteDecision());
+    assert.deepStrictEqual(route, {
+        shouldMarkPendingGameplay: true, levelId: 3, prefix: 'zt_level_', reason: 'pvp-ranked',
+    }, 'PvP preview selects theme physical ID independently of mainline progress');
 }
 
 {

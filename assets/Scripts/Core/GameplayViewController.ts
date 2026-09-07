@@ -29,6 +29,7 @@ import {
 import { debugPerfSnapshot } from './DebugPerfTrace';
 
 const ZOOM_HINT_SCALE_HEADROOM = 0.06;
+const RANKED_PVP_BOARD_CENTER_OFFSET_Y = -28;
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
 
@@ -388,6 +389,7 @@ export class GameplayViewController {
         this.buildBoard(boardRoot);
         runtime.setupBoardZoomControl?.();
         runtime.buildSkillButtons(skillRoot);
+        runtime.mountPvpBattleHud?.();
 
         this.prepareDragLayer(dragRoot);
 
@@ -778,7 +780,8 @@ export class GameplayViewController {
         const targetCenterX = ((targetBounds.minCol + targetBounds.maxCol + 1) / 2 - boardWidth / 2) * step;
         const targetCenterY = (boardHeight / 2 - (targetBounds.minRow + targetBounds.maxRow + 1) / 2) * step;
         const viewportCenterX = (initialFitRect.left + initialFitRect.right) / 2;
-        const viewportCenterY = (initialFitRect.bottom + initialFitRect.top) / 2;
+        const viewportCenterY = (initialFitRect.bottom + initialFitRect.top) / 2
+            + (runtime.isRankedPvpMode?.() === true ? RANKED_PVP_BOARD_CENTER_OFFSET_Y : 0);
         runtime.boardViewport.setViewTransformClamped(
             initScale,
             new Vec2(
