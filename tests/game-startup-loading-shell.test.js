@@ -27,37 +27,16 @@ const gameSceneRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts
 const loadingOverlayModule = read('assets/Scripts/Core/GameCtrlModules/GameplayShareLoadingModule.ts');
 const firstLevelRouteModule = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
 
-const loadingCover = findNode(gameScene, 'LoadingCover').node;
-const loadingCoverComponents = componentTypes(gameScene, loadingCover);
-assert.ok(
-    loadingCoverComponents.includes('cc.Sprite'),
-    'Game.scene StartupLoadingUI/LoadingCover must have a real Sprite so B-class startup cannot expose the default level-1 HUD',
-);
+const bootScene = readScene('assets/Scenes/Boot.scene');
+const controller = read('assets/Scripts/Core/StartupLoadingController.ts');
+assert.ok(!gameScene.some(entry => entry?._name === 'StartupLoadingUI'), 'Game must not keep a second Loading tree');
+assert.ok(!JSON.stringify(gameScene).includes('80bbb160-be96-455a-80ef-bcf00793ddae'), 'Game must not reference the removed Bootstrap cover');
+assert.ok(!JSON.stringify(gameScene).includes('68c7d0e7-b854-4fd7-903e-6176fb9aebbb'), 'Game must not add a static dependency on main');
+assert.ok(JSON.stringify(bootScene).includes('68c7d0e7-b854-4fd7-903e-6176fb9aebbb'), 'main Boot must retain the single cover');
+assert.ok(gameSceneRuntime.includes('await appRoot.ensureStartupLoading()'), 'Game must reuse the main-owned UI');
+assert.ok(controller.includes('camera.visibility = STARTUP_LAYER'), 'persistent UI must have an isolated camera layer');
+assert.ok(controller.includes('camera.priority = 100'), 'Loading camera must draw above Game');
 
-const loadingCoverSprite = (loadingCover._components || [])
-    .map((ref) => gameScene[ref.__id__])
-    .find((entry) => entry?.__type__ === 'cc.Sprite');
-assert.ok(
-    loadingCoverSprite?._spriteFrame?.__uuid__,
-    'Game.scene LoadingCover Sprite must reference a bootstrap-owned SpriteFrame',
-);
-
-for (const nodeName of ['LoadingPercentLabel', 'LoadingPercentLabelShadow']) {
-    const node = findNode(gameScene, nodeName).node;
-    assert.ok(
-        componentTypes(gameScene, node).includes('cc.Label'),
-        `Game.scene ${nodeName} must keep its Label component for runtime loading progress binding`,
-    );
-}
-
-assert.ok(
-    gameSceneRuntime.includes('configureExistingGameLoadingOverlay(layer)'),
-    'Game startup must size and validate the existing Game.scene loading cover',
-);
-assert.ok(
-    gameSceneRuntime.includes('bindExistingGameLoadingProgress(layer, overlayVersion)'),
-    'Game startup must bind the existing Game.scene loading progress label instead of leaving it at 0%',
-);
 assert.ok(
     gameSceneRuntime.includes('this.runtime.setGameplayStartupRootVisible?.(false)'),
     'Game startup must hide GameplayRoot while the target B-class level is still loading',
@@ -70,36 +49,17 @@ assert.ok(
     loadingOverlayModule.includes('this.setGameplayStartupRootVisible?.(true);'),
     'loading overlay must restore GameplayRoot before hiding the cover after initGame renders the target level',
 );
-assert.ok(
-    loadingOverlayModule.includes("const authoredOverlay = bootRoot?.getChildByName('StartupLoadingUI') || null;"),
-    'gameplay-ready must recover and release the authored loading blocker even when the cached overlay reference is missing',
-);
-assert.ok(
-    loadingOverlayModule.includes('const blocker = overlay.getComponent(BlockInputEvents);')
-    && loadingOverlayModule.includes('if (blocker) blocker.enabled = false;'),
-    'loading overlay teardown must disable input interception before deactivating the overlay',
-);
-assert.ok(
-    loadingOverlayModule.includes('this._loadingProgressLabel.string = status;')
-    && loadingOverlayModule.includes('this._loadingProgressLabelShadow.string = status;'),
-    'loading status shadow label must stay in sync with the visible status label',
-);
-assert.ok(
-    loadingOverlayModule.includes('this.scheduleOnce(showProgress, 0.3);')
-    && loadingOverlayModule.includes('this.scheduleOnce(showSlowActions, 3);'),
-    'startup loading must suppress short flashes and expose recovery actions only after a slow wait',
-);
-assert.ok(
-    loadingOverlayModule.includes("this._loadingHasMeasuredProgress ? `正在准备关卡 ${safePercent}%` : '正在准备关卡…'"),
-    'startup loading must show a percentage only when real measured progress exists',
-);
+assert.ok(loadingOverlayModule.includes('loading.finishAfterDraw('), 'ready must wait for the rendered gameplay frame');
+assert.ok(loadingOverlayModule.includes('startupLoading?.hide()'), 'fatal cleanup must close the persistent cover');
+assert.ok(controller.includes('this.label.string = stage'), 'stage labels must replace synthetic percentages');
+assert.ok(controller.includes('this.cancelFinish()'), 'new requests and errors must cancel pending close callbacks');
 assert.ok(
     !loadingOverlayModule.includes('_setLoadingProgress(0.5')
     && !loadingOverlayModule.includes('_setLoadingProgress(0.8'),
     'startup loading must not manufacture the old 50% and 80% milestones',
 );
 assert.ok(
-    firstLevelRouteModule.includes(`this.setGameplayStartupRootVisible?.(true);
+    read('assets/Scripts/Core/GameCtrlModules/SceneHomeEntryModule.ts').includes(`this.setGameplayStartupRootVisible?.(true);
             this.hideLoadingOverlay?.();
             this.showRemoteLoadFatalError`),
     'target-level fail-fast errors must hide the loading cover before showing the fatal error panel',

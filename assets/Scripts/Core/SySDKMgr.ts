@@ -1,4 +1,5 @@
 import { runtimeLog } from './RuntimeLog';
+import { installLocalWeChatPassiveShare } from '../Platform/WeChatShareReturnService';
 
 // 不在模块顶层捕获，延迟到每次调用时从 globalThis 读取，防止时序问题
 function getSygame() {
@@ -68,8 +69,8 @@ class SySDKMgr {
         this._inited = true;
         this._adCount = 0;
         this._levelEnded = true;
+        const wxRef = (globalThis as any).wx;
         try {
-            const wxRef = (globalThis as any).wx;
             sySdkDebug('[SySDK] init, wx=', typeof wxRef);
             if (wxRef && sdk?.init) {
                 const launchOptions = wxRef.getLaunchOptionsSync();
@@ -77,11 +78,14 @@ class SySDKMgr {
                 sdk.init({
                     query: launchOptions.query,
                     scene: launchOptions.scene,
-                    enablePassiveShare: true,
+                    enablePassiveShare: false,
                 });
                 sySdkDebug('[SySDK] init done');
             }
         } catch(e) { console.warn('[SySDK] init error:', e); }
+        if (!installLocalWeChatPassiveShare(wxRef)) {
+            console.warn('[SySDK] local passive share setup unavailable');
+        }
     }
 
     private runLoginAttempt(sdk: any): Promise<void> {

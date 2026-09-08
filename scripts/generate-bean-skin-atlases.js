@@ -28,6 +28,9 @@ const NEW_SKINS = [
     { sourceSkinId: 2003, id: 2003, key: 'bean_skin_04', directory: 'skin_04', previewColorId: 9 },
     { sourceSkinId: 2004, id: 2004, key: 'bean_skin_05', directory: 'skin_05', previewColorId: 13 },
 ];
+const NEW_SKIN_COLOR_IDS_TO_DEFAULT = new Set([15, 16, 18]);
+const DEFAULT_COLOR_ID_TO_NEW_SKINS = 10;
+const ROLE_VARIANTS = { normal: 2, placed: 1, slot: 4 };
 
 function fail(message) {
     throw new Error(`[bean-skin-atlas] ${message}`);
@@ -205,6 +208,154 @@ function cropPng(source, frame) {
     return result;
 }
 
+function pastePng(source, target, targetX, targetY) {
+    for (let row = 0; row < source.height; row++) {
+        const sourceStart = row * source.width * 4;
+        const targetStart = ((targetY + row) * target.width + targetX) * 4;
+        source.data.copy(target.data, targetStart, sourceStart, sourceStart + source.width * 4);
+    }
+}
+
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function rgbToHsl(red, green, blue) {
+    const r = red / 255;
+    const g = green / 255;
+    const b = blue / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const lightness = (max + min) / 2;
+    if (max === min) return [0, lightness, 0];
+    const delta = max - min;
+    const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    let hue = 0;
+    if (max === r) hue = (g - b) / delta + (g < b ? 6 : 0);
+    else if (max === g) hue = (b - r) / delta + 2;
+    else hue = (r - g) / delta + 4;
+    return [hue / 6, lightness, saturation];
+}
+
+function hueToRgb(p, q, value) {
+    let t = value;
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+}
+
+function hslToRgb(hue, lightness, saturation) {
+    if (saturation === 0) {
+        const gray = Math.round(lightness * 255);
+        return [gray, gray, gray];
+    }
+    const q = lightness < 0.5
+        ? lightness * (1 + saturation)
+        : lightness + saturation - lightness * saturation;
+    const p = 2 * lightness - q;
+    return [
+        Math.round(hueToRgb(p, q, hue + 1 / 3) * 255),
+        Math.round(hueToRgb(p, q, hue) * 255),
+        Math.round(hueToRgb(p, q, hue - 1 / 3) * 255),
+    ];
+}
+
+function representativeRgb(image) {
+    let left = image.width;
+    let top = image.height;
+    let right = 0;
+    let bottom = 0;
+    for (let y = 0; y < image.height; y++) {
+        for (let x = 0; x < image.width; x++) {
+            const offset = (y * image.width + x) * 4;
+            if (image.data[offset + 3] === 0) continue;
+            left = Math.min(left, x);
+            top = Math.min(top, y);
+            right = Math.max(right, x + 1);
+            bottom = Math.max(bottom, y + 1);
+        }
+    }
+    if (right <= left || bottom <= top) fail('image has no visible pixels');
+    const width = right - left;
+    const height = bottom - top;
+    const insetX = Math.max(1, Math.round(width * 0.16));
+    const insetY = Math.max(1, Math.round(height * 0.16));
+    if (width > insetX * 2 + 2 && height > insetY * 2 + 2) {
+        left += insetX;
+        right -= insetX;
+        top += insetY;
+        bottom -= insetY;
+    }
+    const pixels = [];
+    for (let y = top; y < bottom; y++) {
+        for (let x = left; x < right; x++) {
+            const offset = (y * image.width + x) * 4;
+            if (image.data[offset + 3] < 224) continue;
+            pixels.push([image.data[offset], image.data[offset + 1], image.data[offset + 2]]);
+        }
+    }
+    if (pixels.length === 0) fail('image has no sufficiently opaque pixels');
+    pixels.sort((leftRgb, rightRgb) => (
+        leftRgb[0] + leftRgb[1] + leftRgb[2]
+        - rightRgb[0] - rightRgb[1] - rightRgb[2]
+    ));
+    const trim = Math.floor(pixels.length / 10);
+    const kept = pixels.slice(trim, pixels.length - trim);
+    const selected = kept.length > 0 ? kept : pixels;
+    return [0, 1, 2].map((channel) => Math.round(
+        selected.reduce((sum, pixel) => sum + pixel[channel], 0) / selected.length,
+    ));
+}
+
+function recolorToRepresentative(source, targetRgb) {
+    let result = new PNG({ width: source.width, height: source.height });
+    source.data.copy(result.data);
+    for (let pass = 0; pass < 2; pass++) {
+        const currentRgb = representativeRgb(result);
+        if (Math.max(...currentRgb.map((value, channel) => Math.abs(value - targetRgb[channel]))) <= 1) break;
+        const [currentHue, currentLightness, currentSaturation] = rgbToHsl(...currentRgb);
+        const [targetHue, targetLightness, targetSaturation] = rgbToHsl(...targetRgb);
+        let hueDelta = targetHue - currentHue;
+        if (hueDelta > 0.5) hueDelta -= 1;
+        if (hueDelta < -0.5) hueDelta += 1;
+        const saturationScale = currentSaturation > 0.01 ? targetSaturation / currentSaturation : 1;
+        const next = new PNG({ width: result.width, height: result.height });
+        for (let offset = 0; offset < result.data.length; offset += 4) {
+            const alpha = result.data[offset + 3];
+            if (alpha === 0) continue;
+            const [pixelHue, pixelLightness, pixelSaturation] = rgbToHsl(
+                result.data[offset],
+                result.data[offset + 1],
+                result.data[offset + 2],
+            );
+            const nextHue = (pixelHue + hueDelta + 1) % 1;
+            const nextSaturation = clamp01(pixelSaturation * saturationScale);
+            const nextLightness = pixelLightness >= currentLightness
+                ? targetLightness + (pixelLightness - currentLightness) * (1 - targetLightness) / Math.max(0.001, 1 - currentLightness)
+                : targetLightness - (currentLightness - pixelLightness) * targetLightness / Math.max(0.001, currentLightness);
+            const [red, green, blue] = hslToRgb(nextHue, clamp01(nextLightness), nextSaturation);
+            next.data[offset] = red;
+            next.data[offset + 1] = green;
+            next.data[offset + 2] = blue;
+            next.data[offset + 3] = alpha;
+        }
+        result = next;
+    }
+    return result;
+}
+
+function readVerifiedSource(entry) {
+    const sourcePath = path.join(sourceRoot, String(entry.source_file));
+    if (!fs.existsSync(sourcePath)) fail(`missing source frame: ${sourcePath}`);
+    const sourceBuffer = fs.readFileSync(sourcePath);
+    if (sourceBuffer.length !== Number(entry.png_bytes)) fail(`source byte mismatch: ${entry.source_file}`);
+    if (sha256(sourceBuffer) !== String(entry.png_sha256)) fail(`source hash mismatch: ${entry.source_file}`);
+    return PNG.sync.read(sourceBuffer);
+}
+
 function writeImageAsset(filePath, png, label) {
     const encoded = PNG.sync.write(png, { colorType: 6 });
     writeBufferIfChanged(filePath, encoded);
@@ -229,6 +380,27 @@ writeJson(path.join(outputRoot, 'icons.meta'), directoryMeta('BeanSkins/icons'))
 
 const currentAtlasData = readJson(currentAtlasDataPath);
 const currentAtlasPng = PNG.sync.read(fs.readFileSync(currentAtlasImagePath));
+const defaultColor10Targets = {};
+for (const [role, variant] of Object.entries(ROLE_VARIANTS)) {
+    const targetEntries = NEW_SKINS.map((skin) => entries.find((entry) => (
+        Number(entry.skin_id) === skin.sourceSkinId
+        && Number(entry.current_color_id) === DEFAULT_COLOR_ID_TO_NEW_SKINS
+        && entry.role === role
+    )));
+    if (targetEntries.some((entry) => !entry)) fail(`missing new-skin ColorId 10 source for role ${role}`);
+    const targetColors = targetEntries.map((entry) => representativeRgb(readVerifiedSource(entry)));
+    const targetRgb = [0, 1, 2].map((channel) => Math.round(
+        targetColors.reduce((sum, rgb) => sum + rgb[channel], 0) / targetColors.length,
+    ));
+    defaultColor10Targets[role] = targetRgb;
+    const defaultFrameName = `b010_${variant}`;
+    const defaultFrame = currentAtlasData.frames?.[defaultFrameName];
+    if (!defaultFrame) fail(`missing default ColorId 10 frame: ${defaultFrameName}`);
+    const defaultCrop = cropPng(currentAtlasPng, defaultFrame);
+    const correctedDefault = recolorToRepresentative(defaultCrop, targetRgb);
+    pastePng(correctedDefault, currentAtlasPng, Number(defaultFrame.x), Number(defaultFrame.y));
+}
+writeBufferIfChanged(currentAtlasImagePath, PNG.sync.write(currentAtlasPng, { colorType: 6 }));
 const defaultPreviewColorId = 1;
 const defaultPreviewName = `b${String(defaultPreviewColorId).padStart(3, '0')}_2`;
 const defaultPreviewFrame = currentAtlasData.frames?.[defaultPreviewName];
@@ -258,15 +430,16 @@ for (const skin of NEW_SKINS) {
     let iconPng = null;
     for (let index = 0; index < skinEntries.length; index++) {
         const entry = skinEntries[index];
-        const sourcePath = path.join(sourceRoot, String(entry.source_file));
-        if (!fs.existsSync(sourcePath)) fail(`missing source frame: ${sourcePath}`);
-        const sourceBuffer = fs.readFileSync(sourcePath);
-        if (sourceBuffer.length !== Number(entry.png_bytes)) fail(`source byte mismatch: ${entry.source_file}`);
-        if (sha256(sourceBuffer) !== String(entry.png_sha256)) fail(`source hash mismatch: ${entry.source_file}`);
-        const sourcePng = PNG.sync.read(sourceBuffer);
+        const sourcePng = readVerifiedSource(entry);
+        let renderedPng = sourcePng;
+        if (NEW_SKIN_COLOR_IDS_TO_DEFAULT.has(Number(entry.current_color_id))) {
+            const targetFrame = currentAtlasData.frames?.[String(entry.target_frame)];
+            if (!targetFrame) fail(`missing default color target: ${entry.target_frame}`);
+            renderedPng = recolorToRepresentative(sourcePng, representativeRgb(cropPng(currentAtlasPng, targetFrame)));
+        }
         const column = index % COLUMNS;
         const row = Math.floor(index / COLUMNS);
-        atlasFrames[String(entry.target_frame)] = copyPng(sourcePng, atlas, column * CELL_SIZE, row * CELL_SIZE);
+        atlasFrames[String(entry.target_frame)] = copyPng(renderedPng, atlas, column * CELL_SIZE, row * CELL_SIZE);
         if (Number(entry.current_color_id) === skin.previewColorId && entry.role === 'normal') {
             iconPng = sourcePng;
         }
@@ -338,6 +511,11 @@ writeJson(path.join(provenanceRoot, 'source-provenance.json'), {
     sourceManifestPath: path.relative(projectDir, sourceManifestPath).replace(/\\/g, '/'),
     sourceManifestSha256: catalog.sourceManifestSha256,
     mappingStatus: sourceManifest.mapping_status,
+    colorCorrections: {
+        newSkinColorIdsToDefault: [...NEW_SKIN_COLOR_IDS_TO_DEFAULT],
+        defaultColorIdToNewSkins: DEFAULT_COLOR_ID_TO_NEW_SKINS,
+        defaultColor10Targets,
+    },
     generated,
     sources: NEW_SKINS.map((skin) => ({
         productId: skin.id,
@@ -358,4 +536,9 @@ console.log(JSON.stringify({
     newFrameCount: EXPECTED_NEW_FRAME_COUNT,
     sourceBytes: EXPECTED_SOURCE_BYTES,
     sourceManifestSha256: catalog.sourceManifestSha256,
+    colorCorrections: {
+        newSkinColorIdsToDefault: [...NEW_SKIN_COLOR_IDS_TO_DEFAULT],
+        defaultColorIdToNewSkins: DEFAULT_COLOR_ID_TO_NEW_SKINS,
+        defaultColor10Targets,
+    },
 }, null, 2));

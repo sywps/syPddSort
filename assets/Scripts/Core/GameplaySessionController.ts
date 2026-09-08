@@ -8,7 +8,7 @@ import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
 import { collectActiveBlockInputEvents, debugPerfSnapshot } from './DebugPerfTrace';
 import { ensureHardLevelIntroController } from './HardLevelIntroController';
-import { validateConveyorCapacity, validateHard } from './LevelConfig';
+import { validateAutoConveyorFinishSpeed, validateConveyorCapacity, validateHard, validateWinAdBonusEnabled } from './LevelConfig';
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 import { PCH_GAMEPLAY_MODE, PCH_GAMEPLAY_SCHEMA_VERSION } from './AnalyticsMgr';
@@ -43,7 +43,6 @@ export class GameplaySessionController {
             AudioMgr.inst.preload('button');
             const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
             if (!bootstrapOnlyGameplayStartup) {
-                AudioMgr.inst.preload('place');
                 AudioMgr.inst.preload('settle');
             }
             runtime.levelData = data;
@@ -78,6 +77,10 @@ export class GameplaySessionController {
             const hard = validateHard(data.Hard, `level ${resolvedLevelId}`);
             initStage = 'conveyor_capacity';
             validateConveyorCapacity(data.conveyorCapacity, `level ${resolvedLevelId}`);
+            initStage = 'conveyor_finish_speed';
+            validateAutoConveyorFinishSpeed(data.autoConveyorFinishSpeed, `level ${resolvedLevelId}`);
+            initStage = 'win_ad_bonus';
+            validateWinAdBonusEnabled(data.winAdBonusEnabled, `level ${resolvedLevelId}`);
             initStage = 'model_build';
             runtime.boardModel = new BoardModel(data);
             runtime.slotModel = null;

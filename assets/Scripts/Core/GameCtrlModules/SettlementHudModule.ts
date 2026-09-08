@@ -457,7 +457,10 @@ export function installSettlementHudModule(target: any): void {
                 || adBtn.getChildByName('ContinueBtnSubLblAnchor')?.getChildByName('AdBonusSubLbl')?.getComponent(Label);
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
-            const eligible = !this._isThemeLevel && this._pendingWinAdBonusReward > 0 && !this._settlementNextTransitioning;
+            const eligible = !this._isThemeLevel
+                && this.levelData?.winAdBonusEnabled !== false
+                && this._pendingWinAdBonusReward > 0
+                && !this._settlementNextTransitioning;
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
             const adIcon = adBtn.getChildByName('AdBonusAdIcon') || coinIcon;
             const claimedLbl = adBtn.getChildByName('AdBonusClaimedLbl');
@@ -502,7 +505,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         claimWinAdBonusReward() {
-            if (this._isThemeLevel || this._winAdRewardClaimed || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
+            if (this._isThemeLevel || this.levelData?.winAdBonusEnabled === false || this._winAdRewardClaimed
+                || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
                 return;
             }
             const grantWinBonusReward = () => {

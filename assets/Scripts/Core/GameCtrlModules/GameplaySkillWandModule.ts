@@ -940,7 +940,7 @@ export function installGameplaySkillWandModule(target: any): void {
                 if (typeof this.playBoardTargetSettleSound === 'function') {
                     this.playBoardTargetSettleSound();
                 } else {
-                    AudioMgr.inst.play('place');
+                    AudioMgr.inst.play('settle');
                 }
             };
             const scheduleDumpBoardSettleSound = () => {

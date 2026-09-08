@@ -1,51 +1,17 @@
-import {
-    _decorator,
-    BlockInputEvents,
-    Component,
-    Label,
-    ResolutionPolicy,
-    Size,
-    Sprite,
-    SpriteFrame,
-    tween,
-    Tween,
-    UITransform,
-    view,
-} from 'cc';
+import { _decorator, Component, ResolutionPolicy, SpriteFrame, view } from 'cc';
 import { AppRoot } from './AppRoot';
 import { debugPerfTrace } from './DebugPerfTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import { markStartupTrace } from './StartupTrace';
-import {
-    createSlicedLoadingProgressAdapter,
-    type SlicedLoadingProgressTarget,
-} from './SlicedLoadingProgressAdapter';
-
 const { ccclass, property } = _decorator;
 const VIEWPORT_WIDTH = 720;
 const VIEWPORT_HEIGHT = 1280;
-const BOOT_LOADING_DOT_INTERVAL = 0.28;
-const BOOT_LOADING_PROGRESS_STEP_FAST = 0.2;
-const BOOT_LOADING_PROGRESS_STEP_SLOW = 0.4;
-const BOOT_LOADING_PROGRESS_STEP_TWO_DELAY = 0.22;
-
 markStartupTrace('startup_main_loaded', { source: 'BootSceneCtrl.module' });
 
 @ccclass('BootSceneCtrl')
 export class BootSceneCtrl extends Component {
     @property(SpriteFrame)
     protected loadingCover: SpriteFrame | null = null;
-
-    private bootLoadingProgressTarget: SlicedLoadingProgressTarget | null = null;
-    private bootLoadingLabel: Label | null = null;
-    private bootLoadingProgress = 0;
-    private bootLoadingPercent = 0;
-    private bootLoadingDotCount = 3;
-    private bootLoadingPercentTween: Tween<{ value: number }> | null = null;
-    private readonly tickBootLoadingDots = () => {
-        this.bootLoadingDotCount = this.bootLoadingDotCount >= 3 ? 1 : this.bootLoadingDotCount + 1;
-        this.syncBootLoadingLabel();
-    };
 
     start() {
         const appRoot = AppRoot.ensure('Boot');
@@ -79,165 +45,26 @@ export class BootSceneCtrl extends Component {
             });
             void appRoot.router.toGame().catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
-                appRoot.clearRouteCover('boot-route-error');
+                appRoot.startupLoading?.fail('游戏资源加载失败');
             });
         }, 0);
     }
 
-    onDestroy() {
-        this.stopBootLoadingAnimation();
-    }
-
     private prepareBootFrame(): void {
-        view.setDesignResolutionSize(
-            VIEWPORT_WIDTH,
-            VIEWPORT_HEIGHT,
-            ResolutionPolicy.FIXED_WIDTH,
-        );
+        view.setDesignResolutionSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT, ResolutionPolicy.FIXED_WIDTH);
     }
 
     private showBootLoadingUi(): void {
-        const bootRoot = this.requireCanvasChild('BootRoot');
-        bootRoot.active = true;
-        const loading = this.requireChild(bootRoot, 'StartupLoadingUI', 'BootRoot/StartupLoadingUI');
-        const loadingTransform = loading.getComponent(UITransform);
-        if (!loadingTransform) {
-            throw new Error('[BootScene] StartupLoadingUI is missing UITransform');
-        }
-        const visibleSize = this.getVisibleLoadingSize();
-        loadingTransform.setContentSize(visibleSize.width, visibleSize.height);
-        loading.setPosition(0, 0, 0);
-        loading.active = true;
-        const blocker = loading.getComponent(BlockInputEvents) || loading.addComponent(BlockInputEvents);
-        blocker.enabled = true;
-
-        const cover = this.requireChild(loading, 'LoadingCover', 'StartupLoadingUI/LoadingCover');
-        cover.active = true;
-        const coverSprite = cover.getComponent(Sprite);
-        if (coverSprite && !coverSprite.spriteFrame && this.loadingCover) {
-            coverSprite.spriteFrame = this.loadingCover;
-        }
-
-        const progressGroup = this.requireChild(
-            loading,
-            'LoadingProgressGroup',
-            'StartupLoadingUI/LoadingProgressGroup',
-        );
-        const progressTrack = this.requireChild(
-            progressGroup,
-            'LoadingBarTrack',
-            'LoadingProgressGroup/LoadingBarTrack',
-        );
-        const label = this.requireChild(progressGroup, 'Label', 'LoadingProgressGroup/Label').getComponent(Label) || null;
-        this.bootLoadingProgressTarget = createSlicedLoadingProgressAdapter(
-            progressTrack,
-            'StartupLoadingUI/LoadingProgressGroup/LoadingBarTrack',
-        );
-        this.bootLoadingLabel = label;
-        if (label) label.enableWrapText = false;
-        this.startBootLoadingProgress();
-    }
-
-    private startBootLoadingProgress(): void {
-        this.stopBootLoadingAnimation();
-        this.bootLoadingProgress = 0;
-        this.bootLoadingPercent = 0;
-        this.bootLoadingDotCount = 3;
-        this.setBootLoadingProgress(0, 0);
-        this.schedule(this.tickBootLoadingDots, BOOT_LOADING_DOT_INTERVAL);
-        this.scheduleOnce(() => {
-            if (!this.node?.isValid) return;
-            this.setBootLoadingProgress(0.5, BOOT_LOADING_PROGRESS_STEP_FAST);
-        }, 0);
-        this.scheduleOnce(() => {
-            if (!this.node?.isValid) return;
-            this.setBootLoadingProgress(0.8, BOOT_LOADING_PROGRESS_STEP_SLOW);
-        }, BOOT_LOADING_PROGRESS_STEP_TWO_DELAY);
-    }
-
-    private setBootLoadingProgress(progress: number, duration: number): void {
-        const progressTarget = this.bootLoadingProgressTarget;
-        const prev = this.bootLoadingProgress;
-        const next = Math.max(prev, Math.max(0, Math.min(1, progress)));
-        this.bootLoadingProgress = next;
-        this.animateBootLoadingPercent(next, duration);
-        if (!progressTarget) return;
-        Tween.stopAllByTarget(progressTarget);
-        if (duration <= 0) {
-            progressTarget.progress = next;
-            return;
-        }
-        tween(progressTarget).to(duration, { progress: next }, { easing: 'sineOut' }).start();
-    }
-
-    private animateBootLoadingPercent(progress: number, duration: number): void {
-        if (this.bootLoadingPercentTween) {
-            this.bootLoadingPercentTween.stop();
-            this.bootLoadingPercentTween = null;
-        }
-        const fromPercent = this.bootLoadingPercent;
-        const toPercent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-        if (duration <= 0 || fromPercent === toPercent) {
-            this.bootLoadingPercent = toPercent;
-            this.syncBootLoadingLabel();
-            return;
-        }
-        const state = { value: fromPercent };
-        this.bootLoadingPercentTween = tween(state)
-            .to(duration, { value: toPercent }, {
-                easing: 'sineOut',
-                onUpdate: (target: { value: number }) => {
-                    this.bootLoadingPercent = Math.max(0, Math.min(100, Math.round(target.value)));
-                    this.syncBootLoadingLabel();
-                },
-            })
-            .call(() => {
-                this.bootLoadingPercent = toPercent;
-                this.syncBootLoadingLabel();
-                this.bootLoadingPercentTween = null;
-            })
-            .start();
-    }
-
-    private syncBootLoadingLabel(): void {
-        if (!this.bootLoadingLabel) return;
-        const dots = '.'.repeat(this.bootLoadingDotCount);
-        this.bootLoadingLabel.string = `加载中${dots}${this.bootLoadingPercent}%`;
-    }
-
-    private stopBootLoadingAnimation(): void {
-        this.unschedule(this.tickBootLoadingDots);
-        if (this.bootLoadingPercentTween) {
-            this.bootLoadingPercentTween.stop();
-            this.bootLoadingPercentTween = null;
-        }
-        if (this.bootLoadingProgressTarget) {
-            Tween.stopAllByTarget(this.bootLoadingProgressTarget);
-        }
-    }
-
-    private getVisibleLoadingSize(): Size {
-        const viewSize = view.getVisibleSize();
-        const frameSize = view.getFrameSize();
-        let width = Math.max(viewSize.width || 0, VIEWPORT_WIDTH);
-        let height = Math.max(viewSize.height || 0, VIEWPORT_HEIGHT);
-        if (frameSize.width > 0 && frameSize.height > 0) {
-            const frameAspect = frameSize.width / frameSize.height;
-            height = Math.max(height, width / frameAspect);
-            width = Math.max(width, height * frameAspect);
-        }
-        return new Size(Math.ceil(width), Math.ceil(height));
-    }
-
-    private requireCanvasChild(name: string) {
-        const canvas = this.node.scene?.getChildByName('Canvas') || null;
+        const scene = this.node.scene;
+        const canvas = scene.getChildByName('Canvas');
         if (!canvas) throw new Error('[BootScene] missing Canvas');
-        return this.requireChild(canvas, name, `Canvas/${name}`);
-    }
-
-    private requireChild(parent: any, name: string, context: string) {
-        const child = parent?.getChildByName?.(name) || null;
-        if (!child) throw new Error(`[BootScene] missing ${context}`);
-        return child;
+        // Only the authored UI survives the scene switch; the routing component stays in Boot.
+        this.node.setParent(scene);
+        if (AppRoot.inst.startupLoading?.isValid) {
+            canvas.destroy();
+            AppRoot.inst.startupLoading.show('正在加载游戏资源…');
+            return;
+        }
+        AppRoot.inst.adoptStartupLoading(canvas);
     }
 }

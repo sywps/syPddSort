@@ -88,7 +88,6 @@ type ShareGrantOptions = {
     busyFlag?: string;
     title?: RewardedGrantToast;
     query?: RewardedGrantToast;
-    imageUrl?: RewardedGrantToast;
     shareFailToast?: RewardedGrantToast;
     grantFailToast?: RewardedGrantToast;
     afterGrantFailToast?: RewardedGrantToast;
@@ -594,7 +593,6 @@ export function installHomeAdFlowModule(target: any): void {
             const shareType = options.shareType || `rewardShare:${page}`;
             const title = resolveRewardedGrantToast(options.title) || `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
             const query = resolveRewardedGrantToast(options.query) || `level=${levelId}`;
-            const imageUrl = resolveRewardedGrantToast(options.imageUrl);
 
             const runGrant = () => {
                 const grantPromise = Promise.resolve().then(() => grant());
@@ -684,7 +682,6 @@ export function installHomeAdFlowModule(target: any): void {
                 payload: {
                     title,
                     query,
-                    imageUrl,
                 },
                 onComplete: onShareReturn,
             });

@@ -90,6 +90,6 @@ assert.ok(
 );
 assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/guide_prompt_button.png')), false);
 assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/home_bg.jpeg')), true);
-assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/loading_cover.jpeg')), true);
+assert.equal(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/loading_cover.jpeg')), false, 'startup cover belongs only to main');
 
 console.log('bootstrap-atlas-expansion.test.js passed');

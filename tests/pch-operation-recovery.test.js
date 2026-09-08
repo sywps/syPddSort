@@ -79,6 +79,7 @@ function compile(code, dependencies = {}) {
                 CONVEYOR_STACK_DEPTH: 3,
                 validateConveyorCapacity: value => value,
                 validatePchSingleSelectionLimit: value => value || 12,
+                validateAutoConveyorFinishSpeed: value => value !== false,
             };
             return shared;
         }, setTimer, clearTimer, logger, ...Object.values(dependencies),
@@ -222,6 +223,7 @@ for (const failure of ['create', 'callback', 'missing-callback', 'normal']) {
     h.controller.makeLabel = (_parent, copy) => { copies.push(copy); return new Label(); };
     h.controller.trackOpeningGuideEvent = h.controller.reportOpeningGuideTutorialStart = () => {};
     h.controller.createOpeningGuideFocusMask = () => {};
+    h.controller.createOpeningGuideCapacityFocusMask = () => {};
     h.runtime.getSF = () => null;
     for (const name of ['PchLevelOneGuideStep0', 'PchLevelTwoSpeedGuide', 'PchLevelThreeCapacityGuide']) {
         let taps = 0;

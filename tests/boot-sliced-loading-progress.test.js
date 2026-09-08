@@ -119,14 +119,12 @@ const themeModule = read('assets/Scripts/Core/GameCtrlModules/ThemeLoadingOverla
 const shareModule = read('assets/Scripts/Core/GameCtrlModules/GameplayShareLoadingModule.ts');
 assert.ok(adapter.includes('Object.defineProperties(adapter,'), 'shared adapter must expose a tweenable object target');
 assert.ok(adapter.includes('Sprite.Type.SLICED'), 'shared adapter must fail fast if sliced scene bindings are missing');
+const startupController = read('assets/Scripts/Core/StartupLoadingController.ts');
+assert.ok(startupController.includes('createSlicedLoadingProgressAdapter'), 'persistent Boot UI must reuse the sliced adapter');
 for (const source of [bootController, themeModule, shareModule]) {
-    assert.ok(source.includes('createSlicedLoadingProgressAdapter'), 'every Boot loading caller must use the shared sliced adapter');
-    assert.equal(/\bProgressBar\b/.test(source), false, 'Boot loading callers must not depend on native ProgressBar');
+    assert.equal(/\bProgressBar\b/.test(source), false, 'old loading callers must not depend on native ProgressBar');
 }
-for (const source of [themeModule, shareModule]) {
-    assert.ok(source.includes('fillTransform.setContentSize(segmentWidth / fillRenderScale, segmentHeight / fillRenderScale);'),
-        'indeterminate loading sweep must respect the high-resolution fill scale');
-}
+assert.ok(startupController.includes('width / this.progress.fillRenderScale'), 'waiting sweep must preserve high-resolution rendering scale');
 
 for (const relativePath of [
     'assets/Scripts/Core/SlicedLoadingProgressAdapter.ts',

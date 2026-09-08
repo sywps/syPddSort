@@ -62,6 +62,9 @@ const PCH_CAPACITY_BLOCKED_TOAST_COOLDOWN_MS = 1500;
 const OPENING_GUIDE_DIM_MASK_OPACITY = 168;
 const OPENING_GUIDE_TARGET_FOCUS_PADDING = 12;
 const OPENING_GUIDE_CONVEYOR_FOCUS_PADDING = 8;
+const OPENING_GUIDE_PROMPT_WIDTH = 520;
+const OPENING_GUIDE_PROMPT_HEIGHT = 140;
+const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 48;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
 const PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD = 3;
 const PCH_RED_WARNING_PULSE_SECONDS = 0.5;
@@ -266,6 +269,7 @@ export class PchConveyorGameplayController {
     private beltPathLength = 0;
     private exitPathProgress = 0;
     private beltTravel = 0;
+    private pendingBufferDeadlockStartTravel: number | null = null;
     private manualSpeedMultiplier: PchSpeedMultiplier = 1;
     private beforeWinSpeedActive = false;
     private finishCommitted = false;
@@ -410,9 +414,11 @@ export class PchConveyorGameplayController {
             this.runtime.levelData?.conveyorCapacity,
             this.runtime.levelData?.singleSelectionLimit,
             PCH_SCENE_CARRIER_COUNT,
+            this.runtime.levelData?.autoConveyorFinishSpeed,
         );
         this.resetAnalyticsStats();
         this.beltTravel = this.runtime._pvpReplayResumeState?.travel || 0;
+        this.pendingBufferDeadlockStartTravel = null;
         if (this.runtime._pvpReplayResumeState) this.manualSpeedMultiplier = this.runtime._pvpReplayResumeState.speed;
         else this.runtime.recordPvpRuleEvent?.(0, this.manualSpeedMultiplier);
         this.inputLocked = true;
@@ -725,6 +731,7 @@ export class PchConveyorGameplayController {
         this.settlementPaused = false;
         this.settingsPaused = false;
         this.inputLocked = false;
+        this.pendingBufferDeadlockStartTravel = null;
         this.externalInputBlocked = false;
         this.skillMovementPaused = false;
         this.skillTimerPauseToken = '';
@@ -959,7 +966,17 @@ export class PchConveyorGameplayController {
     }
 
     private checkBufferDeadlock(): boolean {
-        if (!this.rules?.isBufferDeadlocked()) return false;
+        if (!this.rules?.isBufferDeadlocked()) {
+            this.pendingBufferDeadlockStartTravel = null;
+            return false;
+        }
+        const pendingStartTravel = this.pendingBufferDeadlockStartTravel;
+        if (pendingStartTravel === null) {
+            this.pendingBufferDeadlockStartTravel = this.beltTravel;
+            return false;
+        }
+        if (this.beltTravel < pendingStartTravel + this.rules.carrierCount) return false;
+        this.pendingBufferDeadlockStartTravel = null;
         this.inputLocked = true;
         if (this.statusLabel) this.statusLabel.string = '暂存槽已满，且没有豆豆可以归位';
         this.runtime.gameLose('buffer-full');
@@ -2758,9 +2775,9 @@ export class PchConveyorGameplayController {
             if (logicalLevelId === 1) {
                 this.showLevelOneBoardGuide(parent);
             } else if (logicalLevelId === 2 && this.speedButton?.isValid) {
-                this.showOpeningTargetGuide(parent, this.speedButton, 'PchLevelTwoSpeedGuide', '点击开启三倍速', this.onOpeningGuideTripleSpeed);
+                this.showOpeningTargetGuide(parent, this.speedButton, 'PchLevelTwoSpeedGuide', '你可以调整传送带的速度', this.onOpeningGuideTripleSpeed);
             } else if (logicalLevelId === 3 && this.adButton?.isValid) {
-                this.showOpeningTargetGuide(parent, this.adButton, 'PchLevelThreeCapacityGuide', '点击扩容按钮\n增加12个位置', this.onOpeningGuideFreeCapacity);
+                this.showOpeningTargetGuide(parent, this.adButton, 'PchLevelThreeCapacityGuide', '点击扩容按钮\n传送带容量增加12格', this.onOpeningGuideFreeCapacity);
             }
         } catch (error) {
             console.error('[pch-guide] releasing incomplete guide:', error);
@@ -2812,8 +2829,8 @@ export class PchConveyorGameplayController {
         const topRight = parentTransform.convertToNodeSpaceAR(new Vec3(maxX, maxY, 0));
         const targetLocal = new Vec3((bottomLeft.x + topRight.x) / 2, (bottomLeft.y + topRight.y) / 2, 0);
         const copy = this.openingGuideLevelOneStep === 0
-            ? '点击白色豆豆\n将它们放到传送带上'
-            : '再点击蓝色豆豆\n空出对应颜色的位置';
+            ? '点击白色豆豆\n他们会自动放置到传送带上'
+            : '点击蓝色豆豆\n将白色的位置空出';
         this.showOpeningTargetGuideAt(
             parent,
             targetLocal,
@@ -2926,6 +2943,210 @@ export class PchConveyorGameplayController {
         createPanel('GuideDimBottom', (maskMinX + maskMaxX) / 2, maskMinY + (conveyorFocus.bottom - maskMinY) / 2, fullWidth, conveyorFocus.bottom - maskMinY);
     }
 
+    private createOpeningGuideSpeedFocusMask(
+        parent: Node,
+        targetLocal: Vec3,
+        targetWidth: number,
+        targetHeight: number,
+    ): void {
+        const openingGuide = this.openingGuide;
+        const parentTransform = parent.getComponent(UITransform);
+        if (!openingGuide?.isValid || !parentTransform) {
+            throw new Error('[pch-core] level 2 guide mask parent is unavailable');
+        }
+
+        const mask = this.makeNode(
+            'PchOpeningGuideSpeedDimMask',
+            openingGuide,
+            parentTransform.contentSize.width,
+            parentTransform.contentSize.height,
+            0,
+            0,
+        );
+        mask.setSiblingIndex(0);
+        const maskMinX = -parentTransform.contentSize.width * parentTransform.anchorPoint.x;
+        const maskMaxX = parentTransform.contentSize.width * (1 - parentTransform.anchorPoint.x);
+        const maskMinY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y;
+        const maskMaxY = parentTransform.contentSize.height * (1 - parentTransform.anchorPoint.y);
+        if (!Number.isFinite(maskMinX + maskMaxX + maskMinY + maskMaxY)
+            || maskMaxX - maskMinX < 1
+            || maskMaxY - maskMinY < 1) {
+            throw new Error('[pch-core] level 2 guide dim mask bounds are unavailable');
+        }
+        const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+        const targetLeft = clamp(targetLocal.x - targetWidth / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinX, maskMaxX);
+        const targetRight = clamp(targetLocal.x + targetWidth / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinX, maskMaxX);
+        const targetBottom = clamp(targetLocal.y - targetHeight / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinY, maskMaxY);
+        const targetTop = clamp(targetLocal.y + targetHeight / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING, maskMinY, maskMaxY);
+        if (targetRight - targetLeft < 1 || targetTop - targetBottom < 1) {
+            throw new Error('[pch-core] level 2 guide speed focus is invalid');
+        }
+        const createPanel = (name: string, x: number, y: number, width: number, height: number): void => {
+            const panel = this.makeNode(name, mask, Math.max(1, width), Math.max(1, height), x, y);
+            panel.active = width > 0.5 && height > 0.5;
+            if (!panel.active) return;
+            const graphics = panel.addComponent(Graphics);
+            graphics.fillColor = new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY);
+            graphics.rect(-width / 2, -height / 2, width, height);
+            graphics.fill();
+        };
+        const fullWidth = maskMaxX - maskMinX;
+        const targetHeightWithPadding = targetTop - targetBottom;
+        createPanel(
+            'GuideSpeedDimTop',
+            (maskMinX + maskMaxX) / 2,
+            targetTop + (maskMaxY - targetTop) / 2,
+            fullWidth,
+            maskMaxY - targetTop,
+        );
+        createPanel(
+            'GuideSpeedDimLeft',
+            maskMinX + (targetLeft - maskMinX) / 2,
+            (targetTop + targetBottom) / 2,
+            targetLeft - maskMinX,
+            targetHeightWithPadding,
+        );
+        createPanel(
+            'GuideSpeedDimRight',
+            targetRight + (maskMaxX - targetRight) / 2,
+            (targetTop + targetBottom) / 2,
+            maskMaxX - targetRight,
+            targetHeightWithPadding,
+        );
+        createPanel(
+            'GuideSpeedDimBottom',
+            (maskMinX + maskMaxX) / 2,
+            maskMinY + (targetBottom - maskMinY) / 2,
+            fullWidth,
+            targetBottom - maskMinY,
+        );
+    }
+
+    private createOpeningGuideCapacityFocusMask(
+        parent: Node,
+        targetLocal: Vec3,
+        targetWidth: number,
+        targetHeight: number,
+    ): void {
+        const openingGuide = this.openingGuide;
+        const parentTransform = parent.getComponent(UITransform);
+        if (!openingGuide?.isValid || !parentTransform) {
+            throw new Error('[pch-core] level 3 guide mask parent is unavailable');
+        }
+        const conveyorTrack = this.belt?.getChildByName('PchMovingTrack') || null;
+        const conveyorTransform = conveyorTrack?.getComponent(UITransform) || null;
+        if (!conveyorTrack?.isValid || !conveyorTransform) {
+            throw new Error('[pch-core] level 3 guide conveyor focus is unavailable');
+        }
+
+        const mask = this.makeNode(
+            'PchOpeningGuideCapacityDimMask',
+            openingGuide,
+            parentTransform.contentSize.width,
+            parentTransform.contentSize.height,
+            0,
+            0,
+        );
+        mask.setSiblingIndex(0);
+        const maskMinX = -parentTransform.contentSize.width * parentTransform.anchorPoint.x;
+        const maskMaxX = parentTransform.contentSize.width * (1 - parentTransform.anchorPoint.x);
+        const maskMinY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y;
+        const maskMaxY = parentTransform.contentSize.height * (1 - parentTransform.anchorPoint.y);
+        if (!Number.isFinite(maskMinX + maskMaxX + maskMinY + maskMaxY)
+            || maskMaxX - maskMinX < 1
+            || maskMaxY - maskMinY < 1) {
+            throw new Error('[pch-core] level 3 guide dim mask bounds are unavailable');
+        }
+        const conveyorBounds = conveyorTransform.getBoundingBoxToWorld();
+        const conveyorBottomLeft = parentTransform.convertToNodeSpaceAR(
+            new Vec3(conveyorBounds.xMin, conveyorBounds.yMin, 0),
+        );
+        const conveyorTopRight = parentTransform.convertToNodeSpaceAR(
+            new Vec3(conveyorBounds.xMax, conveyorBounds.yMax, 0),
+        );
+        if (!Number.isFinite(
+            targetLocal.x + targetLocal.y + targetWidth + targetHeight
+            + conveyorBottomLeft.x + conveyorBottomLeft.y + conveyorTopRight.x + conveyorTopRight.y,
+        )) {
+            throw new Error('[pch-core] level 3 guide focus bounds are unavailable');
+        }
+        const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+        const focusLeft = clamp(
+            Math.min(
+                targetLocal.x - targetWidth / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING,
+                conveyorBottomLeft.x - OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
+            ),
+            maskMinX,
+            maskMaxX,
+        );
+        const focusRight = clamp(
+            Math.max(
+                targetLocal.x + targetWidth / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING,
+                conveyorTopRight.x + OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
+            ),
+            maskMinX,
+            maskMaxX,
+        );
+        const focusBottom = clamp(
+            Math.min(
+                targetLocal.y - targetHeight / 2 - OPENING_GUIDE_TARGET_FOCUS_PADDING,
+                conveyorBottomLeft.y - OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
+            ),
+            maskMinY,
+            maskMaxY,
+        );
+        const focusTop = clamp(
+            Math.max(
+                targetLocal.y + targetHeight / 2 + OPENING_GUIDE_TARGET_FOCUS_PADDING,
+                conveyorTopRight.y + OPENING_GUIDE_CONVEYOR_FOCUS_PADDING,
+            ),
+            maskMinY,
+            maskMaxY,
+        );
+        if (focusRight - focusLeft < 1 || focusTop - focusBottom < 1) {
+            throw new Error('[pch-core] level 3 guide capacity focus is invalid');
+        }
+        const createPanel = (name: string, x: number, y: number, width: number, height: number): void => {
+            const panel = this.makeNode(name, mask, Math.max(1, width), Math.max(1, height), x, y);
+            panel.active = width > 0.5 && height > 0.5;
+            if (!panel.active) return;
+            const graphics = panel.addComponent(Graphics);
+            graphics.fillColor = new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY);
+            graphics.rect(-width / 2, -height / 2, width, height);
+            graphics.fill();
+        };
+        const fullWidth = maskMaxX - maskMinX;
+        const focusHeight = focusTop - focusBottom;
+        createPanel(
+            'GuideCapacityDimTop',
+            (maskMinX + maskMaxX) / 2,
+            focusTop + (maskMaxY - focusTop) / 2,
+            fullWidth,
+            maskMaxY - focusTop,
+        );
+        createPanel(
+            'GuideCapacityDimLeft',
+            maskMinX + (focusLeft - maskMinX) / 2,
+            (focusTop + focusBottom) / 2,
+            focusLeft - maskMinX,
+            focusHeight,
+        );
+        createPanel(
+            'GuideCapacityDimRight',
+            focusRight + (maskMaxX - focusRight) / 2,
+            (focusTop + focusBottom) / 2,
+            maskMaxX - focusRight,
+            focusHeight,
+        );
+        createPanel(
+            'GuideCapacityDimBottom',
+            (maskMinX + maskMaxX) / 2,
+            maskMinY + (focusBottom - maskMinY) / 2,
+            fullWidth,
+            focusBottom - maskMinY,
+        );
+    }
+
     private showOpeningTargetGuide(
         parent: Node,
         target: Node,
@@ -2948,6 +3169,28 @@ export class PchConveyorGameplayController {
         this.showOpeningTargetGuideAt(parent, targetLocal, targetWidth, targetHeight, guideName, copy, onTargetTap, true, promptYOverride);
     }
 
+    private getOpeningGuidePromptCenterYAboveConveyor(parent: Node, promptHeight: number): number {
+        const parentTransform = parent.getComponent(UITransform);
+        const conveyorTrack = this.belt?.getChildByName('PchMovingTrack') || null;
+        const conveyorTransform = conveyorTrack?.getComponent(UITransform) || null;
+        if (!parentTransform || !conveyorTrack?.isValid || !conveyorTransform) {
+            throw new Error('[pch-core] opening guide conveyor prompt anchor is unavailable');
+        }
+        const conveyorBounds = conveyorTransform.getBoundingBoxToWorld();
+        const conveyorTopRight = parentTransform.convertToNodeSpaceAR(
+            new Vec3(conveyorBounds.xMax, conveyorBounds.yMax, 0),
+        );
+        if (!Number.isFinite(conveyorTopRight.y)) {
+            throw new Error('[pch-core] opening guide conveyor prompt bounds are unavailable');
+        }
+        const parentMinY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y;
+        const parentMaxY = parentTransform.contentSize.height * (1 - parentTransform.anchorPoint.y);
+        const safeMinY = parentMinY + promptHeight / 2 + 24;
+        const safeMaxY = parentMaxY - promptHeight / 2 - 24;
+        const desiredY = conveyorTopRight.y + promptHeight / 2 + OPENING_GUIDE_PROMPT_CONVEYOR_GAP;
+        return Math.max(safeMinY, Math.min(safeMaxY, desiredY));
+    }
+
     private showOpeningTargetGuideAt(
         parent: Node,
         targetLocal: Vec3,
@@ -2968,6 +3211,10 @@ export class PchConveyorGameplayController {
         this.openingGuide.setSiblingIndex(Math.max(0, parent.children.length - 1));
         if (isLevelOneBoardGuide) {
             this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);
+        } else if (isLevelTwoSpeedGuide) {
+            this.createOpeningGuideSpeedFocusMask(parent, targetLocal, targetWidth, targetHeight);
+        } else if (isLevelThreeCapacityGuide) {
+            this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);
         }
         this.openingGuideTarget = this.makeNode('OpeningGuideTapTarget', parent, targetWidth + 24, targetHeight + 24, targetLocal.x, targetLocal.y);
         this.openingGuideTarget.setSiblingIndex(Math.max(0, parent.children.length - 1));
@@ -2976,62 +3223,48 @@ export class PchConveyorGameplayController {
         button.zoomScale = 0.92;
         this.openingGuideTarget.on(Node.EventType.TOUCH_END, onTargetTap, this);
 
-        const promptWidth = isLevelOneBoardGuide ? 340 : (isLevelTwoSpeedGuide ? 300 : (isLevelThreeCapacityGuide ? 330 : (useGuideBubbleFrame ? 560 : 500)));
-        const promptHeight = isLevelOneBoardGuide ? 216 : (isLevelTwoSpeedGuide ? 156 : (isLevelThreeCapacityGuide ? 184 : (useGuideBubbleFrame ? 128 : 64)));
-        const bubbleScaleY = isStarterOpeningGuide ? 0.78 : 1;
-        let levelOnePromptY = 0;
-        if (isLevelOneBoardGuide) {
-            const parentTransform = parent.getComponent(UITransform);
-            if (!parentTransform) throw new Error('[pch-core] level 1 guide parent transform is unavailable');
-            const levelOneBubbleVisibleHeight = promptHeight * bubbleScaleY;
-            levelOnePromptY = targetLocal.y - targetHeight / 2 - levelOneBubbleVisibleHeight / 2 - 24;
-            const parentBottomSafeY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y + 24;
-            if (levelOnePromptY - levelOneBubbleVisibleHeight / 2 < parentBottomSafeY) {
-                throw new Error('[pch-core] level 1 guide bubble has no space below target');
-            }
-        }
+        const guideBubbleFrame = useGuideBubbleFrame ? this.runtime.getSF?.('guide_bubble_frame') || null : null;
+        const usesVideoGuideBubbleLayout = isStarterOpeningGuide && !!guideBubbleFrame;
+        const promptWidth = usesVideoGuideBubbleLayout
+            ? OPENING_GUIDE_PROMPT_WIDTH
+            : (useGuideBubbleFrame ? 560 : 500);
+        const promptHeight = usesVideoGuideBubbleLayout
+            ? OPENING_GUIDE_PROMPT_HEIGHT
+            : (useGuideBubbleFrame ? 128 : 64);
         const sharedPromptY = promptYOverride ?? Math.max(-520, targetLocal.y - targetHeight / 2 - promptHeight / 2 - 40);
-        const promptY = isLevelOneBoardGuide
-            ? levelOnePromptY
-            : (isLevelTwoSpeedGuide
-                ? Math.max(-520, targetLocal.y - targetHeight / 2 - promptHeight / 2 - 24)
-                : (isLevelThreeCapacityGuide
-                    ? targetLocal.y + targetHeight / 2 + promptHeight / 2 + 24
-                    : sharedPromptY));
-        const promptXLimit = isLevelThreeCapacityGuide ? 130 : (useGuideBubbleFrame ? 80 : 100);
-        const promptX = isLevelTwoSpeedGuide
-            ? targetLocal.x
+        const promptY = usesVideoGuideBubbleLayout
+            ? this.getOpeningGuidePromptCenterYAboveConveyor(parent, promptHeight)
+            : sharedPromptY;
+        const promptXLimit = useGuideBubbleFrame ? 80 : 100;
+        const promptX = usesVideoGuideBubbleLayout
+            ? 0
             : Math.max(-promptXLimit, Math.min(promptXLimit, targetLocal.x));
         if (targetWidth < 1 || targetHeight < 1) {
             throw new Error('[pch-core] opening guide visual target dimensions are unavailable');
         }
         const prompt = this.makeNode('OpeningGuidePrompt', this.openingGuide, promptWidth, promptHeight, promptX, promptY);
-        if (useGuideBubbleFrame && this.runtime.getSF?.('guide_bubble_frame')) {
-            const guideBubbleFrame = this.runtime.getSF?.('guide_bubble_frame') || null;
-            if (!guideBubbleFrame) {
-                throw new Error('[pch-core] missing opening guide bubble frame');
-            }
+        if (guideBubbleFrame) {
             if (typeof this.runtime._applySpriteFrame !== 'function') {
                 throw new Error('[pch-core] guide bubble sprite applicator is unavailable');
             }
             const bubbleBackground = this.makeNode('OpeningGuideBubbleBackground', prompt, promptWidth, promptHeight, 0, 0);
             this.runtime._applySpriteFrame(bubbleBackground, guideBubbleFrame, promptWidth, promptHeight, Sprite.Type.SLICED);
-            bubbleBackground.setScale(1, (isLevelOneBoardGuide || isLevelTwoSpeedGuide) ? -bubbleScaleY : bubbleScaleY, 1);
+            bubbleBackground.setScale(1, 1, 1);
             if (isLevelOneBoardGuide) {
                 const [title, detail] = copy.split('\n', 2);
-                const titleLabel = this.makeLabel(prompt, title, 42, Color.WHITE, 0, -5, promptWidth - 48);
-                const detailLabel = this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -55, promptWidth - 48);
-                this.applyOpeningGuidePromptLabelStyle(titleLabel, true);
-                this.applyOpeningGuidePromptLabelStyle(detailLabel, false);
+                const titleLabel = this.makeLabel(prompt, title, 42, Color.WHITE, 0, 26, promptWidth - 64);
+                const detailLabel = this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -26, promptWidth - 64);
+                this.applyOpeningGuidePromptLabelStyle(titleLabel);
+                this.applyOpeningGuidePromptLabelStyle(detailLabel);
             } else if (isLevelTwoSpeedGuide) {
-                const promptLabel = this.makeLabel(prompt, copy, 32, Color.WHITE, 0, -16, promptWidth - 48);
-                this.applyOpeningGuidePromptLabelStyle(promptLabel, true);
+                const promptLabel = this.makeLabel(prompt, copy, 32, Color.WHITE, 0, 0, promptWidth - 64);
+                this.applyOpeningGuidePromptLabelStyle(promptLabel);
             } else if (isLevelThreeCapacityGuide) {
                 const [title, detail] = copy.split('\n', 2);
-                const titleLabel = this.makeLabel(prompt, title, 32, Color.WHITE, 0, 48, promptWidth - 48);
-                const detailLabel = this.makeLabel(prompt, detail || title, 28, Color.WHITE, 0, 4, promptWidth - 56);
-                this.applyOpeningGuidePromptLabelStyle(titleLabel, true);
-                this.applyOpeningGuidePromptLabelStyle(detailLabel, false);
+                const titleLabel = this.makeLabel(prompt, title, 32, Color.WHITE, 0, 26, promptWidth - 64);
+                const detailLabel = this.makeLabel(prompt, detail || title, 28, Color.WHITE, 0, -22, promptWidth - 64);
+                this.applyOpeningGuidePromptLabelStyle(titleLabel);
+                this.applyOpeningGuidePromptLabelStyle(detailLabel);
             } else {
                 const promptLabel = this.makeLabel(prompt, copy, 28, new Color('#7162A2'), 0, 22, promptWidth - 48);
                 (promptLabel as Label & { isBold?: boolean }).isBold = true;
@@ -3054,8 +3287,9 @@ export class PchConveyorGameplayController {
         hand.name = 'OpeningGuideHand';
         this.openingGuide.addChild(hand);
         hand.active = true;
-        const handRestOffsetY = isLevelTwoSpeedGuide ? -52 : -76;
-        const handPressOffsetY = isLevelTwoSpeedGuide ? -36 : -60;
+        const usesButtonHandPosition = isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;
+        const handRestOffsetY = usesButtonHandPosition ? -52 : -76;
+        const handPressOffsetY = usesButtonHandPosition ? -36 : -60;
         hand.setPosition(targetLocal.x + 42, targetLocal.y + handRestOffsetY, 0);
         hand.setScale(0.92, 0.92, 1);
         tween(hand)
@@ -3292,7 +3526,6 @@ export class PchConveyorGameplayController {
         this.renderConveyor();
         this.renderEntranceQueue();
         this.refreshStatus();
-        AudioMgr.inst.play('win');
         this.showCapacityBurst(added);
         return added > 0;
     }
@@ -3333,16 +3566,11 @@ export class PchConveyorGameplayController {
         return node;
     }
 
-    private applyOpeningGuidePromptLabelStyle(label: Label, emphasized: boolean): void {
-        label.color = Color.WHITE;
+    private applyOpeningGuidePromptLabelStyle(label: Label): void {
+        label.color = new Color(32, 32, 32, 255);
         label.cacheMode = Label.CacheMode.NONE;
-        label.enableOutline = true;
-        label.outlineColor = new Color(242, 140, 52, 255);
-        label.outlineWidth = emphasized ? 3 : 2;
-        label.enableShadow = true;
-        label.shadowColor = new Color(106, 59, 18, 210);
-        label.shadowOffset = emphasized ? new Vec2(2, -3) : new Vec2(1, -2);
-        label.shadowBlur = 0;
+        label.enableOutline = false;
+        label.enableShadow = false;
         (label as Label & { isBold?: boolean }).isBold = true;
     }
 

@@ -21,8 +21,9 @@ function hash(value: string): number {
 }
 
 export function pixelLevelHash(level: LevelData): string {
+    const autoFinishSpeedHashSuffix = level.autoConveyorFinishSpeed === false ? '-no-auto-finish-speed' : '';
     return `pixel-${hash(JSON.stringify([level.boardWidth, level.boardHeight, level.correctColorArr,
-        level.initRandomColorArr, level.conveyorCapacity, level.singleSelectionLimit || 12, level.timeLimit]))}`;
+        level.initRandomColorArr, level.conveyorCapacity, level.singleSelectionLimit || 12, level.timeLimit]))}${autoFinishSpeedHashSuffix}`;
 }
 
 export function botMatchRating(profile: PvpBotProfile): number {
@@ -69,7 +70,7 @@ export function createPixelBotReplay(level: LevelData, seed: string, profile: Pv
         return (randomState >>> 0) / 4294967296;
     };
     const board = new BoardModel(level);
-    const rules = new PchConveyorRules(board, level.conveyorCapacity, level.singleSelectionLimit);
+    const rules = new PchConveyorRules(board, level.conveyorCapacity, level.singleSelectionLimit, undefined, level.autoConveyorFinishSpeed);
     const allCells: Cell[] = [];
     const initial: Cell[] = [];
     const colors = new Set<number>();

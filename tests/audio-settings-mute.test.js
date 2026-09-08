@@ -107,6 +107,7 @@ class MockAudioSource {
 const storage = new Map();
 const vibrationDurations = [];
 const scene = new MockNode('Scene');
+let audioClockMs = 0;
 const audioMgrSource = read('assets/Scripts/Core/AudioMgr.ts');
 const audioManifestSource = read('assets/Scripts/Core/AudioManifest.ts');
 const boardInputViewportSource = read('assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts');
@@ -155,19 +156,15 @@ const audioManifestMock = {
     AUDIO_HOME_BGM_RESOURCE_PATH: 'Audio/bgm',
     AUDIO_HOME_BGM_VOLUME: 0.35,
     AUDIO_BOOTSTRAP_SFX_NAMES: [
-        'select', 'place', 'settle', 'fly', 'return', 'button', 'tick', 'coin',
-        'win', 'lose', 'winColor', 'winAll', 'winSettlement', 'revivePop',
+        'select', 'settle', 'fly', 'button', 'tick', 'lose',
+        'winColor', 'winAll', 'winSettlement', 'revivePop',
     ],
     AUDIO_SFX_RESOURCE_PATH: {
         select: 'Audio/select',
         button: 'Audio/ui',
-        place: 'Audio/place',
         settle: 'Audio/settle',
         fly: 'Audio/fly',
-        return: 'Audio/return',
         tick: 'Audio/tick',
-        coin: 'Audio/coin',
-        win: 'Audio/win',
         lose: 'Audio/lose',
         winColor: 'Audio/win-color',
         winAll: 'Audio/win-all',
@@ -199,6 +196,7 @@ vm.runInNewContext(compiledAudioMgr, {
     console,
     setTimeout,
     clearTimeout,
+    Date: { now: () => audioClockMs },
     navigator: { vibrate: (duration) => vibrationDurations.push(duration) },
     Math,
     Map,
@@ -214,7 +212,7 @@ const gameSceneAllowlistMatch = audioMgrSource.match(/const GAME_SCENE_SFX_ALLOW
 assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene SFX allowlist');
 assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
-    ['place', 'settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop', 'coin', 'win'],
+    ['settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop'],
     'Game-scene SFX allowlist must match the approved gameplay policy',
 );
 assert.strictEqual(
@@ -331,37 +329,20 @@ audioMgr.play('fly');
 assert.strictEqual(storage.get('pdd.setting.sfx'), '1', 'SFX re-enable must persist immediately');
 assert.ok(audioMgr.sfxSources.some((source) => source.playing), 'SFX playback must resume after re-enabling');
 
-const placeClip = { _nativeAsset: { url: 'place.mp3' } };
-audioMgr.sfxClips.set('place', placeClip);
-const pooledPlayCountBeforePlace = audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0);
-for (let i = 0; i < 9; i++) audioMgr.play('place');
-const placeSources = [...audioMgr.placeOneShotSources];
-assert.strictEqual(placeSources.length, 9, 'nine overlapping place cues must each receive an independent one-shot source');
-assert.strictEqual(
-    audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0),
-    pooledPlayCountBeforePlace,
-    'place one-shots must not reclaim a fixed pooled SFX channel',
-);
-assert.ok(placeSources.every((source) => source.playing), 'every overlapping place one-shot must continue playing');
-assert.ok(placeSources.every((source) => source.stopCount === 0), 'a later place cue must not stop an earlier active place cue');
-
-const firstPlaceSource = placeSources[0];
-firstPlaceSource.complete();
-assert.strictEqual(audioMgr.placeOneShotSources.size, 8, 'a place source must release only after its Clip ends');
-assert.strictEqual(firstPlaceSource.destroyCount, 1, 'a naturally finished place source must be disposed after ending');
-assert.strictEqual(firstPlaceSource.node.isValid, false, 'the naturally finished place source node must be destroyed');
-
-const remainingPlaceSources = [...audioMgr.placeOneShotSources];
-audioMgr.stopSfx();
-assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'explicit SFX shutdown must release every active place one-shot');
-assert.ok(remainingPlaceSources.every((source) => !ccMock.isValid(source, true)), 'explicit SFX shutdown must destroy active place one-shot sources');
-
 const settleClip = { _nativeAsset: { url: 'settle.mp3' } };
 audioMgr.sfxClips.set('settle', settleClip);
+audioClockMs = 10_000;
 for (let i = 0; i < 9; i++) audioMgr.play('settle');
 const settleSources = [...audioMgr.placeOneShotSources];
-assert.strictEqual(settleSources.length, 9, 'nine overlapping settlement cues must each receive an independent one-shot source');
-assert.ok(settleSources.every((source) => source.playing), 'every overlapping settlement one-shot must continue playing');
+assert.strictEqual(settleSources.length, 1, 'active settlement cue must suppress overlapping settlement one-shots');
+assert.ok(settleSources[0].playing, 'the first settlement one-shot must continue playing');
+audioClockMs += 99;
+audioMgr.play('settle');
+assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'settlement cue must remain locked before 100ms');
+audioClockMs += 1;
+audioMgr.play('settle');
+assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'new settlement cue must replace the finished audible window at 100ms');
+assert.ok(settleSources[0].stopCount >= 1, 'starting the next settlement cue must release the prior silent tail');
 audioMgr.stopSfx();
 
 const toggleHandler = settingsSource.match(/toggle\.on\(Button\.EventType\.CLICK, \(\) => \{([\s\S]*?)\n    \}, runtime\);/);
@@ -402,12 +383,11 @@ assert.strictEqual(
 
 const getTotalSfxPlayCount = () => audioMgr.sfxSources.reduce((sum, source) => sum + source.playCount, 0)
     + [...audioMgr.placeOneShotSources].reduce((sum, source) => sum + source.playCount, 0);
-audioMgr.sfxClips.set('place', placeClip);
 audioMgr.sfxClips.set('button', { _nativeAsset: { url: 'button.mp3' } });
 audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
 const allowedGameSfxNames = [
-    'place', 'settle', 'button', 'tick', 'winColor', 'winAll',
-    'winSettlement', 'lose', 'revivePop', 'coin', 'win',
+    'settle', 'button', 'tick', 'winColor', 'winAll',
+    'winSettlement', 'lose', 'revivePop',
 ];
 for (const name of allowedGameSfxNames) {
     audioMgr.sfxClips.set(name, { _nativeAsset: { url: `${name}.mp3` } });
@@ -459,13 +439,11 @@ assert.deepStrictEqual(vibrationDurations.slice(vibrationCountBefore), [12], 'Ga
 scene.name = 'Home';
 audioMgr.stopSfx();
 audioMgr.sfxClips.set('fly', flyClip);
-audioMgr.sfxClips.set('return', { _nativeAsset: { url: 'return.mp3' } });
 const homeSfxPlayCountBefore = getTotalSfxPlayCount();
 audioMgr.play('fly');
-audioMgr.play('return');
 assert.strictEqual(
     getTotalSfxPlayCount() - homeSfxPlayCountBefore,
-    2,
+    1,
     'non-Game scenes must keep their existing SFX behavior',
 );
 

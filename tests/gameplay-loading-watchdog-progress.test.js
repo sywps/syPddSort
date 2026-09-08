@@ -23,6 +23,12 @@ const completionFxSource = fs.readFileSync(
 );
 
 function createRuntime() {
+    const notices = [];
+    let restartCount = 0;
+    const loading = {
+        showSlowLoading(restart) { notices.push(restart); },
+        clearSlowLoading() {},
+    };
     const module = { exports: {} };
     const output = ts.transpileModule(source, {
         compilerOptions: {
@@ -34,7 +40,7 @@ function createRuntime() {
         module,
         exports: module.exports,
         require(id) {
-            if (id === '../AppRoot') return { AppRoot: { tryGet: () => null } };
+            if (id === '../AppRoot') return { AppRoot: { tryGet: () => ({ startupLoading: loading }) } };
             if (id === '../../Platform/WeChatShareReturnService') {
                 return { weChatShareReturnService: {} };
             }
@@ -61,16 +67,17 @@ function createRuntime() {
         stopLevelDataLoadWithFatalError(...args) {
             failures.push(args);
         },
+        restartGameFromRemoteLoadFatalError() { restartCount++; },
     };
     module.exports.installGameplayShareLoadingModule(runtime);
-    return { runtime, scheduled, failures };
+    return { runtime, scheduled, failures, notices, getRestartCount: () => restartCount };
 }
 
-const { runtime, scheduled, failures } = createRuntime();
+const { runtime, scheduled, failures, notices, getRestartCount } = createRuntime();
 runtime.beginGameplayLoadingWatchdog(1, 'LevelData/level_1', 'local');
 
 assert.strictEqual(scheduled.length, 1, 'watchdog must arm once when gameplay loading starts');
-assert.strictEqual(scheduled[0].seconds, 5, 'local loading must retain its existing five-second idle budget');
+assert.strictEqual(scheduled[0].seconds, 30, 'local loading must allow thirty seconds without progress');
 
 const firstDeadline = scheduled[0];
 runtime.noteGameplayLoadingProgress('first_level_json_loaded');
@@ -96,11 +103,23 @@ finalDeadline.handler();
 const finalConfirmation = scheduled[4];
 finalConfirmation.handler();
 
-assert.strictEqual(failures.length, 1, 'a genuinely idle request must still fail fast');
-assert.strictEqual(failures[0][2], 'level_data_load_timeout');
-assert.strictEqual(failures[0][3], 'local_load_timeout');
-assert.strictEqual(failures[0][5].lastProgressStage, 'bean-atlas-ready');
-assert.strictEqual(failures[0][5].timeoutMs, 5000);
+assert.strictEqual(failures.length, 0, 'idle loading must not become a fatal failure');
+assert.strictEqual(runtime._levelDataLoadStopped, false, 'late successful loads must still be accepted');
+assert.strictEqual(notices.length, 1, 'only the active deadline may show the slow-loading notice');
+notices[0]();
+assert.strictEqual(getRestartCount(), 1, 'the action must call the existing game restart entry');
+runtime.noteGameplayLoadingProgress('critical-ui-ready');
+assert.strictEqual(runtime._loadingWatchdogContext.lastProgressStage, 'critical-ui-ready');
+assert.strictEqual(scheduled.at(-1).seconds, 30, 'progress after a notice must restart the idle timer');
+const lateDeadline = scheduled.at(-1);
+runtime.clearLoadingStageTimers();
+lateDeadline.handler();
+assert.strictEqual(notices.length, 1, 'completed or cancelled loading must not show a late notice');
+runtime.beginGameplayLoadingWatchdog(11, 'level_11', 'remote');
+assert.strictEqual(scheduled.at(-1).seconds, 30, 'remote loading must use the same thirty-second idle budget');
+runtime._levelDataLoadStopped = true;
+scheduled.at(-1).handler();
+assert.strictEqual(notices.length, 1, 'an explicit failure must not be replaced by a slow notice');
 
 assert.ok(
     firstLevelRouteSource.includes("if (success) this.noteGameplayLoadingProgress?.(eventName);"),

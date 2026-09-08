@@ -1,6 +1,7 @@
 import type { BoardModel } from './BoardModel';
 import {
     CONVEYOR_STACK_DEPTH,
+    validateAutoConveyorFinishSpeed,
     validateConveyorCapacity,
     validatePchSingleSelectionLimit,
     type BeanBlockInfo,
@@ -76,6 +77,7 @@ export class PchConveyorRules {
     public readonly initialCarrierCount: number;
     public readonly stackDepth = CONVEYOR_STACK_DEPTH;
     public readonly carriers: number[][];
+    public readonly autoConveyorFinishSpeed: boolean;
     private totalBufferCapacity: number;
     private readonly queuedColorIds: number[] = [];
     private readyQueuedCount = 0;
@@ -85,9 +87,11 @@ export class PchConveyorRules {
         conveyorCapacity: unknown,
         singleSelectionLimit?: unknown,
         initialCarrierCountOverride?: unknown,
+        autoConveyorFinishSpeed?: unknown,
     ) {
         const capacity = validateConveyorCapacity(conveyorCapacity, 'PchConveyorRules');
         this.moveLimit = validatePchSingleSelectionLimit(singleSelectionLimit, 'PchConveyorRules');
+        this.autoConveyorFinishSpeed = validateAutoConveyorFinishSpeed(autoConveyorFinishSpeed, 'PchConveyorRules');
         const defaultInitialCarrierCount = Math.ceil(capacity / this.stackDepth);
         this.initialCarrierCount = initialCarrierCountOverride == null
             ? defaultInitialCarrierCount
@@ -480,7 +484,7 @@ export class PchConveyorRules {
     }
 
     get conveyorSpeedMultiplier(): 1 | 5 {
-        if (this.entryCount > 0) return 1;
+        if (!this.autoConveyorFinishSpeed || this.entryCount > 0) return 1;
         const pendingTargetCounts = new Map<number, number>();
         for (let row = 0; row < this.board.height; row += 1) {
             for (let col = 0; col < this.board.width; col += 1) {

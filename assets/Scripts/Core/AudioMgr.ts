@@ -32,8 +32,8 @@ const LS_SFX = 'pdd.setting.sfx';
 const LS_BGM = 'pdd.setting.bgm';
 const LS_VIB = 'pdd.setting.vib';
 const SFX_CHANNEL_COUNT = 8;
+const SETTLE_ONE_SHOT_INTERVAL_MS = 100;
 const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
-    'place',
     'settle',
     'button',
     'tick',
@@ -42,8 +42,6 @@ const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
     'winSettlement',
     'lose',
     'revivePop',
-    'coin',
-    'win',
 ]);
 
 const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);
@@ -63,6 +61,8 @@ export class AudioMgr {
     private sfxSources: AudioSource[] = [];
     private busySfxSources: Set<AudioSource> = new Set();
     private placeOneShotSources: Set<AudioSource> = new Set();
+    private settleOneShotSource: AudioSource | null = null;
+    private settleOneShotAvailableAtMs = 0;
     private sfxSourceCursor = 0;
     private bgmSrc: AudioSource | null = null;
     private gameAssetsBundle: Bundle | null = null;
@@ -191,6 +191,9 @@ export class AudioMgr {
 
     private _releasePlaceOneShotSource(source: AudioSource, stopPlayback: boolean): void {
         if (!this.placeOneShotSources.delete(source)) return;
+        if (this.settleOneShotSource === source) {
+            this.settleOneShotSource = null;
+        }
         const sourceNode = source.node;
         try {
             sourceNode?.off(AudioSource.EventType.ENDED, this._handlePlaceOneShotEnded, this);
@@ -217,9 +220,18 @@ export class AudioMgr {
         for (const source of [...this.placeOneShotSources]) {
             this._releasePlaceOneShotSource(source, stopPlayback);
         }
+        this.settleOneShotSource = null;
+        this.settleOneShotAvailableAtMs = 0;
     }
 
-    private _playPlaceOneShot(clip: AudioClip, volume: number): void {
+    private _playPlaceOneShot(clip: AudioClip, volume: number, settleOnly: boolean = false): void {
+        const nowMs = settleOnly ? Date.now() : 0;
+        if (settleOnly) {
+            if (nowMs < this.settleOneShotAvailableAtMs) return;
+            if (this.settleOneShotSource) {
+                this._releasePlaceOneShotSource(this.settleOneShotSource, true);
+            }
+        }
         const audioRoot = this.audioRoot;
         if (!audioRoot?.isValid) return;
         let source: AudioSource | null = null;
@@ -233,8 +245,14 @@ export class AudioMgr {
             source.clip = clip;
             source.volume = volume;
             this.placeOneShotSources.add(source);
+            if (settleOnly) {
+                this.settleOneShotSource = source;
+            }
             sourceNode.on(AudioSource.EventType.ENDED, this._handlePlaceOneShotEnded, this);
             source.play();
+            if (settleOnly) {
+                this.settleOneShotAvailableAtMs = nowMs + SETTLE_ONE_SHOT_INTERVAL_MS;
+            }
         } catch (_) {
             if (source) {
                 this._releasePlaceOneShotSource(source, true);
@@ -416,8 +434,8 @@ export class AudioMgr {
             const variance = AUDIO_SFX_VOLUME_VARIANCE[name] ?? 0;
             const jitter = variance > 0 ? (Math.random() * 2 - 1) * variance : 0;
             const volume = Math.max(0, Math.min(1, baseVolume * (1 + jitter)));
-            if (name === 'place' || name === 'settle') {
-                this._playPlaceOneShot(clip, volume);
+            if (name === 'settle') {
+                this._playPlaceOneShot(clip, volume, true);
                 return;
             }
             source = this._acquireSfxSource();

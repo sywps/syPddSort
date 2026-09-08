@@ -1155,7 +1155,9 @@ export function installFirstLevelRouteModule(target: any): void {
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
+            AppRoot.tryGet()?.startupLoading?.setStage('正在恢复游戏进度…');
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
+            AppRoot.tryGet()?.startupLoading?.setStage('正在准备关卡…');
             const defaultEntryLevel = urlLevel > 0 || urlLevelFile
                 ? initialDefaultEntryLevel
                 : this.getDefaultEntryLevel();

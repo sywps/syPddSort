@@ -671,11 +671,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
             };
             const playFeedbackSoundNow = (sfx: SfxName) => {
                 if (!forcedSkillFeedbackAudioOpen) return;
-                if (sfx === 'place' && typeof this.playBoardTargetSettleSound === 'function') {
-                    this.playBoardTargetSettleSound();
-                } else {
-                    AudioMgr.inst.play(sfx);
-                }
+                AudioMgr.inst.play(sfx);
             };
             const scheduleForcedSkillFeedbackSound = (sfx: SfxName) => {
                 const nowMs = Date.now();
@@ -751,7 +747,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                     })
                     .to(SKILL_FLY_DUR, { position: new Vec3(targetLocal.x, targetLocal.y, 0), scale: new Vec3(1.15, 1.15, 1) }, { easing: 'sineOut' })
                     .call(() => {
-                        playFeedback('place', move.feedbackIndex);
+                        playFeedback('settle', move.feedbackIndex);
                         this.recycleFlyBeanNode(bean);
                         revealBoardCell(move.target);
                         finish();
@@ -953,7 +949,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                         if (typeof this.playBoardTargetSettleSound === 'function') {
                             this.playBoardTargetSettleSound();
                         } else {
-                            AudioMgr.inst.play('place');
+                            AudioMgr.inst.play('settle');
                         }
                         this.recycleFlyBeanNode(bean);
                         finish();
@@ -1049,7 +1045,7 @@ export function installGameplaySkillMagnetModule(target: any): void {
                         if (typeof this.playBoardTargetSettleSound === 'function') {
                             this.playBoardTargetSettleSound();
                         } else {
-                            AudioMgr.inst.play('place');
+                            AudioMgr.inst.play('settle');
                         }
                         this.recycleFlyBeanNode(bean);
                         finish();

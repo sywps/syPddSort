@@ -39,6 +39,11 @@ async function run() {
   assert.deepStrictEqual([...storage.entries()], before, 'invalid snapshot must make no partial local writes');
 
   let platform = 'wechat';
+  let sharePlatform = 'wechat';
+  const weChatSharePayloads = [];
+  const douyinSharePayloads = [];
+  const weChatShareRuntime = { shareAppMessage: payload => weChatSharePayloads.push(payload) };
+  const douyinShareRuntime = { shareAppMessage: payload => douyinSharePayloads.push(payload) };
   let response = { ok: true, reward: { claimId: 'claim-1', expiresAt: Date.now() + 600000 } };
   const calls = [];
   const pixelLevel = require('../cloudfunctions/pvpService/bot-runtime/levels/zt_level_3.json');
@@ -49,11 +54,26 @@ async function run() {
     if (id.endsWith('PvpModeConfig')) return { createDemoPvpBattle: levelId => ({ demo: true, levelId }) };
     if (id.endsWith('PvpBotReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpBotReplay');
     if (id.endsWith('PvpHumanReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpHumanReplay');
+    if (id.endsWith('MiniGamePlatform')) return {
+      getWeChatMiniGameRuntime: () => sharePlatform === 'wechat' ? weChatShareRuntime : null,
+      getDouyinMiniGameRuntime: () => sharePlatform === 'douyin' ? douyinShareRuntime : null,
+    };
+    if (id.endsWith('WeChatShareReturnService')) return {
+      applyLocalWeChatShareImage: payload => ({ ...payload, imageUrl: 'local-wechat-image', imageUrlId: 'local-wechat-image-id' }),
+    };
     if (id.endsWith('PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { getPlatform: () => platform, init: async () => true,
       callFunction: async (name, event) => { calls.push(event); if (response instanceof Error) throw response; return response; } } } };
     return {};
   });
   const service = serviceModule.PvpServiceMgr.inst;
+  assert.strictEqual(service.shareFriendChallenge('AB C'), true);
+  assert.strictEqual(weChatSharePayloads[0].query, 'pvpChallenge=AB%20C');
+  assert.strictEqual(weChatSharePayloads[0].imageUrl, 'local-wechat-image');
+  assert.strictEqual(weChatSharePayloads[0].imageUrlId, 'local-wechat-image-id');
+  sharePlatform = 'douyin';
+  assert.strictEqual(service.shareFriendChallenge('XYZ'), true);
+  assert.strictEqual(douyinSharePayloads[0].query, 'pvpChallenge=XYZ');
+  assert.strictEqual(douyinSharePayloads[0].imageUrl, undefined, 'Douyin challenge payload must not receive WeChat-only image fields');
   const offered = await service.beginTicketReward('ad');
   assert.strictEqual(offered.claimId, 'claim-1');
   assert.strictEqual(service.hasPendingTicketReward(), false, 'an ad offer alone must not create a retryable entitlement');

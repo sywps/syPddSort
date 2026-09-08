@@ -620,13 +620,13 @@
     "_enableOutline": true,
     "_outlineColor": {
       "__type__": "cc.Color",
-      "r": 0,
-      "g": 0,
-      "b": 0,
-      "a": 180
+      "r": 162,
+      "g": 118,
+      "b": 40,
+      "a": 181
     },
     "_outlineWidth": 2,
-    "_enableShadow": false,
+    "_enableShadow": true,
     "_shadowColor": {
       "__type__": "cc.Color",
       "r": 0,
@@ -636,8 +636,8 @@
     },
     "_shadowOffset": {
       "__type__": "cc.Vec2",
-      "x": 2,
-      "y": -2
+      "x": 5,
+      "y": -5
     },
     "_shadowBlur": 2,
     "_id": ""
@@ -968,7 +968,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 580,
+      "width": 500,
       "height": 409
     },
     "_anchorPoint": {

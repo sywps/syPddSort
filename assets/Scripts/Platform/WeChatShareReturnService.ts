@@ -1,11 +1,70 @@
 export const WECHAT_SHARE_RETURN_MIN_ELAPSED_MS = 1500;
 export const WECHAT_SHARE_RETURN_TIMEOUT_MS = 30000;
 
+export type WeChatShareImage = {
+    readonly imageUrl: string;
+    readonly imageUrlId: string;
+};
+
+export const WECHAT_SHARE_IMAGE_POOL: readonly WeChatShareImage[] = [
+    {
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsRIebaicr4ibE7iamMMmq5L7oPFgK0KJJAfDthibGUr3a8EOIa5gQ5JHX6/0',
+        imageUrlId: 'vovDzpuaRYOAEvt6YSApSQ==',
+    },
+    {
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCtLiarKOPGnUibvRmPtdIfJMVy0K6ej597zUlmHSia06OYEv8Oy6BEKyrd/0',
+        imageUrlId: 'VQAihD6+SnSbV6X4Q5FVXw==',
+    },
+    {
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCvpB0wueLsrAPnj4ZYMCf2oYJeXEQcMEs4V8k4Afk5BiaGftHZvRzDXK/0',
+        imageUrlId: 'BuDsvtluTWC77Yqc+vT0JA==',
+    },
+    {
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsBP3Kym6YIZMhVm1nic2RkALzTiaXDuVMTib59ZvbLvpdsy2TxzicvLAF3/0',
+        imageUrlId: 'gdEeipd5REakrW2eDJRIMA==',
+    },
+    {
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCtia6XicAvZmVXHovOgtrgVCJ8FEahFgicGJ9TUCuicZzAGZXzicHkE5jAJV/0',
+        imageUrlId: '/+Loyr7uTT6rQPHuNxvqBA==',
+    },
+    {
+        imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsiaBgRBNpqaVpiaXAYRkUp4DBStIyXWzFbV3u6V1E4SmVuuTGujDq2HE/0',
+        imageUrlId: 'QSLQ93GWTkKq+40i1QrNNA==',
+    },
+];
+
 export type WeChatSharePayload = {
     title: string;
     query?: string;
     imageUrl?: string;
+    imageUrlId?: string;
 };
+
+export type WeChatShareRandom = () => number;
+
+export function pickWeChatShareImage(random: WeChatShareRandom = Math.random): WeChatShareImage {
+    const sample = Number(random());
+    if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+        throw new Error(`[wechat-share] invalid random sample: ${sample}`);
+    }
+    const selected = WECHAT_SHARE_IMAGE_POOL[Math.floor(sample * WECHAT_SHARE_IMAGE_POOL.length)];
+    if (!selected?.imageUrl || !selected.imageUrlId) {
+        throw new Error('[wechat-share] local image pool contains an incomplete card');
+    }
+    return selected;
+}
+
+export function applyLocalWeChatShareImage(
+    payload: WeChatSharePayload,
+    random: WeChatShareRandom = Math.random,
+): WeChatSharePayload {
+    const selected = pickWeChatShareImage(random);
+    return {
+        ...payload,
+        imageUrl: selected.imageUrl,
+        imageUrlId: selected.imageUrlId,
+    };
+}
 
 export type WeChatShareReturnStatus =
     | 'qualified'
@@ -43,6 +102,7 @@ export type WeChatShareReturnServiceOptions = {
     now?: () => number;
     setTimeout?: (callback: () => void, delayMs: number) => any;
     clearTimeout?: (handle: any) => void;
+    random?: WeChatShareRandom;
 };
 
 type ActiveShareReturn = {
@@ -70,11 +130,13 @@ export class WeChatShareReturnService {
     private readonly now: () => number;
     private readonly scheduleTimeout: (callback: () => void, delayMs: number) => any;
     private readonly clearScheduledTimeout: (handle: any) => void;
+    private readonly random: WeChatShareRandom;
 
     constructor(options: WeChatShareReturnServiceOptions = {}) {
         this.now = options.now || (() => Date.now());
         this.scheduleTimeout = options.setTimeout || ((callback, delayMs) => setTimeout(callback, delayMs));
         this.clearScheduledTimeout = options.clearTimeout || ((handle) => clearTimeout(handle));
+        this.random = options.random || Math.random;
     }
 
     start(request: WeChatShareReturnRequest): WeChatShareReturnStartResult {
@@ -118,9 +180,9 @@ export class WeChatShareReturnService {
         }
 
         try {
-            runtime.shareAppMessage(request.payload);
+            runtime.shareAppMessage(applyLocalWeChatShareImage(request.payload, this.random));
         } catch (error) {
-            console.warn('[wechat-share-return] wx.shareAppMessage dispatch failed:', error);
+            console.warn('[wechat-share-return] local payload or wx.shareAppMessage dispatch failed:', error);
             const cleaned = this.cleanup(active);
             if (this.active === active) this.active = null;
             return { started: false, reason: cleaned ? 'dispatch_failed' : 'cleanup_failed' };
@@ -197,3 +259,50 @@ export class WeChatShareReturnService {
 }
 
 export const weChatShareReturnService = new WeChatShareReturnService();
+
+const WECHAT_PASSIVE_SHARE_TITLE = '轻松拼豆';
+let passiveShareRuntime: any = null;
+let passiveShareListener: (() => WeChatSharePayload) | null = null;
+
+export function installLocalWeChatPassiveShare(runtime: any): boolean {
+    if (!runtime
+        || typeof runtime.showShareMenu !== 'function'
+        || typeof runtime.onShareAppMessage !== 'function') {
+        console.warn('[wechat-share] passive share APIs are unavailable');
+        return false;
+    }
+    if (passiveShareRuntime === runtime && passiveShareListener) {
+        return true;
+    }
+    if (passiveShareRuntime && passiveShareListener) {
+        if (typeof passiveShareRuntime.offShareAppMessage !== 'function') {
+            console.warn('[wechat-share] cannot replace the previous passive share listener');
+            return false;
+        }
+        try {
+            passiveShareRuntime.offShareAppMessage(passiveShareListener);
+        } catch (error) {
+            console.warn('[wechat-share] previous passive share listener cleanup failed:', error);
+            return false;
+        }
+    }
+
+    const listener = () => applyLocalWeChatShareImage({ title: WECHAT_PASSIVE_SHARE_TITLE });
+    try {
+        runtime.onShareAppMessage(listener);
+        runtime.showShareMenu({ menus: ['shareAppMessage'] });
+    } catch (error) {
+        if (typeof runtime.offShareAppMessage === 'function') {
+            try {
+                runtime.offShareAppMessage(listener);
+            } catch (cleanupError) {
+                console.warn('[wechat-share] passive share rollback failed:', cleanupError);
+            }
+        }
+        console.warn('[wechat-share] passive share installation failed:', error);
+        return false;
+    }
+    passiveShareRuntime = runtime;
+    passiveShareListener = listener;
+    return true;
+}
