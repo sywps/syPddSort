@@ -3,7 +3,6 @@ import {
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size,
-    instantiate,
     NodePool, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
@@ -64,8 +63,6 @@ type RewardedGrantOptions = {
     onAdFail?: () => void;
     onAdShown?: () => void;
     onRecoverable?: () => void;
-    onRecoverableEndable?: () => void;
-    suppressPendingStrip?: boolean;
     onInteractionStarted?: () => void;
     onInteractionReleased?: () => void;
     afterGrant?: () => RewardedGrantResult;
@@ -77,7 +74,7 @@ type RewardedGrantRuntimeTransaction = {
     id: number;
     claimKey: string;
     page: string;
-    phase: 'ad' | 'recoverable' | 'recoverable_endable' | 'grant' | 'after_grant';
+    phase: 'ad' | 'recoverable' | 'grant' | 'after_grant';
     grantStage?: 'grant' | 'afterGrant';
     deadlineAt?: number;
     startedAt: number;
@@ -91,7 +88,6 @@ type ShareGrantOptions = {
     busyFlag?: string;
     title?: RewardedGrantToast;
     query?: RewardedGrantToast;
-    imageUrl?: RewardedGrantToast;
     shareFailToast?: RewardedGrantToast;
     grantFailToast?: RewardedGrantToast;
     afterGrantFailToast?: RewardedGrantToast;
@@ -156,8 +152,7 @@ export function installHomeAdFlowModule(target: any): void {
     Object.assign(target, {
         cancelRewardedGrantInteraction(reason: string = 'manual'): boolean {
             const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
-            const wasRecoverable = transaction?.phase === 'recoverable'
-                || transaction?.phase === 'recoverable_endable';
+            const wasRecoverable = transaction?.phase === 'recoverable';
             if (transaction) {
                 transaction.cancel(reason);
             }
@@ -230,67 +225,6 @@ export function installHomeAdFlowModule(target: any): void {
             this._rewardedAdWarmSlotLastEnsureAt = 0;
             AdConfig.setRewardedAdKeepReady(false);
             runtimeLog(`[AdConfig] release rewarded ad warm slot: ${reason}`);
-        },
-
-        clearRewardedAdPendingStrip(): void {
-            const strip = this._rewardedAdPendingStrip as Node | null;
-            if (strip?.isValid) {
-                strip.targetOff(this);
-                strip.destroy();
-            }
-            this._rewardedAdPendingStrip = null;
-        },
-
-        showRewardedAdPendingStrip(
-            text: string,
-            cancelMode: 'wait' | 'end' = 'wait',
-        ): void {
-            const sceneName = this.getRuntimeSceneName?.('Game') || 'Game';
-            if (sceneName !== 'Game' && sceneName !== 'Home') return;
-            let strip = this._rewardedAdPendingStrip as Node | null;
-            if (!strip?.isValid) {
-                const overlayRoot = this.requireCanvasUiRoot?.('OverlayRoot') as Node | null;
-                const template = overlayRoot
-                    ?.getChildByName('OverlayTemplates')
-                    ?.getChildByName('AdPendingStripTemplate') || null;
-                if (!overlayRoot?.isValid || !template?.isValid) {
-                    console.error(`[rewarded-ad] ${sceneName}.scene is missing OverlayTemplates/AdPendingStripTemplate`);
-                    return;
-                }
-                strip = instantiate(template);
-                strip.name = 'AdPendingStrip';
-                strip.active = true;
-                overlayRoot.addChild(strip);
-                strip.setSiblingIndex(Math.max(0, overlayRoot.children.length - 1));
-                this.setGuideNodeLayerRecursively?.(strip, overlayRoot.layer);
-                this._rewardedAdPendingStrip = strip;
-                const cancelButton = strip.getChildByName('AdPendingCancelButton');
-                if (cancelButton) {
-                    this.bindPanelButton?.(cancelButton, () => {
-                        const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
-                        if (transaction?.phase === 'recoverable') {
-                            showRewardedGrantToast(this, '奖励确认中，请稍后');
-                            return;
-                        }
-                        if (transaction?.phase === 'recoverable_endable') {
-                            this.cancelRewardedGrantInteraction?.('pending-strip-end-wait');
-                        }
-                    });
-                }
-            }
-            strip.active = true;
-            const statusLabel = strip.getChildByName('AdPendingStatusLabel')?.getComponent(Label);
-            if (statusLabel) statusLabel.string = text;
-            const cancelButton = strip.getChildByName('AdPendingCancelButton');
-            if (cancelButton) {
-                cancelButton.active = cancelMode !== 'wait';
-                const cancelLabel = cancelButton
-                    .getChildByName('AdPendingCancelLabel')
-                    ?.getComponent(Label);
-                if (cancelLabel) {
-                    cancelLabel.string = '结束等待';
-                }
-            }
         },
 
         ensureRewardedAdStateTelemetry(): void {
@@ -659,7 +593,6 @@ export function installHomeAdFlowModule(target: any): void {
             const shareType = options.shareType || `rewardShare:${page}`;
             const title = resolveRewardedGrantToast(options.title) || `我在拼豆豆通关了第${levelId}关，快来一起挑战！`;
             const query = resolveRewardedGrantToast(options.query) || `level=${levelId}`;
-            const imageUrl = resolveRewardedGrantToast(options.imageUrl);
 
             const runGrant = () => {
                 const grantPromise = Promise.resolve().then(() => grant());
@@ -749,7 +682,6 @@ export function installHomeAdFlowModule(target: any): void {
                 payload: {
                     title,
                     query,
-                    imageUrl,
                 },
                 onComplete: onShareReturn,
             });
@@ -774,16 +706,9 @@ export function installHomeAdFlowModule(target: any): void {
             const claimKey = String(options.claimKey || `${page}:${options.levelId ?? ''}`);
             const timedOutClaims = getTimedOutGrantClaims(this);
             const activeTransaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
-            if (activeTransaction) {
-                if (activeTransaction.phase === 'recoverable') {
-                    showRewardedGrantToast(this, '奖励确认中，请稍后');
-                } else if (activeTransaction.phase === 'recoverable_endable') {
-                    if (activeTransaction.claimKey === claimKey) {
-                        this.cancelRewardedGrantInteraction?.('recoverable-user-end');
-                    } else {
-                        showRewardedGrantToast(this, '请先结束当前广告等待');
-                    }
-                }
+            if (activeTransaction?.phase === 'recoverable') {
+                this.cancelRewardedGrantInteraction?.('recoverable-user-retry');
+            } else if (activeTransaction) {
                 return false;
             }
             if (timedOutClaims.has(claimKey)) {
@@ -808,7 +733,7 @@ export function installHomeAdFlowModule(target: any): void {
             let grantStarted = false;
             let attemptGeneration = 0;
             let releaseCurrentAttemptInteraction: (() => void) | null = null;
-            let recoverableEndTimer: any = null;
+            let recoverableTimeoutTimer: any = null;
             let grantStageTimer: any = null;
             let grantStagePromise: Promise<boolean | void> | null = null;
             let grantStagePending = false;
@@ -817,10 +742,10 @@ export function installHomeAdFlowModule(target: any): void {
                 'ad',
                 `rewarded:${page}:${transactionId}`,
             ) || '';
-            const clearRecoverableEndTimer = () => {
-                if (!recoverableEndTimer) return;
-                clearTimeout(recoverableEndTimer);
-                recoverableEndTimer = null;
+            const clearRecoverableTimeoutTimer = () => {
+                if (!recoverableTimeoutTimer) return;
+                clearTimeout(recoverableTimeoutTimer);
+                recoverableTimeoutTimer = null;
             };
             const clearGrantStage = (expected?: Promise<boolean | void>) => {
                 if (expected && grantStagePromise !== expected) return;
@@ -852,18 +777,11 @@ export function installHomeAdFlowModule(target: any): void {
             const runFinally = () => {
                 if (finalized) return;
                 finalized = true;
-                clearRecoverableEndTimer();
+                clearRecoverableTimeoutTimer();
                 clearGrantStage();
                 const active = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                 if (active?.id === transactionId) {
                     this._rewardedGrantTransaction = null;
-                }
-                if (!claimOptions.suppressPendingStrip) {
-                    try {
-                        this.clearRewardedAdPendingStrip?.();
-                    } catch (error) {
-                        console.warn(`[RewardedGrant] ${page} pending-strip cleanup failed:`, error);
-                    }
                 }
                 if (adOwnerToken) {
                     try {
@@ -943,7 +861,7 @@ export function installHomeAdFlowModule(target: any): void {
             const beginGrant = () => {
                 if (!isActive() || grantStarted) return;
                 grantStarted = true;
-                clearRecoverableEndTimer();
+                clearRecoverableTimeoutTimer();
                 transaction.phase = 'grant';
                 PerformanceMgr.inst.markUserActivity(6000);
 
@@ -1047,26 +965,15 @@ export function installHomeAdFlowModule(target: any): void {
                     } catch (error) {
                         console.warn(`[RewardedGrant] ${page} recoverable handler failed:`, error);
                     }
-                    if (!claimOptions.suppressPendingStrip) {
-                        this.showRewardedAdPendingStrip?.('正在确认广告结果…', 'wait');
-                    }
-                    clearRecoverableEndTimer();
-                    recoverableEndTimer = setTimeout(() => {
-                        recoverableEndTimer = null;
+                    clearRecoverableTimeoutTimer();
+                    recoverableTimeoutTimer = setTimeout(() => {
+                        recoverableTimeoutTimer = null;
                         if (!isCurrentAttempt()
                             || transaction.phase !== 'recoverable'
                             || grantStarted) return;
-                        transaction.phase = 'recoverable_endable';
-                        showRewardedGrantToast(this, '广告结果仍未返回，可点击“结束等待”');
-                        try {
-                            claimOptions.onRecoverableEndable?.();
-                        } catch (error) {
-                            console.warn(`[RewardedGrant] ${page} recoverable-endable handler failed:`, error);
-                        }
-                        if (!claimOptions.suppressPendingStrip) {
-                            this.showRewardedAdPendingStrip?.('广告结果仍未返回', 'end');
-                        }
-                    }, 5000);
+                        showRewardedGrantToast(this, '广告结果确认失败，请重试');
+                        this.cancelRewardedGrantInteraction?.('recoverable-timeout');
+                    }, 1000);
                 };
                 releaseCurrentAttemptInteraction = releaseAttemptInteraction;
 
@@ -1092,9 +999,6 @@ export function installHomeAdFlowModule(target: any): void {
                         outcomeHandled = true;
                         releaseAttemptInteraction();
                         const success = outcome.status === 'verified_complete';
-                        if (!claimOptions.suppressPendingStrip) {
-                            this.clearRewardedAdPendingStrip?.();
-                        }
                         try {
                             claimOptions.onAdComplete?.(success, outcome);
                         } catch (error) {
@@ -1113,9 +1017,6 @@ export function installHomeAdFlowModule(target: any): void {
                         levelId: analyticsLevelId,
                         gameplayEntryMode,
                         onShow: () => {
-                            if (!claimOptions.suppressPendingStrip) {
-                                this.clearRewardedAdPendingStrip?.();
-                            }
                             claimOptions.onAdShown?.();
                         },
                         onRecoverable: markRecoverable,
@@ -1208,13 +1109,11 @@ export function installHomeAdFlowModule(target: any): void {
             this._loadingProgressFill = null;
             this._loadingProgressFillNode = null;
             this._loadingProgressGroup = null;
-            this._loadingSlowActions = null;
             this._loadingProgressLabel = null;
             this._loadingProgressLabelShadow = null;
             this._loadingProgressLabelTween = null;
             this._loadingShine = null;
             this._loadingShineTween = null;
-            this._loadingRouteActionInFlight = false;
             this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
             this._remoteLoadErrorOverlay = null;
             this._noLivesModal = null;
@@ -1237,7 +1136,6 @@ export function installHomeAdFlowModule(target: any): void {
             Tween.stopAll();
             this.cancelRewardedGrantInteraction?.('home-transition');
             this.cancelRewardedAdPreload?.();
-            this.clearRewardedAdPendingStrip?.();
             this.clearSkillUsageWatchdog?.('home-transition');
             this.clearRuntimeOwners?.();
             this._modalFocusRefs = 0;
@@ -1496,7 +1394,6 @@ export function installHomeAdFlowModule(target: any): void {
                 this._releasePanelTexturesNextFrame(RESULT_PANEL_TEXTURE_NAMES, 'gameplay-result-overlays');
             }
             this._settlementGoldCountLbl = null;
-            this._winBaseGoldFlyPlayed = false;
             this.panelWin = null!;
             this.panelLose = null!;
             this.panelTimeoutContinue = null!;
@@ -1570,8 +1467,12 @@ export function installHomeAdFlowModule(target: any): void {
             return ensureGameplayResultPanelController(this).hasPrefabsReady();
         },
 
-        _ensureGameplayResultPanelPrefabsReady(onDone: () => void) {
-            ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone);
+        _ensureGameplayResultPanelPrefabsReady(onDone: () => void, onError?: (error: Error) => void) {
+            ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone, onError);
+        },
+
+        showBasicSettlement(kind: 'win' | 'timeout' | 'buffer-full' | 'lose') {
+            return ensureGameplayResultPanelController(this).showBasicSettlement(kind);
         },
 
         ensureGameplayResultPanelsCreated(

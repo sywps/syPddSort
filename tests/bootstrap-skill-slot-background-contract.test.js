@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
 const sourceRelativePath = 'assets/HomeAssetsBundle/GameUI/home_icon_background.png';
-const bootstrapRelativePath = 'assets/BootstrapBundle/GameUI/gameplay_skill_slot_background.png';
+const bootstrapRelativePath = 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background.png';
 const sourcePath = path.join(projectRoot, sourceRelativePath);
 const bootstrapPath = path.join(projectRoot, bootstrapRelativePath);
 const sourceMeta = JSON.parse(fs.readFileSync(`${sourcePath}.meta`, 'utf8'));
@@ -34,7 +34,7 @@ assert.equal(bootstrapMeta.subMetas['6c48a'].uuid, `${BOOTSTRAP_UUID}@6c48a`);
 assert.equal(bootstrapMeta.subMetas.f9941.uuid, BOOTSTRAP_SPRITE_UUID);
 assert.match(
     bootstrapPatch,
-    /'GameUI\/gameplay_skill_slot_background'/,
+    /'GameUI\/Atlases\/GameSceneSmall\/gameplay_skill_slot_background'/,
     'The first-level skill background must remain explicitly allowed in the Bootstrap main package',
 );
 

@@ -166,7 +166,7 @@ assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGu
                 return { getBoundingBoxToWorld: () => ({ contains: () => true }) };
             },
         };
-        guide.onOpeningGuideDoubleSpeed = () => { speedGuideRuns += 1; };
+        guide.onOpeningGuideTripleSpeed = () => { speedGuideRuns += 1; };
         assert.strictEqual(guide.handleOpeningGuideRootTap(missEvent), true, 'a correct guide target must retain its original success route');
         assert.strictEqual(speedGuideRuns, 1, 'a correct level-2 guide target must still execute exactly once');
         assert.strictEqual(toasts.length, 4, 'a correct guide target must not show the wrong-tap reminder');
@@ -247,7 +247,7 @@ assert.deepStrictEqual(secondSuccess.calls.analytics, [
 ]);
 
 playedAudio.length = 0;
-const levelTwo = createHarness(['private onOpeningGuideDoubleSpeed(event: any): void']);
+const levelTwo = createHarness(['private onOpeningGuideTripleSpeed(event: any): void']);
 const multipliers = [];
 const levelTwoAnalytics = [];
 let levelTwoRefreshes = 0;
@@ -262,15 +262,15 @@ levelTwo.reportOpeningGuideTutorialFinish = () => { levelTwoTutorialFinishes += 
 levelTwo.refreshSpeedButtonState = () => { levelTwoRefreshes += 1; };
 levelTwo.dismissOpeningGuide = () => { levelTwoDismisses += 1; };
 const speedEvent = { propagationStopped: false };
-levelTwo.onOpeningGuideDoubleSpeed(speedEvent);
-assert.deepStrictEqual(multipliers, [2], 'level 2 must deterministically enable 2x, independent of saved speed');
+levelTwo.onOpeningGuideTripleSpeed(speedEvent);
+assert.deepStrictEqual(multipliers, [3], 'level 2 must deterministically enable 3x, independent of saved speed');
 assert.strictEqual(speedEvent.propagationStopped, true);
 assert.strictEqual(levelTwoRefreshes, 1);
 assert.strictEqual(levelTwoDismisses, 1);
 assert.strictEqual(levelTwoTutorialFinishes, 1, 'level 2 guide success must report tutorial completion once');
-assert.strictEqual(levelTwo.statusLabel.string, '2 倍速度已开启');
+assert.strictEqual(levelTwo.statusLabel.string, '3 倍速度已开启');
 assert.deepStrictEqual(levelTwoAnalytics, [
-    ['pch_guide_tap_result', true, 'enabled_2x'],
+    ['pch_guide_tap_result', true, 'enabled_3x'],
     ['pch_guide_step_done', true, 'completed'],
 ]);
 assert.deepStrictEqual(playedAudio, ['button']);
@@ -346,7 +346,7 @@ function routeGuide(levelId, entryMode) {
     };
     guide.speedButton = { isValid: true };
     guide.adButton = { isValid: true };
-    guide.onOpeningGuideDoubleSpeed = () => {};
+    guide.onOpeningGuideTripleSpeed = () => {};
     guide.onOpeningGuideFreeCapacity = () => {};
     guide.showLevelOneBoardGuide = (parent) => calls.push(['level1', parent]);
     guide.showOpeningTargetGuide = (...args) => calls.push(['target', ...args]);
@@ -374,12 +374,8 @@ deferredLevelOne.runtime = {
 deferredLevelOne.showLevelOneBoardGuide = () => { deferredLevelOneShows += 1; };
 const deferredGuideParent = { isValid: true };
 deferredLevelOne.showOpeningFeatureGuide(deferredGuideParent);
-assert.strictEqual(deferredLevelOne.inputLocked, true, 'level 1 input must stay locked while its bubble frame loads');
-assert.strictEqual(deferredLevelOneShows, 0, 'level 1 guide must wait for the selected bubble frame');
-assert.strictEqual(typeof ensureGuideBubble, 'function');
-guideBubbleLoaded = true;
-ensureGuideBubble();
-assert.strictEqual(deferredLevelOneShows, 1, 'level 1 guide must resume after its bubble frame is ready');
+assert.strictEqual(deferredLevelOneShows, 1, 'level 1 must show an interactive text guide without waiting for decoration');
+assert.strictEqual(ensureGuideBubble, null, 'guide display must not queue a late resource callback that can relock gameplay');
 
 for (const levelId of [1, 2, 3]) {
     const missingBubbleLoader = createHarness(['private showOpeningFeatureGuide(parent: Node): void']);
@@ -390,26 +386,30 @@ for (const levelId of [1, 2, 3]) {
         getActiveLogicalLevelId() { return levelId; },
         getSF() { return null; },
     };
-    assert.throws(
-        () => missingBubbleLoader.showOpeningFeatureGuide({ isValid: true }),
-        /opening guide bubble frame loader is unavailable/,
-        `level ${levelId} must fail fast instead of falling back to the old purple prompt`,
-    );
+    let shown = 0;
+    missingBubbleLoader.showLevelOneBoardGuide = () => { shown += 1; };
+    missingBubbleLoader.showOpeningTargetGuide = () => { shown += 1; };
+    missingBubbleLoader.showOpeningFeatureGuide({ isValid: true });
+    assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
 }
 assert.ok(
-    source.includes("? '点击白色豆豆\\n将它们放到传送带上'")
-        && source.includes(": '再点击蓝色豆豆\\n空出对应颜色的位置';"),
+    source.includes("? '点击白色豆豆\\n他们会自动放置到传送带上'")
+        && source.includes(": '点击蓝色豆豆\\n将白色的位置空出';"),
     'level 1 must use the approved two-step opening-guide copy',
 );
 assert.ok(
-    !source.includes("? '点击白色豆豆'")
-        && !source.includes(": '再点击蓝色豆豆';"),
+    !source.includes("? '点击白色豆豆\\n将它们放到传送带上'")
+        && !source.includes(": '再点击蓝色豆豆\\n空出对应颜色的位置';"),
     'level 1 must not retain the abbreviated opening-guide copy',
 );
 const levelOneGuideStepSource = extractMethod('private showLevelOneBoardGuideStep(parent: Node): void');
 const sharedTargetGuideSource = extractMethod('private showOpeningTargetGuide(');
 const sharedTargetGuideAtSource = extractMethod('private showOpeningTargetGuideAt(');
 const focusMaskSource = extractMethod('private createOpeningGuideFocusMask(');
+const speedFocusMaskSource = extractMethod('private createOpeningGuideSpeedFocusMask(');
+const capacityFocusMaskSource = extractMethod('private createOpeningGuideCapacityFocusMask(');
+const conveyorPromptAnchorSource = extractMethod('private getOpeningGuidePromptCenterYAboveConveyor(');
+const openingGuideTextStyleSource = extractMethod('private applyOpeningGuidePromptLabelStyle(');
 const tutorialStartSource = extractMethod('private reportOpeningGuideTutorialStart(): void');
 const tutorialFinishSource = extractMethod('private reportOpeningGuideTutorialFinish(): void');
 const sySdkSource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/SySDKMgr.ts'), 'utf8');
@@ -437,32 +437,59 @@ assert.ok(
         && sharedTargetGuideAtSource.includes("guideName.startsWith('PchLevelOneGuideStep')")
         && sharedTargetGuideAtSource.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
         && sharedTargetGuideAtSource.includes('this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);')
-        && sharedTargetGuideAtSource.includes('const promptWidth = isLevelOneBoardGuide ? 340')
-        && sharedTargetGuideAtSource.includes('const promptHeight = isLevelOneBoardGuide ? 216')
+        && sharedTargetGuideAtSource.includes('this.createOpeningGuideSpeedFocusMask(parent, targetLocal, targetWidth, targetHeight);')
+        && sharedTargetGuideAtSource.includes('this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);')
+        && source.includes('const OPENING_GUIDE_PROMPT_WIDTH = 520;')
+        && source.includes('const OPENING_GUIDE_PROMPT_HEIGHT = 140;')
+        && source.includes('const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 48;')
+        && sharedTargetGuideAtSource.includes('const usesVideoGuideBubbleLayout = isStarterOpeningGuide && !!guideBubbleFrame;')
+        && sharedTargetGuideAtSource.includes('? OPENING_GUIDE_PROMPT_WIDTH')
+        && sharedTargetGuideAtSource.includes('? OPENING_GUIDE_PROMPT_HEIGHT')
+        && sharedTargetGuideAtSource.includes('this.getOpeningGuidePromptCenterYAboveConveyor(parent, promptHeight)')
+        && sharedTargetGuideAtSource.includes('const promptX = usesVideoGuideBubbleLayout')
+        && sharedTargetGuideAtSource.includes('? 0')
         && !sharedTargetGuideAtSource.includes("guideName === 'PchLevelOneGuideStep1'")
-        && sharedTargetGuideAtSource.includes('const levelOneBubbleVisibleHeight = promptHeight * bubbleScaleY;')
-        && sharedTargetGuideAtSource.includes('levelOnePromptY = targetLocal.y - targetHeight / 2 - levelOneBubbleVisibleHeight / 2 - 24;')
-        && sharedTargetGuideAtSource.includes('const parentBottomSafeY = -parentTransform.contentSize.height * parentTransform.anchorPoint.y + 24;')
-        && sharedTargetGuideAtSource.includes('levelOnePromptY - levelOneBubbleVisibleHeight / 2 < parentBottomSafeY')
-        && sharedTargetGuideAtSource.includes("throw new Error('[pch-core] level 1 guide bubble has no space below target');")
-        && sharedTargetGuideAtSource.includes('bubbleBackground.setScale(1, (isLevelOneBoardGuide || isLevelTwoSpeedGuide) ? -bubbleScaleY : bubbleScaleY, 1);')
+        && sharedTargetGuideAtSource.includes('bubbleBackground.setScale(1, 1, 1);')
         && sharedTargetGuideAtSource.includes("copy.split('\\n', 2)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, title, 42, new Color('#3C285D'), 0, -5, promptWidth - 48)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, detail || title, 32, new Color('#3C285D'), 0, -55, promptWidth - 48)")
-        && sharedTargetGuideAtSource.includes("this.makeLabel(prompt, copy, 32, new Color('#3C285D'), 0, -16, promptWidth - 48)")
-        && sharedTargetGuideAtSource.includes("title, 32, new Color('#3C285D'), 0, 48, promptWidth - 48")
-        && sharedTargetGuideAtSource.includes("detail || title, 28, new Color('#3C285D'), 0, 4, promptWidth - 56")
-        && sharedTargetGuideAtSource.includes('const handRestOffsetY = isLevelTwoSpeedGuide ? -52 : -76;')
-        && sharedTargetGuideAtSource.includes('const handPressOffsetY = isLevelTwoSpeedGuide ? -36 : -60;')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, title, 42, Color.WHITE, 0, 26, promptWidth - 64)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -26, promptWidth - 64)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, copy, 32, Color.WHITE, 0, 0, promptWidth - 64)')
+        && sharedTargetGuideAtSource.includes('title, 32, Color.WHITE, 0, 26, promptWidth - 64')
+        && sharedTargetGuideAtSource.includes('detail || title, 28, Color.WHITE, 0, -22, promptWidth - 64')
+        && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(titleLabel);')
+        && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(detailLabel);')
+        && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(promptLabel);')
+        && sharedTargetGuideAtSource.includes('const usesButtonHandPosition = isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
+        && sharedTargetGuideAtSource.includes('const handRestOffsetY = usesButtonHandPosition ? -52 : -76;')
+        && sharedTargetGuideAtSource.includes('const handPressOffsetY = usesButtonHandPosition ? -36 : -60;')
         && sharedTargetGuideAtSource.includes("new Color('#7162A2')")
         && sharedTargetGuideAtSource.includes('copy, 28,')
         && sharedTargetGuideAtSource.includes('0, 22, promptWidth - 48')
         && sharedTargetGuideAtSource.includes('.isBold = true')
-        && sharedTargetGuideAtSource.includes('const promptXLimit = isLevelThreeCapacityGuide ? 130 : (useGuideBubbleFrame ? 80 : 100);')
-        && sharedTargetGuideAtSource.includes('const promptX = isLevelTwoSpeedGuide')
-        && sharedTargetGuideAtSource.includes('? targetLocal.x')
+        && sharedTargetGuideAtSource.includes('const promptXLimit = useGuideBubbleFrame ? 80 : 100;')
+        && sharedTargetGuideAtSource.includes('const promptX = usesVideoGuideBubbleLayout')
+        && sharedTargetGuideAtSource.includes('? 0')
         && sharedTargetGuideAtSource.includes(': Math.max(-promptXLimit, Math.min(promptXLimit, targetLocal.x));'),
-    'level 1 must use its own target-relative lower flipped bubble while the other starter guides retain their existing bubble behavior',
+    'all first-three-level guides must use the centered, unflipped video-style bubble layout above the conveyor',
+);
+assert.ok(
+    openingGuideTextStyleSource.includes('label.color = new Color(32, 32, 32, 255);')
+        && openingGuideTextStyleSource.includes('label.cacheMode = Label.CacheMode.NONE;')
+        && openingGuideTextStyleSource.includes('label.enableOutline = false;')
+        && openingGuideTextStyleSource.includes('label.enableShadow = false;')
+        && !openingGuideTextStyleSource.includes('shadowColor')
+        && !openingGuideTextStyleSource.includes('shadowOffset')
+        && !openingGuideTextStyleSource.includes('shadowBlur')
+        && openingGuideTextStyleSource.includes('.isBold = true;'),
+    'the first-three-level guide labels must use black fill without an outline or shadow and retain bold weight',
+);
+assert.ok(
+    conveyorPromptAnchorSource.includes("this.belt?.getChildByName('PchMovingTrack')")
+        && conveyorPromptAnchorSource.includes('conveyorTransform.getBoundingBoxToWorld()')
+        && conveyorPromptAnchorSource.includes('parentTransform.convertToNodeSpaceAR')
+        && conveyorPromptAnchorSource.includes('OPENING_GUIDE_PROMPT_CONVEYOR_GAP')
+        && conveyorPromptAnchorSource.includes("throw new Error('[pch-core] opening guide conveyor prompt anchor is unavailable');"),
+    'the video-style prompt must be anchored from the real conveyor track, not hard-coded screen coordinates',
 );
 assert.ok(
     !sharedTargetGuideAtSource.includes("const overlayRoot = this.runtime.requireCanvasUiRoot?.('OverlayRoot') || null;")
@@ -498,6 +525,34 @@ assert.ok(
     'only level 1 must render seven same-layer Graphics panels with independent bean and conveyor focus regions',
 );
 assert.ok(
+    speedFocusMaskSource.includes("'PchOpeningGuideSpeedDimMask'")
+        && speedFocusMaskSource.includes('new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY)')
+        && speedFocusMaskSource.includes("createPanel(\n            'GuideSpeedDimTop'")
+        && speedFocusMaskSource.includes("createPanel(\n            'GuideSpeedDimLeft'")
+        && speedFocusMaskSource.includes("createPanel(\n            'GuideSpeedDimRight'")
+        && speedFocusMaskSource.includes("createPanel(\n            'GuideSpeedDimBottom'")
+        && speedFocusMaskSource.includes('mask.setSiblingIndex(0);')
+        && !speedFocusMaskSource.includes('BlockInputEvents'),
+    'level 2 must use a black four-panel mask with an exposed speed-button focus region',
+);
+assert.ok(
+    capacityFocusMaskSource.includes("'PchOpeningGuideCapacityDimMask'")
+        && capacityFocusMaskSource.includes("this.belt?.getChildByName('PchMovingTrack')")
+        && capacityFocusMaskSource.includes('conveyorTransform.getBoundingBoxToWorld()')
+        && capacityFocusMaskSource.includes('const focusLeft = clamp(')
+        && capacityFocusMaskSource.includes('const focusRight = clamp(')
+        && capacityFocusMaskSource.includes('const focusBottom = clamp(')
+        && capacityFocusMaskSource.includes('const focusTop = clamp(')
+        && capacityFocusMaskSource.includes('new Color(0, 0, 0, OPENING_GUIDE_DIM_MASK_OPACITY)')
+        && capacityFocusMaskSource.includes("'GuideCapacityDimTop'")
+        && capacityFocusMaskSource.includes("'GuideCapacityDimLeft'")
+        && capacityFocusMaskSource.includes("'GuideCapacityDimRight'")
+        && capacityFocusMaskSource.includes("'GuideCapacityDimBottom'")
+        && capacityFocusMaskSource.includes('mask.setSiblingIndex(0);')
+        && !capacityFocusMaskSource.includes('BlockInputEvents'),
+    'level 3 must use a black four-panel union mask that keeps the conveyor and capacity button visible',
+);
+assert.ok(
     sharedTargetGuideSource.includes('promptYOverride?: number')
         && sharedTargetGuideSource.includes('const targetBounds = targetTransform.getBoundingBoxToWorld();')
         && sharedTargetGuideSource.includes('new Vec3(targetBounds.xMin, targetBounds.yMin, 0)')
@@ -508,23 +563,37 @@ assert.ok(
 const levelTwoRoute = routeGuide(2, 'main');
 assert.strictEqual(levelTwoRoute.length, 1);
 assert.strictEqual(levelTwoRoute[0][3], 'PchLevelTwoSpeedGuide');
-assert.strictEqual(levelTwoRoute[0][4], '点击开启两倍速');
+assert.strictEqual(levelTwoRoute[0][4], '你可以调整传送带的速度');
 assert.strictEqual(levelTwoRoute[0][6], undefined, 'level 2 must retain its existing vertical placement');
 const levelThreeRoute = routeGuide(3, 'main');
 assert.strictEqual(levelThreeRoute.length, 1);
 assert.strictEqual(levelThreeRoute[0][3], 'PchLevelThreeCapacityGuide');
-assert.strictEqual(levelThreeRoute[0][4], '点击扩容按钮\n增加12个位置');
+assert.strictEqual(levelThreeRoute[0][4], '点击扩容按钮\n传送带容量增加12格');
 assert.strictEqual(levelThreeRoute[0][6], undefined, 'level 3 prompt must calculate above its actual expansion target');
 assert.ok(
     sharedTargetGuideAtSource.includes('promptYOverride?: number')
-        && sharedTargetGuideAtSource.includes('const promptY = isLevelOneBoardGuide')
+        && sharedTargetGuideAtSource.includes('const promptY = usesVideoGuideBubbleLayout')
         && sharedTargetGuideAtSource.includes('const sharedPromptY = promptYOverride ?? Math.max(-520,')
-        && sharedTargetGuideAtSource.includes('? levelOnePromptY')
-        && !sharedTargetGuideAtSource.includes('isLevelOneFirstStep')
-        && sharedTargetGuideAtSource.includes('targetHeight / 2 - promptHeight / 2 - 24')
-        && sharedTargetGuideAtSource.includes('targetLocal.y + targetHeight / 2 + promptHeight / 2 + 24')
-        && !source.includes("'点击扩容按钮\\n增加12个位置', this.onOpeningGuideFreeCapacity, -365"),
-    'each level-1 step must independently derive its lower bubble position from its own target while levels 2 and 3 retain their target-relative positions',
+        && sharedTargetGuideAtSource.includes('? this.getOpeningGuidePromptCenterYAboveConveyor(parent, promptHeight)')
+        && sharedTargetGuideAtSource.includes('const promptX = usesVideoGuideBubbleLayout')
+        && !sharedTargetGuideAtSource.includes('bubbleScaleY')
+        && !source.includes("'点击扩容按钮\\n传送带容量增加12格', this.onOpeningGuideFreeCapacity, -365"),
+    'all starter-guide prompt positions must resolve from the shared conveyor anchor while generic guide overrides stay intact',
+);
+const guideBubbleMeta = JSON.parse(fs.readFileSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/guide_bubble_frame.png.meta'), 'utf8'));
+const guideBubbleSpriteFrameMeta = Object.values(guideBubbleMeta.subMetas).find((meta) => meta.name === 'spriteFrame');
+assert.ok(guideBubbleSpriteFrameMeta, 'guide bubble must retain a SpriteFrame submeta');
+assert.deepStrictEqual(
+    {
+        rawWidth: guideBubbleSpriteFrameMeta.userData.rawWidth,
+        rawHeight: guideBubbleSpriteFrameMeta.userData.rawHeight,
+        borderTop: guideBubbleSpriteFrameMeta.userData.borderTop,
+        borderBottom: guideBubbleSpriteFrameMeta.userData.borderBottom,
+        borderLeft: guideBubbleSpriteFrameMeta.userData.borderLeft,
+        borderRight: guideBubbleSpriteFrameMeta.userData.borderRight,
+    },
+    { rawWidth: 600, rawHeight: 162, borderTop: 42, borderBottom: 42, borderLeft: 48, borderRight: 48 },
+    'guide bubble must keep the new 600x162 lavender panel with protected 9-slice corners',
 );
 assert.deepStrictEqual(routeGuide(4, 'main'), []);
 

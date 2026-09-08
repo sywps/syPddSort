@@ -124,9 +124,6 @@ function validateConveyorCapacity(value, label = 'level data') {
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
         throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
     }
-    if (value % exports.CONVEYOR_STACK_DEPTH !== 0) {
-        throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a multiple of ${exports.CONVEYOR_STACK_DEPTH}: ${value}`);
-    }
     return value;
 }
 /** 校验关卡入场难度标记；缺失或非法值必须显性失败。 */

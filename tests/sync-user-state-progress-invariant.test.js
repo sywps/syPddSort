@@ -237,6 +237,90 @@ async function runRetiredSkinOldClientSaveCase() {
     assert.strictEqual(doc.equippedBackgroundSkinId, 1000, 'retired old-client save: persist fallback selection');
 }
 
+async function runBeanSkinNewerSelectionMergeCase() {
+    const runtime = loadCloudFunction({
+        savedLevel: 10,
+        lastLevelId: 10,
+        stateUpdatedAt: 100,
+        ownedBeanSkinIds: [2000, 2001],
+        equippedBeanSkinId: 2001,
+        equippedBeanSkinUpdatedAt: 100,
+    });
+    const result = clone(await runtime.main({
+        action: 'save',
+        gameState: {
+            savedLevel: 10,
+            stateUpdatedAt: 200,
+            ownedBeanSkinIds: [2000, 2002],
+            equippedBeanSkinId: 2002,
+            equippedBeanSkinUpdatedAt: 200,
+        },
+    }));
+    assert.strictEqual(result.skinStateSchemaVersion, 2, 'bean merge: skin schema version');
+    assert.deepStrictEqual(result.gameState.ownedBeanSkinIds, [2000, 2001, 2002], 'bean merge: ownership union');
+    assert.strictEqual(result.gameState.equippedBeanSkinId, 2002, 'bean merge: newer selection wins');
+    assert.strictEqual(result.gameState.equippedBeanSkinUpdatedAt, 200, 'bean merge: newer selection timestamp');
+    const doc = runtime.getDoc();
+    assert.deepStrictEqual(doc.ownedBeanSkinIds, [2000, 2001, 2002], 'bean merge: persisted ownership union');
+}
+
+async function runBeanSkinOlderSelectionCannotOverwriteCase() {
+    const runtime = loadCloudFunction({
+        savedLevel: 10,
+        lastLevelId: 10,
+        stateUpdatedAt: 300,
+        ownedBeanSkinIds: [2000, 2003],
+        equippedBeanSkinId: 2003,
+        equippedBeanSkinUpdatedAt: 300,
+    });
+    const result = clone(await runtime.main({
+        action: 'save',
+        gameState: {
+            savedLevel: 10,
+            stateUpdatedAt: 400,
+            ownedBeanSkinIds: [2000, 2004],
+            equippedBeanSkinId: 2004,
+            equippedBeanSkinUpdatedAt: 200,
+        },
+    }));
+    assert.deepStrictEqual(result.gameState.ownedBeanSkinIds, [2000, 2003, 2004], 'bean older: ownership still unions');
+    assert.strictEqual(result.gameState.equippedBeanSkinId, 2003, 'bean older: current newer selection wins');
+    assert.strictEqual(result.gameState.equippedBeanSkinUpdatedAt, 300, 'bean older: current timestamp preserved');
+}
+
+async function runBeanSkinUnownedSelectionRejectedCase() {
+    const runtime = loadCloudFunction({ savedLevel: 10, lastLevelId: 10, stateUpdatedAt: 100 });
+    const result = clone(await runtime.main({
+        action: 'save',
+        gameState: {
+            savedLevel: 10,
+            stateUpdatedAt: 400,
+            ownedBeanSkinIds: [2000, 9999],
+            equippedBeanSkinId: 2004,
+            equippedBeanSkinUpdatedAt: 400,
+        },
+    }));
+    assert.deepStrictEqual(result.gameState.ownedBeanSkinIds, [2000], 'bean invalid: illegal ids filtered');
+    assert.strictEqual(result.gameState.equippedBeanSkinId, 2000, 'bean invalid: unowned selection falls back');
+    assert.ok(result.gameState.equippedBeanSkinUpdatedAt > 0, 'bean invalid: fallback has an authoritative timestamp');
+    const doc = runtime.getDoc();
+    assert.deepStrictEqual(doc.ownedBeanSkinIds, [2000], 'bean invalid: equipped field does not grant ownership');
+}
+
+async function runBeanSkinInvalidStoredSelectionGetCase() {
+    const runtime = loadCloudFunction({
+        savedLevel: 10,
+        lastLevelId: 10,
+        ownedBeanSkinIds: [2000, 2002, 9999],
+        equippedBeanSkinId: 2004,
+        equippedBeanSkinUpdatedAt: 123,
+    });
+    const result = clone(await runtime.main({ action: 'get' }));
+    assert.deepStrictEqual(result.gameState.ownedBeanSkinIds, [2000, 2002], 'bean get: illegal ownership filtered');
+    assert.strictEqual(result.gameState.equippedBeanSkinId, 2000, 'bean get: unowned stored selection falls back');
+    assert.strictEqual(result.gameState.equippedBeanSkinUpdatedAt, 123, 'bean get: selection timestamp preserved');
+}
+
 (async () => {
     for (const incomingRevision of [0, 1, 999]) {
         const runtime = loadCloudFunction({ savedLevel: 3, lastLevelId: 3, pvpEconomyRevision: 2,
@@ -300,6 +384,10 @@ async function runRetiredSkinOldClientSaveCase() {
     await runPostResetAdUnlockSaveCase();
     await runRetiredSkinGetCase();
     await runRetiredSkinOldClientSaveCase();
+    await runBeanSkinNewerSelectionMergeCase();
+    await runBeanSkinOlderSelectionCannotOverwriteCase();
+    await runBeanSkinUnownedSelectionRejectedCase();
+    await runBeanSkinInvalidStoredSelectionGetCase();
 
     console.log('sync-user-state-progress-invariant.test.js passed');
 })().catch((error) => {

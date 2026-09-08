@@ -139,11 +139,22 @@ async function run() {
     assert.strictEqual(recoveredRuntime._collectionReplayStarting, true, 'recovery flow must keep double taps locked');
     assert.deepStrictEqual(recoveredCalls, [['cost', 2, 'collection_replay']]);
 
+    recoverOptions.onResult({ status: 'failed' });
+    assert.strictEqual(recoveredRuntime._collectionReplayStarting, false, 'failed recovery must release the replay lock');
+    assert.strictEqual(successfulSpendCount, 0, 'failed recovery must not spend vigor');
+    assert.deepStrictEqual(recoveredCalls, [['cost', 2, 'collection_replay']]);
+
+    recoverOptions = null;
+    assert.strictEqual(recoveredRuntime.startCollectionReplay(2, 'level_'), false, 'replay must be retryable after recovery fails');
+    assert.ok(recoverOptions, 'retry must reopen the recovery flow');
+    assert.strictEqual(recoveredRuntime._collectionReplayStarting, true);
+
     recoverOptions.onResult({ status: 'granted' });
     await Promise.resolve();
     await Promise.resolve();
     assert.strictEqual(successfulSpendCount, 1, 'granted recovery must spend exactly one vigor');
     assert.deepStrictEqual(recoveredCalls, [
+        ['cost', 2, 'collection_replay'],
         ['cost', 2, 'collection_replay'],
         ['cost', 2, 'collection_replay'],
         ['close'],

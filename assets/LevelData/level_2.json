@@ -5,7 +5,7 @@
     "boardHeight": 17,
     "timeLimit": 300,
     "slotTotalCount": 131,
-    "conveyorCapacity": 60,
+    "conveyorCapacity": 80,
     "singleSelectionLimit": 18,
     "correctColorArr": [
         [

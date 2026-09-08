@@ -98,7 +98,7 @@ assert.deepStrictEqual(
     [14, 17, 131, undefined],
     'canonical level 2 must match the promoted 300-level stable payload',
 );
-assert.strictEqual(stableLevel2.conveyorCapacity, 60, 'canonical stable level 2 must use the new conveyor');
+assert.strictEqual(stableLevel2.conveyorCapacity, 80, 'canonical stable level 2 must use the configured initial conveyor capacity');
 assert.strictEqual(Object.hasOwn(stableLevel2, 'slotPolicy'), false, 'stable level 2 must not retain row data');
 assert.deepStrictEqual(
     [

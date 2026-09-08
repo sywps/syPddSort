@@ -218,6 +218,8 @@ try {
     assert.ok(html.includes('传送带玩法引导结果（PCH）'));
     assert.ok(html.includes('分关卡复活广告漏斗'));
     assert.ok(html.includes('分关卡分享复活漏斗'));
+    assert.ok(html.includes("enabled_2x: '2 倍速已开启'"), 'dashboard must retain the historical 2x guide-result label');
+    assert.ok(html.includes("enabled_3x: '3 倍速已开启'"), 'dashboard must label the current 3x guide result');
 
     const dailyJob = fs.readFileSync(path.join(root, 'scripts/user-behavior-daily-job.js'), 'utf8');
     const dashboard = fs.readFileSync(path.join(root, 'cloudfunctions/getAllDashboardData/index.js'), 'utf8');

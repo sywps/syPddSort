@@ -7,15 +7,24 @@ const PCH_SELECTION_DIRS = [
     [-1, 0], [1, 0], [0, -1], [0, 1],
     [-1, -1], [-1, 1], [1, -1], [1, 1],
 ];
+function validateInitialCarrierCount(value, label) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new Error(`[PchCarrierCount] ${label}.initialCarrierCount must be a positive integer: ${value}`);
+    }
+    return value;
+}
 class PchConveyorRules {
-    constructor(board, conveyorCapacity, singleSelectionLimit) {
+    constructor(board, conveyorCapacity, singleSelectionLimit, initialCarrierCountOverride) {
         this.board = board;
         this.stackDepth = LevelConfig_1.CONVEYOR_STACK_DEPTH;
         this.queuedColorIds = [];
         this.readyQueuedCount = 0;
         const capacity = (0, LevelConfig_1.validateConveyorCapacity)(conveyorCapacity, 'PchConveyorRules');
         this.moveLimit = (0, LevelConfig_1.validatePchSingleSelectionLimit)(singleSelectionLimit, 'PchConveyorRules');
-        this.initialCarrierCount = capacity / this.stackDepth;
+        const defaultInitialCarrierCount = Math.ceil(capacity / this.stackDepth);
+        this.initialCarrierCount = initialCarrierCountOverride == null
+            ? defaultInitialCarrierCount
+            : validateInitialCarrierCount(initialCarrierCountOverride, 'PchConveyorRules');
         this.carriers = Array.from({ length: this.initialCarrierCount }, () => []);
         this.totalBufferCapacity = capacity;
     }
@@ -248,6 +257,27 @@ class PchConveyorRules {
             moves,
             boardCells: Array.from(changed.values()),
         };
+    }
+    executeSkillAtomically(execute) {
+        const colors = this.board.currentColors.map((row) => row.slice());
+        const locked = this.board.locked.map((row) => row.slice());
+        const carriers = this.carriers.map((stack) => stack.slice());
+        const queued = this.queuedColorIds.slice();
+        const readyCount = this.readyQueuedCount;
+        try {
+            return execute();
+        }
+        catch (error) {
+            for (let row = 0; row < colors.length; row++) {
+                this.board.currentColors[row].splice(0, this.board.width, ...colors[row]);
+                this.board.locked[row].splice(0, this.board.width, ...locked[row]);
+            }
+            this.board.markLockStatsDirty();
+            this.carriers.forEach((stack, index) => stack.splice(0, stack.length, ...carriers[index]));
+            this.queuedColorIds.splice(0, this.queuedColorIds.length, ...queued);
+            this.readyQueuedCount = readyCount;
+            throw error;
+        }
     }
     forceCompleteRandomColor(randomSource = Math.random) {
         const candidates = new Set();

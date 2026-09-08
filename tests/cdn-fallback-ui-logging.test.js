@@ -21,7 +21,8 @@ assert.ok(!levelCdn.includes('lastDegradeReason'), 'stable-only diagnostics must
 assert.ok(levelCdn.includes('level_live.json minClientBuild unsupported'), 'level data manifest must enforce client build compatibility');
 
 const firstLevelRoute = read('assets/Scripts/Core/GameCtrlModules/FirstLevelRouteModule.ts');
-assert.ok(firstLevelRoute.includes("setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true)"), 'fatal overlay code must only toggle the scene-owned title');
+assert.ok(firstLevelRoute.includes("setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true)"), 'fatal overlay code must only toggle the scene-owned restart copy');
+assert.ok(firstLevelRoute.includes("setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRestart', true)"), 'fatal overlay code must require the authored restart action');
 assert.ok(firstLevelRoute.includes("setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false)"), 'fatal overlay code must hide internal path details from users');
 assert.ok(!firstLevelRoute.includes("titleLabel.string ="), 'fatal overlay code must not own title copy');
 assert.ok(!firstLevelRoute.includes("hintLabel.string ="), 'fatal overlay code must not own hint copy');
@@ -37,9 +38,10 @@ for (const scenePath of [
     const strings = scene
         .filter((entry) => entry && typeof entry._string === 'string')
         .map((entry) => entry._string);
-    assert.ok(strings.includes('关卡没准备好'), `${scenePath} must own the recoverable loading title`);
-    assert.ok(strings.includes('请检查网络后重试'), `${scenePath} must own the retry hint`);
-    assert.ok(!strings.includes('请重启小游戏'), `${scenePath} must not require a full mini-game restart`);
+    assert.ok(strings.includes('版本更新请重启游戏'), `${scenePath} must own the terminal restart copy`);
+    assert.ok(strings.includes('重启游戏'), `${scenePath} must own the restart action copy`);
+    assert.ok(!strings.includes('关卡没准备好'), `${scenePath} must not retain the retired loading title`);
+    assert.ok(!strings.includes('请检查网络后重试'), `${scenePath} must not retain the retired retry hint`);
     assert.ok(!strings.includes('资源更新中'), `${scenePath} must not hide a terminal failure as an update`);
     assert.ok(!strings.includes('资源加载失败'), `${scenePath} must not expose the old fatal title`);
     assert.ok(!strings.includes('请检查资源与配置后重新进入游戏'), `${scenePath} must not expose operator-facing copy`);

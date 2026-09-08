@@ -1,4 +1,5 @@
-import { _decorator, Component, director, Node } from 'cc';
+import { _decorator, assetManager, Component, director, instantiate, Node } from 'cc';
+import { StartupLoadingController } from './StartupLoadingController';
 import {
     AppSession,
     type AppGameplayEntryCoverMode,
@@ -15,6 +16,49 @@ export class AppRoot extends Component {
     private static _instance: AppRoot | null = null;
     private readonly _session = new AppSession();
     private readonly _router = new SceneRouter(this._session);
+    startupLoading: StartupLoadingController | null = null;
+    private startupLoadingPromise: Promise<StartupLoadingController> | null = null;
+
+    adoptStartupLoading(canvas: Node): StartupLoadingController {
+        if (this.startupLoading?.isValid) throw new Error('[AppRoot] Startup Loading already exists');
+        canvas.name = 'StartupLoadingCanvas';
+        canvas.setParent(this.node);
+        const loading = canvas.addComponent(StartupLoadingController);
+        loading.initialize();
+        this.startupLoading = loading;
+        return loading;
+    }
+
+    ensureStartupLoading(): Promise<StartupLoadingController> {
+        if (this.startupLoading?.isValid) return Promise.resolve(this.startupLoading);
+        if (this.startupLoadingPromise) return this.startupLoadingPromise;
+        // Direct Game/editor entry reuses Boot's authored UI without running Boot's route controller.
+        this.startupLoadingPromise = new Promise<StartupLoadingController>((resolve, reject) => {
+            assetManager.loadBundle('main', (bundleError, bundle) => {
+                if (bundleError || !bundle) { reject(bundleError || new Error('[StartupLoading] main bundle missing')); return; }
+                bundle.loadScene('Boot', (sceneError, asset) => {
+                    if (sceneError || !asset) { reject(sceneError || new Error('[StartupLoading] Boot scene missing')); return; }
+                    try {
+                        const template = asset.scene.getChildByName('Canvas');
+                        if (!template) throw new Error('[StartupLoading] Boot Canvas missing');
+                        const canvas = instantiate(template);
+                        const routeNode = canvas.getChildByName('Boot');
+                        if (!routeNode) throw new Error('[StartupLoading] Boot route node missing');
+                        routeNode.removeFromParent();
+                        routeNode.destroy();
+                        resolve(this.adoptStartupLoading(canvas));
+                    } catch (error) { reject(error); }
+                });
+            });
+        }).then((loading) => {
+            this.startupLoadingPromise = null;
+            return loading;
+        }, (error) => {
+            this.startupLoadingPromise = null;
+            throw error;
+        });
+        return this.startupLoadingPromise;
+    }
 
     static tryGet(): AppRoot | null {
         return AppRoot._instance && AppRoot._instance.node?.isValid ? AppRoot._instance : null;
@@ -85,6 +129,7 @@ export class AppRoot extends Component {
     }
 
     markHomeVisible(sceneName: AppSceneName = 'Game'): void {
+        this.startupLoading?.hide();
         this.router.attachCurrentScene(sceneName);
         this.session.markVisualState('home');
         this.session.clearGameplayContext();

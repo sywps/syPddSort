@@ -414,6 +414,33 @@ function patchWechatFirstScreenBackground(firstScreenContent) {
     );
 }
 
+function patchWechatFirstScreenStartupTrace(firstScreenContent) {
+    var helperName = '__pddMarkFirstScreenDrawn';
+    if (firstScreenContent.indexOf('function ' + helperName + '()') !== -1) {
+        return firstScreenContent;
+    }
+    var drawPattern = /(\s*)draw\(\);\r?\n(\s*)tick\(\);/;
+    if (!drawPattern.test(firstScreenContent)) {
+        console.error('[3.3/7] first-screen.js 未找到首帧 draw 点，不能注入统一启动计时');
+        process.exit(1);
+    }
+    var helper = [
+        'function ' + helperName + '(){',
+        'var g=typeof globalThis!=="undefined"?globalThis:{};',
+        'if(g.__PDD_FIRST_SCREEN_DRAWN_AT__)return;',
+        'var now=Date.now();g.__PDD_FIRST_SCREEN_DRAWN_AT__=now;',
+        'var memory=typeof g.__PDD_READ_JS_HEAP_MEMORY__==="function"?g.__PDD_READ_JS_HEAP_MEMORY__():null;',
+        'var state=g.__PDD_STARTUP_TRACE__;',
+        'if(state&&Array.isArray(state.events)&&!state.flushed){state.events.push({eventName:"startup_first_screen_drawn",timestamp:now,elapsedMs:Math.max(0,now-Number(state.startedAt||now)),extra:{source:"first-screen.js",jsHeapMemory:memory}});}',
+        'if(g.__PDD_WECHAT_BUILD_MODE__==="debug"){try{var payload={seq:0,t:Math.max(0,now-Number(g.__PDD_PERF_TRACE_STARTED_AT__||now)),at:now,event:"runtime.firstScreen.drawn",scene:"",mode:"debug",early:true,memoryScope:memory?"js_heap_only":"not_available",fullProcessMemorySource:"wechat_devtools_or_cloud_test"};if(memory)payload.memory=memory;console.warn("[PDD_PERF_TRACE]",JSON.stringify(payload));}catch(_){ }}',
+        '}',
+    ].join('\n');
+    return helper + '\n' + firstScreenContent.replace(
+        drawPattern,
+        '$1draw();\n$1' + helperName + '();\n$2tick();',
+    );
+}
+
 function compareVersion(a, b) {
     var left = String(a || '').split('.').map(function (part) { return parseInt(part, 10) || 0; });
     var right = String(b || '').split('.').map(function (part) { return parseInt(part, 10) || 0; });
@@ -998,6 +1025,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var releaseLogGateVersionMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_VERSION__=5;';
     var releaseLogGateActivationMarker = 'globalThis.__PDD_RELEASE_LOG_GATE_ACTIVATED_AFTER_START__=true;';
     var releaseLogGateBlockPattern = /\(function installPddReleaseLogGate\(\)\{\r?\n[\s\S]*?globalThis\.__PDD_RELEASE_LOG_GATE_VERSION__=\d+;\r?\n\}\)\(\);\r?\n?/g;
+    var earlyPerfTraceBlockPattern = /\(function pddEarlyPerfTrace\(\)\{\r?\n[\s\S]*?\r?\n\}\)\(\);\r?\n?/g;
     var platformMarkerPattern = /globalThis\.__PDD_BUILD_PLATFORM__="[^"]*";/g;
     var buildModeMarkerPattern = /globalThis\.__PDD_WECHAT_BUILD_MODE__="[^"]*";/g;
     var modeMarkerPattern = /globalThis\.__PDD_GAME_ASSETS_MODE__="[^"]*";/g;
@@ -1006,6 +1034,7 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     var skinDataCdnPattern = /globalThis\.__PDD_SKIN_DATA_CDN_URL__="[^"]*";/g;
     var screenAdaptDebugPattern = /globalThis\.__PDD_SCREEN_ADAPT_DEBUG__=(?:true|false);/g;
     var originalContent = content;
+    content = content.replace(earlyPerfTraceBlockPattern, '');
     if (platformMarkerPattern.test(content)) {
         content = content.replace(platformMarkerPattern, platformMarker);
     }
@@ -1050,6 +1079,18 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
         content = content.replace(startupReturn, deferredStartupReturn);
     }
     var missingLines = [];
+    if (content.indexOf('__PDD_RUNTIME_ENTRY_AT__') === -1) {
+        missingLines.push(
+            '(function pddRuntimeStartupTrace(){',
+            'var g=typeof globalThis!=="undefined"?globalThis:{};',
+            'var now=Date.now();g.__PDD_RUNTIME_ENTRY_AT__=now;g.__PDD_PERF_TRACE_STARTED_AT__=now;',
+            'g.__PDD_READ_JS_HEAP_MEMORY__=function(){try{var wxRef=typeof wx!=="undefined"?wx:null;var performance=wxRef&&typeof wxRef.getPerformance==="function"?wxRef.getPerformance():null;var memory=performance&&performance.memory&&typeof performance.memory==="object"?performance.memory:null;if(!memory)return null;var snapshot={};["usedJSHeapSize","totalJSHeapSize","jsHeapSizeLimit"].forEach(function(key){var value=Number(memory[key]);if(Number.isFinite(value))snapshot[key]=value;});return Object.keys(snapshot).length?snapshot:null;}catch(_){return null;}};',
+            'var memory=g.__PDD_READ_JS_HEAP_MEMORY__();',
+            'g.__PDD_STARTUP_TRACE__={startedAt:now,events:[{eventName:"startup_runtime_entry",timestamp:now,elapsedMs:0,extra:{source:"game.js",jsHeapMemory:memory}}],flushed:false};',
+            'if(' + JSON.stringify(buildMode) + '==="debug"){try{var payload={seq:0,t:0,at:now,event:"runtime.gamejs.start",scene:"",mode:"debug",early:true,memoryScope:memory?"js_heap_only":"not_available",fullProcessMemorySource:"wechat_devtools_or_cloud_test"};if(memory)payload.memory=memory;console.warn("[PDD_PERF_TRACE]",JSON.stringify(payload));}catch(_){ }}',
+            '})();'
+        );
+    }
     if (content.indexOf(platformMarker) === -1) missingLines.push(platformMarker);
     if (content.indexOf(marker) === -1) missingLines.push(marker);
     if (content.indexOf(buildModeMarker) === -1) missingLines.push(buildModeMarker);
@@ -1059,15 +1100,6 @@ function ensureWechatRuntimeMarker(runtimeRoot) {
     if (content.indexOf(skinDataCdnMarker) === -1) missingLines.push(skinDataCdnMarker);
     if (content.indexOf(screenAdaptDebugMarker) === -1) missingLines.push(screenAdaptDebugMarker);
     if (content.indexOf(clientBuildIdMarker) === -1) missingLines.push(clientBuildIdMarker);
-    if (buildMode === 'debug' && content.indexOf('__PDD_PERF_TRACE_STARTED_AT__') === -1) {
-        missingLines.push(
-            '(function pddEarlyPerfTrace(){',
-            'var g=typeof globalThis!=="undefined"?globalThis:{};',
-            'var now=Date.now();g.__PDD_PERF_TRACE_STARTED_AT__=now;',
-            'try{console.warn("[PDD_PERF_TRACE]",JSON.stringify({seq:0,t:0,at:now,event:"runtime.gamejs.start",scene:"",mode:"debug",early:true}));}catch(_){ }',
-            '})();'
-        );
-    }
     if (content.indexOf(releaseLogGateVersionMarker) === -1) {
         missingLines.push(
             '(function installPddReleaseLogGate(){',
@@ -1529,6 +1561,7 @@ if (fs.existsSync(firstScreenPath)) {
         'let fitWidth = false;\nlet fitHeight = true;'
     );
     patchedFirstScreen = patchWechatFirstScreenBackground(patchedFirstScreen);
+    patchedFirstScreen = patchWechatFirstScreenStartupTrace(patchedFirstScreen);
     if (patchedFirstScreen !== firstScreen) {
         fs.writeFileSync(firstScreenPath, patchedFirstScreen);
         console.log('[3.3/7] 已关闭首屏抗锯齿 + 修正竖屏适配 + 修正首帧浅色背景 ✓');

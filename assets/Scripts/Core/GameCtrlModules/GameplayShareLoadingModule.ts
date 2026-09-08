@@ -1,6 +1,6 @@
 ﻿import {
-    _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
-    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
+    _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
+    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
@@ -23,7 +23,7 @@
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
-import { AppRoot } from '../AppRoot';
+
 import type {
     LevelData, BeanBlockInfo, SfxName, LeaderboardEntry, LeaderboardResult, CloudGameState, CloudUserState, SkillSourceGroup,
     ForcedSkillBoardMove, ForcedSkillSlotMove, ForcedSkillBatch, ForcedSkillStep, ForcedSkillPlan, TutorialMode,
@@ -81,7 +81,6 @@ function startWeChatDisplayShare(runtime: any, options: WeChatDisplayShareOption
         payload: {
             title: options.title,
             query: options.query,
-            imageUrl: '',
         },
         onComplete,
     });
@@ -96,6 +95,8 @@ function startWeChatDisplayShare(runtime: any, options: WeChatDisplayShareOption
     }
     return true;
 }
+
+import { AppRoot } from '../AppRoot';
 
 export function installGameplayShareLoadingModule(target: any): void {
     Object.assign(target, {
@@ -149,30 +150,11 @@ export function installGameplayShareLoadingModule(target: any): void {
         // ==================== 加载封面 ====================
         
         /** 显示全屏加载封面（资源加载期间覆盖屏幕） */
-        showLoadingOverlay() {
-            if (this._loadingOverlay) return;
-            if (!this.loadingCover) throw new Error('[LoadingOverlay] loadingCover is not assigned');
-            const overlayVersion = (this._loadingOverlayVersion || 0) + 1;
-            this._loadingOverlayVersion = overlayVersion;
-            if (this._loadingOwnerToken) {
-                this.releaseRuntimeOwner?.(this._loadingOwnerToken);
-            }
-            this._loadingOwnerToken = this.acquireRuntimeOwner?.('loading', `overlay-${overlayVersion}`) || '';
-            const visibleSize = this._getLoadingVisibleSize();
-            const overlayParent = this.requireCanvasUiRoot('BootRoot');
-            const layer = this.requireUiChild(overlayParent, 'StartupLoadingUI', 'BootRoot/StartupLoadingUI');
-            const layerUT = layer.getComponent(UITransform);
-            if (!layerUT) throw new Error('[BootScene] Boot.scene is missing UITransform on BootRoot/StartupLoadingUI');
-            layerUT.setContentSize(visibleSize.width, visibleSize.height);
-            layer.setPosition(0, 0, 0);
-            layer.layer = Layers.Enum.UI_2D;
-            layer.active = true;
-            const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
-            blocker.enabled = true;
-            this._loadingOverlay = layer;
-            this._loadingClosing = false;
-            this._buildLoadingCover(layer, visibleSize);
-            this._startLoadingProgressIntro(overlayVersion);
+        async showLoadingOverlay() {
+            const loading = await AppRoot.inst.ensureStartupLoading();
+            if (!this.node?.isValid) return;
+            loading.show('正在准备关卡…');
+            this._loadingOverlay = loading.node;
         },
 
         setGameplayStartupRootVisible(visible: boolean): void {
@@ -207,239 +189,54 @@ export function installGameplayShareLoadingModule(target: any): void {
             return new Size(width, height);
         },
 
-        _buildLoadingCover(layer: Node, visibleSize: Size) {
-            const cover = this.requireUiChild(layer, 'LoadingCover', 'StartupLoadingUI/LoadingCover');
-            cover.setPosition(0, 0, 0);
-            const currentFrame = cover.getComponent(Sprite)?.spriteFrame || this.loadingCover!;
-            const sourceSize = this._getLoadingCoverSourceSize(currentFrame);
-            const targetW = visibleSize.width + (this.constructor as any).LOADING_COVER_BLEED * 2;
-            const targetH = visibleSize.height + (this.constructor as any).LOADING_COVER_BLEED * 2;
-            const coverScale = Math.max(
-                targetW / sourceSize.width,
-                targetH / sourceSize.height,
-            );
-            this._applySpriteFrame(
-                cover,
-                currentFrame,
-                sourceSize.width * coverScale,
-                sourceSize.height * coverScale,
-            );
-        
-            this._buildLoadingProgressBar(layer);
-        },
-
-        _buildLoadingProgressBar(layer: Node) {
-            const group = this.requireUiChild(layer, 'LoadingProgressGroup', 'StartupLoadingUI/LoadingProgressGroup');
-            const groupUI = group.getComponent(UITransform);
-            if (!groupUI) throw new Error('[BootScene] Boot.scene is missing UITransform on StartupLoadingUI/LoadingProgressGroup');
-            this._loadingProgressGroup = group;
-
-            const labelNode = this.requireUiChild(group, 'Label', 'LoadingProgressGroup/Label');
-            const label = labelNode.getComponent(Label);
-            if (!label) throw new Error('[BootScene] Boot.scene is missing Label component on LoadingProgressGroup/Label');
-            label.enableWrapText = false;
-            this._loadingProgressLabel = label;
-
-            const track = this.requireUiChild(group, 'LoadingBarTrack', 'LoadingProgressGroup/LoadingBarTrack');
-            const trackUI = track.getComponent(UITransform);
-            if (!trackUI) throw new Error('[BootScene] Boot.scene is missing UITransform on LoadingProgressGroup/LoadingBarTrack');
-
-            const progressArea = this.requireUiChild(track, 'ProgressBarArea', 'LoadingBarTrack/ProgressBarArea');
-            const progressBar = progressArea.getComponent(ProgressBar);
-            if (!progressBar) throw new Error('[BootScene] Boot.scene is missing ProgressBar component on LoadingBarTrack/ProgressBarArea');
-
-            const fill = this.requireUiChild(progressArea, 'ProgressFill', 'ProgressBarArea/ProgressFill');
-            const fillSprite = fill.getComponent(Sprite);
-            if (!fillSprite) throw new Error('[BootScene] Boot.scene is missing Sprite component on ProgressBarArea/ProgressFill');
-            if (!progressBar.barSprite) {
-                progressBar.barSprite = fillSprite;
-            }
-
-            this._loadingProgressFill = progressBar;
-            this._loadingProgressLabelShadow = null;
-            this._loadingShine = null;
-            this._setLoadingStatusText('正在准备关卡…');
-        },
-
-        _startLoadingProgressIntro(overlayVersion: number) {
-            this._stopLoadingShine();
-            this._loadingProgress = 0;
-            this._loadingProgressPercent = 0;
-            this._setLoadingStatusText('正在准备关卡…');
-            if (this._loadingProgressGroup?.isValid) {
-                this._loadingProgressGroup.active = false;
-            }
-            if (this._loadingSlowActions?.isValid) {
-                this._loadingSlowActions.active = false;
-            }
-            const showProgress = () => {
-                this._loadingProgressIntroHandler = null;
-                if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
-                if (this._loadingProgressGroup?.isValid) {
-                    this._loadingProgressGroup.active = true;
-                }
-                this._startLoadingIndeterminate(overlayVersion);
-            };
-            const showSlowActions = () => {
-                this._loadingSlowActionHandler = null;
-                if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
-                this._setLoadingStatusText('仍在准备关卡…');
-                if (this._loadingSlowActions?.isValid) {
-                    this._loadingSlowActions.active = true;
-                }
-                AnalyticsMgr.inst.trackFunnelEvent({
-                    eventName: 'loading_wait_slow',
-                    page: this.getAnalyticsPage?.() || 'level_game',
-                    levelId: this.getAnalyticsLevelId?.() || 0,
-                    source: 'startup_loading',
-                    success: true,
-                    extra: { thresholdMs: 3000 },
-                });
-            };
-            this._loadingProgressIntroHandler = showProgress;
-            this._loadingSlowActionHandler = showSlowActions;
-            this.scheduleOnce(showProgress, 0.3);
-            this.scheduleOnce(showSlowActions, 3);
-        },
-
         _setLoadingStatusText(text: string) {
-            const status = String(text || '正在准备关卡…');
-            if (this._loadingProgressLabel) {
-                this._loadingProgressLabel.string = status;
-            }
-            if (this._loadingProgressLabelShadow) {
-                this._loadingProgressLabelShadow.string = status;
-            }
+            AppRoot.tryGet()?.startupLoading?.setStage(text);
         },
 
-        _startLoadingIndeterminate(overlayVersion: number) {
-            if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
-            this._stopLoadingShine();
-            const fillNode = this._loadingProgressFillNode as Node | null;
-            const fillTransform = fillNode?.getComponent(UITransform) || null;
-            if (fillNode?.isValid && fillTransform) {
-                const trackWidth = Math.max(120, Number(this._loadingProgressTrackWidth) || 520);
-                const segmentWidth = Math.min(120, trackWidth);
-                const segmentHeight = Math.max(1, Number(this._loadingProgressFullHeight) || 8);
-                const startX = -trackWidth / 2 + segmentWidth / 2;
-                const endX = trackWidth / 2 - segmentWidth / 2;
-                fillTransform.setContentSize(segmentWidth, segmentHeight);
-                const highlight = fillNode.getChildByName('LoadingBarFillHighlight') || null;
-                const highlightTransform = highlight?.getComponent(UITransform) || null;
-                if (highlightTransform) {
-                    highlightTransform.setContentSize(segmentWidth, highlightTransform.height);
-                }
-                if (highlight?.isValid) {
-                    highlight.setPosition(segmentWidth / 2, highlight.position.y, highlight.position.z);
-                }
-                const shine = fillNode.getChildByName('LoadingBarShine') || null;
-                if (shine?.isValid) {
-                    shine.active = true;
-                    shine.setPosition(segmentWidth / 2, shine.position.y, shine.position.z);
-                }
-                const y = fillNode.position.y;
-                const z = fillNode.position.z;
-                fillNode.setPosition(startX, y, z);
-                const sweep = tween(fillNode)
-                    .to(1.2, { position: new Vec3(endX, y, z) }, { easing: 'sineInOut' })
-                    .call(() => fillNode.setPosition(startX, y, z));
-                this._loadingShineTween = tween(fillNode).repeatForever(sweep).start();
-                return;
-            }
-            const progressBar = this._loadingProgressFill as ProgressBar | null;
-            if (!progressBar) return;
-            progressBar.progress = 0.18;
-            this._loadingShineTween = tween(progressBar)
-                .to(0.6, { progress: 0.72 }, { easing: 'sineInOut' })
-                .to(0.6, { progress: 0.18 }, { easing: 'sineInOut' })
-                .union()
-                .repeatForever()
-                .start();
-        },
-
-        _setLoadingProgress(progress: number, duration = 0.2, overlayVersion: number = this._loadingOverlayVersion || 0) {
-            const progressBar = this._loadingProgressFill as ProgressBar | null;
-            const prev = this._loadingProgress;
-            const next = Math.max(this._loadingProgress, Math.max(0, Math.min(1, progress)));
-            this._loadingProgress = next;
-            this._animateLoadingProgressPercent(prev, next, duration, overlayVersion);
-            if (!progressBar) return;
-            Tween.stopAllByTarget(progressBar);
-            if (duration <= 0) {
-                progressBar.progress = next;
-                return;
-            }
-            tween(progressBar).to(duration, { progress: next }, { easing: 'sineOut' }).start();
-        },
-
-        _setLoadingProgressPercentText(percent: number) {
-            const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
-            this._loadingProgressPercent = safePercent;
-            this._setLoadingStatusText(
-                this._loadingHasMeasuredProgress ? `正在准备关卡 ${safePercent}%` : '正在准备关卡…',
-            );
-        },
-
-        _animateLoadingProgressPercent(from: number, to: number, duration: number, overlayVersion: number = this._loadingOverlayVersion || 0) {
-            if (this._loadingProgressLabelTween) {
-                this._loadingProgressLabelTween.stop();
-                this._loadingProgressLabelTween = null;
-            }
-            const fromPercent = this._loadingProgressPercent || Math.round(from * 100);
-            const toPercent = Math.round(to * 100);
-            const applyPercentText = (percent: number) => {
-                if (this._loadingOverlayVersion !== overlayVersion) {
-                    return;
-                }
-                const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
-                this._loadingProgressPercent = safePercent;
-                this._setLoadingStatusText(
-                    this._loadingHasMeasuredProgress ? `正在准备关卡 ${safePercent}%` : '正在准备关卡…',
-                );
-            };
-            if (duration <= 0 || fromPercent === toPercent) {
-                applyPercentText(toPercent);
-                return;
-            }
-            const state = { value: fromPercent };
-            this._loadingProgressLabelTween = tween(state)
-                .to(duration, { value: toPercent }, {
-                    easing: 'sineOut',
-                    onUpdate: (target: { value: number }) => {
-                        applyPercentText(target.value);
-                    },
-                })
-                .call(() => {
-                    applyPercentText(toPercent);
-                    if (this._loadingOverlayVersion === overlayVersion) {
-                        this._loadingProgressLabelTween = null;
-                    }
-                })
-                .start();
-        },
-
-        _stopLoadingShine() {
-            if (this._loadingProgressLabelTween) {
-                this._loadingProgressLabelTween.stop();
-                this._loadingProgressLabelTween = null;
-            }
-            if (this._loadingShineTween) {
-                this._loadingShineTween.stop();
-                this._loadingShineTween = null;
-            }
-            if (this._loadingProgressFillNode?.isValid) {
-                Tween.stopAllByTarget(this._loadingProgressFillNode);
-            }
+        _setLoadingProgress(progress: number) {
+            // Callers may report local work completion; the shared UI displays stages, not a total percentage.
+            this._loadingProgress = Math.max(this._loadingProgress || 0, Math.min(1, Math.max(0, progress)));
         },
 
         clearLoadingStageTimers() {
-            for (const key of ['_loadingProgressIntroHandler', '_loadingSlowActionHandler', '_loadingWatchdogHandler']) {
+            for (const key of ['_loadingProgressIntroHandler', '_loadingWatchdogHandler']) {
                 const handler = this[key];
                 if (handler && typeof this.unschedule === 'function') {
                     this.unschedule(handler);
                 }
                 this[key] = null;
             }
+            this._loadingWatchdogContext = null;
+            AppRoot.tryGet()?.startupLoading?.clearSlowLoading();
+        },
+
+        armGameplayLoadingWatchdog(context: {
+            levelId: number;
+            levelPath: string;
+            source: 'local' | 'remote';
+            timeoutMs: number;
+            requestVersion: number;
+            progressSeq: number;
+            lastProgressStage: string;
+        }) {
+            const handler = () => {
+                if (context !== this._loadingWatchdogContext) return;
+                if (context.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+                if (this._levelDataLoadStopped || !this.isValid) return;
+                const confirmHandler = () => {
+                    if (context !== this._loadingWatchdogContext) return;
+                    if (context.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+                    if (this._levelDataLoadStopped || !this.isValid) return;
+                    this._loadingWatchdogHandler = null;
+                    AppRoot.tryGet()?.startupLoading?.showSlowLoading(
+                        () => this.restartGameFromRemoteLoadFatalError(),
+                    );
+                };
+                this._loadingWatchdogHandler = confirmHandler;
+                this.scheduleOnce(confirmHandler, 0);
+            };
+            this._loadingWatchdogHandler = handler;
+            this.scheduleOnce(handler, context.timeoutMs / 1000);
         },
 
         beginGameplayLoadingWatchdog(
@@ -450,162 +247,57 @@ export function installGameplayShareLoadingModule(target: any): void {
             if (this._loadingWatchdogHandler && typeof this.unschedule === 'function') {
                 this.unschedule(this._loadingWatchdogHandler);
             }
-            const timeoutMs = source === 'local' ? 5000 : 10000;
+            AppRoot.tryGet()?.startupLoading?.clearSlowLoading();
+            const timeoutMs = 30000;
             const requestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
             this._gameplayLoadRequestVersion = requestVersion;
             this._levelDataLoadStopped = false;
-            const handler = () => {
-                this._loadingWatchdogHandler = null;
-                if (requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
-                if (this._levelDataLoadStopped || !this.isValid) return;
-                this.stopLevelDataLoadWithFatalError?.(
-                    Math.max(1, Math.floor(Number(levelId) || 1)),
-                    String(levelPath || `level_${levelId}`),
-                    'level_data_load_timeout',
-                    source === 'local' ? 'local_load_timeout' : 'remote_load_timeout',
-                    `${source} gameplay startup exceeded ${timeoutMs}ms`,
-                    { timeoutMs, loadSource: source },
-                );
+            const context = {
+                levelId: Math.max(1, Math.floor(Number(levelId) || 1)),
+                levelPath: String(levelPath || `level_${levelId}`),
+                source,
+                timeoutMs,
+                requestVersion,
+                progressSeq: 0,
+                lastProgressStage: 'load-start',
             };
-            this._loadingWatchdogHandler = handler;
-            this.scheduleOnce(handler, timeoutMs / 1000);
+            this._loadingWatchdogContext = context;
+            this.armGameplayLoadingWatchdog(context);
         },
 
-        setLoadingActionButtonsInteractable(interactable: boolean) {
-            const roots = [
-                this._loadingSlowActions,
-                this._remoteLoadErrorOverlay?.getChildByName('RemoteLoadFatalErrorCard') || null,
-            ];
-            for (const root of roots) {
-                if (!root?.isValid) continue;
-                for (const name of [
-                    'LoadingRetryButton',
-                    'LoadingBackButton',
-                    'RemoteLoadFatalErrorRetry',
-                    'RemoteLoadFatalErrorBack',
-                ]) {
-                    const button = root.getChildByName(name)?.getComponent(Button) || null;
-                    if (button) button.interactable = interactable;
-                }
+        noteGameplayLoadingProgress(stage: string) {
+            const previous = this._loadingWatchdogContext;
+            if (!previous || this._levelDataLoadStopped || !this.isValid) return;
+            if (previous.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+            AppRoot.tryGet()?.startupLoading?.clearSlowLoading();
+            if (this._loadingWatchdogHandler && typeof this.unschedule === 'function') {
+                this.unschedule(this._loadingWatchdogHandler);
             }
-        },
-
-        retryGameplayLoading(source: string = 'loading') {
-            if (this._loadingRouteActionInFlight) return;
-            const appRoot = AppRoot.tryGet();
-            if (!appRoot) {
-                this._setLoadingStatusText('重新加载失败，请返回首页');
-                return;
-            }
-            const pending = appRoot.session.pendingGameplayRequest;
-            const active = appRoot.session.activeGameplayContext;
-            const request = pending || active;
-            const levelId = Math.max(
-                1,
-                Math.floor(Number(request?.levelId || this._activePhysicalLevelId) || 1),
-            );
-            const entryMode = request?.entryMode
-                || (this._currentExternalLevelFilePath ? 'external' : 'main');
-            const prefix = String(request?.prefix || 'level_');
-            this._loadingRouteActionInFlight = true;
-            this._levelDataLoadStopped = true;
-            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
-            this.clearLoadingStageTimers();
-            this._stopLoadingShine();
-            this._setLoadingStatusText('正在重新加载…');
-            this.setLoadingActionButtonsInteractable(false);
-            AnalyticsMgr.inst.trackFunnelEvent({
-                eventName: 'loading_retry_clicked',
-                page: this.getAnalyticsPage?.() || 'level_game',
-                levelId,
-                source,
-                success: true,
-            });
-            AnalyticsMgr.inst.flushFunnelEvents();
-            appRoot.markGameRequested(levelId, prefix, entryMode, 'cover', 'loading-retry');
-            appRoot.router.toGame().catch((error) => {
-                if (!this.isValid) return;
-                this._loadingRouteActionInFlight = false;
-                this._levelDataLoadStopped = false;
-                this._setLoadingStatusText('重新加载失败，请返回首页');
-                this.setLoadingActionButtonsInteractable(true);
-                console.error('[LoadingOverlay] retry route failed:', error);
-            });
-        },
-
-        exitGameplayLoading(source: string = 'loading') {
-            if (this._loadingRouteActionInFlight) return;
-            const appRoot = AppRoot.tryGet();
-            if (!appRoot) return;
-            this._loadingRouteActionInFlight = true;
-            this._levelDataLoadStopped = true;
-            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
-            this.clearLoadingStageTimers();
-            this._stopLoadingShine();
-            this.setLoadingActionButtonsInteractable(false);
-            AnalyticsMgr.inst.trackFunnelEvent({
-                eventName: 'loading_back_clicked',
-                page: this.getAnalyticsPage?.() || 'level_game',
-                levelId: this.getAnalyticsLevelId?.() || 0,
-                source,
-                success: true,
-            });
-            AnalyticsMgr.inst.flushFunnelEvents();
-            appRoot.requestHomeRoute('loading-back', 'cover').catch((error) => {
-                if (!this.isValid) return;
-                this._loadingRouteActionInFlight = false;
-                this._levelDataLoadStopped = false;
-                this.setLoadingActionButtonsInteractable(true);
-                console.error('[LoadingOverlay] home route failed:', error);
-            });
+            const context = {
+                ...previous,
+                progressSeq: previous.progressSeq + 1,
+                lastProgressStage: String(stage || 'loading-progress'),
+            };
+            this._loadingWatchdogContext = context;
+            this.armGameplayLoadingWatchdog(context);
         },
 
         hideLoadingOverlayAfterGameplayReady() {
             this.setGameplayStartupRootVisible?.(true);
-            this.hideLoadingOverlay();
+            this.clearLoadingStageTimers();
+            const loading = AppRoot.tryGet()?.startupLoading;
+            if (loading?.node.active) loading.finishAfterDraw(() => this.hideLoadingOverlay());
+            else this.hideLoadingOverlay();
         },
 
-        /** 隐藏并销毁加载封面 */
         hideLoadingOverlay() {
-            if (this._loadingClosing) return;
             this.clearLoadingStageTimers();
             this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
-            const canvas = this.node?.scene?.getChildByName('Canvas') || null;
-            const bootRoot = canvas?.getChildByName('BootRoot')
-                || canvas?.getChildByName('ScreenRoot')?.getChildByName('BootRoot')
-                || null;
-            const authoredOverlay = bootRoot?.getChildByName('StartupLoadingUI') || null;
-            const overlay = this._loadingOverlay?.isValid
-                ? this._loadingOverlay
-                : (authoredOverlay?.isValid ? authoredOverlay : null);
-            if (this._loadingOwnerToken) {
-                this.releaseRuntimeOwner?.(this._loadingOwnerToken);
-                this._loadingOwnerToken = '';
-            }
+            AppRoot.tryGet()?.startupLoading?.hide();
+            if (this._loadingOwnerToken) this.releaseRuntimeOwner?.(this._loadingOwnerToken);
+            this._loadingOwnerToken = '';
             this.clearRuntimeOwners?.('loading');
-            if (!overlay) return;
-            this._loadingClosing = true;
-            const overlayVersion = this._loadingOverlayVersion || 0;
-            this._stopLoadingShine();
-            this._loadingOverlayVersion = overlayVersion + 1;
-            const blocker = overlay.getComponent(BlockInputEvents);
-            if (blocker) blocker.enabled = false;
-            if ((overlay as any).__uiCreatedByRuntime) {
-                overlay.destroy();
-            } else {
-                overlay.active = false;
-            }
             this._loadingOverlay = null;
-            this._loadingProgressFill = null;
-            this._loadingProgressFillNode = null;
-            this._loadingProgressGroup = null;
-            this._loadingSlowActions = null;
-            this._loadingProgressLabel = null;
-            this._loadingProgressLabelShadow = null;
-            this._loadingShine = null;
-            this._loadingProgress = 0;
-            this._loadingProgressPercent = 0;
-            this._loadingRouteActionInFlight = false;
             this._loadingClosing = false;
         },
     });

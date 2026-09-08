@@ -15,7 +15,7 @@ const gameRuntime = read('assets/Scripts/Core/GameSceneRuntimeController.ts');
 const conveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const gameScene = JSON.parse(read('assets/BootstrapBundle/Scenes/Game.scene'));
 const rainbowFrame = (name) => JSON.parse(
-    read(`assets/BootstrapBundle/GameUI/RainbowConveyor/${name}.meta`),
+    read(`assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/ConveyorSmall/${name}.meta`),
 ).subMetas.f9941.uuid;
 const bootstrapFrame = (name) => JSON.parse(
     read(`assets/BootstrapBundle/GameUI/${name}.meta`),
@@ -109,9 +109,8 @@ assert.ok(
         && normalConveyor?._active === true
         && normalConveyor?._lpos.y === -355.636
         && normalConveyor?._lscale.x === 1
-        && compactConveyor?._lpos.y === -365.169
-        && compactConveyor?._lscale.x === 0.72,
-    'Game.scene must own the conveyor root and both complete layout transforms',
+        && compactConveyor === undefined,
+    'Game.scene must own the active Normal layout without unused Compact resources',
 );
 const typeTwoParts = [
     ['BottomStraight', 686.94, 107, 3.47, -102, 'conveyor_4.png', 1],
@@ -259,7 +258,6 @@ const validateConveyorLayout = (layout, tableType) => {
     );
 };
 validateConveyorLayout(normalConveyor, 2);
-validateConveyorLayout(compactConveyor, 3);
 assert.ok(
     sceneDescendants(conveyorRoot).every((node) => !sceneComponent(node, 'cc.Graphics')),
     'both conveyor layouts must provide complete fixed Sprite/Label/Button nodes without serialized Graphics fallbacks',
@@ -290,7 +288,7 @@ assert.ok(
         && !gameplayView.includes("this.getGameplayBottomHudChild('SlotAreaGroup')")
         && conveyor.includes("this.requireConveyorNode(fixedRoot, 'PchConveyorRoot'")
         && conveyor.includes('const normalLayout = this.bindConveyorLayout')
-        && conveyor.includes('const compactLayout = this.bindConveyorLayout')
+        && !conveyor.includes('this.compactLayout')
         && conveyor.includes('const availableCarriers = this.getOrderedConveyorCarriers(this.carrierLayer)')
         && conveyor.includes('let carrier = availableCarriers[carrierIndex]')
         && conveyor.includes('this.resetConveyorCarrier(carrier)')
@@ -395,14 +393,13 @@ assert.ok(
     conveyor.includes('[-219, -99], [390, -96], [390, 104.2], [152, 104.2]')
         && conveyor.includes('[-327, -159], [447, -162], [447, 161], [263, 161], [264, 50]')
         && conveyor.includes('normalLayout.node.active = true;')
-        && conveyor.includes('compactLayout.node.active = false;')
+        && !conveyor.includes('compactLayout.node')
         && conveyor.includes('const activeLayout = normalLayout;')
         && conveyor.includes('this.prepareBeltPath(2);')
         && !conveyor.includes('useCompactLayout')
         && conveyor.includes('direction.active = stack.length === 0')
         && conveyor.includes('direction.angle = sample.angle')
-        && normalConveyor?._lpos.y === -355.636
-        && compactConveyor?._lpos.y === -365.169,
+        && normalConveyor?._lpos.y === -355.636,
     'the scene-owned conveyor states must use the exact source paths, empty directions, and proven vertical layouts',
 );
 console.log('gameplay-layout-parity.test.js passed');

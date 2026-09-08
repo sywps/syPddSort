@@ -327,9 +327,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this._guideTargetFeedbackNode = null;
             this.destroyGuideFeedbackNode?.(this._guideDimMaskNode || null);
             this._guideDimMaskNode = null;
-            this.destroyGuideFeedbackNode?.(this._guideDemoAssistNode || null);
-            this._guideDemoAssistNode = null;
-            this._guideDemoPlayingUntil = 0;
             const transientNodes = Array.isArray(this._guideTransientFeedbackNodes)
                 ? [...this._guideTransientFeedbackNodes]
                 : [];
@@ -525,113 +522,6 @@ export function installGuideLeaderboardModule(target: any): void {
                     this.destroyGuideFeedbackNode?.(path);
                 })
                 .start();
-        },
-
-        isGuideDemoTouchTarget(target: Node | null): boolean {
-            let current = target;
-            while (current?.isValid) {
-                if (current.name === 'GuideDemoAssist' || current.name === 'GuideDemoButton') return true;
-                if (current === this._guideLayer) break;
-                current = current.parent;
-            }
-            return false;
-        },
-
-        showGuideDemoAssist(): boolean {
-            if (this._guideStep < 0 || !this._guideLayer?.isValid || this._guideInputSuspended) return false;
-            if (this._guideDemoAssistNode?.isValid) {
-                this._guideDemoAssistNode.active = true;
-                return true;
-            }
-            const assist = this.instantiateGuideAuthoredTemplate('GuideDemoAssistTemplate', 'GuideDemoAssist');
-            const buttonNode = assist.getChildByName('GuideDemoButton');
-            const button = buttonNode?.getComponent(Button) || null;
-            const label = buttonNode?.getChildByName('GuideDemoButtonLabel')?.getComponent(Label) || null;
-            const assistUT = assist.getComponent(UITransform);
-            const layerUT = this._guideLayer.getComponent(UITransform);
-            if (!buttonNode?.isValid || !button || !label || !assistUT || !layerUT) {
-                assist.destroy();
-                throw new Error('[guide-feedback] GuideDemoAssistTemplate is incomplete');
-            }
-            const bubble = this._guideBubble as Node | null;
-            const bubbleUT = bubble?.getComponent(UITransform) || null;
-            let desiredX = 0;
-            let desiredY = assist.position.y;
-            if (bubble?.isValid && bubbleUT) {
-                const promptHeight = Math.max(1, Number(this.getGuidePromptVisualHeight?.(bubble)) || 116);
-                const bubbleBottomWorld = bubbleUT.convertToWorldSpaceAR(
-                    new Vec3(0, -promptHeight / 2, 0),
-                );
-                const bubbleBottom = layerUT.convertToNodeSpaceAR(bubbleBottomWorld);
-                desiredX = bubbleBottom.x;
-                desiredY = bubbleBottom.y - assistUT.contentSize.height / 2 - 12;
-                const targetBounds = this.getGuidePromptTargetBoundsForCurrentStep?.(bubble) || null;
-                if (targetBounds) {
-                    const targetCenter = this.convertGuideRootPointToLayer(
-                        new Vec3(targetBounds.centerX, targetBounds.centerY, 0),
-                    );
-                    const assistHalfW = assistUT.contentSize.width / 2;
-                    const assistHalfH = assistUT.contentSize.height / 2;
-                    const targetHalfW = Math.max(1, Number(targetBounds.width) || 0) / 2 + 18;
-                    const targetHalfH = Math.max(1, Number(targetBounds.height) || 0) / 2 + 18;
-                    const overlapsTarget = Math.abs(desiredX - targetCenter.x) < assistHalfW + targetHalfW
-                        && Math.abs(desiredY - targetCenter.y) < assistHalfH + targetHalfH;
-                    if (overlapsTarget) {
-                        const bubbleTopWorld = bubbleUT.convertToWorldSpaceAR(
-                            new Vec3(0, promptHeight / 2, 0),
-                        );
-                        const bubbleTop = layerUT.convertToNodeSpaceAR(bubbleTopWorld);
-                        desiredY = bubbleTop.y + assistHalfH + 12;
-                    }
-                }
-            }
-            const halfW = layerUT.contentSize.width / 2;
-            const halfH = layerUT.contentSize.height / 2;
-            desiredX = Math.max(-halfW + assistUT.contentSize.width / 2 + 12, Math.min(
-                desiredX,
-                halfW - assistUT.contentSize.width / 2 - 12,
-            ));
-            desiredY = Math.max(-halfH + assistUT.contentSize.height / 2 + 12, Math.min(
-                desiredY,
-                halfH - assistUT.contentSize.height / 2 - 12,
-            ));
-            assist.setPosition(desiredX, desiredY, 0);
-            assist.setSiblingIndex(this._guideLayer.children.length - 1);
-            const stopDemoTouch = (event: EventTouch) => {
-                event.propagationStopped = true;
-            };
-            buttonNode.on(Node.EventType.TOUCH_START, stopDemoTouch, this);
-            buttonNode.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                event.propagationStopped = true;
-                this.playGuideDemonstration?.();
-            }, this);
-            this._guideDemoAssistNode = assist;
-            return true;
-        },
-
-        playGuideDemonstration(): boolean {
-            if (!this._guideDemoAssistNode?.isValid || this._guideInputSuspended || this._guideStep < 0) return false;
-            const now = Date.now();
-            if (now < (Number(this._guideDemoPlayingUntil) || 0)) return false;
-            const buttonNode = this._guideDemoAssistNode.getChildByName('GuideDemoButton');
-            const button = buttonNode?.getComponent(Button) || null;
-            const label = buttonNode?.getChildByName('GuideDemoButtonLabel')?.getComponent(Label) || null;
-            if (!button || !label) return false;
-            const token = this.getGuideVisualToken();
-            this._guideDemoPlayingUntil = now + 1500;
-            button.interactable = false;
-            label.string = '演示中…';
-            this.showGuideTargetFeedback?.('reinforce', 1);
-            this.startGuideHandPulse?.(this._guideHand, 1);
-            this.playGuidePathHint?.(1, 'demo');
-            this.scheduleOnce?.(() => {
-                if (!this.isGuideVisualTokenCurrent?.(token)) return;
-                if (!button?.isValid || !label?.isValid) return;
-                button.interactable = true;
-                label.string = '演示一下';
-                this._guideDemoPlayingUntil = 0;
-            }, 1.5);
-            return true;
         },
 
         playGuideSuccessFeedback(): void {

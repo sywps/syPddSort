@@ -17,6 +17,8 @@ export type PixelPosterPreviewOptions = {
     padding?: number;
     maxCellSize?: number;
     cellGap?: number;
+    flatCells?: boolean;
+    reuseExisting?: boolean;
 };
 
 type GridBounds = {
@@ -99,6 +101,7 @@ function drawTinyCellBatches(
     contentW: number,
     contentH: number,
     resolveColor: (colorId: number) => Color,
+    flatCells: boolean = false,
 ): void {
     const batches = new Map<number, number[]>();
     for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
@@ -124,13 +127,17 @@ function drawTinyCellBatches(
             const end = Math.min(coords.length, start + PIXEL_PREVIEW_BATCH_CELL_LIMIT * 2);
             g.fillColor = resolveColor(colorId);
             for (let index = start; index < end; index += 2) {
-                g.roundRect(
-                    coords[index],
-                    coords[index + 1],
-                    cellSize + seamBleed,
-                    cellSize + seamBleed,
-                    radius,
-                );
+                if (flatCells) {
+                    g.rect(coords[index], coords[index + 1], cellSize + seamBleed, cellSize + seamBleed);
+                } else {
+                    g.roundRect(
+                        coords[index],
+                        coords[index + 1],
+                        cellSize + seamBleed,
+                        cellSize + seamBleed,
+                        radius,
+                    );
+                }
             }
             g.fill();
         }
@@ -150,10 +157,6 @@ export function renderPixelPosterPreview(
     if (!parent?.isValid || !correctArr || options.maxW <= 0 || options.maxH <= 0) return null;
 
     const name = options.name || 'PixelPosterPreview';
-    if (options.clearExisting !== false) {
-        parent.getChildByName(name)?.destroy();
-    }
-
     const mode = options.mode || 'poster';
     const cropToContent = options.cropToContent !== false;
     const bounds = getGridBounds(correctArr, cropToContent);
@@ -172,13 +175,24 @@ export function renderPixelPosterPreview(
     const contentW = renderCols * cellSize + Math.max(0, renderCols - 1) * gap;
     const contentH = renderRows * cellSize + Math.max(0, renderRows - 1) * gap;
 
-    const preview = new Node(name);
-    parent.addChild(preview);
+    const existingPreview = parent.getChildByName(name);
+    let preview: Node;
+    if (options.reuseExisting && existingPreview?.isValid) {
+        preview = existingPreview;
+        preview.active = true;
+    } else {
+        if (options.clearExisting !== false) {
+            existingPreview?.destroy();
+        }
+        preview = new Node(name);
+        parent.addChild(preview);
+    }
     preview.layer = parent.layer || Layers.Enum.UI_2D;
-    preview.addComponent(UITransform).setContentSize(options.maxW, options.maxH);
+    (preview.getComponent(UITransform) || preview.addComponent(UITransform)).setContentSize(options.maxW, options.maxH);
     preview.setPosition(options.offsetX || 0, options.offsetY || 0, 0);
 
-    const g = preview.addComponent(Graphics);
+    const g = preview.getComponent(Graphics) || preview.addComponent(Graphics);
+    g.clear();
     if (options.showBackground) {
         g.fillColor = new Color(255, 250, 241, mode === 'list' ? 150 : 210);
         g.roundRect(-options.maxW / 2, -options.maxH / 2, options.maxW, options.maxH, 12);
@@ -194,8 +208,8 @@ export function renderPixelPosterPreview(
         }
         return color;
     };
-    if (cellSize < 7) {
-        drawTinyCellBatches(g, correctArr, bounds, cellSize, gap, contentW, contentH, resolveColor);
+    if (options.flatCells || cellSize < 7) {
+        drawTinyCellBatches(g, correctArr, bounds, cellSize, gap, contentW, contentH, resolveColor, !!options.flatCells);
     } else {
         for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
             const row = correctArr[r] || [];

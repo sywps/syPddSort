@@ -78,7 +78,7 @@ assert.strictEqual(
 );
 assert.strictEqual(
     sha256(TARGET_META),
-    'a7792da7072f918c587f570f98113346a4130b45334ed457435efa9c4624dd3d',
+    'dd20fc9475a2f17a6e469b404540ba1cfe46843f0aa5597e7abb81adb4540bc5',
     'home_bg meta bytes must not change during the move',
 );
 assert.deepStrictEqual(

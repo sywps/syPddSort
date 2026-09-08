@@ -51,7 +51,7 @@ const gameCtrlState = read('assets/Scripts/Core/GameCtrlState.ts');
 const gameplaySession = read('assets/Scripts/Core/GameplaySessionController.ts');
 const pchConveyor = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const losePrefab = readJson('assets/GameAssetsBundle/UI/Prefabs/Panels/LosePanel.prefab');
-const adIconMeta = readJson('assets/BootstrapBundle/GameUI/popup_ad_play_icon.png.meta');
+const adIconMeta = readJson('assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_ad_play_icon.png.meta');
 
 const gameLose = extractMethod(settlement, "gameLose(reason: 'timeout' | 'buffer-full' = 'timeout')");
 assert.ok(
@@ -111,7 +111,9 @@ const runGameLose = new Function(
     'SySDKMgr',
     'PerformanceMgr',
     'AudioMgr',
-    `return function(reason = 'timeout') {${gameLose.slice(gameLoseBodyStart + 1, -1)}};`,
+    require('typescript').transpileModule(`function run(reason = 'timeout') {${gameLose.slice(gameLoseBodyStart + 1, -1)}}`, {
+        compilerOptions: { target: require('typescript').ScriptTarget.ES2020 },
+    }).outputText + '; return run;',
 )(
     {
         inst: {

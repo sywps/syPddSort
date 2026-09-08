@@ -37,8 +37,23 @@ function loadRendererRuntime() {
         constructor() {
             this.pendingRects = [];
             this.fills = [];
+            this.rectCalls = 0;
+            this.roundRectCalls = 0;
+            this.clearCalls = 0;
+        }
+        clear() {
+            this.pendingRects.length = 0;
+            this.fills.length = 0;
+            this.rectCalls = 0;
+            this.roundRectCalls = 0;
+            this.clearCalls += 1;
         }
         roundRect(...args) {
+            this.roundRectCalls += 1;
+            this.pendingRects.push(args);
+        }
+        rect(...args) {
+            this.rectCalls += 1;
             this.pendingRects.push(args);
         }
         fill() {
@@ -71,7 +86,7 @@ function loadRendererRuntime() {
             return this.components.get(ComponentType) || null;
         }
         getChildByName(name) {
-            return this.children.find((child) => child.name === name) || null;
+            return this.children.find((child) => child.name === name && child.isValid) || null;
         }
         setPosition(x, y, z) {
             this.position = { x, y, z };
@@ -120,8 +135,11 @@ assert.ok(renderer.includes('Math.max(0.5, size * 0.04)'), 'pixel cells must kee
 assert.ok(renderer.includes('PIXEL_PREVIEW_BATCH_CELL_LIMIT = 256'), 'tiny pixel previews must bound each merged Graphics submission');
 assert.ok(renderer.includes('function drawTinyCellBatches('), 'tiny pixel previews must merge cells instead of filling once per pixel');
 assert.ok(renderer.includes('const colorCache = new Map<number, Color>();'), 'preview colors must be reused instead of allocated once per pixel');
-assert.ok(renderer.includes('if (cellSize < 7)'), 'only visually tiny cells may use the simplified batched path');
+assert.ok(renderer.includes('cellSize < 7'), 'visually tiny default previews must keep using the simplified batched path');
 assert.ok(renderer.includes('start += PIXEL_PREVIEW_BATCH_CELL_LIMIT * 2'), 'large previews must split merged paths into bounded chunks');
+assert.ok(renderer.includes('options.flatCells || cellSize < 7'), 'flat collection cards must use the batched path at every cell size');
+assert.ok(renderer.includes('g.rect('), 'flat collection cards must use simple rectangles instead of rounded paths');
+assert.ok(renderer.includes('reuseExisting?: boolean;'), 'virtual collection cards must be able to reuse their existing Graphics node');
 
 const rendererRuntime = loadRendererRuntime();
 const previewParent = new rendererRuntime.Node('PreviewParent');
@@ -156,16 +174,69 @@ assert.deepStrictEqual(
     'a single-color preview must split large Graphics paths at the bounded batch size',
 );
 
+const roundedPreviewParent = new rendererRuntime.Node('RoundedPreviewParent');
+const roundedPreview = rendererRuntime.renderPixelPosterPreview(roundedPreviewParent, [[1]], {
+    maxW: 20,
+    maxH: 20,
+    padding: 0,
+    maxCellSize: 20,
+});
+const roundedPreviewGraphics = roundedPreview.getComponent(rendererRuntime.Graphics);
+assert.strictEqual(roundedPreviewGraphics.rectCalls, 0, 'default poster/list rendering must not switch to flat rectangles');
+assert.strictEqual(roundedPreviewGraphics.roundRectCalls, 2, 'default large cells must retain rounded body and highlight geometry');
+
+const flatPreviewParent = new rendererRuntime.Node('FlatPreviewParent');
+const flatPreview = rendererRuntime.renderPixelPosterPreview(flatPreviewParent, [[1, 2, 1]], {
+    maxW: 60,
+    maxH: 20,
+    padding: 0,
+    maxCellSize: 20,
+    flatCells: true,
+});
+const flatPreviewGraphics = flatPreview.getComponent(rendererRuntime.Graphics);
+assert.strictEqual(flatPreviewGraphics.roundRectCalls, 0, 'flat collection rendering must skip rounded body and highlight paths');
+assert.strictEqual(flatPreviewGraphics.rectCalls, 3, 'flat collection rendering must preserve every visible cell');
+assert.strictEqual(flatPreviewGraphics.fills.length, 2, 'flat cells must batch draw submissions by color');
+
+const reusablePreviewParent = new rendererRuntime.Node('ReusablePreviewParent');
+const reusablePreviewFirst = rendererRuntime.renderPixelPosterPreview(reusablePreviewParent, [[1]], {
+    maxW: 20,
+    maxH: 20,
+    padding: 0,
+    maxCellSize: 20,
+    flatCells: true,
+    reuseExisting: true,
+});
+const reusableGraphics = reusablePreviewFirst.getComponent(rendererRuntime.Graphics);
+const reusablePreviewSecond = rendererRuntime.renderPixelPosterPreview(reusablePreviewParent, [[1, 2]], {
+    maxW: 40,
+    maxH: 20,
+    padding: 0,
+    maxCellSize: 20,
+    flatCells: true,
+    reuseExisting: true,
+});
+assert.strictEqual(reusablePreviewSecond, reusablePreviewFirst, 'recycled cards must keep the same preview node');
+assert.strictEqual(reusablePreviewSecond.getComponent(rendererRuntime.Graphics), reusableGraphics, 'recycled cards must keep the same Graphics component');
+assert.strictEqual(reusablePreviewParent.children.filter((child) => child.isValid).length, 1, 'repeated virtual renders must not accumulate preview nodes');
+assert.strictEqual(reusableGraphics.rectCalls, 2, 'reused Graphics must be cleared before drawing the replacement grid');
+assert.strictEqual(reusableGraphics.clearCalls, 2, 'each render must clear the reusable Graphics exactly once');
+
 const collection = read('assets/Scripts/Core/GameCtrlModules/CollectionAvatarModule.ts');
 assert.ok(collection.includes("renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';"), 'collection module must import the shared pixel poster renderer');
 assert.ok(collection.includes('releasePixelPosterPreviewTree(oldScrollContent);'), 'collection module must release stale generated preview trees before rerendering');
 assert.ok(collection.includes("name: 'Preview'"), 'large pattern preview must render into the Preview node');
 assert.ok(collection.includes("name: usePrefabContainer ? 'PixelPosterPreview' : 'PixelPreview'"), 'card previews must render inside prefab PixelPreview containers when present');
 assert.ok(collection.includes("Math.min(renderW, renderH) >= 220 ? 'poster' : 'list'"), 'large home previews must use poster mode while small collection cards use list mode');
-assert.ok(collection.includes('options?: { grayscale?: boolean; maxCellSize?: number; padding?: number }'), 'card previews must allow callers to override fit sizing without duplicating render logic');
+assert.ok(collection.includes('flatCells?: boolean;'), 'card previews must expose an opt-in lightweight geometry mode');
+assert.ok(collection.includes('bindingToken?: string;'), 'card previews must expose an async binding guard for recycled cards');
+assert.ok(collection.includes('reuseExisting?: boolean;'), 'card previews must expose opt-in Graphics reuse');
 assert.ok(collection.includes("maxCellSize: options?.maxCellSize ?? (previewMode === 'poster' ? 32 : 24)"), 'collection cards must keep their default cell cap unless a caller opts into container fit');
 assert.ok(collection.includes("padding: options?.padding ?? (previewMode === 'poster' ? 8 : 10)"), 'collection cards must keep their default padding unless a caller opts into container fit');
 assert.ok(collection.includes('renderPixelPosterPreview(renderParent, correctArr'), 'collection preview methods must call the shared renderer');
+assert.ok(collection.includes('reuseExisting: true'), 'only virtual collection cards must opt into Graphics reuse');
+assert.ok(collection.includes('__collectionPreviewBindingToken !== options.bindingToken'), 'stale async level data must not draw into a recycled card');
+assert.ok(!collection.includes("getChildByName('PixelPosterPreview')?.destroy()"), 'virtual card rebinding must not destroy its reusable preview node');
 
 const collectionGuide = read('assets/Scripts/Core/GameCtrlModules/CollectionGuideModule.ts');
 assert.ok(collectionGuide.includes('this.drawBeanPreviewGrid(card, data.correctColorArr'), 'collection detail preview must route through drawBeanPreviewGrid');

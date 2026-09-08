@@ -136,13 +136,11 @@ export class CommercePanelController {
         const toolBuyBtn = runtime.requirePanelChild(box, 'AcquireBuyBtn');
         const toolAdBtn = runtime.requirePanelChild(box, 'AcquireAdBtn');
         const goldAdBtn = runtime.requirePanelChild(box, 'AcquireGoldAdBtn');
-        const cancelBtn = runtime.requirePanelChild(box, 'AcquireCancelBtn');
         const isGold = options.variant === 'gold';
         goldDesc.active = isGold;
         toolBuyBtn.active = !isGold;
         toolAdBtn.active = !isGold;
         goldAdBtn.active = isGold;
-        cancelBtn.active = false;
         this.setAcquireInsufficientGoldTipActive(box, false);
 
         if (isGold) {
@@ -364,10 +362,6 @@ export class CommercePanelController {
                     };
                     const requestPanelClose = () => {
                         const transaction = panelTransaction();
-                        if (transaction?.phase === 'recoverable') {
-                            runtime.showToast?.('奖励确认中，请稍后');
-                            return;
-                        }
                         if (transaction?.phase === 'grant') {
                             runtime.cancelRewardedGrantInteraction?.('resource-acquire-grant-cancel');
                             closePanel();
@@ -396,7 +390,6 @@ export class CommercePanelController {
                     const buyBtn = runtime.requirePanelChild(box, 'AcquireBuyBtn');
                     const adBtn = runtime.requirePanelChild(box, 'AcquireAdBtn');
                     const goldAdBtn = runtime.requirePanelChild(box, 'AcquireGoldAdBtn');
-                    const cancelBtn = runtime.requirePanelChild(box, 'AcquireCancelBtn');
                     const activeAdBtn = options.variant === 'gold' ? goldAdBtn : adBtn;
                     const activeAdLabelName = options.variant === 'gold' ? 'AcquireGoldAdLbl' : 'AcquireAdLbl';
                     const activeAdIconName = options.variant === 'gold' ? 'AcquireGoldAdIcon' : 'AcquireAdIcon';
@@ -404,7 +397,7 @@ export class CommercePanelController {
                     const activeAdButton = activeAdBtn.getComponent(Button) || activeAdBtn.addComponent(Button);
                     const buyButton = buyBtn.getComponent(Button) || buyBtn.addComponent(Button);
                     let adGrantSucceeded = false;
-                    let adFailureLabel = '看广告领取';
+                    let adFailureLabel = '免费';
 
                     const setAdSpinnerActive = (active: boolean) => {
                         Tween.stopAllByTarget(activeAdIcon);
@@ -417,17 +410,10 @@ export class CommercePanelController {
                         }
                     };
                     stopAdSpinner = () => setAdSpinnerActive(false);
-                    const setCancelAction = (active: boolean, text: string = '') => {
-                        cancelBtn.active = active;
-                        if (active) {
-                            this.setAcquireLabelText(cancelBtn, 'AcquireCancelLbl', text);
-                        }
-                    };
                     const setAdPanelState = (
                         text: string,
                         busy: boolean,
                         spinning: boolean,
-                        cancelText: string = '',
                     ) => {
                         if (closed) return;
                         if (overlay?.isValid) overlay.active = true;
@@ -436,16 +422,14 @@ export class CommercePanelController {
                         activeAdButton.interactable = !busy;
                         buyButton.interactable = !busy;
                         setAdSpinnerActive(spinning);
-                        setCancelAction(!!cancelText, cancelText);
                     };
                     const hidePanelForNativeAd = () => {
                         if (closed) return;
                         stopAdSpinner();
-                        setCancelAction(false);
                         endAcquireModalFocus();
                         if (overlay?.isValid) overlay.active = false;
                     };
-                    setAdPanelState('看广告领取', false, false);
+                    setAdPanelState('免费', false, false);
 
                     if (options.onBuy && options.buyLabel) {
                         runtime.bindPanelButton(buyBtn, () => {
@@ -460,32 +444,11 @@ export class CommercePanelController {
                         });
                     }
 
-                    runtime.bindPanelButton(cancelBtn, () => {
-                        const transaction = panelTransaction();
-                        if (!transaction) {
-                            setCancelAction(false);
-                            return;
-                        }
-                        if (transaction.phase === 'recoverable') {
-                            runtime.showToast?.('奖励确认中，请稍后');
-                            return;
-                        }
-                        adFailureLabel = transaction.phase === 'recoverable_endable'
-                            ? '重新加载广告'
-                            : '看广告领取';
-                        runtime.cancelRewardedGrantInteraction?.(
-                            transaction.phase === 'recoverable_endable'
-                                ? 'resource-acquire-end-wait'
-                                : 'resource-acquire-cancel',
-                        );
-                        setAdPanelState(adFailureLabel, false, false);
-                    });
-
                     this.bindAcquireButton(activeAdBtn, () => {
                         if (runtime._adShowing || panelTransaction()) return;
                         AudioMgr.inst.play('button');
                         adGrantSucceeded = false;
-                        adFailureLabel = '看广告领取';
+                        adFailureLabel = '免费';
                         const started = runtime.runRewardedGrant(options.adType, () => {
                             return Promise.resolve(options.onAdGrant()).then((grantResult) => {
                                 if (grantResult !== false) {
@@ -496,17 +459,10 @@ export class CommercePanelController {
                             });
                         }, {
                             busyFlag: '_adShowing',
-                            suppressPendingStrip: true,
                             successToast: options.successToast,
                             grantFailToast: options.grantFailToast,
                             onInteractionStarted: hidePanelForNativeAd,
                             onAdShown: hidePanelForNativeAd,
-                            onRecoverable: () => {
-                                setAdPanelState('正在确认结果…', true, true);
-                            },
-                            onRecoverableEndable: () => {
-                                setAdPanelState('正在确认结果…', true, true, '结束等待');
-                            },
                             onAdComplete: (success: boolean, outcome: any) => {
                                 if (success) {
                                     adFailureLabel = '重新领取';

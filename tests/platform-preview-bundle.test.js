@@ -11,6 +11,8 @@ const buildWechat = fs.readFileSync(path.join(root, 'scripts/build-wechat.js'), 
 assert.strictEqual(previewMeta.userData?.isBundle, true, 'Preview assets must live in a dedicated Cocos Asset Bundle');
 assert.strictEqual(previewMeta.userData?.bundleName, 'preview', 'Preview bundle name must be stable');
 assert.ok(previewController.includes("from '../Scripts/Core/GameRuntimeHost'"), 'Preview controller must keep using the real runtime host in editor/plain web');
+assert.ok(previewController.includes("AppRoot.ensure('Game')"), 'standalone Preview must create the shared Loading owner before use');
+assert.ok(previewController.includes('await runtime.showLoadingOverlay()'), 'Preview timers must wait for the shared Loading assets');
 assert.ok(!buildConfig.includes("root: 'db://assets/PreviewBundle'"), 'default WeChat builds must not output PreviewBundle');
 assert.ok(buildWechat.includes("assertRuntimeLocalBundleAbsent(runtimeDir, 'preview'"), 'WeChat build must reject PreviewBundle artifacts');
 assert.ok(buildWechat.includes("['PreviewController', 'UIPreview', 'Panel Preview', 'Fx Preview']"), 'WeChat build must reject preview code symbols');

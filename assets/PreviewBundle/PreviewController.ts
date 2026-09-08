@@ -2,6 +2,7 @@ import { _decorator, assetManager, Button, Label, Node, ResolutionPolicy, SceneA
 import { GameRuntimeHost } from '../Scripts/Core/GameRuntimeHost';
 import { ECONOMY_NUMERIC_TABLE } from '../Scripts/Core/EconomyConfig';
 import { HOME_ASSETS_BUNDLE_NAME, LOCAL_BOOTSTRAP_BUNDLE_NAME } from '../Scripts/Core/PackageNames';
+import { AppRoot } from '../Scripts/Core/AppRoot';
 
 const { ccclass } = _decorator;
 
@@ -305,10 +306,18 @@ export class PreviewController extends GameRuntimeHost {
         };
     }
 
-    private playLoadingPreview() {
+    private async playLoadingPreview() {
         const runtime = this as any;
         runtime.hideLoadingOverlay?.();
-        runtime.showLoadingOverlay?.();
+        AppRoot.ensure('Game');
+        try {
+            await runtime.showLoadingOverlay();
+        } catch (error) {
+            console.error('[Preview] startup Loading failed:', error);
+            if (this.node?.isValid) runtime.showRemoteLoadFatalError('startup', 'startup_failed', String(error));
+            return;
+        }
+        if (!this.node?.isValid) return;
         runtime._setLoadingProgress?.(0, 0);
         const steps = [0.16, 0.42, 0.73, 1];
         steps.forEach((progress, index) => {

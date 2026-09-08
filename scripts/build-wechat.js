@@ -788,7 +788,7 @@ assertRuntimeLocalBundleAbsent(runtimeDir, 'preview', 'PreviewBundle 只属于�
 assertRuntimeTextAbsent(runtimeDir, ['PreviewController', 'UIPreview', 'Panel Preview', 'Fx Preview'], '微信包不应包含 Preview 代码或场景');
 assertRuntimeBundleConfig(runtimeInfo.mainDir, 'cocosCore/main', [], startSceneUrl);
 assertRuntimeBundleNoDeps(runtimeInfo.mainDir, 'cocosCore/main', ['bootstrap', 'homeAssets', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas', 'GameUI/block_bright_pindd'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
+assertRuntimeBundleConfig(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['LevelData/level_1', 'Beans/bean-atlas', 'GameUI/Atlases/BoardEffects/block_bright_pindd/spriteFrame'], 'db://assets/BootstrapBundle/Scenes/Game.scene');
 assertRuntimeJsonArtifactContainsAll(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', [
     'TutorialGuideHands',
     'GuideHandSingle',
@@ -798,7 +798,22 @@ assertRuntimeJsonArtifactContainsAll(runtimeInfo.bootstrapDir, 'gameEntry/bootst
 assertRuntimeBundleNoDeps(runtimeInfo.bootstrapDir, 'gameEntry/bootstrap', ['homeAssets', 'gameAssets']);
 assertRuntimeBundleConfig(runtimeInfo.homeAssetsDir, 'homeAssets', [], 'db://assets/HomeAssetsBundle/Scenes/Home.scene');
 assertRuntimeBundleNoDeps(runtimeInfo.homeAssetsDir, 'home/homeAssets', ['bootstrap', 'gameAssets']);
-assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', [], '');
+assertRuntimeBundleConfig(runtimeInfo.gameAssetsDir, 'gameAssets', [
+    'BeanSkins/bean-skins',
+    'BeanSkins/icons/bean_skin_01/spriteFrame',
+    'BeanSkins/icons/bean_skin_02/spriteFrame',
+    'BeanSkins/icons/bean_skin_03/spriteFrame',
+    'BeanSkins/icons/bean_skin_04/spriteFrame',
+    'BeanSkins/icons/bean_skin_05/spriteFrame',
+    'BeanSkins/skin_02/bean-atlas-data',
+    'BeanSkins/skin_02/bean-atlas',
+    'BeanSkins/skin_03/bean-atlas-data',
+    'BeanSkins/skin_03/bean-atlas',
+    'BeanSkins/skin_04/bean-atlas-data',
+    'BeanSkins/skin_04/bean-atlas',
+    'BeanSkins/skin_05/bean-atlas-data',
+    'BeanSkins/skin_05/bean-atlas',
+], '');
 assertRuntimeBundleNoPath(runtimeInfo.gameAssetsDir, 'gameplay/gameAssets', 'Textures/UI/block_bright_pindd');
 assertRuntimeBundleNoPathPrefix(runtimeInfo.gameAssetsDir, 'gameAssets', 'Skins/');
 assertRuntimeBundleNoSourceArtifacts(runtimeInfo.gameAssetsDir, 'gameAssets', path.join(projectDir, 'assets', 'GameAssetsBundle', 'Skins'), 'GameAssetsBundle/Skins 本地镜像');

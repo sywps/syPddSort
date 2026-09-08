@@ -244,7 +244,7 @@ export function installThemePanelFlowModule(target: any): void {
             this._collectionOverlay = null;
             this._collectionContentNode = null;
             this._collectionScrollContentNode = null;
-            this._collectionPreviewItems = [];
+            this.clearCollectionVirtualState?.();
             this._collectionPreviewRowPitch = 0;
             this._collectionPageIndicator = null;
             this._collectionScrollDragging = false;

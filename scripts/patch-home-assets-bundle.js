@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const {
     collectSourceBundleArtifacts,
+    findAutoAtlasRemovableNativeUuids,
+    findAutoAtlasStandaloneSources,
     findNativeArtifact,
     importArtifactPath,
 } = require('./bundle-artifact-utils.js');
@@ -168,14 +170,26 @@ function removeReleaseSkinMirrorArtifacts(bundleDir, artifacts) {
     return removed.size;
 }
 
+function removeAutoAtlasNativeArtifacts(bundleDir, uuids) {
+    const removed = new Set();
+    for (const uuid of uuids) removeNativeArtifacts(bundleDir, uuid, removed);
+    return removed.size;
+}
+
 const bundleDir = resolveBundleDir();
 if (!sourceRoot) fail('不支持的 bundle: ' + bundleName);
 if (!fs.existsSync(bundleDir)) fail('未找到 ' + bundleName + ' 分包目录: ' + bundleDir);
 
 const sourceArtifacts = collectSourceBundleArtifacts(sourceRoot, sourceBundleDirName, fail);
-const skippedArtifacts = sourceArtifacts.filter(isReleaseSkinMirrorArtifact);
+const config = readJson(path.join(bundleDir, 'config.json'));
+const autoAtlasStandaloneSources = findAutoAtlasStandaloneSources(config, sourceArtifacts);
+const autoAtlasRemovableNativeUuids = findAutoAtlasRemovableNativeUuids(config, sourceArtifacts);
+const skippedAutoAtlasArtifacts = sourceArtifacts.filter((artifact) => autoAtlasStandaloneSources.has(artifact.source));
+const patchCandidates = sourceArtifacts.filter((artifact) => !autoAtlasStandaloneSources.has(artifact.source));
+const removedAutoAtlasNative = removeAutoAtlasNativeArtifacts(bundleDir, autoAtlasRemovableNativeUuids);
+const skippedArtifacts = patchCandidates.filter(isReleaseSkinMirrorArtifact);
 const removedReleaseSkinMirror = removeReleaseSkinMirrorArtifacts(bundleDir, skippedArtifacts);
-const artifacts = sourceArtifacts.filter((artifact) => !isReleaseSkinMirrorArtifact(artifact));
+const artifacts = patchCandidates.filter((artifact) => !isReleaseSkinMirrorArtifact(artifact));
 const copiedImports = new Set();
 const copiedNative = new Set();
 for (const artifact of artifacts) {
@@ -186,4 +200,4 @@ for (const artifact of artifacts) {
 }
 
 const skipped = sourceArtifacts.length - artifacts.length;
-console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}${skipped ? `, skippedSkinMirror=${skipped}, removedSkinMirror=${removedReleaseSkinMirror}` : ''}`);
+console.log(`[${bundleName}] artifacts patched: imports=${copiedImports.size}, native=${copiedNative.size}, checked=${artifacts.length}${skippedAutoAtlasArtifacts.length ? `, skippedAutoAtlas=${skippedAutoAtlasArtifacts.length}, removedAutoAtlasNative=${removedAutoAtlasNative}` : ''}${skippedArtifacts.length ? `, skippedSkinMirror=${skippedArtifacts.length}, removedSkinMirror=${removedReleaseSkinMirror}` : ''}${skipped ? `, skippedTotal=${skipped}` : ''}`);

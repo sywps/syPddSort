@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
-import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
+import { getWeChatMiniGameRuntime, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { collectActiveBlockInputEvents, debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { markStartupTrace } from '../StartupTrace';
@@ -40,6 +40,19 @@ import { director, Director } from 'cc';
 
 const FIRST_LEVEL_RELEASE_DIAGNOSTIC_EVENT_LIMIT = 18;
 const FIRST_LEVEL_RELEASE_CAPTURE_EVENT_LIMIT = 3;
+
+function getRenderReadyAtlasImageAsset(texture: Texture2D | null): ImageAsset | null {
+    if (!texture?.isValid) return null;
+    try {
+        const imageAsset = texture.image;
+        if (!imageAsset?.isValid) return null;
+        const width = Number(imageAsset.width || (imageAsset as any)?.image?.width || 0);
+        const height = Number(imageAsset.height || (imageAsset as any)?.image?.height || 0);
+        return width > 0 && height > 0 ? imageAsset : null;
+    } catch (_) {
+        return null;
+    }
+}
 
 export function installFirstLevelRouteModule(target: any): void {
     Object.assign(target, {
@@ -864,6 +877,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     sourceEvent: eventName,
                 });
             }
+            if (success) this.noteGameplayLoadingProgress?.(eventName);
             const logArgs = [`[LevelDataLoad] ${eventName}`, diagnostics];
             if (success) runtimeLog(...logArgs);
             else console.error(...logArgs);
@@ -940,32 +954,34 @@ export function installFirstLevelRouteModule(target: any): void {
             card.active = true;
 
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorHint', true);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorDetail', false);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRetry', true);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorBack', true);
-            const retryNode = this.requireUiChild(
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRestart', true);
+            const restartNode = this.requireUiChild(
                 card,
-                'RemoteLoadFatalErrorRetry',
-                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorRetry',
+                'RemoteLoadFatalErrorRestart',
+                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorRestart',
             );
-            const backNode = this.requireUiChild(
-                card,
-                'RemoteLoadFatalErrorBack',
-                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorBack',
-            );
-            const retryButton = retryNode.getComponent(Button);
-            const backButton = backNode.getComponent(Button);
-            if (!retryButton || !backButton) {
-                throw new Error('[SceneUI] RemoteLoadFatalError recovery actions are missing Button components');
+            const restartButton = restartNode.getComponent(Button);
+            if (!restartButton) {
+                throw new Error('[SceneUI] RemoteLoadFatalError restart action is missing a Button component');
             }
-            retryButton.interactable = true;
-            backButton.interactable = true;
-            retryNode.targetOff(this);
-            retryNode.on(Button.EventType.CLICK, () => this.retryGameplayLoading?.('fatal-error'), this);
-            backNode.targetOff(this);
-            backNode.on(Button.EventType.CLICK, () => this.exitGameplayLoading?.('fatal-error'), this);
+            restartButton.interactable = true;
+            restartNode.targetOff(this);
+            restartNode.on(Button.EventType.CLICK, () => this.restartGameFromRemoteLoadFatalError(), this);
+        },
+
+        restartGameFromRemoteLoadFatalError(): void {
+            const wxRuntime = getWeChatMiniGameRuntime();
+            if (wxRuntime && typeof wxRuntime.restartMiniProgram === 'function') {
+                wxRuntime.restartMiniProgram();
+                return;
+            }
+            if (sys.isBrowser && typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+                window.location.reload();
+                return;
+            }
+            game.restart();
         },
 
         setRemoteLoadFatalChildActive(parent: Node, name: string, active: boolean): void {
@@ -1139,7 +1155,9 @@ export function installFirstLevelRouteModule(target: any): void {
             // 只有 raw pdd.level > 1 才不阻塞启动；raw pdd.level 为 null 时不能写入默认第 1 关。
             // - 纯新用户：云端返回空数据，继续进第一关
             // - 删小程序的老用户：云端有存档，恢复到上次进度
+            AppRoot.tryGet()?.startupLoading?.setStage('正在恢复游戏进度…');
             const restoreStatus = await this.restoreUserStateFromCloud(hadLocalUserState);
+            AppRoot.tryGet()?.startupLoading?.setStage('正在准备关卡…');
             const defaultEntryLevel = urlLevel > 0 || urlLevelFile
                 ? initialDefaultEntryLevel
                 : this.getDefaultEntryLevel();
@@ -1378,10 +1396,17 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         _hasBeanAtlasReadyForLevelData(data: LevelData): boolean {
+            if (typeof this.hasEquippedBeanSkinFramesForLevelData === 'function') {
+                return this.hasEquippedBeanSkinFramesForLevelData(data);
+            }
             return this._hasBootstrapAtlasFramesForLevelData(data);
         },
 
         _ensureBeanAtlasLoadedForLevelData(data: LevelData, onDone?: () => void) {
+            if (typeof this.ensureEquippedBeanSkinLoadedForLevelData === 'function') {
+                this.ensureEquippedBeanSkinLoadedForLevelData(data, onDone || (() => {}));
+                return;
+            }
             this._ensureBootstrapBeanAtlasLoaded(onDone);
         },
 
@@ -1471,8 +1496,9 @@ export function installFirstLevelRouteModule(target: any): void {
                 }
                 bundle.load(spriteFrameCandidates[index], SpriteFrame, (err, spriteFrame) => {
                     const texture = spriteFrame?.texture as Texture2D | null;
-                    if (!err && texture) {
-                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
+                    const imageAsset = getRenderReadyAtlasImageAsset(texture);
+                    if (!err && spriteFrame?.isValid && texture && imageAsset) {
+                        callback(null, texture, { releaseMode: 'asset', imageAsset });
                         return;
                     }
                     trySpriteFrame(index + 1);
@@ -1485,8 +1511,9 @@ export function installFirstLevelRouteModule(target: any): void {
                     return;
                 }
                 bundle.load(textureCandidates[index], Texture2D, (err, texture) => {
-                    if (!err && texture) {
-                        callback(null, texture, { releaseMode: 'asset', imageAsset: null });
+                    const imageAsset = getRenderReadyAtlasImageAsset(texture);
+                    if (!err && texture?.isValid && imageAsset) {
+                        callback(null, texture, { releaseMode: 'asset', imageAsset });
                         return;
                     }
                     tryTexture(index + 1);
@@ -1499,11 +1526,15 @@ export function installFirstLevelRouteModule(target: any): void {
                     return;
                 }
                 bundle.load(imageCandidates[index], ImageAsset, (err, imgAsset) => {
-                    if (!err && imgAsset) {
+                    if (!err && imgAsset?.isValid) {
                         const texture = new Texture2D();
                         texture.image = imgAsset;
-                        callback(null, texture, { releaseMode: 'dynamic', imageAsset: imgAsset });
-                        return;
+                        const imageAsset = getRenderReadyAtlasImageAsset(texture);
+                        if (imageAsset) {
+                            callback(null, texture, { releaseMode: 'dynamic', imageAsset });
+                            return;
+                        }
+                        texture.destroy();
                     }
                     tryImageAsset(index + 1);
                 });

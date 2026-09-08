@@ -33,6 +33,9 @@ import { ensureCollectionPanelController } from '../Panels/CollectionPanelContro
 import { releasePixelPosterPreviewTree, renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
 
+const COLLECTION_PREVIEW_SETTLE_DELAY_SECONDS = 0.08;
+const COLLECTION_PREVIEW_CACHE_MAX_ENTRIES = 54;
+
 export function isCollectionEntryUnlocked(unlockLevel: number, savedLevel: number): boolean {
     const completedLevel = Math.max(0, savedLevel - 1);
     return unlockLevel <= completedLevel;
@@ -47,6 +50,84 @@ export function isCollectionEntryUnlockedForProgress(
         return completedThemeLevelIds.has(entry.levelId);
     }
     return isCollectionEntryUnlocked(entry.unlockLevel, savedLevel);
+}
+
+export type CollectionVirtualWindow = {
+    firstRow: number;
+    lastRow: number;
+    firstIndex: number;
+    lastIndexExclusive: number;
+    poolSize: number;
+};
+
+export function resolveCollectionVirtualWindow(
+    entryCount: number,
+    columnCount: number,
+    viewH: number,
+    rowPitch: number,
+    startY: number,
+    contentY: number,
+    bufferRows: number,
+): CollectionVirtualWindow {
+    const resolvedEntryCount = Math.max(0, Math.floor(Number(entryCount) || 0));
+    const resolvedColumnCount = Math.max(1, Math.floor(Number(columnCount) || 0));
+    const resolvedViewH = Math.max(1, Number(viewH) || 1);
+    const resolvedRowPitch = Math.max(1, Number(rowPitch) || 1);
+    const resolvedBufferRows = Math.max(0, Math.floor(Number(bufferRows) || 0));
+    const rowCount = Math.ceil(resolvedEntryCount / resolvedColumnCount);
+    if (rowCount < 1) {
+        return { firstRow: 0, lastRow: -1, firstIndex: 0, lastIndexExclusive: 0, poolSize: 0 };
+    }
+
+    const bufferPx = resolvedRowPitch * resolvedBufferRows;
+    const minY = -resolvedViewH / 2 - bufferPx - contentY;
+    const maxY = resolvedViewH / 2 + bufferPx - contentY;
+    const firstRow = Math.max(0, Math.min(
+        rowCount - 1,
+        Math.ceil((startY - maxY) / resolvedRowPitch),
+    ));
+    const lastRow = Math.max(firstRow, Math.min(
+        rowCount - 1,
+        Math.floor((startY - minY) / resolvedRowPitch),
+    ));
+    const poolRows = Math.min(
+        rowCount,
+        Math.ceil(resolvedViewH / resolvedRowPitch) + resolvedBufferRows * 2 + 2,
+    );
+    return {
+        firstRow,
+        lastRow,
+        firstIndex: firstRow * resolvedColumnCount,
+        lastIndexExclusive: Math.min(resolvedEntryCount, (lastRow + 1) * resolvedColumnCount),
+        poolSize: Math.min(resolvedEntryCount, poolRows * resolvedColumnCount),
+    };
+}
+
+export function readCollectionPreviewGridCache(
+    cache: Map<string, number[][]>,
+    key: string,
+): number[][] | null {
+    const grid = cache.get(key);
+    if (!grid) return null;
+    cache.delete(key);
+    cache.set(key, grid);
+    return grid;
+}
+
+export function rememberCollectionPreviewGrid(
+    cache: Map<string, number[][]>,
+    key: string,
+    grid: number[][],
+    maxEntries: number,
+): void {
+    cache.delete(key);
+    cache.set(key, grid);
+    const limit = Math.max(1, Math.floor(Number(maxEntries) || 1));
+    while (cache.size > limit) {
+        const oldestKey = cache.keys().next().value as string | undefined;
+        if (!oldestKey) break;
+        cache.delete(oldestKey);
+    }
 }
 
 function getRankTextColor(rank: number): Color {
@@ -493,6 +574,22 @@ export function installCollectionAvatarModule(target: any): void {
             return ensureCollectionPanelController(this).open();
         },
 
+        clearCollectionVirtualState() {
+            const state = this._collectionVirtualState as any;
+            if (state?.previewFlushCallback) {
+                this.unschedule(state.previewFlushCallback);
+                state.previewFlushCallback = null;
+            }
+            state?.previewLoadWaiters?.clear?.();
+            state?.previewGridCache?.clear?.();
+            for (const item of state?.pool || []) {
+                const card = item?.card;
+                if (card?.isValid) (card as any).__collectionPreviewBindingToken = '';
+            }
+            this._collectionVirtualState = null;
+            this._collectionPreviewItems = [];
+        },
+
         renderCollectionScroll(contentNode?: Node) {
             const viewport = contentNode || this._collectionContentNode;
             if (!viewport) return null;
@@ -514,6 +611,7 @@ export function installCollectionAvatarModule(target: any): void {
                 throw new Error('[collection-scroll] missing CollectionCardSlot_0 template');
             }
 
+            this.clearCollectionVirtualState();
             const oldScrollContent = viewport.getChildByName('CollectionScrollContent');
             if (oldScrollContent) {
                 releasePixelPosterPreviewTree(oldScrollContent);
@@ -575,38 +673,57 @@ export function installCollectionAvatarModule(target: any): void {
             this._collectionPreviewRowPitch = rowPitch;
             this._collectionPreviewBufferRows = 2;
 
-            for (let idx = 0; idx < allEntries.length; idx++) {
+            this._collectionVirtualGeneration = Math.max(0, Number(this._collectionVirtualGeneration) || 0) + 1;
+            const initialWindow = resolveCollectionVirtualWindow(
+                allEntries.length,
+                columnCount,
+                viewportH,
+                rowPitch,
+                startY,
+                0,
+                this._collectionPreviewBufferRows,
+            );
+            const pool: Array<any> = [];
+            for (let idx = 0; idx < initialWindow.poolSize; idx++) {
                 const slot = instantiate(template);
-                const entry = allEntries[idx];
-                const levelId = entry.levelId;
-                const row = Math.floor(idx / columnCount);
-                const col = idx % columnCount;
-                const unlocked = isCollectionEntryUnlockedForProgress(entry, savedLevel, completedThemeLevelIds);
-                slot.name = `CollectionCardSlotItem_${idx}`;
-                slot.active = true;
+                slot.name = `CollectionCardPool_${idx}`;
+                slot.active = false;
                 slot.layer = scrollContent.layer;
                 scrollContent.addChild(slot);
-                slot.setPosition(columnXs[col], startY - row * rowPitch, 0);
-                const previewInfo = this.drawCollectionCard(slot, levelId, 0, 0, 0, 0, unlocked, savedLevel, {
-                    deferPreview: true,
-                    lockedPreviewGrayscale: true,
-                    prefix: entry.prefix,
-                });
-                this._collectionPreviewItems.push({
+                pool.push({
                     slot,
-                    levelId,
-                    prefix: entry.prefix,
-                    row,
-                    unlocked,
-                    rendered: false,
-                    card: previewInfo?.card || slot.getChildByName('Card'),
-                    previewX: previewInfo?.previewX ?? 0,
-                    previewY: previewInfo?.previewY ?? 0,
-                    previewW: previewInfo?.previewW ?? Math.max(1, templateUi.width - 24),
-                    previewH: previewInfo?.previewH ?? Math.max(1, templateUi.height - 74),
-                    grayscale: !unlocked,
+                    card: null,
+                    entryIndex: -1,
+                    bindingToken: '',
+                    previewRequest: null,
+                    previewRequested: false,
                 });
             }
+
+            this._collectionVirtualState = {
+                viewport,
+                content: scrollContent,
+                entries: allEntries,
+                savedLevel,
+                completedThemeLevelIds,
+                columnXs,
+                columnCount,
+                rowPitch,
+                startY,
+                viewH: viewportH,
+                bufferRows: this._collectionPreviewBufferRows,
+                generation: this._collectionVirtualGeneration,
+                bindingSerial: 0,
+                pool,
+                previewGridCache: new Map<string, number[][]>(),
+                previewLoadWaiters: new Map<string, Array<(grid: number[][] | null) => void>>(),
+                previewCacheLimit: Math.max(
+                    initialWindow.poolSize,
+                    Math.min(COLLECTION_PREVIEW_CACHE_MAX_ENTRIES, initialWindow.poolSize * 3),
+                ),
+                previewFlushCallback: null,
+            };
+            this._collectionPreviewItems = pool;
 
             this._collectionContentNode = viewport;
             this._collectionScrollContentNode = scrollContent;
@@ -617,34 +734,109 @@ export function installCollectionAvatarModule(target: any): void {
             return scrollContent;
         },
 
-        renderCollectionVisiblePreviews(viewport?: Node, content?: Node, viewH?: number, rowPitch?: number, bufferRows: number = 2) {
+        renderCollectionVisiblePreviews(
+            viewport?: Node,
+            content?: Node,
+            viewH?: number,
+            rowPitch?: number,
+            bufferRows: number = 2,
+            deferPreviewLoad: boolean = false,
+        ) {
             const resolvedViewport = viewport || this._collectionContentNode;
             const resolvedContent = content || this._collectionScrollContentNode;
-            const items = this._collectionPreviewItems as Array<any>;
-            if (!resolvedViewport || !resolvedContent || !Array.isArray(items) || items.length === 0) return;
+            const state = this._collectionVirtualState as any;
+            if (!resolvedViewport || !resolvedContent || !state
+                || state.viewport !== resolvedViewport || state.content !== resolvedContent) return;
+            const items = state.pool as Array<any>;
+            if (!Array.isArray(items) || items.length === 0) return;
             const viewportUi = resolvedViewport.getComponent(UITransform);
             const resolvedViewH = Math.max(1, viewH || viewportUi?.height || viewportUi?.contentSize.height || 1);
             const resolvedRowPitch = Math.max(1, rowPitch || this._collectionPreviewRowPitch || 1);
             const resolvedBufferRows = Math.max(0, Math.floor(Number(bufferRows) || 0));
-            const bufferPx = resolvedRowPitch * resolvedBufferRows;
-            const minY = -resolvedViewH / 2 - bufferPx - resolvedContent.position.y;
-            const maxY = resolvedViewH / 2 + bufferPx - resolvedContent.position.y;
+            const virtualWindow = resolveCollectionVirtualWindow(
+                state.entries.length,
+                state.columnCount,
+                resolvedViewH,
+                resolvedRowPitch,
+                state.startY,
+                resolvedContent.position.y,
+                resolvedBufferRows,
+            );
 
-            for (const item of items) {
-                if (!item || item.rendered || !item.slot?.isValid || !item.card?.isValid) continue;
-                const slotY = item.slot.position.y;
-                if (slotY < minY || slotY > maxY) continue;
-                item.rendered = true;
+            const activePoolIndices = new Set<number>();
+            for (let entryIndex = virtualWindow.firstIndex;
+                entryIndex < virtualWindow.lastIndexExclusive;
+                entryIndex += 1) {
+                const poolIndex = entryIndex % items.length;
+                activePoolIndices.add(poolIndex);
+                const item = items[poolIndex];
+                if (!item?.slot?.isValid) continue;
+                const entry = state.entries[entryIndex] as LevelCollectionEntry;
+                const row = Math.floor(entryIndex / state.columnCount);
+                const col = entryIndex % state.columnCount;
+                item.slot.setPosition(state.columnXs[col], state.startY - row * state.rowPitch, 0);
+                if (item.entryIndex !== entryIndex || !item.slot.active) {
+                    const unlocked = isCollectionEntryUnlockedForProgress(entry, state.savedLevel, state.completedThemeLevelIds);
+                    item.slot.name = `CollectionCardSlotItem_${entryIndex}`;
+                    item.slot.active = true;
+                    const previewInfo = this.drawCollectionCard(item.slot, entry.levelId, 0, 0, 0, 0, unlocked, state.savedLevel, {
+                        deferPreview: true,
+                        lockedPreviewGrayscale: true,
+                        prefix: entry.prefix,
+                    });
+                    const card = previewInfo?.card || item.slot.getChildByName('Card');
+                    if (!card?.isValid) {
+                        throw new Error('[collection-card] virtual card binding failed');
+                    }
+                    const previewNode = card.getChildByName('PixelPreview')?.getChildByName('PixelPosterPreview');
+                    previewNode?.getComponent(Graphics)?.clear();
+                    if (previewNode?.isValid) previewNode.active = false;
+                    const bindingToken = `${state.generation}:${++state.bindingSerial}:${entry.prefix}${entry.levelId}`;
+                    (card as any).__collectionPreviewBindingToken = bindingToken;
+                    item.card = card;
+                    item.entryIndex = entryIndex;
+                    item.bindingToken = bindingToken;
+                    item.previewRequested = false;
+                    item.previewRequest = {
+                        levelId: entry.levelId,
+                        prefix: entry.prefix,
+                        previewX: previewInfo?.previewX ?? 0,
+                        previewY: previewInfo?.previewY ?? 0,
+                        previewW: previewInfo?.previewW ?? 1,
+                        previewH: previewInfo?.previewH ?? 1,
+                        grayscale: !unlocked,
+                    };
+                }
+
+                const request = item.previewRequest;
+                if (deferPreviewLoad || item.previewRequested || !request || !item.card?.isValid) continue;
+                item.previewRequested = true;
                 this.drawCollectionPixelPreviewOnCard(
                     item.card,
-                    item.levelId,
-                    item.previewX,
-                    item.previewY,
-                    item.previewW,
-                    item.previewH,
-                    item.prefix,
-                    { grayscale: !!item.grayscale },
+                    request.levelId,
+                    request.previewX,
+                    request.previewY,
+                    request.previewW,
+                    request.previewH,
+                    request.prefix,
+                    {
+                        grayscale: request.grayscale,
+                        flatCells: true,
+                        bindingToken: item.bindingToken,
+                        reuseExisting: true,
+                    },
                 );
+            }
+            for (let poolIndex = 0; poolIndex < items.length; poolIndex += 1) {
+                if (activePoolIndices.has(poolIndex)) continue;
+                const item = items[poolIndex];
+                if (!item?.slot?.isValid) continue;
+                if (item.card?.isValid) (item.card as any).__collectionPreviewBindingToken = '';
+                item.entryIndex = -1;
+                item.bindingToken = '';
+                item.previewRequest = null;
+                item.previewRequested = false;
+                item.slot.active = false;
             }
         },
 
@@ -673,8 +865,24 @@ export function installCollectionAvatarModule(target: any): void {
             let velocity = 0;
             let dragging = false;
             let inertiaStep: ((dt: number) => void) | null = null;
+            const schedulePreviewFlush = () => {
+                const state = this._collectionVirtualState as any;
+                if (!state || state.viewport !== viewport || state.content !== content) return;
+                if (state.previewFlushCallback) {
+                    this.unschedule(state.previewFlushCallback);
+                }
+                const generation = state.generation;
+                const flush = () => {
+                    if (state.previewFlushCallback === flush) state.previewFlushCallback = null;
+                    if (this._collectionVirtualState !== state || state.generation !== generation) return;
+                    this.renderCollectionVisiblePreviews(viewport, content, viewH, rowPitch, 2, false);
+                };
+                state.previewFlushCallback = flush;
+                this.scheduleOnce(flush, COLLECTION_PREVIEW_SETTLE_DELAY_SECONDS);
+            };
             const renderPreviewWindow = () => {
-                this.renderCollectionVisiblePreviews(viewport, content, viewH, rowPitch, 2);
+                this.renderCollectionVisiblePreviews(viewport, content, viewH, rowPitch, 2, true);
+                schedulePreviewFlush();
             };
 
             const stopInertia = () => {
@@ -835,11 +1043,19 @@ export function installCollectionAvatarModule(target: any): void {
             maxW: number,
             maxH: number,
             prefix: string = 'level_',
-            options?: { grayscale?: boolean; maxCellSize?: number; padding?: number },
+            options?: {
+                grayscale?: boolean;
+                maxCellSize?: number;
+                padding?: number;
+                flatCells?: boolean;
+                bindingToken?: string;
+                reuseExisting?: boolean;
+            },
         ) {
-            this.loadLevelData(levelId, (data) => {
-                if (!data || !parent.isValid) return;
-                const correctArr = data.correctColorArr || [];
+            const renderGrid = (correctArr: number[][]) => {
+                if (!parent.isValid) return;
+                if (options?.bindingToken
+                    && (parent as any).__collectionPreviewBindingToken !== options.bindingToken) return;
                 const previewContainer = parent.getChildByName('PixelPreview');
                 const usePrefabContainer = !!previewContainer?.isValid && !previewContainer.getComponent(Graphics);
                 const renderParent = usePrefabContainer ? previewContainer : parent;
@@ -856,10 +1072,49 @@ export function installCollectionAvatarModule(target: any): void {
                     mode: previewMode,
                     cropToContent: true,
                     grayscale: !!options?.grayscale,
+                    flatCells: !!options?.flatCells,
+                    reuseExisting: !!options?.reuseExisting,
                     maxCellSize: options?.maxCellSize ?? (previewMode === 'poster' ? 32 : 24),
                     cellGap: 0,
                     padding: options?.padding ?? (previewMode === 'poster' ? 8 : 10),
                 });
+            };
+
+            const state = this._collectionVirtualState as any;
+            const cacheKey = `${prefix}${Math.max(1, Math.floor(Number(levelId) || 1))}`;
+            const useVirtualCache = !!options?.bindingToken
+                && state?.previewGridCache instanceof Map
+                && state?.previewLoadWaiters instanceof Map;
+            if (useVirtualCache) {
+                const cachedGrid = readCollectionPreviewGridCache(state.previewGridCache, cacheKey);
+                if (cachedGrid) {
+                    renderGrid(cachedGrid);
+                    return;
+                }
+                const renderWaiter = (grid: number[][] | null) => {
+                    if (grid) renderGrid(grid);
+                };
+                const pendingWaiters = state.previewLoadWaiters.get(cacheKey) as Array<(grid: number[][] | null) => void> | undefined;
+                if (pendingWaiters) {
+                    pendingWaiters.push(renderWaiter);
+                    return;
+                }
+                state.previewLoadWaiters.set(cacheKey, [renderWaiter]);
+                this.loadLevelData(levelId, (data) => {
+                    const waiters = (state.previewLoadWaiters.get(cacheKey) || []) as Array<(grid: number[][] | null) => void>;
+                    state.previewLoadWaiters.delete(cacheKey);
+                    const grid = data?.correctColorArr || null;
+                    if (grid && this._collectionVirtualState === state) {
+                        rememberCollectionPreviewGrid(state.previewGridCache, cacheKey, grid, state.previewCacheLimit);
+                    }
+                    for (const waiter of waiters) waiter(grid);
+                }, prefix);
+                return;
+            }
+
+            this.loadLevelData(levelId, (data) => {
+                if (!data) return;
+                renderGrid(data.correctColorArr || []);
             }, prefix);
         },
 

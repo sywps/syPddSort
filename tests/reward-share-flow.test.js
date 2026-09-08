@@ -112,8 +112,8 @@ async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
         updateWinRewardLabel(amount) {
             events.push(`label:${amount}`);
         },
-        playWinSettlementGoldFlyReward(amount) {
-            events.push(`fly:${amount}`);
+        syncWinSettlementGoldBox() {
+            events.push('sync');
         },
         showToast(text) {
             events.push(`toast:${text}`);
@@ -133,7 +133,7 @@ async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
     };
     loadSettlementInstaller()(runtime);
     runtime.updateWinRewardLabel = (amount) => events.push(`label:${amount}`);
-    runtime.playWinSettlementGoldFlyReward = (amount) => events.push(`fly:${amount}`);
+    runtime.syncWinSettlementGoldBox = () => events.push('sync');
 
     runtime.claimWinAdBonusReward();
     runtime.claimWinAdBonusReward();
@@ -147,7 +147,7 @@ async function testSettlementRewardedAdGrantsTrueFiveTimesTotal() {
     assert.strictEqual(runtime.gold, 100, '20 base gold plus the 80 ad bonus must total exactly 5x');
     assert.strictEqual(runtime._winAdRewardClaimed, true);
     assert.strictEqual(runtime._adShowing, false);
-    assert.deepStrictEqual(events, ['gold:80', 'label:100', 'fly:80']);
+    assert.deepStrictEqual(events, ['gold:80', 'label:100', 'sync']);
 
     runtime.claimWinAdBonusReward();
     await flushMicrotasks();
@@ -308,6 +308,46 @@ function testResultPanelsInstantiateOnlyForRequestedSettlementPath() {
     assert.deepStrictEqual(created, ['win', 'lose', 'revive', 'buffer-full'], 'all requested panels must reuse the already valid instances');
 }
 
+function testNextLevelRecoveryFailureReleasesTransition() {
+    let recoverOptions = null;
+    const events = [];
+    const runtime = {
+        _isThemeLevel: false,
+        _settlementNextTransitioning: false,
+        isGameEnd: false,
+        isValid: true,
+        levelData: { levelId: 4 },
+        panelWin: null,
+        unschedule() {},
+        unscheduleAllCallbacks() {},
+        stopPulseTweens() {},
+        clearDragNodes() {},
+        getActiveLogicalLevelId: () => 4,
+        saveLevelProgress(levelId) { events.push(['save', levelId]); },
+        costVigorForLevel() { return false; },
+        showNoLivesAdModal(options) { recoverOptions = options; },
+        getRuntimeSceneName: () => 'Game',
+        loadLevel(levelId) { events.push(['load', levelId]); },
+    };
+    loadSettlementInstaller()(runtime);
+    runtime.refreshWinAdBonusUI = () => events.push(['refresh']);
+    runtime.setWinPrimaryButtonInteractable = (interactable) => events.push(['interactable', interactable]);
+    runtime.stopPulseTweens = () => {};
+    runtime.clearDragNodes = () => {};
+
+    runtime.handleWinSettlementPrimaryAction();
+    assert.ok(recoverOptions, 'zero vigor must open recovery before the next level');
+    assert.strictEqual(runtime._settlementNextTransitioning, true);
+    recoverOptions.onResult({ status: 'failed' });
+    assert.strictEqual(runtime._settlementNextTransitioning, false, 'failed recovery must release the next-level lock');
+    assert.deepStrictEqual(
+        events.filter((event) => event[0] === 'interactable'),
+        [['interactable', false], ['interactable', true]],
+        'the primary button must disable while opening recovery and re-enable after failure',
+    );
+    assert.ok(!events.some((event) => event[0] === 'load'), 'failed recovery must not enter the next level');
+}
+
 async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     const timers = [];
     const events = [];
@@ -367,6 +407,9 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     const economySource = fs.readFileSync(path.join(root, 'assets/Scripts/Core/EconomyConfig.ts'), 'utf8');
     assert.ok(!settlementSource.includes('runShareGrant(WIN_BONUS_REWARD_GATE_PAGE'), 'settlement reward must not retain a randomized share branch');
     assert.ok(!settlementSource.includes('WIN_BONUS_SHARE_'), 'settlement reward must not retain share gate constants');
+    assert.ok(!settlementSource.includes('playWinSettlementGoldFlyReward'), 'win settlement must not create a flying-gold reward effect');
+    assert.ok(!settlementSource.includes('WinSettlementFlyingCoin'), 'win settlement must not create temporary flying coin nodes');
+    assert.ok(settlementSource.includes('this.syncWinSettlementGoldBox?.();'), 'rewarded settlement gold must refresh the top gold count immediately');
     assert.ok(economySource.includes('winTotalMultiplier: 5'), 'settlement economy must declare a true total multiplier');
     assert.ok(!economySource.includes('winBonusGold'), 'settlement economy must not retain a misleading fixed bonus');
 
@@ -375,6 +418,7 @@ async function testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim() {
     await testShareGrantWaitsForQualifiedReturn();
     await testShareReviveAnalyticsWaitsForActualGrant();
     testResultPanelsInstantiateOnlyForRequestedSettlementPath();
+    testNextLevelRecoveryFailureReleasesTransition();
     await testShareGrantDeadlineReleasesBusyAndQuarantinesLateClaim();
     console.log('reward-share-flow.test.js passed');
 })().catch((error) => {

@@ -8,7 +8,7 @@ import {
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, POPUP_UI_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES,
     RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
-    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, getLocalAtlasMemberRoute, isLocalAtlasMember, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
     SLOT_ROW_SPACING, SLOT_ROW_EMPTY_WIDTH, SLOT_ROW_EMPTY_HEIGHT, SLOT_AREA_CENTER_Y, SLOT_AREA_SCALE, DEFAULT_MAX_SLOT_ROWS, MAINLINE_MAX_SLOT_ROWS, MAINLINE_SLOT_ROW_BG_HEIGHT,
@@ -974,6 +974,10 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _getGameAssetsTextureCandidatePaths(imgName: string): string[] {
+            const atlasMemberPath = getLocalAtlasMemberRoute('gameAssets', imgName);
+            if (atlasMemberPath) {
+                return this._getSpriteFrameLoadCandidates(atlasMemberPath);
+            }
             return GAME_ASSETS_TEXTURE_SEARCH_DIRS.reduce<string[]>((paths, dir) => {
                 paths.push(...this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
                 return paths;
@@ -981,10 +985,13 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _getGameAssetsImageAssetCandidatePaths(imgName: string): string[] {
+            if (isLocalAtlasMember('gameAssets', imgName)) return [];
             return GAME_ASSETS_TEXTURE_SEARCH_DIRS.map((dir) => `${dir}/${imgName}`);
         },
 
         _getBootstrapTextureBaseCandidates(imgName: string): string[] {
+            const atlasMemberPath = getLocalAtlasMemberRoute('bootstrap', imgName);
+            if (atlasMemberPath) return [atlasMemberPath];
             const dirs = LOCAL_BOOTSTRAP_TEXTURE_NAMES.has(imgName)
                 ? ['GameUI', LOCAL_BOOTSTRAP_TEXTURE_DIR]
                 : [LOCAL_BOOTSTRAP_TEXTURE_DIR, 'GameUI'];
@@ -999,6 +1006,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _getBootstrapImageAssetCandidatePaths(imgName: string): string[] {
+            if (isLocalAtlasMember('bootstrap', imgName)) return [];
             return this._getBootstrapTextureBaseCandidates(imgName);
         },
 
@@ -1021,6 +1029,11 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _loadBootstrapImageSpriteFrame(bundle: Bundle, imgName: string, callback: (sf: SpriteFrame | null) => void) {
+            if (isLocalAtlasMember('bootstrap', imgName)) {
+                console.error(`[bootstrap] atlas SpriteFrame missing; ImageAsset fallback forbidden: ${imgName}`);
+                callback(null);
+                return;
+            }
             const candidates = this._getBootstrapImageAssetCandidatePaths(imgName);
             const tryLoad = (index: number) => {
                 if (index >= candidates.length) {
@@ -1564,6 +1577,11 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _loadGameAssetsImageSpriteFrame(bundle: Bundle, imgName: string, callback: (sf: SpriteFrame | null) => void) {
+            if (isLocalAtlasMember('gameAssets', imgName)) {
+                console.error(`[gameAssets] atlas SpriteFrame missing; ImageAsset fallback forbidden: ${imgName}`);
+                callback(null);
+                return;
+            }
             const candidates = this._getGameAssetsImageAssetCandidatePaths(imgName);
             const tryLoad = (index: number) => {
                 if (index >= candidates.length) {
@@ -2381,9 +2399,8 @@ export function installAssetBootstrapModule(target: any): void {
 
         getPinddColorKey(colorId: number): string | null {
             const safeColorId = this.normalizeBeanColorId(colorId);
-            if (safeColorId === null) return null;
-            const normalized = ((safeColorId - 1) % 21) + 1;
-            const n = normalized < 10 ? `00${normalized}` : normalized < 100 ? `0${normalized}` : `${normalized}`;
+            if (safeColorId === null || safeColorId > 20) return null;
+            const n = safeColorId < 10 ? `00${safeColorId}` : `0${safeColorId}`;
             return `b${n}`;
         },
 
@@ -2391,6 +2408,14 @@ export function installAssetBootstrapModule(target: any): void {
             const key = this.getPinddColorKey(colorId);
             if (!key) return null;
             const cacheKey = `${key}_${variant}`;
+            if (typeof this.getEquippedBeanSkinFrame === 'function') {
+                const equippedFrame = this.getEquippedBeanSkinFrame(cacheKey);
+                if (equippedFrame !== undefined) {
+                    if (equippedFrame) return equippedFrame;
+                    console.error('[bean-skin] required equipped SpriteFrame missing:', cacheKey);
+                    return null;
+                }
+            }
             const cached = this.getSF(cacheKey) || null;
             if (cached) return cached;
             const atlasFrame = this._bootstrapAtlasFrameCache.get(cacheKey) || null;
@@ -2765,6 +2790,13 @@ export function installAssetBootstrapModule(target: any): void {
                     equippedBackgroundSkinUpdatedAt: 0,
                     backgroundSkinResetVersion: 0,
                 };
+            const beanSkinState = typeof this.captureBeanSkinCloudState === 'function'
+                ? this.captureBeanSkinCloudState()
+                : {
+                    ownedBeanSkinIds: [2000],
+                    equippedBeanSkinId: 0,
+                    equippedBeanSkinUpdatedAt: 0,
+                };
             return {
                 savedLevel: this.getSavedLevel(),
                 vigor: this.getVigor(),
@@ -2785,6 +2817,11 @@ export function installAssetBootstrapModule(target: any): void {
                 equippedBackgroundSkinId: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinId) || 0)),
                 equippedBackgroundSkinUpdatedAt: Math.max(0, Math.floor(Number(backgroundSkinState.equippedBackgroundSkinUpdatedAt) || 0)),
                 backgroundSkinResetVersion: Math.max(0, Math.floor(Number(backgroundSkinState.backgroundSkinResetVersion) || 0)),
+                ownedBeanSkinIds: Array.isArray(beanSkinState.ownedBeanSkinIds)
+                    ? beanSkinState.ownedBeanSkinIds as number[]
+                    : [2000],
+                equippedBeanSkinId: Math.max(0, Math.floor(Number(beanSkinState.equippedBeanSkinId) || 0)),
+                equippedBeanSkinUpdatedAt: Math.max(0, Math.floor(Number(beanSkinState.equippedBeanSkinUpdatedAt) || 0)),
                 stateUpdatedAt: this.getLocalUserStateUpdatedAt(),
             };
         },
@@ -2934,6 +2971,9 @@ export function installAssetBootstrapModule(target: any): void {
             if (typeof this.applyBackgroundSkinCloudState === 'function') {
                 this.applyBackgroundSkinCloudState(gameState as any, !shouldSkipVolatileRestore);
             }
+            if (typeof this.applyBeanSkinCloudState === 'function') {
+                this.applyBeanSkinCloudState(gameState as any);
+            }
         
             const effectiveLevel = Math.max(localSavedLevel, cloudSavedLevel);
             if (effectiveLevel > 0 && (cloudSavedLevel > 0 || readStartupLocalProgress().hasStoredProgress)) {
@@ -3008,6 +3048,9 @@ export function installAssetBootstrapModule(target: any): void {
 
         applyAuthoritativeCloudUserStateFromSave(state: CloudUserState | null): void {
             const gameState = state?.gameState || null;
+            if (gameState && typeof this.applyBeanSkinCloudState === 'function') {
+                this.applyBeanSkinCloudState(gameState as any);
+            }
             this.applyPvpEconomySnapshot?.(gameState);
             if (gameState && typeof this.applyCloudBackgroundSkinState === 'function') {
                 this.applyCloudBackgroundSkinState(

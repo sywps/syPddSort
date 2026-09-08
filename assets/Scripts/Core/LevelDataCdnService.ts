@@ -1,4 +1,4 @@
-import { validateConveyorCapacity, validateHard, type LevelData } from './LevelConfig';
+import { validateAutoConveyorFinishSpeed, validateConveyorCapacity, validateHard, validateWinAdBonusEnabled, type LevelData } from './LevelConfig';
 import { getFrontLevelExperimentDiagnostics, resolveFrontLevelExperimentContext } from './LevelExperimentService';
 import { getMiniGameBuildPlatform, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 import {
@@ -583,6 +583,8 @@ export class LevelDataCdnService {
             }
             validateConveyorCapacity(entry.data.conveyorCapacity, key);
             validateHard(entry.data.Hard, key);
+            validateAutoConveyorFinishSpeed(entry.data.autoConveyorFinishSpeed, key);
+            validateWinAdBonusEnabled(entry.data.winAdBonusEnabled, key);
         }
         return pack;
     }

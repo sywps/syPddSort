@@ -10,8 +10,8 @@ const source = fs.readFileSync(
 
 assert.ok(
     source.includes('if (logicalLevelId === 1)')
-        && source.includes("? '点击白色豆豆\\n将它们放到传送带上'")
-        && source.includes(": '再点击蓝色豆豆\\n空出对应颜色的位置';")
+        && source.includes("? '点击白色豆豆\\n他们会自动放置到传送带上'")
+        && source.includes(": '点击蓝色豆豆\\n将白色的位置空出';")
         && source.includes('this.openingGuideLevelOneCells.length >= 2'),
     'mainline level 1 must retain the approved two-line color-specific copy',
 );
@@ -48,37 +48,47 @@ const openingGuideRootTapSource = source.slice(
 assert.ok(
     openingGuideRootTapSource.includes("guideName === 'PchLevelTwoSpeedGuide'")
         && openingGuideRootTapSource.includes('? this.speedButton')
-        && openingGuideRootTapSource.includes('this.onOpeningGuideDoubleSpeed(event);')
+        && openingGuideRootTapSource.includes('this.onOpeningGuideTripleSpeed(event);')
         && openingGuideRootTapSource.includes("guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null")
         && openingGuideRootTapSource.includes('bounds.contains(rawPos)')
         && !openingGuideRootTapSource.includes('normalizeGameplayUiPosition')
         && !openingGuideRootTapSource.includes('hitPositions'),
-    'locked opening-guide touches must use one Cocos UI position against the real 2X and AD +12 bounds',
+    'locked opening-guide touches must use one Cocos UI position against the real 3X and AD +12 bounds',
 );
 assert.ok(
     source.includes("logicalLevelId === 2 && this.speedButton?.isValid")
         && source.includes("'PchLevelTwoSpeedGuide'")
-        && source.includes("'点击开启两倍速'"),
-    'mainline level 2 must guide the 2x-speed button instead of capacity expansion',
+        && source.includes("'你可以调整传送带的速度'"),
+    'mainline level 2 must explain the adjustable conveyor speed while guiding the 3x-speed button',
 );
 assert.ok(
-    source.includes('this.setManualSpeedMultiplier(2);')
+    source.includes('this.setManualSpeedMultiplier(3);')
         && source.includes('this.refreshSpeedButtonState();')
         && source.includes('this.dismissOpeningGuide();'),
-    'the level-2 target tap must deterministically enable 2x speed before gameplay starts',
+    'the level-2 target tap must deterministically enable 3x speed before gameplay starts',
 );
 assert.ok(
     source.includes("logicalLevelId === 3 && this.adButton?.isValid")
         && source.includes("'PchLevelThreeCapacityGuide'")
-        && source.includes("'点击扩容按钮\\n增加12个位置'")
+        && source.includes("'点击扩容按钮\\n传送带容量增加12格'")
         && source.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
-        && source.includes('this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);'),
-    'mainline level 3 must retain its capacity guide while the dim mask remains exclusive to level 1',
+        && source.includes('this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);'),
+    'mainline level 3 must retain its capacity guide with a dedicated conveyor-and-button dim mask',
 );
 assert.strictEqual(
     (source.match(/this\.createOpeningGuideFocusMask\(parent, targetLocal, targetWidth, targetHeight\);/g) || []).length,
     1,
-    'levels 2 and 3 must not create the level-1-only dim mask',
+    'levels 2 and 3 must not create the level-1-only dual-focus dim mask',
+);
+assert.strictEqual(
+    (source.match(/this\.createOpeningGuideCapacityFocusMask\(parent, targetLocal, targetWidth, targetHeight\);/g) || []).length,
+    1,
+    'only level 3 must create the conveyor-and-capacity-button mask',
+);
+assert.strictEqual(
+    (source.match(/this\.createOpeningGuideSpeedFocusMask\(parent, targetLocal, targetWidth, targetHeight\);/g) || []).length,
+    1,
+    'only level 2 must create its separate single-focus speed-button mask',
 );
 assert.ok(
     source.includes('const expanded = this.expandCapacity();')

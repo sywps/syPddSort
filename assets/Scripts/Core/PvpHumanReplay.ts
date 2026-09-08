@@ -33,7 +33,7 @@ export class PvpHumanReplay {
 
     constructor(readonly level: LevelData) {
         this.board = new BoardModel(level);
-        this.rules = new PchConveyorRules(this.board, level.conveyorCapacity, level.singleSelectionLimit);
+        this.rules = new PchConveyorRules(this.board, level.conveyorCapacity, level.singleSelectionLimit, undefined, level.autoConveyorFinishSpeed);
         const cells: Cell[] = [];
         let total = 0;
         for (let row = 0; row < this.board.height; row++) for (let col = 0; col < this.board.width; col++) {

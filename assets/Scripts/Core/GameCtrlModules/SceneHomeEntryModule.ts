@@ -504,6 +504,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     this._currentExternalLevelFilePath = normalizedPath;
                     this._currentExternalLevelId = normalizedLevelId;
                     this._currentExternalLevelPrefix = isThemeLevel ? 'zt_level_' : 'level_';
+                    this.noteGameplayLoadingProgress?.('external-level-json-loaded');
                     this.openLocalLevelWithAssets(data, onInitialized);
                 })
                 .catch((err) => {
@@ -548,6 +549,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     levelPath,
                     sourceEvent: 'local_level_json_loaded',
                 });
+                this.noteGameplayLoadingProgress?.('local-level-json-loaded');
                 this.openLocalLevelWithAssets(data, undefined, activeLevelId, this.shouldUseLocalBootstrapBundle(levelId, prefix));
             }, prefix);
         },
@@ -587,6 +589,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     return;
                 }
                 beanReady = true;
+                this.noteGameplayLoadingProgress?.('bean-atlas-ready');
                 tryReady();
             });
             this.prepareCriticalUiTexturesForLevel(data, () => {
@@ -600,6 +603,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     return;
                 }
                 uiReady = true;
+                this.noteGameplayLoadingProgress?.('critical-ui-ready');
                 tryReady();
             }, { bootstrapOnly: bootstrapOnlyCriticalUi });
             this.prepareRequiredBoardEffectTextures((result) => {
@@ -612,6 +616,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     return;
                 }
                 boardEffectReady = true;
+                this.noteGameplayLoadingProgress?.('board-effects-ready');
                 tryReady();
             });
             if (!this._levelDataLoadStopped && this.isValid) {
@@ -810,6 +815,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         return;
                     }
                     boardEffectDone = true;
+                    this.noteGameplayLoadingProgress?.('board-effects-ready');
                     tryFinish();
                 }, bundle);
                 const handleLevelData = (data: LevelData | null, source: string, levelErr?: Error | null) => {
@@ -848,10 +854,12 @@ export function installSceneHomeEntryModule(target: any): void {
                             return;
                         }
                         criticalUiDone = true;
+                        this.noteGameplayLoadingProgress?.('critical-ui-ready');
                         tryFinish();
                     });
                     if (!this.needsBeanFramesForLevelData(levelData)) {
                         beanAssetsDone = true;
+                        this.noteGameplayLoadingProgress?.('bean-atlas-not-required');
                         if (!this._levelDataLoadStopped && this.isValid) {
                             this.scheduleRewardedAdPreload?.('late-loading:fast-game-assets-dispatched', 0);
                         }
@@ -865,6 +873,7 @@ export function installSceneHomeEntryModule(target: any): void {
                             return;
                         }
                         beanAssetsDone = true;
+                        this.noteGameplayLoadingProgress?.('bean-atlas-ready');
                         tryFinish();
                     });
                     if (!this._levelDataLoadStopped && this.isValid) {
@@ -916,6 +925,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     levelPath: `${LOCAL_BOOTSTRAP_LEVEL_DIR}/${prefix}${levelId}`,
                     sourceEvent: 'first_level_json_loaded',
                 });
+                this.noteGameplayLoadingProgress?.('first-level-json-loaded');
                 const levelPath = `${prefix}${levelId}`;
                 const requiredGameAssetsTextureNames = GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS
                     .map((path) => path.slice(path.lastIndexOf('/') + 1));
@@ -971,6 +981,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         return;
                     }
                     gameAssetsDone = true;
+                    this.noteGameplayLoadingProgress?.('game-assets-ui-ready');
                     tryInit();
                 };
                 const preloadRequiredGameAssetsTextures = () => {
@@ -1020,6 +1031,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         return;
                     }
                     beanDone = true;
+                    this.noteGameplayLoadingProgress?.('bean-atlas-ready');
                     tryInit();
                 });
                 this.prepareRequiredBoardEffectTextures((result) => {
@@ -1038,6 +1050,7 @@ export function installSceneHomeEntryModule(target: any): void {
                         return;
                     }
                     boardEffectDone = true;
+                    this.noteGameplayLoadingProgress?.('board-effects-ready');
                     tryInit();
                 });
                 const bootstrapTextureNames = Array.from(LOCAL_BOOTSTRAP_TEXTURE_NAMES);
@@ -1045,6 +1058,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     const allLoaded = bootstrapTextureNames.every((name) => this.sfCache.has(name));
                     if (allLoaded) {
                         uiDone = true;
+                        this.noteGameplayLoadingProgress?.('critical-ui-ready');
                         tryInit();
                     } else {
                         const missingTextureNames = bootstrapTextureNames.filter((name) => !this.sfCache.has(name));
@@ -1066,7 +1080,7 @@ export function installSceneHomeEntryModule(target: any): void {
                 }
                 requiredAssetRequestsDispatched = true;
                 tryInit();
-                // Bootstrap levels must not block first playable UI on gameAssets.
+                // Bootstrap levels must not block first playable UI on optional gameAssets texture prewarming.
             }, prefix);
         },
 
@@ -1135,6 +1149,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     return;
                 }
                 beanReady = true;
+                this.noteGameplayLoadingProgress?.('bean-atlas-ready');
                 tryReady();
             });
             this.prepareCriticalUiTexturesForLevel(data, () => {
@@ -1153,6 +1168,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     return;
                 }
                 uiReady = true;
+                this.noteGameplayLoadingProgress?.('critical-ui-ready');
                 tryReady();
             });
             this.prepareRequiredBoardEffectTextures((result) => {
@@ -1170,6 +1186,7 @@ export function installSceneHomeEntryModule(target: any): void {
                     return;
                 }
                 boardEffectReady = true;
+                this.noteGameplayLoadingProgress?.('board-effects-ready');
                 tryReady();
             }, bundle);
             if (!this._levelDataLoadStopped && this.isValid) {

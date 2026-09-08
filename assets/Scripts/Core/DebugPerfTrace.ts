@@ -288,6 +288,8 @@ export function debugPerfTrace(eventName: string, data: PlainRecord = {}): void 
         event: eventName,
         scene: director.getScene()?.name || '',
         mode: getMiniGameBuildMode(),
+        memoryScope: memory ? 'js_heap_only' : 'not_available',
+        fullProcessMemorySource: 'wechat_devtools_or_cloud_test',
         ...safeData,
     };
     if (memory) payload.memory = memory;

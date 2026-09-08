@@ -13,11 +13,11 @@ import {
     UserStateSyncMgr,
     view,
 } from './GameCtrlShared';
-import { ResolutionPolicy } from 'cc';
+import { Director, director, ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
 import { debugPerfFrameStep, debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
-import { markStartupTrace } from './StartupTrace';
+import { markStartupTrace, reportWeChatStartupPlayable } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
@@ -116,7 +116,13 @@ export class GameSceneRuntimeController {
             this.startBootSceneRuntime();
             return;
         }
-        this.startGameSceneRuntime();
+        void this.startGameSceneRuntime().catch((error) => {
+            console.error('[StartupLoading] game startup failed:', error);
+            if (!this.runtime.node?.isValid) return;
+            const loading = AppRoot.tryGet()?.startupLoading;
+            if (loading?.node.active) loading.fail('游戏初始化失败');
+            else this.runtime.showRemoteLoadFatalError('startup', 'startup_failed', String(error));
+        });
     }
 
     startHomeSceneRuntime(): void {
@@ -195,12 +201,13 @@ export class GameSceneRuntimeController {
         }, 0);
     }
 
-    startGameSceneRuntime(): void {
+    async startGameSceneRuntime(): Promise<void> {
         const previousSceneName = AppRoot.tryGet()?.session.currentSceneName || '';
         const appRoot = AppRoot.ensure('Game');
         debugPerfSnapshot('runtime.game.start', this.runtime, {
             previousSceneName,
         });
+        this.markGameFirstFrame(previousSceneName);
         let pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
         if (!pendingGameplayRequest) {
             const directPreviewRoute = resolveStartupRouteDecision();
@@ -242,7 +249,11 @@ export class GameSceneRuntimeController {
         if (pendingGameplayRequest) {
             this.primePendingGameplayShell(pendingGameplayRequest);
         }
-        this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
+        await this.bindExistingGameLoadingOverlay(!suppressGameplayEntryCover);
+        if (!this.runtime.node?.isValid) return;
+        if (!suppressGameplayEntryCover) {
+            this.runtime.scheduleRewardedAdPreload?.('loading:game-start', 0);
+        }
         appRoot.clearRouteCover(suppressGameplayEntryCover ? 'gameplay-entry-no-cover' : 'game-direct-start');
         appRoot.router.logTransitionTrace('[SceneSplitTrace] GameCtrl:skipRouteCover', {
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || 'auto',
@@ -257,7 +268,7 @@ export class GameSceneRuntimeController {
             entryCoverMode: pendingGameplayRequest?.entryCoverMode || '',
         });
         this.runtime.startRenderResourceDiagnostics?.('game-start');
-        void this.runtime.continueStartup();
+        await this.runtime.continueStartup();
     }
 
     private bindEarlyGameSettingsButton(): void {
@@ -283,176 +294,21 @@ export class GameSceneRuntimeController {
         }, this.runtime);
     }
 
-    private bindExistingGameLoadingOverlay(showOverlay: boolean = true): void {
-        const bootRoot = this.runtime.requireCanvasUiRoot('BootRoot');
-        const layer = this.runtime.requireUiChild(
-            bootRoot,
-            'StartupLoadingUI',
-            'BootRoot/StartupLoadingUI',
-        );
-        const layerUT = layer.getComponent(UITransform);
-        if (!layerUT) {
-            throw new Error('[GameScene] Game.scene is missing UITransform on BootRoot/StartupLoadingUI');
-        }
-        layer.active = showOverlay;
-        const blocker = layer.getComponent(BlockInputEvents) || layer.addComponent(BlockInputEvents);
-        blocker.enabled = showOverlay;
-        this.runtime._loadingOverlay = showOverlay ? layer : null;
-        this.runtime._loadingClosing = false;
-        if (showOverlay) {
-            const overlayVersion = (this.runtime._loadingOverlayVersion || 0) + 1;
-            this.runtime._loadingOverlayVersion = overlayVersion;
-            if (this.runtime._loadingOwnerToken) {
-                this.runtime.releaseRuntimeOwner?.(this.runtime._loadingOwnerToken);
-            }
-            this.runtime._loadingOwnerToken = this.runtime.acquireRuntimeOwner?.(
-                'loading',
-                `game-scene-${overlayVersion}`,
-            ) || '';
-            this.configureExistingGameLoadingOverlay(layer);
-            this.bindExistingGameLoadingProgress(layer, overlayVersion);
-            this.runtime.setGameplayStartupRootVisible?.(false);
-            this.promoteLoadingOverlayToFront(layer);
-        } else {
+    private async bindExistingGameLoadingOverlay(showOverlay: boolean = true): Promise<void> {
+        const appRoot = AppRoot.inst;
+        if (!showOverlay) {
+            appRoot.startupLoading?.hide();
             this.runtime.setGameplayStartupRootVisible?.(true);
+            return;
         }
-    }
-
-    private configureExistingGameLoadingOverlay(layer: Node): void {
-        const visibleSize = typeof this.runtime._getLoadingVisibleSize === 'function'
-            ? this.runtime._getLoadingVisibleSize()
-            : view.getVisibleSize();
-        const bleed = Math.max(0, Math.floor(Number(this.runtime.constructor.LOADING_COVER_BLEED) || 0));
-        const layerUT = layer.getComponent(UITransform);
-        if (!layerUT) {
-            throw new Error('[GameScene] Game.scene is missing UITransform on BootRoot/StartupLoadingUI');
-        }
-        layerUT.setContentSize(visibleSize.width, visibleSize.height);
-        layer.setPosition(0, 0, 0);
-
-        const cover = this.runtime.requireUiChild(layer, 'LoadingCover', 'StartupLoadingUI/LoadingCover');
-        const coverUT = cover.getComponent(UITransform);
-        if (!coverUT) {
-            throw new Error('[GameScene] Game.scene is missing UITransform on StartupLoadingUI/LoadingCover');
-        }
-        const coverSprite = cover.getComponent(Sprite);
-        if (!coverSprite) {
-            throw new Error('[GameScene] Game.scene is missing Sprite on StartupLoadingUI/LoadingCover');
-        }
-        if (!coverSprite.spriteFrame) {
-            const loadingCover = this.runtime.loadingCover || null;
-            if (!loadingCover) {
-                throw new Error('[GameScene] Game.scene LoadingCover SpriteFrame is missing and GameRuntimeHost.loadingCover is not assigned');
-            }
-            coverSprite.spriteFrame = loadingCover;
-        }
-        coverUT.setContentSize(
-            Math.ceil(visibleSize.width + bleed * 2),
-            Math.ceil(visibleSize.height + bleed * 2),
-        );
-        cover.setPosition(0, 0, 0);
-    }
-
-    private bindExistingGameLoadingProgress(layer: Node, overlayVersion: number): void {
-        const group = this.runtime.requireUiChild(
-            layer,
-            'LoadingProgressGroup',
-            'StartupLoadingUI/LoadingProgressGroup',
-        );
-        const labelNode = this.runtime.requireUiChild(
-            group,
-            'LoadingPercentLabel',
-            'LoadingProgressGroup/LoadingPercentLabel',
-        );
-        const label = labelNode.getComponent(Label);
-        if (!label) {
-            throw new Error('[GameScene] Game.scene is missing Label on LoadingProgressGroup/LoadingPercentLabel');
-        }
-        const shadowNode = group.getChildByName('LoadingPercentLabelShadow') || null;
-        const shadowLabel = shadowNode?.getComponent(Label) || null;
-        const slowActions = this.runtime.requireUiChild(
-            layer,
-            'LoadingSlowActions',
-            'StartupLoadingUI/LoadingSlowActions',
-        );
-        const retryNode = this.runtime.requireUiChild(
-            slowActions,
-            'LoadingRetryButton',
-            'LoadingSlowActions/LoadingRetryButton',
-        );
-        const backNode = this.runtime.requireUiChild(
-            slowActions,
-            'LoadingBackButton',
-            'LoadingSlowActions/LoadingBackButton',
-        );
-        const retryButton = retryNode.getComponent(Button);
-        const backButton = backNode.getComponent(Button);
-        if (!retryButton || !backButton) {
-            throw new Error('[GameScene] Game.scene loading slow actions are missing Button components');
-        }
-        retryNode.targetOff(this.runtime);
-        retryNode.on(Button.EventType.CLICK, () => this.runtime.retryGameplayLoading?.('slow-action'), this.runtime);
-        backNode.targetOff(this.runtime);
-        backNode.on(Button.EventType.CLICK, () => this.runtime.exitGameplayLoading?.('slow-action'), this.runtime);
-        group.active = false;
-        slowActions.active = false;
-        this.runtime._loadingProgressGroup = group;
-        this.runtime._loadingSlowActions = slowActions;
-        this.runtime._loadingProgressLabel = label;
-        this.runtime._loadingProgressLabelShadow = shadowLabel;
-        this.runtime._loadingProgressFill = this.createGameLoadingProgressAdapter(group);
-        this.runtime._loadingProgress = 0;
-        this.runtime._loadingProgressPercent = 0;
-        label.string = '正在准备关卡…';
-        if (shadowLabel) shadowLabel.string = label.string;
-        if (typeof this.runtime._startLoadingProgressIntro === 'function') {
-            this.runtime._startLoadingProgressIntro(overlayVersion);
-        }
-    }
-
-    private createGameLoadingProgressAdapter(group: Node): { progress: number } | null {
-        const fill = group.getChildByName('LoadingBarFill') || null;
-        const fillUT = fill?.getComponent(UITransform) || null;
-        if (!fill?.isValid || !fillUT) return null;
-        const fullWidth = Math.max(1, Math.floor(Number(fillUT.width) || 1));
-        const fullHeight = Math.max(1, Math.floor(Number(fillUT.height) || 1));
-        const track = group.getChildByName('LoadingBarTrack') || null;
-        const trackUT = track?.getComponent(UITransform) || null;
-        const highlight = fill.getChildByName('LoadingBarFillHighlight') || null;
-        const highlightUT = highlight?.getComponent(UITransform) || null;
-        const shine = fill.getChildByName('LoadingBarShine') || null;
-        const leftEdge = -fullWidth / 2;
-        this.runtime._loadingProgressFillNode = fill;
-        this.runtime._loadingProgressFullWidth = fullWidth;
-        this.runtime._loadingProgressFullHeight = fullHeight;
-        this.runtime._loadingProgressTrackWidth = Math.max(fullWidth, Number(trackUT?.width) || fullWidth);
-        this.runtime._loadingShine = shine;
-        let current = 0;
-        const apply = (value: number) => {
-            current = Math.max(0, Math.min(1, Number(value) || 0));
-            const width = Math.max(0, fullWidth * current);
-            fillUT.setContentSize(width, fullHeight);
-            fill.setPosition(leftEdge + width / 2, fill.position.y, fill.position.z);
-            if (highlightUT) {
-                highlightUT.setContentSize(width, highlightUT.height);
-            }
-            if (highlight?.isValid) {
-                highlight.setPosition(width / 2, highlight.position.y, highlight.position.z);
-            }
-            if (shine?.isValid) {
-                shine.active = current > 0.02 && current < 0.995;
-                shine.setPosition(width / 2, shine.position.y, shine.position.z);
-            }
-        };
-        const adapter: { progress: number } = {} as { progress: number };
-        Object.defineProperty(adapter, 'progress', {
-            get: () => current,
-            set: apply,
-            enumerable: true,
-            configurable: true,
-        });
-        apply(0);
-        return adapter;
+        this.runtime.setGameplayStartupRootVisible?.(false);
+        const loading = await appRoot.ensureStartupLoading();
+        if (!this.runtime.node?.isValid) { loading.hide(); return; }
+        if (!loading.node.active) loading.show('正在准备关卡…');
+        else loading.setStage('正在准备关卡…');
+        this.runtime._loadingOverlay = loading.node;
+        this.runtime._loadingClosing = false;
+        this.runtime._loadingOwnerToken = this.runtime.acquireRuntimeOwner?.('loading', 'startup') || '';
     }
 
     private primePendingGameplayShell(pending: PendingGameplayRequest): void {
@@ -494,18 +350,6 @@ export class GameSceneRuntimeController {
         });
     }
 
-    private promoteLoadingOverlayToFront(layer: Node | null): void {
-        const overlay = layer?.isValid ? layer : null;
-        const bootRoot = overlay?.parent?.isValid ? overlay.parent : null;
-        const canvas = bootRoot?.parent?.isValid ? bootRoot.parent : null;
-        if (bootRoot && canvas) {
-            bootRoot.setSiblingIndex(Math.max(0, canvas.children.length - 1));
-        }
-        if (overlay?.parent?.isValid) {
-            overlay.setSiblingIndex(Math.max(0, overlay.parent.children.length - 1));
-        }
-    }
-
     update(dt: number): void {
         debugPerfFrameStep(this.runtime, dt);
         this.runtime.vigorTick(dt);
@@ -514,6 +358,7 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
+        director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
         const sceneName = this.getRuntimeSceneName();
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
         this.runtime.cancelPendingShareReturn?.(`scene-destroy:${sceneName}`);
@@ -524,6 +369,7 @@ export class GameSceneRuntimeController {
             sceneName,
         });
         if (sceneName === 'Game') {
+            AppRoot.tryGet()?.startupLoading?.hide();
             AnalyticsMgr.inst.abandonActiveLevel({
                 gameplayStats: this.runtime._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
@@ -562,11 +408,51 @@ export class GameSceneRuntimeController {
         this.runtime.clearEffectPools();
         this.runtime.clearRuntimeOwners?.();
         this.runtime.cancelSpriteFrameLoadQueue?.(`runtime-destroy:${sceneName}`);
+        this.runtime.releaseBeanSkinRuntimeResources?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseBackgroundSkinCachedSpriteFrames?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
-        debugPerfTrace('runtime.destroy.after', {
+        debugPerfSnapshot('runtime.destroy.after', this.runtime, {
             sceneName,
         });
+    }
+
+    private markGameFirstFrame(previousSceneName: string): void {
+        if (isWeChatMiniGameRuntime()) {
+            director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+            director.on(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+        }
+        const report = () => {
+            if (!this.runtime.node?.isValid) return;
+            const renderFrame = Math.max(0, Number((director as any)?.getTotalFrames?.()) || 0);
+            markStartupTrace('startup_game_first_frame', {
+                previousSceneName,
+                renderFrame,
+            });
+            debugPerfSnapshot('runtime.game.firstFrame', this.runtime, {
+                previousSceneName,
+                renderFrame,
+            });
+        };
+        const afterDrawEvent = (Director as any)?.EVENT_AFTER_DRAW;
+        if (afterDrawEvent && typeof director?.once === 'function') {
+            director.once(afterDrawEvent, report, this.runtime);
+            return;
+        }
+        this.runtime.scheduleOnce(report, 0);
+    }
+
+    private reportStartupPlayableAfterDraw(): void {
+        if (!this.runtime.node?.isValid) {
+            director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+            return;
+        }
+        if (!this.runtime._pchConveyorGameplayController?.isStartupInteractionReady()
+            || this.runtime._loadingOverlay?.activeInHierarchy
+            || this.runtime._adShowing
+            || Number(this.runtime._modalFocusRefs) > 0
+            || this.runtime._placementInputLocked) return;
+        director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+        reportWeChatStartupPlayable(getWeChatMiniGameRuntime());
     }
 
     private prepareSceneFrame(sceneName: string = this.getRuntimeSceneName()): void {

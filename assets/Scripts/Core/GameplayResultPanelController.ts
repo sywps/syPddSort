@@ -23,7 +23,6 @@ import {
     sys,
     tween,
 } from './GameCtrlShared';
-import { AppRoot } from './AppRoot';
 import { isMiniGameRuntime } from './MiniGamePlatform';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 
@@ -285,7 +284,7 @@ export class GameplayResultPanelController {
         return RESULT_PANEL_KINDS.every((kind) => !!cache.get(kind));
     }
 
-    ensurePrefabsReady(onDone: () => void) {
+    ensurePrefabsReady(onDone: () => void, onError: (error: Error) => void = (error) => console.error('[result-panel] preload failed:', error)) {
         const runtime = this.runtime;
         if (!runtime?.isValid) {
             throw new Error('[result-panel] runtime is invalid before prefab load');
@@ -295,48 +294,151 @@ export class GameplayResultPanelController {
             onDone();
             return;
         }
+        const callback = (error?: Error) => error ? onError(error) : onDone();
         if (Array.isArray(runtime._gameplayResultPanelPrefabLoadCallbacks)) {
-            runtime._gameplayResultPanelPrefabLoadCallbacks.push(onDone);
+            runtime._gameplayResultPanelPrefabLoadCallbacks.push(callback);
             return;
         }
-        const loadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
-        runtime._gameplayResultPanelPrefabLoadSeq = loadSeq;
-        runtime._gameplayResultPanelPrefabLoadCallbacks = [onDone];
-        const fail = (error: Error): void => {
-            if (!this.isCurrentPrefabLoad(loadSeq)) {
-                return;
+        runtime._gameplayResultPanelPrefabLoadCallbacks = [callback];
+        let attempts = 0;
+        const startAttempt = () => {
+            attempts += 1;
+            const loadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
+            runtime._gameplayResultPanelPrefabLoadSeq = loadSeq;
+            let settled = false;
+            let timeout: ReturnType<typeof setTimeout>;
+            const complete = (error?: Error) => {
+                if (settled || !this.isCurrentPrefabLoad(loadSeq)) return;
+                settled = true;
+                clearTimeout(timeout);
+                if (error && attempts < 2) {
+                    startAttempt();
+                    return;
+                }
+                const callbacks = runtime._gameplayResultPanelPrefabLoadCallbacks || [];
+                runtime._gameplayResultPanelPrefabLoadCallbacks = null;
+                runtime._gameplayResultPanelPrefabLoadSeq = loadSeq + 1;
+                for (const notify of callbacks) {
+                    try { notify(error); } catch (callbackError) {
+                        console.error('[result-panel] completion callback failed:', callbackError);
+                    }
+                }
+            };
+            timeout = setTimeout(() => complete(new Error('[result-panel] prefab load timed out')), 5000);
+            const fail = (error: Error) => complete(error);
+            const flushCallbacks = () => complete();
+            const failBootstrapOrLoadPreviewSource = (error: Error) => {
+                if (settled || !this.isCurrentPrefabLoad(loadSeq)) return;
+                if (isMiniGameRuntime()) fail(error);
+                else this.loadBrowserPreviewSourcePrefabs(loadSeq, flushCallbacks, fail);
+            };
+            try {
+                this.withBootstrapBundle((bundle: Bundle | null) => {
+                    if (settled || !this.isCurrentPrefabLoad(loadSeq)) return;
+                    if (!bundle) {
+                        failBootstrapOrLoadPreviewSource(new Error(`[result-panel] failed to load ${LOCAL_BOOTSTRAP_BUNDLE_NAME} bundle`));
+                        return;
+                    }
+                    this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, loadSeq, flushCallbacks, failBootstrapOrLoadPreviewSource);
+                });
+            } catch (error) {
+                fail(error instanceof Error ? error : new Error(String(error)));
             }
-            runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-            AppRoot.tryGet()?.clearRouteCover('result-panel-preload-error');
-            throw error;
         };
-        const flushCallbacks = () => {
-            if (!this.isCurrentPrefabLoad(loadSeq)) {
-                return;
-            }
-            const callbacks = runtime._gameplayResultPanelPrefabLoadCallbacks || [];
-            runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-            for (const callback of callbacks) {
-                callback();
-            }
+        startAttempt();
+    }
+
+    showBasicSettlement(kind: 'win' | 'timeout' | 'buffer-full' | 'lose'): Node {
+        const runtime = this.runtime;
+        const popupRoot = runtime.requireCanvasUiRoot('PopupRoot');
+        const field = kind === 'win' ? 'panelWin' : kind === 'lose' ? 'panelLose'
+            : kind === 'timeout' ? 'panelTimeoutContinue' : 'panelBufferFullContinue';
+        const makeNode = (name: string, parent: Node, width: number, height: number, y = 0) => {
+            const node = new Node(name);
+            parent.addChild(node);
+            node.layer = parent.layer;
+            node.addComponent(UITransform).setContentSize(width, height);
+            node.setPosition(0, y, 0);
+            return node;
         };
-        const failBootstrapOrLoadPreviewSource = (error: Error): void => {
-            if (isMiniGameRuntime()) {
-                fail(error);
-                return;
-            }
-            this.loadBrowserPreviewSourcePrefabs(loadSeq, flushCallbacks, fail);
+        const size = popupRoot.getComponent(UITransform)!.contentSize;
+        const overlay = makeNode(`BasicSettlement-${kind}`, popupRoot, size.width, size.height);
+        overlay.setSiblingIndex(999);
+        (overlay as any).__basicSettlement = true;
+        overlay.addComponent(BlockInputEvents);
+        const mask = overlay.addComponent(Graphics);
+        mask.fillColor = new Color(25, 20, 40, 180);
+        mask.rect(-size.width / 2, -size.height / 2, size.width, size.height);
+        mask.fill();
+        const box = makeNode('Box', overlay, 540, 660);
+        const background = box.addComponent(Graphics);
+        background.fillColor = new Color('#FFF4DC');
+        background.roundRect(-270, -330, 540, 660, 28);
+        background.fill();
+        const label = (parent: Node, name: string, text: string, y: number) => {
+            const node = makeNode(name, parent, 470, 64, y);
+            const component = node.addComponent(Label);
+            component.string = text;
+            component.fontSize = 30;
+            component.color = new Color('#392D57');
+            component.horizontalAlign = Label.HorizontalAlign.CENTER;
+            component.verticalAlign = Label.VerticalAlign.CENTER;
+            return node;
         };
-        this.withBootstrapBundle((bundle: Bundle | null) => {
-            if (!this.isCurrentPrefabLoad(loadSeq)) {
-                return;
+        label(box, 'Title', kind === 'win' ? '挑战成功' : kind === 'buffer-full' ? '暂存槽已满' : kind === 'timeout' ? '时间到' : '再试一次', 250);
+        const summary = label(box, 'Label', '', 185);
+        label(summary, 'Label', '', 0);
+        const initSeq = runtime._gameplayInitSeq;
+        const button = (name: string, text: string, y: number, handler: () => void, labelName = 'Label') => {
+            const node = makeNode(name, box, 430, 70, y);
+            const graphics = node.addComponent(Graphics);
+            graphics.fillColor = new Color('#F6C871');
+            graphics.roundRect(-215, -35, 430, 70, 18);
+            graphics.fill();
+            label(node, labelName, text, 0);
+            node.addComponent(Button);
+            this.bindPanelButton(node, () => {
+                if (!overlay.isValid || !overlay.activeInHierarchy || !runtime.isGameEnd || initSeq !== runtime._gameplayInitSeq) return;
+                handler();
+            });
+            return node;
+        };
+        if (kind === 'win') {
+            label(box, 'RewardGoldLbl', '', 125);
+            button('PrimaryBtn', '继续', 20, () => runtime.handleWinSettlementPrimaryAction());
+            button('AdBonusBtn', '看广告加领奖励', -80, () => runtime.claimWinAdBonusReward(), 'AdBonusBtnLbl');
+            label(box.getChildByName('AdBonusBtn')!, 'AdBonusClaimedLbl', '已领取', 0).active = false;
+            button('CollectionBtn', '收藏', -180, () => runtime.openCollection());
+        } else {
+            const reviveKind = kind === 'lose' ? this.resolveFinalFailureReviveKind() : kind;
+            button('ContinueBtn', '看广告复活', 60, () => reviveKind === 'buffer-full'
+                ? this.runBufferFullReviveAction(overlay) : this.runLevelReviveAction(overlay, runtime.constructor.REWARDED_CONTINUE_SECONDS));
+            const share = button('ShareBtn', '分享复活', -30, () => this.runReviveShareAction(reviveKind, overlay, runtime.constructor.REWARDED_CONTINUE_SECONDS));
+            share.active = kind !== 'lose' && this.canUseReviveShare();
+            if (kind === 'lose') {
+                button('ReplayBtn', '重新挑战', -130, () => runtime.restart());
+                button('HomeBtn', '返回主页', -230, () => this.leaveFailureToHome(overlay));
+            } else {
+                button('GiveUpBtn', '暂不复活', -150, () => this.closeReviveFailureSession(kind, overlay));
             }
-            if (!bundle) {
-                failBootstrapOrLoadPreviewSource(new Error(`[result-panel] failed to load ${LOCAL_BOOTSTRAP_BUNDLE_NAME} bundle`));
-                return;
-            }
-            this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, loadSeq, flushCallbacks, failBootstrapOrLoadPreviewSource);
-        });
+        }
+        const previous = runtime[field] as Node | null;
+        if (previous?.isValid) { previous.removeFromParent(); previous.destroy(); }
+        runtime[field] = overlay;
+        for (const panel of [runtime.panelWin, runtime.panelLose, runtime.panelTimeoutContinue, runtime.panelBufferFullContinue]) {
+            if (panel?.isValid && panel !== overlay) panel.active = false;
+        }
+        if (kind === 'win') runtime.updateWinRewardLabel(
+            runtime._pendingWinGoldReward + (runtime._winAdRewardClaimed ? runtime._pendingWinAdBonusReward : 0),
+        );
+        else {
+            const stats = runtime.getBoardCompletionStats();
+            runtime.syncSettlementProgressWidget(overlay, {
+                completePercent: Math.min(98, Math.max(0, Math.floor(Number(stats.completePercent) || 0))),
+            });
+            if (kind !== 'lose') this.syncReviveSharePanel(overlay);
+        }
+        return overlay;
     }
 
     instantiateGameplayOverlay(kind: ResultPanelKind, name: string): Node {
@@ -1012,7 +1114,6 @@ export class GameplayResultPanelController {
         });
         this.bindPanelButton(replayBtn, () => {
             AudioMgr.inst.play('button');
-            overlay.active = false;
             runtime.restart();
         });
         return overlay;

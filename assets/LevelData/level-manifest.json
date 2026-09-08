@@ -1544,7 +1544,7 @@
       ],
       "colorCount": 5,
       "slotTotalCount": 131,
-      "conveyorCapacity": 60,
+      "conveyorCapacity": 80,
       "timeLimit": 300,
       "isMainline": true,
       "isTutorial": true

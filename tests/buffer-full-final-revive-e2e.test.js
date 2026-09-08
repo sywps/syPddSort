@@ -230,7 +230,7 @@ async function main() {
     const finalOverlay = { active: false };
     const runtime = {
         constructor: { REWARDED_CONTINUE_SECONDS: 120 },
-        _activeLoseReason: 'buffer-full',
+        _activeLoseReason: null,
         _adShowing: false,
         _timerStarted: true,
         _currentLevelUnlimitedTime: false,
@@ -241,7 +241,7 @@ async function main() {
         _adTimerSuspended: false,
         _guideStep: -1,
         _guidePhase: '',
-        isGameEnd: true,
+        isGameEnd: false,
         isSelected: false,
         currentBlock: null,
         timeRemain: 227,
@@ -253,8 +253,6 @@ async function main() {
         getAnalyticsLevelId: () => 14,
         acquireRuntimeOwner: () => '',
         releaseRuntimeOwner() {},
-        clearRewardedAdPendingStrip() {},
-        showRewardedAdPendingStrip() {},
         showToast(text) { events.push(`toast:${text}`); },
         revokeDynamicCountdownFinalFailure() {},
         markDynamicCountdownAssisted() {},
@@ -265,7 +263,11 @@ async function main() {
         resetIdleHintTimer() {},
         bindPanelButton(node, handler) { buttonHandlers.set(node, handler); },
         showTrackedRewardedAd(page, onComplete) { attempts.push({ page, onComplete }); },
-        gameLose(reason) { events.push(`gameLose:${reason}`); },
+        gameLose(reason) {
+            events.push(`gameLose:${reason}`);
+            this.isGameEnd = true;
+            this._activeLoseReason = reason;
+        },
     };
     loadHomeAdInstaller()(runtime);
     runtime.bindPanelButton = (node, handler) => buttonHandlers.set(node, handler);
@@ -274,14 +276,16 @@ async function main() {
     const pchController = {
         rules,
         runtime,
-        inputLocked: true,
-        settlementPaused: true,
+        inputLocked: false,
+        settlementPaused: false,
         skillMovementPaused: false,
         openingGuide: null,
         beltTravel: 0,
+        pendingBufferDeadlockStartTravel: null,
         lastEntranceAudioVisitByCarrier: new Map(),
         exitPathProgress: 0.5,
         isActive: () => true,
+        presentationCompletions: new Map(),
         getBufferCapacity: () => rules.bufferCapacity,
         wrap01(value) { return ((value % 1) + 1) % 1; },
         renderConveyor() { events.push(`render:${rules.bufferCount}/${rules.bufferCapacity}`); },
@@ -308,6 +312,25 @@ async function main() {
         events.push(`continue:${rules.bufferCount}/${rules.bufferCapacity}:locked=${pchController.inputLocked}`);
         return runContinueAfterLose.call(runtime, addSeconds, resumeTimerImmediately);
     };
+
+    const bufferFullLossCount = () => events.filter((event) => event === 'gameLose:buffer-full').length;
+    const carrierCount = rules.carrierCount;
+    pchController.update(0.25);
+    assert.strictEqual(bufferFullLossCount(), 0, 'the first full-buffer frame must only start the one-loop delay');
+    assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, 1, 'the delay must record the real belt distance');
+    assert.strictEqual(pchController.inputLocked, false, 'the pending loop must keep player input available');
+    assert.strictEqual(runtime.isGameEnd, false, 'the pending loop must not open a revive flow early');
+    assert.ok(events.includes('belt-updated'), 'the conveyor must keep rendering during the pending loop');
+
+    pchController.update((carrierCount - 1) * 0.25);
+    assert.strictEqual(bufferFullLossCount(), 0, 'less than one full carrier cycle must not lose');
+    assert.strictEqual(pchController.inputLocked, false, 'input must remain available until the loop completes');
+
+    pchController.update(0.25);
+    assert.strictEqual(bufferFullLossCount(), 1, 'one complete carrier cycle must enter the existing buffer-full loss route');
+    assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, null, 'a committed loss must consume its pending marker');
+    assert.strictEqual(pchController.inputLocked, true, 'input must lock only when the revive flow actually starts');
+    assert.strictEqual(runtime.isGameEnd, true, 'the completed loop must enter the existing game-end state');
 
     const ResultPanelController = loadResultPanelController(pchController);
     const resultController = new ResultPanelController(runtime);
@@ -346,13 +369,29 @@ async function main() {
 
     await flushMicrotasks();
     assert.strictEqual(runtime._rewardedGrantTransaction, null, 'successful second grant must finalize its transaction');
+    const lossesBeforeResumedFrame = bufferFullLossCount();
     pchController.update(0.016);
     assert.strictEqual(
-        events.filter((event) => event === 'gameLose:buffer-full').length,
-        0,
+        bufferFullLossCount(),
+        lossesBeforeResumedFrame,
         'the first resumed conveyor frame must not reopen the buffer-full revive page',
     );
     assert.strictEqual(rules.isBufferDeadlocked(), false, '72 stored beans must not deadlock an expanded 84-slot conveyor');
+
+    for (let index = 0; index < 12; index += 1) rules.carriers[index].push(1);
+    assert.strictEqual(rules.isBufferDeadlocked(), true, 'fixture must refill to a real 84/84 deadlock');
+    pchController.beltTravel = 0;
+    pchController.pendingBufferDeadlockStartTravel = null;
+    pchController.inputLocked = false;
+    pchController.update(0.25);
+    assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, 1, 'a later deadlock must begin a new pending loop');
+    assert.strictEqual(bufferFullLossCount(), 1, 'the new pending loop must not lose immediately');
+
+    assert.strictEqual(pchController.expandCapacity(), true, 'expansion must recover the pending full-buffer state');
+    pchController.update(0.25);
+    assert.strictEqual(pchController.pendingBufferDeadlockStartTravel, null, 'recovery during the loop must cancel the pending loss');
+    assert.strictEqual(bufferFullLossCount(), 1, 'a recovered conveyor must not open another revive flow');
+    assert.strictEqual(pchController.inputLocked, false, 'recovery must leave normal input available');
 
     console.log('buffer-full-final-revive-e2e.test.js passed');
 }

@@ -2,7 +2,6 @@ import {
     assetManager,
     AudioMgr,
     Bundle,
-    Color,
     GAME_ASSETS_BUNDLE_NAME,
     Graphics,
     Layers,
@@ -15,7 +14,7 @@ import {
     UIOpacity,
     UITransform,
     Vec3,
-    createSingleColorSpriteFrame,
+    createHorizontalAlphaFadeSpriteFrame,
 } from '../GameCtrlShared';
 import { debugPerfTrace } from '../DebugPerfTrace';
 
@@ -26,7 +25,7 @@ const PINDD_SPINE_PATTERN_COMPLETE_ROOT_NAME = 'PatternCompleteMatchFxRoot';
 const PINDD_SPINE_FX_SOURCE_HEIGHT = 43.27;
 const PINDD_SPINE_FX_SCALE = 1;
 const PINDD_SPINE_FX_ACTIVE_LIMIT = 48;
-const PINDD_SPINE_FX_POOL_LIMIT = 48;
+const PINDD_SPINE_FX_POOL_LIMIT = 80;
 const PINDD_SPINE_FX_BATCH_CONCURRENCY = 24;
 const PINDD_SPINE_FX_BATCH_RETRY_SECONDS = 0.033;
 const PINDD_SPINE_FX_BATCH_ACTIVE_LIMIT_RETRY_SECONDS = 0.033;
@@ -69,7 +68,7 @@ let patternCompleteSweepFrame: SpriteFrame | null = null;
 
 function getPatternCompleteSweepFrame(): SpriteFrame {
     if (!patternCompleteSweepFrame) {
-        patternCompleteSweepFrame = createSingleColorSpriteFrame(new Color(255, 255, 255, 255), 2, 2);
+        patternCompleteSweepFrame = createHorizontalAlphaFadeSpriteFrame(64, 2, 0.32);
     }
     return patternCompleteSweepFrame;
 }
@@ -232,6 +231,40 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             });
         },
 
+        prewarmPinddSpineFx(onDone?: () => void): void {
+            if (this._pinddSpineFxPrewarmReady) {
+                onDone?.();
+                return;
+            }
+            if (this._pinddSpineFxPrewarmLoading) {
+                if (onDone) this._pinddSpineFxPrewarmCallbacks.push(onDone);
+                return;
+            }
+
+            this._pinddSpineFxPrewarmLoading = true;
+            this._pinddSpineFxPrewarmCallbacks = onDone ? [onDone] : [];
+            const finish = () => {
+                this._pinddSpineFxPrewarmLoading = false;
+                this._pinddSpineFxPrewarmReady = true;
+                this.noteGameplayLoadingProgress?.('spine-prewarm-ready');
+                const callbacks = this._pinddSpineFxPrewarmCallbacks || [];
+                this._pinddSpineFxPrewarmCallbacks = [];
+                for (const callback of callbacks) callback();
+            };
+            this.ensurePinddSpineFxSkeletonData((skeletonData: sp.SkeletonData) => {
+                try {
+                    const { node, skeleton } = this.acquirePinddSpineFxNode(true);
+                    skeleton.skeletonData = skeletonData;
+                    this.recyclePinddSpineFxNode(node);
+                    finish();
+                } catch (error) {
+                    this._pinddSpineFxPrewarmLoading = false;
+                    this._pinddSpineFxPrewarmCallbacks = [];
+                    throw error;
+                }
+            });
+        },
+
         acquirePinddSpineFxNode(allowActiveLimitOverride: boolean = false): { node: Node; skeleton: sp.Skeleton } {
             const skeletonCtor = (sp as any)?.Skeleton;
             if (!skeletonCtor) {
@@ -269,9 +302,6 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             const skeleton = skeletonCtor ? node.getComponent(skeletonCtor) as sp.Skeleton | null : null;
             if (skeleton) {
                 skeleton.setCompleteListener(() => {});
-                skeleton.clearTracks();
-                skeleton.skeletonData = null;
-                skeleton.enabled = false;
             }
             (node as any).__pinddSpineFxSeq = ((node as any).__pinddSpineFxSeq || 0) + 1;
             node.removeFromParent();
@@ -312,6 +342,9 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             this._pinddSpineFxActiveCount = 0;
             const pool = this._pinddSpineFxPool;
             if (pool?.clear) pool.clear();
+            this._pinddSpineFxPrewarmReady = false;
+            this._pinddSpineFxPrewarmLoading = false;
+            this._pinddSpineFxPrewarmCallbacks = [];
         },
 
         getPinddSpineFxScaleForBean(beanNode: Node, animationName?: PinddSpineFxAnimationName): number {

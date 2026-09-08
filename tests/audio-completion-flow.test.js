@@ -32,7 +32,7 @@ for (const removedName of ['slot', 'uiPanel', 'propWand', 'propBrush', 'propFree
 }
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
-assert.ok(settlement.includes("AudioMgr.inst.play('coin');"), 'settlement coin landings must use the dedicated coin cue');
+assert.ok(!settlement.includes("AudioMgr.inst.play('coin');"), 'win settlement must not play coin-landing audio after the flying coins are removed');
 assert.ok(settlement.includes("AudioMgr.inst.play('revivePop');"), 'buffer-full revive panel reveal must play revivePop');
 const levelCompleteIndex = settlement.indexOf("AudioMgr.inst.play('winAll');");
 const settlementIndex = settlement.indexOf("AudioMgr.inst.play('winSettlement');");
@@ -48,6 +48,8 @@ assert.ok(levelCompleteIndex > playPatternFxIndex && levelCompleteIndex < playBo
 assert.ok(settlementIndex > revealSettlementIndex && settlementIndex < requestSettlementIndex, 'settlement cue must play only inside the guarded panel reveal');
 
 const colorFx = read('assets/Scripts/Core/GameCtrlModules/GameplayColorCompleteFxModule.ts');
+const skin = read('assets/Scripts/Core/GameCtrlModules/SkinBackgroundModule.ts');
+const gameCtrlShared = read('assets/Scripts/Core/GameCtrlShared.ts');
 const freezeFx = read('assets/Scripts/Core/GameCtrlModules/GameplayFreezeEffectModule.ts');
 const engineSettings = JSON.parse(read('settings/v2/packages/engine.json'));
 const wechatBuildConfig = read('scripts/write-wechat-build-config.js');
@@ -72,6 +74,9 @@ const colorCompleteMatchMethod = extractObjectMethod(colorFx, 'playColorComplete
 const patternCompleteMatchMethod = extractObjectMethod(colorFx, 'playPatternCompleteMatchFx(onDone?: () => void): void');
 const patternCompleteRootMethod = extractObjectMethod(colorFx, 'getPatternCompleteMatchFxRoot(): Node');
 const patternCompleteMaskMethod = extractObjectMethod(colorFx, 'drawPatternCompleteMatchFxMask(graphics: Graphics): void');
+const pinddPrewarmMethod = extractObjectMethod(colorFx, 'prewarmPinddSpineFx(onDone?: () => void): void');
+const pinddRecycleMethod = extractObjectMethod(colorFx, 'recyclePinddSpineFxNode(node: Node): void');
+const gameplayStartMethod = extractObjectMethod(skin, 'startGameplayWithBackgroundSkinReady(data: any, activeLevelId?: number, init?: () => void): void');
 const sameFrameFxMethod = extractObjectMethod(colorFx, `playPinddSpineFxOnBeansSameFrame(
             beanNodes: Node[],
             animationName: PinddSpineFxAnimationName,
@@ -91,6 +96,10 @@ assert.ok(patternCompleteMatchMethod.includes('const bandSpecs = ['), 'whole-pat
 assert.ok(patternCompleteMatchMethod.includes("{ name: 'Core', width: baseBandWidth * 0.52, opacity: 176 }"), 'whole-pattern completion must retain only the original central core band');
 assert.ok(!patternCompleteMatchMethod.includes("name: 'Outer'") && !patternCompleteMatchMethod.includes("name: 'Middle'"), 'whole-pattern completion must not recreate the two auxiliary light bands');
 assert.ok(patternCompleteMatchMethod.includes('tween(sweep)'), 'whole-pattern completion must animate the single sweep node');
+assert.ok(colorFx.includes('createHorizontalAlphaFadeSpriteFrame(64, 2, 0.32)'), 'whole-pattern core band must use the centered alpha-fade SpriteFrame');
+assert.ok(!colorFx.includes('createSingleColorSpriteFrame(new Color(255, 255, 255, 255), 2, 2)'), 'whole-pattern core band must not retain the hard-edge solid-white SpriteFrame');
+assert.ok(gameCtrlShared.includes('function createHorizontalAlphaFadeSpriteFrame(width: number, height: number, edgeFadeRatio: number): SpriteFrame'), 'shared runtime must provide the horizontal alpha-fade SpriteFrame generator');
+assert.ok(gameCtrlShared.includes('const alpha = edgeProgress * edgeProgress * (3 - 2 * edgeProgress);'), 'horizontal alpha fade must use a smooth center-to-edge curve');
 assert.ok(colorFx.includes('PINDD_PATTERN_COMPLETE_SWEEP_DURATION = 1'), 'whole-pattern Shader sweep must use the configured one-second duration');
 assert.ok(patternCompleteRootMethod.includes('mask.type = Mask.Type.GRAPHICS_STENCIL;'), 'whole-pattern sweep must use a dynamic stencil rather than a rectangular board mask');
 assert.ok(patternCompleteRootMethod.includes('this.drawPatternCompleteMatchFxMask(graphics);'), 'whole-pattern sweep must refresh the stencil for the current level pattern');
@@ -101,7 +110,12 @@ assert.ok(!colorFx.includes('PatternCompleteBeanSweep'), 'whole-pattern sweep mu
 assert.ok(!colorFx.includes("patternComplete: 'c1_1'"), 'whole-pattern completion must not create per-bean c1 Spine effects');
 assert.ok(!colorFx.includes('PINDD_SPINE_PATTERN_COMPLETE_MAX_NODES'), 'whole-pattern completion must not retain the old per-bean cap');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_ACTIVE_LIMIT = 48'), 'ordinary Pindd Spine effects must retain the 48-node active cap');
-assert.ok(colorFx.includes('PINDD_SPINE_FX_POOL_LIMIT = 48'), 'the recyclable Spine pool must not retain more than the active cap');
+assert.ok(colorFx.includes('PINDD_SPINE_FX_POOL_LIMIT = 80'), 'the recyclable Spine pool must match the reference 80-node recycle cap');
+assert.ok(pinddPrewarmMethod.includes('this.ensurePinddSpineFxSkeletonData'), 'Pindd Spine prewarm must load SkeletonData before game initialization');
+assert.ok(pinddPrewarmMethod.includes('skeleton.skeletonData = skeletonData;'), 'Pindd Spine prewarm must initialize one reusable Skeleton instance');
+assert.ok(pinddPrewarmMethod.includes('this.recyclePinddSpineFxNode(node);'), 'Pindd Spine prewarm must return its initialized instance to the shared pool');
+assert.ok(!pinddRecycleMethod.includes('skeleton.skeletonData = null'), 'recycled Pindd Spine instances must retain SkeletonData like the reference pool');
+assert.ok(gameplayStartMethod.includes('this.prewarmPinddSpineFx(startGameplay);'), 'game initialization must wait for Pindd Spine prewarm');
 assert.ok(!colorFx.includes('playPinddSpineFxAtWorldPosition'), 'whole-pattern completion must not create a Spine effect at every bean world position');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_SCALE_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation scale tuning');
 assert.ok(colorFx.includes('PINDD_SPINE_FX_OPACITY_BY_ANIMATION'), 'Pindd Spine FX must keep per-animation opacity tuning');
@@ -176,7 +190,7 @@ assert.ok(!placement.includes('COLOR_COMPLETE_VISUAL_SETTLE_DELAY'), 'color-comp
 assert.ok(uiManifest.includes('BOARD_EFFECT_TEXTURE_NAMES'), 'board effect textures must be declared in the UI manifest');
 assert.ok(uiManifest.includes('BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS'), 'board effect textures must be declared as bootstrap-owned paths');
 assert.ok(uiManifest.includes("'block_bright_pindd'"), 'landing light texture must be part of board effect textures');
-assert.ok(uiManifest.includes('GameUI/${name}'), 'board effect textures must load from bootstrap GameUI');
+assert.ok(uiManifest.includes('GameUI/Atlases/BoardEffects/${name}'), 'board effect textures must load from the Bootstrap BoardEffects atlas');
 assert.ok(uiManifest.includes('GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = []'), 'board effect textures must not be prewarmed from gameAssets');
 assert.ok(shared.includes('BOARD_EFFECT_TEXTURE_NAMES'), 'board effect textures must be exported through GameCtrlShared');
 assert.ok(shared.includes('BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS'), 'bootstrap board effect paths must be exported through GameCtrlShared');
@@ -195,11 +209,11 @@ assert.ok(sceneHome.includes('let gameAssetsDone = true;'), 'bootstrap gameplay 
 assert.ok(sceneHome.includes('let boardEffectDone = false;'), 'bootstrap fast path must wait for board effect textures before initGame');
 assert.ok(sceneHome.includes('!boardEffectDone'), 'bootstrap fast path init gate must include board effect readiness');
 assert.ok(sceneHome.includes("this.trackFirstLevelFunnelForLevel(activeLevelId, 'bootstrap_board_effect_textures_failed'"), 'bootstrap fast path must report missing board effect textures before gameplay starts');
-assert.ok(sceneHome.includes('Bootstrap levels must not block first playable UI on gameAssets.'), 'bootstrap gameAssets prewarm must stay non-blocking');
+assert.ok(sceneHome.includes('Bootstrap levels must not block first playable UI on optional gameAssets texture prewarming.'), 'bootstrap optional texture prewarm must stay non-blocking; b1 Spine prewarm is the explicit initialization gate');
 assert.ok(!sceneHome.includes('let gameAssetsDone = GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS.length === 0;'), 'bootstrap gameplay must not restore the old blocking gameAssets gate');
 assert.ok(assetBootstrap.includes('requireBrightSpriteFrame(): SpriteFrame'), 'landing light texture must have a fail-fast accessor');
-assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/block_bright_pindd.png')), 'landing light texture must live in BootstrapBundle GameUI');
-assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/block_bright_pindd.png.meta')), 'landing light texture meta must live in BootstrapBundle GameUI');
+assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/BoardEffects/block_bright_pindd.png')), 'landing light texture must live in BootstrapBundle BoardEffects atlas');
+assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/BoardEffects/block_bright_pindd.png.meta')), 'landing light texture meta must live in BootstrapBundle BoardEffects atlas');
 assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/block_bright_pindd.png')), 'landing light texture must not live in GameAssetsBundle');
 assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/block_bright_pindd.png.meta')), 'landing light texture meta must not live in GameAssetsBundle');
 
@@ -232,9 +246,10 @@ for (const [sceneName, sceneContent] of [
     ['Home.scene', homeScene],
     ['UIPreview.scene', uiPreviewScene],
 ]) {
-    assert.ok(sceneContent.includes('"关卡没准备好"'), `${sceneName} fatal overlay title copy must live in the Cocos scene template`);
-    assert.ok(sceneContent.includes('"请检查网络后重试"'), `${sceneName} fatal overlay hint copy must live in the Cocos scene template`);
-    assert.ok(!sceneContent.includes('"请重启小游戏"'), `${sceneName} fatal overlay must not force a restart when retry/back actions are available`);
+    assert.ok(sceneContent.includes('"版本更新请重启游戏"'), `${sceneName} fatal overlay restart copy must live in the Cocos scene template`);
+    assert.ok(sceneContent.includes('"重启游戏"'), `${sceneName} fatal overlay restart button copy must live in the Cocos scene template`);
+    assert.ok(!sceneContent.includes('"关卡没准备好"'), `${sceneName} fatal overlay must not retain the retired loading title`);
+    assert.ok(!sceneContent.includes('"请检查网络后重试"'), `${sceneName} fatal overlay must not retain the retired retry hint`);
     assert.ok(!sceneContent.includes('"资源更新中"'), `${sceneName} fatal overlay must not retain the old non-actionable wait copy`);
     assert.ok(!sceneContent.includes('"请检查资源与配置后重新进入游戏"'), `${sceneName} fatal overlay template must not retain old implementation-facing copy`);
     assert.ok(!sceneContent.includes('"LevelData/level_1"'), `${sceneName} fatal overlay template must not retain technical level-path text`);

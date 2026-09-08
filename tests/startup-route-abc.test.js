@@ -192,22 +192,25 @@ assert.ok(
     gameSceneRuntime.includes('label.string = `第${levelId}关`;'),
     'pending B startup must not expose the Game prefab default level-1 title while resources load',
 );
-assert.strictEqual(
-    findNode(readScene('assets/BootstrapBundle/Scenes/Game.scene'), 'LevelTitle').node._active,
-    false,
-    'Game.scene must not expose the default normal level title before startup picks A/B/C target level',
+const sharedLoading = read('assets/Scripts/Core/StartupLoadingController.ts');
+const bindLoading = gameSceneRuntime.slice(gameSceneRuntime.indexOf('private async bindExistingGameLoadingOverlay'));
+assert.ok(
+    bindLoading.indexOf('setGameplayStartupRootVisible?.(false)') >= 0 &&
+    bindLoading.indexOf('setGameplayStartupRootVisible?.(false)') < bindLoading.indexOf('await appRoot.ensureStartupLoading()'),
+    'startup must hide the entire gameplay shell before waiting for Loading, including the default level title',
 );
 assert.ok(
-    gameSceneRuntime.includes('blocker.enabled = showOverlay;'),
+    sharedLoading.includes('loading.addComponent(BlockInputEvents)') && sharedLoading.includes('blocker.enabled = true'),
     'Game.scene startup loading overlay must block input while target level resources load',
 );
 assert.ok(
-    !gameSceneRuntime.includes('if (showOverlay && typeof this.runtime.showLoadingOverlay'),
-    'Game.scene startup must not reuse the Boot full loading builder because Game.scene owns a lighter StartupLoadingUI',
+    !readScene('assets/BootstrapBundle/Scenes/Game.scene').some(entry => entry?._name === 'StartupLoadingUI') &&
+    gameSceneRuntime.includes('await appRoot.ensureStartupLoading()'),
+    'Game.scene must reuse the persistent Boot Loading instead of owning a second UI',
 );
 assert.ok(
-    gameSceneRuntime.includes('promoteLoadingOverlayToFront'),
-    'Game.scene loading cover must be promoted above gameplay HUD during startup',
+    sharedLoading.includes('camera.priority = 100') && sharedLoading.includes('camera.visibility = STARTUP_LAYER'),
+    'shared loading cover must render above gameplay HUD with its isolated camera',
 );
 
 assert.ok(

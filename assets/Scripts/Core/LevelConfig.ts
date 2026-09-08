@@ -42,7 +42,7 @@ export const COLOR_HEX: Record<number, string> = {
     7: '#4A4DCF',
     8: '#7221BC',
     9: '#9FCE21',
-    10: '#EA281A',
+    10: '#CC3827',
     11: '#37A92D',
     12: '#207955',
     13: '#20A8DC',
@@ -118,13 +118,28 @@ export function validatePchSingleSelectionLimit(value: unknown, label: string = 
     return value;
 }
 
+/** 校验关卡是否在所有豆豆入带后自动切换至结算加速；未配置时默认开启。 */
+export function validateAutoConveyorFinishSpeed(value: unknown, label: string = 'level data'): boolean {
+    if (value === undefined || value === null) return true;
+    if (typeof value !== 'boolean') {
+        throw new Error(`[AutoConveyorFinishSpeed] ${label}.autoConveyorFinishSpeed must be a boolean: ${value}`);
+    }
+    return value;
+}
+
+/** 校验关卡是否展示胜利后的广告加奖入口；未配置时默认开启。 */
+export function validateWinAdBonusEnabled(value: unknown, label: string = 'level data'): boolean {
+    if (value === undefined || value === null) return true;
+    if (typeof value !== 'boolean') {
+        throw new Error(`[WinAdBonusEnabled] ${label}.winAdBonusEnabled must be a boolean: ${value}`);
+    }
+    return value;
+}
+
 /** 校验关卡配置的新版传送带容量（单位：豆豆颗数）。 */
 export function validateConveyorCapacity(value: unknown, label: string = 'level data'): number {
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
         throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
-    }
-    if (value % CONVEYOR_STACK_DEPTH !== 0) {
-        throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a multiple of ${CONVEYOR_STACK_DEPTH}: ${value}`);
     }
     return value;
 }
@@ -160,6 +175,10 @@ export interface LevelData {
     conveyorCapacity: number;
     /** 新版传送带单次从棋盘选取豆豆的数量上限；未配置时为 12。 */
     singleSelectionLimit?: number;
+    /** 所有豆豆已进入传送带且可自动归位时，是否自动切换至 ×5；未配置时为 true。 */
+    autoConveyorFinishSpeed?: boolean;
+    /** 胜利结算是否展示广告加至 5 倍金币入口；未配置时为 true。 */
+    winAdBonusEnabled?: boolean;
     tutorialGuide?: LevelTutorialGuideConfig;
     /** 每格正确颜色 [row][col] */
     correctColorArr: number[][];

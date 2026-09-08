@@ -1,6 +1,7 @@
 import type { BoardModel } from './BoardModel';
 import {
     CONVEYOR_STACK_DEPTH,
+    validateAutoConveyorFinishSpeed,
     validateConveyorCapacity,
     validatePchSingleSelectionLimit,
     type BeanBlockInfo,
@@ -10,6 +11,13 @@ const PCH_SELECTION_DIRS = [
     [-1, 0], [1, 0], [0, -1], [0, 1],
     [-1, -1], [-1, 1], [1, -1], [1, 1],
 ] as const;
+
+function validateInitialCarrierCount(value: unknown, label: string): number {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new Error(`[PchCarrierCount] ${label}.initialCarrierCount must be a positive integer: ${value}`);
+    }
+    return value;
+}
 
 export type PchCarrierMove = {
     moved: number;
@@ -69,6 +77,7 @@ export class PchConveyorRules {
     public readonly initialCarrierCount: number;
     public readonly stackDepth = CONVEYOR_STACK_DEPTH;
     public readonly carriers: number[][];
+    public readonly autoConveyorFinishSpeed: boolean;
     private totalBufferCapacity: number;
     private readonly queuedColorIds: number[] = [];
     private readyQueuedCount = 0;
@@ -77,10 +86,16 @@ export class PchConveyorRules {
         public readonly board: BoardModel,
         conveyorCapacity: unknown,
         singleSelectionLimit?: unknown,
+        initialCarrierCountOverride?: unknown,
+        autoConveyorFinishSpeed?: unknown,
     ) {
         const capacity = validateConveyorCapacity(conveyorCapacity, 'PchConveyorRules');
         this.moveLimit = validatePchSingleSelectionLimit(singleSelectionLimit, 'PchConveyorRules');
-        this.initialCarrierCount = capacity / this.stackDepth;
+        this.autoConveyorFinishSpeed = validateAutoConveyorFinishSpeed(autoConveyorFinishSpeed, 'PchConveyorRules');
+        const defaultInitialCarrierCount = Math.ceil(capacity / this.stackDepth);
+        this.initialCarrierCount = initialCarrierCountOverride == null
+            ? defaultInitialCarrierCount
+            : validateInitialCarrierCount(initialCarrierCountOverride, 'PchConveyorRules');
         this.carriers = Array.from({ length: this.initialCarrierCount }, () => []);
         this.totalBufferCapacity = capacity;
     }
@@ -319,6 +334,27 @@ export class PchConveyorRules {
         };
     }
 
+    executeSkillAtomically(execute: () => PchSkillResult): PchSkillResult {
+        const colors = this.board.currentColors.map((row) => row.slice());
+        const locked = this.board.locked.map((row) => row.slice());
+        const carriers = this.carriers.map((stack) => stack.slice());
+        const queued = this.queuedColorIds.slice();
+        const readyCount = this.readyQueuedCount;
+        try {
+            return execute();
+        } catch (error) {
+            for (let row = 0; row < colors.length; row++) {
+                this.board.currentColors[row].splice(0, this.board.width, ...colors[row]);
+                this.board.locked[row].splice(0, this.board.width, ...locked[row]);
+            }
+            this.board.markLockStatsDirty();
+            this.carriers.forEach((stack, index) => stack.splice(0, stack.length, ...carriers[index]));
+            this.queuedColorIds.splice(0, this.queuedColorIds.length, ...queued);
+            this.readyQueuedCount = readyCount;
+            throw error;
+        }
+    }
+
     forceCompleteRandomColor(randomSource: () => number = Math.random): PchSkillResult {
         const candidates = new Set<number>();
         for (let row = 0; row < this.board.height; row += 1) {
@@ -448,7 +484,7 @@ export class PchConveyorRules {
     }
 
     get conveyorSpeedMultiplier(): 1 | 5 {
-        if (this.entryCount > 0) return 1;
+        if (!this.autoConveyorFinishSpeed || this.entryCount > 0) return 1;
         const pendingTargetCounts = new Map<number, number>();
         for (let row = 0; row < this.board.height; row += 1) {
             for (let col = 0; col < this.board.width; col += 1) {

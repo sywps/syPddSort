@@ -70,7 +70,7 @@ assert.deepStrictEqual(
     [14, 17, 300, 131],
     'level 1 settlement must enter the promoted selected payload as logical level 2',
 );
-assert.strictEqual(level2.conveyorCapacity, 60, 'local level 2 must start with the configured new-conveyor capacity');
+assert.strictEqual(level2.conveyorCapacity, 80, 'local level 2 must start with the configured new-conveyor capacity');
 assert.strictEqual(Object.hasOwn(level2, 'slotPolicy'), false, 'local level 2 must not retain row-based slot data');
 assert.match(level2Meta.uuid, /^[0-9a-f-]{36}$/i, 'local level 2 must keep a valid Cocos asset UUID');
 

@@ -200,49 +200,45 @@ const { PchConveyorGameplayController } = loadedModule.exports;
 const controller = new PchConveyorGameplayController({});
 
 const transform = new FakeUITransform(180, 24);
-const graphics = new FakeGraphics();
+const trackTransform = new FakeUITransform(720, 96);
+const fillTransform = new FakeUITransform(0, 72);
+const trackSpriteNode = new FakeNode(new Map([
+    [FakeUITransform, trackTransform],
+    [FakeSprite, new FakeSprite()],
+]), 'TrackSprite');
+const fillSpriteNode = new FakeNode(new Map([
+    [FakeUITransform, fillTransform],
+    [FakeSprite, new FakeSprite()],
+]), 'FillSprite');
+fillSpriteNode.active = false;
 const capacityTrack = new FakeNode(new Map([
     [FakeUITransform, transform],
-    [FakeGraphics, graphics],
 ]), 'PchCapacityTrack');
+capacityTrack.addChild(trackSpriteNode);
+capacityTrack.addChild(fillSpriteNode);
 
 controller.renderNormalCapacityTrack(capacityTrack, 0);
-assert.deepEqual(graphics.roundRects, [
-    { x: -90, y: -12, width: 180, height: 24, radius: 12, color: [45, 45, 45, 255] },
-    { x: -89, y: -11, width: 178, height: 22, radius: 11, color: [68, 68, 68, 255] },
-], 'zero capacity must draw only the smooth dark outer rim and gray inner track');
+assert.deepEqual(trackTransform.contentSize, { width: 720, height: 96 }, 'zero capacity must retain the 4x sliced track source size');
+assert.deepEqual(trackSpriteNode.position, { x: 0, y: 0, z: 0 }, 'the sliced track must remain centered under the capacity label');
+assert.deepEqual(trackSpriteNode.scale, { x: 0.25, y: 0.25, z: 1 }, 'the sliced track must render at a uniform 4x-to-1x scale');
+assert.equal(fillSpriteNode.active, false, 'zero capacity must hide the green fill child instead of leaving a zero-width sprite visible');
 
 controller.renderNormalCapacityTrack(capacityTrack, 0.5);
-assert.deepEqual(graphics.roundRects[2], {
-    x: -87,
-    y: -9,
-    width: 87,
-    height: 18,
-    radius: 9,
-    color: [119, 239, 67, 255],
-}, 'half capacity must draw an inset rounded green fill without exposing a square end');
+assert.equal(fillSpriteNode.active, true, 'positive capacity must reveal the green sliced fill child');
+assert.deepEqual(fillTransform.contentSize, { width: 348, height: 72 }, 'half capacity must resize the high-resolution fill to exactly half of the inset capacity width');
+assert.deepEqual(fillSpriteNode.position, { x: -43.5, y: 0, z: 0 }, 'half capacity must keep the fill pinned to the left inset');
+assert.deepEqual(fillSpriteNode.scale, { x: 0.25, y: 0.25, z: 1 }, 'fill corners must use the same uniform high-resolution scale as the track');
 
 controller.renderNormalCapacityTrack(capacityTrack, 2);
-assert.deepEqual(graphics.roundRects[2], {
-    x: -87,
-    y: -9,
-    width: 174,
-    height: 18,
-    radius: 9,
-    color: [119, 239, 67, 255],
-}, 'over-capacity input must clamp to the full inset width');
+assert.deepEqual(fillTransform.contentSize, { width: 696, height: 72 }, 'over-capacity input must clamp to the full inset capacity width');
+assert.deepEqual(fillSpriteNode.position, { x: 0, y: 0, z: 0 }, 'a full fill must be centered after covering the complete inset width');
 
 transform.setContentSize(240, 30);
 transform.setAnchorPoint(0.25, 0.75);
 controller.renderNormalCapacityTrack(capacityTrack, 0.5);
-assert.deepEqual(graphics.roundRects[2], {
-    x: -117,
-    y: -12,
-    width: 117,
-    height: 24,
-    radius: 12,
-    color: [119, 239, 67, 255],
-}, 'later Inspector size changes must be used directly by the scene-owned Graphics node');
+assert.deepEqual(trackTransform.contentSize, { width: 960, height: 120 }, 'later Inspector width and height changes must preserve the 4x track source scale');
+assert.deepEqual(fillTransform.contentSize, { width: 468, height: 96 }, 'later Inspector size changes must resize fill width and height from the parent track');
+assert.deepEqual(fillSpriteNode.position, { x: -58.5, y: 0, z: 0 }, 'later Inspector width changes must keep the fill left-aligned to the inset');
 
 const scene = JSON.parse(fs.readFileSync(path.join(root, 'assets/BootstrapBundle/Scenes/Game.scene'), 'utf8'));
 const normalTrackIndex = scene.findIndex((record) => record?._name === 'PchCapacityTrack'
@@ -250,15 +246,37 @@ const normalTrackIndex = scene.findIndex((record) => record?._name === 'PchCapac
 assert.ok(normalTrackIndex >= 0, 'NormalLayout must serialize PchCapacityTrack directly under PchCapacityBadge');
 const normalTrack = scene[normalTrackIndex];
 const normalComponentTypes = normalTrack._components.map((reference) => scene[reference.__id__]?.__type__);
-assert.deepEqual(normalComponentTypes, ['cc.UITransform', 'cc.Graphics'], 'NormalLayout track must own only its transform and Graphics renderer');
+assert.deepEqual(normalComponentTypes, ['cc.UITransform'], 'NormalLayout track must retain only its Inspector-owned transform');
 assert.equal(
     scene.some((record) => record?._name === 'ProgressTrack' && record?._parent?.__id__ === 292),
     false,
     'NormalLayout must not retain the legacy ProgressTrack node name',
 );
-for (const childIndex of normalTrack._children.map((reference) => reference.__id__)) {
-    assert.equal(scene[childIndex]?._active, false, 'legacy Normal-only sprite children must remain inactive');
-}
+assert.deepEqual(
+    normalTrack._children.map((reference) => scene[reference.__id__]?._name),
+    ['Background', 'TrackSprite', 'FillSprite'],
+    'NormalLayout must not retain the obsolete Bar before the active sliced renderer children',
+);
+assert.equal(scene[normalTrack._children[0].__id__]?._active, false, 'legacy Normal background record must remain inactive');
+assert.equal(
+    scene.some((record) => record?._name === 'Bar' && record?._parent?.__id__ === normalTrackIndex),
+    false,
+    'obsolete Normal fill node must be physically removed',
+);
+const serializedTrackSprite = scene[normalTrack._children[1].__id__];
+const serializedFillSprite = scene[normalTrack._children[2].__id__];
+const serializedTrackTransform = scene[serializedTrackSprite._components[0].__id__];
+const serializedFillTransform = scene[serializedFillSprite._components[0].__id__];
+const serializedTrackRenderer = scene[serializedTrackSprite._components[1].__id__];
+const serializedFillRenderer = scene[serializedFillSprite._components[1].__id__];
+assert.equal(serializedTrackSprite._active, true, 'sliced dark track must be active in the scene');
+assert.equal(serializedFillSprite._active, false, 'sliced fill must start hidden at zero capacity');
+assert.deepEqual(serializedTrackTransform._contentSize, { __type__: 'cc.Size', width: 720, height: 96 }, 'track scene child must keep the authored 4x source dimensions');
+assert.deepEqual(serializedFillTransform._contentSize, { __type__: 'cc.Size', width: 0, height: 72 }, 'fill scene child must begin at zero logical width with 4x source height');
+assert.equal(serializedTrackRenderer._type, 1, 'track must use Cocos Sprite.Type.SLICED');
+assert.equal(serializedFillRenderer._type, 1, 'fill must use Cocos Sprite.Type.SLICED');
+assert.equal(serializedTrackRenderer._spriteFrame.__uuid__, '80cbaca8-c40a-4d18-ae3e-78081d8f0fb4@f9941', 'track must bind the dedicated high-resolution frame');
+assert.equal(serializedFillRenderer._spriteFrame.__uuid__, 'ac9bde61-ac0a-4324-a6e1-cf84c2ddce90@f9941', 'fill must bind the dedicated high-resolution frame');
 
 controller.rules = {
     bufferCount: 30,
@@ -271,14 +289,8 @@ controller.capacityProgress = null;
 controller.capacityTrack = capacityTrack;
 controller.syncCapacityWarning = () => {};
 controller.refreshStatus();
-assert.deepEqual(graphics.roundRects[2], {
-    x: -117,
-    y: -12,
-    width: 117,
-    height: 24,
-    radius: 12,
-    color: [119, 239, 67, 255],
-}, 'NormalLayout must render the direct scene track without a ProgressBar state component');
+assert.deepEqual(fillTransform.contentSize, { width: 468, height: 96 }, 'NormalLayout must resize the direct sliced fill without a ProgressBar state component');
+assert.deepEqual(fillSpriteNode.position, { x: -58.5, y: 0, z: 0 }, 'NormalLayout direct rendering must retain the left-inset fill geometry');
 
 const legacyProgressStub = { progress: -1 };
 controller.capacityTrack = null;
@@ -293,7 +305,7 @@ assert.equal(
 assert.match(
     controllerSource,
     /if \(name === 'NormalLayout'\) \{\s*capacityTrack = this\.requireConveyorNode\(\s*capacityBadge,\s*'PchCapacityTrack'/,
-    'only the active NormalLayout may bind the scene-owned Graphics capacity track',
+    'only the active NormalLayout may bind the scene-owned sliced capacity track',
 );
 assert.match(
     controllerSource,
@@ -302,8 +314,13 @@ assert.match(
 );
 assert.match(
     controllerSource,
-    /if \(!graphics \|\| !transform\) \{\s*throw new Error\('\[pch-core\] NormalLayout PchCapacityTrack must provide Graphics and UITransform'\);/,
-    'the formal scene node must fail fast when its required renderer components are absent',
+    /'TrackSprite'[\s\S]*'FillSprite'[\s\S]*Sprite\.Type\.SLICED/,
+    'the formal scene node must fail fast unless both direct children use Cocos sliced Sprites',
+);
+assert.match(
+    controllerSource,
+    /const PCH_CAPACITY_SLICED_RENDER_SCALE = 0\.25;[\s\S]*trackTransform\.setContentSize\(width \/ highResolutionScale, height \/ highResolutionScale\);[\s\S]*fillTransform\.setContentSize\(fillWidth \/ highResolutionScale, fillHeight \/ highResolutionScale\);/,
+    'the Normal renderer must preserve a 4x high-resolution track and fill as the Inspector-owned parent changes size',
 );
 
 console.log('pch-normal-capacity-track-graphics.test.js passed');

@@ -55,6 +55,15 @@ function createManagerRuntime() {
         },
         require(request) {
             if (request === './RuntimeLog') return { runtimeLog() {} };
+            if (request === '../Platform/WeChatShareReturnService') {
+                return {
+                    installLocalWeChatPassiveShare(runtime) {
+                        assert.strictEqual(runtime, sandbox.wx);
+                        events.push('share:install');
+                        return true;
+                    },
+                };
+            }
             throw new Error('unexpected SySDKMgr require: ' + request);
         },
         console: {
@@ -204,6 +213,9 @@ function loadSySdkManager(sygame) {
         location: { hostname: '' },
         require(request) {
             if (request === './RuntimeLog') return { runtimeLog() {} };
+            if (request === '../Platform/WeChatShareReturnService') {
+                return { installLocalWeChatPassiveShare: () => true };
+            }
             throw new Error('unexpected manager require: ' + request);
         },
         console: { log() {}, warn() {}, error() {} },
@@ -287,7 +299,7 @@ async function main() {
     managerRuntime.manager.init();
     assert.deepStrictEqual(
         managerRuntime.events,
-        ['loader', 'sdk:init:1007'],
+        ['loader', 'sdk:init:1007', 'share:install'],
         'real-device SDK loading must happen once when SySDKMgr starts, after first-screen startup',
     );
 
@@ -432,7 +444,7 @@ async function main() {
     assert.ok(wrapperSource.includes('passiveShareEnabled: false'), 'Sygame must default passive sharing off');
     assert.ok(wrapperSource.includes("Sygame.passiveShareEnabled = initData.enablePassiveShare === true;"), 'passive sharing must require explicit opt-in');
     assert.ok(wrapperSource.includes("wx.hideShareMenu({menus: ['shareAppMessage', 'shareTimeline']});"), 'passive-share-off startup must hide the WeChat share menu');
-    assert.ok(wrapperSource.includes('if (Sygame.passiveShareEnabled) {\n          Sygame.listenShareAction();'), 'login must not register passive share listeners while disabled');
+    assert.ok(wrapperSource.replace(/\r\n/g, '\n').includes('if (Sygame.passiveShareEnabled) {\n          Sygame.listenShareAction();'), 'login must not register passive share listeners while disabled');
     assert.ok(!wrapperSource.includes('SY_CONF.DN_DATA_SOURCE_ID'));
     assert.ok(!wrapperSource.includes('SY_CONF.DN_SECRET_KEY'));
     assert.ok(wrapperSource.includes('const DN_PENDING_ACTION_LIMIT = 100;'));

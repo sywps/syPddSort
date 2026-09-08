@@ -50,8 +50,8 @@ assert.ok(start.includes('this.entryFlyAnchor = activeLayout.entryFlyAnchor;'), 
 assert.ok(
     start.includes("const normalLayout = this.bindConveyorLayout(this.root, 'NormalLayout');")
         && !start.includes("this.bindConveyorLayout(this.root, 'CompactLayout')")
-        && start.includes('compactLayout.node.active = false;'),
-    'runtime must bind only Normal while retaining the hidden Compact root',
+        && !start.includes("'CompactLayout'"),
+    'runtime must bind Normal without requiring the removed Compact root',
 );
 assert.ok(
     inbound.includes('const entranceWorld = this.entryFlyAnchor.getWorldPosition(new Vec3());')
@@ -91,7 +91,7 @@ assert.ok(
 );
 
 const conveyorRoot = gameScene.find((record) => record?.__type__ === 'cc.Node' && record._name === 'PchConveyorRoot');
-for (const layoutName of ['NormalLayout', 'CompactLayout']) {
+for (const layoutName of ['NormalLayout']) {
     const layout = sceneChild(conveyorRoot, layoutName);
     const tableEntry = sceneChild(layout, 'TableEntryItem');
     const image = sceneChild(sceneChild(tableEntry, 'Pieces'), 'Img');

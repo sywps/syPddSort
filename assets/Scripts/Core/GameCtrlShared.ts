@@ -65,6 +65,9 @@ import {
     GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS,
     GAME_ASSETS_TEXTURE_SEARCH_DIRS,
+    getLocalAtlasMemberRoute,
+    isLocalAtlasMember,
+    LOCAL_ATLAS_MEMBER_ROUTES,
     SETTINGS_PANEL_RELEASE_TEXTURE_NAMES,
     SETTINGS_PANEL_TEXTURE_NAMES,
     SKILL_BUTTON_TEXTURE_NAMES,
@@ -131,9 +134,8 @@ const LOCAL_BOOTSTRAP_LEVEL_DIR = 'LevelData';
 const LOCAL_BOOTSTRAP_TEXTURE_DIR = 'GameUI';
 const LOCAL_BOOTSTRAP_GAME_ASSETS_WARM_DELAY = 1.0;
 const PINDD_BEAN_VARIANTS: Array<1 | 2 | 4> = [1, 2, 4];
-const MAINLINE_SETTLEMENT_PROGRESS_TEXTURE_NAMES = ['进度条', 'progress_fill'];
-const LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES, ...MAINLINE_TUTORIAL_TEXTURE_NAMES, ...MAINLINE_SETTLEMENT_PROGRESS_TEXTURE_NAMES, ...BOARD_EFFECT_TEXTURE_NAMES]);
-const LOCAL_BOOTSTRAP_TEXTURE_NAMES = new Set<string>([...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES, ...MAINLINE_TUTORIAL_TEXTURE_NAMES, ...MAINLINE_SETTLEMENT_PROGRESS_TEXTURE_NAMES, ...BOARD_EFFECT_TEXTURE_NAMES]);
+const LOCAL_BOOTSTRAP_ALWAYS_TEXTURE_NAMES = new Set<string>(['设置', ...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES, ...MAINLINE_TUTORIAL_TEXTURE_NAMES, ...BOARD_EFFECT_TEXTURE_NAMES]);
+const LOCAL_BOOTSTRAP_TEXTURE_NAMES = new Set<string>([...MAINLINE_GAMEPLAY_HUD_TEXTURE_NAMES, ...MAINLINE_TUTORIAL_TEXTURE_NAMES, ...BOARD_EFFECT_TEXTURE_NAMES]);
 const MAX_LEADERBOARD_AVATAR_FRAMES = 24;
 const LS_LEVEL = 'pdd.level';
 const LS_GOLD = 'pdd.gold';
@@ -335,6 +337,35 @@ function createSingleColorSpriteFrame(color: Color, width: number, height: numbe
     ctx.clearRect?.(0, 0, safeWidth, safeHeight);
     ctx.fillStyle = `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${alpha})`;
     ctx.fillRect(0, 0, safeWidth, safeHeight);
+
+    const image = new ImageAsset(canvas);
+    const texture = new Texture2D();
+    texture.image = image;
+    const spFrame = new SpriteFrame();
+    spFrame.texture = texture;
+    spFrame.rect = new Rect(0, 0, safeWidth, safeHeight);
+    (spFrame as any).packingMode = 'none';
+    return spFrame;
+}
+
+function createHorizontalAlphaFadeSpriteFrame(width: number, height: number, edgeFadeRatio: number): SpriteFrame {
+    const safeWidth = Math.max(2, Math.ceil(width));
+    const safeHeight = Math.max(1, Math.ceil(height));
+    const safeEdgeFadeRatio = Math.max(0.01, Math.min(0.5, Number(edgeFadeRatio) || 0.32));
+    const canvas = createSolidColorCanvas(safeWidth, safeHeight);
+    const ctx = canvas.getContext?.('2d');
+    if (!ctx) {
+        throw new Error('Canvas 2D context unavailable for horizontal alpha fade generation');
+    }
+    ctx.clearRect?.(0, 0, safeWidth, safeHeight);
+    for (let x = 0; x < safeWidth; x++) {
+        const position = x / (safeWidth - 1);
+        const edgeDistance = Math.min(position, 1 - position);
+        const edgeProgress = Math.max(0, Math.min(1, edgeDistance / safeEdgeFadeRatio));
+        const alpha = edgeProgress * edgeProgress * (3 - 2 * edgeProgress);
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillRect(x, 0, 1, safeHeight);
+    }
 
     const image = new ImageAsset(canvas);
     const texture = new Texture2D();
@@ -588,7 +619,7 @@ export {
     PerformanceMgr, AnalyticsMgr, LeaderboardMgr, ECONOMY_NUMERIC_TABLE, UserMgr, UserStateSyncMgr, mapPhysicalToLogicalLevelId, getMainLevelTimeLimitSeconds,
     mapLogicalToPhysicalLevelId, shouldUseMainLevelUnlimitedTime, BOARD_EFFECT_TEXTURE_NAMES, BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS, COLLECTION_RELEASE_TEXTURE_NAMES, COLLECTION_TEXTURE_NAMES, GAMEPLAY_SLOT_TEXTURE_NAMES, GOLD_SHOP_RELEASE_TEXTURE_NAMES,
     GOLD_SHOP_TEXTURE_NAMES, HOME_MENU_TEXTURE_NAMES, LEADERBOARD_RELEASE_TEXTURE_NAMES, LEADERBOARD_TEXTURE_NAMES, POPUP_UI_TEXTURE_NAMES, RECOVER_VIGOR_RELEASE_TEXTURE_NAMES, RECOVER_VIGOR_TEXTURE_NAMES, RESOURCE_ACQUIRE_RELEASE_TEXTURE_NAMES, RESOURCE_ACQUIRE_TEXTURE_NAMES, RESULT_PANEL_TEXTURE_NAMES, GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS, GAME_ASSETS_PRELOAD_TEXTURE_PATHS,
-    GAME_ASSETS_TEXTURE_SEARCH_DIRS, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
+    GAME_ASSETS_TEXTURE_SEARCH_DIRS, getLocalAtlasMemberRoute, isLocalAtlasMember, LOCAL_ATLAS_MEMBER_ROUTES, SETTINGS_PANEL_RELEASE_TEXTURE_NAMES, SETTINGS_PANEL_TEXTURE_NAMES, SKILL_BUTTON_TEXTURE_NAMES, SySDKMgr, ccclass, property, DEFAULT_CELL_SIZE,
     DEFAULT_CELL_GAP, PINDD_BEAN_TO_SLOT_RATIO, SLOT_SIZE, SLOT_GAP, SLOT_HIT_PADDING, SELECTED_SLOT_HIT_PADDING, SLOT_HIT_PADDING_X_UI, SLOT_HIT_PADDING_Y_UI,
     SLOT_UNLOCK_HIT_PADDING_UI, SLOT_AREA_HIT_PADDING_UI, BOARD_SELECT_HIT_MIN_UI, BOARD_PLACE_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_MIN_UI, BOARD_SELECT_HIT_CELL_RATIO, BOARD_PLACE_HIT_CELL_RATIO, BOARD_SLOT_PLACE_HIT_CELL_RATIO, SLOTS_PER_ROW, DEFAULT_UNLOCKED_SLOT_ROWS, SLOT_ROW_BG_WIDTH, SLOT_ROW_BG_HEIGHT,
@@ -603,7 +634,7 @@ export {
     WIN_GLOW_MIN_WAVES, WIN_GLOW_MAX_WAVES, WIN_GLOW_WAVE_STEP, WIN_GLOW_POST_DELAY, WIN_GLOW_FAST_INTERVAL_LARGE, WIN_GLOW_FAST_INTERVAL_MEDIUM, WIN_GLOW_FAST_INTERVAL_SMALL, GUIDE_HAND_BOX_SIZE,
     GUIDE_HAND_SPRITE_SIZE, GUIDE_HAND_FINGERTIP_OFFSET_X, GUIDE_HAND_FINGERTIP_OFFSET_Y, TUTORIAL_ZOOM_SCALE_DELTA, leaderboardAvatarFrameCache, leaderboardAvatarPendingLoads, leaderboardAvatarLoadQueue, leaderboardAvatarLoadLaunchers, leaderboardAvatarLoadInFlight,
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
-    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
+    enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, createHorizontalAlphaFadeSpriteFrame, BoardViewportController
 };
 
 export type {
