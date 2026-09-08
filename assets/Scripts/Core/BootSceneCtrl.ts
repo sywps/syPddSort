@@ -13,6 +13,7 @@ import {
     view,
 } from 'cc';
 import { AppRoot } from './AppRoot';
+import { debugPerfTrace } from './DebugPerfTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import { markStartupTrace } from './StartupTrace';
 import {
@@ -55,6 +56,7 @@ export class BootSceneCtrl extends Component {
 
         this.prepareBootFrame();
         this.showBootLoadingUi();
+        debugPerfTrace('runtime.boot.start', { source: 'BootSceneCtrl.start' });
         markStartupTrace('app_launch', { source: 'BootSceneCtrl.start' });
         markStartupTrace('startup_boot_start', { source: 'BootSceneCtrl.start' });
 

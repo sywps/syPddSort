@@ -116,7 +116,7 @@ assert.match(
     /new PchConveyorRules\(\s*this\.runtime\.boardModel,\s*this\.runtime\.levelData\?\.conveyorCapacity,\s*this\.runtime\.levelData\?\.singleSelectionLimit,\s*PCH_SCENE_CARRIER_COUNT,\s*\)/,
 );
 assert.match(controller, /normalLayout\.node\.active = true;/);
-assert.match(controller, /compactLayout\.node\.active = false;/);
+assert.doesNotMatch(controller, /this\.compactLayout|compactLayout\.node/);
 assert.match(controller, /const activeLayout = normalLayout;/);
 assert.match(controller, /this\.prepareBeltPath\(2\);/);
 assert.doesNotMatch(controller, /useCompactLayout/);

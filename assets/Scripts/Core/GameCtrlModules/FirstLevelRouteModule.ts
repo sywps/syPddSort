@@ -25,7 +25,7 @@ import {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { LevelDataCdnService } from '../LevelDataCdnService';
-import { isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
+import { getWeChatMiniGameRuntime, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { collectActiveBlockInputEvents, debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { markStartupTrace } from '../StartupTrace';
@@ -877,6 +877,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     sourceEvent: eventName,
                 });
             }
+            if (success) this.noteGameplayLoadingProgress?.(eventName);
             const logArgs = [`[LevelDataLoad] ${eventName}`, diagnostics];
             if (success) runtimeLog(...logArgs);
             else console.error(...logArgs);
@@ -953,32 +954,34 @@ export function installFirstLevelRouteModule(target: any): void {
             card.active = true;
 
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorHint', true);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorDetail', false);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRetry', true);
-            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorBack', true);
-            const retryNode = this.requireUiChild(
+            this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRestart', true);
+            const restartNode = this.requireUiChild(
                 card,
-                'RemoteLoadFatalErrorRetry',
-                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorRetry',
+                'RemoteLoadFatalErrorRestart',
+                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorRestart',
             );
-            const backNode = this.requireUiChild(
-                card,
-                'RemoteLoadFatalErrorBack',
-                'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorBack',
-            );
-            const retryButton = retryNode.getComponent(Button);
-            const backButton = backNode.getComponent(Button);
-            if (!retryButton || !backButton) {
-                throw new Error('[SceneUI] RemoteLoadFatalError recovery actions are missing Button components');
+            const restartButton = restartNode.getComponent(Button);
+            if (!restartButton) {
+                throw new Error('[SceneUI] RemoteLoadFatalError restart action is missing a Button component');
             }
-            retryButton.interactable = true;
-            backButton.interactable = true;
-            retryNode.targetOff(this);
-            retryNode.on(Button.EventType.CLICK, () => this.retryGameplayLoading?.('fatal-error'), this);
-            backNode.targetOff(this);
-            backNode.on(Button.EventType.CLICK, () => this.exitGameplayLoading?.('fatal-error'), this);
+            restartButton.interactable = true;
+            restartNode.targetOff(this);
+            restartNode.on(Button.EventType.CLICK, () => this.restartGameFromRemoteLoadFatalError(), this);
+        },
+
+        restartGameFromRemoteLoadFatalError(): void {
+            const wxRuntime = getWeChatMiniGameRuntime();
+            if (wxRuntime && typeof wxRuntime.restartMiniProgram === 'function') {
+                wxRuntime.restartMiniProgram();
+                return;
+            }
+            if (sys.isBrowser && typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+                window.location.reload();
+                return;
+            }
+            game.restart();
         },
 
         setRemoteLoadFatalChildActive(parent: Node, name: string, active: boolean): void {

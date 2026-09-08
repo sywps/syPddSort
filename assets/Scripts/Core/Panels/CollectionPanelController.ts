@@ -133,6 +133,7 @@ export class CollectionPanelController {
         const isOpenTargetAlive = () => isRuntimeAlive() && !!popupRoot?.isValid;
         const cancelStaleOpen = () => {
             if (!isRuntimeAlive()) return;
+            runtime.clearCollectionVirtualState?.();
             runtime._collectionOverlay = null;
             runtime._collectionContentNode = null;
             runtime._collectionScrollContentNode = null;
@@ -148,6 +149,7 @@ export class CollectionPanelController {
                 runtime._clearSpriteFramesBeforeDestroy(overlay);
                 runtime._destroyDetachedNodeNextFrame(overlay);
             }
+            runtime.clearCollectionVirtualState?.();
             runtime._collectionOverlay = null;
             runtime._collectionContentNode = null;
             runtime._collectionScrollContentNode = null;

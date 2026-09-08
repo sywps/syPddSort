@@ -32,7 +32,7 @@ for (const removedName of ['slot', 'uiPanel', 'propWand', 'propBrush', 'propFree
 }
 
 const settlement = read('assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts');
-assert.ok(settlement.includes("AudioMgr.inst.play('coin');"), 'settlement coin landings must use the dedicated coin cue');
+assert.ok(!settlement.includes("AudioMgr.inst.play('coin');"), 'win settlement must not play coin-landing audio after the flying coins are removed');
 assert.ok(settlement.includes("AudioMgr.inst.play('revivePop');"), 'buffer-full revive panel reveal must play revivePop');
 const levelCompleteIndex = settlement.indexOf("AudioMgr.inst.play('winAll');");
 const settlementIndex = settlement.indexOf("AudioMgr.inst.play('winSettlement');");
@@ -190,7 +190,7 @@ assert.ok(!placement.includes('COLOR_COMPLETE_VISUAL_SETTLE_DELAY'), 'color-comp
 assert.ok(uiManifest.includes('BOARD_EFFECT_TEXTURE_NAMES'), 'board effect textures must be declared in the UI manifest');
 assert.ok(uiManifest.includes('BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS'), 'board effect textures must be declared as bootstrap-owned paths');
 assert.ok(uiManifest.includes("'block_bright_pindd'"), 'landing light texture must be part of board effect textures');
-assert.ok(uiManifest.includes('GameUI/${name}'), 'board effect textures must load from bootstrap GameUI');
+assert.ok(uiManifest.includes('GameUI/Atlases/BoardEffects/${name}'), 'board effect textures must load from the Bootstrap BoardEffects atlas');
 assert.ok(uiManifest.includes('GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS: string[] = []'), 'board effect textures must not be prewarmed from gameAssets');
 assert.ok(shared.includes('BOARD_EFFECT_TEXTURE_NAMES'), 'board effect textures must be exported through GameCtrlShared');
 assert.ok(shared.includes('BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS'), 'bootstrap board effect paths must be exported through GameCtrlShared');
@@ -212,8 +212,8 @@ assert.ok(sceneHome.includes("this.trackFirstLevelFunnelForLevel(activeLevelId, 
 assert.ok(sceneHome.includes('Bootstrap levels must not block first playable UI on optional gameAssets texture prewarming.'), 'bootstrap optional texture prewarm must stay non-blocking; b1 Spine prewarm is the explicit initialization gate');
 assert.ok(!sceneHome.includes('let gameAssetsDone = GAME_ASSETS_BOOTSTRAP_PRELOAD_TEXTURE_PATHS.length === 0;'), 'bootstrap gameplay must not restore the old blocking gameAssets gate');
 assert.ok(assetBootstrap.includes('requireBrightSpriteFrame(): SpriteFrame'), 'landing light texture must have a fail-fast accessor');
-assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/block_bright_pindd.png')), 'landing light texture must live in BootstrapBundle GameUI');
-assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/block_bright_pindd.png.meta')), 'landing light texture meta must live in BootstrapBundle GameUI');
+assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/BoardEffects/block_bright_pindd.png')), 'landing light texture must live in BootstrapBundle BoardEffects atlas');
+assert.ok(fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/BoardEffects/block_bright_pindd.png.meta')), 'landing light texture meta must live in BootstrapBundle BoardEffects atlas');
 assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/block_bright_pindd.png')), 'landing light texture must not live in GameAssetsBundle');
 assert.ok(!fs.existsSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/block_bright_pindd.png.meta')), 'landing light texture meta must not live in GameAssetsBundle');
 
@@ -246,9 +246,10 @@ for (const [sceneName, sceneContent] of [
     ['Home.scene', homeScene],
     ['UIPreview.scene', uiPreviewScene],
 ]) {
-    assert.ok(sceneContent.includes('"关卡没准备好"'), `${sceneName} fatal overlay title copy must live in the Cocos scene template`);
-    assert.ok(sceneContent.includes('"请检查网络后重试"'), `${sceneName} fatal overlay hint copy must live in the Cocos scene template`);
-    assert.ok(!sceneContent.includes('"请重启小游戏"'), `${sceneName} fatal overlay must not force a restart when retry/back actions are available`);
+    assert.ok(sceneContent.includes('"版本更新请重启游戏"'), `${sceneName} fatal overlay restart copy must live in the Cocos scene template`);
+    assert.ok(sceneContent.includes('"重启游戏"'), `${sceneName} fatal overlay restart button copy must live in the Cocos scene template`);
+    assert.ok(!sceneContent.includes('"关卡没准备好"'), `${sceneName} fatal overlay must not retain the retired loading title`);
+    assert.ok(!sceneContent.includes('"请检查网络后重试"'), `${sceneName} fatal overlay must not retain the retired retry hint`);
     assert.ok(!sceneContent.includes('"资源更新中"'), `${sceneName} fatal overlay must not retain the old non-actionable wait copy`);
     assert.ok(!sceneContent.includes('"请检查资源与配置后重新进入游戏"'), `${sceneName} fatal overlay template must not retain old implementation-facing copy`);
     assert.ok(!sceneContent.includes('"LevelData/level_1"'), `${sceneName} fatal overlay template must not retain technical level-path text`);

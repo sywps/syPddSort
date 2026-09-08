@@ -77,7 +77,10 @@ const findNode = (name) => winPanelJson.find((entry) => entry && entry.__type__ 
 const settlementTopHud = findNode('SettlementTopHud');
 const settlementSettings = findNode('SettingsButton');
 const settlementGold = findNode('GoldGroup');
+const rewardGoldMaskBar = findNode('RewardGoldMaskBar');
 assert.ok(settlementTopHud && settlementSettings && settlementGold, 'WinPanel must own its minimal settlement HUD nodes');
+assert.ok(rewardGoldMaskBar, 'WinPanel must keep the reward row structure');
+assert.strictEqual(rewardGoldMaskBar._active, false, 'WinPanel reward row must not show the black mask bar');
 assert.ok(winPanel.includes('d301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941'), 'settlement settings must use the bootstrap-owned settings art');
 const settlementGoldMeta = readJson('assets/GameAssetsBundle/Textures/UI/settlement_gold_banner.png.meta');
 assert.strictEqual(settlementGoldMeta.uuid, '2cdb93ff-01d5-4df6-9159-c7102c6a27a1', 'settlement gold banner must have a route-owned GameAssets UUID');

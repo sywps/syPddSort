@@ -99,7 +99,6 @@ export function initializeGameCtrlState(runtime: any): void {
         _pendingWinGoldReward: 0,
         _pendingWinAdBonusReward: 0,
         _winAdRewardClaimed: false,
-        _winBaseGoldFlyPlayed: false,
         _settlementNextTransitioning: false,
         _settlementRevealState: 'idle',
         _settlementRevealToken: 0,
@@ -214,8 +213,6 @@ export function initializeGameCtrlState(runtime: any): void {
         _guidePreviewVisible: false,
         _guideTargetFeedbackNode: null as Node | null,
         _guideDimMaskNode: null as Node | null,
-        _guideDemoAssistNode: null as Node | null,
-        _guideDemoPlayingUntil: 0,
         _guideTransientFeedbackNodes: [] as Node[],
         _guideVisualShownAt: 0,
         _guideActionEnabledAt: 0,
@@ -262,11 +259,17 @@ export function initializeGameCtrlState(runtime: any): void {
         _loadingProgressFullWidth: 0,
         _loadingProgressFullHeight: 0,
         _loadingProgressTrackWidth: 0,
-        _loadingSlowActions: null,
         _loadingProgressIntroHandler: null as (() => void) | null,
-        _loadingSlowActionHandler: null as (() => void) | null,
         _loadingWatchdogHandler: null as (() => void) | null,
-        _loadingRouteActionInFlight: false,
+        _loadingWatchdogContext: null as {
+            levelId: number;
+            levelPath: string;
+            source: 'local' | 'remote';
+            timeoutMs: number;
+            requestVersion: number;
+            progressSeq: number;
+            lastProgressStage: string;
+        } | null,
         _loadingHasMeasuredProgress: false,
         _gameplayLoadRequestVersion: 0,
         _loadingProgressPercent: 0,
@@ -296,6 +299,8 @@ export function initializeGameCtrlState(runtime: any): void {
         _collectionContentNode: null,
         _collectionScrollContentNode: null,
         _collectionPreviewItems: [],
+        _collectionVirtualState: null,
+        _collectionVirtualGeneration: 0,
         _collectionPreviewRowPitch: 0,
         _collectionPreviewBufferRows: 2,
         _collectionPageIndicator: null,
@@ -431,7 +436,6 @@ export function initializeGameCtrlState(runtime: any): void {
         _rewardedAdWarmSlotRetryCount: 0,
         _rewardedAdWarmSlotBlockedReason: '',
         _rewardedAdWarmSlotLastEnsureAt: 0,
-        _rewardedAdPendingStrip: null,
         _rewardedAdStateUnsubscribe: null as (() => void) | null,
         _rewardedAdTelemetryPage: '',
         _rewardedAdTelemetryLevelId: 0,

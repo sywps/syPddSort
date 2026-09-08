@@ -1,6 +1,6 @@
 ﻿import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
-    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
+    EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
     Graphics, Layers, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
     NodePool, instantiate, Game, game, AdConfig, COLOR_HEX, BoardModel, SlotModel, AudioMgr,
@@ -23,7 +23,6 @@
     LEADERBOARD_ROW_PITCH, LEADERBOARD_SCROLL_DECAY, LEADERBOARD_SCROLL_MIN_SPEED, LEADERBOARD_AVATAR_MAX_CONCURRENT, FRIEND_AVATAR_CACHE_TTL_MS, FRIEND_RANK_SUBCONTEXT_FPS, FRIEND_RANK_SCROLL_POST_INTERVAL_MS, drainLeaderboardAvatarLoadQueue,
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, createSingleColorSpriteFrame, BoardViewportController
 } from '../GameCtrlShared';
-import { AppRoot } from '../AppRoot';
 import {
     createSlicedLoadingProgressAdapter,
     type SlicedLoadingProgressAdapter,
@@ -271,9 +270,6 @@ export function installGameplayShareLoadingModule(target: any): void {
             if (this._loadingProgressGroup?.isValid) {
                 this._loadingProgressGroup.active = false;
             }
-            if (this._loadingSlowActions?.isValid) {
-                this._loadingSlowActions.active = false;
-            }
             const showProgress = () => {
                 this._loadingProgressIntroHandler = null;
                 if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
@@ -282,26 +278,8 @@ export function installGameplayShareLoadingModule(target: any): void {
                 }
                 this._startLoadingIndeterminate(overlayVersion);
             };
-            const showSlowActions = () => {
-                this._loadingSlowActionHandler = null;
-                if (this._loadingOverlayVersion !== overlayVersion || this._loadingClosing || !this._loadingOverlay) return;
-                this._setLoadingStatusText('仍在准备关卡…');
-                if (this._loadingSlowActions?.isValid) {
-                    this._loadingSlowActions.active = true;
-                }
-                AnalyticsMgr.inst.trackFunnelEvent({
-                    eventName: 'loading_wait_slow',
-                    page: this.getAnalyticsPage?.() || 'level_game',
-                    levelId: this.getAnalyticsLevelId?.() || 0,
-                    source: 'startup_loading',
-                    success: true,
-                    extra: { thresholdMs: 3000 },
-                });
-            };
             this._loadingProgressIntroHandler = showProgress;
-            this._loadingSlowActionHandler = showSlowActions;
             this.scheduleOnce(showProgress, 0.3);
-            this.scheduleOnce(showSlowActions, 3);
         },
 
         _setLoadingStatusText(text: string) {
@@ -438,13 +416,54 @@ export function installGameplayShareLoadingModule(target: any): void {
         },
 
         clearLoadingStageTimers() {
-            for (const key of ['_loadingProgressIntroHandler', '_loadingSlowActionHandler', '_loadingWatchdogHandler']) {
+            for (const key of ['_loadingProgressIntroHandler', '_loadingWatchdogHandler']) {
                 const handler = this[key];
                 if (handler && typeof this.unschedule === 'function') {
                     this.unschedule(handler);
                 }
                 this[key] = null;
             }
+            this._loadingWatchdogContext = null;
+        },
+
+        armGameplayLoadingWatchdog(context: {
+            levelId: number;
+            levelPath: string;
+            source: 'local' | 'remote';
+            timeoutMs: number;
+            requestVersion: number;
+            progressSeq: number;
+            lastProgressStage: string;
+        }) {
+            const handler = () => {
+                if (context !== this._loadingWatchdogContext) return;
+                if (context.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+                if (this._levelDataLoadStopped || !this.isValid) return;
+                const confirmHandler = () => {
+                    if (context !== this._loadingWatchdogContext) return;
+                    if (context.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+                    if (this._levelDataLoadStopped || !this.isValid) return;
+                    this._loadingWatchdogHandler = null;
+                    this._loadingWatchdogContext = null;
+                    this.stopLevelDataLoadWithFatalError?.(
+                        context.levelId,
+                        context.levelPath,
+                        'level_data_load_timeout',
+                        context.source === 'local' ? 'local_load_timeout' : 'remote_load_timeout',
+                        `${context.source} gameplay startup made no progress for ${context.timeoutMs}ms`,
+                        {
+                            timeoutMs: context.timeoutMs,
+                            loadSource: context.source,
+                            lastProgressStage: context.lastProgressStage,
+                            progressSeq: context.progressSeq,
+                        },
+                    );
+                };
+                this._loadingWatchdogHandler = confirmHandler;
+                this.scheduleOnce(confirmHandler, 0);
+            };
+            this._loadingWatchdogHandler = handler;
+            this.scheduleOnce(handler, context.timeoutMs / 1000);
         },
 
         beginGameplayLoadingWatchdog(
@@ -459,110 +478,33 @@ export function installGameplayShareLoadingModule(target: any): void {
             const requestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
             this._gameplayLoadRequestVersion = requestVersion;
             this._levelDataLoadStopped = false;
-            const handler = () => {
-                this._loadingWatchdogHandler = null;
-                if (requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
-                if (this._levelDataLoadStopped || !this.isValid) return;
-                this.stopLevelDataLoadWithFatalError?.(
-                    Math.max(1, Math.floor(Number(levelId) || 1)),
-                    String(levelPath || `level_${levelId}`),
-                    'level_data_load_timeout',
-                    source === 'local' ? 'local_load_timeout' : 'remote_load_timeout',
-                    `${source} gameplay startup exceeded ${timeoutMs}ms`,
-                    { timeoutMs, loadSource: source },
-                );
+            const context = {
+                levelId: Math.max(1, Math.floor(Number(levelId) || 1)),
+                levelPath: String(levelPath || `level_${levelId}`),
+                source,
+                timeoutMs,
+                requestVersion,
+                progressSeq: 0,
+                lastProgressStage: 'load-start',
             };
-            this._loadingWatchdogHandler = handler;
-            this.scheduleOnce(handler, timeoutMs / 1000);
+            this._loadingWatchdogContext = context;
+            this.armGameplayLoadingWatchdog(context);
         },
 
-        setLoadingActionButtonsInteractable(interactable: boolean) {
-            const roots = [
-                this._loadingSlowActions,
-                this._remoteLoadErrorOverlay?.getChildByName('RemoteLoadFatalErrorCard') || null,
-            ];
-            for (const root of roots) {
-                if (!root?.isValid) continue;
-                for (const name of [
-                    'LoadingRetryButton',
-                    'LoadingBackButton',
-                    'RemoteLoadFatalErrorRetry',
-                    'RemoteLoadFatalErrorBack',
-                ]) {
-                    const button = root.getChildByName(name)?.getComponent(Button) || null;
-                    if (button) button.interactable = interactable;
-                }
+        noteGameplayLoadingProgress(stage: string) {
+            const previous = this._loadingWatchdogContext;
+            if (!previous || this._levelDataLoadStopped || !this.isValid) return;
+            if (previous.requestVersion !== (Number(this._gameplayLoadRequestVersion) || 0)) return;
+            if (this._loadingWatchdogHandler && typeof this.unschedule === 'function') {
+                this.unschedule(this._loadingWatchdogHandler);
             }
-        },
-
-        retryGameplayLoading(source: string = 'loading') {
-            if (this._loadingRouteActionInFlight) return;
-            const appRoot = AppRoot.tryGet();
-            if (!appRoot) {
-                this._setLoadingStatusText('重新加载失败，请返回首页');
-                return;
-            }
-            const pending = appRoot.session.pendingGameplayRequest;
-            const active = appRoot.session.activeGameplayContext;
-            const request = pending || active;
-            const levelId = Math.max(
-                1,
-                Math.floor(Number(request?.levelId || this._activePhysicalLevelId) || 1),
-            );
-            const entryMode = request?.entryMode
-                || (this._currentExternalLevelFilePath ? 'external' : 'main');
-            const prefix = String(request?.prefix || 'level_');
-            this._loadingRouteActionInFlight = true;
-            this._levelDataLoadStopped = true;
-            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
-            this.clearLoadingStageTimers();
-            this._stopLoadingShine();
-            this._setLoadingStatusText('正在重新加载…');
-            this.setLoadingActionButtonsInteractable(false);
-            AnalyticsMgr.inst.trackFunnelEvent({
-                eventName: 'loading_retry_clicked',
-                page: this.getAnalyticsPage?.() || 'level_game',
-                levelId,
-                source,
-                success: true,
-            });
-            AnalyticsMgr.inst.flushFunnelEvents();
-            appRoot.markGameRequested(levelId, prefix, entryMode, 'cover', 'loading-retry');
-            appRoot.router.toGame().catch((error) => {
-                if (!this.isValid) return;
-                this._loadingRouteActionInFlight = false;
-                this._levelDataLoadStopped = false;
-                this._setLoadingStatusText('重新加载失败，请返回首页');
-                this.setLoadingActionButtonsInteractable(true);
-                console.error('[LoadingOverlay] retry route failed:', error);
-            });
-        },
-
-        exitGameplayLoading(source: string = 'loading') {
-            if (this._loadingRouteActionInFlight) return;
-            const appRoot = AppRoot.tryGet();
-            if (!appRoot) return;
-            this._loadingRouteActionInFlight = true;
-            this._levelDataLoadStopped = true;
-            this._gameplayLoadRequestVersion = (Number(this._gameplayLoadRequestVersion) || 0) + 1;
-            this.clearLoadingStageTimers();
-            this._stopLoadingShine();
-            this.setLoadingActionButtonsInteractable(false);
-            AnalyticsMgr.inst.trackFunnelEvent({
-                eventName: 'loading_back_clicked',
-                page: this.getAnalyticsPage?.() || 'level_game',
-                levelId: this.getAnalyticsLevelId?.() || 0,
-                source,
-                success: true,
-            });
-            AnalyticsMgr.inst.flushFunnelEvents();
-            appRoot.requestHomeRoute('loading-back', 'cover').catch((error) => {
-                if (!this.isValid) return;
-                this._loadingRouteActionInFlight = false;
-                this._levelDataLoadStopped = false;
-                this.setLoadingActionButtonsInteractable(true);
-                console.error('[LoadingOverlay] home route failed:', error);
-            });
+            const context = {
+                ...previous,
+                progressSeq: previous.progressSeq + 1,
+                lastProgressStage: String(stage || 'loading-progress'),
+            };
+            this._loadingWatchdogContext = context;
+            this.armGameplayLoadingWatchdog(context);
         },
 
         hideLoadingOverlayAfterGameplayReady() {
@@ -604,13 +546,11 @@ export function installGameplayShareLoadingModule(target: any): void {
             this._loadingProgressFill = null;
             this._loadingProgressFillNode = null;
             this._loadingProgressGroup = null;
-            this._loadingSlowActions = null;
             this._loadingProgressLabel = null;
             this._loadingProgressLabelShadow = null;
             this._loadingShine = null;
             this._loadingProgress = 0;
             this._loadingProgressPercent = 0;
-            this._loadingRouteActionInFlight = false;
             this._loadingClosing = false;
         },
     });

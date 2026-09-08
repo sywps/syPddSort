@@ -95,12 +95,12 @@ assert.deepEqual(trackMeta.subMetas.f9941.userData.borderLeft, 48, 'Boot track m
 assert.deepEqual(fillMeta.subMetas.f9941.userData.borderLeft, 36, 'Boot fill must preserve the 4x cap border');
 assert.equal(
     assetHash('assets/Textures/UI/loading_progress_track_sliced.png'),
-    assetHash('assets/BootstrapBundle/GameUI/RainbowConveyor/pch_capacity_track_sliced.png'),
+    assetHash('assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_track_sliced.png'),
     'Boot track pixels must exactly match the corrected PCH visual',
 );
 assert.equal(
     assetHash('assets/Textures/UI/loading_progress_fill_sliced.png'),
-    assetHash('assets/BootstrapBundle/GameUI/RainbowConveyor/pch_capacity_fill_sliced.png'),
+    assetHash('assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_fill_sliced.png'),
     'Boot fill pixels must exactly match the corrected PCH visual',
 );
 

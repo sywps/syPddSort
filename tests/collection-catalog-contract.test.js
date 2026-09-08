@@ -310,7 +310,10 @@ assert.ok(!collection.includes('collectAllLevelIds'), 'collection rendering must
 assert.ok(panel.includes('loadCollectionLevelEntries'), 'collection open must load manifest entries');
 assert.ok(collection.includes('isCollectionEntryUnlocked(entry.unlockLevel, savedLevel)'), 'unlock state must use completed progress with the manifest contract');
 assert.ok(collection.includes("const completedThemeLevelIds = activeTab === 'theme'"), 'pixel collection rendering must read its completed-level set once outside the entry loop');
-assert.ok(collection.includes('isCollectionEntryUnlockedForProgress(entry, savedLevel, completedThemeLevelIds)'), 'collection rendering must apply the gameplay-specific completion policy');
+assert.ok(
+    collection.includes('isCollectionEntryUnlockedForProgress(entry, state.savedLevel, state.completedThemeLevelIds)'),
+    'virtual collection card binding must apply the gameplay-specific completion policy',
+);
 assert.ok(!collection.includes('entry.unlockLevel <= savedLevel'), 'unlock state must not treat the current playable level as completed');
 assert.ok(collection.includes('prefix: entry.prefix'), 'lazy preview state must retain the manifest prefix');
 assert.ok(flow.includes('openCollectionImageModal(levelId, prefix)'), 'collection detail must retain the manifest prefix');

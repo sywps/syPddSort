@@ -338,6 +338,13 @@ function warmFreshWorkerAssetDb(workerDir) {
     return result;
 }
 
+function prepareFreshWorkerPackerTargets(workerDir) {
+    const targetsRoot = path.join(workerDir, 'temp', 'programming', 'packer-driver', 'targets');
+    for (const targetName of ['editor', 'preview']) {
+        fs.mkdirSync(path.join(targetsRoot, targetName), { recursive: true });
+    }
+}
+
 function validateFreshWorkerDir(workerDir, tempRoot = os.tmpdir()) {
     assertSafeFreshWorkerPath(workerDir, tempRoot);
     if (!fs.existsSync(path.join(workerDir, 'assets'))) fail('Release 全新工位缺少 assets: ' + workerDir);
@@ -371,6 +378,7 @@ async function main(args = process.argv.slice(2)) {
         validateFreshWorkerDir(workerDir);
         console.log('   正在校验全新工位 assets 字节一致性...');
         assertAssetTreesByteIdentical(workerDir);
+        prepareFreshWorkerPackerTargets(workerDir);
         console.log('   正在从零生成 AssetDB，并在编辑器完全退出后启动 batch 构建...');
         const ready = warmFreshWorkerAssetDb(workerDir);
         console.log('   AssetDB 清单: scenes=' + ready.sceneCount + ', scripts=' + ready.scriptCount);
@@ -422,6 +430,7 @@ module.exports = {
     heldAssetDbTimeoutMs,
     linkWorkspaceDependencies,
     listAssetTreeContentDiff,
+    prepareFreshWorkerPackerTargets,
     replaceDirectoryContents,
     sourceSyncExcludes,
     syncGeneratedOutputs,

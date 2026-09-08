@@ -56,8 +56,7 @@ assert.strictEqual(findNode('TitleFreeze')._active, false, 'TitleFreeze must def
 assert.strictEqual(findNode('IconFreeze')._active, false, 'IconFreeze must default inactive');
 assert.strictEqual(findNode('TextFreeze')._active, false, 'TextFreeze must default inactive');
 assert.strictEqual(findNode('AcquireInsufficientGoldTip')._active, false, 'insufficient gold tip must default inactive');
-assert.strictEqual(findNode('AcquireCancelBtn')._active, false, 'ad result end-wait action must default hidden');
-assert.strictEqual(getComponent('AcquireCancelLbl', 'cc.Label')._string, '结束等待', 'ad result end-wait copy must be prefab-owned');
+assert.strictEqual(findNodeIndex('AcquireCancelBtn'), -1, 'obsolete ad result end-wait action must be removed');
 assert.strictEqual(getComponent('AcquireAdLbl', 'cc.Label')._string, '免费', 'tool ad action must default to free copy');
 assert.strictEqual(getComponent('AcquireGoldAdLbl', 'cc.Label')._string, '免费', 'gold ad action must default to free copy');
 assert.ok(childNames('AcquireAdBtn').includes('AcquireAdIcon'), 'tool ad action must retain its ad icon');
@@ -82,7 +81,8 @@ assert.ok(!controller.includes('看广告领取'), 'runtime ad states must not r
 assert.ok(controller.includes("setAdPanelState('免费', false, false);"), 'runtime ad states must initialize with the free copy');
 assert.ok(controller.includes('onInteractionStarted: hidePanelForNativeAd'), 'the panel must hand off immediately when the ad request starts');
 assert.ok(controller.includes('onAdShown: hidePanelForNativeAd'), 'the panel must remain hidden when the native ad becomes visible');
-assert.ok(controller.includes("setAdPanelState('正在确认结果…', true, true, '结束等待');"), 'a delayed native close must expose an explicit end-wait action');
+assert.ok(!controller.includes('正在确认结果'), 'a delayed native close must not expose a custom waiting state');
+assert.ok(!controller.includes('结束等待'), 'the obsolete end-wait action must not remain in controller code');
 assert.ok(controller.includes("outcome?.status === 'verified_incomplete'"), 'early close and technical failure must restore distinct retry copy');
 assert.ok(!controller.includes('if (started) closePanel'), 'request acceptance alone must never close the panel');
 

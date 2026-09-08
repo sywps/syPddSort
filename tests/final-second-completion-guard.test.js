@@ -150,6 +150,31 @@ const runResumeAfterSettlement = compileMethod(
         PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS: 0.12,
     },
 );
+const runPauseForSettings = compileMethod(
+    conveyorSource,
+    'pauseForSettings(): void',
+    { Tween: { pauseAllByTarget() {} } },
+);
+const resumedSettingsTargets = [];
+const runResumeAfterSettings = compileMethod(
+    conveyorSource,
+    'resumeAfterSettings(): void',
+    {
+        Tween: { resumeAllByTarget(target) { resumedSettingsTargets.push(target); } },
+        PCH_RETURN_COMPLETE_DELAY_SECONDS: 0.2,
+        PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS: 0.12,
+    },
+);
+const runResumeAfterSettlementForSettings = compileMethod(
+    conveyorSource,
+    'resumeAfterSettlement(): void',
+    {
+        Tween: { resumeAllByTarget(target) { resumedSettingsTargets.push(target); } },
+        PCH_RETURN_COMPLETE_DELAY_SECONDS: 0.2,
+        PCH_RETURN_COLOR_COMPLETE_DELAY_SECONDS: 0.12,
+    },
+);
+const runSettingsPausedUpdate = compileMethod(conveyorSource, 'update(deltaTime: number)');
 const colorSettle = () => {};
 const pausedCallbacks = [];
 const rescheduledCallbacks = [];
@@ -176,5 +201,52 @@ assert.ok(
     'settlement resume must requeue each preserved final color-settle callback',
 );
 assert.equal(commitRetryCalls, 1, 'resume must retry the finish commit when an already-running color effect completed during settlement');
+
+const movingSettingsBean = { isValid: true };
+const pendingSettingsBean = { isValid: true };
+const settingsCompletion = () => {};
+const settingsColorSettle = () => {};
+const settingsUnscheduled = [];
+const settingsScheduled = [];
+let settingsManualUpdateCalls = 0;
+let settingsCommitRetryCalls = 0;
+const settingsController = {
+    settingsPaused: false,
+    settlementPaused: false,
+    activeReturnBeans: new Set([pendingSettingsBean]),
+    activeFlyBeans: new Set([movingSettingsBean, pendingSettingsBean]),
+    pendingReturnCompletions: new Map([[pendingSettingsBean, settingsCompletion]]),
+    pendingPchReturnColorSettles: new Set([settingsColorSettle]),
+    runtime: {
+        isGameEnd: false,
+        unschedule(callback) { settingsUnscheduled.push(callback); },
+        scheduleOnce(callback, delay) { settingsScheduled.push({ callback, delay }); },
+    },
+    isActive() { return true; },
+    updateSphereFlyEffects() { settingsManualUpdateCalls += 1; },
+    updateExitArrowAnimation() { settingsManualUpdateCalls += 1; },
+    tryCommitFinishAfterPchColorCompleteEffects() { settingsCommitRetryCalls += 1; },
+};
+runPauseForSettings.call(settingsController);
+runPauseForSettings.call(settingsController);
+runSettingsPausedUpdate.call(settingsController, 1);
+assert.equal(settingsManualUpdateCalls, 0, 'Settings must stop PCH manual effects before any per-frame update');
+assert.deepEqual(
+    settingsUnscheduled,
+    [settingsCompletion, settingsColorSettle],
+    'Settings must suspend return and color-settle callbacks exactly once',
+);
+
+settingsController.settlementPaused = true;
+runResumeAfterSettings.call(settingsController);
+assert.deepEqual(resumedSettingsTargets, [], 'closing Settings must not bypass an active settlement lock');
+assert.deepEqual(settingsScheduled, [], 'callbacks must stay suspended while settlement remains paused');
+runResumeAfterSettlementForSettings.call(settingsController);
+assert.deepEqual(resumedSettingsTargets, [movingSettingsBean], 'the final released owner must resume moving PCH beans');
+assert.deepEqual(settingsScheduled, [
+    { callback: settingsCompletion, delay: 0.2 },
+    { callback: settingsColorSettle, delay: 0.12 },
+]);
+assert.equal(settingsCommitRetryCalls, 1, 'the final released owner must retry any pending finish commit');
 
 console.log('final-second-completion-guard.test.js passed');

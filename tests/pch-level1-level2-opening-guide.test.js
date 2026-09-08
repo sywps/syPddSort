@@ -166,7 +166,7 @@ assert.strictEqual(targetOwnership.isOpeningGuideTargetEvent({ target: openingGu
                 return { getBoundingBoxToWorld: () => ({ contains: () => true }) };
             },
         };
-        guide.onOpeningGuideDoubleSpeed = () => { speedGuideRuns += 1; };
+        guide.onOpeningGuideTripleSpeed = () => { speedGuideRuns += 1; };
         assert.strictEqual(guide.handleOpeningGuideRootTap(missEvent), true, 'a correct guide target must retain its original success route');
         assert.strictEqual(speedGuideRuns, 1, 'a correct level-2 guide target must still execute exactly once');
         assert.strictEqual(toasts.length, 4, 'a correct guide target must not show the wrong-tap reminder');
@@ -247,7 +247,7 @@ assert.deepStrictEqual(secondSuccess.calls.analytics, [
 ]);
 
 playedAudio.length = 0;
-const levelTwo = createHarness(['private onOpeningGuideDoubleSpeed(event: any): void']);
+const levelTwo = createHarness(['private onOpeningGuideTripleSpeed(event: any): void']);
 const multipliers = [];
 const levelTwoAnalytics = [];
 let levelTwoRefreshes = 0;
@@ -262,15 +262,15 @@ levelTwo.reportOpeningGuideTutorialFinish = () => { levelTwoTutorialFinishes += 
 levelTwo.refreshSpeedButtonState = () => { levelTwoRefreshes += 1; };
 levelTwo.dismissOpeningGuide = () => { levelTwoDismisses += 1; };
 const speedEvent = { propagationStopped: false };
-levelTwo.onOpeningGuideDoubleSpeed(speedEvent);
-assert.deepStrictEqual(multipliers, [2], 'level 2 must deterministically enable 2x, independent of saved speed');
+levelTwo.onOpeningGuideTripleSpeed(speedEvent);
+assert.deepStrictEqual(multipliers, [3], 'level 2 must deterministically enable 3x, independent of saved speed');
 assert.strictEqual(speedEvent.propagationStopped, true);
 assert.strictEqual(levelTwoRefreshes, 1);
 assert.strictEqual(levelTwoDismisses, 1);
 assert.strictEqual(levelTwoTutorialFinishes, 1, 'level 2 guide success must report tutorial completion once');
-assert.strictEqual(levelTwo.statusLabel.string, '2 倍速度已开启');
+assert.strictEqual(levelTwo.statusLabel.string, '3 倍速度已开启');
 assert.deepStrictEqual(levelTwoAnalytics, [
-    ['pch_guide_tap_result', true, 'enabled_2x'],
+    ['pch_guide_tap_result', true, 'enabled_3x'],
     ['pch_guide_step_done', true, 'completed'],
 ]);
 assert.deepStrictEqual(playedAudio, ['button']);
@@ -346,7 +346,7 @@ function routeGuide(levelId, entryMode) {
     };
     guide.speedButton = { isValid: true };
     guide.adButton = { isValid: true };
-    guide.onOpeningGuideDoubleSpeed = () => {};
+    guide.onOpeningGuideTripleSpeed = () => {};
     guide.onOpeningGuideFreeCapacity = () => {};
     guide.showLevelOneBoardGuide = (parent) => calls.push(['level1', parent]);
     guide.showOpeningTargetGuide = (...args) => calls.push(['target', ...args]);
@@ -374,12 +374,8 @@ deferredLevelOne.runtime = {
 deferredLevelOne.showLevelOneBoardGuide = () => { deferredLevelOneShows += 1; };
 const deferredGuideParent = { isValid: true };
 deferredLevelOne.showOpeningFeatureGuide(deferredGuideParent);
-assert.strictEqual(deferredLevelOne.inputLocked, true, 'level 1 input must stay locked while its bubble frame loads');
-assert.strictEqual(deferredLevelOneShows, 0, 'level 1 guide must wait for the selected bubble frame');
-assert.strictEqual(typeof ensureGuideBubble, 'function');
-guideBubbleLoaded = true;
-ensureGuideBubble();
-assert.strictEqual(deferredLevelOneShows, 1, 'level 1 guide must resume after its bubble frame is ready');
+assert.strictEqual(deferredLevelOneShows, 1, 'level 1 must show an interactive text guide without waiting for decoration');
+assert.strictEqual(ensureGuideBubble, null, 'guide display must not queue a late resource callback that can relock gameplay');
 
 for (const levelId of [1, 2, 3]) {
     const missingBubbleLoader = createHarness(['private showOpeningFeatureGuide(parent: Node): void']);
@@ -390,11 +386,11 @@ for (const levelId of [1, 2, 3]) {
         getActiveLogicalLevelId() { return levelId; },
         getSF() { return null; },
     };
-    assert.throws(
-        () => missingBubbleLoader.showOpeningFeatureGuide({ isValid: true }),
-        /opening guide bubble frame loader is unavailable/,
-        `level ${levelId} must fail fast instead of falling back to the old purple prompt`,
-    );
+    let shown = 0;
+    missingBubbleLoader.showLevelOneBoardGuide = () => { shown += 1; };
+    missingBubbleLoader.showOpeningTargetGuide = () => { shown += 1; };
+    missingBubbleLoader.showOpeningFeatureGuide({ isValid: true });
+    assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
 }
 assert.ok(
     source.includes("? '点击白色豆豆\\n将它们放到传送带上'")
@@ -525,7 +521,7 @@ assert.ok(
 const levelTwoRoute = routeGuide(2, 'main');
 assert.strictEqual(levelTwoRoute.length, 1);
 assert.strictEqual(levelTwoRoute[0][3], 'PchLevelTwoSpeedGuide');
-assert.strictEqual(levelTwoRoute[0][4], '点击开启两倍速');
+assert.strictEqual(levelTwoRoute[0][4], '点击开启三倍速');
 assert.strictEqual(levelTwoRoute[0][6], undefined, 'level 2 must retain its existing vertical placement');
 const levelThreeRoute = routeGuide(3, 'main');
 assert.strictEqual(levelThreeRoute.length, 1);

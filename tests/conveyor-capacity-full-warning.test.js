@@ -106,17 +106,13 @@ const conveyorRoot = scene.find((record) => record?.__type__ === 'cc.Node' && re
 const normalLayout = child(conveyorRoot, 'NormalLayout');
 const compactLayout = child(conveyorRoot, 'CompactLayout');
 const normalBadge = child(normalLayout, 'PchCapacityBadge');
-const compactBadge = child(compactLayout, 'PchCapacityBadge');
 const normalCount = child(normalBadge, 'CapacityCount');
-const compactCount = child(compactBadge, 'CapacityCount');
 const normalAnimation = component(normalCount, 'cc.Animation');
 
 assert.equal(normalBadge._lpos.x, 0);
 assert.equal(normalBadge._lpos.y, 0);
-assert.equal(compactBadge._lpos.x, 0);
-assert.equal(compactBadge._lpos.y, -117.66);
+assert.equal(compactLayout, undefined, 'unused CompactLayout must not load with Game');
 assert.ok(normalAnimation, 'Normal CapacityCount must own the warning Animation');
-assert.equal(component(compactCount, 'cc.Animation'), undefined, 'Compact must remain animation-free');
 assert.equal(normalAnimation.node.__id__, scene.indexOf(normalCount));
 assert.equal(normalAnimation.playOnLoad, false);
 assert.equal(normalAnimation._clips.length, 1);

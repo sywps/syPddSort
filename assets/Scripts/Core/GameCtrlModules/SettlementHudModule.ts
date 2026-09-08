@@ -74,14 +74,6 @@ type SmartIdleHintEndpoints = {
     sourceHandVisible?: boolean;
 };
 
-const GOLD_TEXTURE_NAME = '\u91d1\u5e01';
-
-function ensureUi(node: Node, width: number, height: number): UITransform {
-    const ui = node.getComponent(UITransform) || node.addComponent(UITransform);
-    ui.setContentSize(width, height);
-    return ui;
-}
-
 function stretchRuntimeUiNodeToParent(node: Node): void {
     const widget = node.getComponent(Widget) || node.addComponent(Widget);
     const raw = widget as any;
@@ -95,27 +87,6 @@ function stretchRuntimeUiNodeToParent(node: Node): void {
     raw.bottom = 0;
     raw.alignMode = 2;
     widget.updateAlignment?.();
-}
-
-function getNodeCenterInRoot(root: Node, node: Node): Vec3 {
-    const rootUi = root.getComponent(UITransform);
-    const nodeUi = node.getComponent(UITransform);
-    if (!rootUi || !nodeUi) {
-        return new Vec3(node.position.x, node.position.y, node.position.z);
-    }
-    const world = nodeUi.convertToWorldSpaceAR(new Vec3(0, 0, 0));
-    return rootUi.convertToNodeSpaceAR(world);
-}
-
-function getSpriteFrameFromNode(node?: Node | null): SpriteFrame | null {
-    if (!node?.isValid) return null;
-    const direct = node.getComponent(Sprite)?.spriteFrame || null;
-    if (direct) return direct;
-    for (const child of node.children) {
-        const childFrame = child.getComponent(Sprite)?.spriteFrame || null;
-        if (childFrame) return childFrame;
-    }
-    return null;
 }
 
 const SKILL_USAGE_TIMEOUT_MS = 10000;
@@ -161,6 +132,13 @@ export function installSettlementHudModule(target: any): void {
                 if (this._skillUsageWatchdog !== watchdog
                     || generation !== Math.max(0, Math.floor(Number(this._skillUsageGeneration) || 0))
                     || !this._skillActive) return false;
+                if (owner.startsWith('pch-') && this._pchConveyorGameplayController?.isPresentationPaused?.()) {
+                    clearTimeout(watchdog);
+                    watchdog = setTimeout(() => recoverWatchdog('resume-timeout'), normalizedTimeout);
+                    this._skillUsageWatchdog = watchdog;
+                    this._skillUsageWatchdogMeta.deadlineAt = Date.now() + normalizedTimeout;
+                    return false;
+                }
                 clearTimeout(watchdog);
                 this._skillUsageWatchdog = null;
                 this._skillUsageWatchdogMeta = null;
@@ -176,6 +154,7 @@ export function installSettlementHudModule(target: any): void {
                     source,
                 };
                 console.error(`[Skill] ${owner} recovered after ${normalizedTimeout}ms: ${source}`);
+                if (this._pchConveyorGameplayController?.recoverActiveSkillVisuals?.()) return true;
                 const recover = (label: string, callback: () => void) => {
                     try {
                         callback();
@@ -464,108 +443,7 @@ export function installSettlementHudModule(target: any): void {
             });
             goldLabel.string = `${this.getGold?.() ?? 0}`;
             this._settlementGoldCountLbl = goldLabel;
-            return { settingsBtn, goldBox, coinIcon: goldBox };
-        },
-
-        resolveWinSettlementCoinFrame(sourceNode?: Node | null): SpriteFrame | null {
-            const fromSource = getSpriteFrameFromNode(sourceNode);
-            if (fromSource) return fromSource;
-            const box = (this.panelWin as Node | null)?.getChildByName('Box') || null;
-            const rewardIcon = box?.getChildByName('RewardGoldIcon') || null;
-            const fromRewardIcon = getSpriteFrameFromNode(rewardIcon);
-            if (fromRewardIcon) return fromRewardIcon;
-            return this.getSF?.(GOLD_TEXTURE_NAME) || null;
-        },
-
-        playWinSettlementGoldFlyReward(amount: number, sourceNode?: Node | null): boolean {
-            const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
-            if (safeAmount <= 0) return false;
-            const panel = this.panelWin as Node | null;
-            if (!panel?.isValid || !panel.activeInHierarchy) return false;
-            const widgets = this.ensureWinSettlementTopWidgets?.();
-            const goldBox = widgets?.goldBox as Node | null;
-            const coinTarget = widgets?.coinIcon as Node | null;
-            if (!goldBox?.isValid) return false;
-            const box = panel.getChildByName('Box');
-            const source = sourceNode?.isValid
-                ? sourceNode
-                : (box?.getChildByName('RewardGoldIcon') || goldBox);
-            const targetNode = coinTarget?.isValid ? coinTarget : goldBox;
-            const start = getNodeCenterInRoot(panel, source);
-            const end = getNodeCenterInRoot(panel, targetNode);
-            const coinFrame = this.resolveWinSettlementCoinFrame?.(source) || null;
-            if (!coinFrame) {
-                runtimeWarn('[WinSettlementGoldFly] optional coin SpriteFrame missing:', GOLD_TEXTURE_NAME);
-                return false;
-            }
-            const coinCount = Math.min(12, Math.max(8, Math.ceil(Math.sqrt(safeAmount)) + 4));
-            let lastLandingSoundAt = -1;
-            for (let i = 0; i < coinCount; i++) {
-                const coin = new Node('WinSettlementFlyingCoin');
-                panel.addChild(coin);
-                coin.layer = Layers.Enum.UI_2D;
-                coin.setSiblingIndex(Math.max(0, panel.children.length - 1));
-                ensureUi(coin, 20, 20);
-                const sprite = coin.addComponent(Sprite);
-                sprite.spriteFrame = coinFrame;
-                const opacity = coin.addComponent(UIOpacity);
-                opacity.opacity = 255;
-                const startPos = new Vec3(start.x, start.y, 0);
-                coin.setPosition(startPos);
-                coin.setScale(0.28, 0.28, 1);
-                const arcOffsetX = (Math.random() - 0.5) * 44;
-                const mid = new Vec3(
-                    (startPos.x + end.x) / 2 + arcOffsetX,
-                    Math.max(startPos.y, end.y) + 50 + Math.random() * 46,
-                    0,
-                );
-                const launchDelay = i * 0.045;
-                const firstLegDuration = 0.24 + Math.random() * 0.04;
-                const secondLegDuration = 0.26 + Math.random() * 0.05;
-                const landingSoundAt = launchDelay + firstLegDuration + secondLegDuration;
-                const shouldPlayLandingSound = lastLandingSoundAt < 0 || landingSoundAt - lastLandingSoundAt >= 0.045;
-                if (shouldPlayLandingSound) {
-                    lastLandingSoundAt = landingSoundAt;
-                }
-                tween(coin)
-                    .delay(launchDelay)
-                    .to(firstLegDuration, { position: mid, scale: new Vec3(0.72, 0.72, 1) }, { easing: 'sineOut' })
-                    .to(secondLegDuration, { position: new Vec3(end.x, end.y, 0), scale: new Vec3(0.18, 0.18, 1) }, { easing: 'sineIn' })
-                    .call(() => {
-                        if (shouldPlayLandingSound) {
-                            AudioMgr.inst.play('coin');
-                        }
-                        coin.removeFromParent();
-                        coin.destroy();
-                    })
-                    .start();
-            }
-            const landDelay = (coinCount - 1) * 0.045 + 0.24 + 0.04 + 0.26 + 0.05;
-            this.scheduleOnce?.(() => {
-                if (!goldBox?.isValid) return;
-                this.syncWinSettlementGoldBox?.();
-                Tween.stopAllByTarget(goldBox);
-                goldBox.setScale(1, 1, 1);
-                tween(goldBox)
-                    .to(0.08, { scale: new Vec3(1.08, 1.08, 1) })
-                    .to(0.12, { scale: new Vec3(1, 1, 1) })
-                    .start();
-            }, landDelay);
-            return true;
-        },
-
-        playWinBaseGoldRewardFx(): boolean {
-            if (this._winBaseGoldFlyPlayed) return false;
-            const amount = Math.max(0, Math.floor(Number(this._pendingWinGoldReward) || 0));
-            if (amount <= 0) return false;
-            this._winBaseGoldFlyPlayed = true;
-            const source = this.panelWin
-                ?.getChildByName('Box')
-                ?.getChildByName('RewardGoldIcon') || null;
-            this.scheduleOnce?.(() => {
-                this.playWinSettlementGoldFlyReward?.(amount, source);
-            }, 0.18);
-            return true;
+            return { settingsBtn, goldBox };
         },
 
         refreshWinAdBonusUI() {
@@ -630,12 +508,10 @@ export function installSettlementHudModule(target: any): void {
             const grantWinBonusReward = () => {
                 const rewardAmount = Math.max(0, Math.floor(Number(this._pendingWinAdBonusReward) || 0));
                 const baseAmount = Math.max(0, Math.floor(Number(this._pendingWinGoldReward) || 0));
-                const box = this.panelWin?.getChildByName('Box');
-                const source = box?.getChildByName('RewardGoldIcon') || box?.getChildByName('RewardGoldLbl') || null;
                 this.addGold(rewardAmount);
                 this._winAdRewardClaimed = true;
                 this.updateWinRewardLabel(baseAmount + rewardAmount);
-                this.playWinSettlementGoldFlyReward?.(rewardAmount, source);
+                this.syncWinSettlementGoldBox?.();
             };
             this.runRewardedGrant(WIN_BONUS_REWARD_GATE_PAGE, grantWinBonusReward, {
                 busyFlag: '_adShowing',
@@ -659,10 +535,19 @@ export function installSettlementHudModule(target: any): void {
             this.recordDynamicCountdownFinalFailure?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
-            this.updateLoseProgressLabel();
-            if (this.panelLose) {
+            try {
+                if (!this.panelLose?.isValid) {
+                    this.showBasicSettlement('lose');
+                    return;
+                }
+                this.syncSettlementProgressWidget(this.panelLose, {
+                    completePercent: Math.min(98, this.getBoardCompletionStats().completePercent),
+                });
                 this.panelLose.active = true;
                 this.panelLose.setSiblingIndex(999);
+            } catch (error) {
+                console.error('[settlement] using basic final-failure controls:', error);
+                this.showBasicSettlement('lose');
             }
         },
 
@@ -713,9 +598,10 @@ export function installSettlementHudModule(target: any): void {
             const message = error instanceof Error ? error.message : String(error || 'unknown error');
             console.error('[settlement] failed to reveal win panel:', error);
             try {
-                this.showRemoteLoadFatalError?.('UI/Prefabs/Panels/WinPanel', 'win_settlement_reveal_failed', message);
+                this.showBasicSettlement('win');
+                this._settlementRevealState = 'shown';
             } catch (fatalUiError) {
-                console.error('[settlement] failed to show terminal error UI:', fatalUiError);
+                console.error('[settlement] basic controls unavailable:', message, fatalUiError);
             }
         },
 
@@ -725,9 +611,9 @@ export function installSettlementHudModule(target: any): void {
                 return false;
             }
             this.closePinchGuide?.();
-            if (!this.ensureGameplayResultPanelsCreated?.('win')) return false;
-            this._settlementRevealState = 'revealing';
             try {
+                if (!this.ensureGameplayResultPanelsCreated?.('win')) return false;
+                this._settlementRevealState = 'revealing';
                 const panel = this.panelWin as Node | null;
                 if (!panel?.isValid) {
                     throw new Error('[WinPanel] result prefab was ready but panel instance is missing');
@@ -745,7 +631,6 @@ export function installSettlementHudModule(target: any): void {
                 panel.active = true;
                 panel.setSiblingIndex(999);
                 this.playWinSettlementBannerFx?.();
-                this.playWinBaseGoldRewardFx?.();
                 this._settlementRevealState = 'shown';
                 return true;
             } catch (error) {
@@ -758,6 +643,7 @@ export function installSettlementHudModule(target: any): void {
             if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
             if (this._settlementRevealState === 'shown' || this._settlementRevealState === 'revealing' || this._settlementRevealState === 'failed') return;
             if (this.revealWinSettlementPanel?.(logicalLevelId, revealToken)) return;
+            if (this._settlementRevealState === 'shown' || this._settlementRevealState === 'failed') return;
             this._settlementRevealState = 'waiting';
             if (typeof this._ensureGameplayResultPanelPrefabsReady !== 'function') {
                 this.failWinSettlementReveal?.(new Error('[WinPanel] result prefab readiness API is missing'), revealToken);
@@ -766,6 +652,9 @@ export function installSettlementHudModule(target: any): void {
             this._ensureGameplayResultPanelPrefabsReady(() => {
                 if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 this.revealWinSettlementPanel?.(logicalLevelId, revealToken);
+            }, (error: Error) => {
+                if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                this.failWinSettlementReveal(error, revealToken);
             });
         },
 
@@ -822,22 +711,39 @@ export function installSettlementHudModule(target: any): void {
                 ? 0
                 : Math.max(0, this._pendingWinGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1));
             this._winAdRewardClaimed = false;
-            this._winBaseGoldFlyPlayed = false;
             this._settlementNextTransitioning = false;
             const revealToken = (Number(this._settlementRevealToken) || 0) + 1;
             this._settlementRevealToken = revealToken;
             this._settlementRevealState = 'waiting';
             this.addGold(this._pendingWinGoldReward);
-            this.ensureGameplayResultPanelsCreated?.('win');
-            this.updateWinRewardLabel(this._pendingWinGoldReward);
+            try {
+                this.ensureGameplayResultPanelsCreated?.('win');
+                this.updateWinRewardLabel(this._pendingWinGoldReward);
+            } catch (error) {
+                console.error('[settlement] deferring panel construction:', error);
+            }
 
+            let revealed = false;
             const revealSettlement = () => {
-                if (!this.isValid || !this.isGameEnd) return;
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                revealed = true;
+                this.unschedule(revealSettlement);
+                this.unschedule(recoverSettlement);
                 this.requestWinSettlementReveal?.(logicalLevelId, revealToken);
             };
+            const recoverSettlement = () => {
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                if (this.boardGroup?.isValid) {
+                    Tween.stopAllByTarget(this.boardGroup);
+                    this.boardGroup.setScale(1, 1, 1);
+                }
+                revealSettlement();
+            };
+            const pendingColorCount = Math.max(0, Number(this._pendingColorCompleteEffects?.size) || 0);
+            this.scheduleOnce(recoverSettlement, 5 + pendingColorCount * 2);
 
             const showSettlement = () => {
-                if (!this.isValid || !this.isGameEnd) return;
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 if (PATTERN_COMPLETE_SETTLEMENT_HOLD > 0 && typeof this.scheduleOnce === 'function') {
                     this.scheduleOnce(revealSettlement, PATTERN_COMPLETE_SETTLEMENT_HOLD);
                 } else {
@@ -846,14 +752,19 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const playPatternCompleteFx = () => {
-                if (!this.isValid || !this.isGameEnd) return;
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winAll');
-                this.playPatternCompleteMatchFx(showSettlement);
+                try {
+                    this.playPatternCompleteMatchFx(showSettlement);
+                } catch (error) {
+                    console.error('[settlement] continuing without sweep:', error);
+                    showSettlement();
+                }
             };
 
             const playBoardCompleteShrink = () => {
-                if (!this.isValid || !this.isGameEnd) return;
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 if (!this.boardGroup) {
                     playPatternCompleteFx();
                     return;
@@ -872,6 +783,7 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const scheduleBoardCompleteShrink = () => {
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 if (this.boardGroup && PATTERN_COMPLETE_BOARD_SHRINK_DELAY > 0 && typeof this.scheduleOnce === 'function') {
                     this.scheduleOnce(playBoardCompleteShrink, PATTERN_COMPLETE_BOARD_SHRINK_DELAY);
                 } else {
@@ -880,8 +792,13 @@ export function installSettlementHudModule(target: any): void {
             };
 
             const playPatternCompleteColorFx = () => {
-                if (!this.isValid || !this.isGameEnd) return;
-                this.flushPendingColorCompleteEffectsSequentially(scheduleBoardCompleteShrink);
+                if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
+                try {
+                    this.flushPendingColorCompleteEffectsSequentially(scheduleBoardCompleteShrink);
+                } catch (error) {
+                    console.error('[settlement] continuing without color effects:', error);
+                    scheduleBoardCompleteShrink();
+                }
             };
 
             playPatternCompleteColorFx();
@@ -968,34 +885,64 @@ export function installSettlementHudModule(target: any): void {
                 }
                 this.showLosePanel();
             };
-            if (!this.ensureGameplayResultPanelsCreated?.('lose-flow')) {
-                this._ensureGameplayResultPanelPrefabsReady?.(() => {
-                    if (!this.isValid || !this.isGameEnd) return;
-                    this.ensureGameplayResultPanelsCreated?.('lose-flow');
-                    showLoseResult();
-                });
-                return;
-            }
-            showLoseResult();
+            const initSeq = this._gameplayInitSeq;
+            const recoverLoseResult = (error: unknown) => {
+                if (!this.isValid || !this.isGameEnd || initSeq !== this._gameplayInitSeq) return;
+                console.error('[settlement] using basic revive controls:', error);
+                this.showBasicSettlement(reason);
+            };
+            try {
+                if (!this.ensureGameplayResultPanelsCreated?.('lose-flow')) {
+                    this._ensureGameplayResultPanelPrefabsReady?.(() => {
+                        if (!this.isValid || !this.isGameEnd || initSeq !== this._gameplayInitSeq) return;
+                        try {
+                            this.ensureGameplayResultPanelsCreated?.('lose-flow');
+                            showLoseResult();
+                        } catch (error) { recoverLoseResult(error); }
+                    }, recoverLoseResult);
+                    return;
+                }
+                showLoseResult();
+            } catch (error) { recoverLoseResult(error); }
         },
 
         restart() {
+            if (this._settlementNextTransitioning) return;
+            this._settlementNextTransitioning = true;
+            const initSeq = this._gameplayInitSeq;
             const entryMode = this._activeGameplayEntryMode || (this._isThemeLevel ? 'theme' : 'main');
             const activeLevel = this.getActiveLogicalLevelId();
-            if (!this.costVigorForLevel(activeLevel, entryMode)) {
-                this.showNoLivesAdModal({
-                    source: 'restart',
-                    onResult: (result: any) => {
-                        if (result?.status !== 'granted' || !this.isValid) return;
-                        if (this.getRuntimeSceneName('Game') !== 'Game') return;
-                        if (this.getActiveLogicalLevelId() !== activeLevel) return;
-                        if (!this.costVigorForLevel(activeLevel, entryMode)) return;
-                        this.doRestart();
-                    },
-                });
-                return;
+            try {
+                if (!this.costVigorForLevel(activeLevel, entryMode)) {
+                    this.showNoLivesAdModal({
+                        source: 'restart',
+                        onResult: (result: any) => {
+                            if (!this.isValid || initSeq !== this._gameplayInitSeq) return;
+                            if (result?.status !== 'granted') {
+                                this._settlementNextTransitioning = false;
+                                return;
+                            }
+                            try {
+                                if (this.getRuntimeSceneName('Game') !== 'Game'
+                                    || this.getActiveLogicalLevelId() !== activeLevel
+                                    || !this.costVigorForLevel(activeLevel, entryMode)) {
+                                    this._settlementNextTransitioning = false;
+                                    return;
+                                }
+                                this.doRestart();
+                            } catch (error) {
+                                this._settlementNextTransitioning = false;
+                                throw error;
+                            }
+                        },
+                    });
+                    return;
+                }
+                this.doRestart();
+            } catch (error) {
+                this._settlementNextTransitioning = false;
+                throw error;
             }
-            this.doRestart();
         },
 
         doRestart() {
@@ -1088,11 +1035,11 @@ export function installSettlementHudModule(target: any): void {
                 this.showNoLivesAdModal({
                     source: 'next_level',
                     onResult: (result: any) => {
-                        if (result?.status === 'cancelled') {
+                        if (result?.status !== 'granted') {
                             this.endSettlementNextTransition();
                             return;
                         }
-                        if (result?.status !== 'granted' || !this.isValid) return;
+                        if (!this.isValid) return;
                         if (this.getRuntimeSceneName('Game') !== 'Game') return;
                         if (!this.costVigorForLevel(nextId, 'main')) {
                             this.endSettlementNextTransition();
@@ -2180,10 +2127,6 @@ export function installSettlementHudModule(target: any): void {
             if (mode !== 'zoom') {
                 this._guideLayer.addComponent(BlockInputEvents);
                 this._guideLayer.on(Node.EventType.TOUCH_START, (event: EventTouch) => {
-                    if (this.isGuideDemoTouchTarget?.(event.target as Node)) {
-                        event.propagationStopped = true;
-                        return;
-                    }
                     const uiPos = event.getUILocation();
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     this.markFirstLevelTouchTiming?.();
@@ -2195,10 +2138,6 @@ export function installSettlementHudModule(target: any): void {
                     event.propagationStopped = true;
                 }, this);
                 this._guideLayer.on(Node.EventType.TOUCH_END, (event: EventTouch) => {
-                    if (this.isGuideDemoTouchTarget?.(event.target as Node)) {
-                        event.propagationStopped = true;
-                        return;
-                    }
                     const uiPos = event.getUILocation();
                     const worldPos = new Vec3(uiPos.x, uiPos.y, 0);
                     if (this._guideInputSuspended) {

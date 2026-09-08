@@ -246,6 +246,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             const finish = () => {
                 this._pinddSpineFxPrewarmLoading = false;
                 this._pinddSpineFxPrewarmReady = true;
+                this.noteGameplayLoadingProgress?.('spine-prewarm-ready');
                 const callbacks = this._pinddSpineFxPrewarmCallbacks || [];
                 this._pinddSpineFxPrewarmCallbacks = [];
                 for (const callback of callbacks) callback();

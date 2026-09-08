@@ -64,6 +64,7 @@ const update = new Function(
 function makeController(carrierCount, beltTravel) {
     const entranceCalls = [];
     const controller = {
+        presentationCompletions: new Map(),
         beltTravel,
         exitPathProgress: 0.5,
         rules: { carrierCount },

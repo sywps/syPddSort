@@ -59,6 +59,10 @@ export type RecoverVigorOptions = {
     onResult?: (result: RecoverVigorResult) => void;
 };
 
+type RecoverVigorRewardCardVariant =
+    | { kind: 'video' }
+    | { kind: 'share'; limitText: string };
+
 function logRecoverVigorNodeSize(name: string, node: Node | null): void {
     if (!node || !node.isValid) {
         runtimeWarn(`[UI尺寸] ${name}: 节点不存在`);
@@ -221,7 +225,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         /** 消耗体力 */
         costVigor(): boolean {
-            const vigor = this.getVigor();
+            const vigor = this.updateVigor();
             if (vigor <= 0) return false;
             this.setVigor(vigor - 1);
             if (vigor - 1 < (this.constructor as any).VIGOR_CEILING && this.getVigorTime() <= 0)
@@ -242,10 +246,10 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         /** 更新体力数据（含离线恢复） */
-        updateVigor(): void {
+        updateVigor(): number {
             const ceiling = (this.constructor as any).VIGOR_CEILING, restoreMs = (this.constructor as any).VIGOR_RESTORE_SECONDS * 1000;
             let vigor = this.getVigor(), vigorTime = this.getVigorTime(), now = Date.now();
-            if (vigor >= ceiling) { if (vigor !== ceiling) this.setVigor(ceiling); if (vigorTime !== 0) this.setVigorTime(0); return; }
+            if (vigor >= ceiling) { if (vigor !== ceiling) this.setVigor(ceiling); if (vigorTime !== 0) this.setVigorTime(0); return ceiling; }
             if (vigorTime <= 0) { vigorTime = now + restoreMs; this.setVigorTime(vigorTime); }
             if (now >= vigorTime) {
                 const n = Math.floor((now - vigorTime) / restoreMs) + 1;
@@ -254,11 +258,11 @@ export function installPlayerMetaStateModule(target: any): void {
                 if (vigor >= ceiling) this.setVigorTime(0);
                 else this.setVigorTime(vigorTime + n * restoreMs);
             }
+            return vigor;
         },
 
-        getVigorCountdownSec(): number {
+        getVigorCountdownSec(vigor: number = this.getVigor()): number {
             const ceiling = (this.constructor as any).VIGOR_CEILING, restoreMs = (this.constructor as any).VIGOR_RESTORE_SECONDS * 1000;
-            const vigor = this.getVigor();
             if (vigor >= ceiling) return 0;
             const vigorTime = this.getVigorTime(), need = Math.max(0, ceiling - vigor), now = Date.now();
             const firstMs = vigorTime > 0 ? Math.max(0, vigorTime - now) : restoreMs;
@@ -267,19 +271,24 @@ export function installPlayerMetaStateModule(target: any): void {
 
         /** 刷新体力 UI */
         refreshVigorUI(): void {
-            this.updateVigor();
-            const vigor = this.getVigor(), sec = this.getVigorCountdownSec();
+            const vigor = this.updateVigor();
             if (this._vigorCountLbl) this._vigorCountLbl.string = `${vigor}/${(this.constructor as any).VIGOR_CEILING}`;
             if (this._vigorTimeLbl) {
+                const sec = this.getVigorCountdownSec(vigor);
                 if (vigor >= (this.constructor as any).VIGOR_CEILING) this._vigorTimeLbl.string = '05:00';
                 else if (sec <= 0) this._vigorTimeLbl.string = '00:00';
                 else { const mm = Math.floor(sec / 60), ss = sec % 60; this._vigorTimeLbl.string = `${mm < 10 ? '0' : ''}${mm}:${ss < 10 ? '0' : ''}${ss}`; }
             }
-            this.refreshRecoverVigorModalUI?.();
+            this.refreshRecoverVigorModalUI?.(vigor);
         },
 
-        /** 体力 Tick（每帧 0.2s 刷新） */
-        vigorTick(dt: number): void { this._vigorTickDt += dt; if (this._vigorTickDt < 0.2) return; this._vigorTickDt = 0; this.refreshVigorUI(); },
+        /** 体力 Tick（每秒刷新，保留累计余量） */
+        vigorTick(dt: number): void {
+            this._vigorTickDt += dt;
+            if (this._vigorTickDt < 1) return;
+            this._vigorTickDt %= 1;
+            this.refreshVigorUI();
+        },
 
         getRecoverVigorShareDateKey(nowMs: number = Date.now()): string {
             const date = new Date(nowMs);
@@ -334,7 +343,7 @@ export function installPlayerMetaStateModule(target: any): void {
 
         grantVigorByAmount(amount: number): number {
             const ceiling = (this.constructor as any).VIGOR_CEILING;
-            const current = this.getVigor();
+            const current = this.updateVigor();
             const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
             if (safeAmount <= 0 || current >= ceiling) return 0;
             const next = Math.min(ceiling, current + safeAmount);
@@ -409,7 +418,7 @@ export function installPlayerMetaStateModule(target: any): void {
             return label;
         },
 
-        syncRecoverVigorButton(button: Node, labelText: string, fill: Color, stroke: Color, interactable: boolean): void {
+        syncRecoverVigorButton(button: Node, fill: Color, stroke: Color, interactable: boolean): void {
             this.syncRecoverVigorRoundedBg(button, 168, 64, 18, fill, stroke, 4);
             const sprite = button.getComponent(Sprite);
             if (sprite) {
@@ -421,8 +430,7 @@ export function installPlayerMetaStateModule(target: any): void {
             opacity.opacity = interactable ? 255 : 140;
 
             this.ensureRecoverVigorUiNode(button, 'ActionIcon', 34, 34, -54, 0);
-            const labelNode = this.ensureRecoverVigorUiNode(button, 'ActionLabel', 110, 38, 25, 1);
-            this.syncRecoverVigorLabel(labelNode, labelText, 30, new Color(255, 255, 255, 255), true, new Color(46, 114, 120, 255));
+            this.ensureRecoverVigorUiNode(button, 'ActionLabel', 110, 38, 25, 1);
         },
 
         syncRecoverVigorRewardCard(
@@ -430,11 +438,10 @@ export function installPlayerMetaStateModule(target: any): void {
             cardName: string,
             x: number,
             amount: number,
-            buttonText: string,
             buttonFill: Color,
             buttonStroke: Color,
             interactable: boolean,
-            limitText: string = '',
+            variant: RecoverVigorRewardCardVariant,
         ): { card: Node; button: Node; limitLabel: Label | null } {
             const card = this.ensureRecoverVigorUiNode(box, cardName, 218, 288, x, 0);
             this.syncRecoverVigorRoundedBg(card, 218, 288, 36, new Color(255, 255, 255, 245), new Color(96, 164, 216, 255), 4);
@@ -446,18 +453,21 @@ export function installPlayerMetaStateModule(target: any): void {
             this.syncRecoverVigorLabel(amountLabel, `${amount}`, 36, new Color(61, 73, 116, 255), true);
 
             const button = this.ensureRecoverVigorUiNode(card, 'ActionButton', 168, 64, 0, -94);
-            this.syncRecoverVigorButton(button, buttonText, buttonFill, buttonStroke, interactable);
+            this.syncRecoverVigorButton(button, buttonFill, buttonStroke, interactable);
 
-            const limitNode = this.ensureRecoverVigorUiNode(card, 'LimitLabel', 190, 28, 0, -142);
-            const limitLabel = this.syncRecoverVigorLabel(
-                limitNode,
-                limitText,
-                22,
-                interactable ? new Color(71, 93, 132, 255) : new Color(168, 72, 72, 255),
-                false,
-            );
-            limitNode.active = !!limitText;
-            return { card, button, limitLabel: limitNode.active ? limitLabel : null };
+            let limitLabel: Label | null = null;
+            if (variant.kind === 'share') {
+                const limitNode = this.ensureRecoverVigorUiNode(card, 'LimitLabel', 190, 28, 0, -142);
+                limitLabel = this.syncRecoverVigorLabel(
+                    limitNode,
+                    variant.limitText,
+                    22,
+                    interactable ? new Color(71, 93, 132, 255) : new Color(168, 72, 72, 255),
+                    false,
+                );
+                limitNode.active = true;
+            }
+            return { card, button, limitLabel };
         },
 
         syncRecoverVigorDualRewardPanel(box: Node): { videoButton: Node; shareButton: Node; shareRemainingLabel: Label | null } {
@@ -474,21 +484,23 @@ export function installPlayerMetaStateModule(target: any): void {
                 'RecoverVigorVideoCard',
                 -118,
                 RECOVER_VIGOR_AD_REWARD,
-                '\u770b\u89c6\u9891',
                 new Color(68, 179, 238, 255),
                 new Color(38, 121, 203, 255),
                 true,
+                { kind: 'video' },
             );
             const shareCard = this.syncRecoverVigorRewardCard(
                 box,
                 'RecoverVigorShareCard',
                 118,
                 RECOVER_VIGOR_SHARE_REWARD,
-                '\u5206\u4eab',
                 shareAvailable ? new Color(58, 214, 116, 255) : new Color(170, 170, 170, 255),
                 shareAvailable ? new Color(25, 156, 79, 255) : new Color(120, 120, 120, 255),
                 shareAvailable,
-                shareAvailable ? `\u4eca\u65e5\u5269\u4f59 ${remaining}/${RECOVER_VIGOR_SHARE_DAILY_LIMIT}` : '\u4eca\u65e5\u5df2\u7528\u5b8c',
+                {
+                    kind: 'share',
+                    limitText: shareAvailable ? `\u4eca\u65e5\u5269\u4f59 ${remaining}/${RECOVER_VIGOR_SHARE_DAILY_LIMIT}` : '\u4eca\u65e5\u5df2\u7528\u5b8c',
+                },
             );
             return {
                 videoButton: videoCard.button,
@@ -497,11 +509,11 @@ export function installPlayerMetaStateModule(target: any): void {
             };
         },
 
-        refreshRecoverVigorModalUI(): void {
+        refreshRecoverVigorModalUI(vigor?: number): void {
             const statusLabel = this._recoverVigorStatusLbl as Label | null;
             if (!statusLabel?.node?.isValid) return;
             const ceiling = (this.constructor as any).VIGOR_CEILING;
-            const currentVigor = this.getVigor();
+            const currentVigor = vigor ?? this.getVigor();
             const hasCapacity = currentVigor < ceiling;
             statusLabel.string = `当前体力 ${currentVigor}/${ceiling}`;
 
@@ -510,7 +522,6 @@ export function installPlayerMetaStateModule(target: any): void {
             if (videoButton?.isValid) {
                 this.syncRecoverVigorButton(
                     videoButton,
-                    '\u770b\u89c6\u9891',
                     new Color(68, 179, 238, 255),
                     new Color(38, 121, 203, 255),
                     hasCapacity && !busy,
@@ -523,7 +534,6 @@ export function installPlayerMetaStateModule(target: any): void {
             if (shareButton?.isValid) {
                 this.syncRecoverVigorButton(
                     shareButton,
-                    '\u5206\u4eab',
                     shareAvailable ? new Color(58, 214, 116, 255) : new Color(170, 170, 170, 255),
                     shareAvailable ? new Color(25, 156, 79, 255) : new Color(120, 120, 120, 255),
                     hasCapacity && shareAvailable && !busy,
@@ -574,8 +584,6 @@ export function installPlayerMetaStateModule(target: any): void {
             if (this._recoverVigorBusy && !this._adShowing) {
                 const rewardedTransaction = this._rewardedGrantTransaction as { page?: string; phase?: string } | null;
                 if (rewardedTransaction?.page === 'vigor_recover' && rewardedTransaction.phase === 'recoverable') {
-                    this._recoverVigorBusy = false;
-                    this.refreshRecoverVigorModalUI();
                     return;
                 }
                 console.warn(`[recover-vigor] release stale popup transaction after ${reason}`, this._recoverVigorTransaction);
@@ -593,6 +601,20 @@ export function installPlayerMetaStateModule(target: any): void {
         openRecoverVigorPrefabModal(options: RecoverVigorOptions): void {
             const panelKey = 'recover-vigor';
             const prefabLoadKey = 'recover-vigor-prefab';
+            const emitResult = (status: RecoverVigorResultStatus, granted: number = 0, transactionId: number = 0) => {
+                try {
+                    options.onResult?.({
+                        source: options.source,
+                        status,
+                        granted: Math.max(0, Math.floor(Number(granted) || 0)),
+                        vigorAfter: this.getVigor(),
+                        transactionId,
+                    });
+                } catch (error) {
+                    console.warn('[recover-vigor] result handler failed:', error);
+                }
+            };
+            let openFailureResultEmitted = false;
             this._openPanelAfterTextures(
                 panelKey,
                 RECOVER_VIGOR_TEXTURE_NAMES,
@@ -619,6 +641,10 @@ export function installPlayerMetaStateModule(target: any): void {
                         this._noLivesModal = null;
                         this.clearRecoverVigorModalRuntimeState();
                         this._releasePanelTextureOwner('recover-vigor', 'recover-vigor-open-failed');
+                        if (!openFailureResultEmitted) {
+                            openFailureResultEmitted = true;
+                            emitResult('failed');
+                        }
                         throw new Error(message);
                     };
 
@@ -687,19 +713,6 @@ export function installPlayerMetaStateModule(target: any): void {
                                 }
 
                                 let closed = false;
-                                const emitResult = (status: RecoverVigorResultStatus, granted: number = 0, transactionId: number = 0) => {
-                                    try {
-                                        options.onResult?.({
-                                            source: options.source,
-                                            status,
-                                            granted: Math.max(0, Math.floor(Number(granted) || 0)),
-                                            vigorAfter: this.getVigor(),
-                                            transactionId,
-                                        });
-                                    } catch (error) {
-                                        console.warn('[recover-vigor] result handler failed:', error);
-                                    }
-                                };
                                 const finalizeModal = () => {
                                     if (closed) return;
                                     closed = true;
@@ -713,13 +726,6 @@ export function installPlayerMetaStateModule(target: any): void {
                                 };
                                 const beginAttempt = (method: string): number => {
                                     if (closed || this._recoverVigorBusy || this._adShowing) return 0;
-                                    const rewardedTransaction = this._rewardedGrantTransaction as { page?: string; phase?: string } | null;
-                                    const pendingVideoReward = rewardedTransaction?.page === 'vigor_recover'
-                                        && rewardedTransaction.phase === 'recoverable';
-                                    if (pendingVideoReward) {
-                                        this.showToast('奖励确认中，请稍后');
-                                        return 0;
-                                    }
                                     if (this._recoverVigorTransaction) {
                                         return 0;
                                     }
@@ -774,11 +780,6 @@ export function installPlayerMetaStateModule(target: any): void {
                                         adFailToast: '\u5e7f\u544a\u672a\u5b8c\u6210\uff0c\u672a\u83b7\u5f97\u4f53\u529b',
                                         successToast: () => `\u83b7\u5f97${RECOVER_VIGOR_AD_REWARD}\u70b9\u4f53\u529b`,
                                         grantFailToast: '\u4f53\u529b\u53d1\u653e\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5',
-                                        onRecoverable: () => {
-                                            if (this._recoverVigorTransaction?.id === transactionId) {
-                                                this.setRecoverVigorModalBusy(false);
-                                            }
-                                        },
                                         onFinally: () => finishAttempt(transactionId, grantedAmount),
                                     });
                                     if (!started && this._recoverVigorTransaction?.id === transactionId) {

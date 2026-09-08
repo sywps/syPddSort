@@ -253,14 +253,17 @@ assert.equal(
 );
 assert.deepEqual(
     normalTrack._children.map((reference) => scene[reference.__id__]?._name),
-    ['Background', 'Bar', 'TrackSprite', 'FillSprite'],
-    'NormalLayout must retain legacy inactive records before the active sliced renderer children',
+    ['Background', 'TrackSprite', 'FillSprite'],
+    'NormalLayout must not retain the obsolete Bar before the active sliced renderer children',
 );
-assert.equal(scene[294]?._active, false, 'legacy Normal background record must remain inactive');
-assert.equal(scene[297]?._active, false, 'legacy Normal fill record must remain inactive');
-assert.equal(scene[301]?._enabled, false, 'detached legacy Graphics renderer must remain disabled');
-const serializedTrackSprite = scene[normalTrack._children[2].__id__];
-const serializedFillSprite = scene[normalTrack._children[3].__id__];
+assert.equal(scene[normalTrack._children[0].__id__]?._active, false, 'legacy Normal background record must remain inactive');
+assert.equal(
+    scene.some((record) => record?._name === 'Bar' && record?._parent?.__id__ === normalTrackIndex),
+    false,
+    'obsolete Normal fill node must be physically removed',
+);
+const serializedTrackSprite = scene[normalTrack._children[1].__id__];
+const serializedFillSprite = scene[normalTrack._children[2].__id__];
 const serializedTrackTransform = scene[serializedTrackSprite._components[0].__id__];
 const serializedFillTransform = scene[serializedFillSprite._components[0].__id__];
 const serializedTrackRenderer = scene[serializedTrackSprite._components[1].__id__];

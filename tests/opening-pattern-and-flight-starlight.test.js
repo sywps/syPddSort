@@ -161,12 +161,12 @@ assert.ok(pch.includes('state.trail.angle = Math.atan2(backwardY, backwardX) * 1
 for (const textureName of ['pdpx_eff_Star_01', 'pdpx_eff_Trail_02']) {
     assert.ok(uiManifest.includes(`'${textureName}'`), `${textureName} must be a strict board-effect preload`);
     assert.ok(assetBootstrap.includes(`missing required SpriteFrame: ${textureName}`), `${textureName} must fail fast when absent`);
-    assert.ok(bootstrapPatch.includes(`'GameUI/${textureName}'`), `${textureName} must remain in the bootstrap image allowlist`);
-    assert.ok(fs.existsSync(path.join(root, `assets/BootstrapBundle/GameUI/${textureName}.png`)));
-    assert.ok(fs.existsSync(path.join(root, `assets/BootstrapBundle/GameUI/${textureName}.png.meta`)));
+    assert.ok(bootstrapPatch.includes(`'GameUI/Atlases/BoardEffects/${textureName}'`), `${textureName} must remain in the bootstrap image allowlist`);
+    assert.ok(fs.existsSync(path.join(root, `assets/BootstrapBundle/GameUI/Atlases/BoardEffects/${textureName}.png`)));
+    assert.ok(fs.existsSync(path.join(root, `assets/BootstrapBundle/GameUI/Atlases/BoardEffects/${textureName}.png.meta`)));
 }
-assert.strictEqual(sha256('assets/BootstrapBundle/GameUI/pdpx_eff_Star_01.png'), '58f22153aba2cae44aaad0ea1c2b1f198f68fd1eef2c1e3b0d2e531e72253cd4');
-assert.strictEqual(sha256('assets/BootstrapBundle/GameUI/pdpx_eff_Trail_02.png'), 'ec071f6c12d4f7fcc32ca161908c129bf78cd6a381618588ff09e4c24a407f26');
+assert.strictEqual(sha256('assets/BootstrapBundle/GameUI/Atlases/BoardEffects/pdpx_eff_Star_01.png'), '58f22153aba2cae44aaad0ea1c2b1f198f68fd1eef2c1e3b0d2e531e72253cd4');
+assert.strictEqual(sha256('assets/BootstrapBundle/GameUI/Atlases/BoardEffects/pdpx_eff_Trail_02.png'), 'ec071f6c12d4f7fcc32ca161908c129bf78cd6a381618588ff09e4c24a407f26');
 
 const hideIndex = session.indexOf('runtime.hideLoadingOverlayAfterGameplayReady?.();');
 const playIndex = session.indexOf('pchController.playOpeningPatternShuffle();');

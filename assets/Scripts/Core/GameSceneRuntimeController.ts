@@ -13,11 +13,11 @@ import {
     UserStateSyncMgr,
     view,
 } from './GameCtrlShared';
-import { ResolutionPolicy } from 'cc';
+import { Director, director, ResolutionPolicy } from 'cc';
 import { AppRoot } from './AppRoot';
 import { debugPerfFrameStep, debugPerfSnapshot, debugPerfTrace } from './DebugPerfTrace';
 import { runtimeWarn } from './RuntimeLog';
-import { markStartupTrace } from './StartupTrace';
+import { markStartupTrace, reportWeChatStartupPlayable } from './StartupTrace';
 import { resolveStartupRouteDecision } from './StartupRouteService';
 import type { PendingGameplayRequest } from './AppSession';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
@@ -201,6 +201,7 @@ export class GameSceneRuntimeController {
         debugPerfSnapshot('runtime.game.start', this.runtime, {
             previousSceneName,
         });
+        this.markGameFirstFrame(previousSceneName);
         const pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
         const explicitGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'cover';
         const suppressGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'none';
@@ -360,34 +361,8 @@ export class GameSceneRuntimeController {
         }
         const shadowNode = group.getChildByName('LoadingPercentLabelShadow') || null;
         const shadowLabel = shadowNode?.getComponent(Label) || null;
-        const slowActions = this.runtime.requireUiChild(
-            layer,
-            'LoadingSlowActions',
-            'StartupLoadingUI/LoadingSlowActions',
-        );
-        const retryNode = this.runtime.requireUiChild(
-            slowActions,
-            'LoadingRetryButton',
-            'LoadingSlowActions/LoadingRetryButton',
-        );
-        const backNode = this.runtime.requireUiChild(
-            slowActions,
-            'LoadingBackButton',
-            'LoadingSlowActions/LoadingBackButton',
-        );
-        const retryButton = retryNode.getComponent(Button);
-        const backButton = backNode.getComponent(Button);
-        if (!retryButton || !backButton) {
-            throw new Error('[GameScene] Game.scene loading slow actions are missing Button components');
-        }
-        retryNode.targetOff(this.runtime);
-        retryNode.on(Button.EventType.CLICK, () => this.runtime.retryGameplayLoading?.('slow-action'), this.runtime);
-        backNode.targetOff(this.runtime);
-        backNode.on(Button.EventType.CLICK, () => this.runtime.exitGameplayLoading?.('slow-action'), this.runtime);
         group.active = false;
-        slowActions.active = false;
         this.runtime._loadingProgressGroup = group;
-        this.runtime._loadingSlowActions = slowActions;
         this.runtime._loadingProgressLabel = label;
         this.runtime._loadingProgressLabelShadow = shadowLabel;
         this.runtime._loadingProgressFill = this.createGameLoadingProgressAdapter(group);
@@ -503,6 +478,7 @@ export class GameSceneRuntimeController {
     }
 
     destroy(): void {
+        director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
         const sceneName = this.getRuntimeSceneName();
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
         this.runtime.cancelPendingShareReturn?.(`scene-destroy:${sceneName}`);
@@ -554,9 +530,48 @@ export class GameSceneRuntimeController {
         this.runtime.releaseBeanSkinRuntimeResources?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseBackgroundSkinCachedSpriteFrames?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
-        debugPerfTrace('runtime.destroy.after', {
+        debugPerfSnapshot('runtime.destroy.after', this.runtime, {
             sceneName,
         });
+    }
+
+    private markGameFirstFrame(previousSceneName: string): void {
+        if (isWeChatMiniGameRuntime()) {
+            director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+            director.on(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+        }
+        const report = () => {
+            if (!this.runtime.node?.isValid) return;
+            const renderFrame = Math.max(0, Number((director as any)?.getTotalFrames?.()) || 0);
+            markStartupTrace('startup_game_first_frame', {
+                previousSceneName,
+                renderFrame,
+            });
+            debugPerfSnapshot('runtime.game.firstFrame', this.runtime, {
+                previousSceneName,
+                renderFrame,
+            });
+        };
+        const afterDrawEvent = (Director as any)?.EVENT_AFTER_DRAW;
+        if (afterDrawEvent && typeof director?.once === 'function') {
+            director.once(afterDrawEvent, report, this.runtime);
+            return;
+        }
+        this.runtime.scheduleOnce(report, 0);
+    }
+
+    private reportStartupPlayableAfterDraw(): void {
+        if (!this.runtime.node?.isValid) {
+            director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+            return;
+        }
+        if (!this.runtime._pchConveyorGameplayController?.isStartupInteractionReady()
+            || this.runtime._loadingOverlay?.activeInHierarchy
+            || this.runtime._adShowing
+            || Number(this.runtime._modalFocusRefs) > 0
+            || this.runtime._placementInputLocked) return;
+        director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+        reportWeChatStartupPlayable(getWeChatMiniGameRuntime());
     }
 
     private prepareSceneFrame(sceneName: string = this.getRuntimeSceneName()): void {

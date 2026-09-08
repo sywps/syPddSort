@@ -188,6 +188,15 @@ function createBaseRuntime(events) {
         isValid: true,
         popupRoot,
         _panelOpenInFlight: new Set(),
+        _pchConveyorGameplayController: {
+            isActive: () => true,
+            pauseForSettings() {
+                events.push('pause-conveyor');
+            },
+            resumeAfterSettings() {
+                events.push('resume-conveyor');
+            },
+        },
         requireCanvasUiRoot: () => popupRoot,
         _isRuntimeAliveForAsyncCallback: () => true,
         _retainPanelTextureOwner(key) {
@@ -240,6 +249,8 @@ pendingController.dispose();
 assert.strictEqual(pendingRuntime._panelOpenInFlight.has('settings-prefab'), false);
 assert.strictEqual(pendingEvents.filter((event) => event.startsWith('resume:')).length, 1);
 assert.ok(pendingEvents.includes('resume:timer:1:settings'));
+assert.strictEqual(pendingEvents.filter((event) => event === 'pause-conveyor').length, 1);
+assert.strictEqual(pendingEvents.filter((event) => event === 'resume-conveyor').length, 1);
 assert.strictEqual(pendingEvents.filter((event) => event.startsWith('release-texture:')).length, 1);
 pendingPrefabCallback(null, new Prefab(createSettingsOverlay));
 assert.strictEqual(pendingRuntime.popupRoot.getChildByName('SettingsOverlay'), null);
@@ -267,12 +278,15 @@ xButton.emit(Button.EventType.CLICK);
 closeController.dispose();
 
 const resumeIndex = closeEvents.indexOf('resume:timer:1:settings');
+const conveyorResumeIndex = closeEvents.indexOf('resume-conveyor');
 const modalIndex = closeEvents.indexOf('end-modal:modal:1:settings');
 const visualIndex = closeEvents.indexOf('visual-close');
-assert.ok(resumeIndex >= 0 && modalIndex >= 0 && visualIndex >= 0);
+assert.ok(resumeIndex >= 0 && conveyorResumeIndex >= 0 && modalIndex >= 0 && visualIndex >= 0);
 assert.ok(resumeIndex < visualIndex, 'timer owner must release before fallible visual teardown');
+assert.ok(conveyorResumeIndex < visualIndex, 'conveyor owner must release before fallible visual teardown');
 assert.ok(modalIndex < visualIndex, 'modal owner must release before fallible visual teardown');
 assert.strictEqual(closeEvents.filter((event) => event.startsWith('resume:')).length, 1);
+assert.strictEqual(closeEvents.filter((event) => event === 'resume-conveyor').length, 1);
 assert.strictEqual(closeEvents.filter((event) => event.startsWith('end-modal:')).length, 1);
 assert.strictEqual(closeEvents.filter((event) => event === 'visual-close').length, 1);
 assert.strictEqual(closeRuntime._panelOpenInFlight.size, 0);
@@ -314,9 +328,11 @@ homeButton.emit(Button.EventType.CLICK);
 
 const routeIndex = homeEvents.indexOf('route:settings:none');
 const homeResumeIndex = homeEvents.indexOf('resume:timer:1:settings');
+const homeConveyorResumeIndex = homeEvents.indexOf('resume-conveyor');
 const homeVisualIndex = homeEvents.indexOf('visual-close:settings:settings-home');
 assert.ok(routeIndex >= 0, 'Settings Home must dispatch the Home route');
 assert.strictEqual(homeResumeIndex, -1, 'Settings lease must stay active until the Home scene owns teardown');
+assert.strictEqual(homeConveyorResumeIndex, -1, 'PCH must stay paused until the Home scene owns teardown');
 assert.strictEqual(homeVisualIndex, -1, 'Settings visual must not disappear before the Home route succeeds');
 assert.strictEqual(
     homeEvents.filter((event) => event === 'route:settings:none').length,
@@ -324,5 +340,21 @@ assert.strictEqual(
     'repeated Home clicks must share one route dispatch',
 );
 resolveHomeRoute();
+
+const failureEvents = [];
+const failureRuntime = createBaseRuntime(failureEvents);
+failureRuntime._pchConveyorGameplayController.pauseForSettings = () => {
+    failureEvents.push('pause-conveyor');
+    throw new Error('simulated conveyor pause failure');
+};
+failureRuntime._withGameAssetsBundle = () => {
+    throw new Error('bundle loading must not start after lock acquisition fails');
+};
+const failureController = new SettingsPanelController(failureRuntime);
+failureController.open();
+assert.strictEqual(failureRuntime._panelOpenInFlight.size, 0);
+assert.strictEqual(failureEvents.filter((event) => event === 'resume-conveyor').length, 1);
+assert.strictEqual(failureEvents.filter((event) => event === 'resume:timer:1:settings').length, 1);
+assert.strictEqual(failureEvents.filter((event) => event.startsWith('release-texture:settings:')).length, 1);
 
 console.log('panel-lock-lifecycle.test.js passed');

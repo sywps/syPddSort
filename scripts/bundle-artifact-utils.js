@@ -25,6 +25,25 @@ function hasNativeArtifact(meta) {
         && meta.files.some((ext) => /\.(?:png|jpe?g)$/i.test(ext));
 }
 
+function bundleAssetPath(sourceRoot, metaPath) {
+    return path.relative(sourceRoot, metaPath)
+        .split(path.sep).join('/')
+        .replace(/\.meta$/i, '')
+        .replace(/\.[^/.]+$/, '');
+}
+
+function findNearestAutoAtlasRemoveImage(metaPath, autoAtlasRecords) {
+    const parentDir = path.dirname(metaPath);
+    let nearest = null;
+    for (const record of autoAtlasRecords) {
+        const atlasDir = path.dirname(record.metaPath);
+        const relativeDir = path.relative(atlasDir, parentDir);
+        if (relativeDir.startsWith('..') || path.isAbsolute(relativeDir)) continue;
+        if (!nearest || atlasDir.length > nearest.atlasDir.length) nearest = { atlasDir, meta: record.meta };
+    }
+    return nearest ? nearest.meta.userData?.removeImageInBundle === true : false;
+}
+
 function collectSourceBundleArtifacts(sourceRoot, bundleName, fail) {
     if (!fs.existsSync(sourceRoot)) {
         failWith(fail, `${bundleName} source bundle 不存在: ${sourceRoot}`);
@@ -37,25 +56,67 @@ function collectSourceBundleArtifacts(sourceRoot, bundleName, fail) {
         seen.add(artifact.uuid);
         artifacts.push(artifact);
     };
-    for (const metaPath of walkFiles(sourceRoot).filter((filePath) => filePath.endsWith('.meta')).sort()) {
-        const meta = readJson(metaPath);
+    const metaRecords = walkFiles(sourceRoot)
+        .filter((filePath) => filePath.endsWith('.meta'))
+        .sort()
+        .map((metaPath) => ({ metaPath, meta: readJson(metaPath) }));
+    const autoAtlasRecords = metaRecords.filter((record) => record.meta && record.meta.importer === 'auto-atlas');
+    for (const { metaPath, meta } of metaRecords) {
         if (!meta || typeof meta.uuid !== 'string' || !meta.uuid) continue;
+        const assetPath = bundleAssetPath(sourceRoot, metaPath);
+        const autoAtlasRemoveImage = findNearestAutoAtlasRemoveImage(metaPath, autoAtlasRecords);
         if (hasNativeArtifact(meta)) {
-            pushArtifact({ uuid: meta.uuid, native: true, optionalImport: true, source: metaPath });
+            pushArtifact({ uuid: meta.uuid, native: true, importer: meta.importer, assetPath, autoAtlasRemoveImage, optionalImport: true, source: metaPath });
         } else if (hasJsonArtifact(meta)) {
-            pushArtifact({ uuid: meta.uuid, native: false, source: metaPath });
+            pushArtifact({ uuid: meta.uuid, native: false, importer: meta.importer, assetPath, source: metaPath });
         }
         for (const subMeta of Object.values(meta.subMetas || {})) {
             if (!subMeta || typeof subMeta.uuid !== 'string' || !subMeta.uuid || !hasJsonArtifact(subMeta)) continue;
             pushArtifact({
                 uuid: subMeta.uuid,
                 native: false,
+                importer: subMeta.importer,
+                assetPath,
                 optionalImport: subMeta.importer === 'texture' || subMeta.importer === 'sprite-frame',
                 source: metaPath,
             });
         }
     }
     return artifacts;
+}
+
+function findAutoAtlasStandaloneSources(config, artifacts) {
+    const pathKeys = new Map();
+    for (const [key, value] of Object.entries(config && config.paths || {})) {
+        if (!Array.isArray(value) || typeof value[0] !== 'string') continue;
+        pathKeys.set(value[0].replace(/\\/g, '/'), String(key));
+    }
+    const packedKeys = new Set();
+    for (const members of Object.values(config && config.packs || {})) {
+        if (!Array.isArray(members)) continue;
+        for (const member of members) packedKeys.add(String(member));
+    }
+    const skippedSources = new Set();
+    for (const artifact of Array.isArray(artifacts) ? artifacts : []) {
+        if (!artifact || artifact.importer !== 'image' || !artifact.native || !artifact.source || !artifact.assetPath) continue;
+        const assetPath = String(artifact.assetPath).replace(/\\/g, '/');
+        const spriteFrameKey = pathKeys.get(`${assetPath}/spriteFrame`);
+        if (!spriteFrameKey || !packedKeys.has(spriteFrameKey)) continue;
+        if (pathKeys.has(`${assetPath}/texture`)) continue;
+        skippedSources.add(artifact.source);
+    }
+    return skippedSources;
+}
+
+function findAutoAtlasRemovableNativeUuids(config, artifacts) {
+    const skippedSources = findAutoAtlasStandaloneSources(config, artifacts);
+    return new Set((Array.isArray(artifacts) ? artifacts : [])
+        .filter((artifact) => artifact
+            && artifact.importer === 'image'
+            && artifact.native
+            && artifact.autoAtlasRemoveImage === true
+            && skippedSources.has(artifact.source))
+        .map((artifact) => artifact.uuid));
 }
 
 function importArtifactPath(bundleDir, uuid, importBase) {
@@ -79,6 +140,8 @@ function failWith(fail, message) {
 
 module.exports = {
     collectSourceBundleArtifacts,
+    findAutoAtlasRemovableNativeUuids,
+    findAutoAtlasStandaloneSources,
     findNativeArtifact,
     importArtifactPath,
 };

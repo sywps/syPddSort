@@ -10,7 +10,6 @@ import {
 const { ccclass } = _decorator;
 
 const LS_ANALYTICS_OPENID = 'pdd.analytics.openid.v1';
-const LS_ANALYTICS_PLAYER_UID = 'pdd.analytics.player_uid.v1';
 const LS_RUNTIME_CHECKPOINT = 'pdd.analytics.runtime_checkpoint.v1';
 const RUNTIME_CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_RUNTIME_DIAGNOSTICS_PER_SESSION = 8;
@@ -37,7 +36,6 @@ type CloudResult = {
     ok?: boolean;
     errorMessage?: string;
     openid?: string;
-    uid?: string;
     isNewUser?: boolean;
 };
 
@@ -144,11 +142,6 @@ type RuntimeCheckpointState = {
 function normalizePositiveLevelId(value: string | number | undefined): number {
     const num = Math.floor(Number(value) || 0);
     return num > 0 ? num : 0;
-}
-
-function normalizePlayerUid(value: unknown): string {
-    const uid = typeof value === 'string' ? value.trim() : '';
-    return /^[1-9]\d{7}$/.test(uid) ? uid : '';
 }
 
 const PCH_GAMEPLAY_INTEGER_FIELDS: ReadonlyArray<keyof PchGameplayAnalyticsSnapshot> = [
@@ -260,7 +253,6 @@ export class AnalyticsMgr {
 
     private readyPromise: Promise<boolean> | null = null;
     private openid = '';
-    private playerUid = '';
     private bootstrapped = false;
     private lifecycleBound = false;
     private exitReported = false;
@@ -285,7 +277,6 @@ export class AnalyticsMgr {
     private lastRuntimeCheckpointAt = this.appLaunchTime;
     private constructor() {
         this.openid = this.readCachedOpenid();
-        this.playerUid = this.readCachedPlayerUid();
         this.recoverPreviousRuntimeCheckpoint();
         this.markRuntimeCheckpoint('analytics_created', true, 'app', 0);
         this.bindRuntimeDiagnostics();
@@ -345,11 +336,6 @@ export class AnalyticsMgr {
                 this.openid = result.openid;
                 this.cacheOpenid(result.openid);
             }
-            const playerUid = normalizePlayerUid(result?.uid);
-            if (playerUid) {
-                this.playerUid = playerUid;
-                this.cachePlayerUid(playerUid);
-            }
 
             return !!this.openid;
         }).catch((error) => {
@@ -362,10 +348,6 @@ export class AnalyticsMgr {
         });
 
         return this.readyPromise;
-    }
-
-    getPlayerUid(): string {
-        return this.playerUid;
     }
 
     async wxReportData(opt: ReportDataOptions): Promise<CloudResult | { ok: false; skipped: true }> {
@@ -1208,22 +1190,6 @@ export class AnalyticsMgr {
     private cacheOpenid(openid: string): void {
         try {
             sys.localStorage.setItem(LS_ANALYTICS_OPENID, openid);
-        } catch (_) {
-            // ignore storage failures
-        }
-    }
-
-    private readCachedPlayerUid(): string {
-        try {
-            return normalizePlayerUid(sys.localStorage.getItem(LS_ANALYTICS_PLAYER_UID));
-        } catch (_) {
-            return '';
-        }
-    }
-
-    private cachePlayerUid(uid: string): void {
-        try {
-            sys.localStorage.setItem(LS_ANALYTICS_PLAYER_UID, uid);
         } catch (_) {
             // ignore storage failures
         }

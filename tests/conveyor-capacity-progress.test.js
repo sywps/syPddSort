@@ -41,9 +41,6 @@ const referenceIssues = [];
 scene.forEach((record, index) => validateReferences(record, `scene[${index}]`, referenceIssues));
 assert.deepStrictEqual(referenceIssues, [], 'capacity progress scene must retain valid references');
 
-const stencilFrame = '3853c743-2a02-4e48-8cf3-2ba355ca1913@f9941';
-const solidFrame = '52e94005-3ca2-a20b-d083-d9c4e3836418@f9941';
-const fillFrame = 'ea05efae-8b08-40e3-a18d-2ee055a7922f@f9941';
 const normalTrackFrame = '80cbaca8-c40a-4d18-ae3e-78081d8f0fb4@f9941';
 const normalFillFrame = 'ac9bde61-ac0a-4324-a6e1-cf84c2ddce90@f9941';
 const assertCountLabel = (badge, layoutName) => {
@@ -77,13 +74,12 @@ const normalTrackSprite = child(normalTrack, 'TrackSprite');
 const normalFillSprite = child(normalTrack, 'FillSprite');
 assert.deepStrictEqual(
     children(normalTrack).map((node) => node?._name),
-    ['Background', 'Bar', 'TrackSprite', 'FillSprite'],
-    'NormalLayout must keep legacy inactive records below two direct sliced renderer children',
+    ['Background', 'TrackSprite', 'FillSprite'],
+    'NormalLayout must keep only the inactive background and two direct sliced renderer children',
 );
 assert.ok(
     component(normalTrack, 'cc.UITransform')?._enabled === true
         && child(normalTrack, 'Background')?._active === false
-        && child(normalTrack, 'Bar')?._active === false
         && normalTrackSprite?._active === true
         && normalFillSprite?._active === false,
     'NormalLayout must start with only its high-resolution track visible at zero capacity',
@@ -108,39 +104,7 @@ assert.ok(
 );
 assertCountLabel(normalBadge, 'NormalLayout');
 
-const compactBadge = paths.get('PchConveyorRoot/CompactLayout/PchCapacityBadge');
-const compactTrack = child(compactBadge, 'ProgressTrack');
-const compactBackground = child(compactTrack, 'Background');
-const compactBar = child(compactTrack, 'Bar');
-const compactProgress = component(compactTrack, 'cc.ProgressBar');
-const compactMask = component(compactTrack, 'cc.Mask');
-const compactBarSprite = component(compactBar, 'cc.Sprite');
-assert.ok(compactBadge && compactBadge._lpos.x === 0, 'CompactLayout capacity badge must remain horizontally centered');
-assert.deepStrictEqual(children(compactBadge).map((node) => node._name), ['ProgressTrack', 'CapacityCount'], 'CompactLayout must retain its original track hierarchy');
-assert.ok(
-    component(compactTrack, 'cc.UITransform')?._contentSize.width === 180
-        && component(compactTrack, 'cc.UITransform')?._contentSize.height === 22
-        && component(compactTrack, 'cc.Sprite')?._spriteFrame?.__uuid__ === stencilFrame
-        && compactMask?._type === 3
-        && compactMask?._alphaThreshold === 0.1,
-    'CompactLayout must retain the serialized rounded SpriteStencil track',
-);
-assert.ok(
-    component(compactBackground, 'cc.Sprite')?._spriteFrame?.__uuid__ === solidFrame
-        && component(compactBackground, 'cc.Sprite')?._color.r === 62
-        && component(compactBackground, 'cc.Sprite')?._color.g === 62
-        && component(compactBackground, 'cc.Sprite')?._color.b === 62,
-    'CompactLayout must retain the neutral dark background',
-);
-assert.ok(
-    compactBarSprite?._spriteFrame?.__uuid__ === fillFrame
-        && compactProgress?._mode === 0
-        && compactProgress?._totalLength === 180
-        && compactProgress?._progress === 0
-        && refId(compactProgress?._barSprite) === scene.indexOf(compactBarSprite),
-    'CompactLayout must retain its horizontal ProgressBar and green Bar Sprite',
-);
-assertCountLabel(compactBadge, 'CompactLayout');
+assert.equal(paths.has('PchConveyorRoot/CompactLayout'), false, 'unused Compact layout must be outside Game');
 
 assert.ok(controller.includes('capacityProgress: ProgressBar | null;'), 'layout bindings must expose the optional Compact ProgressBar');
 assert.ok(controller.includes('capacityTrack: Node | null;'), 'layout bindings must expose the Normal scene-owned sliced capacity node');

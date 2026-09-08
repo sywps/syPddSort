@@ -7,7 +7,7 @@ const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const scenePath = path.join(root, 'assets/BootstrapBundle/Scenes/Game.scene');
 const toastSourcePath = path.join(root, 'assets/Scripts/Core/ToastService.ts');
-const imagePath = path.join(root, 'assets/BootstrapBundle/GameUI/toast_bubble_background.png');
+const imagePath = path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/toast_bubble_background.png');
 const imageMetaPath = `${imagePath}.meta`;
 const scene = JSON.parse(fs.readFileSync(scenePath, 'utf8'));
 const toastSource = fs.readFileSync(toastSourcePath, 'utf8').replace(/\r\n/g, '\n');
@@ -94,7 +94,7 @@ assert.strictEqual(spriteFrameMeta.height, 67);
 assert.strictEqual(spriteFrameMeta.borderLeft, 24);
 assert.strictEqual(spriteFrameMeta.borderRight, 24);
 assert.ok(
-    bootstrapPatch.includes("'GameUI/toast_bubble_background'"),
+    bootstrapPatch.includes("'GameUI/Atlases/GameSceneSmall/toast_bubble_background'"),
     'toast background must remain in the Bootstrap image allowlist',
 );
 

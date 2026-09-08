@@ -7,17 +7,22 @@ const { PNG } = require('pngjs');
 
 const projectDir = path.resolve(__dirname, '..');
 const apply = process.argv.includes('--apply');
+const buttonsOnly = process.argv.includes('--buttons-only');
+const popupFrameOnly = process.argv.includes('--popup-frame-only');
 
 const TARGETS = [
     { file: 'assets/GameAssetsBundle/Textures/BG/bg_game.png', max: 1080 },
     { file: 'assets/Textures/UI/loading_cover.jpeg', max: 960 },
     { file: 'assets/BootstrapBundle/GameUI/home_bg.jpeg', max: 960 },
-    { file: 'assets/BootstrapBundle/GameUI/popup_tool_add_badge.png', max: 128, preserveSpriteFrameTrim: true },
-    { file: 'assets/BootstrapBundle/GameUI/popup_ad_play_icon.png', max: 128, preserveSpriteFrameTrim: true },
-    { file: 'assets/BootstrapBundle/GameUI/popup_tool_count_badge.png', max: 128, preserveSpriteFrameTrim: true },
-    { file: 'assets/BootstrapBundle/GameUI/popup_primary_button.png', max: 160, preserveSpriteFrameTrim: true },
-    { file: 'assets/GameAssetsBundle/Textures/UI/popup_primary_button.png', max: 160, preserveSpriteFrameTrim: true },
-    { file: 'assets/HomeAssetsBundle/GameUI/home_primary_button.png', max: 160, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_tool_add_badge.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_ad_play_icon.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_tool_count_badge.png', max: 128, preserveSpriteFrameTrim: true },
+    { file: 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/popup_primary_button.png', max: 256, preserveSpriteFrameTrim: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_primary_button.png', max: 1024, preserveSpriteFrameTrim: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_secondary_button.png', max: 768, preserveSpriteFrameTrim: true },
+    { file: 'assets/HomeAssetsBundle/GameUI/home_primary_button.png', max: 768, preserveSpriteFrameTrim: true },
+    { file: 'assets/HomeAssetsBundle/GameUI/home_secondary_button.png', max: 768, preserveSpriteFrameTrim: true },
+    { file: 'assets/GameAssetsBundle/Textures/UI/popup_frame_soft.png', max: 1080, preserveSpriteFrameTrim: true },
 ];
 
 function readPngSize(imagePath) {
@@ -114,6 +119,12 @@ function scaleSpriteFrameUserData(userData, before, after, preserveTrim) {
     userData.offsetY = roundMetaNumber((userData.offsetY || 0) * scaleY);
     userData.trimX = Math.max(0, Math.round((userData.trimX || 0) * scaleX));
     userData.trimY = Math.max(0, Math.round((userData.trimY || 0) * scaleY));
+    for (const border of ['borderLeft', 'borderRight']) {
+        userData[border] = roundMetaNumber((userData[border] || 0) * scaleX);
+    }
+    for (const border of ['borderTop', 'borderBottom']) {
+        userData[border] = roundMetaNumber((userData[border] || 0) * scaleY);
+    }
     if (userData.trimX + userData.width > after.width) {
         userData.width = Math.max(1, after.width - userData.trimX);
     }
@@ -174,7 +185,16 @@ function downscaleOne(target) {
     }
     const ext = path.extname(imagePath);
     const tempPath = `${imagePath}.tmp-resize${ext}`;
-    execFileSync('sips', ['-Z', String(target.max), imagePath, '--out', tempPath], { stdio: 'pipe' });
+    if (process.platform === 'win32') {
+        const width = before.width >= before.height ? target.max : -1;
+        const height = before.height > before.width ? target.max : -1;
+        execFileSync('ffmpeg', [
+            '-hide_banner', '-loglevel', 'error', '-y', '-i', imagePath,
+            '-vf', `scale=${width}:${height}:flags=lanczos`, '-frames:v', '1', '-update', '1', tempPath,
+        ], { stdio: 'pipe' });
+    } else {
+        execFileSync('sips', ['-Z', String(target.max), imagePath, '--out', tempPath], { stdio: 'pipe' });
+    }
     const after = readImageSize(tempPath);
     const afterBytes = fs.statSync(tempPath).size;
     const afterMb = estimateRgbaMb(after);
@@ -199,7 +219,12 @@ function downscaleOne(target) {
 console.log(`Large texture downscale ${apply ? '(apply)' : '(dry-run)'}`);
 let totalBeforeMb = 0;
 let totalAfterMb = 0;
-for (const target of TARGETS) {
+const selectedTargets = popupFrameOnly
+    ? TARGETS.filter((target) => target.file.endsWith('/popup_frame_soft.png'))
+    : buttonsOnly
+    ? TARGETS.filter((target) => /\/(?:popup|home)_(?:primary|secondary)_button\.png$/.test(target.file))
+    : TARGETS;
+for (const target of selectedTargets) {
     const result = downscaleOne(target);
     totalBeforeMb += result.beforeMb;
     totalAfterMb += result.afterMb;

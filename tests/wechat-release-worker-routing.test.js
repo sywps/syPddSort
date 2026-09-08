@@ -24,6 +24,15 @@ try {
     fs.mkdirSync(path.join(firstWorker, 'assets'));
     runner.linkWorkspaceDependencies(firstWorker);
     runner.validateFreshWorkerDir(firstWorker, tempRoot);
+    runner.prepareFreshWorkerPackerTargets(firstWorker);
+    assert.ok(
+        fs.existsSync(path.join(firstWorker, 'temp', 'programming', 'packer-driver', 'targets', 'editor')),
+        'fresh worker must precreate the editor packer target directory',
+    );
+    assert.ok(
+        fs.existsSync(path.join(firstWorker, 'temp', 'programming', 'packer-driver', 'targets', 'preview')),
+        'fresh worker must precreate the preview packer target directory',
+    );
     fs.mkdirSync(path.join(firstWorker, 'library'));
     assert.throws(
         () => runner.validateFreshWorkerDir(firstWorker, tempRoot),
@@ -126,6 +135,7 @@ assert.ok(source.includes('maxRetries: 20'), 'fresh-worker cleanup must retry tr
 assert.ok(source.includes('retryDelay: 250'), 'fresh-worker cleanup retries must stay bounded and observable');
 const syncIndex = source.indexOf('syncProjectSource(workerDir);');
 const byteCheckIndex = source.indexOf('assertAssetTreesByteIdentical(workerDir);', syncIndex);
+const preparePackerIndex = source.indexOf('prepareFreshWorkerPackerTargets(workerDir);', byteCheckIndex);
 const warmWorkerIndex = source.indexOf('const ready = warmFreshWorkerAssetDb(workerDir);');
 const directBuildIndex = source.indexOf('runDirectRelease(workerDir, wechatCdnTarget.slot, {', warmWorkerIndex);
 const cleanupIndex = source.indexOf('cleanupFreshWorkerDir(workerDir);', directBuildIndex);
@@ -133,11 +143,12 @@ const openDevtoolsIndex = source.indexOf('maybeOpenWorkspaceWechatDevtools();', 
 assert.ok(
     syncIndex >= 0
         && byteCheckIndex > syncIndex
-        && warmWorkerIndex > byteCheckIndex
+        && preparePackerIndex > byteCheckIndex
+        && warmWorkerIndex > preparePackerIndex
         && directBuildIndex > warmWorkerIndex
         && cleanupIndex > directBuildIndex
         && openDevtoolsIndex > cleanupIndex,
-    'fresh source sync and byte check must precede a completed same-run AssetDB warmup, batch build, and cleanup',
+    'fresh source sync and byte check must precede packer preparation, AssetDB warmup, batch build, and cleanup',
 );
 
 const buildWechat = read('scripts/build-wechat.js');

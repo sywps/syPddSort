@@ -10,7 +10,7 @@ const source = read('assets/Scripts/Core/PchConveyorGameplayController.ts');
 const appSession = read('assets/Scripts/Core/AppSession.ts');
 const sceneSource = read('assets/BootstrapBundle/Scenes/Game.scene');
 const scene = JSON.parse(sceneSource);
-const inactiveMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/pch_speed_inactive.png.meta'));
+const inactiveMeta = JSON.parse(read('assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/pch_speed_inactive.png.meta'));
 const pngDimensions = (relPath) => {
     const bytes = fs.readFileSync(path.join(root, relPath));
     assert.ok(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), `${relPath} must be a PNG`);
@@ -151,11 +151,11 @@ assert.deepStrictEqual(
     'the scene must serialize the bold white X1 badge default',
 );
 assert.ok(
-    fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/pch_speed_inactive.png')),
+    fs.existsSync(path.join(root, 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/pch_speed_inactive.png')),
     'the hierarchy-owned speed image must exist in BootstrapBundle',
 );
 assert.deepStrictEqual(
-    pngDimensions('assets/BootstrapBundle/GameUI/pch_speed_inactive.png'),
+    pngDimensions('assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/pch_speed_inactive.png'),
     { width: 96, height: 96 },
     'the single speed image must retain its hierarchy-authored 96x96 canvas',
 );

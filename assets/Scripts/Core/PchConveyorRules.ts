@@ -330,6 +330,27 @@ export class PchConveyorRules {
         };
     }
 
+    executeSkillAtomically(execute: () => PchSkillResult): PchSkillResult {
+        const colors = this.board.currentColors.map((row) => row.slice());
+        const locked = this.board.locked.map((row) => row.slice());
+        const carriers = this.carriers.map((stack) => stack.slice());
+        const queued = this.queuedColorIds.slice();
+        const readyCount = this.readyQueuedCount;
+        try {
+            return execute();
+        } catch (error) {
+            for (let row = 0; row < colors.length; row++) {
+                this.board.currentColors[row].splice(0, this.board.width, ...colors[row]);
+                this.board.locked[row].splice(0, this.board.width, ...locked[row]);
+            }
+            this.board.markLockStatsDirty();
+            this.carriers.forEach((stack, index) => stack.splice(0, stack.length, ...carriers[index]));
+            this.queuedColorIds.splice(0, this.queuedColorIds.length, ...queued);
+            this.readyQueuedCount = readyCount;
+            throw error;
+        }
+    }
+
     forceCompleteRandomColor(randomSource: () => number = Math.random): PchSkillResult {
         const candidates = new Set<number>();
         for (let row = 0; row < this.board.height; row += 1) {

@@ -6,7 +6,7 @@ import {
 } from './GameCtrlShared';
 import type { LevelData, TutorialMode } from './GameCtrlShared';
 import { AppRoot } from './AppRoot';
-import { collectActiveBlockInputEvents } from './DebugPerfTrace';
+import { collectActiveBlockInputEvents, debugPerfSnapshot } from './DebugPerfTrace';
 import { ensureHardLevelIntroController } from './HardLevelIntroController';
 import { validateConveyorCapacity, validateHard } from './LevelConfig';
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
@@ -180,6 +180,11 @@ export class GameplaySessionController {
                     this.clearGameplayReadyRouteCover();
                     const startupTracePhysicalLevel = runtime.getActivePhysicalLevelId();
                     const startupTraceLogicalLevel = runtime.getActiveLogicalLevelId();
+                    debugPerfSnapshot('runtime.game.firstPlayable', runtime, {
+                        levelId: startupTraceLogicalLevel,
+                        physicalLevelId: startupTracePhysicalLevel,
+                        entryMode: gameplayEntryMode,
+                    });
                     if (runtime.isFirstLevelFunnelActive()) {
                         AnalyticsMgr.inst.markFirstLevelReady({
                             page: runtime.getAnalyticsPage(),

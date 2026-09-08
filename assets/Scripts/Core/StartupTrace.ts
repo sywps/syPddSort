@@ -26,12 +26,34 @@ type StartupTraceFunnelEvent = {
 };
 
 const STARTUP_TRACE_KEY = '__PDD_STARTUP_TRACE__';
+const RUNTIME_ENTRY_AT_KEY = '__PDD_RUNTIME_ENTRY_AT__';
 const MAX_STARTUP_TRACE_EVENTS = 40;
+let weChatStartupPlayableReported = false;
+
+export function reportWeChatStartupPlayable(wxRuntime: { reportScene?: (options: { sceneId: number }) => void } | null): void {
+    if (!wxRuntime || weChatStartupPlayableReported) return;
+    if (typeof wxRuntime.reportScene !== 'function') {
+        console.warn('[StartupTrace] wx.reportScene unavailable; startup playable was not reported');
+        return;
+    }
+    try {
+        wxRuntime.reportScene({ sceneId: 7 });
+        weChatStartupPlayableReported = true;
+    } catch (error) {
+        console.error('[StartupTrace] startup playable report failed:', error);
+    }
+}
 
 function getTraceHost(): any {
     if (typeof globalThis !== 'undefined') return globalThis as any;
     if (typeof window !== 'undefined') return window as any;
     return {};
+}
+
+function readRuntimeEntryAt(host: any): number {
+    const timestamp = Number(host?.[RUNTIME_ENTRY_AT_KEY] || 0);
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > Date.now()) return 0;
+    return timestamp;
 }
 
 function getTraceState(): StartupTraceState {
@@ -41,7 +63,7 @@ function getTraceState(): StartupTraceState {
         return existing;
     }
     const state: StartupTraceState = {
-        startedAt: Date.now(),
+        startedAt: readRuntimeEntryAt(host) || Date.now(),
         events: [],
         flushed: false,
     };

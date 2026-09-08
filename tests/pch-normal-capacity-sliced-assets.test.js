@@ -6,7 +6,7 @@ const path = require('node:path');
 const { PNG } = require('pngjs');
 
 const root = path.resolve(__dirname, '..');
-const assetDirectory = path.join(root, 'assets/BootstrapBundle/GameUI/RainbowConveyor');
+const assetDirectory = path.join(root, 'assets/BootstrapBundle/GameUI/RainbowConveyor/Atlases/PchCapacity');
 
 function readImage(name) {
     return PNG.sync.read(fs.readFileSync(path.join(assetDirectory, name)));

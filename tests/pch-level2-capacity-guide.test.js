@@ -44,24 +44,24 @@ assert.ok(
 assert.ok(
     source.includes("guideName === 'PchLevelTwoSpeedGuide'")
         && source.includes('? this.speedButton')
-        && source.includes('this.onOpeningGuideDoubleSpeed(event);')
+        && source.includes('this.onOpeningGuideTripleSpeed(event);')
         && source.includes("guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null")
         && source.includes('bounds.contains(rawPos)')
         && !source.includes('normalizeGameplayUiPosition')
         && !source.includes('hitPositions'),
-    'locked opening-guide touches must use one Cocos UI position against the real 2X and AD +12 bounds',
+    'locked opening-guide touches must use one Cocos UI position against the real 3X and AD +12 bounds',
 );
 assert.ok(
     source.includes("logicalLevelId === 2 && this.speedButton?.isValid")
         && source.includes("'PchLevelTwoSpeedGuide'")
-        && source.includes("'点击开启两倍速'"),
-    'mainline level 2 must guide the 2x-speed button instead of capacity expansion',
+        && source.includes("'点击开启三倍速'"),
+    'mainline level 2 must guide the 3x-speed button instead of capacity expansion',
 );
 assert.ok(
-    source.includes('this.setManualSpeedMultiplier(2);')
+    source.includes('this.setManualSpeedMultiplier(3);')
         && source.includes('this.refreshSpeedButtonState();')
         && source.includes('this.dismissOpeningGuide();'),
-    'the level-2 target tap must deterministically enable 2x speed before gameplay starts',
+    'the level-2 target tap must deterministically enable 3x speed before gameplay starts',
 );
 assert.ok(
     source.includes("logicalLevelId === 3 && this.adButton?.isValid")

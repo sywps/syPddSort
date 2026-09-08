@@ -104,9 +104,6 @@ async function main() {
     let directHandoffRecoverable = null;
     const directHandoffRuntime = { _skillActive: false };
     installHomeAdFlowModule(directHandoffRuntime);
-    directHandoffRuntime.showRewardedAdPendingStrip = (text, mode) => {
-        directHandoffEvents.push(`strip:${mode}:${text}`);
-    };
     directHandoffRuntime.showTrackedRewardedAd = (_page, onComplete, options) => {
         directHandoffEvents.push('native-show');
         directHandoffComplete = onComplete;
@@ -124,8 +121,8 @@ async function main() {
     directHandoffRecoverable();
     assert.deepStrictEqual(
         directHandoffEvents,
-        ['interaction-start', 'native-show', 'strip:wait:正在确认广告结果…'],
-        'the strip must remain reserved for post-ad result recovery',
+        ['interaction-start', 'native-show'],
+        'post-ad callback recovery must remain silent during the short grace period',
     );
     directHandoffComplete(adOutcome('verified_complete'));
     await flushMicrotasks();
@@ -247,7 +244,6 @@ async function main() {
     });
     const reviveRuntime = { _adShowing: false, _activeGameplayEntryMode: 'theme' };
     installReviveFlow(reviveRuntime);
-    reviveRuntime.showRewardedAdPendingStrip = () => {};
     reviveRuntime.showTrackedRewardedAd = (_page, onComplete) => onComplete(adOutcome('verified_complete'));
     reviveRuntime.runRewardedGrant('level_revive', () => false, {
         claimKey: 'level_revive:3:false',
@@ -363,8 +359,8 @@ async function main() {
     assert.strictEqual(foregroundRuntime._skillActive, false, 'successful completion must release the gameplay busy flag');
 
     const recoverableTimers = [];
-    const recoverableEndEvents = [];
-    const installRecoverableEndFlow = loadInstaller({
+    const recoverableTimeoutEvents = [];
+    const installRecoverableTimeoutFlow = loadInstaller({
         setTimeout(callback, delay) {
             const timer = { callback, delay, cleared: false };
             recoverableTimers.push(timer);
@@ -375,54 +371,40 @@ async function main() {
         },
     }, {
         endRewardedAdWait(reason) {
-            recoverableEndEvents.push(`provider-end:${reason}`);
+            recoverableTimeoutEvents.push(`provider-end:${reason}`);
             return true;
         },
     });
-    let recoverableEndHook = null;
-    const recoverableEndRuntime = {
+    let recoverableTimeoutHook = null;
+    const recoverableTimeoutRuntime = {
         _skillActive: false,
-        showToast: (text) => recoverableEndEvents.push(`toast:${text}`),
+        showToast: (text) => recoverableTimeoutEvents.push(`toast:${text}`),
     };
-    installRecoverableEndFlow(recoverableEndRuntime);
-    recoverableEndRuntime.showTrackedRewardedAd = (_page, _onComplete, options) => {
-        recoverableEndHook = options.onRecoverable;
+    installRecoverableTimeoutFlow(recoverableTimeoutRuntime);
+    recoverableTimeoutRuntime.showTrackedRewardedAd = (_page, _onComplete, options) => {
+        recoverableTimeoutHook = options.onRecoverable;
     };
-    recoverableEndRuntime.runRewardedGrant('unlock_slot_row', () => {
-        recoverableEndEvents.push('grant');
+    recoverableTimeoutRuntime.runRewardedGrant('unlock_slot_row', () => {
+        recoverableTimeoutEvents.push('grant');
         return true;
     }, {
-        claimKey: 'unlock_slot_row:10:recoverable-end',
+        claimKey: 'unlock_slot_row:10:recoverable-timeout',
         busyFlag: '_skillActive',
-        suppressPendingStrip: true,
-        onRecoverable: () => recoverableEndEvents.push('recoverable'),
-        onRecoverableEndable: () => recoverableEndEvents.push('endable'),
-        onFinally: () => recoverableEndEvents.push('finally'),
+        onRecoverable: () => recoverableTimeoutEvents.push('recoverable'),
+        onFinally: () => recoverableTimeoutEvents.push('finally'),
     });
-    recoverableEndHook();
-    const endableTimer = recoverableTimers.find((timer) => timer.delay === 5000 && !timer.cleared);
-    assert.ok(endableTimer, 'recoverable result confirmation must wait five seconds before offering an exit');
-    endableTimer.callback();
-    assert.strictEqual(recoverableEndRuntime._rewardedGrantTransaction.phase, 'recoverable_endable');
-    assert.deepStrictEqual(recoverableEndEvents, [
+    recoverableTimeoutHook();
+    const timeoutTimer = recoverableTimers.find((timer) => timer.delay === 1000 && !timer.cleared);
+    assert.ok(timeoutTimer, 'recoverable result confirmation must use only a one-second grace period');
+    timeoutTimer.callback();
+    assert.deepStrictEqual(recoverableTimeoutEvents, [
         'recoverable',
-        'toast:广告结果仍未返回，可点击“结束等待”',
-        'endable',
-    ]);
-    assert.strictEqual(
-        recoverableEndRuntime.cancelRewardedGrantInteraction('recoverable-user-end'),
-        true,
-        'the explicit end action must release a recoverable transaction',
-    );
-    assert.deepStrictEqual(recoverableEndEvents, [
-        'recoverable',
-        'toast:广告结果仍未返回，可点击“结束等待”',
-        'endable',
+        'toast:广告结果确认失败，请重试',
         'finally',
-        'provider-end:recoverable-user-end',
+        'provider-end:recoverable-timeout',
     ]);
-    assert.strictEqual(recoverableEndRuntime._rewardedGrantTransaction, null);
-    assert.strictEqual(recoverableEndRuntime._skillActive, false);
+    assert.strictEqual(recoverableTimeoutRuntime._rewardedGrantTransaction, null);
+    assert.strictEqual(recoverableTimeoutRuntime._skillActive, false);
 
     const pendingEvents = [];
     const pendingCallbacks = [];
@@ -446,9 +428,9 @@ async function main() {
         onInteractionReleased: () => pendingEvents.push('release:1'),
         onFinally: () => pendingEvents.push('finally:1'),
     }), true);
-    const stableClaimId = pendingRuntime._rewardedGrantTransaction.id;
+    const firstClaimId = pendingRuntime._rewardedGrantTransaction.id;
     pendingRecoveries[0]();
-    assert.strictEqual(pendingRuntime._rewardedGrantTransaction.id, stableClaimId);
+    assert.strictEqual(pendingRuntime._rewardedGrantTransaction.id, firstClaimId);
     assert.strictEqual(pendingRuntime._rewardedGrantTransaction.phase, 'recoverable');
     assert.deepStrictEqual(pendingEvents, ['release:1']);
 
@@ -460,16 +442,19 @@ async function main() {
         busyFlag: '_skillActive',
         onInteractionReleased: () => pendingEvents.push('release:2'),
         onFinally: () => pendingEvents.push('finally:2'),
-    }), false, 'a recoverable claim must preserve the first native close instead of replacing it');
-    assert.strictEqual(pendingRuntime._rewardedGrantTransaction.id, stableClaimId, 'the original claim must remain active');
-    assert.strictEqual(pendingCallbacks.length, 1, 'repeat taps must not open a second rewarded ad');
-    assert.deepStrictEqual(pendingEvents, ['release:1', 'toast:奖励确认中，请稍后']);
+    }), true, 'a repeat tap during the grace period must replace the stale attempt');
+    const secondClaimId = pendingRuntime._rewardedGrantTransaction.id;
+    assert.notStrictEqual(secondClaimId, firstClaimId, 'the retry must own a fresh transaction');
+    assert.strictEqual(pendingCallbacks.length, 2, 'the retry must open a second rewarded ad');
+    assert.deepStrictEqual(pendingEvents, ['release:1', 'finally:1']);
 
     pendingCallbacks[0](adOutcome('verified_complete', 1));
-    pendingCallbacks[0](adOutcome('verified_complete', 1));
+    assert.strictEqual(pendingGrantCount, 0, 'a late close from the cancelled attempt must not grant');
+    pendingCallbacks[1](adOutcome('verified_complete', 2));
+    pendingCallbacks[1](adOutcome('verified_complete', 2));
     await flushMicrotasks();
-    assert.strictEqual(pendingGrantCount, 1, 'the delayed authoritative close must grant the original claim exactly once');
-    assert.deepStrictEqual(pendingEvents, ['release:1', 'toast:奖励确认中，请稍后', 'finally:1']);
+    assert.strictEqual(pendingGrantCount, 1, 'only the fresh retry may grant, exactly once');
+    assert.deepStrictEqual(pendingEvents, ['release:1', 'finally:1', 'release:2', 'finally:2']);
     assert.strictEqual(pendingRuntime._rewardedGrantTransaction, null);
 
     const unknownEvents = [];

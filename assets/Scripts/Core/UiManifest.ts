@@ -6,7 +6,7 @@ export const BOARD_EFFECT_TEXTURE_NAMES = [
 ];
 
 export const BOOTSTRAP_BOARD_EFFECT_TEXTURE_PATHS = BOARD_EFFECT_TEXTURE_NAMES
-    .map((name) => `GameUI/${name}`);
+    .map((name) => `GameUI/Atlases/BoardEffects/${name}`);
 
 export const GAME_ASSETS_PRELOAD_TEXTURE_PATHS: string[] = [];
 
@@ -61,8 +61,6 @@ export const RESULT_PANEL_TEXTURE_NAMES = [
     '金币',
     'popup_ad_play_icon',
     'popup_share_icon',
-    '进度条',
-    'progress_fill',
 ];
 
 export const SETTINGS_PANEL_TEXTURE_NAMES = [
@@ -111,3 +109,71 @@ export const GAME_ASSETS_TEXTURE_SEARCH_DIRS = [
     'Textures/UI',
     'Textures/BG',
 ];
+
+export type LocalAtlasBundleName = 'bootstrap' | 'gameAssets';
+
+export const LOCAL_ATLAS_MEMBER_ROUTES: Readonly<Record<string, string>> = Object.freeze({
+    'bootstrap:wf_base_14': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/wf_base_14',
+    'bootstrap:exit_1': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1',
+    'bootstrap:exit_2': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_2',
+    'bootstrap:exit_1_2': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1_2',
+    'bootstrap:exit_1_3': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1_3',
+    'bootstrap:exit_1_4': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1_4',
+    'bootstrap:gameProp_2007': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/gameProp_2007',
+    'bootstrap:conveyor_0': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_0',
+    'bootstrap:conveyor_1': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_1',
+    'bootstrap:conveyor_2': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_2',
+    'bootstrap:conveyor_3': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_3',
+    'bootstrap:conveyor_4': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_4',
+    'bootstrap:conveyor_5': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_5',
+    'bootstrap:conveyor_7a': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_7a',
+    'bootstrap:conveyor_7b': 'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_7b',
+    'bootstrap:pch_capacity_fill_sliced': 'GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_fill_sliced',
+    'bootstrap:pch_capacity_track_sliced': 'GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_track_sliced',
+    'bootstrap:倒计时': 'GameUI/Atlases/GameSceneSmall/倒计时',
+    'bootstrap:board_zoom_fill': 'GameUI/Atlases/GameSceneSmall/board_zoom_fill',
+    'bootstrap:board_zoom_track': 'GameUI/Atlases/GameSceneSmall/board_zoom_track',
+    'bootstrap:board_zoom_thumb': 'GameUI/Atlases/GameSceneSmall/board_zoom_thumb',
+    'bootstrap:board_zoom_locate': 'GameUI/Atlases/GameSceneSmall/board_zoom_locate',
+    'bootstrap:board_zoom_plus': 'GameUI/Atlases/GameSceneSmall/board_zoom_plus',
+    'bootstrap:board_zoom_minus': 'GameUI/Atlases/GameSceneSmall/board_zoom_minus',
+    'bootstrap:gameplay_skill_slot_background': 'GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background',
+    'bootstrap:guide_bubble_frame': 'GameUI/Atlases/GameSceneSmall/guide_bubble_frame',
+    'bootstrap:guide_hand': 'GameUI/Atlases/GameSceneSmall/guide_hand',
+    'bootstrap:pch_speed_inactive': 'GameUI/Atlases/GameSceneSmall/pch_speed_inactive',
+    'bootstrap:popup_tool_add_badge': 'GameUI/Atlases/GameSceneSmall/popup_tool_add_badge',
+    'bootstrap:popup_tool_count_badge': 'GameUI/Atlases/GameSceneSmall/popup_tool_count_badge',
+    'bootstrap:solid_white': 'GameUI/Atlases/GameSceneSmall/solid_white',
+    'bootstrap:toast_bubble_background': 'GameUI/Atlases/GameSceneSmall/toast_bubble_background',
+    'bootstrap:popup_ad_play_icon': 'GameUI/Atlases/GameSceneSmall/popup_ad_play_icon',
+    'bootstrap:popup_primary_button': 'GameUI/Atlases/GameSceneSmall/popup_primary_button',
+    'bootstrap:popup_tool_brush_icon': 'GameUI/Atlases/GameSceneSmall/popup_tool_brush_icon',
+    'bootstrap:popup_tool_freeze_icon': 'GameUI/Atlases/GameSceneSmall/popup_tool_freeze_icon',
+    'bootstrap:popup_tool_magnet_icon': 'GameUI/Atlases/GameSceneSmall/popup_tool_magnet_icon',
+    'bootstrap:popup_tool_wand_icon': 'GameUI/Atlases/GameSceneSmall/popup_tool_wand_icon',
+    'bootstrap:设置': 'GameUI/Atlases/GameSceneSmall/设置',
+    'bootstrap:block_bright_pindd': 'GameUI/Atlases/BoardEffects/block_bright_pindd',
+    'bootstrap:pdpx_eff_Mask_01': 'GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01',
+    'bootstrap:pdpx_eff_Star_01': 'GameUI/Atlases/BoardEffects/pdpx_eff_Star_01',
+    'bootstrap:pdpx_eff_Trail_02': 'GameUI/Atlases/BoardEffects/pdpx_eff_Trail_02',
+    'gameAssets:popup_settings_sound_icon': 'Textures/UI/Atlases/Settings/popup_settings_sound_icon',
+    'gameAssets:popup_settings_music_icon': 'Textures/UI/Atlases/Settings/popup_settings_music_icon',
+    'gameAssets:popup_settings_vibrate_icon': 'Textures/UI/Atlases/Settings/popup_settings_vibrate_icon',
+    'gameAssets:popup_settings_toggle_on': 'Textures/UI/Atlases/Settings/popup_settings_toggle_on',
+    'gameAssets:popup_settings_toggle_off': 'Textures/UI/Atlases/Settings/popup_settings_toggle_off',
+    'gameAssets:popup_list_row_bg': 'Textures/UI/Atlases/Leaderboard/popup_list_row_bg',
+    'gameAssets:popup_tab_inactive': 'Textures/UI/Atlases/Leaderboard/popup_tab_inactive',
+    'gameAssets:bean_skin_01': 'BeanSkins/icons/bean_skin_01',
+    'gameAssets:bean_skin_02': 'BeanSkins/icons/bean_skin_02',
+    'gameAssets:bean_skin_03': 'BeanSkins/icons/bean_skin_03',
+    'gameAssets:bean_skin_04': 'BeanSkins/icons/bean_skin_04',
+    'gameAssets:bean_skin_05': 'BeanSkins/icons/bean_skin_05',
+});
+
+export function getLocalAtlasMemberRoute(bundleName: LocalAtlasBundleName, assetName: string): string {
+    return LOCAL_ATLAS_MEMBER_ROUTES[`${bundleName}:${assetName}`] || '';
+}
+
+export function isLocalAtlasMember(bundleName: LocalAtlasBundleName, assetName: string): boolean {
+    return getLocalAtlasMemberRoute(bundleName, assetName) !== '';
+}

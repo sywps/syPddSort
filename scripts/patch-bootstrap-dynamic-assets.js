@@ -2,6 +2,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const {
+    collectSourceBundleArtifacts,
+    findAutoAtlasRemovableNativeUuids,
+    findAutoAtlasStandaloneSources,
+} = require('./bundle-artifact-utils.js');
 
 const projectRoot = path.resolve(__dirname, '..');
 const runtimeRoot = process.argv[2] || path.join(projectRoot, 'build', 'wechatgame', 'minigame');
@@ -12,55 +18,51 @@ const gameAssetsBundleName = 'gameAssets';
 const homeAssetsBundleName = 'homeAssets';
 const bootstrapImageAllowlist = new Set([
 	'Beans/bean-atlas',
-	'GameUI/gameplay_skill_slot_background',
-	'GameUI/RainbowConveyor/compact_conveyor_track',
-	'GameUI/RainbowConveyor/conveyor_0',
-	'GameUI/RainbowConveyor/conveyor_1',
-	'GameUI/RainbowConveyor/conveyor_2',
-	'GameUI/RainbowConveyor/conveyor_3',
-	'GameUI/RainbowConveyor/conveyor_4',
-	'GameUI/RainbowConveyor/conveyor_5',
-	'GameUI/RainbowConveyor/conveyor_7a',
-	'GameUI/RainbowConveyor/conveyor_7b',
-	'GameUI/RainbowConveyor/exit_1',
-	'GameUI/RainbowConveyor/pch_capacity_fill_sliced',
-	'GameUI/RainbowConveyor/pch_capacity_track_sliced',
-	'GameUI/RainbowConveyor/exit_1_2',
-	'GameUI/RainbowConveyor/exit_1_3',
-	'GameUI/RainbowConveyor/exit_1_4',
-	'GameUI/RainbowConveyor/exit_2',
-	'GameUI/RainbowConveyor/gameProp_2007',
-	'GameUI/RainbowConveyor/wf_base_14',
+	'GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_0',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_1',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_2',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_3',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_4',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_5',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_7a',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/conveyor_7b',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1',
+	'GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_fill_sliced',
+	'GameUI/RainbowConveyor/Atlases/PchCapacity/pch_capacity_track_sliced',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1_2',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1_3',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_1_4',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/exit_2',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/gameProp_2007',
+	'GameUI/RainbowConveyor/Atlases/ConveyorSmall/wf_base_14',
 	'GameUI/home_bg',
-	'GameUI/board_zoom_fill',
-	'GameUI/board_zoom_locate',
-	'GameUI/board_zoom_minus',
-	'GameUI/board_zoom_plus',
-	'GameUI/board_zoom_thumb',
-	'GameUI/board_zoom_track',
-	'GameUI/block_bright_pindd',
-	'GameUI/倒计时',
-	'GameUI/guide_hand',
-	'GameUI/guide_bubble_frame',
-	'GameUI/guide_prompt_button',
+	'GameUI/Atlases/GameSceneSmall/board_zoom_fill',
+	'GameUI/Atlases/GameSceneSmall/board_zoom_locate',
+	'GameUI/Atlases/GameSceneSmall/board_zoom_minus',
+	'GameUI/Atlases/GameSceneSmall/board_zoom_plus',
+	'GameUI/Atlases/GameSceneSmall/board_zoom_thumb',
+	'GameUI/Atlases/GameSceneSmall/board_zoom_track',
+	'GameUI/Atlases/BoardEffects/block_bright_pindd',
+	'GameUI/Atlases/GameSceneSmall/倒计时',
+	'GameUI/Atlases/GameSceneSmall/guide_hand',
+	'GameUI/Atlases/GameSceneSmall/guide_bubble_frame',
 	'GameUI/loading_cover',
-	'GameUI/pdpx_eff_Mask_01',
-	'GameUI/pdpx_eff_Star_01',
-	'GameUI/pdpx_eff_Trail_02',
-	'GameUI/pch_speed_inactive',
-	'GameUI/popup_ad_play_icon',
-	'GameUI/popup_primary_button',
-	'GameUI/popup_tool_add_badge',
-	'GameUI/popup_tool_count_badge',
-	'GameUI/popup_tool_wand_icon',
-	'GameUI/popup_tool_freeze_icon',
-	'GameUI/popup_tool_brush_icon',
-	'GameUI/popup_tool_magnet_icon',
-	'GameUI/progress_fill',
-	'GameUI/solid_white',
-	'GameUI/toast_bubble_background',
-	'GameUI/设置',
-	'GameUI/进度条',
+	'GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01',
+	'GameUI/Atlases/BoardEffects/pdpx_eff_Star_01',
+	'GameUI/Atlases/BoardEffects/pdpx_eff_Trail_02',
+	'GameUI/Atlases/GameSceneSmall/pch_speed_inactive',
+	'GameUI/Atlases/GameSceneSmall/popup_ad_play_icon',
+	'GameUI/Atlases/GameSceneSmall/popup_primary_button',
+	'GameUI/Atlases/GameSceneSmall/popup_tool_add_badge',
+	'GameUI/Atlases/GameSceneSmall/popup_tool_count_badge',
+	'GameUI/Atlases/GameSceneSmall/popup_tool_wand_icon',
+	'GameUI/Atlases/GameSceneSmall/popup_tool_freeze_icon',
+	'GameUI/Atlases/GameSceneSmall/popup_tool_brush_icon',
+	'GameUI/Atlases/GameSceneSmall/popup_tool_magnet_icon',
+	'GameUI/Atlases/GameSceneSmall/solid_white',
+	'GameUI/Atlases/GameSceneSmall/toast_bubble_background',
+	'GameUI/Atlases/GameSceneSmall/设置',
 ]);
 const criticalGameAssetsPathMap = new Map([
     ['Audio/bgm', 'Audio/bgm'],
@@ -263,6 +265,23 @@ function copyNative(uuid) {
     fs.copyFileSync(src, dest);
 }
 
+function removeNativeArtifacts(uuid, removed) {
+    const nativeDir = path.join(bootstrapOutputRoot, 'native', uuid.slice(0, 2));
+    if (!fs.existsSync(nativeDir)) return;
+    for (const fileName of fs.readdirSync(nativeDir)) {
+        if (!fileName.startsWith(`${uuid}.`) || fileName.endsWith('.json')) continue;
+        const filePath = path.join(nativeDir, fileName);
+        fs.rmSync(filePath, { force: true });
+        removed.add(filePath);
+    }
+}
+
+function removeAutoAtlasNativeArtifacts(uuids) {
+    const removed = new Set();
+    for (const uuid of uuids) removeNativeArtifacts(uuid, removed);
+    return removed.size;
+}
+
 function ensureType(config, typeName) {
     if (!Array.isArray(config.types)) config.types = [];
     let index = config.types.indexOf(typeName);
@@ -393,7 +412,13 @@ function getEntryTypeName(config, entry) {
     return Array.isArray(config.types) ? (config.types[typeIndex] || '') : '';
 }
 
-function requiresNativeArtifact(entry) {
+function requiresNativeArtifact(entry, removableNativeUuids = null) {
+    const decodedUuid = decodeUuid(String(entry?.uuid || '')).split('@')[0];
+    if (entry?.typeName === 'cc.ImageAsset'
+        && removableNativeUuids instanceof Set
+        && removableNativeUuids.has(decodedUuid)) {
+        return false;
+    }
     return entry.typeName === 'cc.AudioClip'
         || entry.typeName === 'cc.ImageAsset'
         || (!!entry.nativeVersionHash && !String(entry.uuid || '').includes('@'));
@@ -586,11 +611,11 @@ function findArtifactsByDecodedUuid(bundleRoot, kind, decodedUuid) {
         .map((fileName) => path.join(dir, fileName));
 }
 
-function copyGameAssetImportArtifacts(gameAssetsRoot, uuid) {
+function copyGameAssetImportArtifacts(gameAssetsRoot, uuid, targetRoot = bootstrapOutputRoot) {
     const decoded = decodeUuid(uuid);
     const sources = findArtifactsByDecodedUuid(gameAssetsRoot, 'import', decoded);
     if (sources.length === 0) return false;
-    const destDir = path.join(bootstrapOutputRoot, 'import', decoded.slice(0, 2));
+    const destDir = path.join(targetRoot, 'import', decoded.slice(0, 2));
     ensureDir(destDir);
     for (const src of sources) {
         const dest = path.join(destDir, path.basename(src));
@@ -603,11 +628,11 @@ function copyGameAssetImportArtifacts(gameAssetsRoot, uuid) {
     return true;
 }
 
-function copyGameAssetNativeArtifacts(gameAssetsRoot, uuid) {
+function copyGameAssetNativeArtifacts(gameAssetsRoot, uuid, targetRoot = bootstrapOutputRoot) {
     const decoded = decodeUuid(uuid).split('@')[0];
     const sources = findArtifactsByDecodedUuid(gameAssetsRoot, 'native', decoded);
     if (sources.length === 0) return false;
-    const destDir = path.join(bootstrapOutputRoot, 'native', decoded.slice(0, 2));
+    const destDir = path.join(targetRoot, 'native', decoded.slice(0, 2));
     ensureDir(destDir);
     for (const src of sources) {
         const dest = path.join(destDir, path.basename(src));
@@ -742,14 +767,7 @@ function buildKnownUuidSet(config) {
     return knownUuids;
 }
 
-function readOptionalBundleSource(bundleName, sourceOrder, required = false) {
-    const bundleRoot = resolveBundleOutputRoot(bundleName);
-    const configPath = path.join(bundleRoot, 'config.json');
-    if (!fs.existsSync(configPath)) {
-        if (required) fail(`未找到 ${bundleName} config: ${configPath}`);
-        return null;
-    }
-    const config = readJson(configPath);
+function buildBundleSourceRecord(bundleName, bundleRoot, config, sourceOrder = 0) {
     const entriesByUuid = buildGameAssetsEntryIndex(config, bundleRoot, bundleName, sourceOrder);
     const allEntriesByUuid = buildGameAssetsUuidEntryIndex(config, entriesByUuid, bundleRoot, bundleName, sourceOrder);
     return {
@@ -760,6 +778,181 @@ function readOptionalBundleSource(bundleName, sourceOrder, required = false) {
         allEntriesByUuid,
         knownUuids: buildKnownUuidSet(config),
         hasNativeVersionMap: Array.isArray(config.versions?.native) && config.versions.native.length > 0,
+    };
+}
+
+function readOptionalBundleSource(bundleName, sourceOrder, required = false) {
+    const bundleRoot = resolveBundleOutputRoot(bundleName);
+    const configPath = path.join(bundleRoot, 'config.json');
+    if (!fs.existsSync(configPath)) {
+        if (required) fail(`未找到 ${bundleName} config: ${configPath}`);
+        return null;
+    }
+    const config = readJson(configPath);
+    return buildBundleSourceRecord(bundleName, bundleRoot, config, sourceOrder);
+}
+
+function resolveConfigUuid(config, reference) {
+    const uuids = Array.isArray(config.uuids) ? config.uuids : [];
+    if (typeof reference === 'number') return uuids[reference] || '';
+    if (typeof reference !== 'string') return '';
+    if (/^\d+$/.test(reference) && uuids[Number(reference)]) return uuids[Number(reference)];
+    return reference;
+}
+
+function findPackedImportEntry(source, uuid) {
+    const config = source.config || {};
+    const decodedUuid = decodeUuid(uuid);
+    for (const [packUuid, members] of Object.entries(config.packs || {})) {
+        if (!Array.isArray(members)) continue;
+        const position = members.findIndex((reference) => {
+            const memberUuid = resolveConfigUuid(config, reference);
+            return memberUuid && decodeUuid(memberUuid) === decodedUuid;
+        });
+        if (position < 0) continue;
+        const decodedPackUuid = decodeUuid(packUuid);
+        const packPath = findArtifactByDecodedUuid(source.bundleRoot, 'import', decodedPackUuid);
+        if (!packPath) throw new Error(`依赖bundle pack文件缺失: ${source.bundleName}/${packUuid}`);
+        const packData = readJson(packPath);
+        if (!packData || typeof packData.type !== 'string' || !Array.isArray(packData.data)) {
+            throw new Error(`依赖bundle pack格式不支持: ${source.bundleName}/${path.basename(packPath)}`);
+        }
+        if (packData.data.length !== members.length || packData.data[position] === undefined) {
+            throw new Error(`依赖bundle pack成员错位: ${source.bundleName}/${packUuid} uuid=${decodedUuid}`);
+        }
+        return {
+            packUuid,
+            typeName: packData.type,
+            payload: packData.data[position],
+        };
+    }
+    return null;
+}
+
+function ensureLocalizedMiniPack(config, outputRoot, uuid, packedEntry) {
+    if (!config.packs || typeof config.packs !== 'object') config.packs = {};
+    if (!Array.isArray(config.uuids)) config.uuids = [];
+    const targetIndex = buildUuidIndexLookup(config).get(uuid);
+    if (typeof targetIndex !== 'number') throw new Error(`本地化pack目标UUID未进入配置: ${decodeUuid(uuid)}`);
+    for (const [packUuid, members] of Object.entries(config.packs)) {
+        if (!Array.isArray(members)) continue;
+        const alreadyPacked = members.some((reference) => decodeUuid(resolveConfigUuid(config, reference)) === decodeUuid(uuid));
+        if (alreadyPacked) throw new Error(`本地化redirect目标已属于本地pack: ${decodeUuid(uuid)} pack=${packUuid}`);
+    }
+
+    const miniPackId = 'br_' + crypto.createHash('md5')
+        .update(`${decodeUuid(uuid)}\n${JSON.stringify(packedEntry.payload)}`)
+        .digest('hex')
+        .slice(0, 7);
+    const memberReference = usesUuidPathKeys(config) ? config.uuids[targetIndex] : targetIndex;
+    config.packs[miniPackId] = [memberReference];
+    if (!config.uuids.includes(miniPackId)) config.uuids.push(miniPackId);
+
+    const miniPackData = { type: packedEntry.typeName, data: [packedEntry.payload] };
+    const miniPackPath = path.join(outputRoot, 'import', miniPackId.slice(0, 2), `${miniPackId}.json`);
+    ensureDir(path.dirname(miniPackPath));
+    if (fs.existsSync(miniPackPath)) {
+        const existing = readJson(miniPackPath);
+        if (JSON.stringify(existing) !== JSON.stringify(miniPackData)) {
+            throw new Error(`本地化mini pack冲突: ${miniPackId}`);
+        }
+    } else {
+        writeJson(miniPackPath, miniPackData);
+    }
+    return miniPackId;
+}
+
+function materializeBundleEntry(config, source, outputRoot, uuid, removableNativeUuids, state) {
+    const decodedUuid = decodeUuid(uuid);
+    if (state.visited.has(decodedUuid)) return;
+    state.visited.add(decodedUuid);
+
+    const sourceEntry = source.allEntriesByUuid.get(uuid) || source.allEntriesByUuid.get(decodedUuid);
+    if (!sourceEntry) throw new Error(`依赖bundle UUID无法解析: ${source.bundleName}/${decodedUuid}`);
+    const entry = { ...sourceEntry, sourceHasNativeVersionMap: source.hasNativeVersionMap };
+    appendCriticalGameAssetEntry(config, entry);
+
+    let importData = null;
+    if (findArtifactsByDecodedUuid(source.bundleRoot, 'import', decodedUuid).length > 0) {
+        if (!copyGameAssetImportArtifacts(source.bundleRoot, entry.uuid, outputRoot)) {
+            throw new Error(`依赖bundle import复制失败: ${source.bundleName}/${decodedUuid}`);
+        }
+        appendVersionHash(config, 'import', entry.uuid, entry.importVersionHash);
+        importData = readImportArtifactData(source.bundleRoot, entry.uuid);
+        state.imports.add(decodedUuid);
+    } else {
+        const packedEntry = findPackedImportEntry(source, entry.uuid);
+        if (!packedEntry) throw new Error(`依赖bundle import及pack均缺失: ${source.bundleName}/${decodedUuid}`);
+        ensureLocalizedMiniPack(config, outputRoot, entry.uuid, packedEntry);
+        importData = packedEntry.payload;
+        state.packed.add(decodedUuid);
+    }
+
+    if (requiresNativeArtifact(entry, removableNativeUuids)) {
+        if (!entry.nativeVersionHash && source.hasNativeVersionMap) {
+            throw new Error(`依赖bundle native版本缺失: ${source.bundleName}/${decodedUuid}`);
+        }
+        if (!copyGameAssetNativeArtifacts(source.bundleRoot, entry.uuid, outputRoot)) {
+            throw new Error(`依赖bundle native复制失败: ${source.bundleName}/${decodedUuid}`);
+        }
+        appendVersionHash(config, 'native', entry.uuid, entry.nativeVersionHash);
+        state.native.add(decodedUuid.split('@')[0]);
+    }
+
+    const dependencies = new Set();
+    collectReferencedUuids(importData, source.knownUuids, dependencies);
+    for (const dependencyUuid of dependencies) {
+        materializeBundleEntry(config, source, outputRoot, dependencyUuid, removableNativeUuids, state);
+    }
+}
+
+function remapRedirectDependencyReferences(config, removedDependencyIndex) {
+    const redirect = Array.isArray(config.redirect) ? config.redirect : [];
+    for (let index = 1; index < redirect.length; index += 2) {
+        const current = Number(redirect[index]);
+        if (!Number.isInteger(current)) throw new Error(`redirect依赖索引无效: ${redirect[index]}`);
+        if (current <= removedDependencyIndex) continue;
+        redirect[index] = typeof redirect[index] === 'string' ? String(current - 1) : current - 1;
+    }
+}
+
+function localizeRedirectedBundleEntries(config, source, outputRoot, removableNativeUuids = new Set()) {
+    const dependencyIndex = Array.isArray(config.deps) ? config.deps.indexOf(source.bundleName) : -1;
+    if (dependencyIndex < 0) return { redirects: 0, imports: 0, native: 0, packed: 0 };
+    const redirect = Array.isArray(config.redirect) ? config.redirect : [];
+    if (redirect.length % 2 !== 0) throw new Error(`${source.bundleName} redirect数组长度无效`);
+    if (config.dependencyRelationships && Object.keys(config.dependencyRelationships).length > 0) {
+        throw new Error(`${source.bundleName} dependencyRelationships非空，不能安全本地化`);
+    }
+
+    const retained = [];
+    const state = { visited: new Set(), imports: new Set(), native: new Set(), packed: new Set() };
+    let localized = 0;
+    for (let index = 0; index < redirect.length; index += 2) {
+        const dependencyReference = Number(redirect[index + 1]);
+        if (!Number.isInteger(dependencyReference)) throw new Error(`redirect依赖索引无效: ${redirect[index + 1]}`);
+        if (dependencyReference !== dependencyIndex) {
+            retained.push(redirect[index], redirect[index + 1]);
+            continue;
+        }
+        const uuid = resolveConfigUuid(config, redirect[index]);
+        if (!uuid) throw new Error(`${source.bundleName} redirect目标UUID无法解析: ${redirect[index]}`);
+        materializeBundleEntry(config, source, outputRoot, uuid, removableNativeUuids, state);
+        localized += 1;
+    }
+    if (localized === 0) throw new Error(`${source.bundleName} deps存在但没有可本地化redirect`);
+
+    config.redirect = retained;
+    if (retained.some((_, index) => index % 2 === 1 && Number(retained[index]) === dependencyIndex)) {
+        throw new Error(`${source.bundleName} 仍有redirect引用，不能移除deps`);
+    }
+    config.deps.splice(dependencyIndex, 1);
+    remapRedirectDependencyReferences(config, dependencyIndex);
+    return {
+        redirects: localized,
+        imports: state.imports.size,
+        native: state.native.size,
+        packed: state.packed.size,
     };
 }
 
@@ -847,6 +1040,7 @@ function collectAssets() {
             typeName: typeNameForImporter(meta.importer),
             native: true,
             optionalImport: true,
+            source: metaPath,
         });
     }
     return assets;
@@ -862,11 +1056,20 @@ if (configPaths.length === 0) fail('bootstrap config 不存在: ' + bootstrapOut
 
 const assets = collectAssets();
 const criticalGameAssets = collectCriticalGameAssets();
+const gameAssetsRedirectSource = readOptionalBundleSource(gameAssetsBundleName, 0, true);
 const configRecords = configPaths.map((configPath) => ({
     configPath,
     config: readJson(configPath),
 }));
-const missingAssets = findMissingAssets(configRecords.map((record) => record.config), assets);
+const sourceArtifacts = collectSourceBundleArtifacts(bootstrapSourceRoot, 'BootstrapBundle', fail);
+const autoAtlasStandaloneSources = new Set();
+const autoAtlasRemovableNativeUuids = new Set();
+for (const { config } of configRecords) {
+    for (const source of findAutoAtlasStandaloneSources(config, sourceArtifacts)) autoAtlasStandaloneSources.add(source);
+    for (const uuid of findAutoAtlasRemovableNativeUuids(config, sourceArtifacts)) autoAtlasRemovableNativeUuids.add(uuid);
+}
+const patchAssets = assets.filter((asset) => !autoAtlasStandaloneSources.has(asset.source));
+const missingAssets = findMissingAssets(configRecords.map((record) => record.config), patchAssets);
 const copiedImports = new Set();
 const copiedNative = new Set();
 const copiedCriticalImports = new Set();
@@ -892,7 +1095,7 @@ for (const entry of criticalGameAssets.entries) {
         }
         copiedCriticalImports.add(entry.uuid);
     }
-    if (requiresNativeArtifact(entry) && !copiedCriticalNative.has(entry.uuid)) {
+    if (requiresNativeArtifact(entry, autoAtlasRemovableNativeUuids) && !copiedCriticalNative.has(entry.uuid)) {
         const sourceRoot = entry.bundleRoot || criticalGameAssets.fallbackRoot;
         if (!copyGameAssetNativeArtifacts(sourceRoot, entry.uuid)
             && !copyLibraryNativeArtifacts(entry.uuid)) {
@@ -909,8 +1112,12 @@ let stablePackImportsCopied = 0;
 let stablePackImportVersionsRemoved = 0;
 let cconImportsVerified = 0;
 let cconMappingsAdded = 0;
+let localizedRedirects = 0;
+let localizedRedirectImports = 0;
+let localizedRedirectNative = 0;
+let localizedRedirectPacked = 0;
 for (const { configPath, config } of configRecords) {
-    for (const asset of assets) {
+    for (const asset of patchAssets) {
         if (appendAssetEntry(config, asset.uuid, asset.assetPath, asset.typeName)) addedEntries += 1;
     }
     for (const entry of criticalGameAssets.entries) {
@@ -918,7 +1125,7 @@ for (const { configPath, config } of configRecords) {
         if (appendVersionHash(config, 'import', entry.uuid, entry.importVersionHash)) {
             addedCriticalImportVersions += 1;
         }
-        if (requiresNativeArtifact(entry)) {
+        if (requiresNativeArtifact(entry, autoAtlasRemovableNativeUuids)) {
             if (!entry.nativeVersionHash && entry.sourceHasNativeVersionMap) {
                 fail('bootstrap critical native version 缺失: ' + entry.oldPath + ' uuid=' + decodeUuid(entry.uuid));
             }
@@ -930,6 +1137,20 @@ for (const { configPath, config } of configRecords) {
             }
         }
     }
+    try {
+        const redirectResult = localizeRedirectedBundleEntries(
+            config,
+            gameAssetsRedirectSource,
+            bootstrapOutputRoot,
+            autoAtlasRemovableNativeUuids,
+        );
+        localizedRedirects += redirectResult.redirects;
+        localizedRedirectImports += redirectResult.imports;
+        localizedRedirectNative += redirectResult.native;
+        localizedRedirectPacked += redirectResult.packed;
+    } catch (error) {
+        fail(`bootstrap ${gameAssetsBundleName} redirect本地化失败: ${error && error.message ? error.message : String(error)}`);
+    }
     normalizedPackEntries += normalizePackIndices(config, configPath);
     const stablePackResult = ensureStableBootstrapPackImportFiles(config);
     stablePackImportsCopied += stablePackResult.copied;
@@ -940,6 +1161,8 @@ for (const { configPath, config } of configRecords) {
     writeJson(configPath, config);
 }
 
+const removedAutoAtlasNative = removeAutoAtlasNativeArtifacts(autoAtlasRemovableNativeUuids);
+
 function verifyCriticalBootstrapArtifacts(entries) {
     let verifiedImports = 0;
     let verifiedNative = 0;
@@ -949,7 +1172,7 @@ function verifyCriticalBootstrapArtifacts(entries) {
             fail('bootstrap critical import 验证失败: ' + (entry.oldPath || '(dependency)') + ' uuid=' + decoded);
         }
         verifiedImports += 1;
-        if (!requiresNativeArtifact(entry)) continue;
+        if (!requiresNativeArtifact(entry, autoAtlasRemovableNativeUuids)) continue;
         const nativeUuid = decoded.split('@')[0];
         if (findArtifactsByDecodedUuid(bootstrapOutputRoot, 'native', nativeUuid).length === 0) {
             fail('bootstrap critical native 验证失败: ' + (entry.oldPath || '(dependency)') + ' uuid=' + nativeUuid);
@@ -961,11 +1184,14 @@ function verifyCriticalBootstrapArtifacts(entries) {
 
 const verifiedCritical = verifyCriticalBootstrapArtifacts(criticalGameAssets.entries);
 
-console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, verifiedCriticalImports=${verifiedCritical.verifiedImports}, verifiedCriticalNative=${verifiedCritical.verifiedNative}, normalizedPackEntries=${normalizedPackEntries}, stablePackImports=${stablePackImportsCopied}, stablePackImportVersionsRemoved=${stablePackImportVersionsRemoved}, cconImports=${cconImportsVerified}, cconMappingsAdded=${cconMappingsAdded}, configs=${configPaths.length}`);
+console.log(`[bootstrap] dynamic assets patched: images=${copiedNative.size}, imports=${copiedImports.size}, configEntries=${addedEntries}, skippedAutoAtlas=${autoAtlasStandaloneSources.size}, removedAutoAtlasNative=${removedAutoAtlasNative}, criticalImports=${copiedCriticalImports.size}, criticalNative=${copiedCriticalNative.size}, criticalConfigEntries=${addedCriticalEntries}, criticalImportVersions=${addedCriticalImportVersions}, criticalNativeVersions=${addedCriticalNativeVersions}, verifiedCriticalImports=${verifiedCritical.verifiedImports}, verifiedCriticalNative=${verifiedCritical.verifiedNative}, localizedRedirects=${localizedRedirects}, localizedRedirectImports=${localizedRedirectImports}, localizedRedirectNative=${localizedRedirectNative}, localizedRedirectPacked=${localizedRedirectPacked}, normalizedPackEntries=${normalizedPackEntries}, stablePackImports=${stablePackImportsCopied}, stablePackImportVersionsRemoved=${stablePackImportVersionsRemoved}, cconImports=${cconImportsVerified}, cconMappingsAdded=${cconMappingsAdded}, configs=${configPaths.length}`);
 }
 
 if (require.main === module) main();
 
 module.exports = {
+    buildBundleSourceRecord,
     ensureStandaloneCconExtensionMap,
+    localizeRedirectedBundleEntries,
+    requiresNativeArtifact,
 };

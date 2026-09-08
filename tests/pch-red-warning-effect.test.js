@@ -76,14 +76,14 @@ const controllerCompiled = ts.transpileModule(controller, {
     reportDiagnostics: true,
 });
 assert.equal((controllerCompiled.diagnostics || []).length, 0, 'warning controller must transpile');
-const assetPath = path.join(projectRoot, 'assets/BootstrapBundle/GameUI/pdpx_eff_Mask_01.png');
+const assetPath = path.join(projectRoot, 'assets/BootstrapBundle/GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01.png');
 const meta = JSON.parse(fs.readFileSync(`${assetPath}.meta`, 'utf8'));
 assert.ok(manifest.includes("'pdpx_eff_Mask_01'"), 'mask must be in the Bootstrap effect preload manifest');
 assert.equal(fs.existsSync(assetPath), true, 'mask must be project-owned');
 assert.equal(meta.subMetas.f9941.userData.width, 512, 'mask width must match the extracted Sprite');
 assert.equal(meta.subMetas.f9941.userData.height, 712, 'mask height must match the extracted Sprite');
 assert.ok(bootstrapModule.includes('requireWarningMaskSpriteFrame'), 'mask must use the existing fail-fast loader contract');
-assert.ok(bootstrapPatch.includes("'GameUI/pdpx_eff_Mask_01'"), 'mask must remain in the Bootstrap image allowlist');
+assert.ok(bootstrapPatch.includes("'GameUI/Atlases/BoardEffects/pdpx_eff_Mask_01'"), 'mask must remain in the Bootstrap image allowlist');
 assert.ok(
     controller.includes('this.rules.shouldShowRedWarning(PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD)')
         && controller.includes('PCH_RED_WARNING_MAX_OPACITY = 102')
