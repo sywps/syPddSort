@@ -63,8 +63,8 @@ assert.ok(
     'the direct entry must use the Pixel Puzzle player-facing name',
 );
 assert.ok(
-    homeCommerce.includes('this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));'),
-    'the pixel puzzle button must start the first incomplete theme level directly',
+    homeCommerce.includes('this.openPvpLobby();'),
+    'the pixel puzzle button must open the unified chapter/ranked lobby',
 );
 assert.ok(
     !fs.existsSync(path.join(root, 'assets/GameAssetsBundle/UI/Prefabs/Panels/ThemePanel.prefab'))

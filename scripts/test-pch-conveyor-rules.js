@@ -407,6 +407,7 @@ const controllerModule = { exports: {} };
 const loadController = new Function('module', 'exports', 'require', controllerCompiled.outputText);
 loadController(controllerModule, controllerModule.exports, (request) => {
     if (request === './PchConveyorRules') return { PchConveyorRules };
+    if (request === './PchConveyorGeometry') return require('../cloudfunctions/pvpService/bot-runtime/PchConveyorGeometry');
     if (request === './AppRoot') return { AppRoot: { tryGet() { return null; } } };
     if (request === './AnalyticsMgr') return { AnalyticsMgr: { inst: { trackFunnelEvent() {} } } };
     if (request === './OpeningPatternTransition') {
@@ -658,6 +659,7 @@ function createSkillController(rules) {
         renderBoardCell() {},
         getBoardFlyBeanSizeInLayer: () => 31,
         checkColorCompletion() {},
+        markColorCompleteIfNeeded() { return false; },
         checkGuideStepComplete() {},
         flushPendingColorCompleteEffects() {},
         refreshEndgameHints() {},
@@ -723,7 +725,14 @@ assert.equal(clearBufferHarness.getButtonSyncCount(), 1, 'clear-buffer completio
 const returnBoardForController = new FakeBoard(1, 1, [[1]], [[0]]);
 const returnRulesForController = new PchConveyorRules(returnBoardForController);
 const returnHarness = createSkillController(returnRulesForController);
-returnHarness.controller.animateBeanReturn(1, new FakeVec3(), 31, { row: 0, col: 0 }, 0);
+returnHarness.controller.animateBeanReturn(
+    1,
+    new FakeVec3(),
+    31,
+    { row: 0, col: 0 },
+    0,
+    { colorId: 1, pendingSettleFxCount: 1 },
+);
 assert.equal(returnHarness.controller.activeReturnAnimations, 0, 'a returned bean must release busy state as soon as it reaches the board');
 assert.equal(returnHarness.getButtonSyncCount(), 1, 'automatic return completion must restore prop button availability');
 

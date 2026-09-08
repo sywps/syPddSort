@@ -62,12 +62,17 @@ export function installSceneHomeEntryModule(target: any): void {
             routeReason: string = '',
         ): void {
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
+            const pending = AppRoot.tryGet()?.session.pendingGameplayRequest;
             AppRoot.tryGet()?.markGameRequested(
                 normalizedLevelId,
                 prefix,
                 this.getGameplayEntryMode(prefix, external),
                 entryCoverMode,
-                routeReason,
+                routeReason || (
+                    pending?.levelId === normalizedLevelId && pending.prefix === prefix
+                        ? pending.routeReason
+                        : ''
+                ),
             );
         },
 
@@ -94,6 +99,10 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         async requestHomeRoute(source: string = 'runtime', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
+            if (source === 'settings' && this.isRankedPvpMode?.()) {
+                await this.confirmPvpForfeitAndHome?.();
+                return;
+            }
             const appRoot = AppRoot.tryGet();
             if (!appRoot) {
                 throw new Error('[SceneSplit] AppRoot is not ready for home route');

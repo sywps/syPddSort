@@ -5,6 +5,7 @@
     "version": "3.8.8"
   },
   "scripts": {
+    "pvp:bot:build": "node scripts/build-pvp-bot-runtime.js",
     "build:wechat:release": "node scripts/run-wechat-release.js",
     "build:wechat:debug": "node scripts/build-wechat.js --debug",
     "wechat:devtools:open": "node scripts/open-wechat-devtools.js --mode open",
@@ -43,7 +44,9 @@
     "ai:web:dry": "node scripts/ai-runner.js --target web --all-personas --dry-run",
     "ai:web:smoke": "node scripts/ai-runner.js --target web --persona smoke",
     "ai:web:personas": "node scripts/ai-runner.js --target web --all-personas",
-    "test:pch-conveyor": "node scripts/test-pch-conveyor-rules.js"
+    "test:pch-conveyor": "node scripts/test-pch-conveyor-rules.js",
+    "test:pvp": "node scripts/build-pvp-bot-runtime.js --check && ts-node -P scripts/tsconfig.pvp-tests.json scripts/test-pvp-mode.ts && node tests/pvp-bot-replay.test.js && node tests/pvp-human-replay.test.js && node tests/pvp-human-lifecycle.test.js && node tests/pvp-service-core.test.js && node tests/pvp-friend-lifecycle.test.js && node tests/pvp-economy.test.js && node tests/pvp-client-economy.test.js && node tests/pixel-puzzle-lobby.test.js && node tests/pvp-pixel-route.test.js && node tests/sync-user-state-progress-invariant.test.js",
+    "pvp:cloudbase:preflight": "node scripts/check-pvp-cloudbase-readiness.js"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

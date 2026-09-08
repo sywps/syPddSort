@@ -437,7 +437,9 @@ export class SettingsPanelController {
                             reportHomeRouteFailure(error);
                             return;
                         }
-                        void routePromise.catch(reportHomeRouteFailure);
+                        void routePromise.then(() => {
+                            if (overlay?.isValid) homeRouteInFlight = false;
+                        }).catch(reportHomeRouteFailure);
                     });
                 }
 

@@ -554,7 +554,7 @@ const levelConfig = fs.readFileSync(path.join(root, 'assets/Scripts/Core/LevelCo
 assert.ok(levelConfig.includes('export const DEFAULT_PCH_SINGLE_SELECTION_LIMIT = 12;'));
 
 const boardTap = extractMethod('private handleBoardTap(row: number, col: number): PchBoardTapOutcome');
-assert.strictEqual((source.match(/ensureTimerStarted\?\.\(\)/g) || []).length, 1);
+assert.strictEqual((boardTap.match(/ensureTimerStarted\?\.\(\)/g) || []).length, 1);
 assert.ok(boardTap.indexOf('if (result.moved <= 0)') < boardTap.indexOf('this.runtime.ensureTimerStarted?.();'));
 const guideSection = source.slice(
     source.indexOf('    private showOpeningFeatureGuide('),

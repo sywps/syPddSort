@@ -166,7 +166,7 @@ export class GameSceneRuntimeController {
         this.runtime.requireCanvasUiRoot('BootRoot');
         const routeDecision = resolveStartupRouteDecision();
         if (routeDecision.shouldMarkPendingGameplay) {
-            appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, 'main', 'auto', routeDecision.reason);
+            appRoot.markGameRequested(routeDecision.levelId, routeDecision.prefix, routeDecision.prefix === 'zt_level_' ? 'theme' : 'main', 'auto', routeDecision.reason);
         }
         markStartupTrace('startup_boot_route_decided', {
             source: 'GameSceneRuntimeController.startBoot',
@@ -202,7 +202,20 @@ export class GameSceneRuntimeController {
             previousSceneName,
         });
         this.markGameFirstFrame(previousSceneName);
-        const pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
+        let pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
+        if (!pendingGameplayRequest) {
+            const directPreviewRoute = resolveStartupRouteDecision();
+            if (directPreviewRoute.reason === 'pvp-ranked') {
+                appRoot.markGameRequested(
+                    directPreviewRoute.levelId,
+                    directPreviewRoute.prefix,
+                    'theme',
+                    'none',
+                    directPreviewRoute.reason,
+                );
+                pendingGameplayRequest = appRoot.session.pendingGameplayRequest;
+            }
+        }
         const explicitGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'cover';
         const suppressGameplayEntryCover = pendingGameplayRequest?.entryCoverMode === 'none';
         if (pendingGameplayRequest) {
@@ -475,6 +488,7 @@ export class GameSceneRuntimeController {
         debugPerfFrameStep(this.runtime, dt);
         this.runtime.vigorTick(dt);
         this.runtime._pchConveyorGameplayController?.update?.(dt);
+        this.runtime.updatePvpBattle?.();
     }
 
     destroy(): void {

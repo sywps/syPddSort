@@ -29,6 +29,7 @@ import { installEndgameHintModule } from './GameCtrlModules/EndgameHintModule';
 import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCountdownDdaModule';
 import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
 import { installTopHudModule } from './GameCtrlModules/TopHudModule';
+import { installPvpModeModule } from './GameCtrlModules/PvpModeModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -40,6 +41,7 @@ export function installGameCtrlModules(runtime: any): void {
     installAssetBootstrapModule(runtime);
     installBeanSkinModule(runtime);
     installTopHudModule(runtime);
+    installPvpModeModule(runtime);
     installSkinBackgroundModule(runtime);
     installDynamicCountdownDdaModule(runtime);
     installHomeAdFlowModule(runtime);

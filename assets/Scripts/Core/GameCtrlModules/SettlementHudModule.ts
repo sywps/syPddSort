@@ -680,6 +680,7 @@ export function installSettlementHudModule(target: any): void {
 
         gameWin() {
             if (this.isGameEnd) return;
+            if (this.handlePvpTerminal?.('PASS')) return;
             this.isGameEnd = true;
             this.closePinchGuide?.();
             this._patternCompleteWinPending = false;
@@ -836,6 +837,7 @@ export function installSettlementHudModule(target: any): void {
 
         gameLose(reason: 'timeout' | 'buffer-full' = 'timeout') {
             if (this.isGameEnd) return;
+            if (this.handlePvpTerminal?.(reason === 'buffer-full' ? 'DEAD_CONVEYOR_FULL' : 'DEAD_TIMEOUT')) return;
             if (this.isBoardCompletionCommittedForSettlement()) {
                 this.playPatternCompleteThenWin();
                 return;

@@ -178,7 +178,7 @@ export function installHomeCommerceModule(target: any): void {
             const titleLabel = titleNode.getComponent(Label);
             if (!titleLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeTitle');
             titleLabel.string = '像素拼图';
-            const subText = '全部关卡已开放';
+            const subText = '闯关模式 · 排位对战';
             const subNode = this.requireUiChild(btn, 'ThemeSub', 'ThemeBtn/ThemeSub');
             const subLabel = subNode.getComponent(Label);
             if (!subLabel) throw new Error('[HomeScene] Home.scene is missing Label component on ThemeBtn/ThemeSub');
@@ -189,7 +189,7 @@ export function installHomeCommerceModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             btn.on(Button.EventType.CLICK, () => {
                 AudioMgr.inst.play('button');
-                this.loadThemeConfig(() => this.startThemeLevel(this.getThemeDirectPlayLevelId()));
+                this.openPvpLobby();
             }, this);
 
             // 呼吸动画

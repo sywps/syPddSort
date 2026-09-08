@@ -161,6 +161,7 @@ const loadedModule = { exports: {} };
 const load = new Function('module', 'exports', 'require', compiled.outputText);
 load(loadedModule, loadedModule.exports, (request) => {
     if (request === './PchConveyorRules') return { PchConveyorRules: RuntimeStub };
+    if (request === './PchConveyorGeometry') return require('../cloudfunctions/pvpService/bot-runtime/PchConveyorGeometry');
     if (request === './AppRoot') return { AppRoot: { tryGet() { return null; } } };
     if (request === './OpeningPatternTransition') {
         return { buildOpeningPatternMoves() { return []; }, getOpeningPatternStaggerDelay() { return 0; } };

@@ -41,14 +41,18 @@ assert.ok(
         && source.includes('this.onOpeningGuideLevelOneTap(event);'),
     'real board touches on any highlighted same-color bean must pass through the opening guide gate',
 );
+const openingGuideRootTapSource = source.slice(
+    source.indexOf('    private handleOpeningGuideRootTap('),
+    source.indexOf('    private maybeShowOpeningGuideWrongTapToast('),
+);
 assert.ok(
-    source.includes("guideName === 'PchLevelTwoSpeedGuide'")
-        && source.includes('? this.speedButton')
-        && source.includes('this.onOpeningGuideTripleSpeed(event);')
-        && source.includes("guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null")
-        && source.includes('bounds.contains(rawPos)')
-        && !source.includes('normalizeGameplayUiPosition')
-        && !source.includes('hitPositions'),
+    openingGuideRootTapSource.includes("guideName === 'PchLevelTwoSpeedGuide'")
+        && openingGuideRootTapSource.includes('? this.speedButton')
+        && openingGuideRootTapSource.includes('this.onOpeningGuideTripleSpeed(event);')
+        && openingGuideRootTapSource.includes("guideName === 'PchLevelThreeCapacityGuide' ? this.adButton : null")
+        && openingGuideRootTapSource.includes('bounds.contains(rawPos)')
+        && !openingGuideRootTapSource.includes('normalizeGameplayUiPosition')
+        && !openingGuideRootTapSource.includes('hitPositions'),
     'locked opening-guide touches must use one Cocos UI position against the real 3X and AD +12 bounds',
 );
 assert.ok(
