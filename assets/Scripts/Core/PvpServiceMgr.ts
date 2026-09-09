@@ -8,7 +8,7 @@ import type { LevelData } from './LevelConfig';
 import { HUMAN_REPLAY_PROTOCOL, type PvpReplayEnvelope } from './PvpHumanReplay';
 import { PVP_LEVEL_PREFIX, PVP_RULES_VERSION, isPixelPvpMatch } from './PvpModeConfig';
 import { UserStateSyncMgr, PVP_ECONOMY_REVISION_KEY, type CloudGameState } from './UserStateSyncMgr';
-import { applyLocalWeChatShareImage } from '../Platform/WeChatShareReturnService';
+import { applyLocalWeChatShareMaterial } from '../Platform/WeChatShareReturnService';
 
 const { ccclass } = _decorator;
 const CLOUD_FUNCTION_NAME = 'pvpService';
@@ -365,7 +365,7 @@ export class PvpServiceMgr {
             title: '来和我比一局像素拼图！',
             query: `pvpChallenge=${encodeURIComponent(challengeCode)}`,
         };
-        runtime.shareAppMessage(weChatRuntime ? applyLocalWeChatShareImage(payload) : payload);
+        runtime.shareAppMessage(weChatRuntime ? applyLocalWeChatShareMaterial(payload) : payload);
         return true;
     }
 

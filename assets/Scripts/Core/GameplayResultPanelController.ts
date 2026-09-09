@@ -33,7 +33,7 @@ const RESULT_PANEL_PREFAB_PATHS = {
     lose: 'UI/Prefabs/Panels/LosePanel',
 } as const;
 
-type ResultPanelKind = keyof typeof RESULT_PANEL_PREFAB_PATHS;
+export type ResultPanelKind = keyof typeof RESULT_PANEL_PREFAB_PATHS;
 const RESULT_PANEL_KINDS: ResultPanelKind[] = ['win', 'revive', 'bufferFullRevive', 'lose'];
 const WIN_BANNER_LEGACY_PART_PREFIX = 'WinBannerAnimatedPart';
 const WIN_BANNER_FX_PREFIX = 'WinBannerStableFx';
@@ -93,6 +93,8 @@ const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
 ];
 
 export class GameplayResultPanelController {
+
+    private prefabLoads = new Map<ResultPanelKind, { loadSeq: number; callbacks: Array<(error?: Error) => void> }>();
 
     private reviveFailureSessionSeq = 0;
     private activeReviveFailureSession: ReviveFailureSession | null = null;
@@ -223,29 +225,30 @@ export class GameplayResultPanelController {
     private loadPrefabsFromBundle(
         bundle: Bundle,
         sourceLabel: string,
-        loadSeq: number,
+        kinds: readonly ResultPanelKind[],
+        isCurrent: () => boolean,
         onDone: () => void,
         onError: (error: Error) => void,
     ): void {
-        if (!this.isCurrentPrefabLoad(loadSeq)) {
+        if (!isCurrent()) {
             return;
         }
         const activeCache = this.getPrefabCache(`loadPrefabs:${sourceLabel}`);
-        const missingKinds = RESULT_PANEL_KINDS.filter((kind) => !activeCache.get(kind));
+        const missingKinds = kinds.filter((kind) => !activeCache.get(kind));
         let failed = false;
         if (missingKinds.length === 0) {
             onDone();
             return;
         }
         const loadNext = (index: number): void => {
-            if (failed || !this.isCurrentPrefabLoad(loadSeq)) return;
+            if (failed || !isCurrent()) return;
             const kind = missingKinds[index];
             if (!kind) {
                 onDone();
                 return;
             }
             bundle.load(RESULT_PANEL_PREFAB_PATHS[kind], Prefab, (err: Error | null, prefab: Prefab | null) => {
-                if (failed || !this.isCurrentPrefabLoad(loadSeq)) return;
+                if (failed || !isCurrent()) return;
                 if (err || !prefab) {
                     failed = true;
                     onError(new Error(`[result-panel] failed to load ${sourceLabel} prefab "${kind}" from ${RESULT_PANEL_PREFAB_PATHS[kind]}: ${err?.message || 'missing prefab'}`));
@@ -259,7 +262,8 @@ export class GameplayResultPanelController {
     }
 
     private loadBrowserPreviewSourcePrefabs(
-        loadSeq: number,
+        kinds: readonly ResultPanelKind[],
+        isCurrent: () => boolean,
         onDone: () => void,
         onError: (error: Error) => void,
     ): void {
@@ -268,78 +272,98 @@ export class GameplayResultPanelController {
             return;
         }
         this.withGameAssetsBundle((bundle: Bundle | null) => {
-            if (!this.isCurrentPrefabLoad(loadSeq)) {
+            if (!isCurrent()) {
                 return;
             }
             if (!bundle) {
                 onError(new Error(`[result-panel] failed to load ${GAME_ASSETS_BUNDLE_NAME} bundle for browser preview source prefabs`));
                 return;
             }
-            this.loadPrefabsFromBundle(bundle, `${GAME_ASSETS_BUNDLE_NAME}-preview-source`, loadSeq, onDone, onError);
+            this.loadPrefabsFromBundle(bundle, `${GAME_ASSETS_BUNDLE_NAME}-preview-source`, kinds, isCurrent, onDone, onError);
         });
     }
 
-    hasPrefabsReady() {
+    hasPrefabsReady(kinds: readonly ResultPanelKind[] = RESULT_PANEL_KINDS) {
         const cache = this.getPrefabCache('hasPrefabsReady');
-        return RESULT_PANEL_KINDS.every((kind) => !!cache.get(kind));
+        return kinds.every((kind) => !!cache.get(kind));
     }
 
-    ensurePrefabsReady(onDone: () => void, onError: (error: Error) => void = (error) => console.error('[result-panel] preload failed:', error)) {
+    ensurePrefabsReady(
+        onDone: () => void,
+        onError: (error: Error) => void = (error) => console.error('[result-panel] preload failed:', error),
+        kinds: readonly ResultPanelKind[] = RESULT_PANEL_KINDS,
+    ) {
         const runtime = this.runtime;
         if (!runtime?.isValid) {
             throw new Error('[result-panel] runtime is invalid before prefab load');
         }
         this.getPrefabCache('ensurePrefabsReady');
-        if (this.hasPrefabsReady()) {
-            onDone();
-            return;
-        }
+        const loadSeq = runtime._gameplayResultPanelPrefabLoadSeq;
+        const loadNext = (index: number): void => {
+            if (!this.isCurrentPrefabLoad(loadSeq)) return;
+            const kind = kinds[index];
+            if (!kind) { onDone(); return; }
+            this.ensurePrefabReady(kind, () => loadNext(index + 1), onError);
+        };
+        loadNext(0);
+    }
+
+    private ensurePrefabReady(kind: ResultPanelKind, onDone: () => void, onError: (error: Error) => void): void {
+        if (this.hasPrefabsReady([kind])) { onDone(); return; }
+        const loadSeq = this.runtime._gameplayResultPanelPrefabLoadSeq;
         const callback = (error?: Error) => error ? onError(error) : onDone();
-        if (Array.isArray(runtime._gameplayResultPanelPrefabLoadCallbacks)) {
-            runtime._gameplayResultPanelPrefabLoadCallbacks.push(callback);
+        const pending = this.prefabLoads.get(kind);
+        if (pending && pending.loadSeq === loadSeq) {
+            pending.callbacks.push(callback);
             return;
         }
-        runtime._gameplayResultPanelPrefabLoadCallbacks = [callback];
+        const request = { loadSeq, callbacks: [callback] };
+        this.prefabLoads.set(kind, request);
+        const isRequestCurrent = () => this.isCurrentPrefabLoad(loadSeq) && this.prefabLoads.get(kind) === request;
         let attempts = 0;
         const startAttempt = () => {
             attempts += 1;
-            const loadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
-            runtime._gameplayResultPanelPrefabLoadSeq = loadSeq;
             let settled = false;
+            const isCurrent = () => !settled && isRequestCurrent();
             let timeout: ReturnType<typeof setTimeout>;
             const complete = (error?: Error) => {
-                if (settled || !this.isCurrentPrefabLoad(loadSeq)) return;
+                if (!isCurrent()) return;
                 settled = true;
                 clearTimeout(timeout);
                 if (error && attempts < 2) {
                     startAttempt();
                     return;
                 }
-                const callbacks = runtime._gameplayResultPanelPrefabLoadCallbacks || [];
-                runtime._gameplayResultPanelPrefabLoadCallbacks = null;
-                runtime._gameplayResultPanelPrefabLoadSeq = loadSeq + 1;
-                for (const notify of callbacks) {
+                this.prefabLoads.delete(kind);
+                for (const notify of request.callbacks) {
+                    if (!this.isCurrentPrefabLoad(loadSeq)) break;
                     try { notify(error); } catch (callbackError) {
                         console.error('[result-panel] completion callback failed:', callbackError);
                     }
                 }
             };
-            timeout = setTimeout(() => complete(new Error('[result-panel] prefab load timed out')), 5000);
+            timeout = setTimeout(() => {
+                if (!isRequestCurrent()) {
+                    if (this.prefabLoads.get(kind) === request) this.prefabLoads.delete(kind);
+                    return;
+                }
+                complete(new Error(`[result-panel] prefab load timed out: ${kind}`));
+            }, 5000);
             const fail = (error: Error) => complete(error);
             const flushCallbacks = () => complete();
             const failBootstrapOrLoadPreviewSource = (error: Error) => {
-                if (settled || !this.isCurrentPrefabLoad(loadSeq)) return;
+                if (!isCurrent()) return;
                 if (isMiniGameRuntime()) fail(error);
-                else this.loadBrowserPreviewSourcePrefabs(loadSeq, flushCallbacks, fail);
+                else this.loadBrowserPreviewSourcePrefabs([kind], isCurrent, flushCallbacks, fail);
             };
             try {
                 this.withBootstrapBundle((bundle: Bundle | null) => {
-                    if (settled || !this.isCurrentPrefabLoad(loadSeq)) return;
+                    if (!isCurrent()) return;
                     if (!bundle) {
                         failBootstrapOrLoadPreviewSource(new Error(`[result-panel] failed to load ${LOCAL_BOOTSTRAP_BUNDLE_NAME} bundle`));
                         return;
                     }
-                    this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, loadSeq, flushCallbacks, failBootstrapOrLoadPreviewSource);
+                    this.loadPrefabsFromBundle(bundle, LOCAL_BOOTSTRAP_BUNDLE_NAME, [kind], isCurrent, flushCallbacks, failBootstrapOrLoadPreviewSource);
                 });
             } catch (error) {
                 fail(error instanceof Error ? error : new Error(String(error)));
