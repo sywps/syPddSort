@@ -1,15 +1,13 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
-const sourceRelativePath = 'assets/HomeAssetsBundle/GameUI/home_icon_background.png';
 const bootstrapRelativePath = 'assets/BootstrapBundle/GameUI/Atlases/GameSceneSmall/gameplay_skill_slot_background.png';
-const sourcePath = path.join(projectRoot, sourceRelativePath);
 const bootstrapPath = path.join(projectRoot, bootstrapRelativePath);
-const sourceMeta = JSON.parse(fs.readFileSync(`${sourcePath}.meta`, 'utf8'));
 const bootstrapMeta = JSON.parse(fs.readFileSync(`${bootstrapPath}.meta`, 'utf8'));
 const bootstrapPatch = fs.readFileSync(
     path.join(projectRoot, 'scripts/patch-bootstrap-dynamic-assets.js'),
@@ -22,13 +20,13 @@ const scene = JSON.parse(fs.readFileSync(
 
 const BOOTSTRAP_UUID = 'd2fee374-a06c-43bd-a2bd-8fdbb71522c3';
 const BOOTSTRAP_SPRITE_UUID = `${BOOTSTRAP_UUID}@f9941`;
+const BOOTSTRAP_IMAGE_SHA256 = '50355c32517dd6e469262939dbb4e615be81b31f64837d017567292ad5090eb2';
 
-assert.deepEqual(
-    fs.readFileSync(bootstrapPath),
-    fs.readFileSync(sourcePath),
-    'Bootstrap skill-slot background must preserve the approved current image bytes',
+assert.equal(
+    crypto.createHash('sha256').update(fs.readFileSync(bootstrapPath)).digest('hex'),
+    BOOTSTRAP_IMAGE_SHA256,
+    'Bootstrap skill-slot background must preserve its independently approved image bytes',
 );
-assert.notEqual(bootstrapMeta.uuid, sourceMeta.uuid, 'Bootstrap clone must own a distinct asset UUID');
 assert.equal(bootstrapMeta.uuid, BOOTSTRAP_UUID);
 assert.equal(bootstrapMeta.subMetas['6c48a'].uuid, `${BOOTSTRAP_UUID}@6c48a`);
 assert.equal(bootstrapMeta.subMetas.f9941.uuid, BOOTSTRAP_SPRITE_UUID);

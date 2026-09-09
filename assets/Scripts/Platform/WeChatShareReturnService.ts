@@ -6,6 +6,14 @@ export type WeChatShareImage = {
     readonly imageUrlId: string;
 };
 
+export const WECHAT_SHARE_TITLE_POOL: readonly string[] = [
+    '轻松拼豆，快来一起玩！',
+    '这个拼豆挑战太有趣了！',
+    '一起来完成漂亮的拼豆作品吧！',
+    '来试试这个好玩的拼豆挑战！',
+    '看看谁能更快完成拼豆！',
+];
+
 export const WECHAT_SHARE_IMAGE_POOL: readonly WeChatShareImage[] = [
     {
         imageUrl: 'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsRIebaicr4ibE7iamMMmq5L7oPFgK0KJJAfDthibGUr3a8EOIa5gQ5JHX6/0',
@@ -34,13 +42,25 @@ export const WECHAT_SHARE_IMAGE_POOL: readonly WeChatShareImage[] = [
 ];
 
 export type WeChatSharePayload = {
-    title: string;
+    title?: string;
     query?: string;
     imageUrl?: string;
     imageUrlId?: string;
 };
 
 export type WeChatShareRandom = () => number;
+
+export function pickWeChatShareTitle(random: WeChatShareRandom = Math.random): string {
+    const sample = Number(random());
+    if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+        throw new Error(`[wechat-share] invalid random sample: ${sample}`);
+    }
+    const selected = WECHAT_SHARE_TITLE_POOL[Math.floor(sample * WECHAT_SHARE_TITLE_POOL.length)];
+    if (!String(selected || '').trim()) {
+        throw new Error('[wechat-share] local title pool contains an empty title');
+    }
+    return selected;
+}
 
 export function pickWeChatShareImage(random: WeChatShareRandom = Math.random): WeChatShareImage {
     const sample = Number(random());
@@ -54,15 +74,17 @@ export function pickWeChatShareImage(random: WeChatShareRandom = Math.random): W
     return selected;
 }
 
-export function applyLocalWeChatShareImage(
+export function applyLocalWeChatShareMaterial(
     payload: WeChatSharePayload,
     random: WeChatShareRandom = Math.random,
 ): WeChatSharePayload {
-    const selected = pickWeChatShareImage(random);
+    const title = pickWeChatShareTitle(random);
+    const image = pickWeChatShareImage(random);
     return {
         ...payload,
-        imageUrl: selected.imageUrl,
-        imageUrlId: selected.imageUrlId,
+        title,
+        imageUrl: image.imageUrl,
+        imageUrlId: image.imageUrlId,
     };
 }
 
@@ -180,7 +202,7 @@ export class WeChatShareReturnService {
         }
 
         try {
-            runtime.shareAppMessage(applyLocalWeChatShareImage(request.payload, this.random));
+            runtime.shareAppMessage(applyLocalWeChatShareMaterial(request.payload, this.random));
         } catch (error) {
             console.warn('[wechat-share-return] local payload or wx.shareAppMessage dispatch failed:', error);
             const cleaned = this.cleanup(active);
@@ -260,7 +282,6 @@ export class WeChatShareReturnService {
 
 export const weChatShareReturnService = new WeChatShareReturnService();
 
-const WECHAT_PASSIVE_SHARE_TITLE = '轻松拼豆';
 let passiveShareRuntime: any = null;
 let passiveShareListener: (() => WeChatSharePayload) | null = null;
 
@@ -287,7 +308,7 @@ export function installLocalWeChatPassiveShare(runtime: any): boolean {
         }
     }
 
-    const listener = () => applyLocalWeChatShareImage({ title: WECHAT_PASSIVE_SHARE_TITLE });
+    const listener = () => applyLocalWeChatShareMaterial({});
     try {
         runtime.onShareAppMessage(listener);
         runtime.showShareMenu({ menus: ['shareAppMessage'] });

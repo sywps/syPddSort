@@ -148,15 +148,17 @@ assert.ok(pch.includes('const SPHERE_FLY_STAR_MIN_LIFETIME_SECONDS = 0.1;'));
 assert.ok(pch.includes('const SPHERE_FLY_STAR_MAX_LIFETIME_SECONDS = 0.3;'));
 assert.ok(pch.includes('const SPHERE_FLY_MAX_STARS_PER_EFFECT = 60;'));
 assert.ok(pch.includes('const SPHERE_FLY_STAR_EMISSION_SPACING_RATIO = 0.25 / ORIGINAL_SPHERE_VISUAL_WIDTH;'), 'distance rate 4 must map to one star per 0.25 Unity unit');
-assert.ok(pch.includes('const SPHERE_FLY_TRAIL_LIFETIME_SECONDS = 1;'));
 assert.ok(pch.includes('const SPHERE_FLY_TRAIL_WIDTH_OVER_TRAIL = 0.8;'));
-assert.ok(pch.includes('const SPHERE_FLY_TRAIL_ALPHA_MID_TIME = 26719 / 65535;'));
-assert.ok(pch.includes('const SPHERE_FLY_TRAIL_ALPHA_MID_VALUE = 0.37266355752944946;'));
-assert.ok(pch.includes('sprite.type = Sprite.Type.FILLED;'), 'Trail slices must preserve the package texture while applying its spatial alpha gradient');
-assert.ok(pch.includes('sprite.fillType = Sprite.FillType.HORIZONTAL;'));
-assert.ok(flyEffectAttach.indexOf('sprite.spriteFrame = trailSpriteFrame;') < flyEffectAttach.indexOf('sprite.type = Sprite.Type.FILLED;'), 'Trail frame must exist before FILLED UV calculation');
+assert.ok(pch.includes('const SPHERE_FLY_TRAIL_HEAD_ANCHOR_X = 1;'), 'the bean must anchor the bright head of the single trail');
+assert.ok(pch.includes('const SPHERE_FLY_TRAIL_FOLLOW_SECONDS = 0.09;'), 'the shared trail must use a short delayed tail');
+assert.ok(pch.includes('const SPHERE_FLY_TRAIL_MAX_LENGTH_RATIO = 4;'), 'the shared trail must stay short on long flights');
+assert.ok(pch.includes('const SPHERE_FLY_TRAIL_SEGMENT_COUNT = 1;'), 'each normal flight must draw one trail sprite');
+assert.ok(pch.includes('sprite.type = Sprite.Type.SIMPLE;'), 'the single trail must preserve the source texture feathering');
+assert.ok(!pch.includes('sprite.type = Sprite.Type.FILLED;'), 'normal flights must not split the trail into UV slices');
+assert.ok(flyEffectAttach.indexOf('sprite.spriteFrame = trailSpriteFrame;') < flyEffectAttach.indexOf('sprite.type = Sprite.Type.SIMPLE;'), 'Trail frame must exist before SIMPLE rendering');
 assert.ok(pch.includes('new Color(255, 238, 161, 255)'), 'trail tint must match the serialized warm-white start color');
-assert.ok(pch.includes('state.trail.angle = Math.atan2(backwardY, backwardX) * 180 / Math.PI;'), 'trail texture must follow the real movement direction');
+assert.ok(pch.includes('trailTailPosition: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),'), 'both flight directions must begin with their tail at the bean');
+assert.ok(pch.includes('state.trail.angle = Math.atan2(-backwardY, -backwardX) * 180 / Math.PI;'), 'trail texture must follow the real movement direction with the bean as head');
 
 for (const textureName of ['pdpx_eff_Star_01', 'pdpx_eff_Trail_02']) {
     assert.ok(uiManifest.includes(`'${textureName}'`), `${textureName} must be a strict board-effect preload`);

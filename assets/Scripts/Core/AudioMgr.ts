@@ -75,6 +75,7 @@ export class AudioMgr {
     private externalInterruptionRefs = 0;
     private bgmWasPlayingBeforeExternalInterruption = false;
     private pendingSfxLoads: Set<SfxName> = new Set();
+    private sfxLoadCallbacks = new Map<string, Array<(error?: Error) => void>>();
     private pendingAutoplaySfx: Set<SfxName> = new Set();
     private deferredBootstrapSfxLoads: Set<SfxName> = new Set();
     private deferredSfxLoads: Set<SfxName> = new Set();
@@ -454,6 +455,7 @@ export class AudioMgr {
     }
 
     private _ensureSfxLoaded(name: SfxName) {
+        name = AUDIO_BOOTSTRAP_SFX_NAMES.find((alias) => AUDIO_SFX_RESOURCE_PATH[alias] === AUDIO_SFX_RESOURCE_PATH[name]) || name;
         if (this.sfxClips.has(name) || this.pendingSfxLoads.has(name)) {
             return;
         }
@@ -467,12 +469,7 @@ export class AudioMgr {
         if (this.bootstrapBundle && BOOTSTRAP_SFX_NAME_SET.has(name)) {
             this.pendingSfxLoads.add(name);
             const finish = (clip: AudioClip | null) => {
-                this.pendingSfxLoads.delete(name);
-                if (clip && this.pendingAutoplaySfx.delete(name)) {
-                    this._playLoadedClip(name, clip);
-                    return;
-                }
-                this.pendingAutoplaySfx.delete(name);
+                this._finishSfxLoad(name, clip);
             };
             this._loadSingleSfxFromBundle(this.bootstrapBundle, name, (clip) => {
                 if (clip) {
@@ -492,7 +489,7 @@ export class AudioMgr {
         if (!this.gameAssetsBundle) {
             if (this.gameAssetsBundleState === 'failed') {
                 console.warn(`[Audio] gameAssets bundle unavailable, skip SFX: ${name}`);
-                this.pendingAutoplaySfx.delete(name);
+                this._finishSfxLoad(name, null);
                 return;
             }
             this.deferredSfxLoads.add(name);
@@ -503,18 +500,31 @@ export class AudioMgr {
         }
         this.pendingSfxLoads.add(name);
         const finish = (clip: AudioClip | null) => {
-            this.pendingSfxLoads.delete(name);
-            if (clip && this.pendingAutoplaySfx.delete(name)) {
-                this._playLoadedClip(name, clip);
-                return;
-            }
-            this.pendingAutoplaySfx.delete(name);
+            this._finishSfxLoad(name, clip);
         };
         if (this.gameAssetsBundle) {
             this._loadSingleSfxFromBundle(this.gameAssetsBundle, name, finish);
             return;
         }
         finish(null);
+    }
+
+    private _finishSfxLoad(name: SfxName, clip: AudioClip | null): void {
+        this.pendingSfxLoads.delete(name);
+        const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
+        for (const alias of AUDIO_BOOTSTRAP_SFX_NAMES) {
+            if (AUDIO_SFX_RESOURCE_PATH[alias] !== resourcePath) continue;
+            if (clip) this.sfxClips.set(alias, clip);
+            if (this.pendingAutoplaySfx.delete(alias) && clip) this._playLoadedClip(alias, clip);
+        }
+        const callbacks = this.sfxLoadCallbacks.get(resourcePath) || [];
+        this.sfxLoadCallbacks.delete(resourcePath);
+        const error = clip ? undefined : new Error(`[Audio] SFX load failed: ${name} (${resourcePath})`);
+        for (const callback of [...callbacks]) {
+            try { callback(error); } catch (callbackError) {
+                console.error('[Audio] preload callback failed:', callbackError);
+            }
+        }
     }
 
     private _playBgmClip() {
@@ -670,13 +680,8 @@ export class AudioMgr {
         });
     }
 
-    preloadGameplayAudioSet(): void {
-        this._setBgmVolume(AUDIO_GAME_BGM_VOLUME);
-        this._setBgmResourcePath(AUDIO_GAME_BGM_RESOURCE_PATH);
-        this._ensureBgmLoaded(false);
-        for (const name of AUDIO_BOOTSTRAP_SFX_NAMES) {
-            this.preload(name);
-        }
+    isSfxReady(name: SfxName): boolean {
+        return this.sfxClips.has(name);
     }
 
     warmupBgmAfterInteraction(delayMs: number = 0) {
@@ -791,8 +796,30 @@ export class AudioMgr {
         this._ensureBgmLoaded(true);
     }
 
-    preload(name: SfxName) {
-        if (this.sfxClips.has(name)) return;
+    preload(name: SfxName, onDone?: (error?: Error) => void) {
+        if (this.sfxClips.has(name)) {
+            onDone?.();
+            return;
+        }
+        if (onDone) {
+            const resourcePath = AUDIO_SFX_RESOURCE_PATH[name];
+            const callbacks = this.sfxLoadCallbacks.get(resourcePath) || [];
+            let settled = false;
+            const finish = (error?: Error) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
+                const index = callbacks.indexOf(finish);
+                if (index >= 0) callbacks.splice(index, 1);
+                if (!callbacks.length && this.sfxLoadCallbacks.get(resourcePath) === callbacks) {
+                    this.sfxLoadCallbacks.delete(resourcePath);
+                }
+                onDone(error);
+            };
+            const timeout = setTimeout(() => finish(new Error(`[Audio] SFX preload timed out: ${name}`)), 5000);
+            callbacks.push(finish);
+            this.sfxLoadCallbacks.set(resourcePath, callbacks);
+        }
         this._ensureSfxLoaded(name);
     }
 

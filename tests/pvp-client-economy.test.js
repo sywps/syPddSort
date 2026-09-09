@@ -59,7 +59,7 @@ async function run() {
       getDouyinMiniGameRuntime: () => sharePlatform === 'douyin' ? douyinShareRuntime : null,
     };
     if (id.endsWith('WeChatShareReturnService')) return {
-      applyLocalWeChatShareImage: payload => ({ ...payload, imageUrl: 'local-wechat-image', imageUrlId: 'local-wechat-image-id' }),
+      applyLocalWeChatShareMaterial: payload => ({ ...payload, title: 'local-wechat-title', imageUrl: 'local-wechat-image', imageUrlId: 'local-wechat-image-id' }),
     };
     if (id.endsWith('PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { getPlatform: () => platform, init: async () => true,
       callFunction: async (name, event) => { calls.push(event); if (response instanceof Error) throw response; return response; } } } };
@@ -67,6 +67,7 @@ async function run() {
   });
   const service = serviceModule.PvpServiceMgr.inst;
   assert.strictEqual(service.shareFriendChallenge('AB C'), true);
+  assert.strictEqual(weChatSharePayloads[0].title, 'local-wechat-title');
   assert.strictEqual(weChatSharePayloads[0].query, 'pvpChallenge=AB%20C');
   assert.strictEqual(weChatSharePayloads[0].imageUrl, 'local-wechat-image');
   assert.strictEqual(weChatSharePayloads[0].imageUrlId, 'local-wechat-image-id');

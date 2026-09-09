@@ -457,8 +457,7 @@ export function installSettlementHudModule(target: any): void {
                 || adBtn.getChildByName('ContinueBtnSubLblAnchor')?.getChildByName('AdBonusSubLbl')?.getComponent(Label);
             const btn = adBtn.getComponent(Button);
             const opacity = adBtn.getComponent(UIOpacity) ?? adBtn.addComponent(UIOpacity);
-            const eligible = !this._isThemeLevel
-                && this.levelData?.winAdBonusEnabled !== false
+            const eligible = this.levelData?.winAdBonusEnabled !== false
                 && this._pendingWinAdBonusReward > 0
                 && !this._settlementNextTransitioning;
             const coinIcon = adBtn.getChildByName('AdBonusCoinIcon');
@@ -505,7 +504,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         claimWinAdBonusReward() {
-            if (this._isThemeLevel || this.levelData?.winAdBonusEnabled === false || this._winAdRewardClaimed
+            if (this.levelData?.winAdBonusEnabled === false || this._winAdRewardClaimed
                 || this._pendingWinAdBonusReward <= 0 || this._adShowing || this._settlementNextTransitioning) {
                 return;
             }
@@ -539,19 +538,36 @@ export function installSettlementHudModule(target: any): void {
             this.recordDynamicCountdownFinalFailure?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
-            try {
-                if (!this.panelLose?.isValid) {
-                    this.showBasicSettlement('lose');
-                    return;
-                }
-                this.syncSettlementProgressWidget(this.panelLose, {
-                    completePercent: Math.min(98, this.getBoardCompletionStats().completePercent),
-                });
-                this.panelLose.active = true;
-                this.panelLose.setSiblingIndex(999);
-            } catch (error) {
+            const initSeq = this._gameplayInitSeq;
+            const isCurrent = () => this.isValid && this.isGameEnd && initSeq === this._gameplayInitSeq && !this._settlementNextTransitioning;
+            const fail = (error: unknown) => {
+                if (!isCurrent()) return;
                 console.error('[settlement] using basic final-failure controls:', error);
                 this.showBasicSettlement('lose');
+            };
+            const show = () => {
+                if (!isCurrent()) return;
+                try {
+                    if (!this.ensureGameplayResultPanelsCreated('lose') || !this.panelLose?.isValid) {
+                        throw new Error('[LosePanel] prefab was ready but panel instance is missing');
+                    }
+                    this.syncSettlementProgressWidget(this.panelLose, {
+                        completePercent: Math.min(98, this.getBoardCompletionStats().completePercent),
+                    });
+                    this.panelLose.active = true;
+                    this.panelLose.setSiblingIndex(999);
+                } catch (error) {
+                    fail(error);
+                }
+            };
+            try {
+                if (!this.ensureGameplayResultPanelsCreated('lose')) {
+                    this._ensureGameplayResultPanelPrefabsReady(show, fail, ['lose']);
+                    return;
+                }
+                show();
+            } catch (error) {
+                fail(error);
             }
         },
 
@@ -659,7 +675,7 @@ export function installSettlementHudModule(target: any): void {
             }, (error: Error) => {
                 if (!this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 this.failWinSettlementReveal(error, revealToken);
-            });
+            }, ['win']);
         },
 
         playPatternCompleteThenWin(delaySeconds: number = 0) {
@@ -712,9 +728,10 @@ export function installSettlementHudModule(target: any): void {
                 this.saveLevelProgress(logicalLevelId + 1);
             }
             this._pendingWinGoldReward = this.calcWinGoldReward();
-            this._pendingWinAdBonusReward = this._isThemeLevel
-                ? 0
-                : Math.max(0, this._pendingWinGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1));
+            this._pendingWinAdBonusReward = Math.max(
+                0,
+                this._pendingWinGoldReward * (ECONOMY_NUMERIC_TABLE.adReward.winTotalMultiplier - 1),
+            );
             this._winAdRewardClaimed = false;
             this._settlementNextTransitioning = false;
             const revealToken = (Number(this._settlementRevealToken) || 0) + 1;
@@ -898,14 +915,14 @@ export function installSettlementHudModule(target: any): void {
                 this.showBasicSettlement(reason);
             };
             try {
-                if (!this.ensureGameplayResultPanelsCreated?.('lose-flow')) {
+                if (!this.ensureGameplayResultPanelsCreated?.(reason)) {
                     this._ensureGameplayResultPanelPrefabsReady?.(() => {
                         if (!this.isValid || !this.isGameEnd || initSeq !== this._gameplayInitSeq) return;
                         try {
-                            this.ensureGameplayResultPanelsCreated?.('lose-flow');
+                            this.ensureGameplayResultPanelsCreated?.(reason);
                             showLoseResult();
                         } catch (error) { recoverLoseResult(error); }
-                    }, recoverLoseResult);
+                    }, recoverLoseResult, [reason === 'buffer-full' ? 'bufferFullRevive' : 'revive']);
                     return;
                 }
                 showLoseResult();

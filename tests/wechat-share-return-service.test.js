@@ -72,7 +72,7 @@ function begin(service, runtime, results) {
 }
 
 function testStrictElapsedGate() {
-    const { WeChatShareReturnService, WECHAT_SHARE_IMAGE_POOL } = loadService();
+    const { WeChatShareReturnService, WECHAT_SHARE_TITLE_POOL, WECHAT_SHARE_IMAGE_POOL } = loadService();
     for (const [elapsedMs, expected] of [[1499, 'too_short'], [1500, 'too_short'], [1501, 'qualified']]) {
         const clock = { now: 0 };
         const timerApi = createTimerApi();
@@ -88,7 +88,7 @@ function testStrictElapsedGate() {
         const started = begin(service, runtime, results);
         assert.strictEqual(started.started, true);
         assert.deepStrictEqual(events.slice(0, 2).map((event) => event[0]), ['onShow', 'share']);
-        assert.strictEqual(events[1][1].title, 'test');
+        assert.strictEqual(events[1][1].title, WECHAT_SHARE_TITLE_POOL[0]);
         assert.strictEqual(events[1][1].query, 'level=4');
         assert.strictEqual(events[1][1].imageUrl, WECHAT_SHARE_IMAGE_POOL[0].imageUrl);
         assert.strictEqual(events[1][1].imageUrlId, WECHAT_SHARE_IMAGE_POOL[0].imageUrlId);
@@ -103,12 +103,21 @@ function testStrictElapsedGate() {
     }
 }
 
-function testLocalImagePoolAndUniformPicker() {
+function testLocalMaterialPoolsAndIndependentPickers() {
     const {
+        WECHAT_SHARE_TITLE_POOL,
         WECHAT_SHARE_IMAGE_POOL,
+        pickWeChatShareTitle,
         pickWeChatShareImage,
-        applyLocalWeChatShareImage,
+        applyLocalWeChatShareMaterial,
     } = loadService();
+    const expectedTitles = [
+        '轻松拼豆，快来一起玩！',
+        '这个拼豆挑战太有趣了！',
+        '一起来完成漂亮的拼豆作品吧！',
+        '来试试这个好玩的拼豆挑战！',
+        '看看谁能更快完成拼豆！',
+    ];
     const expectedPairs = [
         'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsRIebaicr4ibE7iamMMmq5L7oPFgK0KJJAfDthibGUr3a8EOIa5gQ5JHX6/0|vovDzpuaRYOAEvt6YSApSQ==',
         'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCtLiarKOPGnUibvRmPtdIfJMVy0K6ej597zUlmHSia06OYEv8Oy6BEKyrd/0|VQAihD6+SnSbV6X4Q5FVXw==',
@@ -117,25 +126,39 @@ function testLocalImagePoolAndUniformPicker() {
         'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCtia6XicAvZmVXHovOgtrgVCJ8FEahFgicGJ9TUCuicZzAGZXzicHkE5jAJV/0|/+Loyr7uTT6rQPHuNxvqBA==',
         'https://mmocgame.qpic.cn/wechatgame/QljrpgIYibCsiaBgRBNpqaVpiaXAYRkUp4DBStIyXWzFbV3u6V1E4SmVuuTGujDq2HE/0|QSLQ93GWTkKq+40i1QrNNA==',
     ];
+    assert.deepStrictEqual(Array.from(WECHAT_SHARE_TITLE_POOL), expectedTitles);
     assert.deepStrictEqual(
         Array.from(WECHAT_SHARE_IMAGE_POOL, (item) => `${item.imageUrl}|${item.imageUrlId}`),
         expectedPairs,
         'the local pool must preserve every approved URL/ID pair exactly',
     );
+    for (let index = 0; index < expectedTitles.length; index += 1) {
+        assert.strictEqual(
+            pickWeChatShareTitle(() => (index + 0.5) / expectedTitles.length),
+            expectedTitles[index],
+        );
+    }
     for (let index = 0; index < expectedPairs.length; index += 1) {
         const selected = pickWeChatShareImage(() => (index + 0.5) / expectedPairs.length);
         assert.strictEqual(`${selected.imageUrl}|${selected.imageUrlId}`, expectedPairs[index]);
     }
+    assert.throws(() => pickWeChatShareTitle(() => 1), /invalid random sample/);
     assert.throws(() => pickWeChatShareImage(() => 1), /invalid random sample/);
 
-    const payload = applyLocalWeChatShareImage({ title: '场景标题', query: 'level=8' }, () => 0.5);
-    assert.strictEqual(payload.title, '场景标题');
+    const samples = [0.7, 0.1];
+    let sampleIndex = 0;
+    const payload = applyLocalWeChatShareMaterial(
+        { title: '场景标题', query: 'level=8' },
+        () => samples[sampleIndex++],
+    );
+    assert.strictEqual(sampleIndex, 2, 'title and image must consume separate random samples');
+    assert.strictEqual(payload.title, expectedTitles[3]);
     assert.strictEqual(payload.query, 'level=8');
-    assert.strictEqual(`${payload.imageUrl}|${payload.imageUrlId}`, expectedPairs[3]);
+    assert.strictEqual(`${payload.imageUrl}|${payload.imageUrlId}`, expectedPairs[0]);
 }
 
 function testLocalPassiveShareOwnsOneMenuListener() {
-    const { installLocalWeChatPassiveShare, WECHAT_SHARE_IMAGE_POOL } = loadService();
+    const { installLocalWeChatPassiveShare, WECHAT_SHARE_TITLE_POOL, WECHAT_SHARE_IMAGE_POOL } = loadService();
     const listeners = [];
     const shown = [];
     const runtime = {
@@ -155,7 +178,7 @@ function testLocalPassiveShareOwnsOneMenuListener() {
     assert.strictEqual(listeners.length, 1, 'repeated startup must not register duplicate menu listeners');
     assert.strictEqual(JSON.stringify(shown), JSON.stringify([{ menus: ['shareAppMessage'] }]));
     const payload = listeners[0]();
-    assert.strictEqual(payload.title, '轻松拼豆');
+    assert.ok(WECHAT_SHARE_TITLE_POOL.includes(payload.title));
     assert.ok(
         WECHAT_SHARE_IMAGE_POOL.some((item) => item.imageUrl === payload.imageUrl && item.imageUrlId === payload.imageUrlId),
         'passive menu payload must use one complete local pool pair',
@@ -230,7 +253,7 @@ function testStartFailuresAndCleanupFailure() {
     assert.deepStrictEqual(cleanupResults.map((result) => result.status), ['cleanup_failed']);
 }
 
-testLocalImagePoolAndUniformPicker();
+testLocalMaterialPoolsAndIndependentPickers();
 testLocalPassiveShareOwnsOneMenuListener();
 testStrictElapsedGate();
 testTimeoutCancelAndStaleListenerIsolation();

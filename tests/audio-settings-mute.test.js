@@ -367,14 +367,14 @@ assert.ok(!audioMgrSource.includes('.playOneShot('), 'AudioMgr must not use untr
 
 const audioInitIndex = gameplaySessionSource.indexOf('AudioMgr.inst.init(runtime.node);');
 const criticalButtonPreloadIndex = gameplaySessionSource.indexOf("AudioMgr.inst.preload('button');", audioInitIndex);
-const optionalWarmupGateIndex = gameplaySessionSource.indexOf('const bootstrapOnlyGameplayStartup', audioInitIndex);
-const settlePreloadIndex = gameplaySessionSource.indexOf("AudioMgr.inst.preload('settle');", optionalWarmupGateIndex);
+const optionalWarmupGateIndex = gameplaySessionSource.indexOf('runtime.startPostPlayableWarmup', audioInitIndex);
+const settlePreloadIndex = gameplaySessionSource.indexOf("AudioMgr.inst.preload('settle');", audioInitIndex);
 assert.ok(audioInitIndex >= 0, 'gameplay startup must initialize AudioMgr');
 assert.ok(
     criticalButtonPreloadIndex > audioInitIndex && criticalButtonPreloadIndex < optionalWarmupGateIndex,
     'the critical button cue must start preloading immediately after AudioMgr init and before optional gameplay warmup gates',
 );
-assert.ok(settlePreloadIndex > optionalWarmupGateIndex, 'the PCH settlement cue must preload during normal gameplay startup');
+assert.ok(settlePreloadIndex > criticalButtonPreloadIndex && settlePreloadIndex < optionalWarmupGateIndex, 'the PCH return cue must preload before optional warmup on every gameplay entry');
 assert.strictEqual(
     (gameplaySessionSource.match(/AudioMgr\.inst\.playGameBgm\(\);/g) || []).length,
     1,
