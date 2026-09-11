@@ -18,6 +18,7 @@ const packSize = Math.max(1, Math.floor(Number(process.env.PDD_LEVEL_PACK_SIZE |
 const levelFileKinds = [
     { prefix: 'level_', kind: 'mainline', pattern: /^level_(\d+)\.json$/ },
     { prefix: 'zt_level_', kind: 'theme', pattern: /^zt_level_(\d+)\.json$/ },
+    { prefix: 'coop_level_', kind: 'coop', pattern: /^coop_level_(\d+)\.json$/ },
 ];
 
 function parseArgs(args) {

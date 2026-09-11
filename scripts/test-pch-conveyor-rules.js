@@ -21,25 +21,15 @@ const compiled = ts.transpileModule(source, {
 const diagnostics = compiled.diagnostics || [];
 assert.equal(diagnostics.length, 0, diagnostics.map((item) => item.messageText).join('\n'));
 const loadedModule = { exports: {} };
+const actualLevelConfig = { exports: {} };
+const levelConfigSource = fs.readFileSync(path.join(projectRoot, 'assets/Scripts/Core/LevelConfig.ts'), 'utf8');
+new Function('exports', ts.transpileModule(levelConfigSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText)(actualLevelConfig.exports);
 const load = new Function('module', 'exports', 'require', compiled.outputText);
 load(loadedModule, loadedModule.exports, (request) => {
     if (request === './LevelConfig') {
-        return {
-            CONVEYOR_STACK_DEPTH: 3,
-            validateConveyorCapacity(value, label) {
-                if (!Number.isInteger(value) || value <= 0) {
-                    throw new Error(`[ConveyorCapacity] ${label}.conveyorCapacity must be a positive integer: ${value}`);
-                }
-                return value;
-            },
-            validatePchSingleSelectionLimit(value, label) {
-                if (value === undefined || value === null) return 12;
-                if (!Number.isInteger(value) || value <= 0) {
-                    throw new Error(`[SingleSelectionLimit] ${label}.singleSelectionLimit must be a positive integer: ${value}`);
-                }
-                return value;
-            },
-        };
+        return actualLevelConfig.exports;
     }
     return require(request);
 });
