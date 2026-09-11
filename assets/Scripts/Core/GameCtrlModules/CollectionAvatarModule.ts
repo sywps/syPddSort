@@ -544,8 +544,8 @@ export function installCollectionAvatarModule(target: any): void {
             if (!Array.isArray(catalogEntries) || catalogEntries.length < 1) {
                 throw new Error('[collection-catalog] collection entries missing');
             }
-            const activeTab = this._collectionActiveTab === 'theme' ? 'theme' : 'main';
-            const allEntries = catalogEntries.filter((entry) => activeTab === 'theme'
+            const activeTab = this._collectionActiveTab || 'main';
+            const allEntries = activeTab === 'coop' ? this._collectionCoopEntries : catalogEntries.filter((entry) => activeTab === 'theme'
                 ? entry.prefix === 'zt_level_'
                 : entry.prefix !== 'zt_level_');
             if (allEntries.length < 1) {
@@ -676,7 +676,9 @@ export function installCollectionAvatarModule(target: any): void {
                 const col = entryIndex % state.columnCount;
                 item.slot.setPosition(state.columnXs[col], state.startY - row * state.rowPitch, 0);
                 if (item.entryIndex !== entryIndex || !item.slot.active) {
-                    const unlocked = isCollectionEntryUnlockedForProgress(entry, state.savedLevel, state.completedThemeLevelIds);
+                    const unlocked = entry.prefix === 'coop_level_'
+                        ? !!(entry as any).unlocked
+                        : isCollectionEntryUnlockedForProgress(entry, state.savedLevel, state.completedThemeLevelIds);
                     item.slot.name = `CollectionCardSlotItem_${entryIndex}`;
                     item.slot.active = true;
                     const previewInfo = this.drawCollectionCard(item.slot, entry.levelId, 0, 0, 0, 0, unlocked, state.savedLevel, {
@@ -897,6 +899,10 @@ export function installCollectionAvatarModule(target: any): void {
                 cellGap?: number;
             },
         ) {
+            if (prefix === 'coop_level_') {
+                this.drawCollectionPixelPreviewOnCard(card, levelId, offsetX, offsetY, maxW, maxH, prefix);
+                return;
+            }
             this.drawLevelPreviewOnCard(card, levelId, offsetX, offsetY, maxW, maxH, prefix, options);
         },
 
@@ -980,6 +986,12 @@ export function installCollectionAvatarModule(target: any): void {
                 });
             };
 
+            if (prefix === 'coop_level_') {
+                const entry = this._collectionCoopEntries?.find((item: any) => item.levelId === levelId);
+                if (!entry?.grid) throw new Error('合作图鉴资源未加载');
+                renderGrid(entry.grid);
+                return;
+            }
             const state = this._collectionVirtualState as any;
             const cacheKey = `${prefix}${Math.max(1, Math.floor(Number(levelId) || 1))}`;
             const useVirtualCache = !!options?.bindingToken

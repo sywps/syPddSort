@@ -16,7 +16,7 @@ import {
     Vec3,
     createHorizontalAlphaFadeSpriteFrame,
 } from '../GameCtrlShared';
-import { debugPerfTrace } from '../DebugPerfTrace';
+import { debugPerfTrace, reportRuntimeMemorySnapshot } from '../DebugPerfTrace';
 
 const PINDD_SPINE_FX_PATH = 'Spine/PinddFx/zhuanshi';
 const SPINE_WASM_SUBPACKAGE_NAME = 'spineWasm';
@@ -287,6 +287,8 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             opacity.opacity = 255;
 
             const skeleton = (node.getComponent(skeletonCtor) || node.addComponent(skeletonCtor)) as sp.Skeleton;
+            // All beans use the same unmodified animation; share its baked skeleton frames.
+            skeleton.setAnimationCacheMode(sp.Skeleton.AnimationCacheMode.SHARED_CACHE);
             skeleton.enabled = true;
             skeleton.premultipliedAlpha = false;
             skeleton.enableBatch = true;
@@ -311,7 +313,15 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             if (opacity) opacity.opacity = 255;
             this._pinddSpineFxActiveCount = Math.max(0, (Number(this._pinddSpineFxActiveCount) || 0) - 1);
             if (Array.isArray(this._activePinddSpineFxNodes)) {
-                this._activePinddSpineFxNodes = this._activePinddSpineFxNodes.filter((activeNode: Node) => activeNode?.isValid && activeNode !== node);
+                const activeNodes: Node[] = this._activePinddSpineFxNodes;
+                let retainedCount = 0;
+                for (let index = 0; index < activeNodes.length; index++) {
+                    const activeNode = activeNodes[index];
+                    if (activeNode?.isValid && activeNode !== node) {
+                        activeNodes[retainedCount++] = activeNode;
+                    }
+                }
+                activeNodes.length = retainedCount;
             }
             const pool = this._pinddSpineFxPool;
             if (!pool?.put || (typeof this.getNodePoolSize === 'function' && this.getNodePoolSize(pool) >= PINDD_SPINE_FX_POOL_LIMIT)) {
@@ -582,6 +592,7 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
                         allowActiveLimitOverride,
                     });
                 }
+                if (total >= 128) reportRuntimeMemorySnapshot('color-fx.peak', this);
             });
         },
 

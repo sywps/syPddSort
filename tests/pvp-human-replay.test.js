@@ -28,6 +28,14 @@ const deadlockFixture = controllerReplay(deadlockLevel);
 assert.strictEqual(deadlockFixture.terminalType, 'DEAD_CONVEYOR_FULL');
 assert.strictEqual(replayHumanEvents(deadlockLevel, deadlockFixture.envelope).finish(deadlockFixture.terminalType,
   deadlockFixture.terminalTimeMs).completeRun, true, 'real deadlock failures are eligible, not just successful runs');
+const slowDeadlockLevel = { boardWidth: 24, boardHeight: 1, timeLimit: 30, conveyorCapacity: 12,
+  correctColorArr: [Array(12).fill(1).concat(Array(12).fill(2))],
+  initRandomColorArr: [Array(12).fill(2).concat(Array(12).fill(1))], singleSelectionLimit: 12 };
+const slowDeadlockFixture = controllerReplay(slowDeadlockLevel, { frameMs: 60, speedUpAtMs: -1 });
+assert.strictEqual(slowDeadlockFixture.terminalType, 'DEAD_CONVEYOR_FULL');
+const slowDeadlockReplay = replayHumanEvents(slowDeadlockLevel, slowDeadlockFixture.envelope);
+assert.strictEqual(slowDeadlockReplay.finish(slowDeadlockFixture.terminalType,
+  slowDeadlockFixture.terminalTimeMs).completeRun, true, 'x1 deadlock remains valid after the client one-loop grace period');
 const fixture = controllerReplay(level);
 const clone = () => JSON.parse(JSON.stringify(fixture.envelope));
 assert.throws(() => replayHumanEvents(level, { ...clone(), levelHash: 'changed' }), /version/);

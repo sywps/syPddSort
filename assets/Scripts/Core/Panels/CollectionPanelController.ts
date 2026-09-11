@@ -14,8 +14,9 @@ import {
     Vec3,
     instantiate,
 } from '../GameCtrlShared';
+import { CoopServiceMgr } from '../CoopServiceMgr';
 
-type CollectionTab = 'main' | 'theme';
+type CollectionTab = 'main' | 'theme' | 'coop';
 
 function createCollectionTabs(box: Node, runtime: any): void {
     const root = new Node('CollectionTabs');
@@ -27,6 +28,7 @@ function createCollectionTabs(box: Node, runtime: any): void {
     const tabs: Array<{ key: CollectionTab; text: string }> = [
         { key: 'main', text: '主线' },
         { key: 'theme', text: '像素拼图' },
+        { key: 'coop', text: '合作' },
     ];
     const redraw = () => {
         for (const tab of tabs) {
@@ -38,23 +40,68 @@ function createCollectionTabs(box: Node, runtime: any): void {
             if (!graphics || !label) continue;
             graphics.clear();
             graphics.fillColor = active ? new Color('#7E68E8') : new Color('#E9E4FF');
-            graphics.roundRect(-112, -27, 224, 54, 27);
+            graphics.roundRect(-76, -27, 152, 54, 27);
             graphics.fill();
             label.color = active ? new Color('#FFFFFF') : new Color('#6655A7');
         }
     };
 
+    const statusNode = new Node('CollectionTabStatus');
+    statusNode.layer = root.layer;
+    statusNode.setPosition(0, -350, 0);
+    statusNode.addComponent(UITransform).setContentSize(450, 180);
+    const statusLabel = statusNode.addComponent(Label);
+    statusLabel.fontSize = 24;
+    statusLabel.lineHeight = 36;
+    statusLabel.color = new Color('#6655A7');
+    statusLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+    statusLabel.verticalAlign = Label.VerticalAlign.CENTER;
+    root.addChild(statusNode);
+    statusNode.active = false;
+
+    let requestId = 0;
+    const selectTab = async (key: CollectionTab) => {
+        const request = ++requestId;
+        runtime._collectionActiveTab = key;
+        redraw();
+        statusNode.active = key === 'coop';
+        runtime._collectionContentNode.active = key !== 'coop';
+        if (key === 'coop') {
+            statusLabel.string = '正在读取合作图鉴…';
+            try {
+                const [catalog, result] = await Promise.all([
+                    CoopServiceMgr.inst.catalog(runtime), CoopServiceMgr.inst.overview(),
+                ]);
+                const levels = await Promise.all(catalog.map(entry => CoopServiceMgr.inst.fullLevel(runtime, entry.levelId)));
+                if (!root.isValid || request !== requestId) return;
+                runtime._collectionCoopEntries = catalog.map((entry, index) => ({
+                    ...entry, prefix: 'coop_level_', unlockLevel: 0,
+                    unlocked: !!result.overview.unlocked[entry.collectionId],
+                    grid: levels[index].correctColorArr,
+                }));
+            } catch (error) {
+                if (root.isValid && request === requestId) {
+                    statusLabel.string = `${error instanceof Error ? error.message : '合作图鉴读取失败'}\n点击「合作」重试`;
+                }
+                return;
+            }
+        }
+        if (!root.isValid || request !== requestId) return;
+        statusNode.active = false;
+        runtime._collectionContentNode.active = true;
+        runtime.renderCollectionScroll(runtime._collectionContentNode);
+    };
     tabs.forEach((tab, index) => {
         const node = new Node(`CollectionTab_${tab.key}`);
         node.layer = root.layer;
-        node.setPosition(index === 0 ? -118 : 118, 0, 0);
-        node.addComponent(UITransform).setContentSize(224, 54);
+        node.setPosition((index - 1) * 166, 0, 0);
+        node.addComponent(UITransform).setContentSize(152, 54);
         node.addComponent(Graphics);
         root.addChild(node);
 
         const labelNode = new Node('Label');
         labelNode.layer = root.layer;
-        labelNode.addComponent(UITransform).setContentSize(200, 48);
+        labelNode.addComponent(UITransform).setContentSize(144, 48);
         const label = labelNode.addComponent(Label);
         label.string = tab.text;
         label.fontSize = 25;
@@ -65,11 +112,8 @@ function createCollectionTabs(box: Node, runtime: any): void {
         node.addChild(labelNode);
 
         node.on(Node.EventType.TOUCH_END, () => {
-            if (runtime._collectionActiveTab === tab.key) return;
             AudioMgr.inst.play('button');
-            runtime._collectionActiveTab = tab.key;
-            redraw();
-            runtime.renderCollectionScroll(runtime._collectionContentNode);
+            void selectTab(tab.key);
         }, runtime);
     });
     redraw();

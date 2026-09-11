@@ -46,10 +46,16 @@ async function run() {
   const douyinShareRuntime = { shareAppMessage: payload => douyinSharePayloads.push(payload) };
   let response = { ok: true, reward: { claimId: 'claim-1', expiresAt: Date.now() + 600000 } };
   const calls = [];
+  const inventoryEvents = [];
+  let inventoryReady = true;
+  let inventoryCloudAvailable = true;
+  const userStateSyncManager = {
+    canUseCloud() { inventoryEvents.push('canUseCloud'); return inventoryCloudAvailable; },
+  };
   const pixelLevel = require('../cloudfunctions/pvpService/bot-runtime/levels/zt_level_3.json');
   const serviceModule = load('assets/Scripts/Core/PvpServiceMgr.ts', id => {
     if (id === 'cc') return { sys, _decorator: { ccclass: () => Type => Type } };
-    if (id.endsWith('UserStateSyncMgr')) return { PVP_ECONOMY_REVISION_KEY: revisionKey };
+    if (id.endsWith('UserStateSyncMgr')) return { PVP_ECONOMY_REVISION_KEY: revisionKey, UserStateSyncMgr: { inst: userStateSyncManager } };
     if (id.endsWith('UserMgr')) return { UserMgr: { inst: { getProfile: () => ({ uuid: 'test' }) } } };
     if (id.endsWith('PvpModeConfig')) return { createDemoPvpBattle: levelId => ({ demo: true, levelId }) };
     if (id.endsWith('PvpBotReplay')) return require('../cloudfunctions/pvpService/bot-runtime/PvpBotReplay');
@@ -66,6 +72,22 @@ async function run() {
     return {};
   });
   const service = serviceModule.PvpServiceMgr.inst;
+  const inventoryRuntime = {
+    async ensureCloudGameStateSyncReady() { inventoryEvents.push('ensure'); return inventoryReady; },
+  };
+  await service.syncInventory(inventoryRuntime);
+  assert.deepStrictEqual(inventoryEvents, ['ensure', 'canUseCloud']);
+  inventoryEvents.length = 0;
+  inventoryReady = false;
+  await assert.rejects(service.syncInventory(inventoryRuntime), /资产云同步不可用/);
+  assert.deepStrictEqual(inventoryEvents, ['ensure'], 'failed recovery must stop before queueing an asset snapshot');
+  inventoryEvents.length = 0;
+  inventoryReady = true;
+  inventoryCloudAvailable = false;
+  await assert.rejects(service.syncInventory(inventoryRuntime), /资产云同步不可用/);
+  assert.deepStrictEqual(inventoryEvents, ['ensure', 'canUseCloud']);
+  inventoryEvents.length = 0;
+  inventoryCloudAvailable = true;
   assert.strictEqual(service.shareFriendChallenge('AB C'), true);
   assert.strictEqual(weChatSharePayloads[0].title, 'local-wechat-title');
   assert.strictEqual(weChatSharePayloads[0].query, 'pvpChallenge=AB%20C');

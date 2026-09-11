@@ -225,7 +225,12 @@ export function installCollectionGuideModule(target: any): void {
                             beanScale: 0.78,
                         },
                     );
-                    this.bindCollectionReplayButton(box, levelId, prefix);
+                    if (prefix === 'coop_level_') {
+                        const replayButton = box.getChildByName('CollectionReplayButton');
+                        if (replayButton) replayButton.active = false;
+                    } else {
+                        this.bindCollectionReplayButton(box, levelId, prefix);
+                    }
                 },
             });
         },
@@ -410,7 +415,7 @@ export function installCollectionGuideModule(target: any): void {
                 bubbleWidth - 112,
                 hasSubtitle ? 40 : 64,
                 0,
-                hasSubtitle ? 18 : 22,
+                hasSubtitle ? 18 : 0,
             );
             (titleLabel as Label & { isBold?: boolean }).isBold = true;
             if (hasSubtitle) {
@@ -418,7 +423,7 @@ export function installCollectionGuideModule(target: any): void {
             }
 
             const handSize = Math.round(GUIDE_HAND_SPRITE_SIZE * 1.15);
-            const gestureCenterY = bubble.position.y - 480;
+            const gestureCenterY = bubble.position.y - 380;
             const nearGap = 74;
             const farGap = 250;
             const setHandFingertip = (hand: Node, targetX: number, targetY: number, mirrored: boolean) => {

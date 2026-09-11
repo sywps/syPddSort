@@ -198,7 +198,7 @@ export class GameSceneRuntimeController {
                 requestedLevelId: routeDecision.shouldMarkPendingGameplay ? routeDecision.levelId : 0,
                 reason: routeDecision.reason,
             });
-            const route = appRoot.router.toGame();
+            const route = routeDecision.reason === 'coop-invite' ? appRoot.router.toHome() : appRoot.router.toGame();
             route.catch((error) => {
                 console.error('[SceneSplit] boot route failed:', error);
                 appRoot.clearRouteCover('boot-route-error');
@@ -207,6 +207,10 @@ export class GameSceneRuntimeController {
     }
 
     async startGameSceneRuntime(): Promise<void> {
+        if (resolveStartupRouteDecision().reason === 'coop-invite' && !AppRoot.tryGet()?.session.pendingGameplayRequest) {
+            await AppRoot.ensure('Game').router.toHome();
+            return;
+        }
         const previousSceneName = AppRoot.tryGet()?.session.currentSceneName || '';
         const appRoot = AppRoot.ensure('Game');
         debugPerfSnapshot('runtime.game.start', this.runtime, {
@@ -361,11 +365,13 @@ export class GameSceneRuntimeController {
     update(dt: number): void {
         debugPerfFrameStep(this.runtime, dt);
         this.runtime.vigorTick(dt);
+        this.runtime.updateCoopClock?.(dt);
         this.runtime._pchConveyorGameplayController?.update?.(dt);
         this.runtime.updatePvpBattle?.();
     }
 
     destroy(): void {
+        this.runtime.disposeCoop?.();
         director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
         this.runtime.stopPostPlayableWarmup?.();
         const sceneName = this.getRuntimeSceneName();
@@ -419,7 +425,7 @@ export class GameSceneRuntimeController {
         this.runtime.cancelSpriteFrameLoadQueue?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseBeanSkinRuntimeResources?.(`runtime-destroy:${sceneName}`);
         this.runtime.releaseBackgroundSkinCachedSpriteFrames?.(`runtime-destroy:${sceneName}`);
-        this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'scene-destroy');
+        this.runtime.releaseSceneScopedSpriteFrames?.(sceneName, 'runtime-destroy');
         debugPerfSnapshot('runtime.destroy.after', this.runtime, {
             sceneName,
         });

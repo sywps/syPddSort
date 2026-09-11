@@ -1,8 +1,32 @@
-import { LeaderboardMgr, UserMgr } from '../GameCtrlShared';
+import { LeaderboardMgr, UserMgr, UserStateSyncMgr } from '../GameCtrlShared';
 import type { CloudUserState } from '../GameCtrlShared';
 import type { UserStateRestoreStatus } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { runtimeWarn } from '../RuntimeLog';
+
+function stableCloudStateStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+        return `[${value.map(stableCloudStateStringify).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+        const source = value as Record<string, unknown>;
+        return `{${Object.keys(source).sort().map((key) => `${JSON.stringify(key)}:${stableCloudStateStringify(source[key])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+export function captureCloudGameStateRecoveryFingerprint(runtime: any): string {
+    if (typeof runtime?.captureCloudGameState !== 'function') {
+        throw new Error('[GameCtrl] missing cloud game state capture API');
+    }
+    const state = runtime.captureCloudGameState();
+    if (!state || typeof state !== 'object') {
+        throw new Error('[GameCtrl] invalid cloud game state snapshot');
+    }
+    const snapshot = { ...state } as Record<string, unknown>;
+    delete snapshot.stateUpdatedAt;
+    return stableCloudStateStringify(snapshot);
+}
 
 function normalizePositiveLevel(value: unknown): number {
     const level = Math.floor(Number(value) || 0);
@@ -150,6 +174,7 @@ export function deferLeaderboardProgressDuringStartup(runtime: any, nextLevel: n
         return true;
     }
     if (runtime._startupCloudSaveBlockedForSession) {
+        runtime._deferredLeaderboardProgress = Math.max(Math.floor(Number(runtime._deferredLeaderboardProgress) || 0), nextLevel);
         runtimeWarn('[GameCtrl] skip leaderboard progress submit because startup cloud restore is unresolved');
         return true;
     }
@@ -163,15 +188,87 @@ export function deferCloudGameStateSyncDuringStartup(runtime: any): boolean {
         return true;
     }
     if (runtime._startupCloudSaveBlockedForSession) {
+        runtime._deferredCloudGameStateSync = true;
         runtimeWarn('[GameCtrl] skip cloud state sync because startup cloud restore is unresolved for this session');
         return true;
     }
     return false;
 }
 
+async function syncCloudGameStateForPvp(runtime: any): Promise<boolean> {
+    if (!UserStateSyncMgr.inst.canUseCloud()) {
+        return false;
+    }
+    const queueAndFlush = async (): Promise<boolean> => {
+        if (typeof runtime.queueCloudGameStateSync !== 'function' || runtime.queueCloudGameStateSync() !== true) {
+            return false;
+        }
+        return UserStateSyncMgr.inst.flushPendingSave();
+    };
+    if (!runtime._startupCloudRestorePending && !runtime._startupCloudSaveBlockedForSession) {
+        return queueAndFlush();
+    }
+    if (!await UserStateSyncMgr.inst.flushPendingSave() || !UserStateSyncMgr.inst.canUseCloud()) {
+        return false;
+    }
+    const localFingerprint = captureCloudGameStateRecoveryFingerprint(runtime);
+    const baselineFingerprint = String(runtime._startupCloudRestoreBaselineFingerprint || '');
+    const hadDeferredLocalState = baselineFingerprint
+        ? localFingerprint !== baselineFingerprint
+        : !!runtime._deferredCloudGameStateSync;
+    const recovery = await UserStateSyncMgr.inst.recoverState();
+    if (!recovery
+        || localFingerprint !== captureCloudGameStateRecoveryFingerprint(runtime)
+        || !UserStateSyncMgr.inst.validateRecoveredState(recovery.generation)) {
+        return false;
+    }
+    const leaderboardProgress = Math.max(0, Math.floor(Number(runtime._deferredLeaderboardProgress) || 0));
+    const status: UserStateRestoreStatus = hadDeferredLocalState
+        ? (Math.max(0, Math.floor(Number(runtime.getSavedLevel?.()) || 0)) > 1 ? 'local_progress_gt_1' : 'cloud_confirmed_empty')
+        : runtime.applyCloudUserState(recovery.state);
+    if (hadDeferredLocalState) {
+        UserMgr.inst.applyCloudProfile(recovery.state.profile);
+    }
+    runtime._startupCloudRestorePending = false;
+    runtime._startupCloudSaveBlockedForSession = false;
+    runtime._startupCloudRestoreStatus = status;
+    runtime._deferredCloudGameStateSync = true;
+    if (!await queueAndFlush()) {
+        runtime._startupCloudSaveBlockedForSession = true;
+        return false;
+    }
+    runtime._deferredCloudGameStateSync = false;
+    runtime._startupCloudRestoreBaselineFingerprint = '';
+    if (leaderboardProgress > 0) {
+        runtime._deferredLeaderboardProgress = 0;
+        void LeaderboardMgr.inst.submitProgress(leaderboardProgress, UserMgr.inst.getProfile());
+    }
+    return UserStateSyncMgr.inst.canUseCloud();
+}
+
+export async function ensureCloudGameStateSyncReadyForPvp(runtime: any): Promise<boolean> {
+    if (runtime._pvpCloudGameStateSyncPromise) {
+        return runtime._pvpCloudGameStateSyncPromise;
+    }
+    const operation = syncCloudGameStateForPvp(runtime);
+    runtime._pvpCloudGameStateSyncPromise = operation;
+    try {
+        return await operation;
+    } finally {
+        if (runtime._pvpCloudGameStateSyncPromise === operation) {
+            runtime._pvpCloudGameStateSyncPromise = null;
+        }
+    }
+}
+
 export function resolveStartupCloudRestorePending(runtime: any, status: UserStateRestoreStatus): void {
     runtime._startupCloudRestorePending = false;
     runtime._startupCloudRestoreStatus = status;
+    if (status === 'cloud_failed_unresolved' || status === 'cloud_timeout_unresolved' || status === 'cloud_unavailable_unresolved') {
+        runtime._startupCloudSaveBlockedForSession = true;
+        return;
+    }
+    runtime._startupCloudRestoreBaselineFingerprint = '';
     if (status === 'cloud_confirmed_empty') {
         if (!runtime._startupCloudRestoreHadLocalUserState && typeof runtime.grantStarterPropsForNewUser === 'function') {
             runtime.grantStarterPropsForNewUser();
@@ -190,9 +287,6 @@ export function resolveStartupCloudRestorePending(runtime: any, status: UserStat
     }
     runtime._deferredCloudGameStateSync = false;
     runtime._deferredLeaderboardProgress = 0;
-    if (status === 'cloud_failed_unresolved' || status === 'cloud_timeout_unresolved' || status === 'cloud_unavailable_unresolved') {
-        runtime._startupCloudSaveBlockedForSession = true;
-    }
 }
 
 function flushDeferredStartupCloudSync(runtime: any): void {

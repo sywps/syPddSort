@@ -1,4 +1,4 @@
-import { BlockInputEvents, director, game, Node, UITransform } from 'cc';
+import { assetManager, BlockInputEvents, Color, director, dynamicAtlasManager, game, Label, Node, sp, Sprite, SpriteFrame, UITransform, Widget } from 'cc';
 import {
     getMiniGameBuildMode,
     getMiniGameBuildPlatform,
@@ -14,6 +14,7 @@ let suppressedFrameGapMaxMs = 0;
 
 const FRAME_GAP_TRACE_THRESHOLD_MS = 50;
 const FRAME_GAP_TRACE_INTERVAL_MS = 1000;
+let lastMemoryPeakSnapshotAt = 0;
 
 type PlainRecord = Record<string, unknown>;
 
@@ -132,6 +133,158 @@ function readMemorySnapshot(): PlainRecord | null {
         return Object.keys(snapshot).length > 0 ? snapshot : null;
     } catch (_) {
         return null;
+    }
+}
+
+function updateRuntimeMemoryOverlay(snapshot: PlainRecord, enabled: boolean): void {
+    const canvas = director.getScene()?.getChildByName('Canvas');
+    const name = 'PddMemoryDebugOverlay';
+    let node = canvas?.getChildByName(name);
+    if (!enabled) {
+        if (node) node.active = false;
+        return;
+    }
+    if (!canvas?.isValid) throw new Error('Memory overlay requires the scene Canvas');
+    if (!node) {
+        node = new Node(name);
+        node.layer = canvas.layer;
+        canvas.addChild(node);
+        node.addComponent(UITransform).setContentSize(390, 160);
+        const label = node.addComponent(Label);
+        label.fontSize = 18;
+        label.lineHeight = 23;
+        label.horizontalAlign = Label.HorizontalAlign.RIGHT;
+        label.color = Color.WHITE;
+        label.enableOutline = true;
+        label.outlineColor = Color.BLACK;
+        label.outlineWidth = 2;
+        const widget = node.addComponent(Widget);
+        widget.isAlignTop = true;
+        widget.isAlignRight = true;
+        widget.top = 180;
+        widget.right = 12;
+        widget.updateAlignment();
+    }
+    node.active = true;
+    node.setSiblingIndex(canvas.children.length - 1);
+    const mib = (value: unknown): string => typeof value === 'number' ? (value / 1048576).toFixed(1) : 'N/A';
+    const phase = String(snapshot.event).split('.').pop();
+    node.getComponent(Label)!.string = [
+        `MEM v4 | ${snapshot.runtimePlatform || 'unknown'} | L${snapshot.levelId} ${phase}`,
+        `GPU纹理 ${mib(snapshot.gfxTextureBytes)} MiB | 缓冲 ${mib(snapshot.gfxBufferBytes)} MiB`,
+        `资源纹理 ${mib(snapshot.trackedTextureBytes)} MiB (勿相加)`,
+        `Spine容量 ${mib(snapshot.spineWasmCapacityBytes)} MiB`,
+        `节点 ${snapshot.sceneNodeCount} | 特效 ${snapshot.activeSpineCount} | 池 ${snapshot.pooledSpineCount}`,
+        '进程总内存请看微信性能面板',
+    ].join('\n');
+}
+
+export function reportRuntimeMemorySnapshot(event: string, runtime: any): void {
+    if (getMiniGameBuildPlatform() !== 'wechat') return;
+    // The release entry mutes console.warn after saving this original sink.
+    const memoryWarn: typeof console.warn = (console as any).__pddOriginalWarn || console.warn;
+    const now = Date.now();
+    if (event === 'color-fx.peak') {
+        if (now - lastMemoryPeakSnapshotAt < 2000) return;
+        lastMemoryPeakSnapshotAt = now;
+    }
+    try {
+        const textures = new Set<any>();
+        const gpuTextures = new Set<any>();
+        let trackedTextureBytes = 0;
+        let unavailableTextureSizes = 0;
+        let assetCount = 0;
+        let sceneNodeCount = 0;
+        let sceneSpineCount = 0;
+        let sharedSpineCount = 0;
+        const largestTextures: Array<{ name: string; width: number; height: number; bytes: number | null }> = [];
+        const addTexture = (texture: any) => {
+            if (!texture?.isValid || textures.has(texture)) return;
+            textures.add(texture);
+            const gpu = texture.getGFXTexture?.();
+            if (gpu && gpuTextures.has(gpu)) return;
+            if (gpu) gpuTextures.add(gpu);
+            const size = Number(gpu?.size);
+            const bytes = gpu && Number.isFinite(size) && size >= 0 ? size : null;
+            if (bytes === null) unavailableTextureSizes++;
+            else trackedTextureBytes += bytes;
+            largestTextures.push({
+                name: /https?:|[?&]/.test(String(texture.name || '')) ? 'remote-texture' : String(texture.name || '').slice(0, 64),
+                width: Number(texture.width) || 0, height: Number(texture.height) || 0, bytes,
+            });
+        };
+        const addFrame = (frame: any) => { if (frame?.isValid) addTexture(frame.texture); };
+        assetManager.assets.forEach((asset: any) => {
+            assetCount++;
+            if (typeof asset?.getGFXTexture === 'function') addTexture(asset);
+            else if (asset instanceof SpriteFrame) addFrame(asset);
+        });
+        for (const cache of [runtime.sfCache, runtime._backgroundSkinFrameCache, runtime._backgroundSkinIconCache, runtime._beanSkinIconCache]) {
+            cache?.forEach?.(addFrame);
+        }
+        addTexture(runtime._activeBeanSkinAtlasOwner?.texture);
+        addTexture(runtime._bootstrapBeanAtlasTexture);
+        const scene = director.getScene();
+        const pending: Node[] = scene?.isValid ? [scene] : [];
+        while (pending.length > 0) {
+            const node = pending.pop()!;
+            if (!node.isValid) continue;
+            sceneNodeCount++;
+            addFrame(node.getComponent(Sprite)?.spriteFrame);
+            const skeleton = node.getComponent(sp.Skeleton);
+            if (skeleton) {
+                sceneSpineCount++;
+                if (skeleton.defaultCacheMode === sp.Skeleton.AnimationCacheMode.SHARED_CACHE) sharedSpineCount++;
+                skeleton.skeletonData?.textures?.forEach(addTexture);
+            }
+            for (const child of node.children) pending.push(child);
+        }
+        largestTextures.sort((a, b) => (b.bytes ?? -1) - (a.bytes ?? -1));
+        const heap = (sp as any).spine?.wasmUtil?.wasm?.HEAPU8;
+        const wx = getWeChatMiniGameRuntime();
+        const deviceInfo = typeof wx?.getDeviceInfo === 'function'
+            ? wx.getDeviceInfo()
+            : wx?.getSystemInfoSync?.();
+        const gfxMemory = director.root?.device?.memoryStatus;
+        const validBytes = (value: unknown): number | null =>
+            typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+        const snapshot = {
+            revision: 'memory-breakdown-v4', event, at: now, mode: getMiniGameBuildMode(),
+            runtimePlatform: deviceInfo?.platform || null,
+            levelId: runtime.getActiveLogicalLevelId?.() ?? runtime.levelData?.levelId ?? null,
+            physicalLevelId: runtime.levelData?.levelId ?? null, scene: scene?.name || '',
+            processMemoryBytes: null,
+            processMemorySource: 'device-panel-only',
+            jsHeap: readMemorySnapshot(),
+            spineWasmCapacityBytes: heap?.buffer?.byteLength ?? null,
+            trackedTextureBytes: gpuTextures.size > 0 ? trackedTextureBytes : null,
+            textureScope: 'tracked-gpu-allocations-only', unavailableTextureSizes,
+            // Engine accounting overlaps trackedTextureBytes; these are not additive or process RSS.
+            gfxTextureBytes: validBytes(gfxMemory?.textureSize),
+            gfxBufferBytes: validBytes(gfxMemory?.bufferSize),
+            gfxMemoryScope: 'engine-accounting-only',
+            dynamicAtlas: {
+                enabled: dynamicAtlasManager.enabled,
+                count: dynamicAtlasManager.atlasCount,
+                textureSize: dynamicAtlasManager.textureSize,
+            },
+            textureCount: textures.size, assetCount, sceneNodeCount, sceneSpineCount, sharedSpineCount,
+            activeSpineCount: Number(runtime._pinddSpineFxActiveCount) || 0,
+            pooledSpineCount: getPoolSize(runtime, runtime._pinddSpineFxPool),
+            spriteFrameCacheSize: getMapLikeSize(runtime.sfCache),
+            spriteFrameOwnerCount: getMapLikeSize(runtime._spriteFrameCacheMeta),
+            largestTextures: largestTextures.slice(0, 5),
+        };
+        memoryWarn.call(console, '[PDD_MEMORY]', JSON.stringify(snapshot));
+        if (event !== 'runtime.destroy.after') {
+            const appInfo = typeof wx?.getAppBaseInfo === 'function' ? wx.getAppBaseInfo() : wx?.getSystemInfoSync?.();
+            updateRuntimeMemoryOverlay(snapshot, appInfo?.enableDebug === true);
+        }
+    } catch (error) {
+        memoryWarn.call(console, '[PDD_MEMORY]', JSON.stringify({
+            revision: 'memory-breakdown-v4', event, at: now,
+            unavailable: true, error: error instanceof Error ? error.message : String(error),
+        }));
     }
 }
 
@@ -301,6 +454,15 @@ export function debugPerfTrace(eventName: string, data: PlainRecord = {}): void 
 }
 
 export function debugPerfSnapshot(eventName: string, runtime: any, data: PlainRecord = {}): void {
+    if (eventName === 'runtime.game.firstPlayable' || eventName === 'runtime.destroy.after') {
+        reportRuntimeMemorySnapshot(eventName, runtime);
+    }
+    if (eventName === 'runtime.game.firstPlayable' && getMiniGameBuildPlatform() === 'wechat' && typeof runtime.scheduleOnce === 'function') {
+        const levelData = runtime.levelData;
+        runtime.scheduleOnce(() => {
+            if (runtime.node?.isValid && runtime.levelData === levelData) reportRuntimeMemorySnapshot('runtime.game.steady', runtime);
+        }, 10);
+    }
     if (!isDebugPerfTraceEnabled()) return;
     debugPerfTrace(eventName, {
         ...collectDebugPerfRuntimeSnapshot(runtime),

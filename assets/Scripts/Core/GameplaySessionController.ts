@@ -15,6 +15,7 @@ import { PCH_GAMEPLAY_MODE, PCH_GAMEPLAY_SCHEMA_VERSION } from './AnalyticsMgr';
 import { LevelDataCdnService } from './LevelDataCdnService';
 import { GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES } from './GameCtrlModules/GameplayJudgmentFeedbackModule';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
+import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from './WorkbenchPreviewService';
 
 export class GameplaySessionController {
     constructor(private readonly runtime: any) {}
@@ -92,11 +93,12 @@ export class GameplaySessionController {
             validateWinAdBonusEnabled(data.winAdBonusEnabled, `level ${resolvedLevelId}`);
             initStage = 'model_build';
             runtime.boardModel = new BoardModel(data);
+            runtime.restoreCoopBoard?.();
             runtime.slotModel = null;
             runtime._activeSlotRowPolicy = null;
             initStage = 'time_policy';
             const resolvedTimeLimit = Math.max(0, Math.floor(Number(data.timeLimit) || 0));
-            const resolvedDynamicTimeLimit = typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
+            const resolvedDynamicTimeLimit = !isWorkbenchPreviewRequested() && typeof runtime.resolveDynamicCountdownTimeLimit === 'function'
                 ? runtime.resolveDynamicCountdownTimeLimit({
                     levelId: activeLogicalLevelId,
                     entryMode: gameplayEntryMode,
@@ -105,8 +107,8 @@ export class GameplaySessionController {
                 : resolvedTimeLimit;
             const dynamicTimeLimit = gameplayEntryMode === 'main' && activeLogicalLevelId === 1 ? 0 : resolvedDynamicTimeLimit;
             initStage = 'state_reset';
-            runtime._currentLevelUnlimitedTime = dynamicTimeLimit <= 0;
-            runtime.timeRemain = dynamicTimeLimit;
+            runtime._currentLevelUnlimitedTime = !!runtime.isCoopMode?.() || dynamicTimeLimit <= 0;
+            runtime.timeRemain = runtime.isCoopMode?.() ? 0 : dynamicTimeLimit;
             runtime._countdownWarningTickSecondsPlayed = new Set<number>();
             runtime.isGameEnd = false;
             runtime._activeLoseReason = null;
@@ -252,7 +254,7 @@ export class GameplaySessionController {
                         ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
                         ddaReason: String(runtime._dynamicCountdownReason || ''),
                     }, pchController.getAnalyticsSnapshot());
-                    SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
+                    if (!isWorkbenchPreviewRequested()) SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
                     initStage = 'interaction_ready';
                     this.reportLevelInteractionReady(
                         runtime,
@@ -263,6 +265,11 @@ export class GameplaySessionController {
                     );
                     runtime.reportFirstLevelReleaseState?.('interaction_ready_emitted');
                     runtime.scheduleFirstLevelReleaseDiagnostics?.();
+                    if (isWorkbenchPreviewRequested()) {
+                        if (WorkbenchPreviewService.inst.hasBackground() && !runtime.applyPreparedGameplayBackground()) throw new Error('[试玩] 背景应用失败');
+                        void WorkbenchPreviewService.inst.ready(runtime, analyticsPhysicalLevelId)
+                            .catch(error => WorkbenchPreviewService.inst.fail(runtime, error));
+                    }
                 } catch (error) {
                     if (continuationSynchronous) throw error;
                     this.failGameplayInitialization(runtime, {
@@ -348,6 +355,7 @@ export class GameplaySessionController {
         };
 
         runtime.isGameEnd = true;
+        if (isWorkbenchPreviewRequested()) WorkbenchPreviewService.inst.reportFailure(`${safeStage}: ${errorMessage}`);
         runCleanup('hard-intro', () => ensureHardLevelIntroController(runtime).stop());
         runCleanup('pch-core', () => ensurePchConveyorGameplayController(runtime).stop());
         runCleanup('tutorial', () => this.clearTutorialRuntimeState(runtime));

@@ -573,7 +573,7 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(routeGuide(4, 'main'), [['pinch', {
     title: '双指拖动可放大缩小图案',
-    autoCloseSeconds: 8,
+    autoCloseSeconds: 0,
 }]]);
 assert.deepStrictEqual(routeGuide(4, 'theme'), []);
 assert.deepStrictEqual(routeGuide(5, 'main'), []);

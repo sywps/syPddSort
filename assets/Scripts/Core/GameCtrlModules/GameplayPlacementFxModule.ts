@@ -1219,6 +1219,7 @@ export function installGameplayPlacementFxModule(target: any): void {
             if (this.isGameEnd) return;
             if (this._currentLevelUnlimitedTime) return;
             if (this._timerPauseRefs > 0) return;
+            if (this.isCoopMode?.()) this.recordCoopRuleEvent(8);
             if (this.tickFreezeTimer()) return;
             this.timeRemain--;
             if (this.timerLabel) {

@@ -35,7 +35,7 @@ import { ensureGameplaySkillUiController } from '../GameplaySkillUiController';
 import { LevelDataCdnService, normalizeLevelCollectionEntries } from '../LevelDataCdnService';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
 import { runtimeLog, runtimeWarn } from '../RuntimeLog';
-import { applyLateCloudUserStateToRuntime, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
+import { applyLateCloudUserStateToRuntime, captureCloudGameStateRecoveryFingerprint, deferCloudGameStateSyncDuringStartup, deferLeaderboardProgressDuringStartup, ensureCloudGameStateSyncReadyForPvp, resolveStartupCloudRestorePending } from './StartupCloudRestoreHelper';
 import { debugPerfSnapshot, debugPerfTrace, isDebugPerfTraceEnabled } from '../DebugPerfTrace';
 import { AppRoot } from '../AppRoot';
 import { PVP_ECONOMY_REVISION_KEY } from '../UserStateSyncMgr';
@@ -43,6 +43,8 @@ import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { normalizeStartupLocalLevel, readStartupLocalProgress } from '../StartupLocalProgress';
 import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
 import { GAMEPLAY_JUDGMENT_TEXTURE_NAMES } from './GameplayJudgmentFeedbackModule';
+import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
+import { CoopServiceMgr } from '../CoopServiceMgr';
 
 const SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP = 'startup-bootstrap';
 const SPRITE_FRAME_SCOPE_SCENE_HOME = 'scene-home';
@@ -1543,6 +1545,18 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         _loadLevelDataFromConfiguredSource(levelId: number, prefix: string, callback: (data: LevelData | null, source: string, err?: Error | null) => void) {
+            if (this.isCoopMode?.() && prefix !== 'coop_level_') {
+                const data = CoopServiceMgr.inst.active?.half;
+                callback(data || null, 'coop', data ? null : new Error('合作存档未准备好'));
+                return;
+            }
+            if (isWorkbenchPreviewRequested()) {
+                WorkbenchPreviewService.inst.loadLevel(levelId, prefix).then(
+                    data => callback(data, 'workbench_preview', null),
+                    error => { WorkbenchPreviewService.inst.fail(this, error); callback(null, 'workbench_preview', error); },
+                );
+                return;
+            }
             if (shouldUseLocalLevelDataMirror()) {
                 this._loadLevelDataFromLocalBundle(levelId, prefix, callback);
                 return;
@@ -2352,6 +2366,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         releaseSceneScopedSpriteFrames(sceneName: string, reason: string = 'scene-destroy') {
+            const runtimeDestroyed = reason.includes('runtime-destroy');
             const scopes = new Set<string>([SPRITE_FRAME_SCOPE_DYNAMIC]);
             if (reason.includes('runtime-destroy')) {
                 scopes.add(SPRITE_FRAME_SCOPE_SHARED_UI);
@@ -2366,7 +2381,7 @@ export function installAssetBootstrapModule(target: any): void {
                 }
             }
             const names = Array.from(this._spriteFrameCacheMeta.entries())
-                .filter(([, meta]) => scopes.has(String(meta?.scope || '')))
+                .filter(([, meta]) => runtimeDestroyed || scopes.has(String(meta?.scope || '')))
                 .map(([name]) => name);
             debugPerfSnapshot('spriteFrame.sceneScope.release.before', this, {
                 sceneName,
@@ -2375,16 +2390,27 @@ export function installAssetBootstrapModule(target: any): void {
                 candidateNames: names.length,
             });
             this.scanRenderSpriteFrameHealth?.(`before-scene-scope-release:${sceneName}:${reason}`);
-            if (names.length > 0) {
+            if (runtimeDestroyed) {
+                // Return only this runtime's refs; the incoming scene can share the same texture.
+                for (const name of names) {
+                    this._releaseSpriteFrameCacheResource(
+                        name, this.sfCache.get(name) || null, this._spriteFrameCacheMeta.get(name), `${reason}:${sceneName}`,
+                    );
+                }
+                this.sfCache.clear();
+                this._spriteFrameCacheMeta.clear();
+                this._bootstrapAtlasFrameCache.clear();
+                this._bootstrapBeanAtlasReady = false;
+                this._bootstrapBeanAtlasTexture = null;
+                this._bootstrapBeanAtlasImageAsset = null;
+                this._bootstrapBeanAtlasTextureReleaseMode = 'asset';
+            } else if (names.length > 0) {
                 this._releaseCachedSpriteFrames(names, `${reason}:${sceneName}`, {
                     force: true,
                     ignoreOwners: true,
                     ignoreUsage: true,
                     ignoreScope: true,
                 });
-            }
-            if ((sceneName === 'Game' || sceneName === 'Boot') && reason.includes('runtime-destroy')) {
-                this._releaseBootstrapBeanAtlas(`${reason}:${sceneName}`, { force: true });
             }
             debugPerfSnapshot('spriteFrame.sceneScope.release.after', this, {
                 sceneName,
@@ -2774,6 +2800,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         saveLevelProgress(levelId: number) {
+            if (isWorkbenchPreviewRequested()) return;
             const normalizedLevel = Math.max(1, Math.floor(Number(levelId) || 1));
             const currentLevel = this.getSavedLevel();
             const nextLevel = Math.max(currentLevel, normalizedLevel);
@@ -2833,13 +2860,20 @@ export function installAssetBootstrapModule(target: any): void {
             };
         },
 
-        queueCloudGameStateSync(): void {
-            if (deferCloudGameStateSyncDuringStartup(this)) return;
+        queueCloudGameStateSync(): boolean {
+            if (deferCloudGameStateSyncDuringStartup(this)) return false;
             const timestamp = Date.now();
-            this.setLocalUserStateUpdatedAt(timestamp);
             const state = this.captureCloudGameState();
             state.stateUpdatedAt = timestamp;
-            UserStateSyncMgr.inst.queueSave({ profile: UserMgr.inst.getCloudProfile(), gameState: state });
+            const queued = UserStateSyncMgr.inst.queueSave({ profile: UserMgr.inst.getCloudProfile(), gameState: state });
+            if (queued) {
+                this.setLocalUserStateUpdatedAt(timestamp);
+            }
+            return queued;
+        },
+
+        async ensureCloudGameStateSyncReady(): Promise<boolean> {
+            return ensureCloudGameStateSyncReadyForPvp(this);
         },
 
         async loadRestorableUserStateFromCloud(): Promise<CloudUserState | null> { return UserStateSyncMgr.inst.loadState(); },
@@ -2862,9 +2896,10 @@ export function installAssetBootstrapModule(target: any): void {
             if (this._startupCloudRestorePromise) {
                 return this._startupCloudRestorePromise;
             }
+            this._startupCloudRestoreBaselineFingerprint = captureCloudGameStateRecoveryFingerprint(this);
             const canUseCloudState = UserStateSyncMgr.inst.canUseCloud();
             if (!canUseCloudState) {
-                if (!hadLocalUserState) this._startupCloudSaveBlockedForSession = true;
+                this._startupCloudSaveBlockedForSession = true;
                 const status: UserStateRestoreStatus = hadLocalUserState ? 'local_progress_gt_1' : 'cloud_unavailable_unresolved';
                 this._startupCloudRestoreStatus = status;
                 return Promise.resolve(status);
@@ -2879,9 +2914,17 @@ export function installAssetBootstrapModule(target: any): void {
                 sceneName: String(this.node?.scene?.name || ''),
             });
             this._startupCloudRestorePromise = this.loadRestorableUserStateFromCloud().then((lateState) => {
+                if (!this._startupCloudRestorePending) {
+                    return this.getStartupCloudRestoreStatus() || 'cloud_failed_unresolved';
+                }
                 let status: UserStateRestoreStatus;
                 if (!lateState) {
                     status = UserStateSyncMgr.inst.canUseCloud() ? 'cloud_failed_unresolved' : 'cloud_unavailable_unresolved';
+                } else if (this._startupCloudRestoreBaselineFingerprint
+                    && captureCloudGameStateRecoveryFingerprint(this) !== this._startupCloudRestoreBaselineFingerprint) {
+                    this._deferredCloudGameStateSync = true;
+                    status = 'cloud_failed_unresolved';
+                    runtimeWarn('[GameCtrl] startup cloud restore deferred because local user state changed during request');
                 } else if (this._shouldHoldStartupCloudRestoreForBoot()) {
                     status = this.applyCloudUserState(lateState);
                 } else {
@@ -2897,6 +2940,9 @@ export function installAssetBootstrapModule(target: any): void {
                 });
                 return status;
             }).catch((error) => {
+                if (!this._startupCloudRestorePending) {
+                    return this.getStartupCloudRestoreStatus() || 'cloud_failed_unresolved';
+                }
                 const status: UserStateRestoreStatus = 'cloud_failed_unresolved';
                 this._startupCloudRestoreStatus = status;
                 resolveStartupCloudRestorePending(this, status);
@@ -3109,6 +3155,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         handleGameHideFlushUserState(): void {
             this._gameForeground = false;
+            this.flushCoopOnHide?.();
             this.resetTouchState?.();
             this.pauseGuideReminderForLifecycle?.();
             this.reportFirstLevelReleaseState?.('app_hide');
@@ -3118,6 +3165,7 @@ export function installAssetBootstrapModule(target: any): void {
 
         handleGameShowLifecycle(): void {
             this._gameForeground = true;
+            this.checkCoopInvitation?.();
             this.ensureRewardedAdWarmSlot?.('app-foreground');
             this.resetTouchState?.();
             this.auditRuntimeOwnersAfterForeground?.();

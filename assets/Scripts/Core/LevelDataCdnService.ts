@@ -151,6 +151,7 @@ function removePersistedLevelPack(cacheKey: string): void {
 function normalizeLevelPrefix(prefix: string): string {
     if (!prefix || prefix === DEFAULT_LEVEL_PREFIX) return DEFAULT_LEVEL_PREFIX;
     if (prefix === THEME_LEVEL_PREFIX) return THEME_LEVEL_PREFIX;
+    if (prefix === 'coop_level_') return prefix;
     return '';
 }
 

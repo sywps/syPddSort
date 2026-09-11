@@ -1078,7 +1078,7 @@ export function installFirstLevelRouteModule(target: any): void {
         async continueStartup() {
             markStartupTrace('startup_continue_decision_start');
             const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
-            const pixelPvpRequest = pendingSceneGameplayRequest?.routeReason === 'pvp-ranked';
+            const pixelPvpRequest = pendingSceneGameplayRequest?.routeReason === 'pvp-ranked' || pendingSceneGameplayRequest?.routeReason === 'pixel-coop';
             const urlLevel = pixelPvpRequest ? 0 : this.getUrlLevel();
             const urlLevelFile = pixelPvpRequest ? '' : this.getUrlLevelFile();
             const urlTheme = pixelPvpRequest || this.getUrlTheme();

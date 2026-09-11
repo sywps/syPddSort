@@ -117,6 +117,7 @@ function setup(options = {}) {
       if (id.endsWith('GameCtrlShared')) return shared;
       if (id.endsWith('AppRoot')) return { AppRoot: { inst: app, tryGet: () => app, ensure: () => app } };
       if (id.endsWith('PvpServiceMgr')) return { PvpServiceMgr: { inst: service } };
+      if (id.endsWith('CoopServiceMgr')) return { CoopServiceMgr: { inst: { fullLevel: async () => require('../cloudfunctions/coopService/levels/coop_level_1.json') } } };
       if (id.endsWith('PvpBotReplay')) return { pixelLevelHash: () => 'test-hash' };
       if (id.endsWith('PixelPosterPreviewRenderer')) return { renderPixelPosterPreview: (...args) => calls.preview.push(args) };
       return {};
@@ -147,6 +148,7 @@ function setup(options = {}) {
     startThemeLevel: async levelId => { calls.chapter.push(levelId); return true; },
     getSavedLevel: () => 3,
     openSettingsPanel: () => { calls.settings = true; },
+    openCoopLobby: () => { calls.coop = true; },
   };
   module.exports.installPvpModeModule(runtime);
   runtime.showPvpOpponentReveal = (parent, context) => calls.reveals.push(context);
@@ -207,8 +209,17 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   assert.deepStrictEqual(find(chapter.overlayRoot, 'StartMatch').getComponent(Graphics).fills[1], { r: 102, g: 87, b: 200, a: 255 }, 'shadow drawing must preserve purple button fill');
   assert(find(chapter.overlayRoot, 'ChapterLevel').getComponent(Label).string.includes('第 8 关'));
   assert.strictEqual(chapter.calls.preview.length, 1, 'use actual loaded level preview');
-  assert.strictEqual(find(chapter.overlayRoot, 'FriendChallenge').getComponent(Button).interactable, false);
-  click(chapter.overlayRoot, 'FriendChallenge');
+  const cards = ['ChapterCard', 'CoopCard', 'RankedCard'].map(name => find(chapter.overlayRoot, name));
+  for (let i = 0; i < cards.length - 1; i++) {
+    const upper = cards[i], lower = cards[i + 1];
+    assert(upper.position.y - upper.getComponent(UITransform).height / 2 > lower.position.y + lower.getComponent(UITransform).height / 2, 'mode cards must be ordered with a visible gap');
+  }
+  assert.strictEqual(find(chapter.overlayRoot, 'CoopEntry').parent, cards[1], 'cooperation action belongs to its own card below chapter mode');
+  await flush();
+  assert(chapter.calls.preview.some(args => args[0].name === 'CoopPreview'), 'cooperation card renders its dedicated pattern');
+  assert.notStrictEqual(find(chapter.overlayRoot, 'CoopEntry').getComponent(Button).interactable, false);
+  click(chapter.overlayRoot, 'CoopEntry');
+  assert.strictEqual(chapter.calls.coop, true, 'cooperation entry opens the new mode');
   assert.strictEqual(find(chapter.overlayRoot, 'PvpFriendBattleOverlay'), null);
   click(chapter.overlayRoot, 'StartChapter');
   await flush();

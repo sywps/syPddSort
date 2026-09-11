@@ -18,7 +18,7 @@ function readJson(relativePath) {
     return JSON.parse(read(relativePath));
 }
 
-function loadClientCollectionCatalogContract(liveManifest = null) {
+function loadClientCollectionCatalogContract(liveManifest = null, packs = {}) {
     const source = read('assets/Scripts/Core/LevelDataCdnService.ts');
     const output = ts.transpileModule(source, {
         compilerOptions: {
@@ -58,8 +58,8 @@ function loadClientCollectionCatalogContract(liveManifest = null) {
                     normalizeCdnBaseUrl: (value) => String(value || ''),
                     parseJsonText: JSON.parse,
                     readCdnStorageObject: () => null,
-                    requestCdnText: () => liveManifest
-                        ? Promise.resolve(JSON.stringify(liveManifest))
+                    requestCdnText: (url) => liveManifest
+                        ? Promise.resolve(JSON.stringify(packs[url] || liveManifest))
                         : Promise.reject(new Error('not used')),
                     withCdnQuery: (url) => url,
                     writeCdnStorageObject: () => {},
@@ -71,6 +71,9 @@ function loadClientCollectionCatalogContract(liveManifest = null) {
             if (id === './LevelConfig') {
                 return {
                     validateConveyorCapacity: () => 60,
+                    validateHard: () => 0,
+                    validateAutoConveyorFinishSpeed: () => false,
+                    validateWinAdBonusEnabled: () => true,
                 };
             }
             throw new Error(`unexpected require: ${id}`);
@@ -320,7 +323,17 @@ assert.ok(flow.includes('openCollectionImageModal(levelId, prefix)'), 'collectio
 assert.ok(!cloudFunction.includes('collection-catalog'), 'syncUserState must not load the collection catalog');
 assert.ok(!cloudFunction.includes('level_live.json'), 'syncUserState must not load the level manifest');
 
-assertV3ManifestLoadsEndToEnd().then(() => {
+assertV3ManifestLoadsEndToEnd().then(async () => {
+    const levels = require('../assets/GameAssetsBundle/coop-manifest.json').levels.map(entry => ({
+        levelId: entry.levelId, prefix: 'coop_level_', data: require(`../assets/LevelData/${entry.file}`),
+    }));
+    const pack = { id: 'coop', schemaVersion: 3, prefix: 'coop_level_', levelRange: [1, 10], levels };
+    const manifest = { manifestVersion: 1, schemaVersion: 3, minClientBuild: 3, dataVersion: 'coop-test', levelCount: 10,
+        packs: [{ ...pack, levels: levels.map(entry => entry.levelId), levelCount: 10, url: 'level_packs/coop.json' }] };
+    const service = new (loadClientCollectionCatalogContract(manifest, { 'https://example.test/levels/level_packs/coop.json': pack }).LevelDataCdnService)();
+    const actual = await service.loadLevel(7, 'coop_level_');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(actual)), levels[6].data, 'shared CDN service loads full cooperation level');
+    assert.equal(await service.loadLevel(7, 'level_'), null, 'cooperation prefix cannot resolve as mainline');
     console.log('collection-catalog-contract.test.js passed');
 }).catch((error) => {
     console.error(error);
