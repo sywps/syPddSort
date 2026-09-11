@@ -1624,7 +1624,6 @@ export function installAssetBootstrapModule(target: any): void {
                 runtimeScene === 'Game'
                 && (
                     !!this._postPlayableWarmupRunningTaskName
-                    || (Array.isArray(this._postPlayableWarmupQueue) && this._postPlayableWarmupQueue.length > 0)
                     || (this._spriteFrameApplyPending instanceof Map && this._spriteFrameApplyPending.size > 0)
                 )
             ) {

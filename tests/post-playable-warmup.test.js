@@ -67,7 +67,7 @@ assert.ok(
 );
 
 for (const method of [
-    'preloadGameplayAudioSet',
+    'AudioMgr.inst.preload',
     '_ensureGameplayResultPanelPrefabsReady',
 ]) {
     assert.ok(warmup.includes(method), `warmup queue must cover ${method}`);
@@ -99,28 +99,17 @@ assert.ok(!warmup.includes('shouldUseConservativePostPlayableWarmup'), 'post-pla
 assert.ok(!warmup.includes('releaseMiniGame'), 'post-playable warmup must not skip resources only in release');
 assert.ok(warmup.includes('_runNextPostPlayableWarmupTask'), 'post-playable warmup must run through a central queue');
 assert.ok(warmup.includes('POST_PLAYABLE_WARMUP_TASK_GAP_SECONDS'), 'post-playable warmup must leave a frame gap between resource tasks');
-assert.ok(warmup.includes('POST_PLAYABLE_WARMUP_BUSY_RETRY_SECONDS'), 'post-playable warmup must pause optional work while gameplay is busy');
+assert.ok(warmup.includes('POST_PLAYABLE_WARMUP_IDLE_SECONDS'), 'post-playable warmup must require observed idle time');
 assert.ok(warmup.includes('_spriteFrameLoadInFlight'), 'post-playable warmup must wait for active SpriteFrame loads before starting more optional work');
 assert.ok(warmup.includes('_spriteFrameApplyPending'), 'post-playable warmup must wait for pending SpriteFrame applies before starting more optional work');
 assert.ok(!warmup.includes('for (const task of tasks)'), 'post-playable warmup tasks must not all be scheduled independently');
 assert.ok(!warmup.includes('ensureGameplayResultPanelsCreated?.()'), 'post-playable warmup must preload result prefabs without instantiating hidden panels');
-const gameplayAudioTaskIndex = warmup.indexOf("name: 'gameplay-audio'");
-const resultPanelsTaskIndex = warmup.indexOf("name: 'result-panels'");
-assert.ok(gameplayAudioTaskIndex >= 0, 'gameplay audio warmup task must exist');
-assert.ok(resultPanelsTaskIndex >= 0, 'result panel warmup task must exist');
-assert.ok(
-    warmup.slice(gameplayAudioTaskIndex, resultPanelsTaskIndex).includes('pauseWhenBusy: true'),
-    'gameplay audio warmup must pause while placement/input/resource work is active',
-);
-const nextResultPanelsTaskIndex = warmup.indexOf('name: ', resultPanelsTaskIndex + 1);
-assert.ok(
-    nextResultPanelsTaskIndex < 0,
-    'result panels must be the final task in the optional-resource warmup queue',
-);
-assert.ok(
-    warmup.slice(resultPanelsTaskIndex, nextResultPanelsTaskIndex).includes('pauseWhenBusy: true'),
-    'result-panel warmup must pause while placement/input/resource work is active',
-);
+assert.ok(warmup.includes('Director.EVENT_AFTER_DRAW'), 'warmup must wait for a rendered playable frame');
+assert.ok(warmup.includes('shouldPauseWarmupTask(this)'), 'audio and panels share busy-state gating');
+assert.ok(!warmup.includes('preloadGameplayAudioSet'), 'warmup must not launch the entire audio set');
+for (const kind of ['win', 'revive', 'bufferFullRevive', 'lose']) {
+    assert.ok(warmup.includes(`panel('${kind}')`), 'warmup must cover each result kind separately');
+}
 assert.ok(warmup.includes('runtime.activeBoardTouches instanceof Map'), 'warmup busy detection must include active board touches');
 assert.ok(!warmup.includes('REWARDED_AD_WARMUP_DELAY_SECONDS'), 'the removed rewarded-ad warmup delay must not remain');
 assert.ok(!warmup.includes("name: 'freeze-spine'"), 'freeze Spine must not run as a fixed post-playable warmup task');
@@ -133,10 +122,10 @@ assert.ok(!settingsPanel.includes('runtime._loadSpriteFrameByName(name'), 'setti
 assert.ok(settingsPanel.includes('loadPrefab();'), 'settings preload must still load the prefab itself');
 assert.ok(!settingsPanel.includes("preloadHomeScene('settings-home-intent')"), 'opening Settings must not create a competing speculative Home scene load');
 
-assert.ok(audioMgr.includes('preloadGameplayAudioSet(): void'), 'AudioMgr must expose a gameplay audio warmup method');
+assert.ok(audioMgr.includes('preload(name: SfxName, onDone?: (error?: Error) => void)'), 'AudioMgr must report preload completion and failure');
 assert.ok(audioMgr.includes('this._loadFromBootstrapBundleAuto((bundle)'), 'BGM must try bootstrap before gameAssets');
 assert.ok(audioMgr.includes('this._loadBgm(bundle, resourcePath, this.bgmAutoplayRequested, loadToken, loadFromGameAssets)'), 'bootstrap BGM must fall back to gameAssets in dev');
-assert.ok(audioManifest.includes("'win',"), 'win SFX must be part of bootstrap-capable SFX');
+assert.ok(audioManifest.includes("'winAll',"), 'current completion SFX must be part of bootstrap-capable SFX');
 assert.ok(audioManifest.includes("'winSettlement',"), 'settlement SFX must be part of bootstrap-capable SFX');
 
 assert.ok(!resultPanels.includes('getMiniGameBuildMode'), 'result panel resource loading must not branch on debug/release');
@@ -160,7 +149,7 @@ assert.ok(ensureResultPanelsSource.includes("const needsRevive = target === 'rev
 assert.ok(ensureResultPanelsSource.includes("const needsLose = target === 'lose' || target === 'lose-flow' || target === 'all';"), 'loss flow must create its final lose instance on demand');
 assert.ok(!ensureResultPanelsSource.includes('this.destroyGameplayResultOverlays();'), 'creating one result kind must not destroy unrelated valid result instances');
 assert.ok(settlement.includes("ensureGameplayResultPanelsCreated?.('win')"), 'win settlement must request only its own panel instance');
-assert.ok(settlement.includes("ensureGameplayResultPanelsCreated?.('lose-flow')"), 'loss settlement must request only revive and final-lose instances');
+assert.ok(settlement.includes('ensureGameplayResultPanelsCreated?.(reason)'), 'loss settlement must request only the actual failure kind');
 
 assert.ok(postbuildWechat.includes('const debugLevelDataBundle = false;'), 'WeChat debug must not add a debug-only levelData bundle');
 assert.ok(!postbuildWechat.includes("const debugLevelDataBundle = buildMode === 'debug';"), 'WeChat build package layout must not branch on debug/release');

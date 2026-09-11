@@ -405,7 +405,6 @@ assert.ok(
 const levelOneGuideStepSource = extractMethod('private showLevelOneBoardGuideStep(parent: Node): void');
 const sharedTargetGuideSource = extractMethod('private showOpeningTargetGuide(');
 const sharedTargetGuideAtSource = extractMethod('private showOpeningTargetGuideAt(');
-const focusMaskSource = extractMethod('private createOpeningGuideFocusMask(');
 const speedFocusMaskSource = extractMethod('private createOpeningGuideSpeedFocusMask(');
 const capacityFocusMaskSource = extractMethod('private createOpeningGuideCapacityFocusMask(');
 const conveyorPromptAnchorSource = extractMethod('private getOpeningGuidePromptCenterYAboveConveyor(');
@@ -436,12 +435,12 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('Sprite.Type.SLICED')
         && sharedTargetGuideAtSource.includes("guideName.startsWith('PchLevelOneGuideStep')")
         && sharedTargetGuideAtSource.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
-        && sharedTargetGuideAtSource.includes('this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);')
+        && !sharedTargetGuideAtSource.includes('this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);')
         && sharedTargetGuideAtSource.includes('this.createOpeningGuideSpeedFocusMask(parent, targetLocal, targetWidth, targetHeight);')
         && sharedTargetGuideAtSource.includes('this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);')
         && source.includes('const OPENING_GUIDE_PROMPT_WIDTH = 520;')
         && source.includes('const OPENING_GUIDE_PROMPT_HEIGHT = 140;')
-        && source.includes('const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 48;')
+        && source.includes('const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 96;')
         && sharedTargetGuideAtSource.includes('const usesVideoGuideBubbleLayout = isStarterOpeningGuide && !!guideBubbleFrame;')
         && sharedTargetGuideAtSource.includes('? OPENING_GUIDE_PROMPT_WIDTH')
         && sharedTargetGuideAtSource.includes('? OPENING_GUIDE_PROMPT_HEIGHT')
@@ -453,7 +452,7 @@ assert.ok(
         && sharedTargetGuideAtSource.includes("copy.split('\\n', 2)")
         && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, title, 42, Color.WHITE, 0, 26, promptWidth - 64)')
         && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -26, promptWidth - 64)')
-        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, copy, 32, Color.WHITE, 0, 0, promptWidth - 64)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, copy, 38, Color.WHITE, 0, 0, promptWidth - 64)')
         && sharedTargetGuideAtSource.includes('title, 32, Color.WHITE, 0, 26, promptWidth - 64')
         && sharedTargetGuideAtSource.includes('detail || title, 28, Color.WHITE, 0, -22, promptWidth - 64')
         && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(titleLabel);')
@@ -470,7 +469,7 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('const promptX = usesVideoGuideBubbleLayout')
         && sharedTargetGuideAtSource.includes('? 0')
         && sharedTargetGuideAtSource.includes(': Math.max(-promptXLimit, Math.min(promptXLimit, targetLocal.x));'),
-    'all first-three-level guides must use the centered, unflipped video-style bubble layout above the conveyor',
+    'all first-three-level guides must use the raised centered bubble layout, with level 1 unmasked and level 2/3 masks preserved',
 );
 assert.ok(
     openingGuideTextStyleSource.includes('label.color = new Color(32, 32, 32, 255);')
@@ -499,30 +498,7 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('this.openingGuide.setSiblingIndex(Math.max(0, parent.children.length - 1));')
         && sharedTargetGuideAtSource.includes("this.openingGuideTarget = this.makeNode('OpeningGuideTapTarget', parent, targetWidth + 24, targetHeight + 24, targetLocal.x, targetLocal.y);")
         && !sharedTargetGuideAtSource.includes('addComponent(BlockInputEvents)'),
-    'level 1 must keep its mask, bubble, hand, and touch target in GameplayFixedRoot without adding a blocking input component',
-);
-assert.ok(
-    source.includes('const OPENING_GUIDE_TARGET_FOCUS_PADDING = 12;')
-        && focusMaskSource.includes("const mask = this.makeNode(\n            'PchOpeningGuideDimMask',")
-        && focusMaskSource.includes('parentTransform.contentSize.width')
-        && focusMaskSource.includes("this.belt?.getChildByName('PchMovingTrack')")
-        && focusMaskSource.includes('const targetFocus = createFocusRect(')
-        && focusMaskSource.includes('const conveyorFocus = createFocusRect(')
-        && focusMaskSource.includes('if (targetFocus.bottom <= conveyorFocus.top)')
-        && focusMaskSource.includes('const graphics = panel.addComponent(Graphics);')
-        && focusMaskSource.includes('graphics.fillColor = new Color(27, 23, 48, OPENING_GUIDE_DIM_MASK_OPACITY);')
-        && focusMaskSource.includes('graphics.rect(-width / 2, -height / 2, width, height);')
-        && focusMaskSource.includes("createPanel('GuideDimTop'")
-        && focusMaskSource.includes("createPanel('GuideDimBetweenFocus'")
-        && focusMaskSource.includes("createPanel('GuideDimConveyorLeft'")
-        && focusMaskSource.includes("createPanel('GuideDimConveyorRight'")
-        && focusMaskSource.includes("createPanel('GuideDimBottom'")
-        && focusMaskSource.includes('mask.setSiblingIndex(0);')
-        && !focusMaskSource.includes('GuideDimMaskTemplate')
-        && !focusMaskSource.includes('instantiate(template)')
-        && !focusMaskSource.includes('UIOpacity')
-        && !focusMaskSource.includes('BlockInputEvents'),
-    'only level 1 must render seven same-layer Graphics panels with independent bean and conveyor focus regions',
+    'level 1 must keep its bubble, hand, touch target, and input lock in GameplayFixedRoot without a visual dim mask or blocking input component',
 );
 assert.ok(
     speedFocusMaskSource.includes("'PchOpeningGuideSpeedDimMask'")

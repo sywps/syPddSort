@@ -64,7 +64,7 @@ const OPENING_GUIDE_TARGET_FOCUS_PADDING = 12;
 const OPENING_GUIDE_CONVEYOR_FOCUS_PADDING = 8;
 const OPENING_GUIDE_PROMPT_WIDTH = 520;
 const OPENING_GUIDE_PROMPT_HEIGHT = 140;
-const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 48;
+const OPENING_GUIDE_PROMPT_CONVEYOR_GAP = 96;
 const PCH_CAPACITY_FULL_WARNING_CLIP = 'PchCapacityFullWarning';
 const PCH_RED_WARNING_EMPTY_SLOT_THRESHOLD = 3;
 const PCH_RED_WARNING_PULSE_SECONDS = 0.5;
@@ -102,11 +102,10 @@ const SPHERE_FLY_TRAIL_WIDTH_OVER_TRAIL = 0.8;
 const SPHERE_FLY_STAR_MIN_LIFETIME_SECONDS = 0.1;
 const SPHERE_FLY_STAR_MAX_LIFETIME_SECONDS = 0.3;
 const SPHERE_FLY_STAR_SIZE_PEAK_TIME = 0.17615890502929688;
-const SPHERE_FLY_TRAIL_LIFETIME_SECONDS = 1;
-const SPHERE_FLY_TRAIL_HEAD_ANCHOR_X = 0.25;
-const SPHERE_FLY_TRAIL_ALPHA_MID_TIME = 26719 / 65535;
-const SPHERE_FLY_TRAIL_ALPHA_MID_VALUE = 0.37266355752944946;
-const SPHERE_FLY_TRAIL_SEGMENT_COUNT = 4;
+const SPHERE_FLY_TRAIL_HEAD_ANCHOR_X = 1;
+const SPHERE_FLY_TRAIL_FOLLOW_SECONDS = 0.09;
+const SPHERE_FLY_TRAIL_MAX_LENGTH_RATIO = 4;
+const SPHERE_FLY_TRAIL_SEGMENT_COUNT = 1;
 const SPHERE_FLY_MAX_STARS_PER_EFFECT = 60;
 const MAX_POOLED_SPHERE_FLY_EFFECTS = 24;
 const MAX_POOLED_SPHERE_FLY_STARS = 240;
@@ -164,10 +163,9 @@ interface SphereFlyEffectInstance {
     trailSegments: SphereFlyTrailSegment[];
     beanSize: number;
     delayRemainingSeconds: number;
-    activeAgeSeconds: number;
     previousEmitterPosition: Vec3;
     currentEmitterPosition: Vec3;
-    trailOrigin: Vec3;
+    trailTailPosition: Vec3;
     distanceSinceLastStar: number;
     emittedStarCount: number;
     stars: SphereFlyStarParticle[];
@@ -1599,6 +1597,16 @@ export class PchConveyorGameplayController {
         }
     }
 
+    isPostPlayableWarmupIdle(): boolean {
+        return this.isStartupInteractionReady()
+            && !this.externalInputBlocked
+            && !this.skillMovementPaused
+            && this.activeFlyBeans.size === 0
+            && this.activeReturnAnimations === 0
+            && this.pendingPchReturnColorSettles.size === 0
+            && this.activePchColorCompleteEffects === 0;
+    }
+
     private tryCommitFinishAfterPchColorCompleteEffects(): void {
         if (this.rules?.board?.isAllLocked() !== true
             || this.returnBatchInProgress
@@ -1675,14 +1683,9 @@ export class PchConveyorGameplayController {
             transform.setContentSize(1, beanSize * SPHERE_FLY_TRAIL_WIDTH_RATIO);
             sprite.sizeMode = Sprite.SizeMode.CUSTOM;
             sprite.spriteFrame = trailSpriteFrame;
-            sprite.type = Sprite.Type.FILLED;
-            sprite.fillType = Sprite.FillType.HORIZONTAL;
-            sprite.fillStart = index / SPHERE_FLY_TRAIL_SEGMENT_COUNT;
-            sprite.fillRange = 1 / SPHERE_FLY_TRAIL_SEGMENT_COUNT;
+            sprite.type = Sprite.Type.SIMPLE;
             sprite.color = SPHERE_FLY_TRAIL_COLOR;
-            opacity.opacity = Math.round(255 * this.getSphereFlyTrailAlpha(
-                (index + 0.5) / SPHERE_FLY_TRAIL_SEGMENT_COUNT,
-            ));
+            opacity.opacity = 255;
             segment.setPosition(0, 0, 0);
             segment.setScale(1, 1, 1);
             segment.angle = 0;
@@ -1701,10 +1704,9 @@ export class PchConveyorGameplayController {
             trailSegments,
             beanSize,
             delayRemainingSeconds: Math.max(0, flightDelaySeconds),
-            activeAgeSeconds: 0,
             previousEmitterPosition: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
             currentEmitterPosition: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
-            trailOrigin: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
+            trailTailPosition: new Vec3(emitterPosition.x, emitterPosition.y, emitterPosition.z),
             distanceSinceLastStar: 0,
             emittedStarCount: 0,
             stars: [],
@@ -1753,16 +1755,6 @@ export class PchConveyorGameplayController {
         return segments;
     }
 
-    private getSphereFlyTrailAlpha(normalizedDistance: number): number {
-        const t = Math.max(0, Math.min(1, normalizedDistance));
-        if (t <= SPHERE_FLY_TRAIL_ALPHA_MID_TIME) {
-            return 1 + (SPHERE_FLY_TRAIL_ALPHA_MID_VALUE - 1)
-                * (t / SPHERE_FLY_TRAIL_ALPHA_MID_TIME);
-        }
-        return SPHERE_FLY_TRAIL_ALPHA_MID_VALUE
-            * (1 - (t - SPHERE_FLY_TRAIL_ALPHA_MID_TIME) / (1 - SPHERE_FLY_TRAIL_ALPHA_MID_TIME));
-    }
-
     private updateSphereFlyEffects(deltaTime: number): void {
         const frameSeconds = Math.max(0, Number(deltaTime) || 0);
         for (const state of this.activeSphereFlyEffects.values()) {
@@ -1781,37 +1773,50 @@ export class PchConveyorGameplayController {
                 activeDelta = Math.max(0, frameSeconds - delayBeforeFrame);
             }
 
-            state.activeAgeSeconds += activeDelta;
             this.updateSphereFlyStarParticles(state, activeDelta);
             this.emitSphereFlyStarsAlongSegment(state, state.previousEmitterPosition, currentEmitterPosition);
-            this.updateSphereFlyTrail(state, currentEmitterPosition);
+            this.updateSphereFlyTrail(state, currentEmitterPosition, activeDelta);
             state.previousEmitterPosition.set(currentEmitterPosition);
         }
     }
 
-    private updateSphereFlyTrail(state: SphereFlyEffectInstance, emitterPosition: Vec3): void {
-        const backwardX = state.trailOrigin.x - emitterPosition.x;
-        const backwardY = state.trailOrigin.y - emitterPosition.y;
-        const trailDistance = Math.sqrt(backwardX * backwardX + backwardY * backwardY);
-        const normalizedAge = Math.max(0, Math.min(
-            1,
-            state.activeAgeSeconds / SPHERE_FLY_TRAIL_LIFETIME_SECONDS,
-        ));
-        const particleSizeScale = 1 - 3 * normalizedAge * normalizedAge
-            + 2 * normalizedAge * normalizedAge * normalizedAge;
-        if (trailDistance < 0.5 || particleSizeScale <= 0) {
+    private updateSphereFlyTrail(
+        state: SphereFlyEffectInstance,
+        emitterPosition: Vec3,
+        deltaTime: number,
+    ): void {
+        const tailFollow = 1 - Math.exp(-Math.max(0, deltaTime) / SPHERE_FLY_TRAIL_FOLLOW_SECONDS);
+        state.trailTailPosition.x += (emitterPosition.x - state.trailTailPosition.x) * tailFollow;
+        state.trailTailPosition.y += (emitterPosition.y - state.trailTailPosition.y) * tailFollow;
+
+        let backwardX = state.trailTailPosition.x - emitterPosition.x;
+        let backwardY = state.trailTailPosition.y - emitterPosition.y;
+        let trailDistance = Math.sqrt(backwardX * backwardX + backwardY * backwardY);
+        const beanScale = Math.max(0.001, Math.abs(state.bean.scale.x));
+        const maxTrailLength = state.beanSize * beanScale * SPHERE_FLY_TRAIL_MAX_LENGTH_RATIO;
+        if (trailDistance > maxTrailLength) {
+            const limitScale = maxTrailLength / trailDistance;
+            backwardX *= limitScale;
+            backwardY *= limitScale;
+            trailDistance = maxTrailLength;
+            state.trailTailPosition.set(
+                emitterPosition.x + backwardX,
+                emitterPosition.y + backwardY,
+                emitterPosition.z,
+            );
+        }
+        if (trailDistance < 0.5) {
             state.trail.active = false;
             return;
         }
-        const beanScale = Math.max(0.001, Math.abs(state.bean.scale.x));
         const trailWidth = state.beanSize * beanScale * SPHERE_FLY_TRAIL_WIDTH_RATIO
-            * SPHERE_FLY_TRAIL_WIDTH_OVER_TRAIL * particleSizeScale;
-        const textureLength = trailDistance / (1 - SPHERE_FLY_TRAIL_HEAD_ANCHOR_X);
+            * SPHERE_FLY_TRAIL_WIDTH_OVER_TRAIL;
+        const textureLength = trailDistance;
         for (const segment of state.trailSegments) {
             segment.transform.setContentSize(Math.max(1, textureLength), Math.max(1, trailWidth));
         }
         state.trail.setPosition(emitterPosition);
-        state.trail.angle = Math.atan2(backwardY, backwardX) * 180 / Math.PI;
+        state.trail.angle = Math.atan2(-backwardY, -backwardX) * 180 / Math.PI;
         state.trail.active = true;
     }
 
@@ -3228,9 +3233,7 @@ export class PchConveyorGameplayController {
         const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;
         this.openingGuide = this.makeNode(guideName, parent, 720, 1280, 0, 0);
         this.openingGuide.setSiblingIndex(Math.max(0, parent.children.length - 1));
-        if (isLevelOneBoardGuide) {
-            this.createOpeningGuideFocusMask(parent, targetLocal, targetWidth, targetHeight);
-        } else if (isLevelTwoSpeedGuide) {
+        if (isLevelTwoSpeedGuide) {
             this.createOpeningGuideSpeedFocusMask(parent, targetLocal, targetWidth, targetHeight);
         } else if (isLevelThreeCapacityGuide) {
             this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);
@@ -3276,7 +3279,7 @@ export class PchConveyorGameplayController {
                 this.applyOpeningGuidePromptLabelStyle(titleLabel);
                 this.applyOpeningGuidePromptLabelStyle(detailLabel);
             } else if (isLevelTwoSpeedGuide) {
-                const promptLabel = this.makeLabel(prompt, copy, 32, Color.WHITE, 0, 0, promptWidth - 64);
+                const promptLabel = this.makeLabel(prompt, copy, 38, Color.WHITE, 0, 0, promptWidth - 64);
                 this.applyOpeningGuidePromptLabelStyle(promptLabel);
             } else if (isLevelThreeCapacityGuide) {
                 const [title, detail] = copy.split('\n', 2);

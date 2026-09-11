@@ -31,6 +31,7 @@ import type {
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
 import { ensureGameplayResultPanelController } from '../GameplayResultPanelController';
+import type { ResultPanelKind } from '../GameplayResultPanelController';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
 import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/RewardedAdProvider';
@@ -1464,12 +1465,12 @@ export function installHomeAdFlowModule(target: any): void {
             }, this);
         },
     }, {
-        _hasGameplayResultPanelPrefabsReady() {
-            return ensureGameplayResultPanelController(this).hasPrefabsReady();
+        _hasGameplayResultPanelPrefabsReady(kinds?: readonly ResultPanelKind[]) {
+            return ensureGameplayResultPanelController(this).hasPrefabsReady(kinds);
         },
 
-        _ensureGameplayResultPanelPrefabsReady(onDone: () => void, onError?: (error: Error) => void) {
-            ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone, onError);
+        _ensureGameplayResultPanelPrefabsReady(onDone: () => void, onError?: (error: Error) => void, kinds?: readonly ResultPanelKind[]) {
+            ensureGameplayResultPanelController(this).ensurePrefabsReady(onDone, onError, kinds);
         },
 
         showBasicSettlement(kind: 'win' | 'timeout' | 'buffer-full' | 'lose') {
@@ -1477,29 +1478,35 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         ensureGameplayResultPanelsCreated(
-            target: 'win' | 'revive' | 'lose' | 'lose-flow' | 'all' = 'all',
+            target: 'win' | 'revive' | 'timeout' | 'buffer-full' | 'lose' | 'lose-flow' | 'all' = 'all',
         ): boolean {
-            if (!this._hasGameplayResultPanelPrefabsReady()) {
-                return false;
-            }
             const needsWin = target === 'win' || target === 'all';
             const needsRevive = target === 'revive' || target === 'lose-flow' || target === 'all';
             const needsLose = target === 'lose' || target === 'lose-flow' || target === 'all';
+            const needsTimeout = needsRevive || target === 'timeout';
+            const needsBufferFull = needsRevive || target === 'buffer-full';
+            const kinds: ResultPanelKind[] = [];
+            if (needsWin) kinds.push('win');
+            if (needsTimeout) kinds.push('revive');
+            if (needsBufferFull) kinds.push('bufferFullRevive');
+            if (needsLose) kinds.push('lose');
+            if (!this._hasGameplayResultPanelPrefabsReady(kinds)) return false;
             if (needsWin && !this.panelWin?.isValid) {
                 this.panelWin = this.createWinSettlementPanel();
             }
             if (needsLose && !this.panelLose?.isValid) {
                 this.panelLose = this.createLoseSettlementPanel();
             }
-            if (needsRevive && !this.panelTimeoutContinue?.isValid) {
+            if (needsTimeout && !this.panelTimeoutContinue?.isValid) {
                 this.panelTimeoutContinue = this.createReviveSettlementPanel();
             }
-            if (needsRevive && !this.panelBufferFullContinue?.isValid) {
+            if (needsBufferFull && !this.panelBufferFullContinue?.isValid) {
                 this.panelBufferFullContinue = this.createBufferFullSettlementPanel();
             }
             return (!needsWin || !!this.panelWin?.isValid)
                 && (!needsLose || !!this.panelLose?.isValid)
-                && (!needsRevive || (!!this.panelTimeoutContinue?.isValid && !!this.panelBufferFullContinue?.isValid));
+                && (!needsTimeout || !!this.panelTimeoutContinue?.isValid)
+                && (!needsBufferFull || !!this.panelBufferFullContinue?.isValid);
         },
 
         instantiateResultOverlay(name: string): Node {

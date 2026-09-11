@@ -275,10 +275,10 @@ for (const outcome of ['retry-success', 'failure', 'timeout']) {
     const controller = new ResultController(runtime);
     const loads = [];
     controller.withBootstrapBundle = done => done({});
-    controller.loadPrefabsFromBundle = (_bundle, _name, seq, done, fail) => loads.push({ seq, done, fail });
+    controller.loadPrefabsFromBundle = (_bundle, _name, kinds, isCurrent, done, fail) => loads.push({ kinds, isCurrent, done, fail });
     let succeeded = 0, failed = 0;
-    controller.ensurePrefabsReady(() => { succeeded++; }, () => { failed++; });
-    controller.ensurePrefabsReady(() => { succeeded++; }, () => { failed++; });
+    controller.ensurePrefabsReady(() => { succeeded++; }, () => { failed++; }, ['win']);
+    controller.ensurePrefabsReady(() => { succeeded++; }, () => { failed++; }, ['win']);
     if (outcome === 'timeout') fireTimers();
     else loads[0].fail(new Error('first load'));
     assert.equal(loads.length, 2);
@@ -290,8 +290,8 @@ for (const outcome of ['retry-success', 'failure', 'timeout']) {
     loads[1].done(); loads[1].fail(new Error('late error'));
     assert.equal(succeeded, outcome === 'retry-success' ? 2 : 0);
     assert.equal(failed, outcome === 'retry-success' ? 0 : 2);
-    assert.equal(runtime._gameplayResultPanelPrefabLoadCallbacks, null);
-    assert.equal(controller.isCurrentPrefabLoad(loads[1].seq), false);
+    assert.equal(controller.prefabLoads.size, 0);
+    assert.equal(loads[1].isCurrent(), false);
     assert.equal(timers.size, 0);
 }
 

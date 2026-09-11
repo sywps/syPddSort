@@ -1,4 +1,5 @@
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -72,17 +73,20 @@ assert.deepStrictEqual(
 );
 
 const routeIconMeta = readJson('assets/GameAssetsBundle/Textures/UI/collection_entry_icon.png.meta');
-const homeIconMeta = readJson('assets/HomeAssetsBundle/GameUI/图鉴1.png.meta');
-assert.notStrictEqual(routeIconMeta.uuid, homeIconMeta.uuid, 'WinPanel icon must not reuse the HomeAssetsBundle UUID');
+const HOME_COLLECTION_UUID = '382d81c2-e3f4-5d6e-c6de-abcaed0907fd';
+const ROUTE_ICON_SHA256 = 'd9be673e6e2df386dcaa427fc7822c8f1499b68e2eeda2fd2fe82bc751000329';
+assert.notStrictEqual(routeIconMeta.uuid, HOME_COLLECTION_UUID, 'WinPanel icon must not reuse the HomeAssetsBundle UUID');
 assert.strictEqual(
     iconSprite?._spriteFrame?.__uuid__,
     `${routeIconMeta.uuid}@f9941`,
     'CollectionIcon must bind the route-owned GameAssetsBundle SpriteFrame',
 );
-assert.ok(
-    fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/collection_entry_icon.png'))
-        .equals(fs.readFileSync(path.join(root, 'assets/HomeAssetsBundle/GameUI/图鉴1.png'))),
-    'route-owned win icon must preserve the approved home collection art bytes',
+assert.strictEqual(
+    crypto.createHash('sha256')
+        .update(fs.readFileSync(path.join(root, 'assets/GameAssetsBundle/Textures/UI/collection_entry_icon.png')))
+        .digest('hex'),
+    ROUTE_ICON_SHA256,
+    'route-owned win icon must preserve its independently approved art bytes',
 );
 const controller = read('assets/Scripts/Core/GameplayResultPanelController.ts');
 const methodStart = controller.indexOf('createWinSettlementPanel(): Node');

@@ -34,18 +34,15 @@ export class GameplaySessionController {
                 runtime.clearRuntimeOwners?.(scope);
             }
             runtime._modalFocusRefs = 0;
+            runtime.stopPostPlayableWarmup?.();
             runtime._gameplayInitSeq = (Number(runtime._gameplayInitSeq) || 0) + 1;
             runtime.resetFirstLevelReleaseDiagnostics?.();
             runtime._gameplayResultPanelPrefabLoadSeq = (Number(runtime._gameplayResultPanelPrefabLoadSeq) || 0) + 1;
-            runtime._gameplayResultPanelPrefabLoadCallbacks = null;
             this.clearTutorialRuntimeState(runtime);
             initStage = 'audio_init';
             AudioMgr.inst.init(runtime.node);
             AudioMgr.inst.preload('button');
-            const bootstrapOnlyGameplayStartup = !!runtime._bootstrapOnlyGameplayStartup;
-            if (!bootstrapOnlyGameplayStartup) {
-                AudioMgr.inst.preload('settle');
-            }
+            AudioMgr.inst.preload('settle');
             runtime.levelData = data;
             initStage = 'route_context';
             resolvedLevelId = runtime._isThemeLevel

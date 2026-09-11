@@ -23,6 +23,7 @@ class PvpHumanReplay {
         this.firstTap = -1;
         this.completedAt = -1;
         this.deadlockedAt = -1;
+        this.deadlockStartTravel = -1;
         this.simulatedMs = 0;
         this.freezeRemaining = 0;
         this.initialized = false;
@@ -52,6 +53,7 @@ class PvpHumanReplay {
             locked: this.board.locked.map(row => row.slice()), transport: this.rules.exportTransportState(),
             pendingReady: this.pendingReady.slice(), travel: this.travel, speed: this.speed, lastTime: this.lastTime,
             firstTap: this.firstTap, completedAt: this.completedAt, deadlockedAt: this.deadlockedAt,
+            deadlockStartTravel: this.deadlockStartTravel,
             simulatedMs: this.simulatedMs, initialized: this.initialized, autoSpeed: this.autoSpeed,
             ...(this.allowAssists ? { bufferCapacity: this.rules.bufferCapacity, timeRemaining: this.timeRemaining, freezeRemaining: this.freezeRemaining } : {}) };
     }
@@ -97,6 +99,7 @@ class PvpHumanReplay {
         }
         replay.initialized = state.initialized;
         replay.autoSpeed = state.autoSpeed;
+        replay.deadlockStartTravel = Number.isFinite(state.deadlockStartTravel) ? state.deadlockStartTravel : -1;
         return replay;
     }
     addCells(time, cells) {
@@ -153,6 +156,7 @@ class PvpHumanReplay {
                     throw new Error('invalid capacity grant');
                 this.rules.addBufferSlots(a);
                 this.deadlockedAt = -1;
+                this.deadlockStartTravel = -1;
             }
             else if (kind === 8) {
                 if (this.freezeRemaining > 0)
@@ -240,8 +244,15 @@ class PvpHumanReplay {
                 }
             }
             this.addCells(time, cells);
-            if (this.rules.isBufferDeadlocked() && this.deadlockedAt < 0)
+            if (!this.rules.isBufferDeadlocked()) {
+                this.deadlockStartTravel = -1;
+                this.deadlockedAt = -1;
+            }
+            else if (this.deadlockStartTravel < 0)
+                this.deadlockStartTravel = this.travel;
+            else if (this.deadlockedAt < 0 && this.travel >= this.deadlockStartTravel + this.rules.carrierCount) {
                 this.deadlockedAt = time;
+            }
         }
     }
     finish(terminalType, time) {

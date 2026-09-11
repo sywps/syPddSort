@@ -365,6 +365,7 @@ export class GameSceneRuntimeController {
     destroy(): void {
         this.runtime.disposeCoop?.();
         director.off(Director.EVENT_AFTER_DRAW, this.reportStartupPlayableAfterDraw, this);
+        this.runtime.stopPostPlayableWarmup?.();
         const sceneName = this.getRuntimeSceneName();
         this.runtime.cancelRewardedGrantInteraction?.(`scene-destroy:${sceneName}`);
         this.runtime.cancelPendingShareReturn?.(`scene-destroy:${sceneName}`);

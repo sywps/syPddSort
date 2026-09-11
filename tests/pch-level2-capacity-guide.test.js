@@ -77,8 +77,8 @@ assert.ok(
 );
 assert.strictEqual(
     (source.match(/this\.createOpeningGuideFocusMask\(parent, targetLocal, targetWidth, targetHeight\);/g) || []).length,
-    1,
-    'levels 2 and 3 must not create the level-1-only dual-focus dim mask',
+    0,
+    'level 1 must remove its visual dim mask while levels 2 and 3 keep their dedicated masks',
 );
 assert.strictEqual(
     (source.match(/this\.createOpeningGuideCapacityFocusMask\(parent, targetLocal, targetWidth, targetHeight\);/g) || []).length,
