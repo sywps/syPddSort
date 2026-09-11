@@ -10,15 +10,15 @@ const source = fs.readFileSync(
 
 assert.ok(
     source.includes('if (logicalLevelId === 1)')
-        && source.includes("? '点击白色豆豆\\n他们会自动放置到传送带上'")
-        && source.includes(": '点击蓝色豆豆\\n将白色的位置空出';")
+        && source.includes("? '点击发光的白色豆豆\\n将它们放上传送带'")
+        && source.includes(": '点击发光的蓝色豆豆\\n为白色豆豆腾出位置';")
         && source.includes('this.openingGuideLevelOneCells.length >= 2'),
     'mainline level 1 must retain the approved two-line color-specific copy',
 );
 assert.ok(
     source.includes('this.handleBoardTap(cell.row, cell.col);')
         && source.includes('this.openingGuideLevelOneStep += 1;')
-        && source.includes('this.showLevelOneBoardGuideStep(parent);'),
+        && source.includes('this.loadOpeningGuideBeanRing(parent, () => this.showLevelOneBoardGuideStep(parent));'),
     'the first accepted board tap must advance to the second gesture before dismissing the guide',
 );
 assert.ok(
@@ -68,9 +68,9 @@ assert.ok(
     'the level-2 target tap must deterministically enable 3x speed before gameplay starts',
 );
 assert.ok(
-    source.includes("logicalLevelId === 3 && this.adButton?.isValid")
+    source.includes('logicalLevelId === 3 && this.adButton?.isValid')
         && source.includes("'PchLevelThreeCapacityGuide'")
-        && source.includes("'点击扩容按钮\\n传送带容量增加12格'")
+        && source.includes("'传送带满了就会失败哦\\n点击扩容可以增加传送带容量'")
         && source.includes('const isStarterOpeningGuide = isLevelOneBoardGuide || isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
         && source.includes('this.createOpeningGuideCapacityFocusMask(parent, targetLocal, targetWidth, targetHeight);'),
     'mainline level 3 must retain its capacity guide with a dedicated conveyor-and-button dim mask',
@@ -101,7 +101,7 @@ assert.ok(
         && source.includes("getChildByName('GuideHandSingle')")
         && source.includes('const hand = instantiate(sourceHand);')
         && source.includes('this.openingGuideTarget.addComponent(Button)')
-        && source.includes('this.openingGuideTarget.on(Node.EventType.TOUCH_END, onTargetTap, this)')
+        && source.includes('this.openingGuideTarget.on(Node.EventType.TOUCH_END, isLevelOneBoardGuide ? this.handleOpeningGuideRootTap : onTargetTap, this)')
         && !source.includes('this.openingGuideTarget.on(Node.EventType.TOUCH_START, onTargetTap, this)'),
     'all opening guides must clone the original authored hand and accept touch-end input on the highlighted Button target',
 );

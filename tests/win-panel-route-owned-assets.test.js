@@ -79,6 +79,11 @@ const settlementSettings = findNode('SettingsButton');
 const settlementGold = findNode('GoldGroup');
 const rewardGoldMaskBar = findNode('RewardGoldMaskBar');
 assert.ok(settlementTopHud && settlementSettings && settlementGold, 'WinPanel must own its minimal settlement HUD nodes');
+assert.strictEqual(
+    settlementTopHud._active,
+    false,
+    'WinPanel must keep its settings and gold HUD hidden during settlement',
+);
 assert.ok(rewardGoldMaskBar, 'WinPanel must keep the reward row structure');
 assert.strictEqual(rewardGoldMaskBar._active, false, 'WinPanel reward row must not show the black mask bar');
 assert.ok(winPanel.includes('d301f7b8-b783-6861-36c5-31dbb54a2ac0@f9941'), 'settlement settings must use the bootstrap-owned settings art');

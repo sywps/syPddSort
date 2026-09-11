@@ -109,6 +109,7 @@ const appCc = {
 };
 const { AppRoot } = load('assets/Scripts/Core/AppRoot.ts', {
     cc: appCc,
+    './AppTransitionController': { AppTransitionController: class {} },
     './StartupLoadingController': { StartupLoadingController },
     './AppSession': { AppSession: class {} },
     './SceneRouter': { SceneRouter: class {} },

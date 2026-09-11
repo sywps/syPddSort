@@ -1,0 +1,47 @@
+{
+  "scope": "independent candidates; formal source preserved; simulator is not human acceptance",
+  "levels": [
+    {
+      "levelId": 3,
+      "originalSha256": "7ce0c70140f87788202117c4f8d516f0429c8b5edef6dd0bdf16dc5eca0d792e",
+      "originalDisplaced": 251,
+      "displaced": 108,
+      "activeColors": 3,
+      "filled": 260,
+      "timeLimit": 150,
+      "capacity": 60,
+      "legalReplayPasses": 5,
+      "replayAttempts": 5,
+      "fastestReplaySeconds": 16,
+      "taps": 12
+    },
+    {
+      "levelId": 4,
+      "originalSha256": "d922135a65833288cc8e57c52668297f7cb3c89383184e31634199e6e3d25044",
+      "originalDisplaced": 456,
+      "displaced": 144,
+      "activeColors": 3,
+      "filled": 460,
+      "timeLimit": 150,
+      "capacity": 60,
+      "legalReplayPasses": 5,
+      "replayAttempts": 5,
+      "fastestReplaySeconds": 25.5,
+      "taps": 18
+    },
+    {
+      "levelId": 5,
+      "originalSha256": "d29a884d1ee383a209e92544a42c9ca790b883b182eeb2a9f26b653cceab3204",
+      "originalDisplaced": 511,
+      "displaced": 180,
+      "activeColors": 4,
+      "filled": 547,
+      "timeLimit": 120,
+      "capacity": 60,
+      "legalReplayPasses": 5,
+      "replayAttempts": 5,
+      "fastestReplaySeconds": 29.75,
+      "taps": 18
+    }
+  ]
+}

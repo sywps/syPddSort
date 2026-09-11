@@ -158,6 +158,8 @@ const audioManifestMock = {
     AUDIO_BOOTSTRAP_SFX_NAMES: [
         'select', 'settle', 'fly', 'button', 'tick', 'lose',
         'winColor', 'winAll', 'winSettlement', 'revivePop',
+        'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
+        'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
     ],
     AUDIO_SFX_RESOURCE_PATH: {
         select: 'Audio/select',
@@ -170,11 +172,19 @@ const audioManifestMock = {
         winAll: 'Audio/win-all',
         winSettlement: 'Audio/win-settlement',
         revivePop: 'Audio/revive-pop',
+        judgmentGreat: 'Audio/judgment-great',
+        judgmentExcellent: 'Audio/judgment-excellent',
+        judgmentAwesome: 'Audio/judgment-awesome',
+        judgmentAmazing: 'Audio/judgment-amazing',
+        judgmentPerfect: 'Audio/judgment-perfect',
+        judgmentUnbelievable: 'Audio/judgment-unbelievable',
     },
     AUDIO_SFX_VOLUME: {
         select: 0.55, button: 0.52, place: 0.72, settle: 0.72, fly: 0.4, return: 0.22,
         tick: 0.4, coin: 0.42, win: 0.52, lose: 0.44, winColor: 0.5,
         winAll: 0.5, winSettlement: 0.62, revivePop: 0.32,
+        judgmentGreat: 0.56, judgmentExcellent: 0.56, judgmentAwesome: 0.56,
+        judgmentAmazing: 0.56, judgmentPerfect: 0.56, judgmentUnbelievable: 0.56,
     },
     AUDIO_SFX_VOLUME_VARIANCE: {},
 };
@@ -212,7 +222,11 @@ const gameSceneAllowlistMatch = audioMgrSource.match(/const GAME_SCENE_SFX_ALLOW
 assert.ok(gameSceneAllowlistMatch, 'AudioMgr must declare an explicit Game-scene SFX allowlist');
 assert.deepStrictEqual(
     [...gameSceneAllowlistMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]),
-    ['settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop'],
+    [
+        'settle', 'button', 'tick', 'winColor', 'winAll', 'winSettlement', 'lose', 'revivePop',
+        'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
+        'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
+    ],
     'Game-scene SFX allowlist must match the approved gameplay policy',
 );
 assert.strictEqual(
@@ -388,6 +402,8 @@ audioMgr.sfxClips.set('uiPanel', { _nativeAsset: { url: 'ui-panel.mp3' } });
 const allowedGameSfxNames = [
     'settle', 'button', 'tick', 'winColor', 'winAll',
     'winSettlement', 'lose', 'revivePop',
+    'judgmentGreat', 'judgmentExcellent', 'judgmentAwesome',
+    'judgmentAmazing', 'judgmentPerfect', 'judgmentUnbelievable',
 ];
 for (const name of allowedGameSfxNames) {
     audioMgr.sfxClips.set(name, { _nativeAsset: { url: `${name}.mp3` } });

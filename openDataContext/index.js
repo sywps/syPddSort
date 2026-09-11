@@ -6,17 +6,23 @@
 const Canvas = wx.getSharedCanvas();
 const ctx = Canvas.getContext('2d');
 
-const CANVAS_WIDTH = 620;
-const CANVAS_HEIGHT = 830;
-const ROW_HEIGHT = 84;
-const ROW_BOX_HEIGHT = 78;
-const LIST_TOP = -4;
-const LIST_BOTTOM = 18;
-const AVATAR_RADIUS = 20;
-const VISIBLE_ROWS = Math.max(1, Math.floor((CANVAS_HEIGHT - LIST_TOP - LIST_BOTTOM) / ROW_HEIGHT));
+const CANVAS_WIDTH = 596;
+const CANVAS_HEIGHT = 580;
+const ROW_HEIGHT = 85.512;
+const ROW_BOX_HEIGHT = 112;
+const ROW_CENTERS_Y = [210.945, 126.14, 40.194, -45.318];
+const LIST_BOTTOM = 4;
+const AVATAR_RADIUS = 28;
+function getRowTop(index) {
+    const centerY = index < 4 ? ROW_CENTERS_Y[index] : ROW_CENTERS_Y[3] - (index - 3) * ROW_HEIGHT;
+    return CANVAS_HEIGHT / 2 - centerY - ROW_BOX_HEIGHT / 2;
+}
 const MAX_ENTRIES = 100;
 const MAX_AVATAR_CACHE = 24;
 const OPEN_DATA_DEBUG = false;
+
+Canvas.width = CANVAS_WIDTH;
+Canvas.height = CANVAS_HEIGHT;
 
 let scrollOffset = 0;
 let lastRenderedScrollOffset = -1;
@@ -28,8 +34,23 @@ const avatarDownloadQueue = [];
 let avatarQueueHead = 0;
 let isDownloading = false;
 let friendRankActive = false;
+let friendRankDataState = 'idle';
+let friendRankDataError = '';
 let avatarLoadVersion = 0;
 let didLogDirectAvatarFallback = false;
+let lastSelfData;
+
+const RANKING_ART_PATHS = {
+    avatarDefault: 'openDataContext/ranking/leaderboard_avatar_default.png',
+    avatarFrame: 'openDataContext/ranking/leaderboard_avatar_frame.png',
+    row: 'openDataContext/ranking/leaderboard_row_standard.png',
+    rank1: 'openDataContext/ranking/medal_gold_rank_1.png',
+    rank2: 'openDataContext/ranking/medal_silver_rank_2.png',
+    rank3: 'openDataContext/ranking/medal_bronze_rank_3.png',
+};
+const rankingArt = {};
+let rankingArtState = 'loading';
+let rankingArtError = '';
 
 function debugLog() {
     if (OPEN_DATA_DEBUG) console.log.apply(console, arguments);
@@ -37,99 +58,96 @@ function debugLog() {
 
 // 配色
 const COLORS = {
-    bg: '#F5F0E8',
-    rowOdd: '#FFFFFF',
-    rowEven: '#F7F1E8',
-    text: '#5A4A3A',
-    textLight: '#8A7A6A',
-    progress: '#8B674F',
-    rank1: '#F1C550',
-    rank2: '#C8CED8',
-    rank3: '#D8A16C',
-    rankOther: '#D9C1A2',
-    selfRow: '#F4E2BE',
+    text: '#4B3F47',
+    textLight: '#71869A',
 };
 
 function drawBackground() {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.fillStyle = COLORS.bg;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 }
 
 function drawHeader() {
     // 好友榜和全国榜统一样式，不再额外绘制表头。
 }
 
-function getRankBadgeColor(rank) {
-    if (rank === 1) return COLORS.rank1;
-    if (rank === 2) return COLORS.rank2;
-    if (rank === 3) return COLORS.rank3;
-    return COLORS.rankOther;
+function drawContainedImage(image, centerX, centerY, maxWidth, maxHeight) {
+    const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+    const width = image.width * scale;
+    const height = image.height * scale;
+    ctx.drawImage(image, centerX - width / 2, centerY - height / 2, width, height);
+}
+
+function drawRankingArtState() {
+    if (rankingArtState === 'ready') return true;
+    drawBackground();
+    drawEmpty(rankingArtState === 'error' ? '排行榜资源加载失败' : '加载排行榜样式中...');
+    return false;
+}
+
+function loadRankingArt() {
+    const entries = Object.entries(RANKING_ART_PATHS);
+    let remaining = entries.length;
+    for (const [key, assetPath] of entries) {
+        const image = wx.createImage();
+        image.onload = () => {
+            if (rankingArtState === 'error') return;
+            rankingArt[key] = image;
+            remaining -= 1;
+            if (remaining > 0) return;
+            rankingArtState = 'ready';
+            if (friendRankActive) {
+                renderVisibleRows('wechat-friend', true);
+            } else if (lastSelfData !== undefined) {
+                renderSelfRanking(lastSelfData);
+            }
+        };
+        image.onerror = (error) => {
+            if (rankingArtState === 'error') return;
+            rankingArtState = 'error';
+            rankingArtError = `${key}: ${error?.errMsg || error || 'unknown error'}`;
+            console.error('[OpenData] leaderboard art load failed:', rankingArtError);
+            drawRankingArtState();
+        };
+        image.src = assetPath;
+    }
+}
+
+// Manual snapshot of the saved nationwide rows; independent of runtime Prefab changes.
+const ROW_TEXT_Y = [0.692, 3.863, 2.277, 0];
+
+function drawRowText(text, x, y, fontSize, maxWidth, align, color) {
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    const measuredWidth = ctx.measureText(text).width;
+    if (measuredWidth > maxWidth) {
+        ctx.font = `bold ${fontSize * maxWidth / measuredWidth}px sans-serif`;
+    }
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
 }
 
 function drawRow(entry, y, rowIndex, options) {
-    const rowColor = options?.rowColor || COLORS.rowOdd;
     const badgeText = options?.badgeText || String(entry.rank || (rowIndex + 1));
-    const badgeColor = options?.badgeColor || getRankBadgeColor(entry.rank);
     const displayName = getDisplayName(entry);
     const score = typeof entry.progressLevel === 'number' ? entry.progressLevel : extractScore(entry.KVDataList);
-    const rowX = 8;
-    const rowW = CANVAS_WIDTH - 16;
+    const rowX = 18;
+    const rowW = 560;
     const rowCenterY = y + ROW_BOX_HEIGHT / 2;
-    const badgeStripW = entry.rank <= 3 ? 76 : 68;
+    ctx.drawImage(rankingArt.row, rowX, y, rowW, ROW_BOX_HEIGHT);
 
-    ctx.fillStyle = rowColor;
-    roundRect(ctx, rowX, y, rowW, ROW_BOX_HEIGHT, 18);
-    strokeRoundRect(ctx, rowX, y, rowW, ROW_BOX_HEIGHT, 18, '#D8C5A5', 2);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(rowX + 18, y);
-    ctx.lineTo(rowX + rowW - 18, y);
-    ctx.quadraticCurveTo(rowX + rowW, y, rowX + rowW, y + 18);
-    ctx.lineTo(rowX + rowW, y + ROW_BOX_HEIGHT - 18);
-    ctx.quadraticCurveTo(rowX + rowW, y + ROW_BOX_HEIGHT, rowX + rowW - 18, y + ROW_BOX_HEIGHT);
-    ctx.lineTo(rowX + 18, y + ROW_BOX_HEIGHT);
-    ctx.quadraticCurveTo(rowX, y + ROW_BOX_HEIGHT, rowX, y + ROW_BOX_HEIGHT - 18);
-    ctx.lineTo(rowX, y + 18);
-    ctx.quadraticCurveTo(rowX, y, rowX + 18, y);
-    ctx.closePath();
-    ctx.clip();
-    ctx.fillStyle = entry.rank === 1 ? '#F5D8A9' : entry.rank === 2 ? '#D9ECFB' : entry.rank === 3 ? '#F9EEC7' : '#FFFDFC';
-    ctx.fillRect(rowX, y, badgeStripW, ROW_BOX_HEIGHT);
-    ctx.restore();
-
-    if (entry.rank <= 3) {
-        ctx.fillStyle = badgeColor;
-        ctx.beginPath();
-        ctx.arc(rowX + 30, rowCenterY, 20, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#8B5A2B';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 20px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(badgeText, rowX + 30, rowCenterY + 1);
+    const medal = rankingArt[`rank${entry.rank}`];
+    if (medal) {
+        ctx.drawImage(medal, 77.383 - 36, rowCenterY - 1.809 - 30, 72, 60);
     } else {
-        ctx.fillStyle = COLORS.text;
-        ctx.font = '20px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(badgeText, rowX + 34, rowCenterY + 1);
+        drawRowText(badgeText, 78.373, rowCenterY, 28, 72, 'center', '#6B6D7A');
     }
 
-    drawAvatarCircle(entry.avatarUrl, displayName, 90, rowCenterY, AVATAR_RADIUS);
+    drawAvatarCircle(entry.avatarUrl, 150, rowCenterY, AVATAR_RADIUS);
 
-    ctx.fillStyle = COLORS.text;
-    ctx.font = '20px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(displayName.slice(0, 10), 135, rowCenterY);
-
-    ctx.fillStyle = COLORS.progress;
-    ctx.textAlign = 'right';
-    ctx.fillText(`第${score}关`, CANVAS_WIDTH - 24, rowCenterY);
+    const textY = rowCenterY - ROW_TEXT_Y[Math.min(rowIndex, 3)];
+    drawRowText(displayName, 196.071, textY, 26, 220, 'left', COLORS.text);
+    drawRowText(`第${score}关`, 488, textY, 24, 124, 'center', COLORS.text);
 }
 
 function drawEmpty(message) {
@@ -140,39 +158,29 @@ function drawEmpty(message) {
     ctx.fillText(message, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
 }
 
-function drawAvatarCircle(avatarUrl, nickname, x, y, radius) {
+function drawAvatarCircle(avatarUrl, x, y, radius) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    const innerRadius = radius * 52 / 56;
+    ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
     ctx.clip();
 
-    const img = avatarCache[avatarUrl];
+    const img = avatarCache[avatarUrl] || rankingArt.avatarDefault;
     if (img && img.width > 0) {
         // 等比缩放填充
-        const scale = Math.max(radius * 2 / img.width, radius * 2 / img.height);
+        const scale = Math.max(innerRadius * 2 / img.width, innerRadius * 2 / img.height);
         const w = img.width * scale;
         const h = img.height * scale;
         ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
     } else {
-        // 无头像时显示背景色 + 首字母
-        ctx.fillStyle = '#D9C1A2';
+        // 无头像时只显示中性底色，避免游客昵称被截成单独的“游”字。
+        ctx.fillStyle = '#D9DADF';
         ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
-        ctx.fillStyle = COLORS.text;
-        ctx.font = `${radius}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const initial = (nickname || '?').charAt(0);
-        ctx.fillText(initial, x, y + 1);
     }
 
     ctx.restore();
 
-    // 圆形边框
-    ctx.strokeStyle = '#C0B098';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.drawImage(rankingArt.avatarFrame, x - radius, y - radius, radius * 2, radius * 2);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -269,6 +277,8 @@ function clearAvatarCache() {
 
 function deactivateFriendRankView(message) {
     friendRankActive = false;
+    friendRankDataState = 'idle';
+    friendRankDataError = '';
     scrollOffset = 0;
     lastRenderedScrollOffset = -1;
     lastFriendData = [];
@@ -414,6 +424,8 @@ function renderFullLeaderboard(friendData, source) {
     if (!friendRankActive) {
         return;
     }
+    friendRankDataState = 'ready';
+    friendRankDataError = '';
     lastFriendData = friendData || [];
     allSortedEntries = lastFriendData
         .map((item) => ({
@@ -443,8 +455,22 @@ function renderFullLeaderboard(friendData, source) {
 }
 
 function renderVisibleRows(source, force) {
+    if (!drawRankingArtState()) return;
+    if (friendRankDataState === 'loading') {
+        drawBackground();
+        drawEmpty('加载好友排行中...');
+        return;
+    }
+    if (friendRankDataState === 'error') {
+        drawBackground();
+        drawEmpty(friendRankDataError || '好友排行加载失败');
+        return;
+    }
     const shouldForce = !!force;
-    const maxScroll = Math.max(0, allSortedEntries.length - VISIBLE_ROWS);
+    const contentBottom = allSortedEntries.length
+        ? getRowTop(allSortedEntries.length - 1) + ROW_BOX_HEIGHT + LIST_BOTTOM
+        : 0;
+    const maxScroll = Math.max(0, (contentBottom - CANVAS_HEIGHT) / ROW_HEIGHT);
     if (scrollOffset > maxScroll) scrollOffset = maxScroll;
     if (scrollOffset < 0) scrollOffset = 0;
     const normalizedOffset = scrollOffset;
@@ -454,29 +480,13 @@ function renderVisibleRows(source, force) {
     lastRenderedScrollOffset = normalizedOffset;
     drawBackground();
 
-    const startIdx = Math.floor(scrollOffset);
-    const endIdx = Math.min(startIdx + VISIBLE_ROWS + 1, allSortedEntries.length);
-    const yOffset = scrollOffset - startIdx;
-
-    for (let i = startIdx; i < endIdx; i++) {
-        const localIdx = i - startIdx;
-        const y = LIST_TOP + (localIdx - yOffset) * ROW_HEIGHT;
+    for (let i = 0; i < allSortedEntries.length; i++) {
+        const y = getRowTop(i) - scrollOffset * ROW_HEIGHT;
         if (y > CANVAS_HEIGHT || y + ROW_BOX_HEIGHT < 0) continue;
         if (allSortedEntries[i].avatarUrl) {
             downloadAvatar(allSortedEntries[i].avatarUrl);
         }
         drawRow(allSortedEntries[i], y, i);
-    }
-
-    if (allSortedEntries.length > VISIBLE_ROWS) {
-        const totalHeight = allSortedEntries.length * ROW_HEIGHT;
-        const visibleHeight = VISIBLE_ROWS * ROW_HEIGHT;
-        const trackHeight = CANVAS_HEIGHT - LIST_TOP - LIST_BOTTOM;
-        const indicatorHeight = Math.max(20, (visibleHeight / totalHeight) * trackHeight);
-        const maxTravel = trackHeight - indicatorHeight;
-        const indicatorY = LIST_TOP + (maxScroll <= 0 ? 0 : (scrollOffset / maxScroll) * maxTravel);
-        ctx.fillStyle = 'rgba(90,74,58,0.16)';
-        roundRect(ctx, CANVAS_WIDTH - 6, indicatorY, 4, indicatorHeight, 2);
     }
 
     if (allSortedEntries.length === 0) {
@@ -485,6 +495,8 @@ function renderVisibleRows(source, force) {
 }
 
 function renderSelfRanking(selfData) {
+    lastSelfData = selfData;
+    if (!drawRankingArtState()) return;
     drawBackground();
 
     const kvDataList = Array.isArray(selfData) ? selfData : selfData?.KVDataList;
@@ -501,8 +513,6 @@ function renderSelfRanking(selfData) {
         KVDataList: kvDataList,
     }, CANVAS_HEIGHT / 2 - ROW_BOX_HEIGHT / 2, 0, {
         badgeText: '我',
-        badgeColor: COLORS.rankOther,
-        rowColor: COLORS.selfRow,
     });
 }
 
@@ -516,6 +526,8 @@ wx.onMessage((data) => {
 
     if (data.type === 'getFriendRankings') {
         friendRankActive = true;
+        friendRankDataState = 'loading';
+        friendRankDataError = '';
         resetAvatarDownloads();
         scrollOffset = 0;
         lastRenderedScrollOffset = -1;
@@ -552,8 +564,10 @@ wx.onMessage((data) => {
             },
             fail: (err) => {
                 console.warn('[OpenData] getFriendCloudStorage failed:', err);
+                friendRankDataState = 'error';
+                friendRankDataError = formatFriendRankError(err);
                 drawBackground();
-                drawEmpty(formatFriendRankError(err));
+                drawEmpty(friendRankDataError);
             },
         });
     } else if (data.type === 'getSelfRanking') {
@@ -583,7 +597,9 @@ wx.onMessage((data) => {
 });
 
 // 延迟初始化绘制，等待主域 sharedCanvas 父节点就绪
+loadRankingArt();
 setTimeout(() => {
+    if (friendRankActive || lastSelfData !== undefined) return;
     drawBackground();
-    drawEmpty('点击加载好友排行');
+    drawEmpty(rankingArtState === 'error' ? '排行榜资源加载失败' : '点击加载好友排行');
 }, 500);

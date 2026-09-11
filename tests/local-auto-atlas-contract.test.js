@@ -42,6 +42,13 @@ const groups = [
         names: ['popup_list_row_bg', 'popup_tab_inactive'],
     },
     {
+        id: 'game_leaderboard_v2',
+        bundle: 'gameAssets',
+        directory: 'assets/GameAssetsBundle/Textures/UI/Atlases/LeaderboardV2',
+        atlas: 'leaderboard_v2',
+        names: ['leaderboard_row_standard', 'leaderboard_title_plaque', 'medal_bronze_rank_3', 'medal_gold_rank_1', 'medal_silver_rank_2', 'my_ranking_panel'],
+    },
+    {
         id: 'game_bean_skin_icons',
         bundle: 'gameAssets',
         directory: 'assets/GameAssetsBundle/BeanSkins/icons',
@@ -126,5 +133,5 @@ for (const [label, meta] of [['fill', fillMeta], ['track', trackMeta]]) {
     assert.ok(borders.borderLeft > 0 && borders.borderRight > 0, `${label} sliced horizontal borders must survive`);
 }
 
-assert.strictEqual(expectedRoutes.size, 44, 'local atlas migration must cover exactly 44 new members');
+assert.strictEqual(expectedRoutes.size, 50, 'local atlas migration must cover exactly 50 members');
 console.log('local-auto-atlas-contract.test.js passed');

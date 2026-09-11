@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>前期关卡 · 第一版候选</title>
+<style>
+body{margin:0;background:#f5f3ee;color:#283d37;font:16px/1.6 system-ui,sans-serif}main{max-width:1180px;margin:auto;padding:32px 20px}h1{font-size:30px;margin:0}p{color:#596b62}.tag{color:#267566;font-weight:700}section{background:white;padding:24px;margin:24px 0;border-radius:18px}h2{margin:0 0 8px}.grids{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}figure{margin:0;text-align:center}canvas{width:100%;max-width:320px;background:#f3f4f1;border-radius:10px}figcaption{font-weight:600;margin:8px}a{color:#176958}nav{display:flex;gap:20px;flex-wrap:wrap;margin-top:18px}.error{color:#a32727}@media(max-width:650px){.grids{grid-template-columns:1fr}main{padding:20px 12px}section{padding:18px}}
+</style>
+<main>
+<div class="tag">关卡设计 / retention-v1</div>
+<h1>让前五关的难度逐步上升</h1>
+<p>保留原图案、时间和容量，减少早期同时需要处理的豆豆。以下是独立候选，尚未替换正式关卡。</p>
+<nav><a href="http://localhost:7456/?level=1&amp;profile=local-test" target="_blank">试玩新版首关提示 ↗</a><a href="README.md">设计与验收说明</a></nav>
+<p>候选试玩走外部关卡入口，不含主线专属引导、第三关免费扩容和动态难度。首次进入需等待编辑器预览加载；若显示 UI Preview，点击「进入 Game.scene」。</p>
+<div id="levels">正在读取关卡…</div>
+</main>
+<script>
+const colors=['transparent','#ED5090','#4EEAEA','#F8C811','#FE8B10','#F4BD9E','#EBDEA6','#4A4DCF','#7221BC','#9FCE21','#EA281A','#37A92D','#207955','#20A8DC','#EEB2BC','#C4BED9','#974714','#782F3C','#36387E','#373737','#F2EDE4'];
+async function read(file){const r=await fetch(file);if(!r.ok)throw Error(file+': '+r.status);return r.json()}
+function board(grid,title){const figure=document.createElement('figure'),canvas=document.createElement('canvas'),caption=document.createElement('figcaption');canvas.width=352;canvas.height=352;canvas.setAttribute('aria-label',title);const ctx=canvas.getContext('2d'),size=328/Math.max(grid.length,grid[0].length),ox=(352-grid[0].length*size)/2,oy=(352-grid.length*size)/2;grid.forEach((row,r)=>row.forEach((c,col)=>{if(!c)return;if(!colors[c])throw Error('未知色号 '+c);ctx.fillStyle=colors[c];ctx.fillRect(ox+col*size,oy+r*size,size-1,size-1)}));caption.textContent=title;figure.append(canvas,caption);return figure}
+async function render(){const manifest=await read('manifest.json'),host=document.getElementById('levels');host.textContent='';for(const item of manifest.levels){const id=item.levelId,[old,next]=await Promise.all([read('original_'+id+'.json'),read('level_'+id+'.json')]);const section=document.createElement('section'),heading=document.createElement('h2'),detail=document.createElement('p'),grids=document.createElement('div'),nav=document.createElement('nav');heading.textContent='第 '+id+' 关';detail.textContent='错位豆豆 '+item.originalDisplaced+' → '+item.displaced+' 颗 · 待操作颜色 '+item.activeColors+' 种 · '+item.timeLimit+' 秒 · 容量 '+item.capacity;grids.className='grids';grids.append(board(old.initRandomColorArr,'原版开局'),board(next.initRandomColorArr,'候选开局'),board(next.correctColorArr,'完成图案'));for(const [label,file]of [['试玩候选','level_'],['试玩原版','original_']]){const a=document.createElement('a');a.textContent=label+' ↗';a.target='_blank';a.href='http://localhost:7456/?profile=local-test&levelfile='+encodeURIComponent('tools/generated_levels/retention-v1/'+file+id+'.json');nav.append(a)}const solution=document.createElement('a');solution.href='solution_'+id+'.json';solution.textContent='合法操作参考';nav.append(solution);section.append(heading,detail,grids,nav);host.append(section)}}render().catch(error=>{const host=document.getElementById('levels');host.className='error';host.textContent='读取失败：'+error.message});
+</script>
+</html>

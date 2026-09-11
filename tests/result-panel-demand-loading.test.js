@@ -37,7 +37,7 @@ function harness(minigame = true) {
     vm.runInNewContext(controllerCode, {
         module, exports: module.exports, Map, Set, console, Error, setTimeout: time.setTimeout, clearTimeout: time.clearTimeout,
         require(id) {
-            if (id === './GameCtrlShared') return { Prefab: class {}, GAME_ASSETS_BUNDLE_NAME: 'gameAssets', LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap' };
+            if (id === './GameCtrlShared') return { ccclass: () => target => target, Component: class {}, Prefab: class {}, GAME_ASSETS_BUNDLE_NAME: 'gameAssets', LOCAL_BOOTSTRAP_BUNDLE_NAME: 'bootstrap' };
             if (id === './MiniGamePlatform') return { isMiniGameRuntime: () => minigame };
             if (id === './PchConveyorGameplayController') return {};
             throw new Error(id);

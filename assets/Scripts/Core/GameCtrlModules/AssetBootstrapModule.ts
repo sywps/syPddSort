@@ -42,6 +42,7 @@ import { PVP_ECONOMY_REVISION_KEY } from '../UserStateSyncMgr';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { normalizeStartupLocalLevel, readStartupLocalProgress } from '../StartupLocalProgress';
 import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
+import { GAMEPLAY_JUDGMENT_TEXTURE_NAMES } from './GameplayJudgmentFeedbackModule';
 
 const SPRITE_FRAME_SCOPE_STARTUP_BOOTSTRAP = 'startup-bootstrap';
 const SPRITE_FRAME_SCOPE_SCENE_HOME = 'scene-home';
@@ -63,6 +64,7 @@ type RuntimeRendererSpriteFrameOwner = {
 const SCENE_HOME_SPRITE_FRAME_NAMES = new Set<string>(HOME_MENU_TEXTURE_NAMES);
 const SCENE_GAME_SPRITE_FRAME_NAMES = new Set<string>([
     ...GAMEPLAY_SLOT_TEXTURE_NAMES,
+    ...GAMEPLAY_JUDGMENT_TEXTURE_NAMES,
     ...SKILL_BUTTON_TEXTURE_NAMES,
 ]);
 const SHARED_UI_SPRITE_FRAME_NAMES = new Set<string>([
@@ -978,7 +980,10 @@ export function installAssetBootstrapModule(target: any): void {
             if (atlasMemberPath) {
                 return this._getSpriteFrameLoadCandidates(atlasMemberPath);
             }
-            return GAME_ASSETS_TEXTURE_SEARCH_DIRS.reduce<string[]>((paths, dir) => {
+            const searchDirs = GAMEPLAY_JUDGMENT_TEXTURE_NAMES.includes(imgName)
+                ? ['Textures/UI/Judgment', ...GAME_ASSETS_TEXTURE_SEARCH_DIRS]
+                : GAME_ASSETS_TEXTURE_SEARCH_DIRS;
+            return searchDirs.reduce<string[]>((paths, dir) => {
                 paths.push(...this._getSpriteFrameLoadCandidates(`${dir}/${imgName}`));
                 return paths;
             }, []);
@@ -986,7 +991,10 @@ export function installAssetBootstrapModule(target: any): void {
 
         _getGameAssetsImageAssetCandidatePaths(imgName: string): string[] {
             if (isLocalAtlasMember('gameAssets', imgName)) return [];
-            return GAME_ASSETS_TEXTURE_SEARCH_DIRS.map((dir) => `${dir}/${imgName}`);
+            const searchDirs = GAMEPLAY_JUDGMENT_TEXTURE_NAMES.includes(imgName)
+                ? ['Textures/UI/Judgment', ...GAME_ASSETS_TEXTURE_SEARCH_DIRS]
+                : GAME_ASSETS_TEXTURE_SEARCH_DIRS;
+            return searchDirs.map((dir) => `${dir}/${imgName}`);
         },
 
         _getBootstrapTextureBaseCandidates(imgName: string): string[] {

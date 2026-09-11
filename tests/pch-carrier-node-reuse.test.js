@@ -97,10 +97,11 @@ const renderConveyorCarrierVisual = new Function(
     'Sprite',
     'PCH_STACK_BEAN_SIZE',
     'PCH_STACK_LAYER_OFFSET',
+    'PCH_DIRECTION_SCALE',
     'return function (carrier, stack, carrierIndex) {'
         + methodBody('private renderConveyorCarrierVisual(')
         + '};',
-)(FakeSprite, 33, 8);
+)(FakeSprite, 33, 8, 0.86);
 
 const controller = {
     carrierDirectionNodes: [],
@@ -153,6 +154,7 @@ assert.equal(layer2.destroyed, false);
 resetConveyorCarrier.call(controller, carrier);
 renderConveyorCarrierVisual.call(controller, carrier, [], 0);
 assert.equal(direction.active, true, 'Direction must return when a carrier becomes empty');
+assert.deepEqual(direction.scale, [0.86, 0.86, 1], 'Direction must retain the softened visual scale');
 assert.equal(layer0.active, false);
 assert.equal(layer1.active, false);
 assert.equal(layer2.active, false);

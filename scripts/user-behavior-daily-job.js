@@ -77,8 +77,8 @@ const PCH_MILESTONE_REPORT_STEPS = [
 ];
 
 const EXPERIMENT_GROUP_SPECS = [
-  { group: "control", bucket: "A+B", groupLabel: "对照组(A+B)", buckets: ["A", "B"] },
-  { group: "treatment", bucket: "C+D", groupLabel: "实验组(C+D)", buckets: ["C", "D"] },
+  { group: "control", bucket: "base/A/B", groupLabel: "对照组(base/A/B)", buckets: ["BASE", "A", "B"] },
+  { group: "treatment", bucket: "exp/C/D", groupLabel: "实验组(exp/C/D)", buckets: ["EXP", "C", "D"] },
   { group: "null", bucket: "NULL", groupLabel: "NULL", buckets: ["NULL"] },
   { group: "unattributed", bucket: "未归因", groupLabel: "未归因", buckets: [] },
 ];
@@ -1826,6 +1826,12 @@ function analyzeLevelRecordFile({
       brushUses: Math.max(0, Math.floor(Number(gameplayStats?.brushUses) || 0)),
       freezeUses: Math.max(0, Math.floor(Number(gameplayStats?.freezeUses) || 0)),
     };
+    const pchSnapshot = gameplayStats ? {
+      peakBufferRatio: clampNumber(Number(gameplayStats.peakBufferRatio) || 0, 0, 1),
+      capacityExpandCount: Math.max(0, Math.floor(Number(gameplayStats.capacityExpandCount) || 0)),
+      validActionCount: Math.max(0, Math.floor(Number(gameplayStats.validActionCount) || 0)),
+      finalProgressRatio: clampNumber(Number(gameplayStats.finalProgressRatio) || 0, 0, 1),
+    } : null;
     totalSkillUses.magnetUses += skillUses.magnetUses;
     totalSkillUses.brushUses += skillUses.brushUses;
     totalSkillUses.freezeUses += skillUses.freezeUses;
@@ -1892,6 +1898,11 @@ function analyzeLevelRecordFile({
         magnetUses: 0,
         brushUses: 0,
         freezeUses: 0,
+        pchStatsRecordCount: 0,
+        peakBufferRatioSum: 0,
+        capacityExpandCount: 0,
+        validActionCountSum: 0,
+        finalProgressRatioSum: 0,
       });
     }
 
@@ -1899,6 +1910,13 @@ function analyzeLevelRecordFile({
     row.magnetUses += skillUses.magnetUses;
     row.brushUses += skillUses.brushUses;
     row.freezeUses += skillUses.freezeUses;
+    if (pchSnapshot) {
+      row.pchStatsRecordCount += 1;
+      row.peakBufferRatioSum += pchSnapshot.peakBufferRatio;
+      row.capacityExpandCount += pchSnapshot.capacityExpandCount;
+      row.validActionCountSum += pchSnapshot.validActionCount;
+      row.finalProgressRatioSum += pchSnapshot.finalProgressRatio;
+    }
     if (abandonedRecord) {
       row.abandonedCount += 1;
       if (openid) {
@@ -1950,6 +1968,11 @@ function analyzeLevelRecordFile({
       magnetUses: row.magnetUses,
       brushUses: row.brushUses,
       freezeUses: row.freezeUses,
+      pchStatsRecordCount: row.pchStatsRecordCount,
+      avgPeakBufferRatio: row.pchStatsRecordCount ? fixedNumber(row.peakBufferRatioSum / row.pchStatsRecordCount, 4) : 0,
+      capacityExpandCount: row.capacityExpandCount,
+      avgValidActionCount: row.pchStatsRecordCount ? fixedNumber(row.validActionCountSum / row.pchStatsRecordCount, 2) : 0,
+      avgFinalProgressRatio: row.pchStatsRecordCount ? fixedNumber(row.finalProgressRatioSum / row.pchStatsRecordCount, 4) : 0,
     }))
     .sort((a, b) => a.levelId - b.levelId);
 
@@ -2101,6 +2124,11 @@ function analyzeLevelRecordFile({
       "magnetUses",
       "brushUses",
       "freezeUses",
+      "pchStatsRecordCount",
+      "avgPeakBufferRatio",
+      "capacityExpandCount",
+      "avgValidActionCount",
+      "avgFinalProgressRatio",
     ],
     levelRows.map((row) => [
       row.levelId,
@@ -2117,6 +2145,11 @@ function analyzeLevelRecordFile({
       row.magnetUses,
       row.brushUses,
       row.freezeUses,
+      row.pchStatsRecordCount,
+      row.avgPeakBufferRatio.toFixed(4),
+      row.capacityExpandCount,
+      row.avgValidActionCount.toFixed(2),
+      row.avgFinalProgressRatio.toFixed(4),
     ]),
   );
 
@@ -2358,26 +2391,31 @@ function analyzeDailyStatFile({
   envId,
 }) {
   const records = loadNdjsonRecords(inputPath);
+  const nullableNumber = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
   const rows = records
     .map((record) => ({
       date: record.date || dateLabel,
       dau: Number(record.dau) || 0,
-      newUser: Number(record.newUser) || 0,
+      newUser: nullableNumber(record.newUser),
       totalPlay: Number(record.totalPlay) || 0,
-      retain1: Number(record.retain1) || 0,
-      retain3: Number(record.retain3) || 0,
-      retain7: Number(record.retain7) || 0,
+      retain1: nullableNumber(record.retain1),
+      retain3: nullableNumber(record.retain3),
+      retain7: nullableNumber(record.retain7),
     }))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
   const latest = rows[rows.length - 1] || {
     date: dateLabel,
     dau: 0,
-    newUser: 0,
+    newUser: null,
     totalPlay: 0,
-    retain1: 0,
-    retain3: 0,
-    retain7: 0,
+    retain1: null,
+    retain3: null,
+    retain7: null,
   };
 
   const summary = {
@@ -2408,11 +2446,11 @@ function analyzeDailyStatFile({
     ``,
     `- Date: ${latest.date}`,
     `- DAU: ${latest.dau}`,
-    `- New user: ${latest.newUser}`,
+    `- New user: ${latest.newUser ?? '-'}`,
     `- Total play: ${latest.totalPlay}`,
-    `- Retain1: ${latest.retain1}%`,
-    `- Retain3: ${latest.retain3}%`,
-    `- Retain7: ${latest.retain7}%`,
+    `- Retain1: ${latest.retain1 === null ? '-' : `${latest.retain1}%`}`,
+    `- Retain3: ${latest.retain3 === null ? '-' : `${latest.retain3}%`}`,
+    `- Retain7: ${latest.retain7 === null ? '-' : `${latest.retain7}%`}`,
     ``,
   ].join("\n");
 
@@ -2869,6 +2907,11 @@ function buildFirst20Levels({ userBehaviorSummary, levelRecordSummary }) {
       magnetUses: numberValue(record.magnetUses),
       brushUses: numberValue(record.brushUses),
       freezeUses: numberValue(record.freezeUses),
+      pchStatsRecordCount: numberValue(record.pchStatsRecordCount),
+      avgPeakBufferRatio: fixedNumber(record.avgPeakBufferRatio, 4),
+      capacityExpandCount: numberValue(record.capacityExpandCount),
+      avgValidActionCount: fixedNumber(record.avgValidActionCount, 2),
+      avgFinalProgressRatio: fixedNumber(record.avgFinalProgressRatio, 4),
       diagnosis: classifyBottleneck({
         enterUv,
         failUv,
@@ -3184,6 +3227,8 @@ function normalizeExperimentId(value) {
 
 function normalizeExperimentBucket(value) {
   const text = String(value || "").trim().toUpperCase();
+  if (["BASE", "CONTROL"].includes(text)) return "BASE";
+  if (["EXP", "TREATMENT"].includes(text)) return "EXP";
   if (["A", "B", "C", "D"].includes(text)) return text;
   if (text === "NULL") return "NULL";
   return "";
@@ -3586,13 +3631,13 @@ function buildFirstDayChurnAnalysis(combinedSummary) {
     addAction(actionsByUser, openid, record, "user_behavior");
   }
 
-  const baseUsers = startUsers.size ? startUsers : l1EnterUsers;
+  const baseUsers = l1EnterUsers;
   const l1NotPassUsers = new Set([...baseUsers].filter((openid) => !l1PassUsers.has(openid)));
   const cohorts = [
     buildChurnCohort({
       key: "l1_not_pass",
       label: "L1未通过用户",
-      description: "首关漏斗起点用户中，当天没有 L1 level_pass 的用户；用于看首日/首关流失前最后行为。",
+      description: "当天实际进入L1但没有L1 level_pass的用户；用于看首关流失前最后行为。",
       users: l1NotPassUsers,
       actionsByUser,
     }),
@@ -3604,18 +3649,149 @@ function buildFirstDayChurnAnalysis(combinedSummary) {
     cohorts.push(buildChurnCohort({
       key: "next_day_inactive",
       label: "T+1未回访用户",
-      description: "首关漏斗起点用户中，下一天 user_behavior 未再出现的用户；不是严格新用户口径，但可作为留存流失动作参考。",
+      description: "当天实际进入L1且下一天 user_behavior 未再出现的用户；不是严格新用户口径，但可作为留存流失动作参考。",
       users: nextDayInactiveUsers,
       actionsByUser,
     }));
   }
 
   return {
-    source: "first_level_funnel + user_behavior",
+    source: "user_behavior enter_level(L1) + first_level_funnel actions",
     baseUsers: baseUsers.size,
     l1PassUsers: l1PassUsers.size,
     nextDayAvailable: Boolean(nextDayActiveUsers),
     cohorts,
+  };
+}
+
+function buildCapacityAdRoundFunnel(combinedSummary) {
+  const behaviorRecords = loadCollectionRecords(combinedSummary, "user_behavior");
+  const funnelRecords = loadCollectionRecords(combinedSummary, "first_level_funnel");
+  const levelRecords = loadCollectionRecords(combinedSummary, "level_record");
+  const rounds = new Map();
+  const ensureRound = (record) => {
+    const openid = String(record?.openid || record?._openid || "").trim();
+    const sessionId = String(record?.sessionId || "").trim();
+    const roundId = String(record?.roundId || "").trim();
+    const clientBuildId = String(record?.clientBuildId || "").trim();
+    const experimentId = String(record?.experimentId || record?.abId || "").trim() || "unknown";
+    const bucket = normalizeExperimentBucket(record?.experimentBucket || record?.abBucket) || "NULL";
+    if (!openid || !sessionId || !roundId || !clientBuildId) return null;
+    const key = JSON.stringify([
+      openid,
+      sessionId,
+      roundId,
+      clientBuildId,
+      experimentId,
+      bucket,
+    ]);
+    if (!rounds.has(key)) {
+      rounds.set(key, {
+        sessionId,
+        roundId,
+        clientBuildId,
+        logicalLevelId: 0,
+        experimentId,
+        bucket,
+        eligible: false,
+        shown: false,
+        clicked: false,
+        rewarded: false,
+        followup: false,
+        passed: false,
+        followupDelayMs: 0,
+      });
+    }
+    const round = rounds.get(key);
+    round.logicalLevelId = round.logicalLevelId || getBehaviorRecordLevelId(record);
+    return round;
+  };
+
+  for (const record of funnelRecords) {
+    const eventName = String(record?.eventName || "");
+    if (!eventName.startsWith("pch_capacity_") && !["ad_click", "ad_reward_success"].includes(eventName)) continue;
+    const round = ensureRound(record);
+    if (!round) continue;
+    if (eventName === "pch_capacity_soft_hint_eligible") round.eligible = true;
+    if (eventName === "pch_capacity_soft_hint_shown") round.shown = true;
+    if (eventName === "pch_capacity_soft_hint_click") round.clicked = true;
+    if (eventName === "pch_capacity_reward_followup_action") {
+      round.followup = true;
+      round.followupDelayMs = Math.max(0, Number(record?.extra?.elapsedMsAfterReward) || 0);
+    }
+    if (eventName === "ad_reward_success"
+      && String(record?.extra?.triggerSource || record?.source || "") === "capacity_soft_hint") round.rewarded = true;
+  }
+  for (const record of behaviorRecords) {
+    if (!["ad_click", "ad_reward_success"].includes(record?.eventName)) continue;
+    if (String(record?.page || "") !== "pch_conveyor_expand") continue;
+    if (String(record?.triggerSource || "") !== "capacity_soft_hint") continue;
+    const round = ensureRound(record);
+    if (!round) continue;
+    if (record.eventName === "ad_click") round.clicked = true;
+    if (record.eventName === "ad_reward_success") round.rewarded = true;
+  }
+  for (const record of levelRecords) {
+    const round = ensureRound(record);
+    if (!round) continue;
+    if (record?.passStatus === true || record?.passStatus === "true") round.passed = true;
+  }
+
+  const stats = new Map();
+  const addRound = (round, experimentId, bucket, clientBuildId) => {
+    const key = JSON.stringify([
+      round.logicalLevelId,
+      experimentId,
+      bucket,
+      clientBuildId,
+    ]);
+    if (!stats.has(key)) {
+      stats.set(key, {
+        logicalLevelId: round.logicalLevelId,
+        experimentId,
+        bucket,
+        clientBuildId,
+        roundCount: 0,
+        eligibleRounds: 0,
+        shownRounds: 0,
+        clickedRounds: 0,
+        rewardedRounds: 0,
+        followupRounds: 0,
+        passedRounds: 0,
+        rewardedPassedRounds: 0,
+        followupDelayTotalMs: 0,
+      });
+    }
+    const stat = stats.get(key);
+    stat.roundCount += 1;
+    if (round.eligible) stat.eligibleRounds += 1;
+    if (round.shown) stat.shownRounds += 1;
+    if (round.clicked) stat.clickedRounds += 1;
+    if (round.rewarded) stat.rewardedRounds += 1;
+    if (round.followup) {
+      stat.followupRounds += 1;
+      stat.followupDelayTotalMs += round.followupDelayMs;
+    }
+    if (round.passed) stat.passedRounds += 1;
+    if (round.rewarded && round.passed) stat.rewardedPassedRounds += 1;
+  };
+  for (const round of rounds.values()) {
+    if (![4, 5].includes(round.logicalLevelId)) continue;
+    if (!round.eligible && !round.shown && !round.clicked && !round.rewarded && !round.followup) continue;
+    addRound(round, "all", "ALL", "all");
+    addRound(round, round.experimentId, round.bucket, round.clientBuildId);
+  }
+  return {
+    scope: "openid + sessionId + roundId + clientBuildId + experiment",
+    rows: Array.from(stats.values()).map((stat) => ({
+      ...stat,
+      eligibleToShownRate: ratio(stat.shownRounds, stat.eligibleRounds),
+      shownToClickRate: ratio(stat.clickedRounds, stat.shownRounds),
+      clickToRewardRate: ratio(stat.rewardedRounds, stat.clickedRounds),
+      rewardToFollowupRate: ratio(stat.followupRounds, stat.rewardedRounds),
+      rewardToPassRate: ratio(stat.rewardedPassedRounds, stat.rewardedRounds),
+      avgFollowupDelayMs: stat.followupRounds ? Math.round(stat.followupDelayTotalMs / stat.followupRounds) : 0,
+    })),
   };
 }
 
@@ -4194,6 +4370,7 @@ function buildDailyDiagnosis(combinedSummary) {
   const firstDayChurnAnalysis = buildFirstDayChurnAnalysis(combinedSummary);
   const levelAdRelationship = buildLevelAdRelationship(combinedSummary, userBehaviorSummary);
   const experimentBreakdowns = buildDailyExperimentBreakdowns(combinedSummary);
+  const capacityAdRoundFunnel = buildCapacityAdRoundFunnel(combinedSummary);
   const levelNetValue = buildLevelNetValue({
     combinedSummary,
     userBehaviorSummary,
@@ -4202,7 +4379,7 @@ function buildDailyDiagnosis(combinedSummary) {
   });
 
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     generatedAt: new Date().toISOString(),
     coreMetrics,
     firstLevelFunnel,
@@ -4220,6 +4397,7 @@ function buildDailyDiagnosis(combinedSummary) {
     firstDayChurnAnalysis,
     levelAdRelationship,
     experimentBreakdowns,
+    capacityAdRoundFunnel,
     levelNetValue,
     dataQuality: buildDataQuality({ combinedSummary, userBehaviorSummary, first20Levels, funnelSummary }),
     recommendations: buildRecommendations({
@@ -4403,7 +4581,7 @@ function writeCombinedOutputs({
     `## 前20关全量表现`,
     ``,
     markdownTable(
-      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "通过/进入UV", "记录局数", "平均尝试", "平均时长", "广告续关", "磁铁", "刷子", "冻结", "判断"],
+      ["关卡", "进入UV", "通过UV", "失败UV", "进入未通过UV", "通过/进入UV", "记录局数", "平均尝试", "平均时长", "广告续关", "峰值占用", "扩容次数", "平均有效操作", "最终进度", "磁铁", "刷子", "冻结", "判断"],
       diagnosis.first20Levels.map((row) => [
         `L${row.levelId}`,
         integerText(row.enterUv),
@@ -4415,6 +4593,10 @@ function writeCombinedOutputs({
         row.avgTryCount.toFixed(2),
         `${row.avgDurationSeconds.toFixed(1)}s`,
         integerText(row.adReviveCount),
+        percentText(row.avgPeakBufferRatio),
+        integerText(row.capacityExpandCount),
+        row.avgValidActionCount.toFixed(1),
+        percentText(row.avgFinalProgressRatio),
         integerText(row.magnetUses),
         integerText(row.brushUses),
         integerText(row.freezeUses),

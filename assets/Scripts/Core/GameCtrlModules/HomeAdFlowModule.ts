@@ -53,6 +53,7 @@ function resolveGrantTimeoutMs(value: number | undefined, fallback: number): num
 type RewardedGrantOptions = {
     levelId?: number;
     gameplayEntryMode?: string;
+    analyticsTriggerSource?: string;
     claimKey?: string;
     markLevelRevive?: boolean;
     busyFlag?: string;
@@ -66,6 +67,7 @@ type RewardedGrantOptions = {
     onRecoverable?: () => void;
     onInteractionStarted?: () => void;
     onInteractionReleased?: () => void;
+    onRewardGranted?: (context: { transactionId: string; attemptId: number }) => void;
     afterGrant?: () => RewardedGrantResult;
     grantTimeoutMs?: number;
     afterGrantTimeoutMs?: number;
@@ -75,6 +77,9 @@ type RewardedGrantRuntimeTransaction = {
     id: number;
     claimKey: string;
     page: string;
+    analyticsTransactionId: string;
+    analyticsTriggerSource: string;
+    attemptId: number;
     phase: 'ad' | 'recoverable' | 'grant' | 'after_grant';
     grantStage?: 'grant' | 'afterGrant';
     deadlineAt?: number;
@@ -248,6 +253,7 @@ export function installHomeAdFlowModule(target: any): void {
                         success = false;
                     }
                     if (!eventName) return;
+                    const transaction = this._rewardedGrantTransaction as RewardedGrantRuntimeTransaction | null;
                     AnalyticsMgr.inst.trackFunnelEvent?.({
                         eventName,
                         page: this._rewardedAdTelemetryPage || this.getAnalyticsPage?.() || 'level_game',
@@ -259,6 +265,8 @@ export function installHomeAdFlowModule(target: any): void {
                         errorCode: success ? '' : String(snapshot.reason || snapshot.status),
                         extra: {
                             attemptId: snapshot.requestId,
+                            adTransactionId: transaction?.analyticsTransactionId || '',
+                            triggerSource: transaction?.analyticsTriggerSource || '',
                             generation: snapshot.generation,
                             previousStatus: snapshot.previousStatus,
                             providerStatus: snapshot.status,
@@ -402,7 +410,9 @@ export function installHomeAdFlowModule(target: any): void {
             options: {
                 levelId?: number;
                 gameplayEntryMode?: string;
-                onShow?: () => void;
+                analyticsTransactionId?: string;
+                analyticsTriggerSource?: string;
+                onShow?: (attemptId: number) => void;
                 onRecoverable?: () => void;
             } = {},
         ) {
@@ -427,6 +437,8 @@ export function installHomeAdFlowModule(target: any): void {
                     reason: inventoryAtClick.reason,
                     generation: inventoryAtClick.generation,
                     inventoryAgeMs: Math.max(0, Date.now() - inventoryAtClick.changedAt),
+                    adTransactionId: options.analyticsTransactionId || '',
+                    triggerSource: options.analyticsTriggerSource || '',
                 },
             });
             const releaseInteraction = (reason: string) => {
@@ -435,7 +447,10 @@ export function installHomeAdFlowModule(target: any): void {
                 AudioMgr.inst.endExternalInterruptionWithBgmRestart(`${adAudioReason}:${reason}`);
                 this.resumeTimerAfterAd();
             };
-            AnalyticsMgr.inst.trackAdClick(adType, page, levelId, gameplayEntryMode);
+            AnalyticsMgr.inst.trackAdClick(adType, page, levelId, gameplayEntryMode, {
+                transactionId: options.analyticsTransactionId,
+                triggerSource: options.analyticsTriggerSource,
+            });
             this.suspendTimerForAd();
             AudioMgr.inst.beginExternalInterruption(adAudioReason);
             try {
@@ -443,7 +458,11 @@ export function installHomeAdFlowModule(target: any): void {
                     const success = outcome.status === 'verified_complete';
                     releaseInteraction(`complete-${outcome.status}`);
                     if (success) {
-                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId, gameplayEntryMode);
+                        AnalyticsMgr.inst.trackAdFinish(adType, page, levelId, gameplayEntryMode, {
+                            transactionId: options.analyticsTransactionId,
+                            attemptId: outcome.attemptId,
+                            triggerSource: options.analyticsTriggerSource,
+                        });
                         SySDKMgr.inst.reportAdFinish(page);
                     }
                     try {
@@ -458,6 +477,8 @@ export function installHomeAdFlowModule(target: any): void {
                             success: true,
                             extra: {
                                 attemptId: outcome.attemptId,
+                                adTransactionId: options.analyticsTransactionId || '',
+                                triggerSource: options.analyticsTriggerSource || '',
                                 previousGeneration: inventoryAtClick.generation,
                                 outcomeStatus: outcome.status,
                             },
@@ -469,10 +490,14 @@ export function installHomeAdFlowModule(target: any): void {
                         this.scheduleRewardedAdPreload(replenishReason, 0);
                     }
                 }, {
-                    onShow: () => {
-                        AnalyticsMgr.inst.trackAdShow(adType, page, levelId, gameplayEntryMode);
+                    onShow: (attemptId: number) => {
+                        AnalyticsMgr.inst.trackAdShow(adType, page, levelId, gameplayEntryMode, {
+                            transactionId: options.analyticsTransactionId,
+                            attemptId,
+                            triggerSource: options.analyticsTriggerSource,
+                        });
                         SySDKMgr.inst.reportAdShow(page);
-                        options.onShow?.();
+                        options.onShow?.(attemptId);
                     },
                     onRecoverable: () => {
                         releaseInteraction('recoverable');
@@ -724,6 +749,12 @@ export function installHomeAdFlowModule(target: any): void {
             const claimOptions = options;
             const analyticsLevelId = resolveActiveAnalyticsLevelId(this, claimOptions.levelId);
             const gameplayEntryMode = resolveActiveGameplayEntryMode(this, claimOptions.gameplayEntryMode);
+            const analyticsRoundId = AnalyticsMgr.inst.getCurrentRoundId() || AnalyticsMgr.inst.getSessionId();
+            const analyticsTransactionId = `${analyticsRoundId}:ad:${transactionId}`;
+            const analyticsTriggerSource = String(
+                claimOptions.analyticsTriggerSource
+                || (page.includes('revive') ? 'revive' : 'manual_button'),
+            ).slice(0, 64);
             const clearBusy = () => {
                 if (busyFlag) {
                     this[busyFlag] = false;
@@ -732,6 +763,7 @@ export function installHomeAdFlowModule(target: any): void {
             let finalized = false;
             let cancelled = false;
             let grantStarted = false;
+            let resolvedAttemptId = 0;
             let attemptGeneration = 0;
             let releaseCurrentAttemptInteraction: (() => void) | null = null;
             let recoverableTimeoutTimer: any = null;
@@ -818,6 +850,9 @@ export function installHomeAdFlowModule(target: any): void {
                 id: transactionId,
                 claimKey,
                 page,
+                analyticsTransactionId,
+                analyticsTriggerSource,
+                attemptId: 0,
                 phase: 'ad',
                 deadlineAt: 0,
                 startedAt: Date.now(),
@@ -896,7 +931,20 @@ export function installHomeAdFlowModule(target: any): void {
                             page,
                             analyticsLevelId,
                             gameplayEntryMode,
+                            {
+                                transactionId: analyticsTransactionId,
+                                attemptId: resolvedAttemptId,
+                                triggerSource: analyticsTriggerSource,
+                            },
                         );
+                        try {
+                            claimOptions.onRewardGranted?.({
+                                transactionId: analyticsTransactionId,
+                                attemptId: resolvedAttemptId,
+                            });
+                        } catch (error) {
+                            console.warn(`[RewardedGrant] ${page} reward telemetry callback failed:`, error);
+                        }
                         if (claimOptions.markLevelRevive) {
                             AnalyticsMgr.inst.markAdRevive();
                             AnalyticsMgr.inst.trackReviveSuccess(page, analyticsLevelId, gameplayEntryMode);
@@ -998,6 +1046,8 @@ export function installHomeAdFlowModule(target: any): void {
                             return;
                         }
                         outcomeHandled = true;
+                        resolvedAttemptId = Math.max(0, Math.floor(Number(outcome.attemptId) || 0));
+                        transaction.attemptId = resolvedAttemptId;
                         releaseAttemptInteraction();
                         const success = outcome.status === 'verified_complete';
                         try {
@@ -1017,7 +1067,11 @@ export function installHomeAdFlowModule(target: any): void {
                     }, {
                         levelId: analyticsLevelId,
                         gameplayEntryMode,
-                        onShow: () => {
+                        analyticsTransactionId,
+                        analyticsTriggerSource,
+                        onShow: (attemptId: number) => {
+                            resolvedAttemptId = Math.max(0, Math.floor(Number(attemptId) || 0));
+                            transaction.attemptId = resolvedAttemptId;
                             claimOptions.onAdShown?.();
                         },
                         onRecoverable: markRecoverable,
@@ -1288,7 +1342,7 @@ export function installHomeAdFlowModule(target: any): void {
                         hasMainMenuNode: !!this.mainMenuNode,
                     }),
                 );
-                void this.requestHomeRoute('runtime', 'none');
+                void this.requestHomeRoute('runtime', 'auto');
                 return;
             }
             const sceneName = 'Home';

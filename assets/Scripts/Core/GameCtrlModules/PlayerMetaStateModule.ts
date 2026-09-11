@@ -290,9 +290,9 @@ export function installPlayerMetaStateModule(target: any): void {
         getVigorCountdownSec(vigor: number = this.getVigor()): number {
             const ceiling = (this.constructor as any).VIGOR_CEILING, restoreMs = (this.constructor as any).VIGOR_RESTORE_SECONDS * 1000;
             if (vigor >= ceiling) return 0;
-            const vigorTime = this.getVigorTime(), need = Math.max(0, ceiling - vigor), now = Date.now();
+            const vigorTime = this.getVigorTime(), now = Date.now();
             const firstMs = vigorTime > 0 ? Math.max(0, vigorTime - now) : restoreMs;
-            return Math.max(0, Math.ceil((firstMs + (need - 1) * restoreMs) / 1000));
+            return Math.max(0, Math.ceil(firstMs / 1000));
         },
 
         /** 刷新体力 UI */

@@ -121,7 +121,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 return false;
             }
             if (startedFromHome) {
-                return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false)
+                return this.requestGameplayRoute(normalizedLevelId, 'zt_level_', false, 'auto')
                     .then(() => true)
                     .catch(onFail);
             }

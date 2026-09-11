@@ -1,0 +1,223 @@
+{
+  "method": "Existing legal bot policy with constructor override matching mainline 20 carriers; conservative 1x timing, no guide/DDA/ad assistance. Not human retention evidence.",
+  "levels": [
+    {
+      "id": 3,
+      "runs": [
+        {
+          "capacity": 60,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            17.5,
+            23.75,
+            25.5,
+            23.75,
+            20.75,
+            25.5,
+            24.75,
+            26,
+            28.25,
+            38.75
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "capacity": 72,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            24.75,
+            15,
+            19,
+            18.75,
+            19.75,
+            33.25,
+            25.25,
+            30.25,
+            30.25,
+            25.25
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "capacity": 84,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            26.5,
+            19.25,
+            24.25,
+            20.5,
+            18.75,
+            24,
+            21,
+            35.75,
+            35.25,
+            23.5
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "runs": [
+        {
+          "capacity": 60,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            35.5,
+            27,
+            37.25,
+            35.25,
+            31,
+            29.75,
+            40.5,
+            30,
+            32.25,
+            28.75
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "capacity": 84,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            26.25,
+            30.75,
+            34.25,
+            30.75,
+            23.75,
+            39.75,
+            36,
+            33.5,
+            36.75,
+            41.25
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "runs": [
+        {
+          "capacity": 60,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            40,
+            31.5,
+            33.5,
+            42,
+            44.5,
+            46,
+            43.5,
+            51.75,
+            36.75,
+            45.5
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        },
+        {
+          "capacity": 96,
+          "passes": 10,
+          "attempts": 10,
+          "seconds": [
+            29,
+            34.5,
+            36.25,
+            43.5,
+            36,
+            40.75,
+            39.5,
+            55.25,
+            35,
+            31
+          ],
+          "terminals": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ]
+        }
+      ]
+    }
+  ]
+}

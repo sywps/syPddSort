@@ -36,7 +36,6 @@ import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentServi
 
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
-const PATTERN_COMPLETE_BOARD_SHRINK_SCALE = 0.8;
 const PATTERN_COMPLETE_SETTLEMENT_HOLD = 0.25;
 const WIN_BONUS_REWARD_GATE_PAGE = 'win_bonus_reward';
 const LEVEL_3_IDLE_HINT_LEVEL_ID = 3;
@@ -304,8 +303,18 @@ export function installSettlementHudModule(target: any): void {
                 || panel?.name === 'BufferFullRevivePanel'
                 || panel?.name === 'ReviveSettlementOverlay'
                 || panel?.name === 'BufferFullSettlementOverlay';
-            if (isStaticRevivePrompt) return true;
             const box = panel?.getChildByName('Box');
+            if (isStaticRevivePrompt) {
+                const revivePercentLabel = box
+                    ?.getChildByName('CompletionSummary')
+                    ?.getChildByName('CompletionPercent')
+                    ?.getComponent(Label) ?? null;
+                if (!revivePercentLabel) {
+                    throw new Error('[settlement-progress] revive panel is missing CompletionSummary/CompletionPercent');
+                }
+                revivePercentLabel.string = `${percent}%`;
+                return true;
+            }
             if (!box) return false;
             for (const child of box.children) {
                 if (child.name !== 'Label') continue;
@@ -364,7 +373,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         updateWinRewardLabel(rewardGold: number) {
-            const box = this.panelWin?.getChildByName('Box');
+            const root = this.panelWin?.getChildByName('Box');
+            const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
             const rewardLbl = box?.getChildByName('RewardGoldIcon')?.getChildByName('RewardGoldLbl')?.getComponent(Label)
                 || box?.getChildByName('RewardGoldLbl')?.getComponent(Label);
             if (rewardLbl) {
@@ -435,7 +445,6 @@ export function installSettlementHudModule(target: any): void {
                 throw new Error('[WinPanel] missing route-owned SettlementTopHud widgets');
             }
 
-            root.active = true;
             root.setSiblingIndex(Math.max(0, panel.children.length - 1));
             this.bindResultPanelButton(settingsBtn, () => {
                 AudioMgr.inst.play('button');
@@ -447,7 +456,8 @@ export function installSettlementHudModule(target: any): void {
         },
 
         refreshWinAdBonusUI() {
-            const box = this.panelWin?.getChildByName('Box');
+            const root = this.panelWin?.getChildByName('Box');
+            const box = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
             const adBtn = box?.getChildByName('AdBonusBtn');
             if (!adBtn) return;
         
@@ -595,9 +605,9 @@ export function installSettlementHudModule(target: any): void {
         },
 
         setWinPrimaryButtonInteractable(interactable: boolean): void {
-            const primaryBtn = this.panelWin
-                ?.getChildByName('Box')
-                ?.getChildByName('PrimaryBtn')
+            const root = this.panelWin?.getChildByName('Box');
+            const actions = (this.panelWin as any)?.__basicSettlement ? root : root?.getChildByName('BottomGroup');
+            const primaryBtn = actions?.getChildByName('PrimaryBtn')
                 ?.getComponent(Button);
             if (primaryBtn) primaryBtn.interactable = interactable;
         },
@@ -644,9 +654,7 @@ export function installSettlementHudModule(target: any): void {
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winSettlement');
                 if (this.boardGroup) {
-                    tween(this.boardGroup)
-                        .to(0.3, { scale: new Vec3(1, 1, 1) }, { easing: 'sineOut' })
-                        .start();
+                    this.resetBoardViewportToHome();
                 }
                 panel.active = true;
                 panel.setSiblingIndex(999);
@@ -757,7 +765,7 @@ export function installSettlementHudModule(target: any): void {
                 if (revealed || !this.isValid || !this.isGameEnd || revealToken !== this._settlementRevealToken) return;
                 if (this.boardGroup?.isValid) {
                     Tween.stopAllByTarget(this.boardGroup);
-                    this.boardGroup.setScale(1, 1, 1);
+                    this.resetBoardViewportToHome();
                 }
                 revealSettlement();
             };
@@ -791,16 +799,21 @@ export function installSettlementHudModule(target: any): void {
                     playPatternCompleteFx();
                     return;
                 }
+                const home = this.boardViewport.getHomeTransform();
+                Tween.stopAllByTarget(this.boardGroup);
                 tween(this.boardGroup)
                     .to(
                         PATTERN_COMPLETE_BOARD_SHRINK_DURATION,
                         {
-                            scale: new Vec3(PATTERN_COMPLETE_BOARD_SHRINK_SCALE, PATTERN_COMPLETE_BOARD_SHRINK_SCALE, 1),
-                            position: new Vec3(this.boardHomePos.x, this.boardHomePos.y, 0),
+                            scale: new Vec3(home.scale, home.scale, 1),
+                            position: new Vec3(home.offset.x, home.offset.y, 0),
                         },
                         { easing: 'sineOut' },
                     )
-                    .call(playPatternCompleteFx)
+                    .call(() => {
+                        this.resetBoardViewportToHome();
+                        playPatternCompleteFx();
+                    })
                     .start();
             };
 
@@ -828,7 +841,7 @@ export function installSettlementHudModule(target: any): void {
 
         drawWinPatternPreview() {
             if (!this.panelWin) return;
-            const box = this.panelWin.getChildByName('Box');
+            const box = this.panelWin.getChildByName('Box')?.getChildByName('MiddleGroup');
             const previewNode = box?.getChildByName('PreviewFrame')?.getChildByName('PatternPreview')
                 || box?.getChildByName('PatternPreview');
             if (!previewNode) return;
@@ -891,6 +904,7 @@ export function installSettlementHudModule(target: any): void {
                 this.refreshReviveShareButtons?.();
                 if (reason === 'buffer-full' && this.panelBufferFullContinue) {
                     this.panelBufferFullContinue.active = true;
+                    this._gameplayResultPanelController?.resetReviveHoldToPeek?.(this.panelBufferFullContinue);
                     AnalyticsMgr.inst.trackRevivePanelShow('pch_buffer_full_revive', logicalLevelId);
                     this.panelBufferFullContinue.setSiblingIndex(999);
                     if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
@@ -900,6 +914,7 @@ export function installSettlementHudModule(target: any): void {
                 }
                 if (reason === 'timeout' && this.panelTimeoutContinue) {
                     this.panelTimeoutContinue.active = true;
+                    this._gameplayResultPanelController?.resetReviveHoldToPeek?.(this.panelTimeoutContinue);
                     AnalyticsMgr.inst.trackRevivePanelShow('level_revive', logicalLevelId);
                     this.panelTimeoutContinue.setSiblingIndex(999);
                     if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;

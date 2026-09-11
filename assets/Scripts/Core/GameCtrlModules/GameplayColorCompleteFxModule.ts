@@ -840,33 +840,26 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             }
             const entries = Array.from(pending.entries());
             pending.clear();
-            const gap = Math.max(0, Number(gapSeconds) || 0);
-            let nextIndex = 0;
-            const playNext = () => {
-                const entry = entries[nextIndex++];
-                if (!entry) {
-                    onDone?.();
-                    return;
-                }
-                const [colorId] = entry;
-                this.playColorCompleteEffect(colorId, true, () => {
-                    if (nextIndex >= entries.length) {
-                        onDone?.();
-                        return;
-                    }
-                    if (gap > 0 && typeof this.scheduleOnce === 'function') {
-                        this.scheduleOnce(playNext, gap);
-                    } else {
-                        playNext();
-                    }
-                });
+            void gapSeconds;
+            let remaining = entries.length;
+            const completeOne = () => {
+                remaining -= 1;
+                if (remaining <= 0) onDone?.();
             };
-            playNext();
+            for (const [colorId] of entries) {
+                this.playColorCompleteEffect(colorId, true, completeOne);
+            }
         },
 
         playColorCompleteEffect(colorId: number, playSound: boolean = true, onDone?: () => void): void {
-            if (playSound) AudioMgr.inst.play('winColor');
-            this.playColorCompleteMatchFxForColor(colorId, onDone);
+            if (playSound) {
+                AudioMgr.inst.play('winColor');
+                this.requestGameplayJudgmentFeedback();
+            }
+            const complete = playSound && onDone
+                ? () => this.waitForGameplayJudgmentFeedback(onDone)
+                : onDone;
+            this.playColorCompleteMatchFxForColor(colorId, complete);
         },
 
         playColorCompleteEffectOnCells(
@@ -874,8 +867,14 @@ export function installGameplayColorCompleteFxMethods(target: any): void {
             playSound: boolean = true,
             onDone?: () => void,
         ): void {
-            if (playSound) AudioMgr.inst.play('winColor');
-            this.playColorCompleteMatchFxOnCells(targets, onDone);
+            if (playSound) {
+                AudioMgr.inst.play('winColor');
+                this.requestGameplayJudgmentFeedback();
+            }
+            const complete = playSound && onDone
+                ? () => this.waitForGameplayJudgmentFeedback(onDone)
+                : onDone;
+            this.playColorCompleteMatchFxOnCells(targets, complete);
         },
     });
 }

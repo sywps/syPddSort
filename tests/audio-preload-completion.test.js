@@ -42,16 +42,21 @@ function harness() {
     h.audio.preload('winColor', err => { assert.ifError(err); completed++; });
     h.audio.preload('winAll', err => { assert.ifError(err); completed++; });
     h.audio.play('winAll');
-    assert.equal(h.loads.length, 1, 'aliases and actual playback share one load');
+    assert.equal(h.loads.length, 2, 'single-color and whole-board completion must load their distinct cues');
     assert.equal(completed, 0, 'preload completes after callback, not dispatch');
-    h.loads[0].finish();
-    assert.equal(completed, 2, 'all joined callbacks must finish even when they remove themselves');
+    const colorLoad = h.loads.find(load => load.file === 'Audio/Judgment/SFX_color_complete');
+    const wholeBoardLoad = h.loads.find(load => load.file === 'Audio/winColor');
+    assert.ok(colorLoad && wholeBoardLoad, 'completion preload must preserve both event-specific resource paths');
+    wholeBoardLoad.finish();
+    assert.equal(completed, 1, 'whole-board preload must complete independently');
     assert.equal(h.played.length, 1); assert.equal(h.played[0].name, 'winAll');
+    colorLoad.finish();
+    assert.equal(completed, 2, 'single-color preload must complete independently');
     assert.equal(h.audio.isSfxReady('winColor'), true); assert.equal(h.audio.isSfxReady('winAll'), true);
-    assert.equal(h.audio.sfxClips.get('winColor'), h.audio.sfxClips.get('winAll'));
+    assert.notEqual(h.audio.sfxClips.get('winColor'), h.audio.sfxClips.get('winAll'));
     assert.equal(h.timers.size, 0);
     h.audio.preload('winAll', err => { assert.ifError(err); completed++; });
-    assert.equal(completed, 3); assert.equal(h.loads.length, 1);
+    assert.equal(completed, 3); assert.equal(h.loads.length, 2);
 }
 
 {

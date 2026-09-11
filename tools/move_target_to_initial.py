@@ -15,6 +15,7 @@ from generate_cute_target import ANIMAL_BUILDERS, count_colors, generate_target_
 Grid = List[List[int]]
 Point = Tuple[int, int]
 DIRS8 = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+LAYOUT_MODES = ("clustered", "target-color-ordered")
 
 
 def default_time_limit(filled: int) -> int:
@@ -59,6 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=20260422)
     parser.add_argument("--level-id", type=int, default=9001)
     parser.add_argument("--max-groups-per-color", type=int, default=3)
+    parser.add_argument("--layout-mode", choices=LAYOUT_MODES, default="clustered")
     parser.add_argument("--output", required=True)
     parser.add_argument("--moves-output")
     return parser.parse_args()
@@ -183,7 +185,113 @@ def choose_candidate(
     return min(unassigned, key=lambda cell: candidate_score(group, cell, target_grid) + 3.0)
 
 
-def assign_initial_layout(target_grid: Grid, seed: int, max_groups_per_color: int) -> Grid:
+def is_connected_cells(cells: Set[Point]) -> bool:
+    if not cells:
+        return True
+    start = next(iter(cells))
+    visited = {start}
+    frontier = [start]
+    while frontier:
+        cell = frontier.pop()
+        for neighbor in neighbor_cells4(cell):
+            if neighbor in cells and neighbor not in visited:
+                visited.add(neighbor)
+                frontier.append(neighbor)
+    return len(visited) == len(cells)
+
+
+def neighbor_cells4(cell: Point) -> Iterable[Point]:
+    row, col = cell
+    for dr, dc in DIRS8[:4]:
+        yield row + dr, col + dc
+
+
+def build_banded_cell_orders(target_grid: Grid, seed: int) -> List[List[Point]]:
+    cells = valid_cells(target_grid)
+    orders = [
+        sorted(cells, key=lambda cell: (cell[0], cell[1] if cell[0] % 2 == 0 else -cell[1])),
+        sorted(cells, key=lambda cell: (-cell[0], cell[1] if cell[0] % 2 == 0 else -cell[1])),
+        sorted(cells, key=lambda cell: (cell[1], cell[0] if cell[1] % 2 == 0 else -cell[0])),
+        sorted(cells, key=lambda cell: (-cell[1], cell[0] if cell[1] % 2 == 0 else -cell[0])),
+        sorted(cells, key=lambda cell: (cell[0] + cell[1], cell[0] if (cell[0] + cell[1]) % 2 == 0 else -cell[0])),
+        sorted(cells, key=lambda cell: (cell[0] - cell[1], cell[0] if (cell[0] - cell[1]) % 2 == 0 else -cell[0])),
+    ]
+    random.Random(seed).shuffle(orders)
+    return orders
+
+
+def assign_target_color_ordered_layout(
+    target_grid: Grid,
+    seed: int,
+    target_displacement: float | None = None,
+) -> Grid:
+    """Assign exact color quotas as target-scored connected bands."""
+    height = len(target_grid)
+    width = len(target_grid[0])
+    by_color = cells_by_color(target_grid)
+    colors = sorted(by_color)
+    total = sum(len(cells) for cells in by_color.values())
+    rng = random.Random(seed ^ 0x9E3779B9)
+    rng.shuffle(colors)
+    target_moved = None if target_displacement is None else round(target_displacement * total)
+    best: Tuple[Tuple[float, int], List[Point], Tuple[int, ...]] | None = None
+
+    for ordered_cells in build_banded_cell_orders(target_grid, seed):
+        quota_by_mask = [0] * (1 << len(colors))
+        for mask in range(1, len(quota_by_mask)):
+            bit = mask & -mask
+            color_index = bit.bit_length() - 1
+            quota_by_mask[mask] = quota_by_mask[mask ^ bit] + len(by_color[colors[color_index]])
+
+        paths: Dict[int, Dict[int, Tuple[int, ...]]] = {0: {0: ()}}
+        for mask in range(1 << len(colors)):
+            if mask not in paths:
+                continue
+            offset = quota_by_mask[mask]
+            for color_index, color_id in enumerate(colors):
+                bit = 1 << color_index
+                if mask & bit:
+                    continue
+                segment = ordered_cells[offset:offset + len(by_color[color_id])]
+                if not is_connected_cells(set(segment)):
+                    continue
+                added_moved = sum(target_grid[row][col] != color_id for row, col in segment)
+                next_mask = mask | bit
+                next_paths = paths.setdefault(next_mask, {})
+                for moved, color_order in paths[mask].items():
+                    next_paths.setdefault(moved + added_moved, color_order + (color_id,))
+
+        for moved, color_order in paths.get((1 << len(colors)) - 1, {}).items():
+            primary = -moved if target_moved is None else abs(moved - target_moved)
+            score = (primary, -moved)
+            if best is None or score < best[0]:
+                best = (score, ordered_cells, color_order)
+
+    if best is None:
+        raise ValueError("Unable to partition the active board into one connected region per bean color")
+
+    ordered_cells = best[1]
+    color_order = best[2]
+    init_grid = [[0 for _ in range(width)] for _ in range(height)]
+    offset = 0
+    for color_id in color_order:
+        for row, col in ordered_cells[offset:offset + len(by_color[color_id])]:
+            init_grid[row][col] = color_id
+        offset += len(by_color[color_id])
+    return init_grid
+
+
+def assign_initial_layout(
+    target_grid: Grid,
+    seed: int,
+    max_groups_per_color: int,
+    layout_mode: str = "clustered",
+    target_displacement: float | None = None,
+) -> Grid:
+    if layout_mode == "target-color-ordered":
+        return assign_target_color_ordered_layout(target_grid, seed, target_displacement)
+    if layout_mode != "clustered":
+        raise ValueError(f"Unsupported layout mode: {layout_mode}")
     rng = random.Random(seed)
     height = len(target_grid)
     width = len(target_grid[0])
@@ -334,7 +442,12 @@ def main() -> None:
     args = parse_args()
     base_payload = read_payload(args)
     correct = base_payload["correctColorArr"]
-    init_grid = assign_initial_layout(correct, seed=args.seed + 97, max_groups_per_color=args.max_groups_per_color)
+    init_grid = assign_initial_layout(
+        correct,
+        seed=args.seed + 97,
+        max_groups_per_color=args.max_groups_per_color,
+        layout_mode=args.layout_mode,
+    )
     level_payload = build_level_payload(base_payload, init_grid)
     move_map = build_move_map(correct, init_grid)
 

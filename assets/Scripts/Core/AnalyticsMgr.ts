@@ -25,6 +25,17 @@ export type PchGameplayAnalyticsSnapshot = {
     magnetUses: number;
     brushUses: number;
     freezeUses: number;
+    peakBufferCount: number;
+    peakBufferRatio: number;
+    capacityExpandCount: number;
+    validActionCount: number;
+    finalBufferCount: number;
+    finalLockedCount: number;
+    totalBeanCount: number;
+    finalProgressRatio: number;
+    capacitySoftHintEligibleCount: number;
+    capacitySoftHintShownCount: number;
+    capacitySoftHintClickCount: number;
 };
 
 export type LevelSessionAnalyticsUpdate = {
@@ -56,6 +67,15 @@ export type ReportDataOptions = {
     gameplayEntryMode?: string;
     gameplaySchemaVersion?: number;
     failureReason?: PchFailureReason;
+    sessionId?: string;
+    roundId?: string;
+    clientBuildId?: string;
+    experimentId?: string;
+    experimentBucket?: string;
+    levelDataSource?: string;
+    adTransactionId?: string;
+    adAttemptId?: string | number;
+    triggerSource?: string;
 };
 
 export type FunnelEventOptions = {
@@ -77,12 +97,28 @@ export type FunnelEventOptions = {
     gameplayMode?: string;
     gameplayEntryMode?: string;
     gameplaySchemaVersion?: number;
+    roundId?: string;
+    clientBuildId?: string;
+    experimentId?: string;
+    experimentBucket?: string;
+    levelDataSource?: string;
     extra?: Record<string, unknown>;
 };
 
 type AnalyticsLevelContext = Partial<Pick<ReportDataOptions,
     'logicalLevelId' | 'physicalLevelId' | 'abId' | 'abBucket' | 'gameplayMode' | 'gameplayEntryMode' | 'gameplaySchemaVersion'
->>;
+    | 'levelDataSource'
+>> & {
+    effectiveTimeLimit?: number;
+    ddaFactor?: number;
+    ddaReason?: string;
+};
+
+export type AdAnalyticsAttribution = {
+    transactionId?: string;
+    attemptId?: string | number;
+    triggerSource?: string;
+};
 
 type SmartHintShowOptions = {
     levelId?: string | number;
@@ -111,7 +147,12 @@ export type UpdateUserProfileAssetsOptions = {
 };
 
 type LevelSessionState = {
+    sessionId: string;
+    roundId: string;
+    clientBuildId: string;
     levelId: number;
+    logicalLevelId: number;
+    physicalLevelId: number;
     page: string;
     startTime: number;
     tryCount: number;
@@ -125,6 +166,12 @@ type LevelSessionState = {
     gameplaySchemaVersion: number;
     failureReason: PchFailureReason;
     gameplayStats: PchGameplayAnalyticsSnapshot | null;
+    abId: string;
+    abBucket: string;
+    levelDataSource: string;
+    effectiveTimeLimit: number;
+    ddaFactor: number;
+    ddaReason: string;
 };
 
 type LevelRecordEndReason = 'pass' | 'fail' | 'abandon';
@@ -148,6 +195,20 @@ const PCH_GAMEPLAY_INTEGER_FIELDS: ReadonlyArray<keyof PchGameplayAnalyticsSnaps
     'magnetUses',
     'brushUses',
     'freezeUses',
+    'peakBufferCount',
+    'capacityExpandCount',
+    'validActionCount',
+    'finalBufferCount',
+    'finalLockedCount',
+    'totalBeanCount',
+    'capacitySoftHintEligibleCount',
+    'capacitySoftHintShownCount',
+    'capacitySoftHintClickCount',
+];
+
+const PCH_GAMEPLAY_RATIO_FIELDS: ReadonlyArray<keyof PchGameplayAnalyticsSnapshot> = [
+    'peakBufferRatio',
+    'finalProgressRatio',
 ];
 
 function normalizeGameplayMode(value: unknown): string {
@@ -176,7 +237,21 @@ function normalizePchGameplayStats(value: unknown): PchGameplayAnalyticsSnapshot
     for (const field of PCH_GAMEPLAY_INTEGER_FIELDS) {
         normalized[field] = Math.min(1_000_000_000, Math.max(0, Math.floor(Number(source[field]) || 0)));
     }
+    for (const field of PCH_GAMEPLAY_RATIO_FIELDS) {
+        normalized[field] = Math.min(1, Math.max(0, Number(source[field]) || 0));
+    }
     return normalized;
+}
+
+function normalizeAnalyticsText(value: unknown, maxLength: number = 96): string {
+    if (typeof value !== 'string' && typeof value !== 'number') return '';
+    return String(value).trim().slice(0, maxLength);
+}
+
+function normalizeAnalyticsNumber(value: unknown, min: number, max: number, fallback: number = 0): number {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(max, Math.max(min, number));
 }
 
 function resolveClientBuildIdentity(): { id: string; source: string } {
@@ -261,6 +336,7 @@ export class AnalyticsMgr {
     private unavailableWarned = false;
     private levelContext: AnalyticsLevelContext = {};
     private readonly funnelSessionId = this.createSessionId();
+    private levelRoundSeq = 0;
     private readonly appLaunchTime = Date.now();
     private funnelEventSeq = 0;
     private firstLevelReadyTime = 0;
@@ -282,6 +358,19 @@ export class AnalyticsMgr {
         this.bindRuntimeDiagnostics();
         this.bindRewardedAdLoadTelemetry();
         this.bindLifecycle();
+    }
+
+    getSessionId(): string {
+        return this.funnelSessionId;
+    }
+
+    getCurrentRoundId(): string {
+        const session = this.levelSession;
+        return session && !session.finalized ? session.roundId : '';
+    }
+
+    getClientBuildId(): string {
+        return resolveClientBuildIdentity().id;
     }
 
     async bootstrap(): Promise<boolean> {
@@ -351,6 +440,26 @@ export class AnalyticsMgr {
     }
 
     async wxReportData(opt: ReportDataOptions): Promise<CloudResult | { ok: false; skipped: true }> {
+        const activeSession = this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
+        const session = activeSession ? {
+            sessionId: activeSession.sessionId,
+            roundId: activeSession.roundId,
+            clientBuildId: activeSession.clientBuildId,
+            logicalLevelId: activeSession.logicalLevelId,
+            physicalLevelId: activeSession.physicalLevelId,
+            abId: activeSession.abId,
+            abBucket: activeSession.abBucket,
+            gameplayMode: activeSession.gameplayMode,
+            gameplayEntryMode: activeSession.gameplayEntryMode,
+            gameplaySchemaVersion: activeSession.gameplaySchemaVersion,
+            levelDataSource: activeSession.levelDataSource,
+        } : null;
+        const levelContext = { ...this.levelContext };
+        const clientBuildId = normalizeAnalyticsText(opt.clientBuildId, 80)
+            || session?.clientBuildId
+            || resolveClientBuildIdentity().id;
+        const abId = normalizeAnalyticsText(opt.abId ?? session?.abId ?? levelContext.abId, 64);
+        const abBucket = normalizeAnalyticsText(opt.abBucket ?? session?.abBucket ?? levelContext.abBucket, 64);
         const ready = await this.ensureReady();
         if (!ready) {
             return { ok: false, skipped: true };
@@ -366,20 +475,32 @@ export class AnalyticsMgr {
                 shareType: opt.shareType || '',
                 adType: opt.adType || '',
                 duration: opt.duration ?? 0,
-                logicalLevelId: opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0,
-                physicalLevelId: opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0,
-                abId: opt.abId ?? this.levelContext.abId ?? '',
-                abBucket: opt.abBucket ?? this.levelContext.abBucket ?? '',
+                logicalLevelId: opt.logicalLevelId ?? session?.logicalLevelId ?? levelContext.logicalLevelId ?? opt.levelId ?? 0,
+                physicalLevelId: opt.physicalLevelId ?? session?.physicalLevelId ?? levelContext.physicalLevelId ?? opt.levelId ?? 0,
+                abId,
+                abBucket,
+                experimentId: normalizeAnalyticsText(opt.experimentId, 64) || abId,
+                experimentBucket: normalizeAnalyticsText(opt.experimentBucket, 64) || abBucket,
                 smartHintShownCount: opt.smartHintShownCount ?? 0,
-                gameplayMode: normalizeGameplayMode(opt.gameplayMode ?? this.levelContext.gameplayMode),
+                gameplayMode: normalizeGameplayMode(opt.gameplayMode ?? session?.gameplayMode ?? levelContext.gameplayMode),
                 gameplayEntryMode: normalizeGameplayEntryMode(
-                    opt.gameplayEntryMode ?? this.levelContext.gameplayEntryMode,
+                    opt.gameplayEntryMode ?? session?.gameplayEntryMode ?? levelContext.gameplayEntryMode,
                 ),
                 gameplaySchemaVersion: normalizeGameplaySchemaVersion(
-                    opt.gameplaySchemaVersion ?? this.levelContext.gameplaySchemaVersion,
-                    normalizeGameplayMode(opt.gameplayMode ?? this.levelContext.gameplayMode),
+                    opt.gameplaySchemaVersion ?? session?.gameplaySchemaVersion ?? levelContext.gameplaySchemaVersion,
+                    normalizeGameplayMode(opt.gameplayMode ?? session?.gameplayMode ?? levelContext.gameplayMode),
                 ),
                 failureReason: normalizeFailureReason(opt.failureReason),
+                sessionId: normalizeAnalyticsText(opt.sessionId, 96) || session?.sessionId || this.funnelSessionId,
+                roundId: normalizeAnalyticsText(opt.roundId, 120) || session?.roundId || '',
+                clientBuildId,
+                levelDataSource: normalizeAnalyticsText(
+                    opt.levelDataSource ?? session?.levelDataSource ?? levelContext.levelDataSource,
+                    48,
+                ),
+                adTransactionId: normalizeAnalyticsText(opt.adTransactionId, 160),
+                adAttemptId: normalizeAnalyticsText(opt.adAttemptId, 96),
+                triggerSource: normalizeAnalyticsText(opt.triggerSource, 64),
             });
         } catch (error) {
             console.warn('[AnalyticsMgr] addBehaviorData failed:', error);
@@ -397,18 +518,23 @@ export class AnalyticsMgr {
             this.firstLevelReadyTime = now;
         }
 
-        const logicalLevelId = opt.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
-        const physicalLevelId = opt.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
-        const abId = opt.abId ?? this.levelContext.abId ?? '';
-        const abBucket = opt.abBucket ?? this.levelContext.abBucket ?? '';
-        const gameplayMode = normalizeGameplayMode(opt.gameplayMode ?? this.levelContext.gameplayMode);
+        const session = this.levelSession && !this.levelSession.finalized ? this.levelSession : null;
+        const logicalLevelId = opt.logicalLevelId ?? session?.logicalLevelId ?? this.levelContext.logicalLevelId ?? opt.levelId ?? 0;
+        const physicalLevelId = opt.physicalLevelId ?? session?.physicalLevelId ?? this.levelContext.physicalLevelId ?? opt.levelId ?? 0;
+        const abId = opt.abId ?? session?.abId ?? this.levelContext.abId ?? '';
+        const abBucket = opt.abBucket ?? session?.abBucket ?? this.levelContext.abBucket ?? '';
+        const gameplayMode = normalizeGameplayMode(opt.gameplayMode ?? session?.gameplayMode ?? this.levelContext.gameplayMode);
         const gameplaySchemaVersion = normalizeGameplaySchemaVersion(
-            opt.gameplaySchemaVersion ?? this.levelContext.gameplaySchemaVersion,
+            opt.gameplaySchemaVersion ?? session?.gameplaySchemaVersion ?? this.levelContext.gameplaySchemaVersion,
             gameplayMode,
         );
         const clientBuild = resolveClientBuildIdentity();
+        const roundId = normalizeAnalyticsText(opt.roundId, 120) || session?.roundId || '';
+        const experimentId = normalizeAnalyticsText(opt.experimentId, 64) || normalizeAnalyticsText(abId, 64);
+        const experimentBucket = normalizeAnalyticsText(opt.experimentBucket, 64) || normalizeAnalyticsText(abBucket, 64);
         const event: Record<string, unknown> = {
             sessionId: this.funnelSessionId,
+            roundId,
             eventSeq: ++this.funnelEventSeq,
             eventName,
             levelId: opt.levelId ?? logicalLevelId ?? 0,
@@ -425,6 +551,13 @@ export class AnalyticsMgr {
             physicalLevelId,
             abId,
             abBucket,
+            experimentId,
+            experimentBucket,
+            clientBuildId: normalizeAnalyticsText(opt.clientBuildId, 80) || session?.clientBuildId || clientBuild.id,
+            levelDataSource: normalizeAnalyticsText(
+                opt.levelDataSource ?? session?.levelDataSource ?? this.levelContext.levelDataSource,
+                48,
+            ),
             elapsedMsFromLaunch: Math.max(0, now - this.appLaunchTime),
             elapsedMsFromLevelReady: this.firstLevelReadyTime > 0 ? Math.max(0, now - this.firstLevelReadyTime) : 0,
             timestamp: now,
@@ -543,6 +676,18 @@ export class AnalyticsMgr {
             gameplaySchemaVersion: context.gameplaySchemaVersion === undefined
                 ? this.levelContext.gameplaySchemaVersion
                 : normalizeGameplaySchemaVersion(context.gameplaySchemaVersion, gameplayMode || ''),
+            levelDataSource: context.levelDataSource === undefined
+                ? this.levelContext.levelDataSource
+                : normalizeAnalyticsText(context.levelDataSource, 48),
+            effectiveTimeLimit: context.effectiveTimeLimit === undefined
+                ? this.levelContext.effectiveTimeLimit
+                : normalizeAnalyticsNumber(context.effectiveTimeLimit, 0, 86400),
+            ddaFactor: context.ddaFactor === undefined
+                ? this.levelContext.ddaFactor
+                : normalizeAnalyticsNumber(context.ddaFactor, 0, 10, 1),
+            ddaReason: context.ddaReason === undefined
+                ? this.levelContext.ddaReason
+                : normalizeAnalyticsText(context.ddaReason, 64),
         };
     }
 
@@ -565,40 +710,42 @@ export class AnalyticsMgr {
             gameplayMode,
         );
         const normalizedGameplayStats = normalizePchGameplayStats(gameplayStats);
+        const clientBuildId = resolveClientBuildIdentity().id;
+        const roundId = `${this.funnelSessionId}:round:${++this.levelRoundSeq}:${now.toString(36)}`;
+        const logicalLevelId = normalizePositiveLevelId(this.levelContext.logicalLevelId) || normalizedLevelId;
+        const physicalLevelId = normalizePositiveLevelId(this.levelContext.physicalLevelId) || normalizedLevelId;
 
-        if (this.levelSession && !this.levelSession.finalized && this.levelSession.levelId !== normalizedLevelId) {
+        if (this.levelSession && !this.levelSession.finalized) {
             void this.finalizeActiveLevel(false, 'abandon');
         }
 
-        if (this.levelSession && !this.levelSession.finalized && this.levelSession.levelId === normalizedLevelId) {
-            this.levelSession.tryCount += 1;
-            this.levelSession.pendingFailure = false;
-            this.levelSession.page = normalizedPage;
-            this.levelSession.startTime = now;
-            this.levelSession.smartHintShownCount = 0;
-            this.levelSession.gameplayMode = gameplayMode;
-            this.levelSession.gameplayEntryMode = gameplayEntryMode;
-            this.levelSession.gameplaySchemaVersion = gameplaySchemaVersion;
-            this.levelSession.failureReason = '';
-            this.levelSession.gameplayStats = normalizedGameplayStats;
-        } else {
-            this.levelSession = {
-                levelId: normalizedLevelId,
-                page: normalizedPage,
-                startTime: now,
-                tryCount: 1,
-                useAdRevive: false,
-                useShareRevive: false,
-                pendingFailure: false,
-                finalized: false,
-                smartHintShownCount: 0,
-                gameplayMode,
-                gameplayEntryMode,
-                gameplaySchemaVersion,
-                failureReason: '',
-                gameplayStats: normalizedGameplayStats,
-            };
-        }
+        this.levelSession = {
+            sessionId: this.funnelSessionId,
+            roundId,
+            clientBuildId,
+            levelId: normalizedLevelId,
+            logicalLevelId,
+            physicalLevelId,
+            page: normalizedPage,
+            startTime: now,
+            tryCount: 1,
+            useAdRevive: false,
+            useShareRevive: false,
+            pendingFailure: false,
+            finalized: false,
+            smartHintShownCount: 0,
+            gameplayMode,
+            gameplayEntryMode,
+            gameplaySchemaVersion,
+            failureReason: '',
+            gameplayStats: normalizedGameplayStats,
+            abId: normalizeAnalyticsText(this.levelContext.abId, 64),
+            abBucket: normalizeAnalyticsText(this.levelContext.abBucket, 64),
+            levelDataSource: normalizeAnalyticsText(this.levelContext.levelDataSource, 48),
+            effectiveTimeLimit: Math.floor(normalizeAnalyticsNumber(this.levelContext.effectiveTimeLimit, 0, 86400)),
+            ddaFactor: normalizeAnalyticsNumber(this.levelContext.ddaFactor, 0, 10, 1),
+            ddaReason: normalizeAnalyticsText(this.levelContext.ddaReason, 64),
+        };
 
         this.markRuntimeCheckpoint('level_begin', true, normalizedPage, normalizedLevelId);
         void this.wxReportData({
@@ -609,6 +756,7 @@ export class AnalyticsMgr {
             gameplayMode,
             gameplayEntryMode,
             gameplaySchemaVersion,
+            roundId,
         });
     }
 
@@ -724,48 +872,43 @@ export class AnalyticsMgr {
         void this.finalizeActiveLevel(false, 'fail');
     }
 
-    trackAdClick(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
+    private trackAdStage(
+        eventName: 'ad_click' | 'ad_show' | 'ad_finish' | 'ad_reward_success',
+        actionType: number,
+        adType: string,
+        page: string,
+        levelId?: number,
+        gameplayEntryMode?: string,
+        attribution: AdAnalyticsAttribution = {},
+    ): void {
+        const normalizedLevelId = levelId ?? this.levelSession?.levelId ?? 0;
         void this.wxReportData({
-            eventName: 'ad_click',
-            levelId: levelId ?? this.levelSession?.levelId ?? 0,
+            eventName,
+            levelId: normalizedLevelId,
             page,
-            actionType: 2,
+            actionType,
             adType,
             gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
+            adTransactionId: attribution.transactionId,
+            adAttemptId: attribution.attemptId,
+            triggerSource: attribution.triggerSource,
         });
     }
 
-    trackAdShow(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
-        void this.wxReportData({
-            eventName: 'ad_show',
-            levelId: levelId ?? this.levelSession?.levelId ?? 0,
-            page,
-            actionType: 1,
-            adType,
-            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
-        });
+    trackAdClick(adType: string, page: string, levelId?: number, gameplayEntryMode?: string, attribution: AdAnalyticsAttribution = {}): void {
+        this.trackAdStage('ad_click', 2, adType, page, levelId, gameplayEntryMode, attribution);
     }
 
-    trackAdFinish(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
-        void this.wxReportData({
-            eventName: 'ad_finish',
-            levelId: levelId ?? this.levelSession?.levelId ?? 0,
-            page,
-            actionType: 3,
-            adType,
-            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
-        });
+    trackAdShow(adType: string, page: string, levelId?: number, gameplayEntryMode?: string, attribution: AdAnalyticsAttribution = {}): void {
+        this.trackAdStage('ad_show', 1, adType, page, levelId, gameplayEntryMode, attribution);
     }
 
-    trackAdRewardSuccess(adType: string, page: string, levelId?: number, gameplayEntryMode?: string): void {
-        void this.wxReportData({
-            eventName: 'ad_reward_success',
-            levelId: levelId ?? this.levelSession?.levelId ?? 0,
-            page,
-            actionType: 3,
-            adType,
-            gameplayEntryMode: gameplayEntryMode ?? this.levelSession?.gameplayEntryMode ?? '',
-        });
+    trackAdFinish(adType: string, page: string, levelId?: number, gameplayEntryMode?: string, attribution: AdAnalyticsAttribution = {}): void {
+        this.trackAdStage('ad_finish', 3, adType, page, levelId, gameplayEntryMode, attribution);
+    }
+
+    trackAdRewardSuccess(adType: string, page: string, levelId?: number, gameplayEntryMode?: string, attribution: AdAnalyticsAttribution = {}): void {
+        this.trackAdStage('ad_reward_success', 3, adType, page, levelId, gameplayEntryMode, attribution);
     }
 
     trackRevivePanelShow(page: string, levelId?: number): void {
@@ -1080,7 +1223,17 @@ export class AnalyticsMgr {
         try {
             await PlatformCloudMgr.inst.callFunction('saveLevelRecord', {
                 openid: this.openid,
+                sessionId: session.sessionId,
+                roundId: session.roundId,
+                clientBuildId: session.clientBuildId,
                 levelId: session.levelId,
+                logicalLevelId: session.logicalLevelId,
+                physicalLevelId: session.physicalLevelId,
+                abId: session.abId,
+                abBucket: session.abBucket,
+                experimentId: session.abId,
+                experimentBucket: session.abBucket,
+                levelDataSource: session.levelDataSource,
                 tryCount: Math.max(1, Math.floor(session.tryCount || 1)),
                 passStatus,
                 endReason,
@@ -1093,6 +1246,9 @@ export class AnalyticsMgr {
                 gameplaySchemaVersion: session.gameplaySchemaVersion,
                 failureReason: session.failureReason,
                 gameplayStats: session.gameplayStats || undefined,
+                effectiveTimeLimit: session.effectiveTimeLimit,
+                ddaFactor: session.ddaFactor,
+                ddaReason: session.ddaReason,
             });
         } catch (error) {
             console.warn('[AnalyticsMgr] saveLevelRecord failed:', error);

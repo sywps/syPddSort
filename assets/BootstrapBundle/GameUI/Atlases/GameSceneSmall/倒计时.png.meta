@@ -41,14 +41,14 @@
       "userData": {
         "trimThreshold": 1,
         "rotated": false,
-        "offsetX": -16.5,
-        "offsetY": 2,
-        "trimX": 12,
-        "trimY": 3,
-        "width": 183,
-        "height": 85,
-        "rawWidth": 240,
-        "rawHeight": 95,
+        "offsetX": 0,
+        "offsetY": 0,
+        "trimX": 0,
+        "trimY": 0,
+        "width": 360,
+        "height": 160,
+        "rawWidth": 360,
+        "rawHeight": 160,
         "borderTop": 0,
         "borderBottom": 0,
         "borderLeft": 0,
@@ -60,17 +60,17 @@
         "meshType": 0,
         "vertices": {
           "rawPosition": [
-            -91.5,
-            -42.5,
+            -180,
+            -80,
             0,
-            91.5,
-            -42.5,
+            180,
+            -80,
             0,
-            -91.5,
-            42.5,
+            -180,
+            80,
             0,
-            91.5,
-            42.5,
+            180,
+            80,
             0
           ],
           "indexes": [
@@ -82,40 +82,40 @@
             3
           ],
           "uv": [
-            12,
-            92,
-            195,
-            92,
-            12,
-            7,
-            195,
-            7
+            0,
+            160,
+            360,
+            160,
+            0,
+            0,
+            360,
+            0
           ],
           "nuv": [
-            0.05,
-            0.07368421052631578,
-            0.8125,
-            0.07368421052631578,
-            0.05,
-            0.968421052631579,
-            0.8125,
-            0.968421052631579
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            1
           ],
           "minPos": [
-            -91.5,
-            -42.5,
+            -180,
+            -80,
             0
           ],
           "maxPos": [
-            91.5,
-            42.5,
+            180,
+            80,
             0
           ]
         },
         "isUuid": true,
         "imageUuidOrDatabaseUri": "5683ea7b-fe35-4af6-9ec4-7dd5404f28f4@6c48a",
         "atlasUuid": "",
-        "trimType": "auto"
+        "trimType": "none"
       },
       "ver": "1.0.12",
       "imported": true,

@@ -12,6 +12,8 @@ import { validateAutoConveyorFinishSpeed, validateConveyorCapacity, validateHard
 import { getFrontLevelExperimentAnalyticsContext } from './LevelExperimentService';
 import { ensurePchConveyorGameplayController } from './PchConveyorGameplayController';
 import { PCH_GAMEPLAY_MODE, PCH_GAMEPLAY_SCHEMA_VERSION } from './AnalyticsMgr';
+import { LevelDataCdnService } from './LevelDataCdnService';
+import { GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES } from './GameCtrlModules/GameplayJudgmentFeedbackModule';
 import { flushStartupTrace, markStartupTrace } from './StartupTrace';
 
 export class GameplaySessionController {
@@ -42,6 +44,9 @@ export class GameplaySessionController {
             AudioMgr.inst.init(runtime.node);
             AudioMgr.inst.preload('button');
             AudioMgr.inst.preload('settle');
+            for (const name of GAMEPLAY_JUDGMENT_PRELOAD_SFX_NAMES) {
+                AudioMgr.inst.preload(name);
+            }
             runtime.levelData = data;
             initStage = 'route_context';
             resolvedLevelId = runtime._isThemeLevel
@@ -60,6 +65,13 @@ export class GameplaySessionController {
             activeLogicalLevelId = gameplayEntryMode === 'main'
                 ? runtime.getActiveLogicalLevelId()
                 : resolvedLevelId;
+            const cdnLevelMetadata = LevelDataCdnService.inst.getLevelAnalyticsMetadata(data);
+            const levelDataSource = cdnLevelMetadata?.source
+                || (runtime._currentExternalLevelFilePath
+                    ? 'external'
+                    : (runtime.shouldUseLocalBootstrapBundle?.(resolvedLevelId, gameplayPrefix)
+                        ? 'bootstrap'
+                        : 'level_data_bundle'));
             if (gameplayEntryMode === 'main' && activeLogicalLevelId === 1) {
                 runtime.beginFirstLevelReleaseDiagnostics?.();
             }
@@ -128,6 +140,7 @@ export class GameplaySessionController {
             runtime._smartIdleHintEpisodeCycle = 0;
             runtime._smartIdleHintInputActive = false;
             runtime._gameplayInvalidTapFeedbackToken = (Number(runtime._gameplayInvalidTapFeedbackToken) || 0) + 1;
+            runtime.clearGameplayJudgmentFeedback?.();
             runtime.clearPatternCompleteMatchFx?.();
             runtime.clearFreezeSpineFx?.();
             initStage = 'runtime_cleanup';
@@ -146,6 +159,7 @@ export class GameplaySessionController {
             initStage = 'ui_build';
             runtime.reportFirstLevelReleaseState?.('before_ui_build');
             runtime.buildUI();
+            runtime.preloadGameplayJudgmentFeedback?.();
             initStage = 'board_render';
             runtime.renderBoard();
             runtime.resetAdRewardHintState?.(dynamicTimeLimit);
@@ -158,6 +172,10 @@ export class GameplaySessionController {
                 gameplayMode: PCH_GAMEPLAY_MODE,
                 gameplayEntryMode,
                 gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
+                levelDataSource,
+                effectiveTimeLimit: dynamicTimeLimit,
+                ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
+                ddaReason: String(runtime._dynamicCountdownReason || ''),
             });
             initStage = 'visual_readiness';
             runtime.assertGameplayVisualReadiness();
@@ -229,6 +247,10 @@ export class GameplaySessionController {
                         gameplayMode: PCH_GAMEPLAY_MODE,
                         gameplayEntryMode,
                         gameplaySchemaVersion: PCH_GAMEPLAY_SCHEMA_VERSION,
+                        levelDataSource,
+                        effectiveTimeLimit: dynamicTimeLimit,
+                        ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
+                        ddaReason: String(runtime._dynamicCountdownReason || ''),
                     }, pchController.getAnalyticsSnapshot());
                     SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
                     initStage = 'interaction_ready';

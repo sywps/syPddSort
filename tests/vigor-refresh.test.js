@@ -27,6 +27,7 @@ function createRuntime(vigor = ceiling, untilRestoreMs = 0) {
         module, exports: module.exports, Date: TestDate, console,
         require(id) {
             if (id === '../RuntimeLog') return { runtimeLog() {}, runtimeWarn() {} };
+            if (id === '../UserStateSyncMgr') return { PVP_ECONOMY_REVISION_KEY: 'pdd.pvpEconomyRevision' };
             assert.equal(id, '../GameCtrlShared');
             return {
                 sys: { localStorage: {
@@ -73,11 +74,19 @@ for (const fps of [30, 60]) {
     f.runtime._vigorTimeLbl = { string: '' };
     f.runtime.refreshVigorUI();
     assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 2}/${ceiling}`);
-    assert.equal(f.runtime._vigorTimeLbl.string, '10:00', 'preserve the existing countdown to full vigor');
+    assert.equal(f.runtime._vigorTimeLbl.string, '05:00', 'count down to the next point rather than full vigor');
     assert.equal(f.reads.length, 3, 'visible timer reuses the recovered count');
     f.advance(1000);
     f.runtime.vigorTick(1);
-    assert.equal(f.runtime._vigorTimeLbl.string, '09:59');
+    assert.equal(f.runtime._vigorTimeLbl.string, '04:59');
+    f.advance(restoreMs - 2000);
+    f.runtime.refreshVigorUI();
+    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 2}/${ceiling}`);
+    assert.equal(f.runtime._vigorTimeLbl.string, '00:01');
+    f.advance(1000);
+    f.runtime.refreshVigorUI();
+    assert.equal(f.runtime._vigorCountLbl.string, `${ceiling - 1}/${ceiling}`, 'one interval restores exactly one point');
+    assert.equal(f.runtime._vigorTimeLbl.string, '05:00', 'restart the countdown after restoring one point');
     f.advance(restoreMs * 3);
     f.runtime.refreshVigorUI();
     assert.equal(f.runtime._vigorCountLbl.string, `${ceiling}/${ceiling}`);
@@ -91,8 +100,8 @@ for (const fps of [30, 60]) {
     f.advance(restoreMs * 2 + 1000);
     assert.equal(f.runtime.updateVigor(), 4, 'recover all elapsed intervals in one refresh');
     assert.equal(Number(f.values.get('pdd.vigorTime')), firstDeadline + restoreMs * 2);
-    assert.equal(f.runtime.getVigorCountdownSec(), (ceiling - 4) * restoreSeconds - 1,
-        'no-argument countdown remains compatible');
+    assert.equal(f.runtime.getVigorCountdownSec(), restoreSeconds - 1,
+        'offline recovery preserves the remaining time to the next point');
     const writes = f.writes.length;
     assert.equal(f.runtime.updateVigor(), 4);
     assert.equal(f.writes.length, writes, 're-reading the same instant cannot recover twice');

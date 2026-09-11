@@ -35,6 +35,15 @@ const dashboard = read('cloudfunctions/getAllDashboardData/index.js');
 const dailyJob = read('scripts/user-behavior-daily-job.js');
 
 const hideBody = methodBody(analytics, 'handleHide');
+const reportMethodStart = analytics.indexOf('async wxReportData(');
+assert.ok(reportMethodStart >= 0, 'missing wxReportData method');
+const reportMethodEnd = analytics.indexOf('\n    trackFunnelEvent(', reportMethodStart);
+assert.ok(reportMethodEnd > reportMethodStart, 'missing wxReportData method end');
+const reportBody = analytics.slice(reportMethodStart, reportMethodEnd);
+const reportReadyIndex = reportBody.indexOf('await this.ensureReady()');
+assert.ok(reportBody.indexOf('const levelContext = { ...this.levelContext }') < reportReadyIndex, 'behavior reporting must snapshot the level context before async cloud readiness');
+assert.ok(reportBody.indexOf('const activeSession = this.levelSession') < reportReadyIndex, 'behavior reporting must snapshot the active round before async cloud readiness');
+assert.ok(!reportBody.slice(reportReadyIndex).includes('this.levelContext'), 'behavior payload enrichment must not reread a later level context after awaiting readiness');
 assert.ok(!hideBody.includes('abandonActiveLevel'), 'app hide must not finalize the active level as failure/abandon');
 assert.ok(hideBody.includes("eventName: 'app_hide'"), 'app hide must still emit app_hide funnel signal');
 assert.ok(hideBody.includes("eventName: 'game_exit'"), 'app hide must still emit game_exit behavior signal');
@@ -51,9 +60,23 @@ assert.ok(methodBody(analytics, 'markLevelPassed').includes('smartHintShownCount
 assert.ok(analytics.includes("export type GameplayEntryMode = '' | 'main' | 'theme' | 'external'"), 'analytics must define the bounded gameplay entry mode');
 assert.ok(methodBody(analytics, 'setLevelContext').includes('normalizeGameplayEntryMode'), 'level context must normalize gameplayEntryMode');
 assert.ok(methodBody(analytics, 'beginLevel').includes('gameplayEntryMode'), 'level entry must snapshot gameplayEntryMode');
+assert.ok(methodBody(analytics, 'beginLevel').includes('roundId'), 'every level start must create a roundId');
+assert.ok(methodBody(analytics, 'beginLevel').includes('++this.levelRoundSeq'), 'round ids must advance for same-level retries');
+assert.ok(methodBody(analytics, 'beginLevel').includes("void this.finalizeActiveLevel(false, 'abandon')"), 'starting another round must finalize the previous round');
 assert.ok(methodBody(analytics, 'markLevelPassed').includes('gameplayEntryMode: session?.gameplayEntryMode'), 'pass events must retain the entry mode snapshot');
 assert.ok(methodBody(analytics, 'markLevelFailed').includes('gameplayEntryMode: session?.gameplayEntryMode'), 'fail events must retain the entry mode snapshot');
 assert.ok(analytics.includes('gameplayEntryMode: session.gameplayEntryMode'), 'level records must retain the entry mode snapshot');
+for (const field of ['sessionId: session.sessionId', 'roundId: session.roundId', 'clientBuildId: session.clientBuildId', 'levelDataSource: session.levelDataSource']) {
+    assert.ok(analytics.includes(field), `level records must retain ${field.split(':')[0]}`);
+}
+assert.ok(!analytics.includes('levelDataVersion'), 'analytics must not send the removed level version');
+const adStageStart = analytics.indexOf('private trackAdStage(');
+assert.ok(adStageStart >= 0, 'missing trackAdStage method');
+const adStageEnd = analytics.indexOf('\n    trackAdClick(', adStageStart);
+assert.ok(adStageEnd > adStageStart, 'missing trackAdStage method end');
+const adStageBody = analytics.slice(adStageStart, adStageEnd);
+assert.ok(adStageBody.includes('this.wxReportData'), 'ad stages must remain in user_behavior');
+assert.ok(!adStageBody.includes('this.trackFunnelEvent'), 'ad stages must not duplicate writes into first_level_funnel');
 
 assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {'), 'gameWin must pass the runtime logical level id and PCH snapshot');
 assert.ok(settlement.includes('AnalyticsMgr.inst.markLevelFailed(this.getAnalyticsPage(), logicalLevelId, {'), 'gameLose must pass the runtime logical level id and PCH failure snapshot');
@@ -65,6 +88,8 @@ assert.ok(saveLevelRecord.includes('normalizeEndReason'), 'saveLevelRecord must 
 assert.ok(saveLevelRecord.includes('endReason,'), 'saveLevelRecord must persist endReason');
 assert.ok(addBehaviorData.includes('gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode)'), 'addBehaviorData must persist normalized gameplayEntryMode');
 assert.ok(saveLevelRecord.includes('gameplayEntryMode: normalizeGameplayEntryMode(event.gameplayEntryMode)'), 'saveLevelRecord must persist normalized gameplayEntryMode');
+assert.ok(saveLevelRecord.includes('roundId: cleanString(event.roundId'), 'saveLevelRecord must persist roundId');
+assert.ok(addBehaviorData.includes('roundId: cleanString(event.roundId'), 'addBehaviorData must persist roundId');
 assert.ok(calcLevelRate.includes('isAbandonedRecord'), 'calcLevelRate must identify abandoned/interrupted records');
 assert.ok(calcLevelRate.includes('resultRecords = records.filter'), 'calcLevelRate must exclude abandoned records from pass/fail denominator');
 assert.ok(calcLevelRate.includes('abandonedCount'), 'calcLevelRate must expose abandonedCount for diagnostics');
@@ -76,8 +101,12 @@ assert.ok(dashboard.includes('smartGuidedPassUsers'), 'dashboard must expose use
 assert.ok(dashboard.includes('smartHintShownCount > 0'), 'dashboard must attribute guided passes from smartHintShownCount');
 assert.ok(dashboard.includes('adFinishCount'), 'dashboard must expose per-level completed ad count for the experiment');
 assert.ok(dashboard.includes('front10ExperimentStats: buildFront10ExperimentStats(behaviorList)'), 'dashboard response must include front10ExperimentStats');
+assert.ok(dashboard.includes('capacityAdRoundFunnel: buildCapacityAdRoundFunnel'), 'dashboard response must include the round-linked capacity funnel');
 assert.ok(dailyJob.includes('isAbandonedLevelRecord'), 'daily job must identify abandoned/interrupted records');
 assert.ok(dailyJob.includes('resultRecords: resultRounds'), 'daily job summary must report result-record denominator');
 assert.ok(dailyJob.includes('abandonedRecords: abandonedRounds'), 'daily job summary must report abandoned records');
+assert.ok(dailyJob.includes('capacityAdRoundFunnel'), 'daily job must expose the round-linked capacity funnel');
+assert.ok(dailyJob.includes('["BASE", "CONTROL"]'), 'daily experiments must recognize base/control buckets');
+assert.ok(dailyJob.includes('["EXP", "TREATMENT"]'), 'daily experiments must recognize exp/treatment buckets');
 
 console.log('level-analytics-session-lifecycle.test.js passed');

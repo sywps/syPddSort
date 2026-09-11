@@ -172,7 +172,7 @@ function aggregateLevelRows(rows) {
     const first = clone(group[0] || {});
     const row = { ...first };
     for (const field of RETIRED_PCH_STAT_FIELDS) delete row[field];
-    for (const field of ["enterUv", "enterPv", "passUv", "passPv", "failUv", "failPv", "enterNotPassUv", "silentDropUv", "recordCount", "uniqueUsers", "adReviveCount", "adShowPv", "adFinishPv", "magnetUses", "brushUses", "freezeUses"]) {
+    for (const field of ["enterUv", "enterPv", "passUv", "passPv", "failUv", "failPv", "enterNotPassUv", "silentDropUv", "recordCount", "uniqueUsers", "adReviveCount", "adShowPv", "adFinishPv", "magnetUses", "brushUses", "freezeUses", "pchStatsRecordCount", "capacityExpandCount"]) {
       row[field] = sum(group, field);
     }
     row.isTotal = key === "__all__" || !!first.isTotal;
@@ -183,6 +183,10 @@ function aggregateLevelRows(rows) {
     row.avgTryCount = weighted(group, "avgTryCount", ["recordCount", "enterPv", "enterUv"]);
     row.avgDurationSeconds = weighted(group, "avgDurationSeconds", ["recordCount", "enterPv", "enterUv"]);
     row.medianDurationSeconds = weightedMedian(group, "medianDurationSeconds", "recordCount");
+    const pchRows = group.filter((item) => num(item.pchStatsRecordCount) > 0);
+    row.avgPeakBufferRatio = weighted(pchRows, "avgPeakBufferRatio", ["pchStatsRecordCount"]);
+    row.avgValidActionCount = weighted(pchRows, "avgValidActionCount", ["pchStatsRecordCount"]);
+    row.avgFinalProgressRatio = weighted(pchRows, "avgFinalProgressRatio", ["pchStatsRecordCount"]);
     row.diagnosis = diagnoseLevel(row);
     out.push(row);
   }
@@ -267,6 +271,41 @@ function aggregateTapRows(rows) {
     out.push(row);
   }
   return out.sort((a, b) => num(b.records) - num(a.records));
+}
+
+function aggregateCapacityAdRoundFunnel(items) {
+  const rows = items.flatMap((item) => item?.rows || []);
+  const out = [];
+  for (const [, group] of groupBy(rows, (row) => JSON.stringify([
+    row?.logicalLevelId || 0,
+    row?.experimentId || "",
+    row?.bucket || "",
+    row?.clientBuildId || "",
+  ]))) {
+    const row = { ...clone(group[0] || {}) };
+    for (const field of ["roundCount", "eligibleRounds", "shownRounds", "clickedRounds", "rewardedRounds", "followupRounds", "passedRounds", "rewardedPassedRounds"]) {
+      row[field] = sum(group, field);
+    }
+    row.eligibleToShownRate = ratio(row.shownRounds, row.eligibleRounds);
+    row.shownToClickRate = ratio(row.clickedRounds, row.shownRounds);
+    row.clickToRewardRate = ratio(row.rewardedRounds, row.clickedRounds);
+    row.rewardToFollowupRate = ratio(row.followupRounds, row.rewardedRounds);
+    row.rewardToPassRate = ratio(row.rewardedPassedRounds, row.rewardedRounds);
+    row.avgFollowupDelayMs = Math.round(weighted(
+      group.filter((item) => num(item.followupRounds) > 0),
+      "avgFollowupDelayMs",
+      ["followupRounds"],
+    ));
+    out.push(row);
+  }
+  return {
+    scope: items.find((item) => item?.scope)?.scope
+      || "openid + sessionId + roundId + clientBuildId + experiment; synthetic daily sum",
+    rows: out.sort((a, b) => num(a.logicalLevelId) - num(b.logicalLevelId)
+      || String(a.experimentId).localeCompare(String(b.experimentId))
+      || String(a.bucket).localeCompare(String(b.bucket))
+      || String(a.clientBuildId).localeCompare(String(b.clientBuildId))),
+  };
 }
 
 function aggregateReviveAdFunnel(rows) {
@@ -555,6 +594,7 @@ function aggregateDailyDiagnosis(summaries, targetDate, sourceDates) {
     firstDayChurnAnalysis: aggregateChurn(diags.map((item) => item.firstDayChurnAnalysis).filter(Boolean)),
     levelAdRelationship: levelAd,
     experimentBreakdowns: { dataQuality: first.experimentBreakdowns?.dataQuality || {}, ...experimentMaps },
+    capacityAdRoundFunnel: aggregateCapacityAdRoundFunnel(diags.map((item) => item.capacityAdRoundFunnel).filter(Boolean)),
     levelNetValue: aggregateLevelNetValue(diags.map((item) => item.levelNetValue).filter(Boolean)),
     dataQuality: aggregateDataQuality(diags.map((item) => item.dataQuality || {})),
     recommendations: [{

@@ -1,4 +1,5 @@
-import { _decorator, assetManager, Component, director, instantiate, Node } from 'cc';
+import { _decorator, assetManager, type AssetManager, Component, director, instantiate, Node, Prefab } from 'cc';
+import { AppTransitionController } from './AppTransitionController';
 import { StartupLoadingController } from './StartupLoadingController';
 import {
     AppSession,
@@ -10,12 +11,16 @@ import {
 import { SceneRouter } from './SceneRouter';
 
 const { ccclass } = _decorator;
+const APP_TRANSITION_BUNDLE_NAME = 'gameAssets';
+const APP_TRANSITION_PREFAB_PATH = 'UI/Prefabs/Panels/AppTransition';
 
 @ccclass('AppRoot')
 export class AppRoot extends Component {
     private static _instance: AppRoot | null = null;
     private readonly _session = new AppSession();
     private readonly _router = new SceneRouter(this._session);
+    appTransition: AppTransitionController | null = null;
+    private appTransitionPromise: Promise<AppTransitionController> | null = null;
     startupLoading: StartupLoadingController | null = null;
     private startupLoadingPromise: Promise<StartupLoadingController> | null = null;
 
@@ -58,6 +63,51 @@ export class AppRoot extends Component {
             throw error;
         });
         return this.startupLoadingPromise;
+    }
+
+    ensureAppTransition(): Promise<AppTransitionController> {
+        if (this.appTransition?.isValid) return Promise.resolve(this.appTransition);
+        if (this.appTransitionPromise) return this.appTransitionPromise;
+        this.appTransitionPromise = new Promise<AppTransitionController>((resolve, reject) => {
+            const loadPrefab = (bundle: AssetManager.Bundle) => bundle.load(APP_TRANSITION_PREFAB_PATH, Prefab, (error, prefab) => {
+                if (error || !prefab) {
+                    reject(error || new Error('[AppTransition] prefab missing'));
+                    return;
+                }
+                let node: Node | null = null;
+                try {
+                    node = instantiate(prefab);
+                    node.name = 'AppTransitionCanvas';
+                    node.setParent(this.node);
+                    const controller = node.addComponent(AppTransitionController);
+                    controller.initialize();
+                    this.appTransition = controller;
+                    resolve(controller);
+                } catch (initializeError) {
+                    if (node?.isValid) node.destroy();
+                    reject(initializeError);
+                }
+            });
+            const bundle = assetManager.getBundle(APP_TRANSITION_BUNDLE_NAME);
+            if (bundle) {
+                loadPrefab(bundle);
+                return;
+            }
+            assetManager.loadBundle(APP_TRANSITION_BUNDLE_NAME, (bundleError, loadedBundle) => {
+                if (bundleError || !loadedBundle) {
+                    reject(bundleError || new Error('[AppTransition] gameAssets bundle missing'));
+                    return;
+                }
+                loadPrefab(loadedBundle);
+            });
+        }).then((transition) => {
+            this.appTransitionPromise = null;
+            return transition;
+        }, (error) => {
+            this.appTransitionPromise = null;
+            throw error;
+        });
+        return this.appTransitionPromise;
     }
 
     static tryGet(): AppRoot | null {
@@ -137,10 +187,44 @@ export class AppRoot extends Component {
 
     async requestHomeRoute(source: string = 'unknown', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
         this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:start', { source, coverMode });
-        await this.router.toHome();
-        this.markHomeVisible('Home');
-        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:afterMarkHomeVisible', { source, coverMode: 'none' });
-        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:afterToHome', { source, coverMode: 'none' });
+        const route = async () => {
+            await this.router.toHome();
+            this.markHomeVisible('Home');
+            this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:afterMarkHomeVisible', { source, coverMode });
+        };
+        if (coverMode === 'none') await route();
+        else {
+            const transition = await this.ensureAppTransition();
+            await transition.run('route:Home', 'Home', 'reverse', route);
+        }
+        this.router.logTransitionTrace('[SceneSplitTrace] requestHomeRoute:afterToHome', { source, coverMode });
+    }
+
+    async requestGameplayRoute(
+        levelId: number,
+        prefix: string,
+        entryMode: AppGameplayEntryMode,
+        entryCoverMode: AppGameplayEntryCoverMode = 'none',
+        routeReason: string = '',
+    ): Promise<void> {
+        const route = async () => {
+            this.markGameRequested(levelId, prefix, entryMode, entryCoverMode, routeReason);
+            await this.router.toGame();
+        };
+        if (entryCoverMode === 'none') {
+            await route();
+            return;
+        }
+        const transition = await this.ensureAppTransition();
+        await transition.run(`route:Game:${prefix}${levelId}`, 'Game', 'forward', route);
+    }
+
+    isAppTransitionTargeting(sceneName: AppSceneName): boolean {
+        return !!this.appTransition?.isTargeting(sceneName);
+    }
+
+    completeAppTransitionAfterDraw(sceneName: AppSceneName, error: unknown | null = null): boolean {
+        return this.appTransition?.completeAfterDraw(sceneName, error) || false;
     }
 
     markGameRequested(

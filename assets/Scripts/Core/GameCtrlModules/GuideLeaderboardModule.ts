@@ -1,5 +1,5 @@
 import {
-    _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
+    _decorator, Component, Node, UITransform, Sprite, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
     Graphics, Color, view, ResolutionPolicy, tween, Tween, sys, UIOpacity,
     ImageAsset, Texture2D, Rect, TextAsset, SubContextView, Size, BlockInputEvents, Mask,
@@ -33,20 +33,6 @@ import { ensureLeaderboardPanelController } from '../Panels/LeaderboardPanelCont
 import { getWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { ToastService } from '../ToastService';
 import { debugPerfTrace } from '../DebugPerfTrace';
-
-function setGuideLeaderboardPrefabLabel(parent: Node, name: string, text: string): Label {
-    const node = parent.getChildByName(name);
-    if (!node) {
-        throw new Error(`[leaderboard-prefab] missing node: ${name}`);
-    }
-    const label = node.getComponent(Label);
-    if (!label) {
-        throw new Error(`[leaderboard-prefab] missing label on ${name}`);
-    }
-    label.string = text;
-    node.active = true;
-    return label;
-}
 
 export function installGuideLeaderboardModule(target: any): void {
     Object.assign(target, {
@@ -1040,35 +1026,6 @@ export function installGuideLeaderboardModule(target: any): void {
             this._friendRankScrollPostScheduled = false;
         },
 
-        getLeaderboardHintNode(hintNode: Node, placement: 'top' | 'bottom'): Node {
-            const parent = hintNode.parent;
-            const topNode = parent?.getChildByName('HintAnchor') || hintNode;
-            const bottomNode = parent?.getChildByName('HintBottomAnchor') || topNode;
-            topNode.active = placement === 'top';
-            if (bottomNode !== topNode) {
-                bottomNode.active = placement === 'bottom';
-            }
-            return placement === 'bottom' ? bottomNode : topNode;
-        },
-
-        setLeaderboardHintToTop(hintNode: Node) {
-            this.getLeaderboardHintNode(hintNode, 'top');
-        },
-
-        setLeaderboardHintToBottom(hintNode: Node) {
-            this.getLeaderboardHintNode(hintNode, 'bottom');
-        },
-
-        setLeaderboardHintText(hintNode: Node, placement: 'top' | 'bottom', text: string): Label {
-            const targetNode = this.getLeaderboardHintNode(hintNode, placement);
-            const hintLabel = targetNode.getComponent(Label);
-            if (!hintLabel) {
-                throw new Error(`[leaderboard-prefab] missing label on ${targetNode.name}`);
-            }
-            hintLabel.string = text;
-            return hintLabel;
-        },
-
         beginLeaderboardTabRequest(tab: 'global' | 'friend'): number {
             this._leaderboardActiveTab = tab;
             this._leaderboardTabRequestId = (this._leaderboardTabRequestId || 0) + 1;
@@ -1079,53 +1036,53 @@ export function installGuideLeaderboardModule(target: any): void {
             return !requestToken || this._leaderboardTabRequestId === requestToken;
         },
 
-        resetLeaderboardHintState(hintNode: Node) {
-            this.setLeaderboardHintText(hintNode, 'top', '');
-        },
-
         async openLeaderboard() {
             return ensureLeaderboardPanelController(this).open();
         },
 
-        async switchLeaderboardTab(box: Node, hintNode: Node, tab: 'global' | 'friend') {
+        async switchLeaderboardTab(box: Node, tab: 'global' | 'friend') {
             const listNode = box.getChildByName('LeaderboardList');
             const selfBox = box.getChildByName('LeaderboardSelfBox');
             if (!listNode || !selfBox) return;
+            UserMgr.inst.destroyUserInfoButtons();
             const requestToken = this.beginLeaderboardTabRequest(tab);
         
-            this.clearLeaderboardAuthButtons(box);
             this.deactivateWeChatFriendRank(tab === 'global' ? 'switch-to-global' : 'switch-tab-reset');
-            this.resetLeaderboardHintState(hintNode);
             this.resetLeaderboardListState?.(listNode);
+            selfBox.active = false;
         
             if (tab === 'global') {
-                await this.loadGlobalLeaderboard(box, listNode, selfBox, hintNode, requestToken);
+                await this.loadGlobalLeaderboard(box, listNode, selfBox, requestToken);
             } else {
                 if (!this.getWeChatRuntime()) {
                     if (!this.isLeaderboardTabRequestCurrent(requestToken)) return;
-                    this.showUnsupportedFriendLeaderboard(listNode, selfBox, hintNode);
+                    this.showUnsupportedFriendLeaderboard(selfBox);
                 } else if (UserMgr.inst.isWeChatAuthorized) {
-                    await this.loadWeChatFriendLeaderboard(box, listNode, hintNode, selfBox, requestToken);
+                    await this.loadWeChatFriendLeaderboard(box, listNode, selfBox, requestToken);
                 } else {
                     if (!this.isLeaderboardTabRequestCurrent(requestToken)) return;
-                    this.addAuthButtonForGuest(box, box.parent, listNode, selfBox, hintNode);
-                    const profile = UserMgr.inst.getProfile();
-                    this.renderLeaderboardSelfEntry(selfBox, {
-                        rank: 0,
-                        displayName: profile.displayName,
-                        avatarUrl: profile.avatarUrl,
-                        progressLevel: profile.lastLevelId || 1,
-                    });
+                    const wxRuntime = this.getWeChatRuntime();
+                    const sysInfo = wxRuntime.getWindowInfo?.() || wxRuntime.getSystemInfoSync?.() || {};
+                    const scaleX = (Number(sysInfo.windowWidth) || 720) / 720;
+                    const scaleY = (Number(sysInfo.windowHeight) || 1280) / 1280;
+                    const authorizationRequest = UserMgr.inst.createUserInfoButton(
+                        200 * scaleX,
+                        652 * scaleY,
+                        320 * scaleX,
+                        56 * scaleY,
+                    );
+                    const authorized = await authorizationRequest;
+                    if (!box.isValid || !this.isLeaderboardTabRequestCurrent(requestToken)) return;
+                    if (authorized) {
+                        await this.loadWeChatFriendLeaderboard(box, listNode, selfBox, requestToken);
+                    } else {
+                        await this.loadGlobalLeaderboard(box, listNode, selfBox, requestToken);
+                    }
                 }
             }
         },
 
-        showUnsupportedFriendLeaderboard(listNode: Node, selfBox: Node, hintNode: Node) {
-            this.setLeaderboardHintText(hintNode, 'bottom', '当前平台暂未接入好友排行');
-        
-            setGuideLeaderboardPrefabLabel(listNode, 'FriendRankUnsupported', '好友排行暂不可用');
-            setGuideLeaderboardPrefabLabel(listNode, 'FriendRankUnsupportedSub', '全国排行可正常查看，好友排行后续接入当前平台能力');
-        
+        showUnsupportedFriendLeaderboard(selfBox: Node) {
             const profile = UserMgr.inst.getProfile();
             this.renderLeaderboardSelfEntry(selfBox, {
                 rank: 0,
@@ -1135,8 +1092,9 @@ export function installGuideLeaderboardModule(target: any): void {
             });
         },
 
-        async loadWeChatFriendLeaderboard(box: Node, listNode: Node, hintNode: Node, selfBox: Node, requestToken?: number) {
+        async loadWeChatFriendLeaderboard(box: Node, listNode: Node, selfBox: Node, requestToken?: number) {
             const isCurrentRequest = () => !requestToken || this.isLeaderboardTabRequestCurrent?.(requestToken) !== false;
+            selfBox.active = false;
             this.resetLeaderboardListState?.(listNode);
         
             const profile = UserMgr.inst.getProfile();
@@ -1145,9 +1103,9 @@ export function installGuideLeaderboardModule(target: any): void {
         
             if (this.getWeChatOpenDataContext()) {
                 if (!isCurrentRequest()) return;
-                this.showOpenDataCanvas(box, listNode, hintNode);
+                this.showOpenDataCanvas(box, listNode);
             } else {
-                await this.showFriendRankList(box, listNode, hintNode, selfBox, requestToken);
+                await this.showFriendRankList(box, listNode, requestToken);
                 if (!box.isValid || !isCurrentRequest()) return;
             }
         

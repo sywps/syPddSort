@@ -42,6 +42,12 @@ const GAME_SCENE_SFX_ALLOWLIST = new Set<SfxName>([
     'winSettlement',
     'lose',
     'revivePop',
+    'judgmentGreat',
+    'judgmentExcellent',
+    'judgmentAwesome',
+    'judgmentAmazing',
+    'judgmentPerfect',
+    'judgmentUnbelievable',
 ]);
 
 const BOOTSTRAP_SFX_NAME_SET = new Set<SfxName>(AUDIO_BOOTSTRAP_SFX_NAMES);

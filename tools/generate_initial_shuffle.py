@@ -12,6 +12,7 @@ from typing import Dict, List, Tuple
 from calc_guanka_min_steps import DEFAULT_SLOT_CAPACITY, LevelMinStepSolver
 from generate_cute_target import count_colors
 from move_target_to_initial import (
+    LAYOUT_MODES,
     assign_initial_layout,
     build_move_map,
     displacement_ratio,
@@ -100,6 +101,12 @@ def parse_args() -> argparse.Namespace:
         "--max-groups-per-color",
         type=int,
         help="Upper bound for clustered regions created per color.",
+    )
+    parser.add_argument(
+        "--layout-mode",
+        choices=LAYOUT_MODES,
+        default="clustered",
+        help="Spatial assignment mode. target-color-ordered builds one target-scored connected band per bean color.",
     )
     parser.add_argument(
         "--min-groups-per-color",
@@ -350,6 +357,7 @@ def choose_best_init(
     target_min_steps: int | None = None,
     min_min_steps: int | None = None,
     max_min_steps: int | None = None,
+    layout_mode: str = "clustered",
 ) -> Dict[str, object]:
     best_grid: Grid | None = None
     best_ratio = -1.0
@@ -362,18 +370,25 @@ def choose_best_init(
     for group_count in range(min_groups_per_color, max_groups_per_color + 1):
         for attempt in range(total_attempts):
             seed = base_seed + group_count * 131 + attempt * 9973
-            init_grid = assign_initial_layout(
-                correct,
-                seed=seed,
-                max_groups_per_color=group_count,
-            )
+            try:
+                init_grid = assign_initial_layout(
+                    correct,
+                    seed=seed,
+                    max_groups_per_color=group_count,
+                    layout_mode=layout_mode,
+                    target_displacement=target_displacement,
+                )
+            except ValueError:
+                if layout_mode == "target-color-ordered":
+                    continue
+                raise
             ratio = displacement_ratio(correct, init_grid)
             soften_target = target_displacement
             if soften_target is None and max_displacement is not None:
                 soften_target = max_displacement
             if soften_target is not None:
                 soften_target = clamp(float(soften_target), 0.0, 0.999)
-            if soften_target is not None and ratio > soften_target:
+            if layout_mode == "clustered" and soften_target is not None and ratio > soften_target:
                 init_grid, ratio = soften_init_layout(correct, init_grid, soften_target)
             min_steps, minstep_solver = estimate_candidate_min_steps(correct, init_grid, minstep_mode)
             displacement_penalty = score_against_range(
@@ -418,6 +433,7 @@ def choose_best_init(
         "score": round(best_score or 0.0, 4),
         "min_step_count": best_min_steps,
         "min_step_solver": best_minstep_solver,
+        "layout_mode": layout_mode,
     }
 
 
@@ -427,6 +443,7 @@ def build_updated_payload(
     ratio: float,
     chosen_seed: int,
     chosen_group_count: int | None = None,
+    layout_mode: str | None = None,
 ) -> Dict[str, object]:
     correct = payload["correctColorArr"]
     width, height = validate_grid(correct)
@@ -444,6 +461,8 @@ def build_updated_payload(
     updated["initShuffleSeed"] = chosen_seed
     if chosen_group_count is not None:
         updated["initShuffleMaxGroupsPerColor"] = chosen_group_count
+    if layout_mode is not None:
+        updated["initShuffleMode"] = layout_mode
     if "timeLimit" not in updated:
         updated["timeLimit"] = default_time_limit(filled)
     return updated
@@ -480,6 +499,7 @@ def main() -> None:
         target_min_steps=search_config["target_min_steps"],
         min_min_steps=search_config["min_min_steps"],
         max_min_steps=search_config["max_min_steps"],
+        layout_mode=args.layout_mode,
     )
     updated = build_updated_payload(
         payload=payload,
@@ -487,6 +507,7 @@ def main() -> None:
         ratio=float(chosen["displacement_ratio"]),
         chosen_seed=int(chosen["seed"]),
         chosen_group_count=int(chosen["group_count"]),
+        layout_mode=str(chosen["layout_mode"]),
     )
     if chosen["min_step_count"] is not None:
         updated["minStepCount"] = int(chosen["min_step_count"])
@@ -530,6 +551,7 @@ def main() -> None:
             search_config["max_min_steps"],
         ],
         "selectionScore": chosen["score"],
+        "layoutMode": chosen["layout_mode"],
     }
     if args.report_output:
         write_json(Path(args.report_output), report_payload)

@@ -75,6 +75,11 @@ type LevelDataCdnContext = {
     namespace: string;
 };
 
+export type LevelDataAnalyticsMetadata = {
+    source: 'level_data_cdn';
+    namespace: string;
+};
+
 type LevelDataLastFailure = {
     at: number;
     namespace: string;
@@ -212,6 +217,7 @@ export class LevelDataCdnService {
     private readonly manifestStates = new Map<string, LevelDataManifestState>();
     private readonly packPromises = new Map<string, Promise<LevelPack | null>>();
     private readonly packUnavailableReasons = new Map<string, string>();
+    private readonly levelAnalyticsMetadata = new WeakMap<object, LevelDataAnalyticsMetadata>();
     private lastFailure: LevelDataLastFailure | null = null;
 
     prefetchLive(): void {
@@ -302,13 +308,24 @@ export class LevelDataCdnService {
             if (entry.levelId !== levelId) return false;
             return this.getPackPrefix(entry.prefix ? { prefix: entry.prefix } : pack) === prefix;
         });
-        if (level) return level.data;
+        if (level) {
+            this.levelAnalyticsMetadata.set(level.data as object, {
+                source: 'level_data_cdn',
+                namespace: context.namespace,
+            });
+            return level.data;
+        }
         this.recordLoadFailure(context, levelId, prefix, 'pack_level_missing', 'target level missing from loaded pack');
         return null;
     }
 
     getDataVersion(): string {
         return this.manifestStates.get('stable')?.manifest?.dataVersion || '';
+    }
+
+    getLevelAnalyticsMetadata(data: LevelData | null | undefined): LevelDataAnalyticsMetadata | null {
+        if (!data || typeof data !== 'object') return null;
+        return this.levelAnalyticsMetadata.get(data as object) || null;
     }
 
     getAvailabilityDiagnostics(): Record<string, unknown> {

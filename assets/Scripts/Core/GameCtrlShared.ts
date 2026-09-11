@@ -249,7 +249,7 @@ const leaderboardAvatarPendingLoads = new Map<string, Array<(frame: SpriteFrame 
 const leaderboardAvatarLoadQueue: string[] = [];
 const leaderboardAvatarLoadLaunchers = new Map<string, () => void>();
 let leaderboardAvatarLoadInFlight = 0;
-const LEADERBOARD_ROW_PITCH = 84;
+const LEADERBOARD_ROW_PITCH = 116;
 const LEADERBOARD_SCROLL_DECAY = 0.92;
 const LEADERBOARD_SCROLL_MIN_SPEED = 48;
 const LEADERBOARD_AVATAR_MAX_CONCURRENT = 2;

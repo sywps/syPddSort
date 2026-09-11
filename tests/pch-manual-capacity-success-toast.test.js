@@ -27,5 +27,10 @@ assert.match(
     /runRewardedGrant\('pch_conveyor_expand',[\s\S]*?grantFailToast: '传送带扩容失败，请重试',[\s\S]*?successToast: '传送带已扩容 \+12'/,
     'manual conveyor expansion must show the same +12 success toast after a verified rewarded grant',
 );
+assert.match(
+    onCapacityAdTap,
+    /onRewardGranted:[\s\S]*?if \(triggerSource !== 'capacity_soft_hint'\) return;[\s\S]*?capacityRewardGrantedAt = Date\.now\(\)/,
+    'manual expansion rewards must not enter the soft-hint follow-up funnel',
+);
 
 console.log('pch-manual-capacity-success-toast.test.js passed');

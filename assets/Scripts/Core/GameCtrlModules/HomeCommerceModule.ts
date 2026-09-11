@@ -138,7 +138,7 @@ export function installHomeCommerceModule(target: any): void {
             btn.getComponent(Button) || btn.addComponent(Button);
             const enterSelectedLevel = () => {
                 if (this.getRuntimeSceneName('Game') === 'Home') {
-                    void this.requestGameplayRoute(level, 'level_', false, 'none');
+                    void this.requestGameplayRoute(level, 'level_', false, 'auto');
                     return;
                 }
                 this.deactivateMainMenuNode();

@@ -66,6 +66,12 @@ function normalizeGameplayStatCount(value) {
   return Math.min(MAX_GAMEPLAY_STAT_COUNT, num);
 }
 
+function normalizeRatio(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.min(1, Math.max(0, num));
+}
+
 function normalizePchGameplayStats(value, gameplayMode, gameplaySchemaVersion) {
   if (gameplayMode !== PCH_GAMEPLAY_MODE || gameplaySchemaVersion !== PCH_GAMEPLAY_SCHEMA_VERSION) {
     return null;
@@ -75,6 +81,17 @@ function normalizePchGameplayStats(value, gameplayMode, gameplaySchemaVersion) {
     magnetUses: normalizeGameplayStatCount(source.magnetUses),
     brushUses: normalizeGameplayStatCount(source.brushUses),
     freezeUses: normalizeGameplayStatCount(source.freezeUses),
+    peakBufferCount: normalizeGameplayStatCount(source.peakBufferCount),
+    peakBufferRatio: normalizeRatio(source.peakBufferRatio),
+    capacityExpandCount: normalizeGameplayStatCount(source.capacityExpandCount),
+    validActionCount: normalizeGameplayStatCount(source.validActionCount),
+    finalBufferCount: normalizeGameplayStatCount(source.finalBufferCount),
+    finalLockedCount: normalizeGameplayStatCount(source.finalLockedCount),
+    totalBeanCount: normalizeGameplayStatCount(source.totalBeanCount),
+    finalProgressRatio: normalizeRatio(source.finalProgressRatio),
+    capacitySoftHintEligibleCount: normalizeGameplayStatCount(source.capacitySoftHintEligibleCount),
+    capacitySoftHintShownCount: normalizeGameplayStatCount(source.capacitySoftHintShownCount),
+    capacitySoftHintClickCount: normalizeGameplayStatCount(source.capacitySoftHintClickCount),
   };
 }
 
@@ -103,12 +120,24 @@ exports.main = async (event = {}) => {
   const endReason = normalizeEndReason(event.endReason, passStatus);
   const gameplayMode = normalizeGameplayMode(event.gameplayMode);
   const gameplaySchemaVersion = normalizeGameplaySchemaVersion(event.gameplaySchemaVersion, gameplayMode);
+  const abId = cleanString(event.abId || event.experimentId, 64);
+  const abBucket = cleanString(event.abBucket || event.experimentBucket, 64);
 
   try {
     const addRes = await db.collection(LEVEL_RECORD_COLLECTION).add({
       data: {
         openid,
+        sessionId: cleanString(event.sessionId, 96),
+        roundId: cleanString(event.roundId, 120),
+        clientBuildId: cleanString(event.clientBuildId, 80),
         levelId,
+        logicalLevelId: normalizeLevelId(event.logicalLevelId) || levelId,
+        physicalLevelId: normalizeLevelId(event.physicalLevelId) || levelId,
+        abId,
+        abBucket,
+        experimentId: cleanString(event.experimentId, 64) || abId,
+        experimentBucket: cleanString(event.experimentBucket, 64) || abBucket,
+        levelDataSource: cleanString(event.levelDataSource, 48),
         tryCount: normalizeTryCount(event.tryCount),
         passStatus,
         endReason,
@@ -119,6 +148,9 @@ exports.main = async (event = {}) => {
         gameplaySchemaVersion,
         failureReason: normalizeFailureReason(event.failureReason),
         gameplayStats: normalizePchGameplayStats(event.gameplayStats, gameplayMode, gameplaySchemaVersion),
+        effectiveTimeLimit: normalizeGameplayStatCount(event.effectiveTimeLimit),
+        ddaFactor: Math.min(10, Math.max(0, Number(event.ddaFactor) || 0)),
+        ddaReason: cleanString(event.ddaReason, 64),
         startTime,
         endTime: endTime >= startTime ? endTime : startTime,
       },

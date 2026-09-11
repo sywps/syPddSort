@@ -2049,7 +2049,7 @@ function renderFirstDayChurnAnalysis(churn) {
 
 function renderFirst20Table(rows) {
     return renderTable(
-        ['关卡', '进入UV', '通过UV', '失败UV', '进入未通过UV', '通过/进入UV', '记录局数', '平均尝试', '平均时长', '广告续关', '磁铁', '刷子', '冻结', '判断'],
+        ['关卡', '进入UV', '通过UV', '失败UV', '进入未通过UV', '通过/进入UV', '记录局数', '平均尝试', '平均时长', '广告续关', '峰值占用', '扩容次数', '平均有效操作', '最终进度', '磁铁', '刷子', '冻结', '判断'],
         rows.map((row) => [
             `<strong>L${escapeHtml(row.levelId)}</strong>`,
             formatNumber(row.enterUv),
@@ -2061,6 +2061,10 @@ function renderFirst20Table(rows) {
             finiteNumber(row.avgTryCount).toFixed(2),
             formatSeconds(row.avgDurationSeconds),
             formatNumber(row.adReviveCount),
+            pctFromRatio(row.avgPeakBufferRatio),
+            formatNumber(row.capacityExpandCount),
+            finiteNumber(row.avgValidActionCount).toFixed(1),
+            pctFromRatio(row.avgFinalProgressRatio),
             formatNumber(row.magnetUses),
             formatNumber(row.brushUses),
             formatNumber(row.freezeUses),
@@ -2336,6 +2340,30 @@ function renderReviveAdFunnel(rows) {
     );
 }
 
+function renderCapacityAdRoundFunnel(funnel) {
+    return renderTable(
+        ['关卡', '实验', '分组', '客户端构建', '符合条件局', '提示展示局', '提示点击局', '奖励成功局', '奖励后操作局', '奖励后通关局', '展示/符合', '点击/展示', '奖励/点击', '操作/奖励', '通关/奖励', '奖励后操作延迟'],
+        (funnel?.rows || []).map((row) => [
+            `<strong>L${escapeHtml(row.logicalLevelId)}</strong>`,
+            escapeHtml(row.experimentId),
+            escapeHtml(row.bucket || row.abBucket),
+            escapeHtml(row.clientBuildId || ''),
+            formatNumber(row.eligibleRounds),
+            formatNumber(row.shownRounds),
+            formatNumber(row.clickedRounds),
+            formatNumber(row.rewardedRounds),
+            formatNumber(row.followupRounds),
+            formatNumber(row.rewardedPassedRounds),
+            pctFromRatio(row.eligibleToShownRate),
+            pctFromRatio(row.shownToClickRate),
+            pctFromRatio(row.clickToRewardRate),
+            pctFromRatio(row.rewardToFollowupRate),
+            pctFromRatio(row.rewardToPassRate),
+            `${formatNumber(row.avgFollowupDelayMs)} ms`,
+        ]),
+    );
+}
+
 function renderReviveShareFunnel(rows) {
     return renderTable(
         ['关卡', '入口', '面板曝光', '分享点击', '合格返回', '分享复活成功', '点击/面板', '合格/点击', '复活/合格'],
@@ -2505,6 +2533,7 @@ function renderContent(summary, trendSummaries) {
     const guideTapByStep = Array.isArray(diagnosis?.guideTapByStep) ? diagnosis.guideTapByStep : [];
     const reviveAdFunnel = Array.isArray(diagnosis?.reviveAdFunnel) ? diagnosis.reviveAdFunnel : [];
     const reviveShareFunnel = Array.isArray(diagnosis?.reviveShareFunnel) ? diagnosis.reviveShareFunnel : [];
+    const capacityAdRoundFunnel = diagnosis?.capacityAdRoundFunnel || null;
     const pixelBeanProgress = diagnosis?.pixelBeanProgress || behavior?.pixelBeanProgress || null;
     const pixelBeanAds = diagnosis?.pixelBeanAds || behavior?.pixelBeanAds || null;
     const funnelScopeLabel = diagnosis?.pchFunnelScope?.label || 'logical_levels=1,2,3';
@@ -2675,6 +2704,16 @@ function renderContent(summary, trendSummaries) {
             </div>
             <div class="card-body">
                 ${pixelBeanAds ? renderPixelBeanAds(pixelBeanAds) : '<div class="empty">这份日报没有像素拼豆广告数据。</div>'}
+            </div>
+        </section>
+
+        <section class="card span-12">
+            <div class="card-header">
+                <div class="card-title">L4—L5 扩容软提示单局闭环</div>
+                <div class="card-subtitle">使用同一 openid、sessionId、roundId、客户端构建与实验分组关联符合条件、提示展示、点击、广告奖励、奖励后首次合法操作和本局通关。</div>
+            </div>
+            <div class="card-body">
+                ${capacityAdRoundFunnel?.rows?.length ? renderCapacityAdRoundFunnel(capacityAdRoundFunnel) : '<div class="empty">这份日报没有包含完整单局身份的扩容软提示数据。</div>'}
             </div>
         </section>
 

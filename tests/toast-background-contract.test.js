@@ -74,15 +74,15 @@ assert.strictEqual(toastLabel._horizontalAlign, 1);
 assert.strictEqual(toastLabel._verticalAlign, 1);
 assert.strictEqual(toastLabel._enableWrapText, false);
 assert.deepStrictEqual(toastLabel._color, {
-    __type__: 'cc.Color', r: 255, g: 255, b: 255, a: 255,
-}, 'business Toast text must be opaque white');
+    __type__: 'cc.Color', r: 117, g: 68, b: 197, a: 255,
+}, 'business Toast text must be opaque deep purple');
 assert.strictEqual(toastLabel._actualFontSize, 32);
 assert.strictEqual(toastLabel._fontSize, 32);
 assert.strictEqual(toastLabel._lineHeight, 42);
 assert.strictEqual(toastLabel._enableOutline, true, 'business Toast text must enable its outline');
 assert.deepStrictEqual(toastLabel._outlineColor, {
-    __type__: 'cc.Color', r: 184, g: 159, b: 255, a: 255,
-}, 'business Toast outline must be light purple and fully opaque');
+    __type__: 'cc.Color', r: 255, g: 255, b: 255, a: 255,
+}, 'business Toast outline must be white and fully opaque');
 assert.strictEqual(toastLabel._outlineWidth, 3);
 assert.deepStrictEqual(transpileErrors, [], 'ToastService.ts must transpile without TypeScript syntax errors');
 

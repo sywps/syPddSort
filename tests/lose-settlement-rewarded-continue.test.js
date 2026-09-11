@@ -285,6 +285,27 @@ assert.equal(
 );
 assert.equal(completionPercentLabel.string, '87%', 'LosePanel must render the runtime completion percentage inside the new summary');
 
+const reviveCompletionPercentLabel = { string: '0%' };
+const reviveCompletionPercentNode = {
+    getComponent() { return reviveCompletionPercentLabel; },
+};
+const reviveCompletionSummaryNode = {
+    getChildByName(name) { return name === 'CompletionPercent' ? reviveCompletionPercentNode : null; },
+};
+const reviveCompletionBox = {
+    getChildByName(name) { return name === 'CompletionSummary' ? reviveCompletionSummaryNode : null; },
+};
+const reviveCompletionPanel = {
+    name: 'ReviveSettlementOverlay',
+    getChildByName(name) { return name === 'Box' ? reviveCompletionBox : null; },
+};
+assert.equal(
+    runCompletionSummary.call({}, reviveCompletionPanel, 87, function Label() {}),
+    true,
+    'RevivePanel must use the shared dynamic completion-summary contract',
+);
+assert.equal(reviveCompletionPercentLabel.string, '87%', 'RevivePanel must render the runtime completion percentage');
+
 const runContinueAfterBufferFull = compileExtractedMethod(
     pchConveyor,
     'continueAfterBufferFull(): boolean',

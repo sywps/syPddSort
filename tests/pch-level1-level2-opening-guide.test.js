@@ -40,8 +40,8 @@ function createHarness(signatures) {
         },
     }).outputText;
     const testModule = { exports: {} };
-    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'SySDKMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', compiled);
-    load(testModule, testModule.exports, require, fakeAudioMgr, fakeSySDKMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS);
+    const load = new Function('module', 'exports', 'require', 'AudioMgr', 'SySDKMgr', 'Vec3', 'UITransform', 'OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS', 'sys', 'PCH_CAPACITY_GUIDE_DONE_KEY', compiled);
+    load(testModule, testModule.exports, require, fakeAudioMgr, fakeSySDKMgr, class FakeVec3 {}, class FakeUITransform {}, OPENING_GUIDE_WRONG_TAP_TOAST_COOLDOWN_MS, {localStorage:{getItem:()=>null,setItem(){}}}, 'capacity-guide-test');
     return new testModule.exports.Harness();
 }
 
@@ -342,6 +342,7 @@ function routeGuide(levelId, entryMode) {
     guide.runtime = {
         _activeGameplayEntryMode: entryMode,
         getActiveLogicalLevelId() { return levelId; },
+        startPinchGuide(options) { calls.push(['pinch', options]); },
         getSF(name) { return name === 'guide_bubble_frame' ? {} : null; },
     };
     guide.speedButton = { isValid: true };
@@ -393,8 +394,8 @@ for (const levelId of [1, 2, 3]) {
     assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
 }
 assert.ok(
-    source.includes("? '点击白色豆豆\\n他们会自动放置到传送带上'")
-        && source.includes(": '点击蓝色豆豆\\n将白色的位置空出';"),
+    source.includes("? '点击发光的白色豆豆\\n将它们放上传送带'")
+        && source.includes(": '点击发光的蓝色豆豆\\n为白色豆豆腾出位置';"),
     'level 1 must use the approved two-step opening-guide copy',
 );
 assert.ok(
@@ -426,7 +427,7 @@ assert.ok(
     'DataNexus tutorial start must be emitted only after the visible opening guide has been fully created',
 );
 assert.ok(
-    levelOneGuideStepSource.includes('this.onOpeningGuideLevelOneTap,\n            true,\n        );'),
+    levelOneGuideStepSource.includes('this.onOpeningGuideLevelOneTap,\n            true,\n            undefined,\n            handTargetLocal,\n        );'),
     'level 1 must request the selected frame without a vertical override',
 );
 assert.ok(
@@ -459,8 +460,8 @@ assert.ok(
         && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(detailLabel);')
         && sharedTargetGuideAtSource.includes('this.applyOpeningGuidePromptLabelStyle(promptLabel);')
         && sharedTargetGuideAtSource.includes('const usesButtonHandPosition = isLevelTwoSpeedGuide || isLevelThreeCapacityGuide;')
-        && sharedTargetGuideAtSource.includes('const handRestOffsetY = usesButtonHandPosition ? -52 : -76;')
-        && sharedTargetGuideAtSource.includes('const handPressOffsetY = usesButtonHandPosition ? -36 : -60;')
+        && sharedTargetGuideAtSource.includes('const handRestOffsetY = isLevelOneBoardGuide ? -36 : (usesButtonHandPosition ? -52 : -76);')
+        && sharedTargetGuideAtSource.includes('const handPressOffsetY = isLevelOneBoardGuide ? -24 : (usesButtonHandPosition ? -36 : -60);')
         && sharedTargetGuideAtSource.includes("new Color('#7162A2')")
         && sharedTargetGuideAtSource.includes('copy, 28,')
         && sharedTargetGuideAtSource.includes('0, 22, promptWidth - 48')
@@ -544,8 +545,7 @@ assert.strictEqual(levelTwoRoute[0][6], undefined, 'level 2 must retain its exis
 const levelThreeRoute = routeGuide(3, 'main');
 assert.strictEqual(levelThreeRoute.length, 1);
 assert.strictEqual(levelThreeRoute[0][3], 'PchLevelThreeCapacityGuide');
-assert.strictEqual(levelThreeRoute[0][4], '点击扩容按钮\n传送带容量增加12格');
-assert.strictEqual(levelThreeRoute[0][6], undefined, 'level 3 prompt must calculate above its actual expansion target');
+assert.strictEqual(levelThreeRoute[0][4], '传送带满了就会失败哦\n点击扩容可以增加传送带容量');
 assert.ok(
     sharedTargetGuideAtSource.includes('promptYOverride?: number')
         && sharedTargetGuideAtSource.includes('const promptY = usesVideoGuideBubbleLayout')
@@ -571,7 +571,12 @@ assert.deepStrictEqual(
     { rawWidth: 600, rawHeight: 162, borderTop: 42, borderBottom: 42, borderLeft: 48, borderRight: 48 },
     'guide bubble must keep the new 600x162 lavender panel with protected 9-slice corners',
 );
-assert.deepStrictEqual(routeGuide(4, 'main'), []);
+assert.deepStrictEqual(routeGuide(4, 'main'), [['pinch', {
+    title: '双指拖动可放大缩小图案',
+    autoCloseSeconds: 8,
+}]]);
+assert.deepStrictEqual(routeGuide(4, 'theme'), []);
+assert.deepStrictEqual(routeGuide(5, 'main'), []);
 
 const levelDir = path.join(root, 'assets/LevelData');
 const levelOneData = JSON.parse(fs.readFileSync(path.join(levelDir, 'level_1.json'), 'utf8'));
@@ -592,6 +597,7 @@ const guideSection = source.slice(
     source.indexOf('    private showOpeningFeatureGuide('),
     source.indexOf('    private onSpeedButtonTap('),
 );
-assert.ok(!/localStorage|\.setItem\(|\.getItem\(|setGuideComplete/i.test(guideSection), 'opening-guide completion must not be persisted');
+assert.ok(!/localStorage|\.setItem\(|\.getItem\(/i.test(extractMethod('private onOpeningGuideLevelOneTap(event: any): void') + extractMethod('private onOpeningGuideTripleSpeed(event: any): void')), 'level 1 and 2 retain replayable guides');
+assert.ok(!/localStorage|\.setItem\(|\.getItem\(/i.test(guideSection), 'guides remain replayable without persistent completion');
 
 console.log('pch-level1-level2-opening-guide.test.js passed');

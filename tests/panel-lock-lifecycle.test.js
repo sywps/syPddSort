@@ -326,7 +326,7 @@ homeOverlay.emit(FakeNode.EventType.TOUCH_END, {
 homeButton.emit(Button.EventType.CLICK);
 homeButton.emit(Button.EventType.CLICK);
 
-const routeIndex = homeEvents.indexOf('route:settings:none');
+const routeIndex = homeEvents.indexOf('route:settings:auto');
 const homeResumeIndex = homeEvents.indexOf('resume:timer:1:settings');
 const homeConveyorResumeIndex = homeEvents.indexOf('resume-conveyor');
 const homeVisualIndex = homeEvents.indexOf('visual-close:settings:settings-home');
@@ -335,7 +335,7 @@ assert.strictEqual(homeResumeIndex, -1, 'Settings lease must stay active until t
 assert.strictEqual(homeConveyorResumeIndex, -1, 'PCH must stay paused until the Home scene owns teardown');
 assert.strictEqual(homeVisualIndex, -1, 'Settings visual must not disappear before the Home route succeeds');
 assert.strictEqual(
-    homeEvents.filter((event) => event === 'route:settings:none').length,
+    homeEvents.filter((event) => event === 'route:settings:auto').length,
     1,
     'repeated Home clicks must share one route dispatch',
 );

@@ -39,6 +39,9 @@ const sandbox = {
         if (request === './GameplayColorCompleteFxModule') {
             return { installGameplayColorCompleteFxMethods() {} };
         }
+        if (request === './GameplayJudgmentFeedbackModule') {
+            return { installGameplayJudgmentFeedbackMethods() {} };
+        }
         if (request === './GameplaySlotCompactionModule') {
             return { installGameplaySlotCompactionMethods() {} };
         }

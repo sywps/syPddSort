@@ -26,7 +26,7 @@ function methodBody(marker) {
 
 const resetAnalytics = new Function(methodBody('private resetAnalyticsStats(): void'));
 const resetRuntime = {
-    rules: {},
+    rules: { cells: [{}, {}, {}] },
     analyticsStats: null,
     firstStoreEventSent: true,
     firstReturnEventSent: true,
@@ -34,8 +34,23 @@ const resetRuntime = {
 resetAnalytics.call(resetRuntime);
 assert.deepStrictEqual(
     resetRuntime.analyticsStats,
-    { magnetUses: 0, brushUses: 0, freezeUses: 0 },
-    'a PCH attempt snapshot must contain only the three successful skill-use counters',
+    {
+        magnetUses: 0,
+        brushUses: 0,
+        freezeUses: 0,
+        peakBufferCount: 0,
+        peakBufferRatio: 0,
+        capacityExpandCount: 0,
+        validActionCount: 0,
+        finalBufferCount: 0,
+        finalLockedCount: 0,
+        totalBeanCount: 3,
+        finalProgressRatio: 0,
+        capacitySoftHintEligibleCount: 0,
+        capacitySoftHintShownCount: 0,
+        capacitySoftHintClickCount: 0,
+    },
+    'a PCH attempt snapshot must contain the approved skill, pressure, progress, and capacity counters',
 );
 assert.strictEqual(resetRuntime.firstStoreEventSent, false);
 assert.strictEqual(resetRuntime.firstReturnEventSent, false);
@@ -71,6 +86,15 @@ assert.deepStrictEqual(
     [1, 2, 3],
     'PCH milestone emission must be limited to logical L1-L3',
 );
+for (const logicalLevelId of [4, 5, 99]) {
+    runtime.logicalLevelId = logicalLevelId;
+    trackPch.call(controller, AnalyticsMgr, 'pch_conveyor', 1, 'pch_capacity_soft_hint_shown', {});
+}
+assert.deepStrictEqual(
+    tracked.slice(3).map((event) => event.logicalLevelId),
+    [4, 5],
+    'capacity measurement events must extend to logical L4-L5 only',
+);
 
 for (const eventName of [
     'pch_first_store_success',
@@ -78,6 +102,10 @@ for (const eventName of [
     'pch_guide_step_shown',
     'pch_guide_tap_result',
     'pch_guide_step_done',
+    'pch_capacity_soft_hint_eligible',
+    'pch_capacity_soft_hint_shown',
+    'pch_capacity_soft_hint_click',
+    'pch_capacity_reward_followup_action',
 ]) {
     assert.ok(source.includes(`'${eventName}'`), `missing approved PCH event ${eventName}`);
 }
