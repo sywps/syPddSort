@@ -30,6 +30,7 @@ import { installDynamicCountdownDdaModule } from './GameCtrlModules/DynamicCount
 import { installPostPlayableWarmupModule } from './GameCtrlModules/PostPlayableWarmupModule';
 import { installTopHudModule } from './GameCtrlModules/TopHudModule';
 import { installPvpModeModule } from './GameCtrlModules/PvpModeModule';
+import { installCoopModeModule } from './GameCtrlModules/CoopModeModule';
 
 export function installGameCtrlModules(runtime: any): void {
     if (runtime._gameCtrlModulesInstalled) {
@@ -42,6 +43,7 @@ export function installGameCtrlModules(runtime: any): void {
     installBeanSkinModule(runtime);
     installTopHudModule(runtime);
     installPvpModeModule(runtime);
+    installCoopModeModule(runtime);
     installSkinBackgroundModule(runtime);
     installDynamicCountdownDdaModule(runtime);
     installHomeAdFlowModule(runtime);

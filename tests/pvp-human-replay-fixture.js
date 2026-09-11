@@ -23,14 +23,14 @@ new Function('module', 'exports', 'require', code)(loaded, loaded.exports, id =>
   if (id.endsWith('OpeningPatternTransition')) return {};
   throw new Error(`unmocked fixture dependency ${id}`);
 });
-function controllerReplay(level, { timeout = false, frameMs = 50 } = {}) {
+function controllerReplay(level, { timeout = false, frameMs = 50, speedUpAtMs = 1000 } = {}) {
   let now = 0;
   const events = [[0, 0, 1]];
   const ready = [];
   const runtime = { isGameEnd: false, recordPvpRuleEvent: (kind, ...args) => events.push([now, kind, ...args]),
     renderBoardCells() {}, gameLose() { this.isGameEnd = true; } };
   const controller = new loaded.exports.PchConveyorGameplayController(runtime);
-  controller.rules = new PchConveyorRules(new BoardModel(level), level.conveyorCapacity, level.singleSelectionLimit);
+  controller.rules = new PchConveyorRules(new BoardModel(level), level.conveyorCapacity, level.singleSelectionLimit, undefined, level.autoConveyorFinishSpeed);
   controller.exitPathProgress = geometry.conveyorExitProgress();
   controller.firstStoreEventSent = true;
   controller.firstReturnEventSent = true;
@@ -49,7 +49,7 @@ function controllerReplay(level, { timeout = false, frameMs = 50 } = {}) {
       controller.tryTransferAtCurrentEntrance();
       ready.splice(index, 1);
     }
-    if (now === 1000) controller.setManualSpeedMultiplier(3);
+    if (now === speedUpAtMs) controller.setManualSpeedMultiplier(3);
     controller.update(frameMs / 1000);
     if (controller.rules.board.isAllLocked() || runtime.isGameEnd) break;
     if (now % 200 !== 0 || (timeout && firstTap >= 0) || controller.rules.bufferCount >= controller.rules.bufferCapacity) continue;

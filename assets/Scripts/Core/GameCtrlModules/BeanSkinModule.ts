@@ -48,6 +48,8 @@ type BeanSkinAtlasOwner = {
     texture: Texture2D;
     imageAsset: ImageAsset | null;
     releaseMode: 'asset' | 'dynamic';
+    resourcesRetained?: boolean;
+    released?: boolean;
 };
 
 const BEAN_SKIN_CONFIG_PATH = 'BeanSkins/bean-skins';
@@ -234,6 +236,9 @@ export function installBeanSkinModule(target: any): void {
             skin: BeanSkinRow,
             callback: (frame: SpriteFrame | null, err?: Error | null) => void,
         ): void {
+            const isCurrent = () => !this._beanSkinIconLoadsCancelled
+                && !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+            if (!isCurrent()) return;
             const cached = this._beanSkinIconCache.get(skin.id) as SpriteFrame | undefined;
             if (cached?.isValid) {
                 callback(cached, null);
@@ -246,10 +251,25 @@ export function installBeanSkinModule(target: any): void {
             }
             this._beanSkinIconLoadingCallbacks.set(skin.id, [callback]);
             const finish = (frame: SpriteFrame | null, err?: Error | null) => {
-                if (frame) this._beanSkinIconCache.set(skin.id, frame);
+                if (!isCurrent()) {
+                    this._beanSkinIconLoadingCallbacks.delete(skin.id);
+                    if (frame?.isValid) {
+                        // Schedule reference-checked cleanup without invalidating another scene's icon.
+                        frame.addRef();
+                        frame.decRef();
+                    }
+                    return;
+                }
+                if (frame) {
+                    frame.addRef();
+                    this._beanSkinIconCache.set(skin.id, frame);
+                }
                 const callbacks = this._beanSkinIconLoadingCallbacks.get(skin.id) || [];
                 this._beanSkinIconLoadingCallbacks.delete(skin.id);
-                for (const done of callbacks) done(frame, err || null);
+                for (const done of callbacks) {
+                    if (!isCurrent()) break;
+                    done(frame, err || null);
+                }
             };
             this._withGameAssetsBundle((bundle: Bundle | null) => {
                 if (!bundle) {
@@ -258,6 +278,10 @@ export function installBeanSkinModule(target: any): void {
                 }
                 const candidates = [`${skin.iconKey}/spriteFrame`, skin.iconKey];
                 const tryCandidate = (index: number) => {
+                    if (!isCurrent()) {
+                        finish(null);
+                        return;
+                    }
                     if (index >= candidates.length) {
                         finish(null, new Error(`[bean-skin] icon missing: ${skin.iconKey}`));
                         return;
@@ -424,17 +448,22 @@ export function installBeanSkinModule(target: any): void {
                 frame.name = name;
                 frames.set(name, frame);
             }
+            const imageAsset = textureMeta?.imageAsset || null;
+            texture.addRef();
+            imageAsset?.addRef();
             return {
                 skinId,
                 frames,
                 texture,
-                imageAsset: textureMeta?.imageAsset || null,
+                imageAsset,
+                resourcesRetained: true,
                 releaseMode: textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset',
             };
         },
 
         _releaseBeanSkinAtlasOwner(owner: BeanSkinAtlasOwner | null, reason: string): void {
-            if (!owner) return;
+            if (!owner || owner.released) return;
+            owner.released = true;
             for (const frame of owner.frames.values()) {
                 try {
                     if (frame?.isValid) {
@@ -447,12 +476,14 @@ export function installBeanSkinModule(target: any): void {
             }
             owner.frames.clear();
             try {
-                if (owner.releaseMode === 'dynamic') {
-                    if (owner.imageAsset?.isValid) assetManager.releaseAsset(owner.imageAsset);
-                    if (owner.texture?.isValid) owner.texture.destroy();
-                } else if (owner.texture?.isValid) {
-                    assetManager.releaseAsset(owner.texture);
+                // A canceled load has no owner yet; balance a temporary ref to request safe cleanup.
+                if (!owner.resourcesRetained) {
+                    if (owner.texture?.isValid) owner.texture.addRef();
+                    if (owner.imageAsset?.isValid) owner.imageAsset.addRef();
                 }
+                if (owner.imageAsset?.isValid) owner.imageAsset.decRef();
+                if (owner.texture?.isValid) owner.texture.decRef();
+                owner.resourcesRetained = false;
             } catch (error) {
                 runtimeWarn(`[bean-skin] texture release failed (${reason})`, error);
             }
@@ -465,6 +496,9 @@ export function installBeanSkinModule(target: any): void {
         },
 
         _ensureBeanSkinAtlasLoaded(id: number, callback: (ok: boolean, err?: Error | null) => void): void {
+            const isCurrent = () => !this._beanSkinAtlasLoadsCancelled
+                && !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+            if (!isCurrent()) return;
             const safeId = normalizeBeanSkinId(id);
             if (!safeId) {
                 callback(false, new Error(`[bean-skin] invalid skin id: ${id}`));
@@ -472,6 +506,7 @@ export function installBeanSkinModule(target: any): void {
             }
             if (safeId === DEFAULT_BEAN_SKIN_ID) {
                 this._ensureBootstrapBeanAtlasLoaded(() => {
+                    if (!isCurrent()) return;
                     callback(this._hasCompleteBeanSkinFrameMap(this._bootstrapAtlasFrameCache), null);
                 });
                 return;
@@ -495,20 +530,26 @@ export function installBeanSkinModule(target: any): void {
                 const callbacks = this._beanSkinAtlasLoadingCallbacks || [];
                 this._beanSkinAtlasLoadingId = 0;
                 this._beanSkinAtlasLoadingCallbacks = [];
-                for (const done of callbacks) done(ok, err || null);
+                for (const done of callbacks) {
+                    if (!isCurrent()) break;
+                    done(ok, err || null);
+                }
             };
             this._loadBeanSkinConfig((config: BeanSkinConfig | null, configErr?: Error | null) => {
+                if (!isCurrent()) { finish(false); return; }
                 const row = config?.byId.get(safeId) || null;
                 if (!row || row.resourceMode !== 'game_assets_atlas') {
                     finish(false, configErr || new Error(`[bean-skin] catalog row missing: ${safeId}`));
                     return;
                 }
                 this._withGameAssetsBundle((bundle: Bundle | null) => {
+                    if (!isCurrent()) { finish(false); return; }
                     if (!bundle) {
                         finish(false, new Error('[bean-skin] gameAssets bundle unavailable'));
                         return;
                     }
                     this._loadAtlasDataFromBundle(bundle, row.atlasDataKey, `bean-skin ${safeId}`, (dataErr: Error | null, atlasData: any) => {
+                        if (!isCurrent()) { finish(false); return; }
                         if (dataErr || !atlasData) {
                             finish(false, dataErr || new Error(`[bean-skin] atlas data missing: ${safeId}`));
                             return;
@@ -518,6 +559,17 @@ export function installBeanSkinModule(target: any): void {
                             texture: Texture2D | null,
                             textureMeta?: { releaseMode: 'asset' | 'dynamic'; imageAsset?: ImageAsset | null },
                         ) => {
+                            if (!isCurrent()) {
+                                if (texture) this._releaseBeanSkinAtlasOwner({
+                                    skinId: safeId,
+                                    frames: new Map<string, SpriteFrame>(),
+                                    texture,
+                                    imageAsset: textureMeta?.imageAsset || null,
+                                    releaseMode: textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset',
+                                }, 'atlas-load-canceled');
+                                finish(false);
+                                return;
+                            }
                             if (textureErr || !texture) {
                                 finish(false, textureErr || new Error(`[bean-skin] atlas texture missing: ${safeId}`));
                                 return;
@@ -815,6 +867,8 @@ export function installBeanSkinModule(target: any): void {
         },
 
         releaseBeanSkinRuntimeResources(reason: string = 'runtime-destroy'): void {
+            this._beanSkinAtlasLoadsCancelled = true;
+            this._beanSkinIconLoadsCancelled = true;
             this._beanSkinAtlasLoadingId = 0;
             this._beanSkinAtlasLoadingCallbacks = [];
             for (const entry of this._beanSkinPanelCards || []) {
@@ -823,7 +877,7 @@ export function installBeanSkinModule(target: any): void {
             }
             for (const frame of this._beanSkinIconCache.values() as Iterable<SpriteFrame>) {
                 try {
-                    if (frame?.isValid) assetManager.releaseAsset(frame);
+                    if (frame?.isValid) frame.decRef();
                 } catch (error) {
                     runtimeWarn(`[bean-skin] icon release failed (${reason})`, error);
                 }

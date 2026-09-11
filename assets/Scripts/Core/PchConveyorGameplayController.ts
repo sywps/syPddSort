@@ -409,7 +409,7 @@ export class PchConveyorGameplayController {
         this.runtime.requireSphereFlyStarSpriteFrame();
         this.runtime.requireSphereFlyTrailSpriteFrame();
         this.runtime.requireWarningMaskSpriteFrame();
-        this.rules = this.runtime._pvpReplayResumeState?.rules || new PchConveyorRules(
+        this.rules = (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState)?.rules || new PchConveyorRules(
             this.runtime.boardModel,
             this.runtime.levelData?.conveyorCapacity,
             this.runtime.levelData?.singleSelectionLimit,
@@ -417,9 +417,9 @@ export class PchConveyorGameplayController {
             this.runtime.levelData?.autoConveyorFinishSpeed,
         );
         this.resetAnalyticsStats();
-        this.beltTravel = this.runtime._pvpReplayResumeState?.travel || 0;
+        this.beltTravel = (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState)?.travel || 0;
         this.pendingBufferDeadlockStartTravel = null;
-        if (this.runtime._pvpReplayResumeState) this.manualSpeedMultiplier = this.runtime._pvpReplayResumeState.speed;
+        if (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState) this.manualSpeedMultiplier = (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState).speed;
         else this.runtime.recordPvpRuleEvent?.(0, this.manualSpeedMultiplier);
         this.inputLocked = true;
         this.activeReturnAnimations = 0;
@@ -483,7 +483,7 @@ export class PchConveyorGameplayController {
         }
         settingsButton.active = !hideFirstLevelControls;
         this.bindSpeedButton(topBar, !hideFirstLevelControls);
-        if (this.runtime._pvpReplayResumeState) {
+        if (this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState) {
             this.openingPatternState = 'ready';
             this.externalInputBlocked = true;
         } else {
@@ -503,18 +503,25 @@ export class PchConveyorGameplayController {
     }
 
     playOpeningPatternShuffle(): void {
-        const resumed = this.runtime._pvpReplayResumeState;
+        const resumed = this.runtime._coopReplayResumeState || this.runtime._pvpReplayResumeState;
         if (resumed) {
             this.openingPatternState = 'done';
             this.inputLocked = false;
             this.externalInputBlocked = false;
-            for (const due of resumed.pendingReady) this.runtime.scheduleOnce(() => {
-                if (this.runtime.isGameEnd) return;
-                this.runtime.recordPvpRuleEvent?.(3);
-                this.rules?.markQueuedBeansReady(1);
-                this.renderEntranceQueue();
-                this.tryTransferAtCurrentEntrance();
-            }, Math.max(0.02, (due - resumed.lastTime) / 1000));
+            for (const due of resumed.pendingReady) {
+                const arrive = () => {
+                    if (this.runtime.isGameEnd || this.rules !== resumed.rules) return;
+                    if (this.runtime.isCoopMode?.() && (this.isPresentationPaused() || this.externalInputBlocked
+                        || this.runtime.getCoopElapsedMs() < due)) {
+                        this.runtime.scheduleOnce(arrive, 0.05); return;
+                    }
+                    this.runtime.recordPvpRuleEvent?.(3);
+                    this.rules?.markQueuedBeansReady(1);
+                    this.renderEntranceQueue();
+                    this.tryTransferAtCurrentEntrance();
+                };
+                this.runtime.scheduleOnce(arrive, Math.max(0.02, (due - resumed.lastTime) / 1000));
+            }
             this.runtime.scheduleOnce(() => {
                 if (this.rules?.board.isAllLocked()) this.commitFinish();
                 else if (!this.checkBufferDeadlock() && resumed.firstTap >= 0) {
@@ -740,6 +747,7 @@ export class PchConveyorGameplayController {
     }
 
     update(deltaTime: number): void {
+        if (this.runtime.isCoopMode?.() && this.runtime._gameForeground === false) return;
         if (this.settingsPaused) return;
         if (!this.settlementPaused && this.runtime._gameForeground !== false
             && !this.runtime._adShowing && !this.runtime._rewardedGrantTransaction) {
@@ -944,13 +952,24 @@ export class PchConveyorGameplayController {
         return this.settingsPaused || this.runtime._gameForeground === false;
     }
 
+    isSettingsPaused(): boolean { return this.settingsPaused; }
+
     useClearColorSkill(timerAlreadyPaused: boolean = false): boolean {
-        return this.runConveyorSkill('magnet', timerAlreadyPaused, () => this.rules!.forceCompleteRandomColor());
+        const random = Math.floor(Math.random() * 1000000);
+        return this.runConveyorSkill('magnet', timerAlreadyPaused, () => {
+            const result = this.rules!.forceCompleteRandomColor(() => random / 1000000);
+            if (result.moved && this.runtime.isCoopMode?.()) this.runtime.recordCoopRuleEvent(5, random);
+            return result;
+        });
     }
 
     useClearBufferSkill(timerAlreadyPaused: boolean = false): boolean {
         if (!this.hasStoredBeans()) return false;
-        return this.runConveyorSkill('brush', timerAlreadyPaused, () => this.rules!.clearBufferToBoard());
+        return this.runConveyorSkill('brush', timerAlreadyPaused, () => {
+            const result = this.rules!.clearBufferToBoard();
+            if (result.moved && this.runtime.isCoopMode?.()) this.runtime.recordCoopRuleEvent(6);
+            return result;
+        });
     }
 
     continueAfterBufferFull(): boolean {
@@ -3522,6 +3541,7 @@ export class PchConveyorGameplayController {
     private expandCapacity(): boolean {
         if (!this.rules) return false;
         const added = this.rules.addBufferSlots(PCH_EXPAND_CAPACITY);
+        if (added > 0 && this.runtime.isCoopMode?.()) this.runtime.recordCoopRuleEvent(7, added);
         this.lastEntranceAudioVisitByCarrier.clear();
         this.renderConveyor();
         this.renderEntranceQueue();

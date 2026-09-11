@@ -69,6 +69,7 @@ function loadControllerHarness(activeBlockers = []) {
         exports: {},
         module: { exports: {} },
         require(request) {
+            if (request === './WorkbenchPreviewService') return { isWorkbenchPreviewRequested: () => false };
             if (request === './GameCtrlShared') return shared;
             if (request === './AppRoot') {
                 return { AppRoot: { tryGet: () => appRoot } };

@@ -225,7 +225,12 @@ export function installCollectionGuideModule(target: any): void {
                             beanScale: 0.78,
                         },
                     );
-                    this.bindCollectionReplayButton(box, levelId, prefix);
+                    if (prefix === 'coop_level_') {
+                        const replayButton = box.getChildByName('CollectionReplayButton');
+                        if (replayButton) replayButton.active = false;
+                    } else {
+                        this.bindCollectionReplayButton(box, levelId, prefix);
+                    }
                 },
             });
         },

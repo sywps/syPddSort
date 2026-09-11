@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "status": "offline-candidate",
+  "originalArtwork": true,
+  "mode": "creator-half-independent-collaborator-half",
+  "boardWidth": 64,
+  "boardHeight": 56,
+  "timeLimitNote": "600 seconds is an offline solver/preview parameter; cooperative timer policy is not implemented.",
+  "shuffle": {
+    "tool": "tools/shuffle-comparison.js",
+    "referenceCount": 182,
+    "strictMismatch": true
+  },
+  "levels": [
+    {
+      "levelId": 1,
+      "name": "月光双猫",
+      "english": "Moonlight cats",
+      "file": "coop_level_1.json",
+      "beanCount": 2366,
+      "creatorBeanCount": 1183,
+      "collaboratorBeanCount": 1183,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091000,2026091001],
+      "collectionId": "coop_original_01",
+      "sha256": "8d0a6bb694ffd86b2de5a6896c4c273da8a043b4da28f95e0cdb10deec2ce916"
+    },
+    {
+      "levelId": 2,
+      "name": "草莓双兔",
+      "english": "Strawberry rabbits",
+      "file": "coop_level_2.json",
+      "beanCount": 2422,
+      "creatorBeanCount": 1211,
+      "collaboratorBeanCount": 1211,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091002,2026091003],
+      "collectionId": "coop_original_02",
+      "sha256": "4dc7bf87b8c546452e1fa42af64232ed5709a7b285c577620316744a4444c17b"
+    },
+    {
+      "levelId": 3,
+      "name": "蜂蜜伙伴",
+      "english": "Honey bears",
+      "file": "coop_level_3.json",
+      "beanCount": 2336,
+      "creatorBeanCount": 1168,
+      "collaboratorBeanCount": 1168,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091004,2026091005],
+      "collectionId": "coop_original_03",
+      "sha256": "2aadf868f65bd174616e12a36d2348f8bfb30e73d49447a1c37e540cdab29770"
+    },
+    {
+      "levelId": 4,
+      "name": "森林双狐",
+      "english": "Forest foxes",
+      "file": "coop_level_4.json",
+      "beanCount": 2400,
+      "creatorBeanCount": 1200,
+      "collaboratorBeanCount": 1200,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091006,2026091007],
+      "collectionId": "coop_original_04",
+      "sha256": "5c24c6b2820c0ad02dfb720b31aca9f98a072e3c79cbfa3b283c85d23e0c58ad"
+    },
+    {
+      "levelId": 5,
+      "name": "极地相伴",
+      "english": "Polar penguins",
+      "file": "coop_level_5.json",
+      "beanCount": 2130,
+      "creatorBeanCount": 1065,
+      "collaboratorBeanCount": 1065,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091008,2026091009],
+      "collectionId": "coop_original_05",
+      "sha256": "1b3f540ba412306f0f0a8a0424cc412190c12039dcdb622aea5a71be112dfdfa"
+    },
+    {
+      "levelId": 6,
+      "name": "花园小鸡",
+      "english": "Garden chicks",
+      "file": "coop_level_6.json",
+      "beanCount": 2122,
+      "creatorBeanCount": 1061,
+      "collaboratorBeanCount": 1061,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091010,2026091011],
+      "collectionId": "coop_original_06",
+      "sha256": "58fb4954a47808cb6034240f7f9728bf9cb0289a330895bd43ce91fba7fdfe50"
+    },
+    {
+      "levelId": 7,
+      "name": "双鲸之歌",
+      "english": "Whale duet",
+      "file": "coop_level_7.json",
+      "beanCount": 1894,
+      "creatorBeanCount": 947,
+      "collaboratorBeanCount": 947,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091012,2026091013],
+      "collectionId": "coop_original_07",
+      "sha256": "757aff73c8c90b487d5d740e6f838481dd044b9f0e14bda98704a94aeb9d1a43"
+    },
+    {
+      "levelId": 8,
+      "name": "星夜猫头鹰",
+      "english": "Starlight owls",
+      "file": "coop_level_8.json",
+      "beanCount": 2374,
+      "creatorBeanCount": 1187,
+      "collaboratorBeanCount": 1187,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091014,2026091015],
+      "collectionId": "coop_original_08",
+      "sha256": "2fe0f3610eed0d2c5ffa9ce2c4a5a17c67d9cbea4c6f4ae9343c5edebf2b7dc3"
+    },
+    {
+      "levelId": 9,
+      "name": "围巾小狗",
+      "english": "Scarf puppies",
+      "file": "coop_level_9.json",
+      "beanCount": 2482,
+      "creatorBeanCount": 1241,
+      "collaboratorBeanCount": 1241,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091016,2026091017],
+      "collectionId": "coop_original_09",
+      "sha256": "c665ae20519bbfaa775706dc4278a7329275c6abf1b137008eabcf5cf967cfd1"
+    },
+    {
+      "levelId": 10,
+      "name": "温泉水豚",
+      "english": "Onsen capybaras",
+      "file": "coop_level_10.json",
+      "beanCount": 2500,
+      "creatorBeanCount": 1250,
+      "collaboratorBeanCount": 1250,
+      "split": {
+        "axis": "column",
+        "boundary": 32,
+        "creatorColumns": [0,31],
+        "collaboratorColumns": [32,63]
+      },
+      "seeds": [2026091018,2026091019],
+      "collectionId": "coop_original_10",
+      "sha256": "91b427bb6be33eeb1d80f2e1d7431119fb2a7eb7174fdae11e150a1e9ea8da55"
+    }
+  ]
+}

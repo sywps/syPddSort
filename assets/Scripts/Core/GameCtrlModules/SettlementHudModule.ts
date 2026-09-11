@@ -33,6 +33,7 @@ import type {
 import { runtimeWarn } from '../RuntimeLog';
 import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
 import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';
+import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
 
 const PATTERN_COMPLETE_BOARD_SHRINK_DELAY = 0;
 const PATTERN_COMPLETE_BOARD_SHRINK_DURATION = 0.3;
@@ -292,7 +293,7 @@ export function installSettlementHudModule(target: any): void {
         refreshCompletionProgressLabel() {
             if (this.levelLabel) {
                 const activeLevel = this.getActiveLogicalLevelId();
-                this.levelLabel.string = `第${activeLevel}关`;
+                this.levelLabel.string = this.isCoopMode?.() ? '合作模式' : `第${activeLevel}关`;
             }
             if (!this.completionLabel || !this.boardModel) return;
             const stats = this.getBoardCompletionStats();
@@ -684,6 +685,7 @@ export function installSettlementHudModule(target: any): void {
 
         gameWin() {
             if (this.isGameEnd) return;
+            if (this.handleCoopTerminal?.(true)) return;
             if (this.handlePvpTerminal?.('PASS')) return;
             this.isGameEnd = true;
             this.closePinchGuide?.();
@@ -694,6 +696,13 @@ export function installSettlementHudModule(target: any): void {
             this.unschedule(this.tickTimer);
             const logicalLevelId = this.getActiveLogicalLevelId();
             const smartHintShownCount = AnalyticsMgr.inst.getSmartHintShownCount();
+            if (isWorkbenchPreviewRequested()) {
+                void WorkbenchPreviewService.inst.complete(this.getActivePhysicalLevelId()).then(
+                    () => this.showToast?.('试玩通关已记录，请返回工作台查看', 5),
+                    error => WorkbenchPreviewService.inst.fail(this, error),
+                );
+                return;
+            }
             this.trackFirstLevelFunnel('level_pass', {
                 source: 'gameWin',
                 success: true,
@@ -913,6 +922,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         restart() {
+            if (this.isCoopMode?.()) { void this.restartCoop(); return; }
             if (this._settlementNextTransitioning) return;
             this._settlementNextTransitioning = true;
             const initSeq = this._gameplayInitSeq;
@@ -978,6 +988,7 @@ export function installSettlementHudModule(target: any): void {
             if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
             if (this.panelLose) this.panelLose.active = false;
             this.timeRemain += addSeconds;
+            if (addSeconds > 0 && this.isCoopMode?.()) this.recordCoopRuleEvent(10, addSeconds);
             if (this.timerLabel) {
                 this.timerLabel.string = this.formatTime(this.timeRemain);
                 this.timerLabel.color = this.timeRemain <= 30 ? new Color('#D73D2B') : new Color('#2E241A');

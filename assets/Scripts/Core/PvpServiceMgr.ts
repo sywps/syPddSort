@@ -129,8 +129,9 @@ export class PvpServiceMgr {
     async syncInventory(runtime: any): Promise<void> {
         if (this.isLocalPreview()) return;
         if (!await PlatformCloudMgr.inst.init()) throw new Error('PVP 云服务不可用');
-        runtime.queueCloudGameStateSync();
-        if (!await UserStateSyncMgr.inst.flushPendingSave()) throw new Error('资产同步失败，未扣体力和门票，请重试');
+        if (typeof runtime?.ensureCloudGameStateSyncReady !== 'function' || !await runtime.ensureCloudGameStateSyncReady() || !UserStateSyncMgr.inst.canUseCloud()) {
+            throw new Error('资产云同步不可用，未扣体力和门票，请重试');
+        }
     }
 
     async getEconomy(): Promise<PvpEconomyState> {

@@ -1305,6 +1305,7 @@ export function installHomeAdFlowModule(target: any): void {
             AppRoot.tryGet()?.markHomeVisible(sceneName);
             this.renderMainMenuFixedRoot(fixedRoot);
             if (AppRoot.tryGet()?.session.pixelPuzzleLobbyActive) this.openPvpLobby();
+            this.checkCoopInvitation?.();
             const pendingHomeToast = AppRoot.tryGet()?.session.consumePendingHomeToast();
             if (pendingHomeToast) {
                 this.scheduleOnce(() => {

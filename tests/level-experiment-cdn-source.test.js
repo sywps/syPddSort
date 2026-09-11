@@ -28,7 +28,7 @@ function readJson(relPath) {
 }
 
 function parseLevelFileName(name) {
-    const match = /^(level_|zt_level_)(\d+)\.json$/.exec(name);
+    const match = /^(level_|zt_level_|coop_level_)(\d+)\.json$/.exec(name);
     if (!match) return null;
     return {
         name,
@@ -43,7 +43,8 @@ function stableLevelFiles() {
         .map(parseLevelFileName)
         .filter(Boolean)
         .sort((left, right) => {
-            const prefixOrder = left.prefix === right.prefix ? 0 : (left.prefix === 'level_' ? -1 : 1);
+            const prefixes = ['level_', 'zt_level_', 'coop_level_'];
+            const prefixOrder = prefixes.indexOf(left.prefix) - prefixes.indexOf(right.prefix);
             return prefixOrder || left.levelId - right.levelId;
         });
 }
@@ -168,9 +169,9 @@ const expectedLevelCounts = expectedStableEntries.reduce((counts, entry) => {
 }, {});
 const expectedPackCount = Object.values(expectedLevelCounts)
     .reduce((total, count) => total + Math.ceil(count / config.packSize), 0);
-assert.strictEqual(expectedLevelKeys.length, 505, 'stable A/B and EXP must share the same 505 level keys');
-assert.deepStrictEqual(expectedLevelCounts, { level_: 300, zt_level_: 205 });
-assert.strictEqual(expectedPackCount, 6);
+assert.strictEqual(expectedLevelKeys.length, 515, 'stable A/B and EXP share mainline, theme and cooperation keys');
+assert.deepStrictEqual(expectedLevelCounts, { level_: 300, zt_level_: 205, coop_level_: 10 });
+assert.strictEqual(expectedPackCount, 7);
 const stableDigestBefore = stableSourceDigest();
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdd-ly-0224-cdn-'));
 try {
@@ -212,7 +213,7 @@ try {
     const actualLevelKeys = [];
     const changedFromStableKeys = [];
     for (const packEntry of manifest.packs) {
-        assert.ok(packEntry.prefix === 'level_' || packEntry.prefix === 'zt_level_');
+        assert.ok(['level_', 'zt_level_', 'coop_level_'].includes(packEntry.prefix));
         const pack = JSON.parse(fs.readFileSync(path.join(outputDir, packEntry.url), 'utf8'));
         for (const entry of pack.levels) {
             const prefix = entry.prefix || packEntry.prefix;

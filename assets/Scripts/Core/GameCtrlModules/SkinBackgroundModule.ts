@@ -33,6 +33,7 @@ import { runtimeLog, runtimeWarn } from '../RuntimeLog';
 import { isLocalBrowserPreview } from '../RemoteDataCdnClient';
 import { SkinResourceCdnService, type SkinLiveManifest, type SkinRemoteAsset } from '../SkinResourceCdnService';
 import { debugPerfTrace } from '../DebugPerfTrace';
+import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
 
 type BackgroundSkinRow = {
     id: number;
@@ -649,13 +650,37 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         releaseBackgroundSkinCachedSpriteFrames(reason: string = 'runtime-destroy'): void {
+            this._backgroundSkinResourcesReleased = true;
+            this._cancelBackgroundSkinIconLoads(reason);
+            debugPerfTrace('backgroundSkin.load.cancel', {
+                reason,
+                pendingFrames: this._skinSpriteFrameLoadingCallbacks.size,
+                pendingBundles: this._skinBundleLoadingCallbacks.size,
+            });
+            this._skinSpriteFrameLoadingCallbacks.clear();
+            this._skinBundleLoadingCallbacks.clear();
+            this._skinBundleCache.clear();
             this._detachGameplayBackgroundSkinSpriteFrameForRelease();
             this._equippedBackgroundSkinFrame = null;
             this._clearBackgroundSkinCachedSpriteFrames('frame', reason);
             this._clearBackgroundSkinCachedSpriteFrames('icon', reason);
         },
 
+        _isBackgroundSkinRuntimeAlive(): boolean {
+            return !this._backgroundSkinResourcesReleased
+                && !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+        },
+
+        _releaseUnusedBackgroundSkinAsset(asset: ImageAsset | SpriteFrame | null, key: string): void {
+            if (!asset?.isValid) return;
+            // Balance a temporary owner so Cocos checks other owners before releasing next tick.
+            asset.addRef();
+            asset.decRef();
+            debugPerfTrace('backgroundSkin.load.discard', { key });
+        },
+
         _getSkinBundle(bundleName: string, callback: (bundle: Bundle | null, err?: Error | null) => void): void {
+            if (!this._isBackgroundSkinRuntimeAlive()) return;
             const safeName = String(bundleName || '').trim();
             if (!safeName) {
                 callback(null, new Error('[background-skin] empty bundle name'));
@@ -685,24 +710,39 @@ export function installSkinBackgroundModule(target: any): void {
             this._skinBundleLoadingCallbacks.set(safeName, [callback]);
             if (safeName === LEVEL_DATA_BUNDLE_NAME && typeof this._withLevelDataBundle === 'function') {
                 this._withLevelDataBundle((bundle: Bundle | null) => {
+                    if (!this._isBackgroundSkinRuntimeAlive()) {
+                        this._skinBundleLoadingCallbacks.delete(safeName);
+                        return;
+                    }
                     if (bundle) this._skinBundleCache.set(safeName, bundle);
                     const callbacks = this._skinBundleLoadingCallbacks.get(safeName) || [];
                     this._skinBundleLoadingCallbacks.delete(safeName);
                     const finalError = !bundle ? new Error(`[background-skin] loadBundle failed: ${safeName}`) : null;
-                    for (const done of callbacks) done(bundle || null, finalError);
+                    for (const done of callbacks) {
+                        if (!this._isBackgroundSkinRuntimeAlive()) break;
+                        done(bundle || null, finalError);
+                    }
                 });
                 return;
             }
             assetManager.loadBundle(safeName, (err, bundle) => {
+                if (!this._isBackgroundSkinRuntimeAlive()) {
+                    this._skinBundleLoadingCallbacks.delete(safeName);
+                    return;
+                }
                 if (bundle) this._skinBundleCache.set(safeName, bundle);
                 const callbacks = this._skinBundleLoadingCallbacks.get(safeName) || [];
                 this._skinBundleLoadingCallbacks.delete(safeName);
                 const finalError = err || (!bundle ? new Error(`[background-skin] loadBundle failed: ${safeName}`) : null);
-                for (const done of callbacks) done(bundle || null, finalError);
+                for (const done of callbacks) {
+                    if (!this._isBackgroundSkinRuntimeAlive()) break;
+                    done(bundle || null, finalError);
+                }
             });
         },
 
         _loadRemoteSkinSpriteFrameAsset(asset: SkinRemoteAsset, pendingKey: string, callback: (sf: SpriteFrame | null, err?: Error | null) => void): void {
+            if (!this._isBackgroundSkinRuntimeAlive()) return;
             const pending = this._skinSpriteFrameLoadingCallbacks.get(pendingKey);
             if (pending) {
                 pending.push(callback);
@@ -712,7 +752,10 @@ export function installSkinBackgroundModule(target: any): void {
             const finish = (sf: SpriteFrame | null, err?: Error | null) => {
                 const callbacks = this._skinSpriteFrameLoadingCallbacks.get(pendingKey) || [];
                 this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
-                for (const done of callbacks) done(sf, err || null);
+                for (const done of callbacks) {
+                    if (!this._isBackgroundSkinRuntimeAlive()) break;
+                    done(sf, err || null);
+                }
             };
             const remoteUrl = SkinResourceCdnService.inst.getAssetUrl(asset);
             if (!remoteUrl) {
@@ -721,12 +764,18 @@ export function installSkinBackgroundModule(target: any): void {
             }
             const ext = String(asset.format || '').toLowerCase() === 'jpg' ? '.jpg' : '.png';
             (assetManager as any).loadRemote(remoteUrl, { ext }, (err: Error | null, imgAsset: ImageAsset | null) => {
+                if (!this._isBackgroundSkinRuntimeAlive()) {
+                    this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
+                    this._releaseUnusedBackgroundSkinAsset(imgAsset, pendingKey);
+                    return;
+                }
                 const frame = !err && imgAsset ? createImageSpriteFrame(pendingKey, imgAsset) : null;
                 finish(frame, frame ? null : (err || new Error(`[background-skin] remote skin image missing: ${remoteUrl}`)));
             });
         },
 
         _loadSkinSpriteFrameAsset(bundleName: string, assetKey: string, pendingKey: string, callback: (sf: SpriteFrame | null, err?: Error | null) => void): void {
+            if (!this._isBackgroundSkinRuntimeAlive()) return;
             const pending = this._skinSpriteFrameLoadingCallbacks.get(pendingKey);
             if (pending) {
                 pending.push(callback);
@@ -736,9 +785,16 @@ export function installSkinBackgroundModule(target: any): void {
             const finish = (sf: SpriteFrame | null, err?: Error | null) => {
                 const callbacks = this._skinSpriteFrameLoadingCallbacks.get(pendingKey) || [];
                 this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
-                for (const done of callbacks) done(sf, err || null);
+                for (const done of callbacks) {
+                    if (!this._isBackgroundSkinRuntimeAlive()) break;
+                    done(sf, err || null);
+                }
             };
             this._getSkinBundle(bundleName, (bundle: Bundle | null, bundleErr?: Error | null) => {
+                if (!this._isBackgroundSkinRuntimeAlive()) {
+                    this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
+                    return;
+                }
                 if (!bundle) {
                     finish(null, bundleErr || new Error(`[background-skin] bundle unavailable: ${bundleName}`));
                     return;
@@ -750,12 +806,22 @@ export function installSkinBackgroundModule(target: any): void {
                     (candidate: string, done: (err: Error | null, sf: SpriteFrame | null) => void) => bundle.load(candidate, SpriteFrame, done),
                     candidates,
                     (sf: SpriteFrame | null) => {
+                        if (!this._isBackgroundSkinRuntimeAlive()) {
+                            this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
+                            this._releaseUnusedBackgroundSkinAsset(sf, pendingKey);
+                            return;
+                        }
                         if (sf) {
                             finish(sf, null);
                             return;
                         }
                         const imageKey = assetKey.replace(/\/spriteFrame$/, '');
                         bundle.load(imageKey, ImageAsset, (imgErr: Error | null, imgAsset: ImageAsset | null) => {
+                            if (!this._isBackgroundSkinRuntimeAlive()) {
+                                this._skinSpriteFrameLoadingCallbacks.delete(pendingKey);
+                                this._releaseUnusedBackgroundSkinAsset(imgAsset, pendingKey);
+                                return;
+                            }
                             const imageFrame = !imgErr && imgAsset ? createImageSpriteFrame(pendingKey, imgAsset) : null;
                             if (imageFrame) {
                                 finish(imageFrame, null);
@@ -769,6 +835,7 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         loadBackgroundSkinSpriteFrame(skin: BackgroundSkinRow, callback: (sf: SpriteFrame | null, err?: Error | null) => void): void {
+            if (!this._isBackgroundSkinRuntimeAlive()) return;
             if (isDefaultBackgroundSkinRow(skin)) {
                 callback(null, null);
                 return;
@@ -797,6 +864,7 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         loadBackgroundSkinIconSpriteFrame(skin: BackgroundSkinRow, callback: (sf: SpriteFrame | null, err?: Error | null) => void): void {
+            if (!this._isBackgroundSkinRuntimeAlive()) return;
             const cached = this._backgroundSkinIconCache.get(skin.id);
             if (cached) {
                 this._retainBackgroundSkinCacheResource('icon', skin.id, cached, 'icon-cache-hit');
@@ -1497,6 +1565,15 @@ export function installSkinBackgroundModule(target: any): void {
         },
 
         applyPreparedGameplayBackground(): boolean {
+            if (isWorkbenchPreviewRequested() && WorkbenchPreviewService.inst.hasBackground()) {
+                if (this.getEquippedBackgroundSkinId() !== DEFAULT_BACKGROUND_SKIN_ID) {
+                    WorkbenchPreviewService.inst.fail(this, new Error('试玩过程中选择了个人背景，已停止实验显示'));
+                    return false;
+                }
+                const frame = WorkbenchPreviewService.inst.getBackgroundFrame();
+                if (!frame) throw new Error('[试玩] 背景尚未准备完成');
+                return this._applyBackgroundSkinFrameToGameplayNode(frame);
+            }
             const skinId = this.getEquippedBackgroundSkinId();
             if (skinId === DEFAULT_BACKGROUND_SKIN_ID) return true;
             const prepared = this._equippedBackgroundSkinId === skinId ? this._equippedBackgroundSkinFrame : null;
@@ -1536,6 +1613,11 @@ export function installSkinBackgroundModule(target: any): void {
                 callback?.(true);
                 return;
             }
+            if (isWorkbenchPreviewRequested() && WorkbenchPreviewService.inst.hasBackground()) {
+                WorkbenchPreviewService.inst.fail(this, new Error('[试玩] 背景应用失败'));
+                callback?.(false);
+                return;
+            }
             this.applyEquippedGameplayBackground(callback);
         },
 
@@ -1570,6 +1652,12 @@ export function installSkinBackgroundModule(target: any): void {
                 else this.initGame(data, activeLevelId);
                 this._refreshEquippedGameplayBackgroundForStartup?.();
             };
+            if (isWorkbenchPreviewRequested()) {
+                WorkbenchPreviewService.inst.prepare(this, activeLevelId || data.levelId).then(() => {
+                    this.prewarmPinddSpineFx(startGameplay);
+                }).catch(error => WorkbenchPreviewService.inst.fail(this, error));
+                return;
+            }
             this.prewarmPinddSpineFx(startGameplay);
         },
 

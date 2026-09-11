@@ -33,6 +33,7 @@ import { AppRoot } from '../AppRoot';
 import type { AppGameplayEntryCoverMode, AppRouteCoverMode } from '../AppSession';
 import { ensureHomeIconIdleWiggle } from '../HomeIconIdleWiggle';
 import { LevelDataCdnService } from '../LevelDataCdnService';
+import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
 import { getMiniGameBuildPlatform } from '../MiniGamePlatform';
 import { ensureGameCirclePanelController } from '../Panels/GameCirclePanelController';
 import { shouldUseLocalLevelDataMirror } from '../RemoteDataCdnClient';
@@ -99,6 +100,7 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         async requestHomeRoute(source: string = 'runtime', coverMode: AppRouteCoverMode = 'none'): Promise<void> {
+            if (this.isCoopMode?.()) { await this.leaveCoop(); return; }
             if (source === 'settings' && this.isRankedPvpMode?.()) {
                 await this.confirmPvpForfeitAndHome?.();
                 return;
@@ -1197,6 +1199,7 @@ export function installSceneHomeEntryModule(target: any): void {
         },
 
         _stopGameplayEntryWithFatalError(levelPath: string, errorCode: string, errorMessage: string): void {
+            if (isWorkbenchPreviewRequested()) WorkbenchPreviewService.inst.reportFailure(`${errorCode}: ${errorMessage}`);
             if (this._levelDataLoadStopped) return;
             this._levelDataLoadStopped = true;
             this._preloadingBundle = false;

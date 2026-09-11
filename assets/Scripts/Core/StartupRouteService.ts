@@ -8,7 +8,7 @@ export type StartupRouteDecision = {
     shouldMarkPendingGameplay: boolean;
     levelId: number;
     prefix: 'level_' | 'zt_level_';
-    reason: 'explicit_launch' | 'local_progress_gt_1' | 'default_level_1' | 'pvp-ranked';
+    reason: 'explicit_launch' | 'local_progress_gt_1' | 'default_level_1' | 'pvp-ranked' | 'coop-invite';
 };
 
 function getGlobalScope(): any {
@@ -69,6 +69,9 @@ export function resolveStartupRouteDecisionFromInputs(
     rawLocalLevel: unknown = null,
     _rawUserProfile: unknown = null,
 ): StartupRouteDecision {
+    if (/^[a-f0-9]{24}$/.test(String(query.cooppost || ''))) {
+        return { shouldMarkPendingGameplay: false, levelId: 1, prefix: 'level_', reason: 'coop-invite' };
+    }
     if (String(query.pvppreview || '').trim() === '1') {
         return {
             shouldMarkPendingGameplay: true,

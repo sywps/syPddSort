@@ -45,6 +45,7 @@ export function installGameplaySkillWandModule(target: any): void {
             const freezeSeconds = Math.max(1, Math.floor(Number(FREEZE_PROP_SECONDS) || 90));
             this._freezeTimeLeft = freezeSeconds;
             this._freezeTimeTotal = freezeSeconds;
+            if (this.isCoopMode?.()) this.recordCoopRuleEvent(9, freezeSeconds);
             this._skillActive = true;
             this._skillAnimOnly = true;
             const skillGeneration = this.armSkillUsageWatchdog?.('freeze')

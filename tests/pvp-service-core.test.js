@@ -113,6 +113,7 @@ assert(!opponentStateSource.includes('COLLECTIONS.checkpoints'), 'opponent state
 assert(opponentStateSource.includes("freshness: 'frozen'"), 'opponent state must be an immutable asynchronous run');
 
 const uiSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/PvpModeModule.ts'), 'utf8');
+const pvpServiceSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/PvpServiceMgr.ts'), 'utf8');
 const conveyorSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/PchConveyorGameplayController.ts'), 'utf8');
 const boardViewportSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/BoardInputViewportModule.ts'), 'utf8');
 const gameplayViewSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameplayViewController.ts'), 'utf8');
@@ -148,10 +149,17 @@ for (const forbiddenUi of ['AI 对手', 'AiBadge', 'RobotFace']) {
   assert(!uiSource.includes(forbiddenUi), `player-facing UI must not expose fallback source: ${forbiddenUi}`);
 }
 assert(uiSource.includes('opponentProgressAt(context, elapsedMs)'), 'opponent UI must consume replay timeline progress');
+assert(pvpServiceSource.includes('UserStateSyncMgr.inst.canUseCloud()'), 'ranked inventory sync must reject a session whose authoritative asset cloud has been disabled');
 assert(uiSource.includes('resolvePvpBoardTimeline(timeline, elapsedMs)'), 'historical board thumbnail must consume recorded board timeline');
 assert(!uiSource.includes('index < visibleCount'), 'opponent thumbnail must not infer cells from an overall percentage');
 assert(!uiSource.includes('pollPvpFriendState'), 'asynchronous friend battles must not poll a live opponent');
 assert(!uiSource.includes('对手刚刚同步'), 'asynchronous battle UI must not imply live synchronization');
+for (const forbiddenAsyncState of ['对局已暂停，等待同步', '! 待同步', '↑ 同步中']) {
+  assert(!uiSource.includes(forbiddenAsyncState), `asynchronous battle UI must not expose live-sync state: ${forbiddenAsyncState}`);
+}
+assert(uiSource.includes('! 成绩保存失败，正在重试'), 'checkpoint failure must be attributed to local result persistence');
+const checkpointSyncSource = uiSource.slice(uiSource.indexOf('async syncPvpCheckpoint'), uiSource.indexOf('handlePvpTerminal'));
+assert(!checkpointSyncSource.includes('setExternalInputBlocked?.(blocked)'), 'checkpoint retries must not pause an asynchronous battle while the frozen replay advances');
 assert(uiSource.includes('先完成本局，成绩保存后再邀请好友挑战'), 'friend challenge must make the creator-run-first flow explicit');
 assert(uiSource.includes('loadPersistedBattle()'), 'ranked route must recover a persisted opponent context');
 assert(uiSource.includes("startLabel.string = match ? '恢复对局' : '开始排位'"), 'unified lobby must expose authoritative active-match recovery');
@@ -164,10 +172,10 @@ assert(uiSource.includes("topBar.setSiblingIndex(topBar.parent.children.length -
 assert(uiSource.includes('label.overflow = Label.Overflow.SHRINK'), 'PVP identity labels must shrink within bounded HUD columns');
 assert(uiSource.includes('hud.setPosition(0, 0, 0)'), 'reference HUD must use full-screen coordinates');
 assert(uiSource.includes('ensureTransform(hud, 720, 1280)'), 'reference HUD must use the project design resolution');
-assert(boardViewportSource.includes("new Set(['TopHud', 'PvpBattleHud'])"), 'board safe-area calculation must measure PvP HUD children instead of its full-screen root');
+assert(boardViewportSource.includes("new Set(['TopHud', 'PvpBattleHud', 'CoopHud'])"), 'board safe-area calculation must measure gameplay HUD children instead of full-screen roots');
 assert(boardViewportSource.includes('if (!conveyorActive && this.shouldShowSlotArea?.() && this.slotAreaNode?.isValid)'), 'hidden slot area must not shift the conveyor-mode board away from the visible safe-area center');
 assert(boardViewportSource.includes('if (!conveyorActive && this.shouldShowSlotArea() && this.slotAreaNode?.isValid)'), 'initial board fit must also exclude the covered slot area while conveyor gameplay is active');
-assert(boardViewportSource.includes('if (this.isRankedPvpMode?.() !== true)'), 'ranked PvP must not reserve board space for its disabled skill controls');
+assert(boardViewportSource.includes('if (this.isRankedPvpMode?.() !== true)'), 'cooperation keeps normal skill space while ranked disables skills');
 assert(uiSource.includes("addAvatar(this, hud, 'SelfAvatar', context.self, -230, 507"), 'self portrait must overlap the left identity plate');
 assert(uiSource.includes("addAvatar(this, hud, 'OpponentAvatar', context.opponent, 8, 507"), 'opponent portrait must overlap the coral identity plate');
 for (const lobbyNode of ['LobbyBackdropDecor', 'SeasonPill', 'RankStage', 'RankMedalWings', 'RankCrest', 'StartMatch', 'PvpLeaderboard', 'History', 'Rules']) {
@@ -176,18 +184,17 @@ for (const lobbyNode of ['LobbyBackdropDecor', 'SeasonPill', 'RankStage', 'RankM
 for (const friendBattleNode of ['FriendChallenge', 'PvpFriendBattleOverlay', 'JoinFriendCard', 'JoinFriendChallenge', 'CreateFriendCard', 'CreateFriendChallenge']) {
   assert(uiSource.includes(friendBattleNode), `asynchronous friend battle UI is missing ${friendBattleNode}`);
 }
-assert(uiSource.includes("addButton(overlay, 'FriendChallenge', '好友挑战 · 未解锁', 0, -534, 600, 56, new Color(218, 220, 235), () => {})"), 'friend battle entry must be visibly locked with no navigation callback');
-assert(uiSource.includes('friendChallengeButton.getComponent(Button)!.interactable = false'), 'locked friend challenge must reject clicks');
-assert(!uiSource.includes('friendChallengeButton.active = false'), 'friend battle entry must not be hidden');
+assert(uiSource.includes("addButton(coopCard, 'CoopEntry', '开始合作'"), 'cooperation has its own mode card');
+assert(uiSource.includes('if (!this._pvpMatchStarting) this.openCoopLobby();'), 'cooperation entry opens the cooperative lobby when no match is starting');
 assert(uiSource.includes('回放好友已完成并保存的真实成绩'), 'join path must explain that the opponent result is frozen');
 assert(uiSource.includes('你先完成一局，成绩保存后再分享给好友'), 'create path must explain the creator-run-first flow');
 assert(uiSource.includes('getLaunchChallengeCode()'), 'friend battle panel must recognize a received share-card challenge code');
 assert(uiSource.includes('joinFriendChallenge(launchCode)'), 'friend battle join path must call the authoritative cloud service');
 assert(uiSource.includes('createFriendChallenge(levelId)'), 'friend battle create path must call the authoritative cloud service');
 assert(uiSource.includes('new Color(238, 241, 255, 255)'), 'ranked lobby must use an opaque high-contrast background');
-assert(uiSource.includes("addButton(overlay, 'PvpLeaderboard', '排行榜', -210, -429"), 'lobby secondary actions must share one aligned row');
-assert(uiSource.includes("addButton(overlay, 'History', '对战记录', 0, -429"), 'battle history must remain in the aligned secondary row');
-assert(uiSource.includes("addButton(overlay, 'Rules', '玩法规则', 210, -429"), 'rules must remain in the aligned secondary row');
+assert(uiSource.includes("addButton(overlay, 'PvpLeaderboard', '排行榜', -210, -542"), 'lobby secondary actions must share one aligned row');
+assert(uiSource.includes("addButton(overlay, 'History', '对战记录', 0, -542"), 'battle history must remain in the aligned secondary row');
+assert(uiSource.includes("addButton(overlay, 'Rules', '玩法规则', 210, -542"), 'rules must remain in the aligned secondary row');
 assert(uiSource.includes("'ChapterTitle', '闯关模式'"), 'unified lobby must expose chapter mode');
 assert(uiSource.includes('this.startThemeLevel(chapterLevelId, { suppressFailureToast: true })'), 'chapter entry must retain theme gameplay and vigor checks');
 assert(uiSource.includes('persistedBattle?.matchId === match.matchId'), 'resume must not merge elapsed time from another match');
@@ -195,6 +202,6 @@ assert(!uiSource.includes('drawPvpEntry(parent'), 'separate ranked home entry mu
 assert(startupRouteSource.includes("query.pvppreview"), 'local runtime must expose an explicit PvP visual verification route');
 assert(gameRuntimeSource.includes("directPreviewRoute.reason === 'pvp-ranked'"), 'direct Game-scene preview must preserve the PvP route context');
 assert(conveyorSource.includes('this.adButton.active = !hideFirstLevelControls && !rankedPvp'), 'ranked PvP must hide the rewarded capacity button');
-assert(conveyorSource.includes('if (this.runtime.isRankedPvpMode?.() === true) return;'), 'ranked PvP must suppress incompatible conveyor guides and ad grants');
+assert(conveyorSource.includes('if (this.runtime.isRankedPvpMode?.() === true) return;'), 'ranked keeps ad grants disabled');
 
 console.log('PVP_SERVICE_CORE_TESTS_PASSED');

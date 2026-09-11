@@ -69,7 +69,7 @@ type SlotTapIntent = {
     source: 'direct' | 'tolerant' | 'area' | 'miss';
 };
 
-const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud', 'PvpBattleHud']);
+const GAMEPLAY_LAYOUT_CONTAINER_NODE_NAMES = new Set(['TopHud', 'PvpBattleHud', 'CoopHud']);
 const SLOT_INTRO_PROMPT_TOP_GAP = 16;
 const SLOT_INTRO_PROMPT_BOARD_GAP = 18;
 const SLOT_INTRO_PROMPT_FALLBACK_HEIGHT = 158;

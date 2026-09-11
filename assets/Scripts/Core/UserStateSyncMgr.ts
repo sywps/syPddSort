@@ -55,6 +55,11 @@ export type CloudUserState = {
     gameState?: Partial<CloudGameState> | null;
 };
 
+export type CloudUserStateRecovery = {
+    state: CloudUserState;
+    generation: number;
+};
+
 type CloudFunctionResult = {
     ok?: boolean;
     errorMessage?: string;
@@ -207,6 +212,9 @@ export class UserStateSyncMgr {
     private consecutiveSaveFailures = 0;
     private cloudUnavailableWarned = false;
     private cloudDisabledForSession = false;
+    private cloudOperationGeneration = 0;
+    private cloudLoadRequestSequence = 0;
+    private recoveryPromise: Promise<CloudUserStateRecovery | null> | null = null;
     private authoritativeStateHandler: ((state: CloudUserState) => void) | null = null;
 
     private constructor() {}
@@ -220,25 +228,62 @@ export class UserStateSyncMgr {
     }
 
     async loadState(): Promise<CloudUserState | null> {
+        return this.loadStateInternal('load');
+    }
+
+    async recoverState(): Promise<CloudUserStateRecovery | null> {
+        if (!this.canUseCloud() || this.pendingPatch || this.inflightSave) {
+            return null;
+        }
+        if (this.recoveryPromise) {
+            return this.recoveryPromise;
+        }
+        const generation = this.cloudOperationGeneration;
+        const recovery = this.loadStateInternal('recover')
+            .then((state) => state
+                && generation === this.cloudOperationGeneration
+                && !this.pendingPatch
+                && !this.inflightSave
+                ? { state, generation }
+                : null);
+        this.recoveryPromise = recovery;
+        try {
+            return await recovery;
+        } finally {
+            if (this.recoveryPromise === recovery) {
+                this.recoveryPromise = null;
+            }
+        }
+    }
+
+    validateRecoveredState(generation: number): boolean {
+        return generation === this.cloudOperationGeneration
+            && !this.pendingPatch
+            && !this.inflightSave
+            && this.canUseCloud();
+    }
+
+    private async loadStateInternal(diagnosticPhase: 'load' | 'recover'): Promise<CloudUserState | null> {
         if (!this.canUseCloud()) {
-            emitCloudSyncDiagnostic('load:skip', {
+            emitCloudSyncDiagnostic(`${diagnosticPhase}:skip`, {
                 reason: 'cloud_unavailable',
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             return null;
         }
+        const requestSequence = ++this.cloudLoadRequestSequence;
 
         try {
-            emitCloudSyncDiagnostic('load:start', {
+            emitCloudSyncDiagnostic(`${diagnosticPhase}:start`, {
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
             const result = await PlatformCloudMgr.inst.callFunction<CloudFunctionResult>(CLOUD_FUNCTION_NAME, {
                 action: 'get',
             });
-            if (result?.ok === false) {
-                throw new Error(result.errorMessage || 'load user state failed');
+            if (result?.ok !== true) {
+                throw new Error(result?.errorMessage || 'load user state failed');
             }
-            emitCloudSyncDiagnostic('load:success', {
+            emitCloudSyncDiagnostic(`${diagnosticPhase}:success`, {
                 userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
                 skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
                 hasProfile: !!result?.profile,
@@ -249,14 +294,14 @@ export class UserStateSyncMgr {
                 equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(result?.gameState),
             });
             if ((result?.skinStateSchemaVersion || 0) < SKIN_STATE_SCHEMA_VERSION && !getEquippedBackgroundSkinPair(result?.gameState)) {
-                emitCloudSyncDiagnostic('load:skin-schema-unknown', {
+                emitCloudSyncDiagnostic(`${diagnosticPhase}:skin-schema-unknown`, {
                     skinStateSchemaVersion: result?.skinStateSchemaVersion ?? null,
                     savedLevel: result?.gameState?.savedLevel ?? null,
                     diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
                 });
             }
             if ((result?.userStateSchemaVersion || 0) < USER_STATE_SCHEMA_VERSION) {
-                emitCloudSyncDiagnostic('load:user-state-schema-unknown', {
+                emitCloudSyncDiagnostic(`${diagnosticPhase}:user-state-schema-unknown`, {
                     userStateSchemaVersion: result?.userStateSchemaVersion ?? null,
                     savedLevel: result?.gameState?.savedLevel ?? null,
                     diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
@@ -267,11 +312,11 @@ export class UserStateSyncMgr {
                 gameState: result?.gameState || null,
             };
         } catch (error) {
-            emitCloudSyncDiagnostic('load:fail', {
+            emitCloudSyncDiagnostic(`${diagnosticPhase}:fail`, {
                 message: String((error as any)?.message || error || 'unknown error'),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
-            if (this.isExpectedCloudFailure(error)) {
+            if (this.isPermanentCloudFailure(error) && requestSequence === this.cloudLoadRequestSequence) {
                 this.disableCloudForSession('loadState', error);
                 return null;
             }
@@ -280,7 +325,8 @@ export class UserStateSyncMgr {
         }
     }
 
-    queueSave(patch: CloudUserState): void {
+    queueSave(patch: CloudUserState): boolean {
+        this.cloudOperationGeneration++;
         if (!this.canUseCloud()) {
             emitCloudSyncDiagnostic('save:queue-skip', {
                 reason: 'cloud_unavailable',
@@ -291,7 +337,7 @@ export class UserStateSyncMgr {
                 equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
-            return;
+            return false;
         }
 
         this.pendingPatch = this.mergeState(this.pendingPatch, patch);
@@ -311,6 +357,7 @@ export class UserStateSyncMgr {
             this.saveTimer = null;
             void this.flushPendingSave();
         }, SAVE_DEBOUNCE_MS);
+        return true;
     }
 
     async flushPendingSave(): Promise<boolean> {
@@ -318,35 +365,35 @@ export class UserStateSyncMgr {
             clearTimeout(this.saveTimer);
             this.saveTimer = null;
         }
-
-        if (!this.pendingPatch) {
+        if (this.cloudDisabledForSession) {
             return false;
         }
 
-        if (this.inflightSave) {
-            await this.inflightSave.catch(() => undefined);
-            if (!this.pendingPatch) {
-                return false;
+        while (true) {
+            if (this.inflightSave) {
+                if (!await this.inflightSave.catch(() => false)) return false;
+                continue;
             }
-        }
+            if (!this.pendingPatch) return true;
 
-        const patch = this.pendingPatch;
-        this.pendingPatch = null;
-
-        emitCloudSyncDiagnostic('save:flush', {
-            savedLevel: patch.gameState?.savedLevel ?? null,
-            equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
-            equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
-            equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
-            equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
-            hasProfile: !!patch.profile,
-            hasGameState: !!patch.gameState,
-        });
-        this.inflightSave = this.saveNow(patch);
-        try {
-            return await this.inflightSave;
-        } finally {
-            this.inflightSave = null;
+            const patch = this.pendingPatch;
+            this.pendingPatch = null;
+            emitCloudSyncDiagnostic('save:flush', {
+                savedLevel: patch.gameState?.savedLevel ?? null,
+                equippedBackgroundSkinId: getDiagnosticEquippedBackgroundSkinId(patch.gameState),
+                equippedBackgroundSkinUpdatedAt: getDiagnosticEquippedBackgroundSkinUpdatedAt(patch.gameState),
+                equippedBeanSkinId: getDiagnosticEquippedBeanSkinId(patch.gameState),
+                equippedBeanSkinUpdatedAt: getDiagnosticEquippedBeanSkinUpdatedAt(patch.gameState),
+                hasProfile: !!patch.profile,
+                hasGameState: !!patch.gameState,
+            });
+            const save = this.saveNow(patch);
+            this.inflightSave = save;
+            try {
+                if (!await save) return false;
+            } finally {
+                if (this.inflightSave === save) this.inflightSave = null;
+            }
         }
     }
 
@@ -365,8 +412,8 @@ export class UserStateSyncMgr {
                 profile: patch.profile || undefined,
                 gameState: patch.gameState || undefined,
             });
-            if (result?.ok === false) {
-                throw new Error(result.errorMessage || 'save user state failed');
+            if (result?.ok !== true) {
+                throw new Error(result?.errorMessage || 'save user state failed');
             }
             this.assertUserStateAcknowledged(patch, result);
             this.consecutiveSaveFailures = 0;
@@ -382,10 +429,12 @@ export class UserStateSyncMgr {
                 hasGameState: !!result?.gameState,
             });
             if (result?.profile || result?.gameState) {
-                this.emitAuthoritativeState({
+                if (!this.emitAuthoritativeState({
                     profile: result.profile || null,
                     gameState: result.gameState || null,
-                });
+                })) {
+                    throw new Error('apply authoritative user state failed');
+                }
             }
             return true;
         } catch (error) {
@@ -398,14 +447,14 @@ export class UserStateSyncMgr {
                 message: String((error as any)?.message || error || 'unknown error'),
                 diagnostics: PlatformCloudMgr.inst.getDiagnostics(),
             });
-            const expectedFailure = this.isExpectedCloudFailure(error);
-            if (expectedFailure) {
+            const permanentFailure = this.isPermanentCloudFailure(error);
+            if (permanentFailure) {
                 this.disableCloudForSession('saveNow', error);
             } else {
                 runtimeWarn('[UserStateSyncMgr] saveNow failed:', error);
             }
             this.pendingPatch = this.mergeState(patch, this.pendingPatch);
-            if (!expectedFailure) {
+            if (!permanentFailure) {
                 this.schedulePendingSaveRetry();
             }
             return false;
@@ -528,14 +577,16 @@ export class UserStateSyncMgr {
         }, SAVE_RETRY_MS);
     }
 
-    private emitAuthoritativeState(state: CloudUserState): void {
+    private emitAuthoritativeState(state: CloudUserState): boolean {
         if (!this.authoritativeStateHandler) {
-            return;
+            return true;
         }
         try {
             this.authoritativeStateHandler(state);
+            return true;
         } catch (error) {
             runtimeWarn('[UserStateSyncMgr] authoritative state handler failed:', error);
+            return false;
         }
     }
 
@@ -563,22 +614,29 @@ export class UserStateSyncMgr {
         return merged;
     }
 
-    private isExpectedCloudFailure(error: unknown): boolean {
-        const message = String((error as any)?.message || error || '').toLowerCase();
+    private isPermanentCloudFailure(error: unknown): boolean {
+        const value = error as any;
+        const message = [value?.message, value?.errMsg, value?.errCode, value?.code, typeof error === 'string' ? error : '']
+            .filter((item) => item !== undefined && item !== null && String(item).trim())
+            .map((item) => String(item).toLowerCase())
+            .join(' ');
         if (!message) {
             return false;
         }
         return (
-            message.includes('cloud.callfunction:fail') ||
-            message.includes('douyin cloud') ||
-            message.includes('system error') ||
             message.includes('environment not found') ||
+            message.includes('environment does not exist') ||
             message.includes('function not found') ||
-            message.includes('collection') && message.includes('not exist')
+            message.includes('function does not exist') ||
+            message.includes('云函数不存在') ||
+            message.includes('collection') && (message.includes('not exist') || message.includes('not found') || message.includes('missing')) ||
+            message.includes('集合不存在') ||
+            message.includes('环境不存在')
         );
     }
 
     private disableCloudForSession(phase: 'loadState' | 'saveNow', error: unknown): void {
+        this.cloudOperationGeneration++;
         this.cloudDisabledForSession = true;
         if (this.saveTimer) {
             clearTimeout(this.saveTimer);

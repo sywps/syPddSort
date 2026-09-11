@@ -2,6 +2,7 @@ import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
 import { runtimeLog } from './RuntimeLog';
+import { isWorkbenchPreviewRequested } from './WorkbenchPreviewService';
 import {
     subscribeRewardedAdLoadEvents,
     type RewardedAdLoadEvent,
@@ -307,6 +308,7 @@ export class AnalyticsMgr {
     }
 
     async ensureReady(): Promise<boolean> {
+        if (isWorkbenchPreviewRequested()) return false;
         if (this.readyPromise) {
             return this.readyPromise;
         }
@@ -388,6 +390,7 @@ export class AnalyticsMgr {
     }
 
     trackFunnelEvent(opt: FunnelEventOptions): void {
+        if (isWorkbenchPreviewRequested()) return;
         if (this.funnelUploadDisabled) return;
         const eventName = typeof opt.eventName === 'string' ? opt.eventName.trim() : '';
         if (!eventName) return;

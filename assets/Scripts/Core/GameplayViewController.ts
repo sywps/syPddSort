@@ -390,6 +390,7 @@ export class GameplayViewController {
         runtime.setupBoardZoomControl?.();
         runtime.buildSkillButtons(skillRoot);
         runtime.mountPvpBattleHud?.();
+        runtime.mountCoopHud?.();
 
         this.prepareDragLayer(dragRoot);
 
@@ -745,7 +746,8 @@ export class GameplayViewController {
         const initialFitRect = runtime.getBoardInitialFitRect();
         const availableW = Math.max(1, initialFitRect.right - initialFitRect.left);
         const availableH = Math.max(1, initialFitRect.top - initialFitRect.bottom);
-        const targetBounds = this.getTargetContentBounds(runtime.levelData.correctColorArr || [], boardWidth, boardHeight);
+        const targetBounds = runtime.getCoopBoardContentBounds?.()
+            || this.getTargetContentBounds(runtime.levelData.correctColorArr || [], boardWidth, boardHeight);
         const targetCols = Math.max(1, targetBounds.maxCol - targetBounds.minCol + 1);
         const targetRows = Math.max(1, targetBounds.maxRow - targetBounds.minRow + 1);
         const step = runtime.cellSize + runtime.cellGap;
@@ -838,6 +840,7 @@ export class GameplayViewController {
             boardVisualCellCount,
         });
         this.recycleBoardNodeGrid(runtime.cellNodes, runtime._boardCellPool, boardVisualCellCount);
+        runtime.clearCoopBoardPartner?.();
         runtime.clearChildrenExcept(runtime.boardNode, [BOARD_OUTLINE_LAYER_NAME, BOARD_OUTLINE_TOP_LAYER_NAME, 'BoardSlots']);
 
         runtime.boardSlotsNode = runtime.requireUiChild(runtime.boardNode, 'BoardSlots', 'Board/BoardSlots');
@@ -911,6 +914,7 @@ export class GameplayViewController {
         const slotBatchDurationMs = Date.now() - slotBatchStartedAt;
         this.trimBoardNodePool(runtime._boardCellPool, 0);
         this.trimBoardNodePool(runtime._boardSlotBgPool, 0);
+        runtime.mountCoopBoardPartner?.();
         debugPerfSnapshot('board.build.finish', runtime, {
             boardVisualCellCount,
             slotBatchCount,

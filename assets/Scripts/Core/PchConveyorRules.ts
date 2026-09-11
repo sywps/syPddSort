@@ -82,6 +82,20 @@ export class PchConveyorRules {
     private readonly queuedColorIds: number[] = [];
     private readyQueuedCount = 0;
 
+    exportTransportState(): { carriers: number[][]; queued: number[]; ready: number } {
+        return { carriers: this.carriers.map(stack => stack.slice()), queued: this.queuedColorIds.slice(), ready: this.readyQueuedCount };
+    }
+
+    restoreTransportState(state: { carriers: number[][]; queued: number[]; ready: number }): void {
+        if (state.carriers.length !== this.carrierCount || state.carriers.some(stack => stack.length > this.stackDepth)
+            || !Number.isInteger(state.ready) || state.ready < 0 || state.ready > state.queued.length
+            || [...state.carriers.flat(), ...state.queued].some(color => !Number.isInteger(color) || color <= 0)
+            || state.carriers.flat().length + state.queued.length > this.bufferCapacity) throw new Error('invalid transport checkpoint');
+        state.carriers.forEach((stack, index) => this.carriers[index].splice(0, this.carriers[index].length, ...stack));
+        this.queuedColorIds.splice(0, this.queuedColorIds.length, ...state.queued);
+        this.readyQueuedCount = state.ready;
+    }
+
     constructor(
         public readonly board: BoardModel,
         conveyorCapacity: unknown,
