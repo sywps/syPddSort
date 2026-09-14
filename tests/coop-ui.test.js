@@ -18,7 +18,7 @@ class Label {}
 Label.HorizontalAlign = Label.VerticalAlign = { CENTER: 0 }; Label.Overflow = { SHRINK: 0 };
 class UITransform { setContentSize(width, height) { this.width = width; this.height = height; } setAnchorPoint() {} }
 class ScrollView { static EventType = { SCROLL_TO_BOTTOM: 'bottom' }; }
-class Graphics { rect() {} roundRect() {} fill() {} }
+class Graphics { constructor() { this.rects = []; } rect(...args) { this.rects.push(args); } roundRect() {} fill() {} }
 class Button {}
 Button.EventType = { CLICK: 'click' };
 class Color { constructor(hex) { this.hex = hex; } }
@@ -30,7 +30,7 @@ const mgr = {
     isLocalSimulation: () => false,
     catalog: async () => catalog,
     fullLevel: async (_runtime, id) => require(`../cloudfunctions/coopService/levels/coop_level_${id}.json`),
-    overview: async () => ({ overview: { activeCreated: null, activeJoined: null, unlocked: { coop_original_01: 1 } } }),
+    overview: async () => ({ overview: { activeCreated: null, activeJoined: null, unlocked: { [catalog[0].collectionId]: 1 } } }),
     prepare: async (...args) => calls.push(['prepare', args[1], args[2]]),
     call: async (action, args) => {
         calls.push([action, args]);
@@ -69,11 +69,12 @@ async function main() {
     assert(findAll(root, '参与记录')[0].position.y > 500);
     const scroll = findAll(root, 'CoopScroll')[0];
     scroll.handlers.bottom(); scroll.handlers.bottom(); await settle();
-    assert.equal(findAll(root, '发起合作').length, 10, 'bottom appends remaining patterns without duplicates');
+    assert.equal(findAll(root, '发起合作').length, Math.min(12, catalog.length), 'bottom appends the next batch without duplicates');
     assert(images.slice(6).every(([, , options]) => options.grayscale), 'loaded-more unfinished patterns are also gray');
-    assert.equal(findAll(root, 'CoopCard1').length, 1, 'previous rows remain after loading more');
+    assert.equal(findAll(root, `CoopCard${catalog[0].levelId}`).length, 1, 'previous rows remain after loading more');
+    while (findAll(root, '发起合作').length < catalog.length) { scroll.handlers.bottom(); await settle(); }
     scroll.handlers.bottom(); await settle();
-    assert.equal(findAll(root, '发起合作').length, 10, 'end of list does not reload');
+    assert.equal(findAll(root, '发起合作').length, catalog.length, 'end of list does not reload');
     assert.equal(findAll(root, '合作图鉴').length, 0, 'collection is accessed from the home gallery only');
     click('参与记录'); await settle();
     assert.equal(findAll(root, '我发起 · 已完成').length, 20);
@@ -83,7 +84,10 @@ async function main() {
     assert.equal(calls.filter(call => call[0] === 'history').length, 2, 'only one request per cursor');
     click('合作广场'); await settle();
     assert.equal(historyScroll.isValid, false, 'switching tabs destroys the previous scroll list');
-    assert(images.some(([, grid, options]) => grid[0].length === 32 && options.grayscale === true), 'square displays unfinished half separately');
+    const postLevel = require(`../assets/LevelData/coop_level_${post.levelId}.json`);
+    const fullBeanCount = postLevel.correctColorArr.flat().filter(Boolean).length;
+    assert(images.some(([, grid, options]) => options.grayscale === true
+        && grid.flat().filter(Boolean).length < fullBeanCount), 'square displays unfinished half separately');
     click('帮他完成'); await settle();
     click('开始帮忙'); await settle();
     assert(calls.some(call => call[0] === 'join' && call[1].postId === post.id));
@@ -139,6 +143,27 @@ async function main() {
     assert.deepEqual(images.at(-1)[1], full.correctColorArr.map(row => row.slice(0, 32)));
     assert.equal(runtime.getCoopBoardContentBounds().minCol, -32);
     assert.equal(JSON.stringify(full.correctColorArr), originalGrid, 'display never mutates gameplay data');
+    const irregular = require('../assets/LevelData/coop_level_4.json');
+    const { coopHalfLevel, coopRegionGrid } = require('../cloudfunctions/coopService/runtime/CoopModeConfig');
+    for (const role of ['creator', 'collaborator']) {
+        mgr.active.full = irregular; mgr.active.run.role = role; mgr.active.half = coopHalfLevel(irregular, role);
+        runtime.mountCoopBoardPartner();
+        const node = runtime.boardNode.getChildByName('CoopPartnerHalf');
+        assert.equal(node.position.x, 0, 'irregular parts keep their full-board coordinates');
+        assert.equal(runtime.getCoopBoardContentBounds().minCol, 0);
+        assert.deepEqual(images.at(-1)[1], coopRegionGrid(irregular, role === 'creator' ? 'collaborator' : 'creator'));
+        const mask = node.getChildByName('PartnerMask');
+        assert.equal(!!mask, role === 'creator');
+        if (mask) {
+            const covered = Array.from({ length: 56 }, () => Array(64).fill(0));
+            for (const [x, y, width, height] of mask.getComponent(Graphics).rects) {
+                assert.equal(height, 10);
+                const r = 28 - y / 10 - 1;
+                for (let c = x / 10 + 32; c < x / 10 + 32 + width / 10; c++) covered[r][c]++;
+            }
+            assert.deepEqual(covered, irregular.coopRegions.map(row => row.map(owner => owner === 2 ? 1 : 0)), 'mask covers only partner cells, exactly once');
+        }
+    }
     runtime.clearCoopBoardPartner();
     mgr.active.run.role = 'creator';
     assert.equal(runtime.handleCoopTerminal(false), false, 'failure uses the ordinary revive flow');

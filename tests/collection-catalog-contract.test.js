@@ -327,9 +327,9 @@ assertV3ManifestLoadsEndToEnd().then(async () => {
     const levels = require('../assets/GameAssetsBundle/coop-manifest.json').levels.map(entry => ({
         levelId: entry.levelId, prefix: 'coop_level_', data: require(`../assets/LevelData/${entry.file}`),
     }));
-    const pack = { id: 'coop', schemaVersion: 3, prefix: 'coop_level_', levelRange: [1, 10], levels };
-    const manifest = { manifestVersion: 1, schemaVersion: 3, minClientBuild: 3, dataVersion: 'coop-test', levelCount: 10,
-        packs: [{ ...pack, levels: levels.map(entry => entry.levelId), levelCount: 10, url: 'level_packs/coop.json' }] };
+    const pack = { id: 'coop', schemaVersion: 3, prefix: 'coop_level_', levelRange: [1, 20], levels };
+    const manifest = { manifestVersion: 1, schemaVersion: 3, minClientBuild: 3, dataVersion: 'coop-test', levelCount: 20,
+        packs: [{ ...pack, levels: levels.map(entry => entry.levelId), levelCount: 20, url: 'level_packs/coop.json' }] };
     const service = new (loadClientCollectionCatalogContract(manifest, { 'https://example.test/levels/level_packs/coop.json': pack }).LevelDataCdnService)();
     const actual = await service.loadLevel(7, 'coop_level_');
     assert.deepStrictEqual(JSON.parse(JSON.stringify(actual)), levels[6].data, 'shared CDN service loads full cooperation level');

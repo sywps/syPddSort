@@ -55,7 +55,7 @@ async function main() {
         const partnerProof = { postId, version: 0, requestId: 'b-0000000000000001', events: proof('collaborator') };
         await call('B', 'complete', partnerProof);
         await call('B', 'complete', partnerProof);
-        for (const player of ['A', 'B']) assert((await call(player, 'overview')).overview.unlocked.coop_original_07);
+        for (const player of ['A', 'B']) assert((await call(player, 'overview')).overview.unlocked.coop_variety_06);
         assert.deepEqual((await call('C', 'overview')).overview.unlocked, {});
         const participants = (await call('A', 'participants', { postId })).participants;
         assert.equal(participants.filter(person => person.status === 'complete').length, 1);
@@ -65,7 +65,7 @@ async function main() {
         }
         await new Promise(resolve => server.close(resolve));
         await start();
-        assert((await call('B', 'overview')).overview.unlocked.coop_original_07, 'completion survives local server restart');
+        assert((await call('B', 'overview')).overview.unlocked.coop_variety_06, 'completion survives local server restart');
         assert.equal((await call('C', 'detail', { postId })).run.elapsedMs, 0, 'unfinished player restarts without progress');
         now += 1000;
         await call('C', 'complete', { ...partnerProof, requestId: 'c-0000000000000001' });

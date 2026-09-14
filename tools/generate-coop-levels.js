@@ -159,12 +159,14 @@ function writeJson(file, value) {
 }
 
 function main() {
+    const retained = fs.existsSync(MANIFEST) ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8')).levels
+        .filter(entry => entry.collectionId !== 'coop_original_02').sort((a, b) => a.levelId - b.levelId) : [];
     fs.mkdirSync(OUT, { recursive: true });
     const colors = palette();
     const refs = Array.from({ length: 182 }, (_, i) => JSON.parse(fs.readFileSync(path.join(__dirname, 'dbt', `level_${i + 1}.json`), 'utf8')));
     const profile = shuffle.learnProfile(refs);
     const entries = [];
-    for (let i = 0; i < specs.length; i++) {
+    for (const i of [1]) {
         const [name, english, kind, a, b, light, accent] = specs[i];
         const left = halfArt(kind, a, light, accent);
         const right = halfArt(kind, b, light, accent).map(row => row.slice().reverse());
@@ -174,24 +176,25 @@ function main() {
         assert(halfCount * 2 > 1000, `${name}: only ${halfCount * 2} beans`);
         const seeds = [2026091000 + i * 2, 2026091001 + i * 2];
         const initial = [left, right].map((grid, n) => shuffle.generate(grid, { profile, seed: seeds[n], strictMismatch: true, outlineGrid: grid }));
-        const level = { levelId: i + 1, Hard: 0, boardWidth: W, boardHeight: H,
+        const levelId = 1;
+        const level = { levelId, Hard: 0, boardWidth: W, boardHeight: H,
             timeLimit: 600, slotTotalCount: 12, conveyorCapacity: 60,
             correctColorArr, initRandomColorArr: initial[0].map((row, r) => row.concat(initial[1][r])) };
-        const file = `coop_level_${i + 1}.json`;
+        const file = `coop_level_${levelId}.json`;
         writeJson(file, level);
-        fs.writeFileSync(path.join(OUT, `coop_level_${i + 1}.png`), PNG.sync.write(render(correctColorArr, colors)));
-        const entry = { levelId: i + 1, name, english, file, beanCount: halfCount * 2,
+        fs.writeFileSync(path.join(OUT, `coop_level_${levelId}.png`), PNG.sync.write(render(correctColorArr, colors)));
+        const entry = { levelId, name, english, file, beanCount: halfCount * 2,
             creatorBeanCount: halfCount, collaboratorBeanCount: halfCount,
             split: { axis: 'column', boundary: 32, creatorColumns: [0, 31], collaboratorColumns: [32, 63] },
-            seeds, collectionId: `coop_original_${String(i + 1).padStart(2, '0')}`,
+            seeds, collectionId: 'coop_original_02',
             sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(LEVEL_DIR, file))).digest('hex') };
         entries.push(entry);
-        console.log(`${i + 1}. ${name}: ${halfCount * 2} (${halfCount} + ${halfCount})`);
+        console.log(`${levelId}. ${name}: ${halfCount * 2} (${halfCount} + ${halfCount})`);
     }
     writeJson('manifest.json', { schemaVersion: 1, status: 'offline-candidate', originalArtwork: true,
         mode: 'creator-half-independent-collaborator-half', boardWidth: W, boardHeight: H,
         timeLimitNote: '600 seconds is an offline solver/preview parameter; cooperative timer policy is not implemented.',
-        shuffle: { tool: 'tools/shuffle-comparison.js', referenceCount: 182, strictMismatch: true }, levels: entries });
+        shuffle: { tool: 'tools/shuffle-comparison.js', referenceCount: 182, strictMismatch: true }, levels: [...entries, ...retained] });
     const sheet = new PNG({ width: W * 5 * 5, height: H * 5 * 2 });
     for (let i = 0; i < entries.length; i++) {
         const level = JSON.parse(fs.readFileSync(path.join(LEVEL_DIR, entries[i].file), 'utf8'));
@@ -205,9 +208,9 @@ function main() {
 
 function previewHtml(levels, colors) {
     return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>一人一半 · 合作拼图 10 关</title><style>
+<title>一人一半 · 合作拼图精选关</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f6f3ed;color:#302d35;font:15px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:44px 24px}header{margin-bottom:30px}h1{font-size:38px;margin:10px 0}p{line-height:1.8;color:#716971}.tag{color:#7d667f;font-size:12px;letter-spacing:3px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}article{background:#fffcf7;border:1px solid #ded7cf;border-radius:16px;overflow:hidden}canvas{width:100%;height:auto;display:block;image-rendering:pixelated}.info{padding:20px;border-top:1px solid #e8e0d7}h2{font-size:20px;margin:0 0 8px}small{color:#7d737a}button{border:1px solid #d0c7cc;border-radius:8px;background:#fffaf4;padding:9px 13px;cursor:pointer;color:#514456;margin:12px 6px 0 0}button[aria-pressed=true]{background:#55425e;color:white}.count{float:right;color:#796183;font-size:14px}a{color:#796183}@media(max-width:650px){.grid{grid-template-columns:1fr}h1{font-size:28px}}</style>
-<main><header><span class="tag">CO-OP COLLECTION / ORIGINAL SERIES 01</span><h1>一人一半，一起收藏。</h1><p>10 张合作专属像素图 · 每张超过 1000 颗豆豆 · 左右各 50%<br>发起者完成左半；每位参与者独立完成右半。此页为离线关卡审阅，尚未接入合作玩法。</p></header><section class="grid"></section></main>
+<main><header><span class="tag">CO-OP COLLECTION / ORIGINAL SERIES 01</span><h1>一人一半，一起收藏。</h1><p>合作专属像素图 · 每张超过 1000 颗豆豆 · 左右各 50%<br>发起者完成左半；每位参与者独立完成右半。此页为离线关卡审阅，尚未接入合作玩法。</p></header><section class="grid"></section></main>
 <script>const levels=${JSON.stringify(levels)},colors=${JSON.stringify(colors)};
 for(const level of levels){const card=document.createElement('article');card.innerHTML='<canvas width="512" height="448"></canvas><div class="info"><span class="count">'+level.beanCount+' 颗</span><h2>'+String(level.levelId).padStart(2,'0')+' / '+level.name+'</h2><small>发起者 '+level.creatorBeanCount+' · 合作者 '+level.collaboratorBeanCount+' · 64 × 56</small><div><button data-mode="target" aria-pressed="true">完整图案</button><button data-mode="split" aria-pressed="false">分享时效果</button><button data-mode="initial" aria-pressed="false">初始乱序</button></div></div>';document.querySelector('.grid').append(card);const ctx=card.querySelector('canvas').getContext('2d');function draw(mode){ctx.fillStyle='#f6f3ed';ctx.fillRect(0,0,512,448);const grid=mode==='initial'?level.initRandomColorArr:level.correctColorArr;for(let y=0;y<56;y++)for(let x=0;x<64;x++){if(!grid[y][x])continue;ctx.globalAlpha=mode==='split'&&x>=32?.18:1;ctx.fillStyle=colors[grid[y][x]];ctx.fillRect(x*8,y*8,8,8)}ctx.globalAlpha=1;if(mode==='split'){ctx.setLineDash([4,6]);ctx.strokeStyle='#8c7488';ctx.beginPath();ctx.moveTo(256,8);ctx.lineTo(256,440);ctx.stroke();ctx.setLineDash([])}}card.querySelectorAll('button').forEach(button=>button.onclick=()=>{card.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));draw(button.dataset.mode)});draw('target')}
 </script></html>`;

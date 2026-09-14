@@ -14,12 +14,13 @@ const compiled = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../ass
 const loaded = { exports: {} };
 let localPreview = false;
 let miniGame = false;
+let cloudPlatform = 'none';
 new Function('module', 'exports', 'require', compiled)(loaded, loaded.exports, name => {
     if (name === 'cc') return { JsonAsset: class {}, sys };
     if (name.endsWith('/CoopModeConfig')) return config;
     if (name.endsWith('/PvpHumanReplay')) return replay;
     if (name.endsWith('/PvpBotReplay')) return { pixelLevelHash };
-    if (name.endsWith('/PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { getPlatform: () => 'none' } } };
+    if (name.endsWith('/PlatformCloudMgr')) return { PlatformCloudMgr: { inst: { getPlatform: () => cloudPlatform } } };
     if (name.endsWith('/MiniGamePlatform')) return { getWeChatMiniGameRuntime: () => null, isMiniGameRuntime: () => miniGame };
     if (name.endsWith('/RemoteDataCdnClient')) return { isLocalBrowserPreview: () => localPreview };
     if (name.endsWith('/WeChatShareReturnService')) return {};
@@ -27,7 +28,7 @@ new Function('module', 'exports', 'require', compiled)(loaded, loaded.exports, n
     throw new Error(`Unexpected client dependency ${name}`);
 });
 const full = require('../cloudfunctions/coopService/levels/coop_level_7.json');
-const post = { id: 'a'.repeat(24), levelId: 7, levelHash: pixelLevelHash(full), creatorDone: false };
+const post = { id: 'a'.repeat(24), levelId: 7, levelHash: config.coopLevelHash(full), creatorDone: false };
 const run = { id: 'b'.repeat(40), postId: post.id, role: 'creator', version: 0, status: 'playing', elapsedMs: 0, checkpoint: null };
 
 async function main() {
@@ -43,9 +44,23 @@ async function main() {
         },
     };
     const actual = await loader.fullLevel(runtime, 7);
-    assert.equal(pixelLevelHash(actual), post.levelHash, 'moved level preserves active cloud sessions');
+    assert.equal(config.coopLevelHash(actual), post.levelHash, 'client and cloud use the same cooperation hash');
     runtime._loadLevelDataFromConfiguredSource = (_id, _prefix, callback) => callback(null, 'level_data_cdn', new Error('CDN missing'));
     await assert.rejects(loader.fullLevel(runtime, 8), /CDN missing/, 'missing shared source must fail explicitly');
+    cloudPlatform = 'wechat';
+    const cloudLoader = new loaded.exports.CoopServiceMgr();
+    cloudLoader.call = async (action, data) => {
+        assert.equal(action, 'level'); assert.equal(data.levelId, 7);
+        return { level: full, levelHash: config.coopLevelHash(full) };
+    };
+    assert.deepEqual(await cloudLoader.fullLevel(runtime, 7), full, 'WeChat loads the authoritative cloud level even when CDN is stale');
+    const invalidLoader = new loaded.exports.CoopServiceMgr();
+    invalidLoader.call = async () => ({ level: full, levelHash: 'incorrect' });
+    await assert.rejects(invalidLoader.fullLevel(runtime, 7), /校验失败/);
+    const failedLoader = new loaded.exports.CoopServiceMgr();
+    failedLoader.call = async () => { throw new Error('cloud unavailable'); };
+    await assert.rejects(failedLoader.fullLevel(runtime, 7), /cloud unavailable/, 'cloud errors never fall back to stale CDN data');
+    cloudPlatform = 'none';
     const mgr = new loaded.exports.CoopServiceMgr();
     await assert.rejects(mgr.overview(), /需要微信云服务/, 'no fake offline rewards');
     mgr.fullLevel = async () => full;

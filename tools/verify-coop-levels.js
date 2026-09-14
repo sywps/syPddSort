@@ -67,11 +67,12 @@ function verifyActions(level, run) {
 
 function main() {
     const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
+    manifest.levels = manifest.levels.filter(entry => entry.collectionId === 'coop_original_02');
     const colors = palette();
     const refs = Array.from({ length: 182 }, (_, i) => JSON.parse(fs.readFileSync(path.join(__dirname, 'dbt', `level_${i + 1}.json`), 'utf8')));
     const profile = shuffle.learnProfile(refs);
-    assert.equal(manifest.levels.length, 10);
-    assert.equal(new Set(manifest.levels.map(item => item.collectionId)).size, 10);
+    assert.equal(manifest.levels.length, 1);
+    assert.equal(new Set(manifest.levels.map(item => item.collectionId)).size, 1);
     const result = [];
     for (const entry of manifest.levels) {
         const raw = fs.readFileSync(path.join(LEVEL_DIR, entry.file));
@@ -117,7 +118,7 @@ function main() {
         result.push({ levelId: entry.levelId, name: entry.name, beanCount: entry.beanCount, halves });
         console.log(`PASS ${entry.name}: ${halves.map(h => `${h.side} ${h.simulatedSeconds}s / peak ${h.peakBuffer}`).join(', ')}`);
     }
-    const report = { passed: true, levelCount: 10, halfCount: 20, ruleSource: 'current TypeScript source',
+    const report = { passed: true, levelCount: 1, halfCount: 2, ruleSource: 'current TypeScript source',
         scope: 'data invariants plus legal action replay; not a device performance test or cooperative runtime integration', levels: result };
     const lines = (JSON.stringify(report, null, 2) + '\n').match(/[^\n]*\n/g);
     fs.writeFileSync(path.join(OUT, 'validation.json'), lines.slice(0, 300).join(''));

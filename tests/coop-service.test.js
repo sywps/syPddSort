@@ -90,15 +90,15 @@ async function main() {
     assert.equal(partialC.run.elapsedMs, 0, 'incomplete attempts save neither progress nor time');
     await submit('B', 'collaborator');
     const aFirst = (await call('A', 'overview')).overview;
-    assert(aFirst.unlocked.coop_original_07);
+    assert(aFirst.unlocked.coop_variety_06);
     assert.equal(aFirst.activeCreated, null);
-    assert((await call('B', 'overview')).overview.unlocked.coop_original_07);
+    assert((await call('B', 'overview')).overview.unlocked.coop_variety_06);
     assert.deepEqual((await call('C', 'overview')).overview.unlocked, {});
     assert.deepEqual((await call('C', 'detail', { postId })).run, partialC.run, 'B completion never changes C progress');
     await submit('D', 'collaborator');
-    assert.equal((await call('A', 'overview')).overview.unlocked.coop_original_07, aFirst.unlocked.coop_original_07, 'creator reward never repeats');
+    assert.equal((await call('A', 'overview')).overview.unlocked.coop_variety_06, aFirst.unlocked.coop_variety_06, 'creator reward never repeats');
     await submit('C', 'collaborator');
-    assert((await call('C', 'overview')).overview.unlocked.coop_original_07);
+    assert((await call('C', 'overview')).overview.unlocked.coop_variety_06);
     const final = await call('A', 'participants', { postId });
     assert.equal(final.participants.length, 3);
     assert(final.participants.every(p => p.status === 'complete' && p.elapsedMs > 0 && p.completedAt > 0));
@@ -126,8 +126,42 @@ async function main() {
         assert.equal(saved.run.status, 'complete', 'props can complete a cooperation half through server replay');
         assert.equal(saved.run.checkpoint, undefined);
     }
-    assert((await call('F', 'overview')).overview.unlocked.coop_original_07);
-    assert((await call('G', 'overview')).overview.unlocked.coop_original_07);
+    assert((await call('F', 'overview')).overview.unlocked.coop_variety_06);
+    assert((await call('G', 'overview')).overview.unlocked.coop_variety_06);
+    const old = (owner, action, extra = {}) => call(owner, action, { ...extra, rulesVersion: 'coop-pch-v3' });
+    assert.equal((await old('old', 'catalog')).levels.length, 10, 'old clients retain their original online catalog');
+    assert.equal((await call('new', 'catalog')).levels.length, 20);
+    const oldPost = await old('old', 'create', { levelId: 4 });
+    const legacyStored = await store.get('posts', oldPost.post.id);
+    delete legacyStored.rulesVersion;
+    await store.set('posts', oldPost.post.id, legacyStored);
+    const upgraded = await call('old', 'detail', { postId: oldPost.post.id });
+    assert.equal(upgraded.post.levelId, 1004, 'unversioned online posts resolve the preserved original pattern');
+    const oldLevel = require('../cloudfunctions/coopService/legacy-levels/coop_level_4.json');
+    const cloudLevel = await call('old', 'level', { levelId: upgraded.post.levelId });
+    assert.deepEqual(cloudLevel.level, oldLevel);
+    assert.equal(cloudLevel.levelHash, oldPost.post.levelHash, 'upgrading preserves old level hash');
+    assert.notEqual(cloudLevel.levelHash, (await call('old', 'level', { levelId: 4 })).levelHash, 'renumbered current level cannot replace the old pattern');
+    const oldFixture = controllerReplay({ ...coopHalfLevel(oldLevel, 'creator'), timeLimit: 600 });
+    assert.equal(oldFixture.terminalType, 'PASS');
+    time += 600000;
+    await call('old', 'complete', { postId: oldPost.post.id, version: 0, requestId: 'ab0000000000000001', events: oldFixture.envelope.events });
+    assert.equal((await old('old', 'detail', { postId: oldPost.post.id })).post.levelId, 4, 'v3 still receives original IDs');
+    const irregular = await call('newA', 'create', { levelId: 4 });
+    const newFull = require('../assets/LevelData/coop_level_4.json');
+    for (const [owner, role] of [['newA', 'creator'], ['newB', 'collaborator'], ['newC', 'collaborator']]) {
+        if (role === 'collaborator') await call(owner, 'join', { postId: irregular.post.id });
+        const fixture = controllerReplay({ ...coopHalfLevel(newFull, role), timeLimit: 600 });
+        assert.equal(fixture.terminalType, 'PASS');
+        time += 600000;
+        await call(owner, 'complete', { postId: irregular.post.id, version: 0, requestId: `abcdef-00000000000${owner}`.replace('new', 'e').toLowerCase(), events: fixture.envelope.events });
+        if (role === 'creator') {
+            await call(owner, 'publish', { postId: irregular.post.id, published: true });
+            assert(!(await old('old', 'square')).posts.some(p => p.id === irregular.post.id));
+            await assert.rejects(old('old', 'join', { postId: irregular.post.id }), /更新游戏/);
+        }
+    }
+    for (const owner of ['newA', 'newB', 'newC']) assert((await call(owner, 'overview')).overview.unlocked.coop_variety_03);
     console.log('COOP_SERVICE_TESTS_PASSED: completion-only writes, incomplete rejection, independent rewards and retries');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

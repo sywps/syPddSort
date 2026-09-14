@@ -440,7 +440,9 @@ async function main() {
   console.log(`[retention] wrote ${path.join(args.outDir, "index.json")}`);
 }
 
-main().catch((error) => {
+module.exports = { buildRetentionRows, addDays, formatShanghaiDate };
+
+if (require.main === module) main().catch((error) => {
   console.error(error.message || error);
   process.exit(1);
 });

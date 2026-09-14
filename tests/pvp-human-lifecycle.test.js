@@ -19,6 +19,9 @@ async function player(user) {
   await request(user, 'getProfile');
   Object.assign(recordsFor('pvp_profiles').get(user), { rating: 1200, gamesPlayed: 30, rankStars: 20 });
 }
+async function enter(user, match) {
+  await request(user, 'confirmMatchEntry', { matchId: match.matchId, economyRevision: recordsFor('user_profile').get(`assets-${user}`).pvpEconomyRevision });
+}
 async function run() {
   const level = loadLevel(3);
   const fixture = controllerReplay(level);
@@ -28,6 +31,7 @@ async function run() {
   const actionJson = JSON.stringify(simulation.actions);
   await player('history-owner');
   const first = (await request('history-owner', 'matchmake', rules)).match;
+  await enter('history-owner', first);
   const firstStored = recordsFor('pvp_matches').get(first.matchId);
   assert.strictEqual(firstStored.matchType, 'bot');
   assert.strictEqual(firstStored.expiresAt - firstStored.createdAt, 600000);
@@ -77,6 +81,7 @@ async function run() {
 
   await player('challenger-real');
   const challenge = (await request('challenger-real', 'matchmake', rules)).match;
+  await enter('challenger-real', challenge);
   const stored = recordsFor('pvp_matches').get(challenge.matchId);
   assert.strictEqual(stored.matchType, 'human_replay', 'verified real history takes priority over bots');
   assert.strictEqual(stored.opponentRun.replayId, replayId);
@@ -96,6 +101,7 @@ async function run() {
   assert.strictEqual(recordsFor('pvp_profiles').get('history-owner').tickets, 2, 'getting a level offer must not charge');
   await player('private-owner');
   const privateMatch = (await request('private-owner', 'matchmake', { ...rules, allowReplayOpponent: false })).match;
+  await enter('private-owner', privateMatch);
   now += fixture.terminalTimeMs + 500;
   await request('private-owner', 'submitResult', { ...payload, matchId: privateMatch.matchId, allowReplayOpponent: false });
   assert.strictEqual(recordsFor('pvp_replays').get(`${privateMatch.matchId}_private-owner`).eligibleForMatchmaking, false);

@@ -42,4 +42,4 @@ for (const name of ['CoopModeConfig', 'CoopServiceMgr', 'GameCtrlModules/CoopMod
     const file = path.join(root, `assets/Scripts/Core/${name}.ts`);
     if (fs.existsSync(file)) meta(file, 'typescript');
 }
-console.log(`COOP_RUNTIME_${check ? 'CHECKED' : 'GENERATED'}: 10 levels, 7 rule modules`);
+console.log(`COOP_RUNTIME_${check ? 'CHECKED' : 'GENERATED'}: ${manifest.levels.length} levels, 7 rule modules`);

@@ -118,8 +118,13 @@ async function run() {
   await assert.rejects(service.simulateTicketReward('ad'), /门票已满/);
   await assert.rejects(service.matchmake(3), /尚未加载/);
   assert.strictEqual((await service.getEconomy()).tickets, 3, 'invalid level must not consume tickets');
-  for (let i = 0; i < 3; i++) assert.strictEqual((await service.matchmake(3, pixelLevel)).demo, true);
-  await assert.rejects(service.matchmake(3), /门票已用完/);
+  for (let i = 0; i < 3; i++) {
+    const match = await service.matchmake(3, pixelLevel);
+    assert.strictEqual(match.demo, true);
+    assert.strictEqual((await service.getEconomy()).tickets, 3 - i, 'ticket is charged only when entry is confirmed');
+    await service.confirmMatchEntry(match);
+  }
+  await assert.rejects(service.matchmake(3, pixelLevel), /门票已用完/);
   assert.strictEqual((await service.getEconomy()).tickets, 0);
   await assert.rejects(service.simulateTicketReward('invalid'), /无效/);
   assert.strictEqual((await service.simulateTicketReward('share')).shareUsed, 1);
@@ -128,17 +133,18 @@ async function run() {
   assert.strictEqual((await service.simulateTicketReward('ad')).tickets, 3);
   await assert.rejects(service.simulateTicketReward('ad'), /门票已满/);
   for (let i = 0; i < 5; i++) {
-    await service.matchmake(3, pixelLevel);
+    await service.confirmMatchEntry(await service.matchmake(3, pixelLevel));
     const state = await service.simulateTicketReward('ad');
     assert.strictEqual(state.tickets, 3, 'ads may replenish repeatedly after tickets are consumed');
     assert.strictEqual(state.shareUsed, 2, 'ads do not change share quota');
   }
-  await service.matchmake(3, pixelLevel);
+  await service.confirmMatchEntry(await service.matchmake(3, pixelLevel));
   now += 1000; // Midnight in UTC+8, not UTC.
   const nextDay = await service.getEconomy();
   assert.strictEqual(nextDay.tickets, 3);
   assert.strictEqual(nextDay.shareUsed, 0);
   const preview = await service.matchmake(3, pixelLevel);
+  await service.confirmMatchEntry(preview);
   assert(preview.opponentBoardTimeline.length > 0);
   assert.strictEqual(preview.botPolicyVersion, 'pch-legal-v3');
   const gamesBefore = service.previewBotProfile.gamesPlayed;

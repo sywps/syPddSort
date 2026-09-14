@@ -7,6 +7,7 @@ import {
     createDemoPvpBattle,
     isPvpRouteReason,
     resolvePvpBoardTimeline,
+    resolvePvpBoardFallbackSeed,
     resolvePvpOutcome,
 } from '../assets/Scripts/Core/PvpModeConfig';
 import { botMatchRating } from '../assets/Scripts/Core/PvpBotReplay';
@@ -68,6 +69,8 @@ const seededA = createSeededPvpBoardState(boardCells, 'fixed-seed', 0.5);
 const seededB = createSeededPvpBoardState(boardCells, 'fixed-seed', 0.5);
 equal(JSON.stringify(seededA), JSON.stringify(seededB), 'seeded opponent board is frozen');
 equal(seededA.length, 2, 'seeded opponent board follows progress');
+equal(resolvePvpBoardFallbackSeed({ opponentBoardSeed: '', opponentReplayId: '', matchId: 'match-fallback' }), 'match-fallback', 'old cloud matches use stable match fallback seed');
+equal(resolvePvpBoardFallbackSeed({ opponentBoardSeed: 'board-seed', opponentReplayId: 'replay', matchId: 'match' }), 'board-seed', 'server board seed has priority');
 
 
 console.log('PVP_MODE_TESTS_PASSED');

@@ -256,6 +256,7 @@ async function run() {
   seedInventory('ranked-player');
   const ranked = await callAs('ranked-player', 'matchmake', { levelId: 3, ...pixelRules, economyRevision: 0 });
   assert.strictEqual(ranked.ok, true);
+  assert.strictEqual((await callAs('ranked-player', 'confirmMatchEntry', { matchId: ranked.match.matchId, economyRevision: 0 })).ok, true);
   assert.strictEqual(ranked.match.levelPrefix, 'zt_level_');
   assert.strictEqual(recordsFor('pvp_matches').get(ranked.match.matchId).matchType, 'bot', 'unverified friend records cannot be reused as real opponents');
   const resumed = await callAs('ranked-player', 'getActiveMatch');
@@ -273,6 +274,7 @@ async function run() {
   assert.strictEqual(recordsFor('user_profile').get('assets-bot-player').vigor, 10, 'board mismatch must fail before spending');
   const noPixelReplay = await callAs('bot-player', 'matchmake', { levelId: 9, ...pixelRules, economyRevision: 0 });
   assert.strictEqual(noPixelReplay.ok, true);
+  assert.strictEqual((await callAs('bot-player', 'confirmMatchEntry', { matchId: noPixelReplay.match.matchId, economyRevision: 0 })).ok, true);
   assert.strictEqual(recordsFor('pvp_matches').get(noPixelReplay.match.matchId).matchType, 'bot', 'never reuse other namespaces or rules for identical numeric IDs');
   const botMatch = recordsFor('pvp_matches').get(noPixelReplay.match.matchId);
   assert.strictEqual(botMatch.playerBRating, 950, 'novice difficulty must be frozen independently of the public profile');
