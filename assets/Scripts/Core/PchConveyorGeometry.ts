@@ -1,4 +1,15 @@
 // Original pixel-puzzle path, shared by rendering and replay verification.
+export function conveyorEntranceCarrier(travel: number, count: number): { index: number; distance: number } {
+    let index = 0;
+    let distance = Infinity;
+    for (let candidate = 0; candidate < count; candidate++) {
+        const progress = ((((candidate + travel) / count) % 1) + 1) % 1;
+        const delta = Math.min(progress, 1 - progress);
+        if (delta < distance) { index = candidate; distance = delta; }
+    }
+    return { index, distance };
+}
+
 export type RainbowConveyorTableType = 2 | 3;
 export const RAINBOW_CONVEYOR_PATHS: Record<RainbowConveyorTableType, ReadonlyArray<readonly [number, number]>> = {
     2: [[-219, -99], [390, -96], [390, 104.2], [152, 104.2], [-396, 104.2], [-390, -92]],

@@ -1,6 +1,10 @@
+import { getBrowserLevelPreview } from './BrowserLevelPreview';
 import { _decorator, Game, game, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
-import { getWeChatMiniGameRuntime } from './MiniGamePlatform';
+import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime, getMiniGameBuildPlatform } from './MiniGamePlatform';
+import { firstLevelExperiment } from './FirstLevelExperiment';
+import { beanSelectionExperiment } from './BeanSelectionExperiment';
+import { getFirstLevelPreview } from './FirstLevelContent';
 import { runtimeLog } from './RuntimeLog';
 import { isWorkbenchPreviewRequested } from './WorkbenchPreviewService';
 import {
@@ -49,6 +53,8 @@ type CloudResult = {
     errorMessage?: string;
     openid?: string;
     isNewUser?: boolean;
+    firstLevelExperiment?: unknown;
+    beanSelectionExperiment?: unknown;
 };
 
 export type ReportDataOptions = {
@@ -353,12 +359,67 @@ export class AnalyticsMgr {
     private lastRuntimeCheckpoint = 'analytics_created';
     private lastRuntimeCheckpointAt = this.appLaunchTime;
     private constructor() {
+        firstLevelExperiment.initialize(sys.localStorage,
+            isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview());
+        beanSelectionExperiment.initialize(sys.localStorage,
+            isWeChatMiniGameRuntime() || getMiniGameBuildPlatform() === 'wechat', getFirstLevelPreview() !== null);
         this.openid = this.readCachedOpenid();
         this.recoverPreviousRuntimeCheckpoint();
         this.markRuntimeCheckpoint('analytics_created', true, 'app', 0);
         this.bindRuntimeDiagnostics();
         this.bindRewardedAdLoadTelemetry();
         this.bindLifecycle();
+    }
+
+    private firstLevelAssignmentReported = false;
+    private beanSelectionPrepared: Promise<void> | null = null;
+
+    prepareBeanSelectionExperiment(): Promise<void> {
+        if (this.beanSelectionPrepared) return this.beanSelectionPrepared;
+        this.beanSelectionPrepared = (async () => {
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            try {
+                if (beanSelectionExperiment.decision?.status !== 'test' && beanSelectionExperiment.decision?.status !== 'excluded') {
+                    await Promise.race([this.ensureReady(), new Promise<boolean>(resolve => {
+                        timer = setTimeout(() => resolve(false), 5000);
+                    })]);
+                }
+            } finally {
+                if (timer !== undefined) clearTimeout(timer);
+                beanSelectionExperiment.freeze();
+            }
+            this.trackFunnelEvent({ eventName: 'bean_selection_experiment_assignment', source: 'bean_selection_identity',
+                success: beanSelectionExperiment.decision?.status === 'enrolled' });
+        })();
+        return this.beanSelectionPrepared;
+    }
+
+    private reportFirstLevelAssignment(): void {
+        if (this.firstLevelAssignmentReported || !firstLevelExperiment.decision) return;
+        this.firstLevelAssignmentReported = true;
+        this.trackFunnelEvent({ eventName: 'first_level_experiment_assignment', levelId: 1,
+            source: 'first_level_identity', success: firstLevelExperiment.decision.status === 'enrolled',
+            errorCode: firstLevelExperiment.decision.status === 'excluded' ? firstLevelExperiment.decision.reason : '' });
+    }
+
+    async prepareFirstLevelExperiment(): Promise<void> {
+        if (firstLevelExperiment.decision && firstLevelExperiment.decision.status !== 'enrolled') {
+            firstLevelExperiment.freeze();
+            this.reportFirstLevelAssignment();
+            return;
+        }
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+            const ready = await Promise.race([
+                this.ensureReady(),
+                new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), 5000); }),
+            ]);
+            if (!ready) firstLevelExperiment.exclude('identity_unavailable_or_timeout');
+        } finally {
+            if (timer !== undefined) clearTimeout(timer);
+            firstLevelExperiment.freeze();
+        }
+        this.reportFirstLevelAssignment();
     }
 
     getSessionId(): string {
@@ -397,7 +458,7 @@ export class AnalyticsMgr {
     }
 
     async ensureReady(): Promise<boolean> {
-        if (isWorkbenchPreviewRequested()) return false;
+        if (isWorkbenchPreviewRequested() || getBrowserLevelPreview().active) return false;
         if (this.readyPromise) {
             return this.readyPromise;
         }
@@ -417,6 +478,8 @@ export class AnalyticsMgr {
                 channel,
                 device,
                 system,
+                firstLevelExperiment: firstLevelExperiment.request(),
+                beanSelectionExperiment: beanSelectionExperiment.request(),
             });
 
             if (result?.ok === false) {
@@ -426,6 +489,30 @@ export class AnalyticsMgr {
             if (typeof result?.openid === 'string' && result.openid) {
                 this.openid = result.openid;
                 this.cacheOpenid(result.openid);
+                firstLevelExperiment.accept(result.openid, result.firstLevelExperiment);
+                beanSelectionExperiment.accept(result.openid, result.beanSelectionExperiment);
+                if (beanSelectionExperiment.decision?.status === 'excluded'
+                    && (result.beanSelectionExperiment as any)?.status === 'enrolled') {
+                    void PlatformCloudMgr.inst.callFunction<CloudResult>('getOpenid', {
+                        beanSelectionExperiment: beanSelectionExperiment.request(),
+                    }).then(response => {
+                        if (response?.ok === false) throw new Error(response.errorMessage || 'exclusion sync failed');
+                    }).catch(error => console.error('[BeanSelectionExperiment] exclusion sync failed:', error));
+                }
+                this.reportFirstLevelAssignment();
+                // A late successful allocation must not re-enrol an already excluded local first play.
+                if (firstLevelExperiment.decision?.status === 'excluded'
+                    && (result.firstLevelExperiment as any)?.status === 'enrolled') {
+                    void PlatformCloudMgr.inst.callFunction<CloudResult>('getOpenid', {
+                        firstLevelExperiment: firstLevelExperiment.request(),
+                    }).then(response => {
+                        if (response?.ok === false) throw new Error(response.errorMessage || 'exclusion sync failed');
+                    }).catch(error => {
+                        console.error('[FirstLevelExperiment] exclusion sync failed:', error);
+                        this.trackFunnelEvent({ eventName: 'first_level_experiment_exclusion_sync_failed', success: false,
+                            errorCode: 'exclusion_sync_failed', errorMessage: String(error) });
+                    });
+                }
             }
 
             return !!this.openid;
@@ -462,6 +549,7 @@ export class AnalyticsMgr {
             || resolveClientBuildIdentity().id;
         const abId = normalizeAnalyticsText(opt.abId ?? session?.abId ?? levelContext.abId, 64);
         const abBucket = normalizeAnalyticsText(opt.abBucket ?? session?.abBucket ?? levelContext.abBucket, 64);
+        const firstLevelFields = { ...firstLevelExperiment.fields(), ...beanSelectionExperiment.fields() };
         const ready = await this.ensureReady();
         if (!ready) {
             return { ok: false, skipped: true };
@@ -469,6 +557,7 @@ export class AnalyticsMgr {
 
         try {
             return await PlatformCloudMgr.inst.callFunction<CloudResult>('addBehaviorData', {
+                ...firstLevelFields,
                 openid: this.openid,
                 eventName: opt.eventName,
                 levelId: opt.levelId ?? 0,
@@ -511,7 +600,7 @@ export class AnalyticsMgr {
     }
 
     trackFunnelEvent(opt: FunnelEventOptions): void {
-        if (isWorkbenchPreviewRequested()) return;
+        if (isWorkbenchPreviewRequested() || getBrowserLevelPreview().active) return;
         if (this.funnelUploadDisabled) return;
         const eventName = typeof opt.eventName === 'string' ? opt.eventName.trim() : '';
         if (!eventName) return;
@@ -566,6 +655,8 @@ export class AnalyticsMgr {
             timestamp: now,
         };
         event.extra = {
+            ...firstLevelExperiment.fields(),
+            ...beanSelectionExperiment.fields(),
             clientBuildId: clientBuild.id,
             clientBuildIdSource: clientBuild.source,
             launchChannelAtEvent: this.resolveChannel(),
@@ -1225,6 +1316,8 @@ export class AnalyticsMgr {
 
         try {
             await PlatformCloudMgr.inst.callFunction('saveLevelRecord', {
+                ...firstLevelExperiment.fields(),
+                ...beanSelectionExperiment.fields(),
                 openid: this.openid,
                 sessionId: session.sessionId,
                 roundId: session.roundId,

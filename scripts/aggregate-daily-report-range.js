@@ -2,6 +2,8 @@
 "use strict";
 
 const fs = require("fs");
+const { aggregateFirstLevelExperimentReports } = require('./first-level-experiment-report');
+const { aggregateBeanSelectionExperimentReports } = require('./bean-selection-experiment-report');
 const path = require("path");
 
 const REPORT_ROOT = path.join(process.cwd(), "artifacts", "cloudbase-daily-report");
@@ -700,6 +702,8 @@ function main() {
     },
     collections: aggregateCollections(summaries, targetDate),
     dailyDiagnosis: aggregateDailyDiagnosis(summaries, targetDate, dates),
+    firstLevelExperiment: aggregateFirstLevelExperimentReports(summaries.map(item => item.firstLevelExperiment)),
+    beanSelectionExperiment: aggregateBeanSelectionExperimentReports(summaries.map(item => item.beanSelectionExperiment)),
   };
   output.dailyDiagnosis.coreMetrics.date = targetDate;
   const outDir = path.join(REPORT_ROOT, targetDate);

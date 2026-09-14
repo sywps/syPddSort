@@ -3,6 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 const CloudBase = require("@cloudbase/manager-node");
+const { buildFirstLevelExperimentReport } = require('./first-level-experiment-report');
+const { buildBeanSelectionExperimentReport } = require('./bean-selection-experiment-report');
 
 const DEFAULT_COLLECTION = "user_behavior";
 const DEFAULT_DAILY_COLLECTIONS = [
@@ -4443,6 +4445,23 @@ function writeCombinedOutputs({
     adStatSummary: combinedSummary.collections.ad_stat?.summary || null,
   });
   combinedSummary.dailyDiagnosis = buildDailyDiagnosis(combinedSummary);
+  const experimentRecords = collection => {
+    const file = getCollectionExportPath(combinedSummary, collection);
+    return file && fs.existsSync(file) ? loadNdjsonRecords(file) : null;
+  };
+  const nextExperimentSummaryPath = path.join(getDailyReportRoot(combinedSummary), addDays(dateLabel, 1), 'combined_summary.json');
+  let nextExperimentRecords = null;
+  if (Date.now() >= new Date(`${addDays(dateLabel, 2)}T00:00:00+08:00`).getTime() && fs.existsSync(nextExperimentSummaryPath)) {
+    const nextSummary = JSON.parse(fs.readFileSync(nextExperimentSummaryPath, 'utf8'));
+    const nextFile = getCollectionExportPath(nextSummary, 'user_behavior');
+    if (nextFile && fs.existsSync(nextFile)) nextExperimentRecords = loadNdjsonRecords(nextFile);
+  }
+  combinedSummary.firstLevelExperiment = buildFirstLevelExperimentReport({ date: dateLabel,
+    funnelRecords: experimentRecords('first_level_funnel'), behaviorRecords: experimentRecords('user_behavior'),
+    levelRecords: experimentRecords('level_record'), nextDayRecords: nextExperimentRecords });
+  combinedSummary.beanSelectionExperiment = buildBeanSelectionExperimentReport({ date: dateLabel,
+    funnelRecords: experimentRecords('first_level_funnel'), behaviorRecords: experimentRecords('user_behavior'),
+    levelRecords: experimentRecords('level_record'), nextDayRecords: nextExperimentRecords });
 
   const jsonPath = path.join(rootOutputDir, "combined_summary.json");
   const markdownPath = path.join(rootOutputDir, "combined_report.md");
@@ -4479,6 +4498,13 @@ function writeCombinedOutputs({
     `- Schema: dailyDiagnosis v${diagnosis.schemaVersion}`,
     ``,
     `## 今日核心结论`,
+    ...(combinedSummary.beanSelectionExperiment.status === 'ready' ? [
+      '', '### 选豆 A/B 实验', '',
+      markdownTable(['组别', '入组UV', 'L2曝光UV', 'L2通过UV', 'L2通过率'],
+        combinedSummary.beanSelectionExperiment.groups.map(g => [g.bucket, g.enrolled, g.exposed2, g.passed2,
+          g.pass2Rate == null ? '未就绪' : `${(g.pass2Rate * 100).toFixed(1)}%`])),
+      combinedSummary.beanSelectionExperiment.note, '',
+    ] : ['', '选豆实验统计未就绪：' + combinedSummary.beanSelectionExperiment.reason, '']),
     ``,
     ...diagnosis.recommendations.slice(0, 6).map(
       (item) => `- **${item.priority} ${item.topic}**：${item.finding} ${item.action}`,

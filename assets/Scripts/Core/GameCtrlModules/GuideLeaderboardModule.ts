@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import {
     _decorator, Component, Node, UITransform, Sprite, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -924,7 +925,7 @@ export function installGuideLeaderboardModule(target: any): void {
         },
 
         getDefaultEntryLevel(): number {
-            return this.getSavedLevel();
+            return getBrowserLevelPreview().active ? getBrowserLevelPreview().getLevel() : this.getSavedLevel();
         },
 
         getWeChatOpenDataContext (): any {

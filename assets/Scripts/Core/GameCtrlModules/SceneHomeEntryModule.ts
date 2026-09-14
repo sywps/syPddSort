@@ -111,6 +111,47 @@ export function installSceneHomeEntryModule(target: any): void {
             await appRoot.requestHomeRoute(source, coverMode);
         },
 
+        requestGameplayTransition(key: string, task: () => void): Promise<boolean> {
+            if (this._gameplayTransitionPromise) {
+                if (this._gameplayTransitionKey === key) return this._gameplayTransitionPromise;
+                console.error('[AppTransition] conflicting gameplay request:', key);
+                return Promise.resolve(false);
+            }
+            this._gameplayTransitionKey = key;
+            const pending = Promise.resolve().then(() => AppRoot.inst.runGameplayTransition(key, () => {
+                if (!this.isValid || this.getRuntimeSceneName('Game') !== 'Game') {
+                    throw new Error('[AppTransition] gameplay runtime is no longer available');
+                }
+                this.isGameEnd = true;
+                this.unschedule(this.tickTimer);
+                this.unscheduleAllCallbacks();
+                this.stopPulseTweens();
+                this.clearDragNodes();
+                task();
+            })).then(() => true, (error) => {
+                console.error('[AppTransition] gameplay transition failed:', key, error);
+                if (this.isValid) {
+                    this.endSettlementNextTransition?.();
+                    if (!this._levelDataLoadStopped) {
+                        this._stopGameplayEntryWithFatalError(key, 'gameplay_transition_failed', String(error));
+                    }
+                }
+                return false;
+            }).finally(() => {
+                this._gameplayTransitionPromise = null;
+                this._gameplayTransitionKey = '';
+            });
+            this._gameplayTransitionPromise = pending;
+            return pending;
+        },
+
+        requestLevelTransition(levelId: number, prefix: string = 'level_', routeReason: string = ''): Promise<boolean> {
+            return this.requestGameplayTransition(`level:${prefix}${levelId}:${routeReason}`, () => {
+                this.deactivateMainMenuNode();
+                this.loadLevel(levelId, prefix, false, routeReason);
+            });
+        },
+
         shouldPrewarmHomeGameplayEntry(): boolean {
             try {
                 if (
@@ -1205,7 +1246,11 @@ export function installSceneHomeEntryModule(target: any): void {
             AppRoot.tryGet()?.clearRouteCover('level-data-error');
             this.setGameplayStartupRootVisible?.(true);
             this.hideLoadingOverlay?.();
-            this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+            try {
+                this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+            } finally {
+                AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', new Error(`${errorCode}: ${errorMessage}`));
+            }
         },
     });
 }

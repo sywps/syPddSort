@@ -1,4 +1,6 @@
-import { Label, Graphics, Color, BlockInputEvents } from 'cc';
+import { Label, Graphics, Color, BlockInputEvents, Sprite } from 'cc';
+import { BOARD_SLOT_BATCH_MAX_CELLS, BoardSlotBatchRenderer } from '../BoardSlotBatchRenderer';
+import type { BoardSlotBatchCell } from '../BoardSlotBatchRenderer';
 import { AppRoot } from '../AppRoot';
 import { CoopServiceMgr } from '../CoopServiceMgr';
 import { COOP_ROUTE_REASON } from '../CoopModeConfig';
@@ -27,6 +29,8 @@ export function installCoopModeModule(target: any): void {
             } else if (mgr.returnToLobby) { mgr.returnToLobby = false; this.openCoopLobby(); }
         },
         restoreCoopBoard(): void {
+            this._coopFocusOwnBoard = false;
+            this._coopViewportRestricted = false;
             if (!this.isCoopMode()) { this._coopReplayResumeState = null; return; }
             const active = CoopServiceMgr.inst.active!;
             this._coopReplayResumeState = active.replay;
@@ -43,8 +47,8 @@ export function installCoopModeModule(target: any): void {
             title.active = true;
             if (this.levelLabel) this.levelLabel.string = '合作模式';
             top.getChildByName('LevelTitleLevel1')!.active = false;
-            title.getChildByName('保存失败 · 点击重试')?.destroy();
-            const retry = coopButton(title, '保存失败 · 点击重试', 0, -48, () => { void this.retryCoopSave(); }, 320);
+            title.getChildByName('等待同步 · 点击继续')?.destroy();
+            const retry = coopButton(title, '等待同步 · 点击继续', 0, -48, () => { void this.retryCoopSave(); }, 320);
             retry.active = false;
             this._coopRetryButton = retry;
             this._freezeTimeLeft = active.replay.freezeRemaining;
@@ -60,12 +64,38 @@ export function installCoopModeModule(target: any): void {
             if (!this.isCoopMode()) return null;
             const active = CoopServiceMgr.inst.active!;
             const offset = active.run.role === 'creator' ? 0 : active.half.boardWidth;
+            if (this._coopFocusOwnBoard) {
+                return { minRow: 0, maxRow: active.half.boardHeight - 1,
+                    minCol: 0, maxCol: active.half.boardWidth - 1 };
+            }
             return { minRow: 0, maxRow: active.full.boardHeight - 1,
                 minCol: -offset, maxCol: active.full.boardWidth - offset - 1 };
         },
         clearCoopBoardPartner(): void {
             const partner = this.boardNode?.getChildByName('CoopPartnerHalf');
             if (partner) { releasePixelPosterPreviewTree(partner); partner.removeFromParent(); partner.destroy(); }
+        },
+        getCoopBoardPanBounds(scale: number): { left: number; right: number; bottom: number; top: number } | null {
+            if (!this.isCoopMode() || !this._coopViewportRestricted) return null;
+            const half = CoopServiceMgr.inst.active!.half;
+            const rect = this.getBoardInitialFitRect();
+            const centerX = (rect.left + rect.right) / 2;
+            const centerY = (rect.bottom + rect.top) / 2;
+            const step = this.cellSize + this.cellGap;
+            const atMinimum = scale <= this.boardViewport.minScale + 0.001;
+            const panX = atMinimum ? 0 : Math.max(0, (half.boardWidth * step * scale - (rect.right - rect.left)) / 2);
+            const panY = atMinimum ? 0 : Math.max(0, (half.boardHeight * step * scale - (rect.top - rect.bottom)) / 2);
+            return { left: centerX - panX, right: centerX + panX,
+                bottom: centerY - panY, top: centerY + panY };
+        },
+        restrictCoopBoardViewport(): void {
+            if (!this.isCoopMode()) return;
+            const viewport = this.boardViewport;
+            const home = viewport.getHomeTransform();
+            this._coopViewportRestricted = true;
+            viewport.setScaleBounds(home.scale, viewport.maxScale);
+            viewport.resetToHome();
+            this.boardViewScale = viewport.scale;
         },
         mountCoopBoardPartner(): void {
             this.clearCoopBoardPartner();
@@ -78,16 +108,57 @@ export function installCoopModeModule(target: any): void {
             const partner = coopNode(this.boardNode, 'CoopPartnerHalf', creator ? width : -width, 0, width, height);
             partner.addComponent(BlockInputEvents);
             const start = creator ? columns : 0;
-            renderPixelPosterPreview(partner, active.full.correctColorArr.map(row => row.slice(start, start + columns)), {
-                name: 'PartnerCompletedPattern', maxW: width, maxH: height, padding: 0,
-                maxCellSize: this.cellSize, cellGap: this.cellGap, cropToContent: false, flatCells: true, grayscale: creator,
-            });
             if (creator) {
-                const mask = coopNode(partner, 'PartnerMask', 0, 0, width, height);
-                const graphics = mask.addComponent(Graphics);
-                graphics.fillColor = new Color(68, 52, 94, 175);
-                graphics.rect(-width / 2, -height / 2, width, height); graphics.fill();
-                coopText(mask, '等待伙伴完成', 0, 0, 22, width - 16).color = Color.WHITE;
+                const preview = coopNode(partner, 'PartnerInitialBeans', 0, 0, width, height);
+                for (const beans of [false, true]) {
+                    const groups = new Map<unknown, BoardSlotBatchCell[]>();
+                    for (let row = 0; row < active.full.boardHeight; row++) {
+                        for (let col = 0; col < columns; col++) {
+                            const target = active.full.correctColorArr[row]?.[start + col];
+                            const initial = active.full.initRandomColorArr[row]?.[start + col];
+                            if (!Number.isInteger(target) || !Number.isInteger(initial) || target < 0 || initial < 0) {
+                                throw new Error(`合作伙伴半图颜色数据无效：${row},${start + col}`);
+                            }
+                            const colorId = beans ? initial : target;
+                            if (colorId === 0) continue;
+                            const spriteFrame = this.requireRenderReadySpriteFrame(
+                                beans ? this.getBeanSpriteFrame(colorId, initial === target) : this.getSlotSpriteFrame(colorId),
+                                `coop-partner:${beans ? 'bean' : 'slot'}:${row},${col}:color:${colorId}`,
+                            );
+                            if (beans) {
+                                const size = this.getBoardBeanVisualSize();
+                                const node = coopNode(preview, `Bean_${row}_${col}`,
+                                    -width / 2 + step / 2 + col * step, height / 2 - step / 2 - row * step, size, size);
+                                const sprite = node.addComponent(Sprite);
+                                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+                                sprite.spriteFrame = spriteFrame;
+                                sprite.color = new Color(255, 255, 255, 77);
+                                continue;
+                            }
+                            const texture = spriteFrame.texture;
+                            const cells = groups.get(texture) || [];
+                            cells.push({ row, col, x: -width / 2 + step / 2 + col * step,
+                                y: height / 2 - step / 2 - row * step,
+                                size: this.getBoardSlotVisualSize(), spriteFrame });
+                            groups.set(texture, cells);
+                        }
+                    }
+                    let batchIndex = 0;
+                    for (const cells of groups.values()) {
+                        for (let offset = 0; offset < cells.length; offset += BOARD_SLOT_BATCH_MAX_CELLS) {
+                            const node = coopNode(preview, `Slots_${batchIndex++}`, 0, 0, width, height);
+                            const renderer = node.addComponent(BoardSlotBatchRenderer);
+                            renderer.color = new Color(255, 255, 255, 77);
+                            renderer.configure(cells.slice(offset, offset + BOARD_SLOT_BATCH_MAX_CELLS));
+                        }
+                    }
+                }
+                coopText(partner, '等待伙伴完成', 0, 0, 22, width - 16).color = Color.WHITE;
+            } else {
+                renderPixelPosterPreview(partner, active.full.correctColorArr.map(row => row.slice(start, start + columns)), {
+                    name: 'PartnerCompletedPattern', maxW: width, maxH: height, padding: 0,
+                    maxCellSize: this.cellSize, cellGap: this.cellGap, cropToContent: false, flatCells: true, grayscale: false,
+                });
             }
         },
         getCoopElapsedMs(): number { return CoopServiceMgr.inst.active?.elapsedMs || 0; },
@@ -97,19 +168,20 @@ export function installCoopModeModule(target: any): void {
             const controller = this._pchConveyorGameplayController;
             if (!controller?.isActive()) return;
             const blocked = !!active.error || !!this._coopLeaving || this._gameForeground === false;
-            controller?.setExternalInputBlocked(blocked);
+            const opening = controller.isCoopOpening();
+            controller.setExternalInputBlocked(blocked || opening);
             if (blocked && controller && !controller.isSettingsPaused()) {
                 controller.pauseForSettings(); this._coopOwnPause = true;
             } else if (!blocked && this._coopOwnPause) {
                 controller?.resumeAfterSettings(); this._coopOwnPause = false;
             }
-            if (!this.isGameEnd && !this._coopLeaving && !active.error
+            if (!opening && !this.isGameEnd && !this._coopLeaving && !active.error
                 && this._gameForeground !== false && !controller?.isPresentationPaused()) active.elapsedMs += Math.max(0, dt) * 1000;
             if (this._coopRetryButton?.isValid) this._coopRetryButton.active = !!active.error;
         },
         async retryCoopSave(): Promise<void> {
             try { await CoopServiceMgr.inst.flushAll(); }
-            catch (error) { this.showToast?.(`保存失败：${error instanceof Error ? error.message : error}`, 4); }
+            catch (error) { console.error('[coop] save failed', error); this.showToast?.('结果待同步，请稍后再试', 3); }
         },
         async restartCoop(): Promise<void> {
             if (this._coopRestarting) return;
@@ -119,7 +191,7 @@ export function installCoopModeModule(target: any): void {
                 const active = mgr.active!;
                 await mgr.prepare(this, active.post, active.run);
                 this.doRestart();
-            } catch (e) { this.showToast?.(`重新开始失败：${e instanceof Error ? e.message : e}`, 4); }
+            } catch (e) { console.error('[coop] restart failed', e); this.showToast?.('暂时无法开始，请稍后再试', 3); }
             finally { this._coopRestarting = false; }
         },
         async leaveCoop(): Promise<void> {
@@ -137,7 +209,8 @@ export function installCoopModeModule(target: any): void {
             } catch (error) {
                 CoopServiceMgr.inst.active = savedActive;
                 CoopServiceMgr.inst.returnToLobby = false;
-                this.showToast?.(`返回失败：${error instanceof Error ? error.message : error}`, 4);
+                console.error('[coop] leave failed', error);
+                this.showToast?.('暂时无法返回，请稍后再试', 3);
             }
             finally { this._coopLeaving = false; }
         },
@@ -158,7 +231,7 @@ export function installCoopModeModule(target: any): void {
                     CoopServiceMgr.inst.share(CoopServiceMgr.inst.active!.post);
                     if (CoopServiceMgr.inst.isLocalSimulation()) status.string = '模拟邀请已生成，返回大厅切换玩家后打开邀请';
                 }
-                catch (e) { status.string = String(e); }
+                catch (e) { console.error('[coop] share failed', e); status.string = '暂时无法分享，请稍后再试'; }
             });
             share.active = false;
             const publish = coopButton(panel, '发布到广场', 155, -145, () => {
@@ -168,7 +241,7 @@ export function installCoopModeModule(target: any): void {
                         await CoopServiceMgr.inst.call('publish', { postId: a.post.id, published: true });
                         a.post.published = true;
                         if (status.isValid) status.string = '已发布到合作广场，等待伙伴来拼';
-                    } catch (e) { if (status.isValid) status.string = `发布失败：${e instanceof Error ? e.message : e}`; }
+                    } catch (e) { console.error('[coop] publish failed', e); if (status.isValid) status.string = '暂时无法发布，请稍后再试'; }
                 })();
             });
             publish.active = false;
@@ -180,9 +253,9 @@ export function installCoopModeModule(target: any): void {
                     share.active = true;
                     publish.active = a.run.role === 'creator';
                     status.string = a.run.role === 'creator' ? '你的一半已完成！\n邀请伙伴完成后解锁图鉴' : '合作完成！完整图案已收入图鉴';
-                } catch (e) { if (status.isValid) status.string = `结果未保存：${e instanceof Error ? e.message : e}`; }
+                } catch (e) { console.error('[coop] result submission failed', e); if (status.isValid) status.string = '本局结果待同步\n点击继续同步后解锁分享与收藏'; }
             };
-            coopButton(panel, '重试保存', -155, -55, () => { void save(); });
+            coopButton(panel, '继续同步', -155, -55, () => { void save(); });
             coopButton(panel, '保存并返回', 155, -55, () => { void this.leaveCoop(); });
             void save(); return true;
         },

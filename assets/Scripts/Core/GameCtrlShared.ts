@@ -389,6 +389,7 @@ type BoardViewportControllerOptions = {
     getBoardGroup: () => Node | null;
     getBoardNode: () => Node | null;
     getSafeViewportRect: () => BoardSafeViewportRect;
+    getPanBounds?: (scale: number) => BoardSafeViewportRect | null;
 };
 
 class BoardViewportController {
@@ -583,6 +584,13 @@ class BoardViewportController {
     }
 
     private clampOffset(x: number, y: number, scale: number): Vec2 {
+        const panBounds = this.options.getPanBounds?.(scale);
+        if (panBounds) {
+            return new Vec2(
+                Math.max(panBounds.left, Math.min(panBounds.right, x)),
+                Math.max(panBounds.bottom, Math.min(panBounds.top, y)),
+            );
+        }
         const boardNode = this.options.getBoardNode();
         if (!boardNode || !boardNode.isValid) return new Vec2(x, y);
         const boardUT = boardNode.getComponent(UITransform);

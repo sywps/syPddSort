@@ -35,13 +35,6 @@ const groups = [
         names: ['popup_settings_sound_icon', 'popup_settings_music_icon', 'popup_settings_vibrate_icon', 'popup_settings_toggle_on', 'popup_settings_toggle_off'],
     },
     {
-        id: 'game_leaderboard',
-        bundle: 'gameAssets',
-        directory: 'assets/GameAssetsBundle/Textures/UI/Atlases/Leaderboard',
-        atlas: 'leaderboard',
-        names: ['popup_list_row_bg', 'popup_tab_inactive'],
-    },
-    {
         id: 'game_leaderboard_v2',
         bundle: 'gameAssets',
         directory: 'assets/GameAssetsBundle/Textures/UI/Atlases/LeaderboardV2',
@@ -133,5 +126,5 @@ for (const [label, meta] of [['fill', fillMeta], ['track', trackMeta]]) {
     assert.ok(borders.borderLeft > 0 && borders.borderRight > 0, `${label} sliced horizontal borders must survive`);
 }
 
-assert.strictEqual(expectedRoutes.size, 50, 'local atlas migration must cover exactly 50 members');
+assert.strictEqual(expectedRoutes.size, 48, 'local atlas migration must cover exactly 48 members after removing legacy leaderboard art');
 console.log('local-auto-atlas-contract.test.js passed');

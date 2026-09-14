@@ -51,6 +51,22 @@ function setFriendRankLoadingVisible(listNode: Node, visible: boolean): void {
 
 const GLOBAL_RANK_FRIEND_AVATAR_TIMEOUT_MS = 1800;
 
+let rankingArtPackageTask: Promise<void> | null = null;
+function loadRankingArtPackage(wx: any): Promise<void> {
+    if (rankingArtPackageTask) return rankingArtPackageTask;
+    rankingArtPackageTask = withFriendRankTimeout(new Promise<void>((resolve, reject) => {
+        if (typeof wx?.loadSubpackage !== 'function') {
+            reject(new Error('当前微信不支持排行榜资源分包'));
+            return;
+        }
+        wx.loadSubpackage({ name: 'rankingArt', success: () => resolve(), fail: reject });
+    }), 15000, '排行榜资源分包加载超时').catch((error) => {
+        rankingArtPackageTask = null; // 下次进入允许重试，不缓存失败。
+        throw error;
+    });
+    return rankingArtPackageTask;
+}
+
 function withFriendRankTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         let settled = false;
@@ -432,12 +448,18 @@ export function installFriendRankModule(target: any): void {
                 this.startFriendRankInertia(openDataContext);
             }, this);
         
-            this.scheduleOnce(() => {
-                openDataContext.postMessage({ type: 'init', module: 'friend_rank' });
-                this.scheduleOnce(() => {
-                    openDataContext.postMessage({ type: 'getFriendRankings' });
-                }, 0.1);
-            }, 0);
+            const isCurrentHost = () => box.isValid && listNode.isValid && host.isValid
+                && listNode.getChildByName('OpenDataCanvasHost') === host
+                && this._friendRankOpenDataActive;
+            openDataContext.postMessage({ type: 'clearCanvas' });
+            void loadRankingArtPackage(wx).then(() => {
+                if (!isCurrentHost()) return;
+                openDataContext.postMessage({ type: 'getFriendRankings' });
+            }).catch((error) => {
+                console.error('[GameCtrl] 排行榜资源分包加载失败:', error);
+                if (!isCurrentHost()) return;
+                openDataContext.postMessage({ type: 'rankingArtError' });
+            });
         },
 
         /** 加载全服排行（小游戏平台必须走云函数；本地预览不代表微信全国榜） */

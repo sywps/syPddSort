@@ -1,3 +1,6 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { ensureRuntimeAssetReleaseId } from '../RuntimeAssetRelease';
+import { getBoardBeanSize } from '../GameplayBoardVisualMetrics';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -622,6 +625,8 @@ export function installAssetBootstrapModule(target: any): void {
             if (!sf || !meta || meta.cacheResourceRetained) return;
             const texture = (meta.texture || this._getSpriteFrameTextureForDiagnostics(sf)) as Texture2D | null;
             const imageAsset = meta.imageAsset as ImageAsset | null;
+            ensureRuntimeAssetReleaseId(sf);
+            if (texture && meta.releaseMode === 'dynamic') ensureRuntimeAssetReleaseId(texture);
             meta.spriteFrameCacheRetained = this._addCacheRef(sf, 'SpriteFrame', name);
             meta.textureCacheRetained = texture ? this._addCacheRef(texture, 'Texture2D', name) : false;
             meta.imageAssetCacheRetained = imageAsset ? this._addCacheRef(imageAsset, 'ImageAsset', name) : false;
@@ -2146,21 +2151,6 @@ export function installAssetBootstrapModule(target: any): void {
                 hasSourceImageAsset: !!sourceImageAsset,
             });
             this._releaseSpriteFrameCacheResource?.(name, sf, meta, reason);
-            try {
-                if (sf.isValid) {
-                    sf.texture = null;
-                    sf.destroy();
-                }
-            } catch (error) {
-                console.warn(`[Memory] destroy dynamic SpriteFrame failed: ${name} (${reason})`, error);
-            }
-            try {
-                if (ownedTexture?.isValid) {
-                    ownedTexture.destroy();
-                }
-            } catch (error) {
-                console.warn(`[Memory] destroy Texture2D failed: ${name} (${reason})`, error);
-            }
             this._traceSpriteFrameResource?.('spriteFrame.dynamic.release.after', name, sf, meta, {
                 reason,
                 hasOwnedTexture: !!ownedTexture,
@@ -2198,14 +2188,6 @@ export function installAssetBootstrapModule(target: any): void {
                 this._releaseSpriteFrameCacheResource?.(name, sf, meta, reason);
                 this.sfCache.delete(name);
                 this._spriteFrameCacheMeta.delete(name);
-                try {
-                    if (sf?.isValid) {
-                        sf.texture = null;
-                        sf.destroy();
-                    }
-                } catch (error) {
-                    console.warn(`[Memory] destroy bootstrap bean SpriteFrame failed: ${name} (${reason})`, error);
-                }
             }
             this._bootstrapAtlasFrameCache.clear();
             this._bootstrapBeanAtlasReady = false;
@@ -2213,20 +2195,7 @@ export function installAssetBootstrapModule(target: any): void {
             this._bootstrapBeanAtlasImageAsset = null;
             const releaseMode = this._bootstrapBeanAtlasTextureReleaseMode === 'dynamic' ? 'dynamic' : 'asset';
             this._bootstrapBeanAtlasTextureReleaseMode = 'asset';
-            try {
-                if (releaseMode === 'dynamic') {
-                    if (sourceImageAsset?.isValid) {
-                        assetManager.releaseAsset(sourceImageAsset);
-                    }
-                    if (sharedTexture?.isValid) {
-                        sharedTexture.destroy();
-                    }
-                } else if (sharedTexture?.isValid) {
-                    assetManager.releaseAsset(sharedTexture);
-                }
-            } catch (error) {
-                console.warn(`[Memory] release bootstrap bean atlas texture failed (${reason})`, error);
-            }
+            // Cache refs were returned above. Other scenes/previews may still own these assets.
             if (atlasEntries.length > 0) {
                 runtimeLog(`[Memory] released bootstrap bean atlas frames: ${atlasEntries.length} (${reason})`);
             }
@@ -2462,11 +2431,7 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         getBoardBeanVisualSize(): number {
-            const slotSize = this.getBoardSlotVisualSize();
-            const targetSize = Math.max(6, Math.round(slotSize * PINDD_BEAN_TO_SLOT_RATIO));
-            // 大图案会把 cell 压得很小；这里必须保证豆豆永远不大于格子，避免彼此重叠。
-            const maxSafeSize = slotSize <= 10 ? Math.max(4, slotSize - 1) : slotSize;
-            return Math.max(4, Math.min(targetSize, maxSafeSize));
+            return getBoardBeanSize(this.getBoardSlotVisualSize());
         },
 
         getMaxSlotRows(): number {
@@ -2789,6 +2754,10 @@ export function installAssetBootstrapModule(target: any): void {
         hasReliableLocalUserStateForStartup(): boolean { return this.getStartupLocalProgressState() === 'local_progress_gt_1'; },
 
         recordMainlineLevelEntry(levelId: number): void {
+            if (getBrowserLevelPreview().active) {
+                getBrowserLevelPreview().setLevel(levelId);
+                return;
+            }
             const normalizedLevel = Math.max(1, Math.floor(Number(levelId) || 1));
             const currentLevel = this.getParsedSavedLevelForStartup();
             const nextLevel = Math.max(currentLevel || 0, normalizedLevel);
@@ -2800,6 +2769,10 @@ export function installAssetBootstrapModule(target: any): void {
         },
 
         saveLevelProgress(levelId: number) {
+            if (getBrowserLevelPreview().active) {
+                getBrowserLevelPreview().setLevel(levelId);
+                return;
+            }
             if (isWorkbenchPreviewRequested()) return;
             const normalizedLevel = Math.max(1, Math.floor(Number(levelId) || 1));
             const currentLevel = this.getSavedLevel();

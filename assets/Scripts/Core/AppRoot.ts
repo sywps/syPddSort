@@ -219,6 +219,11 @@ export class AppRoot extends Component {
         await transition.run(`route:Game:${prefix}${levelId}`, 'Game', 'forward', route);
     }
 
+    async runGameplayTransition(key: string, task: () => void | Promise<void>): Promise<void> {
+        const transition = await this.ensureAppTransition();
+        await transition.run(`gameplay:${key}`, 'Game', 'forward', async () => { await task(); });
+    }
+
     isAppTransitionTargeting(sceneName: AppSceneName): boolean {
         return !!this.appTransition?.isTargeting(sceneName);
     }

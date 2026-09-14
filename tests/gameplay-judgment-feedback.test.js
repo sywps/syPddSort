@@ -54,7 +54,7 @@ const expected = [
 for (const [key, textureName, voiceName, audioFile] of expected) {
     assert.ok(source.includes(`{ key: '${key}', textureName: '${textureName}', voice: '${voiceName}' }`), `${key} visual and voice must share one entry`);
     assert.ok(manifest.includes(`${voiceName}: 'Audio/Judgment/${audioFile}'`), `${voiceName} must map to its matching WAV`);
-    assert.ok(manifest.includes(`${voiceName}: 0.56`), `${voiceName} must use the approved reduced volume`);
+    assert.ok(manifest.includes(`${voiceName}: 0.42`), `${voiceName} must use the approved reduced volume`);
     const pngPath = path.join(root, 'assets/GameAssetsBundle/Textures/UI/Judgment', `${textureName}.png`);
     const wavPath = path.join(root, 'assets/GameAssetsBundle/Audio/Judgment', `${audioFile}.wav`);
     assert.ok(fs.existsSync(pngPath) && fs.existsSync(`${pngPath}.meta`), `${textureName} PNG and meta must exist`);

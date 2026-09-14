@@ -1,3 +1,5 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
+import { ensureRuntimeAssetReleaseId } from '../RuntimeAssetRelease';
 import {
     _decorator, Component, Node, UITransform, Sprite, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -24,6 +26,7 @@ import {
     enqueueLeaderboardAvatarLoad, finishLeaderboardAvatarLoad, BoardViewportController
 } from '../GameCtrlShared';
 import { AppRoot } from '../AppRoot';
+import { getLocalLevelContentPath } from '../FirstLevelContent';
 import { LevelDataCdnService } from '../LevelDataCdnService';
 import { getWeChatMiniGameRuntime, isDouyinMiniGameRuntime, isMiniGameRuntime, isWeChatMiniGameRuntime } from '../MiniGamePlatform';
 import { collectActiveBlockInputEvents, debugPerfSnapshot, debugPerfTrace } from '../DebugPerfTrace';
@@ -779,7 +782,7 @@ export function installFirstLevelRouteModule(target: any): void {
         },
 
         getLevelDataPath(levelId: number, prefix: string = 'level_'): string {
-            return `LevelData/${prefix}${levelId}`;
+            return getLocalLevelContentPath(levelId, prefix);
         },
 
         readRuntimeSettings(): any {
@@ -913,7 +916,11 @@ export function installFirstLevelRouteModule(target: any): void {
             });
             this.setGameplayStartupRootVisible?.(true);
             this.hideLoadingOverlay?.();
-            this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+            try {
+                this.showRemoteLoadFatalError(levelPath, errorCode, errorMessage);
+            } finally {
+                AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', new Error(`${errorCode}: ${errorMessage}`));
+            }
         },
 
         requireRemoteLoadFatalLayer(overlayRoot: Node): Node {
@@ -956,6 +963,10 @@ export function installFirstLevelRouteModule(target: any): void {
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorTitle', true);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorPath', false);
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorDetail', false);
+            if (getBrowserLevelPreview().active) {
+                const title = this.requireUiChild(card, 'RemoteLoadFatalErrorTitle', 'RemoteLoadFatalErrorCard/RemoteLoadFatalErrorTitle').getComponent(Label);
+                if (title) title.string = getBrowserLevelPreview().error || `预览第 ${getBrowserLevelPreview().currentLevel} 关失败，请检查关卡号或资源`;
+            }
             this.setRemoteLoadFatalChildActive(card, 'RemoteLoadFatalErrorRestart', true);
             const restartNode = this.requireUiChild(
                 card,
@@ -1079,12 +1090,20 @@ export function installFirstLevelRouteModule(target: any): void {
             markStartupTrace('startup_continue_decision_start');
             const pendingSceneGameplayRequest = AppRoot.tryGet()?.session.pendingGameplayRequest;
             const pixelPvpRequest = pendingSceneGameplayRequest?.routeReason === 'pvp-ranked' || pendingSceneGameplayRequest?.routeReason === 'pixel-coop';
-            const urlLevel = pixelPvpRequest ? 0 : this.getUrlLevel();
+            const urlLevel = pixelPvpRequest || (getBrowserLevelPreview().active && pendingSceneGameplayRequest) ? 0 : this.getUrlLevel();
             const urlLevelFile = pixelPvpRequest ? '' : this.getUrlLevelFile();
             const urlTheme = pixelPvpRequest || this.getUrlTheme();
             const startupLocalProgressState = this.getStartupLocalProgressState();
             const hadLocalUserState = startupLocalProgressState === 'local_progress_gt_1';
             const initialDefaultEntryLevel = this.getDefaultEntryLevel();
+            if (!pixelPvpRequest && !urlLevelFile && !urlTheme
+                && (urlLevel === 1 || (urlLevel <= 0 && initialDefaultEntryLevel <= 1
+                    && !(Number(pendingSceneGameplayRequest?.levelId) > 1)))) {
+                AppRoot.tryGet()?.startupLoading?.setStage('正在准备关卡…');
+                await Promise.all([AnalyticsMgr.inst.prepareFirstLevelExperiment(), AnalyticsMgr.inst.prepareBeanSelectionExperiment()]);
+            } else if (!pixelPvpRequest && !urlLevelFile && !urlTheme) {
+                await AnalyticsMgr.inst.prepareBeanSelectionExperiment();
+            }
             const pendingMainGameplayRequest = !urlLevelFile
                 && urlLevel <= 0
                 && pendingSceneGameplayRequest?.entryMode === 'main'
@@ -1337,7 +1356,7 @@ export function installFirstLevelRouteModule(target: any): void {
                     return;
                 }
                 const frames = atlasData.frames;
-                if (!frames) {
+                if (!frames || Object.keys(frames).length === 0) {
                     console.error('[图集] bean-atlas 数据不完整');
                     finish(false);
                     return;
@@ -1348,33 +1367,51 @@ export function installFirstLevelRouteModule(target: any): void {
                         finish(false);
                         return;
                     }
+                    if (this.isValid === false || this._isRuntimeAliveForAsyncCallback?.() === false) {
+                        if (textureMeta?.releaseMode === 'dynamic' && texture.refCount === 0) texture.destroy();
+                        finish(false);
+                        return;
+                    }
                     this._bootstrapBeanAtlasTexture = texture;
                     this._bootstrapBeanAtlasImageAsset = textureMeta?.imageAsset ?? null;
                     this._bootstrapBeanAtlasTextureReleaseMode = textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset';
                     const releaseMode = textureMeta?.releaseMode === 'dynamic' ? 'dynamic' : 'asset';
                     const imageAsset = textureMeta?.imageAsset ?? null;
                     let count = 0;
-                    for (const name in frames) {
-                        const f = frames[name];
-                        const sf = new SpriteFrame();
-                        sf.texture = texture;
-                        sf.rect = new Rect(f.x, f.y, f.w, f.h);
-                        sf.name = name;
-                        (sf as any).__pddReleaseMode = releaseMode;
-                        (sf as any).__pddOwnedTexture = releaseMode === 'dynamic' ? texture : null;
-                        (sf as any).__pddSourceImageAsset = imageAsset;
-                        if (typeof this._cacheSpriteFrame === 'function') {
-                            this._cacheSpriteFrame(sf, name, {
-                                releaseMode,
-                                texture,
-                                imageAsset,
-                                scope: 'startup-bootstrap',
-                            });
-                        } else {
-                            this.sfCache.set(name, sf);
+                    let pendingFrame: SpriteFrame | null = null;
+                    try {
+                        for (const name in frames) {
+                            const f = frames[name];
+                            const sf = new SpriteFrame();
+                            pendingFrame = sf;
+                            ensureRuntimeAssetReleaseId(sf);
+                            sf.texture = texture;
+                            sf.rect = new Rect(f.x, f.y, f.w, f.h);
+                            sf.name = name;
+                            (sf as any).__pddReleaseMode = releaseMode;
+                            (sf as any).__pddOwnedTexture = releaseMode === 'dynamic' ? texture : null;
+                            (sf as any).__pddSourceImageAsset = imageAsset;
+                            if (typeof this._cacheSpriteFrame === 'function') {
+                                this._cacheSpriteFrame(sf, name, {
+                                    releaseMode,
+                                    texture,
+                                    imageAsset,
+                                    scope: 'startup-bootstrap',
+                                });
+                            } else {
+                                this.sfCache.set(name, sf);
+                            }
+                            this._bootstrapAtlasFrameCache.set(name, sf);
+                            pendingFrame = null;
+                            count++;
                         }
-                        this._bootstrapAtlasFrameCache.set(name, sf);
-                        count++;
+                    } catch (error) {
+                        if (pendingFrame?.isValid && pendingFrame.refCount === 0) pendingFrame.destroy();
+                        this._releaseBootstrapBeanAtlas('bootstrap-atlas-load-failed', { force: true });
+                        if (releaseMode === 'dynamic' && texture.isValid && texture.refCount === 0) texture.destroy();
+                        console.error('[图集] bean-atlas 小图创建失败:', error);
+                        finish(false);
+                        return;
                     }
                     runtimeLog(`[图集] 豆豆图集已加载: ${count} 个 SpriteFrame`);
                     finish(count > 0);
@@ -1528,7 +1565,14 @@ export function installFirstLevelRouteModule(target: any): void {
                 bundle.load(imageCandidates[index], ImageAsset, (err, imgAsset) => {
                     if (!err && imgAsset?.isValid) {
                         const texture = new Texture2D();
-                        texture.image = imgAsset;
+                        ensureRuntimeAssetReleaseId(texture);
+                        try {
+                            texture.image = imgAsset;
+                        } catch (error) {
+                            texture.destroy();
+                            callback(error instanceof Error ? error : new Error(String(error)), null);
+                            return;
+                        }
                         const imageAsset = getRenderReadyAtlasImageAsset(texture);
                         if (imageAsset) {
                             callback(null, texture, { releaseMode: 'dynamic', imageAsset });

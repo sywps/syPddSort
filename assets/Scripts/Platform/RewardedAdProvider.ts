@@ -6,6 +6,8 @@ import {
     type MiniGameBuildPlatform,
 } from '../Core/MiniGamePlatform';
 
+import { getCachedWeChatDeviceInfo } from '../Core/WeChatDeviceInfo';
+
 const REWARDED_AD_UNUSED_READY_TTL_MS = 45000;
 
 export type RewardedAdHooks = {
@@ -707,9 +709,7 @@ class WeChatRewardedAdProvider extends NativeRewardedAdProvider {
     }
 
     protected getSystemInfo(api: any): any {
-        const deviceInfo = api?.getDeviceInfo?.() || {};
-        const systemInfo = api?.getSystemInfoSync?.() || {};
-        return { ...deviceInfo, ...systemInfo };
+        return getCachedWeChatDeviceInfo(api);
     }
 }
 

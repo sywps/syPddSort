@@ -5,7 +5,6 @@ import {
     BOARD_SELECT_HIT_MIN_UI,
     BOARD_SLOT_PLACE_HIT_CELL_RATIO,
     BOARD_SLOT_PLACE_HIT_MIN_UI,
-    DEFAULT_CELL_SIZE,
     Graphics,
     Label,
     Layers,
@@ -27,8 +26,10 @@ import {
     ensureBoardOutlineLayer,
 } from './GameplayBoardOutlineRenderer';
 import { debugPerfSnapshot } from './DebugPerfTrace';
+import { getBoardCellSize } from './GameplayBoardVisualMetrics';
 
 const ZOOM_HINT_SCALE_HEADROOM = 0.06;
+const BOARD_SLOT_SEAM_OVERLAP = 1;
 const RANKED_PVP_BOARD_CENTER_OFFSET_Y = -28;
 export class GameplayViewController {
     constructor(private readonly runtime: any) {}
@@ -800,6 +801,7 @@ export class GameplayViewController {
         const homeTransform = runtime.boardViewport.getHomeTransform();
         runtime.boardHomeScale = homeTransform.scale;
         runtime.boardHomePos = new Vec3(homeTransform.offset.x, homeTransform.offset.y, 0);
+        if (runtime.isCoopMode?.() && runtime._coopViewportRestricted) runtime.restrictCoopBoardViewport();
     }
 
     refitBoardViewportToSafeRect(): void {
@@ -817,13 +819,10 @@ export class GameplayViewController {
         const buildStartedAt = Date.now();
         const bw = runtime.levelData.boardWidth;
         const bh = runtime.levelData.boardHeight;
-        const maxBoardPx = 660;
         const maxDim = Math.max(bw, bh);
         runtime.cellGap = 0;
         const padding = maxDim > 20 ? 8 : 28;
-        const minCellSize = maxDim > 48 ? 6 : (maxDim > 32 ? 8 : 12);
-        runtime.cellSize = Math.min(DEFAULT_CELL_SIZE, Math.floor((maxBoardPx - (maxDim - 1) * runtime.cellGap - padding) / maxDim));
-        runtime.cellSize = Math.max(minCellSize, runtime.cellSize);
+        runtime.cellSize = getBoardCellSize(bw, bh);
 
         const boardW = bw * (runtime.cellSize + runtime.cellGap) - runtime.cellGap + padding;
         const boardH = bh * (runtime.cellSize + runtime.cellGap) - runtime.cellGap + padding;
@@ -887,7 +886,7 @@ export class GameplayViewController {
                     col: c,
                     x,
                     y,
-                    size: runtime.getBoardSlotVisualSize(),
+                    size: runtime.getBoardSlotVisualSize() + BOARD_SLOT_SEAM_OVERLAP,
                     spriteFrame: slotFrame,
                 });
                 runtime.boardSlotBgNodes[r][c] = null;

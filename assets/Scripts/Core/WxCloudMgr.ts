@@ -1,4 +1,5 @@
 import { _decorator } from 'cc';
+import { getCachedWeChatDeviceInfo } from './WeChatDeviceInfo';
 import { getWeChatMiniGameRuntime, isWeChatMiniGameRuntime } from './MiniGamePlatform';
 
 const { ccclass } = _decorator;
@@ -109,18 +110,9 @@ export class WxCloudMgr {
     getSystemInfo(): { device: string; system: string } {
         try {
             const wx = this.getWx(false);
-            // 优先使用新 API（HarmonyOS 兼容），回退到旧 API
-            let device = '';
-            let system = '';
-            if (wx?.getDeviceInfo) {
-                const info = wx.getDeviceInfo();
-                device = typeof info.model === 'string' ? info.model : '';
-                system = typeof info.system === 'string' ? info.system : '';
-            } else if (wx?.getSystemInfoSync) {
-                const info = wx.getSystemInfoSync();
-                device = typeof info.model === 'string' ? info.model : '';
-                system = typeof info.system === 'string' ? info.system : '';
-            }
+            const info = getCachedWeChatDeviceInfo(wx);
+            const device = typeof info.model === 'string' ? info.model : '';
+            const system = typeof info.system === 'string' ? info.system : '';
             return { device, system };
         } catch (_) {
             return { device: '', system: '' };
@@ -142,7 +134,7 @@ export class WxCloudMgr {
     getPlatform(): string {
         try {
             const wx = this.getWx(false);
-            const info = wx?.getSystemInfoSync?.() || {};
+            const info = getCachedWeChatDeviceInfo(wx);
             const platform = info.platform;
             return typeof platform === 'string' ? platform.toLowerCase() : '';
         } catch (_) {

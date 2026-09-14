@@ -10,8 +10,10 @@ const PvpBotReplay_1 = require("./PvpBotReplay");
 exports.HUMAN_REPLAY_PROTOCOL = 'pch-events-v1';
 exports.HUMAN_REPLAY_VERIFICATION = 'replay-verified-v1';
 class PvpHumanReplay {
-    constructor(level) {
+    constructor(level, maxElapsedMs = 600000, allowAssists = false) {
         this.level = level;
+        this.maxElapsedMs = maxElapsedMs;
+        this.allowAssists = allowAssists;
         this.boardTimeline = [];
         this.actions = [];
         this.pendingReady = [];
@@ -21,13 +23,16 @@ class PvpHumanReplay {
         this.firstTap = -1;
         this.completedAt = -1;
         this.deadlockedAt = -1;
+        this.deadlockStartTravel = -1;
         this.simulatedMs = 0;
+        this.freezeRemaining = 0;
         this.initialized = false;
         this.autoSpeed = false;
         this.exit = (0, PchConveyorGeometry_1.conveyorExitProgress)();
         this.locked = 0;
+        this.timeRemaining = Math.min(600, level.timeLimit);
         this.board = new BoardModel_1.BoardModel(level);
-        this.rules = new PchConveyorRules_1.PchConveyorRules(this.board, level.conveyorCapacity, level.singleSelectionLimit);
+        this.rules = new PchConveyorRules_1.PchConveyorRules(this.board, level.conveyorCapacity, level.singleSelectionLimit, undefined, level.autoConveyorFinishSpeed);
         const cells = [];
         let total = 0;
         for (let row = 0; row < this.board.height; row++)
@@ -43,6 +48,60 @@ class PvpHumanReplay {
         this.addCells(0, cells);
     }
     get progress() { return this.locked / this.total; }
+    checkpoint() {
+        return { levelHash: (0, PvpBotReplay_1.pixelLevelHash)(this.level), currentColors: this.board.currentColors.map(row => row.slice()),
+            locked: this.board.locked.map(row => row.slice()), transport: this.rules.exportTransportState(),
+            pendingReady: this.pendingReady.slice(), travel: this.travel, speed: this.speed, lastTime: this.lastTime,
+            firstTap: this.firstTap, completedAt: this.completedAt, deadlockedAt: this.deadlockedAt,
+            deadlockStartTravel: this.deadlockStartTravel,
+            simulatedMs: this.simulatedMs, initialized: this.initialized, autoSpeed: this.autoSpeed,
+            ...(this.allowAssists ? { bufferCapacity: this.rules.bufferCapacity, timeRemaining: this.timeRemaining, freezeRemaining: this.freezeRemaining } : {}) };
+    }
+    static fromCheckpoint(level, state, maxElapsedMs = 600000, allowAssists = false) {
+        var _a, _b, _c;
+        if (state.levelHash !== (0, PvpBotReplay_1.pixelLevelHash)(level) || state.currentColors.length !== level.boardHeight
+            || state.locked.length !== level.boardHeight)
+            throw new Error('checkpoint level mismatch');
+        const replay = new PvpHumanReplay(level, maxElapsedMs, allowAssists);
+        if (allowAssists) {
+            const capacity = (_a = state.bufferCapacity) !== null && _a !== void 0 ? _a : level.conveyorCapacity;
+            if (!Number.isInteger(capacity) || capacity < level.conveyorCapacity || (capacity - level.conveyorCapacity) % 12)
+                throw new Error('checkpoint capacity');
+            if (capacity > level.conveyorCapacity)
+                replay.rules.addBufferSlots(capacity - level.conveyorCapacity);
+            replay.timeRemaining = (_b = state.timeRemaining) !== null && _b !== void 0 ? _b : replay.timeRemaining;
+            replay.freezeRemaining = (_c = state.freezeRemaining) !== null && _c !== void 0 ? _c : 0;
+            if (![replay.timeRemaining, replay.freezeRemaining].every(value => Number.isInteger(value) && value >= 0))
+                throw new Error('checkpoint timer');
+        }
+        replay.locked = 0;
+        for (let row = 0; row < level.boardHeight; row++) {
+            if (state.currentColors[row].length !== level.boardWidth || state.locked[row].length !== level.boardWidth)
+                throw new Error('checkpoint dimensions');
+            for (let col = 0; col < level.boardWidth; col++) {
+                const color = state.currentColors[row][col];
+                if (!Number.isInteger(color) || color < 0 || (!level.correctColorArr[row][col] && color)
+                    || typeof state.locked[row][col] !== 'boolean'
+                    || (state.locked[row][col] && (!color || color !== level.correctColorArr[row][col])))
+                    throw new Error('checkpoint cell');
+                replay.board.currentColors[row][col] = color;
+                replay.board.setLocked(row, col, state.locked[row][col]);
+                if (state.locked[row][col])
+                    replay.locked++;
+            }
+        }
+        replay.rules.restoreTransportState(state.transport);
+        replay.pendingReady.push(...state.pendingReady);
+        for (const key of ['travel', 'speed', 'lastTime', 'firstTap', 'completedAt', 'deadlockedAt', 'simulatedMs']) {
+            if (!Number.isFinite(state[key]))
+                throw new Error('checkpoint clock');
+            replay[key] = state[key];
+        }
+        replay.initialized = state.initialized;
+        replay.autoSpeed = state.autoSpeed;
+        replay.deadlockStartTravel = Number.isFinite(state.deadlockStartTravel) ? state.deadlockStartTravel : -1;
+        return replay;
+    }
     addCells(time, cells) {
         if (!cells.length)
             return;
@@ -61,15 +120,62 @@ class PvpHumanReplay {
         if (!Array.isArray(event) || event.some(value => !Number.isFinite(value)))
             throw new Error('invalid replay event');
         const [time, kind, a, b, c, d] = event;
-        if (!Number.isInteger(time) || time < this.lastTime || time > 600000)
+        if (!Number.isInteger(time) || time < this.lastTime || time > this.maxElapsedMs)
             throw new Error('invalid replay time');
-        const arity = [3, 3, 6, 2, 3][kind];
+        const arity = (this.allowAssists ? [3, 3, 6, 2, 3, 3, 2, 3, 2, 3, 3] : [3, 3, 6, 2, 3])[kind];
         if (event.length !== arity)
             throw new Error('unknown replay command');
         this.lastTime = time;
         if (!this.initialized && kind !== 0)
             throw new Error('missing replay initialization');
-        if (kind === 0 || kind === 4) {
+        if (kind >= 5) {
+            if (this.completedAt >= 0 && kind === 8)
+                return;
+            if (this.completedAt >= 0)
+                throw new Error('assist after completion');
+            if (kind === 5 || kind === 6) {
+                if (this.pendingReady.length)
+                    throw new Error('skill during pending arrival');
+                if (kind === 5 && (!Number.isInteger(a) || a < 0 || a >= 1000000))
+                    throw new Error('invalid magnet random value');
+                const result = this.rules.executeSkillAtomically(() => kind === 5
+                    ? this.rules.forceCompleteRandomColor(() => a / 1000000) : this.rules.clearBufferToBoard());
+                const cells = [];
+                for (let row = 0; row < this.board.height; row++)
+                    for (let col = 0; col < this.board.width; col++) {
+                        if (this.board.locked[row][col])
+                            cells.push({ row, col, colorId: this.board.correctColors[row][col] });
+                    }
+                this.locked = 0;
+                this.addCells(time, cells);
+                if (!result.moved)
+                    throw new Error('empty skill');
+            }
+            else if (kind === 7) {
+                if (a !== 12)
+                    throw new Error('invalid capacity grant');
+                this.rules.addBufferSlots(a);
+                this.deadlockedAt = -1;
+                this.deadlockStartTravel = -1;
+            }
+            else if (kind === 8) {
+                if (this.freezeRemaining > 0)
+                    this.freezeRemaining--;
+                else
+                    this.timeRemaining = Math.max(0, this.timeRemaining - 1);
+            }
+            else if (kind === 9) {
+                if (a !== 90)
+                    throw new Error('invalid freeze grant');
+                this.freezeRemaining = a;
+            }
+            else if (kind === 10) {
+                if (a !== 120 || this.timeRemaining > 0)
+                    throw new Error('invalid time revive');
+                this.timeRemaining += a;
+            }
+        }
+        else if (kind === 0 || kind === 4) {
             if ([1, 2, 3].indexOf(a) < 0 || (kind === 0 && this.initialized))
                 throw new Error('invalid replay speed');
             this.initialized = true;
@@ -78,7 +184,7 @@ class PvpHumanReplay {
         else if (kind === 2) {
             if (this.completedAt >= 0 || this.rules.isBufferDeadlocked())
                 throw new Error('action after terminal');
-            if (this.firstTap >= 0 && time > this.firstTap + this.level.timeLimit * 1000 + 1000)
+            if (!this.allowAssists && this.firstTap >= 0 && time > this.firstTap + this.level.timeLimit * 1000 + 1000)
                 throw new Error('action after timeout');
             if (![a, b, c, d].every(Number.isInteger))
                 throw new Error('invalid replay tap');
@@ -102,16 +208,7 @@ class PvpHumanReplay {
             this.pendingReady.shift();
             if (this.rules.markQueuedBeansReady(1) !== 1)
                 throw new Error('invalid replay arrival');
-            let nearest = 0;
-            let distance = Infinity;
-            for (let index = 0; index < this.rules.carrierCount; index++) {
-                const progress = ((index + this.travel) / this.rules.carrierCount) % 1;
-                const delta = Math.min(progress, 1 - progress);
-                if (delta < distance) {
-                    nearest = index;
-                    distance = delta;
-                }
-            }
+            const { index: nearest, distance } = (0, PchConveyorGeometry_1.conveyorEntranceCarrier)(this.travel, this.rules.carrierCount);
             if (distance <= 0.032)
                 this.rules.transferReadyBeansToCarrier(nearest);
         }
@@ -138,12 +235,19 @@ class PvpHumanReplay {
                 }
             }
             this.addCells(time, cells);
-            if (this.rules.isBufferDeadlocked() && this.deadlockedAt < 0)
+            if (!this.rules.isBufferDeadlocked()) {
+                this.deadlockStartTravel = -1;
+                this.deadlockedAt = -1;
+            }
+            else if (this.deadlockStartTravel < 0)
+                this.deadlockStartTravel = this.travel;
+            else if (this.deadlockedAt < 0 && this.travel >= this.deadlockStartTravel + this.rules.carrierCount) {
                 this.deadlockedAt = time;
+            }
         }
     }
     finish(terminalType, time) {
-        if (!Number.isInteger(time) || time < this.lastTime || time > 600000)
+        if (!Number.isInteger(time) || time < this.lastTime || time > this.maxElapsedMs)
             throw new Error('invalid terminal time');
         if (terminalType === 'PASS' && (this.completedAt < 0 || time - this.completedAt > 10000))
             throw new Error('unverified pass');

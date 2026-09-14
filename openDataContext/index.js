@@ -41,16 +41,17 @@ let didLogDirectAvatarFallback = false;
 let lastSelfData;
 
 const RANKING_ART_PATHS = {
-    avatarDefault: 'openDataContext/ranking/leaderboard_avatar_default.png',
-    avatarFrame: 'openDataContext/ranking/leaderboard_avatar_frame.png',
-    row: 'openDataContext/ranking/leaderboard_row_standard.png',
-    rank1: 'openDataContext/ranking/medal_gold_rank_1.png',
-    rank2: 'openDataContext/ranking/medal_silver_rank_2.png',
-    rank3: 'openDataContext/ranking/medal_bronze_rank_3.png',
+    avatarDefault: 'subpackages/rankingArt/leaderboard_avatar_default.png',
+    avatarFrame: 'subpackages/rankingArt/leaderboard_avatar_frame.png',
+    row: 'subpackages/rankingArt/leaderboard_row_standard.png',
+    rank1: 'subpackages/rankingArt/medal_gold_rank_1.png',
+    rank2: 'subpackages/rankingArt/medal_silver_rank_2.png',
+    rank3: 'subpackages/rankingArt/medal_bronze_rank_3.png',
 };
 const rankingArt = {};
-let rankingArtState = 'loading';
+let rankingArtState = 'idle';
 let rankingArtError = '';
+let rankingArtLoadVersion = 0;
 
 function debugLog() {
     if (OPEN_DATA_DEBUG) console.log.apply(console, arguments);
@@ -85,15 +86,29 @@ function drawRankingArtState() {
 }
 
 function loadRankingArt() {
+    if (rankingArtState === 'ready' || rankingArtState === 'loading') return;
+    rankingArtState = 'loading';
+    rankingArtError = '';
+    const version = ++rankingArtLoadVersion;
+    const fail = (key, error) => {
+        if (version !== rankingArtLoadVersion || rankingArtState !== 'loading') return;
+        clearTimeout(timeout);
+        rankingArtState = 'error';
+        rankingArtError = `${key}: ${error?.errMsg || error || 'unknown error'}`;
+        console.error('[OpenData] leaderboard art load failed:', rankingArtError);
+        if (friendRankActive || lastSelfData !== undefined) drawRankingArtState();
+    };
+    const timeout = setTimeout(() => fail('images', '加载超时'), 10000);
     const entries = Object.entries(RANKING_ART_PATHS);
     let remaining = entries.length;
     for (const [key, assetPath] of entries) {
         const image = wx.createImage();
         image.onload = () => {
-            if (rankingArtState === 'error') return;
+            if (version !== rankingArtLoadVersion || rankingArtState !== 'loading') return;
             rankingArt[key] = image;
             remaining -= 1;
             if (remaining > 0) return;
+            clearTimeout(timeout);
             rankingArtState = 'ready';
             if (friendRankActive) {
                 renderVisibleRows('wechat-friend', true);
@@ -101,13 +116,7 @@ function loadRankingArt() {
                 renderSelfRanking(lastSelfData);
             }
         };
-        image.onerror = (error) => {
-            if (rankingArtState === 'error') return;
-            rankingArtState = 'error';
-            rankingArtError = `${key}: ${error?.errMsg || error || 'unknown error'}`;
-            console.error('[OpenData] leaderboard art load failed:', rankingArtError);
-            drawRankingArtState();
-        };
+        image.onerror = (error) => fail(key, error);
         image.src = assetPath;
     }
 }
@@ -526,9 +535,11 @@ wx.onMessage((data) => {
 
     if (data.type === 'getFriendRankings') {
         friendRankActive = true;
+        loadRankingArt(); // 主域确认 rankingArt 分包加载成功后才会发送本消息。
         friendRankDataState = 'loading';
         friendRankDataError = '';
         resetAvatarDownloads();
+        const requestVersion = avatarLoadVersion;
         scrollOffset = 0;
         lastRenderedScrollOffset = -1;
         debugLog('[OpenData] Received getFriendRankings request');
@@ -537,6 +548,7 @@ wx.onMessage((data) => {
         wx.getFriendCloudStorage({
             keyList: ['score'],
             success: (res) => {
+                if (!friendRankActive || requestVersion !== avatarLoadVersion) return;
                 const friendData = res.data || [];
                 debugLog('[OpenData] getFriendCloudStorage SUCCESS, count:', friendData.length);
                 if (friendData.length > 0) {
@@ -563,6 +575,7 @@ wx.onMessage((data) => {
                 renderFullLeaderboard(friendData, 'wechat-friend');
             },
             fail: (err) => {
+                if (!friendRankActive || requestVersion !== avatarLoadVersion) return;
                 console.warn('[OpenData] getFriendCloudStorage failed:', err);
                 friendRankDataState = 'error';
                 friendRankDataError = formatFriendRankError(err);
@@ -571,6 +584,7 @@ wx.onMessage((data) => {
             },
         });
     } else if (data.type === 'getSelfRanking') {
+        loadRankingArt(); // 调用方同样必须先加载 rankingArt 分包。
         wx.getUserCloudStorage({
             keyList: ['score'],
             success: (res) => {
@@ -581,6 +595,9 @@ wx.onMessage((data) => {
                 renderSelfRanking(null);
             },
         });
+    } else if (data.type === 'rankingArtError') {
+        drawBackground();
+        drawEmpty('排行榜资源加载失败，请重新进入');
     } else if (data.type === 'clearCanvas') {
         drawBackground();
         drawEmpty('加载中...');
@@ -597,7 +614,6 @@ wx.onMessage((data) => {
 });
 
 // 延迟初始化绘制，等待主域 sharedCanvas 父节点就绪
-loadRankingArt();
 setTimeout(() => {
     if (friendRankActive || lastSelfData !== undefined) return;
     drawBackground();

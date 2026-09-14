@@ -11,6 +11,9 @@ const sourceManifestPath = path.join(
     'five_skin_runtime_integration_design_20260901',
     'new_four_skin_source_manifest.json',
 );
+const defaultSourceDirectory = 'type2_screw2';
+const defaultSourceManifestPath = path.join(sourceRoot, defaultSourceDirectory, 'sprite_manifest.json');
+const defaultPalettePath = path.join(__dirname, 'bean-skin-default-palette.json');
 const outputRoot = path.join(projectDir, 'assets', 'GameAssetsBundle', 'BeanSkins');
 const provenanceRoot = path.join(projectDir, 'temp', 'bean-skin-atlas-generation');
 const currentAtlasDataPath = path.join(projectDir, 'assets', 'BootstrapBundle', 'Beans', 'bean-atlas-data.json');
@@ -22,6 +25,9 @@ const COLUMNS = ATLAS_SIZE / CELL_SIZE;
 const DEFAULT_SKIN_ID = 2000;
 const EXPECTED_NEW_FRAME_COUNT = 240;
 const EXPECTED_SOURCE_BYTES = 2169653;
+const EXPECTED_DEFAULT_SOURCE_FRAME_COUNT = 144;
+const EXPECTED_DEFAULT_SOURCE_BYTES = 862339;
+const EXPECTED_DEFAULT_SOURCE_BUNDLE_SHA256 = '01f55cb9c82cb2ff5c991f039fb1edb0c6c9d0b486c9d22120a1d8abb7b2d86e';
 const NEW_SKINS = [
     { sourceSkinId: 2001, id: 2001, key: 'bean_skin_02', directory: 'skin_02', previewColorId: 4 },
     { sourceSkinId: 2002, id: 2002, key: 'bean_skin_03', directory: 'skin_03', previewColorId: 6 },
@@ -95,8 +101,8 @@ function jsonMeta(label) {
     };
 }
 
-function imageMeta(label, displayName, width, height) {
-    const uuid = stableUuid(`image:${label}`);
+function imageMeta(label, displayName, width, height, uuidOverride = '') {
+    const uuid = uuidOverride || stableUuid(`image:${label}`);
     const halfWidth = width / 2;
     const halfHeight = height / 2;
     return {
@@ -356,10 +362,10 @@ function readVerifiedSource(entry) {
     return PNG.sync.read(sourceBuffer);
 }
 
-function writeImageAsset(filePath, png, label) {
+function writeImageAsset(filePath, png, label, uuidOverride = '') {
     const encoded = PNG.sync.write(png, { colorType: 6 });
     writeBufferIfChanged(filePath, encoded);
-    writeJson(`${filePath}.meta`, imageMeta(label, path.basename(filePath, '.png'), png.width, png.height));
+    writeJson(`${filePath}.meta`, imageMeta(label, path.basename(filePath, '.png'), png.width, png.height, uuidOverride));
     return { bytes: encoded.length, sha256: sha256(encoded), width: png.width, height: png.height };
 }
 
@@ -375,42 +381,103 @@ if (entries.length !== EXPECTED_NEW_FRAME_COUNT) fail(`expected ${EXPECTED_NEW_F
 const seenSourceBytes = entries.reduce((sum, entry) => sum + Number(entry.png_bytes || 0), 0);
 if (seenSourceBytes !== EXPECTED_SOURCE_BYTES) fail(`source entry byte total changed: ${seenSourceBytes}`);
 
+if (!fs.existsSync(defaultSourceManifestPath)) fail(`missing default source manifest: ${defaultSourceManifestPath}`);
+const defaultSourceManifestBuffer = fs.readFileSync(defaultSourceManifestPath);
+const defaultSourceManifest = JSON.parse(defaultSourceManifestBuffer.toString('utf8'));
+if (Number(defaultSourceManifest.sprite_count) !== EXPECTED_DEFAULT_SOURCE_FRAME_COUNT) fail('default source manifest frame count changed');
+if (Number(defaultSourceManifest.png_bytes) !== EXPECTED_DEFAULT_SOURCE_BYTES) fail('default source manifest byte total changed');
+if (String(defaultSourceManifest.source_bundle_sha256).toLowerCase() !== EXPECTED_DEFAULT_SOURCE_BUNDLE_SHA256) {
+    fail('default source bundle hash changed');
+}
+const defaultSourceExports = Array.isArray(defaultSourceManifest.exports) ? defaultSourceManifest.exports : [];
+if (defaultSourceExports.length !== EXPECTED_DEFAULT_SOURCE_FRAME_COUNT) fail('default source exports are incomplete');
+const defaultSourceByName = new Map();
+for (const entry of defaultSourceExports) {
+    const sourceName = String(entry.output || '');
+    if (!sourceName || defaultSourceByName.has(sourceName)) fail(`invalid default source export: ${sourceName}`);
+    defaultSourceByName.set(sourceName, entry);
+}
+
+if (!fs.existsSync(defaultPalettePath)) fail(`missing default palette: ${defaultPalettePath}`);
+const defaultPaletteBuffer = fs.readFileSync(defaultPalettePath);
+const defaultPalette = JSON.parse(defaultPaletteBuffer.toString('utf8'));
+if (Number(defaultPalette.version) !== 1) fail('default palette version changed');
+function getDefaultTargetRgb(colorId, role) {
+    const colorKey = String(colorId).padStart(2, '0');
+    const rgb = defaultPalette.colors?.[colorKey]?.[role];
+    if (!Array.isArray(rgb) || rgb.length !== 3 || rgb.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+        fail(`invalid default palette color: ${colorKey}/${role}`);
+    }
+    return rgb;
+}
+for (let colorId = 1; colorId <= 20; colorId++) {
+    for (const role of Object.keys(ROLE_VARIANTS)) getDefaultTargetRgb(colorId, role);
+}
+
 writeJson(`${outputRoot}.meta`, directoryMeta('BeanSkins'));
 writeJson(path.join(outputRoot, 'icons.meta'), directoryMeta('BeanSkins/icons'));
 
 const currentAtlasData = readJson(currentAtlasDataPath);
-const currentAtlasPng = PNG.sync.read(fs.readFileSync(currentAtlasImagePath));
-const defaultColor10Targets = {};
-for (const [role, variant] of Object.entries(ROLE_VARIANTS)) {
-    const targetEntries = NEW_SKINS.map((skin) => entries.find((entry) => (
-        Number(entry.skin_id) === skin.sourceSkinId
-        && Number(entry.current_color_id) === DEFAULT_COLOR_ID_TO_NEW_SKINS
-        && entry.role === role
-    )));
-    if (targetEntries.some((entry) => !entry)) fail(`missing new-skin ColorId 10 source for role ${role}`);
-    const targetColors = targetEntries.map((entry) => representativeRgb(readVerifiedSource(entry)));
-    const targetRgb = [0, 1, 2].map((channel) => Math.round(
-        targetColors.reduce((sum, rgb) => sum + rgb[channel], 0) / targetColors.length,
-    ));
-    defaultColor10Targets[role] = targetRgb;
-    const defaultFrameName = `b010_${variant}`;
-    const defaultFrame = currentAtlasData.frames?.[defaultFrameName];
-    if (!defaultFrame) fail(`missing default ColorId 10 frame: ${defaultFrameName}`);
-    const defaultCrop = cropPng(currentAtlasPng, defaultFrame);
-    const correctedDefault = recolorToRepresentative(defaultCrop, targetRgb);
-    pastePng(correctedDefault, currentAtlasPng, Number(defaultFrame.x), Number(defaultFrame.y));
+const currentAtlasMeta = readJson(`${currentAtlasImagePath}.meta`);
+if (!currentAtlasMeta.uuid) fail('default atlas meta UUID is missing');
+const defaultMappingEntries = entries
+    .filter((entry) => Number(entry.skin_id) === 2001)
+    .map((entry) => {
+        const sourceName = path.basename(String(entry.source_file));
+        const sourceEntry = defaultSourceByName.get(sourceName);
+        if (!sourceEntry) fail(`default source entry missing: ${sourceName}`);
+        return {
+            ...entry,
+            skin_id: DEFAULT_SKIN_ID,
+            source_file: `${defaultSourceDirectory}/${sourceName}`,
+            png_bytes: Number(sourceEntry.png_bytes),
+            png_sha256: String(sourceEntry.png_sha256),
+        };
+    })
+    .sort((a, b) => String(a.target_frame).localeCompare(String(b.target_frame)));
+if (defaultMappingEntries.length !== 60) fail(`default skin expected 60 frames, got ${defaultMappingEntries.length}`);
+if (new Set(defaultMappingEntries.map((entry) => String(entry.target_frame))).size !== 60) fail('default target frames are not unique');
+
+const defaultAtlas = new PNG({ width: ATLAS_SIZE, height: ATLAS_SIZE });
+const defaultAtlasFrames = {};
+let defaultIcon = null;
+for (let index = 0; index < defaultMappingEntries.length; index++) {
+    const entry = defaultMappingEntries[index];
+    const colorId = Number(entry.current_color_id);
+    const role = String(entry.role);
+    const variant = ROLE_VARIANTS[role];
+    const expectedFrameName = `b${String(colorId).padStart(3, '0')}_${variant}`;
+    if (String(entry.target_frame) !== expectedFrameName) fail(`default frame mapping changed: ${entry.target_frame}`);
+    const sourcePng = readVerifiedSource(entry);
+    const renderedPng = recolorToRepresentative(sourcePng, getDefaultTargetRgb(colorId, role));
+    const column = index % COLUMNS;
+    const row = Math.floor(index / COLUMNS);
+    defaultAtlasFrames[expectedFrameName] = copyPng(renderedPng, defaultAtlas, column * CELL_SIZE, row * CELL_SIZE);
+    if (colorId === 1 && role === 'normal') defaultIcon = renderedPng;
 }
-writeBufferIfChanged(currentAtlasImagePath, PNG.sync.write(currentAtlasPng, { colorType: 6 }));
-const defaultPreviewColorId = 1;
-const defaultPreviewName = `b${String(defaultPreviewColorId).padStart(3, '0')}_2`;
-const defaultPreviewFrame = currentAtlasData.frames?.[defaultPreviewName];
-if (!defaultPreviewFrame) fail(`missing default preview frame: ${defaultPreviewName}`);
-const defaultIcon = cropPng(currentAtlasPng, defaultPreviewFrame);
+if (!defaultIcon) fail('missing default preview frame');
+const defaultAtlasData = {
+    textureUUID: currentAtlasData.textureUUID,
+    textureName: 'bean-atlas',
+    frames: defaultAtlasFrames,
+};
+const defaultAtlasImage = writeImageAsset(
+    currentAtlasImagePath,
+    defaultAtlas,
+    'BootstrapBundle/Beans/bean-atlas',
+    String(currentAtlasMeta.uuid),
+);
+writeJson(currentAtlasDataPath, defaultAtlasData);
+const defaultColor10Targets = {};
+for (const role of Object.keys(ROLE_VARIANTS)) {
+    defaultColor10Targets[role] = getDefaultTargetRgb(DEFAULT_COLOR_ID_TO_NEW_SKINS, role);
+}
 const generated = [];
 generated.push({
     id: DEFAULT_SKIN_ID,
     key: 'bean_skin_01',
     directory: 'skin_01',
+    atlasImage: defaultAtlasImage,
     icon: writeImageAsset(
         path.join(outputRoot, 'icons', 'bean_skin_01.png'),
         defaultIcon,
@@ -433,9 +500,9 @@ for (const skin of NEW_SKINS) {
         const sourcePng = readVerifiedSource(entry);
         let renderedPng = sourcePng;
         if (NEW_SKIN_COLOR_IDS_TO_DEFAULT.has(Number(entry.current_color_id))) {
-            const targetFrame = currentAtlasData.frames?.[String(entry.target_frame)];
+            const targetFrame = defaultAtlasData.frames?.[String(entry.target_frame)];
             if (!targetFrame) fail(`missing default color target: ${entry.target_frame}`);
-            renderedPng = recolorToRepresentative(sourcePng, representativeRgb(cropPng(currentAtlasPng, targetFrame)));
+            renderedPng = recolorToRepresentative(sourcePng, representativeRgb(cropPng(defaultAtlas, targetFrame)));
         }
         const column = index % COLUMNS;
         const row = Math.floor(index / COLUMNS);
@@ -511,12 +578,24 @@ writeJson(path.join(provenanceRoot, 'source-provenance.json'), {
     sourceManifestPath: path.relative(projectDir, sourceManifestPath).replace(/\\/g, '/'),
     sourceManifestSha256: catalog.sourceManifestSha256,
     mappingStatus: sourceManifest.mapping_status,
+    defaultPalettePath: path.relative(projectDir, defaultPalettePath).replace(/\\/g, '/'),
+    defaultPaletteSha256: sha256(defaultPaletteBuffer),
     colorCorrections: {
         newSkinColorIdsToDefault: [...NEW_SKIN_COLOR_IDS_TO_DEFAULT],
         defaultColorIdToNewSkins: DEFAULT_COLOR_ID_TO_NEW_SKINS,
         defaultColor10Targets,
     },
     generated,
+    defaultSource: {
+        productId: DEFAULT_SKIN_ID,
+        sourceDirectory: defaultSourceDirectory,
+        sourceManifestSha256: sha256(defaultSourceManifestBuffer),
+        sourceBundleSha256: EXPECTED_DEFAULT_SOURCE_BUNDLE_SHA256,
+        sourceEntries: defaultMappingEntries.map((entry) => ({
+            source_file: entry.source_file,
+            png_sha256: entry.png_sha256,
+        })),
+    },
     sources: NEW_SKINS.map((skin) => ({
         productId: skin.id,
         productKey: skin.key,
@@ -536,6 +615,9 @@ console.log(JSON.stringify({
     newFrameCount: EXPECTED_NEW_FRAME_COUNT,
     sourceBytes: EXPECTED_SOURCE_BYTES,
     sourceManifestSha256: catalog.sourceManifestSha256,
+    defaultSourceManifestSha256: sha256(defaultSourceManifestBuffer),
+    defaultPaletteSha256: sha256(defaultPaletteBuffer),
+    defaultAtlasImage,
     colorCorrections: {
         newSkinColorIdsToDefault: [...NEW_SKIN_COLOR_IDS_TO_DEFAULT],
         defaultColorIdToNewSkins: DEFAULT_COLOR_ID_TO_NEW_SKINS,

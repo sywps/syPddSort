@@ -174,6 +174,7 @@ export function initializeGameCtrlState(runtime: any): void {
         _gameplayJudgmentPreloadError: null,
         _patternCompleteWinPending: false,
         _patternCompleteMatchFxRoot: null,
+        _patternCompleteWavePrefab: null,
         _pulseTweens: [] as Array<{ stop(): void }>,
         _selectedSlotIndices: [],
         _selectionOverlayNodes: [],
@@ -491,5 +492,6 @@ export function initializeGameCtrlState(runtime: any): void {
         getBoardGroup: () => runtime.boardGroup,
         getBoardNode: () => runtime.boardNode,
         getSafeViewportRect: () => runtime.getBoardSafeViewportRect(),
+        getPanBounds: (scale) => runtime.getCoopBoardPanBounds?.(scale) || null,
     });
 }

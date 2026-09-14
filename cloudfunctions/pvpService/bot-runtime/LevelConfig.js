@@ -6,6 +6,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_PCH_SINGLE_SELECTION_LIMIT = exports.CONVEYOR_STACK_DEPTH = exports.COLOR_HEX_LOCKED = exports.COLOR_NAMES = exports.COLOR_HEX = exports.BeanColor = void 0;
 exports.validatePchSingleSelectionLimit = validatePchSingleSelectionLimit;
+exports.validateAutoConveyorFinishSpeed = validateAutoConveyorFinishSpeed;
+exports.validateWinAdBonusEnabled = validateWinAdBonusEnabled;
 exports.validateConveyorCapacity = validateConveyorCapacity;
 exports.validateHard = validateHard;
 /**
@@ -48,7 +50,7 @@ exports.COLOR_HEX = {
     7: '#4A4DCF',
     8: '#7221BC',
     9: '#9FCE21',
-    10: '#EA281A',
+    10: '#CC3827',
     11: '#37A92D',
     12: '#207955',
     13: '#20A8DC',
@@ -116,6 +118,24 @@ function validatePchSingleSelectionLimit(value, label = 'level data') {
         return exports.DEFAULT_PCH_SINGLE_SELECTION_LIMIT;
     if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
         throw new Error(`[SingleSelectionLimit] ${label}.singleSelectionLimit must be a positive integer: ${value}`);
+    }
+    return value;
+}
+/** 校验关卡是否在所有豆豆入带后自动切换至结算加速；未配置时默认开启。 */
+function validateAutoConveyorFinishSpeed(value, label = 'level data') {
+    if (value === undefined || value === null)
+        return true;
+    if (typeof value !== 'boolean') {
+        throw new Error(`[AutoConveyorFinishSpeed] ${label}.autoConveyorFinishSpeed must be a boolean: ${value}`);
+    }
+    return value;
+}
+/** 校验关卡是否展示胜利后的广告加奖入口；未配置时默认开启。 */
+function validateWinAdBonusEnabled(value, label = 'level data') {
+    if (value === undefined || value === null)
+        return true;
+    if (typeof value !== 'boolean') {
+        throw new Error(`[WinAdBonusEnabled] ${label}.winAdBonusEnabled must be a boolean: ${value}`);
     }
     return value;
 }

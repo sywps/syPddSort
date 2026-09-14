@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle,
@@ -30,7 +31,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { ensureCollectionPanelController } from '../Panels/CollectionPanelController';
-import { releasePixelPosterPreviewTree, renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import { releaseCompletedPatternPreviewTree as releasePixelPosterPreviewTree, renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';
 import type { LevelCollectionEntry } from '../LevelDataCdnService';
 
 const COLLECTION_PREVIEW_SETTLE_DELAY_SECONDS = 0.08;
@@ -146,6 +147,46 @@ function requireCollectionAvatarLabel(parent: Node, name: string): Label {
 
 export function installCollectionAvatarModule(target: any): void {
     Object.assign(target, {
+        /** Reuse the leaderboard's authored avatar subtree without mounting the panel. */
+        mountLeaderboardAvatar(url: string, host: Node, diameter: number): void {
+            const isAlive = () => host.isValid && !!(this._isRuntimeAliveForAsyncCallback?.() ?? this.isValid);
+            this._withGameAssetsBundle((bundle: Bundle | null) => {
+                if (!isAlive()) return;
+                if (!bundle) {
+                    console.warn('[Avatar] gameAssets bundle unavailable');
+                    return;
+                }
+                const mount = (error: Error | null, prefab: Prefab | null) => {
+                    if (!isAlive()) return;
+                    if (error || !prefab) {
+                        console.warn('[Avatar] leaderboard template unavailable:', error);
+                        return;
+                    }
+                    try {
+                        const template = prefab.data.getChildByPath('Box/LeaderboardList/LeaderboardViewport/LeaderboardContent/Leaderboard0Row/Avatar');
+                        if (!template) throw new Error('[Avatar] leaderboard avatar template missing');
+                        const size = template.getComponent(UITransform)?.contentSize;
+                        if (!size || size.width <= 0 || size.height <= 0) throw new Error('[Avatar] invalid template size');
+                        const avatar = instantiate(template);
+                        avatar.name = 'LeaderboardAvatar';
+                        avatar.setPosition(0, 0, 0);
+                        avatar.setScale(diameter / size.width, diameter / size.height, 1);
+                        host.addChild(avatar);
+                        prefab.addRef();
+                        host.once(Node.EventType.NODE_DESTROYED, () => prefab.decRef());
+                        // The default portrait is already in the prefab; remote loading never gates gameplay.
+                        this.loadAvatarToNode(url, avatar);
+                    } catch (error) {
+                        console.warn('[Avatar] unable to mount leaderboard avatar:', error);
+                    }
+                };
+                const path = 'UI/Prefabs/Panels/LeaderboardPanel';
+                const cached = bundle.get(path, Prefab);
+                if (cached) mount(null, cached);
+                else bundle.load(path, Prefab, mount);
+            });
+        },
+
         /** 从 URL 加载头像到节点 */
         loadAvatarToNode(
             url: string,
@@ -937,7 +978,7 @@ export function installCollectionAvatarModule(target: any): void {
                 maxCellSize: options?.maxCellSize,
                 cellGap: options?.cellGap ?? 0,
                 padding: options?.drawTargetBackground ? 6 : 8,
-            });
+            }, this);
         },
 
         /** 在图鉴卡片上绘制像素图预览 */
@@ -982,8 +1023,8 @@ export function installCollectionAvatarModule(target: any): void {
                     reuseExisting: !!options?.reuseExisting,
                     maxCellSize: options?.maxCellSize ?? (previewMode === 'poster' ? 32 : 24),
                     cellGap: 0,
-                    padding: options?.padding ?? (previewMode === 'poster' ? 8 : 10),
-                });
+                    padding: options?.padding ?? (usePrefabContainer ? 0 : (previewMode === 'poster' ? 8 : 10)),
+                }, this);
             };
 
             if (prefix === 'coop_level_') {
@@ -1025,7 +1066,12 @@ export function installCollectionAvatarModule(target: any): void {
             }
 
             this.loadLevelData(levelId, (data) => {
-                if (!data) return;
+                if (!data) {
+                    if (getBrowserLevelPreview().active && prefix === 'level_' && levelId === getBrowserLevelPreview().currentLevel) {
+                        this.showRemoteLoadFatalError(`level_${levelId}`, 'preview_level_unavailable', `预览第 ${levelId} 关失败：关卡不存在或加载失败，请检查链接关卡号。`);
+                    }
+                    return;
+                }
                 renderGrid(data.correctColorArr || []);
             }, prefix);
         },

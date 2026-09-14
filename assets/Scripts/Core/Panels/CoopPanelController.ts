@@ -42,7 +42,7 @@ export class CoopPanelController {
             coopButton(root, `本地玩家 ${mgr.localPlayer} · 切换`, -165, 501, () => {
                 if (this.busy) return;
                 try { mgr.switchLocalPlayer(); this.open(); }
-                catch (error) { if (this.status) this.status.string = String(error); }
+                catch (error) { console.error('[coop] action failed', error); if (this.status) this.status.string = '暂时无法完成，请稍后再试'; }
             }, 310);
             coopButton(root, '打开模拟邀请', 165, 501, () => {
                 if (this.busy) return;
@@ -79,7 +79,7 @@ export class CoopPanelController {
         if (this.busy || !this.root?.isValid) return;
         this.busy = true; if (this.status) this.status.string = '正在加载…';
         try { await work(); if (this.status?.isValid) this.status.string = ''; }
-        catch (error) { if (this.status?.isValid) this.status.string = error instanceof Error ? error.message : String(error); }
+        catch (error) { console.error('[coop] load failed', error); if (this.status?.isValid) this.status.string = '暂时无法加载，请稍后再试'; }
         finally { this.busy = false; }
     }
 
@@ -201,7 +201,7 @@ export class CoopPanelController {
                 coopButton(this.body!, '邀请好友来拼', -165, -177, () => { try {
                     mgr.share(post);
                     if (mgr.isLocalSimulation()) this.status!.string = '模拟邀请已生成，切换玩家后打开邀请';
-                } catch (e) { this.status!.string = String(e); } }, 300);
+                } catch (e) { console.error('[coop] action failed', e); this.status!.string = '暂时无法完成，请稍后再试'; } }, 300);
                 const publishButton = coopButton(this.body!, post.published ? '从广场撤下' : '发布到广场', 165, -177, () => {
                     void this.perform(async () => {
                         await mgr.call('publish', { postId, published: !post.published }); post.published = !post.published;

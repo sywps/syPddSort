@@ -135,6 +135,231 @@ async function flushPromises() {
     await new Promise((resolve) => setImmediate(resolve));
 }
 
+// Run real AppRoot and runtime entry methods against the same frame-driven controller.
+async function verifyGameplayEntries(fixture) {
+    const { controller, rootNode, blocker } = fixture;
+    const errors = [];
+    const shared = {
+        AudioMgr: { inst: { init() {} } },
+        AnalyticsMgr: { inst: { finalizePendingFailedLevel() {} } },
+        mapLogicalToPhysicalLevelId: id => id,
+    };
+    let AppRoot;
+    const dependencies = {
+        cc,
+        './AppSession': { AppSession: class {} },
+        './SceneRouter': { SceneRouter: class {} },
+        './StartupLoadingController': {},
+        './AppTransitionController': { AppTransitionController },
+        '../GameCtrlShared': shared, './GameCtrlShared': shared,
+        '../HomeIconIdleWiggle': {}, '../LevelDataCdnService': {},
+        '../Panels/GameCirclePanelController': {}, '../RemoteDataCdnClient': {},
+        '../WorkbenchPreviewService': { isWorkbenchPreviewRequested: () => false },
+        './WorkbenchPreviewService': { isWorkbenchPreviewRequested: () => false },
+        '../MiniGamePlatform': {}, './MiniGamePlatform': {},
+        '../RuntimeLog': {}, '../PixelPosterPreviewRenderer': {}, '../LevelExperimentService': {},
+        '../StartupTrace': {}, './StartupTrace': {},
+        '../DebugPerfTrace': {},
+        './DebugPerfTrace': { debugPerfSnapshot() {} },
+        './RuntimeLog': {}, './StartupRouteService': {},
+        './Panels/FeedbackPanelController': {},
+        '../PatternCompleteWaveFx': {},
+        './HardLevelIntroController': { ensureHardLevelIntroController: () => ({ stop() {} }) },
+        './PchConveyorGameplayController': { ensurePchConveyorGameplayController: () => ({ stop() {} }) },
+        './LevelExperimentService': {}, './LevelConfig': {},
+        './AnalyticsMgr': {}, './LevelDataCdnService': {},
+        './GameCtrlModules/GameplayJudgmentFeedbackModule': {},
+        './StartupCloudRestoreHelper': {},
+        '../../Platform/WeChatShareReturnService': {},
+    };
+    function load(relativePath) {
+        const compiled = ts.transpileModule(fs.readFileSync(path.join(root, 'assets/Scripts/Core', relativePath), 'utf8'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, experimentalDecorators: true },
+        }).outputText;
+        const module = { exports: {} };
+        vm.runInNewContext(compiled, {
+            module, exports: module.exports,
+            console: { error: (...args) => errors.push(args), warn() {}, log() {} },
+            require(id) {
+                if (id === '../AppRoot' || id === './AppRoot') return { AppRoot };
+                assert.ok(Object.hasOwn(dependencies, id), `missing test dependency ${id}`);
+                return dependencies[id];
+            },
+        }, { filename: relativePath });
+        return module.exports;
+    }
+    ({ AppRoot } = load('AppRoot.ts'));
+    const app = new AppRoot();
+    app.node = { isValid: true };
+    app.appTransition = controller;
+    app.ensureAppTransition = async () => controller;
+    app.router.logTransitionTrace = () => {};
+    AppRoot._instance = app;
+    const sceneEntry = load('GameCtrlModules/SceneHomeEntryModule.ts');
+    const settlement = load('GameCtrlModules/SettlementHudModule.ts');
+    const theme = load('GameCtrlModules/ThemeLoadingOverlayModule.ts');
+    const firstLevel = load('GameCtrlModules/FirstLevelRouteModule.ts');
+    const { GameSceneRuntimeController } = load('GameSceneRuntimeController.ts');
+    const { GameplaySessionController } = load('GameplaySessionController.ts');
+    const fx = load('GameCtrlModules/GameplayColorCompleteFxModule.ts');
+    function runtime() {
+        const r = { isValid: true };
+        sceneEntry.installSceneHomeEntryModule(r);
+        settlement.installSettlementHudModule(r);
+        theme.installThemeLoadingOverlayModule(r);
+        Object.assign(r, {
+            levelData: { levelId: 1 }, _gameplayInitSeq: 1,
+            getRuntimeSceneName: () => 'Game', getActiveLogicalLevelId: () => 1,
+            costVigorForLevel: () => true,
+            deactivateMainMenuNode() {}, saveLevelProgress() {},
+            unschedule() {}, unscheduleAllCallbacks() {}, stopPulseTweens() {}, clearDragNodes() {},
+            setWinPrimaryButtonInteractable() {}, refreshWinAdBonusUI() {},
+            setGameplayStartupRootVisible() {}, hideLoadingOverlay() {},
+            showRemoteLoadFatalError(_path, code) { r.fatal = code; },
+            loadLevel(id) { r.loaded = id; },
+            initGame() { r.initialized = true; },
+        });
+        return r;
+    }
+    async function cover() {
+        await flushPromises();
+        assert.equal(blocker.enabled, true);
+        controller.update(0.32);
+        await flushPromises();
+    }
+    async function finish(r, success = true) {
+        const pending = r._gameplayTransitionPromise;
+        app.completeAppTransitionAfterDraw('Game');
+        events.emit('after-draw');
+        controller.update(0.34);
+        assert.equal(await pending, success);
+        assert.equal(rootNode.active, false);
+        assert.equal(blocker.enabled, false);
+    }
+    for (const entry of ['tutorial', 'next', 'restart', 'theme']) {
+        const r = runtime();
+        if (entry === 'tutorial') r.continueTutorialToSlotIntro(2);
+        if (entry === 'next') r.goNextLevel();
+        if (entry === 'restart') r.restart();
+        if (entry === 'theme') r.startThemeLevel(8);
+        assert.equal(r.loaded, undefined, `${entry} must wait for full cover`);
+        assert.equal(r.initialized, undefined);
+        r.costVigorForLevel = () => { throw new Error('duplicate entry must not spend vigor'); };
+        if (entry === 'next') r.goNextLevel();
+        if (entry === 'restart') r.restart();
+        if (entry === 'theme') assert.equal(r.startThemeLevel(8), false);
+        await flushPromises();
+        assert.equal(app.completeAppTransitionAfterDraw('Game'), false, 'old round ready during covering is ignored');
+        await cover();
+        if (entry === 'restart') assert.equal(r.initialized, true);
+        else assert.equal(r.loaded, entry === 'theme' ? 8 : 2);
+        controller.update(5);
+        assert.equal(rootNode.active, true, 'no fixed delay may reveal a level before ready');
+        await finish(r);
+    }
+    for (const entry of ['next', 'restart', 'theme']) {
+        for (const outcome of ['cancelled', 'granted']) {
+            const r = runtime();
+            let grant;
+            let vigor = false;
+            r.costVigorForLevel = () => vigor;
+            r.showNoLivesAdModal = options => { grant = options.onResult; };
+            if (entry === 'next') r.goNextLevel();
+            if (entry === 'restart') r.restart();
+            if (entry === 'theme') r.startThemeLevel(8);
+            await flushPromises();
+            assert.equal(rootNode.active, false, 'advertising stays outside the transition');
+            vigor = outcome === 'granted';
+            grant({ status: outcome });
+            if (!vigor) {
+                await flushPromises();
+                assert.equal(rootNode.active, false);
+                assert.equal(r.loaded, undefined);
+                continue;
+            }
+            await cover();
+            await finish(r);
+        }
+    }
+    const joinedRuntime = runtime();
+    const request = joinedRuntime.requestLevelTransition(3);
+    assert.equal(joinedRuntime.requestLevelTransition(3), request, 'double request shares pending prefab/transaction');
+    assert.equal(await joinedRuntime.requestLevelTransition(4), false, 'conflicting level cannot replace the first request');
+    await cover();
+    assert.equal(joinedRuntime.loaded, 3);
+    await finish(joinedRuntime);
+
+    for (const failure of ['local', 'remote', 'sync', 'ready-then-error', 'gameplay-init', 'fx-prewarm']) {
+        const r = runtime();
+        if (failure === 'sync') r.loadLevel = () => { throw new Error('sync load failure'); };
+        r.requestLevelTransition(9);
+        await cover();
+        if (failure === 'ready-then-error') app.completeAppTransitionAfterDraw('Game');
+        if (failure === 'gameplay-init') {
+            const session = new GameplaySessionController(r);
+            session.clearTutorialRuntimeState = () => {};
+            r.showRemoteLoadFatalError = (_path, code) => {
+                r.fatal = code;
+                r._remoteLoadErrorOverlay = { isValid: true };
+            };
+            session.failGameplayInitialization(r, {
+                error: new Error('gameplay-init failure'), initStage: 'visual_readiness',
+                resolvedLevelId: 9, activeLogicalLevelId: 9, gameplayPrefix: 'level_', gameplayEntryMode: 'main',
+            });
+        } else if (failure === 'fx-prewarm') {
+            fx.installGameplayColorCompleteFxMethods(r);
+            r._pinddSpineFxPrewarmLoading = true;
+            let prefabCallback;
+            r._withGameAssetsBundle = done => done({ load: (_path, _type, cb) => { prefabCallback = cb; } });
+            r.ensurePatternCompleteFxPrefab(() => { throw new Error('must not initialize with a missing prefab'); });
+            assert.throws(() => prefabCallback(new Error('missing pattern prefab'), null), /required prefab load failed/);
+            assert.equal(r._pinddSpineFxPrewarmLoading, false);
+        } else if (failure === 'remote') {
+            firstLevel.installFirstLevelRouteModule(r);
+            r.reportLevelDataLoadDiagnostic = () => {};
+            r.showRemoteLoadFatalError = (_path, code) => { r.fatal = code; };
+            r.stopLevelDataLoadWithFatalError(9, 'level_9', 'failed', 'missing_data', 'missing');
+        } else if (failure !== 'sync') {
+            r._stopGameplayEntryWithFatalError('level_9', 'missing_asset', 'missing');
+        }
+        await finish(r, false);
+        assert.ok(r.fatal, 'failure must be visible after the transition exits');
+    }
+
+    const homeError = new Error('Home UI missing');
+    app.router.toHome = async () => {};
+    app.markHomeVisible = () => {};
+    const homePending = app.requestHomeRoute('test', 'auto');
+    const rejectedHome = assert.rejects(homePending, /Home UI missing/);
+    await cover();
+    const homeRuntime = new GameSceneRuntimeController({});
+    app.router.attachCurrentScene = () => {};
+    homeRuntime.prepareSceneFrame = () => { throw homeError; };
+    assert.throws(() => homeRuntime.startHomeSceneRuntime(), /Home UI missing/);
+    events.emit('after-draw');
+    controller.update(0.34);
+    await rejectedHome;
+    assert.equal(rootNode.active, false, 'Home UI initialization failure releases the cover');
+    assert.equal(blocker.enabled, false);
+
+    const destroyedRuntime = runtime();
+    destroyedRuntime.requestLevelTransition(10);
+    await cover();
+    destroyedRuntime.isValid = false;
+    const destroyError = new Error('stop after the destruction notification');
+    dependencies['./Panels/FeedbackPanelController'].disposeFeedbackPanel = () => { throw destroyError; };
+    assert.throws(() => new GameSceneRuntimeController(destroyedRuntime).destroy(), /destruction notification/);
+    await finish(destroyedRuntime, false);
+
+    const cancelledRuntime = runtime();
+    cancelledRuntime.requestLevelTransition(11);
+    cancelledRuntime.isValid = false;
+    await cover();
+    assert.equal(cancelledRuntime.loaded, undefined, 'a runtime destroyed before cover cannot start its task');
+    await finish(cancelledRuntime, false);
+    assert.ok(errors.length > 0, 'simulated failures must be reported');
+}
+
 async function run() {
     const first = makeController();
     assert.equal(first.rootNode.active, false, 'initialized transition must stay hidden');
@@ -194,7 +419,11 @@ async function run() {
     assert.equal(first.rootNode.active, false);
     assert.equal(first.blocker.enabled, false);
 
+    await verifyGameplayEntries(first);
+
     const doomed = first.controller.run('route:Game:level_2', 'Game', 'forward', async () => {});
+    first.controller.update(0.32);
+    await flushPromises();
     first.controller.completeAfterDraw('Game');
     first.controller.onDestroy();
     await assert.rejects(doomed, /controller destroyed/);

@@ -88,6 +88,9 @@ assert.ok(
 assert.ok(homeAdFlow.includes("requestHomeRoute('runtime', 'auto')"), 'runtime Home route must request the app transition');
 assert.ok(homeCommerce.includes("requestGameplayRoute(level, 'level_', false, 'auto')"), 'main start button must request the app transition');
 assert.ok(themeLoading.includes("requestGameplayRoute(normalizedLevelId, 'zt_level_', false, 'auto')"), 'theme start button must request the app transition');
+const pvpMode = read('assets/Scripts/Core/GameCtrlModules/PvpModeModule.ts');
+assert.ok(pvpMode.includes("requestHomeRoute('pvp-forfeit', 'auto')"), 'PVP forfeit must cover the return to Home');
+assert.ok(pvpMode.includes("requestHomeRoute('pvp-result', 'auto')"), 'PVP results must cover the return to Home');
 assert.ok(sceneHomeEntry.includes('this.getGameplayEntryMode(prefix, external),\n                entryCoverMode,'), 'gameplay route must preserve the caller entry-cover mode');
 assert.ok(!sceneHomeEntry.includes("entryCoverMode === 'none' ? 'auto'"), 'gameplay route must not silently convert no-cover entry back to auto cover');
 assert.ok(!startupCloudRestore.includes("requestGameplayRoute(restoredLevel, 'level_', false, 'cover')"), 'cloud restore route must not request a cover');

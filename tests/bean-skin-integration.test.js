@@ -110,7 +110,9 @@ assert.ok(moduleSource.includes('actionLabel.node.active = owned') && moduleSour
 assert.match(moduleSource, /runRewardedGrant\('bean_skin_unlock',[\s\S]*?grantBeanSkin\(skin\.id\)[\s\S]*?afterGrant:[\s\S]*?equipBeanSkin\(skin\.id/);
 assert.strictEqual(backgroundPage._lpos.y, -58.17, 'authored background page y');
 assert.strictEqual(prefabObject(backgroundPage._components[0])._contentSize.height, 650, 'authored background page height');
-assert.ok(moduleSource.includes('backgroundContent.active = true') && moduleSource.includes('beanContent.active = false'), 'runtime opens on background page');
+assert.ok(moduleSource.includes('backgroundContent.active = false') && moduleSource.includes('beanContent.active = true'), 'runtime opens on bean page');
+assert.strictEqual(requirePrefabChild(tabs, 'SkinCategoryTab_bean', 'SkinCategoryTabs')._lpos.x, -106, 'bean tab is on the left');
+assert.strictEqual(requirePrefabChild(tabs, 'SkinCategoryTab_background', 'SkinCategoryTabs')._lpos.x, 106, 'background tab is on the right');
 assert.strictEqual(beanPage._lpos.y, -64, 'authored bean page y');
 assert.strictEqual(prefabObject(beanPage._components[0])._contentSize.height, 620, 'authored bean page height');
 assert.ok(hasPrefabComponent(beanPage, 'cc.Mask'), 'bean page authored mask');

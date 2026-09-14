@@ -127,14 +127,16 @@ export class AppTransitionController extends Component {
 
     completeAfterDraw(sceneName: AppSceneName, error: unknown | null = null): boolean {
         const active = this.transaction;
-        if (!active || active.targetScene !== sceneName || this.afterDraw) return false;
+        if (!active || active.targetScene !== sceneName || !active.taskStarted) return false;
+        // A failure must override a success signal already waiting for the same frame.
+        if (error !== null) active.error = error;
+        if (this.afterDraw) return false;
         const token = active.token;
         this.afterDraw = () => {
             this.afterDraw = null;
             const current = this.transaction;
             if (!current || current.token !== token) return;
             current.ready = true;
-            if (error !== null) current.error = error;
             this.tryBeginReveal();
         };
         director.once(Director.EVENT_AFTER_DRAW, this.afterDraw, this);
@@ -166,8 +168,11 @@ export class AppTransitionController extends Component {
     private startTask(): void {
         const active = this.transaction;
         if (!active || active.taskStarted) return;
-        active.taskStarted = true;
-        Promise.resolve().then(active.task).then(() => {
+        Promise.resolve().then(() => {
+            if (this.transaction?.token !== active.token) return;
+            active.taskStarted = true;
+            return active.task();
+        }).then(() => {
             if (this.transaction?.token !== active.token) return;
             active.taskFinished = true;
             this.tryBeginReveal();

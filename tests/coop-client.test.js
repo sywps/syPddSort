@@ -14,7 +14,15 @@ const compiled = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../ass
 const loaded = { exports: {} };
 let localPreview = false;
 let miniGame = false;
-new Function('module', 'exports', 'require', compiled)(loaded, loaded.exports, name => {
+new Function('module', 'exports', 'require', compiled)(loaded, loaded.exports, function resolveDependency(name) {
+    if (name.endsWith('/CoopBrowserRuntime') || name.endsWith('/CoopBrowserStore')) {
+        const module = { exports: {} };
+        const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core', name.split('/').pop() + '.ts'), 'utf8'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+        }).outputText;
+        new Function('module', 'exports', 'require', code)(module, module.exports, resolveDependency);
+        return module.exports;
+    }
     if (name === 'cc') return { JsonAsset: class {}, sys };
     if (name.endsWith('/CoopModeConfig')) return config;
     if (name.endsWith('/PvpHumanReplay')) return replay;
@@ -91,17 +99,47 @@ async function main() {
     localPreview = true;
     try {
         const simulator = new loaded.exports.CoopServiceMgr();
-        let request;
-        global.fetch = async (url, options) => { request = { url, body: JSON.parse(options.body) }; return { ok: true, json: async () => ({ ok: true, overview: {} }) }; };
-        await simulator.overview();
-        assert.equal(request.body.player, 'A');
-        simulator.switchLocalPlayer(); await simulator.overview();
-        assert.equal(request.body.player, 'B');
+        global.fetch = async () => { throw new Error('Network must not be used by browser cooperation'); };
+        const lockDescriptor = Object.getOwnPropertyDescriptor(global.navigator, 'locks');
+        Object.defineProperty(global.navigator, 'locks', { configurable: true, value: { request: async (_key, callback) => callback() } });
+        try {
+            runtime._loadLevelDataFromConfiguredSource = (id, _prefix, callback) => callback(require(`../assets/LevelData/coop_level_${id}.json`));
+            await Promise.all([simulator.catalog(runtime), simulator.overview()]);
+            const created = await simulator.call('create', { levelId: 7 });
+            simulator.switchLocalPlayer();
+            assert.equal((await simulator.overview()).overview.activeCreated, null);
+            await assert.rejects(simulator.call('join', { postId: created.post.id }), /还未完成/);
+            simulator.localPlayer = 'A';
+            for (const role of ['creator', 'collaborator']) {
+                const current = role === 'creator' ? created : await simulator.call('join', { postId: created.post.id });
+                const testReplay = new replay.PvpHumanReplay(config.coopHalfLevel(full, role), config.COOP_MAX_ELAPSED_MS, true);
+                const events = [[0, 0, 1]]; testReplay.apply(events[0]);
+                for (let i = 1; !testReplay.board.isAllLocked() && i < 100; i++) {
+                    const event = [i, 5, 0]; events.push(event); testReplay.apply(event);
+                }
+                assert(testReplay.board.isAllLocked());
+                const result = await simulator.call('complete', { postId: created.post.id, version: current.run.version, requestId: '1234567890abcdef', events });
+                assert.equal(result.run.status, 'complete');
+                if (role === 'creator') {
+                    await simulator.call('publish', { postId: created.post.id, published: true });
+                    simulator.switchLocalPlayer();
+                    assert.equal((await simulator.call('square')).posts[0].id, created.post.id);
+                }
+            }
+            const reloaded = new loaded.exports.CoopServiceMgr();
+            await reloaded.catalog(runtime);
+            const restored = (await reloaded.overview()).overview;
+            assert.equal(restored.activeCreated, null);
+            assert(Object.keys(restored.unlocked).length > 0, 'creator collection survives reload');
+            reloaded.switchLocalPlayer();
+            assert(Object.keys((await reloaded.overview()).overview.unlocked).length > 0, 'collaborator collection persists separately');
+        } finally {
+            if (lockDescriptor) Object.defineProperty(global.navigator, 'locks', lockDescriptor);
+            else delete global.navigator.locks;
+        }
         simulator.share({ ...post, creatorDone: true });
         assert.equal(simulator.localInvitation(), post.id);
         simulator.active = {}; assert.throws(() => simulator.switchLocalPlayer(), /退出/); simulator.active = null;
-        global.fetch = async () => { throw new Error('offline'); };
-        await assert.rejects(simulator.overview(), /npm run coop:local/);
         miniGame = true;
         assert.equal(simulator.isLocalSimulation(), false, 'mini-game builds never route to simulator');
         await assert.rejects(simulator.overview(), /微信云服务/);

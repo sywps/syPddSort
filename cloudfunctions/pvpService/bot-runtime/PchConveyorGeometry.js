@@ -2,9 +2,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RAINBOW_CONVEYOR_CORNER_RADIUS = exports.RAINBOW_CONVEYOR_EXIT_POINT_INDEX = exports.RAINBOW_CONVEYOR_PATHS = void 0;
+exports.conveyorEntranceCarrier = conveyorEntranceCarrier;
 exports.createRoundedConveyorPath = createRoundedConveyorPath;
 exports.sampleRoundedConveyorPath = sampleRoundedConveyorPath;
 exports.conveyorExitProgress = conveyorExitProgress;
+// Original pixel-puzzle path, shared by rendering and replay verification.
+function conveyorEntranceCarrier(travel, count) {
+    let index = 0;
+    let distance = Infinity;
+    for (let candidate = 0; candidate < count; candidate++) {
+        const progress = ((((candidate + travel) / count) % 1) + 1) % 1;
+        const delta = Math.min(progress, 1 - progress);
+        if (delta < distance) {
+            index = candidate;
+            distance = delta;
+        }
+    }
+    return { index, distance };
+}
 exports.RAINBOW_CONVEYOR_PATHS = {
     2: [[-219, -99], [390, -96], [390, 104.2], [152, 104.2], [-396, 104.2], [-390, -92]],
     3: [[-327, -159], [447, -162], [447, 161], [263, 161], [264, 50],

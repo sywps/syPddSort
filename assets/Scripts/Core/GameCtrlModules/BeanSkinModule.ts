@@ -650,12 +650,12 @@ export function installBeanSkinModule(target: any): void {
             }
             this._backgroundSkinPanelContent = backgroundContent;
             this._beanSkinPanelContent = beanContent;
-            this._beanSkinPanelActiveTab = 'background';
-            backgroundContent.active = true;
-            beanContent.active = false;
+            this._beanSkinPanelActiveTab = 'bean';
+            backgroundContent.active = false;
+            beanContent.active = true;
             const tabs = [
-                { key: 'background', text: '背景' },
                 { key: 'bean', text: '豆豆' },
+                { key: 'background', text: '背景' },
             ];
             for (const tab of tabs) {
                 const tabNode = requireBeanPanelChild(tabsRoot, `SkinCategoryTab_${tab.key}`, 'BackgroundSkinPanel/Box/SkinCategoryTabs');
@@ -802,7 +802,7 @@ export function installBeanSkinModule(target: any): void {
             this._backgroundSkinPanelContent = null;
             this._beanSkinPanelContent = null;
             this._beanSkinPanelCards = [];
-            this._beanSkinPanelActiveTab = 'background';
+            this._beanSkinPanelActiveTab = 'bean';
         },
 
         equipBeanSkin(id: number, callback?: (ok: boolean, err?: Error | null) => void): void {

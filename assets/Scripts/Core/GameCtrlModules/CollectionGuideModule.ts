@@ -94,7 +94,7 @@ export function installCollectionGuideModule(target: any): void {
             const normalizedPrefix = String(prefix || 'level_');
             const gameplayEntryMode = normalizedPrefix === 'zt_level_' ? 'theme' : 'main';
             const startedFromHome = this.getRuntimeSceneName('Game') === 'Home';
-            if (this._collectionReplayStarting) return false;
+            if (this._collectionReplayStarting || this._gameplayTransitionPromise) return false;
 
             if (startedFromHome) {
                 const appRoot = AppRoot.tryGet();
@@ -136,7 +136,7 @@ export function installCollectionGuideModule(target: any): void {
                         normalizedLevelId,
                         normalizedPrefix,
                         false,
-                        'none',
+                        'auto',
                         COLLECTION_REPLAY_ROUTE_REASON,
                     ).then(() => {
                         this._collectionReplayStarting = false;
@@ -144,17 +144,15 @@ export function installCollectionGuideModule(target: any): void {
                     }).catch(failStart);
                 }
 
-                this._isThemeLevel = gameplayEntryMode === 'theme';
-                this._currentThemeLevelId = this._isThemeLevel ? normalizedLevelId : 0;
-                this.deactivateMainMenuNode();
-                this.loadLevel(
-                    normalizedLevelId,
-                    normalizedPrefix,
-                    false,
-                    COLLECTION_REPLAY_ROUTE_REASON,
-                );
-                this._collectionReplayStarting = false;
-                return true;
+                return this.requestGameplayTransition(`collection:${normalizedPrefix}${normalizedLevelId}`, () => {
+                    this._isThemeLevel = gameplayEntryMode === 'theme';
+                    this._currentThemeLevelId = this._isThemeLevel ? normalizedLevelId : 0;
+                    this.deactivateMainMenuNode();
+                    this.loadLevel(normalizedLevelId, normalizedPrefix, false, COLLECTION_REPLAY_ROUTE_REASON);
+                }).then((success: boolean) => {
+                    this._collectionReplayStarting = false;
+                    return success;
+                }).catch(failStart);
             } catch (error) {
                 return failStart(error);
             }

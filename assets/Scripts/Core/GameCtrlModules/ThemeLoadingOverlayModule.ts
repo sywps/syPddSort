@@ -98,6 +98,7 @@ function startWeChatDisplayShare(runtime: any, options: WeChatDisplayShareOption
 export function installThemeLoadingOverlayModule(target: any): void {
     Object.assign(target, {
         startThemeLevel(levelId: number, options: { suppressFailureToast?: boolean } = {}): boolean | Promise<boolean> {
+            if (this._gameplayTransitionPromise) return false;
             const normalizedLevelId = Math.max(1, Math.floor(Number(levelId) || 1));
             const startedFromHome = this.getRuntimeSceneName('Game') === 'Home';
             const onFail = (error: unknown): false => {
@@ -105,7 +106,7 @@ export function installThemeLoadingOverlayModule(target: any): void {
                 if (!options.suppressFailureToast) {
                     this.showToast('像素关启动失败，请重试');
                 }
-                if (!startedFromHome) this.showMainMenu();
+                if (!startedFromHome && !this._levelDataLoadStopped) this.showMainMenu();
                 return false;
             };
             if (!this.costVigorForLevel(normalizedLevelId, 'theme')) {
@@ -125,13 +126,10 @@ export function installThemeLoadingOverlayModule(target: any): void {
                     .then(() => true)
                     .catch(onFail);
             }
-            try {
+            return this.requestGameplayTransition(`theme:${normalizedLevelId}`, () => {
                 this.deactivateMainMenuNode();
                 this.loadThemeLevel(normalizedLevelId);
-                return true;
-            } catch (error) {
-                return onFail(error);
-            }
+            }).catch(onFail);
         },
 
         shareCurrentWinLevel() {

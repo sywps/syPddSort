@@ -396,6 +396,20 @@ const resumedTweenTargets = [];
 const controllerModule = { exports: {} };
 const loadController = new Function('module', 'exports', 'require', controllerCompiled.outputText);
 loadController(controllerModule, controllerModule.exports, (request) => {
+    if (request === 'cc') return { sp: { Skeleton: class Skeleton {} } };
+    if (request === './OriginalBeanSelection' || request === './BeanSelectionPreview') {
+        const exports = {};
+        const js = ts.transpileModule(fs.readFileSync(path.join(projectRoot, 'assets/Scripts/Core', request + '.ts'), 'utf8'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+        }).outputText;
+        new Function('exports', 'require', js)(exports, dependency => {
+            if (dependency === 'cc/env') return { PREVIEW: false };
+            if (dependency === './BeanSelectionExperiment') return { beanSelectionExperiment: { content: () => 'A' } };
+            if (dependency === './MiniGamePlatform') return { isMiniGameRuntime: () => false };
+            throw new Error(`unexpected preview dependency: ${dependency}`);
+        });
+        return exports;
+    }
     if (request === './PchConveyorRules') return { PchConveyorRules };
     if (request === './PchConveyorGeometry') return require('../cloudfunctions/pvpService/bot-runtime/PchConveyorGeometry');
     if (request === './AppRoot') return { AppRoot: { tryGet() { return null; } } };

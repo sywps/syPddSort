@@ -34,6 +34,7 @@ import { ensureGameplayResultPanelController } from '../GameplayResultPanelContr
 import type { ResultPanelKind } from '../GameplayResultPanelController';
 import { releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 import { runtimeLog } from '../RuntimeLog';
+import { openFeedbackPanel } from '../Panels/FeedbackPanelController';
 import type { RewardedAdOutcome, RewardedAdStateSnapshot } from '../../Platform/RewardedAdProvider';
 import { weChatShareReturnService } from '../../Platform/WeChatShareReturnService';
 import type { WeChatShareReturnHandle } from '../../Platform/WeChatShareReturnService';
@@ -1323,6 +1324,13 @@ export function installHomeAdFlowModule(target: any): void {
             this.drawCollectionButton(entryLayer);
             this.drawSkinButton?.(entryLayer);
             this.drawGameCircleButton?.(entryLayer);
+            const feedback = this.requireUiChild(entryLayer, 'FeedbackButton', 'EntryLayer/FeedbackButton');
+            feedback.targetOff(this);
+            feedback.getComponent(Button) || feedback.addComponent(Button);
+            feedback.on(Button.EventType.CLICK, () => {
+                AudioMgr.inst.play('button');
+                openFeedbackPanel(this);
+            }, this);
             const legacyPvpEntry = entryLayer.getChildByName('PvpEntryButton');
             if (legacyPvpEntry) {
                 legacyPvpEntry.active = false;
@@ -1457,13 +1465,13 @@ export function installHomeAdFlowModule(target: any): void {
         },
 
         drawHomeLevelPixelPreview(parent: Node, levelId: number, x: number, y: number) {
-            const frameSize = 324;
+            const frameSize = 380;
             parent.getChildByName('HeroCardHint')?.destroy();
             const previewAnchor = this.requireUiChild(parent, 'PreviewAnchor', 'HeroCard/PreviewAnchor');
             const oldPreview = previewAnchor.getChildByName('PixelPreview');
             releasePixelPosterPreviewTree(oldPreview || null);
             oldPreview?.destroy();
-            this.drawCollectionPixelPreviewOnCard(previewAnchor, levelId, x, y, frameSize, frameSize);
+            this.drawCollectionPixelPreviewOnCard(previewAnchor, levelId, x - 5, y - 16, frameSize, frameSize, 'level_', { padding: 4 });
         },
 
         drawLivesBanner(parent: Node) {

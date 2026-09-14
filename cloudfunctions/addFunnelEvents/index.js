@@ -64,7 +64,8 @@ function sanitizeExtraValue(value, allowNested, depth) {
 function sanitizeExtra(value, allowNested = false, depth = 0) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const result = {};
-  for (const [key, raw] of Object.entries(value).slice(0, 30)) {
+  // Preserve the existing 30-field budget plus five independent selection-experiment fields.
+  for (const [key, raw] of Object.entries(value).slice(0, 35)) {
     const safeKey = cleanString(key, 64);
     if (!safeKey) continue;
     const safeValue = sanitizeExtraValue(raw, allowNested, depth);

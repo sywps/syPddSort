@@ -346,17 +346,29 @@ assert.ok(audioMgr.sfxSources.some((source) => source.playing), 'SFX playback mu
 const settleClip = { _nativeAsset: { url: 'settle.mp3' } };
 audioMgr.sfxClips.set('settle', settleClip);
 audioClockMs = 10_000;
-for (let i = 0; i < 9; i++) audioMgr.play('settle');
+for (let i = 0; i < 10; i++) {
+    audioMgr.play('settle');
+    audioClockMs += 50;
+}
 const settleSources = [...audioMgr.placeOneShotSources];
-assert.strictEqual(settleSources.length, 1, 'active settlement cue must suppress overlapping settlement one-shots');
-assert.ok(settleSources[0].playing, 'the first settlement one-shot must continue playing');
-audioClockMs += 99;
+assert.strictEqual(settleSources.length, 10, 'ten arrivals at 50ms intervals must all start a sound');
+assert.ok(settleSources.every(source => source.playCount === 1 && source.playing && source.stopCount === 0), 'later arrivals must not interrupt previous sounds');
+for (let i = 0; i < 3; i++) audioMgr.play('settle');
+assert.strictEqual(audioMgr.placeOneShotSources.size, 13, 'arrivals sharing a frame must not be dropped');
+settleSources[0].complete();
+assert.strictEqual(audioMgr.placeOneShotSources.size, 12, 'completion must release only its own source');
+assert.strictEqual(settleSources[0].destroyCount, 1);
+assert.strictEqual(settleSources[0].node.isValid, false);
+assert.ok(settleSources.slice(1).every(source => source.playing && source.stopCount === 0));
+const remainingSettleSources = [...audioMgr.placeOneShotSources];
+audioMgr.setSfxEnabled(false);
+assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'mute must release all overlapping sources');
+assert.ok(remainingSettleSources.every(source => !source.playing && source.destroyCount === 1 && !source.node.isValid));
 audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'settlement cue must remain locked before 100ms');
-audioClockMs += 1;
+assert.strictEqual(audioMgr.placeOneShotSources.size, 0, 'muted arrivals must stay silent');
+audioMgr.setSfxEnabled(true);
 audioMgr.play('settle');
-assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'new settlement cue must replace the finished audible window at 100ms');
-assert.ok(settleSources[0].stopCount >= 1, 'starting the next settlement cue must release the prior silent tail');
+assert.strictEqual(audioMgr.placeOneShotSources.size, 1, 'reenabling sound must allow next arrival');
 audioMgr.stopSfx();
 
 const toggleHandler = settingsSource.match(/toggle\.on\(Button\.EventType\.CLICK, \(\) => \{([\s\S]*?)\n    \}, runtime\);/);

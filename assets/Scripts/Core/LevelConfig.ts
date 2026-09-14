@@ -157,6 +157,8 @@ export function validateHard(value: unknown, label: string = 'level data'): Hard
 
 export interface LevelTutorialGuideConfig {
     mode?: string;
+    /** First-level conveyor guide: two unlocked colors in teaching order. */
+    openingColors?: number[];
     guideCopies?: string[];
     title?: string;
     subtitle?: string;

@@ -1,41 +1,17 @@
 import {
     _decorator,
-    Color,
     Component,
-    Graphics,
     Node,
     Tween,
     UIOpacity,
-    UITransform,
     Vec3,
     tween,
 } from 'cc';
 
 const { ccclass } = _decorator;
 
-const FX_ROOT_NAME = 'HomeStartButtonFx-Root';
-const FX_SPARKLE_PREFIX = 'HomeStartButtonFx-Sparkle';
-
 const IDLE_BOUNCE_INITIAL_DELAY = 0.5;
 const IDLE_BOUNCE_REPEAT_DELAY = 1.45;
-
-type HomeStartButtonSparkleSpec = {
-    xRatio: number;
-    yRatio: number;
-    size: number;
-    delay: number;
-};
-
-const SPARKLES: HomeStartButtonSparkleSpec[] = [
-    { xRatio: -0.42, yRatio: 0.18, size: 11, delay: 0.1 },
-    { xRatio: -0.28, yRatio: 0.36, size: 14, delay: 0.42 },
-    { xRatio: 0.28, yRatio: 0.36, size: 14, delay: 0.74 },
-    { xRatio: 0.42, yRatio: 0.18, size: 11, delay: 1.06 },
-    { xRatio: -0.38, yRatio: -0.2, size: 10, delay: 1.38 },
-    { xRatio: 0.38, yRatio: -0.2, size: 10, delay: 1.7 },
-    { xRatio: -0.1, yRatio: 0.42, size: 10, delay: 2.02 },
-    { xRatio: 0.1, yRatio: 0.42, size: 10, delay: 2.34 },
-];
 
 @ccclass('HomeStartButtonFx')
 export class HomeStartButtonFx extends Component {
@@ -43,7 +19,6 @@ export class HomeStartButtonFx extends Component {
     private readonly _baseScale = new Vec3();
     private _baseAngle = 0;
     private _hasBase = false;
-    private _fxRoot: Node | null = null;
     private _buttonOpacity: UIOpacity | null = null;
     private _destroying = false;
 
@@ -68,7 +43,6 @@ export class HomeStartButtonFx extends Component {
         this._destroying = true;
         this.stopTweensForOwnedNodes();
         this.restoreBaseState();
-        this._fxRoot = null;
         this._buttonOpacity = null;
     }
 
@@ -84,51 +58,8 @@ export class HomeStartButtonFx extends Component {
     }
 
     private prepareFx(): void {
-        const transform = this.node.getComponent(UITransform);
-        if (!transform) return;
-        this.clearFxRoot();
         this._buttonOpacity = this.node.getComponent(UIOpacity) || this.node.addComponent(UIOpacity);
         this._buttonOpacity.opacity = 255;
-
-        const root = new Node(FX_ROOT_NAME);
-        root.layer = this.node.layer;
-        this.node.addChild(root);
-        root.addComponent(UITransform).setContentSize(transform.width, transform.height);
-        root.addComponent(UIOpacity).opacity = 255;
-        root.setPosition(0, 0, 0);
-
-        const labelNode = this.node.getChildByName('BtnSub');
-        if (labelNode?.isValid) {
-            root.setSiblingIndex(labelNode.getSiblingIndex());
-        } else {
-            root.setSiblingIndex(0);
-        }
-
-        SPARKLES.forEach((spec, index) => {
-            const sparkle = new Node(`${FX_SPARKLE_PREFIX}-${index}`);
-            sparkle.layer = root.layer;
-            root.addChild(sparkle);
-            sparkle.addComponent(UITransform).setContentSize(spec.size * 2, spec.size * 2);
-            sparkle.setPosition(spec.xRatio * transform.width, spec.yRatio * transform.height, 0);
-            sparkle.setScale(0.25, 0.25, 1);
-            sparkle.addComponent(UIOpacity).opacity = 0;
-            this.drawSparkle(sparkle.addComponent(Graphics), spec.size);
-        });
-
-        this._fxRoot = root;
-    }
-
-    private clearFxRoot(): void {
-        if (this._destroying || !this.node?.isValid) {
-            this._fxRoot = null;
-            return;
-        }
-        const existing = this.node.getChildByName(FX_ROOT_NAME);
-        if (existing?.isValid) {
-            this.stopTweensForNode(existing);
-            existing.destroy();
-        }
-        this._fxRoot = null;
     }
 
     private restartFx(): void {
@@ -140,7 +71,6 @@ export class HomeStartButtonFx extends Component {
 
     private startIdleFx(): void {
         this.startIdleScaleBounce();
-        this.startSparkles();
     }
 
     private startIdleScaleBounce(): void {
@@ -172,60 +102,6 @@ export class HomeStartButtonFx extends Component {
             .start();
     }
 
-    private startSparkles(): void {
-        const root = this._fxRoot;
-        if (!root?.isValid) return;
-        SPARKLES.forEach((spec, index) => {
-            const sparkle = root.getChildByName(`${FX_SPARKLE_PREFIX}-${index}`);
-            const opacity = sparkle?.getComponent(UIOpacity) || null;
-            if (!sparkle || !opacity) return;
-            Tween.stopAllByTarget(sparkle);
-            Tween.stopAllByTarget(opacity);
-            sparkle.angle = 0;
-            sparkle.setScale(0.25, 0.25, 1);
-            opacity.opacity = 0;
-            tween(sparkle)
-                .delay(spec.delay)
-                .to(0.18, { scale: new Vec3(1, 1, 1), angle: 45 }, { easing: 'sineOut' })
-                .to(0.34, { scale: new Vec3(0.35, 0.35, 1), angle: 90 }, { easing: 'sineIn' })
-                .delay(2.2)
-                .union()
-                .repeatForever()
-                .start();
-            tween(opacity)
-                .delay(spec.delay)
-                .to(0.12, { opacity: 235 }, { easing: 'sineOut' })
-                .delay(0.18)
-                .to(0.22, { opacity: 0 }, { easing: 'sineIn' })
-                .delay(2.2)
-                .union()
-                .repeatForever()
-                .start();
-        });
-    }
-
-    private drawSparkle(graphics: Graphics, size: number): void {
-        graphics.clear();
-        graphics.fillColor = new Color(255, 246, 180, 228);
-        graphics.moveTo(0, size);
-        graphics.lineTo(size * 0.26, size * 0.26);
-        graphics.lineTo(size, 0);
-        graphics.lineTo(size * 0.26, -size * 0.26);
-        graphics.lineTo(0, -size);
-        graphics.lineTo(-size * 0.26, -size * 0.26);
-        graphics.lineTo(-size, 0);
-        graphics.lineTo(-size * 0.26, size * 0.26);
-        graphics.close();
-        graphics.fill();
-        graphics.fillColor = new Color(255, 255, 255, 210);
-        graphics.moveTo(0, size * 0.42);
-        graphics.lineTo(size * 0.16, 0);
-        graphics.lineTo(0, -size * 0.42);
-        graphics.lineTo(-size * 0.16, 0);
-        graphics.close();
-        graphics.fill();
-    }
-
     private stopTweensForNode(node: Node | null): void {
         if (!node?.isValid) return;
         Tween.stopAllByTarget(node);
@@ -235,12 +111,6 @@ export class HomeStartButtonFx extends Component {
 
     private stopTweensForOwnedNodes(): void {
         this.stopTweensForNode(this.node);
-        const root = this._fxRoot?.isValid ? this._fxRoot : null;
-        this.stopTweensForNode(root);
-        if (!root) return;
-        for (const child of root.children.slice()) {
-            this.stopTweensForNode(child);
-        }
     }
 
     private stopAndReset(): void {

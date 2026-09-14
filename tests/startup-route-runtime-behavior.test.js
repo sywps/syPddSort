@@ -59,7 +59,7 @@ function loadFirstLevelRouteModule(appRoot, traceEvents) {
     const gameCtrlShared = new Proxy({}, {
         get(_target, prop) {
             if (prop === 'LOCAL_BOOTSTRAP_LEVEL_PREFIX') return 'level_';
-            if (prop === 'AnalyticsMgr') return { inst: { flushFunnelEvents() {} } };
+            if (prop === 'AnalyticsMgr') return { inst: { flushFunnelEvents() {}, async prepareFirstLevelExperiment() {} } };
             if (prop === 'assetManager') return {};
             if (prop === 'sys') return { isNative: false };
             return 0;
@@ -91,6 +91,9 @@ function loadFirstLevelRouteModule(appRoot, traceEvents) {
                         },
                     },
                 };
+            }
+            if (id === '../FirstLevelContent') {
+                return { getLocalLevelContentPath: (levelId, prefix = 'level_') => `LevelData/${prefix}${levelId}` };
             }
             if (id === '../MiniGamePlatform') {
                 return {

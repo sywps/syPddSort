@@ -45,14 +45,47 @@ class Node {
   }
   addChild(child) { child.parent = this; this.children.push(child); }
   getChildByName(name) { return this.children.find(child => child.name === name && child.isValid); }
+  getChildByPath(path) { return path.split('/').reduce((node, name) => node?.getChildByName(name), this); }
   addComponent(Type) { const c = new Type(); c.node = this; this.components.set(Type, c); return c; }
   getComponent(Type) { return this.components.get(Type) || null; }
   setPosition(x, y, z) { this.position = { x, y, z }; }
   setScale(x, y, z) { this.scale = { x, y, z }; }
-  on(event, handler) { this.handlers.set(event, handler); }
-  destroy() { this.isValid = false; this.children.forEach(child => child.destroy()); }
+  on(event, handler) {
+    this.listeners ||= new Map();
+    const listeners = this.listeners.get(event) || [];
+    listeners.push(handler); this.listeners.set(event, listeners);
+    this.handlers.set(event, (...args) => [...listeners].forEach(fn => fn(...args)));
+  }
+  once(event, handler) { const wrapped = (...args) => { this.off(event, wrapped); handler(...args); }; this.on(event, wrapped); }
+  off(event, handler) { const list = this.listeners?.get(event); if (list?.includes(handler)) list.splice(list.indexOf(handler), 1); }
+  targetOff() {}
+  destroy() { this.isValid = false; this.handlers.get(Node.EventType.NODE_DESTROYED)?.(); this.children.forEach(child => child.destroy()); }
 }
 Node.EventType = { NODE_DESTROYED: 'destroyed' };
+
+// Deserialize the real asset rather than reconstructing the removed layout in the test.
+class Prefab { addRef() { this.refs = (this.refs || 0) + 1; } decRef() { this.refs--; } }
+const prefabData = JSON.parse(fs.readFileSync(path.join(__dirname, '../assets/GameAssetsBundle/UI/Prefabs/Panels/PixelPuzzleLobby.prefab'), 'utf8'));
+function instantiate(prefab) {
+  const data = prefab.data;
+  function nodeAt(id) {
+    const value = data[id], node = new Node(value._name);
+    node.active = value._active; node.position = { ...value._lpos }; node.scale = { ...value._lscale };
+    for (const ref of value._components) {
+      const c = data[ref.__id__];
+      if (c.__type__ === 'cc.UITransform') node.addComponent(UITransform).setContentSize(c._contentSize.width, c._contentSize.height);
+      else if (c.__type__ === 'cc.Label') Object.assign(node.addComponent(Label), { string: c._string, fontSize: c._fontSize, color: c._color });
+      else if (c.__type__ === 'cc.Button') node.addComponent(Button).interactable = c._interactable;
+      else if (c.__type__ === 'cc.Sprite') node.addComponent(Sprite).spriteFrame = c._spriteFrame;
+      else if (c.__type__ === 'cc.BlockInputEvents') node.addComponent(BlockInputEvents);
+    }
+    for (const ref of value._children) node.addChild(nodeAt(ref.__id__));
+    return node;
+  }
+  return nodeAt(data[0].data.__id__);
+}
+const viewSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/Panels/PixelPuzzleLobbyView.ts'), 'utf8');
+const viewCompiled = ts.transpileModule(viewSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
 
 const source = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/PvpModeModule.ts'), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
@@ -109,12 +142,26 @@ function setup(options = {}) {
     matchmake: async levelId => { calls.ranked++; return { matchId: 'new', levelId }; },
   };
   const shared = { Node, UITransform, Label, Button, Graphics, Color, Widget, BlockInputEvents, Layers: { Enum: { UI_2D: 1 } }, AudioMgr: { inst: { play() {} } } };
+  const prefab = new Prefab(); prefab.data = JSON.parse(JSON.stringify(prefabData));
+  if (options.editTitle) prefab.data.find(x => x.__type__ === 'cc.Label' && x._string === '像素拼图')._string = options.editTitle;
+  const prefabLoads = [];
+  const bundle = {
+    get: () => options.delayedPrefab || options.prefabError ? null : prefab,
+    load: (assetPath, Type, callback) => { assert.strictEqual(assetPath, 'UI/Prefabs/Panels/PixelPuzzleLobby'); prefabLoads.push(callback); if (options.prefabError) callback(new Error('prefab missing')); },
+  };
+  const viewModule = { exports: {} };
+  const loadTimers = new Set();
+  const startLoadTimer = (handler, ms) => { const timer = setTimeout(handler, ms); loadTimers.add(timer); return timer; };
+  const clearLoadTimer = timer => { loadTimers.delete(timer); clearTimeout(timer); };
+  vm.runInNewContext(viewCompiled, { module: viewModule, exports: viewModule.exports, console, setTimeout: startLoadTimer, clearTimeout: clearLoadTimer,
+    require: () => ({ Node, Label, Button, Prefab, instantiate }) });
   const module = { exports: {} };
   vm.runInNewContext(compiled, {
     module, exports: module.exports, console, setTimeout, clearTimeout,
     require(id) {
       if (id === 'cc') return { Mask, ScrollView, Sprite, view: { getVisibleSize: () => ({ width: 720, height: 1558 }) } };
       if (id.endsWith('GameCtrlShared')) return shared;
+      if (id.endsWith('PixelPuzzleLobbyView')) return viewModule.exports;
       if (id.endsWith('AppRoot')) return { AppRoot: { inst: app, tryGet: () => app, ensure: () => app } };
       if (id.endsWith('PvpServiceMgr')) return { PvpServiceMgr: { inst: service } };
       if (id.endsWith('CoopServiceMgr')) return { CoopServiceMgr: { inst: { fullLevel: async () => require('../cloudfunctions/coopService/levels/coop_level_1.json') } } };
@@ -124,6 +171,8 @@ function setup(options = {}) {
     },
   });
   const runtime = {
+    _withGameAssetsBundle: done => done(bundle),
+    showToast: message => { calls.toast = message; },
     getVigor: () => options.vigor ?? 10,
     updateVigor() {},
     applyPvpEconomySnapshot: () => { calls.applied = (calls.applied || 0) + 1; },
@@ -153,14 +202,15 @@ function setup(options = {}) {
   module.exports.installPvpModeModule(runtime);
   runtime.showPvpOpponentReveal = (parent, context) => calls.reveals.push(context);
   runtime.openPvpLobby();
-  return { runtime, overlayRoot, calls, session };
+  if (!options.delayedPrefab) assert.strictEqual(loadTimers.size, 0, `unexpected pending load: ${JSON.stringify(options)}`);
+  return { runtime, overlayRoot, calls, session, prefab, prefabLoads, loadTimers };
 }
 
 function assertHomeHasOnlyUnifiedPixelEntry() {
   const homeSource = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core/GameCtrlModules/HomeAdFlowModule.ts'), 'utf8');
   const homeCompiled = ts.transpileModule(homeSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   const homeModule = { exports: {} };
-  vm.runInNewContext(homeCompiled, { module: homeModule, exports: homeModule.exports, console, require: () => ({}) });
+  vm.runInNewContext(homeCompiled, { module: homeModule, exports: homeModule.exports, console, require: () => ({ Button }) });
   const runtime = {};
   homeModule.exports.installHomeAdFlowModule(runtime);
   const menu = new Node('MainMenuFixedRoot');
@@ -171,6 +221,7 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   const primary = child(menu, 'PrimaryActionLayer');
   const theme = child(primary, 'ThemeBtn');
   const entries = child(menu, 'EntryLayer');
+  child(entries, 'FeedbackButton');
   const legacy = child(entries, 'PvpEntryButton');
   let destroyRequested = false;
   legacy.destroy = () => { destroyRequested = true; }; // Cocos destroys nodes at the end of the frame.
@@ -194,7 +245,7 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   assert.strictEqual(legacy.active, false, 'legacy ranked entry must stop rendering/input before deferred destruction');
   assert.strictEqual(destroyRequested, true, 'legacy ranked entry must be removed');
   assert.strictEqual(theme.active, true, 'unified pixel-puzzle home entry must remain visible');
-  entries.children = [];
+  entries.children = entries.children.filter(node => node.name === 'FeedbackButton');
   runtime.renderMainMenuFixedRoot(menu);
   assert.strictEqual(entries.getChildByName('PvpEntryButton'), undefined, 'home refresh must not recreate standalone ranked entry');
   assert.strictEqual(unifiedRenders, 2, 'every home render must retain the unified pixel-puzzle entry');
@@ -205,8 +256,10 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   const chapter = setup();
   assert.strictEqual(find(chapter.overlayRoot, 'LobbySettings').active, false, 'lobby settings must remain temporarily hidden');
   assert.strictEqual(find(chapter.overlayRoot, 'Close').active, true, 'hiding settings must preserve the back button');
-  assert.deepStrictEqual(find(chapter.overlayRoot, 'StartChapter').getComponent(Graphics).fills[1], { r: 77, g: 139, b: 239, a: 255 }, 'shadow drawing must preserve blue button fill');
-  assert.deepStrictEqual(find(chapter.overlayRoot, 'StartMatch').getComponent(Graphics).fills[1], { r: 102, g: 87, b: 200, a: 255 }, 'shadow drawing must preserve purple button fill');
+  for (const name of ['StartChapter', 'StartMatch']) {
+    assert.strictEqual(find(chapter.overlayRoot, name).getComponent(Graphics), null, 'fixed artwork must come from the prefab');
+    assert(find(chapter.overlayRoot, name).getChildByName('Background').getComponent(Sprite).spriteFrame);
+  }
   assert(find(chapter.overlayRoot, 'ChapterLevel').getComponent(Label).string.includes('第 8 关'));
   assert.strictEqual(chapter.calls.preview.length, 1, 'use actual loaded level preview');
   const cards = ['ChapterCard', 'CoopCard', 'RankedCard'].map(name => find(chapter.overlayRoot, name));
@@ -337,7 +390,7 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   click(missingRewardArt.overlayRoot, 'RankRewards');
   await flush();
   assert.strictEqual(find(missingRewardArt.overlayRoot, 'PvpRankRewardsOverlay'), null, 'missing icons must fail visibly');
-  assert(find(missingRewardArt.overlayRoot, 'Status').getComponent(Label).string.includes('图标缺失'));
+  assert.strictEqual(find(missingRewardArt.overlayRoot, 'Status').getComponent(Label).string, '奖励信息待更新，请稍后再试');
   const syncFailed = setup({ syncError: true });
   await flush();
   click(syncFailed.overlayRoot, 'StartMatch');
@@ -355,5 +408,30 @@ function assertHomeHasOnlyUnifiedPixelEntry() {
   const close = setup();
   click(close.overlayRoot, 'Close');
   assert.strictEqual(close.session.pixelPuzzleLobbyActive, false, 'back must return to home rather than reopen lobby');
+  assert.strictEqual(close.prefab.refs, 0, 'closing must release the retained prefab');
+  const delayed = setup({ delayedPrefab: true });
+  delayed.runtime.openPvpLobby();
+  assert.strictEqual(delayed.prefabLoads.length, 1, 'rapid clicks share one pending load');
+  delayed.prefabLoads[0](null, delayed.prefab);
+  assert.strictEqual(delayed.loadTimers.size, 0);
+  assert(find(delayed.overlayRoot, 'ChapterCard'));
+  delayed.runtime.openPvpLobby();
+  assert.strictEqual(delayed.overlayRoot.children.filter(n => n.isValid).length, 1, 'opening an already mounted lobby must not rebuild it');
+  assert.strictEqual(delayed.loadTimers.size, 0, 'an already mounted lobby must not start a second load');
+  click(delayed.overlayRoot, 'Close');
+  assert.strictEqual(delayed.prefab.refs, 0);
+  const cancelled = setup({ delayedPrefab: true });
+  cancelled.overlayRoot.destroy();
+  assert.strictEqual(cancelled.loadTimers.size, 0);
+  cancelled.prefabLoads[0](null, cancelled.prefab);
+  assert.strictEqual(cancelled.overlayRoot.children.length, 0, 'late prefab load must not mount into a destroyed scene');
+  assert.strictEqual(cancelled.prefab.refs || 0, 0);
+  const missing = setup({ prefabError: true });
+  assert.strictEqual(missing.calls.toast, '大厅加载失败，请重试');
+  assert.strictEqual(missing.session.pixelPuzzleLobbyActive, false);
+  assert.strictEqual(missing.overlayRoot.children.length, 0, 'missing prefab must not fall back to procedural UI');
+  const edited = setup({ editTitle: '编辑器修改的大厅标题' });
+  assert.strictEqual(find(edited.overlayRoot, 'Title').getComponent(Label).string, '编辑器修改的大厅标题', 'binding must preserve prefab-owned text');
+  click(edited.overlayRoot, 'Close');
   console.log('PIXEL_PUZZLE_LOBBY_TESTS_PASSED');
 })().catch(error => { console.error(error); process.exitCode = 1; });

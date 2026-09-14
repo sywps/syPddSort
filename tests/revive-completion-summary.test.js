@@ -59,10 +59,20 @@ function verifyPrefab(relativePath) {
     const prefixLabel = findLabel(records, prefix);
     const percentLabel = findLabel(records, percent);
 
-    assert.deepStrictEqual([summary._lpos?.x, summary._lpos?.y], [0, 220], 'summary must occupy the confirmed text-only position');
+    assert.deepStrictEqual([summary._lpos?.x, summary._lpos?.y], [0, 268], 'summary must retain the user-adjusted position');
+    assert.strictEqual(findChild(records, box, 'TitleRibbon')._active, false, 'redundant revive ribbon must stay hidden');
+    assert.deepStrictEqual([findChild(records, box, 'Label')._lpos.x, findChild(records, box, 'Label')._lpos.y], [0, 442]);
+    const prefixUi = componentsOf(records, prefix).find(component => component.__type__ === 'cc.UITransform');
+    const percentUi = componentsOf(records, percent).find(component => component.__type__ === 'cc.UITransform');
+    const prefixRight = prefix._lpos.x + prefixUi._contentSize.width * (1 - prefixUi._anchorPoint.x);
+    assert.strictEqual(percent._lpos.x - prefixRight, 12, 'percentage must follow the prefix with a compact gap');
+    assert.strictEqual(percentUi._anchorPoint.x, 0, 'digit growth must extend right without overlapping the prefix');
+    assert.strictEqual(percentLabel._horizontalAlign, 0);
+    assert.strictEqual(prefixLabel._fontSize, 42);
+    assert.strictEqual(percentLabel._fontSize, 60);
     assert.deepStrictEqual(
         [summaryUi?._contentSize?.width, summaryUi?._contentSize?.height],
-        [500, 58],
+        [500, 90],
         'summary must reserve one compact text row',
     );
     assert.strictEqual(
@@ -87,7 +97,8 @@ function verifyPrefab(relativePath) {
     assert.deepStrictEqual(rgba(percentLabel._outlineColor), [55, 75, 98, 255]);
 
     const isBufferFull = relativePath.includes('BufferFull');
-    const promptLabel = findLabelByText(records, isBufferFull ? '啊哦！传送带满了！' : '时间不够啦！');
+    const promptLabel = findLabelByText(records, isBufferFull ? '啊哦！传送带满啦！' : '时间不够啦！');
+    assert.strictEqual(promptLabel._fontSize, 58);
     const rewardLabel = findLabelByText(records, isBufferFull ? '复活并扩展传送带12格' : '获得120秒额外时间+扩展传送带');
     assert.deepStrictEqual(rgba(promptLabel._color), [255, 195, 42, 255]);
     assert.deepStrictEqual(rgba(promptLabel._outlineColor), [55, 75, 98, 255]);

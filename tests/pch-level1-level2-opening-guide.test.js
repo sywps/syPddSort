@@ -394,8 +394,8 @@ for (const levelId of [1, 2, 3]) {
     assert.strictEqual(shown, 1, `level ${levelId} must retain its guide action without the bubble loader`);
 }
 assert.ok(
-    source.includes("? '点击发光的白色豆豆\\n将它们放上传送带'")
-        && source.includes(": '点击发光的蓝色豆豆\\n为白色豆豆腾出位置';"),
+    source.includes("? '点击白色豆豆\\n将它们放上传送带'")
+        && source.includes(": '点击蓝色豆豆\\n空出白色位置，让白色豆豆自动归位';"),
     'level 1 must use the approved two-step opening-guide copy',
 );
 assert.ok(
@@ -451,8 +451,8 @@ assert.ok(
         && !sharedTargetGuideAtSource.includes("guideName === 'PchLevelOneGuideStep1'")
         && sharedTargetGuideAtSource.includes('bubbleBackground.setScale(1, 1, 1);')
         && sharedTargetGuideAtSource.includes("copy.split('\\n', 2)")
-        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, title, 42, Color.WHITE, 0, 26, promptWidth - 64)')
-        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, detail || title, 32, Color.WHITE, 0, -26, promptWidth - 64)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, title, 36, Color.WHITE, 0, 26, promptWidth - 64)')
+        && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, detail || title, 36, Color.WHITE, 0, -26, promptWidth - 64)')
         && sharedTargetGuideAtSource.includes('this.makeLabel(prompt, copy, 38, Color.WHITE, 0, 0, promptWidth - 64)')
         && sharedTargetGuideAtSource.includes('title, 32, Color.WHITE, 0, 26, promptWidth - 64')
         && sharedTargetGuideAtSource.includes('detail || title, 28, Color.WHITE, 0, -22, promptWidth - 64')

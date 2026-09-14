@@ -37,12 +37,12 @@ export const AUDIO_SFX_VOLUME: Record<SfxName, number> = {
     winAll: 0.50,
     winSettlement: 0.62,
     revivePop: 0.32,
-    judgmentGreat: 0.56,
-    judgmentExcellent: 0.56,
-    judgmentAwesome: 0.56,
-    judgmentAmazing: 0.56,
-    judgmentPerfect: 0.56,
-    judgmentUnbelievable: 0.56,
+    judgmentGreat: 0.42,
+    judgmentExcellent: 0.42,
+    judgmentAwesome: 0.42,
+    judgmentAmazing: 0.42,
+    judgmentPerfect: 0.42,
+    judgmentUnbelievable: 0.42,
 };
 
 export const AUDIO_SFX_VOLUME_VARIANCE: Partial<Record<SfxName, number>> = {

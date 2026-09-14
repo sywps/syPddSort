@@ -67,8 +67,10 @@ const WIN_CONFETTI_SHAPES = [
     { x: 84, y: 0, width: 44, height: 128, minWidth: 30, widthRange: 8, minHeight: 78, heightRange: 20 },
 ] as const;
 const REVIVE_SHARE_STATE_KEY = 'pdd.revive.shareState.v1';
-const REVIVE_SHARE_DAILY_LIMIT = 1;
-const REVIVE_SHARE_MIN_LOGICAL_LEVEL = 4;
+const REVIVE_SHARE_DAILY_LIMIT = 3;
+const REVIVE_SHARE_PROBABILITY = 0.3;
+const REVIVE_SHARE_LEVEL_INTERVAL = 3;
+const REVIVE_SHARE_MIN_LOGICAL_LEVEL = 7;
 const REVIVE_HOLD_TO_PEEK_HINT_NAME = 'HoldToPeekHint';
 const REVIVE_HOLD_TO_PEEK_DURATION_SECONDS = 0.18;
 const REVIVE_HOLD_TO_PEEK_INTERACTIVE_NODE_NAMES = new Set(['ContinueBtn', 'ShareBtn', 'CloseBtn', 'GiveUpBtn']);
@@ -76,6 +78,7 @@ const REVIVE_HOLD_TO_PEEK_INTERACTIVE_NODE_NAMES = new Set(['ContinueBtn', 'Shar
 type ReviveShareState = {
     dateKey: string;
     count: number;
+    lastShareLevel: number;
 };
 
 type ReviveSharePanelKind = 'timeout' | 'buffer-full';
@@ -99,12 +102,7 @@ type ReviveHoldPeekBox = Node & {
     __reviveHoldToPeekReset?: () => void;
 };
 
-type WinBannerSparkleSpec = {
-    xRatio: number;
-    yRatio: number;
-    size: number;
-    delay: number;
-};
+
 
 type WinConfettiParticle = {
     node: Node;
@@ -137,20 +135,7 @@ type WinConfettiParticle = {
     complete: boolean;
 };
 
-const WIN_BANNER_SPARKLES: WinBannerSparkleSpec[] = [
-    { xRatio: -0.44, yRatio: 0.16, size: 10, delay: 0.12 },
-    { xRatio: -0.36, yRatio: 0.29, size: 14, delay: 0.42 },
-    { xRatio: 0.34, yRatio: 0.28, size: 14, delay: 0.74 },
-    { xRatio: 0.43, yRatio: 0.14, size: 10, delay: 1.02 },
-    { xRatio: -0.08, yRatio: 0.43, size: 11, delay: 1.28 },
-    { xRatio: 0.08, yRatio: 0.41, size: 9, delay: 1.56 },
-    { xRatio: -0.22, yRatio: 0.08, size: 8, delay: 1.86 },
-    { xRatio: 0.22, yRatio: 0.08, size: 8, delay: 2.16 },
-    { xRatio: -0.48, yRatio: -0.02, size: 7, delay: 2.46 },
-    { xRatio: 0.48, yRatio: -0.02, size: 7, delay: 2.76 },
-    { xRatio: -0.02, yRatio: 0.18, size: 7, delay: 3.06 },
-    { xRatio: 0.16, yRatio: 0.2, size: 7, delay: 3.36 },
-];
+
 
 @ccclass('WinConfettiFx')
 class WinConfettiFx extends Component {
@@ -353,12 +338,14 @@ export class GameplayResultPanelController {
     private winConfettiPlaySeq = 0;
 
     private reviveFailureSessionSeq = 0;
+    private reviveFailureShareSelected: boolean | null = null;
     private activeReviveFailureSession: ReviveFailureSession | null = null;
     private finalFailureReviveContext: ReviveFailureContext | null = null;
 
     constructor(private readonly runtime: any) {}
 
     captureReviveFailure(kind: ReviveSharePanelKind): void {
+        this.reviveFailureShareSelected = null;
         if (this.activeReviveFailureSession) {
             this.activeReviveFailureSession.active = false;
         }
@@ -398,6 +385,7 @@ export class GameplayResultPanelController {
 
     private completeReviveFailureSession(session: ReviveFailureSession): void {
         if (this.activeReviveFailureSession?.token !== session.token) return;
+        this.reviveFailureShareSelected = null;
         session.active = false;
         this.activeReviveFailureSession = null;
         this.finalFailureReviveContext = null;
@@ -420,6 +408,7 @@ export class GameplayResultPanelController {
     }
 
     private leaveFailureToHome(overlay: Node): void {
+        this.reviveFailureShareSelected = null;
         const runtime = this.runtime;
         if (this.activeReviveFailureSession) {
             this.activeReviveFailureSession.active = false;
@@ -830,28 +819,6 @@ export class GameplayResultPanelController {
         return new Vec3(base.x * scaleX, base.y * scaleY, base.z);
     }
 
-    private drawWinBannerSparkle(graphics: Graphics, size: number): void {
-        graphics.clear();
-        graphics.fillColor = new Color(255, 246, 180, 228);
-        graphics.moveTo(0, size);
-        graphics.lineTo(size * 0.26, size * 0.26);
-        graphics.lineTo(size, 0);
-        graphics.lineTo(size * 0.26, -size * 0.26);
-        graphics.lineTo(0, -size);
-        graphics.lineTo(-size * 0.26, -size * 0.26);
-        graphics.lineTo(-size, 0);
-        graphics.lineTo(-size * 0.26, size * 0.26);
-        graphics.close();
-        graphics.fill();
-        graphics.fillColor = new Color(255, 255, 255, 210);
-        graphics.moveTo(0, size * 0.42);
-        graphics.lineTo(size * 0.16, 0);
-        graphics.lineTo(0, -size * 0.42);
-        graphics.lineTo(-size * 0.16, 0);
-        graphics.close();
-        graphics.fill();
-    }
-
     private createWinBannerFxNode(parent: Node, name: string, width: number, height: number): Node {
         const node = new Node(name);
         node.layer = parent.layer;
@@ -891,17 +858,6 @@ export class GameplayResultPanelController {
         const bannerOpacity = banner.getComponent(UIOpacity) ?? banner.addComponent(UIOpacity);
         bannerOpacity.opacity = 255;
 
-        const root = this.createWinBannerFxNode(banner, `${WIN_BANNER_FX_PREFIX}-Root`, transform.width, transform.height);
-        root.setPosition(0, 0, 0);
-        root.addComponent(UIOpacity).opacity = 255;
-
-        WIN_BANNER_SPARKLES.forEach((spec, index) => {
-            const sparkle = this.createWinBannerFxNode(root, `${WIN_BANNER_FX_PREFIX}-Sparkle-${index}`, spec.size * 2, spec.size * 2);
-            sparkle.setPosition(spec.xRatio * transform.width, spec.yRatio * transform.height, 0);
-            sparkle.setScale(0.25, 0.25, 1);
-            sparkle.addComponent(UIOpacity).opacity = 0;
-            this.drawWinBannerSparkle(sparkle.addComponent(Graphics), spec.size);
-        });
         return banner;
     }
 
@@ -964,35 +920,7 @@ export class GameplayResultPanelController {
     }
 
     private startWinBannerIdleFx(banner: Node): void {
-        const root = banner.getChildByName(`${WIN_BANNER_FX_PREFIX}-Root`);
         this.startWinBannerIdleJelly(banner);
-        WIN_BANNER_SPARKLES.forEach((spec, index) => {
-            const sparkle = root?.getChildByName(`${WIN_BANNER_FX_PREFIX}-Sparkle-${index}`) ?? null;
-            const opacity = sparkle?.getComponent(UIOpacity) ?? null;
-            if (!sparkle || !opacity) return;
-            Tween.stopAllByTarget(sparkle);
-            Tween.stopAllByTarget(opacity);
-            sparkle.angle = 0;
-            sparkle.setScale(0.25, 0.25, 1);
-            opacity.opacity = 0;
-            tween(sparkle)
-                .delay(spec.delay)
-                .to(0.18, { scale: new Vec3(1, 1, 1), angle: 45 }, { easing: 'sineOut' })
-                .to(0.34, { scale: new Vec3(0.35, 0.35, 1), angle: 90 }, { easing: 'sineIn' })
-                .delay(2.2)
-                .union()
-                .repeatForever()
-                .start();
-            tween(opacity)
-                .delay(spec.delay)
-                .to(0.12, { opacity: 230 }, { easing: 'sineOut' })
-                .delay(0.18)
-                .to(0.22, { opacity: 0 }, { easing: 'sineIn' })
-                .delay(2.2)
-                .union()
-                .repeatForever()
-                .start();
-        });
     }
 
     private clearWinConfettiFx(panel: Node): void {
@@ -1167,15 +1095,17 @@ export class GameplayResultPanelController {
         const fallback: ReviveShareState = {
             dateKey: this.getReviveShareDateKey(nowMs),
             count: 0,
+            lastShareLevel: 0,
         };
         try {
             const raw = storage.getItem(REVIVE_SHARE_STATE_KEY);
             if (!raw) return fallback;
             const parsed = JSON.parse(raw);
-            if (!parsed || parsed.dateKey !== fallback.dateKey) return fallback;
+            if (!parsed) return fallback;
             return {
                 dateKey: fallback.dateKey,
-                count: Math.max(0, Math.floor(Number(parsed.count) || 0)),
+                count: parsed.dateKey === fallback.dateKey ? Math.max(0, Math.floor(Number(parsed.count) || 0)) : 0,
+                lastShareLevel: Math.max(0, Math.floor(Number(parsed.lastShareLevel) || 0)),
             };
         } catch (error) {
             console.warn('[revive-share] read daily state failed:', error);
@@ -1228,15 +1158,22 @@ export class GameplayResultPanelController {
             return false;
         }
         const state = this.readReviveShareState();
-        return !!state && state.count < REVIVE_SHARE_DAILY_LIMIT && this.hasWeChatShareReturnApi();
+        if (!state || state.count >= REVIVE_SHARE_DAILY_LIMIT || !this.hasWeChatShareReturnApi()) return false;
+        if (state.lastShareLevel > 0 && this.getReviveShareLogicalLevelId() < state.lastShareLevel + REVIVE_SHARE_LEVEL_INTERVAL) return false;
+        if (this.reviveFailureShareSelected === null) {
+            this.reviveFailureShareSelected = Math.random() < REVIVE_SHARE_PROBABILITY;
+        }
+        return this.reviveFailureShareSelected;
     }
 
     private reserveReviveShareGrant(): (() => void) | null {
         const state = this.readReviveShareState();
         if (!state || state.count >= REVIVE_SHARE_DAILY_LIMIT) return null;
+        if (state.lastShareLevel > 0 && this.getReviveShareLogicalLevelId() < state.lastShareLevel + REVIVE_SHARE_LEVEL_INTERVAL) return null;
         const nextState: ReviveShareState = {
             dateKey: state.dateKey,
             count: state.count + 1,
+            lastShareLevel: this.getReviveShareLogicalLevelId(),
         };
         if (!this.writeReviveShareState(nextState)) return null;
         let rolledBack = false;
@@ -1377,7 +1314,7 @@ export class GameplayResultPanelController {
                 throw error;
             }
         }, {
-            claimKey: `${page}:${this.getReviveShareDateKey()}:${levelId}`,
+            claimKey: `${page}:${this.getReviveShareDateKey()}:${levelId}:${session.token}`,
             busyFlag: '_shareShowing',
             markLevelRevive: true,
             shareType: page,

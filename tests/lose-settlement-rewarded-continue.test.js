@@ -102,7 +102,7 @@ assert.match(
     /reason === 'timeout' && this\.panelTimeoutContinue/,
     'ordinary timeout must route through its dedicated rewarded revive panel',
 );
-assert.ok(gameLose.includes('this.showLosePanel();'), 'missing revive panels must retain the final failure fallback');
+assert.ok(gameLose.includes('this.showLosePanel(playFailureSound);'), 'missing revive panels must retain the final failure fallback with audio after reveal');
 
 const gameLoseBodyStart = gameLose.indexOf('{');
 const revivePanelEvents = [];

@@ -111,7 +111,7 @@ assert.match(toastSource, /state\.label\.updateRenderData\(true\);/);
 assert.match(toastSource, /bubbleTransform\.setContentSize\(bubbleWidth, TOAST_HEIGHT\);/);
 assert.match(toastSource, /state\.label\.overflow = Label\.Overflow\.CLAMP;/);
 assert.match(toastSource, /const TOAST_DEFAULT_HOLD_SECONDS = 1;/);
-assert.match(toastSource, /const TOAST_EXIT_RISE_SECONDS = 1;/);
+assert.match(toastSource, /const TOAST_EXIT_RISE_SECONDS = 0\.5;/);
 assert.match(toastSource, /const TOAST_EXIT_RISE_DISTANCE = 100;/);
 assert.match(toastSource, /const TOAST_MIDDLE_UPPER_Y_RATIO = 0\.237;/);
 assert.match(toastSource, /const TOAST_VISIBLE_OPACITY = 255;/);
@@ -124,7 +124,7 @@ assert.doesNotMatch(
 assert.match(
     toastSource,
     /\.delay\(holdSeconds\)\s*\.by\(\s*TOAST_EXIT_RISE_SECONDS,\s*\{ position: new Vec3\(0, TOAST_EXIT_RISE_DISTANCE, 0\) \},\s*\{ easing: 'linear' \},\s*\)\s*\.call\(hideToast\)/,
-    'Toast must hold, rise for one second, then disappear directly',
+    'Toast must hold, rise for half a second, then disappear directly',
 );
 assert.doesNotMatch(
     toastSource,
@@ -308,7 +308,7 @@ const normalTween = tweenRecords.find((record) => record.target === normalToast.
 assert.ok(normalTween?.started, 'Toast must start a lifecycle tween');
 assert.strictEqual(normalTween.steps[0].seconds, 1, 'default Toast must hold for one second');
 assert.strictEqual(normalTween.steps[1].type, 'by');
-assert.strictEqual(normalTween.steps[1].seconds, 1, 'Toast exit must rise for one second');
+assert.strictEqual(normalTween.steps[1].seconds, 0.5, 'Toast exit must rise for half a second');
 assert.strictEqual(normalTween.steps[1].properties.position.y, 100, 'Toast exit must rise by 100 pixels');
 assert.strictEqual(normalTween.steps[1].options.easing, 'linear');
 assert.ok(!tweenRecords.some((record) => record.target === normalToast.opacity), 'Toast lifecycle must not fade opacity');

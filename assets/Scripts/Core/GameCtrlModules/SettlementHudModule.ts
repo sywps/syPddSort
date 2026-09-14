@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, ProgressBar, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button,
@@ -31,7 +32,7 @@ import type {
     BoardViewportControllerOptions
 } from '../GameCtrlShared';
 import { runtimeWarn } from '../RuntimeLog';
-import { renderPixelPosterPreview } from '../PixelPosterPreviewRenderer';
+import { renderCompletedPatternPreview as renderPixelPosterPreview } from '../CompletedPatternPreview';
 import { getFrontLevelExperimentAnalyticsContext } from '../LevelExperimentService';
 import { isWorkbenchPreviewRequested, WorkbenchPreviewService } from '../WorkbenchPreviewService';
 
@@ -545,7 +546,7 @@ export function installSettlementHudModule(target: any): void {
             this.syncSettlementProgressWidget(this.panelBufferFullContinue, failStats);
         },
 
-        showLosePanel() {
+        showLosePanel(onShown?: () => void) {
             this.recordDynamicCountdownFinalFailure?.();
             if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
             if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
@@ -555,6 +556,7 @@ export function installSettlementHudModule(target: any): void {
                 if (!isCurrent()) return;
                 console.error('[settlement] using basic final-failure controls:', error);
                 this.showBasicSettlement('lose');
+                onShown?.();
             };
             const show = () => {
                 if (!isCurrent()) return;
@@ -567,6 +569,7 @@ export function installSettlementHudModule(target: any): void {
                     });
                     this.panelLose.active = true;
                     this.panelLose.setSiblingIndex(999);
+                    onShown?.();
                 } catch (error) {
                     fail(error);
                 }
@@ -618,9 +621,7 @@ export function installSettlementHudModule(target: any): void {
         },
 
         continueTutorialToSlotIntro(nextId: number) {
-            this.scheduleOnce(() => {
-                this.loadLevel(nextId);
-            }, 0.08);
+            void this.requestLevelTransition(nextId);
         },
 
         failWinSettlementReveal(error: unknown, revealToken: number): void {
@@ -737,7 +738,7 @@ export function installSettlementHudModule(target: any): void {
             AnalyticsMgr.inst.markLevelPassed(this.getAnalyticsPage(), logicalLevelId, {
                 gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
-            SySDKMgr.inst.reportLevelPass(logicalLevelId);
+            if (!getBrowserLevelPreview().active) SySDKMgr.inst.reportLevelPass(logicalLevelId);
             this.recordDynamicCountdownWin?.();
             if (this._isThemeLevel) {
                 this.setThemeCompleted(this._currentThemeLevelId || this.levelData.levelId);
@@ -795,6 +796,9 @@ export function installSettlementHudModule(target: any): void {
                 PerformanceMgr.inst.markUserActivity(8000);
                 AudioMgr.inst.play('winAll');
                 try {
+                    // Large patterns need longer than the old fixed one-second sweep window.
+                    this.unschedule(recoverSettlement);
+                    this.scheduleOnce(recoverSettlement, this.getPatternCompleteMatchFxDuration() + PATTERN_COMPLETE_SETTLEMENT_HOLD + 2);
                     this.playPatternCompleteMatchFx(showSettlement);
                 } catch (error) {
                     console.error('[settlement] continuing without sweep:', error);
@@ -875,6 +879,7 @@ export function installSettlementHudModule(target: any): void {
                     cellGap: 0,
                     padding: 6,
                 },
+                this,
             );
         },
 
@@ -905,9 +910,14 @@ export function installSettlementHudModule(target: any): void {
                 failureReason: reason === 'buffer-full' ? 'buffer_full' : 'timeout',
                 gameplayStats: this._pchConveyorGameplayController?.getAnalyticsSnapshot?.() || null,
             });
-            SySDKMgr.inst.reportLevelFail(logicalLevelId);
+            if (!getBrowserLevelPreview().active) SySDKMgr.inst.reportLevelFail(logicalLevelId);
             PerformanceMgr.inst.markUserActivity(6000);
-            AudioMgr.inst.play('lose');
+            let failureSoundPlayed = false;
+            const playFailureSound = () => {
+                if (failureSoundPlayed) return;
+                failureSoundPlayed = true;
+                AudioMgr.inst.play('lose');
+            };
             const showLoseResult = () => {
                 this.updateLoseProgressLabel();
                 this.refreshReviveShareButtons?.();
@@ -918,7 +928,7 @@ export function installSettlementHudModule(target: any): void {
                     this.panelBufferFullContinue.setSiblingIndex(999);
                     if (this.panelTimeoutContinue) this.panelTimeoutContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
-                    AudioMgr.inst.play('revivePop');
+                    playFailureSound();
                     return;
                 }
                 if (reason === 'timeout' && this.panelTimeoutContinue) {
@@ -928,15 +938,17 @@ export function installSettlementHudModule(target: any): void {
                     this.panelTimeoutContinue.setSiblingIndex(999);
                     if (this.panelBufferFullContinue) this.panelBufferFullContinue.active = false;
                     if (this.panelLose) this.panelLose.active = false;
+                    playFailureSound();
                     return;
                 }
-                this.showLosePanel();
+                this.showLosePanel(playFailureSound);
             };
             const initSeq = this._gameplayInitSeq;
             const recoverLoseResult = (error: unknown) => {
                 if (!this.isValid || !this.isGameEnd || initSeq !== this._gameplayInitSeq) return;
                 console.error('[settlement] using basic revive controls:', error);
                 this.showBasicSettlement(reason);
+                playFailureSound();
             };
             try {
                 if (!this.ensureGameplayResultPanelsCreated?.(reason)) {
@@ -955,6 +967,7 @@ export function installSettlementHudModule(target: any): void {
 
         restart() {
             if (this.isCoopMode?.()) { void this.restartCoop(); return; }
+            if (this._gameplayTransitionPromise) return;
             if (this._settlementNextTransitioning) return;
             this._settlementNextTransitioning = true;
             const initSeq = this._gameplayInitSeq;
@@ -977,7 +990,7 @@ export function installSettlementHudModule(target: any): void {
                                     this._settlementNextTransitioning = false;
                                     return;
                                 }
-                                this.doRestart();
+                                void this.requestGameplayTransition('restart', () => this.doRestart());
                             } catch (error) {
                                 this._settlementNextTransitioning = false;
                                 throw error;
@@ -986,7 +999,7 @@ export function installSettlementHudModule(target: any): void {
                     });
                     return;
                 }
-                this.doRestart();
+                void this.requestGameplayTransition('restart', () => this.doRestart());
             } catch (error) {
                 this._settlementNextTransitioning = false;
                 throw error;
@@ -1059,11 +1072,9 @@ export function installSettlementHudModule(target: any): void {
         },
 
         goNextLevel() {
+            if (this._gameplayTransitionPromise) return;
             this.isGameEnd = true;
             this.unschedule(this.tickTimer);
-            this.unscheduleAllCallbacks();
-            this.stopPulseTweens();
-            this.clearDragNodes();
             // 像素拼图关卡通关 → 按主题展示顺序进入下一关
             if (this._isThemeLevel) {
                 const currentThemeLevelId = this._currentThemeLevelId || this.levelData.levelId;
@@ -1094,12 +1105,12 @@ export function installSettlementHudModule(target: any): void {
                             this.endSettlementNextTransition();
                             return;
                         }
-                        this.loadLevel(nextId);
+                        void this.requestLevelTransition(nextId);
                     },
                 });
                 return;
             }
-            this.loadLevel(nextId);
+            void this.requestLevelTransition(nextId);
         },
 
         stopIdleHintTimer() {

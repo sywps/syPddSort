@@ -14,6 +14,19 @@ const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../assets/
 }).outputText;
 const loaded = { exports: {} };
 new Function('module', 'exports', 'require', code)(loaded, loaded.exports, id => {
+  if (id === 'cc') return { sp: { Skeleton: class Skeleton {} } };
+  if (id === './OriginalBeanSelection' || id === './BeanSelectionPreview') {
+    const exports = {};
+    const source = fs.readFileSync(path.join(__dirname, '../assets/Scripts/Core', id + '.ts'), 'utf8');
+    const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+    new Function('exports', 'require', js)(exports, dependency => {
+      if (dependency === 'cc/env') return { PREVIEW: false };
+      if (dependency === './BeanSelectionExperiment') return { beanSelectionExperiment: { content: () => 'A' } };
+      if (dependency === './MiniGamePlatform') return { isMiniGameRuntime: () => false };
+      throw new Error(`unmocked preview dependency ${dependency}`);
+    });
+    return exports;
+  }
   if (id.endsWith('PchConveyorGeometry')) return geometry;
   if (id.endsWith('PchConveyorRules')) return { PchConveyorRules };
   if (id.endsWith('AppRoot')) return { AppRoot: { tryGet: () => null } };

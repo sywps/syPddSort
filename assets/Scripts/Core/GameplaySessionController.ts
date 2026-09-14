@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from './BrowserLevelPreview';
 import {
     AnalyticsMgr,
     AudioMgr,
@@ -254,7 +255,19 @@ export class GameplaySessionController {
                         ddaFactor: Number(runtime._dynamicCountdownFactor) || 1,
                         ddaReason: String(runtime._dynamicCountdownReason || ''),
                     }, pchController.getAnalyticsSnapshot());
-                    if (!isWorkbenchPreviewRequested()) SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
+                    if (gameplayEntryMode === 'main' && analyticsLevelId >= 2
+                        && !runtime.isRankedPvpMode?.() && !runtime.isCoopMode?.()) {
+                        const bucket = pchController.getBeanSelectionBucket();
+                        AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'bean_selection_experiment_exposure',
+                            levelId: analyticsLevelId, source: 'bean_selection_playable', success: true,
+                            extra: { gameplayEntryMode: 'main', appliedBucket: bucket, selectorVersion: `${bucket}_v1` } });
+                    }
+                    if (gameplayEntryMode === 'main' && analyticsLevelId === 1) {
+                        AnalyticsMgr.inst.trackFunnelEvent({ eventName: 'first_level_experiment_exposure',
+                            levelId: 1, source: 'first_level_playable', success: true,
+                            extra: { contentPath: runtime.getLevelDataPath(1) } });
+                    }
+                    if (!isWorkbenchPreviewRequested() && !getBrowserLevelPreview().active) SySDKMgr.inst.reportLevelEnter(analyticsLevelId);
                     initStage = 'interaction_ready';
                     this.reportLevelInteractionReady(
                         runtime,
@@ -423,6 +436,7 @@ export class GameplaySessionController {
             });
             AnalyticsMgr.inst.flushFunnelEvents();
         }
+        AppRoot.tryGet()?.completeAppTransitionAfterDraw('Game', context.error);
         console.error('[GameplayInit] initialization failed:', {
             levelId,
             physicalLevelId: diagnosticExtra.physicalLevelId,

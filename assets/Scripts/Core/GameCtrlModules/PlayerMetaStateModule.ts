@@ -1,3 +1,4 @@
+import { getBrowserLevelPreview } from '../BrowserLevelPreview';
 import {
     _decorator, Component, Node, UITransform, Sprite, Color, Label, EventTouch,
     EventMouse, Vec2, Vec3, SpriteFrame, JsonAsset, assetManager, Bundle, Button, Prefab, instantiate,
@@ -875,6 +876,7 @@ export function installPlayerMetaStateModule(target: any): void {
         },
 
         getUrlLevel(): number {
+            if (getBrowserLevelPreview().active) return getBrowserLevelPreview().getLevel();
             try {
                 const v = parseInt(this.getRuntimeQueryParam('level') || '');
                 return v > 0 ? v : 0;

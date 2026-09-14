@@ -172,21 +172,54 @@ function settlementHarness() {
 
 for (const reason of ['timeout', 'buffer-full']) {
     const h = settlementHarness();
+    const sounds = [];
     Object.assign(h.runtime, {
         isGameEnd: false, isBoardCompletionCommittedForSettlement: () => false, isBoardCompletionPendingForSettlement: () => false,
         clearIdleHint() {}, unschedule() {}, trackFirstLevelFunnel() {}, getAnalyticsLevelId: () => 4, getAnalyticsPage: () => 'game',
         updateLoseProgressLabel() {}, refreshReviveShareButtons() {}, showBasicSettlement: assert.fail, showLosePanel: assert.fail,
     });
-    attachMethods(h.runtime, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts', ['gameLose'], {
+    attachMethods(h.runtime, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts', ['gameLose', 'showLosePanel'], {
         AnalyticsMgr: { inst: { markLevelFailed() {}, trackRevivePanelShow() {} } }, SySDKMgr: { inst: { reportLevelFail() {} } },
-        PerformanceMgr: { inst: { markUserActivity() {} } }, AudioMgr: { inst: { play() {} } },
+        PerformanceMgr: { inst: { markUserActivity() {} } }, AudioMgr: { inst: { play(name) {
+            const panel = reason === 'timeout' ? h.runtime.panelTimeoutContinue : h.runtime.panelBufferFullContinue;
+            assert.equal(panel?.active, true, 'failure sound must wait for visible revive UI');
+            sounds.push(name);
+        } } },
     });
     h.runtime.gameLose(reason);
+    assert.deepEqual(sounds, [], 'pending prefab load must remain silent');
     assert.equal(h.loads.length, 1);
     h.loads[0].finish();
     assert.deepEqual(h.created, [reason === 'timeout' ? 'revive' : 'bufferFullRevive']);
     const panel = reason === 'timeout' ? h.runtime.panelTimeoutContinue : h.runtime.panelBufferFullContinue;
     assert.equal(panel.active, true);
+    assert.deepEqual(sounds, ['lose'], 'revive reveal must play once without revivePop');
+    h.runtime.gameLose(reason);
+    assert.deepEqual(sounds, ['lose'], 'duplicate failure must not replay audio');
+    Object.assign(h.runtime, {
+        syncSettlementProgressWidget() {}, getBoardCompletionStats: () => ({ completePercent: 50 }),
+    });
+    h.runtime.showLosePanel();
+    h.loads[1].finish();
+    assert.equal(h.runtime.panelLose.active, true);
+    assert.deepEqual(sounds, ['lose'], 'revive-to-final-failure transition must stay silent');
+    h.runtime.isGameEnd = false;
+    h.runtime.gameLose(reason);
+    assert.deepEqual(sounds, ['lose', 'lose'], 'another failure after revival must get a new sound');
+}
+
+{
+    const h = settlementHarness();
+    let sounds = 0;
+    attachMethods(h.runtime, 'assets/Scripts/Core/GameCtrlModules/SettlementHudModule.ts', ['showLosePanel']);
+    Object.assign(h.runtime, {
+        syncSettlementProgressWidget() {}, getBoardCompletionStats: () => ({ completePercent: 50 }),
+        showBasicSettlement: assert.fail,
+    });
+    h.runtime.showLosePanel(() => { assert.equal(h.runtime.panelLose.active, true); sounds++; });
+    assert.equal(sounds, 0, 'direct failure sound must wait for final panel load');
+    h.loads[0].finish();
+    assert.equal(sounds, 1, 'direct failure reveal must trigger its callback');
 }
 
 console.log('result-panel-demand-loading.test.js passed');

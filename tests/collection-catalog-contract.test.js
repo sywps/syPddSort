@@ -121,9 +121,9 @@ const availableLevelKeys = new Set(
 const catalog = expandCollectionCatalog(config, availableLevelKeys);
 
 assert.strictEqual(catalog.version, 1, 'collection catalog version must stay explicit');
-assert.strictEqual(catalog.entries.length, 300, 'current collection product scope must remain 300 mainline cards');
+assert.strictEqual(catalog.entries.length, 600, 'collection must include all 600 mainline cards');
 assert.deepStrictEqual(catalog.entries[0], { levelId: 1, prefix: 'level_', unlockLevel: 1 });
-assert.deepStrictEqual(catalog.entries.at(-1), { levelId: 300, prefix: 'level_', unlockLevel: 300 });
+assert.deepStrictEqual(catalog.entries.at(-1), { levelId: 600, prefix: 'level_', unlockLevel: 600 });
 assert.ok(catalog.entries.every((entry) => availableLevelKeys.has(entry.prefix + entry.levelId)), 'every collection entry must resolve to a source level');
 assert.ok(!catalog.entries.some((entry) => entry.levelId >= 100001), 'removed special ids must not return');
 
@@ -194,7 +194,7 @@ const manifestCatalog = clientCatalogContract.resolveLevelCollectionEntries({
 });
 assert.deepStrictEqual(
     JSON.parse(JSON.stringify(manifestCatalog)),
-    catalog.entries,
+    catalog.entries.slice(0, 300),
     'the v3 client must map a manifest with both catalog fields absent to the frozen mainline 1..300 contract',
 );
 assert.deepStrictEqual(
@@ -222,7 +222,7 @@ assert.throws(
 );
 
 async function assertV3ManifestLoadsEndToEnd() {
-    const levelKeys = catalog.entries.map((entry) => entry.prefix + entry.levelId);
+    const levelKeys = catalog.entries.slice(0, 300).map((entry) => entry.prefix + entry.levelId);
     const v3Manifest = {
         manifestVersion: 1,
         dataVersion: 'v3-without-catalog',
@@ -243,7 +243,7 @@ async function assertV3ManifestLoadsEndToEnd() {
     const entries = await new runtimeContract.LevelDataCdnService().loadCollectionEntries();
     assert.deepStrictEqual(
         JSON.parse(JSON.stringify(entries)),
-        catalog.entries,
+        catalog.entries.slice(0, 300),
         'the real service path must accept a v3 manifest when all 1..300 packs are indexed',
     );
 }
