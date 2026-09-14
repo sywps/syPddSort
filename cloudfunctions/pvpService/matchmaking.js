@@ -66,11 +66,8 @@ function selectReplay(candidates, openid, levelId, profile, now, random = Math.r
 function createReplayMatcher(db) {
   const random = () => crypto.randomInt(0, 1000000) / 1000000;
   async function find(openid, levelId, profile, now = Date.now()) {
-    const levelHash = pixelLevelHash(loadLevel(levelId));
-    const bucket = Math.floor(humanMatchRating(profile) / 200);
-    const response = await db.collection('pvp_replays').where({ levelId, levelPrefix: PREFIX, rulesVersion: RULES_VERSION,
-      levelHash, verificationLevel: HUMAN_REPLAY_VERIFICATION, eligibleForMatchmaking: true,
-      ratingBucket: db.command.in([bucket - 1, bucket, bucket + 1]) }).orderBy('createdAt', 'desc').limit(100).get();
+    const response = await db.collection('pvp_replays').where({ levelId, rulesVersion: RULES_VERSION,
+      verified: true, eligibleForMatchmaking: true }).orderBy('createdAt', 'desc').limit(100).get();
     return selectReplay(response.data || [], openid, levelId, profile, now, random);
   }
   async function offer(openid, profile) {

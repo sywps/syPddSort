@@ -5,6 +5,12 @@
     "version": "3.8.8"
   },
   "scripts": {
+    "coop:build": "node scripts/build-coop-runtime.js",
+    "coop:local": "node scripts/build-coop-runtime.js --check && node scripts/coop-local-server.js",
+    "test:coop:local": "node tests/coop-local-server.test.js",
+    "test:coop": "node scripts/build-coop-runtime.js --check && node tests/coop-regions.test.js && node tests/coop-service.test.js && node tests/coop-client.test.js && node tests/coop-ui.test.js && node tests/coop-assists.test.js && node tests/coop-collection-tab.test.js && node tests/coop-restart.test.js",
+    "ab:admin": "node tools/experiment-admin/server.mjs",
+    "test:ab-admin": "node --test tools/experiment-admin/tests/*.test.mjs",
     "pvp:bot:build": "node scripts/build-pvp-bot-runtime.js",
     "build:wechat:release": "node scripts/run-wechat-release.js",
     "build:wechat:debug": "node scripts/build-wechat.js --debug",
@@ -36,6 +42,8 @@
     "sync:cdn:douyin:skin_data": "PDD_CDN_PLATFORM=douyin node scripts/sync-skin-data-cdn-wechat.js",
     "sync:cdn:douyin:skin_data:dry": "PDD_CDN_PLATFORM=douyin node scripts/sync-skin-data-cdn-wechat.js --dry-run",
     "analytics:daily": "node scripts/user-behavior-daily-job.js",
+    "analytics:social": "node scripts/social-report-job.js",
+    "test:analytics-social": "node tests/social-analytics-report.test.js",
     "analytics:retention": "node scripts/retention-report-job.js",
     "analytics:level-duration": "node scripts/level-duration-matrix-job.js",
     "textures:audit": "node scripts/audit-texture-memory.js",
@@ -45,7 +53,7 @@
     "ai:web:smoke": "node scripts/ai-runner.js --target web --persona smoke",
     "ai:web:personas": "node scripts/ai-runner.js --target web --all-personas",
     "test:pch-conveyor": "node scripts/test-pch-conveyor-rules.js",
-    "test:pvp": "node scripts/build-pvp-bot-runtime.js --check && ts-node -P scripts/tsconfig.pvp-tests.json scripts/test-pvp-mode.ts && node tests/pvp-bot-replay.test.js && node tests/pvp-human-replay.test.js && node tests/pvp-human-lifecycle.test.js && node tests/pvp-service-core.test.js && node tests/pvp-friend-lifecycle.test.js && node tests/pvp-economy.test.js && node tests/pvp-client-economy.test.js && node tests/pixel-puzzle-lobby.test.js && node tests/pvp-pixel-route.test.js && node tests/sync-user-state-progress-invariant.test.js",
+    "test:pvp": "node scripts/build-pvp-bot-runtime.js --check && ts-node -P scripts/tsconfig.pvp-tests.json scripts/test-pvp-mode.ts && node tests/pvp-bot-replay.test.js && node tests/pvp-human-replay.test.js && node tests/pvp-human-lifecycle.test.js && node tests/pvp-service-core.test.js && node tests/pvp-friend-lifecycle.test.js && node tests/pvp-economy.test.js && node tests/pvp-client-economy.test.js && node tests/pixel-puzzle-lobby.test.js && node tests/pvp-pixel-route.test.js && node tests/sync-user-state-progress-invariant.test.js && node tests/startup-cloud-restore-helper.test.js && node tests/user-state-sync-concurrency.test.js",
     "pvp:cloudbase:preflight": "node scripts/check-pvp-cloudbase-readiness.js"
   },
   "devDependencies": {

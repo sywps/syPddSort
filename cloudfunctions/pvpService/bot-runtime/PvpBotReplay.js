@@ -15,8 +15,9 @@ function hash(value) {
     return result >>> 0;
 }
 function pixelLevelHash(level) {
+    const autoFinishSpeedHashSuffix = level.autoConveyorFinishSpeed === false ? '-no-auto-finish-speed' : '';
     return `pixel-${hash(JSON.stringify([level.boardWidth, level.boardHeight, level.correctColorArr,
-        level.initRandomColorArr, level.conveyorCapacity, level.singleSelectionLimit || 12, level.timeLimit]))}`;
+        level.initRandomColorArr, level.conveyorCapacity, level.singleSelectionLimit || 12, level.timeLimit]))}${autoFinishSpeedHashSuffix}`;
 }
 function botMatchRating(profile) {
     const rating = Number.isFinite(profile.rating) ? Number(profile.rating) : 1200;
@@ -68,7 +69,7 @@ function createPixelBotReplay(level, seed, profile = {}) {
         return (randomState >>> 0) / 4294967296;
     };
     const board = new BoardModel_1.BoardModel(level);
-    const rules = new PchConveyorRules_1.PchConveyorRules(board, level.conveyorCapacity, level.singleSelectionLimit);
+    const rules = new PchConveyorRules_1.PchConveyorRules(board, level.conveyorCapacity, level.singleSelectionLimit, undefined, level.autoConveyorFinishSpeed);
     const allCells = [];
     const initial = [];
     const colors = new Set();

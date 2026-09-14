@@ -14,13 +14,27 @@ function validateInitialCarrierCount(value, label) {
     return value;
 }
 class PchConveyorRules {
-    constructor(board, conveyorCapacity, singleSelectionLimit, initialCarrierCountOverride) {
+    exportTransportState() {
+        return { carriers: this.carriers.map(stack => stack.slice()), queued: this.queuedColorIds.slice(), ready: this.readyQueuedCount };
+    }
+    restoreTransportState(state) {
+        if (state.carriers.length !== this.carrierCount || state.carriers.some(stack => stack.length > this.stackDepth)
+            || !Number.isInteger(state.ready) || state.ready < 0 || state.ready > state.queued.length
+            || [...state.carriers.flat(), ...state.queued].some(color => !Number.isInteger(color) || color <= 0)
+            || state.carriers.flat().length + state.queued.length > this.bufferCapacity)
+            throw new Error('invalid transport checkpoint');
+        state.carriers.forEach((stack, index) => this.carriers[index].splice(0, this.carriers[index].length, ...stack));
+        this.queuedColorIds.splice(0, this.queuedColorIds.length, ...state.queued);
+        this.readyQueuedCount = state.ready;
+    }
+    constructor(board, conveyorCapacity, singleSelectionLimit, initialCarrierCountOverride, autoConveyorFinishSpeed) {
         this.board = board;
         this.stackDepth = LevelConfig_1.CONVEYOR_STACK_DEPTH;
         this.queuedColorIds = [];
         this.readyQueuedCount = 0;
         const capacity = (0, LevelConfig_1.validateConveyorCapacity)(conveyorCapacity, 'PchConveyorRules');
         this.moveLimit = (0, LevelConfig_1.validatePchSingleSelectionLimit)(singleSelectionLimit, 'PchConveyorRules');
+        this.autoConveyorFinishSpeed = (0, LevelConfig_1.validateAutoConveyorFinishSpeed)(autoConveyorFinishSpeed, 'PchConveyorRules');
         const defaultInitialCarrierCount = Math.ceil(capacity / this.stackDepth);
         this.initialCarrierCount = initialCarrierCountOverride == null
             ? defaultInitialCarrierCount
@@ -399,7 +413,7 @@ class PchConveyorRules {
         return this.queuedColorIds;
     }
     get conveyorSpeedMultiplier() {
-        if (this.entryCount > 0)
+        if (!this.autoConveyorFinishSpeed || this.entryCount > 0)
             return 1;
         const pendingTargetCounts = new Map();
         for (let row = 0; row < this.board.height; row += 1) {

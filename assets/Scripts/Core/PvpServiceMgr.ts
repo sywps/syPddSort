@@ -49,6 +49,7 @@ export type PvpCloudMatch = {
     } | null;
     challengeCode?: string;
     settlement?: PvpSettlement | null;
+    entryConfirmed?: boolean;
     entryInventory?: Partial<CloudGameState>;
     selfCheckpoint?: {
         replay?: PvpReplayEnvelope;
@@ -189,7 +190,7 @@ export class PvpServiceMgr {
         context.opponentTimeline = run.progressTimeline;
         context.opponentBoardTimeline = run.boardTimeline;
         context.opponentReplayId = run.replayId;
-        context.opponentBoardSeed = undefined;
+        context.opponentBoardSeed = run.replayId;
         context.botPolicyVersion = run.policyVersion;
         context.levelHash = run.levelHash;
     }
@@ -210,7 +211,7 @@ export class PvpServiceMgr {
             const context = createDemoPvpBattle(levelId);
             context.matchId += `-${++this.previewMatchSequence}`;
             this.preparePreviewBattle(context, level);
-            this.previewTickets--;
+            context.entryConfirmed = false;
             return context;
         }
         const result = await this.call<{ match: PvpCloudMatch }>('matchmake', { levelId, levelPrefix: PVP_LEVEL_PREFIX, rulesVersion: PVP_RULES_VERSION,
@@ -218,6 +219,22 @@ export class PvpServiceMgr {
             ...(poolVersion ? { poolVersion } : {}),
             ...(level ? { levelHash: pixelLevelHash(level) } : {}) });
         return this.persistBattle(this.toBattleContext(result.match));
+    }
+
+    async confirmMatchEntry(context: PvpBattleContext): Promise<Partial<CloudGameState> | undefined> {
+        if (context.entryConfirmed) return context.entryInventory;
+        if (context.demo) {
+            this.refreshPreviewTicketDay();
+            if (this.previewTickets < 1) throw new Error('本地预览门票已用完，请模拟广告或分享补票');
+            this.previewTickets--;
+            context.entryConfirmed = true;
+            return undefined;
+        }
+        const result = await this.call<{ match: PvpCloudMatch }>('confirmMatchEntry', { matchId: context.matchId });
+        context.entryConfirmed = result.match.entryConfirmed === true;
+        context.entryInventory = result.match.entryInventory;
+        this.persistBattle(context);
+        return context.entryInventory;
     }
 
     async getProfile(): Promise<PvpRankedProfile> {
@@ -419,6 +436,7 @@ export class PvpServiceMgr {
             startedAtMs: Date.now() - Math.max(0, Number(match.selfCheckpoint?.logicalTimeMs) || 0),
             resumeElapsedMs: Math.max(0, Number(match.selfCheckpoint?.logicalTimeMs) || 0),
             demo: false,
+            entryConfirmed: match.entryConfirmed === true,
             entryInventory: match.entryInventory,
         };
     }

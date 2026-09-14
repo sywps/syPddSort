@@ -1,7 +1,7 @@
 import { Label, Graphics, Color, BlockInputEvents } from 'cc';
 import { AppRoot } from '../AppRoot';
 import { CoopServiceMgr } from '../CoopServiceMgr';
-import { COOP_ROUTE_REASON } from '../CoopModeConfig';
+import { COOP_ROUTE_REASON, coopRegionGrid, type CoopLevelData } from '../CoopModeConfig';
 import { CoopPanelController, coopButton, coopNode, coopText } from '../Panels/CoopPanelController';
 import { renderPixelPosterPreview, releasePixelPosterPreviewTree } from '../PixelPosterPreviewRenderer';
 
@@ -59,9 +59,9 @@ export function installCoopModeModule(target: any): void {
         getCoopBoardContentBounds(): { minRow: number; maxRow: number; minCol: number; maxCol: number } | null {
             if (!this.isCoopMode()) return null;
             const active = CoopServiceMgr.inst.active!;
-            const offset = active.run.role === 'creator' ? 0 : active.half.boardWidth;
+            const offset = (active.full as CoopLevelData).coopRegions || active.run.role === 'creator' ? 0 : active.half.boardWidth;
             return { minRow: 0, maxRow: active.full.boardHeight - 1,
-                minCol: -offset, maxCol: active.full.boardWidth - offset - 1 };
+                minCol: offset ? -offset : 0, maxCol: active.full.boardWidth - offset - 1 };
         },
         clearCoopBoardPartner(): void {
             const partner = this.boardNode?.getChildByName('CoopPartnerHalf');
@@ -72,6 +72,29 @@ export function installCoopModeModule(target: any): void {
             if (!this.isCoopMode()) return;
             const active = CoopServiceMgr.inst.active!;
             const creator = active.run.role === 'creator';
+            if ((active.full as CoopLevelData).coopRegions) {
+                const step = this.cellSize + this.cellGap;
+                const width = active.full.boardWidth * step, height = active.full.boardHeight * step;
+                const grid = coopRegionGrid(active.full, creator ? 'collaborator' : 'creator');
+                const partner = coopNode(this.boardNode, 'CoopPartnerHalf', 0, 0, width, height);
+                renderPixelPosterPreview(partner, grid, { name: 'PartnerCompletedPattern', maxW: width, maxH: height,
+                    padding: 0, maxCellSize: this.cellSize, cellGap: this.cellGap, cropToContent: false, flatCells: true, grayscale: creator });
+                if (creator) {
+                    const mask = coopNode(partner, 'PartnerMask', 0, 0, width, height);
+                    const graphics = mask.addComponent(Graphics);
+                    graphics.fillColor = new Color(68, 52, 94, 110);
+                    for (let r = 0; r < grid.length; r++) {
+                        for (let c = 0; c < grid[r].length;) {
+                            if (!grid[r][c]) { c++; continue; }
+                            const start = c;
+                            while (c < grid[r].length && grid[r][c]) c++;
+                            graphics.rect((start - grid[r].length / 2) * step, (grid.length / 2 - r - 1) * step, (c - start) * step, step);
+                        }
+                        graphics.fill();
+                    }
+                }
+                return;
+            }
             const columns = active.half.boardWidth;
             const step = this.cellSize + this.cellGap;
             const width = columns * step, height = active.full.boardHeight * step;
@@ -118,6 +141,7 @@ export function installCoopModeModule(target: any): void {
                 const mgr = CoopServiceMgr.inst;
                 const active = mgr.active!;
                 await mgr.prepare(this, active.post, active.run);
+                AppRoot.tryGet()!.markGameRequested(active.post.levelId, 'zt_level_', 'theme', 'none', COOP_ROUTE_REASON);
                 this.doRestart();
             } catch (e) { this.showToast?.(`重新开始失败：${e instanceof Error ? e.message : e}`, 4); }
             finally { this._coopRestarting = false; }
@@ -179,7 +203,7 @@ export function installCoopModeModule(target: any): void {
                     if (a.run.status !== 'complete') throw new Error('服务端尚未确认完成，请重试保存');
                     share.active = true;
                     publish.active = a.run.role === 'creator';
-                    status.string = a.run.role === 'creator' ? '你的一半已完成！\n邀请伙伴完成后解锁图鉴' : '合作完成！完整图案已收入图鉴';
+                    status.string = a.run.role === 'creator' ? '你的部分已完成！\n邀请伙伴完成后解锁图鉴' : '合作完成！完整图案已收入图鉴';
                 } catch (e) { if (status.isValid) status.string = `结果未保存：${e instanceof Error ? e.message : e}`; }
             };
             coopButton(panel, '重试保存', -155, -55, () => { void save(); });

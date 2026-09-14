@@ -2,11 +2,10 @@ import { JsonAsset, sys } from 'cc';
 import { PlatformCloudMgr } from './PlatformCloudMgr';
 import { getWeChatMiniGameRuntime, isMiniGameRuntime } from './MiniGamePlatform';
 import { isLocalBrowserPreview } from './RemoteDataCdnClient';
-import { applyLocalWeChatShareImage } from '../Platform/WeChatShareReturnService';
+import { applyLocalWeChatShareMaterial } from '../Platform/WeChatShareReturnService';
 import { UserMgr } from './UserMgr';
 import { PvpHumanReplay, type PvpRuleEvent } from './PvpHumanReplay';
-import { pixelLevelHash } from './PvpBotReplay';
-import { COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION, coopHalfLevel,
+import { COOP_MAX_ELAPSED_MS, COOP_RULES_VERSION, coopHalfLevel, coopLevelHash,
     type CoopPost, type CoopRun, type CoopLevelEntry, type CoopOverview, type CoopPendingSave } from './CoopModeConfig';
 import type { LevelData } from './LevelConfig';
 
@@ -61,7 +60,8 @@ export class CoopServiceMgr {
     async catalog(runtime: any): Promise<CoopLevelEntry[]> {
         if (!this.catalogCache) {
             const manifest = await this.loadAsset<{ levels: CoopLevelEntry[] }>(runtime, 'coop-manifest');
-            if (!Array.isArray(manifest.levels) || manifest.levels.length !== 10) throw new Error('合作图案目录不完整');
+            if (!Array.isArray(manifest.levels) || !manifest.levels.length
+                || new Set(manifest.levels.map(level => level.levelId)).size !== manifest.levels.length) throw new Error('合作图案目录不完整');
             this.catalogCache = manifest.levels;
         }
         return this.catalogCache;
@@ -69,14 +69,21 @@ export class CoopServiceMgr {
 
     async fullLevel(runtime: any, id: number): Promise<LevelData> {
         if (!this.levels.has(id)) {
-            const entry = (await this.catalog(runtime)).find(item => item.levelId === id);
-            if (!entry) throw new Error('合作图案不存在');
-            const level = await new Promise<LevelData>((resolve, reject) => {
+            let level: LevelData;
+            if (PlatformCloudMgr.inst.getPlatform() === 'wechat' || id >= 1000) {
+                const result = await this.call<{ level: LevelData; levelHash: string }>('level', { levelId: id });
+                if (!result.level || coopLevelHash(result.level) !== result.levelHash) throw new Error('合作关卡数据校验失败');
+                level = result.level;
+            } else {
+                const entry = (await this.catalog(runtime)).find(item => item.levelId === id);
+                if (!entry) throw new Error('合作图案不存在');
+                level = await new Promise<LevelData>((resolve, reject) => {
                 runtime._loadLevelDataFromConfiguredSource(id, 'coop_level_', (data: LevelData | null, _source: string, error?: Error) => {
                     if (error || !data) reject(error || new Error('合作关卡加载失败'));
                     else resolve(data);
                 });
-            });
+                });
+            }
             coopHalfLevel(level, 'creator');
             this.levels.set(id, level);
         }
@@ -86,7 +93,7 @@ export class CoopServiceMgr {
     async prepare(runtime: any, post: CoopPost, run: CoopRun): Promise<void> {
         if (run.status !== 'playing') throw new Error('你的部分已经完成');
         const full = await this.fullLevel(runtime, post.levelId);
-        if (pixelLevelHash(full) !== post.levelHash) throw new Error('合作图案版本不一致，请更新资源');
+        if (coopLevelHash(full) !== post.levelHash) throw new Error('合作图案版本不一致，请更新资源');
         const half = coopHalfLevel(full, run.role);
         this.discardPending(run.id);
         const replay = new PvpHumanReplay(half, COOP_MAX_ELAPSED_MS, true);
@@ -143,7 +150,7 @@ export class CoopServiceMgr {
         }
         const wx = getWeChatMiniGameRuntime();
         if (!wx?.shareAppMessage) throw new Error('当前环境不支持微信分享');
-        wx.shareAppMessage(applyLocalWeChatShareImage({ title: '我拼好了一半，另一半交给你！', query: `coopPost=${post.id}` }));
+        wx.shareAppMessage(applyLocalWeChatShareMaterial({ title: '我的部分拼好了，剩下的交给你！', query: `coopPost=${post.id}` }));
     }
 
     overview(): Promise<{ overview: CoopOverview }> { return this.call('overview'); }
